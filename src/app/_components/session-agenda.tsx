@@ -617,14 +617,15 @@ export function SessionAgenda({
                                 : `status.${item.state}`,
                             )}
                           </p>
-                          {item.state === "PENDING" && (
-                            <SessionResponseDeadline
-                              deadline={item.deadline}
-                              deliveredAt={item.deliveredAt}
-                              cutoffAt={offer.cutoffAt}
-                              now={now}
-                            />
-                          )}
+                          {request.status === "PENDING" &&
+                            item.state === "PENDING" && (
+                              <SessionResponseDeadline
+                                deadline={item.deadline}
+                                deliveredAt={item.deliveredAt}
+                                cutoffAt={offer.cutoffAt}
+                                now={now}
+                              />
+                            )}
                         </li>
                       ))}
                     </ul>

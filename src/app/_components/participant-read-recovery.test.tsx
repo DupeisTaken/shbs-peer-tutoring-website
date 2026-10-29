@@ -20,6 +20,7 @@ import { LegacyParticipation } from "../student/legacy-participation";
 import { TutorDiscipline } from "../(tutor)/_components/tutor-discipline";
 import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
 import { programDateKey } from "~/lib/program-time";
+import type { RouterOutputs } from "~/trpc/react";
 
 const remote = vi.hoisted(() => ({
   me: vi.fn(),
@@ -37,6 +38,9 @@ const remote = vi.hoisted(() => ({
   names: vi.fn(),
   headEdit: vi.fn(),
   calendar: vi.fn(),
+  agenda: vi.fn(),
+  calendarStatus: vi.fn(),
+  planningWrite: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useQuery, useMutation } = await import("@tanstack/react-query");
@@ -59,6 +63,21 @@ vi.mock("~/trpc/react", async () => {
   });
   return {
     api: {
+      sessionPlanning: {
+        agenda: read(["sessionPlanning", "agenda"], remote.agenda),
+        calendarStatus: read(
+          ["sessionPlanning", "calendarStatus"],
+          remote.calendarStatus,
+        ),
+        propose: write(remote.planningWrite),
+        suggest: write(remote.planningWrite),
+        respond: write(remote.planningWrite),
+        requestSplit: write(remote.planningWrite),
+        formalizeSplit: write(remote.planningWrite),
+        retryNotice: write(remote.planningWrite),
+        rotateCalendar: write(remote.planningWrite),
+        revokeCalendar: write(remote.planningWrite),
+      },
       program: {
         schoolCalendar: read(["program", "schoolCalendar"], remote.calendar),
         calendar: { useQuery: () => ({ data: [] }) },
@@ -266,6 +285,32 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.history.replaceState(null, "", "/student");
   remote.calendar.mockResolvedValue([]);
+  const date = programDateKey(new Date(), "Asia/Shanghai");
+  remote.agenda.mockResolvedValue({
+    timeZone: "Asia/Shanghai",
+    windowStart: date,
+    windowEnd: date,
+    canTutorWrite: false,
+    rooms: [],
+    schoolCalendarDays: [],
+    cohorts: [],
+    requests: [],
+    suggestions: [],
+    notices: [],
+    weeklyPublication: {
+      unavailable: 0,
+      normalized: 0,
+      preparedThrough: date,
+    },
+  } satisfies RouterOutputs["sessionPlanning"]["agenda"]);
+  remote.calendarStatus.mockResolvedValue({
+    active: false,
+    available: true,
+    createdAt: null,
+  });
+  remote.planningWrite.mockRejectedValue(
+    new Error("This read-recovery test must not submit scheduling changes"),
+  );
   remote.me.mockResolvedValue(personal);
   remote.settings.mockResolvedValue(false);
   remote.mine.mockResolvedValue([request]);
@@ -323,10 +368,17 @@ it("recovers school-calendar reads independently while retaining the tutee's wee
   });
   mount(<StudentPortal view="schedule" />);
   await screen.findByText(en.schoolCalendar.closureWarning);
+  // Keep the real agenda mounted: an absent API fixture must surface as an app
+  // error, while calendar recovery must not refetch either participant read.
+  await screen.findByText(en.sessionPlanning.empty);
+  expect(
+    screen.getByRole("heading", { name: en.tuteePortal.weeklyArrangements }),
+  ).toBeTruthy();
   expect(
     screen.getByText("Calendar mathematics · Synthetic Tutor"),
   ).toBeTruthy();
   const personalReads = remote.me.mock.calls.length;
+  const agendaReads = remote.agenda.mock.calls.length;
   remote.calendar.mockRejectedValue(new Error("Calendar offline"));
   await refresh(["program", "schoolCalendar"]);
   await screen.findByText(en.schoolCalendar.noticeLoadFailed);
@@ -355,6 +407,8 @@ it("recovers school-calendar reads independently while retaining the tutee's wee
   );
   await screen.findByText(en.schoolCalendar.closureWarning);
   expect(remote.me).toHaveBeenCalledTimes(personalReads);
+  expect(remote.agenda).toHaveBeenCalledTimes(agendaReads);
+  expect(remote.planningWrite).not.toHaveBeenCalled();
   expect(remote.feedback).not.toHaveBeenCalled();
   expect(remote.appeal).not.toHaveBeenCalled();
 });

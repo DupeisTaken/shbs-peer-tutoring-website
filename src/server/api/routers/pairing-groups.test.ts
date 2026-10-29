@@ -366,11 +366,13 @@ it("rejects inferred attendance defaults if scheduling changes immediately befor
   const acquire = transactions.lockEntity;
   let moved = false;
   // Reproduce the ordering deterministically: attendance has read its original
-  // defaults, then a legitimate schedule save wins the planned reservation fence.
+  // defaults, then a legitimate schedule save wins the period/reservation fence.
   // A fence acquired only after checking those defaults would admit stale times.
   const lock = vi.spyOn(transactions, "lockEntity").mockImplementation(async (tx, key) => {
-    if (key === "planned-room-schedule" && !moved) {
+    if (key === "program:period" && !moved) {
       moved = true;
+      // Scheduling now takes period before room. Inject before that earliest
+      // shared lock so the simulated competitor can actually commit.
       // A concurrent request owns its transaction and audit queue. Leaving all
       // three scopes prevents this save from joining attendance's rollback.
       await databaseScope.exit(() => auditCaptureScope.exit(() => afterCommitScope.exit(() =>
