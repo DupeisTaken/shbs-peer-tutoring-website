@@ -92,7 +92,7 @@
     "respondBy": "Responder antes del {deadline}",
     "remaining": "Quedan {hours} h y {minutes} min",
     "checking": "Plazo finalizado · comprobando la decisión del servidor…",
-    "saved": "Guardado. Actualizando los detalles…",
+    "saved": "Guardado.",
     "savedRefreshFailed": "Guardado, pero no se pudieron actualizar los detalles. Reintenta la actualización sin volver a enviar la solicitud.",
     "cancel": "Cancelar",
     "close": "Cerrar",

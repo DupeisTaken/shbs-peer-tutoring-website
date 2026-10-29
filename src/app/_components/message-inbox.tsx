@@ -57,6 +57,7 @@ export function MessageInbox({
   const format = useFormatter();
   const t = useTranslations("workflows");
   const m = useTranslations("messaging");
+  const planning = useTranslations("sessionPlanning");
   const recovery = useTranslations("participantRecovery");
   const roleLabel = useTranslations("admin.users.roles");
   const [viewDenied, setViewDenied] = useState(false);
@@ -286,9 +287,9 @@ export function MessageInbox({
         >
           <h2 className="section-title">{t("send")}</h2>
           <p id="allowed-contacts" className="muted text-sm">
-            {m("allowedHelp")}
+            {sessionCohortId ? planning("messageHelp") : m("allowedHelp")}
           </p>
-          {permission.data && (
+          {!sessionCohortId && permission.data && (
             <p className="text-sm">
               {m("allowed", {
                 groups:

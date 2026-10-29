@@ -92,7 +92,7 @@
     "respondBy": "Antwort bis {deadline}",
     "remaining": "Noch {hours} Std. {minutes} Min.",
     "checking": "Frist erreicht · Serverentscheidung wird geprüft…",
-    "saved": "Gespeichert. Sitzungsdetails werden aktualisiert…",
+    "saved": "Gespeichert.",
     "savedRefreshFailed": "Gespeichert, aber die Details konnten nicht aktualisiert werden. Nur die Aktualisierung wiederholen, nicht die Anfrage.",
     "cancel": "Abbrechen",
     "close": "Schließen",

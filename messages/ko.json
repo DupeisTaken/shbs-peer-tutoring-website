@@ -92,7 +92,7 @@
     "respondBy": "{deadline}까지 응답",
     "remaining": "{hours}시간 {minutes}분 남음",
     "checking": "기한이 지났습니다. 서버의 처리 결과를 확인하는 중…",
-    "saved": "저장되었습니다. 일정 상세 정보를 새로고침하는 중…",
+    "saved": "저장되었습니다.",
     "savedRefreshFailed": "저장되었지만 상세 정보를 새로고침할 수 없습니다. 요청을 다시 보내지 말고 새로고침만 재시도하세요.",
     "cancel": "취소",
     "close": "닫기",

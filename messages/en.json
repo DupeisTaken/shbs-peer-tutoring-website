@@ -92,7 +92,7 @@
     "respondBy": "Respond by {deadline}",
     "remaining": "{hours} h {minutes} min remaining",
     "checking": "Deadline reached · checking the server’s decision…",
-    "saved": "Saved. Refreshing the session details…",
+    "saved": "Saved.",
     "savedRefreshFailed": "Saved, but details could not be refreshed. Retry refresh; do not send the request again.",
     "cancel": "Cancel",
     "close": "Close",

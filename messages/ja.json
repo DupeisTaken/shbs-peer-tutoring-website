@@ -92,7 +92,7 @@
     "respondBy": "返答期限：{deadline}",
     "remaining": "残り{hours}時間{minutes}分",
     "checking": "期限に達しました。サーバーの処理結果を確認しています…",
-    "saved": "保存しました。予定の詳細を更新しています…",
+    "saved": "保存しました。",
     "savedRefreshFailed": "保存しましたが詳細を更新できませんでした。申請を再送せず、更新だけを再試行してください。",
     "cancel": "キャンセル",
     "close": "閉じる",
