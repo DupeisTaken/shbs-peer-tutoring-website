@@ -6406,7 +6406,12 @@
       "action": "학교 시간표 확인"
     },
     "schoolCalendarScheduleNoSchool": "휴교",
-    "schoolCalendarScheduleFollows": "{weekday} 시간표 적용"
+    "schoolCalendarScheduleFollows": "{weekday} 시간표 적용",
+    "student_continuation_released": {
+      "title": "연속 튜터링 배정 해제",
+      "body": "가능 시간 변경으로 연속 튜터링 배정이 해제되었습니다. 신청은 재배정을 위해 보존됩니다. 자세한 내용은 신청에서 확인하세요.",
+      "action": "보존된 신청 확인"
+    }
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -7126,5 +7131,77 @@
     "CANCELLATION": "철회된 요청",
     "REVERSAL": "취소된 작업",
     "ATTEMPT": "변경 시도"
+  },
+  "legacyContinuation": {
+    "title": "이전 튜터링 배정 이어가기",
+    "help": "{source}에서 {target}로 이어갈 튜터링을 선택하세요.",
+    "deadline": "{time}({zone}) 전까지 참여하세요.",
+    "remaining": "{minutes}분 남음",
+    "loading": "이전 배정 불러오는 중",
+    "loadFailed": "이전 배정을 불러오지 못했습니다.",
+    "refreshReadFailed": "최신 정보를 확인하지 못했습니다. 선택한 내용은 유지됩니다.",
+    "retry": "다시 시도",
+    "denied": "이 배정에 더 이상 접근할 수 없습니다.",
+    "completeDetails": "필수 정보 확인",
+    "missingDetails": "배정을 이어가기 전에 현재 신청 정보를 확인해야 합니다.",
+    "filed": "신청이 접수되었습니다.",
+    "viewRequest": "신청 보기",
+    "savedRefreshFailed": "신청은 저장되었지만 최신 일정을 불러오지 못했습니다. 다시 시도하면 화면만 새로 고칩니다.",
+    "choose": "이전 배정 선택",
+    "subjectLimit": "신청에는 서로 다른 과목을 최대 두 개 포함할 수 있습니다. 이미 신청한 과목도 포함됩니다.",
+    "select": "{tutor}의 {subject} 선택",
+    "tooManySubjects": "현재 신청한 과목을 포함하여 서로 다른 과목을 최대 두 개 선택하세요.",
+    "review": "선택 내용 확인",
+    "reviewTitle": "선택한 배정 이어가기",
+    "cancel": "취소",
+    "checkRequest": "신청 결과 확인",
+    "join": "선택한 배정에 참여",
+    "consequence": "신청을 접수하고 가능한 배정을 이전에 확정된 주간 시간에 이어갑니다. 불가능한 선택은 대기 상태로 유지됩니다. 이후 가능 시간이 변경되면 해당 배정만 해제하고 신청은 보존합니다.",
+    "stale": "정보가 변경되었습니다. 이 창을 닫고 선택 내용을 다시 확인하세요.",
+    "uncertain": "제출 결과를 확인하지 못했습니다. 선택을 변경하거나 다시 제출하기 전에 결과를 확인하세요.",
+    "notSubmitted": "접수된 제출을 찾지 못했습니다. 선택은 유지됩니다. 정보를 확인하고 다시 시도하세요.",
+    "recoveryFailed": "신청 결과를 확인하지 못했습니다. 원래 제출 내용은 유지됩니다. 다시 확인하세요.",
+    "policyUnavailable": "현재 참여 정책을 사용할 수 없습니다. 팀에 문의하세요.",
+    "signature": "성명(서명)",
+    "status": {
+      "eligible": "지금 참여할 수 있습니다.",
+      "scheduled": "아직 신청이 시작되지 않았습니다.",
+      "paused": "신청이 일시 중지되었습니다. 다시 열려도 한 시간의 신청 기간은 초기화되지 않습니다.",
+      "expired": "한 시간의 연속 참여 기간이 끝났습니다. 일반 신청서를 이용할 수 있습니다.",
+      "unavailable": "이번 기간에는 이전 배정을 이어갈 수 없습니다."
+    },
+    "result": {
+      "assigned": "배정됨",
+      "queued": "신청 접수됨 · 배정 대기",
+      "released": "배정 해제됨 · 신청 보존"
+    },
+    "candidate": {
+      "available": "가능",
+      "queued": "이미 대기 중인 신청",
+      "joined": "이미 참여함",
+      "released": "해제됨 · 신청 보존"
+    },
+    "reasons": {
+      "unavailable": "이 배정은 자동으로 배정할 수 없지만 신청은 접수할 수 있습니다.",
+      "tutorUnavailable": "이전 튜터는 현재 참여할 수 없습니다.",
+      "slotUnavailable": "이전 시간은 더 이상 사용할 수 없습니다.",
+      "subjectUnavailable": "이 과목은 현재 제공되지 않습니다.",
+      "qualificationMissing": "튜터의 현재 자격을 확인해야 합니다.",
+      "willingnessMissing": "튜터의 해당 과목 지도 의사를 확인해야 합니다.",
+      "scheduleConflict": "이전 시간이 현재 일정과 겹칩니다.",
+      "roomUnavailable": "이전 교실을 사용할 수 없습니다.",
+      "missingDetails": "일부 신청 정보를 확인해야 합니다.",
+      "sourceChanged": "이전 배정이 변경되었습니다. 다시 확인하세요.",
+      "alreadyJoined": "이 배정은 이미 신청에 추가되었습니다.",
+      "released": "배정은 해제되었지만 팀에서 신청을 계속 확인할 수 있습니다.",
+      "participationUnavailable": "현재 참여 자격을 확인해야 합니다.",
+      "unconfirmedSchedule": "이전 배정에는 확정된 주간 시간이 없습니다.",
+      "groupUnavailable": "이전 그룹은 현재 이어갈 수 없습니다.",
+      "pendingReview": "진행 중인 참여 심사를 먼저 해결해야 합니다.",
+      "requiredFields": "필수 신청 정보를 확인해야 합니다."
+    },
+    "datedDuration": "기존 주간 시간이 유지됩니다. 날짜별 수업은 현재의 45분 시간표를 따르므로 참여 후 일정을 확인하세요.",
+    "currentResults": "현재 매칭 결과",
+    "requiredSubjects": "이 신청에는 서로 다른 두 과목이 필요합니다. 현재 신청에 포함된 과목도 계산됩니다."
   }
 }

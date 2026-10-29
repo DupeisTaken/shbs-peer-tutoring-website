@@ -50,6 +50,7 @@ export const notificationEvents = [
   "tutee_card_appeal",
   "tutee_appeal_reviewed",
   "student_assignment_updated",
+  "student_continuation_released",
   "student_availability_updated",
   "student_request_recalled",
   "student_signup_rejected",

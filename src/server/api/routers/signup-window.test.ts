@@ -10,13 +10,30 @@ vi.mock("~/server/audit/log", () => ({ recordAudit: vi.fn() }));
 // its ordering are exercised against PostgreSQL in signup-admission.test.ts.
 vi.mock("~/server/signup-admission", async (importOriginal) => ({
   ...(await importOriginal<typeof SignupAdmission>()),
-  withSignupAdmission: (_db: unknown, _headers: Headers, _lane: unknown, _identity: unknown, work: () => Promise<unknown>) => work(),
-  withSignupLease: (_db: unknown, _lane: string, work: () => Promise<unknown>) => work(),
+  withSignupAdmission: (
+    _db: unknown,
+    _headers: Headers,
+    _lane: unknown,
+    _identity: unknown,
+    work: () => Promise<unknown>,
+  ) => work(),
+  withSignupLease: (
+    _db: unknown,
+    _lane: string,
+    work: () => Promise<unknown>,
+  ) => work(),
 }));
 // CAPTCHA has its own direct-API integration suite; keep this fixture focused on windows.
 vi.mock("~/server/captcha", async (importOriginal) => ({
   ...(await importOriginal<typeof SignupCaptcha>()),
-  withProtectedSignup: (_db: unknown, _headers: Headers, _action: unknown, _email: string, _grant: unknown, work: () => Promise<unknown>) => work(),
+  withProtectedSignup: (
+    _db: unknown,
+    _headers: Headers,
+    _action: unknown,
+    _email: string,
+    _grant: unknown,
+    work: () => Promise<unknown>,
+  ) => work(),
 }));
 
 import type { PrismaClient } from "../../../../generated/prisma";
@@ -45,15 +62,17 @@ const coordinatorSession: Session = {
 };
 
 function context(db: unknown, session: Session | null) {
-  const actor = session ? {
-    id: session.user.id,
-    role: session.role,
-    tutorId: session.tutorId,
-    suspendedAt: null,
-    mergedIntoId: null,
-    name: session.user.name,
-    username: null,
-  } : null;
+  const actor = session
+    ? {
+        id: session.user.id,
+        role: session.role,
+        tutorId: session.tutorId,
+        suspendedAt: null,
+        mergedIntoId: null,
+        name: session.user.name,
+        username: null,
+      }
+    : null;
   const findUser = vi.fn().mockResolvedValue(actor);
   const lockActor = vi.fn().mockResolvedValue(actor ? [{ id: actor.id }] : []);
   return {
@@ -116,75 +135,92 @@ describe("tutee signup window procedures", () => {
     expect(findFirst).toHaveBeenCalledOnce();
   });
 
-  it.each(["ADMIN", "HEAD"] as const)("lets %s save the active quarter's opening time and preview link", async (role) => {
-    const opensAt = new Date("2026-09-01T00:00:00Z");
-    const update = vi.fn().mockResolvedValue({
-      signupOpensAt: opensAt,
-      signupPreviewUrl: "https://example.com/preview",
-    });
-    const ctx = context(
-      {
-        term: {
-          findFirst: vi
-            .fn()
-            .mockResolvedValue({ id: "term-q3", quarter: "Q3" }),
-          update,
-        },
-      },
-      { ...headSession, role },
-    );
-    const caller = createProgramCaller(ctx);
-
-    await expect(
-      caller.setSignupWindow({
-        opensAt,
-        previewUrl: "https://example.com/preview",
-      }),
-    ).resolves.toEqual({
-      signupOpensAt: opensAt,
-      signupPreviewUrl: "https://example.com/preview",
-    });
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "term-q3" },
-        data: {
-          signupOpensAt: opensAt,
-          signupPreviewUrl: "https://example.com/preview",
-        },
-      }),
-    );
-    expect(ctx.fixtures.lockActor).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.stringContaining("FOR SHARE")]),
-      headSession.user.id,
-    );
-    expect(ctx.fixtures.findUser).toHaveBeenCalledWith({
-      where: { id: headSession.user.id },
-      select: { id: true, name: true, username: true, role: true, suspendedAt: true, mergedIntoId: true },
-    });
-    expect(ctx.fixtures.lockActor.mock.invocationCallOrder[0]).toBeLessThan(
-      ctx.fixtures.findUser.mock.invocationCallOrder[1]!,
-    );
-  });
-
-  it.each(["ADMIN", "HEAD"] as const)("allows %s to schedule without an external preview link", async (role) => {
-    const update = vi.fn().mockResolvedValue({ id: "term" });
-    const caller = createProgramCaller(
-      context(
+  it.each(["ADMIN", "HEAD"] as const)(
+    "lets %s save the active quarter's opening time and preview link",
+    async (role) => {
+      const opensAt = new Date("2026-09-01T00:00:00Z");
+      const update = vi.fn().mockResolvedValue({
+        signupOpensAt: opensAt,
+        signupPreviewUrl: "https://example.com/preview",
+      });
+      const ctx = context(
         {
           term: {
-            findFirst: vi.fn().mockResolvedValue({ id: "term" }),
+            findUniqueOrThrow: vi
+              .fn()
+              .mockResolvedValue({ id: "term-q3", quarter: "Q3" }),
+            findFirst: vi
+              .fn()
+              .mockResolvedValue({ id: "term-q3", quarter: "Q3" }),
             update,
           },
         },
         { ...headSession, role },
-      ),
-    );
-    await caller.setSignupWindow({
-      opensAt: new Date("2099-01-01"),
-      previewUrl: null,
-    });
-    expect(update).toHaveBeenCalled();
-  });
+      );
+      const caller = createProgramCaller(ctx);
+
+      await expect(
+        caller.setSignupWindow({
+          opensAt,
+          previewUrl: "https://example.com/preview",
+        }),
+      ).resolves.toEqual({
+        signupOpensAt: opensAt,
+        signupPreviewUrl: "https://example.com/preview",
+      });
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "term-q3" },
+          data: {
+            signupOpensAt: opensAt,
+            signupPreviewUrl: "https://example.com/preview",
+          },
+        }),
+      );
+      expect(ctx.fixtures.lockActor).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.stringContaining("FOR SHARE")]),
+        headSession.user.id,
+      );
+      expect(ctx.fixtures.findUser).toHaveBeenCalledWith({
+        where: { id: headSession.user.id },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          role: true,
+          suspendedAt: true,
+          mergedIntoId: true,
+        },
+      });
+      expect(ctx.fixtures.lockActor.mock.invocationCallOrder[0]).toBeLessThan(
+        ctx.fixtures.findUser.mock.invocationCallOrder[1]!,
+      );
+    },
+  );
+
+  it.each(["ADMIN", "HEAD"] as const)(
+    "allows %s to schedule without an external preview link",
+    async (role) => {
+      const update = vi.fn().mockResolvedValue({ id: "term" });
+      const caller = createProgramCaller(
+        context(
+          {
+            term: {
+              findFirst: vi.fn().mockResolvedValue({ id: "term" }),
+              findUniqueOrThrow: vi.fn().mockResolvedValue({ id: "term" }),
+              update,
+            },
+          },
+          { ...headSession, role },
+        ),
+      );
+      await caller.setSignupWindow({
+        opensAt: new Date("2099-01-01"),
+        previewUrl: null,
+      });
+      expect(update).toHaveBeenCalled();
+    },
+  );
 
   it("does not let coordinators change program-wide signup timing", async () => {
     const caller = createProgramCaller(
@@ -200,22 +236,35 @@ describe("tutee signup window procedures", () => {
     async (state) => {
       const findFirst = vi.fn().mockResolvedValue({ id: "current" });
       const update = vi.fn();
-      const ctx = context({ term: { findFirst, update } }, { ...headSession, role: "ADMIN" });
+      const ctx = context(
+        { term: { findFirst, update } },
+        { ...headSession, role: "ADMIN" },
+      );
       // Model a change committed during the barrier wait. Admission still sees
       // the original Admin; the real post-lock User read must reject the new state.
       ctx.fixtures.lockActor.mockImplementationOnce(() => {
-        const current = state === "deleted" ? null : {
-          ...ctx.fixtures.actor,
-          ...(state === "demoted" ? { role: "COORDINATOR" } : {}),
-          ...(state === "suspended" ? { suspendedAt: new Date() } : {}),
-          ...(state === "retired" ? { mergedIntoId: "surviving-login" } : {}),
-        };
+        const current =
+          state === "deleted"
+            ? null
+            : {
+                ...ctx.fixtures.actor,
+                ...(state === "demoted" ? { role: "COORDINATOR" } : {}),
+                ...(state === "suspended" ? { suspendedAt: new Date() } : {}),
+                ...(state === "retired"
+                  ? { mergedIntoId: "surviving-login" }
+                  : {}),
+              };
         ctx.fixtures.findUser.mockResolvedValue(current);
         return Promise.resolve(current ? [{ id: headSession.user.id }] : []);
       });
-      await expect(createProgramCaller(ctx).setSignupWindow({
-        audience: "tutee", expectedTermId: "current", opensAt: null, previewUrl: null,
-      })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(
+        createProgramCaller(ctx).setSignupWindow({
+          audience: "tutee",
+          expectedTermId: "current",
+          opensAt: null,
+          previewUrl: null,
+        }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
       expect(ctx.fixtures.lockActor).toHaveBeenCalledOnce();
       expect(findFirst).not.toHaveBeenCalled();
       expect(update).not.toHaveBeenCalled();
@@ -274,17 +323,32 @@ it.each(["paused", "scheduled", "ended", "no-period"])(
     expect(create).not.toHaveBeenCalled();
   },
 );
-it.each((["ADMIN", "HEAD"] as const).flatMap((role) =>
-  (["tutor", "tutee"] as const).map((audience) => ({ role, audience })),
-))(
+it.each(
+  (["ADMIN", "HEAD"] as const).flatMap((role) =>
+    (["tutor", "tutee"] as const).map((audience) => ({ role, audience })),
+  ),
+)(
   "lets $role save only the $audience schedule and prevents invalid/stale writes",
   async ({ role, audience }) => {
-    const update = vi.fn().mockResolvedValue({ id: "current" });
+    let term = {
+      id: "current", active: true,
+      signupEnabled: true, signupOpensAt: null as Date | null,
+      signupClosesAt: null as Date | null, signupPreviewUrl: null as string | null,
+      tutorSignupEnabled: true, tutorSignupOpensAt: null as Date | null,
+      tutorSignupClosesAt: null as Date | null, tutorSignupPreviewUrl: null as string | null,
+      // A pre-feature fixture has no invented historical opening checkpoint.
+      signupOpeningStateSince: null as Date | null, signupFirstOpenedAt: null as Date | null,
+    };
+    const update = vi.fn(async ({ data }: { data: Partial<typeof term> }) => {
+      term = { ...term, ...data };
+      return term;
+    });
     const caller = createProgramCaller(
       context(
         {
           term: {
-            findFirst: vi.fn().mockResolvedValue({ id: "current" }),
+            findFirst: vi.fn(async () => term),
+            findUniqueOrThrow: vi.fn(async () => term),
             update,
           },
         },
@@ -300,7 +364,8 @@ it.each((["ADMIN", "HEAD"] as const).flatMap((role) =>
       previewUrl: null,
     };
     await caller.setSignupWindow(input);
-    const data = (update.mock.calls[0]![0] as {data: Record<string, unknown>}).data;
+    const data = (update.mock.calls[0]![0] as { data: Record<string, unknown> })
+      .data;
     expect(
       Object.keys(data).every((key) =>
         audience === "tutor"
@@ -309,6 +374,9 @@ it.each((["ADMIN", "HEAD"] as const).flatMap((role) =>
       ),
     ).toBe(true);
     expect(Object.values(data)).toContain(false);
+    expect(audience === "tutor" ? term.tutorSignupOpensAt : term.signupOpensAt).toEqual(input.opensAt);
+    expect(audience === "tutor" ? term.signupEnabled : term.tutorSignupEnabled).toBe(true);
+    expect(term.signupFirstOpenedAt).toBeNull();
     update.mockClear();
     await expect(
       caller.setSignupWindow({ ...input, closesAt: input.opensAt }),

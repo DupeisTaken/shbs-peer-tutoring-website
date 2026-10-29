@@ -3,6 +3,13 @@ import {
   roomUnitInclude,
 } from "~/server/room-allocation";
 import {
+  newContinuationOpening,
+  settleContinuationOpening,
+  updateContinuationOpening,
+} from "~/server/program/continuation-opening";
+import { reconcileTutorContinuations } from "~/server/student-continuation-assignment";
+import { lockSessionPlanning } from "~/server/session-planning";
+import {
   autoAssignUnassignedRooms,
   bulkRoomAllocationInput,
 } from "~/server/bulk-room-allocation";
@@ -178,7 +185,10 @@ import {
 } from "~/server/tutors/application-identity";
 import { decideCrewApplication } from "~/server/crew/signup";
 import { reconcileApplication } from "~/server/tutors/application-status";
-import { beginAdmissionRecoveryCapture, finishAdmissionRecoveryCapture } from "~/server/recovery/capture";
+import {
+  beginAdmissionRecoveryCapture,
+  finishAdmissionRecoveryCapture,
+} from "~/server/recovery/capture";
 import {
   notifyAdmins,
   notifyTutors,
@@ -226,21 +236,43 @@ import { studentRequestRows } from "~/server/student-workflow";
 
 /** Role writers acquire the namespace/leadership barriers first. Freeze the actor
  * afterwards so suspension, retirement or demotion cannot pass a waiting write. */
-async function activeManagementActor(tx: TransactionDb, userId: string, headOnly = false) {
+async function activeManagementActor(
+  tx: TransactionDb,
+  userId: string,
+  headOnly = false,
+) {
   await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR SHARE`;
   const actor = await tx.user.findUnique({ where: { id: userId } });
-  if (!actor || actor.suspendedAt || actor.mergedIntoId ||
-    !(headOnly ? ["HEAD"] : ["ADMIN", "HEAD"]).includes(actor.role))
-    throw new TRPCError({ code: "FORBIDDEN", message: headOnly ? "Head access required." : "Administrator access required." });
+  if (
+    !actor ||
+    actor.suspendedAt ||
+    actor.mergedIntoId ||
+    !(headOnly ? ["HEAD"] : ["ADMIN", "HEAD"]).includes(actor.role)
+  )
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: headOnly
+        ? "Head access required."
+        : "Administrator access required.",
+    });
   return actor;
 }
 
 /** Recheck the password against the locked current account, after any barrier wait. */
-function requireManagementPassword(actor: { id: string; passwordHash: string | null }, password: string) {
+function requireManagementPassword(
+  actor: { id: string; passwordHash: string | null },
+  password: string,
+) {
   if (!actor.passwordHash)
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Set a password on your account before performing this action." });
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Set a password on your account before performing this action.",
+    });
   if (!verifyPasswordConfirmation(actor.id, password, actor.passwordHash))
-    throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Password is incorrect.",
+    });
 }
 
 /**
@@ -1280,7 +1312,8 @@ export const adminRouter = createTRPCRouter({
           input,
         );
         await assertPairingGroupsRemainEligible(tx, {
-          pairingIds: [input.id], removePairingIds: [input.id],
+          pairingIds: [input.id],
+          removePairingIds: [input.id],
         });
         const sessions = await tx.session.count({
           where: { pairingId: input.id },
@@ -2105,10 +2138,11 @@ export const adminRouter = createTRPCRouter({
   refresh: adminOnlyProcedure
     .input(
       z.object({
-        confirm: z.string().refine(
-          (value) => value.trim().toUpperCase() === "REFRESH",
-          { message: "Type REFRESH to confirm." },
-        ),
+        confirm: z
+          .string()
+          .refine((value) => value.trim().toUpperCase() === "REFRESH", {
+            message: "Type REFRESH to confirm.",
+          }),
         expectedTermId: z.string(),
         // Required even without overrides: old clients/queued approvals must reload
         // the exact destination, mode revision and both audience preparations.
@@ -2166,26 +2200,48 @@ export const adminRouter = createTRPCRouter({
         const out = await (async () => {
           // Activate the exact Admin/Head-staged toggles reviewed at this period boundary.
           await applyPendingFeatures(tx);
-          await tx.term.updateMany({
+          const changedAt = new Date();
+          const activeTerms = await tx.term.findMany({
             where: { active: true },
-            data: { active: false },
+            select: { id: true },
+            orderBy: { id: "asc" },
           });
-          const term = await tx.term.upsert({
-            where: {
-              schoolYear_quarter: {
-                schoolYear: np.schoolYear,
-                quarter: np.quarter,
-              },
-            },
-            update: { active: true, ...openingOverrides },
-            create: {
-              schoolYear: np.schoolYear,
-              quarter: np.quarter,
-              name,
-              active: true,
-              ...openingOverrides,
-            },
+          for (const source of activeTerms)
+            await updateContinuationOpening(
+              tx,
+              source.id,
+              { active: false },
+              changedAt,
+            );
+          const destination = await tx.term.findUnique({
+            where: { schoolYear_quarter: np },
           });
+          // Only a real refresh into a new destination establishes continuation provenance.
+          // Reused/imported history retains its original known/unknown opening evidence.
+          const term = destination
+            ? await updateContinuationOpening(
+                tx,
+                destination.id,
+                { active: true, ...openingOverrides },
+                changedAt,
+              )
+            : await (async () => {
+                const created = await tx.term.create({
+                  data: {
+                    ...np,
+                    name,
+                    active: true,
+                    ...openingOverrides,
+                    ...newContinuationOpening(
+                      { id: active.termId, ...from },
+                      np,
+                      semesterMode,
+                      changedAt,
+                    ),
+                  },
+                });
+                return settleContinuationOpening(tx, created.id, changedAt);
+              })();
           const tutees = await tx.tutee.updateMany({
             where: { status: { in: ["PENDING", "ACTIVE"] } },
             data: { status: "INACTIVE" },
@@ -2293,9 +2349,11 @@ export const adminRouter = createTRPCRouter({
             operation: "admin.refresh",
             // Keep the exact reviewed openings, source/mode and time zone as
             // immutable evidence even after the new current window is edited.
-            effects: JSON.parse(JSON.stringify({
-              nextRecruitment: preparation.refreshEvidence,
-            })) as Prisma.InputJsonValue,
+            effects: JSON.parse(
+              JSON.stringify({
+                nextRecruitment: preparation.refreshEvidence,
+              }),
+            ) as Prisma.InputJsonValue,
           },
           tx,
         );
@@ -2460,7 +2518,8 @@ export const adminRouter = createTRPCRouter({
       )
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Edit login usernames through Users & Roles as Admin or Head.",
+          message:
+            "Edit login usernames through Users & Roles as Admin or Head.",
         });
       const prev = await ctx.db.tutor.findUnique({
         where: { id: input.id },
@@ -2490,7 +2549,8 @@ export const adminRouter = createTRPCRouter({
           if (account || !["HEAD", "ADMIN"].includes(ctx.session.role))
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "Only Admin or Head may edit an unlinked tutor username.",
+              message:
+                "Only Admin or Head may edit an unlinked tutor username.",
             });
           const parsed = accountUsernameSchema.safeParse(input.username);
           if (!parsed.success)
@@ -2615,7 +2675,10 @@ export const adminRouter = createTRPCRouter({
         )
           await preserveHistoricalAcademics(tx, "TUTOR", before.id);
         // The middleware's routing decision is not authority for a later state transition.
-        if (before.status !== input.status && !["HEAD", "ADMIN"].includes(ctx.session.role))
+        if (
+          before.status !== input.status &&
+          !["HEAD", "ADMIN"].includes(ctx.session.role)
+        )
           throw new TRPCError({
             code: "CONFLICT",
             message:
@@ -2639,7 +2702,8 @@ export const adminRouter = createTRPCRouter({
                 userId: account.id,
                 action: input.status,
                 expectedRevision: departure?.revision ?? 0,
-                explanation: "Management confirmed departure through tutor roster",
+                explanation:
+                  "Management confirmed departure through tutor roster",
               },
               ctx.session.user.id,
             );
@@ -3017,10 +3081,13 @@ export const adminRouter = createTRPCRouter({
           await preserveHistoricalAcademics(tx, "TUTEE", id);
         if (fields.status === "INACTIVE" && before.status !== "INACTIVE")
           await assertPairingGroupsRemainEligible(tx, {
-            tuteeIds: [id], removeTuteeIds: [id],
+            tuteeIds: [id],
+            removeTuteeIds: [id],
           });
         if (fields.status !== "INACTIVE" && before.status === "INACTIVE")
-          await assertPairingGroupsRemainEligible(tx, { activateTuteeIds: [id] });
+          await assertPairingGroupsRemainEligible(tx, {
+            activateTuteeIds: [id],
+          });
         const updated = await tx.tutee.update({
           where: { id },
           data: {
@@ -3550,7 +3617,9 @@ export const adminRouter = createTRPCRouter({
       return inTransaction(ctx.db, async (tx) => {
         await lockAttendanceSchedule(tx, true);
         await lockEntity(tx, "program:period");
-        await lockPlannedRoomSchedule(tx);
+        await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        await lockSessionPlanning(tx);
         const current = await tx.timeSlot.findUniqueOrThrow({
           where: { id },
           select: { dayOfWeek: true, startMin: true, endMin: true },
@@ -3563,8 +3632,57 @@ export const adminRouter = createTRPCRouter({
           current.startMin !== data.startMin || current.endMin !== data.endMin;
 
         const slot = await tx.timeSlot.update({ where: { id }, data });
+        // Catalogue edits change tutor availability too. Release only the commitments
+        // this feature owns before the ordinary timetable propagation runs.
+        const tutors = await tx.tutorAvailability.findMany({
+          where: { slotId: id },
+          select: { tutorId: true },
+        });
+        for (const tutor of tutors)
+          await reconcileTutorContinuations(tx, tutor.tutorId);
         if (!scheduleChanged) {
           return { ...slot, updatedPairings: 0, updatedSessions: 0 };
+        }
+
+        // Widening an available slot does not authorize rescheduling signed prior
+        // commitments. Preserve their tuple while ordinary catalogue pairings follow.
+        const linked = await tx.pairing.findMany({
+          where: {
+            timeSlotId: id,
+            term: { active: true },
+            scheduleConfirmed: true,
+          },
+          select: { id: true },
+        });
+        const continued = await tx.studentContinuationAssignment.findMany({
+          where: {
+            status: "ASSIGNED",
+            targetPairingId: { in: linked.map((pairing) => pairing.id) },
+          },
+          select: { targetPairingId: true, tuteeId: true, snapshot: true },
+        });
+        const commitment = z.object({
+          tutorId: z.string(),
+          subject: z.string(),
+          dayOfWeek: z.number(),
+          startMin: z.number(),
+          endMin: z.number(),
+        });
+        for (const row of continued) {
+          if (!row.targetPairingId) continue;
+          const snapshot = commitment.safeParse(row.snapshot);
+          if (snapshot.success)
+            await tx.pairing.updateMany({
+              where: {
+                id: row.targetPairingId,
+                timeSlotId: id,
+                term: { active: true },
+                scheduleConfirmed: true,
+                ...snapshot.data,
+                tutees: { some: { tuteeId: row.tuteeId } },
+              },
+              data: { timeSlotId: null },
+            });
         }
 
         const pairingCount = await allocateSlotCohort(tx, { id, ...data });
@@ -3598,17 +3716,31 @@ export const adminRouter = createTRPCRouter({
   deleteTimeSlot: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const used = await ctx.db.pairing.count({
-        where: { timeSlotId: input.id },
-      });
-      if (used > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Slot is referenced by a pairing. Mark it inactive instead.",
+      return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        await lockSessionPlanning(tx);
+        const used = await tx.pairing.count({
+          where: { timeSlotId: input.id },
         });
-      }
-      // Tutor/tutee availability rows cascade-delete with the slot.
-      return ctx.db.timeSlot.delete({ where: { id: input.id } });
+        if (used > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Slot is referenced by a pairing. Mark it inactive instead.",
+          });
+        }
+        // Tutor/tutee availability rows cascade-delete with the slot.
+        const tutors = await tx.tutorAvailability.findMany({
+          where: { slotId: input.id },
+          select: { tutorId: true },
+        });
+        const deleted = await tx.timeSlot.delete({ where: { id: input.id } });
+        for (const tutor of tutors)
+          await reconcileTutorContinuations(tx, tutor.tutorId);
+        return deleted;
+      });
     }),
 
   createRoom: adminProcedure
@@ -3723,15 +3855,26 @@ export const adminRouter = createTRPCRouter({
 
   // The optional scope preserves existing all-record readers; the workspace
   // always supplies a recorded period and loads older groups on demand.
-  meetings: viewerProcedure.input(meetingPeriodInput.optional()).query(async ({ ctx, input }) =>
-    ctx.db.tutorMeeting.findMany({
-      where: input ? await meetingScope(ctx.db, input.period, new Date(), input.outsideCurrent) : undefined,
-      orderBy: { date: "desc" },
-      include: {
-        attendances: { include: { tutor: { select: { englishName: true } } } },
-      },
-    }),
-  ),
+  meetings: viewerProcedure
+    .input(meetingPeriodInput.optional())
+    .query(async ({ ctx, input }) =>
+      ctx.db.tutorMeeting.findMany({
+        where: input
+          ? await meetingScope(
+              ctx.db,
+              input.period,
+              new Date(),
+              input.outsideCurrent,
+            )
+          : undefined,
+        orderBy: { date: "desc" },
+        include: {
+          attendances: {
+            include: { tutor: { select: { englishName: true } } },
+          },
+        },
+      }),
+    ),
 
   createMeeting: adminProcedure
     .input(
@@ -3888,7 +4031,9 @@ export const adminRouter = createTRPCRouter({
   /** Application-specific credentials are loaded only by an authorized open action. */
   applicationAccountSetup: adminProcedure
     .input(z.object({ applicationId: cuid }))
-    .query(({ ctx, input }) => applicationAccountSetup(ctx.db, input.applicationId)),
+    .query(({ ctx, input }) =>
+      applicationAccountSetup(ctx.db, input.applicationId),
+    ),
 
   /** Read submitted evidence and the effective promotion identity without changing either. */
   applicationIdentity: adminProcedure
@@ -3933,7 +4078,11 @@ export const adminRouter = createTRPCRouter({
     if (!isViewer) {
       const identitySummaries = await applicationIdentitySummaries(
         ctx.db,
-        apps.filter((app) => app.type === "INITIAL" && ["PENDING", "INTERVIEW"].includes(app.status)),
+        apps.filter(
+          (app) =>
+            app.type === "INITIAL" &&
+            ["PENDING", "INTERVIEW"].includes(app.status),
+        ),
       );
       // Legacy accepted applications predate promotedTutorId. Only their own
       // code provenance may recover the roster link; names/emails are not identity.
@@ -3958,7 +4107,8 @@ export const adminRouter = createTRPCRouter({
       const legacyTutors = new Map<string, Set<string>>();
       for (const code of codes) {
         if (!code.applicationId || !code.tutorId) continue;
-        const targets = legacyTutors.get(code.applicationId) ?? new Set<string>();
+        const targets =
+          legacyTutors.get(code.applicationId) ?? new Set<string>();
         targets.add(code.tutorId);
         legacyTutors.set(code.applicationId, targets);
       }
@@ -3966,12 +4116,13 @@ export const adminRouter = createTRPCRouter({
         const targets = legacyTutors.get(app.id);
         // Reissued codes may share one tutor; conflicting bindings must not guess.
         const legacyTutorId =
-          targets?.size === 1 ? [...targets][0] ?? null : null;
+          targets?.size === 1 ? ([...targets][0] ?? null) : null;
         return {
           ...app,
           ...requestInvalidity(app),
           setupTutorId: app.promotedTutorId ?? legacyTutorId,
-          identityNeedsReview: identitySummaries.get(app.id)?.needsReview ?? false,
+          identityNeedsReview:
+            identitySummaries.get(app.id)?.needsReview ?? false,
         };
       });
     }
@@ -4016,7 +4167,10 @@ export const adminRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Application not found.",
         });
-      if (app.status === "ACCEPTED" && !["HEAD", "ADMIN"].includes(ctx.session.role))
+      if (
+        app.status === "ACCEPTED" &&
+        !["HEAD", "ADMIN"].includes(ctx.session.role)
+      )
         throw new TRPCError({
           code: "FORBIDDEN",
           message:
@@ -4209,8 +4363,10 @@ export const adminRouter = createTRPCRouter({
             message:
               "Interview panels and outcomes must use the assigned interview workflow.",
           });
-        const recoveryActionId = input.status === "ACCEPTED" && prev.status !== "ACCEPTED"
-          ? await beginAdmissionRecoveryCapture(tx, input.id) : null;
+        const recoveryActionId =
+          input.status === "ACCEPTED" && prev.status !== "ACCEPTED"
+            ? await beginAdmissionRecoveryCapture(tx, input.id)
+            : null;
         const updated = await tx.tutorApplication.updateMany({
           where: { id: input.id, updatedAt: input.expectedUpdatedAt },
           data: { status: input.status },
@@ -5076,8 +5232,9 @@ export const adminRouter = createTRPCRouter({
     // The code + issuer email are withheld from the read-only VIEWER.
     const canSee = !ctx.portalAccess.maskManagementData;
     const codes = await ctx.db.registrationCode.findMany({
-      where:
-        ["HEAD", "ADMIN"].includes(ctx.session.role) ? {} : { kind: { in: ["TUTOR", "CREW"] } },
+      where: ["HEAD", "ADMIN"].includes(ctx.session.role)
+        ? {}
+        : { kind: { in: ["TUTOR", "CREW"] } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -5738,7 +5895,8 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.userId },
           data: { role: input.role },
         });
-        if (target.role !== input.role) await reconcileManagementReviewNotifications(tx);
+        if (target.role !== input.role)
+          await reconcileManagementReviewNotifications(tx);
         return updated;
       });
     }),
@@ -5785,7 +5943,8 @@ export const adminRouter = createTRPCRouter({
           // Leave Viewer before assigning any capability; the database enforces exclusivity too.
           await ensureNameFallbackForRole(tx, target.id, role);
           const tutorChanged = accountMembership(target).tutor !== value.tutor;
-          const deferSelfDemotion = target.id === actor.id && !["ADMIN", "HEAD"].includes(role);
+          const deferSelfDemotion =
+            target.id === actor.id && !["ADMIN", "HEAD"].includes(role);
           const changeTutorAccess = async () => {
             const { createCaller } = await import("../root");
             await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({
@@ -5807,7 +5966,8 @@ export const adminRouter = createTRPCRouter({
             },
           });
           if (!deferSelfDemotion && tutorChanged) await changeTutorAccess();
-          if (target.role !== role) await reconcileManagementReviewNotifications(tx);
+          if (target.role !== role)
+            await reconcileManagementReviewNotifications(tx);
           return { ok: true };
         }),
       );
@@ -5842,14 +6002,19 @@ export const adminRouter = createTRPCRouter({
       await inTransaction(ctx.db, async (tx) => {
         await lockUsernameNamespace(tx);
         await lockEntity(tx, "program:leadership");
-        const actor = await activeManagementActor(tx, ctx.session.user.id, true);
+        const actor = await activeManagementActor(
+          tx,
+          ctx.session.user.id,
+          true,
+        );
         requireManagementPassword(actor, input.confirmPassword);
         const liveTarget = await tx.user.findUniqueOrThrow({
           where: { id: target.id },
         });
         if (
           !["ADMIN", "COORDINATOR"].includes(liveTarget.role) ||
-          liveTarget.suspendedAt || liveTarget.mergedIntoId
+          liveTarget.suspendedAt ||
+          liveTarget.mergedIntoId
         )
           throw new TRPCError({
             code: "CONFLICT",

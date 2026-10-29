@@ -55,7 +55,8 @@ const fieldPolicies: Record<string, string> = {
   RecoveryEvent: "id actionId transactionId kind createdAt",
   RecoveryTrackedEntity: "actionId entity recordId",
   RecoveryFence: "actionId revision",
-  RecoveryChange: "id actionId eventId entity operation changedFields createdAt",
+  RecoveryChange:
+    "id actionId eventId entity operation changedFields createdAt",
   RecoveryReceipt: "id actionId actorId channel createdAt",
   TutorApplication:
     "id identityRevision invalidatedAt invalidatedById invalidatedByName invalidityVersion firstName lastName preferredName alternativeNames type requestedTutorId requestedSubjectId qualificationDecidedById recalledAt recalledById interviewCompletedAt interviewDurationMin interviewSchoolYear interviewQuarter promotedTutorId name email preferredContact contactVerified status interviewAt decidedAt decidedByTutorId createdAt updatedAt",
@@ -123,7 +124,7 @@ const fieldPolicies: Record<string, string> = {
   Language: "code name nativeName enabled order createdAt updatedAt",
   ProgramFeature: "key enabled updatedAt",
   SubjectLevel: "id name order active createdAt updatedAt",
-  Term: "id name schoolYear quarter startDate endDate active scheduleConfirmed tutorSignupOpen tuteeSignupOpen createdAt updatedAt",
+  Term: "id name schoolYear quarter startDate endDate active scheduleConfirmed tutorSignupOpen tuteeSignupOpen signupOpeningStateSince signupFirstOpenedAt continuationSourceTermId continuationQuarterTransition createdAt updatedAt",
   NextRecruitmentPreparation:
     "sourceTermId audience targetTermId createdAt updatedAt",
   Tutor:

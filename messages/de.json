@@ -6406,7 +6406,12 @@
       "action": "Schulstundenplan prüfen"
     },
     "schoolCalendarScheduleNoSchool": "Schulfrei",
-    "schoolCalendarScheduleFollows": "Stundenplan: {weekday}"
+    "schoolCalendarScheduleFollows": "Stundenplan: {weekday}",
+    "student_continuation_released": {
+      "title": "Fortgesetzte Zuweisung aufgehoben",
+      "body": "Eine fortgesetzte Zuweisung wurde wegen geänderter Verfügbarkeit aufgehoben. Die Anmeldung bleibt für eine neue Zuweisung erhalten. Öffne das Anliegen für Einzelheiten.",
+      "action": "Erhaltene Anmeldung ansehen"
+    }
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -7126,5 +7131,77 @@
     "CANCELLATION": "Antrag zurückgezogen",
     "REVERSAL": "Aktion rückgängig gemacht",
     "ATTEMPT": "Versuchte Änderung"
+  },
+  "legacyContinuation": {
+    "title": "Bisherige Lernpaare fortsetzen",
+    "help": "Wähle die Lernpaare aus, die du von {source} in {target} fortsetzen möchtest.",
+    "deadline": "Bis {time} ({zone}) beitreten.",
+    "remaining": "{minutes, plural, one {Noch # Minute} other {Noch # Minuten}}",
+    "loading": "Bisherige Lernpaare werden geladen",
+    "loadFailed": "Die bisherigen Lernpaare konnten nicht geladen werden.",
+    "refreshReadFailed": "Die aktuellen Angaben konnten nicht geprüft werden. Deine Auswahl bleibt erhalten.",
+    "retry": "Erneut versuchen",
+    "denied": "Du hast keinen Zugriff mehr auf diese Lernpaare.",
+    "completeDetails": "Erforderliche Angaben prüfen",
+    "missingDetails": "Prüfe zunächst die noch erforderlichen Anmeldedaten.",
+    "filed": "Deine Anmeldung wurde erfasst.",
+    "viewRequest": "Anmeldung ansehen",
+    "savedRefreshFailed": "Die Anmeldung wurde gespeichert, aber der aktuelle Plan konnte nicht geladen werden. Erneutes Versuchen aktualisiert nur die Anzeige.",
+    "choose": "Bisherige Lernpaare auswählen",
+    "subjectLimit": "Eine Anmeldung kann höchstens zwei verschiedene Fächer enthalten. Bereits angefragte Fächer zählen mit.",
+    "select": "{subject} bei {tutor} auswählen",
+    "tooManySubjects": "Wähle höchstens zwei verschiedene Fächer einschließlich deiner aktuellen Anmeldung.",
+    "review": "Auswahl prüfen",
+    "reviewTitle": "Ausgewählte Lernpaare fortsetzen",
+    "cancel": "Abbrechen",
+    "checkRequest": "Ergebnis prüfen",
+    "join": "Ausgewählten Lernpaaren beitreten",
+    "consequence": "Eine Anmeldung wird erfasst. Verfügbare Lernpaare werden zu ihren bisher bestätigten Wochenzeiten fortgesetzt. Andere bleiben vorgemerkt. Ändert sich die Verfügbarkeit, werden betroffene Zuweisungen aufgehoben; die Anmeldung bleibt erhalten.",
+    "stale": "Die Angaben haben sich geändert. Schließe diese Ansicht und prüfe deine Auswahl erneut.",
+    "uncertain": "Das Ergebnis konnte nicht bestätigt werden. Prüfe es, bevor du die Auswahl änderst oder erneut absendest.",
+    "notSubmitted": "Es wurde keine angenommene Übermittlung gefunden. Deine Auswahl bleibt erhalten; prüfe sie und versuche es erneut.",
+    "recoveryFailed": "Das Ergebnis konnte nicht geprüft werden. Die ursprüngliche Übermittlung bleibt erhalten. Prüfe es erneut.",
+    "policyUnavailable": "Die aktuelle Teilnahmeregelung ist nicht verfügbar. Kontaktiere das Team.",
+    "signature": "Dein vollständiger Name (Unterschrift)",
+    "status": {
+      "eligible": "Du kannst jetzt beitreten.",
+      "scheduled": "Die Anmeldung ist noch nicht geöffnet.",
+      "paused": "Die Anmeldung ist pausiert. Eine Wiederöffnung startet die Stunde nicht neu.",
+      "expired": "Die einstündige Frist ist abgelaufen. Du kannst das reguläre Formular verwenden.",
+      "unavailable": "Die Fortsetzung ist in diesem Zeitraum nicht verfügbar."
+    },
+    "result": {
+      "assigned": "Zugewiesen",
+      "queued": "Anmeldung erfasst; Zuweisung ausstehend",
+      "released": "Zuweisung aufgehoben; Anmeldung erhalten"
+    },
+    "candidate": {
+      "available": "Verfügbar",
+      "queued": "Anmeldung bereits vorgemerkt",
+      "joined": "Bereits beigetreten",
+      "released": "Aufgehoben; Anmeldung erhalten"
+    },
+    "reasons": {
+      "unavailable": "Dieses Lernpaar kann nicht automatisch zugewiesen werden. Die Anmeldung kann trotzdem erfasst werden.",
+      "tutorUnavailable": "Die bisherige Lehrperson ist derzeit nicht verfügbar.",
+      "slotUnavailable": "Die bisherige Zeit ist nicht mehr verfügbar.",
+      "subjectUnavailable": "Dieses Fach wird derzeit nicht angeboten.",
+      "qualificationMissing": "Die aktuelle Qualifikation der Lehrperson muss geprüft werden.",
+      "willingnessMissing": "Die Bereitschaft der Lehrperson für dieses Fach muss geprüft werden.",
+      "scheduleConflict": "Die bisherige Zeit kollidiert mit dem aktuellen Plan.",
+      "roomUnavailable": "Der bisherige Raum ist nicht verfügbar.",
+      "missingDetails": "Einige Anmeldedaten müssen geprüft werden.",
+      "sourceChanged": "Das bisherige Lernpaar hat sich geändert. Prüfe es erneut.",
+      "alreadyJoined": "Dieses Lernpaar ist bereits Teil deiner Anmeldung.",
+      "released": "Die Zuweisung wurde aufgehoben; deine Anmeldung bleibt für das Team erhalten.",
+      "participationUnavailable": "Deine aktuelle Teilnahmeberechtigung muss geprüft werden.",
+      "unconfirmedSchedule": "Für das bisherige Lernpaar ist keine Wochenzeit bestätigt.",
+      "groupUnavailable": "Die bisherige Gruppe kann derzeit nicht fortgesetzt werden.",
+      "pendingReview": "Eine laufende Teilnahmeprüfung muss zuerst abgeschlossen werden.",
+      "requiredFields": "Erforderliche Anmeldedaten müssen geprüft werden."
+    },
+    "datedDuration": "Deine bisherige wöchentliche Zeit bleibt erhalten. Termine folgen dem aktuellen 45-Minuten-Stundenplan. Prüfe nach der Anmeldung deinen Plan.",
+    "currentResults": "Aktuelle Zuordnungsergebnisse",
+    "requiredSubjects": "Diese Anmeldung erfordert zwei verschiedene Fächer. Fächer aus deiner aktuellen Anfrage zählen mit."
   }
 }

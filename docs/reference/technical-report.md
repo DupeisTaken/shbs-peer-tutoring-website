@@ -1234,6 +1234,65 @@ real QueryClient regressions cover the denial/retry/reopen sequence.
 
 ## Student lifecycle and ownership
 
+### Prior-quarter continuation
+
+[Continuation intake](../../src/server/student-continuation.ts) provides
+ownership-scoped status, explicit signed-in selection and receipt recovery for
+the [tutee continuation UI](../../src/app/student/legacy-continuation.tsx).
+Only an actual same-school-year Q1 → Q2 or Q3 → Q4 refresh under quarter mode
+establishes eligibility. `Term.continuationSourceTermId` is scalar immutable
+refresh provenance; `continuationQuarterTransition` distinguishes that event from
+bootstrap, imported or merely adjacent historical terms. Direct and retained
+student-profile ownership determine candidates, never names or email matches.
+
+[Opening settlement](../../src/server/program/continuation-opening.ts) owns
+`signupOpeningStateSince` and `signupFirstOpenedAt`. A null state checkpoint means
+untracked history, not a previously unopened window. For a tracked active/enabled
+state, the candidate first opening is the later of its state checkpoint and
+configured opening (or checkpoint when the opening is null), provided it precedes
+the optional close. An elapsed candidate is recorded even when the whole window
+passed before observation. Gate writers settle their previous interval before
+changing it and checkpoint the next state. Refresh and bootstrap initialize only
+new operational terms; preparation never opens intake. The existing deadline
+worker and continuation reads can settle the same durable fact under the
+`program:period` barrier. First opening and actual-refresh provenance cannot be
+reset by ordinary updates; CSV transfer excludes these operational fields.
+Approval snapshots omit the derived fields so observation alone does not change
+the reviewed mutation's fingerprint.
+
+Admission rechecks the current recruitment gate and the exclusive one-hour
+deadline, current actor eligibility, source ownership, request version and current
+policy. A new accepted selection creates a destination `StudentSurvey`; additional
+choices append a signed `StudentSignupRevision` to the same open request without
+resetting submission priority. The existing two-distinct-subject limit remains.
+Each selected source pairing has a `StudentContinuationAssignment` record, and
+`StudentContinuationReceipt` binds the actor and retry key to the exact submitted
+intent. Accepted transport retries recover that result rather than adding demand
+again. Ordinary public signup and its mailbox challenge remain separate.
+
+[Assignment and release](../../src/server/student-continuation-assignment.ts)
+revalidate tutor eligibility, qualification, willingness, prior confirmed weekly
+time, conflicts and room/group constraints. Expected assignment failures retain
+the accepted request and an unassigned outcome; selected choices can have mixed
+results. Destination pairings and dated-plan membership preserve source history
+and append current participation rather than copying old attendance. The existing
+dated-session 45-minute normalization remains unchanged; the selection UI shows
+the inherited weekly source interval. `StudentContinuationPairing` records the
+destination mapping so another consenting member does not duplicate the same
+physical teaching block.
+
+During the destination quarter, availability reconciliation releases the affected
+continuation membership and future dated participation while retaining request
+priority, earlier attendance and unaffected assignments. It records the release
+and notifies current administrators and affected participants. It does not
+silently reattach a released choice when availability returns, or overwrite an
+explicit newer staff arrangement. Unknown migrated opening history stays
+unavailable for the shortcut; it is not reconstructed from a configured timestamp.
+See [operator timing rules](../guides/program-configuration.md#continuation-opening-window)
+and [issue #530](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/530)
+for the feature context. Verification receipts belong in the implementation report,
+not this maintained behavior reference.
+
 Public intake invalidity is separate from lifecycle state. Staff may flag initial
 tutor applications and student signup requests with a bounded reason, recorded
 actor and timestamp. Clearing requires a reason too; audit evidence retains the

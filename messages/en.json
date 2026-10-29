@@ -6406,7 +6406,12 @@
       "action": "Review school schedule"
     },
     "schoolCalendarScheduleNoSchool": "No school",
-    "schoolCalendarScheduleFollows": "Follows {weekday} timetable"
+    "schoolCalendarScheduleFollows": "Follows {weekday} timetable",
+    "student_continuation_released": {
+      "title": "Continued Tutoring Assignment Released",
+      "body": "A continued tutoring assignment was released after availability changed. The signup request remains filed for reassignment. Open the request for details.",
+      "action": "Review retained signup request"
+    }
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -7126,5 +7131,77 @@
     "CANCELLATION": "Request withdrawn",
     "REVERSAL": "Action reversed",
     "ATTEMPT": "Attempted change"
+  },
+  "legacyContinuation": {
+    "title": "Continue previous pairings",
+    "help": "Choose the tutoring pairings you want to continue from {source} into {target}.",
+    "deadline": "Join before {time} ({zone}).",
+    "remaining": "{minutes, plural, one {# minute remaining} other {# minutes remaining}}",
+    "loading": "Loading previous pairings",
+    "loadFailed": "Previous pairings could not be loaded.",
+    "refreshReadFailed": "The latest pairing details could not be checked. Your selection is retained.",
+    "retry": "Retry",
+    "denied": "You no longer have access to these pairings.",
+    "completeDetails": "Review required details",
+    "missingDetails": "Some current signup details need your review before you can continue these pairings.",
+    "filed": "Your signup request has been filed.",
+    "viewRequest": "View signup request",
+    "savedRefreshFailed": "Your request was saved, but the latest schedule could not be loaded. Retry only refreshes the display.",
+    "choose": "Select previous pairings",
+    "subjectLimit": "A signup request can include up to two distinct subjects. Existing requested subjects count toward this limit.",
+    "select": "Select {subject} with {tutor}",
+    "tooManySubjects": "Choose at most two distinct subjects, including subjects already on your current request.",
+    "review": "Review selected pairings",
+    "reviewTitle": "Continue selected pairings",
+    "cancel": "Cancel",
+    "checkRequest": "Check request result",
+    "join": "Join selected pairings",
+    "consequence": "This files a signup request and continues available pairings at their previous confirmed weekly times. Unavailable choices stay queued. If availability later changes, affected assignments are released and your request is retained.",
+    "stale": "These details changed. Close this review and review your selection again.",
+    "uncertain": "The submission result could not be confirmed. Check the request result before changing your selection or submitting again.",
+    "notSubmitted": "No accepted submission was found. Your selection is retained; review the details and try again.",
+    "recoveryFailed": "The request result could not be checked. Your original submission is retained. Try checking again.",
+    "policyUnavailable": "The current participation policy is unavailable. Please contact the team.",
+    "signature": "Your full name (signature)",
+    "status": {
+      "eligible": "You can join now.",
+      "scheduled": "Signup has not opened yet.",
+      "paused": "Signup is paused. Reopening will not restart the one-hour window.",
+      "expired": "The one-hour continuation window has ended. You can use the regular signup form.",
+      "unavailable": "Continuation is not available for this period."
+    },
+    "result": {
+      "assigned": "Assigned",
+      "queued": "Request filed; awaiting assignment",
+      "released": "Assignment released; request retained"
+    },
+    "candidate": {
+      "available": "Available",
+      "queued": "Request already queued",
+      "joined": "Already joined",
+      "released": "Released; request retained"
+    },
+    "reasons": {
+      "unavailable": "This pairing cannot be assigned automatically. Your selected request can still be filed.",
+      "tutorUnavailable": "The previous tutor is not currently available.",
+      "slotUnavailable": "The previous time is no longer available.",
+      "subjectUnavailable": "This subject is not currently offered.",
+      "qualificationMissing": "The tutor's current qualification needs review.",
+      "willingnessMissing": "The tutor's willingness to teach this subject needs review.",
+      "scheduleConflict": "The previous time conflicts with the current schedule.",
+      "roomUnavailable": "The previous room is unavailable.",
+      "missingDetails": "Some signup details need review.",
+      "sourceChanged": "The previous pairing has changed. Review it again.",
+      "alreadyJoined": "This pairing has already been added to your request.",
+      "released": "The assignment was released; your request remains available to the team.",
+      "participationUnavailable": "Current participation eligibility needs review.",
+      "unconfirmedSchedule": "The previous pairing has no confirmed weekly time.",
+      "groupUnavailable": "The previous group cannot currently be continued.",
+      "pendingReview": "An existing participation review must be resolved first.",
+      "requiredFields": "Required signup information needs review."
+    },
+    "datedDuration": "Your previous weekly time is retained. Dated lessons follow the current 45-minute timetable; check your schedule after joining.",
+    "currentResults": "Current pairing results",
+    "requiredSubjects": "This signup requires two distinct subjects, including subjects already on your current request."
   }
 }

@@ -29,6 +29,7 @@ import { findAccountPolicy, requirePolicy } from "~/server/policy-acceptance";
 
 const planInclude = {
   assignments: true,
+  continuationMembers: true,
   participants: { include: { tutee: true } },
   tutor: { include: { user: true } },
   term: true,
@@ -58,6 +59,18 @@ const ids = (value: Prisma.JsonValue): string[] =>
     : [];
 const fingerprint = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+/** Original publication remains immutable; later explicit enrollments are separate evidence. */
+function assignmentRoster(plan: Plan, assignment: Plan["assignments"][number]) {
+  return [
+    ...new Set([
+      ...ids(assignment.tuteeIds),
+      ...plan.continuationMembers
+        .filter((member) => member.pairingId === assignment.pairingId)
+        .map((member) => member.tuteeId),
+    ]),
+  ];
+}
 function fail(
   message: string,
   code: "CONFLICT" | "FORBIDDEN" | "BAD_REQUEST" | "NOT_FOUND" = "BAD_REQUEST",
@@ -248,18 +261,42 @@ async function sourceIsCurrent(
     },
     orderBy: { id: "asc" },
   });
+  const laterContinuations = await tx.studentContinuationAssignment.findMany({
+    where: {
+      targetPairingId: { in: pairingIds },
+      status: "ASSIGNED",
+      assignedAt: { gt: plan.createdAt },
+    },
+    select: { targetPairingId: true, tuteeId: true },
+  });
   return (
     rows.length === plan.assignments.length &&
     rows.every((row) => {
       const before = plan.assignments.find(
         (item) => item.pairingId === row.id,
       )!;
+      const released = new Set(
+        plan.continuationMembers
+          .filter(
+            (member) =>
+              member.pairingId === row.id && member.releasedAt !== null,
+          )
+          .map((member) => member.tuteeId),
+      );
+      const expected = [
+        ...new Set([
+          ...assignmentRoster(plan, before).filter((id) => !released.has(id)),
+          ...laterContinuations
+            .filter((member) => member.targetPairingId === row.id)
+            .map((member) => member.tuteeId),
+        ]),
+      ].sort();
       return (
         row.tutorId === plan.tutorId &&
         row.termId === plan.termId &&
         row.subject === before.subject &&
         JSON.stringify(row.tutees.map((item) => item.tuteeId).sort()) ===
-          JSON.stringify(ids(before.tuteeIds).sort())
+          JSON.stringify(expected)
       );
     })
   );
@@ -1069,6 +1106,11 @@ export async function ensureSessionPlanningWindow(
           row.tutees.map((item) => item.tuteeId).sort(),
         ]),
       );
+      const continuationCount = await tx.studentContinuationPairing.count({
+        where: {
+          pairingId: { in: entry.pairings.map((pairing) => pairing.id) },
+        },
+      });
       for (
         let date = weeks.start;
         date <= weeks.prepareEnd;
@@ -1087,7 +1129,9 @@ export async function ensureSessionPlanningWindow(
             date > programDateKey(primary.term.endDate, timeZone))
         )
           continue;
-        const generationKey = `regular:${primary.termId}:${entry.id}:${date}:${rosterHash}`;
+        // A continuing teaching block has one physical plan per date. New consent
+        // appends membership evidence instead of duplicating every peer's lesson.
+        const generationKey = `regular:${primary.termId}:${entry.id}:${date}:${continuationCount === entry.pairings.length ? "continuation" : rosterHash}`;
         if (await tx.sessionPlan.findUnique({ where: { generationKey } }))
           continue;
         let window: ReturnType<typeof plannedWindow>;
@@ -1356,11 +1400,20 @@ async function finishAgreement(
         timeZone: request.plan.timeZone,
         kind: "EXTRA",
         sourceFingerprint: request.plan.sourceFingerprint,
+        continuationMembers: {
+          create: request.plan.continuationMembers.map((member) => ({
+            pairingId: member.pairingId,
+            tuteeId: member.tuteeId,
+            assignmentId: member.assignmentId,
+            joinedAt: member.joinedAt,
+            releasedAt: member.releasedAt,
+          })),
+        },
         assignments: {
           create: request.plan.assignments.map((row) => ({
             pairingId: row.pairingId,
             subject: row.subject,
-            tuteeIds: ids(row.tuteeIds),
+            tuteeIds: assignmentRoster(request.plan, row),
             primary: row.primary,
           })),
         },
@@ -2129,7 +2182,7 @@ export async function readSessionAgenda(
           ? row.participants.filter((person) => owned.includes(person.tuteeId))
           : roster;
       const assignments = row.plan.assignments.filter((assignment) =>
-        ids(assignment.tuteeIds).some((id) =>
+        assignmentRoster(row.plan, assignment).some((id) =>
           personal.some((person) => person.tuteeId === id),
         ),
       );
@@ -2420,7 +2473,7 @@ export async function sessionAttendanceContext(
       pairingId: row.pairingId,
       subject: row.subject,
       primary: row.primary,
-      tuteeIds: ids(row.tuteeIds).filter((id) =>
+      tuteeIds: assignmentRoster(cohort.plan, row).filter((id) =>
         participants.some((person) => person.tuteeId === id),
       ),
     }))
@@ -2461,6 +2514,208 @@ export async function markSessionCohortRecorded(
     where: { id: cohortId },
     data: { status: "RECORDED", version: { increment: 1 } },
   });
+}
+
+/** Continuation enrollment changes only that learner's future commitments. Original
+ * publication, peer agreements and completed attendance remain retained evidence. */
+export async function syncContinuationPlanMembership(
+  tx: TransactionDb,
+  input: {
+    assignmentId: string;
+    pairingId: string;
+    tuteeId: string;
+    joinedAt: Date;
+    releasedAt?: Date;
+  },
+  now = new Date(),
+) {
+  await lockSessionPlanning(tx);
+  const sourcePairing = !input.releasedAt
+    ? await tx.pairing.findUnique({ where: { id: input.pairingId } })
+    : null;
+  const calendar = !input.releasedAt
+    ? await tx.schoolCalendarDay.findMany()
+    : [];
+  const plans = await tx.sessionPlan.findMany({
+    where: { assignments: { some: { pairingId: input.pairingId } } },
+    include: { ...planInclude, cohorts: true },
+  });
+  for (const plan of plans) {
+    const existing = plan.participants.find(
+      (person) => person.tuteeId === input.tuteeId,
+    );
+    if (!input.releasedAt && (existing || plan.kind !== "REGULAR")) continue;
+    // Past lessons never acquire a learner who joined after the lesson started.
+    if (
+      !input.releasedAt &&
+      !plan.cohorts.some((cohort) => cohort.startsAt > now)
+    )
+      continue;
+    let original = plan.cohorts.find(
+      (cohort) => cohort.date === plan.originalDate && !cohort.rescheduled,
+    );
+    const day = resolvePlanningTimetableDay(plan.originalDate, calendar);
+    const suppressed =
+      !input.releasedAt &&
+      (!day.isSchoolDay ||
+        day.effectiveTimetableWeekday !== sourcePairing?.dayOfWeek);
+    if (!input.releasedAt && !original && sourcePairing) {
+      const window = plannedWindow(
+        {
+          date: plan.originalDate,
+          startMin: sourcePairing.startMin,
+          roomId: sourcePairing.roomId,
+          online: false,
+        },
+        plan.timeZone,
+      );
+      if (window.startsAt <= now) continue;
+      const candidate: Cohort = {
+        id: randomUUID(),
+        planId: plan.id,
+        ...window,
+        status: suppressed ? "CANCELLED" : "SCHEDULED",
+        sourceInvalidated: Boolean(suppressed),
+        rescheduled: false,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (!suppressed)
+        await validateTarget(
+          tx,
+          plan,
+          candidate,
+          [input.tuteeId],
+          candidate,
+          "ALL",
+          undefined,
+          now,
+        );
+      original = await tx.sessionPlanCohort.create({ data: candidate });
+    }
+    if (!input.releasedAt && (!original || original.startsAt <= now)) continue;
+    if (!input.releasedAt && original && !suppressed)
+      await validateTarget(
+        tx,
+        plan,
+        original,
+        [input.tuteeId],
+        original,
+        "ALL",
+        undefined,
+        now,
+      );
+    await tx.sessionPlanContinuationMember.upsert({
+      where: {
+        planId_pairingId_tuteeId: {
+          planId: plan.id,
+          pairingId: input.pairingId,
+          tuteeId: input.tuteeId,
+        },
+      },
+      create: {
+        planId: plan.id,
+        pairingId: input.pairingId,
+        tuteeId: input.tuteeId,
+        assignmentId: input.assignmentId,
+        joinedAt: input.joinedAt,
+        releasedAt: input.releasedAt,
+      },
+      update: input.releasedAt ? { releasedAt: input.releasedAt } : {},
+    });
+    if (input.releasedAt) {
+      if (!existing?.cohortId) continue;
+      const cohort = plan.cohorts.find((item) => item.id === existing.cohortId);
+      if (!cohort || cohort.startsAt <= now || cohort.status === "RECORDED")
+        continue;
+      const refreshed = await tx.sessionPlan.findUniqueOrThrow({
+        where: { id: plan.id },
+        include: planInclude,
+      });
+      const stillAssigned = refreshed.assignments.some(
+        (assignment) =>
+          assignmentRoster(refreshed, assignment).includes(input.tuteeId) &&
+          !refreshed.continuationMembers.some(
+            (member) =>
+              member.pairingId === assignment.pairingId &&
+              member.tuteeId === input.tuteeId &&
+              member.releasedAt !== null,
+          ),
+      );
+      if (!stillAssigned) {
+        await tx.sessionPlanParticipant.update({
+          where: { id: existing.id },
+          data: {
+            status: "CANCELLED",
+            calendarSuppressed: false,
+            version: { increment: 1 },
+          },
+        });
+        const remaining = await tx.sessionPlanParticipant.count({
+          where: { cohortId: cohort.id, status: "SCHEDULED" },
+        });
+        const changed = await tx.sessionPlanCohort.update({
+          where: { id: cohort.id },
+          data: {
+            status: remaining ? cohort.status : "CANCELLED",
+            version: { increment: 1 },
+            ...(!remaining ? { sourceInvalidated: false } : {}),
+          },
+        });
+        await notifyPlanChange(
+          tx,
+          refreshed,
+          changed,
+          "cancelled",
+          cohort.startsAt,
+          [input.tuteeId],
+        );
+      }
+      const pending = await tx.sessionPlanningRequest.findMany({
+        where: {
+          planId: plan.id,
+          status: { in: ["PENDING", "SPLIT_REQUESTED"] },
+        },
+        include: requestInclude,
+      });
+      for (const request of pending)
+        if (ids(request.participantIds).includes(input.tuteeId))
+          await closeRequest(tx, request, "STALE", "stale", now);
+    } else if (original) {
+      await tx.sessionPlanParticipant.create({
+        data: {
+          planId: plan.id,
+          tuteeId: input.tuteeId,
+          cohortId: original.id,
+          status: suppressed ? "CANCELLED" : "SCHEDULED",
+          scheduleOverride: false,
+          calendarSuppressed: Boolean(suppressed),
+        },
+      });
+      const changed = await tx.sessionPlanCohort.update({
+        where: { id: original.id },
+        data: {
+          ...(!suppressed
+            ? { status: "SCHEDULED", sourceInvalidated: false }
+            : {}),
+          version: { increment: 1 },
+        },
+      });
+      const refreshed = await tx.sessionPlan.findUniqueOrThrow({
+        where: { id: plan.id },
+        include: planInclude,
+      });
+      await notifyPlanChange(
+        tx,
+        refreshed,
+        changed,
+        suppressed ? "cancelled" : "schedule_updated",
+        original.startsAt,
+        [input.tuteeId],
+      );
+    }
+  }
 }
 
 /** Existing lifecycle writers may call this under their room fence; reads also catch stale requests. */

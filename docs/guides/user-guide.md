@@ -236,6 +236,45 @@ settings before enabling its fields. Outside that window, the form is a read-onl
 preview. If the check fails, use Retry; existing requests and their separate email
 confirmation deadlines remain unchanged.
 
+### Continue selected pairings into the next quarter
+
+After an official **Q1 → Q2** or **Q3 → Q4** refresh, eligible signed-in tutees
+can continue individual previous-quarter pairings from the **Dashboard** or
+**Requests** page. This option lasts for one hour after tutee signup first opens
+for the destination quarter. It is unavailable across semester/year boundaries
+or in semester mode. The displayed deadline uses the program timezone; pausing
+and reopening signup does not restart the hour.
+
+Select the previous pairings you want, choose **Review selected pairings**, read
+the current participation policy, agree and sign, then choose **Join selected
+pairings**. Review each tutor, subject and inherited weekly time. A request can
+contain at most two distinct subjects, including those already requested this
+quarter. Missing current signup details require the normal request form first.
+Only explicitly owned prior participation is offered; a matching name or email
+does not establish ownership.
+
+An accepted join files a signup request even when a selected pairing cannot be
+assigned. The first accepted selection creates this quarter's request; later
+selections add to that same open request, preserving its original queue priority
+and recording the new consent. The result distinguishes **Assigned** from
+**Request filed; awaiting assignment**, including mixed results. Assignments use
+the prior confirmed weekly time when current eligibility and scheduling allow it;
+the dated-session calendar retains its existing 45-minute session convention.
+Check that calendar for the actual dated appointments and rooms.
+
+If tutor availability later invalidates a continued assignment during this
+quarter, the affected assignment is released, its signup request is retained,
+and administrators and affected participants are notified. Other valid assignments
+remain. Restoring availability does not automatically reattach a released choice;
+staff review the retained request. Previous-quarter attendance and assignments
+remain historical evidence.
+
+If submission has an uncertain result, use **Check request result** before
+submitting again. If a saved request cannot be refreshed, Retry only reloads its
+latest state. Outside the continuation window, use the regular signup form when
+recruitment is open. Periods whose first-opening history is unknown do not receive
+an invented continuation hour; see [opening and rollout rules](program-configuration.md#continuation-opening-window).
+
 ### Find your way around
 
 The tutee page uses the same top bar, account menu, theme and card layout as the tutor page. Choose a section from its navigation:

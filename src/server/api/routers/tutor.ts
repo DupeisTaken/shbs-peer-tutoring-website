@@ -1,7 +1,20 @@
-import { sessionAttendanceContext, markSessionCohortRecorded } from "~/server/session-planning";
+import {
+  sessionAttendanceContext,
+  markSessionCohortRecorded,
+  lockSessionPlanning,
+} from "~/server/session-planning";
+import { lockTutorContinuationRequests, reconcileTutorContinuations } from "~/server/student-continuation-assignment";
+import { lockCatalogue } from "~/server/qualifications";
 import { notificationEvent } from "~/lib/notification-events";
 import { isInterviewChairRole } from "~/lib/interview-chair";
-import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
+import {
+  meetingPeriodInput,
+  meetingPeriodContext,
+  meetingPeriods,
+  meetingPeriodsOverlap,
+  meetingScope,
+  recordedMeetingPeriod,
+} from "~/server/meeting-periods";
 import {
   INTERVIEW_HOURS_REASON,
   interviewHoursId,
@@ -56,7 +69,10 @@ import { computeSessionHours } from "~/lib/service-hours";
 import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
 import { reconcileApplication } from "~/server/tutors/application-status";
-import { beginAdmissionRecoveryCapture, finishAdmissionRecoveryCapture } from "~/server/recovery/capture";
+import {
+  beginAdmissionRecoveryCapture,
+  finishAdmissionRecoveryCapture,
+} from "~/server/recovery/capture";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
 import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
@@ -73,7 +89,12 @@ import { standingFromCounts } from "~/lib/discipline";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
-import { allocateAndPersistRoomUnit, assertRoomVersion, roomUnitInclude, roomUnitMembers } from "~/server/room-allocation";
+import {
+  allocateAndPersistRoomUnit,
+  assertRoomVersion,
+  roomUnitInclude,
+  roomUnitMembers,
+} from "~/server/room-allocation";
 import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
 import { pairingEntries } from "~/lib/pairing-groups";
 
@@ -489,7 +510,9 @@ export const tutorRouter = createTRPCRouter({
             where: { id: input.cohortId, plan: { tutorId } },
             include: {
               participants: true,
-              plan: { include: { assignments: true } },
+              plan: {
+                include: { assignments: true, continuationMembers: true },
+              },
             },
           })
         : null;
@@ -498,15 +521,17 @@ export const tutorRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Dated session not found for this tutor.",
         });
-      const plannedAssignments = planned?.plan.assignments.filter(
-        (row) =>
-          Array.isArray(row.tuteeIds) &&
-          row.tuteeIds.some((id) =>
-            planned.participants.some(
-              (person) =>
-                person.tuteeId === id && person.status === "SCHEDULED",
-            ),
+      const plannedAssignments = planned?.plan.assignments.filter((row) =>
+        [
+          ...(Array.isArray(row.tuteeIds) ? row.tuteeIds : []),
+          ...planned.plan.continuationMembers
+            .filter((member) => member.pairingId === row.pairingId)
+            .map((member) => member.tuteeId),
+        ].some((id) =>
+          planned.participants.some(
+            (person) => person.tuteeId === id && person.status === "SCHEDULED",
           ),
+        ),
       );
       if (
         planned &&
@@ -560,6 +585,7 @@ export const tutorRouter = createTRPCRouter({
 
       // Placeholder assignment times are never evidence of when a session actually ran.
       if (
+        !planned &&
         found.some((pairing) => !pairing.scheduleConfirmed) &&
         (input.startMin === undefined || input.endMin === undefined)
       ) {
@@ -569,8 +595,8 @@ export const tutorRouter = createTRPCRouter({
             "Enter actual start and end times for an assignment awaiting scheduling.",
         });
       }
-      const startMin = input.startMin ?? primary.startMin;
-      const endMin = input.endMin ?? primary.endMin;
+      const startMin = input.startMin ?? planned?.startMin ?? primary.startMin;
+      const endMin = input.endMin ?? planned?.endMin ?? primary.endMin;
       if (endMin <= startMin) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1075,25 +1101,56 @@ export const tutorRouter = createTRPCRouter({
     .input(z.object({ slotIds: z.array(z.string().min(1)) }))
     .mutation(async ({ ctx, input }) => {
       const slotIds = [...new Set(input.slotIds)];
-      // Ignore any inactive/unknown slots defensively.
-      const valid = await ctx.db.timeSlot.findMany({
-        where: { id: { in: slotIds }, active: true },
-        select: { id: true },
-      });
-      const validIds = valid.map((s) => s.id);
-
-      await ctx.db.$transaction([
-        ctx.db.tutorAvailability.deleteMany({
+      return inTransaction(ctx.db, async (tx) => {
+        // Continuation admission and release share these fences. Availability
+        // cannot change between the tutee's final check and assignment commit.
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        await lockSessionPlanning(tx);
+        await lockTutorContinuationRequests(tx, ctx.session.tutorId);
+        await lockAccountProfile(tx, ctx.session.user.id);
+        const account = await tx.user.findUniqueOrThrow({
+          where: { id: ctx.session.user.id },
+        });
+        const tutor = await tx.tutor.findUnique({
+          where: { id: ctx.session.tutorId },
+        });
+        if (
+          account.tutorId !== ctx.session.tutorId ||
+          account.suspendedAt ||
+          account.mergedIntoId ||
+          account.tutorAccessRevoked ||
+          account.role === "VIEWER" ||
+          tutor?.status !== "ACTIVE"
+        )
+          throw new TRPCError({ code: "FORBIDDEN" });
+        await requireSchoolParticipation(tx, account.id);
+        const valid = await tx.timeSlot.findMany({
+          where: { id: { in: slotIds }, active: true },
+          select: { id: true },
+        });
+        const validIds = valid.map((slot) => slot.id);
+        await tx.tutorAvailability.deleteMany({
           where: { tutorId: ctx.session.tutorId },
-        }),
-        ctx.db.tutorAvailability.createMany({
+        });
+        await tx.tutorAvailability.createMany({
           data: validIds.map((slotId) => ({
             tutorId: ctx.session.tutorId,
             slotId,
           })),
-        }),
-      ]);
-      return { ok: true, count: validIds.length };
+        });
+        const reconciliation = await reconcileTutorContinuations(
+          tx,
+          ctx.session.tutorId,
+          new Date(),
+        );
+        return {
+          ok: true,
+          count: validIds.length,
+          released: reconciliation.released,
+        };
+      });
     }),
 
   /** The signed-in tutor's own domain record (used to gate the read-only inactive state). */
@@ -1426,25 +1483,53 @@ export const tutorRouter = createTRPCRouter({
         // cannot combine with this slot change into an unvalidated final tuple.
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.pairingId, tutorId: ctx.session.tutorId, term: { active: true } },
+          where: {
+            id: input.pairingId,
+            tutorId: ctx.session.tutorId,
+            term: { active: true },
+          },
           include: roomUnitInclude,
         });
-        if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found for this tutor." });
+        if (!pairing)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Current pairing not found for this tutor.",
+          });
         assertRoomVersion(pairing, input.expectedRoomVersion);
         if (input.slotId === null) {
           const members = await roomUnitMembers(tx, pairing);
           // Detaching only the catalog link retains the confirmed shared reservation.
-          await tx.pairing.updateMany({ where: { id: { in: members.map(member => member.id) } },
-            data: { timeSlotId: null, roomVersion: { increment: 1 } } });
-          const saved = await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
-          const roomOutcome = saved.roomId ? "RETAINED" as const : saved.roomNeedsAssignment ? "UNAVAILABLE" as const : saved.roomMode === "NONE" ? "NONE" as const : "UNASSIGNED" as const;
+          await tx.pairing.updateMany({
+            where: { id: { in: members.map((member) => member.id) } },
+            data: { timeSlotId: null, roomVersion: { increment: 1 } },
+          });
+          const saved = await tx.pairing.findUniqueOrThrow({
+            where: { id: pairing.id },
+          });
+          const roomOutcome = saved.roomId
+            ? ("RETAINED" as const)
+            : saved.roomNeedsAssignment
+              ? ("UNAVAILABLE" as const)
+              : saved.roomMode === "NONE"
+                ? ("NONE" as const)
+                : ("UNASSIGNED" as const);
           return { ...saved, roomOutcome };
         }
-        const slot = await tx.timeSlot.findFirst({ where: { id: input.slotId, active: true },
-          select: { dayOfWeek: true, startMin: true, endMin: true } });
-        if (!slot) throw new TRPCError({ code: "BAD_REQUEST", message: "Time slot not found." });
-        return allocateAndPersistRoomUnit(tx, pairing, { expectedRoomVersion: input.expectedRoomVersion },
-          { ...slot, timeSlotId: input.slotId, scheduleConfirmed: true });
+        const slot = await tx.timeSlot.findFirst({
+          where: { id: input.slotId, active: true },
+          select: { dayOfWeek: true, startMin: true, endMin: true },
+        });
+        if (!slot)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Time slot not found.",
+          });
+        return allocateAndPersistRoomUnit(
+          tx,
+          pairing,
+          { expectedRoomVersion: input.expectedRoomVersion },
+          { ...slot, timeSlotId: input.slotId, scheduleConfirmed: true },
+        );
       });
     }),
 
@@ -1602,24 +1687,28 @@ export const tutorRouter = createTRPCRouter({
         canChair: a.isHead && isInterviewChairRole(ctx.session.role),
         ...application,
         panel: application.interviewers.map((person) => ({
-          tutorId: person.tutorId, name: person.tutor.englishName,
-          isHead: person.isHead, attended: person.attended,
+          tutorId: person.tutorId,
+          name: person.tutor.englishName,
+          isHead: person.isHead,
+          attended: person.attended,
         })),
         isInvalid: !!invalidatedAt,
         myAwardedHours:
           credits.find(
             (row) => row.id === interviewHoursId(application.id, myTutorId),
           )?.amount ?? 0,
-        pendingDecision: ["PENDING", "INTERVIEW"].includes(application.status) && pendingDecisions.some(
-          ({ payload }) =>
-            payload &&
-            typeof payload === "object" &&
-            !Array.isArray(payload) &&
-            payload.json &&
-            typeof payload.json === "object" &&
-            !Array.isArray(payload.json) &&
-            payload.json.applicationId === application.id,
-        ),
+        pendingDecision:
+          ["PENDING", "INTERVIEW"].includes(application.status) &&
+          pendingDecisions.some(
+            ({ payload }) =>
+              payload &&
+              typeof payload === "object" &&
+              !Array.isArray(payload) &&
+              payload.json &&
+              typeof payload.json === "object" &&
+              !Array.isArray(payload.json) &&
+              payload.json.applicationId === application.id,
+          ),
         myVote: myVote
           ? { accept: myVote.accept, comment: myVote.comment }
           : null,
@@ -1810,13 +1899,21 @@ export const tutorRouter = createTRPCRouter({
         }
         const currentChair = await tx.user.findUnique({
           where: { id: chairUserId },
-          select: { role: true, tutorId: true, suspendedAt: true, mergedIntoId: true, tutorAccessRevoked: true },
+          select: {
+            role: true,
+            tutorId: true,
+            suspendedAt: true,
+            mergedIntoId: true,
+            tutorAccessRevoked: true,
+          },
         });
         if (
           !chairTutorId ||
           currentChair?.tutorId !== chairTutorId ||
           !isInterviewChairRole(currentChair?.role) ||
-          currentChair.suspendedAt || currentChair.mergedIntoId || currentChair.tutorAccessRevoked ||
+          currentChair.suspendedAt ||
+          currentChair.mergedIntoId ||
+          currentChair.tutorAccessRevoked ||
           !(await tx.tutor.count({
             where: { id: chairTutorId, status: "ACTIVE" },
           }))
@@ -1848,32 +1945,66 @@ export const tutorRouter = createTRPCRouter({
         }
 
         const before = await tx.tutorApplication.findUniqueOrThrow({
-          where: { id: input.applicationId }, include: { interviewers: true },
+          where: { id: input.applicationId },
+          include: { interviewers: true },
         });
         if (before.type !== "INITIAL" || before.status === "RECALLED")
-          throw new TRPCError({ code: "CONFLICT", message: "This application cannot receive this interview decision." });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This application cannot receive this interview decision.",
+          });
         if (input.accept) {
           // Only a previously queued, Head-reviewed payload may omit completion.
           // A new direct approval can never recreate the former decision-only path.
           if (!input.completion && !reviewId)
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Report interview duration, completion time and attendance before approving." });
-          if (before.status === "ACCEPTED" && input.completion &&
-            before.decidedByTutorId === chairTutorId && before.decisionComment === input.comment) {
-            const credits = await interviewHourRows(tx, before.id, before.interviewers.map((p) => p.tutorId));
-            if (sameInterviewCompletionEvidence(before, credits, input.completion)) return { ok: true };
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Report interview duration, completion time and attendance before approving.",
+            });
+          if (
+            before.status === "ACCEPTED" &&
+            input.completion &&
+            before.decidedByTutorId === chairTutorId &&
+            before.decisionComment === input.comment
+          ) {
+            const credits = await interviewHourRows(
+              tx,
+              before.id,
+              before.interviewers.map((p) => p.tutorId),
+            );
+            if (
+              sameInterviewCompletionEvidence(before, credits, input.completion)
+            )
+              return { ok: true };
           }
           if (before.status !== "INTERVIEW")
-            throw new TRPCError({ code: "CONFLICT", message: "This interview has already been decided. Reload its current outcome." });
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This interview has already been decided. Reload its current outcome.",
+            });
         }
-        if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) staleConflict();
+        if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+          staleConflict();
         if (input.accept && input.completion) {
           if (!z.string().email().safeParse(before.email.trim()).success)
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Add a valid applicant email before approving so tutor registration can be prepared." });
-          await recordInterviewApprovalService(tx, before.id, before, input.completion);
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Add a valid applicant email before approving so tutor registration can be prepared.",
+            });
+          await recordInterviewApprovalService(
+            tx,
+            before.id,
+            before,
+            input.completion,
+          );
         }
 
         const recoveryActionId = input.accept
-          ? await beginAdmissionRecoveryCapture(tx, input.applicationId) : null;
+          ? await beginAdmissionRecoveryCapture(tx, input.applicationId)
+          : null;
         // The source lock and pre-write version check cover both completion and decision.
         await tx.tutorApplication.update({
           where: { id: input.applicationId },
@@ -1893,29 +2024,56 @@ export const tutorRouter = createTRPCRouter({
           // Reconciliation owns provisioning. Verify its exact outcome rather than
           // claiming success if a malformed legacy code prevented valid issuance.
           const promoted = await tx.tutorApplication.findUniqueOrThrow({
-            where: { id: before.id }, select: { promotedTutorId: true },
+            where: { id: before.id },
+            select: { promotedTutorId: true },
           });
           const email = before.email.trim().toLowerCase();
           const tutorId = promoted.promotedTutorId;
-          const linked = tutorId && await tx.user.count({ where: {
-            tutorId, email, emailVerifiedAt: { not: null }, tutorAccessRevoked: false,
-            suspendedAt: null, mergedIntoId: null,
-          } });
-          const codes = tutorId ? await tx.registrationCode.findMany({ where: {
-            applicationId: before.id, tutorId, email, kind: "TUTOR",
-            code: { not: null }, attempts: { lt: MAX_CODE_ATTEMPTS },
-            usedAt: null, expiresAt: { gt: new Date() },
-          }, select: { code: true } }) : [];
+          const linked =
+            tutorId &&
+            (await tx.user.count({
+              where: {
+                tutorId,
+                email,
+                emailVerifiedAt: { not: null },
+                tutorAccessRevoked: false,
+                suspendedAt: null,
+                mergedIntoId: null,
+              },
+            }));
+          const codes = tutorId
+            ? await tx.registrationCode.findMany({
+                where: {
+                  applicationId: before.id,
+                  tutorId,
+                  email,
+                  kind: "TUTOR",
+                  code: { not: null },
+                  attempts: { lt: MAX_CODE_ATTEMPTS },
+                  usedAt: null,
+                  expiresAt: { gt: new Date() },
+                },
+                select: { code: true },
+              })
+            : [];
           // Legacy rows may contain blank plaintext, which cannot be shared for setup.
           const usableCode = codes.some(({ code }) => !!code?.trim());
           if (!linked && !usableCode)
-            throw new TRPCError({ code: "CONFLICT", message: "Tutor registration could not be prepared. Review the application's existing account or invitation before approving." });
-          await notifyAdmins({
-            title: "Interview approved",
-            ...notificationEvent("interview_approved"),
-            link: `/admin/applications#application-${input.applicationId}`,
-            inAppOnly: true,
-          }, undefined, tx);
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "Tutor registration could not be prepared. Review the application's existing account or invitation before approving.",
+            });
+          await notifyAdmins(
+            {
+              title: "Interview approved",
+              ...notificationEvent("interview_approved"),
+              link: `/admin/applications#application-${input.applicationId}`,
+              inAppOnly: true,
+            },
+            undefined,
+            tx,
+          );
         }
         return { ok: true };
       }),
@@ -2174,48 +2332,63 @@ export const tutorRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor meetings — self-excuse an upcoming absence (up to 60 min before the meeting).
   // --------------------------------------------------------------------------
-  meetingPeriods: tutorProcedure.query(({ ctx }) => meetingPeriods(ctx.db, ctx.session.tutorId)),
+  meetingPeriods: tutorProcedure.query(({ ctx }) =>
+    meetingPeriods(ctx.db, ctx.session.tutorId),
+  ),
 
   /** The current linked tutor's evidence only. Retained historical identities keep
    * their existing owned personal-history route; this read accepts no tutor ID. */
-  meetingRecords: tutorProcedure.input(meetingPeriodInput).query(async ({ ctx, input }) => {
-    const now = new Date();
-    const { current } = await meetingPeriodContext(ctx.db);
-    const historical = !["current", "upcomingOutside"].includes(input.period) &&
-      !meetingPeriodsOverlap(input.period, current?.key);
-    const meetings = await ctx.db.tutorMeeting.findMany({
-      where: {
-        AND: [
-          await meetingScope(ctx.db, input.period, now, input.outsideCurrent),
-          // A retained semester key can overlap today's quarter without granting
-          // access to other tutors' past evidence in its other quarter.
-          { OR: [
-            { attendances: { some: { tutorId: ctx.session.tutorId } } },
-            { date: { gte: now } },
-            ...(current ? [recordedMeetingPeriod(current.key)] : []),
-          ] },
-        ],
-      },
-      orderBy: [{ date: "asc" }, { id: "asc" }],
-      select: {
-        id: true, title: true, date: true,
-        attendances: {
-          where: { tutorId: ctx.session.tutorId },
-          select: { status: true, reason: true, excusedAt: true },
+  meetingRecords: tutorProcedure
+    .input(meetingPeriodInput)
+    .query(async ({ ctx, input }) => {
+      const now = new Date();
+      const { current } = await meetingPeriodContext(ctx.db);
+      const historical =
+        !["current", "upcomingOutside"].includes(input.period) &&
+        !meetingPeriodsOverlap(input.period, current?.key);
+      const meetings = await ctx.db.tutorMeeting.findMany({
+        where: {
+          AND: [
+            await meetingScope(ctx.db, input.period, now, input.outsideCurrent),
+            // A retained semester key can overlap today's quarter without granting
+            // access to other tutors' past evidence in its other quarter.
+            {
+              OR: [
+                { attendances: { some: { tutorId: ctx.session.tutorId } } },
+                { date: { gte: now } },
+                ...(current ? [recordedMeetingPeriod(current.key)] : []),
+              ],
+            },
+          ],
         },
-      },
-    });
-    return meetings.map(meeting => {
-      const own = meeting.attendances[0];
-      return {
-        id: meeting.id, title: meeting.title, date: meeting.date,
-        status: own?.status ?? null, reason: own?.reason ?? null,
-        upcoming: meeting.date >= now,
-        excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
-        canExcuse: !historical && now.getTime() <= meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
-      };
-    });
-  }),
+        orderBy: [{ date: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          date: true,
+          attendances: {
+            where: { tutorId: ctx.session.tutorId },
+            select: { status: true, reason: true, excusedAt: true },
+          },
+        },
+      });
+      return meetings.map((meeting) => {
+        const own = meeting.attendances[0];
+        return {
+          id: meeting.id,
+          title: meeting.title,
+          date: meeting.date,
+          status: own?.status ?? null,
+          reason: own?.reason ?? null,
+          upcoming: meeting.date >= now,
+          excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
+          canExcuse:
+            !historical &&
+            now.getTime() <=
+              meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
+        };
+      });
+    }),
 
   /** Upcoming task count deliberately stays independent of period/history browsing. */
   myMeetings: tutorProcedure.query(async ({ ctx }) => {

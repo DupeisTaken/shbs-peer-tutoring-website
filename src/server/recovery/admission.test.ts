@@ -274,6 +274,64 @@ it("covers every scheduling table without making empty or unrelated tables block
   });
 });
 
+it("accepts exact continuation journal coverage and blocks only related consent without leaking receipt capabilities", async () => {
+  const tables = [
+    "StudentContinuationReceipt",
+    "StudentContinuationAssignment",
+    "StudentContinuationPairing",
+    "SessionPlanContinuationMember",
+  ];
+  const triggers = await db.$queryRaw<{ tableName: string }[]>`
+    SELECT c.relname AS "tableName" FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+    WHERE c.relname=ANY(${tables}::text[]) AND t.tgname='recovery_change_journal'
+      AND t.tgenabled IN ('O','A') AND t.tgtype=29
+      AND t.tgfoid='recovery_capture_continuation_change()'::regprocedure`;
+  expect(triggers.map((x) => x.tableName).sort()).toEqual([...tables].sort());
+  const source = await admission({ existingStudent: true });
+  const privateKey = randomUUID();
+  await db.studentContinuationReceipt.create({
+    data: {
+      userId: "admin",
+      clientKey: randomUUID(),
+      surveyId: "independent-request",
+      inputHash: "synthetic-private-input",
+      result: { signature: "Synthetic private signature" },
+    },
+  });
+  expect(await inspectAdmissionRecovery(db, source)).toMatchObject({
+    coverage: "COMPLETE",
+    websiteEligible: true,
+  });
+  await db.studentContinuationReceipt.create({
+    data: {
+      userId: "prior-user",
+      clientKey: privateKey,
+      surveyId: "related-request",
+      inputHash: "synthetic-private-input",
+      result: { signature: "Synthetic private signature" },
+    },
+  });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan.websiteEligible).toBe(false);
+  expect(plan.blockers).toContain("Unsupported dependent event: UNSUPPORTED.");
+  const change = await db.recoveryChange.findFirstOrThrow({
+    where: {
+      actionId: source.actionId,
+      entity: "StudentContinuationReceipt",
+    },
+  });
+  const journal = JSON.stringify(change, (_key, value: unknown) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
+  expect(journal).not.toContain(privateKey);
+  expect(journal).not.toContain("synthetic-private-input");
+  expect(journal).not.toContain("Synthetic private signature");
+  expect(change.after).toMatchObject({
+    userId: "prior-user",
+    surveyId: "related-request",
+  });
+});
+
 it("reuses compatible planning journal triggers and refuses replica-only coverage without replacing it", async () => {
   await db.$executeRaw`SELECT recovery_install_planning_journal()`;
   await db.$executeRawUnsafe(

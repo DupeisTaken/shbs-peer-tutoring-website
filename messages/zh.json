@@ -6406,7 +6406,12 @@
       "action": "查看学校课表"
     },
     "schoolCalendarScheduleNoSchool": "不上课",
-    "schoolCalendarScheduleFollows": "采用{weekday}课表"
+    "schoolCalendarScheduleFollows": "采用{weekday}课表",
+    "student_continuation_released": {
+      "title": "延续辅导分配已解除",
+      "body": "由于可用时间变化，延续的辅导分配已解除。报名申请仍保留，等待重新安排。请打开申请查看详情。",
+      "action": "查看保留的报名申请"
+    }
   },
   "requestAppeal": {
     "title": "无效申请申诉",
@@ -7126,5 +7131,77 @@
     "CANCELLATION": "已撤回的申请",
     "REVERSAL": "已撤销的操作",
     "ATTEMPT": "尝试进行的变更"
+  },
+  "legacyContinuation": {
+    "title": "延续上一季度的辅导配对",
+    "help": "选择要从{source}延续至{target}的辅导配对。",
+    "deadline": "请在{time}（{zone}）前加入。",
+    "remaining": "剩余 {minutes} 分钟",
+    "loading": "正在加载之前的配对",
+    "loadFailed": "无法加载之前的配对。",
+    "refreshReadFailed": "无法核实最新配对信息。已保留你的选择。",
+    "retry": "重试",
+    "denied": "你已无权访问这些配对。",
+    "completeDetails": "检查必需信息",
+    "missingDetails": "部分当前报名信息需要你核实，完成后才能延续配对。",
+    "filed": "你的报名申请已提交。",
+    "viewRequest": "查看报名申请",
+    "savedRefreshFailed": "申请已保存，但无法加载最新安排。重试仅刷新显示内容。",
+    "choose": "选择之前的配对",
+    "subjectLimit": "每份报名申请最多包含两个不同科目，当前申请已有科目也计入此限制。",
+    "select": "选择{tutor}的{subject}辅导",
+    "tooManySubjects": "连同当前申请已有科目，最多可选择两个不同科目。",
+    "review": "核对所选配对",
+    "reviewTitle": "延续所选配对",
+    "cancel": "取消",
+    "checkRequest": "查询提交结果",
+    "join": "加入所选配对",
+    "consequence": "此操作会提交报名申请，并按之前确认的每周时间延续可用配对。无法分配的选择将保留待安排。之后如可用时间发生变化，受影响的分配会被解除，报名申请仍会保留。",
+    "stale": "配对信息已变化。请关闭此窗口并重新核对选择。",
+    "uncertain": "无法确认提交结果。更改选择或再次提交前，请先查询申请结果。",
+    "notSubmitted": "未找到已受理的提交。已保留你的选择，请核对后重试。",
+    "recoveryFailed": "无法查询申请结果。原提交已保留，请再次查询。",
+    "policyUnavailable": "当前参与政策不可用，请联系团队。",
+    "signature": "你的全名（签名）",
+    "status": {
+      "eligible": "现在可以加入。",
+      "scheduled": "报名尚未开放。",
+      "paused": "报名已暂停，重新开放不会重置一小时窗口。",
+      "expired": "一小时延续窗口已结束，你仍可使用常规报名表。",
+      "unavailable": "本学期不开放配对延续。"
+    },
+    "result": {
+      "assigned": "已分配",
+      "queued": "申请已提交，等待分配",
+      "released": "分配已解除，申请已保留"
+    },
+    "candidate": {
+      "available": "可用",
+      "queued": "申请已在等待安排",
+      "joined": "已加入",
+      "released": "已解除，申请已保留"
+    },
+    "reasons": {
+      "unavailable": "此配对无法自动分配，但仍可提交所选申请。",
+      "tutorUnavailable": "之前的辅导伙伴目前无法参与。",
+      "slotUnavailable": "之前的时间已不可用。",
+      "subjectUnavailable": "此科目当前未开放。",
+      "qualificationMissing": "需要核实辅导伙伴当前的科目资格。",
+      "willingnessMissing": "需要核实辅导伙伴对此科目的辅导意愿。",
+      "scheduleConflict": "之前的时间与当前安排冲突。",
+      "roomUnavailable": "之前的教室不可用。",
+      "missingDetails": "部分报名信息需要核实。",
+      "sourceChanged": "之前的配对已变化，请重新核对。",
+      "alreadyJoined": "此配对已加入你的申请。",
+      "released": "分配已解除，团队仍可查看并安排你的申请。",
+      "participationUnavailable": "需要核实当前参与资格。",
+      "unconfirmedSchedule": "之前的配对没有已确认的每周时间。",
+      "groupUnavailable": "之前的小组目前无法延续。",
+      "pendingReview": "须先处理现有的参与审核。",
+      "requiredFields": "需要核实必填报名信息。"
+    },
+    "datedDuration": "系统会保留你原先每周的上课时间。具体日期的课程按现行的45分钟课时安排；加入后请查看课表。",
+    "currentResults": "当前配对结果",
+    "requiredSubjects": "本次报名需要选择两个不同的科目，已有申请中的科目也计入其中。"
   }
 }
