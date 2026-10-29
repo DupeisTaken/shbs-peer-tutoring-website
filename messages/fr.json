@@ -92,7 +92,7 @@
     "respondBy": "Répondre avant le {deadline}",
     "remaining": "Il reste {hours} h et {minutes} min",
     "checking": "Échéance atteinte · vérification de la décision du serveur…",
-    "saved": "Enregistré. Actualisation des détails…",
+    "saved": "Enregistré.",
     "savedRefreshFailed": "Enregistré, mais les détails n’ont pas pu être actualisés. Réessayez l’actualisation sans renvoyer la demande.",
     "cancel": "Annuler",
     "close": "Fermer",

@@ -92,7 +92,7 @@
     "respondBy": "请于 {deadline} 前回复",
     "remaining": "剩余 {hours} 小时 {minutes} 分钟",
     "checking": "已到截止时间 · 正在确认服务器处理结果…",
-    "saved": "已保存，正在刷新辅导详情…",
+    "saved": "已保存。",
     "savedRefreshFailed": "已保存，但无法刷新详情。请仅重试刷新，不要再次发送申请。",
     "cancel": "取消",
     "close": "关闭",
