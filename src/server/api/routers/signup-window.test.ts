@@ -364,8 +364,7 @@ it.each(
       previewUrl: null,
     };
     await caller.setSignupWindow(input);
-    const data = (update.mock.calls[0]![0] as { data: Record<string, unknown> })
-      .data;
+    const data = update.mock.calls[0]![0].data;
     expect(
       Object.keys(data).every((key) =>
         audience === "tutor"
