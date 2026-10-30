@@ -198,8 +198,8 @@ still apply. Independently assigned management, crew and translator permissions 
 
 1. Open **Request a Tutor** on the home page or any section of the tutee page when intake is open. You can start with the form before creating an account.
 2. Enter your name, email, preferred contact method, subject choices and available times. Read the displayed tutee policy and sign the agreement.
-3. Choose **Submit Request**. Your first eligible submission sets your priority. Using the same email for a later request does not buy an earlier place.
-4. Enter the verification code sent to your email, or open the existing account-confirmation link and explicitly confirm the email. The invitation popup shows a code, optional email delivery and a prefilled link to `/register`. Review the request there and create missing credentials if needed. Existing accounts retain credentials and other access; an exclusive Viewer leaves Viewer when accepting tutee participation.
+3. Choose **Save and verify email**. Your first eligible submission sets your priority. The saved request is not yet a completed signup. Using the same email for a later request does not buy an earlier place.
+4. Follow **Submit request → Verify email → Finish account review**. Enter the four-digit code sent to your email, checking spam/junk if needed, or open an existing account-confirmation link and explicitly confirm the email. Email verification opens the invitation popup; choose **Finish account review** to continue to `/register`. This action remains available after closing the popup. Review the request there and create missing credentials if needed. Existing accounts retain credentials and other access; an exclusive Viewer leaves Viewer when accepting tutee participation. The reusable sign-in link and QR code appear after account setup completes.
 5. Continue to **Enter Tutee Page**, then **Requests**, to check your confirmed request and available times. If verification or review is interrupted, use its resend/recovery action or reopen the invitation rather than submitting another application.
 
 Use your existing account email or a verified secondary address if you already have
@@ -229,6 +229,19 @@ while this deadline still permits verification. An unverified request closes whe
 the deadline passes and its assignments are released; a later eligible request
 receives a new priority timestamp. Signup closing creates no extra verification
 deadline.
+
+If sending fails, the saved request and its original priority remain. Retry the
+verification email from the code step. A successfully sent message is not proof
+that it reached your inbox. An expired staged submission cannot be renewed by
+its resend button; contact the team for recovery, especially if the address is
+wrong or staged answers need preserving, before starting another submission.
+
+On **Signup Requests**, **Signup incomplete** means email verification or final
+account review is still needed. It does not prove that the applicant never entered
+an email code. **Request confirmed** means final account review completed. Request
+invalidity, closure and assignment deadlines remain separate indicators. These
+labels do not change staff permissions or allow an intermediate mailbox proof to
+confirm participation.
 
 The configured tutee signup opening and closing times apply to new requests even
 when you are already signed in. Returning to the form checks the current intake

@@ -169,7 +169,9 @@ vi.mock("./policy-agreement", () => ({
 vi.mock("../signup/signin-access", () => ({ SigninAccess: () => null }));
 vi.mock("../signup/survey-resend", () => ({ SurveyResend: () => null }));
 vi.mock("../signup/survey-verification", () => ({
-  SurveyVerification: () => <div>Verify saved application email</div>,
+  SurveyVerification: ({ email }: { email: string }) => (
+    <div>Verify saved application email: {email}</div>
+  ),
 }));
 // Email verification hands off to shared redemption; it must never create a
 // Viewer-specific password stage or reuse the mailbox code as an invitation.
@@ -345,8 +347,10 @@ it.each<Locale>(["en", "zh"])(
       release();
       await Promise.all(callbacks);
     });
+    // The verification component owns the saved heading; this mock checks the
+    // CAPTCHA form's successful handoff with the captured recipient.
     expect(
-      screen.getByRole("heading", { name: copy(locale).survey.savedTitle }),
+      screen.getByText("Verify saved application email: tutee@example.test"),
     ).toBeTruthy();
     expect(document.querySelector('script[src*="aliyunCaptcha"]')).toBeNull();
   },

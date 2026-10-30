@@ -25,6 +25,8 @@ import {
   useProfilePolicy,
 } from "~/app/_components/profile-policy";
 import { invitationSignIn, switchInvitationAccount } from "./actions";
+import { SignupProgress } from "../signup/signup-progress";
+import { SigninAccess } from "../signup/signin-access";
 
 /** A proof-bound review shows the posted request separately from canonical account
  * identity. Consent uses the saved snapshot, never a newly edited policy document. */
@@ -163,6 +165,7 @@ function InvitationRedemptionFlow({
   onBack,
 }: InvitationRedemptionProps) {
   const t = useTranslations("accountInvitation");
+  const survey = useTranslations("survey");
   const participantText = useTranslations("participantNames");
   const policy = useProfilePolicy();
   const [email, setEmail] = useState(initialEmail);
@@ -310,13 +313,22 @@ function InvitationRedemptionFlow({
   const previewFailed = Boolean(info && reviewError);
   return (
     <div className="space-y-5">
-      <RegistrationProgress
-        steps={titles}
-        current={step}
-        title={titles[step]!}
-        busy={busy}
-        focusOnMount={focusOnMount}
-      />
+      {!saved && info?.signupRequest ? (
+        <SignupProgress
+          current={2}
+          title={survey("stepReview")}
+          focusOnMount={focusOnMount}
+          busy={busy}
+        />
+      ) : (
+        <RegistrationProgress
+          steps={titles}
+          current={step}
+          title={titles[step]!}
+          busy={busy}
+          focusOnMount={focusOnMount}
+        />
+      )}
       {saved ? (
         <section className="space-y-4" aria-live="polite">
           <p>{t("saved")}</p>
@@ -349,6 +361,7 @@ function InvitationRedemptionFlow({
           >
             {t(loginFailed ? "signIn" : "continue")}
           </Link>
+          {info?.kind === "TUTEE" && <SigninAccess />}
         </section>
       ) : info ? (
         <form
