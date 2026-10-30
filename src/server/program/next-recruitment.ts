@@ -49,7 +49,7 @@ export async function assertNextRecruitmentActor(
     throw error;
   }
   const actor = await tx.user.findUnique({ where: { id: userId },
-    select: { id: true, name: true, username: true, role: true, suspendedAt: true, mergedIntoId: true } });
+    select: { id: true, name: true, username: true, role: true, suspendedAt: true, mergedIntoId: true, refreshAuthorityRevision: true } });
   if (!actor || actor.suspendedAt || actor.mergedIntoId || !allowedRoles.includes(actor.role))
     throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot apply this change." });
   return actor;

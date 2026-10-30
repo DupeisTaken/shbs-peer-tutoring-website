@@ -46,6 +46,8 @@ export const approvalSummaryContexts: Record<string, readonly string[]> = {
   "program.prepareNextRecruitment": ["audience"],
   "program.setFeaturePending": ["feature", "effective", "pending"],
   "admin.refresh": [],
+  "admin.scheduleRefresh": [],
+  "admin.cancelRefresh": ["id"],
   "i18n.setLanguageEnabled": ["code"],
   "i18n.deleteLanguage": ["code"],
   "i18n.reorderLanguages": [],

@@ -48,6 +48,9 @@ import {
   validateNextRecruitmentRefresh,
   validateNextRecruitmentWrite,
 } from "./program/next-recruitment";
+import {
+  scheduleRefreshInput, cancelRefreshInput, validateScheduleRefresh, validateCancelRefresh,
+} from "./program/scheduled-refresh";
 
 export class ApprovalQueued extends Error {
   constructor(public readonly approvalId: string) {
@@ -487,6 +490,21 @@ export async function proposalTargets(
     return capturedTargets({
       nextRecruitment: { audience: proposal.audience, ...evidence },
       ...(includeAuthorityContext ? { authorityContext: { version: 2 } } : {}),
+    });
+  }
+  if (operation === "admin.scheduleRefresh") {
+    const input = scheduleRefreshInput.parse(fields);
+    const { snapshot, row } = await validateScheduleRefresh(client, input);
+    return capturedTargets({
+      nextRecruitment: snapshot,
+      schedule: row,
+      ...(includeAuthorityContext ? { authorityContext: { version: 1 } } : {}),
+    });
+  }
+  if (operation === "admin.cancelRefresh") {
+    const row = await validateCancelRefresh(client, cancelRefreshInput.parse(fields));
+    return capturedTargets({ schedule: row,
+      ...(includeAuthorityContext ? { authorityContext: { version: 1 } } : {}),
     });
   }
   if (operation === "admin.refresh") {
@@ -1197,7 +1215,7 @@ export async function queueProposal(
       true,
     );
     if (
-      ["program.prepareNextRecruitment", "admin.refresh"].includes(operation)
+      ["program.prepareNextRecruitment", "admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"].includes(operation)
     ) {
       // Capturing evidence may wait behind a refresh or mode edit. Retain the
       // requester's live authority under a row lock until the proposal commits.

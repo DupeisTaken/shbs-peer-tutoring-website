@@ -360,6 +360,50 @@ Reload and review again after the source period, prepared values, destination in
 
 A failed refresh rolls back activation, participant changes and opening settings together, retaining the preparations for review and retry. Replaying a completed refresh cannot advance another period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
 
+### Schedule a refresh
+
+Use **Schedule the next refresh** to choose a future date and time in the displayed
+program timezone. Type `REFRESH`, then open the review of the exact destination,
+prepared openings and consequences. Head saves directly; Admin submits for Head approval. A pending
+proposal is not an active schedule. The current period stays active until execution.
+A future prepared tutee opening cannot precede the scheduled refresh.
+
+Schedules survive browser closure and server restarts. The server checks due schedules
+on startup and every 30 seconds. After downtime it catches up automatically only if
+the original review and Head authorization still hold; this is not an exact-second
+availability guarantee. A mismatch in reviewed settings requires renewed review.
+Changes to the approving Head's role, suspension or merge identity invalidate the
+authorization even if later reversed. Blocked
+and failed schedules need a new Head-reviewed schedule. Five failed execution
+attempts stop automatic retries. Management receives a completion or needs-review notice.
+
+Reschedule and cancellation require the displayed version and the same Head approval
+boundary. Reload explicitly after a conflict; background reads retain unfinished edits.
+After a successful save with failed synchronization, retry the read instead of the
+write. Manual and scheduled refresh share a transaction boundary; retries cannot
+activate another period.
+
+### Public tutee signup between quarters
+
+When Q1 or Q3 tutee recruitment ends or is paused, the public page automatically
+shows the next Q2 or Q4 opening. A quarter awaiting its own initial opening keeps
+its current countdown. Reopening recruitment restores current-quarter eligibility.
+Open pages update at timed boundaries and poll settings every 30 seconds; pending
+activation is checked every five seconds.
+
+The display names the upcoming quarter and program timezone. Without approved
+refresh, an opening is marked planned and awaiting activation. Missing, cleared,
+stale, disabled, cancelled and blocked settings have explicit status messages.
+Reaching zero does not open signup: the destination must actually be active and
+normal intake prerequisites must hold. Delayed refresh shows pending activation.
+Read failures suspend the cached opening promise until a successful retry.
+
+Entered answers survive rollover, but the user must explicitly review the new
+period and renew policy agreement before submitting. Fresh requests carry the
+reviewed period; the server rejects an old-period draft. Exact retries of accepted
+requests can recover their original receipts. These countdown handoffs do not
+extend to Q2/Q4 endings or semester mode.
+
 ## School departure and viewer access
 
 Graduated and transferred students keep their personal dashboards and historical records.

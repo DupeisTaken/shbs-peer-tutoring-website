@@ -198,6 +198,9 @@ it("blocks enabling with bad local configuration but always permits disabling du
   expect(sdk.verify).not.toHaveBeenCalled();
 });
 it("enforces a newly enabled setting for old forms at every signup mutation, including the alias", async () => {
+  const term = await db.term.create({
+    data: { name: "Captcha intake", schoolYear: "26-27", quarter: "Q1", active: true },
+  });
   await enable();
   for (const request of [
     () => caller().viewer.start(viewer),
@@ -205,6 +208,7 @@ it("enforces a newly enabled setting for old forms at every signup mutation, inc
     () =>
       caller().tutee.submitSurvey({
         clientKey: randomUUID(),
+        expectedTermId: term.id,
         englishName: "Student",
         email: viewer.email,
         firstChoiceId: "math",
@@ -214,6 +218,7 @@ it("enforces a newly enabled setting for old forms at every signup mutation, inc
     () =>
       caller().tutee.requestSignup({
         clientKey: randomUUID(),
+        expectedTermId: term.id,
         englishName: "Student",
         email: viewer.email,
         firstChoiceId: "math",

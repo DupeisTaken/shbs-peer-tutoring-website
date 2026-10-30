@@ -12,7 +12,7 @@
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 /** Policy version belongs to authorization, independently of immutable evidence shapes. */
 export const APPROVAL_POLICY_VERSION = 2;
-export const HEAD_APPROVAL_OPERATIONS = new Set(["admin.refresh"]);
+export const HEAD_APPROVAL_OPERATIONS = new Set(["admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"]);
 
 const accountAccessOperations = new Set([
   "studentWorkflow.headEditSignup",
@@ -87,6 +87,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "program.prepareNextRecruitment": "NextRecruitmentPreparation",
   "program.setFeaturePending": "ProgramFeature",
   "admin.refresh": "Term",
+  "admin.scheduleRefresh": "ScheduledProgramRefresh",
+  "admin.cancelRefresh": "ScheduledProgramRefresh",
   "i18n.setLanguageEnabled": "Language",
   "i18n.deleteLanguage": "Language",
   "i18n.reorderLanguages": "Language",
@@ -307,9 +309,9 @@ export function classifyApproval(
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
       : {};
-  // Head inherits every Admin capability. Only activation of the next period is
-  // exclusive: Admin/Head can prepare its settings without activating them.
-  if (operation === "admin.refresh")
+  // Head inherits every Admin capability. Activation and its deferred authorization
+  // remain exclusive: Admin may propose a schedule/change/cancellation for Head review.
+  if (HEAD_APPROVAL_OPERATIONS.has(operation))
     return {
       category: "SIGNIFICANT_SETTING",
       directRoles: ["HEAD"],

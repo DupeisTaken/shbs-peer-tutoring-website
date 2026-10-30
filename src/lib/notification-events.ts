@@ -8,6 +8,8 @@ export const notificationEvents = [
   "information_changed",
   "message_received",
   "program_update",
+  "scheduled_refresh_completed",
+  "scheduled_refresh_blocked",
   "tutor_application_pending",
   "qualification_requested",
   "qualification_approved",

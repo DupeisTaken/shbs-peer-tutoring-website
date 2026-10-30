@@ -3611,7 +3611,9 @@
         "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
         "admin_autoAssignUnassignedRooms": "Auto assign rooms to all reviewed unassigned sessions",
         "admin_correctApplicationIdentity": "Correct pending application names",
-        "admin_setUserCanTranslate": "Change Translator access"
+        "admin_setUserCanTranslate": "Change Translator access",
+        "admin_scheduleRefresh": "Schedule a program refresh",
+        "admin_cancelRefresh": "Cancel a scheduled program refresh"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your account password",
@@ -3836,7 +3838,8 @@
         "RecoveryTrackedEntity": "Tracked recovery record",
         "RecoveryFence": "Recovery concurrency guard",
         "RecoveryChange": "Recorded database change",
-        "RecoveryReceipt": "Recovery receipt"
+        "RecoveryReceipt": "Recovery receipt",
+        "ScheduledProgramRefresh": "Scheduled program refresh"
       },
       "fields": {
         "absenceReason": "Absence reason",
@@ -4117,7 +4120,14 @@
         "operation": "Operation",
         "actorId": "Actor account ID",
         "evidence": "Stored evidence",
-        "actionId": "Recovery reference"
+        "actionId": "Recovery reference",
+        "executeAt": "Scheduled execution time",
+        "blockedReason": "Reason execution needs review",
+        "completedAt": "Completion time",
+        "sourceTermId": "Source period",
+        "sourceSchoolYear": "Source school year",
+        "destinationSchoolYear": "Destination school year",
+        "semesterMode": "Semester mode"
       },
       "enums": {
         "Role": {
@@ -4344,6 +4354,13 @@
           "UNKNOWN": "Unknown",
           "GRADUATED": "Graduated",
           "NOT_APPLICABLE": "Not applicable"
+        },
+        "ScheduledRefreshState": {
+          "SCHEDULED": "Scheduled",
+          "COMPLETED": "Completed",
+          "CANCELLED": "Cancelled",
+          "BLOCKED": "Needs renewed review",
+          "FAILED": "Execution failed"
         }
       },
       "outcomes": {
@@ -6187,6 +6204,16 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
+    },
+    "scheduled_refresh_completed": {
+      "title": "Scheduled Program Refresh Completed",
+      "body": "The scheduled program refresh completed. Review the active period and signup settings.",
+      "action": "Review program settings"
+    },
+    "scheduled_refresh_blocked": {
+      "title": "Scheduled Program Refresh Needs Review",
+      "body": "The scheduled program refresh could not proceed. Head must review the current settings and authorization before scheduling again.",
+      "action": "Review refresh schedule"
     }
   },
   "requestAppeal": {
@@ -6863,5 +6890,78 @@
     "CANCELLATION": "Request withdrawn",
     "REVERSAL": "Action reversed",
     "ATTEMPT": "Attempted change"
+  },
+  "scheduledRefresh": {
+    "title": "Schedule the Next Refresh",
+    "help": "Choose when the program advances to the next quarter or semester. Saving a schedule leaves the current period active.",
+    "loading": "Loading the refresh schedule…",
+    "loadFailed": "The latest refresh schedule could not be loaded. Your draft is retained; retry before making changes.",
+    "retry": "Retry latest read",
+    "readOnly": "Only Admin and Head can manage refresh schedules. Head approval is required before a schedule takes effect.",
+    "none": "No refresh is scheduled for the current period.",
+    "summary": "Advance to {target} at {time} ({zone}).",
+    "states": {
+      "SCHEDULED": "Scheduled",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled",
+      "BLOCKED": "Needs renewed review",
+      "FAILED": "Execution failed"
+    },
+    "catchUp": "The server checks due schedules regularly. If it was offline, the refresh runs after recovery while its reviewed conditions remain valid.",
+    "staleHelp": "Changes to the reviewed period, preparations, features, timezone or Head require renewed review before the scheduled refresh can run.",
+    "blockedHelp": "This schedule can no longer run under its original review. Reload, inspect the latest conditions and reschedule, or cancel it.",
+    "changed": "The saved schedule or refresh conditions changed. Your draft is retained. Reload explicitly to review the latest values.",
+    "stalePreparation": "A next-period opening is bound to a different target. Resolve that preparation before scheduling a refresh.",
+    "pendingApproval": "Your request is awaiting Head approval. The existing schedule remains in effect until the request is approved.",
+    "viewRequest": "View approval request",
+    "timeLabel": "Refresh date and time",
+    "draftTarget": "This review advances to {target}.",
+    "confirmLabel": "Type REFRESH to authorize the scheduled refresh",
+    "review": "Review schedule",
+    "closeEditor": "Close editor",
+    "create": "Choose refresh time",
+    "edit": "Edit scheduled refresh",
+    "reload": "Reload schedule and review",
+    "checkApproval": "Check approval status",
+    "reviewTitle": "Review Scheduled Refresh",
+    "reviewHelp": "Authorize the refresh to {target} at {time} ({zone}).",
+    "save": "Save scheduled refresh",
+    "saved": "Refresh scheduled. The current period remains active until execution.",
+    "cancelTitle": "Cancel Scheduled Refresh",
+    "cancelHelp": "Cancel the refresh to {target} scheduled for {time} ({zone}).",
+    "cancelEffect": "This removes the scheduled transition. It does not advance the period or change prepared signup opening times.",
+    "cancelSchedule": "Cancel scheduled refresh",
+    "cancelled": "The scheduled refresh was cancelled.",
+    "saveFailed": "The schedule could not be changed. Your draft is retained; reload the latest review before trying again.",
+    "errors": {
+      "SCHEDULED_REFRESH_CHANGED": "The schedule or its review changed. Reload and review the latest values before trying again.",
+      "SCHEDULED_REFRESH_TIME_INVALID": "Choose a future date and time in the displayed program timezone. Repeated or skipped daylight-saving times are not valid.",
+      "SCHEDULED_REFRESH_BLOCKED": "This schedule needs renewed review before it can run. Reload the latest conditions and reschedule it.",
+      "SCHEDULED_REFRESH_HEAD_CHANGED": "The Head changed after approval. The current Head must review a new schedule.",
+      "SCHEDULED_REFRESH_REVIEW_CHANGED": "The reviewed refresh conditions changed. Reload and review a new schedule.",
+      "SCHEDULED_REFRESH_EXECUTION_FAILED": "The refresh could not complete after repeated attempts. Check the deployment, then review a new schedule or cancel this one.",
+      "SCHEDULED_REFRESH_AFTER_OPENING": "Choose a refresh time no later than the prepared tutee signup opening time, or update that preparation first."
+    }
+  },
+  "signupTransition": {
+    "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
+    "nextTitle": "{period} Tutee Signup",
+    "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
+    "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
+    "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
+    "pendingActivation": "The next quarter is awaiting activation. Applications are not open yet; this page checks for updates automatically.",
+    "awaitingSchedule": "The next opening time has not been announced. Please check back for the confirmed schedule.",
+    "unavailable": "Signup for the next quarter is not currently available. An opening will be announced when recruitment is enabled.",
+    "needsReview": "The opening schedule needs review. A confirmed opening time is not currently available.",
+    "cancelled": "The scheduled quarter refresh was cancelled. The next opening is awaiting confirmation.",
+    "open": "Signup is open for the active period.",
+    "closed": "Signup is closed for the active period.",
+    "currentScheduled": "Signup has not opened yet.",
+    "planned": "The next opening is planned and awaiting activation.",
+    "scheduled": "The next quarter refresh is scheduled.",
+    "reviewPeriod": "Review request for {period}",
+    "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
+    "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
+    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
   }
 }

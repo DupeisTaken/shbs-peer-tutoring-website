@@ -14,6 +14,37 @@ import zh from "../../../messages/zh.json";
 import { signupSettings } from "~/lib/signup-fields";
 import { SignupForm } from "../signup/signup-form";
 import { ViewerSignupFlow } from "../viewer-signup/viewer-signup-flow";
+import type { PublicSignupTransition } from "~/lib/public-signup-transition";
+
+const tuteeTransition = {
+  serverNow: "2026-10-30T00:00:00.000Z",
+  timeZone: "Asia/Shanghai",
+  current: {
+    termId: "captcha-quarter",
+    label: "2026–27 Q1",
+    kind: "quarter",
+    window: { enabled: true, opensAt: null, closesAt: null, previewUrl: null },
+  },
+  next: null,
+} satisfies PublicSignupTransition;
+function tuteeOptions() {
+  return {
+    subjects: [{ id: "math", name: "Math" }],
+    slots: [],
+    fields: signupSettings({
+      tutee: {
+        preferredContact: "hidden",
+        availability: "hidden",
+        signatureName: "hidden",
+      },
+    }).tutee,
+    transition: tuteeTransition,
+    recruitment: {
+      ...tuteeTransition.current.window,
+      serverNow: tuteeTransition.serverNow,
+    },
+  };
+}
 
 const mocks = vi.hoisted(() => ({
   verifyCaptcha: vi.fn(),
@@ -114,17 +145,8 @@ vi.mock("~/trpc/react", async () => ({
       signupOptions: {
         useQuery: () => ({
           isFetchedAfterMount: true,
-          data: {
-            subjects: [{ id: "math", name: "Math" }],
-            slots: [],
-            fields: signupSettings({
-              tutee: {
-                preferredContact: "hidden",
-                availability: "hidden",
-                signatureName: "hidden",
-              },
-            }).tutee,
-          },
+          data: tuteeOptions(),
+          refetch: async () => ({ data: tuteeOptions() }),
         }),
       },
       surveyPolicy: {
@@ -335,6 +357,7 @@ it.each<Locale>(["en", "zh"])(
         captchaGrant: "a".repeat(64),
         email: "tutee@example.test",
         firstName: "Retained",
+        expectedTermId: "captcha-quarter",
       }),
     );
     expect(name.matches(":disabled")).toBe(true);

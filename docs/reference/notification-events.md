@@ -290,6 +290,28 @@ authorized decision interfaces and policy rules.
 | English | Management Change Awaiting Review | A management change proposal is awaiting approval. Review its recorded evidence before applying or declining it; the proposed change has not been applied. | Review management change |
 | 中文 | 管理变更待审核 | 一项管理变更提案正等待批准。请先查看记录的依据，再决定应用或拒绝；提议的变更尚未应用。 | 查看管理变更 |
 
+### scheduled_refresh_completed
+
+- Recipient: Active, unmerged Admins and Head.
+- Trigger: Scheduled refresh and its terminal outcome commit together. Repeated worker ticks do not duplicate this notice. [Emitter](../../src/server/program/scheduled-refresh.ts).
+- Authorized destination: /admin/program?panel=period.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Scheduled Program Refresh Completed | The scheduled program refresh completed. Review the active period and signup settings. | Review program settings |
+| 中文 | 计划项目刷新已完成 | 计划项目刷新已完成。请检查当前学期及报名设置。 | 查看项目设置 |
+
+### scheduled_refresh_blocked
+
+- Recipient: Active, unmerged Admins and Head.
+- Trigger: A due refresh is blocked by review/authority drift, or reaches five failed execution attempts. The notice commits with its terminal state. [Emitter](../../src/server/program/scheduled-refresh.ts).
+- Authorized destination: /admin/program?panel=period.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Scheduled Program Refresh Needs Review | The scheduled program refresh could not proceed. Head must review the current settings and authorization before scheduling again. | Review refresh schedule |
+| 中文 | 计划项目刷新需要重新审核 | 计划项目刷新未能执行。主管须检查当前设置及授权后重新安排。 | 查看刷新计划 |
+
 ### management_head_review_pending
 
 - Recipient: Active Head only.

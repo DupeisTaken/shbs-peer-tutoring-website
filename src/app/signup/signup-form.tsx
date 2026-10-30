@@ -15,7 +15,7 @@ import {
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   useProfilePolicy,
   OfferedGradeSelect,
@@ -38,8 +38,10 @@ import { PolicyAgreement } from "~/app/_components/policy-agreement";
 import { SigninAccess } from "./signin-access";
 import { SurveyVerification } from "./survey-verification";
 import { SignupEmailField } from "./signup-email-field";
+import { SignupTransitionNotice, useSignupClock } from "./signup-transition-notice";
+import { publicSignupView, type PublicSignupTransition } from "~/lib/public-signup-transition";
 
-export function SignupForm() {
+export function SignupForm({ initialTransition }: { initialTransition?: PublicSignupTransition } = {}) {
   const { APP_TITLE } = useBranding();
   const t = useTranslations();
   const profilePolicy = useProfilePolicy();
@@ -50,6 +52,18 @@ export function SignupForm() {
     refetchOnMount: "always",
     refetchInterval: 30_000,
   });
+  const transition = options.data?.transition ?? initialTransition;
+  const transitionNow = useSignupClock(transition?.serverNow);
+  const signupView = transition ? publicSignupView(transition, transitionNow) : null;
+  const transitionText = useTranslations("signupTransition");
+  const [draftTerm, setDraftTerm] = useState(transition?.current ?? null);
+  const [reviewingPeriod, setReviewingPeriod] = useState(false);
+  const [periodReadFailed, setPeriodReadFailed] = useState(false);
+  // Adopt the first usable period once. Later reads must not retarget an existing draft.
+  if (!draftTerm && transition?.current) setDraftTerm(transition.current);
+  const periodChanged = !!draftTerm && draftTerm.termId !== transition?.current?.termId;
+  const { refetch: refetchRecruitment } = options;
+  const refreshRecruitment = useCallback(() => { void refetchRecruitment(); }, [refetchRecruitment]);
   const policy = api.tutee.surveyPolicy.useQuery({ locale });
   const submit = api.tutee.submitSurvey.useMutation();
   const recoverReceipt = api.tutee.signupReceipt.useMutation();
@@ -196,7 +210,7 @@ export function SignupForm() {
     ...(fields.availability === "required" && !slots.length ? ["slots"] : []),
     ...(!policy.data?.body?.trim() || !policy.data?.revision ? ["policy"] : []),
   ];
-  const readOnly = status !== "open" || missing.length > 0;
+  const readOnly = status !== "open" || missing.length > 0 || !draftTerm || periodChanged || reviewingPeriod;
   const canSubmit =
     namePolicyReady &&
     options.isFetchedAfterMount &&
@@ -244,7 +258,7 @@ export function SignupForm() {
   // Distinguish pending reads and configuration gaps from a usable signup form.
   if ((options.isError && !options.data) || (policy.isError && !policy.data))
     return (
-      <section className="card space-y-4 p-6">
+      <>{transition && <SignupTransitionNotice data={transition} now={transitionNow} refresh={refreshRecruitment} verified={!options.isError} />}<section className="card space-y-4 p-6">
         <p role="alert">{t("survey.loadFailed")}</p>
         <button
           type="button"
@@ -256,7 +270,7 @@ export function SignupForm() {
         >
           {t("survey.retry")}
         </button>
-      </section>
+      </section></>
     );
   if (
     (!options.isFetchedAfterMount && !options.isError) ||
@@ -264,12 +278,28 @@ export function SignupForm() {
     (policy.isLoading && !policy.data)
   )
     return (
-      <p role="status" className="card p-6">
+      <>{transition && <SignupTransitionNotice data={transition} now={transitionNow} refresh={refreshRecruitment} verified={!options.isError} />}<p role="status" className="card p-6">
         {t("workflows.loading")}
-      </p>
+      </p></>
     );
   return (
     <>
+      {transition && <SignupTransitionNotice data={transition} now={transitionNow} refresh={refreshRecruitment} verified={!options.isError} />}
+      {periodChanged && <InlineNotice tone="warning" announcement="status" action={
+        <Button disabled={working || holdDraft || reviewingPeriod} onClick={async () => {
+          setReviewingPeriod(true);
+          setPeriodReadFailed(false);
+          try {
+            const [latest, latestPolicy] = await Promise.all([options.refetch(), policy.refetch()]);
+            if (latest.error || latestPolicy.error || !latest.data?.transition.current) throw new Error("read failed");
+            // The explicit review retains answers but makes the new period and consent deliberate.
+            setDraftTerm(latest.data.transition.current);
+            setAgreedRevision(null);
+          } catch { setPeriodReadFailed(true); }
+          finally { setReviewingPeriod(false); }
+        }}>{transitionText("reviewPeriod", { period: transition?.current?.label ?? "" })}</Button>
+      }>{transitionText("periodChanged", { period: draftTerm?.label ?? "" })}</InlineNotice>}
+      {periodReadFailed && <InlineNotice tone="error" announcement="alert">{transitionText("reviewFailed")}</InlineNotice>}
       {/* Cached prerequisites and controlled drafts stay mounted during recovery. */}
       {(options.isError || policy.isError) && (
         <InlineNotice
@@ -293,7 +323,7 @@ export function SignupForm() {
         <RecruitmentNotice
           status={status}
           missing={missing}
-          window={options.data?.recruitment}
+          window={signupView?.next ? undefined : options.data?.recruitment}
           policy={policy.data}
         />
       )}
@@ -308,6 +338,7 @@ export function SignupForm() {
             answers: normalizeTuteeFields(
               {
                 ...names,
+                expectedTermId: draftTerm.termId,
                 englishName: englishName.trim(),
                 email: email.trim(),
                 policyRevision,

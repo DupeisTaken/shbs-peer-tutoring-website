@@ -21,6 +21,8 @@ const state = vi.hoisted(() => ({
   enabled: true,
   replace: vi.fn(),
   refresh: vi.fn(),
+  scheduleRefresh: vi.fn(),
+  cancelRefresh: vi.fn(),
   saveRecruitment: vi.fn(),
   saveNextRecruitment: vi.fn(),
   nextRecruitment: vi.fn(),
@@ -64,7 +66,11 @@ vi.mock("~/app/_components/program-feature-settings", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
-      admin: { invalidate: vi.fn(), currentPeriod: { fetch: vi.fn() } },
+      admin: {
+        invalidate: vi.fn(),
+        currentPeriod: { fetch: vi.fn(), cancel: vi.fn() },
+        refreshSchedule: { fetch: vi.fn(), cancel: vi.fn() },
+      },
       program: { nextRecruitment: { fetch: vi.fn(), cancel: vi.fn() } },
     }),
     account: {
@@ -76,6 +82,23 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     admin: {
+      refreshSchedule: {
+        useQuery: () => ({
+          data: {
+            schedule: null,
+            activeSourceTermId: "term-1",
+            serverNow: new Date("2026-10-30T01:00:00Z"),
+            canEdit: ["HEAD", "ADMIN"].includes(state.role) && !state.readOnly,
+            canApply: state.role === "HEAD" && !state.readOnly,
+          },
+          error: null,
+          isFetching: false,
+          isSuccess: true,
+          refetch: vi.fn(),
+        }),
+      },
+      scheduleRefresh: { useMutation: () => ({ mutateAsync: state.scheduleRefresh }) },
+      cancelRefresh: { useMutation: () => ({ mutateAsync: state.cancelRefresh }) },
       currentPeriod: {
         useQuery: () => ({
           data: state.hasPeriod
@@ -215,6 +238,10 @@ it.each(["en", "zh"] as const)(
       copy.admin.program.confirmLabel,
     );
     fireEvent.change(confirmation, { target: { value: "REFRESH" } });
+    const scheduledTime = screen.getByLabelText<HTMLInputElement>(copy.scheduledRefresh.timeLabel);
+    const scheduledConfirmation = screen.getByLabelText<HTMLInputElement>(copy.scheduledRefresh.confirmLabel);
+    fireEvent.change(scheduledTime, { target: { value: "2026-11-01T09:00" } });
+    fireEvent.change(scheduledConfirmation, { target: { value: "REFRESH" } });
 
     const region = screen.getByRole("region", {
       name: copy.admin.program.publicQr.heading,
@@ -234,6 +261,8 @@ it.each(["en", "zh"] as const)(
       expect(previews.map((input) => input.value)).toEqual(drafts);
       expect(nextOpenings.map((input) => input.value)).toEqual(nextDrafts);
       expect(confirmation.value).toBe("REFRESH");
+      expect(scheduledTime.value).toBe("2026-11-01T09:00");
+      expect(scheduledConfirmation.value).toBe("REFRESH");
     }
     fireEvent.click(
       screen.getByRole("tab", {
@@ -264,9 +293,14 @@ it.each(["en", "zh"] as const)(
         .getByLabelText(copy.nextRecruitment.opening),
     ).toBe(nextOpenings[0]);
     expect(confirmation.value).toBe("REFRESH");
+    expect(screen.getByLabelText(copy.scheduledRefresh.timeLabel)).toBe(scheduledTime);
+    expect(scheduledTime.value).toBe("2026-11-01T09:00");
+    expect(scheduledConfirmation.value).toBe("REFRESH");
     expect(state.saveRecruitment).not.toHaveBeenCalled();
     expect(state.saveNextRecruitment).not.toHaveBeenCalled();
     expect(state.refresh).not.toHaveBeenCalled();
+    expect(state.scheduleRefresh).not.toHaveBeenCalled();
+    expect(state.cancelRefresh).not.toHaveBeenCalled();
   },
 );
 

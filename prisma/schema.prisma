@@ -102,6 +102,8 @@ model User {
   emailVerifiedAt DateTime?
 
   role Role @default(TUTOR)
+  /// Database-triggered epoch invalidates deferred Head authorization even after restoration.
+  refreshAuthorityRevision Int @default(0)
 
   /// Tutee membership is independent of rank and identity; consent lives in PolicyAcceptance.
   tuteeMember Boolean @default(false)
@@ -450,6 +452,7 @@ model Term {
   meetings   TutorMeeting[]
   patrols    Patrol[]
   nextRecruitmentPreparations NextRecruitmentPreparation[]
+  scheduledRefresh ScheduledProgramRefresh?
   createdAt  DateTime       @default(now())
 
   @@unique([schoolYear, quarter])
@@ -458,6 +461,43 @@ model Term {
 enum RecruitmentAudience {
   tutor
   tutee
+}
+
+enum ScheduledRefreshState {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  BLOCKED
+  FAILED
+}
+
+/// A one-shot authorization for one exact source period. The version survives
+/// cancellation/replacement; audit retains every earlier authorization snapshot.
+model ScheduledProgramRefresh {
+  id                    String @id @default(cuid())
+  sourceTermId          String @unique
+  sourceTerm            Term @relation(fields: [sourceTermId], references: [id], onDelete: Restrict)
+  sourceSchoolYear      String
+  sourceQuarter         Quarter
+  destinationSchoolYear String
+  destinationQuarter    Quarter
+  semesterMode          Boolean
+  executeAt             DateTime
+  timeZone              String
+  state                 ScheduledRefreshState @default(SCHEDULED)
+  version               Int @default(1)
+  /// Serialized with superjson so immutable review instants retain Date types.
+  expectedPreparation   Json
+  authorizedById        String
+  authorityRevision     Int
+  authorizedByName      String?
+  attempts              Int @default(0)
+  blockedReason         String?
+  completedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @default(now()) @updatedAt
+
+  @@index([state, executeAt])
 }
 
 /// Opening-only preparation never creates a historical Term or changes current intake.

@@ -492,6 +492,7 @@ describe("survey-first enrollment", () => {
             });
             const request = api[operation]({
               ...input(),
+              expectedTermId: "survey-term",
               email: accountEmail,
               clientKey: randomUUID(),
             });
@@ -545,7 +546,7 @@ describe("survey-first enrollment", () => {
     });
     send.mockClear();
     await expect(
-      api.submitSurvey({ ...input(), clientKey: randomUUID() }),
+      api.submitSurvey({ ...input(), expectedTermId: "survey-term", clientKey: randomUUID() }),
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
