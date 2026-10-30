@@ -75,6 +75,7 @@ it("switches an open tab to the next-quarter timer at closure using server time"
   ).toBeTruthy();
   expect(screen.getByText(/2026–27 Q1 tutee signup is closed/)).toBeTruthy();
   expect(screen.getByText(/must be activated/)).toBeTruthy();
+  expect(screen.queryByText("Signups scheduled")).toBeNull();
 });
 
 it("keeps elapsed time when the next countdown mounts at closure", async () => {

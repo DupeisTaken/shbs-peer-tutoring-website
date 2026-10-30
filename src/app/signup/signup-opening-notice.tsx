@@ -127,9 +127,11 @@ export function SignupOpeningNotice({
             <path d="m9.5 15 1.7 1.7 3.5-4" />
           </svg>
         </div>
-        <p className="text-accent-700 mt-5 text-xs font-semibold tracking-[0.18em] uppercase">
-          {t("eyebrow")}
-        </p>
+        {openingKind === "current" && (
+          <p className="text-accent-700 mt-5 text-xs font-semibold tracking-[0.18em] uppercase">
+            {t("eyebrow")}
+          </p>
+        )}
         <h2
           id="signup-opening-title"
           className="mt-3 text-2xl font-bold tracking-tight text-balance text-slate-900 sm:text-3xl"
