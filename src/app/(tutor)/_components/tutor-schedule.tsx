@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
@@ -16,7 +15,8 @@ import { ScheduleMeetingDetails } from "./schedule-meeting-details";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
 
 /** The agenda shares dates, not write authority. Each private detail keeps its own
- * retained controller and opens only after a deliberate participant action. */
+ * retained controller and opens only after a deliberate participant action.
+ * Native chair links match the detail reader and restart dashboard fragment arrival. */
 export function TutorSchedule({
   active,
   interviewsEnabled,
@@ -141,12 +141,12 @@ export function TutorSchedule({
             </div>
           </div>
           {row.isHead ? (
-            <Link
+            <a
               className="link inline-flex min-h-11 items-center lg:min-h-8"
               href="/dashboard#tutor-interviews"
             >
               {t("openChair")}
-            </Link>
+            </a>
           ) : (
             <Button
               size="compact"
@@ -251,12 +251,12 @@ export function TutorSchedule({
                   <p className="muted text-sm">{timeText(row.interviewAt)}</p>
                 )}
                 {row.isHead ? (
-                  <Link
+                  <a
                     className="link inline-flex min-h-11 items-center lg:min-h-8"
                     href="/dashboard#tutor-interviews"
                   >
                     {t("openChair")}
-                  </Link>
+                  </a>
                 ) : (
                   <Button
                     size="compact"

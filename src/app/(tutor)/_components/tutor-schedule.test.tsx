@@ -8,6 +8,7 @@ import zh from "../../../../messages/zh.json";
 import { TutorSchedule } from "./tutor-schedule";
 
 const state = vi.hoisted(() => ({
+  chairTask: false,
   interviewError: null as null | { data: { code: string } },
   meetingError: null as null | { data: { code: string } },
   interviewOptions: vi.fn(),
@@ -15,6 +16,13 @@ const state = vi.hoisted(() => ({
   interviewRetry: vi.fn(),
   meetingRetry: vi.fn(),
   interviewMounted: vi.fn(),
+}));
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href} data-client-navigation>
+      {children}
+    </a>
+  ),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -48,6 +56,17 @@ vi.mock("~/trpc/react", () => ({
                   interviewAt: null,
                   isHead: false,
                 },
+                ...(state.chairTask
+                  ? [
+                      {
+                        id: "past-chair",
+                        name: "Synthetic Past Chair Applicant",
+                        reason: "pastOpen",
+                        interviewAt: new Date("2026-10-25T07:00:00Z"),
+                        isHead: true,
+                      },
+                    ]
+                  : []),
               ],
             },
             error: state.interviewError,
@@ -138,6 +157,7 @@ vi.mock("./schedule-meeting-details", () => ({
     ) : null,
 }));
 beforeEach(() => {
+  state.chairTask = false;
   state.interviewError = null;
   state.meetingError = null;
   vi.clearAllMocks();
@@ -183,6 +203,19 @@ it("opens one panelist controller and keeps chair navigation in its owning works
   );
   expect(screen.getByRole("dialog").textContent).toContain("Interview history");
   expect(screen.getAllByText(en.unifiedSchedule.endUnknown)).toHaveLength(3);
+});
+it("uses native chair return links for appointments and outstanding work", () => {
+  state.chairTask = true;
+  render(ui());
+  const links = screen.getAllByRole("link", {
+    name: en.unifiedSchedule.openChair,
+  });
+  expect(links).toHaveLength(2);
+  for (const link of links) {
+    expect(link.getAttribute("href")).toBe("/dashboard#tutor-interviews");
+    expect(link.hasAttribute("data-client-navigation")).toBe(false);
+    expect(link.getAttribute("target")).toBeNull();
+  }
 });
 it("keeps tutoring and meetings when interview access is revoked, including cached summaries", () => {
   const view = render(ui());

@@ -424,7 +424,7 @@ shared room schedule remain on the dashboard, linked from Schedule. The tutee
 workspace's **My Tutors & Schedule** remains separate.
 
 The dashboard retains the chair's **Interviews to Conduct** workspace; ordinary
-panelists use **My interview appointments** in Schedule. Chairs also find their own
+panelists use **Interview work** in Schedule. Chairs also find their own
 appointments there. The chair workspace starts expanded, with a count and **Collapse interviews** /
 **Expand interviews** controls. Scheduled open work appears earliest first (including
 overdue interviews), then unscheduled and paused work. One initially closed
@@ -619,7 +619,7 @@ Combined pairings retain their subjects in the dated lesson: shared time and eac
 
 ### Plan and reschedule a dated session
 
-**My Pairings** keeps your recurring assignments visible. **Sessions** shows the
+**My Pairings** keeps your recurring assignments visible. **My agenda** shows the
 current and next Monday–Sunday week in the school timezone; Sunday prepares the
 following window. Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept

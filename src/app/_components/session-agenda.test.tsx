@@ -243,6 +243,30 @@ it("places coordination before formal controls and opens attendance only from th
   fireEvent.click(screen.getByRole("button", { name: "Close attendance" }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+it.each(["en", "zh"] as const)(
+  "gives an unavailable empty-subject cohort a meaningful localized heading in %s",
+  (locale) => {
+    state.data!.cohorts = [
+      {
+        ...attendanceOccurrence,
+        subjects: [],
+        unavailable: true,
+        needsAttendance: false,
+        canRecordAttendance: false,
+      },
+    ];
+    show("tutor", locale);
+    const copy = locale === "en" ? en : zh;
+    expect(
+      screen.getByRole("heading", {
+        level: 3,
+        name: copy.sessionPlanning.scheduleUnavailable,
+      }),
+    ).toBeTruthy();
+    for (const heading of screen.getAllByRole("heading"))
+      expect(heading.textContent?.trim()).not.toBe("");
+  },
+);
 it("keeps the final Sunday and older incomplete attendance reachable", () => {
   state.data!.cohorts = [
     attendanceOccurrence,

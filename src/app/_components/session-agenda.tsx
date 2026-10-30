@@ -97,8 +97,9 @@ export function SessionResponseDeadline({
   );
 }
 
-function cohortLabel(cohort: AgendaCohort) {
-  return cohort.subjects.join(" + ");
+function cohortLabel(cohort: AgendaCohort, fallback: string) {
+  // Unavailable arrangements can omit subjects; every reader still needs a label.
+  return cohort.subjects.join(" + ") || fallback;
 }
 
 /** One owner keeps editors, accepted receipts and attendance drafts alive across agenda refreshes. */
@@ -510,7 +511,9 @@ export function SessionAgenda({
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-                    <h3 className="font-semibold">{cohortLabel(cohort)}</h3>
+                    <h3 className="font-semibold">
+                      {cohortLabel(cohort, t("scheduleUnavailable"))}
+                    </h3>
                     <p>
                       <time dateTime={cohort.startsAt.toISOString()}>
                         {timeText(cohort.startsAt, cohort.endsAt)}
@@ -679,8 +682,10 @@ export function SessionAgenda({
               <article key={request.id} className="card space-y-3 p-4 sm:p-5">
                 <div className="flex flex-wrap justify-between gap-2">
                   <h4 className="font-semibold">
-                    {cohort ? cohortLabel(cohort) : t("requests")} ·{" "}
-                    {t(request.scope === "ALL" ? "all" : "one")}
+                    {cohort
+                      ? cohortLabel(cohort, t("scheduleUnavailable"))
+                      : t("requests")}{" "}
+                    · {t(request.scope === "ALL" ? "all" : "one")}
                   </h4>
                   <span className="badge-slate">
                     {t(`status.${request.status}`)}
@@ -808,7 +813,8 @@ export function SessionAgenda({
                 className="card flex flex-wrap items-center justify-between gap-3 p-4"
               >
                 <p>
-                  {cohortLabel(cohort)} · {suggestion.date} ·{" "}
+                  {cohortLabel(cohort, t("scheduleUnavailable"))} ·{" "}
+                  {suggestion.date} ·{" "}
                   {String(Math.floor(suggestion.startMin / 60)).padStart(
                     2,
                     "0",
@@ -1130,7 +1136,9 @@ function SessionPlanningEditor({
           {t("refreshFailed")}
         </InlineNotice>
       )}
-      <p className="mb-4 font-medium">{cohortLabel(editor.cohort)}</p>
+      <p className="mb-4 font-medium">
+        {cohortLabel(editor.cohort, t("scheduleUnavailable"))}
+      </p>
       <p className="muted mb-4 text-sm">{t("zone", { timeZone })}</p>
       {closedDate && (
         <InlineNotice tone="warning">{t("schoolClosedProposal")}</InlineNotice>

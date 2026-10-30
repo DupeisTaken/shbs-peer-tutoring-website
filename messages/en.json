@@ -7236,7 +7236,7 @@
     "requiredSubjects": "This signup requires two distinct subjects, including subjects already on your current request."
   },
   "unifiedScheduleInterview": {
-    "title": "Interview work & history",
+    "title": "Interview Work & History",
     "chairWorkspace": "Open interview chair workspace",
     "unavailable": "This interview is no longer available to your panel assignment.",
     "emptyGroup": "No interviews in this group."
