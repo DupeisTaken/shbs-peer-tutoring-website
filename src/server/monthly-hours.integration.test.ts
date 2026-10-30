@@ -15,6 +15,7 @@ import {
   admitMonthlyHoursDelivery,
   finishMonthlyHoursDelivery,
 } from "./monthly-hours-delivery";
+import { monthlyHoursEmailCopy } from "./monthly-hours-email";
 import type {
   MonthlyHoursSchedule,
   ProgramSettings,
@@ -281,6 +282,108 @@ async function claim(id: string) {
   });
   return admitMonthlyHoursDelivery(db, id, leaseUntil, row.attemptId);
 }
+
+async function readOnlyPreview() {
+  return db.$transaction(
+    async (tx) => {
+      // A database read-only transaction fails any accidental report, outbox,
+      // audit or identity-fence write rather than merely comparing row counts.
+      await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+      return previewMonthlyHours(tx, month);
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+}
+
+async function previewWriteCounts() {
+  return Promise.all([
+    db.monthlyHoursReport.count(),
+    db.emailDelivery.count(),
+    db.auditLog.count(),
+  ]);
+}
+
+it("renders the exact read-only delivery preview with inert links and escaped names", async () => {
+  const tutorId = `${prefix}zero`;
+  const original = await db.tutor.findUniqueOrThrow({ where: { id: tutorId } });
+  await db.tutor.update({
+    where: { id: tutorId },
+    data: { englishName: "<script>Synthetic preview name</script>" },
+  });
+  try {
+    const before = await previewWriteCounts();
+    const preview = await readOnlyPreview();
+    expect(preview.email).toEqual(
+      monthlyHoursEmailCopy({
+        snapshot: {
+          schemaVersion: 1,
+          month,
+          rows: preview.rows,
+          totals: preview.totals,
+        },
+        revision: 1,
+        generatedAt: preview.generatedAt,
+        timeZone: preview.timeZone,
+        reason: null,
+        reportUrl: "#report-preview",
+        unsubscribeUrl: "#unsubscribe-preview",
+      }),
+    );
+    expect(preview.email.subject).toContain("r1");
+    expect(preview.email.html).toContain(
+      "&lt;script&gt;Synthetic preview name&lt;/script&gt;",
+    );
+    expect(preview.email.html).not.toContain("<script>");
+    expect(
+      [...preview.email.html.matchAll(/href="([^"]+)"/g)].map(
+        (match) => match[1],
+      ),
+    ).toEqual(["#report-preview", "#unsubscribe-preview"]);
+    expect(preview.email.text).toContain("#report-preview");
+    expect(preview.email.text).toContain("#unsubscribe-preview");
+    expect(`${preview.email.html}${preview.email.text}`).not.toContain(
+      "token=",
+    );
+    expect(`${preview.email.html}${preview.email.text}`).not.toContain(
+      "Never emailed synthetic private reason",
+    );
+    expect(await previewWriteCounts()).toEqual(before);
+  } finally {
+    await db.tutor.update({
+      where: { id: tutorId },
+      data: { englishName: original.englishName },
+    });
+  }
+});
+
+it("previews the next revision without changing its content hash or creating delivery evidence", async () => {
+  const first = await generate();
+  const before = await previewWriteCounts();
+  const preview = await readOnlyPreview();
+  expect(preview.latestRevision).toBe(first.revision);
+  expect(preview.email.subject).toContain("r2");
+  expect(preview.email.text).toContain("replaces r1");
+  expect(preview.email).toEqual(
+    monthlyHoursEmailCopy({
+      snapshot: {
+        schemaVersion: 1,
+        month,
+        rows: preview.rows,
+        totals: preview.totals,
+      },
+      revision: 2,
+      generatedAt: preview.generatedAt,
+      timeZone: preview.timeZone,
+      reason: null,
+      reportUrl: "#report-preview",
+      unsubscribeUrl: "#unsubscribe-preview",
+    }),
+  );
+  expect(preview.contentHash).toBe(
+    (await getMonthlyHoursReport(db, first.reportId)).contentHash,
+  );
+  expect(await previewWriteCounts()).toEqual(before);
+});
 
 it("snapshots all scoped evidence, zero-credit and inactive rows without merging duplicate names", async () => {
   const result = await generate();

@@ -155,6 +155,11 @@ const preview = () => ({
   configVersion: 1,
   latestRevision: 0,
   contentHash: "a".repeat(64),
+  email: {
+    subject: "Synthetic monthly report",
+    html: "<p>Synthetic monthly report</p>",
+    text: "Synthetic monthly report",
+  },
   rows,
   totals,
   recipients,

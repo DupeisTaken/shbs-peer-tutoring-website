@@ -7,6 +7,21 @@ Admin/Head review. Generation and retry are direct Admin/Head operations. Staff
 may inspect saved reports and download their CSV; participant and Viewer roles
 cannot read the configuration, audience or saved reports.
 
+## Preview before delivery
+
+**Program Settings → Communication → Email previews** provides a read-only
+monthly-report preview. The same preview appears in **Service Hours → Monthly
+reports**. Choose a completed month, load it, then switch between **Admin report**,
+**Email HTML** and **Plain text**. The email views use the delivery renderer and
+the same coherent rows, totals, timezone and proposed revision as the report view.
+Preview creates no report, delivery receipt or audit write and sends no email.
+
+The HTML preview is sandboxed and its report/unsubscribe links are placeholders;
+it contains no recipient-specific unsubscribe token. Generation time is indicative
+until the report is saved. Month changes require another preview, and revoked
+staff access conceals retained content. The existing version/content-hash review
+still governs **Generate report** on Service Hours.
+
 ## Accounting and immutable evidence
 
 The [shared aggregation](../../src/server/service-hours-summary.ts) reads stored
@@ -30,6 +45,12 @@ an explicit reason and creates the next revision. Preview hashes include the
 reviewed content and audience; a changed preview or configuration requires a
 fresh review. Actor-bound request IDs recover successful generation after a
 lost response without producing another report.
+
+Monthly totals are not accumulated balances. Generating, revising or retrying a
+report never adds credits to the source records. Do not sum multiple revisions of
+one month. An earlier-month correction changes that month's next preview, not a
+different month's figure. Program-period totals use their recorded school-year
+and quarter stamps; these are distinct from the UTC month buckets.
 
 ## Schedule and transaction boundaries
 

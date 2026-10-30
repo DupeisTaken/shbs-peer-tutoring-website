@@ -31,6 +31,7 @@ import {
 import { isSerializationFailure } from "~/server/auth/username-snapshot";
 import { databaseScope } from "~/server/db-scope";
 import { lockUsernameNamespace } from "~/server/auth/username-namespace";
+import { monthlyHoursEmailCopy } from "./monthly-hours-email";
 
 export const monthlyHoursCategory = "monthly_hours";
 export const monthlyHoursLock = "monthly-hours-schedule";
@@ -457,9 +458,21 @@ export async function previewMonthlyHours(db: DomainDb, month: string) {
         orderBy: { revision: "desc" },
       });
       const recipients = await monthlyHoursRecipients(tx, config);
+      const generatedAt = new Date();
+      // Preview uses the delivery renderer without creating a report, mailbox
+      // receipt or live account capability. Fragments keep its links inert.
+      const email = monthlyHoursEmailCopy({
+        snapshot,
+        revision: (latest?.revision ?? 0) + 1,
+        generatedAt,
+        timeZone: config.timeZone,
+        reason: null,
+        reportUrl: "#report-preview",
+        unsubscribeUrl: "#unsubscribe-preview",
+      });
       return {
         month,
-        generatedAt: new Date(),
+        generatedAt,
         timeZone: config.timeZone,
         configVersion: config.version,
         latestRevision: latest?.revision ?? 0,
@@ -467,6 +480,7 @@ export async function previewMonthlyHours(db: DomainDb, month: string) {
         rows: snapshot.rows,
         totals: snapshot.totals,
         recipients,
+        email,
       };
     },
     { isolationLevel: "RepeatableRead" },

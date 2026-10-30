@@ -1252,6 +1252,10 @@ The first send reports the preceding completed month; re-enabling a schedule
 does not backfill months while it was off.
 
 Preview a completed month to inspect the full report and intended destinations.
+Use **Admin report**, **Email HTML** and **Plain text** to see the report and
+staff email before generation. The same read-only preview is available under
+**Program Settings → Communication → Email previews**. Preview sends nothing;
+its report and unsubscribe links are placeholders.
 Page filters do not affect it: inactive contributors and zero/negative records
 remain included. Admin/Head can review **Generate report** to save and queue that
 snapshot, including an explicitly selected historical month. Late corrections
@@ -1259,6 +1263,10 @@ require a new revised report with a reason; previous reports remain unchanged.
 Recent reports show delivery outcomes and an authenticated report/CSV link.
 **Retry failed deliveries** uses the same report and recipient receipts. A failed
 status refresh offers a read-only refresh instead of repeating generation.
+
+Each report describes one month. Generating it does not award additional hours,
+and a revised report replaces the earlier statement for that month. Do not add
+both revisions together when reviewing totals.
 
 Recipients must retain eligible staff access, verified addresses and their
 information-email consent. The program's optional-mail and Service Hours switches

@@ -15,12 +15,15 @@ import { DisclosureSection } from "./ui/disclosure-section";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
 import {
-  MonthlyHoursSnapshot,
   MonthlyHoursStatus,
   MonthlyHoursReason,
   MonthlyHoursCounts,
   monthlyHoursStatusKey,
 } from "./monthly-hours-snapshot";
+import {
+  MonthlyHoursPreview,
+  closedMonthlyHoursMonth as closedMonth,
+} from "./monthly-hours-preview";
 
 type Settings = RouterOutputs["monthlyHours"]["settings"];
 type Config = Settings["config"];
@@ -44,24 +47,6 @@ const draftFrom = (config: Config): Draft => ({
 const deniedError = (
   error: { data?: { code?: string } | null } | null | undefined,
 ) => error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED";
-const closedMonth = (timeZone: string) => {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(now);
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  // Reporting follows stored UTC accounting buckets. Both that month and the
-  // schedule's local calendar month must be closed before it can be previewed.
-  const lastClosed =
-    Math.min(
-      year * 12 + month - 1,
-      now.getUTCFullYear() * 12 + now.getUTCMonth(),
-    ) - 1;
-  return `${Math.floor(lastClosed / 12)}-${String((lastClosed % 12) + 1).padStart(2, "0")}`;
-};
 
 export function MonthlyHoursPanel() {
   const readOnly = useReadOnly();
@@ -77,6 +62,7 @@ function MonthlyHoursSettings() {
   const [denied, setDenied] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [month, setMonth] = useState("");
+  const [monthInitialized, setMonthInitialized] = useState(false);
   const [requestedMonth, setRequestedMonth] = useState("");
   const [reason, setReason] = useState("");
   const settings = api.monthlyHours.settings.useQuery(undefined, {
@@ -84,7 +70,7 @@ function MonthlyHoursSettings() {
   });
   const preview = api.monthlyHours.preview.useQuery(
     { month: requestedMonth || month },
-    { enabled: !!requestedMonth && !denied, retry: false },
+    { enabled: !!requestedMonth && !denied, retry: false, staleTime: 0 },
   );
   const save = api.monthlyHours.save.useMutation();
   const generate = api.monthlyHours.generate.useMutation();
@@ -112,9 +98,11 @@ function MonthlyHoursSettings() {
     // Background refreshes never replace a versioned editor draft.
     if (!hidden && settings.data && !draft)
       setDraft(draftFrom(settings.data.config));
-    if (!hidden && settings.data && !month)
+    if (!hidden && settings.data && !monthInitialized) {
       setMonth(closedMonth(settings.data.config.timeZone));
-  }, [hidden, settings.data, draft, month]);
+      setMonthInitialized(true);
+    }
+  }, [hidden, settings.data, draft, monthInitialized]);
   const data = hidden ? undefined : settings.data;
   const dirty =
     !!data &&
@@ -521,17 +509,16 @@ function MonthlyHoursSettings() {
                     error={!!preview.error}
                     retrying={preview.isFetching}
                     loadingTitle={t("loading")}
-                    errorTitle={t("previewFailed")}
+                    errorTitle={t(
+                      snapshot ? "previewRefreshFailed" : "previewFailed",
+                    )}
                     retryLabel={t("retryRead")}
                     onRetry={() => void preview.refetch()}
                   />
                 )}
                 {snapshot && (
                   <div className="space-y-3">
-                    <MonthlyHoursSnapshot
-                      rows={snapshot.rows}
-                      totals={snapshot.totals}
-                    />
+                    <MonthlyHoursPreview preview={snapshot} />
                     <ul className="space-y-2 text-sm">
                       {snapshot.recipients.map((recipient) => (
                         <li
