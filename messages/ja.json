@@ -6963,5 +6963,18 @@
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
     "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+  },
+  "signupBanner": {
+    "plannedLabel": "開始予定",
+    "scheduledLabel": "開始スケジュール確定",
+    "currentLabel": "開始日時",
+    "pendingLabel": "確認待ち",
+    "currentHelp": "申し込みはまだ開始していません。開始日時に受付状況を確認します。",
+    "checking": "受付状況を確認しています。確認が完了するまでお待ちください。",
+    "plannedHelp": "申し込みを受け付けるには、次の学期区分を有効にする必要があります。",
+    "scheduledHelp": "学期区分の更新は承認され、実行予定です。受付には区分の有効化と募集の開始が必要です。",
+    "currentClosed": "{period} の学習パートナー申し込みは終了しました。",
+    "countdownLabel": "案内された開始日時までの時間",
+    "previewLink": "申込フォームをプレビュー"
   }
 }

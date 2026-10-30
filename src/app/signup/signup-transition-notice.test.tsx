@@ -70,9 +70,7 @@ it("switches an open tab to the next-quarter timer at closure using server time"
     await vi.advanceTimersByTimeAsync(2_000);
   });
   expect(screen.getByRole("timer")).toBeTruthy();
-  expect(
-    screen.getByText(/2026–27 Q2 Tutee Signup — Planned Opening/),
-  ).toBeTruthy();
+  expect(screen.getByText(/2026–27 Q2 Tutee Signup/)).toBeTruthy();
   expect(screen.getByText(/2026–27 Q1 tutee signup is closed/)).toBeTruthy();
   expect(screen.getByText(/must be activated/)).toBeTruthy();
   expect(screen.queryByText("Signups scheduled")).toBeNull();
@@ -185,3 +183,19 @@ it("suspends a cached opening promise on read failure and restores it after reco
   mounted.rerender(<View value={value} />);
   expect(screen.getByRole("timer")).toBeTruthy();
 });
+
+it.each(["unavailable", "needsReview", "awaitingSchedule"] as const)(
+  "keeps %s distinct without a stale timer or opening date",
+  (state) => {
+    const value = data();
+    value.current!.window.enabled = false;
+    if (state === "unavailable") value.next!.enabled = false;
+    if (state === "needsReview") value.next!.preparationValid = false;
+    if (state === "awaitingSchedule") value.next!.opensAt = null;
+    const mounted = render(<View value={value} />);
+    expect(screen.getByText(en.signupTransition[state])).toBeTruthy();
+    expect(screen.queryByRole("timer")).toBeNull();
+    expect(mounted.container.querySelector("time")).toBeNull();
+    expect(mounted.container.textContent?.match(/2026–27 Q1/g)).toHaveLength(1);
+  },
+);

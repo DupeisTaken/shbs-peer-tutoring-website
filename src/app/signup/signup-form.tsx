@@ -323,7 +323,10 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
         <RecruitmentNotice
           status={status}
           missing={missing}
-          window={signupView?.next ? undefined : options.data?.recruitment}
+          // The opening card already owns this date/link; retain the closing deadline below.
+          window={signupView?.next ? undefined : signupView?.state === "currentScheduled" && !options.isError && options.data?.recruitment
+            ? { ...options.data.recruitment, opensAt: null, previewUrl: null }
+            : options.data?.recruitment}
           policy={policy.data}
         />
       )}

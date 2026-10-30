@@ -321,7 +321,13 @@ The [public projection](../../src/server/program/public-signup-transition.ts) re
 allowlisted current/future intake metadata under the period barrier. Its
 [view resolver](../../src/lib/public-signup-transition.ts) selects Q1→Q2 or Q3→Q4
 after pause/closure. The live form owns the badge, countdown and read recovery;
-zero never grants eligibility. Fresh public submissions require `expectedTermId`.
+zero never grants eligibility. The announcement uses the public form's standard
+card: period heading, distinct planned/scheduled status, opening instant with its
+program timezone, a quiet grouped timer and a single eligibility explanation.
+Closed-current-period context stays inside the next-period card. The form below
+owns preview/disabled-field guidance; the timer does not repeat it. At zero the
+clock disappears while server confirmation is pending, without enabling fields.
+Fresh public submissions require `expectedTermId`.
 The intent service checks it under the period barrier after recovering an exact
 accepted receipt. The shared field remains optional for retained legacy intents.
 

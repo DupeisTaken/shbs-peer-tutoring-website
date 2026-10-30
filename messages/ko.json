@@ -6963,5 +6963,18 @@
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
     "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+  },
+  "signupBanner": {
+    "plannedLabel": "시작 예정",
+    "scheduledLabel": "시작 일정 확정",
+    "currentLabel": "시작 시간",
+    "pendingLabel": "확인 대기 중",
+    "currentHelp": "아직 신청이 시작되지 않았습니다. 시작 시간에 신청 가능 여부를 확인합니다.",
+    "checking": "신청 가능 여부를 확인하고 있습니다. 확인이 끝날 때까지 기다려 주세요.",
+    "plannedHelp": "신청을 받으려면 다음 분기를 먼저 활성화해야 합니다.",
+    "scheduledHelp": "분기 전환이 승인되어 실행 예정입니다. 신청하려면 분기가 활성화되고 모집이 열려 있어야 합니다.",
+    "currentClosed": "{period} 학습 파트너 신청이 마감되었습니다.",
+    "countdownLabel": "안내된 시작 시간까지 남은 시간",
+    "previewLink": "신청서 미리 보기"
   }
 }

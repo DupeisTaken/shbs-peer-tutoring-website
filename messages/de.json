@@ -6963,5 +6963,18 @@
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
     "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+  },
+  "signupBanner": {
+    "plannedLabel": "Geplante Öffnung",
+    "scheduledLabel": "Terminierte Öffnung",
+    "currentLabel": "Öffnungszeit",
+    "pendingLabel": "Bestätigung ausstehend",
+    "currentHelp": "Die Anmeldung ist noch geschlossen. Die Verfügbarkeit wird zur Öffnungszeit geprüft.",
+    "checking": "Anmeldestatus wird geprüft. Bitte warten Sie auf die Bestätigung.",
+    "plannedHelp": "Das nächste Quartal muss aktiviert sein, bevor Anmeldungen angenommen werden können.",
+    "scheduledHelp": "Der Quartalswechsel ist genehmigt und terminiert. Die Anmeldung erfordert weiterhin ein aktives Quartal und eine freigeschaltete Aufnahme.",
+    "currentClosed": "Die Anmeldung für Lernpartner im Zeitraum {period} ist geschlossen.",
+    "countdownLabel": "Zeit bis zur angekündigten Öffnung",
+    "previewLink": "Anmeldebogen ansehen"
   }
 }

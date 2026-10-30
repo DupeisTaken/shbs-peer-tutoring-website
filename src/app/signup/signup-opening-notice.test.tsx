@@ -2,10 +2,11 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { NextIntlClientProvider } from "next-intl";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 import { SignupOpeningNotice } from "./signup-opening-notice";
 
@@ -58,10 +59,10 @@ describe("signup opening notice", () => {
       </NextIntlClientProvider>,
     );
 
-    expect(markup).toContain("2026–27 Q3 Tutee Signups Will Open by");
+    expect(markup).toContain("2026–27 Q3 Tutee Signup");
     expect(markup).toContain('role="timer"');
     expect(markup).toContain('href="https://example.com/preview-sheet"');
-    expect(markup).toContain("You may preview the sheet");
+    expect(markup).toContain("Preview signup sheet");
     expect(markup).toContain("Days");
   });
 
@@ -97,3 +98,68 @@ describe("signup opening notice", () => {
     expect(refreshMock).toHaveBeenCalledTimes(2);
   });
 });
+
+// Heading, status and countdown carry distinct information in both supported public locales.
+it.each(["en", "zh"] as const)(
+  "keeps dates out of the heading and distinguishes opening kinds in %s",
+  (locale) => {
+    const messages = locale === "en" ? en : zh;
+    const view = (
+      kind: "current" | "planned" | "scheduled" | "pending",
+      now = "2026-08-30T00:00:00Z",
+    ) => (
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <SignupOpeningNotice
+          periodLabel="2026–27 Q4"
+          currentPeriodLabel={kind === "current" ? undefined : "2026–27 Q3"}
+          opensAt="2026-09-01T00:00:00Z"
+          previewUrl={null}
+          serverNow={now}
+          sharedNowMs={new Date(now).getTime()}
+          openingKind={kind}
+        />
+      </NextIntlClientProvider>
+    );
+    const mounted = render(view("planned"));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(
+      messages.signupTransition.nextTitle.replace("{period}", "2026–27 Q4"),
+    );
+    expect(
+      mounted.container.querySelector("time")?.getAttribute("dateTime"),
+    ).toBe("2026-09-01T00:00:00Z");
+    expect(screen.getByText(messages.signupBanner.plannedLabel)).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe(
+      messages.signupBanner.plannedHelp,
+    );
+    expect(screen.getByRole("timer").getAttribute("aria-live")).toBe("off");
+    expect(
+      screen.queryByText(messages.public.signup.gate.noPreview),
+    ).toBeNull();
+    expect(mounted.container.textContent?.match(/2026–27 Q3/g)).toHaveLength(1);
+    mounted.rerender(view("scheduled"));
+    expect(screen.getByText(messages.signupBanner.scheduledLabel)).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe(
+      messages.signupBanner.scheduledHelp,
+    );
+    expect(screen.queryByText(messages.signupBanner.plannedLabel)).toBeNull();
+    mounted.rerender(view("pending"));
+    expect(
+      screen.getAllByText(messages.signupTransition.pendingActivation),
+    ).toHaveLength(1);
+    expect(screen.getByRole("timer")).toBeTruthy();
+    mounted.rerender(view("pending", "2026-09-01T00:00:00Z"));
+    expect(screen.queryByRole("timer")).toBeNull();
+    expect(
+      screen.getAllByText(messages.signupTransition.pendingActivation),
+    ).toHaveLength(1);
+    mounted.rerender(view("current", "2026-09-01T00:00:00Z"));
+    expect(screen.getByRole("status").textContent).toBe(
+      messages.signupBanner.checking,
+    );
+    expect(screen.queryByRole("timer")).toBeNull();
+  },
+);
