@@ -120,9 +120,14 @@ it("does not refresh enrollment readers for a save without released assignments"
 });
 
 it("retains read-only recovery across a post-release agenda failure without replaying availability", async () => {
-  state.agenda.mockRejectedValueOnce(
-    new Error("Synthetic agenda refresh failure"),
-  );
+  let finishRecovery!: () => void;
+  state.agenda
+    .mockRejectedValueOnce(new Error("Synthetic agenda refresh failure"))
+    .mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishRecovery = resolve;
+      }),
+    );
   mountAndSave();
   await act(async () => state.accepted!({ released: 1 }));
   expect(screen.getByText(en.tutor.availability.refreshFailed)).toBeTruthy();
@@ -135,13 +140,27 @@ it("retains read-only recovery across a post-release agenda failure without repl
       .hasAttribute("disabled"),
   ).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
-  await waitFor(() =>
-    expect(screen.queryByText(en.tutor.availability.refreshFailed)).toBeNull(),
-  );
+  // The warning disappears when recovery starts, before its reads settle. That
+  // transition must not authorize another save or Cancel against the old cache.
+  expect(screen.queryByText(en.tutor.availability.refreshFailed)).toBeNull();
+  expect(monday.hasAttribute("disabled")).toBe(true);
+  expect(
+    screen
+      .getByRole("button", { name: en.tutor.availability.saving })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  expect(
+    screen
+      .getByRole("button", { name: en.uiPatterns.cancel })
+      .hasAttribute("disabled"),
+  ).toBe(true);
   for (const reader of readers()) expect(reader).toHaveBeenCalledTimes(2);
   expect(state.refetch).toHaveBeenCalledTimes(2);
   expect(state.save).toHaveBeenCalledTimes(1);
-  expect(monday.hasAttribute("disabled")).toBe(false);
+  await act(async () => finishRecovery());
+  await waitFor(() => expect(monday.hasAttribute("disabled")).toBe(false));
+  expect(screen.queryByText(en.tutor.availability.refreshFailed)).toBeNull();
+  expect(state.save).toHaveBeenCalledTimes(1);
 });
 
 it("waits for every affected read before exposing the saved-but-refresh-failed boundary", async () => {
