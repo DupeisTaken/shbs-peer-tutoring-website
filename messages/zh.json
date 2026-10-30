@@ -3838,7 +3838,8 @@
         "RecoveryTrackedEntity": "恢复跟踪记录",
         "RecoveryFence": "恢复并发校验",
         "RecoveryChange": "已记录的数据库变更",
-        "RecoveryReceipt": "恢复回执"
+        "RecoveryReceipt": "恢复回执",
+        "ScheduledProgramRefresh": "预约项目刷新"
       },
       "fields": {
         "absenceReason": "缺勤原因",
@@ -4119,7 +4120,14 @@
         "operation": "操作标识",
         "actorId": "操作者账户 ID",
         "evidence": "已保存的证据",
-        "actionId": "恢复编号"
+        "actionId": "恢复编号",
+        "executeAt": "预约执行时间",
+        "blockedReason": "需要重新审核的原因",
+        "completedAt": "完成时间",
+        "sourceTermId": "来源周期",
+        "sourceSchoolYear": "来源学年",
+        "destinationSchoolYear": "目标学年",
+        "semesterMode": "学期模式"
       },
       "enums": {
         "Role": {
@@ -4346,6 +4354,13 @@
           "UNKNOWN": "未知",
           "GRADUATED": "已毕业",
           "NOT_APPLICABLE": "不适用"
+        },
+        "ScheduledRefreshState": {
+          "SCHEDULED": "已预约",
+          "COMPLETED": "已完成",
+          "CANCELLED": "已取消",
+          "BLOCKED": "需要重新审核",
+          "FAILED": "执行失败"
         }
       },
       "outcomes": {
@@ -6192,12 +6207,12 @@
     },
     "scheduled_refresh_completed": {
       "title": "计划项目刷新已完成",
-      "body": "计划项目刷新已完成。请检查当前学期及报名设置。",
+      "body": "计划项目刷新已完成。请检查当前周期及报名设置。",
       "action": "查看项目设置"
     },
     "scheduled_refresh_blocked": {
       "title": "计划项目刷新需要重新审核",
-      "body": "计划项目刷新未能执行。主管须检查当前设置及授权后重新安排。",
+      "body": "计划项目刷新未能执行。负责人须检查当前设置及授权后重新安排。",
       "action": "查看刷新计划"
     }
   },
@@ -6882,7 +6897,7 @@
     "loading": "正在加载刷新预约…",
     "loadFailed": "无法加载最新刷新预约。草稿已保留，请重试读取后再修改。",
     "retry": "重试读取最新状态",
-    "readOnly": "仅 Admin 和 Head 可以管理刷新预约。预约生效前需要 Head 批准。",
+    "readOnly": "仅管理员和负责人可以管理刷新预约。预约生效前需要负责人批准。",
     "none": "当前周期尚未预约刷新。",
     "summary": "于 {time}（{zone}）进入 {target}。",
     "states": {
@@ -6893,11 +6908,11 @@
       "FAILED": "执行失败"
     },
     "catchUp": "服务器会定期检查到期预约。如果服务器曾离线，只要审核条件仍然有效，恢复运行后就会执行刷新。",
-    "staleHelp": "已审核的周期、招募准备、功能、时区或 Head 发生变化后，需要重新审核才能执行预约刷新。",
+    "staleHelp": "已审核的周期、招募准备、功能、时区或负责人发生变化后，需要重新审核才能执行预约刷新。",
     "blockedHelp": "此预约无法再按原审核执行。请重新加载并检查最新条件，然后重新预约或取消。",
     "changed": "已保存的预约或刷新条件发生了变化。草稿已保留，请主动重新加载并审核最新值。",
     "stalePreparation": "某个下一周期开放时间绑定了其他目标周期。请先处理该准备项，再预约刷新。",
-    "pendingApproval": "请求正在等待 Head 批准。批准前，原有预约保持不变。",
+    "pendingApproval": "请求正在等待负责人批准。批准前，原有预约保持不变。",
     "viewRequest": "查看审批请求",
     "timeLabel": "刷新日期和时间",
     "draftTarget": "本次审核将进入 {target}。",
@@ -6922,16 +6937,16 @@
       "SCHEDULED_REFRESH_CHANGED": "预约或审核条件发生了变化。请重新加载并审核最新值后再试。",
       "SCHEDULED_REFRESH_TIME_INVALID": "请按显示的项目时区选择未来日期和时间。夏令时重复或跳过的时间无效。",
       "SCHEDULED_REFRESH_BLOCKED": "此预约执行前需要重新审核。请重新加载最新条件后重新预约。",
-      "SCHEDULED_REFRESH_HEAD_CHANGED": "批准后 Head 已发生变更。当前 Head 需要重新审核预约。",
+      "SCHEDULED_REFRESH_HEAD_CHANGED": "批准后负责人已发生变更。当前负责人需要重新审核预约。",
       "SCHEDULED_REFRESH_REVIEW_CHANGED": "已审核的刷新条件发生了变化。请重新加载并审核新的预约。",
       "SCHEDULED_REFRESH_EXECUTION_FAILED": "多次尝试后仍未完成刷新。请检查部署，再审核新的预约或取消当前预约。",
-      "SCHEDULED_REFRESH_AFTER_OPENING": "刷新时间不得晚于已准备的学员报名开放时间；也可先修改该准备项。"
+      "SCHEDULED_REFRESH_AFTER_OPENING": "刷新时间不得晚于已准备的学习伙伴报名开放时间；也可先修改该准备项。"
     }
   },
   "signupTransition": {
-    "currentClosed": "{period} 的学员报名已关闭。下方显示下一季度的报名安排。",
-    "nextTitle": "{period} 学员报名",
-    "plannedTitle": "{period} 学员报名：计划于 {time} 开放",
+    "currentClosed": "{period} 的学习伙伴报名已关闭。下方显示下一季度的报名安排。",
+    "nextTitle": "{period} 学习伙伴报名",
+    "plannedTitle": "{period} 学习伙伴报名：计划于 {time} 开放",
     "plannedHelp": "这是计划开放时间。必须先启用下一季度，才能接受报名。",
     "scheduledHelp": "季度切换已安排。完成切换且报名开关开启后，才会接受报名。",
     "pendingActivation": "下一季度尚未启用，暂不能报名。本页会自动检查更新。",

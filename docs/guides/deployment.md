@@ -7,9 +7,12 @@ and planned peak allocations using the [storage preflight](#storage-capacity-pre
 
 ## Scheduled program refresh worker
 
-Apply `20261030120000_scheduled_program_refresh` and regenerate Prisma before
-starting this release. The migration creates durable schedules and the database
-authority revision trigger; no existing period is activated by migration.
+Apply `20261030120000_scheduled_program_refresh` and
+`20261030130000_scheduled_refresh_recovery_coverage`, then regenerate Prisma before
+starting this release. These migrations create durable schedules, the database
+authority revision trigger and recovery-journal coverage for schedule writes.
+The coverage migration conservatively journals any existing schedule related to
+a tracked admission; it does not change schedule settings or activate a period.
 
 The persistent Node server starts a sweep immediately and every 30 seconds.
 It processes up to ten due schedules serially, using database time and the shared

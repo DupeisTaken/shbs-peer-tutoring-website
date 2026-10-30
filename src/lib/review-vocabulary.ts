@@ -16,6 +16,13 @@ const prefix = "auditEventDetails.presentation";
  * rather than Prisma enums. Keep each mapping scoped to its exact entity/field;
  * an identical token in a name, explanation or unknown object remains text. */
 export const reviewStringDomains = {
+  ScheduledProgramRefresh: {
+    blockedReason: {
+      SCHEDULED_REFRESH_HEAD_CHANGED: "scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED",
+      SCHEDULED_REFRESH_REVIEW_CHANGED: "scheduledRefresh.errors.SCHEDULED_REFRESH_REVIEW_CHANGED",
+      SCHEDULED_REFRESH_EXECUTION_FAILED: "scheduledRefresh.errors.SCHEDULED_REFRESH_EXECUTION_FAILED",
+    },
+  },
   TranslationDraft: {
     state: {
       PENDING: "translationEditor.PENDING",

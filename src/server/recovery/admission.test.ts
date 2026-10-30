@@ -19,6 +19,8 @@ import {
 } from "~/server/auth/registration";
 import { stampStudentAssignment } from "~/server/student-request-state";
 import { updateAccountProfile } from "~/server/account-profile";
+import { readNextRecruitment } from "~/server/program/next-recruitment";
+import { scheduleProgramRefresh } from "~/server/program/scheduled-refresh";
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -251,6 +253,11 @@ it("preserves independent staff access, security changes and suspension after re
       twoFactorEnabled: true,
     },
   });
+  const independentEpoch = (await db.user.findUniqueOrThrow({ where: { id: user.id } })).refreshAuthorityRevision;
+  expect(independentEpoch).toBeGreaterThan(user.refreshAuthorityRevision);
+  expect(await db.recoveryChange.findFirst({ where: {
+    actionId: source.actionId, entity: "User", changedFields: { array_contains: ["refreshAuthorityRevision"] },
+  } })).not.toBeNull();
   const plan = await inspectAdmissionRecovery(db, source);
   expect(plan).toMatchObject({
     coverage: "COMPLETE",
@@ -271,7 +278,45 @@ it("preserves independent staff access, security changes and suspension after re
     twoFactorEnabled: true,
     tutorAccessRevoked: true,
     recoveryVoidedAt: null,
+    refreshAuthorityRevision: independentEpoch,
   });
+});
+
+it("requires the schedule table journal even when no schedule rows exist", async () => {
+  const source = await admission();
+  expect(await inspectAdmissionRecovery(db, source)).toMatchObject({ coverage: "COMPLETE", websiteEligible: true });
+  await db.$executeRawUnsafe('ALTER TABLE "ScheduledProgramRefresh" DISABLE TRIGGER recovery_change_journal');
+  try {
+    const plan = await inspectAdmissionRecovery(db, source);
+    expect(plan).toMatchObject({ coverage: "UNKNOWN", websiteEligible: false });
+    expect(plan.blockers.join(" ")).toContain("ScheduledProgramRefresh");
+  } finally {
+    await db.$executeRawUnsafe('ALTER TABLE "ScheduledProgramRefresh" ENABLE TRIGGER recovery_change_journal');
+  }
+});
+
+it("journals a related approved schedule as unsupported work instead of compensating past it", async () => {
+  const source = await admission({ existingStudent: true });
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: "head" }, data: { role: "ADMIN" } });
+    await tx.user.update({ where: { id: "prior-user" }, data: { role: "HEAD" } });
+  });
+  const snapshot = await readNextRecruitment(db);
+  const scheduled = await scheduleProgramRefresh(db, {
+    confirm: "REFRESH", expectedTermId: "term", expectedPreparation: snapshot.refreshEvidence,
+    expectedScheduleVersion: 0, executeAt: new Date(Date.now() + 3_600_000),
+  }, { id: "prior-user" });
+  const change = await db.recoveryChange.findFirstOrThrow({ where: {
+    actionId: source.actionId, entity: "ScheduledProgramRefresh", operation: "INSERT",
+  } });
+  expect(change.recordKey).toMatchObject({ id: scheduled.id, authorizedById: "prior-user" });
+  expect(change.after).not.toHaveProperty("expectedPreparation");
+  expect(change.after).not.toHaveProperty("authorizedByName");
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({ coverage: "UNKNOWN", websiteEligible: false });
+  await expect(applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" }))
+    .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await db.scheduledProgramRefresh.findUniqueOrThrow({ where: { id: scheduled.id } })).state).toBe("SCHEDULED");
 });
 
 it("voids admission-only credentials even after an independent password change", async () => {

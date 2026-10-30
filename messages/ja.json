@@ -3838,7 +3838,8 @@
         "RecoveryTrackedEntity": "復旧の追跡対象レコード",
         "RecoveryFence": "復旧の同時実行制御",
         "RecoveryChange": "記録されたデータベース変更",
-        "RecoveryReceipt": "復旧の完了記録"
+        "RecoveryReceipt": "復旧の完了記録",
+        "ScheduledProgramRefresh": "Scheduled program refresh"
       },
       "fields": {
         "absenceReason": "欠席理由",
@@ -4119,7 +4120,14 @@
         "operation": "操作識別子",
         "actorId": "操作者のアカウント ID",
         "evidence": "保存された証拠",
-        "actionId": "記録済み入会承認の操作 ID"
+        "actionId": "記録済み入会承認の操作 ID",
+        "executeAt": "Scheduled execution time",
+        "blockedReason": "Reason execution needs review",
+        "completedAt": "Completion time",
+        "sourceTermId": "Source period",
+        "sourceSchoolYear": "Source school year",
+        "destinationSchoolYear": "Destination school year",
+        "semesterMode": "Semester mode"
       },
       "enums": {
         "Role": {
@@ -4346,6 +4354,13 @@
           "UNKNOWN": "不明",
           "GRADUATED": "卒業済み",
           "NOT_APPLICABLE": "該当なし"
+        },
+        "ScheduledRefreshState": {
+          "SCHEDULED": "Scheduled",
+          "COMPLETED": "Completed",
+          "CANCELLED": "Cancelled",
+          "BLOCKED": "Needs renewed review",
+          "FAILED": "Execution failed"
         }
       },
       "outcomes": {
@@ -6877,7 +6892,7 @@
     "ATTEMPT": "変更の試行"
   },
   "scheduledRefresh": {
-    "title": "Schedule the next refresh",
+    "title": "Schedule the Next Refresh",
     "help": "Choose when the program advances to the next quarter or semester. Saving a schedule leaves the current period active.",
     "loading": "Loading the refresh schedule…",
     "loadFailed": "The latest refresh schedule could not be loaded. Your draft is retained; retry before making changes.",
@@ -6908,11 +6923,11 @@
     "edit": "Edit scheduled refresh",
     "reload": "Reload schedule and review",
     "checkApproval": "Check approval status",
-    "reviewTitle": "Review scheduled refresh",
+    "reviewTitle": "Review Scheduled Refresh",
     "reviewHelp": "Authorize the refresh to {target} at {time} ({zone}).",
     "save": "Save scheduled refresh",
     "saved": "Refresh scheduled. The current period remains active until execution.",
-    "cancelTitle": "Cancel scheduled refresh",
+    "cancelTitle": "Cancel Scheduled Refresh",
     "cancelHelp": "Cancel the refresh to {target} scheduled for {time} ({zone}).",
     "cancelEffect": "This removes the scheduled transition. It does not advance the period or change prepared signup opening times.",
     "cancelSchedule": "Cancel scheduled refresh",
@@ -6930,8 +6945,8 @@
   },
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
-    "nextTitle": "{period} tutee signup",
-    "plannedTitle": "{period} tutee signup — planned opening {time}",
+    "nextTitle": "{period} Tutee Signup",
+    "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
     "pendingActivation": "The next quarter is awaiting activation. Applications are not open yet; this page checks for updates automatically.",

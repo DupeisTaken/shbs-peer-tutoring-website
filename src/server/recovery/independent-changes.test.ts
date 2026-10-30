@@ -49,3 +49,28 @@ it("does not classify a fresh tutor-role decision as unrelated access", () => {
     }),
   ).toBe(true);
 });
+
+it("preserves generated scheduling epochs only with supported independent authority changes", () => {
+  for (const changedFields of [
+    ["suspendedAt", "suspendedReason", "refreshAuthorityRevision"],
+    ["role", "refreshAuthorityRevision"],
+  ])
+    expect(preservedRecoveryChange({
+      ...change, changedFields, after: { role: "COORDINATOR" },
+    })).toBe(true);
+  for (const changedFields of [
+    ["refreshAuthorityRevision"],
+    ["name", "refreshAuthorityRevision"],
+    ["mergedIntoId", "refreshAuthorityRevision"],
+    ["role", "mergedIntoId", "refreshAuthorityRevision"],
+  ])
+    expect(preservedRecoveryChange({
+      ...change, changedFields, after: { role: "COORDINATOR" },
+    })).toBe(false);
+  expect(preservedRecoveryChange({
+    ...change, changedFields: ["role", "refreshAuthorityRevision"], after: { role: "TUTOR" },
+  })).toBe(false);
+  expect(preservedRecoveryChange({
+    ...change, entity: "ScheduledProgramRefresh", changedFields: ["state", "version"],
+  })).toBe(false);
+});

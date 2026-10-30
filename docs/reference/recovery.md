@@ -40,7 +40,18 @@ an independent edit, but that does not make it a login created by this admission
 Independent password changes do not preserve a login whose only authorization was
 the voided admission. Inactive tutors continue to use zero workload under the
 existing lifecycle rule; the later preference remains in immutable history.
-Adapter revision 2 is included in the plan fingerprint, invalidating older previews.
+Adapter revision 3 is included in the plan fingerprint, invalidating older previews.
+Supported independent role/suspension edits preserve their database-generated
+`refreshAuthorityRevision` increase; recovery never restores earlier scheduling
+authority. Standalone epoch edits and merge/ownership changes remain unsupported.
+
+`ScheduledProgramRefresh` participates in the same mandatory change journal as
+other domain tables. A schedule linked to an admission's tracked account is
+recorded as later unsupported work and blocks automatic compensation. The coverage
+migration journals existing related schedules conservatively without changing
+their execution or authorization. The record inspector exposes only explicit
+period/time/status fields; private refresh evidence and approving identities are
+not selected.
 
 Recovery source rows lead with the applicant and an authored decision description.
 Chronology distinguishes preserved independent edits from changes needing review;

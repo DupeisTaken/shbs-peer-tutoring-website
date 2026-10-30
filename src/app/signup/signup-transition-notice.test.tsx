@@ -71,7 +71,7 @@ it("switches an open tab to the next-quarter timer at closure using server time"
   });
   expect(screen.getByRole("timer")).toBeTruthy();
   expect(
-    screen.getByText(/2026–27 Q2 tutee signup — planned opening/),
+    screen.getByText(/2026–27 Q2 Tutee Signup — Planned Opening/),
   ).toBeTruthy();
   expect(screen.getByText(/2026–27 Q1 tutee signup is closed/)).toBeTruthy();
   expect(screen.getByText(/must be activated/)).toBeTruthy();
@@ -157,7 +157,7 @@ it("removes a cancelled or blocked refresh promise while retaining the target la
   mounted.rerender(<View value={blocked} />);
   expect(screen.getByText(/needs review/)).toBeTruthy();
   expect(
-    screen.getByRole("heading", { name: "2026–27 Q2 tutee signup" }),
+    screen.getByRole("heading", { name: "2026–27 Q2 Tutee Signup" }),
   ).toBeTruthy();
 });
 

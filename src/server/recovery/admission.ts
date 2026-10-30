@@ -496,7 +496,7 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
       blockers.push(RECOVERY_EVIDENCE.missingRegistration);
   const accounts = admissionAccounts(g).map((user) => user.id);
   const fingerprint = recoveryHash({
-    adapterVersion: 2,
+    adapterVersion: 3,
     action: g.action,
     changes: g.changes.map((change) => ({
       ...change,
