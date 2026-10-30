@@ -745,7 +745,7 @@ it("voids admission-only credentials even after an independent password change",
   expect(voided.recoveryVoidedAt).not.toBeNull();
 });
 
-it("preserves a later learning-partner account edit without treating that login as admission access", async () => {
+it("preserves a later tutee account edit without treating that login as admission access", async () => {
   const source = await admission();
   await db.tutee.create({
     data: { id: "independent-learner", englishName: "Learner" },
