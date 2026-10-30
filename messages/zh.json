@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "恢复回执"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "公开报名邮箱确认时间",
         "signupOpeningStateSince": "报名状态生效时间",
         "signupFirstOpenedAt": "首次开放报名时间",
         "continuationSourceTermId": "续课来源学期",

@@ -75,6 +75,7 @@ const candidate = (id: string, subject: string) => ({
 });
 const initial = () => ({
   status: "eligible",
+  hasFreshRequest: false,
   serverNow,
   targetTermId: "q2",
   targetTermName: "2026–27 Q2",
@@ -317,6 +318,100 @@ it("hides an unavailable empty continuation panel when no review or attempt need
   expect(
     screen.queryByRole("button", { name: "Check request result" }),
   ).toBeNull();
+});
+
+it("hides the continuation shortcut after a confirmed ordinary request even with prior pairings", () => {
+  data.hasFreshRequest = true;
+  mount();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+});
+
+it("discards an open review when confirmed ordinary intake supersedes it", () => {
+  const view = mount();
+  reviewMath();
+  agree();
+  data = { ...data, hasFreshRequest: true, revision: "ordinary-request" };
+  view.refresh();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+  queryError = { message: "Network unavailable" };
+  view.refresh();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(mocks.join).not.toHaveBeenCalled();
+});
+
+it("keeps only read-only receipt recovery when a confirmed ordinary request arrives during Join", async () => {
+  let resolve!: (value: typeof receipt) => void;
+  mocks.join.mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  const view = mount();
+  reviewMath();
+  agree();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Join selected pairings" }),
+  );
+  data = { ...data, hasFreshRequest: true, revision: "ordinary-request" };
+  view.refresh();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(
+    screen
+      .getByRole("button", { name: "Check request result" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  await act(async () => resolve(receipt));
+  expect(screen.getByText("Your signup request has been filed.")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Review selected pairings" }),
+  ).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(mocks.join).toHaveBeenCalledTimes(1);
+});
+
+it("recovers a lost reply after ordinary confirmation without restoring the shortcut", async () => {
+  mocks.join.mockRejectedValue(new Error("Response lost"));
+  mocks.recover.mockResolvedValue(receipt);
+  const view = mount();
+  reviewMath();
+  agree();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Join selected pairings" }),
+  );
+  await screen.findByText(/The submission result could not be confirmed/);
+  data = { ...data, hasFreshRequest: true, revision: "ordinary-request" };
+  view.refresh();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Check request result" }));
+  await screen.findByText("Your signup request has been filed.");
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Review selected pairings" }),
+  ).toBeNull();
+  expect(mocks.join).toHaveBeenCalledTimes(1);
+});
+
+it("removes held recovery after a confirmed ordinary request when no receipt exists", async () => {
+  mocks.join.mockRejectedValue(new Error("Rejected"));
+  const view = mount();
+  reviewMath();
+  agree();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Join selected pairings" }),
+  );
+  await screen.findByText(/The submission result could not be confirmed/);
+  data = { ...data, hasFreshRequest: true, revision: "ordinary-request" };
+  view.refresh();
+  fireEvent.click(screen.getByRole("button", { name: "Check request result" }));
+  await waitFor(() => expect(screen.queryByRole("button")).toBeNull());
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  expect(mocks.join).toHaveBeenCalledTimes(1);
 });
 
 it("retains a rejected draft and allows a fresh attempt only after checking receipt absence", async () => {

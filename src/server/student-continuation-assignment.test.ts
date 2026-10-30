@@ -9,6 +9,7 @@ import { lockAccountProfile } from "./account-profile";
 import { lockStudentRequestReview } from "./request-invalidity";
 import { notifyRequest } from "./student-request-state";
 import { currentPolicy } from "./policy-acceptance";
+import { prepareStudentAction, resolveStudentReview } from "./student-workflow";
 import {
   attemptContinuationAssignment,
   reconcileTutorContinuations,
@@ -23,6 +24,7 @@ import {
   respondSession,
   readSessionAgenda,
   sessionAttendanceContext,
+  markSessionCohortRecorded,
 } from "./session-planning";
 
 const now = new Date("2026-10-30T00:00:00Z");
@@ -35,7 +37,7 @@ async function locked<T>(work: (tx: TransactionDb) => Promise<T>) {
     return work(tx);
   });
 }
-const join = (suffix = "one") =>
+const join = (suffix = "one", joinedAt = now) =>
   locked((tx) =>
     attemptContinuationAssignment(tx, {
       surveyId: `survey-${suffix}`,
@@ -43,7 +45,7 @@ const join = (suffix = "one") =>
       sourcePairingId: "prior-pairing",
       sourceTuteeId: `old-${suffix}`,
       targetTermId: "target",
-      now,
+      now: joinedAt,
     }),
   );
 async function removeAvailability() {
@@ -256,6 +258,329 @@ it("restores the weekly interval, shares one target pairing, and preserves origi
   expect(
     await db.pairingTutee.count({ where: { pairingId: "prior-pairing" } }),
   ).toBe(2);
+});
+
+it("gives a late learner the future weekly default after peers completed an earlier agreed move", async () => {
+  const first = await join();
+  await ensureSessionPlanningWindow(db, now);
+  const source = await db.sessionPlanCohort.findFirstOrThrow({
+    where: { date: "2026-11-02" },
+  });
+  const proposal = await proposeSession(
+    db,
+    { id: "tutor-user", tutorId: "tutor" },
+    {
+      cohortId: source.id,
+      expectedVersion: source.version,
+      clientKey: randomUUID(),
+      scope: "ALL",
+      kind: "RESCHEDULE",
+      date: "2026-10-30",
+      startMin: 900,
+      online: false,
+    },
+  );
+  const request = await db.sessionPlanningRequest.findUniqueOrThrow({
+    where: { id: proposal.id },
+  });
+  await respondSession(
+    db,
+    { id: "one-user" },
+    {
+      requestId: request.id,
+      offerId: request.currentOfferId!,
+      expectedVersion: request.version,
+      clientKey: randomUUID(),
+      decision: "ACCEPT",
+    },
+  );
+  const later = new Date("2026-10-31T00:00:00Z");
+  vi.setSystemTime(later);
+  await locked((tx) => markSessionCohortRecorded(tx, source.id));
+  const completed = await db.sessionPlanCohort.findUniqueOrThrow({
+    where: { id: source.id },
+  });
+  const peer = await db.sessionPlanParticipant.findUniqueOrThrow({
+    where: { planId_tuteeId: { planId: source.planId, tuteeId: "one" } },
+  });
+  const actual = await db.session.create({
+    data: {
+      pairingId: first.targetPairingId!,
+      tutorId: "tutor",
+      planningCohortId: completed.id,
+      date: new Date("2026-10-30T00:00:00Z"),
+      startMin: completed.startMin,
+      endMin: completed.endMin,
+      month: "2026-10",
+      schoolYear: "26-27",
+      quarter: "Q2",
+      durationMin: 45,
+      shFactor: 1,
+      shCount: 0.75,
+      tutees: { create: { tuteeId: "one" } },
+    },
+    include: { tutees: true },
+  });
+  expect(await join("two", later)).toMatchObject({ state: "ASSIGNED" });
+  await ensureSessionPlanningWindow(db, later);
+  const newcomer = await db.sessionPlanParticipant.findUniqueOrThrow({
+    where: { planId_tuteeId: { planId: source.planId, tuteeId: "two" } },
+    include: { cohort: true },
+  });
+  expect(newcomer).toMatchObject({
+    status: "SCHEDULED",
+    scheduleOverride: false,
+    cohort: { date: "2026-11-02", startMin: 900, rescheduled: false },
+  });
+  expect(newcomer.cohortId).not.toBe(completed.id);
+  expect(
+    await db.sessionPlanCohort.findUnique({ where: { id: completed.id } }),
+  ).toEqual(completed);
+  expect(
+    await db.sessionPlanParticipant.findUnique({ where: { id: peer.id } }),
+  ).toEqual(peer);
+  expect(
+    await db.session.findUnique({
+      where: { id: actual.id },
+      include: { tutees: true },
+    }),
+  ).toEqual(actual);
+  expect(
+    await db.sessionPlanningRequest.findUnique({ where: { id: request.id } }),
+  ).toMatchObject({ status: "ACCEPTED" });
+});
+
+it.each([false, true])(
+  "reuses an exact agreed return only while its cohort is live (cancelled: %s)",
+  async (cancelled) => {
+    await join();
+    await ensureSessionPlanningWindow(db, now);
+    const original = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { date: "2026-11-02" },
+    });
+    const agreementIds: string[] = [];
+    // Two real agreements return the same physical cohort to its weekly clock,
+    // retaining rescheduled=true and the original learner's explicit override.
+    for (const date of ["2026-11-03", "2026-11-02"]) {
+      const current = await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: original.id },
+      });
+      const proposal = await proposeSession(
+        db,
+        { id: "tutor-user", tutorId: "tutor" },
+        {
+          cohortId: current.id,
+          expectedVersion: current.version,
+          clientKey: randomUUID(),
+          scope: "ALL",
+          kind: "RESCHEDULE",
+          date,
+          startMin: original.startMin,
+          roomId: original.roomId ?? undefined,
+          online: original.online,
+        },
+      );
+      const request = await db.sessionPlanningRequest.findUniqueOrThrow({
+        where: { id: proposal.id },
+      });
+      await respondSession(
+        db,
+        { id: "one-user" },
+        {
+          requestId: request.id,
+          offerId: request.currentOfferId!,
+          expectedVersion: request.version,
+          clientKey: randomUUID(),
+          decision: "ACCEPT",
+        },
+      );
+      agreementIds.push(request.id);
+    }
+    if (cancelled) {
+      await db.sessionPlanParticipant.update({
+        where: { planId_tuteeId: { planId: original.planId, tuteeId: "one" } },
+        data: { status: "CANCELLED", version: { increment: 1 } },
+      });
+      await db.sessionPlanCohort.update({
+        where: { id: original.id },
+        data: { status: "CANCELLED", version: { increment: 1 } },
+      });
+    }
+    const peer = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { planId_tuteeId: { planId: original.planId, tuteeId: "one" } },
+    });
+    const returned = await db.sessionPlanCohort.findUniqueOrThrow({
+      where: { id: original.id },
+    });
+    // An earlier ordinary source may already have been retired. Its unchanged
+    // clock must not let enrollment revive that canceled physical event.
+    const tombstone = await db.sessionPlanCohort.create({
+      data: {
+        ...original,
+        id: randomUUID(),
+        status: "CANCELLED",
+        sourceInvalidated: false,
+      },
+    });
+    const agreements = await db.sessionPlanningRequest.findMany({
+      where: { id: { in: agreementIds } },
+      orderBy: { id: "asc" },
+    });
+    const assignments = await db.sessionPlanAssignment.findMany({
+      where: { planId: original.planId },
+    });
+    expect(peer.scheduleOverride).toBe(true);
+    expect(returned.rescheduled).toBe(true);
+    expect(agreements.every((request) => request.status === "ACCEPTED")).toBe(
+      true,
+    );
+
+    expect(await join("two")).toMatchObject({ state: "ASSIGNED" });
+    await ensureSessionPlanningWindow(db, now);
+    const newcomer = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { planId_tuteeId: { planId: original.planId, tuteeId: "two" } },
+      include: { cohort: true },
+    });
+    expect(newcomer).toMatchObject({
+      status: "SCHEDULED",
+      scheduleOverride: false,
+      cohort: {
+        date: original.date,
+        startMin: original.startMin,
+        roomId: original.roomId,
+        online: original.online,
+      },
+    });
+    expect(newcomer.cohortId).not.toBe(tombstone.id);
+    expect(
+      await db.sessionPlanCohort.findUnique({ where: { id: tombstone.id } }),
+    ).toEqual(tombstone);
+    if (cancelled) {
+      expect(newcomer.cohortId).not.toBe(returned.id);
+      expect(
+        await db.sessionPlanCohort.findUnique({ where: { id: returned.id } }),
+      ).toEqual(returned);
+    } else {
+      expect(newcomer.cohortId).toBe(returned.id);
+      expect(
+        await db.sessionPlanCohort.findUnique({ where: { id: returned.id } }),
+      ).toEqual({
+        ...returned,
+        version: returned.version + 1,
+        updatedAt: expect.any(Date),
+      });
+    }
+    expect(
+      await db.sessionPlanCohort.count({
+        where: { planId: original.planId, status: "SCHEDULED" },
+      }),
+    ).toBe(1);
+    expect(
+      await db.sessionPlanParticipant.findUnique({ where: { id: peer.id } }),
+    ).toEqual(peer);
+    expect(
+      await db.sessionPlanningRequest.findMany({
+        where: { id: { in: agreementIds } },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(agreements);
+    expect(
+      await db.sessionPlanAssignment.findMany({
+        where: { planId: original.planId },
+      }),
+    ).toEqual(assignments);
+  },
+);
+
+it("keeps a late learner's source reserved when an earlier ALL audience counters", async () => {
+  await join();
+  await ensureSessionPlanningWindow(db, now);
+  const source = await db.sessionPlanCohort.findFirstOrThrow({
+    where: { date: "2026-11-02" },
+  });
+  const proposal = await proposeSession(
+    db,
+    { id: "tutor-user", tutorId: "tutor" },
+    {
+      cohortId: source.id,
+      expectedVersion: source.version,
+      clientKey: randomUUID(),
+      scope: "ALL",
+      kind: "RESCHEDULE",
+      date: "2026-11-03",
+      startMin: 900,
+      online: false,
+    },
+  );
+  const request = await db.sessionPlanningRequest.findUniqueOrThrow({
+    where: { id: proposal.id },
+  });
+  expect(await join("two")).toMatchObject({ state: "ASSIGNED" });
+  const newcomer = await db.sessionPlanParticipant.findUniqueOrThrow({
+    where: { planId_tuteeId: { planId: source.planId, tuteeId: "two" } },
+  });
+  const counter = {
+    requestId: request.id,
+    offerId: request.currentOfferId!,
+    expectedVersion: request.version,
+    clientKey: randomUUID(),
+    decision: "REJECT" as const,
+    alternative: { date: "2026-11-02", startMin: 915, online: false },
+  };
+  await expect(
+    respondSession(db, { id: "one-user" }, counter),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.sessionPlanningRequest.findUnique({ where: { id: request.id } }),
+  ).toEqual(request);
+  expect(
+    await db.sessionPlanParticipant.findUnique({ where: { id: newcomer.id } }),
+  ).toEqual(newcomer);
+  expect(
+    await db.sessionPlanCohort.count({
+      where: { planId: source.planId, status: "SCHEDULED" },
+    }),
+  ).toBe(1);
+
+  // The frozen audience can still negotiate a nonoverlapping move; the new
+  // learner keeps their ordinary Monday lesson and never inherits that consent.
+  await respondSession(
+    db,
+    { id: "one-user" },
+    {
+      ...counter,
+      clientKey: randomUUID(),
+      alternative: { date: "2026-11-02", startMin: 960, online: false },
+    },
+  );
+  const changed = await db.sessionPlanningRequest.findUniqueOrThrow({
+    where: { id: request.id },
+  });
+  await respondSession(
+    db,
+    { id: "tutor-user", tutorId: "tutor" },
+    {
+      requestId: changed.id,
+      offerId: changed.currentOfferId!,
+      expectedVersion: changed.version,
+      clientKey: randomUUID(),
+      decision: "ACCEPT",
+    },
+  );
+  expect(
+    await db.sessionPlanningRequest.findUnique({ where: { id: request.id } }),
+  ).toMatchObject({ status: "ACCEPTED" });
+  expect(
+    await db.sessionPlanParticipant.findUnique({ where: { id: newcomer.id } }),
+  ).toEqual(newcomer);
+  const moved = await db.sessionPlanParticipant.findUniqueOrThrow({
+    where: { planId_tuteeId: { planId: source.planId, tuteeId: "one" } },
+    include: { cohort: true },
+  });
+  expect(moved).toMatchObject({
+    scheduleOverride: true,
+    cohort: { date: "2026-11-02", startMin: 960 },
+  });
 });
 
 it("replaces manual roster revisions without duplicating or reviving earlier continuation publications", async () => {
@@ -727,6 +1052,118 @@ it("preserves a lesson already ended before release and retains actual attendanc
       ),
     ),
   ).toMatchObject({ pairingIds: [joined.targetPairingId], tuteeIds: ["one"] });
+});
+
+it("preserves an independent inactive decision when removing the last continued assignment", async () => {
+  const joined = await join();
+  await ensureSessionPlanningWindow(db, now);
+  await db.tutee.update({ where: { id: "one" }, data: { status: "INACTIVE" } });
+  expect(await removeAvailability()).toEqual({ released: 1 });
+  expect(await db.tutee.findUnique({ where: { id: "one" } })).toMatchObject({
+    status: "INACTIVE",
+  });
+  expect(
+    await db.pairingTutee.count({
+      where: { pairingId: joined.targetPairingId!, tuteeId: "one" },
+    }),
+  ).toBe(0);
+  expect(
+    await db.studentSurvey.findUnique({ where: { id: "survey-one" } }),
+  ).toMatchObject({ state: "OPEN" });
+});
+
+it("retires continuation tracking after approved withdrawal without reactivating participation", async () => {
+  const joined = await join();
+  await ensureSessionPlanningWindow(db, now);
+  const future = await db.sessionPlanParticipant.findFirstOrThrow({
+    where: { tuteeId: "one", cohort: { startsAt: { gt: now } } },
+  });
+  const actual = await db.session.create({
+    data: {
+      pairingId: joined.targetPairingId!,
+      tutorId: "tutor",
+      date: new Date("2026-10-29T00:00:00Z"),
+      startMin: 900,
+      endMin: 945,
+      month: "2026-10",
+      schoolYear: "26-27",
+      quarter: "Q2",
+      durationMin: 45,
+      shFactor: 1,
+      shCount: 0.75,
+      tutees: { create: { tuteeId: "one" } },
+    },
+    include: { tutees: true },
+  });
+  const review = await db.studentRequestReview.create({
+    data: {
+      surveyId: "survey-one",
+      kind: "STUDENT_ABORT",
+      requestedByUserId: "one-user",
+      reason: "Synthetic withdrawal",
+    },
+  });
+  const ticket = await prepareStudentAction(db, "admin", "APPROVE", review.id);
+  vi.setSystemTime(ticket.readyAt);
+  await resolveStudentReview(db, "admin", review.id, true, ticket.id);
+  const terminal = await db.studentSurvey.findUniqueOrThrow({
+    where: { id: "survey-one" },
+  });
+  const block = await db.studentQuarterBlock.findUniqueOrThrow({
+    where: {
+      email_intakeTermId: { email: "one@example.test", intakeTermId: "target" },
+    },
+  });
+  expect(terminal.state).toBe("ABORTED");
+  expect(await db.tutee.findUnique({ where: { id: "one" } })).toMatchObject({
+    status: "INACTIVE",
+  });
+
+  expect(await reconcileStudentContinuations(db, ticket.readyAt)).toEqual({
+    released: 1,
+  });
+  expect(await reconcileStudentContinuations(db, ticket.readyAt)).toEqual({
+    released: 0,
+  });
+  expect(
+    await db.studentContinuationAssignment.findUnique({
+      where: { id: joined.assignmentId },
+    }),
+  ).toMatchObject({ status: "RELEASED", reason: "SOURCE_CHANGED" });
+  expect(await db.tutee.findUnique({ where: { id: "one" } })).toMatchObject({
+    status: "INACTIVE",
+  });
+  expect(
+    await db.studentSurvey.findUnique({ where: { id: terminal.id } }),
+  ).toEqual(terminal);
+  expect(
+    await db.studentQuarterBlock.findUnique({ where: { id: block.id } }),
+  ).toEqual(block);
+  expect(
+    await db.session.findUnique({
+      where: { id: actual.id },
+      include: { tutees: true },
+    }),
+  ).toEqual(actual);
+  expect(
+    await db.sessionPlanParticipant.findUnique({ where: { id: future.id } }),
+  ).toMatchObject({ status: "CANCELLED", calendarSuppressed: false });
+  const notices = await db.notification.findMany({
+    where: { event: "student_continuation_released" },
+  });
+  expect(notices.length).toBeGreaterThan(0);
+  expect(
+    notices.every((notice) =>
+      notice.body?.includes(
+        "Existing participation decisions remain in effect.",
+      ),
+    ),
+  ).toBe(true);
+  expect(
+    notices.some((notice) =>
+      notice.body?.includes("retained for staff review"),
+    ),
+  ).toBe(false);
 });
 
 it("catches up a raw availability change, retains actual history, and sends a pending learner's ICS tombstone", async () => {

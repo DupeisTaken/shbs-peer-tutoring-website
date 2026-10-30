@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "복구 완료 기록"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "공개 신청 이메일 확인 시각",
         "signupOpeningStateSince": "신청 상태 적용 시작",
         "signupFirstOpenedAt": "최초 신청 시작",
         "continuationSourceTermId": "계속 수강의 이전 기간",

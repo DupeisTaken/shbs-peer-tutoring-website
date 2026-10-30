@@ -86,7 +86,7 @@ const fieldPolicies: Record<string, string> = {
     "id title pinned active audienceRestricted createdById createdAt",
   AnnouncementAck: "announcementId userId ackedAt",
   StudentSurvey:
-    "id invalidatedAt invalidatedById invalidatedByName invalidityVersion email intakeTermId currentVersion submittedAt expiresAt confirmedAt state tuteeId firstAssignedAt verificationDueAt editedAt resolvedAt lastLinkSentAt",
+    "id invalidatedAt invalidatedById invalidatedByName invalidityVersion email intakeTermId currentVersion submittedAt expiresAt confirmedAt publicSignupEmailConfirmedAt state tuteeId firstAssignedAt verificationDueAt editedAt resolvedAt lastLinkSentAt",
   StudentSignupRevision:
     "id surveyId expectedVersion version actorUserId actorUserName createdAt",
   StudentSignupIntent:

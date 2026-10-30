@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "復旧の完了記録"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "公開申込メールの確認日時",
         "signupOpeningStateSince": "申込状態の適用開始日時",
         "signupFirstOpenedAt": "最初の申込開始日時",
         "continuationSourceTermId": "継続元の期間",

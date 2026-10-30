@@ -110,13 +110,28 @@ export function LegacyContinuation() {
   }, [denied, query.isSuccess, query.isFetching, query.error, conceal]);
 
   const data = query.data;
+  useEffect(() => {
+    if (!data?.hasFreshRequest) return;
+    // Mailbox-confirmed ordinary intake supersedes this shortcut. Keep a held
+    // attempt's key and accepted receipt so recovery remains read-only.
+    setReview(null);
+    setSelected([]);
+    setSignature("");
+    setAgreedRevision(null);
+  }, [data?.hasFreshRequest]);
+  const showContinuation = !data?.hasFreshRequest;
   const now =
     (serverAnchor ?? 0) + (clock.anchor === serverAnchor ? clock.elapsed : 0);
   const expired = !!data?.expiresAt && now >= data.expiresAt.getTime();
   const readBlocked = !data || !!query.error || revoked || denied;
   const status = expired ? "expired" : data?.status;
   const blocked =
-    readBlocked || busy || held || refreshFailed || status !== "eligible";
+    !showContinuation ||
+    readBlocked ||
+    busy ||
+    held ||
+    refreshFailed ||
+    status !== "eligible";
   const chosen =
     data?.candidates.filter(
       (row) =>
@@ -332,6 +347,7 @@ export function LegacyContinuation() {
       />
     );
   if (!data) return readFeedback;
+  if (!showContinuation && !receipt && !held) return null;
   if (
     status === "unavailable" &&
     !receipt &&
@@ -350,44 +366,49 @@ export function LegacyContinuation() {
   return (
     <section
       className="card space-y-4 p-4 sm:p-5"
-      aria-labelledby="legacy-continuation-title"
+      aria-labelledby={
+        showContinuation ? "legacy-continuation-title" : undefined
+      }
+      aria-label={showContinuation ? undefined : t("currentResults")}
     >
-      <div className="space-y-2">
-        <h2 id="legacy-continuation-title" className="section-title">
-          {t("title")}
-        </h2>
-        <p className="text-sm">
-          {t("help", {
-            source: data.sourceTermName ?? "",
-            target: data.targetTermName,
-          })}
-        </p>
-        {data.expiresAt && (
-          <p className="text-sm font-medium">
-            {t("deadline", {
-              time: dateFormat.format(data.expiresAt),
-              zone: data.timeZone,
+      {showContinuation && (
+        <div className="space-y-2">
+          <h2 id="legacy-continuation-title" className="section-title">
+            {t("title")}
+          </h2>
+          <p className="text-sm">
+            {t("help", {
+              source: data.sourceTermName ?? "",
+              target: data.targetTermName,
             })}
           </p>
-        )}
-        {status === "eligible" && data.expiresAt && (
-          <p className="muted text-sm">
-            {t("remaining", {
-              minutes: Math.max(
-                0,
-                Math.ceil((data.expiresAt.getTime() - now) / 60_000),
-              ),
-            })}
-          </p>
-        )}
-      </div>
+          {data.expiresAt && (
+            <p className="text-sm font-medium">
+              {t("deadline", {
+                time: dateFormat.format(data.expiresAt),
+                zone: data.timeZone,
+              })}
+            </p>
+          )}
+          {status === "eligible" && data.expiresAt && (
+            <p className="muted text-sm">
+              {t("remaining", {
+                minutes: Math.max(
+                  0,
+                  Math.ceil((data.expiresAt.getTime() - now) / 60_000),
+                ),
+              })}
+            </p>
+          )}
+        </div>
+      )}
       {readFeedback}
-      {status !== "eligible" && (
+      {showContinuation && status !== "eligible" && (
         <InlineNotice tone="warning" announcement="status">
           {t(`status.${status ?? "unavailable"}`)}
         </InlineNotice>
       )}
-      {prerequisites && (
+      {showContinuation && prerequisites && (
         <InlineNotice
           tone="warning"
           action={
@@ -402,7 +423,7 @@ export function LegacyContinuation() {
           {t("missingDetails")}
         </InlineNotice>
       )}
-      {minimumSubjects === 2 && (
+      {showContinuation && minimumSubjects === 2 && (
         <InlineNotice
           tone="info"
           action={
@@ -471,78 +492,80 @@ export function LegacyContinuation() {
           {failure ?? t("uncertain")}
         </InlineNotice>
       )}
-      <fieldset
-        disabled={blocked || prerequisites}
-        className="min-w-0 space-y-3"
-        aria-busy={busy}
-      >
-        <legend className="sr-only">{t("choose")}</legend>
-        <p className="muted text-sm">{t("subjectLimit")}</p>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {data.candidates.map((row) => {
-            const requested = row.requested;
-            return (
-              <label
-                key={row.sourcePairingId}
-                className="flex min-h-11 items-start gap-3 rounded-lg border border-slate-200 p-3"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 size-4 shrink-0"
-                  checked={selected.includes(row.sourcePairingId)}
-                  disabled={requested || !row.subjectId}
-                  aria-label={t("select", {
-                    subject: row.subject,
-                    tutor: row.tutorName,
-                  })}
-                  onChange={(event) =>
-                    setSelected((current) =>
-                      event.target.checked
-                        ? [...current, row.sourcePairingId]
-                        : current.filter((id) => id !== row.sourcePairingId),
-                    )
-                  }
-                />
-                <span className="min-w-0 text-sm">
-                  <span className="block font-semibold break-words">
-                    {row.subject} · {row.tutorName}
+      {showContinuation && (
+        <fieldset
+          disabled={blocked || prerequisites}
+          className="min-w-0 space-y-3"
+          aria-busy={busy}
+        >
+          <legend className="sr-only">{t("choose")}</legend>
+          <p className="muted text-sm">{t("subjectLimit")}</p>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {data.candidates.map((row) => {
+              const requested = row.requested;
+              return (
+                <label
+                  key={row.sourcePairingId}
+                  className="flex min-h-11 items-start gap-3 rounded-lg border border-slate-200 p-3"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 shrink-0"
+                    checked={selected.includes(row.sourcePairingId)}
+                    disabled={requested || !row.subjectId}
+                    aria-label={t("select", {
+                      subject: row.subject,
+                      tutor: row.tutorName,
+                    })}
+                    onChange={(event) =>
+                      setSelected((current) =>
+                        event.target.checked
+                          ? [...current, row.sourcePairingId]
+                          : current.filter((id) => id !== row.sourcePairingId),
+                      )
+                    }
+                  />
+                  <span className="min-w-0 text-sm">
+                    <span className="block font-semibold break-words">
+                      {row.subject} · {row.tutorName}
+                    </span>
+                    <span className="mt-1 block">{schedule(row)}</span>
+                    {requested && (
+                      <span className="mt-1 block font-medium">
+                        {t(`candidate.${row.state}`)}
+                      </span>
+                    )}
+                    {row.reason && (
+                      <span className="mt-1 block text-slate-600">
+                        {reasonText(row.reason)}
+                      </span>
+                    )}
                   </span>
-                  <span className="mt-1 block">{schedule(row)}</span>
-                  {requested && (
-                    <span className="mt-1 block font-medium">
-                      {t(`candidate.${row.state}`)}
-                    </span>
-                  )}
-                  {row.reason && (
-                    <span className="mt-1 block text-slate-600">
-                      {reasonText(row.reason)}
-                    </span>
-                  )}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        {subjectCount > 2 && (
-          <p role="alert" className="text-sm text-red-700">
-            {t("tooManySubjects")}
-          </p>
-        )}
-        <FormActions>
-          <Button
-            variant="primary"
-            disabled={!ready}
-            onClick={() => {
-              setReview({ snapshot: data, candidates: chosen });
-              setFailure(null);
-              setAgreedRevision(null);
-            }}
-          >
-            {t("review")}
-          </Button>
-        </FormActions>
-      </fieldset>
-      {review && (
+                </label>
+              );
+            })}
+          </div>
+          {subjectCount > 2 && (
+            <p role="alert" className="text-sm text-red-700">
+              {t("tooManySubjects")}
+            </p>
+          )}
+          <FormActions>
+            <Button
+              variant="primary"
+              disabled={!ready}
+              onClick={() => {
+                setReview({ snapshot: data, candidates: chosen });
+                setFailure(null);
+                setAgreedRevision(null);
+              }}
+            >
+              {t("review")}
+            </Button>
+          </FormActions>
+        </fieldset>
+      )}
+      {showContinuation && review && (
         <Modal
           title={t("reviewTitle")}
           wide

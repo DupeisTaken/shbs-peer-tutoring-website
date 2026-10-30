@@ -1294,6 +1294,7 @@ export const reviewSchema = {
       "emailCodeVersion",
       "expiresAt",
       "confirmedAt",
+      "publicSignupEmailConfirmedAt",
       "state",
       "tuteeId",
       "firstAssignedAt",
@@ -2451,6 +2452,7 @@ export const reviewEnumValues = {
   AcademicStatus: ["REPORTED", "UNKNOWN", "GRADUATED", "NOT_APPLICABLE"],
 } as const;
 export const reviewFieldKeys = [
+  "publicSignupEmailConfirmedAt",
   "signupOpeningStateSince",
   "signupFirstOpenedAt",
   "continuationSourceTermId",

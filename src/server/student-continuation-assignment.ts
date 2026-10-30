@@ -590,7 +590,8 @@ export async function lockTutorContinuationRequests(
   tutorId: string,
 ) {
   const active = await tx.term.findFirst({
-    where: { active: true }, select: { id: true },
+    where: { active: true },
+    select: { id: true },
   });
   if (!active) return;
   const assignments = await tx.studentContinuationAssignment.findMany({
@@ -623,10 +624,15 @@ export async function reconcileTutorContinuations(
   });
   let released = 0;
   for (const row of rows) {
-    const survey = await tx.studentSurvey.findUnique({
+    let survey = await tx.studentSurvey.findUnique({
       where: { id: row.surveyId },
     });
-    if (survey) await lockStudentRequestReview(tx, survey);
+    if (survey) {
+      await lockStudentRequestReview(tx, survey);
+      survey = await tx.studentSurvey.findUnique({
+        where: { id: row.surveyId },
+      });
+    }
     const snapshot = row.snapshot as unknown as Snapshot;
     const pairing = row.targetPairingId
       ? await tx.pairing.findUnique({
@@ -674,12 +680,15 @@ export async function reconcileTutorContinuations(
           },
         });
       if (
+        unchanged &&
         !(await tx.pairingTutee.count({
           where: { tuteeId: row.tuteeId, pairing: { termId: active.id } },
         }))
       )
-        await tx.tutee.update({
-          where: { id: row.tuteeId },
+        // Only our own last-link removal can requeue an active learner. A
+        // terminal withdrawal or independent inactive decision stays inactive.
+        await tx.tutee.updateMany({
+          where: { id: row.tuteeId, status: "ACTIVE" },
           data: { status: "PENDING" },
         });
     }
@@ -709,7 +718,15 @@ export async function reconcileTutorContinuations(
         : reason === "TUTOR_UNAVAILABLE"
           ? "The tutor is no longer available. / 导师目前无法继续。"
           : "The previous weekly time is no longer available. / 原每周上课时间已不可用。";
-    const body = `${snapshot.subject}: ${detail} The signup request is retained for staff review. / 报名申请已保留，等待管理人员处理。`;
+    const student = await tx.tutee.findUnique({
+      where: { id: row.tuteeId },
+      select: { status: true },
+    });
+    const nextStep =
+      survey?.state === "OPEN" && student?.status !== "INACTIVE"
+        ? "The signup request is retained for staff review. / 报名申请已保留，等待管理人员处理。"
+        : "Existing participation decisions remain in effect. / 现有参与决定保持有效。";
+    const body = `${snapshot.subject}: ${detail} ${nextStep}`;
     const event = notificationData("student_continuation_released");
     await notifyUsers(
       managers.map((person) => person.id),

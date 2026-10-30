@@ -22,14 +22,25 @@ const mocks = vi.hoisted(() => ({
   readError: null as null | { message: string; data: { code: string } },
   refetch: vi.fn(),
   settled: undefined as undefined | (() => void),
+  confirmed: undefined as undefined | (() => void),
+  resetContinuation: vi.fn().mockResolvedValue(undefined),
   period: { kind: "quarter", label: "2026–27 Q3" },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      studentWorkflow: {
+        continuationStatus: { reset: mocks.resetContinuation },
+      },
+    }),
     accountInvitation: {
       fromSurvey: {
-        useMutation: (options: { onSettled: () => void }) => {
+        useMutation: (options: {
+          onSettled: () => void;
+          onSuccess: () => void;
+        }) => {
           mocks.settled = options.onSettled;
+          mocks.confirmed = options.onSuccess;
           return {
             mutate: mocks.confirm,
             isPending: mocks.pending,
@@ -150,6 +161,13 @@ it("never automatically consumes the link and explicitly emails a distinct invit
   fireEvent.submit(container.querySelector("form")!);
   expect(mocks.confirm).toHaveBeenCalledTimes(1);
   expect(mocks.confirm).toHaveBeenCalledWith({ token: "a".repeat(64) });
+});
+it("refreshes continuation eligibility after explicit legacy mailbox confirmation", async () => {
+  const { container } = wrap(<StudentRegistration token={"a".repeat(64)} />);
+  fireEvent.submit(container.querySelector("form")!);
+  expect(mocks.resetContinuation).not.toHaveBeenCalled();
+  await act(async () => mocks.confirmed!());
+  expect(mocks.resetContinuation).toHaveBeenCalledOnce();
 });
 it("keeps the request review mounted after failure and freezes pending confirmation", () => {
   const { container, rerender } = wrap(

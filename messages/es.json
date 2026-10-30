@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "Comprobante de recuperación"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "Confirmación del correo de inscripción pública",
         "signupOpeningStateSince": "Estado de inscripción vigente desde",
         "signupFirstOpenedAt": "Primera apertura de inscripciones",
         "continuationSourceTermId": "Período de origen de la continuidad",

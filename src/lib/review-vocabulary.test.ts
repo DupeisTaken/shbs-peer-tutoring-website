@@ -63,6 +63,10 @@ it("labels continuation evidence and retained-request outcomes only on their own
     auditFieldLabelKey("SessionPlanContinuationMember", "releasedAt"),
   ).toBe("auditEventDetails.presentation.fields.releasedAt");
   expect(auditFieldLabelKey("StudentSurvey", "signupFirstOpenedAt")).toBeNull();
+  expect(auditFieldLabelKey("StudentSurvey", "publicSignupEmailConfirmedAt")).toBe(
+    "auditEventDetails.presentation.fields.publicSignupEmailConfirmedAt",
+  );
+  expect(auditFieldLabelKey("User", "publicSignupEmailConfirmedAt")).toBeNull();
   expect(
     auditEnumLabelKey("StudentContinuationAssignment", "status", "UNASSIGNED"),
   ).toBe("legacyContinuation.result.queued");

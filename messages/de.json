@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "Wiederherstellungsbeleg"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "E-Mail-Bestätigung der öffentlichen Anmeldung",
         "signupOpeningStateSince": "Anmeldestatus gültig seit",
         "signupFirstOpenedAt": "Erste Anmeldeöffnung",
         "continuationSourceTermId": "Ausgangszeitraum der Fortsetzung",

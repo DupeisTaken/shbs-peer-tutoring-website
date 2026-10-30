@@ -656,7 +656,12 @@ known or unknown provenance; CSV import cannot set or reset this operational
 evidence. Normal signup remains available according to its usual gates.
 
 Each accepted continuation selection is recorded in the destination signup
-request. Unavailable selections remain queued; valid selections can succeed
+request. Confirming the email for an ordinary new request in that destination
+quarter hides continuation and prevents a stale Join. Pending unconfirmed
+submissions do not hide it, and signed additions to a continuation-created
+request remain available. The first public mailbox-confirmation timestamp is
+retained across resends and recalls; it is distinct from account redemption.
+Unavailable selections remain queued; valid selections can succeed
 independently. Later tutor availability changes release only the affected
 continued assignments during the destination quarter, retain request priority
 and notify administrators and affected participants. Availability restoration

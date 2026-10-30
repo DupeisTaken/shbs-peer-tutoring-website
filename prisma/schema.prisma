@@ -1889,6 +1889,8 @@ model StudentSurvey {
   emailCodeVersion Int @default(0)
   expiresAt DateTime
   confirmedAt DateTime?
+  /// First ordinary public-mailbox proof; retained through resend, replacement and recall.
+  publicSignupEmailConfirmedAt DateTime?
   /// Terminal requests are immutable history. A fresh submission receives a new id and priority.
   state StudentSurveyState @default(OPEN)
   tuteeId String? @unique

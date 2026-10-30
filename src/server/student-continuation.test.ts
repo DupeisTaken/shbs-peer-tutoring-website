@@ -16,6 +16,20 @@ import {
 import { currentPolicy } from "./policy-acceptance";
 import { inTransaction } from "./transactions";
 import { lockStudentRequestReview } from "./request-invalidity";
+import {
+  surveyInput,
+  surveyEmailCode,
+  verifySurveyEmail,
+} from "./student-survey";
+import {
+  stageStudentSignupIntent,
+  verifyStudentSignupIntent,
+  resendStudentSignupIntent,
+} from "./student-signup-intents";
+import {
+  deliverAccountInvitation,
+  verifyAccountInvitation,
+} from "./auth/account-invitations";
 
 const now = new Date("2026-10-30T08:20:00Z");
 beforeEach(async () => {
@@ -215,6 +229,251 @@ async function input(pairings = ["old-math"]) {
   };
 }
 
+async function publicAnswers(email = "learner@example.test") {
+  return surveyInput.parse({
+    firstName: "Test",
+    lastName: "Learner",
+    englishName: "Test Learner",
+    email,
+    preferredContact: "In-app messages",
+    gradeLevel: "10",
+    firstChoiceId: "math",
+    secondChoiceId: "science",
+    slotIds: ["slot", "slot2"],
+    signatureName: "Test Learner",
+    agreed: true,
+    policyRevision: (await currentPolicy(db, "tutee-policy")).revision,
+  });
+}
+
+async function ordinaryRequest(email = "learner@example.test") {
+  const policy = await currentPolicy(db, "tutee-policy");
+  return db.studentSurvey.create({
+    data: {
+      email,
+      intakeTermId: "new",
+      payload: await publicAnswers(email),
+      tokenHash: "a".repeat(64),
+      emailCodeVersion: 1,
+      expiresAt: new Date(+now + 86400000),
+      policyRevision: policy.revision,
+      policySnapshot: policy.documents,
+    },
+  });
+}
+
+it("keeps an unconfirmed ordinary request visible and permits recorded continuation additions after adoption", async () => {
+  const row = await ordinaryRequest();
+  expect(await continuationStatus(db, "owner")).toMatchObject({
+    status: "eligible",
+    hasFreshRequest: false,
+  });
+  const first = await joinContinuation(db, "owner", await input());
+  expect(first.requestId).toBe(row.id);
+  expect(await continuationStatus(db, "owner")).toMatchObject({
+    status: "eligible",
+    hasFreshRequest: false,
+  });
+  const addition = await joinContinuation(
+    db,
+    "owner",
+    await input(["old-science"]),
+  );
+  expect(addition.requestId).toBe(row.id);
+  expect(addition.version).toBe(2);
+});
+
+it("suppresses on legacy mailbox proof before account review, preserves that event through recall, and refuses stale joins", async () => {
+  const row = await ordinaryRequest();
+  const posted = await input();
+  await expect(verifySurveyEmail(db, row.email, "WRONG")).rejects.toMatchObject(
+    { code: "BAD_REQUEST" },
+  );
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(false);
+  await verifySurveyEmail(db, row.email, surveyEmailCode(row.tokenHash));
+  const verified = await db.studentSurvey.findUniqueOrThrow({
+    where: { id: row.id },
+  });
+  expect(verified.confirmedAt).toBeNull();
+  expect(verified.publicSignupEmailConfirmedAt).toEqual(now);
+  await expect(
+    db.studentSurvey.update({
+      where: { id: row.id },
+      data: { publicSignupEmailConfirmedAt: null },
+    }),
+  ).rejects.toThrow("Public signup email confirmation cannot be reset");
+  expect(await continuationStatus(db, "owner")).toMatchObject({
+    status: "unavailable",
+    hasFreshRequest: true,
+  });
+  await expect(joinContinuation(db, "owner", posted)).rejects.toMatchObject({
+    code: "PRECONDITION_FAILED",
+  });
+  await db.studentSurvey.update({
+    where: { id: row.id },
+    data: { state: "RECALLED", resolvedAt: now },
+  });
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(true);
+  expect(await db.studentContinuationReceipt.count()).toBe(0);
+});
+
+it("suppresses a verified public replacement of a continuation request while retaining exact receipt recovery", async () => {
+  const posted = await input();
+  const first = await joinContinuation(db, "owner", posted);
+  const staged = await stageStudentSignupIntent(
+    db,
+    await publicAnswers(),
+    randomUUID(),
+  );
+  const intent = await db.studentSignupIntent.findUniqueOrThrow({
+    where: { id: staged.intentId },
+  });
+  expect(intent.surveyId).toBe(first.requestId);
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(false);
+  await verifyStudentSignupIntent(
+    db,
+    intent.id,
+    intent.email,
+    surveyEmailCode(intent.tokenHash),
+  );
+  const status = await continuationStatus(db, "owner");
+  expect(status).toMatchObject({
+    status: "unavailable",
+    hasFreshRequest: true,
+  });
+  expect(status.currentRequest?.id).toBe(first.requestId);
+  expect(
+    status.candidates.find((row) => row.sourcePairingId === "old-math")
+      ?.requested,
+  ).toBe(true);
+  await expect(
+    joinContinuation(db, "owner", await input(["old-science"])),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await joinContinuation(db, "owner", posted)).toEqual(first);
+  expect(await continuationReceipt(db, "owner", posted.clientKey)).toEqual(
+    first,
+  );
+  vi.setSystemTime(new Date(+now + 10000));
+  await resendStudentSignupIntent(db, intent.id, intent.email);
+  expect(
+    (
+      await db.studentSignupIntent.findUniqueOrThrow({
+        where: { id: intent.id },
+      })
+    ).verifiedAt,
+  ).toBeNull();
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(true);
+  expect(
+    (
+      await db.studentSurvey.findUniqueOrThrow({
+        where: { id: first.requestId },
+      })
+    ).publicSignupEmailConfirmedAt,
+  ).toEqual(now);
+});
+
+it("serializes a fresh join behind an in-flight public mailbox confirmation", async () => {
+  const row = await ordinaryRequest();
+  const posted = await input();
+  let verified!: () => void;
+  const proofRecorded = new Promise<void>((resolve) => {
+    verified = resolve;
+  });
+  let commit!: () => void;
+  const allowCommit = new Promise<void>((resolve) => {
+    commit = resolve;
+  });
+  const confirmation = db.$transaction(async (tx) => {
+    await verifySurveyEmail(tx, row.email, surveyEmailCode(row.tokenHash));
+    verified();
+    await allowCommit;
+  });
+  await proofRecorded;
+  const joined = expect(
+    joinContinuation(db, "owner", posted),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  commit();
+  await Promise.all([confirmation, joined]);
+  expect(await db.studentContinuationReceipt.count()).toBe(0);
+  expect(await db.studentContinuationAssignment.count()).toBe(0);
+});
+
+it("does not treat an emailed invitation issuance as confirmation but suppresses after its exact mailbox code", async () => {
+  const row = await ordinaryRequest();
+  const issued = await deliverAccountInvitation(db, {
+    kind: "TUTEE",
+    email: row.email,
+    sourceKey: `tutee:${row.id}:${row.tokenHash}`,
+    source: { type: "tutee", tokenHash: row.tokenHash },
+    code: "1234",
+  });
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(false);
+  await verifyAccountInvitation(db, {
+    invitationId: issued.invitationId,
+    email: row.email,
+    code: "1234",
+  });
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(true);
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+      .confirmedAt,
+  ).toBeNull();
+});
+
+it("suppresses after the legacy link's explicit displayed-receipt POST and recovers that proof without extending it", async () => {
+  const row = await ordinaryRequest();
+  const delivery = {
+    display: true,
+    kind: "TUTEE",
+    email: row.email,
+    sourceKey: `tutee:${row.id}:${row.tokenHash}`,
+    source: { type: "tutee" as const, tokenHash: row.tokenHash },
+  };
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(false);
+  const receipt = await deliverAccountInvitation(db, delivery);
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(true);
+  vi.setSystemTime(new Date(+now + 10000));
+  expect(await deliverAccountInvitation(db, delivery)).toEqual(receipt);
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+      .publicSignupEmailConfirmedAt,
+  ).toEqual(now);
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+      .confirmedAt,
+  ).toBeNull();
+});
+
+it("uses verified aliases and destination-quarter history for suppression without trusting unrelated addresses", async () => {
+  const row = await ordinaryRequest("alias@example.test");
+  await db.studentSurvey.update({
+    where: { id: row.id },
+    data: { confirmedAt: now, state: "RECALLED" },
+  });
+  await db.accountEmail.create({ data: { userId: "owner", email: row.email } });
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(false);
+  await db.accountEmail.update({
+    where: { email: row.email },
+    data: { verifiedAt: now },
+  });
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(true);
+  const policy = await currentPolicy(db, "tutee-policy");
+  await db.studentSurvey.create({
+    data: {
+      intakeTermId: "old",
+      email: "learner@example.test",
+      tokenHash: "b".repeat(64),
+      payload: await publicAnswers(),
+      policyRevision: policy.revision,
+      policySnapshot: policy.documents,
+      expiresAt: new Date(+now + 86400000),
+      confirmedAt: now,
+    },
+  });
+  await db.accountEmail.delete({ where: { email: row.email } });
+  expect((await continuationStatus(db, "owner")).hasFreshRequest).toBe(false);
+});
+
 it("takes an existing request lock before settling the term, alongside legacy request actions", async () => {
   const first = await joinContinuation(db, "owner", await input());
   const posted = await input(["old-science"]);
@@ -230,7 +489,9 @@ it("takes an existing request lock before settling the term, alongside legacy re
     locked();
     await new Promise((resolve) => setTimeout(resolve, 150));
     await tx.$queryRaw`SELECT id FROM "Term" WHERE id = ${row.intakeTermId} FOR SHARE`;
-    await tx.notification.create({ data: { userId: "owner", title: "Synthetic request notice" } });
+    await tx.notification.create({
+      data: { userId: "owner", title: "Synthetic request notice" },
+    });
   });
   await acquired;
   const [next] = await Promise.all([

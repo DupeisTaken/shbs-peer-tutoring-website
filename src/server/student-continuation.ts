@@ -141,6 +141,39 @@ async function continuationContext(
     select: { email: true },
   });
   const addresses = [user.email, ...aliases.map((x) => x.email)];
+  // A confirmed public submission closes this shortcut for the whole destination
+  // quarter, even after recall. Receipts distinguish continued/adopted requests
+  // from ordinary confirmation without trusting mutable answers or email alone.
+  const confirmedRequests = term
+    ? await tx.studentSurvey.findMany({
+        where: {
+          intakeTermId: term.id,
+          OR: [{ tuteeId: { in: owned } }, { email: { in: addresses } }],
+          AND: [
+            {
+              OR: [
+                { publicSignupEmailConfirmedAt: { not: null } },
+                { confirmedAt: { not: null } },
+              ],
+            },
+          ],
+        },
+        select: { id: true, publicSignupEmailConfirmedAt: true },
+      })
+    : [];
+  const continuationReceipts = confirmedRequests.length
+    ? await tx.studentContinuationReceipt.findMany({
+        where: { surveyId: { in: confirmedRequests.map((row) => row.id) } },
+        select: { surveyId: true },
+      })
+    : [];
+  const continuedRequestIds = new Set(
+    continuationReceipts.map((receipt) => receipt.surveyId),
+  );
+  const hasFreshRequest = confirmedRequests.some(
+    (row) =>
+      row.publicSignupEmailConfirmedAt || !continuedRequestIds.has(row.id),
+  );
   const requests = term
     ? await tx.studentSurvey.findMany({
         where: {
@@ -264,6 +297,7 @@ async function continuationContext(
   if (
     transition &&
     sources.length &&
+    !hasFreshRequest &&
     !block &&
     policy &&
     term?.signupOpeningStateSince
@@ -345,6 +379,7 @@ async function continuationContext(
     choices,
     public: {
       status,
+      hasFreshRequest,
       serverNow: now,
       targetTermId: term?.id ?? "",
       targetTermName: term ? periodLabel(term) : "",

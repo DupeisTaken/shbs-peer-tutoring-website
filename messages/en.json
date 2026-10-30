@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "Recovery receipt"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "Public signup email confirmation",
         "signupOpeningStateSince": "Signup state effective since",
         "signupFirstOpenedAt": "First signup opening",
         "continuationSourceTermId": "Continuation source period",

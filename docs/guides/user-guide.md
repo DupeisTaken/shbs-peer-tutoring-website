@@ -253,6 +253,13 @@ quarter. Missing current signup details require the normal request form first.
 Only explicitly owned prior participation is offered; a matching name or email
 does not establish ownership.
 
+If you submit a new request through the regular signup form, the continuation
+choices disappear after you confirm that request's email. An unconfirmed
+submission does not hide them. This remains true after a resend or recall;
+continue managing the standard request instead. Requests created through
+continuation can still receive recorded additions during the opening window.
+An uncertain earlier Join still offers read-only result recovery.
+
 An accepted join files a signup request even when a selected pairing cannot be
 assigned. The first accepted selection creates this quarter's request; later
 selections add to that same open request, preserving its original queue priority
@@ -268,6 +275,8 @@ and administrators and affected participants are notified. Other valid assignmen
 remain. Restoring availability does not automatically reattach a released choice;
 staff review the retained request. Previous-quarter attendance and assignments
 remain historical evidence.
+An already approved withdrawal stays withdrawn; automatic release does not
+reopen that request or reactivate an inactive profile.
 
 If submission has an uncertain result, use **Check request result** before
 submitting again. If a saved request cannot be refreshed, Retry only reloads its

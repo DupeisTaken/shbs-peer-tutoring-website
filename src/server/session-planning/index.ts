@@ -514,6 +514,7 @@ async function validateTarget(
   scope: string,
   excludeRequestId?: string,
   now = new Date(),
+  sharingSource = false,
 ) {
   let window: ReturnType<typeof plannedWindow>;
   try {
@@ -557,11 +558,20 @@ async function validateTarget(
   });
   const mayReleaseSource =
     currentRequest?.kind !== "EXTRA" &&
-    (scope === "ALL" ||
-      (sourceRoster.length > 0 &&
-        sourceRoster.every((person) =>
-          participantIds.includes(person.tuteeId),
-        )));
+    // ALL captures its request's original audience. A later continuation can
+    // leave someone at the source, so only actual roster coverage vacates it.
+    // Initial publication validates a synthetic source without participants.
+    (sourceRoster.length
+      ? sourceRoster.every((person) => participantIds.includes(person.tuteeId))
+      : scope === "ALL");
+  // Enrollment/default reconciliation can share the unchanged physical lesson
+  // without acquiring a request's authority to vacate its existing roster.
+  const mayShareSource =
+    sharingSource &&
+    source.startsAt.getTime() === window.startsAt.getTime() &&
+    source.endsAt.getTime() === window.endsAt.getTime() &&
+    source.roomId === window.roomId &&
+    source.online === window.online;
   const overlap = {
     startsAt: { lt: window.endsAt },
     endsAt: { gt: window.startsAt },
@@ -618,7 +628,7 @@ async function validateTarget(
   for (const cohort of cohorts) {
     if (
       !cohort.participants.length ||
-      (cohort.id === source.id && mayReleaseSource)
+      (cohort.id === source.id && (mayReleaseSource || mayShareSource))
     )
       continue;
     if (
@@ -648,6 +658,7 @@ async function validateTarget(
   // An original booking remains real when only part of its cohort may move.
   if (
     !mayReleaseSource &&
+    !mayShareSource &&
     source.status === "SCHEDULED" &&
     sourceRoster.length > 0 &&
     source.startsAt < window.endsAt &&
@@ -705,7 +716,7 @@ async function validateTarget(
     const own =
       plan.assignments.some((row) => row.pairingId === pairing.id) &&
       time.date === plan.originalDate;
-    if (own && mayReleaseSource) continue;
+    if (own && (mayReleaseSource || mayShareSource)) continue;
     const materialized = await tx.sessionPlanAssignment.findFirst({
       where: {
         pairingId: pairing.id,
@@ -958,6 +969,7 @@ async function reconcileOrdinaryPlans(
             protectedPeople.length && !samePhysicalWindow ? "ONE" : "ALL",
             undefined,
             now,
+            samePhysicalWindow,
           );
         } catch {
           /* Surface unavailable plans rather than double-book a dated exception. */
@@ -2613,14 +2625,11 @@ export async function syncContinuationPlanMembership(
       (person) => person.tuteeId === input.tuteeId,
     );
     if (!input.releasedAt && (existing || plan.kind !== "REGULAR")) continue;
-    // Past lessons never acquire a learner who joined after the lesson started.
-    if (
-      !input.releasedAt &&
-      !plan.cohorts.some((cohort) => cohort.startsAt > now)
-    )
-      continue;
     let original = plan.cohorts.find(
-      (cohort) => cohort.date === plan.originalDate && !cohort.rescheduled,
+      (cohort) =>
+        cohort.date === plan.originalDate &&
+        !cohort.rescheduled &&
+        cohort.status === "SCHEDULED",
     );
     const day = resolvePlanningTimetableDay(plan.originalDate, calendar);
     const suppressed =
@@ -2628,6 +2637,8 @@ export async function syncContinuationPlanMembership(
       (!day.isSchoolDay ||
         day.effectiveTimetableWeekday !== sourcePairing?.dayOfWeek);
     if (!input.releasedAt && !original && sourcePairing) {
+      // Peers may already have completed an earlier agreed move. The new
+      // learner still receives a future weekly default, never that past move.
       const window = plannedWindow(
         {
           date: plan.originalDate,
@@ -2638,6 +2649,29 @@ export async function syncContinuationPlanMembership(
         plan.timeZone,
       );
       if (window.startsAt <= now) continue;
+      // Returning to the weekly clock does not erase peers' explicit consent.
+      // Share only a live physical cohort; cancelled UIDs remain tombstones.
+      const shared = plan.cohorts.find(
+        (cohort) =>
+          cohort.status === "SCHEDULED" &&
+          cohort.startsAt.getTime() === window.startsAt.getTime() &&
+          cohort.endsAt.getTime() === window.endsAt.getTime() &&
+          cohort.roomId === window.roomId &&
+          cohort.online === window.online,
+      );
+      // Calendar suppression remains reversible source state. Prefer any live
+      // exact cohort above it; explicit cancellations never qualify here.
+      const suppressedSource = plan.cohorts.find(
+        (cohort) =>
+          cohort.date === plan.originalDate &&
+          !cohort.rescheduled &&
+          cohort.status === "CANCELLED" &&
+          cohort.sourceInvalidated &&
+          plan.participants.some(
+            (person) =>
+              person.cohortId === cohort.id && person.calendarSuppressed,
+          ),
+      );
       const candidate: Cohort = {
         id: randomUUID(),
         planId: plan.id,
@@ -2649,7 +2683,7 @@ export async function syncContinuationPlanMembership(
         createdAt: now,
         updatedAt: now,
       };
-      if (!suppressed)
+      if (!shared && !suppressedSource && !suppressed)
         await validateTarget(
           tx,
           plan,
@@ -2660,7 +2694,10 @@ export async function syncContinuationPlanMembership(
           undefined,
           now,
         );
-      original = await tx.sessionPlanCohort.create({ data: candidate });
+      original =
+        shared ??
+        suppressedSource ??
+        (await tx.sessionPlanCohort.create({ data: candidate }));
     }
     if (!input.releasedAt && (!original || original.startsAt <= now)) continue;
     if (!input.releasedAt && original && !suppressed)
@@ -2673,6 +2710,7 @@ export async function syncContinuationPlanMembership(
         "ALL",
         undefined,
         now,
+        true,
       );
     await tx.sessionPlanContinuationMember.upsert({
       where: {

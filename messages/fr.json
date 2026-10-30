@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "Reçu de récupération"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "Confirmation de l’e-mail d’inscription publique",
         "signupOpeningStateSince": "État des inscriptions en vigueur depuis",
         "signupFirstOpenedAt": "Première ouverture des inscriptions",
         "continuationSourceTermId": "Période d’origine de la poursuite",

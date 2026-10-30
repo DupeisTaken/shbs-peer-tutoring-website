@@ -1270,6 +1270,19 @@ Each selected source pairing has a `StudentContinuationAssignment` record, and
 intent. Accepted transport retries recover that result rather than adding demand
 again. Ordinary public signup and its mailbox challenge remain separate.
 
+`StudentSurvey.publicSignupEmailConfirmedAt` records the first successful
+ordinary public mailbox proof, including a verified replacement of an existing
+continuation request. OTP proof, explicit legacy-link confirmation and verified
+invitation envelopes record it under the period barrier; a bare link inspection
+or pending submission does not. It is immutable across resends and recalls.
+The continuation read exposes `hasFreshRequest` for matching current-quarter
+owned profiles or primary/verified email addresses, and admission rejects new
+Join attempts after that proof. Immutable continuation receipts distinguish
+continuation-created or adopted requests from ordinary confirmation, preserving
+signed additions. Accepted receipt replay and read-only recovery remain available.
+The UI clears continuation choices and reviews after suppression and resets its
+cached status after mailbox confirmation.
+
 [Assignment and release](../../src/server/student-continuation-assignment.ts)
 revalidate tutor eligibility, qualification, willingness, prior confirmed weekly
 time, conflicts and room/group constraints. Expected assignment failures retain
@@ -1284,6 +1297,11 @@ current dated publication. Unrelated staff roster changes create a new numbered
 publication revision, including when the roster returns to an older shape;
 later consent attaches only to the current revision and never revives an obsolete
 publication or its cancelled participants.
+Later participants retain their original future weekly window even if earlier
+participants moved their lesson to a time that has already started. Pending
+agreement audiences stay frozen; a request originally addressed to everyone
+cannot vacate a source window now occupied by a later participant. Conflict
+validation uses the actual current source roster before releasing its time.
 
 During the destination quarter, availability reconciliation releases the affected
 continuation membership and future dated participation while retaining request

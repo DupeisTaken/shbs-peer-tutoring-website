@@ -3994,6 +3994,7 @@
         "RecoveryReceipt": "Αποδεικτικό ανάκτησης"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "Επιβεβαίωση email δημόσιας εγγραφής",
         "signupOpeningStateSince": "Ισχύς κατάστασης εγγραφών από",
         "signupFirstOpenedAt": "Πρώτο άνοιγμα εγγραφών",
         "continuationSourceTermId": "Περίοδος προέλευσης συνέχισης",
