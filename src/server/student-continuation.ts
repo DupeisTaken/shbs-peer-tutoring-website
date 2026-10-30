@@ -172,7 +172,7 @@ async function continuationContext(
   );
   const hasFreshRequest = confirmedRequests.some(
     (row) =>
-      row.publicSignupEmailConfirmedAt || !continuedRequestIds.has(row.id),
+      row.publicSignupEmailConfirmedAt !== null || !continuedRequestIds.has(row.id),
   );
   const requests = term
     ? await tx.studentSurvey.findMany({

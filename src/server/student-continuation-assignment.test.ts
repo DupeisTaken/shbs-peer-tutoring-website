@@ -467,7 +467,7 @@ it.each([false, true])(
       ).toEqual({
         ...returned,
         version: returned.version + 1,
-        updatedAt: expect.any(Date),
+        updatedAt: expect.any(Date) as Date,
       });
     }
     expect(
