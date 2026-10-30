@@ -6963,5 +6963,18 @@
     "periodChanged": "此草稿开始于 {period}，当前阶段现已变更。填写内容已保留；请查看新阶段并同意其政策后再提交。",
     "reviewFailed": "无法加载最新阶段或政策。草稿已保留，请重试。",
     "unverified": "暂时无法确认报名安排，之前的公告可能已变更。请点击下方重试，确认最新开放时间。"
+  },
+  "signupBanner": {
+    "plannedLabel": "计划开放",
+    "scheduledLabel": "已安排开放",
+    "currentLabel": "开放时间",
+    "pendingLabel": "等待确认",
+    "currentHelp": "报名尚未开放。到达开放时间后，将自动确认是否可以报名。",
+    "checking": "正在确认报名状态，请稍候。",
+    "plannedHelp": "必须先启用下一季度，才能接受报名。",
+    "scheduledHelp": "季度更新已获批准并安排执行。报名仍需等待季度启用，且招募处于开放状态。",
+    "currentClosed": "{period} 的学习伙伴报名已关闭。",
+    "countdownLabel": "距离公布的开放时间",
+    "previewLink": "预览报名表"
   }
 }

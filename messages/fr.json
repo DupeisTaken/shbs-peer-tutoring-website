@@ -6963,5 +6963,18 @@
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
     "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+  },
+  "signupBanner": {
+    "plannedLabel": "Ouverture prévue",
+    "scheduledLabel": "Ouverture programmée",
+    "currentLabel": "Heure d’ouverture",
+    "pendingLabel": "Confirmation en attente",
+    "currentHelp": "Les inscriptions ne sont pas encore ouvertes. La disponibilité sera vérifiée à l’heure d’ouverture.",
+    "checking": "Vérification des inscriptions en cours. Veuillez attendre la confirmation.",
+    "plannedHelp": "Le prochain trimestre doit être activé avant que les demandes puissent être acceptées.",
+    "scheduledHelp": "Le changement de trimestre est approuvé et programmé. Les inscriptions nécessitent encore son activation et une campagne ouverte.",
+    "currentClosed": "Les inscriptions au tutorat pour {period} sont fermées.",
+    "countdownLabel": "Temps avant l’ouverture annoncée",
+    "previewLink": "Aperçu du formulaire"
   }
 }

@@ -18,6 +18,8 @@ const OPENING_REFRESH_RETRY_MS = 5_000;
 
 interface SignupOpeningNoticeProps {
   periodLabel: string;
+  /** Closed current intake is context for a next-period announcement, not a second banner. */
+  currentPeriodLabel?: string;
   opensAt: string;
   previewUrl: string | null;
   /** Server-render time keeps the first client render hydration-stable. */
@@ -35,6 +37,7 @@ interface SignupOpeningNoticeProps {
  */
 export function SignupOpeningNotice({
   periodLabel,
+  currentPeriodLabel,
   opensAt,
   previewUrl,
   serverNow,
@@ -45,6 +48,7 @@ export function SignupOpeningNotice({
 }: SignupOpeningNoticeProps) {
   const t = useTranslations("public.signup.gate");
   const transition = useTranslations("signupTransition");
+  const banner = useTranslations("signupBanner");
   const format = useFormatter();
   const locale = useLocale();
   const contextTimeZone = useTimeZone();
@@ -99,123 +103,85 @@ export function SignupOpeningNotice({
     timeZone,
   });
 
+  // Keep time and eligibility separate: reaching zero only requests fresh server evidence.
+  const status = hasReachedOpening
+    ? openingKind === "current"
+      ? banner("checking")
+      : transition("pendingActivation")
+    : openingKind === "pending"
+      ? transition("pendingActivation")
+      : banner(
+          openingKind === "current"
+            ? "currentHelp"
+            : openingKind === "planned"
+              ? "plannedHelp"
+              : "scheduledHelp",
+        );
+
   return (
-    <section
-      aria-labelledby="signup-opening-title"
-      className="border-accent-200 relative overflow-hidden rounded-2xl border bg-white px-5 py-8 shadow-[0_24px_70px_-42px_var(--accent-700)] sm:px-9 sm:py-10"
-    >
-      <div
-        aria-hidden="true"
-        className="bg-accent-100/70 absolute -top-24 -right-20 h-64 w-64 rounded-full blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute -bottom-28 -left-24 h-56 w-56 rounded-full bg-slate-100 blur-3xl"
-      />
-
-      <div className="relative mx-auto max-w-xl text-center">
-        <div className="bg-accent-600 shadow-accent-200 mx-auto flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-6 w-6"
-          >
-            <path d="M7 3v3m10-3v3M4.5 9.5h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
-            <path d="m9.5 15 1.7 1.7 3.5-4" />
-          </svg>
-        </div>
-        {openingKind === "current" && (
-          <p className="text-accent-700 mt-5 text-xs font-semibold tracking-[0.18em] uppercase">
-            {t("eyebrow")}
-          </p>
-        )}
-        <h2
-          id="signup-opening-title"
-          className="mt-3 text-2xl font-bold tracking-tight text-balance text-slate-900 sm:text-3xl"
-        >
-          {openingKind === "current"
-            ? t("periodTitle", { period: periodLabel, time: formattedOpening })
-            : transition("plannedTitle", {
-                period: periodLabel,
-                time: formattedOpening,
-              })}
+    <section aria-labelledby="signup-opening-title" className="card p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 id="signup-opening-title" className="section-title">
+          {transition("nextTitle", { period: periodLabel })}
         </h2>
-        <p className="muted mt-3 text-sm break-words">
-          {programTimeZoneLabel(timeZone, openingTime, locale)}
-        </p>
-        {openingKind !== "current" && (
-          <p className="mt-3 text-sm text-slate-700">
-            {transition(
-              openingKind === "pending"
-                ? "pendingActivation"
-                : openingKind === "planned"
-                  ? "plannedHelp"
-                  : "scheduledHelp",
-            )}
-          </p>
-        )}
+        <span className="badge-slate">
+          {banner(
+            hasReachedOpening || openingKind === "pending"
+              ? "pendingLabel"
+              : openingKind === "planned"
+                ? "plannedLabel"
+                : openingKind === "scheduled"
+                  ? "scheduledLabel"
+                  : "currentLabel",
+          )}
+        </span>
+      </div>
 
-        <div
-          className="mt-7 grid grid-cols-4 gap-2 sm:gap-3"
-          role="timer"
-          aria-label={t("countdownLabel")}
-          aria-live="off"
-        >
-          {units.map(([value, label]) => (
-            <div
-              key={label}
-              className="rounded-xl border border-slate-200/80 bg-slate-50/90 px-1 py-3 sm:py-4"
-            >
-              <span className="block font-mono text-xl font-semibold text-slate-900 tabular-nums sm:text-2xl">
-                {format.number(value, {
-                  minimumIntegerDigits: 2,
-                  useGrouping: false,
-                })}
-              </span>
-              <span className="mt-1 block text-[10px] font-semibold tracking-wider text-slate-500 uppercase sm:text-xs">
-                {label}
-              </span>
-            </div>
-          ))}
+      <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+        <div className="min-w-0">
+          <p className="text-base font-medium text-slate-900">
+            <time dateTime={opensAt}>{formattedOpening}</time>
+          </p>
+          <p className="mt-1 text-xs leading-5 break-words text-slate-600">
+            {programTimeZoneLabel(timeZone, openingTime, locale)}
+          </p>
         </div>
+        {!hasReachedOpening && (
+          <div
+            className="grid grid-cols-4 gap-4 rounded-lg bg-slate-50 px-3 py-2 text-center"
+            role="timer"
+            aria-label={banner("countdownLabel")}
+            aria-live="off"
+          >
+            {units.map(([value, label]) => (
+              <div key={label}>
+                <span className="block text-xl font-semibold text-slate-900 tabular-nums">
+                  {format.number(value, {
+                    minimumIntegerDigits: 2,
+                    useGrouping: false,
+                  })}
+                </span>
+                <span className="block text-xs text-slate-600">{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {hasReachedOpening ? (
-          <p className="text-accent-700 mt-6 text-sm font-medium">
-            {openingKind === "current"
-              ? t("opening")
-              : transition("pendingActivation")}
-          </p>
-        ) : previewUrl ? (
-          <p className="mt-6 text-sm text-slate-600">
-            {t.rich("preview", {
-              link: (chunks) => (
-                <a
-                  href={previewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="link inline-flex items-center gap-1"
-                >
-                  {chunks}
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    className="h-3.5 w-3.5"
-                  >
-                    <path d="M7 13 13.5 6.5M9 6h5v5" />
-                    <path d="M14 12.5V15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h2.5" />
-                  </svg>
-                </a>
-              ),
-            })}
-          </p>
-        ) : (
-          <p className="muted mt-6">{t("noPreview")}</p>
+      <div className="mt-4 space-y-1 border-t border-slate-100 pt-3 text-sm leading-6 text-slate-600">
+        {currentPeriodLabel && (
+          <p>{banner("currentClosed", { period: currentPeriodLabel })}</p>
+        )}
+        <p role="status">{status}</p>
+        {!hasReachedOpening && previewUrl && (
+          <a
+            href={previewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="public-form-link"
+          >
+            {banner("previewLink")}
+          </a>
         )}
       </div>
     </section>

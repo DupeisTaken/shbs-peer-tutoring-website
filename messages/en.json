@@ -6963,5 +6963,18 @@
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
     "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+  },
+  "signupBanner": {
+    "plannedLabel": "Planned opening",
+    "scheduledLabel": "Scheduled opening",
+    "currentLabel": "Opening time",
+    "pendingLabel": "Awaiting confirmation",
+    "currentHelp": "Signup is not open yet. Availability will be checked at the opening time.",
+    "checking": "Checking signup availability. Please wait for confirmation.",
+    "plannedHelp": "The next quarter must be activated before applications can be accepted.",
+    "scheduledHelp": "The quarter refresh is approved and scheduled. Signup still requires activation and enabled recruitment.",
+    "currentClosed": "{period} tutee signup is closed.",
+    "countdownLabel": "Time until the announced opening",
+    "previewLink": "Preview signup sheet"
   }
 }

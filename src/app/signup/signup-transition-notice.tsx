@@ -38,6 +38,7 @@ export function SignupTransitionNotice({
   verified?: boolean;
 }) {
   const t = useTranslations("signupTransition");
+  const banner = useTranslations("signupBanner");
   const currentText = useTranslations("public.signup");
   const view = publicSignupView(data, now);
   const anchor = new Date(data.serverNow).getTime();
@@ -82,21 +83,17 @@ export function SignupTransitionNotice({
       now < new Date(view.opensAt).getTime());
   return (
     <div className="mb-6 space-y-4">
-      {data.current && (
+      {data.current && !view.next && !timed && (
         <p>
           <span className="badge-slate">
             {currentText(data.current.kind, { period: data.current.label })}
           </span>
         </p>
       )}
-      {view.next && (
-        <p className="text-sm text-slate-700" role="status">
-          {t("currentClosed", { period: data.current?.label ?? "" })}
-        </p>
-      )}
       {timed && view.opensAt && view.label ? (
         <SignupOpeningNotice
           periodLabel={view.label}
+          currentPeriodLabel={view.next ? data.current?.label : undefined}
           opensAt={view.opensAt}
           previewUrl={view.previewUrl}
           serverNow={data.serverNow}
@@ -114,11 +111,16 @@ export function SignupTransitionNotice({
           }
         />
       ) : view.next && view.label ? (
-        <section className="card space-y-2 p-5" aria-live="polite">
+        <section className="card space-y-2 p-5 sm:p-6" aria-live="polite">
           <h2 className="section-title">
             {t("nextTitle", { period: view.label })}
           </h2>
-          <p className="text-sm text-slate-700">{t(view.state)}</p>
+          {data.current && (
+            <p className="text-sm text-slate-600">
+              {banner("currentClosed", { period: data.current.label })}
+            </p>
+          )}
+          <p className="text-sm leading-6 text-slate-700">{t(view.state)}</p>
         </section>
       ) : null}
     </div>

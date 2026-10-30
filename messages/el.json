@@ -6963,5 +6963,18 @@
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
     "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+  },
+  "signupBanner": {
+    "plannedLabel": "Προγραμματιζόμενο άνοιγμα",
+    "scheduledLabel": "Προγραμματισμένο άνοιγμα",
+    "currentLabel": "Ώρα ανοίγματος",
+    "pendingLabel": "Αναμονή επιβεβαίωσης",
+    "currentHelp": "Οι εγγραφές δεν έχουν ανοίξει ακόμη. Η διαθεσιμότητα θα ελεγχθεί την ώρα ανοίγματος.",
+    "checking": "Έλεγχος διαθεσιμότητας εγγραφών. Περιμένετε επιβεβαίωση.",
+    "plannedHelp": "Το επόμενο τρίμηνο πρέπει να ενεργοποιηθεί πριν γίνουν δεκτές αιτήσεις.",
+    "scheduledHelp": "Η αλλαγή τριμήνου έχει εγκριθεί και προγραμματιστεί. Οι εγγραφές απαιτούν ενεργοποίηση και ανοικτή περίοδο αιτήσεων.",
+    "currentClosed": "Οι εγγραφές μαθητευομένων για {period} έχουν κλείσει.",
+    "countdownLabel": "Χρόνος έως το ανακοινωμένο άνοιγμα",
+    "previewLink": "Προεπισκόπηση φόρμας εγγραφής"
   }
 }

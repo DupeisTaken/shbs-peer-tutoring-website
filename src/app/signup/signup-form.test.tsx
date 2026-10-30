@@ -861,3 +861,20 @@ it("retains the original period and draft when the explicit new-period read fail
   expect(mocks.mutate).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "reviewPeriod" })).toBeTruthy();
 });
+
+it("does not repeat the opening card's date/link while retaining the closing deadline and policy preview", () => {
+  const current = mocks.options() as OptionsMockResult;
+  const transition = transitionFixture();
+  transition.current!.window.opensAt = "2090-11-01T00:00:00Z";
+  transition.current!.window.closesAt = "2090-11-03T00:00:00Z";
+  transition.current!.window.previewUrl = "https://example.test/preview";
+  mocks.options.mockReturnValue({ ...current, data: { ...current.data, transition, recruitment: {
+    ...transition.current!.window, serverNow: transition.serverNow,
+  } } });
+  render(<SignupForm />);
+  expect(screen.queryByText(/^opens:/)).toBeNull();
+  expect(screen.queryByRole("link", {name: "sheet"})).toBeNull();
+  expect(screen.getByText(/^closes:/)).toBeTruthy();
+  expect(screen.getByText("preview")).toBeTruthy();
+  expect(screen.getByText("readOnly")).toBeTruthy();
+});
