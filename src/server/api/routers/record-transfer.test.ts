@@ -151,6 +151,45 @@ it("blocks unauthenticated exports and forged direct imports without a preview",
   expect(await db.tutor.count()).toBe(0);
 });
 
+it("never accepts or exports operational continuation opening provenance", async () => {
+  const row = {
+    id: "opening-import",
+    schoolYear: "26-27",
+    quarter: "Q2",
+    name: "Historical",
+    active: false,
+  };
+  for (const field of [
+    "signupOpeningStateSince",
+    "signupFirstOpenedAt",
+    "continuationSourceTermId",
+    "continuationQuarterTransition",
+  ]) {
+    await expect(
+      caller().recordTransfer.preview({
+        files: [
+          file("Term", [
+            {
+              ...row,
+              [field]:
+                field === "continuationQuarterTransition"
+                  ? true
+                  : "2026-11-01T00:00:00Z",
+            },
+          ]),
+        ],
+      }),
+    ).rejects.toThrow();
+  }
+  await db.term.create({ data: { ...row, quarter: "Q2" } });
+  const exported = await caller().recordTransfer.export({});
+  const termFile = exported.files.find((item) => item.name === "Term.csv");
+  expect(termFile).toBeDefined();
+  expect(termFile!.text).not.toMatch(
+    /signupOpeningStateSince|signupFirstOpenedAt|continuationSourceTermId|continuationQuarterTransition/,
+  );
+});
+
 it("preserves the User/Tutor handle namespace and scalar ownership references", async () => {
   await db.user.update({ where: { id: "ADMIN" }, data: { username: "taken" } });
   await expect(

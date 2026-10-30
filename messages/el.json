@@ -92,7 +92,7 @@
     "respondBy": "Απάντηση έως {deadline}",
     "remaining": "Απομένουν {hours} ώρες και {minutes} λεπτά",
     "checking": "Η προθεσμία έληξε · έλεγχος απόφασης διακομιστή…",
-    "saved": "Αποθηκεύτηκε. Ανανέωση στοιχείων συνάντησης…",
+    "saved": "Αποθηκεύτηκε.",
     "savedRefreshFailed": "Αποθηκεύτηκε, αλλά η ανανέωση απέτυχε. Επανάλαβε μόνο την ανανέωση, όχι την αποστολή του αιτήματος.",
     "cancel": "Ακύρωση",
     "close": "Κλείσιμο",
@@ -2392,7 +2392,7 @@
       "empty": "Δεν έχουν δημοσιευτεί ακόμη χρονοθυρίδες.",
       "save": "Αποθήκευση διαθεσιμότητας",
       "saving": "Αποθήκευση…",
-      "refreshFailed": "Η αποθήκευση έγινε δεκτή, αλλά δεν ήταν δυνατή η φόρτωση της ενημερωμένης διαθεσιμότητας. Δοκιμάστε ξανά τη φόρτωση πριν κάνετε άλλες αλλαγές.",
+      "refreshFailed": "Οι αλλαγές αποθηκεύτηκαν, αλλά ορισμένα ενημερωμένα στοιχεία δεν φορτώθηκαν. Δοκιμάστε ξανά τη φόρτωση πριν κάνετε άλλες αλλαγές.",
       "saved": "Αποθηκεύτηκε."
     },
     "interviews": {
@@ -3857,10 +3857,14 @@
     "recordedPosition": "Καταγεγραμμένη θέση {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Επιλογή συνέχισης",
+        "StudentContinuationPairing": "Σύνδεση αντιστοίχισης συνέχισης",
+        "StudentContinuationReceipt": "Απόδειξη υποβολής συνέχισης",
+        "SessionPlanContinuationMember": "Συμμετοχή σε συνεχιζόμενη συνεδρία",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
-        "SessionPlanParticipant": "Learner session commitment",
+        "SessionPlanParticipant": "Tutee session commitment",
         "SessionPlanningSuggestion": "Suggested session time",
         "SessionPlanningRequest": "Formal scheduling request",
         "SessionPlanningOffer": "Scheduling offer",
@@ -3990,6 +3994,18 @@
         "RecoveryReceipt": "Αποδεικτικό ανάκτησης"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "Επιβεβαίωση email δημόσιας εγγραφής",
+        "signupOpeningStateSince": "Ισχύς κατάστασης εγγραφών από",
+        "signupFirstOpenedAt": "Πρώτο άνοιγμα εγγραφών",
+        "continuationSourceTermId": "Περίοδος προέλευσης συνέχισης",
+        "continuationQuarterTransition": "Επιλέξιμη μετάβαση τριμήνου",
+        "sourcePairingId": "Προηγούμενη αντιστοίχιση",
+        "sourceTuteeId": "Προηγούμενο προφίλ μαθητή",
+        "targetTermId": "Περίοδος προορισμού",
+        "targetPairingId": "Αντιστοίχιση συνέχισης",
+        "assignedAt": "Χρόνος ανάθεσης",
+        "joinedAt": "Χρόνος συμμετοχής",
+        "releasedAt": "Χρόνος αποδέσμευσης",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",
@@ -4001,12 +4017,12 @@
         "rescheduled": "Rescheduled session",
         "sourceInvalidated": "Source schedule unavailable",
         "cohortId": "Dated teaching session",
-        "scheduleOverride": "Learner’s explicit schedule agreement",
+        "scheduleOverride": "Tutee’s explicit schedule agreement",
         "calendarSuppressed": "Automatically suppressed by calendar or availability",
         "actorUserId": "Acting account",
         "sourceVersion": "Source session version",
         "scope": "Scope",
-        "participantIds": "Affected learner identifiers",
+        "participantIds": "Affected tutee identifiers",
         "stage": "Negotiation stage",
         "currentOfferId": "Current scheduling offer",
         "parentRequestId": "Parent scheduling request",
@@ -5429,7 +5445,7 @@
     "requested": "Submitted for Admin review. Access has not changed.",
     "returnHelp": "This removes departure-based viewer access. Tutoring returns to pending and requires activation. Tutee enrollment and assignments must be requested again.",
     "accessHelp": "This changes viewer-portal access only. The departure record and personal history remain.",
-    "consequences": "Confirming departure stops tutoring and tutee participation. Current assignments are detached; affected learners return to the assignment queue. Past attendance and service hours are preserved.",
+    "consequences": "Confirming departure stops tutoring and tutee participation. Current assignments are detached; affected tutees return to the assignment queue. Past attendance and service hours are preserved.",
     "retained": "Separately granted crew, translator and management permissions remain unchanged and can be reviewed in Memberships.",
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
@@ -6406,7 +6422,12 @@
       "action": "Έλεγχος σχολικού προγράμματος"
     },
     "schoolCalendarScheduleNoSchool": "Χωρίς σχολείο",
-    "schoolCalendarScheduleFollows": "Πρόγραμμα {weekday}"
+    "schoolCalendarScheduleFollows": "Πρόγραμμα {weekday}",
+    "student_continuation_released": {
+      "title": "Η συνεχιζόμενη ανάθεση ακυρώθηκε",
+      "body": "Μια συνεχιζόμενη ανάθεση ακυρώθηκε λόγω αλλαγής διαθεσιμότητας. Το αίτημα εγγραφής διατηρείται για νέα ανάθεση. Ανοίξτε το αίτημα για λεπτομέρειες.",
+      "action": "Προβολή διατηρημένου αιτήματος"
+    }
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -7126,5 +7147,77 @@
     "CANCELLATION": "Αίτημα που αποσύρθηκε",
     "REVERSAL": "Ενέργεια που αναιρέθηκε",
     "ATTEMPT": "Απόπειρα αλλαγής"
+  },
+  "legacyContinuation": {
+    "title": "Συνέχιση προηγούμενων συνεργασιών",
+    "help": "Επιλέξτε τις συνεργασίες που θέλετε να συνεχίσετε από {source} σε {target}.",
+    "deadline": "Συμμετάσχετε πριν από {time} ({zone}).",
+    "remaining": "{minutes, plural, one {Απομένει # λεπτό} other {Απομένουν # λεπτά}}",
+    "loading": "Φόρτωση προηγούμενων συνεργασιών",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση των προηγούμενων συνεργασιών.",
+    "refreshReadFailed": "Δεν ήταν δυνατός ο έλεγχος των τελευταίων στοιχείων. Η επιλογή σας διατηρείται.",
+    "retry": "Νέα προσπάθεια",
+    "denied": "Δεν έχετε πλέον πρόσβαση σε αυτές τις συνεργασίες.",
+    "completeDetails": "Έλεγχος απαιτούμενων στοιχείων",
+    "missingDetails": "Ελέγξτε τα εκκρεμή στοιχεία εγγραφής πριν συνεχίσετε.",
+    "filed": "Το αίτημα εγγραφής καταχωρίστηκε.",
+    "viewRequest": "Προβολή αιτήματος",
+    "savedRefreshFailed": "Το αίτημα αποθηκεύτηκε, αλλά το τρέχον πρόγραμμα δεν φορτώθηκε. Η νέα προσπάθεια ενημερώνει μόνο την προβολή.",
+    "choose": "Επιλογή προηγούμενων συνεργασιών",
+    "subjectLimit": "Κάθε αίτημα μπορεί να περιλαμβάνει έως δύο διαφορετικά μαθήματα, μαζί με όσα έχουν ήδη ζητηθεί.",
+    "select": "Επιλογή {subject} με {tutor}",
+    "tooManySubjects": "Επιλέξτε έως δύο διαφορετικά μαθήματα, συμπεριλαμβανομένων όσων υπάρχουν στο τρέχον αίτημα.",
+    "review": "Έλεγχος επιλογών",
+    "reviewTitle": "Συνέχιση επιλεγμένων συνεργασιών",
+    "cancel": "Ακύρωση",
+    "checkRequest": "Έλεγχος αποτελέσματος",
+    "join": "Συμμετοχή στις επιλεγμένες συνεργασίες",
+    "consequence": "Καταχωρίζεται αίτημα και οι διαθέσιμες συνεργασίες συνεχίζονται στις προηγούμενες επιβεβαιωμένες εβδομαδιαίες ώρες. Οι υπόλοιπες παραμένουν σε αναμονή. Αν αλλάξει η διαθεσιμότητα, ακυρώνονται οι επηρεαζόμενες αναθέσεις και διατηρείται το αίτημα.",
+    "stale": "Τα στοιχεία άλλαξαν. Κλείστε αυτή την προβολή και ελέγξτε ξανά την επιλογή σας.",
+    "uncertain": "Το αποτέλεσμα δεν επιβεβαιώθηκε. Ελέγξτε το πριν αλλάξετε επιλογές ή υποβάλετε ξανά.",
+    "notSubmitted": "Δεν βρέθηκε αποδεκτή υποβολή. Η επιλογή σας διατηρείται· ελέγξτε τα στοιχεία και προσπαθήστε ξανά.",
+    "recoveryFailed": "Δεν ήταν δυνατός ο έλεγχος του αποτελέσματος. Η αρχική υποβολή διατηρείται. Ελέγξτε ξανά.",
+    "policyUnavailable": "Η τρέχουσα πολιτική συμμετοχής δεν είναι διαθέσιμη. Επικοινωνήστε με την ομάδα.",
+    "signature": "Ονοματεπώνυμο (υπογραφή)",
+    "status": {
+      "eligible": "Μπορείτε να συμμετάσχετε τώρα.",
+      "scheduled": "Οι εγγραφές δεν έχουν ανοίξει ακόμη.",
+      "paused": "Οι εγγραφές έχουν ανασταλεί. Η επανέναρξη δεν ανανεώνει το όριο της μίας ώρας.",
+      "expired": "Το όριο της μίας ώρας έληξε. Μπορείτε να χρησιμοποιήσετε την κανονική φόρμα.",
+      "unavailable": "Η συνέχιση δεν είναι διαθέσιμη για αυτή την περίοδο."
+    },
+    "result": {
+      "assigned": "Ανατέθηκε",
+      "queued": "Αίτημα καταχωρισμένο· αναμονή ανάθεσης",
+      "released": "Ανάθεση ακυρωμένη· αίτημα διατηρημένο"
+    },
+    "candidate": {
+      "available": "Διαθέσιμο",
+      "queued": "Το αίτημα είναι ήδη σε αναμονή",
+      "joined": "Έχετε ήδη συμμετάσχει",
+      "released": "Ακυρώθηκε· το αίτημα διατηρείται"
+    },
+    "reasons": {
+      "unavailable": "Η αυτόματη ανάθεση δεν είναι δυνατή, αλλά το αίτημα μπορεί να καταχωριστεί.",
+      "tutorUnavailable": "Ο προηγούμενος βοηθός δεν είναι τώρα διαθέσιμος.",
+      "slotUnavailable": "Η προηγούμενη ώρα δεν είναι πλέον διαθέσιμη.",
+      "subjectUnavailable": "Αυτό το μάθημα δεν προσφέρεται τώρα.",
+      "qualificationMissing": "Πρέπει να ελεγχθούν τα τρέχοντα προσόντα του βοηθού.",
+      "willingnessMissing": "Πρέπει να ελεγχθεί η πρόθεση του βοηθού να διδάξει αυτό το μάθημα.",
+      "scheduleConflict": "Η προηγούμενη ώρα συγκρούεται με το τρέχον πρόγραμμα.",
+      "roomUnavailable": "Η προηγούμενη αίθουσα δεν είναι διαθέσιμη.",
+      "missingDetails": "Ορισμένα στοιχεία εγγραφής χρειάζονται έλεγχο.",
+      "sourceChanged": "Η προηγούμενη συνεργασία άλλαξε. Ελέγξτε την ξανά.",
+      "alreadyJoined": "Αυτή η συνεργασία υπάρχει ήδη στο αίτημά σας.",
+      "released": "Η ανάθεση ακυρώθηκε· η ομάδα διατηρεί το αίτημά σας.",
+      "participationUnavailable": "Πρέπει να ελεγχθεί η τρέχουσα δυνατότητα συμμετοχής.",
+      "unconfirmedSchedule": "Η προηγούμενη συνεργασία δεν έχει επιβεβαιωμένη εβδομαδιαία ώρα.",
+      "groupUnavailable": "Η προηγούμενη ομάδα δεν μπορεί να συνεχιστεί τώρα.",
+      "pendingReview": "Πρέπει πρώτα να ολοκληρωθεί ο εκκρεμής έλεγχος συμμετοχής.",
+      "requiredFields": "Τα υποχρεωτικά στοιχεία εγγραφής χρειάζονται έλεγχο."
+    },
+    "datedDuration": "Διατηρείται η προηγούμενη εβδομαδιαία ώρα σας. Τα προγραμματισμένα μαθήματα ακολουθούν το τρέχον πρόγραμμα των 45 λεπτών· ελέγξτε το πρόγραμμά σας μετά τη συμμετοχή.",
+    "currentResults": "Τρέχοντα αποτελέσματα αντιστοίχισης",
+    "requiredSubjects": "Αυτή η εγγραφή απαιτεί δύο διαφορετικά μαθήματα, μαζί με όσα περιλαμβάνονται ήδη στην τρέχουσα αίτησή σας."
   }
 }

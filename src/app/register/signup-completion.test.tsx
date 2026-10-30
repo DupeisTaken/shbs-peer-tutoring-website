@@ -28,6 +28,7 @@ const state = vi.hoisted(() => {
     sendDisplayed: vi.fn(),
     login: vi.fn(),
     refresh: vi.fn(),
+    resetContinuation: vi.fn(),
     callbacks,
     pending: "",
     error: null as { message: string } | null,
@@ -75,6 +76,9 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils: () => ({
         accountInvitation: { inspect: { invalidate: state.refresh } },
+        studentWorkflow: {
+          continuationStatus: { reset: state.resetContinuation },
+        },
       }),
       program: {
         ...(
@@ -143,6 +147,7 @@ beforeEach(() => {
     gradeLevel: 9,
   });
   state.login.mockResolvedValue({ signedIn: true, mfaRequired: false });
+  state.resetContinuation.mockResolvedValue(undefined);
   state.refresh.mockImplementation(async () => {
     if (state.readError) throw new Error(state.readError.message);
     return { ...state.info };

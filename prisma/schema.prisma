@@ -439,6 +439,13 @@ model Term {
   /// Independent recruitment switches and optional exclusive closing times.
   signupEnabled Boolean @default(true)
   signupClosesAt DateTime?
+  /// Null means first-opening history is unknown (pre-tracking or imported term).
+  signupOpeningStateSince DateTime?
+  /// First effective active/enabled opening; closing, editing and reopening never reset it.
+  signupFirstOpenedAt DateTime?
+  /// Immutable actual-refresh provenance, never inferred from adjacent historical terms.
+  continuationSourceTermId String?
+  continuationQuarterTransition Boolean @default(false)
   tutorSignupEnabled Boolean @default(true)
   tutorSignupOpensAt DateTime?
   tutorSignupClosesAt DateTime?
@@ -1846,6 +1853,19 @@ model StudentSignup {
 /// Snapshot the exact text accepted, even if an editor later changes or deletes a document.
 /// Public surveys reserve their timestamp before the email owner confirms participation.
 /// The payload and policy evidence survive link resends and account creation delays.
+/// Exact signed-in continuation retry receipt; never authorizes another account or replays enrollment.
+model StudentContinuationReceipt {
+  userId String
+  clientKey String @db.Uuid
+  inputHash String
+  surveyId String
+  result Json
+  createdAt DateTime @default(now())
+
+  @@id([userId, clientKey])
+  @@index([surveyId])
+}
+
 model StudentSurvey {
   /// Staff-only screening metadata is separate from immutable intake and lifecycle evidence.
   invalidReason String?
@@ -1869,6 +1889,8 @@ model StudentSurvey {
   emailCodeVersion Int @default(0)
   expiresAt DateTime
   confirmedAt DateTime?
+  /// First ordinary public-mailbox proof; retained through resend, replacement and recall.
+  publicSignupEmailConfirmedAt DateTime?
   /// Terminal requests are immutable history. A fresh submission receives a new id and priority.
   state StudentSurveyState @default(OPEN)
   tuteeId String? @unique
@@ -2646,6 +2668,7 @@ model RecoveryReceipt {
 
 /// Dated planning is independent of attendance. Stable generation keys preserve exceptions on catch-up.
 model SessionPlan {
+  continuationMembers SessionPlanContinuationMember[]
   id String @id @default(cuid())
   generationKey String @unique
   tutorId String
@@ -2665,6 +2688,49 @@ model SessionPlan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([tutorId, originalDate])
+}
+
+/// One selected prior assignment is retained even when automatic assignment is unavailable.
+model StudentContinuationAssignment {
+  id String @id @default(cuid())
+  surveyId String
+  sourcePairingId String
+  sourceTuteeId String
+  targetTermId String
+  targetPairingId String?
+  tuteeId String
+  tutorId String?
+  status String @default("UNASSIGNED")
+  reason String?
+  snapshot Json
+  createdAt DateTime @default(now())
+  assignedAt DateTime?
+  releasedAt DateTime?
+  @@unique([surveyId, sourcePairingId])
+  @@index([tutorId, targetTermId, status])
+  @@index([targetPairingId, tuteeId])
+}
+
+/// A source teaching block is shared by independently consenting continuing learners.
+model StudentContinuationPairing {
+  sourcePairingId String
+  targetTermId String
+  pairingId String @unique
+  createdAt DateTime @default(now())
+  @@id([sourcePairingId, targetTermId])
+}
+
+/// Supplemental enrollment evidence never rewrites a published plan's original roster.
+model SessionPlanContinuationMember {
+  planId String
+  plan SessionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  pairingId String
+  tuteeId String
+  assignmentId String
+  joinedAt DateTime
+  releasedAt DateTime?
+  @@id([planId, pairingId, tuteeId])
+  @@index([assignmentId])
 }
 
 model SessionPlanAssignment {

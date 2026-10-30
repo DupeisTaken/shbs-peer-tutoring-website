@@ -30,6 +30,7 @@ import { findAccountPolicy, requirePolicy } from "~/server/policy-acceptance";
 
 const planInclude = {
   assignments: true,
+  continuationMembers: true,
   participants: { include: { tutee: true } },
   tutor: { include: { user: true } },
   term: true,
@@ -63,6 +64,49 @@ const ids = (value: Prisma.JsonValue): string[] =>
     : [];
 const fingerprint = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+/** Original publication remains immutable; later explicit enrollments are separate evidence. */
+function assignmentRoster(plan: Plan, assignment: Plan["assignments"][number]) {
+  return [
+    ...new Set([
+      ...ids(assignment.tuteeIds),
+      ...plan.continuationMembers
+        .filter((member) => member.pairingId === assignment.pairingId)
+        .map((member) => member.tuteeId),
+    ]),
+  ];
+}
+
+function continuationPublication(
+  plan: Pick<Plan, "generationKey" | "originalDate">,
+) {
+  const marker = `:${plan.originalDate}:continuation`;
+  const index = plan.generationKey.lastIndexOf(marker);
+  if (index < 0) return null;
+  const suffix = plan.generationKey.slice(index + marker.length);
+  if (suffix && !/^:\d+$/.test(suffix)) return null;
+  return {
+    sourceDate: plan.generationKey.slice(0, index + marker.length),
+    revision: suffix ? Number(suffix.slice(1)) : 0,
+  };
+}
+
+function latestContinuationPublications<
+  T extends Pick<Plan, "generationKey" | "originalDate">,
+>(plans: T[]) {
+  const latest = new Map<string, T>();
+  for (const plan of plans) {
+    const identity = continuationPublication(plan);
+    if (!identity) continue;
+    const previous = latest.get(identity.sourceDate);
+    if (
+      !previous ||
+      continuationPublication(previous)!.revision < identity.revision
+    )
+      latest.set(identity.sourceDate, plan);
+  }
+  return latest;
+}
 function fail(
   message: string,
   code: "CONFLICT" | "FORBIDDEN" | "BAD_REQUEST" | "NOT_FOUND" = "BAD_REQUEST",
@@ -243,6 +287,17 @@ async function sourceIsCurrent(
     return false;
   // Ended, published lessons retain their captured roster instead of using today's enrollment.
   if (!plan.term.active && allowEndedTerm) return true;
+  return assignmentSourceMatches(tx, plan);
+}
+
+/** Consent deltas preserve a publication; an unrelated roster edit starts a new
+ * publication revision. Account availability does not itself mint revisions. */
+async function assignmentSourceMatches(
+  tx: TransactionDb,
+  plan: Plan,
+  addition?: { pairingId: string; tuteeId: string },
+) {
+  const pairingIds = plan.assignments.map((row) => row.pairingId);
   const rows = await tx.pairing.findMany({
     where: { id: { in: plan.assignments.map((row) => row.pairingId) } },
     include: {
@@ -253,18 +308,43 @@ async function sourceIsCurrent(
     },
     orderBy: { id: "asc" },
   });
+  const laterContinuations = await tx.studentContinuationAssignment.findMany({
+    where: {
+      targetPairingId: { in: pairingIds },
+      status: "ASSIGNED",
+      assignedAt: { gt: plan.createdAt },
+    },
+    select: { targetPairingId: true, tuteeId: true },
+  });
   return (
     rows.length === plan.assignments.length &&
     rows.every((row) => {
       const before = plan.assignments.find(
         (item) => item.pairingId === row.id,
       )!;
+      const released = new Set(
+        plan.continuationMembers
+          .filter(
+            (member) =>
+              member.pairingId === row.id && member.releasedAt !== null,
+          )
+          .map((member) => member.tuteeId),
+      );
+      const expected = [
+        ...new Set([
+          ...assignmentRoster(plan, before).filter((id) => !released.has(id)),
+          ...laterContinuations
+            .filter((member) => member.targetPairingId === row.id)
+            .map((member) => member.tuteeId),
+          ...(addition?.pairingId === row.id ? [addition.tuteeId] : []),
+        ]),
+      ].sort();
       return (
         row.tutorId === plan.tutorId &&
         row.termId === plan.termId &&
         row.subject === before.subject &&
         JSON.stringify(row.tutees.map((item) => item.tuteeId).sort()) ===
-          JSON.stringify(ids(before.tuteeIds).sort())
+          JSON.stringify(expected)
       );
     })
   );
@@ -440,6 +520,7 @@ async function validateTarget(
   excludeRequestId?: string,
   now = new Date(),
   computation?: PlanningComputation,
+  sharingSource = false,
 ) {
   let window: ReturnType<typeof plannedWindow>;
   try {
@@ -483,11 +564,20 @@ async function validateTarget(
   });
   const mayReleaseSource =
     currentRequest?.kind !== "EXTRA" &&
-    (scope === "ALL" ||
-      (sourceRoster.length > 0 &&
-        sourceRoster.every((person) =>
-          participantIds.includes(person.tuteeId),
-        )));
+    // ALL captures its request's original audience. A later continuation can
+    // leave someone at the source, so only actual roster coverage vacates it.
+    // Initial publication validates a synthetic source without participants.
+    (sourceRoster.length
+      ? sourceRoster.every((person) => participantIds.includes(person.tuteeId))
+      : scope === "ALL");
+  // Enrollment/default reconciliation can share the unchanged physical lesson
+  // without acquiring a request's authority to vacate its existing roster.
+  const mayShareSource =
+    sharingSource &&
+    source.startsAt.getTime() === window.startsAt.getTime() &&
+    source.endsAt.getTime() === window.endsAt.getTime() &&
+    source.roomId === window.roomId &&
+    source.online === window.online;
   const overlap = {
     startsAt: { lt: window.endsAt },
     endsAt: { gt: window.startsAt },
@@ -557,7 +647,7 @@ async function validateTarget(
   for (const cohort of cohorts) {
     if (
       !cohort.participants.length ||
-      (cohort.id === source.id && mayReleaseSource)
+      (cohort.id === source.id && (mayReleaseSource || mayShareSource))
     )
       continue;
     if (
@@ -587,6 +677,7 @@ async function validateTarget(
   // An original booking remains real when only part of its cohort may move.
   if (
     !mayReleaseSource &&
+    !mayShareSource &&
     source.status === "SCHEDULED" &&
     sourceRoster.length > 0 &&
     source.startsAt < window.endsAt &&
@@ -643,7 +734,7 @@ async function validateTarget(
     const own =
       plan.assignments.some((row) => row.pairingId === pairing.id) &&
       time.date === plan.originalDate;
-    return !(own && mayReleaseSource);
+    return !(own && (mayReleaseSource || mayShareSource));
   });
   // Keep all regular exceptions, including cancellations/moves. Bound SQL parameters
   // without one round trip per recurring candidate; the scheduling fence is still held.
@@ -910,6 +1001,7 @@ async function reconcileOrdinaryPlans(
             undefined,
             now,
             computation,
+            samePhysicalWindow,
           );
         } catch {
           /* Surface unavailable plans rather than double-book a dated exception. */
@@ -1110,6 +1202,20 @@ export async function ensureSessionPlanningWindow(
       const candidates: { date: string; generationKey: string }[] = [];
       let termStart: string | undefined;
       let termEnd: string | undefined;
+      const continuationCount = await tx.studentContinuationPairing.count({
+        where: {
+          pairingId: { in: entry.pairings.map((pairing) => pairing.id) },
+        },
+      });
+      const continuing = continuationCount === entry.pairings.length;
+      const publications = continuing
+        ? latestContinuationPublications(
+            await tx.sessionPlan.findMany({
+              where: { generationKey: { startsWith: prefix }, kind: "REGULAR" },
+              include: planInclude,
+            }),
+          )
+        : null;
       for (
         let date = weeks.start;
         date <= weeks.prepareEnd;
@@ -1130,7 +1236,14 @@ export async function ensureSessionPlanningWindow(
               (termEnd ??= programDateKey(primary.term.endDate, timeZone)))
         )
           continue;
-        const generationKey = `regular:${primary.termId}:${entry.id}:${date}:${rosterHash}`;
+        // Only explicit consent deltas retain the current publication. Manual
+        // roster edits replace cancelled future plans with a new revision.
+        const continuationKey = `${prefix}${date}:continuation`;
+        const previous = publications?.get(continuationKey);
+        if (previous && (await assignmentSourceMatches(tx, previous))) continue;
+        const generationKey = continuing
+          ? `${continuationKey}:${previous ? continuationPublication(previous)!.revision + 1 : 0}`
+          : `${prefix}${date}:${rosterHash}`;
         candidates.push({ date, generationKey });
       }
       // At most 21 keys per entry. Cancelled/moved plans also suppress regeneration.
@@ -1417,11 +1530,20 @@ async function finishAgreement(
         timeZone: request.plan.timeZone,
         kind: "EXTRA",
         sourceFingerprint: request.plan.sourceFingerprint,
+        continuationMembers: {
+          create: request.plan.continuationMembers.map((member) => ({
+            pairingId: member.pairingId,
+            tuteeId: member.tuteeId,
+            assignmentId: member.assignmentId,
+            joinedAt: member.joinedAt,
+            releasedAt: member.releasedAt,
+          })),
+        },
         assignments: {
           create: request.plan.assignments.map((row) => ({
             pairingId: row.pairingId,
             subject: row.subject,
-            tuteeIds: ids(row.tuteeIds),
+            tuteeIds: assignmentRoster(request.plan, row),
             primary: row.primary,
           })),
         },
@@ -2184,7 +2306,7 @@ export async function readSessionAgenda(
           ? row.participants.filter((person) => owned.includes(person.tuteeId))
           : roster;
       const assignments = row.plan.assignments.filter((assignment) =>
-        ids(assignment.tuteeIds).some((id) =>
+        assignmentRoster(row.plan, assignment).some((id) =>
           personal.some((person) => person.tuteeId === id),
         ),
       );
@@ -2475,7 +2597,7 @@ export async function sessionAttendanceContext(
       pairingId: row.pairingId,
       subject: row.subject,
       primary: row.primary,
-      tuteeIds: ids(row.tuteeIds).filter((id) =>
+      tuteeIds: assignmentRoster(cohort.plan, row).filter((id) =>
         participants.some((person) => person.tuteeId === id),
       ),
     }))
@@ -2516,6 +2638,245 @@ export async function markSessionCohortRecorded(
     where: { id: cohortId },
     data: { status: "RECORDED", version: { increment: 1 } },
   });
+}
+
+/** Continuation enrollment changes only that learner's future commitments. Original
+ * publication, peer agreements and completed attendance remain retained evidence. */
+export async function syncContinuationPlanMembership(
+  tx: TransactionDb,
+  input: {
+    assignmentId: string;
+    pairingId: string;
+    tuteeId: string;
+    joinedAt: Date;
+    releasedAt?: Date;
+  },
+  now = new Date(),
+) {
+  await lockSessionPlanning(tx);
+  const sourcePairing = !input.releasedAt
+    ? await tx.pairing.findUnique({ where: { id: input.pairingId } })
+    : null;
+  const calendar = !input.releasedAt
+    ? await tx.schoolCalendarDay.findMany()
+    : [];
+  const plans = await tx.sessionPlan.findMany({
+    where: { assignments: { some: { pairingId: input.pairingId } } },
+    include: { ...planInclude, cohorts: true },
+  });
+  const publications = latestContinuationPublications(plans);
+  for (const plan of plans) {
+    if (!input.releasedAt) {
+      const publication = continuationPublication(plan);
+      if (
+        (publication &&
+          publications.get(publication.sourceDate)?.id !== plan.id) ||
+        !(await assignmentSourceMatches(tx, plan, input))
+      )
+        continue;
+    }
+    const existing = plan.participants.find(
+      (person) => person.tuteeId === input.tuteeId,
+    );
+    if (!input.releasedAt && (existing || plan.kind !== "REGULAR")) continue;
+    let original = plan.cohorts.find(
+      (cohort) =>
+        cohort.date === plan.originalDate &&
+        !cohort.rescheduled &&
+        cohort.status === "SCHEDULED",
+    );
+    const day = resolvePlanningTimetableDay(plan.originalDate, calendar);
+    const suppressed =
+      !input.releasedAt &&
+      (!day.isSchoolDay ||
+        day.effectiveTimetableWeekday !== sourcePairing?.dayOfWeek);
+    if (!input.releasedAt && !original && sourcePairing) {
+      // Peers may already have completed an earlier agreed move. The new
+      // learner still receives a future weekly default, never that past move.
+      const window = plannedWindow(
+        {
+          date: plan.originalDate,
+          startMin: sourcePairing.startMin,
+          roomId: sourcePairing.roomId,
+          online: false,
+        },
+        plan.timeZone,
+      );
+      if (window.startsAt <= now) continue;
+      // Returning to the weekly clock does not erase peers' explicit consent.
+      // Share only a live physical cohort; cancelled UIDs remain tombstones.
+      const shared = plan.cohorts.find(
+        (cohort) =>
+          cohort.status === "SCHEDULED" &&
+          cohort.startsAt.getTime() === window.startsAt.getTime() &&
+          cohort.endsAt.getTime() === window.endsAt.getTime() &&
+          cohort.roomId === window.roomId &&
+          cohort.online === window.online,
+      );
+      // Calendar suppression remains reversible source state. Prefer any live
+      // exact cohort above it; explicit cancellations never qualify here.
+      const suppressedSource = plan.cohorts.find(
+        (cohort) =>
+          cohort.date === plan.originalDate &&
+          !cohort.rescheduled &&
+          cohort.status === "CANCELLED" &&
+          cohort.sourceInvalidated &&
+          plan.participants.some(
+            (person) =>
+              person.cohortId === cohort.id && person.calendarSuppressed,
+          ),
+      );
+      const candidate: Cohort = {
+        id: randomUUID(),
+        planId: plan.id,
+        ...window,
+        status: suppressed ? "CANCELLED" : "SCHEDULED",
+        sourceInvalidated: Boolean(suppressed),
+        rescheduled: false,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (!shared && !suppressedSource && !suppressed)
+        await validateTarget(
+          tx,
+          plan,
+          candidate,
+          [input.tuteeId],
+          candidate,
+          "ALL",
+          undefined,
+          now,
+        );
+      original =
+        shared ??
+        suppressedSource ??
+        (await tx.sessionPlanCohort.create({ data: candidate }));
+    }
+    if (!input.releasedAt && (!original || original.startsAt <= now)) continue;
+    if (!input.releasedAt && original && !suppressed)
+      await validateTarget(
+        tx,
+        plan,
+        original,
+        [input.tuteeId],
+        original,
+        "ALL",
+        undefined,
+        now,
+        undefined,
+        true,
+      );
+    await tx.sessionPlanContinuationMember.upsert({
+      where: {
+        planId_pairingId_tuteeId: {
+          planId: plan.id,
+          pairingId: input.pairingId,
+          tuteeId: input.tuteeId,
+        },
+      },
+      create: {
+        planId: plan.id,
+        pairingId: input.pairingId,
+        tuteeId: input.tuteeId,
+        assignmentId: input.assignmentId,
+        joinedAt: input.joinedAt,
+        releasedAt: input.releasedAt,
+      },
+      update: input.releasedAt ? { releasedAt: input.releasedAt } : {},
+    });
+    if (input.releasedAt) {
+      if (!existing?.cohortId) continue;
+      const cohort = plan.cohorts.find((item) => item.id === existing.cohortId);
+      if (!cohort || cohort.startsAt <= now || cohort.status === "RECORDED")
+        continue;
+      const refreshed = await tx.sessionPlan.findUniqueOrThrow({
+        where: { id: plan.id },
+        include: planInclude,
+      });
+      const stillAssigned = refreshed.assignments.some(
+        (assignment) =>
+          assignmentRoster(refreshed, assignment).includes(input.tuteeId) &&
+          !refreshed.continuationMembers.some(
+            (member) =>
+              member.pairingId === assignment.pairingId &&
+              member.tuteeId === input.tuteeId &&
+              member.releasedAt !== null,
+          ),
+      );
+      if (!stillAssigned) {
+        await tx.sessionPlanParticipant.update({
+          where: { id: existing.id },
+          data: {
+            status: "CANCELLED",
+            calendarSuppressed: false,
+            version: { increment: 1 },
+          },
+        });
+        const remaining = await tx.sessionPlanParticipant.count({
+          where: { cohortId: cohort.id, status: "SCHEDULED" },
+        });
+        const changed = await tx.sessionPlanCohort.update({
+          where: { id: cohort.id },
+          data: {
+            status: remaining ? cohort.status : "CANCELLED",
+            version: { increment: 1 },
+            ...(!remaining ? { sourceInvalidated: false } : {}),
+          },
+        });
+        await notifyPlanChange(
+          tx,
+          refreshed,
+          changed,
+          "cancelled",
+          cohort.startsAt,
+          [input.tuteeId],
+        );
+      }
+      const pending = await tx.sessionPlanningRequest.findMany({
+        where: {
+          planId: plan.id,
+          status: { in: ["PENDING", "SPLIT_REQUESTED"] },
+        },
+        include: requestInclude,
+      });
+      for (const request of pending)
+        if (ids(request.participantIds).includes(input.tuteeId))
+          await closeRequest(tx, request, "STALE", "stale", now);
+    } else if (original) {
+      await tx.sessionPlanParticipant.create({
+        data: {
+          planId: plan.id,
+          tuteeId: input.tuteeId,
+          cohortId: original.id,
+          status: suppressed ? "CANCELLED" : "SCHEDULED",
+          scheduleOverride: false,
+          calendarSuppressed: Boolean(suppressed),
+        },
+      });
+      const changed = await tx.sessionPlanCohort.update({
+        where: { id: original.id },
+        data: {
+          ...(!suppressed
+            ? { status: "SCHEDULED", sourceInvalidated: false }
+            : {}),
+          version: { increment: 1 },
+        },
+      });
+      const refreshed = await tx.sessionPlan.findUniqueOrThrow({
+        where: { id: plan.id },
+        include: planInclude,
+      });
+      await notifyPlanChange(
+        tx,
+        refreshed,
+        changed,
+        suppressed ? "cancelled" : "schedule_updated",
+        original.startsAt,
+        [input.tuteeId],
+      );
+    }
+  }
 }
 
 /** Existing lifecycle writers may call this under their room fence; reads also catch stale requests. */

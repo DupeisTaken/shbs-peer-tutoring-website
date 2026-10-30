@@ -22,6 +22,9 @@ vi.mock("next-intl/server", () => ({
 }));
 vi.mock("./tutee-overview", () => ({ TuteeOverview: () => null }));
 vi.mock("./legacy-participation", () => ({ LegacyParticipation: () => null }));
+vi.mock("./legacy-continuation", () => ({
+  LegacyContinuation: () => <section data-testid="continuation" />,
+}));
 vi.mock("./student-workspace", () => ({ StudentWorkspace: () => null }));
 vi.mock("~/app/_components/student-portal", () => ({
   StudentPortal: () => null,
@@ -61,6 +64,7 @@ it.each([false, true])(
         departed ? 0 : 1,
       );
       expect(html.match(/<h1\b/g)).toHaveLength(1);
+      expect(html.includes('data-testid="continuation"')).toBe(!departed);
     } finally {
       state.departed = false;
     }

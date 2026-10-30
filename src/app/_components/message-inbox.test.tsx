@@ -211,9 +211,14 @@ function ui(locale: "en" | "zh" = "en") {
 function show(locale: "en" | "zh" = "en") {
   return render(ui(locale));
 }
-function scopedUI() {
+function scopedUI(locale: "en" | "zh" = "en") {
+  const messages = locale === "en" ? en : zh;
   return (
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+    <NextIntlClientProvider
+      locale={locale}
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
       <MessageInbox
         sessionCohortId="synthetic-cohort"
         initialRecipients={[
@@ -221,13 +226,33 @@ function scopedUI() {
         ]}
         dialog={{
           open: true,
-          title: en.sessionPlanning.message,
+          title: messages.sessionPlanning.message,
           onClose: vi.fn(),
         }}
       />
     </NextIntlClientProvider>
   );
 }
+it.each(["en", "zh"] as const)(
+  "explains scoped coordination without the generic permission-group summary in %s",
+  (locale) => {
+    const messages = locale === "en" ? en : zh;
+    const genericContacts = messages.messaging.allowed.replace(
+      "{groups}",
+      messages.messaging.groups.MANAGEMENT,
+    );
+    const view = render(scopedUI(locale));
+    expect(screen.getByText(messages.sessionPlanning.messageHelp)).toBeTruthy();
+    expect(screen.queryByText(messages.messaging.allowedHelp)).toBeNull();
+    expect(screen.queryByText(genericContacts)).toBeNull();
+    expect(mocks.send).not.toHaveBeenCalled();
+    view.unmount();
+    show(locale);
+    expect(screen.getByText(messages.messaging.allowedHelp)).toBeTruthy();
+    expect(screen.getByText(genericContacts)).toBeTruthy();
+    expect(screen.queryByText(messages.sessionPlanning.messageHelp)).toBeNull();
+  },
+);
 it.each(["contacts", "inbox", "permission"] as const)(
   "conceals all scoped private content after %s denial until every explicit fresh read settles",
   async (source) => {
