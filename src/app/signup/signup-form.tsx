@@ -35,7 +35,7 @@ import { api, type RouterInputs } from "~/trpc/react";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
-import { SigninAccess } from "./signin-access";
+import { SignupProgress } from "./signup-progress";
 import { SurveyVerification } from "./survey-verification";
 import { SignupEmailField } from "./signup-email-field";
 
@@ -217,25 +217,12 @@ export function SignupForm() {
 
   if (acknowledgement) {
     return (
-      <div className="card p-5 text-center sm:p-8">
-        <h2 className="text-xl font-semibold text-slate-900">
-          {t("survey.savedTitle")}
-        </h2>
-        <p className="muted mt-2">
-          {editing(acknowledgement.emailSent ? "savedMailbox" : "savedNoMail", {
-            email: acknowledgement.email,
-          })}
-        </p>
-        <p className="muted mt-3 text-sm">{editing("replacementHelp")}</p>
-        {!acknowledgement.emailSent && (
-          <p role="alert" className="mt-3 text-amber-800">
-            {t("survey.mailFailed")}
-          </p>
-        )}
-        <SigninAccess />
+      <div className="card p-5 sm:p-8">
         <SurveyVerification
           email={acknowledgement.email}
           intentId={acknowledgement.intentId}
+          emailSent={acknowledgement.emailSent}
+          focusOnMount
         />
       </div>
     );
@@ -325,6 +312,7 @@ export function SignupForm() {
           });
         }}
       >
+        <SignupProgress current={0} title={t("survey.stepSubmit")} />
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
         <fieldset
           disabled={

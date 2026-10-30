@@ -108,6 +108,17 @@ beforeEach(() => {
   mocks.invalidate.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
+it("shows reusable sign-in access only after completed tutee account review", async () => {
+  mocks.inspect.mockResolvedValue({ ...info, completed: true });
+  render(view());
+  expect(
+    await screen.findByRole("region", { name: en.survey.signinAccess }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: en.accountInvitation.accept }),
+  ).toBeNull();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
 it("shows exact staged answers and consent separately from canonical account identity before acceptance", async () => {
   render(view());
   const review = await screen.findByRole("region", {
@@ -134,6 +145,12 @@ it("shows exact staged answers and consent separately from canonical account ide
   expect(screen.getByText(/Original priority retained:/)).toBeTruthy();
   expect(screen.queryByRole("textbox", { name: /password/i })).toBeNull();
   expect(mocks.complete).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("heading", { name: en.survey.stepReview }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("region", { name: en.survey.signinAccess }),
+  ).toBeNull();
   fireEvent.click(screen.getByRole("checkbox"));
   fireEvent.submit(
     screen

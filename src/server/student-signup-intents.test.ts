@@ -45,6 +45,7 @@ import { hashPassword, verifyPassword } from "./auth/password";
 import { studentSignupLocalAnswers } from "./student-signup-answers";
 import { verifySignupCaptcha } from "./captcha";
 import { withSignupLease } from "./signup-admission";
+import { studentRequestRows } from "./student-workflow";
 
 const email = "owner@example.test";
 const password = "Existing-password-268!";
@@ -168,6 +169,42 @@ async function unchangedSource(id: string, before: unknown) {
   expect(await db.studentSurvey.findUniqueOrThrow({ where: { id } })).toEqual(before);
   expect(await db.studentSignupRevision.count()).toBe(0);
 }
+
+it("keeps the management completion signal pending through mailbox verification and resend until account review", async () => {
+  const accepted = await staged(await answers());
+  const managed = async () => (await studentRequestRows(db)).find(row => row.id === accepted.intent.surveyId)!;
+  expect((await managed()).confirmedAt).toBeNull();
+  await invitation(accepted.intent.id);
+  expect((await db.studentSignupIntent.findUniqueOrThrow({ where: { id: accepted.intent.id } })).verifiedAt).toBeInstanceOf(Date);
+  expect((await managed()).confirmedAt).toBeNull();
+  await resendStudentSignupIntent(db, accepted.intent.id, email);
+  expect((await managed()).confirmedAt).toBeNull();
+  await complete(accepted.intent.id, undefined, "New-password-533!");
+  expect((await managed()).confirmedAt).toBeInstanceOf(Date);
+  expect((await managed()).submittedAt).toEqual(accepted.intent.receivedAt);
+  // An unfinished replacement cannot remove an already confirmed request's status.
+  const replacement = await staged(await answers());
+  await db.studentSignupIntent.update({where:{id:replacement.intent.id},data:{expiresAt:new Date(0)}});
+  const sent = fixtures.send.mock.calls.length;
+  await expect(resendStudentSignupIntent(db, replacement.intent.id, email)).rejects.toMatchObject({ message: "INVITATION_INVALID" });
+  expect(fixtures.send).toHaveBeenCalledTimes(sent);
+  expect((await managed()).confirmedAt).toBeInstanceOf(Date);
+});
+
+it("emails both remaining signup steps with a program-zone deadline and exact-intent recovery link", async () => {
+  await db.programSettings.upsert({where:{id:"program"},create:{id:"program",timeZone:"Asia/Shanghai"},update:{timeZone:"Asia/Shanghai"}});
+  const accepted = await staged(await answers());
+  const message = fixtures.send.mock.lastCall![0];
+  expect(message.subject).toContain("验证");
+  expect(message.text).toContain("signup is not complete");
+  expect(message.text).toContain("finish account review");
+  expect(message.text).toContain("报名尚未完成");
+  expect(message.text).toContain("Asia/Shanghai");
+  expect(message.text).not.toContain(accepted.intent.expiresAt.toISOString());
+  expect(message.text).not.toContain("Your previous request");
+  expect(message.presentation?.action?.url).toContain(`?intent=${accepted.intent.id}`);
+  expect(message.presentation?.code).toBe(surveyEmailCode(accepted.intent.tokenHash, accepted.intent.emailCodeVersion));
+});
 
 it("preserves legacy intent codes and their remaining attempt until a delivered resend upgrades them", async () => {
   const accepted = await staged(await answers());

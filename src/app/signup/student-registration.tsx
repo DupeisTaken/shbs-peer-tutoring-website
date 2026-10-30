@@ -38,7 +38,7 @@ function IntentRegistration({ intentId }: { intentId: string }) {
     <section className="card space-y-5 p-6">
       <p className="muted">{t("intentVerification")}</p>
       {recipient ? (
-        <SurveyVerification email={recipient} intentId={intentId} />
+        <SurveyVerification email={recipient} intentId={intentId} focusOnMount />
       ) : (
         <form
           className="space-y-4"
@@ -95,7 +95,8 @@ function LegacyStudentRegistration({
       admitted.current = false;
     },
   });
-  if (complete.data) return <InvitationReceipt invitation={complete.data} />;
+  if (complete.data)
+    return <InvitationReceipt invitation={complete.data} tuteeSignup />;
   if (
     request.error &&
     !request.data &&

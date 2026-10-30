@@ -1281,6 +1281,23 @@ access removes private reviews and their evidence from the rendered page.
 
 The original survey submission determines queue priority. Mailbox-code verification or explicit legacy-link confirmation issues the receipt shown in the popup; final shared invitation review creates or links the account and confirms the original request. Existing credentials and unrelated access remain, while an exclusive Viewer transitions to tutee participation. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
 
+The public tutee flow presents Submit request, Verify email and Finish account
+review through the existing registration-progress/focus contract. Verification
+owns the saved-state explanation and delivery recovery so issuing an invitation
+replaces that explanation rather than leaving an earlier completion signal above
+it. The invitation receipt retains its account-review link after closing; the
+sign-in QR/link belongs to completed account setup. New intent mail explains both
+remaining steps in English/Chinese and formats expiry in the program time zone.
+
+Management survey cards label `StudentSurvey.confirmedAt` as Request confirmed or
+Signup incomplete. This timestamp is final account-review evidence, whereas
+`StudentSignupIntent.verifiedAt` is intermediate, exact-submission mailbox proof.
+The list intentionally does not infer mailbox failure from an absent confirmation
+or promote arbitrary historical, expired, resent or superseded intent proof into
+current completion. Legacy/manual contact-verification labels retain their own
+evidence rules. Assignment, deadlines and authorization continue to use their
+existing domain contracts; these presentation changes create no new authority.
+
 | Action                          | Invariant                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | Submit fresh eligible demand | Reserve priority at acceptance, before account setup; preserve the original payload and signed policy evidence |
