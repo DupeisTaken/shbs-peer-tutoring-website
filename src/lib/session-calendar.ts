@@ -25,6 +25,8 @@ function instant(value: Date): string {
 
 /** RFC 5545 folds at 75 octets, not 75 JS characters. Never split a UTF-8 code point. */
 function foldLine(value: string): string {
+  // Most properties already fit; retain the code-point folding path for long lines.
+  if (Buffer.byteLength(value, "utf8") <= 75) return value;
   const lines: string[] = [];
   let line = "";
   let bytes = 0;

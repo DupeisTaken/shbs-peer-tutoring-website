@@ -61,8 +61,31 @@ function fixture(
     ownership?: { tuteeId: string; userId: string }[];
   } = {},
 ) {
+  // Supply the new raw read with the same canonical evidence as the legacy
+  // findMany doubles below. SQL precedence itself is covered against PostgreSQL.
+  const tutorUsers = new Map<string, string>();
+  const tuteeUsers = new Map(
+    (options.ownership ?? []).map((row) => [row.tuteeId, row.userId]),
+  );
+  for (const user of options.users ?? []) {
+    if (user.tutorId) tutorUsers.set(user.tutorId, user.id);
+    if (user.studentId) tuteeUsers.set(user.studentId, user.id);
+  }
+  const canonicalRows = [
+    ...[...tutorUsers].map(([profileId, userId]) => ({
+      role: "tutor",
+      profileId,
+      userId,
+    })),
+    ...[...tuteeUsers].map(([profileId, userId]) => ({
+      role: "tutee",
+      profileId,
+      userId,
+    })),
+  ];
   const db = {
     $executeRaw: vi.fn().mockResolvedValue(1),
+    $queryRaw: vi.fn().mockResolvedValue(canonicalRows),
     schoolCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
     programSettings: {
       findUnique: vi.fn().mockResolvedValue({ timeZone: "Asia/Shanghai" }),
@@ -138,6 +161,58 @@ describe("automatic room ranking", () => {
       booking("independent", "b", "other", [], 90),
     ]);
     expect((await allocateRoom(db, schedule, {}, current)).roomId).toBe("a");
+  });
+  it.each([
+    { firstMinutes: 120, lastMinutes: 30, expectedRoom: "a" },
+    { firstMinutes: 30, lastMinutes: 120, expectedRoom: "b" },
+  ])(
+    "uses the last subject row's minutes for interleaved reservation evidence ($firstMinutes then $lastMinutes)",
+    async ({ firstMinutes, lastMinutes, expectedRoom }) => {
+      const { db } = fixture([
+        {
+          ...booking("first-subject", "a", "other", [], firstMinutes),
+          groupId: "combined",
+        },
+        booking("other-room", "b", "other", [], 90),
+        {
+          ...booking("last-subject", "a", "other", [], lastMinutes),
+          groupId: "combined",
+        },
+      ]);
+      expect(await allocateRoom(db, schedule, {}, current)).toEqual({
+        roomId: expectedRoom,
+        roomMode: "AUTO",
+        roomOutcome: "ASSIGNED",
+        roomNeedsAssignment: false,
+        roomShortageKey: null,
+      });
+    },
+  );
+  it("keeps reservation usage scoped to its room even when group evidence spans rooms", async () => {
+    const { db } = fixture([
+      {
+        ...booking("first-room", "a", "other", [], 120),
+        groupId: "combined",
+      },
+      {
+        ...booking("second-room", "b", "other", [], 30),
+        groupId: "combined",
+      },
+    ]);
+    expect((await allocateRoom(db, schedule, {}, current)).roomId).toBe("b");
+  });
+  it("refuses a conflict from the final room check after candidate selection", async () => {
+    const { db, raw } = fixture();
+    raw.pairing.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "room-conflict" });
+    await expect(allocateRoom(db, schedule, {}, current)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "That room is already booked during the selected time.",
+    });
+    expect(raw.pairing.findFirst.mock.lastCall).toMatchObject([
+      { where: { roomId: "a", termId: schedule.termId } },
+    ]);
   });
   it("ranks participant count ahead of tutor preference and occupied minutes", () => {
     expect(

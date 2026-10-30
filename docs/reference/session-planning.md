@@ -94,6 +94,77 @@ ordinary message search gains no broader directory access.
 
 ## Verification boundaries
 
+Scheduling computation reuses bounded timezone formatters. A publication operation
+owns its successful wall-time parser and immutable indexed calendar snapshot;
+returned dates and resolved days cannot mutate later results. The parser still
+rejects missing/repeated DST clocks, and every lesson still validates its own
+location and 45 elapsed minutes. These caches never retain permissions, ownership,
+conflicts, consent or database rows between operations.
+
+Publication batches generation-key reads per assignment unit (at most 21 dates),
+including cancelled and moved plans. Conflict checks narrow pending offers by
+strict UTC overlap, then select the request's exact current offer. Regular-plan
+materialization reads use bounded batches, including cancelled/moved exceptions.
+Room ranking builds one booking index while retaining canonical-person scoring,
+group usage order and the final authoritative room check. Private calendar output
+skips folding only when a complete line already fits within 75 UTF-8 bytes.
+
+Agenda reads still catch up publication and deadlines. The period, room, planning
+and authority-row fences remain in force, including re-reads after waiting for
+source locks. A worker interval or TTL cannot replace these checks without a
+durable invalidation contract covering every source change.
+
+An invalidation pass locks its union of source accounts, profiles and pairings in
+the existing table order, then reloads source evidence in bounded batches. Each
+plan still compares continuation assignments against its own creation time and
+retains released-member provenance. This evidence lives only for that pass;
+individual scheduling mutations retain their fresh source checks.
+
+Fresh publication uses the immutable fields it just inserted instead of loading
+the complete plan graph twice. Publication decisions and writes remain serial, so
+each later lesson sees earlier reservations. A fresh parameterized statement per
+candidate reads overlapping cohorts, exact current pending offers, calendar facts,
+recurrences, materialized exceptions, canonical identities and room facts. Native
+timestamp columns retain UTC instants; the shared TypeScript calendar resolver
+still owns closures, makeup weekdays and tombstones. The existing decision logic
+consumes this coherent snapshot only for initial publication. It never inserts
+future candidate assignments early: their presence would incorrectly suppress
+unmaterialized recurring commitments. Direct account links retain precedence over
+retained profile aliases. Existing agreements and restoration keep their live
+validation path.
+
+The PostgreSQL adapter names only the fixed publication-validation statement,
+using a hash of its complete SQL. PostgreSQL can reuse its prepared statement on
+that connection; parameters and result rows are never cached. Changed SQL receives
+a different name, while unrelated queries retain unnamed execution. Each
+candidate still reads current database facts and earlier writes in its transaction.
+
+Lifecycle notices resolve recipients in batches while retaining actor identities
+and retained-owner precedence. Notice inserts preserve the first intent for each
+dedupe key and leave existing queue receipts unchanged. They run under the
+producer's planning fence, with normal unique/FK errors and recovery triggers;
+they neither send mail nor change delivery eligibility or response clocks.
+New non-actionable publication notices capture immutable audiences and schedule
+facts at each decision, then resolve contact destinations and room names freshly
+at transaction finalization. A finalization failure rolls back the publication.
+Formal negotiation notices retain their response identities and existing timing.
+
+Run the source-comparison benchmarks from the repository root, choosing the
+unoptimized scheduling commit that is the optimization branch's base:
+
+```sh
+node scripts/benchmark-session-planning.mjs --baseline <commit> --output outputs/language-performance/implementation/compute.json
+node scripts/benchmark-room-allocation.mjs --baseline <commit> --output outputs/language-performance/implementation/room-results.json
+```
+
+The compute harness compares complete values, errors, calendar bytes and schedule
+fingerprints from actual source before timing synthetic workloads. It distinguishes
+fresh module formatter caches from warmed caches; operation caches start empty in
+both modes. The room harness includes allocator computation with immediate mock
+reads and explicit guard stubs. Neither measures network, rendering, real database
+latency, lock contention or a website-wide speedup. Preserve the emitted revisions,
+source hashes, runtime, sample ranges and scope alongside any reported medians.
+
 [Workflow tests](../../src/server/session-planning/workflows.test.ts) exercise
 the real transaction/state model against the guarded isolated test database.
 [Attendance and messaging integration](../../src/server/session-planning/attendance-messaging.test.ts)

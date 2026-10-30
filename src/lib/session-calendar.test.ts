@@ -47,3 +47,12 @@ it("rejects duplicate identities, invalid dates and backwards intervals", () => 
   expect(() => renderSessionCalendar([event({ updatedAt: new Date("invalid") })])).toThrow();
   expect(() => renderSessionCalendar([event({ endsAt: new Date("2026-11-02T03:00:00Z") })])).toThrow();
 });
+
+it.each([
+  { location: "a".repeat(66), expected: `LOCATION:${"a".repeat(66)}\r\n` },
+  { location: "中".repeat(22), expected: `LOCATION:${"中".repeat(22)}\r\n` },
+  { location: "a".repeat(67), expected: `LOCATION:${"a".repeat(66)}\r\n a\r\n` },
+  { location: "中".repeat(23), expected: `LOCATION:${"中".repeat(22)}\r\n 中\r\n` },
+])("preserves exact folding at the 75-byte boundary ($location)", ({ location, expected }) => {
+  expect(renderSessionCalendar([event({ location })])).toContain(expected);
+});

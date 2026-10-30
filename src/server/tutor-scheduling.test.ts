@@ -42,6 +42,8 @@ function fixture(rows: Row[] = []) {
   );
   const raw = {
     $executeRaw: vi.fn().mockResolvedValue(1),
+    // This fixture has no direct or retained ownership; role:id keys stay distinct.
+    $queryRaw: vi.fn().mockResolvedValue([]),
     pairing: { findFirst, findMany: vi.fn() },
     room: { count: vi.fn().mockResolvedValue(1) },
     schoolCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
