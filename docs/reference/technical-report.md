@@ -1089,6 +1089,11 @@ In **Users & Roles → Edit profile**, Admin/Head can save a username for any lo
 
 ### Notification record navigation
 
+Monthly consolidated service-hours reports use a separate immutable snapshot and
+versioned schedule, with their own staff-only reader and the shared email outbox.
+See [monthly service-hours contracts](monthly-service-hours.md) for accounting,
+configuration authority, atomic generation, admission fences and retry behavior.
+
 Notification record navigation composes the existing bell and authorized request/
 application cards. Validated record links opt out of Next's default scroll so it
 cannot overwrite an intentional incoming fragment. Destination filters commit

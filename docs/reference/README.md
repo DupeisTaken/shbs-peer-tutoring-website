@@ -12,6 +12,7 @@ user tasks and operational procedures belong in [guides](../guides/README.md).
 | Name-policy fields, display, legacy data and identity boundaries   | [Name fields](name-fields.md)                                                                                          |
 | Identity sources, reader/writer authority, reconciliation and cutover | [Identity lifecycle](identity-lifecycle.md)                                                                         |
 | Notification triggers, recipients, bilingual copy and destinations | [Notification inventory](notification-events.md)                                                                       |
+| Monthly service-hours accounting, schedules and delivery recovery | [Monthly reports](monthly-service-hours.md) |
 | Public signup rate limits, recovery and trusted proxy boundary     | [Signup protection](signup-protection.md)                                                                              |
 | Optional CAPTCHA integration and rollout requirements              | [CAPTCHA](captcha.md)                                                                                                  |
 

@@ -21,7 +21,9 @@ import {
 type Row = Record<string, unknown>;
 // Deliberately positive: adding a password/token/body field to a model cannot expose it.
 const safeFields = new Set([
-  "roomMode", "roomNeedsAssignment", "roomVersion",
+  "roomMode",
+  "roomNeedsAssignment",
+  "roomVersion",
   "programOrder",
   "preferredAssignedBlocks",
   "workloadPreferenceVersion",
@@ -456,6 +458,8 @@ const writes = new Set([
   "deleteMany",
 ]);
 const independentlyAudited = new Set([
+  // Snapshot/outbox generation owns its coherent transaction and aggregate audit.
+  "monthlyHours",
   "approval",
   "recordTransfer",
   "accountCombine",

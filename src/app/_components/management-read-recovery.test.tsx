@@ -15,10 +15,12 @@ import type { ReactElement } from "react";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import RegistrationCodesPage from "../(admin)/admin/registration-codes/page";
-import ServiceHoursPage from "../(admin)/admin/service-hours/page";
+import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import TimeSlotsPage from "../(admin)/admin/time-slots/page";
 import PairingsPage from "../(admin)/admin/pairings/page";
 import { ReadOnlyProvider } from "./read-only";
+
+vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
 
 const remote = vi.hoisted(() => ({
   codes: vi.fn(),

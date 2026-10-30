@@ -820,6 +820,29 @@ After correcting the transport, ADMIN/HEAD can use **Resend stuck emails** to qu
 
 Configure and test the real email transport before enabling optional notifications. Admin and Head apply switch changes directly; Coordinators request Admin approval. Disabling cancels queued optional notices without discarding preferences; security alerts continue through the same worker, and essential authentication mail remains independent. The optional-email availability migration adds the independent secondary-binding flag (default on) without changing stored addresses or preferences, and updates enqueue rules so security alerts cannot be suppressed. Apply the migration and updated dispatcher together; legacy `emailSecurity` values are retained but no longer control delivery. See [notification controls](program-configuration.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
 
+## Monthly service-hours delivery
+
+Apply `20261030010000_monthly_service_hours` and regenerate Prisma before starting
+the updated application. The Node instrumentation starts the monthly generator
+once at boot and every minute; each pass materializes at most one due month.
+PostgreSQL retains the cursor, snapshot and outbox receipts across restarts and
+coordinates multiple instances. Existing email dispatch handles transport.
+
+Automation is disabled by default. Configure it in **Service Hours → Monthly
+reports**, using the existing PROGRAM sender. Selected Admin/Head accounts need
+verified mailboxes and information-email consent; global optional mail and the
+Service Hours module must be enabled. The page displays next due time, last
+generation failure and delivery outcomes. Saving configuration sends no report.
+
+Use persistent Node hosting, such as the supplied Docker stack. Short-lived
+hosting needs a separately operated persistent worker; this feature supplies no
+public scheduler endpoint. Catchup is bounded to enabled-period due months and
+uses data available at actual generation time. Retry preserves the saved report
+and Message-ID, but SMTP acceptance followed by a process crash can still result
+in duplicate delivery. Confirm real sender/inbox delivery on the intended host
+before enabling its schedule; synthetic tests do not establish SMTP readiness.
+See [monthly report contracts](../reference/monthly-service-hours.md).
+
 ## Verify before opening intake
 
 Complete these checks on the actual host after bootstrap or an update:

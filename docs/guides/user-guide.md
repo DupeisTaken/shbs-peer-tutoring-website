@@ -1243,6 +1243,38 @@ for the browser session. On a narrow screen, scroll inside the labelled table;
 keyboard users can focus it and use the left/right arrow keys. Viewing or hiding
 records never changes their hours or eligibility.
 
+Open **Monthly reports** on the same page to configure a consolidated report for
+selected Admin/Head staff accounts. Automation starts off. Choose verified
+recipients, a send day (1–28), local time and timezone, then review and save.
+Admin/Head apply changes directly; Coordinators request their review. Saving
+does not send a report. The saved timezone remains fixed until explicitly edited.
+The first send reports the preceding completed month; re-enabling a schedule
+does not backfill months while it was off.
+
+Preview a completed month to inspect the full report and intended destinations.
+Use **Admin report**, **Email HTML** and **Plain text** to see the report and
+staff email before generation. The same read-only preview is available under
+**Program Settings → Deployment Configurations → Email previews**. Preview sends nothing;
+its report and unsubscribe links are placeholders.
+Page filters do not affect it: inactive contributors and zero/negative records
+remain included. Admin/Head can review **Generate report** to save and queue that
+snapshot, including an explicitly selected historical month. Late corrections
+require a new revised report with a reason; previous reports remain unchanged.
+Recent reports show delivery outcomes and an authenticated report/CSV link.
+**Retry failed deliveries** uses the same report and recipient receipts. A failed
+status refresh offers a read-only refresh instead of repeating generation.
+
+Each report describes one month. Generating it does not award additional hours,
+and a revised report replaces the earlier statement for that month. Do not add
+both revisions together when reviewing totals.
+
+Recipients must retain eligible staff access, verified addresses and their
+information-email consent. The program's optional-mail and Service Hours switches
+must remain enabled. Each mailbox receives its own consolidated email; recipient
+addresses are not shared in its body. See the
+[monthly reporting contract](../reference/monthly-service-hours.md) for timing,
+delivery and recovery limits.
+
 Use [Attendance Flags](program-configuration.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-configuration.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
 
 CSV exports preserve numeric quantities and quote names or comments containing commas, quotes or newlines. Text beginning with spreadsheet formula markers or control characters receives a protective apostrophe so it is treated as text on initial import. That apostrophe may be visible in other CSV readers; preserve it when handling the export. Spreadsheet edits or re-saving the file can change how another import interprets it.

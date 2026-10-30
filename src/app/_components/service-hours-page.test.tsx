@@ -11,9 +11,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
-import ServiceHoursPage from "../(admin)/admin/service-hours/page";
+import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import { SessionViewProvider } from "./session-view-state";
 import type { ServiceHoursRow } from "~/lib/service-hours-view";
+
+vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
 
 const query = vi.hoisted(() => ({
   error: null as null | { data: { code: string } },

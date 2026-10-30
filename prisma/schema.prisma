@@ -2443,8 +2443,52 @@ model EmailDelivery {
   completedAt DateTime?
   status String @default("PENDING")
   lastError String?
+  monthlyHoursReportId String?
+  monthlyHoursReport MonthlyHoursReport? @relation(fields: [monthlyHoursReportId], references: [id], onDelete: Restrict)
   @@index([status, availableAt])
   @@unique([requestKind, requestId, requestVersion])
+  @@unique([monthlyHoursReportId, recipient])
+}
+
+/// Durable calendar cursor; configuration edits never rebucket recorded accounting months.
+model MonthlyHoursSchedule {
+  id String @id @default("program")
+  enabled Boolean @default(false)
+  recipientUserIds String[] @default([])
+  dayOfMonth Int @default(3)
+  localTime String @default("09:00")
+  timeZone String @default("Asia/Shanghai")
+  version Int @default(0)
+  firstReportMonth String?
+  nextReportMonth String?
+  nextDueAt DateTime?
+  lastGenerationError String?
+  updatedAt DateTime @default(now()) @updatedAt
+  reports MonthlyHoursReport[]
+}
+
+/// Append-only report evidence. Retry changes delivery state, never this snapshot or audience.
+model MonthlyHoursReport {
+  id String @id @default(cuid())
+  scheduleId String
+  schedule MonthlyHoursSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  month String
+  revision Int
+  configVersion Int
+  timeZone String
+  dueAt DateTime?
+  generatedAt DateTime @default(now())
+  contentHash String
+  snapshot Json
+  intendedRecipients Json
+  reason String?
+  generatedById String?
+  /// Actor-bound manual key or deterministic automatic occurrence key.
+  generationKey String @unique
+  generationHash String
+  deliveries EmailDelivery[]
+  @@unique([scheduleId, month, revision])
+  @@index([generatedAt])
 }
 
 /// Append-only participant evidence for one applied invalidity revision. A later
