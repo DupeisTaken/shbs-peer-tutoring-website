@@ -37,6 +37,8 @@ enum Role {
 }
 
 model User {
+  sessionNotices SessionNotice[]
+  sessionCalendarTokens SessionCalendarToken[]
   personId String?
   person Person? @relation("PersonAccounts", fields: [personId], references: [id], onDelete: Restrict)
   primaryForPerson Person? @relation("PersonPrimaryAccount")
@@ -425,6 +427,7 @@ model SubjectLevel {
 /// A program period = one quarter of a school year. Exactly one is `active` at a time (the
 /// "current period"); refreshing creates + activates the next quarter's term. See src/lib/period.ts.
 model Term {
+  sessionPlans SessionPlan[]
   id         String         @id @default(cuid())
   schoolYear String // "25-26"
   quarter    Quarter
@@ -487,6 +490,7 @@ model NextRecruitmentPreparation {
 }
 
 model Tutor {
+  sessionPlans SessionPlan[]
   /// Monotonic history ownership/group fence, including remove-and-restore changes.
   historyIdentityRevision Int @default(0)
   personId String?
@@ -733,6 +737,7 @@ enum SignupSource {
 }
 
 model Tutee {
+  sessionPlanParticipants SessionPlanParticipant[]
   /// Monotonic history ownership/group fence, independent of original roster evidence.
   historyIdentityRevision Int @default(0)
   personId String?
@@ -998,6 +1003,8 @@ model PairingTutee {
 
 /// One attendance submission for a pairing meeting.
 model Session {
+  planningCohortId String?
+  planningCohort SessionPlanCohort? @relation(fields: [planningCohortId], references: [id], onDelete: Restrict)
   updatedAt DateTime @updatedAt
   /// Stable request fingerprint prevents repeated attendance credit.
   submissionKey String? @unique
@@ -1069,6 +1076,7 @@ model Session {
   @@index([timeSlotId])
   @@index([mergeGroupId])
   @@index([actualRoomId])
+  @@unique([planningCohortId, pairingId])
 }
 
 // ----------------------------------------------------------------------------
@@ -2634,6 +2642,205 @@ model RecoveryReceipt {
   evidence Json
   createdAt DateTime @default(now())
   @@unique([actorId, clientKey])
+}
+
+/// Dated planning is independent of attendance. Stable generation keys preserve exceptions on catch-up.
+model SessionPlan {
+  id String @id @default(cuid())
+  generationKey String @unique
+  tutorId String
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  termId String
+  term Term @relation(fields: [termId], references: [id], onDelete: Restrict)
+  originalDate String
+  timeZone String
+  kind String @default("REGULAR")
+  sourceFingerprint String
+  sourceScheduleFingerprint String @default("")
+  assignments SessionPlanAssignment[]
+  cohorts SessionPlanCohort[]
+  participants SessionPlanParticipant[]
+  requests SessionPlanningRequest[]
+  suggestions SessionPlanningSuggestion[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tutorId, originalDate])
+}
+
+model SessionPlanAssignment {
+  planId String
+  plan SessionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  pairingId String
+  /// Immutable source identity; live deletion must not erase the captured assignment evidence.
+  subject String
+  tuteeIds Json
+  primary Boolean @default(false)
+  @@id([planId, pairingId])
+}
+
+model SessionPlanCohort {
+  id String @id @default(cuid())
+  planId String
+  plan SessionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  date String
+  startMin Int
+  endMin Int
+  startsAt DateTime
+  endsAt DateTime
+  roomId String?
+  online Boolean @default(false)
+  rescheduled Boolean @default(false)
+  sourceInvalidated Boolean @default(false)
+  status String @default("SCHEDULED")
+  version Int @default(1)
+  participants SessionPlanParticipant[]
+  sessions Session[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([startsAt, status])
+  @@index([planId])
+}
+
+/// Participant IDs survive moves and form personal calendar event identities.
+model SessionPlanParticipant {
+  id String @id @default(cuid())
+  planId String
+  plan SessionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  tuteeId String
+  tutee Tutee @relation(fields: [tuteeId], references: [id], onDelete: Restrict)
+  cohortId String?
+  cohort SessionPlanCohort? @relation(fields: [cohortId], references: [id], onDelete: Restrict)
+  status String @default("SCHEDULED")
+  /// Exact agreement belongs to this learner, not every peer sharing the room/time.
+  scheduleOverride Boolean @default(false)
+  /// Automatic plan/calendar suppression may be restored; user/lifecycle cancellations are not.
+  calendarSuppressed Boolean @default(false)
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  @@unique([planId, tuteeId])
+  @@index([cohortId, status])
+}
+
+model SessionPlanningSuggestion {
+  id String @id @default(cuid())
+  planId String
+  plan SessionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  cohortId String
+  tuteeId String
+  actorUserId String
+  sourceVersion Int
+  date String
+  startMin Int
+  roomId String?
+  online Boolean @default(false)
+  version Int @default(1)
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([planId, tuteeId])
+}
+
+model SessionPlanningRequest {
+  id String @id @default(cuid())
+  planId String
+  plan SessionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  cohortId String
+  kind String
+  scope String
+  participantIds Json
+  status String @default("PENDING")
+  stage Int @default(1)
+  version Int @default(1)
+  currentOfferId String?
+  parentRequestId String?
+  parent SessionPlanningRequest? @relation("SessionRequestChildren", fields: [parentRequestId], references: [id], onDelete: Restrict)
+  children SessionPlanningRequest[] @relation("SessionRequestChildren")
+  rejectionKeys Json @default("[]")
+  offers SessionPlanningOffer[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, planId])
+}
+
+model SessionPlanningOffer {
+  id String @id @default(cuid())
+  requestId String
+  request SessionPlanningRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  sequence Int
+  authorKey String
+  date String
+  startMin Int
+  endMin Int
+  startsAt DateTime
+  endsAt DateTime
+  roomId String?
+  online Boolean @default(false)
+  cutoffAt DateTime
+  responses SessionPlanningResponse[]
+  createdAt DateTime @default(now())
+  @@unique([requestId, sequence])
+}
+
+model SessionPlanningResponse {
+  id String @id @default(cuid())
+  offerId String
+  offer SessionPlanningOffer @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  actorKey String
+  actorUserId String
+  state String @default("PENDING")
+  acceptedBy String?
+  deliveredAt DateTime?
+  deadline DateTime?
+  respondedAt DateTime?
+  notices SessionNotice[]
+  @@unique([offerId, actorKey])
+  @@index([state, deadline])
+}
+
+model SessionPlanningReceipt {
+  actorId String
+  clientKey String
+  payloadHash String
+  result Json
+  createdAt DateTime @default(now())
+  @@id([actorId, clientKey])
+}
+
+/// Essential PROGRAM delivery is independent of optional informational email preferences.
+model SessionNotice {
+  id String @id @default(cuid())
+  dedupeKey String @unique
+  requestId String?
+  offerId String?
+  responseId String?
+  response SessionPlanningResponse? @relation(fields: [responseId], references: [id], onDelete: Restrict)
+  recipientUserId String
+  recipient User @relation(fields: [recipientUserId], references: [id], onDelete: Restrict)
+  recipientEmail String
+  event String
+  context Json
+  priority Int @default(100)
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  leaseUntil DateTime?
+  attemptId String?
+  attemptStartedAt DateTime?
+  acceptedAt DateTime?
+  completedAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, availableAt, priority])
+}
+
+model SessionCalendarToken {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  @@index([userId, revokedAt])
 }
 
 // Security accounting uses raw atomic SQL; these models keep schema/migrations in sync.

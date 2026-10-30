@@ -122,6 +122,9 @@ async function catalogue(tx: TransactionDb) {
           c.name !== "personId" &&
           c.name !== "historyIdentityRevision" &&
           (table !== "User" || ["id", "email", "name"].includes(c.name)) &&
+          // Dated-plan identity/consent is operational state, not historical archive data.
+          // Imported attendance retains actual evidence without claiming a live cohort.
+          !(table === "Session" && c.name === "planningCohortId") &&
           !(table === "StudentSurvey" && c.name === "tokenHash") &&
           // Retry keys are operational capabilities, not archival answer/consent evidence.
           // The database gives imported revisions a fresh key without changing their evidence.

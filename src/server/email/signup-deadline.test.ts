@@ -18,7 +18,7 @@ it("aborts the actual signup socket at the overall deadline, even if SMTP keeps 
   expect(smtp.close).toHaveBeenCalled();
 });
 it("keeps recovery mail on its independent pool without a signup socket", async () => {
-  smtp.send.mockResolvedValueOnce({});
+  smtp.send.mockResolvedValueOnce({ accepted: ["recipient@example.test"], rejected: [] });
   await emailSender.send({ category: "SECURITY", to: "recipient@example.test", subject: "Recovery", text: "Test" });
   expect(smtp.create).toHaveBeenCalledWith(expect.objectContaining({ pool: true, socket: undefined }));
   expect(smtp.close).not.toHaveBeenCalled();

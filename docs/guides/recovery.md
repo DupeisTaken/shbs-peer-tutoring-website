@@ -2,7 +2,7 @@
 
 Use selective recovery when an interview admission was mistaken. The system
 removes the consequences of that admission while retaining independent facts,
-historical evidence and existing learning-partner accounts. Read the proposed
+historical evidence and existing tutee accounts. Read the proposed
 effects before applying them. The [recovery reference](../reference/recovery.md)
 describes provenance coverage, permissions and technical limits.
 
@@ -25,7 +25,7 @@ Later independent name/contact, account security, suspension, staff/Crew/Transla
 access and workload-preference edits can now remain in place when the journal has
 complete field-level coverage. Already-shortened or revoked source codes stay
 revoked. An admission-only login is still disabled even if its password changed;
-inactive tutors still have zero workload. Existing learning-partner accounts are
+inactive tutors still have zero workload. Existing tutee accounts are
 preserved. A transaction that also changes ownership, unsupported participation or
 other unrecognized fields still needs a separate review. Older edits without the
 new field-name evidence cannot be assumed harmless.
@@ -110,7 +110,7 @@ npm run recovery -- admission restore --plan local-operations/admission-plan.jso
 
 `restore` is an alias for `apply`. This performs a causal void, including supported
 admission-derived invitations, account access and assignment consequences. It
-preserves independent participation, independent grants and learning-partner
+preserves independent participation, independent grants and tutee
 accounts. The server rechecks the graph, fingerprint and current authorization
 inside the write transaction. A stale or incomplete plan performs no domain
 write. The operator route bypasses only the website's later-action count limit.

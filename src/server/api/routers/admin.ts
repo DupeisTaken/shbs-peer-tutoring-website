@@ -17,6 +17,10 @@ import {
   deleteAccountInput,
   previewDeleteAccount,
 } from "~/server/delete-account";
+import {
+  assertNoPublishedTuteeDeletion,
+  assertNoSchedulingNoticeDeletion,
+} from "~/server/session-planning/deletion-guards";
 import { notificationEvent } from "~/lib/notification-events";
 import { clearInterviewHours } from "~/server/interview-hours";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
@@ -3356,6 +3360,7 @@ export const adminRouter = createTRPCRouter({
           input,
         );
         await assertTuteeInvalidityCleared(tx, input.id);
+        await assertNoPublishedTuteeDeletion(tx, input.id);
         const sessions = await tx.sessionTutee.count({
           where: { tuteeId: input.id },
         });
@@ -4593,6 +4598,7 @@ export const adminRouter = createTRPCRouter({
   deleteCrewMember: adminOnlyProcedure
     .input(z.object({ userId: cuid }))
     .mutation(async ({ ctx, input }) => {
+      await lockEntity(ctx.db, "program:period");
       await lockUsernameNamespace(ctx.db);
       await activeManagementActor(ctx.db, ctx.session.user.id);
       await lockAccountProfile(ctx.db, input.userId);
@@ -4632,6 +4638,7 @@ export const adminRouter = createTRPCRouter({
           message:
             "Retained tutor history must be preserved. Review historical ownership before deleting this account.",
         });
+      await assertNoSchedulingNoticeDeletion(ctx.db, target.id);
       await ctx.db.user.delete({ where: { id: target.id } });
       await recordAudit({
         userId: ctx.session.user.id,

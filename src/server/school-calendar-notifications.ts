@@ -107,6 +107,7 @@ export async function schoolCalendarAudience(
   date: string,
   affectedWeekdays: number[],
   priorUserIds: string[] = [],
+  now = new Date(),
 ) {
   const pairings = await tx.pairing.findMany({
     where: {
@@ -143,7 +144,7 @@ export async function schoolCalendarAudience(
       where: { tuteeId: { in: tuteeIds } },
       select: { userId: true },
     }),
-    getSchoolCalendarDatedSessionUserIds(tx, date),
+    getSchoolCalendarDatedSessionUserIds(tx, date, now),
   ]);
   return eligibleUsers(tx, [
     ...linked.map((user) => user.id),
@@ -173,7 +174,12 @@ async function createNotices(
       event,
       AND: [
         { context: dateFilter(source.date) },
-        { context: { path: ["calendarRevision"], equals: source.scheduleRevision } },
+        {
+          context: {
+            path: ["calendarRevision"],
+            equals: source.scheduleRevision,
+          },
+        },
       ],
     },
     select: { userId: true },
@@ -254,6 +260,7 @@ export async function notifySchoolCalendarChange(
     after.date,
     weekdays(before, after),
     previous.map((row) => row.userId),
+    now,
   );
   await createNotices(
     tx,
@@ -331,6 +338,7 @@ export async function remindUpcomingSchoolCalendar(
         source.date,
         weekdays(source),
         prior.map((row) => row.userId),
+        now,
       );
       // A newly applied change inside this same advance window already is the
       // participant's reminder. Keep its real receipt and avoid a second phase;

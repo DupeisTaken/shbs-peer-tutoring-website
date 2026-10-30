@@ -19,15 +19,19 @@ import { SchoolCalendarDayContext } from "~/app/_components/school-calendar-noti
 export function TutorUpcoming({
   active,
   interviewsEnabled,
+  includeSessions = true,
   now: initialNow,
 }: {
   active: boolean;
   interviewsEnabled: boolean;
+  /** The dated agenda owns tutoring; this mode retains only the interview preview. */
+  includeSessions?: boolean;
   now: Date;
 }) {
   const t = useTranslations("tutorUpcoming");
   const calendarText = useTranslations("schoolCalendar");
   const groupText = useTranslations("pairingGroups");
+  const Heading = includeSessions ? "h3" : "h2";
   const format = useFormatter();
   const timeZone = useTimeZone() ?? DEFAULT_TIME_ZONE;
   const [now, setNow] = useState(initialNow);
@@ -45,8 +49,8 @@ export function TutorUpcoming({
     };
   }, [active]);
   const pairings = api.tutor.myPairings.useQuery(undefined, {
-    enabled: active,
-    refetchInterval: active ? 60_000 : false,
+    enabled: active && includeSessions,
+    refetchInterval: active && includeSessions ? 60_000 : false,
   });
   const interviews = api.tutor.myInterviews.useQuery(undefined, {
     enabled: active && interviewsEnabled,
@@ -58,19 +62,20 @@ export function TutorUpcoming({
   const calendar = api.program.schoolCalendar.useQuery(
     { from, to: lastDate.toISOString().slice(0, 10) },
     {
-      enabled: active,
-      refetchInterval: active ? 60_000 : false,
+      enabled: active && (includeSessions || interviewsEnabled),
+      refetchInterval:
+        active && (includeSessions || interviewsEnabled) ? 60_000 : false,
     },
   );
   const deniedNow =
-    viewAccessDenied(pairings.error) ||
+    (includeSessions && viewAccessDenied(pairings.error)) ||
     viewAccessDenied(calendar.error) ||
     (interviewsEnabled && viewAccessDenied(interviews.error));
   useEffect(() => {
     if (deniedNow) setDenied(true);
   }, [deniedNow]);
   const sources = [
-    { name: t("sessions"), query: pairings },
+    ...(includeSessions ? [{ name: t("sessions"), query: pairings }] : []),
     { name: calendarText("title"), query: calendar },
     ...(interviewsEnabled
       ? [{ name: t("interviews"), query: interviews }]
@@ -97,7 +102,7 @@ export function TutorUpcoming({
       setRecovering(false);
     }
   }
-  if (!active) return null;
+  if (!active || (!includeSessions && !interviewsEnabled)) return null;
   if (denied || deniedNow) {
     const source = sources.map((s) => s.name).join(" / ");
     return (
@@ -105,9 +110,9 @@ export function TutorUpcoming({
         className="card space-y-3 p-4 sm:p-5"
         aria-labelledby="tutor-upcoming-title"
       >
-        <h3 id="tutor-upcoming-title" className="section-title">
-          {t("title")}
-        </h3>
+        <Heading id="tutor-upcoming-title" className="section-title">
+          {t(includeSessions ? "title" : "interviewsTitle")}
+        </Heading>
         <StatePanel
           kind="denied"
           title={t("denied", { source })}
@@ -121,7 +126,10 @@ export function TutorUpcoming({
     );
   }
   const { events, unresolvedTimes, groupsNeedingRepair } = tutorUpcoming({
-    pairings: calendar.data && !calendar.error ? (pairings.data ?? []) : [],
+    pairings:
+      includeSessions && calendar.data && !calendar.error
+        ? (pairings.data ?? [])
+        : [],
     interviews: interviewsEnabled ? (interviews.data ?? []) : [],
     now,
     timeZone,
@@ -133,10 +141,12 @@ export function TutorUpcoming({
       className="card space-y-3 p-4 sm:p-5"
       aria-labelledby="tutor-upcoming-title"
     >
-      <h3 id="tutor-upcoming-title" className="section-title">
-        {t("title")}
-      </h3>
-      <p className="muted text-sm">{t("help", { timeZone })}</p>
+      <Heading id="tutor-upcoming-title" className="section-title">
+        {t(includeSessions ? "title" : "interviewsTitle")}
+      </Heading>
+      <p className="muted text-sm">
+        {t(includeSessions ? "help" : "interviewsHelp", { timeZone })}
+      </p>
       {sources.map(({ name, query }) =>
         query.error || !query.data ? (
           <StatePanel
@@ -166,7 +176,11 @@ export function TutorUpcoming({
       {complete &&
         !events.length &&
         !unresolvedTimes &&
-        !groupsNeedingRepair && <p className="muted">{t("empty")}</p>}
+        !groupsNeedingRepair && (
+          <p className="muted">
+            {t(includeSessions ? "empty" : "interviewsEmpty")}
+          </p>
+        )}
       {events.length > 0 && (
         <ul className="space-y-2">
           {events.map((event) => {

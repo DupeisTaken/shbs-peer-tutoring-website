@@ -362,9 +362,9 @@ schedules, roster changes, active interviews, meetings and pending qualification
 A paused invalid interview is not counted as actionable work. Section links remain
 available even when there are no follow-ups; unavailable reads are not reported as
 zero tasks. Links move keyboard focus to the corresponding section.
-Today's regular schedule uses the program time zone and confirmed weekly times;
-check announcements for holidays or one-off changes. Attendance comes before
-optional editors. Pending participation, policy and request notices remain visible.
+Today's schedule uses confirmed dated sessions in the program timezone, including
+agreed moves and extras. My Pairings stays prominent; the session agenda opens
+attendance for the selected ended lesson before optional editors. Pending participation, policy and request notices remain visible.
 **Interviews to Conduct** starts expanded, with a count and **Collapse interviews** /
 **Expand interviews** controls. Scheduled open work appears earliest first (including
 overdue interviews), then unscheduled and paused work. One initially closed
@@ -555,7 +555,7 @@ accepts an applicant, creates an invitation, sends email or exposes codes to pan
 
 ### Record a session
 
-1. Confirm the assigned tutees, actual date, start/end time, and room or online status. Future school dates cannot be submitted. An assignment marked **Awaiting schedule** has no default appointment time. Enter actual start and end times, including when such an assignment is added to a combined block; recording attendance does not set its recurring schedule.
+1. Open **Sessions → Needs attendance** on your dashboard and choose **Record attendance** on the specific ended lesson. The form captures its date, subjects and tutees, including separately rescheduled participants. Confirm actual start/end time and room or online status. Planned lessons are 45 minutes; record the duration that actually happened.
 2. Record your attendance and each tutee's actual attendance. Supply comments, reasons for your absence or excused student absences, the requested session ratings, and reasons for requested disciplinary cards.
 3. Read any room-conflict warning. A truthful historical report is allowed and alerts management; it does not reserve a conflicting room for a future session.
 4. Submit once and check the saved record. If the result is unclear after a network error, check the record before retrying.
@@ -563,7 +563,41 @@ accepts an applicant, creates an invitation, sends email or exposes codes to pan
 
 Current tutor-policy acceptance is required for attendance submission. Your service hours are calculated from the saved attendance; see [session-hour examples](../../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual).
 
-Use combined attendance when several assigned subjects share one block: shared time and each distinct student count once. An identical retry does not create another credit; changed answers for a saved block require a correction. Changing the selected subjects or shifting the time does not permit another submission that overlaps your saved attendance. Ask management to correct the existing block; corrections cannot overlap another saved block. Adjacent, non-overlapping sessions remain valid. Present, rescheduled and extra sessions use the same calculation. Online sessions have no physical room check.
+Combined pairings retain their subjects in the dated lesson: shared time and each distinct student count once. Extra and rescheduled labels come from the schedule and cannot be chosen in attendance. Closing the form retains its draft while the page remains mounted; switching lessons requires resuming or discarding it. An identical retry does not create another credit; changed answers for a saved block require a correction. Shifting the time does not permit duplicate attendance for the same lesson. Ask management to correct saved records or review an unplanned historical lesson. Adjacent, non-overlapping sessions remain valid. Present, rescheduled and extra sessions use the same calculation. Online sessions have no physical room check.
+
+### Plan and reschedule a dated session
+
+**My Pairings** keeps your recurring assignments visible. **Sessions** shows the
+current and next Monday–Sunday week in the school timezone; Sunday prepares the
+following window. Start with **Message to coordinate** to agree on a workable
+time. Opening the composer sends nothing, and chat messages do not formally accept
+a schedule change.
+
+Tutees can suggest a time from their schedule. Tutors use **Reschedule Session**
+or **Add Extra Session**, choosing one tutee or all tutees. Editing start or end
+keeps the planned duration at 45 minutes. A matching current tutee suggestion can
+be formalized directly; otherwise the affected party receives an email to respond.
+
+For one tutee, rejecting the tutor's first proposal requires an alternative. The
+tutor may accept that alternative or reject it with one final proposal. If the
+tutee rejects that final proposal, only that dated commitment is cancelled.
+For all tutees, everyone must accept the same proposal. Each person may reject
+once with an alternative sent to everyone. After using that rejection, choose
+**Separate reschedule** if a later time still fails; the tutor then formalizes
+individual requests. Recurring pairing groups remain intact.
+
+The 24-hour response window begins only after the essential email is accepted by
+the mail server. Delivery failure blocks automatic acceptance; inspect delivery
+status and retry. No response within a valid window means acceptance. If 24 hours
+cannot fit before the original or proposed session starts, explicit agreement is
+required before the earlier start; otherwise the request expires and the original
+session stays in place unless a separate authoritative school-calendar or assignment change cancelled it. If a server outage misses an otherwise completed response window until after a session starts, the system requests review instead of retroactively moving the session. Check the portal and essential notice for authoritative outcomes.
+
+An extra session follows the same agreement process and leaves the regular lesson
+in place. A rejected extra proposal never cancels the regular lesson. Scheduling
+changes do not create attendance or absence records. Optional calendar subscription
+links show confirmed sessions; keep the URL private and rotate or revoke it from
+Sessions. Calendar applications may refresh later than the portal.
 
 ### Combine and split recurring pairings
 
@@ -587,7 +621,7 @@ Room intent remains separate. An automatic room shortage may save as **Needs roo
 but a fixed-room conflict or overlapping independent tutor block rejects the save.
 Grouping does not record attendance or change qualifications, ownership or rosters.
 
-My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. Management's Pairings table keeps subject-level rows and actions, with a common group reference and group details in the rightmost Actions column. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **Record group attendance** selects the group in the attendance form; the separate-subject options remain available when only one subject ran on a particular date. Check actual attendance time and location before submitting.
+My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. Management's Pairings table keeps subject-level rows and actions, with a common group reference and group details in the rightmost Actions column. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **View dated sessions** opens the agenda. Its **Record attendance** action selects that exact dated cohort and its captured subjects and students. Current planned attendance does not offer an arbitrary subject/group picker. Check actual attendance time and location before submitting; ask management to review historical subject corrections.
 
 Existing groups that fail the coverage or schedule checks show **Needs repair**.
 Repair or split them before scheduling or recording combined attendance.

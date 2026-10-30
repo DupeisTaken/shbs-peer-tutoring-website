@@ -1,3 +1,4 @@
+import { sessionAttendanceContext, markSessionCohortRecorded } from "~/server/session-planning";
 import { notificationEvent } from "~/lib/notification-events";
 import { isInterviewChairRole } from "~/lib/interview-chair";
 import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
@@ -358,6 +359,8 @@ export const tutorRouter = createTRPCRouter({
     .input(
       z
         .object({
+          cohortId: z.string().min(1).optional(),
+          expectedCohortVersion: z.number().int().positive().optional(),
           pairingId: z.string().min(1),
           // Other pairings (subjects) run in the same combined block. Each becomes its own
           // Session linked by mergeGroupId; the block's clock time is counted once.
@@ -408,6 +411,20 @@ export const tutorRouter = createTRPCRouter({
             .optional(),
         })
         .superRefine((val, ctx) => {
+          if (
+            val.cohortId &&
+            (val.expectedCohortVersion === undefined ||
+              val.startMin === undefined ||
+              val.endMin === undefined ||
+              !["PRESENT", "TUTOR_ABSENT"].includes(val.tutorStatus))
+          ) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["cohortId"],
+              message:
+                "Use the dated session version, actual times and attendance outcome. Scheduling provenance is automatic.",
+            });
+          }
           if (
             val.tutorStatus === "TUTOR_ABSENT" &&
             !val.tutorAbsentReason?.trim()
@@ -465,17 +482,62 @@ export const tutorRouter = createTRPCRouter({
       // Discipline side-effects (auto-issued absence cards + tutor card requests + punishment
       // removal) only fire when the DISCIPLINE module is on; attendance + hours always record.
       const features = await getFeatures(ctx.db);
-      // The block can cover several subjects (pairings). Primary first, then the merged ones.
-      const mergeIds = [...new Set(input.mergePairingIds ?? [])].filter(
-        (id) => id !== input.pairingId,
+      // Dated attendance derives its subject set from the immutable lesson snapshot.
+      // A split cohort can contain only part of a recurring pairing's roster.
+      const planned = input.cohortId
+        ? await ctx.db.sessionPlanCohort.findFirst({
+            where: { id: input.cohortId, plan: { tutorId } },
+            include: {
+              participants: true,
+              plan: { include: { assignments: true } },
+            },
+          })
+        : null;
+      if (input.cohortId && !planned)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dated session not found for this tutor.",
+        });
+      const plannedAssignments = planned?.plan.assignments.filter(
+        (row) =>
+          Array.isArray(row.tuteeIds) &&
+          row.tuteeIds.some((id) =>
+            planned.participants.some(
+              (person) =>
+                person.tuteeId === id && person.status === "SCHEDULED",
+            ),
+          ),
       );
+      if (
+        planned &&
+        (!plannedAssignments?.some(
+          (row) => row.pairingId === input.pairingId,
+        ) ||
+          planned.date !== input.date.toISOString().slice(0, 10))
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The attendance date or pairing does not match this dated session.",
+        });
+      // The block can cover several subjects (pairings). Primary first, then the merged ones.
+      const mergeIds = [
+        ...new Set(
+          plannedAssignments?.map((row) => row.pairingId) ??
+            input.mergePairingIds ??
+            [],
+        ),
+      ].filter((id) => id !== input.pairingId);
       const allPairingIds = [input.pairingId, ...mergeIds];
 
       // Row scoping: every pairing in the block must belong to this tutor.
       const found = await ctx.db.pairing.findMany({
         where: { id: { in: allPairingIds }, tutorId },
         include: {
-          tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, select: { tuteeId: true } },
+          tutees: {
+            where: { tutee: { status: { not: "INACTIVE" } } },
+            select: { tuteeId: true },
+          },
           // The session is stamped with this pairing's program period (for semester-scoped hours).
           term: { select: { schoolYear: true, quarter: true } },
         },
@@ -544,6 +606,8 @@ export const tutorRouter = createTRPCRouter({
       return ctx.db.$transaction(
         async (tx) => {
           await lockAttendanceSchedule(tx);
+          // Match catalogue/lifecycle ordering before acquiring dated-session locks.
+          await lockEntity(tx, "program:period");
           await lockEntity(tx, "policy:tutor-policy");
           await requirePolicy(tx, ctx.session.user.id, "tutor-policy");
           // Pairing subsets and slightly changed times must not buy a second credit for the
@@ -553,13 +617,15 @@ export const tutorRouter = createTRPCRouter({
           // Same tutoring block means one attendance record, even across retries/processes.
           const submissionKey = createHash("sha256")
             .update(
-              JSON.stringify([
-                tutorId,
-                [...allPairingIds].sort(),
-                input.date.toISOString().slice(0, 10),
-                startMin,
-                endMin,
-              ]),
+              input.cohortId
+                ? `planned:${input.cohortId}`
+                : JSON.stringify([
+                    tutorId,
+                    [...allPairingIds].sort(),
+                    input.date.toISOString().slice(0, 10),
+                    startMin,
+                    endMin,
+                  ]),
             )
             .digest("hex");
           const submissionPayloadHash = createHash("sha256")
@@ -592,52 +658,163 @@ export const tutorRouter = createTRPCRouter({
           // Preserve immutable receipt replay above, then re-read the selected
           // assignments under the same fence as roster/group/schedule writers.
           await lockPlannedRoomSchedule(tx);
+          const plannedContext = input.cohortId
+            ? await sessionAttendanceContext(
+                tx,
+                { id: ctx.session.user.id, tutorId },
+                input.cohortId,
+                input.expectedCohortVersion,
+              )
+            : null;
+          if (
+            plannedContext &&
+            (plannedContext.date !== dateKey ||
+              plannedContext.primaryPairingId !== input.pairingId ||
+              [...plannedContext.pairingIds].sort().join(":") !==
+                [...allPairingIds].sort().join(":"))
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The dated session changed. Reload before recording attendance.",
+            });
           const currentMembers = await tx.pairing.findMany({
             where: { id: { in: allPairingIds }, tutorId },
-            include: { tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, select: { tuteeId: true } } },
+            include: {
+              tutees: {
+                where: { tutee: { status: { not: "INACTIVE" } } },
+                select: { tuteeId: true },
+              },
+            },
           });
           // A tutor schedule may change while the initial attendance read waits
           // for this fence. Recheck defaults here; explicit actual clocks remain
           // independent, while linkage still identifies their catalog evidence.
-          const currentPairing = currentMembers.find(member => member.id === primary.id);
-          if (currentPairing?.timeSlotId !== primary.timeSlotId ||
-            (input.startMin === undefined && (currentPairing?.startMin !== startMin || !currentPairing?.scheduleConfirmed)) ||
-            (input.endMin === undefined && (currentPairing?.endMin !== endMin || !currentPairing?.scheduleConfirmed)))
-            throw new TRPCError({ code: "CONFLICT", message: "The pairing schedule changed. Reload before recording attendance." });
-          const rosterKey = (rows: readonly { tuteeId: string }[]) => rows.map(row => row.tuteeId).sort().join(":");
-          if (currentMembers.length !== found.length || currentMembers.some(member => {
-            const earlier = found.find(row => row.id === member.id);
-            return earlier?.termId !== member.termId || earlier.subject !== member.subject ||
-              rosterKey(earlier.tutees) !== rosterKey(member.tutees);
-          })) throw new TRPCError({ code: "CONFLICT", message: "The assignment roster or subjects changed. Reload before recording attendance." });
+          const currentPairing = currentMembers.find(
+            (member) => member.id === primary.id,
+          );
+          if (
+            !plannedContext &&
+            (currentPairing?.timeSlotId !== primary.timeSlotId ||
+              (input.startMin === undefined &&
+                (currentPairing?.startMin !== startMin ||
+                  !currentPairing?.scheduleConfirmed)) ||
+              (input.endMin === undefined &&
+                (currentPairing?.endMin !== endMin ||
+                  !currentPairing?.scheduleConfirmed)))
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The pairing schedule changed. Reload before recording attendance.",
+            });
+          const rosterKey = (rows: readonly { tuteeId: string }[]) =>
+            rows
+              .map((row) => row.tuteeId)
+              .sort()
+              .join(":");
+          if (
+            currentMembers.length !== found.length ||
+            currentMembers.some((member) => {
+              const earlier = found.find((row) => row.id === member.id);
+              return (
+                earlier?.termId !== member.termId ||
+                earlier.subject !== member.subject ||
+                rosterKey(earlier.tutees) !== rosterKey(member.tutees)
+              );
+            })
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The assignment roster or subjects changed. Reload before recording attendance.",
+            });
           // New attendance uses the same active roster as the tutor reader.
           // Admission checks follow receipt replay so later roster changes cannot
           // invalidate immutable accepted evidence or turn a retry into a write.
-          const rosterByPairing = new Map(currentMembers.map(member => [member.id,
-            new Set(member.tutees.map(row => row.tuteeId))]));
-          const unionRoster = new Set(currentMembers.flatMap(member => member.tutees.map(row => row.tuteeId)));
-          const submittedIds = tuteeRows.map(row => row.tuteeId);
+          const rosterByPairing = new Map(
+            currentMembers.map((member) => [
+              member.id,
+              new Set(
+                plannedContext?.assignments.find(
+                  (row) => row.pairingId === member.id,
+                )?.tuteeIds ?? member.tutees.map((row) => row.tuteeId),
+              ),
+            ]),
+          );
+          const unionRoster = new Set(
+            plannedContext?.tuteeIds ??
+              currentMembers.flatMap((member) =>
+                member.tutees.map((row) => row.tuteeId),
+              ),
+          );
+          const submittedIds = tuteeRows.map((row) => row.tuteeId);
           const submittedIdSet = new Set(submittedIds);
           if (submittedIdSet.size !== submittedIds.length)
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Record each tutee exactly once." });
-          if (tuteeRows.some(row => !unionRoster.has(row.tuteeId)))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Selected tutee is not on any of these pairings." });
-          if (submittedIdSet.size !== unionRoster.size || [...unionRoster].some(id => !submittedIdSet.has(id)))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Record attendance for every tutee in the selected block." });
-          if (cardRequests.some(row => !unionRoster.has(row.tuteeId)))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot card a tutee who is not on these pairings." });
-          if (mergeIds.length && (currentMembers.some(member => member.termId !== primary.termId) ||
-            !pairingGroupEligibility(currentMembers).eligible))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Combined attendance requires every selected student to have the same complete set of subjects." });
-          const explicitGroups = [...new Set(currentMembers.flatMap(member => member.groupId ? [member.groupId] : []))];
-          if (mergeIds.length && explicitGroups.length) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Record each tutee exactly once.",
+            });
+          if (tuteeRows.some((row) => !unionRoster.has(row.tuteeId)))
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Selected tutee is not on any of these pairings.",
+            });
+          if (
+            submittedIdSet.size !== unionRoster.size ||
+            [...unionRoster].some((id) => !submittedIdSet.has(id))
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Record attendance for every tutee in the selected block.",
+            });
+          if (cardRequests.some((row) => !unionRoster.has(row.tuteeId)))
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Cannot card a tutee who is not on these pairings.",
+            });
+          if (
+            !plannedContext &&
+            mergeIds.length &&
+            (currentMembers.some(
+              (member) => member.termId !== primary.termId,
+            ) ||
+              !pairingGroupEligibility(currentMembers).eligible)
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Combined attendance requires every selected student to have the same complete set of subjects.",
+            });
+          const explicitGroups = [
+            ...new Set(
+              currentMembers.flatMap((member) =>
+                member.groupId ? [member.groupId] : [],
+              ),
+            ),
+          ];
+          if (!plannedContext && mergeIds.length && explicitGroups.length) {
             const groupMembers = await tx.pairing.findMany({
               where: { groupId: { in: explicitGroups } },
-              include: { group: { select: { primaryPairingId: true } },
-                tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, select: { tuteeId: true } } },
+              include: {
+                group: { select: { primaryPairingId: true } },
+                tutees: {
+                  where: { tutee: { status: { not: "INACTIVE" } } },
+                  select: { tuteeId: true },
+                },
+              },
             });
-            if (pairingEntries(groupMembers).some(entry => entry.groupStatus === "needsRepair"))
-              throw new TRPCError({ code: "BAD_REQUEST", message: "This combined group needs repair. Repair or split it before recording attendance." });
+            if (
+              pairingEntries(groupMembers).some(
+                (entry) => entry.groupStatus === "needsRepair",
+              )
+            )
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "This combined group needs repair. Repair or split it before recording attendance.",
+              });
           }
           await requireExistingRooms(tx, actualRoomId ? [actualRoomId] : []);
           const dayStart = new Date(`${dateKey}T00:00:00Z`);
@@ -671,10 +848,20 @@ export const tutorRouter = createTRPCRouter({
                 submissionPayloadHash: isPrimary ? submissionPayloadHash : null,
                 // A merged block ran at the primary pairing's time, so every sibling retains that
                 // same slot. This keeps the whole block together when an admin later edits it.
-                timeSlotId: primary.timeSlotId,
+                timeSlotId: plannedContext ? null : primary.timeSlotId,
+                planningCohortId: plannedContext?.cohortId,
                 tutorId,
                 date: input.date,
-                tutorStatus: input.tutorStatus,
+                tutorStatus:
+                  input.tutorStatus === "TUTOR_ABSENT"
+                    ? "TUTOR_ABSENT"
+                    : plannedContext
+                      ? plannedContext.kind === "EXTRA"
+                        ? "EXTRA"
+                        : plannedContext.rescheduled
+                          ? "RESCHEDULED"
+                          : "PRESENT"
+                      : input.tutorStatus,
                 tutorAbsentReason:
                   input.tutorStatus === "TUTOR_ABSENT"
                     ? (input.tutorAbsentReason?.trim() ?? null)
@@ -710,6 +897,8 @@ export const tutorRouter = createTRPCRouter({
           }
 
           // Link merged siblings under the primary session's id as the group key.
+          if (plannedContext)
+            await markSessionCohortRecorded(tx, plannedContext.cohortId);
           if (merged) {
             await tx.session.updateMany({
               where: { id: { in: sessionIds } },

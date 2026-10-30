@@ -63,6 +63,17 @@ function fixture(
 ) {
   const db = {
     $executeRaw: vi.fn().mockResolvedValue(1),
+    schoolCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
+    programSettings: {
+      findUnique: vi.fn().mockResolvedValue({ timeZone: "Asia/Shanghai" }),
+    },
+    term: {
+      findUniqueOrThrow: vi
+        .fn()
+        .mockResolvedValue({ startDate: null, endDate: null }),
+    },
+    sessionPlanCohort: { findMany: vi.fn().mockResolvedValue([]) },
+    sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue([]) },
     programFeature: {
       findMany: vi
         .fn()
@@ -98,6 +109,28 @@ function fixture(
 }
 
 describe("automatic room ranking", () => {
+  it("excludes an otherwise preferred room occupied by another tutor's dated exception", async () => {
+    const { db, raw } = fixture();
+    raw.sessionPlanCohort.findMany.mockResolvedValue([
+      {
+        id: "dated",
+        date: "2026-11-02",
+        startMin: 610,
+        endMin: 655,
+        roomId: "a",
+        plan: {
+          tutorId: "other",
+          originalDate: "2026-11-01",
+          assignments: [{ pairingId: "other-pairing" }],
+        },
+        participants: [{ id: "other-commitment", tuteeId: "other-student" }],
+      },
+    ]);
+    expect((await allocateRoom(db, schedule, {}, current)).roomId).toBe("b");
+    await expect(
+      allocateRoom(db, schedule, { roomMode: "FIXED", roomId: "a" }, current),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
   it("counts an explicit combined reservation once for usage instead of once per subject", async () => {
     const { db } = fixture([
       { ...booking("group-a", "a"), groupId: "one-explicit-group" },

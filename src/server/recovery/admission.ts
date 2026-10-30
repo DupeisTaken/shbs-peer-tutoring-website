@@ -92,6 +92,19 @@ const assignmentTables = new Set([
   "Tutee",
   "MessageTutorAssignment",
 ]);
+const unsupportedSchedulingTables = new Set([
+  "SessionPlan",
+  "SessionPlanAssignment",
+  "SessionPlanCohort",
+  "SessionPlanParticipant",
+  "SessionPlanningSuggestion",
+  "SessionPlanningRequest",
+  "SessionPlanningOffer",
+  "SessionPlanningResponse",
+  "SessionPlanningReceipt",
+  "SessionNotice",
+  "SessionCalendarToken",
+]);
 const surveyClock = z.object({
   id: z.string(),
   tuteeId: z.string(),
@@ -318,7 +331,7 @@ async function graph(tx: TransactionDb, actionId: string) {
 }
 
 type Graph = Awaited<ReturnType<typeof graph>>;
-// Transitive tracking includes learning-partner accounts. Only accounts attached
+// Transitive tracking includes tutee accounts. Only accounts attached
 // to this admission receive compensation; related accounts remain independent.
 function admissionAccounts(g: Graph) {
   return g.users.filter(
@@ -385,6 +398,13 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     blockers.push(RECOVERY_EVIDENCE.clockChanged);
   const rootEvents = g.events.filter((event) => event.kind === "ADMISSION");
   if (rootEvents.length !== 1) blockers.push(RECOVERY_EVIDENCE.sourceEvent);
+  // Events group a whole transaction. A scheduling write inside trusted admission
+  // capture still needs its own compensation adapter; the ADMISSION label must
+  // not hide a commitment, consent receipt or private calendar capability.
+  if (
+    g.changes.some((change) => unsupportedSchedulingTables.has(change.entity))
+  )
+    blockers.push(recoveryEventPrefix + "UNSUPPORTED.");
   const later = g.events.filter((event) => event.kind !== "ADMISSION");
   for (const event of later) {
     const changes = g.changes.filter((change) => change.eventId === event.id);

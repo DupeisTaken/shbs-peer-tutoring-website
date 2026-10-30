@@ -8,6 +8,10 @@ import {
 } from "~/lib/school-calendar";
 import { notifySchoolCalendarChange } from "~/server/school-calendar-notifications";
 import {
+  ensureSessionPlanningWindow,
+  lockSessionPlanning,
+} from "~/server/session-planning";
+import {
   inTransaction,
   lockEntity,
   type DomainDb,
@@ -19,6 +23,10 @@ export async function saveSchoolCalendar(
   actorId: string,
 ) {
   return inTransaction(db, async (tx) => {
+    // A pre-start calendar decision and its dated commitments publish atomically.
+    // The order matches planning/attendance: period → room → session → calendar date.
+    await lockEntity(tx, "program:period");
+    await lockSessionPlanning(tx);
     await lockEntity(tx, `school-calendar:${input.date}`);
     const current = await tx.schoolCalendarDay.findUnique({
       where: { date: input.date },
@@ -51,6 +59,7 @@ export async function saveSchoolCalendar(
       !current?.active ||
       before.isSchoolDay !== next.isSchoolDay ||
       before.effectiveTimetableWeekday !== next.effectiveTimetableWeekday;
+    const changedAt = new Date();
     const saved = await tx.schoolCalendarDay.upsert({
       where: { date: input.date },
       create: { date: input.date, ...data },
@@ -73,8 +82,10 @@ export async function saveSchoolCalendar(
       },
     });
     // Semantic revisions survive note-only edits; reset/reactivation always advances the fence.
-    if (scheduleChanged)
+    if (scheduleChanged) {
+      await ensureSessionPlanningWindow(tx, changedAt);
       await notifySchoolCalendarChange(tx, { before: current, after: saved });
+    }
     return saved;
   });
 }
@@ -85,6 +96,8 @@ export async function resetSchoolCalendar(
   actorId: string,
 ) {
   return inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
+    await lockSessionPlanning(tx);
     await lockEntity(tx, `school-calendar:${input.date}`);
     const current = await tx.schoolCalendarDay.findUnique({
       where: { date: input.date },
@@ -95,6 +108,7 @@ export async function resetSchoolCalendar(
         message: "The school calendar changed. Reload before resetting.",
       });
     if (!current.active) return current;
+    const changedAt = new Date();
     const saved = await tx.schoolCalendarDay.update({
       where: { date: input.date },
       data: {
@@ -114,6 +128,7 @@ export async function resetSchoolCalendar(
         ) as Prisma.InputJsonValue,
       },
     });
+    await ensureSessionPlanningWindow(tx, changedAt);
     await notifySchoolCalendarChange(tx, { before: current, after: saved });
     return saved;
   });

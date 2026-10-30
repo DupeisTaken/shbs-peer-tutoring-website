@@ -69,6 +69,7 @@ function page({
   locale = "en",
   timeZone = "Asia/Shanghai",
   instant = now,
+  includeSessions = true,
 } = {}) {
   return (
     <NextIntlClientProvider
@@ -80,6 +81,7 @@ function page({
         active={active}
         interviewsEnabled={interviewsEnabled}
         now={instant}
+        includeSessions={includeSessions}
       />
     </NextIntlClientProvider>
   );
@@ -114,7 +116,9 @@ beforeEach(() => {
   state.interviewsError = null;
   state.missing = false;
   vi.clearAllMocks();
-  state.refreshPairings.mockImplementation(async () => {
+  // Reset queued one-shot transports too: an earlier failed assertion must not
+  // leave an unresolved recovery promise for a later test to consume.
+  state.refreshPairings.mockReset().mockImplementation(async () => {
     if (state.pairingsError)
       throw Object.assign(
         new Error("Pairings read failed"),
@@ -122,7 +126,7 @@ beforeEach(() => {
       );
     return { data: state.pairings };
   });
-  state.refreshInterviews.mockImplementation(async () => {
+  state.refreshInterviews.mockReset().mockImplementation(async () => {
     if (state.interviewsError)
       throw Object.assign(
         new Error("Interviews read failed"),
@@ -334,6 +338,52 @@ it("disables inactive and feature-restricted interview reads and suppresses cach
     enabled: false,
     refetchInterval: false,
   });
+});
+it("retains upcoming interviews without reading or projecting duplicate weekly tutoring", () => {
+  state.pairingsError = { data: { code: "FORBIDDEN" } };
+  render(page({ includeSessions: false }));
+  expect(screen.getByText("Synthetic Applicant")).toBeTruthy();
+  expect(screen.queryByText("Synthetic Mathematics")).toBeNull();
+  expect(state.options).toHaveBeenCalledWith("pairings", {
+    enabled: false,
+    refetchInterval: false,
+  });
+  expect(
+    screen.getByRole("heading", { name: en.tutorUpcoming.interviewsTitle }),
+  ).toBeTruthy();
+});
+it("recovers calendar and interview evidence without a disabled pairing read in interviews-only mode", async () => {
+  state.interviewsError = { data: { code: "FORBIDDEN" } };
+  const view = render(page({ includeSessions: false }));
+  expect(screen.queryByText("Synthetic Applicant")).toBeNull();
+  state.interviewsError = null;
+  view.rerender(page({ includeSessions: false }));
+  let finish!: (value: { data: unknown[] }) => void;
+  state.refreshInterviews.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await act(async () =>
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: en.tutorUpcoming.retry.replace(
+          "{source}",
+          `${en.schoolCalendar.title} / ${en.tutorUpcoming.interviews}`,
+        ),
+      }),
+    ),
+  );
+  expect(screen.queryByText("Synthetic Applicant")).toBeNull();
+  expect(state.refreshPairings).not.toHaveBeenCalled();
+  expect(state.refreshInterviews).toHaveBeenCalledOnce();
+  await act(async () => finish({ data: state.interviews }));
+  await waitFor(() =>
+    expect(screen.getByText("Synthetic Applicant")).toBeTruthy(),
+  );
+  expect(state.refreshPairings).not.toHaveBeenCalled();
+  expect(state.refreshInterviews).toHaveBeenCalledOnce();
 });
 
 it("expires ongoing sessions on its clock tick and cleans up the clock on unmount", () => {

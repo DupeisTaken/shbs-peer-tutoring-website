@@ -7,6 +7,7 @@ import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
+import { SessionAgenda } from "~/app/_components/session-agenda";
 
 /** Overview reads the same owned records as the detailed panels; it never creates an enrollment. */
 export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
@@ -60,6 +61,7 @@ export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
           if (requests.error) void requests.refetch();
         }}
       />
+      <SessionAgenda role="tutee" preview />
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
           href="/student?view=schedule"

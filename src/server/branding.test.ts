@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   connection: vi.fn(async () => undefined),
-  sendMail: vi.fn(async () => ({ messageId: "branding-test" })),
+  sendMail: vi.fn(async () => ({ messageId: "branding-test", accepted: ["recipient@example.test"], rejected: [] })),
 }));
 vi.mock("next/server", () => ({ connection: mocks.connection }));
 vi.mock("nodemailer", () => ({

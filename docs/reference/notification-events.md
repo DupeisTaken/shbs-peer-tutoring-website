@@ -63,8 +63,9 @@ populated active-period pairings on the union of the actual date's civil weekday
 prior mapped weekday and new mapped weekday. Retained tutee ownership is included;
 suspended, merged, departed and inactive participants are excluded. Still-eligible
 prior recipients receive corrections. The [dated-session adapter](../../src/server/school-calendar-session-audience.ts)
-is the coordinated rollout's integration seam and currently contributes no dated
-participants. Calendar events use optional information email and normal verified
+also includes current eligible participants from actual scheduled cohorts, including
+agreed extras and reschedules on a closed date; cancelled or moved-away participants
+are excluded from that date. Calendar events use optional information email and normal verified
 address, program-switch and personal-preference gates.
 
 [Calendar emitters](../../src/server/school-calendar-notifications.ts) use stable

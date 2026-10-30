@@ -7,11 +7,11 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
-import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
+import { SessionAgenda } from "~/app/_components/session-agenda";
+import { TutorUpcoming } from "~/app/(tutor)/_components/tutor-upcoming";
 import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
-import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
@@ -24,7 +24,6 @@ import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
-import { TutorUpcoming } from "~/app/(tutor)/_components/tutor-upcoming";
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 
@@ -134,48 +133,31 @@ export default async function TutorDashboard() {
         </div>
       )}
 
+      <section
+        id="tutor-pairings"
+        tabIndex={-1}
+        className="card scroll-mt-6 p-4 sm:p-5"
+      >
+        <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
+        <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
+        <TutorPairings active={!inactive} />
+      </section>
+
       <DashboardTasks
         status={me.status}
         interviewsEnabled={features.INTERVIEWS}
         meetingsEnabled={features.MEETINGS}
         now={new Date()}
       />
-
-      <MergeProvider>
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5 lg:gap-6">
-          {/* Attendance form */}
-          {!inactive && (
-            <section
-              id="attendance"
-              tabIndex={-1}
-              className="card scroll-mt-6 p-4 sm:p-5 lg:col-span-3"
-            >
-              <h2 className="section-title">
-                {t("dashboard.attendance.title")}
-              </h2>
-              <p className="muted mt-1 mb-4">
-                {t("dashboard.attendance.help")}
-              </p>
-              <AttendanceForm />
-            </section>
-          )}
-
-          {/* Pairings + availability */}
-          <div
-            className={`space-y-5 lg:space-y-6 ${inactive ? "lg:col-span-5" : "lg:col-span-2"}`}
-          >
-            <section
-              id="tutor-pairings"
-              tabIndex={-1}
-              className="card scroll-mt-6 p-4 sm:p-5"
-            >
-              <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
-              <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
-              <TutorPairings active={!inactive} />
-            </section>
-          </div>
-        </div>
-      </MergeProvider>
+      <div id="attendance" tabIndex={-1} className="scroll-mt-6">
+        <SessionAgenda role="tutor" />
+      </div>
+      <TutorUpcoming
+        active={!inactive}
+        interviewsEnabled={features.INTERVIEWS}
+        includeSessions={false}
+        now={new Date()}
+      />
 
       {/* Unresolved work remains expanded. Only optional editors and completed
           evidence use disclosures, which retain mounted drafts when collapsed. */}
@@ -225,11 +207,6 @@ export default async function TutorDashboard() {
         </div>
         <ProgramCalendarNotice />
         <SchoolCalendarNotice />
-        <TutorUpcoming
-          active={!inactive}
-          interviewsEnabled={features.INTERVIEWS}
-          now={new Date()}
-        />
         <TutorRoomSchedule initialData={schedule} />
       </section>
     </div>

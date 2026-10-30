@@ -338,6 +338,8 @@ describe("purpose-based sender routing", () => {
   it.each([
     { accepted: [], rejected: ["recipient@example.test"] },
     { accepted: [] },
+    {},
+    { rejected: [] },
   ])("rejects unaccepted SMTP delivery: %j", async (result) => {
     dedicated("SECURITY");
     smtp.send.mockResolvedValue(result);
