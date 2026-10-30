@@ -1,6 +1,8 @@
 import { db } from "./db";
 import { expireStudentRequests } from "./student-request-state";
 import { deliverSignupNotices } from "./student-signup-appeals";
+import { settleActiveContinuationOpening } from "./program/continuation-opening";
+import { reconcileStudentContinuations } from "./student-continuation-assignment";
 
 const state = globalThis as typeof globalThis & {
   studentDeadlineWorker?: ReturnType<typeof setInterval>;
@@ -13,7 +15,9 @@ export function startStudentDeadlineWorker() {
     if (running) return;
     running = true;
     try {
+      await settleActiveContinuationOpening(db);
       await expireStudentRequests(db);
+      await reconcileStudentContinuations(db);
       await db.studentActionConfirmation.deleteMany({
         where: { expiresAt: { lt: new Date() } },
       });

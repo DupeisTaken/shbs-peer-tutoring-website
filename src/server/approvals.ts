@@ -264,8 +264,15 @@ export async function proposalAuthority(
         })
       : null;
   return classifyApproval(operation, value, {
-    currentAccountRole: operation === "admin.setMemberships" && typeof input.userId === "string"
-      ? (await client.user.findUnique({ where: { id: input.userId }, select: { role: true } }))?.role : undefined,
+    currentAccountRole:
+      operation === "admin.setMemberships" && typeof input.userId === "string"
+        ? (
+            await client.user.findUnique({
+              where: { id: input.userId },
+              select: { role: true },
+            })
+          )?.role
+        : undefined,
     currentTutorStatus: tutor?.status,
     currentCardReviewStatus: card?.reviewStatus,
     currentTuteeStatus: tutee?.status,
@@ -399,7 +406,13 @@ async function authoritySnapshot(client: TransactionDb) {
     term: await client.term.findFirst({
       where: { active: true },
       orderBy: { createdAt: "desc" },
-      omit: { nextRecruitmentRevision: true },
+      omit: {
+        nextRecruitmentRevision: true,
+        signupOpeningStateSince: true,
+        signupFirstOpenedAt: true,
+        continuationSourceTermId: true,
+        continuationQuarterTransition: true,
+      },
     }),
   };
 }
@@ -425,10 +438,22 @@ export async function proposalTargets(
     // The complete causal graph is review evidence, not a requester assertion.
     // Rebuilding it at approval detects changed-away-and-back descendant writes.
     const { inspectAdmissionRecovery } = await import("./recovery/admission");
-    const plan = await inspectAdmissionRecovery(client, { actionId: z.string().parse(fields.actionId) });
-    if (!plan.websiteEligible || plan.fingerprint !== fields.expectedFingerprint)
-      throw new TRPCError({ code: "CONFLICT", message: "Recovery evidence changed or requires the operator CLI. Inspect it again." });
-    return JSON.parse(JSON.stringify(plan)) as Record<string, Prisma.InputJsonValue>;
+    const plan = await inspectAdmissionRecovery(client, {
+      actionId: z.string().parse(fields.actionId),
+    });
+    if (
+      !plan.websiteEligible ||
+      plan.fingerprint !== fields.expectedFingerprint
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "Recovery evidence changed or requires the operator CLI. Inspect it again.",
+      });
+    return JSON.parse(JSON.stringify(plan)) as Record<
+      string,
+      Prisma.InputJsonValue
+    >;
   }
   // Reference labels have their own version. Keep every existing v1 display/
   // authority projection byte-for-byte stable when this separate marker is absent.
@@ -845,7 +870,13 @@ export async function proposalTargets(
     targets.term = await client.term.findFirst({
       where: { active: true },
       orderBy: { createdAt: "desc" },
-      omit: { nextRecruitmentRevision: true },
+      omit: {
+        nextRecruitmentRevision: true,
+        signupOpeningStateSince: true,
+        signupFirstOpenedAt: true,
+        continuationSourceTermId: true,
+        continuationQuarterTransition: true,
+      },
     });
   if (operation === "messaging.restrict")
     targets.restriction = await client.messageRestriction.findUnique({
@@ -1344,17 +1375,20 @@ export async function queueProposal(
         },
       },
     });
-    const headOnly = authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN");
+    const headOnly =
+      authority.reviewerRoles.includes("HEAD") &&
+      !authority.reviewerRoles.includes("ADMIN");
     const reviewers = await managementReviewers(tx, {
-      headOnly, exclude: session.user.id, allowHeadSelfReview: true,
+      headOnly,
+      exclude: session.user.id,
+      allowHeadSelfReview: true,
     });
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
-        title:
-          headOnly
-            ? "Management change awaiting Head approval"
-            : "Management change awaiting approval",
+        title: headOnly
+          ? "Management change awaiting Head approval"
+          : "Management change awaiting approval",
         ...notificationEvent(
           headOnly
             ? "management_head_review_pending"

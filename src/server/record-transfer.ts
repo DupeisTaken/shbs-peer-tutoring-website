@@ -121,6 +121,16 @@ async function catalogue(tx: TransactionDb) {
           // Imported sources receive identity metadata inside this transaction.
           c.name !== "personId" &&
           c.name !== "historyIdentityRevision" &&
+          // Actual-opening and refresh provenance is operational evidence, never CSV input.
+          !(
+            table === "Term" &&
+            [
+              "signupOpeningStateSince",
+              "signupFirstOpenedAt",
+              "continuationSourceTermId",
+              "continuationQuarterTransition",
+            ].includes(c.name)
+          ) &&
           (table !== "User" || ["id", "email", "name"].includes(c.name)) &&
           // Dated-plan identity/consent is operational state, not historical archive data.
           // Imported attendance retains actual evidence without claiming a live cohort.

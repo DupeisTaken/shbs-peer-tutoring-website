@@ -2392,7 +2392,7 @@
       "empty": "まだ公開されているタイムスロットはありません。",
       "save": "空き時間を保存",
       "saving": "保存中…",
-      "refreshFailed": "保存は受け付けられましたが、更新後の空き時間を読み込めませんでした。続けて変更する前に、読み込みを再試行してください。",
+      "refreshFailed": "保存は完了しましたが、一部の最新情報を読み込めませんでした。再読み込みしてから、次の変更を行ってください。",
       "saved": "保存しました。"
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "記録位置 {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "継続の選択",
+        "StudentContinuationPairing": "継続ペアリングの関連付け",
+        "StudentContinuationReceipt": "継続申込の受付記録",
+        "SessionPlanContinuationMember": "継続セッションへの参加登録",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,18 @@
         "RecoveryReceipt": "復旧の完了記録"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "公開申込メールの確認日時",
+        "signupOpeningStateSince": "申込状態の適用開始日時",
+        "signupFirstOpenedAt": "最初の申込開始日時",
+        "continuationSourceTermId": "継続元の期間",
+        "continuationQuarterTransition": "対象となる四半期の移行",
+        "sourcePairingId": "以前のペアリング",
+        "sourceTuteeId": "以前の学習者プロフィール",
+        "targetTermId": "対象期間",
+        "targetPairingId": "継続ペアリング",
+        "assignedAt": "割り当て日時",
+        "joinedAt": "参加日時",
+        "releasedAt": "解除日時",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",
@@ -6406,7 +6422,12 @@
       "action": "学校の時間割を確認"
     },
     "schoolCalendarScheduleNoSchool": "休校",
-    "schoolCalendarScheduleFollows": "{weekday}の時間割を適用"
+    "schoolCalendarScheduleFollows": "{weekday}の時間割を適用",
+    "student_continuation_released": {
+      "title": "継続した指導の割当が解除されました",
+      "body": "対応可能時間の変更により、継続した指導の割当が解除されました。申込は再割当のため保持されています。詳細は申込をご確認ください。",
+      "action": "保持された申込を確認"
+    }
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -7126,5 +7147,77 @@
     "CANCELLATION": "取り下げられた申請",
     "REVERSAL": "取り消された操作",
     "ATTEMPT": "変更の試行"
+  },
+  "legacyContinuation": {
+    "title": "前の学期のペアを継続",
+    "help": "{source}から{target}へ継続するペアを選んでください。",
+    "deadline": "{time}（{zone}）までに参加してください。",
+    "remaining": "残り {minutes} 分",
+    "loading": "以前のペアを読み込み中",
+    "loadFailed": "以前のペアを読み込めませんでした。",
+    "refreshReadFailed": "最新の情報を確認できませんでした。選択内容は保持されています。",
+    "retry": "再試行",
+    "denied": "これらのペアへのアクセス権がありません。",
+    "completeDetails": "必要な情報を確認",
+    "missingDetails": "継続する前に、現在の申込情報を確認してください。",
+    "filed": "申込を受け付けました。",
+    "viewRequest": "申込を表示",
+    "savedRefreshFailed": "申込は保存されましたが、最新の予定を読み込めませんでした。再試行では表示のみ更新します。",
+    "choose": "以前のペアを選択",
+    "subjectLimit": "1件の申込に含められる科目は2種類までです。既に申し込んだ科目も含みます。",
+    "select": "{tutor}の{subject}を選択",
+    "tooManySubjects": "現在の申込を含め、科目は2種類まで選択してください。",
+    "review": "選択内容を確認",
+    "reviewTitle": "選択したペアを継続",
+    "cancel": "キャンセル",
+    "checkRequest": "申込結果を確認",
+    "join": "選択したペアに参加",
+    "consequence": "申込を記録し、対応可能なペアを以前の確定済みの曜日・時間で継続します。対応できない科目は待機となります。その後、対応可能時間が変わった場合は該当する割当を解除し、申込を保持します。",
+    "stale": "情報が変更されました。この画面を閉じて選択内容を再確認してください。",
+    "uncertain": "送信結果を確認できませんでした。選択内容の変更や再送信の前に、申込結果を確認してください。",
+    "notSubmitted": "受理済みの送信は見つかりませんでした。選択内容は保持されています。確認して再試行してください。",
+    "recoveryFailed": "申込結果を確認できませんでした。元の送信内容は保持されています。もう一度確認してください。",
+    "policyUnavailable": "現在の参加規約を利用できません。チームにお問い合わせください。",
+    "signature": "氏名（署名）",
+    "status": {
+      "eligible": "今すぐ参加できます。",
+      "scheduled": "申込はまだ開始されていません。",
+      "paused": "申込は一時停止中です。再開しても1時間の受付期間はリセットされません。",
+      "expired": "1時間の継続受付期間が終了しました。通常の申込フォームをご利用ください。",
+      "unavailable": "この期間ではペアを継続できません。"
+    },
+    "result": {
+      "assigned": "割当済み",
+      "queued": "申込済み・割当待ち",
+      "released": "割当解除・申込は保持"
+    },
+    "candidate": {
+      "available": "対応可能",
+      "queued": "既に割当待ち",
+      "joined": "参加済み",
+      "released": "解除済み・申込は保持"
+    },
+    "reasons": {
+      "unavailable": "このペアは自動で割り当てられませんが、申込は受け付けられます。",
+      "tutorUnavailable": "以前のチューターは現在対応できません。",
+      "slotUnavailable": "以前の時間帯は利用できません。",
+      "subjectUnavailable": "この科目は現在提供されていません。",
+      "qualificationMissing": "チューターの現在の資格確認が必要です。",
+      "willingnessMissing": "この科目へのチューターの対応意向を確認する必要があります。",
+      "scheduleConflict": "以前の時間帯が現在の予定と重なっています。",
+      "roomUnavailable": "以前の教室は利用できません。",
+      "missingDetails": "申込情報の一部を確認する必要があります。",
+      "sourceChanged": "以前のペアが変更されました。再確認してください。",
+      "alreadyJoined": "このペアは既に申込に含まれています。",
+      "released": "割当は解除されましたが、申込はチームが確認できる状態で保持されています。",
+      "participationUnavailable": "現在の参加資格を確認する必要があります。",
+      "unconfirmedSchedule": "以前のペアには確定した曜日・時間がありません。",
+      "groupUnavailable": "以前のグループは現在継続できません。",
+      "pendingReview": "進行中の参加審査を先に完了する必要があります。",
+      "requiredFields": "必須の申込情報を確認する必要があります。"
+    },
+    "datedDuration": "以前の毎週の時間を引き継ぎます。各日程の授業は現在の45分制に従います。参加後に予定を確認してください。",
+    "currentResults": "現在のペアリング結果",
+    "requiredSubjects": "この申込みには異なる2科目が必要です。現在の申込みに含まれる科目も数に含まれます。"
   }
 }

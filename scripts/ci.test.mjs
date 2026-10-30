@@ -13,7 +13,7 @@ const workflow = yaml.load(
 const { checks, tests, image, verify, publish } = workflow.jobs;
 
 test("the stable verify gate rejects failure, cancellation, skips and missing jobs", () => {
-  assert.deepEqual(verify.needs, ["checks", "tests", "image"]);
+  assert.deepEqual(verify.needs, ["checks", "tests", "image", "image-storage"]);
   assert.equal(verify.if, "${{ always() }}");
   const gate = verify.steps[0];
   assert.equal(gate.env.NEEDS_JSON, "${{ toJSON(needs) }}");
@@ -22,23 +22,89 @@ test("the stable verify gate rejects failure, cancellation, skips and missing jo
   for (const checkResult of states)
     for (const testResult of states)
       for (const imageResult of states) {
-        const results = Object.fromEntries(
-          [checkResult, testResult, imageResult].flatMap((result, index) =>
-            result ? [[verify.needs[index], { result }]] : [],
-          ),
-        );
-        const failures = [];
-        vm.runInNewContext(gate.with.script, {
-          process: { env: { NEEDS_JSON: JSON.stringify(results) } },
-          core: { setFailed: (message) => failures.push(message) },
-        });
-        assert.equal(
-          failures.length,
-          [checkResult, testResult, imageResult].filter(
-            (result) => result !== "success",
-          ).length,
-        );
+        for (const storageResult of states) {
+          const results = Object.fromEntries(
+            [checkResult, testResult, imageResult, storageResult].flatMap(
+              (result, index) =>
+                result ? [[verify.needs[index], { result }]] : [],
+            ),
+          );
+          const failures = [];
+          vm.runInNewContext(gate.with.script, {
+            process: { env: { NEEDS_JSON: JSON.stringify(results) } },
+            core: { setFailed: (message) => failures.push(message) },
+          });
+          assert.equal(
+            failures.length,
+            [checkResult, testResult, imageResult, storageResult].filter(
+              (result) => result !== "success",
+            ).length,
+          );
+        }
       }
+});
+
+test("packaging comparison is independently bounded, scoped and required by verification", () => {
+  const storage = workflow.jobs["image-storage"];
+  assert.equal(storage.needs, undefined);
+  assert.equal(storage["timeout-minutes"], 9);
+  assert.equal(
+    storage.env.STORAGE_BASE_REF,
+    "${{ inputs.storage-baseline || github.event.pull_request.base.sha || github.event.before }}",
+  );
+  assert.equal(storage.steps[0].with["fetch-depth"], 0);
+  assert.equal(
+    workflow.on.workflow_dispatch.inputs["storage-baseline"].required,
+    false,
+  );
+  const scope = storage.steps.find((step) => step.id === "scope");
+  assert.equal(scope.run, "node scripts/compare-runtime-images.mjs scope");
+  const comparison = storage.steps.find(
+    (step) =>
+      step.name ===
+      "Compare identical runtime files and retained image layouts",
+  );
+  assert.equal(comparison.if, "steps.scope.outputs.compare == 'true'");
+  assert.match(comparison.run, /\$RUNNER_TEMP\/runtime-storage-comparison/);
+  const evidence = storage.steps.find(
+    (step) => step.uses === "actions/upload-artifact@v4",
+  );
+  assert.equal(evidence.with["retention-days"], 7);
+  assert.ok(
+    checks.steps.some(
+      (step) => step.run === "python3 scripts/test_image_storage_metrics.py",
+    ),
+  );
+});
+
+test("inline comparison builds receive masked runtime cache authentication", () => {
+  const step = workflow.jobs["image-storage"].steps.find(
+    (item) =>
+      item.name === "Expose cache authentication to the comparison build",
+  );
+  assert.equal(step.if, "steps.scope.outputs.compare == 'true'");
+  assert.equal(step.uses, "actions/github-script@v7");
+  const env = {
+    ACTIONS_RUNTIME_TOKEN: "synthetic-test-token",
+    ACTIONS_RESULTS_URL: "https://example.invalid/cache",
+    ACTIONS_CACHE_SERVICE_V2: "true",
+  };
+  const exported = {};
+  const masked = [];
+  vm.runInNewContext(step.with.script, {
+    process: { env },
+    core: {
+      setSecret: (value) => masked.push(value),
+      exportVariable: (name, value) => {
+        exported[name] = value;
+      },
+    },
+  });
+  assert.deepEqual(exported, env);
+  assert.deepEqual(masked, [env.ACTIONS_RUNTIME_TOKEN]);
+  assert.throws(() =>
+    vm.runInNewContext(step.with.script, { process: { env: {} } }),
+  );
 });
 
 test("parallel jobs retain checks, isolated databases, bounded workers and failure reports", () => {
@@ -64,7 +130,10 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
     );
   }
   assert.deepEqual(tests.strategy.matrix.shard, [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.equal(tests.name, "tests (${{ matrix.shard }}/${{ strategy.job-total }})");
+  assert.equal(
+    tests.name,
+    "tests (${{ matrix.shard }}/${{ strategy.job-total }})",
+  );
   assert.equal(tests.strategy["fail-fast"], false);
   assert.equal(tests.services.postgres.env.POSTGRES_DB, "shbs_shipping_test");
   assert.equal(image.services.postgres.env.POSTGRES_DB, "shbs_boot_test");
@@ -102,7 +171,9 @@ test("the test budget covers setup and execution without retries or dropped cove
   assert.equal(tests["timeout-minutes"], 9);
   assert.equal(tests["continue-on-error"], undefined);
   assert.equal(tests.strategy["max-parallel"], undefined);
-  const runIndex = tests.steps.findIndex((step) => step.name === "Run test shard");
+  const runIndex = tests.steps.findIndex(
+    (step) => step.name === "Run test shard",
+  );
   for (const command of ["npm ci", "npm run db:migrate"]) {
     const setupIndex = tests.steps.findIndex((step) => step.run === command);
     assert.ok(setupIndex >= 0 && setupIndex < runIndex, command);
@@ -114,7 +185,9 @@ test("the test budget covers setup and execution without retries or dropped cove
     "every shard must run for every checked revision",
   );
   assert.equal(run["continue-on-error"], undefined);
-  assert.ok(!/--(?:retry|bail|passWithNoTests|testNamePattern|exclude)/.test(run.run));
+  assert.ok(
+    !/--(?:retry|bail|passWithNoTests|testNamePattern|exclude)/.test(run.run),
+  );
 });
 
 test("Vitest shards cover every discovered test file exactly once without running fixtures", async () => {

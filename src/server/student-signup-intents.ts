@@ -33,6 +33,7 @@ import {
   assertIntakeEligibility,
   surveyEmailCode,
   freshSurveyToken,
+  recordPublicSignupEmailConfirmation,
 } from "./student-survey";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
 import { emailOrigin } from "./email/urls";
@@ -319,6 +320,7 @@ export async function verifyStudentSignupIntent(
   code: string,
 ) {
   const verified = await inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, `student-signup-intent-id:${id}`);
     const { intent } = await validStudentSignupIntent(tx, id);
@@ -338,6 +340,7 @@ export async function verifyStudentSignupIntent(
         where: { id },
         data: { verifiedAt: new Date() },
       });
+    await recordPublicSignupEmailConfirmation(tx, intent.surveyId);
     return true;
   });
   if (!verified) throw invalid();

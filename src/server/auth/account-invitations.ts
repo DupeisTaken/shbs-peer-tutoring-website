@@ -44,6 +44,7 @@ import {
   validSurvey,
   confirmSurvey,
   surveyInput,
+  recordPublicSignupEmailConfirmation,
 } from "~/server/student-survey";
 import {
   setupInvitation,
@@ -410,9 +411,14 @@ export async function deliverAccountInvitation(
       message: "SIGNUP_MAIL_FAILED",
     });
   return inTransaction(client, async (tx) => {
-    // Historical scopes bind the active period. Other source writers may already
-    // own the namespace, so do not introduce a new period lock into those flows.
-    if (input.source.type === "history") await lockEntity(tx, "program:period");
+    // Public displayed tutee receipts follow an explicit mailbox-proof POST.
+    // Take its admission barrier before the namespace; staff/viewer writers may
+    // already own the namespace and must not acquire a new period lock here.
+    if (
+      input.source.type === "history" ||
+      (input.display && ["tutee", "tutee-intent"].includes(input.source.type))
+    )
+      await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, `account-invitation:${input.sourceKey}`);
     const email = input.email.trim().toLowerCase();
@@ -429,8 +435,10 @@ export async function deliverAccountInvitation(
     ) {
       if (prior.expiresAt <= new Date() || prior.attempts >= MAX_ATTEMPTS)
         throw invalid();
-      await sourceState(tx, prior);
+      const state = await sourceState(tx, prior);
       await lockedInvitationOwner(tx, prior);
+      if (input.display && prior.verifiedAt)
+        await recordPublicInvitationProof(tx, state, prior.verifiedAt);
       return invitationReceipt(prior);
     }
     const owner = await invitationEmailOwner(tx, email);
@@ -500,6 +508,8 @@ export async function deliverAccountInvitation(
       update: data,
     });
     const state = await sourceState(tx, row);
+    if (input.display && row.verifiedAt)
+      await recordPublicInvitationProof(tx, state, row.verifiedAt);
     const sourceExpiry = state.staff
       ? Math.min(+state.staff.expiresAt, +state.staff.emailCodeExpiresAt!)
       : state.viewer
@@ -605,6 +615,17 @@ function invitationReceipt(row: AccountInvitation) {
         }
       : {}),
   };
+}
+
+/** Call only after source validation and an actual mailbox proof, under the period barrier. */
+async function recordPublicInvitationProof(
+  tx: TransactionDb,
+  state: Awaited<ReturnType<typeof sourceState>>,
+  verifiedAt: Date,
+) {
+  const surveyId = state.survey?.id ?? state.signupIntent?.intent.surveyId;
+  if (surveyId)
+    await recordPublicSignupEmailConfirmation(tx, surveyId, verifiedAt);
 }
 
 /** A displayed code is access authorization only. The original verified browser or
@@ -978,6 +999,7 @@ export async function verifyAccountInvitation(
     const state = await sourceState(tx, row);
     await lockedInvitationOwner(tx, row);
     const verifiedAt = row.verifiedAt ?? new Date();
+    await recordPublicInvitationProof(tx, state, verifiedAt);
     if (state.staff)
       await tx.registrationCode.update({
         where: { id: state.staff.id },
@@ -1125,8 +1147,12 @@ export async function redeemAccountInvitation(
     // it before our own authorized missing-password write increments that generation.
     // Application-backed tutor redemption owns credential creation and its fresh
     // admission-generation fence in completeRegistration below.
-    if (owner && !owner.passwordHash && !state.signupIntent &&
-      !(state.staff?.kind === "TUTOR" && state.staff.applicationId))
+    if (
+      owner &&
+      !owner.passwordHash &&
+      !state.signupIntent &&
+      !(state.staff?.kind === "TUTOR" && state.staff.applicationId)
+    )
       await tx.user.update({
         where: { id: owner.id },
         data: {

@@ -17,6 +17,7 @@ checks, so it also works in a fresh checkout that has never started the dev serv
 | Documentation                 | `npm run docs:check`                                                                                  |
 | Application behavior          | Focused tests, then the relevant integration suite with `npm test -- --maxWorkers=1`                  |
 | Routes, environment or Prisma | `npm run build` in addition to relevant tests                                                         |
+| Runtime image packaging       | `npm run test:deployment`, `python3 scripts/test_image_storage_metrics.py`, and current CI image/smoke and image-storage jobs |
 | Schema                        | A committed migration, `npm run db:migrate`, and schema agreement against an isolated database        |
 | Demo seed                     | Run it twice on a disposable database, then `npx tsx --conditions=react-server prisma/verify-demo.ts` |
 | User interface                | Desktop/mobile screenshots and checks of interaction, loading, errors and permissions                 |
@@ -25,14 +26,16 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
-CI runs static/tooling checks, eight test shards, and image build/smoke verification
-in parallel. Each job has a nine-minute timeout (the short `verify` gate uses two
+CI runs static/tooling checks, eight test shards, image build/smoke verification
+and a separate image-storage measurement job in parallel. Each job has a
+nine-minute timeout (the short `verify` gate uses two
 minutes). This is a whole-job limit, including setup, installation and migrations;
 it fails an over-budget job rather than treating partial coverage as success.
 Each shard owns a PostgreSQL service named `shbs_shipping_test` and
 keeps test files serial; do not enable parallel database fixtures against one
-database. The required `verify` check succeeds only when every job succeeds,
-including every shard. Failed, cancelled, skipped or missing prerequisites fail
+database. The required `verify` check requires successful `checks`, `tests`,
+`image` and `image-storage` results, including every test shard. Failed,
+cancelled, skipped or missing prerequisites fail
 the gate. Keep `verify` as the branch-protection check when changing job names.
 
 Run `npm run test:ci` for workflow and image-promotion regressions. It also checks
@@ -71,12 +74,57 @@ rebuild. PR runs skip the image archive/upload. Image-transfer costs and GitHub
 runner queues still affect total latency; compare successful runs at the same
 scope rather than treating a failed early exit as a speed improvement.
 
+The separate `image-storage` job detects changes to the Dockerfile, build-context
+exclusions, workflow or runtime packaging/measurement helpers. Unrelated changes finish successfully after scope
+detection without another image build. Relevant changes compare the baseline
+Dockerfile from an immutable base revision with the candidate Dockerfile, both
+using the candidate source and the same pinned Linux/amd64 Node base. A common
+cached Next build supplies both layouts; an inert comment added to the built
+`server.js` supplies a controlled second release for each layout, making four
+final images without four independent application builds.
+Manual workflow runs default to the checked revision's first parent, or accept an
+explicit full commit SHA in `storage-baseline`. The CLI cache imports receive
+masked runtime credentials through an action step; no credential is included in
+the measurement artifacts.
+
+The comparison requires identical `/app` inventories (paths, types, modes,
+UID/GID, literal symlink targets and file sizes/hashes) between corresponding
+baseline/candidate images, plus equal runtime configuration. Inventory timestamps
+are excluded. It checks that the controlled probe changes only `server.js` and
+compares per-image Docker `Size`, the two-image exported-layer-content union and
+a snapshot-chain-weighted payload proxy. The candidate single-image size and
+both pair proxies must not grow. Seven-day JSON artifacts retain file-equivalence,
+layer-accounting and comparison evidence. These metrics are neither compressed
+registry transfer bytes nor actual production filesystem recovery; the controlled
+probe is not a forecast of every release. The existing exact-image smoke and
+publish path remains the production-image gate; measurement has its own
+nine-minute whole-job budget and does not replace it.
+
 Operator CLIs run outside Next's bundled server. When changing their imports,
 keep the runtime stage's explicit source copies complete. `npm run test:deployment`
-traverses both CLI dependency graphs and verifies production packages without
+traverses all CLI dependency graphs and verifies production packages without
 importing application code. Image smoke runs administrator bootstrap twice and
 reconciliation with clean/findings exit statuses, using only each CLI's required
-environment; a successful web-server boot alone does not validate CLI packaging.
+environment. Recovery help runs without database or web credentials, then its
+read-only table catalog runs with only the isolated database URL. Both recovery
+commands have hard timeouts and validate the shipped entry point and JSON output;
+a successful web-server boot alone does not validate CLI packaging.
+
+The [Dockerfile](../../Dockerfile) prunes production dependencies after the
+application build, preserving generated Prisma configuration caches. Pruning
+from the earlier dependency-install stage changes the runtime file set. The
+[runtime assembler](../../scripts/assemble-runtime.mjs) merges standalone traced
+dependencies with the full production dependency tree, with production files
+winning collisions, into disjoint dependency and application trees. The runner
+copies dependencies before changing application files so retained releases can
+share their snapshot chain without keeping overwritten dependency bytes in a
+lower layer. Preserve the explicit operator-CLI source copies and complete
+production graph; a smaller Next server bundle alone does not satisfy startup
+migration and CLI requirements. Synthetic assembler, canonical inventory and
+comparison tests run through `npm run test:deployment`; Python 3 standard-library
+archive-accounting tests run separately in CI. See
+[local packaging checks](local-development.md#runtime-packaging-checks) for commands
+and resource ownership.
 
 The `@next/eslint-plugin-next` override replaces only its `fast-glob` dependency
 with the local adapter in `tools/next-lint-glob`, backed by `tinyglobby` 0.2.17.

@@ -2384,7 +2384,7 @@
       "empty": "Aún no se han publicado horarios.",
       "save": "Guardar disponibilidad",
       "saving": "Guardando…",
-      "refreshFailed": "Se aceptó el guardado, pero no se pudo cargar la disponibilidad actualizada. Vuelve a intentar cargarla antes de realizar más cambios.",
+      "refreshFailed": "Se guardaron los cambios, pero no se pudieron cargar algunos datos actualizados. Vuelve a cargarlos antes de hacer más cambios.",
       "saved": "Guardado."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "Posición registrada {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Selección de continuidad",
+        "StudentContinuationPairing": "Vínculo de asignación continuada",
+        "StudentContinuationReceipt": "Comprobante de solicitud de continuidad",
+        "SessionPlanContinuationMember": "Inscripción en sesión continuada",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,18 @@
         "RecoveryReceipt": "Comprobante de recuperación"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "Confirmación del correo de inscripción pública",
+        "signupOpeningStateSince": "Estado de inscripción vigente desde",
+        "signupFirstOpenedAt": "Primera apertura de inscripciones",
+        "continuationSourceTermId": "Período de origen de la continuidad",
+        "continuationQuarterTransition": "Transición trimestral elegible",
+        "sourcePairingId": "Asignación anterior",
+        "sourceTuteeId": "Perfil anterior del estudiante",
+        "targetTermId": "Período de destino",
+        "targetPairingId": "Asignación continuada",
+        "assignedAt": "Fecha de asignación",
+        "joinedAt": "Fecha de incorporación",
+        "releasedAt": "Fecha de liberación",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",
@@ -6406,7 +6422,12 @@
       "action": "Revisar horario escolar"
     },
     "schoolCalendarScheduleNoSchool": "Sin clases",
-    "schoolCalendarScheduleFollows": "Horario del {weekday}"
+    "schoolCalendarScheduleFollows": "Horario del {weekday}",
+    "student_continuation_released": {
+      "title": "Asignación continuada liberada",
+      "body": "Una tutoría continuada se liberó tras un cambio de disponibilidad. La solicitud se conserva para una nueva asignación. Ábrela para ver los detalles.",
+      "action": "Revisar solicitud conservada"
+    }
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -7126,5 +7147,77 @@
     "CANCELLATION": "Solicitud retirada",
     "REVERSAL": "Acción revertida",
     "ATTEMPT": "Intento de cambio"
+  },
+  "legacyContinuation": {
+    "title": "Continuar las tutorías anteriores",
+    "help": "Elige las tutorías que quieres continuar de {source} a {target}.",
+    "deadline": "Únete antes de {time} ({zone}).",
+    "remaining": "{minutes, plural, one {Queda # minuto} other {Quedan # minutos}}",
+    "loading": "Cargando tutorías anteriores",
+    "loadFailed": "No se pudieron cargar las tutorías anteriores.",
+    "refreshReadFailed": "No se pudieron comprobar los datos actuales. Tu selección se conserva.",
+    "retry": "Reintentar",
+    "denied": "Ya no tienes acceso a estas tutorías.",
+    "completeDetails": "Revisar los datos necesarios",
+    "missingDetails": "Revisa los datos de inscripción pendientes antes de continuar.",
+    "filed": "Tu solicitud de inscripción se ha registrado.",
+    "viewRequest": "Ver solicitud",
+    "savedRefreshFailed": "La solicitud se guardó, pero no se pudo cargar el horario actual. Reintentar solo actualiza la pantalla.",
+    "choose": "Seleccionar tutorías anteriores",
+    "subjectLimit": "Cada solicitud admite hasta dos asignaturas distintas, incluidas las ya solicitadas.",
+    "select": "Seleccionar {subject} con {tutor}",
+    "tooManySubjects": "Elige como máximo dos asignaturas distintas, incluidas las de tu solicitud actual.",
+    "review": "Revisar selección",
+    "reviewTitle": "Continuar las tutorías seleccionadas",
+    "cancel": "Cancelar",
+    "checkRequest": "Comprobar el resultado",
+    "join": "Unirse a las tutorías seleccionadas",
+    "consequence": "Se registra una solicitud y se continúan las tutorías disponibles en su horario semanal confirmado. Las demás quedan pendientes. Si cambia la disponibilidad, se liberan las asignaciones afectadas y se conserva la solicitud.",
+    "stale": "Los datos han cambiado. Cierra esta revisión y comprueba de nuevo tu selección.",
+    "uncertain": "No se pudo confirmar el resultado. Compruébalo antes de cambiar la selección o volver a enviar.",
+    "notSubmitted": "No se encontró ningún envío aceptado. Tu selección se conserva; revisa los datos e inténtalo otra vez.",
+    "recoveryFailed": "No se pudo comprobar el resultado. Se conserva el envío original; vuelve a comprobarlo.",
+    "policyUnavailable": "La política de participación no está disponible. Contacta con el equipo.",
+    "signature": "Tu nombre completo (firma)",
+    "status": {
+      "eligible": "Ya puedes unirte.",
+      "scheduled": "La inscripción aún no está abierta.",
+      "paused": "La inscripción está pausada. Reabrirla no reinicia el plazo de una hora.",
+      "expired": "El plazo de una hora ha terminado. Puedes usar el formulario habitual.",
+      "unavailable": "La continuación no está disponible en este período."
+    },
+    "result": {
+      "assigned": "Asignada",
+      "queued": "Solicitud registrada; pendiente de asignación",
+      "released": "Asignación liberada; solicitud conservada"
+    },
+    "candidate": {
+      "available": "Disponible",
+      "queued": "Solicitud ya pendiente",
+      "joined": "Ya te has unido",
+      "released": "Liberada; solicitud conservada"
+    },
+    "reasons": {
+      "unavailable": "No se puede asignar automáticamente esta tutoría, pero puedes registrar la solicitud.",
+      "tutorUnavailable": "El tutor anterior no está disponible.",
+      "slotUnavailable": "El horario anterior ya no está disponible.",
+      "subjectUnavailable": "Esta asignatura no se ofrece actualmente.",
+      "qualificationMissing": "Debe revisarse la cualificación actual del tutor.",
+      "willingnessMissing": "Debe revisarse la disposición del tutor para esta asignatura.",
+      "scheduleConflict": "El horario anterior entra en conflicto con el actual.",
+      "roomUnavailable": "El aula anterior no está disponible.",
+      "missingDetails": "Deben revisarse algunos datos de inscripción.",
+      "sourceChanged": "La tutoría anterior ha cambiado. Revísala de nuevo.",
+      "alreadyJoined": "Esta tutoría ya figura en tu solicitud.",
+      "released": "La asignación se liberó; el equipo conserva tu solicitud.",
+      "participationUnavailable": "Debe revisarse tu elegibilidad actual.",
+      "unconfirmedSchedule": "La tutoría anterior no tiene un horario semanal confirmado.",
+      "groupUnavailable": "No se puede continuar el grupo anterior.",
+      "pendingReview": "Primero debe resolverse la revisión de participación pendiente.",
+      "requiredFields": "Deben revisarse los datos de inscripción obligatorios."
+    },
+    "datedDuration": "Se conserva tu horario semanal anterior. Las sesiones con fecha siguen el horario actual de 45 minutos; revisa tu calendario después de inscribirte.",
+    "currentResults": "Resultados actuales de las parejas",
+    "requiredSubjects": "Esta inscripción requiere dos asignaturas distintas, incluidas las de tu solicitud actual."
   }
 }

@@ -362,6 +362,13 @@ Reload and review again after the source period, prepared values, destination in
 
 A failed refresh rolls back activation, participant changes and opening settings together, retaining the preparations for review and retry. Replaying a completed refresh cannot advance another period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
 
+For a new destination reached by Q1 → Q2 or Q3 → Q4 in quarter mode, refresh
+also records the source period for optional tutee continuation. It does not enroll
+anyone automatically: tutees explicitly select and sign for their previous
+pairings during the [continuation opening window](#continuation-opening-window).
+Q3 → Q4 graduation still applies; a graduated tutor cannot receive an automatic
+continuation assignment, and the accepted tutee request waits for staff assignment.
+
 ## School departure and viewer access
 
 Graduated and transferred students keep their personal dashboards and historical records.
@@ -622,6 +629,45 @@ The review and save stay bound to their original target and version. Background 
 For an Admin proposal, **Check approval status** preserves the draft and request link while the decision is pending. The editor unlocks only after reading the terminal decision and current settings; checking status never submits another proposal.
 
 At official refresh, both applied preparations are checked again and installed atomically with the destination period. They then appear in the normal current-period editors. The original source preparations and audit evidence remain retained. See [refresh the program](#refresh-the-program) for cases requiring renewed review.
+
+### Continuation opening window
+
+The tutee continuation shortcut is available only after an actual Q1 → Q2 or
+Q3 → Q4 refresh in the same school year with quarter mode applied. Its one-hour
+window starts at the destination's **first effective opening**: the period must
+be active, tutee signup enabled, and its configured start reached before its
+exclusive closing time. The window includes its opening instant and excludes
+the instant one hour later. Signup must also remain currently open to accept a
+join.
+
+A future scheduled opening uses that exact instant, even if no one opens a page
+then or the server observes it later. If refresh happens after the configured
+start, or the start is cleared, activation is the earliest possible opening.
+If the switch stays off through the configured start, the first later enabling
+can open signup. Pausing, reopening, or editing the start after signup has already
+opened never grants another hour. Closing signup earlier also closes the shortcut.
+Preparing next-period settings does not start this clock.
+
+Existing periods at deployment and imported historical periods have unknown
+first-opening evidence. They do not receive a new hour merely because the feature
+was installed or the period was reopened. A genuine eligible refresh into a new
+destination records the required evidence. Reused periods retain their original
+known or unknown provenance; CSV import cannot set or reset this operational
+evidence. Normal signup remains available according to its usual gates.
+
+Each accepted continuation selection is recorded in the destination signup
+request. Confirming the email for an ordinary new request in that destination
+quarter hides continuation and prevents a stale Join. Pending unconfirmed
+submissions do not hide it, and signed additions to a continuation-created
+request remain available. The first public mailbox-confirmation timestamp is
+retained across resends and recalls; it is distinct from account redemption.
+Unavailable selections remain queued; valid selections can succeed
+independently. Later tutor availability changes release only the affected
+continued assignments during the destination quarter, retain request priority
+and notify administrators and affected participants. Availability restoration
+does not automatically reassign them. Review the retained request through
+**Signup Requests**. The participant steps are in
+[Continue selected pairings](user-guide.md#continue-selected-pairings-into-the-next-quarter).
 
 ### Current-period access and submissions
 

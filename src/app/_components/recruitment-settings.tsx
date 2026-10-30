@@ -1,6 +1,6 @@
 "use client";
 
-import { InlineNotice } from "./ui/patterns";
+import { FormActions, InlineNotice } from "./ui/patterns";
 import { useState } from "react";
 import { useLocale, useTimeZone, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -255,23 +255,25 @@ function Editor({
               {error || save.error?.message}
             </p>
           )}
-          <button
-            className="btn-primary min-h-11 lg:min-h-10"
-            disabled={save.isPending}
-          >
-            {save.isPending
-              ? t("saving")
-              : canApply
-                ? t("save")
-                : approvals("requestAdmin")}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary min-h-11 lg:min-h-10"
-            onClick={() => void onReload()}
-          >
-            {common("reload")}
-          </button>
+          <FormActions>
+            <button
+              className="btn-primary min-h-11 lg:min-h-10"
+              disabled={save.isPending}
+            >
+              {save.isPending
+                ? t("saving")
+                : canApply
+                  ? t("save")
+                  : approvals("requestAdmin")}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary min-h-11 lg:min-h-10"
+              onClick={() => void onReload()}
+            >
+              {common("reload")}
+            </button>
+          </FormActions>
         </fieldset>
         <a
           className="link ml-4 inline-flex min-h-11 items-center"

@@ -2392,7 +2392,7 @@
       "empty": "Aucun créneau horaire n'a encore été publié.",
       "save": "Enregistrer les disponibilités",
       "saving": "Enregistrement…",
-      "refreshFailed": "L’enregistrement a été accepté, mais les disponibilités actualisées n’ont pas pu être chargées. Réessayez de les charger avant d’apporter d’autres modifications.",
+      "refreshFailed": "Vos modifications ont été enregistrées, mais certaines informations actualisées n’ont pas pu être chargées. Réessayez le chargement avant de modifier à nouveau.",
       "saved": "Enregistré."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "Position enregistrée {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Choix de poursuite",
+        "StudentContinuationPairing": "Lien d’affectation poursuivie",
+        "StudentContinuationReceipt": "Accusé de réception de la poursuite",
+        "SessionPlanContinuationMember": "Inscription à une séance poursuivie",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,18 @@
         "RecoveryReceipt": "Reçu de récupération"
       },
       "fields": {
+        "publicSignupEmailConfirmedAt": "Confirmation de l’e-mail d’inscription publique",
+        "signupOpeningStateSince": "État des inscriptions en vigueur depuis",
+        "signupFirstOpenedAt": "Première ouverture des inscriptions",
+        "continuationSourceTermId": "Période d’origine de la poursuite",
+        "continuationQuarterTransition": "Transition trimestrielle admissible",
+        "sourcePairingId": "Affectation précédente",
+        "sourceTuteeId": "Profil précédent de l’élève",
+        "targetTermId": "Période cible",
+        "targetPairingId": "Affectation poursuivie",
+        "assignedAt": "Date d’affectation",
+        "joinedAt": "Date d’inscription",
+        "releasedAt": "Date de libération",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",
@@ -6406,7 +6422,12 @@
       "action": "Vérifier l’emploi du temps"
     },
     "schoolCalendarScheduleNoSchool": "Pas de cours",
-    "schoolCalendarScheduleFollows": "Emploi du temps du {weekday}"
+    "schoolCalendarScheduleFollows": "Emploi du temps du {weekday}",
+    "student_continuation_released": {
+      "title": "Affectation reconduite libérée",
+      "body": "Une affectation reconduite a été libérée après un changement de disponibilité. La demande reste enregistrée pour une nouvelle affectation. Ouvrez-la pour consulter les détails.",
+      "action": "Consulter la demande conservée"
+    }
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -7126,5 +7147,77 @@
     "CANCELLATION": "Demande retirée",
     "REVERSAL": "Action annulée",
     "ATTEMPT": "Tentative de modification"
+  },
+  "legacyContinuation": {
+    "title": "Poursuivre les tutorats précédents",
+    "help": "Choisissez les tutorats à poursuivre de {source} à {target}.",
+    "deadline": "Inscrivez-vous avant {time} ({zone}).",
+    "remaining": "{minutes, plural, one {# minute restante} other {# minutes restantes}}",
+    "loading": "Chargement des tutorats précédents",
+    "loadFailed": "Impossible de charger les tutorats précédents.",
+    "refreshReadFailed": "Impossible de vérifier les informations actuelles. Votre sélection est conservée.",
+    "retry": "Réessayer",
+    "denied": "Vous n’avez plus accès à ces tutorats.",
+    "completeDetails": "Vérifier les informations requises",
+    "missingDetails": "Vérifiez les informations manquantes avant de poursuivre ces tutorats.",
+    "filed": "Votre demande d’inscription a été enregistrée.",
+    "viewRequest": "Voir la demande",
+    "savedRefreshFailed": "La demande est enregistrée, mais le calendrier actuel est indisponible. Réessayer actualise uniquement l’affichage.",
+    "choose": "Choisir les tutorats précédents",
+    "subjectLimit": "Une demande peut contenir deux matières distinctes au maximum, y compris celles déjà demandées.",
+    "select": "Choisir {subject} avec {tutor}",
+    "tooManySubjects": "Choisissez au maximum deux matières distinctes, en comptant votre demande actuelle.",
+    "review": "Vérifier la sélection",
+    "reviewTitle": "Poursuivre les tutorats sélectionnés",
+    "cancel": "Annuler",
+    "checkRequest": "Vérifier le résultat",
+    "join": "Rejoindre les tutorats sélectionnés",
+    "consequence": "Une demande est enregistrée et les tutorats disponibles reprennent à leur horaire hebdomadaire confirmé. Les autres restent en attente. Si la disponibilité change, les affectations concernées sont libérées et votre demande est conservée.",
+    "stale": "Les informations ont changé. Fermez cette fenêtre et vérifiez à nouveau votre sélection.",
+    "uncertain": "Le résultat n’a pas pu être confirmé. Vérifiez-le avant de modifier la sélection ou de renvoyer la demande.",
+    "notSubmitted": "Aucun envoi accepté n’a été trouvé. Votre sélection est conservée ; vérifiez les informations puis réessayez.",
+    "recoveryFailed": "Impossible de vérifier le résultat. L’envoi initial est conservé ; réessayez la vérification.",
+    "policyUnavailable": "Le règlement de participation est indisponible. Contactez l’équipe.",
+    "signature": "Votre nom complet (signature)",
+    "status": {
+      "eligible": "Vous pouvez vous inscrire maintenant.",
+      "scheduled": "Les inscriptions ne sont pas encore ouvertes.",
+      "paused": "Les inscriptions sont suspendues. La réouverture ne renouvelle pas le délai d’une heure.",
+      "expired": "Le délai d’une heure est écoulé. Vous pouvez utiliser le formulaire habituel.",
+      "unavailable": "La poursuite des tutorats est indisponible pour cette période."
+    },
+    "result": {
+      "assigned": "Affecté",
+      "queued": "Demande enregistrée ; en attente d’affectation",
+      "released": "Affectation libérée ; demande conservée"
+    },
+    "candidate": {
+      "available": "Disponible",
+      "queued": "Demande déjà en attente",
+      "joined": "Déjà inscrit",
+      "released": "Libéré ; demande conservée"
+    },
+    "reasons": {
+      "unavailable": "Ce tutorat ne peut pas être affecté automatiquement, mais la demande peut être enregistrée.",
+      "tutorUnavailable": "Le tuteur précédent n’est pas disponible.",
+      "slotUnavailable": "L’horaire précédent n’est plus disponible.",
+      "subjectUnavailable": "Cette matière n’est pas proposée actuellement.",
+      "qualificationMissing": "La qualification actuelle du tuteur doit être vérifiée.",
+      "willingnessMissing": "La volonté du tuteur d’enseigner cette matière doit être vérifiée.",
+      "scheduleConflict": "L’ancien horaire est incompatible avec le calendrier actuel.",
+      "roomUnavailable": "L’ancienne salle est indisponible.",
+      "missingDetails": "Certaines informations d’inscription doivent être vérifiées.",
+      "sourceChanged": "Le tutorat précédent a changé. Vérifiez-le à nouveau.",
+      "alreadyJoined": "Ce tutorat figure déjà dans votre demande.",
+      "released": "L’affectation a été libérée ; votre demande reste disponible pour l’équipe.",
+      "participationUnavailable": "Votre admissibilité actuelle doit être vérifiée.",
+      "unconfirmedSchedule": "Aucun horaire hebdomadaire n’est confirmé pour l’ancien tutorat.",
+      "groupUnavailable": "L’ancien groupe ne peut pas être reconduit actuellement.",
+      "pendingReview": "L’examen de participation en cours doit d’abord être résolu.",
+      "requiredFields": "Les informations obligatoires doivent être vérifiées."
+    },
+    "datedDuration": "Votre ancien horaire hebdomadaire est conservé. Les séances datées suivent le planning actuel de 45 minutes ; consultez votre calendrier après inscription.",
+    "currentResults": "Résultats actuels des binômes",
+    "requiredSubjects": "Cette inscription exige deux matières distinctes, en comptant celles de votre demande actuelle."
   }
 }
