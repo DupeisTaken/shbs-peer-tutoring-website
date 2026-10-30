@@ -331,7 +331,7 @@ async function graph(tx: TransactionDb, actionId: string) {
 }
 
 type Graph = Awaited<ReturnType<typeof graph>>;
-// Transitive tracking includes learning-partner accounts. Only accounts attached
+// Transitive tracking includes tutee accounts. Only accounts attached
 // to this admission receive compensation; related accounts remain independent.
 function admissionAccounts(g: Graph) {
   return g.users.filter(

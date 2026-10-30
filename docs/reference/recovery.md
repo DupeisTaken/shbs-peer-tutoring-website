@@ -35,7 +35,7 @@ extending or rebinding that code is not. These transactions still count toward t
 website's zero-or-one limit, even when their independent fields are kept.
 
 Account compensation is limited to the admission's captured, attached or code-using
-accounts. A learning partner's account may appear in the transitive journal after
+accounts. A tutee's account may appear in the transitive journal after
 an independent edit, but that does not make it a login created by this admission.
 Independent password changes do not preserve a login whose only authorization was
 the voided admission. Inactive tutors continue to use zero workload under the
