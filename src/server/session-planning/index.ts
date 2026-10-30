@@ -11,9 +11,25 @@ import {
   type PlanningTime,
 } from "~/lib/session-planning";
 import { participantKeys, participantsOverlap } from "./participants";
+import { notificationTuteeRecipients } from "./notification-recipients";
+import { insertSessionNotices } from "./notice-inserts";
+import { lockPlanningSources } from "./source-locks";
+import { readOverlappingCohorts, readOverlappingHolds } from "./conflict-reads";
+import {
+  readPublicationValidationSnapshot,
+  type PublicationValidationSnapshot,
+} from "./publication-validation";
+import {
+  capturePublicationNotice,
+  queuePublicationNotices,
+  type PublicationNotice,
+} from "./publication-notices";
 import { sessionNoticeContext } from "~/server/session-planning-notice-copy";
 import { pairingEntries } from "~/lib/pairing-groups";
-import { createProgramDateTimeParser, programDateKey } from "~/lib/program-time";
+import {
+  createProgramDateTimeParser,
+  programDateKey,
+} from "~/lib/program-time";
 import { createSchoolCalendarSnapshot } from "~/lib/school-calendar";
 import {
   inTransaction,
@@ -36,6 +52,24 @@ const planInclude = {
   term: true,
 } satisfies Prisma.SessionPlanInclude;
 type Plan = Prisma.SessionPlanGetPayload<{ include: typeof planInclude }>;
+type RecipientPlan = Pick<Plan, "tutorId"> & {
+  tutor: { user: Plan["tutor"]["user"] };
+};
+type NoticePlan = RecipientPlan &
+  Pick<Plan, "timeZone"> & {
+    assignments: readonly { subject: string }[];
+    participants: readonly { cohortId: string | null; tuteeId: string }[];
+  };
+type ValidationPlan = Pick<
+  Plan,
+  "id" | "tutorId" | "termId" | "originalDate" | "timeZone" | "term"
+> & { assignments: readonly { pairingId: string }[] };
+const sourcePairingInclude = {
+  tutees: {
+    where: { tutee: { status: { not: "INACTIVE" } } },
+    select: { tuteeId: true },
+  },
+} satisfies Prisma.PairingInclude;
 const requestInclude = {
   offers: { include: { responses: true } },
   plan: { include: planInclude },
@@ -234,39 +268,140 @@ async function loadCohort(tx: TransactionDb, id: string) {
   return cohort;
 }
 
+/** One source snapshot per invalidation pass, read only after every source fence.
+ * Planning, period and source locks remain held until the caller commits; cohort
+ * state is deliberately not reused here. Isolated mutation checks stay fresh.
+ */
+async function loadSourceEvidence(tx: TransactionDb, plans: Plan[]) {
+  await lockPlanningSources(
+    tx,
+    plans.map((plan) => ({
+      tutorId: plan.tutorId,
+      tuteeIds: plan.participants.map((person) => person.tuteeId),
+      pairingIds: plan.assignments.map((row) => row.pairingId),
+    })),
+  );
+  const freshPlans: Plan[] = [];
+  for (let offset = 0; offset < plans.length; offset += 500) {
+    freshPlans.push(
+      ...(await tx.sessionPlan.findMany({
+        where: {
+          id: { in: plans.slice(offset, offset + 500).map((plan) => plan.id) },
+        },
+        include: planInclude,
+      })),
+    );
+  }
+  const pairingIds = [
+    ...new Set(
+      freshPlans.flatMap((plan) =>
+        plan.assignments.map((row) => row.pairingId),
+      ),
+    ),
+  ];
+  const accountIds = [
+    ...new Set(
+      freshPlans.flatMap((plan) =>
+        plan.tutor.user ? [plan.tutor.user.id] : [],
+      ),
+    ),
+  ];
+  const departed = new Set<string>();
+  for (let offset = 0; offset < accountIds.length; offset += 500) {
+    for (const row of await tx.schoolDeparture.findMany({
+      where: { userId: { in: accountIds.slice(offset, offset + 500) } },
+      select: { userId: true, reason: true },
+    }))
+      if (row.reason) departed.add(row.userId);
+  }
+  const pairings: Prisma.PairingGetPayload<{
+    include: typeof sourcePairingInclude;
+  }>[] = [];
+  const continuations: {
+    targetPairingId: string | null;
+    tuteeId: string;
+    assignedAt: Date | null;
+  }[] = [];
+  const oldest = freshPlans.length
+    ? new Date(
+        freshPlans.reduce(
+          (minimum, plan) => Math.min(minimum, plan.createdAt.getTime()),
+          Infinity,
+        ),
+      )
+    : null;
+  for (let offset = 0; offset < pairingIds.length; offset += 500) {
+    const batch = pairingIds.slice(offset, offset + 500);
+    pairings.push(
+      ...(await tx.pairing.findMany({
+        where: { id: { in: batch } },
+        include: sourcePairingInclude,
+        orderBy: { id: "asc" },
+      })),
+    );
+    if (oldest)
+      continuations.push(
+        ...(await tx.studentContinuationAssignment.findMany({
+          where: {
+            targetPairingId: { in: batch },
+            status: "ASSIGNED",
+            assignedAt: { gt: oldest },
+          },
+          select: { targetPairingId: true, tuteeId: true, assignedAt: true },
+        })),
+      );
+  }
+  return {
+    plans: new Map(freshPlans.map((plan) => [plan.id, plan])),
+    departed,
+    pairings,
+    continuations,
+  };
+}
+type SourceEvidence = Awaited<ReturnType<typeof loadSourceEvidence>>;
+
 /** Compare assignment evidence, not mutable personal names or inbox addresses. */
 async function sourceIsCurrent(
   tx: TransactionDb,
   plan: Plan,
   allowEndedTerm = false,
+  evidence?: SourceEvidence,
 ) {
-  const tuteeIds = plan.participants.map((person) => person.tuteeId).sort();
-  const pairingIds = plan.assignments.map((row) => row.pairingId).sort();
-  const owners = await tx.studentProfileOwnership.findMany({
-    where: { tuteeId: { in: tuteeIds } },
-    select: { userId: true },
-  });
-  const linked = await tx.user.findMany({
-    where: { OR: [{ tutorId: plan.tutorId }, { studentId: { in: tuteeIds } }] },
-    select: { id: true },
-  });
-  const userIds = [
-    ...new Set([
-      ...owners.map((row) => row.userId),
-      ...linked.map((row) => row.id),
-    ]),
-  ].sort();
-  await tx.$queryRaw`SELECT id FROM "User" WHERE id=ANY(${userIds}::text[]) ORDER BY id FOR SHARE`;
-  await tx.$queryRaw`SELECT id FROM "Tutor" WHERE id=${plan.tutorId} FOR SHARE`;
-  await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id=ANY(${tuteeIds}::text[]) ORDER BY id FOR SHARE`;
-  // Parent UPDATE locks also fence insertion of new roster joins through their FK;
-  // join-row SHARE locks fence removals. Re-read after waiting for either writer.
-  await tx.$queryRaw`SELECT id FROM "Pairing" WHERE id=ANY(${pairingIds}::text[]) ORDER BY id FOR UPDATE`;
-  await tx.$queryRaw`SELECT "pairingId","tuteeId" FROM "PairingTutee" WHERE "pairingId"=ANY(${pairingIds}::text[]) ORDER BY "pairingId","tuteeId" FOR SHARE`;
-  plan = await tx.sessionPlan.findUniqueOrThrow({
-    where: { id: plan.id },
-    include: planInclude,
-  });
+  if (evidence) {
+    const fresh = evidence.plans.get(plan.id);
+    if (!fresh) return false;
+    plan = fresh;
+  } else {
+    const tuteeIds = plan.participants.map((person) => person.tuteeId).sort();
+    const pairingIds = plan.assignments.map((row) => row.pairingId).sort();
+    const owners = await tx.studentProfileOwnership.findMany({
+      where: { tuteeId: { in: tuteeIds } },
+      select: { userId: true },
+    });
+    const linked = await tx.user.findMany({
+      where: {
+        OR: [{ tutorId: plan.tutorId }, { studentId: { in: tuteeIds } }],
+      },
+      select: { id: true },
+    });
+    const userIds = [
+      ...new Set([
+        ...owners.map((row) => row.userId),
+        ...linked.map((row) => row.id),
+      ]),
+    ].sort();
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=ANY(${userIds}::text[]) ORDER BY id FOR SHARE`;
+    await tx.$queryRaw`SELECT id FROM "Tutor" WHERE id=${plan.tutorId} FOR SHARE`;
+    await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id=ANY(${tuteeIds}::text[]) ORDER BY id FOR SHARE`;
+    // Parent UPDATE locks also fence insertion of new roster joins through their FK;
+    // join-row SHARE locks fence removals. Re-read after waiting for either writer.
+    await tx.$queryRaw`SELECT id FROM "Pairing" WHERE id=ANY(${pairingIds}::text[]) ORDER BY id FOR UPDATE`;
+    await tx.$queryRaw`SELECT "pairingId","tuteeId" FROM "PairingTutee" WHERE "pairingId"=ANY(${pairingIds}::text[]) ORDER BY "pairingId","tuteeId" FOR SHARE`;
+    plan = await tx.sessionPlan.findUniqueOrThrow({
+      where: { id: plan.id },
+      include: planInclude,
+    });
+  }
   if (
     (!plan.term.active && !allowEndedTerm) ||
     plan.tutor.status !== "ACTIVE" ||
@@ -278,16 +413,20 @@ async function sourceIsCurrent(
   )
     return false;
   if (
-    (
-      await tx.schoolDeparture.findUnique({
-        where: { userId: plan.tutor.user.id },
-      })
-    )?.reason
+    evidence
+      ? evidence.departed.has(plan.tutor.user.id)
+      : Boolean(
+          (
+            await tx.schoolDeparture.findUnique({
+              where: { userId: plan.tutor.user.id },
+            })
+          )?.reason,
+        )
   )
     return false;
   // Ended, published lessons retain their captured roster instead of using today's enrollment.
   if (!plan.term.active && allowEndedTerm) return true;
-  return assignmentSourceMatches(tx, plan);
+  return assignmentSourceMatches(tx, plan, undefined, evidence);
 }
 
 /** Consent deltas preserve a publication; an unrelated roster edit starts a new
@@ -296,26 +435,32 @@ async function assignmentSourceMatches(
   tx: TransactionDb,
   plan: Plan,
   addition?: { pairingId: string; tuteeId: string },
+  evidence?: SourceEvidence,
 ) {
   const pairingIds = plan.assignments.map((row) => row.pairingId);
-  const rows = await tx.pairing.findMany({
-    where: { id: { in: plan.assignments.map((row) => row.pairingId) } },
-    include: {
-      tutees: {
-        where: { tutee: { status: { not: "INACTIVE" } } },
-        select: { tuteeId: true },
-      },
-    },
-    orderBy: { id: "asc" },
-  });
-  const laterContinuations = await tx.studentContinuationAssignment.findMany({
-    where: {
-      targetPairingId: { in: pairingIds },
-      status: "ASSIGNED",
-      assignedAt: { gt: plan.createdAt },
-    },
-    select: { targetPairingId: true, tuteeId: true },
-  });
+  const rows = evidence
+    ? evidence.pairings.filter((row) => pairingIds.includes(row.id))
+    : await tx.pairing.findMany({
+        where: { id: { in: plan.assignments.map((row) => row.pairingId) } },
+        include: sourcePairingInclude,
+        orderBy: { id: "asc" },
+      });
+  const laterContinuations = evidence
+    ? evidence.continuations.filter(
+        (row) =>
+          row.targetPairingId !== null &&
+          pairingIds.includes(row.targetPairingId) &&
+          row.assignedAt !== null &&
+          row.assignedAt > plan.createdAt,
+      )
+    : await tx.studentContinuationAssignment.findMany({
+        where: {
+          targetPairingId: { in: pairingIds },
+          status: "ASSIGNED",
+          assignedAt: { gt: plan.createdAt },
+        },
+        select: { targetPairingId: true, tuteeId: true },
+      });
   return (
     rows.length === plan.assignments.length &&
     rows.every((row) => {
@@ -369,7 +514,7 @@ async function ensureWritable(
 
 async function recipients(
   tx: TransactionDb,
-  plan: Plan,
+  plan: RecipientPlan,
   participantIds: string[],
   strict = true,
 ) {
@@ -379,38 +524,27 @@ async function recipients(
   const result: {
     actorKey: string;
     user: NonNullable<typeof tutor>;
-    name: string;
   }[] = tutor?.email
     ? [
         {
           actorKey: `tutor:${plan.tutorId}`,
           user: tutor,
-          name: plan.tutor.englishName,
         },
       ]
     : [];
+  if (!strict) {
+    for (const { tuteeId, user } of await notificationTuteeRecipients(
+      tx,
+      participantIds,
+    ))
+      result.push({ actorKey: `tutee:${tuteeId}`, user });
+    return result;
+  }
   for (const tuteeId of participantIds) {
-    let user: Awaited<ReturnType<typeof studentOwner>>;
-    try {
-      user = await studentOwner(tx, tuteeId);
-    } catch (error) {
-      if (strict) throw error;
-      // Lifecycle outcomes must commit even if one former recipient can no longer receive mail.
-      const ownership = await tx.studentProfileOwnership.findUnique({
-        where: { tuteeId },
-      });
-      const previous = ownership
-        ? await tx.user.findUnique({ where: { id: ownership.userId } })
-        : await tx.user.findFirst({ where: { studentId: tuteeId } });
-      if (!previous) continue;
-      user = previous;
-    }
+    const user = await studentOwner(tx, tuteeId);
     result.push({
       actorKey: `tutee:${tuteeId}`,
       user,
-      name:
-        plan.participants.find((row) => row.tuteeId === tuteeId)?.tutee
-          .englishName ?? "Tutee",
     });
   }
   return result;
@@ -512,7 +646,7 @@ async function reloadRequest(tx: TransactionDb, id: string) {
 
 async function validateTarget(
   tx: TransactionDb,
-  plan: Plan,
+  plan: ValidationPlan,
   time: PlanningTime,
   participantIds: string[],
   source: Cohort,
@@ -521,6 +655,7 @@ async function validateTarget(
   now = new Date(),
   computation?: PlanningComputation,
   sharingSource = false,
+  publication?: PublicationValidationSnapshot,
 ) {
   let window: ReturnType<typeof plannedWindow>;
   try {
@@ -539,7 +674,9 @@ async function validateTarget(
     fail("Choose a date within this program period.");
   if (
     window.roomId &&
-    !(await tx.room.findUnique({ where: { id: window.roomId } }))
+    !(publication
+      ? publication.roomExists
+      : await tx.room.findUnique({ where: { id: window.roomId } }))
   )
     fail("That room no longer exists.");
   const currentRequest = excludeRequestId
@@ -558,10 +695,14 @@ async function validateTarget(
       : null;
   const reusablePlanId =
     currentRequest?.kind === "EXTRA" ? sharedExtra?.id : plan.id;
-  const sourceRoster = await tx.sessionPlanParticipant.findMany({
-    where: { cohortId: source.id, status: "SCHEDULED" },
-    select: { tuteeId: true },
-  });
+  // Only initial publication supplies a snapshot: its new cohort UUID has not
+  // been inserted, so it cannot already own participants or a pending request.
+  const sourceRoster = publication
+    ? []
+    : await tx.sessionPlanParticipant.findMany({
+        where: { cohortId: source.id, status: "SCHEDULED" },
+        select: { tuteeId: true },
+      });
   const mayReleaseSource =
     currentRequest?.kind !== "EXTRA" &&
     // ALL captures its request's original audience. A later continuation can
@@ -578,72 +719,64 @@ async function validateTarget(
     source.endsAt.getTime() === window.endsAt.getTime() &&
     source.roomId === window.roomId &&
     source.online === window.online;
-  const overlap = {
-    startsAt: { lt: window.endsAt },
-    endsAt: { gt: window.startsAt },
-    status: "SCHEDULED",
-  };
-  const cohorts = await tx.sessionPlanCohort.findMany({
-    where: overlap,
-    include: { plan: true, participants: { where: { status: "SCHEDULED" } } },
-  });
-  const offerOverlap = {
-    startsAt: { lt: window.endsAt },
-    endsAt: { gt: window.startsAt },
-  };
-  const possibleHolds = await tx.sessionPlanningRequest.findMany({
-    where: {
-      status: "PENDING",
-      ...(excludeRequestId ? { id: { not: excludeRequestId } } : {}),
-      offers: { some: offerOverlap },
-    },
-    include: { plan: true, offers: { where: offerOverlap } },
-  });
-  // Historical offers may match the coarse database filter; only the current offer holds time.
-  const holds = possibleHolds.filter((hold) =>
-    hold.offers.some((offer) => offer.id === hold.currentOfferId),
-  );
+  const cohorts =
+    publication?.cohorts ??
+    (await readOverlappingCohorts(tx, window.startsAt, window.endsAt));
+  const holds =
+    publication?.holds ??
+    (await readOverlappingHolds(
+      tx,
+      window.startsAt,
+      window.endsAt,
+      excludeRequestId,
+    ));
   // Retain the authoritative calendar read here; publication's earlier snapshot
   // is only reused for enumeration and reconciliation calculations.
-  const timetable = resolvePlanningTimetableDay(
-    time.date,
-    await tx.schoolCalendarDay.findMany(),
-  );
+  const timetable =
+    publication?.timetable ??
+    resolvePlanningTimetableDay(
+      time.date,
+      await tx.schoolCalendarDay.findMany(),
+    );
   const weekday = new Date(`${time.date}T00:00:00Z`).getUTCDay() || 7;
-  const recurring = !timetable.isSchoolDay
-    ? []
-    : await tx.pairing.findMany({
-        where: {
-          termId: plan.termId,
-          scheduleConfirmed: true,
-          dayOfWeek: timetable.effectiveTimetableWeekday ?? weekday,
-          startMin: { lt: window.endMin },
-        },
-        include: { tutees: { select: { tuteeId: true } } },
-      });
-  const keys = await participantKeys(
-    tx,
-    [
-      ...new Set([
-        plan.tutorId,
-        ...cohorts.map((row) => row.plan.tutorId),
-        ...holds.map((row) => row.plan.tutorId),
-        ...recurring.map((row) => row.tutorId),
-      ]),
-    ],
-    [
-      ...new Set([
-        ...participantIds,
-        ...cohorts.flatMap((row) =>
-          row.participants.map((person) => person.tuteeId),
-        ),
-        ...holds.flatMap((row) => ids(row.participantIds)),
-        ...recurring.flatMap((row) =>
-          row.tutees.map((person) => person.tuteeId),
-        ),
-      ]),
-    ],
-  );
+  const recurring =
+    publication?.recurring ??
+    (!timetable.isSchoolDay
+      ? []
+      : await tx.pairing.findMany({
+          where: {
+            termId: plan.termId,
+            scheduleConfirmed: true,
+            dayOfWeek: timetable.effectiveTimetableWeekday ?? weekday,
+            startMin: { lt: window.endMin },
+          },
+          include: { tutees: { select: { tuteeId: true } } },
+        }));
+  const keys =
+    publication?.keys ??
+    (await participantKeys(
+      tx,
+      [
+        ...new Set([
+          plan.tutorId,
+          ...cohorts.map((row) => row.plan.tutorId),
+          ...holds.map((row) => row.plan.tutorId),
+          ...recurring.map((row) => row.tutorId),
+        ]),
+      ],
+      [
+        ...new Set([
+          ...participantIds,
+          ...cohorts.flatMap((row) =>
+            row.participants.map((person) => person.tuteeId),
+          ),
+          ...holds.flatMap((row) => ids(row.participantIds)),
+          ...recurring.flatMap((row) =>
+            row.tutees.map((person) => person.tuteeId),
+          ),
+        ]),
+      ],
+    ));
   for (const cohort of cohorts) {
     if (
       !cohort.participants.length ||
@@ -719,14 +852,16 @@ async function validateTarget(
   }
   if (
     window.roomId &&
-    (await tx.roomUnavailability.findFirst({
-      where: {
-        roomId: window.roomId,
-        dayOfWeek: weekday,
-        startMin: { lt: window.endMin },
-        endMin: { gt: window.startMin },
-      },
-    }))
+    (publication
+      ? publication.roomBlocked
+      : await tx.roomUnavailability.findFirst({
+          where: {
+            roomId: window.roomId,
+            dayOfWeek: weekday,
+            startMin: { lt: window.endMin },
+            endMin: { gt: window.startMin },
+          },
+        }))
   )
     fail("That room is blocked during this time.", "CONFLICT");
   const recurringCandidates = recurring.filter((pairing) => {
@@ -738,18 +873,25 @@ async function validateTarget(
   });
   // Keep all regular exceptions, including cancellations/moves. Bound SQL parameters
   // without one round trip per recurring candidate; the scheduling fence is still held.
-  const materialized = new Set<string>();
-  for (let offset = 0; offset < recurringCandidates.length; offset += 500) {
+  const materialized = publication?.materialized ?? new Set<string>();
+  for (
+    let offset = 0;
+    !publication && offset < recurringCandidates.length;
+    offset += 500
+  ) {
     const assignments = await tx.sessionPlanAssignment.findMany({
       where: {
         pairingId: {
-          in: recurringCandidates.slice(offset, offset + 500).map((row) => row.id),
+          in: recurringCandidates
+            .slice(offset, offset + 500)
+            .map((row) => row.id),
         },
         plan: { originalDate: time.date, kind: "REGULAR" },
       },
       select: { pairingId: true },
     });
-    for (const assignment of assignments) materialized.add(assignment.pairingId);
+    for (const assignment of assignments)
+      materialized.add(assignment.pairingId);
   }
   // Unmaterialized recurrence must participate too; a dated exception replaces its own default.
   for (const pairing of recurringCandidates) {
@@ -771,7 +913,7 @@ async function validateTarget(
 
 async function notifyPlanChange(
   tx: TransactionDb,
-  plan: Plan,
+  plan: NoticePlan,
   cohort: Cohort,
   event: string,
   originalStartsAt = cohort.startsAt,
@@ -795,31 +937,27 @@ async function notifyPlanChange(
         select: { name: true },
       })
     : null;
-  for (const person of audience)
-    await tx.sessionNotice.upsert({
-      where: {
-        dedupeKey: `cohort:${cohort.id}:${cohort.version}:${event}:${person.actorKey}`,
+  await insertSessionNotices(
+    tx,
+    audience.map((person) => ({
+      dedupeKey: `cohort:${cohort.id}:${cohort.version}:${event}:${person.actorKey}`,
+      recipientUserId: person.user.id,
+      recipientEmail: person.user.email,
+      event,
+      context: {
+        isActionable: false,
+        startsAt: cohort.startsAt.toISOString(),
+        endsAt: cohort.endsAt.toISOString(),
+        timeZone: plan.timeZone,
+        originalStartsAt: originalStartsAt.toISOString(),
+        subjectLabel: [...new Set(plan.assignments.map((row) => row.subject))]
+          .join(" / ")
+          .slice(0, 200),
+        roomLabel: room?.name.slice(0, 120) ?? null,
+        online: cohort.online,
       },
-      update: {},
-      create: {
-        dedupeKey: `cohort:${cohort.id}:${cohort.version}:${event}:${person.actorKey}`,
-        recipientUserId: person.user.id,
-        recipientEmail: person.user.email,
-        event,
-        context: {
-          isActionable: false,
-          startsAt: cohort.startsAt.toISOString(),
-          endsAt: cohort.endsAt.toISOString(),
-          timeZone: plan.timeZone,
-          originalStartsAt: originalStartsAt.toISOString(),
-          subjectLabel: [...new Set(plan.assignments.map((row) => row.subject))]
-            .join(" / ")
-            .slice(0, 200),
-          roomLabel: room?.name.slice(0, 120) ?? null,
-          online: cohort.online,
-        },
-      },
-    });
+    })),
+  );
 }
 
 async function reconcileOrdinaryPlans(
@@ -838,18 +976,36 @@ async function reconcileOrdinaryPlans(
     timeZone,
     calendar.semanticDays(),
   ]);
-  const plans = await tx.sessionPlan.findMany({
-    where: {
-      generationKey: { startsWith: prefix },
-      kind: "REGULAR",
-      OR: [
-        { sourceScheduleFingerprint: { not: scheduleHash } },
-        { cohorts: { some: { sourceInvalidated: true } } },
-        { participants: { some: { calendarSuppressed: true } } },
-      ],
-    },
-    include: planInclude,
+  const candidateWhere: Prisma.SessionPlanWhereInput = {
+    generationKey: { startsWith: prefix },
+    kind: "REGULAR",
+    OR: [
+      { sourceScheduleFingerprint: { not: scheduleHash } },
+      { cohorts: { some: { sourceInvalidated: true } } },
+      { participants: { some: { calendarSuppressed: true } } },
+    ],
+  };
+  // Capture candidates under the planning fence before hydrating relations: an
+  // empty include still issues relation queries. Source authority is re-read
+  // below after its own locks, just as for the original reconciliation query.
+  const candidates = await tx.sessionPlan.findMany({
+    where: candidateWhere,
+    select: { id: true },
   });
+  if (!candidates.length) return scheduleHash;
+  const plans: Plan[] = [];
+  for (let offset = 0; offset < candidates.length; offset += 500)
+    plans.push(
+      ...(await tx.sessionPlan.findMany({
+        where: {
+          ...candidateWhere,
+          id: {
+            in: candidates.slice(offset, offset + 500).map((row) => row.id),
+          },
+        },
+        include: planInclude,
+      })),
+    );
   for (const plan of plans) {
     if (!(await sourceIsCurrent(tx, plan))) {
       await invalidateSessionPlansForPairings(
@@ -1172,6 +1328,7 @@ export async function ensureSessionPlanningWindow(
       calendar: createSchoolCalendarSnapshot(overrides),
       parseDateTime: createProgramDateTimeParser(),
     };
+    const publicationNotices: PublicationNotice[] = [];
     for (const entry of pairingEntries(rows)) {
       const primary = entry.primary;
       if (
@@ -1230,10 +1387,12 @@ export async function ensureSessionPlanningWindow(
         if (
           (primary.term.startDate &&
             date <
-              (termStart ??= programDateKey(primary.term.startDate, timeZone))) ||
+              (termStart ??= programDateKey(
+                primary.term.startDate,
+                timeZone,
+              ))) ||
           (primary.term.endDate &&
-            date >
-              (termEnd ??= programDateKey(primary.term.endDate, timeZone)))
+            date > (termEnd ??= programDateKey(primary.term.endDate, timeZone)))
         )
           continue;
         // Only explicit consent deltas retain the current publication. Manual
@@ -1249,14 +1408,16 @@ export async function ensureSessionPlanningWindow(
       // At most 21 keys per entry. Cancelled/moved plans also suppress regeneration.
       const existing = new Set(
         candidates.length
-          ? (await tx.sessionPlan.findMany({
-              where: {
-                generationKey: {
-                  in: candidates.map((row) => row.generationKey),
+          ? (
+              await tx.sessionPlan.findMany({
+                where: {
+                  generationKey: {
+                    in: candidates.map((row) => row.generationKey),
+                  },
                 },
-              },
-              select: { generationKey: true },
-            })).map((row) => row.generationKey)
+                select: { generationKey: true },
+              })
+            ).map((row) => row.generationKey)
           : [],
       );
       for (const { date, generationKey } of candidates) {
@@ -1288,7 +1449,9 @@ export async function ensureSessionPlanningWindow(
             ),
           ),
         ];
-        await tx.sessionPlan.create({
+        // Both inserts keep database defaults and recovery triggers. No returned
+        // plan row is needed: validation uses these immutable publication facts.
+        await tx.sessionPlan.createMany({
           data: {
             id: planId,
             generationKey,
@@ -1298,22 +1461,30 @@ export async function ensureSessionPlanningWindow(
             timeZone,
             sourceScheduleFingerprint: scheduleHash,
             sourceFingerprint: rosterHash,
-            assignments: {
-              create: entry.pairings.map((row, index) => ({
-                pairingId: row.id,
-                subject: row.subject,
-                tuteeIds: row.tutees.map((item) => item.tuteeId),
-                primary: index === 0,
-              })),
-            },
           },
+        });
+        await tx.sessionPlanAssignment.createMany({
+          data: entry.pairings.map((row, index) => ({
+            planId,
+            pairingId: row.id,
+            subject: row.subject,
+            tuteeIds: row.tutees.map((item) => item.tuteeId),
+            primary: index === 0,
+          })),
         });
         existing.add(generationKey);
         let available = true;
-        const plan = await tx.sessionPlan.findUniqueOrThrow({
-          where: { id: planId },
-          include: planInclude,
-        });
+        // Validation needs only immutable publication facts; don't hydrate the
+        // complete plan/roster/account graph twice for each newly inserted date.
+        const plan: ValidationPlan = {
+          id: planId,
+          tutorId: primary.tutorId,
+          termId: primary.termId,
+          originalDate: date,
+          timeZone,
+          term: primary.term,
+          assignments: entry.pairings.map((row) => ({ pairingId: row.id })),
+        };
         const candidate = {
           id: cohortId,
           planId,
@@ -1326,6 +1497,20 @@ export async function ensureSessionPlanningWindow(
           updatedAt: now,
         };
         try {
+          // Read a fresh coherent context after this plan's assignment and all
+          // preceding reservations. Never preinsert later candidate assignments:
+          // their existence would hide unmaterialized recurring commitments.
+          const publication = await readPublicationValidationSnapshot(tx, {
+            tutorId: plan.tutorId,
+            termId: plan.termId,
+            originalDate: plan.originalDate,
+            participantIds: roster,
+            // A narrowing hint only: the statement rereads the calendar and
+            // falls back to an unfiltered snapshot if the hint is no longer true.
+            weekdayHint:
+              computation.calendar.resolve(date).effectiveTimetableWeekday ?? 0,
+            ...window,
+          });
           await validateTarget(
             tx,
             plan,
@@ -1336,6 +1521,8 @@ export async function ensureSessionPlanningWindow(
             undefined,
             now,
             computation,
+            false,
+            publication,
           );
         } catch {
           available = false;
@@ -1359,18 +1546,22 @@ export async function ensureSessionPlanningWindow(
             calendarSuppressed: !available,
           })),
         });
-        const complete = await tx.sessionPlan.findUniqueOrThrow({
-          where: { id: planId },
-          include: planInclude,
-        });
-        await notifyPlanChange(
-          tx,
-          complete,
-          published,
-          available ? "schedule_updated" : "cancelled",
+        publicationNotices.push(
+          capturePublicationNotice({
+            tutorId: primary.tutorId,
+            timeZone,
+            subjects: entry.pairings.map((row) => row.subject),
+            tuteeIds: roster,
+            cohort: published,
+            event: available ? "schedule_updated" : "cancelled",
+          }),
         );
       }
     }
+    // Only non-actionable new-publication notices are deferred. Resolve current
+    // contact destinations once at finalization; delivery rechecks admission.
+    // Any failure still rolls back the complete publication transaction.
+    await queuePublicationNotices(tx, publicationNotices);
     return { ...weeks, timeZone, unavailable, normalized };
   });
 }
@@ -2908,8 +3099,9 @@ export async function invalidateSessionPlansForPairings(
     },
     include: planInclude,
   });
+  const evidence = await loadSourceEvidence(tx, plans);
   for (const plan of plans) {
-    if (await sourceIsCurrent(tx, plan)) continue;
+    if (await sourceIsCurrent(tx, plan, false, evidence)) continue;
     const cohorts = await tx.sessionPlanCohort.findMany({
       where: {
         planId: plan.id,

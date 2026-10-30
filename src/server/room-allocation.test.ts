@@ -61,8 +61,31 @@ function fixture(
     ownership?: { tuteeId: string; userId: string }[];
   } = {},
 ) {
+  // Supply the new raw read with the same canonical evidence as the legacy
+  // findMany doubles below. SQL precedence itself is covered against PostgreSQL.
+  const tutorUsers = new Map<string, string>();
+  const tuteeUsers = new Map(
+    (options.ownership ?? []).map((row) => [row.tuteeId, row.userId]),
+  );
+  for (const user of options.users ?? []) {
+    if (user.tutorId) tutorUsers.set(user.tutorId, user.id);
+    if (user.studentId) tuteeUsers.set(user.studentId, user.id);
+  }
+  const canonicalRows = [
+    ...[...tutorUsers].map(([profileId, userId]) => ({
+      role: "tutor",
+      profileId,
+      userId,
+    })),
+    ...[...tuteeUsers].map(([profileId, userId]) => ({
+      role: "tutee",
+      profileId,
+      userId,
+    })),
+  ];
   const db = {
     $executeRaw: vi.fn().mockResolvedValue(1),
+    $queryRaw: vi.fn().mockResolvedValue(canonicalRows),
     schoolCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
     programSettings: {
       findUnique: vi.fn().mockResolvedValue({ timeZone: "Asia/Shanghai" }),

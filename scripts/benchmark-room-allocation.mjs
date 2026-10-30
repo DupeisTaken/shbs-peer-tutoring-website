@@ -76,7 +76,8 @@ function allocator(variant) {
     async () => new Set(),
     SyntheticTRPCError,
   );
-  return { fn, extractedSha256: sha256(compiled), datedGuardPresent: roomSource.includes("await datedUnavailableRooms(") };
+  return { fn, extractedSha256: sha256(compiled), datedGuardPresent: roomSource.includes("await datedUnavailableRooms("),
+    canonicalLookup: participantSource.includes("db.$queryRaw") ? "raw-query" : "three-model-reads" };
 }
 const baseline = allocator("baseline");
 const current = allocator("current");
@@ -93,11 +94,25 @@ const currentAllocation = Object.freeze({
 function fixture(rooms, bookings = [], data = {}) {
   // Fake reads return fixture rows immediately. Neither PostgreSQL query work nor
   // Prisma serialization/connection latency is represented by these functions.
+  // Resolve fixture identity rows outside timing so the new SQL result stub does
+  // not charge emulated database UNION/precedence work only to the current side.
+  const tutorUsers = new Map((data.tutorOwnership ?? []).map((row) => [row.tutorId, row.userId]));
+  const studentUsers = new Map((data.studentOwnership ?? []).map((row) => [row.tuteeId, row.userId]));
+  for (const user of data.users ?? []) {
+    if (user.tutorId) tutorUsers.set(user.tutorId, user.id);
+    if (user.studentId) studentUsers.set(user.studentId, user.id);
+  }
+  const canonicalRows = [
+    ...[...tutorUsers].map(([profileId, userId]) => ({ role: "tutor", profileId, userId })),
+    ...[...studentUsers].map(([profileId, userId]) => ({ role: "tutee", profileId, userId })),
+  ];
   return {
     enabled: data.enabled ?? true,
+    $queryRaw: async () => canonicalRows,
     room: { findMany: async () => rooms, count: async () => 1 },
     pairing: { findMany: async () => bookings },
     roomUnavailability: { findMany: async () => (data.blocks ?? []).map((roomId) => ({ roomId })) },
+    // Retain the original reads for older baseline functions extracted from Git.
     user: { findMany: async () => data.users ?? [] },
     tutorProfileOwnership: { findMany: async () => data.tutorOwnership ?? [] },
     studentProfileOwnership: { findMany: async () => data.studentOwnership ?? [] },
@@ -229,12 +244,13 @@ const report = {
   runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model },
   sourceMetadata, extractedFunctions: { baselineSha256: baseline.extractedSha256, currentSha256: current.extractedSha256 },
   datedGuardPresent: { baseline: baseline.datedGuardPresent, current: current.datedGuardPresent },
+  canonicalLookup: { baseline: baseline.canonicalLookup, current: current.canonicalLookup },
   methodology: {
     source: "Actual allocateRoom, canonical participantKeys, assertRoomVersion, shortageSignature and rankRoomCandidates from each source revision. Only exports/type syntax are removed; neither allocator algorithm is string-rewritten.",
-    boundaries: "Locks and tutor guard are no-ops; final room guard is a shared no-op except its explicit synthetic rejection test; feature read returns a synthetic flag; datedUnavailableRooms returns an empty Set. Synthetic TransactionDb reads resolve immediately. No PostgreSQL, Prisma engine, dated occupancy computation, persistence, notification delivery, network or real request timing.",
+    boundaries: "Locks and tutor guard are no-ops; final room guard is a shared no-op except its explicit synthetic rejection test; feature read returns a synthetic flag; datedUnavailableRooms returns an empty Set. Synthetic TransactionDb reads resolve immediately. Legacy three-read and current raw-query identity paths receive equivalent fixture data; raw canonical rows are prepared with the fixture outside timing. No PostgreSQL UNION/query work, Prisma engine, dated occupancy computation, persistence, notification delivery, network or real request timing.",
     timing: "One warmup batch and five alternating measured batch pairs; fixture construction, source extraction/compilation and assertions excluded. Full AllocationResult equality asserted for every operation. Fresh internal room index on every allocation; no GC forcing. Retained-room control bypasses ranking/index construction.",
     oldHarnessCountercheck: "Same 20/200, 50/2000, 100/10000 scales and three roster rows per booking as outputs/language-performance/scheduler/benchmark.mjs; weekday-7 target versus weekday-1-to-5 bookings forces scoring. Unlike that exploratory harness, both alternatives are actual source. Current fixture adds genuine repeated group rows and uses 45-minute intervals. Participant-key construction and promise overhead remain inside timing, so this is not a scoring-only graph.",
-    limitations: "Synthetic sensitivity scales are not observed production load. Five samples do not establish production p95. Local hardware/runtime can differ from deployment. If datedGuardPresent differs, module graphs differ at that stub boundary and the comparison is not solely the index patch. No other-language or website-wide speedup is measured.",
+    limitations: "Synthetic sensitivity scales are not observed production load. Five samples do not establish production p95. Local hardware/runtime can differ from deployment. If datedGuardPresent differs, module graphs differ at that stub boundary. If canonicalLookup differs, identity resolution moves between JavaScript and stubbed SQL and promise counts differ; the omitted database UNION cost must be measured separately. These comparisons then describe the combined changes, not solely the room-index patch. No other-language or website-wide speedup is measured.",
   },
   parityChecks, semanticChecks, results, sink,
 };

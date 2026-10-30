@@ -6,30 +6,40 @@ export async function participantKeys(
   tutorIds: string[],
   tuteeIds: string[],
 ) {
-  const [users, tutors, students] = await Promise.all([
-    db.user.findMany({
-      where: {
-        OR: [{ tutorId: { in: tutorIds } }, { studentId: { in: tuteeIds } }],
-      },
-      select: { id: true, tutorId: true, studentId: true },
-    }),
-    db.tutorProfileOwnership.findMany({
-      where: { tutorId: { in: tutorIds } },
-      select: { tutorId: true, userId: true },
-    }),
-    db.studentProfileOwnership.findMany({
-      where: { tuteeId: { in: tuteeIds } },
-      select: { tuteeId: true, userId: true },
-    }),
-  ]);
+  // One fresh statement retains direct-link precedence without caching authority.
+  // A user matched through either requested role also supplies its other linked
+  // role, as the former OR-based User read did, even if that ID was not requested.
+  const rows = await db.$queryRaw<
+    { role: "tutor" | "tutee"; profileId: string; userId: string }[]
+  >`
+    WITH direct_users AS (
+      SELECT id, "tutorId", "studentId" FROM "User"
+      WHERE "tutorId" = ANY(${tutorIds}::text[])
+         OR "studentId" = ANY(${tuteeIds}::text[])
+    )
+    SELECT DISTINCT ON (role, "profileId") role, "profileId", "userId"
+    FROM (
+      SELECT 'tutor'::text AS role, "tutorId" AS "profileId", "userId", 0 AS priority
+      FROM "TutorProfileOwnership" WHERE "tutorId" = ANY(${tutorIds}::text[])
+      UNION ALL
+      SELECT 'tutee'::text, "tuteeId", "userId", 0
+      FROM "StudentProfileOwnership" WHERE "tuteeId" = ANY(${tuteeIds}::text[])
+      UNION ALL
+      SELECT 'tutor'::text, "tutorId", id, 1 FROM direct_users
+      WHERE "tutorId" IS NOT NULL AND "tutorId" <> ''
+      UNION ALL
+      SELECT 'tutee'::text, "studentId", id, 1 FROM direct_users
+      WHERE "studentId" IS NOT NULL AND "studentId" <> ''
+    ) AS mappings
+    ORDER BY role, "profileId", priority DESC
+  `;
   const tutor = new Map(tutorIds.map((id) => [id, `tutor:${id}`]));
   const tutee = new Map(tuteeIds.map((id) => [id, `tutee:${id}`]));
-  for (const row of tutors) tutor.set(row.tutorId, `user:${row.userId}`);
-  for (const row of students) tutee.set(row.tuteeId, `user:${row.userId}`);
-  for (const user of users) {
-    if (user.tutorId) tutor.set(user.tutorId, `user:${user.id}`);
-    if (user.studentId) tutee.set(user.studentId, `user:${user.id}`);
-  }
+  for (const row of rows)
+    (row.role === "tutor" ? tutor : tutee).set(
+      row.profileId,
+      `user:${row.userId}`,
+    );
   return { tutor, tutee };
 }
 

@@ -114,6 +114,41 @@ and authority-row fences remain in force, including re-reads after waiting for
 source locks. A worker interval or TTL cannot replace these checks without a
 durable invalidation contract covering every source change.
 
+An invalidation pass locks its union of source accounts, profiles and pairings in
+the existing table order, then reloads source evidence in bounded batches. Each
+plan still compares continuation assignments against its own creation time and
+retains released-member provenance. This evidence lives only for that pass;
+individual scheduling mutations retain their fresh source checks.
+
+Fresh publication uses the immutable fields it just inserted instead of loading
+the complete plan graph twice. Publication decisions and writes remain serial, so
+each later lesson sees earlier reservations. A fresh parameterized statement per
+candidate reads overlapping cohorts, exact current pending offers, calendar facts,
+recurrences, materialized exceptions, canonical identities and room facts. Native
+timestamp columns retain UTC instants; the shared TypeScript calendar resolver
+still owns closures, makeup weekdays and tombstones. The existing decision logic
+consumes this coherent snapshot only for initial publication. It never inserts
+future candidate assignments early: their presence would incorrectly suppress
+unmaterialized recurring commitments. Direct account links retain precedence over
+retained profile aliases. Existing agreements and restoration keep their live
+validation path.
+
+The PostgreSQL adapter names only the fixed publication-validation statement,
+using a hash of its complete SQL. PostgreSQL can reuse its prepared statement on
+that connection; parameters and result rows are never cached. Changed SQL receives
+a different name, while unrelated queries retain unnamed execution. Each
+candidate still reads current database facts and earlier writes in its transaction.
+
+Lifecycle notices resolve recipients in batches while retaining actor identities
+and retained-owner precedence. Notice inserts preserve the first intent for each
+dedupe key and leave existing queue receipts unchanged. They run under the
+producer's planning fence, with normal unique/FK errors and recovery triggers;
+they neither send mail nor change delivery eligibility or response clocks.
+New non-actionable publication notices capture immutable audiences and schedule
+facts at each decision, then resolve contact destinations and room names freshly
+at transaction finalization. A finalization failure rolls back the publication.
+Formal negotiation notices retain their response identities and existing timing.
+
 Run the source-comparison benchmarks from the repository root, choosing the
 unoptimized scheduling commit that is the optimization branch's base:
 
