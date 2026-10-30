@@ -153,6 +153,85 @@ function show(role: "tutor" | "tutee" = "tutor", locale: "en" | "zh" = "en") {
     </NextIntlClientProvider>,
   );
 }
+it("interleaves authorized interview and meeting starts without inventing tutoring intervals", () => {
+  const events = [
+    {
+      id: "meeting:later",
+      startsAt: new Date("2026-10-26T08:00:00Z"),
+      content: <article>Later meeting</article>,
+    },
+    {
+      id: "interview:earlier",
+      startsAt: new Date("2026-10-26T06:00:00Z"),
+      content: <article>Earlier interview</article>,
+    },
+    {
+      id: "meeting:outside",
+      startsAt: new Date("2026-11-10T08:00:00Z"),
+      content: <article>Outside window</article>,
+    },
+  ];
+  render(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <SessionAgenda role="tutor" supplementalEvents={events} />
+    </NextIntlClientProvider>,
+  );
+  const cards = screen.getAllByRole("article");
+  expect(cards.map((card) => card.textContent)).toEqual([
+    "Earlier interview",
+    expect.stringContaining("Mathematics"),
+    "Later meeting",
+  ]);
+  fireEvent.click(screen.getByRole("tab", { name: messages.needsAttendance }));
+  expect(screen.queryByText("Earlier interview")).toBeNull();
+  expect(screen.getAllByRole("article")).toHaveLength(1);
+});
+it.each([false, true])(
+  "keeps independent appointments when tutoring has no usable read (denied=%s)",
+  (denied) => {
+    state.data = denied ? sample() : undefined;
+    state.error = {
+      data: { code: denied ? "FORBIDDEN" : "INTERNAL_SERVER_ERROR" },
+    };
+    render(
+      <NextIntlClientProvider
+        locale="en"
+        timeZone="Asia/Shanghai"
+        messages={en}
+      >
+        <SessionAgenda
+          role="tutor"
+          supplementalEvents={[
+            {
+              id: "interview:own",
+              startsAt: new Date("2026-10-26T06:00:00Z"),
+              content: <article>Authorized interview</article>,
+            },
+          ]}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText("Authorized interview")).toBeTruthy();
+    expect(screen.queryByText("Mathematics + Physics")).toBeNull();
+  },
+);
+it("does not add tutor appointment types to the tutee agenda", () => {
+  render(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <SessionAgenda
+        role="tutee"
+        supplementalEvents={[
+          {
+            id: "interview:own",
+            startsAt: new Date("2026-10-26T06:00:00Z"),
+            content: <article>Private interview</article>,
+          },
+        ]}
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.queryByText("Private interview")).toBeNull();
+});
 it("places coordination before formal controls and opens attendance only from the exact cohort", () => {
   show();
   const card = screen.getByRole("article");

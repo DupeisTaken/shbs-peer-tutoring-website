@@ -2222,7 +2222,7 @@
       "membershipPending": "Participation request awaiting review",
       "reloadDecision": "Reload application and clear decision draft",
       "title": "Your Next Steps",
-      "activeHelp": "Start with attendance. Open a task to review its details; pending requests have not changed live records.",
+      "activeHelp": "Review tasks here and open Schedule for attendance and appointments. Pending requests have not changed live records.",
       "readonlyHelp": "Your participation is not active. Review your status and records; tutoring actions become available after activation.",
       "activation": "Confirm participation",
       "attendance": "Record attendance",
@@ -2237,7 +2237,7 @@
       "loadError": "Some tasks could not be loaded. Keep reviewing the available records and retry.",
       "retry": "Try again",
       "today": "Today's sessions · {date}",
-      "scheduleHelp": "Confirmed dated sessions, including agreed changes and extras. Open the agenda to record attendance for a specific session.",
+      "scheduleHelp": "Up to three confirmed dated sessions, including agreed changes and extras. Open a session in Schedule for attendance.",
       "noSessions": "No confirmed sessions today.",
       "noRoom": "Room not assigned",
       "confirmRemoval": "Relay {name}'s request to leave tutoring, from {subject}? Participation stays active during the 7-day recall window. After that, removal is processed automatically unless you recall it or staff cancel it.",
@@ -2508,6 +2508,21 @@
         "VALID": "valid",
         "PENDING": "under review"
       }
+    },
+    "navigation": {
+      "label": "Tutor workspace",
+      "dashboard": "Dashboard",
+      "schedule": "Schedule"
+    },
+    "schedulePage": {
+      "title": "Schedule",
+      "help": "Tutoring sessions, assigned interviews and personal meetings in one place. Open an appointment to use its attendance or interview workflow.",
+      "backToPairings": "My Pairings",
+      "preferences": "Availability & preferences",
+      "rooms": "Room schedule",
+      "openSchedule": "View Schedule",
+      "interviews": "My interview appointments",
+      "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
     }
   },
   "public": {
@@ -6156,12 +6171,12 @@
     },
     "interview_panel_assigned": {
       "title": "Interview Panel Assignment",
-      "body": "You were assigned to an interview panel. Review the application and panel duties on your dashboard; a panel assignment alone does not schedule an interview.",
+      "body": "You were assigned to an interview panel. Review the application and panel duties in Schedule; a panel assignment alone does not schedule an interview.",
       "action": "View interview panel"
     },
     "interview_scheduled": {
       "title": "New Interview Scheduled",
-      "body": "You have a new interview scheduled. Review the recorded time and interview details on your dashboard. If no time is shown here, check the dashboard.",
+      "body": "You have a new interview scheduled. Review the recorded time and interview details in Schedule. If no time is shown here, check Schedule.",
       "action": "View scheduled interview"
     },
     "management_review_pending": {
@@ -7219,5 +7234,42 @@
     "datedDuration": "Your previous weekly time is retained. Dated lessons follow the current 45-minute timetable; check your schedule after joining.",
     "currentResults": "Current pairing results",
     "requiredSubjects": "This signup requires two distinct subjects, including subjects already on your current request."
+  },
+  "unifiedScheduleInterview": {
+    "title": "Interview work & history",
+    "chairWorkspace": "Open interview chair workspace",
+    "unavailable": "This interview is no longer available to your panel assignment.",
+    "emptyGroup": "No interviews in this group."
+  },
+  "unifiedSchedule": {
+    "agenda": "My agenda",
+    "interview": "Interview",
+    "interviews": "Interview work",
+    "meeting": "Meeting",
+    "meetings": "Meetings",
+    "chair": "Chair",
+    "panelist": "Panelist",
+    "endUnknown": "Scheduled start · End not recorded",
+    "openChair": "Open chair workspace",
+    "openInterview": "View interview and own vote",
+    "openMeeting": "View meeting",
+    "excused": "Absence excuse submitted",
+    "interviewWork": "Interview work & history",
+    "meetingWork": "Meeting work & history",
+    "loadingInterviews": "Loading assigned interviews…",
+    "loadingMeetings": "Loading personal meetings…",
+    "interviewsFailed": "Interviews could not be refreshed.",
+    "meetingsFailed": "Meetings could not be refreshed.",
+    "denied": "Access to this planning source is no longer available.",
+    "retry": "Retry",
+    "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
+    "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
+    "meetingHelp": "Upcoming dates appear in your agenda. Open meeting work for absence excuses, other upcoming dates and personal history.",
+    "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
+    "task": {
+      "unscheduled": "Awaiting an interview time",
+      "pastOpen": "Interview still awaiting a decision",
+      "completionNeeded": "Completion evidence still needed"
+    }
   }
 }

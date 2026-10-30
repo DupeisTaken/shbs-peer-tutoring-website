@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
@@ -22,9 +22,16 @@ import {
 } from "./session-plan-time";
 import { SessionCoordinateMessage } from "./session-coordinate-message";
 import { SessionCalendarSubscription } from "./session-calendar-subscription";
+import { programDateKey } from "~/lib/program-time";
+import { focusVisibleContext } from "./focus-visible-context";
 
 type Agenda = RouterOutputs["sessionPlanning"]["agenda"];
 export type AgendaCohort = Agenda["cohorts"][number];
+export type SupplementalScheduleEvent = {
+  id: string;
+  startsAt: Date;
+  content: ReactNode;
+};
 type PlanningRequest = Agenda["requests"][number];
 type Suggestion = Agenda["suggestions"][number];
 type Editor = {
@@ -98,9 +105,14 @@ function cohortLabel(cohort: AgendaCohort) {
 export function SessionAgenda({
   role,
   preview = false,
+  supplementalEvents = [],
+  heading,
 }: {
   role: "tutor" | "tutee";
   preview?: boolean;
+  /** Authorized personal sources supply display only; their controllers own every action. */
+  supplementalEvents?: readonly SupplementalScheduleEvent[];
+  heading?: string;
 }) {
   const t = useTranslations("sessionPlanning");
   const format = useFormatter();
@@ -131,6 +143,7 @@ export function SessionAgenda({
     clientKey: string;
   } | null>(null);
   const admission = useRef(false);
+  const arrivedHash = useRef<string | null>(null);
   const propose = api.sessionPlanning.propose.useMutation();
   const suggest = api.sessionPlanning.suggest.useMutation();
   const respond = api.sessionPlanning.respond.useMutation();
@@ -146,6 +159,52 @@ export function SessionAgenda({
       window.removeEventListener("focus", tick);
     };
   }, []);
+  useEffect(() => {
+    if (role !== "tutor" || denied) return;
+    let frame: number | undefined;
+    const arrive = (force = false) => {
+      const hash = window.location.hash;
+      if (
+        (!force && arrivedHash.current === hash) ||
+        document.querySelector("dialog[open]")
+      )
+        return;
+      if (hash === "#attendance" && role === "tutor") {
+        setTab("needsAttendance");
+      } else if (hash.startsWith("#session-") && agenda.data) {
+        const cohort = agenda.data.cohorts.find(
+          (row) => `#session-${row.id}` === hash,
+        );
+        if (!cohort) return;
+        setTab(
+          cohort.date < agenda.data.windowStart ||
+            cohort.date > agenda.data.windowEnd
+            ? "needsAttendance"
+            : "week",
+        );
+      } else return;
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        if (
+          window.location.hash !== hash ||
+          document.querySelector("dialog[open]")
+        )
+          return;
+        const target = document.getElementById(hash.slice(1));
+        if (target) {
+          focusVisibleContext(target);
+          arrivedHash.current = hash;
+        }
+      });
+    };
+    arrive();
+    const changed = () => arrive(true);
+    window.addEventListener("hashchange", changed);
+    return () => {
+      window.removeEventListener("hashchange", changed);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+  }, [agenda.data, role, denied]);
   const blocked =
     denied ||
     !!agenda.error ||
@@ -248,9 +307,24 @@ export function SessionAgenda({
       onRetry={() => void agenda.refetch()}
     />
   );
+  const otherEvents = role === "tutor" && !preview ? supplementalEvents : [];
+  const independentEvents = (
+    <div className="space-y-3">
+      {[...otherEvents]
+        .sort(
+          (a, b) =>
+            a.startsAt.getTime() - b.startsAt.getTime() ||
+            a.id.localeCompare(b.id),
+        )
+        .map((event) => (
+          <Fragment key={event.id}>{event.content}</Fragment>
+        ))}
+    </div>
+  );
   if (denied)
     return (
-      <section id="sessions" className="card p-4 sm:p-5">
+      <section id="sessions" className="space-y-4">
+        <h2 className="section-title">{heading ?? t("title")}</h2>
         <StatePanel
           kind="denied"
           title={t("denied")}
@@ -263,12 +337,15 @@ export function SessionAgenda({
             </Button>
           }
         />
+        {independentEvents}
       </section>
     );
   if (!agenda.data)
     return (
-      <section id="sessions" className="card p-4 sm:p-5">
+      <section id="sessions" className="space-y-4">
+        <h2 className="section-title">{heading ?? t("title")}</h2>
         {feedback}
+        {independentEvents}
       </section>
     );
   const data = agenda.data;
@@ -278,6 +355,24 @@ export function SessionAgenda({
       : cohort.date >= data.windowStart && cohort.date <= data.windowEnd,
   );
   const shown = preview ? visible.slice(0, 3) : visible;
+  // Dated tutoring stays with this owner; other appointment types only join its
+  // chronological presentation. A failed tutoring read cannot erase valid siblings.
+  const timeline = [
+    ...shown.map((cohort) => ({
+      id: `session:${cohort.id}`,
+      startsAt: cohort.startsAt,
+      cohort,
+    })),
+    ...(tab === "week"
+      ? otherEvents.filter((event) => {
+          const date = programDateKey(event.startsAt, data.timeZone);
+          return date >= data.windowStart && date <= data.windowEnd;
+        })
+      : []),
+  ].sort(
+    (a, b) =>
+      a.startsAt.getTime() - b.startsAt.getTime() || a.id.localeCompare(b.id),
+  );
   const timeText = (startsAt: Date, endsAt: Date) =>
     `${format.dateTime(startsAt, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} – ${format.dateTime(endsAt, { hour: "2-digit", minute: "2-digit" })}`;
   return (
@@ -290,7 +385,7 @@ export function SessionAgenda({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 id="session-agenda-title" className="section-title">
-            {t("title")}
+            {heading ?? t("title")}
           </h2>
           <p className="muted mt-1 text-sm">
             {t("help", { timeZone: data.timeZone })}
@@ -400,118 +495,132 @@ export function SessionAgenda({
             : []),
         ]}
       >
-        {!shown.length && <StatePanel kind="empty" title={t("empty")} />}
+        {!timeline.length && <StatePanel kind="empty" title={t("empty")} />}
         <div className="space-y-3">
-          {shown.map((cohort) => (
-            <article
-              key={cohort.id}
-              id={`session-${cohort.id}`}
-              className="card space-y-3 p-4 sm:p-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-                  <h3 className="font-semibold">{cohortLabel(cohort)}</h3>
-                  <p>
-                    <time dateTime={cohort.startsAt.toISOString()}>
-                      {timeText(cohort.startsAt, cohort.endsAt)}
-                    </time>
-                  </p>
-                  <p className="muted text-sm">
-                    {role === "tutee"
-                      ? cohort.tutorName
-                      : cohort.tutees.map((learner) => learner.name).join(", ")}
-                  </p>
-                  <p className="muted text-sm">
-                    {cohort.online
-                      ? t("online")
-                      : (cohort.roomName ?? t("noRoom"))}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  <span className="badge-slate">
-                    {t(cohort.kind === "EXTRA" ? "extra" : "regular")}
-                  </span>
-                  {cohort.rescheduled && (
-                    <span className="badge">{t("rescheduled")}</span>
-                  )}
-                  {cohort.unavailable && (
+          {timeline.map((entry) => {
+            if ("content" in entry)
+              return <Fragment key={entry.id}>{entry.content}</Fragment>;
+            const cohort = entry.cohort;
+            return (
+              <article
+                key={cohort.id}
+                id={`session-${cohort.id}`}
+                tabIndex={-1}
+                className="card space-y-3 p-4 sm:p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
+                    <h3 className="font-semibold">{cohortLabel(cohort)}</h3>
+                    <p>
+                      <time dateTime={cohort.startsAt.toISOString()}>
+                        {timeText(cohort.startsAt, cohort.endsAt)}
+                      </time>
+                    </p>
+                    <p className="muted text-sm">
+                      {role === "tutee"
+                        ? cohort.tutorName
+                        : cohort.tutees
+                            .map((learner) => learner.name)
+                            .join(", ")}
+                    </p>
+                    <p className="muted text-sm">
+                      {cohort.online
+                        ? t("online")
+                        : (cohort.roomName ?? t("noRoom"))}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
                     <span className="badge-slate">
-                      {t("scheduleUnavailable")}
+                      {t(cohort.kind === "EXTRA" ? "extra" : "regular")}
                     </span>
-                  )}
-                  {!cohort.unavailable && cohort.status !== "SCHEDULED" && (
-                    <span className="badge-slate">
-                      {t(
-                        cohort.status === "RECORDED" ? "recorded" : "cancelled",
-                      )}
-                    </span>
-                  )}
+                    {cohort.rescheduled && (
+                      <span className="badge">{t("rescheduled")}</span>
+                    )}
+                    {cohort.unavailable && (
+                      <span className="badge-slate">
+                        {t("scheduleUnavailable")}
+                      </span>
+                    )}
+                    {!cohort.unavailable && cohort.status !== "SCHEDULED" && (
+                      <span className="badge-slate">
+                        {t(
+                          cohort.status === "RECORDED"
+                            ? "recorded"
+                            : "cancelled",
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {cohort.status === "SCHEDULED" && !preview && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <SessionCoordinateMessage cohortId={cohort.id} />
-                  {role === "tutor" && data.canTutorWrite && (
-                    <>
+                {cohort.status === "SCHEDULED" && !preview && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SessionCoordinateMessage cohortId={cohort.id} />
+                    {role === "tutor" && data.canTutorWrite && (
+                      <>
+                        <Button
+                          size="compact"
+                          disabled={blocked || cohort.endsAt <= now}
+                          onClick={() =>
+                            setEditor({
+                              mode: "propose",
+                              cohort,
+                              kind: "RESCHEDULE",
+                            })
+                          }
+                        >
+                          {t("reschedule")}
+                        </Button>
+                        <Button
+                          size="compact"
+                          disabled={blocked}
+                          onClick={() =>
+                            setEditor({
+                              mode: "propose",
+                              cohort,
+                              kind: "EXTRA",
+                            })
+                          }
+                        >
+                          {t("addExtra")}
+                        </Button>
+                      </>
+                    )}
+                    {role === "tutee" && (
                       <Button
                         size="compact"
                         disabled={blocked || cohort.endsAt <= now}
-                        onClick={() =>
-                          setEditor({
-                            mode: "propose",
-                            cohort,
-                            kind: "RESCHEDULE",
-                          })
-                        }
+                        onClick={() => setEditor({ mode: "suggest", cohort })}
                       >
-                        {t("reschedule")}
+                        {t("suggest")}
                       </Button>
+                    )}
+                    {role === "tutor" && cohort.canRecordAttendance && (
                       <Button
+                        variant="primary"
                         size="compact"
-                        disabled={blocked}
-                        onClick={() =>
-                          setEditor({ mode: "propose", cohort, kind: "EXTRA" })
-                        }
+                        disabled={blocked || attendanceBusy}
+                        onClick={() => openAttendance(cohort)}
                       >
-                        {t("addExtra")}
+                        {t("record")}
                       </Button>
-                    </>
-                  )}
-                  {role === "tutee" && (
-                    <Button
-                      size="compact"
-                      disabled={blocked || cohort.endsAt <= now}
-                      onClick={() => setEditor({ mode: "suggest", cohort })}
-                    >
-                      {t("suggest")}
-                    </Button>
-                  )}
-                  {role === "tutor" && cohort.canRecordAttendance && (
-                    <Button
-                      variant="primary"
-                      size="compact"
-                      disabled={blocked || attendanceBusy}
-                      onClick={() => openAttendance(cohort)}
-                    >
-                      {t("record")}
-                    </Button>
-                  )}
-                </div>
-              )}
-              {cohort.unavailable && (
-                <InlineNotice tone="warning">
-                  {t("scheduleUnavailableHelp")}
-                </InlineNotice>
-              )}
-              {cohort.schoolClosed &&
-                !cohort.unavailable &&
-                cohort.status === "SCHEDULED" && (
+                    )}
+                  </div>
+                )}
+                {cohort.unavailable && (
                   <InlineNotice tone="warning">
-                    {t("schoolClosed")}
+                    {t("scheduleUnavailableHelp")}
                   </InlineNotice>
                 )}
-            </article>
-          ))}
+                {cohort.schoolClosed &&
+                  !cohort.unavailable &&
+                  cohort.status === "SCHEDULED" && (
+                    <InlineNotice tone="warning">
+                      {t("schoolClosed")}
+                    </InlineNotice>
+                  )}
+              </article>
+            );
+          })}
         </div>
       </SectionTabs>
       <p className="muted text-xs">{t("publication")}</p>

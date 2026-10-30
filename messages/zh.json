@@ -2222,7 +2222,7 @@
       "membershipPending": "参与状态申请待审核",
       "reloadDecision": "重新加载申请并清除决定草稿",
       "title": "下一步",
-      "activeHelp": "优先记录出勤。打开任务查看详情；待审核申请尚未更改当前记录。",
+      "activeHelp": "在此查看待办事项，打开日程处理考勤和日程安排。待审核的申请尚未更改现有记录。",
       "readonlyHelp": "你目前未参与辅导。可以查看状态和记录；激活后才能使用辅导操作。",
       "activation": "确认本期参与",
       "attendance": "记录出勤",
@@ -2237,7 +2237,7 @@
       "loadError": "部分任务加载失败。你可以继续查看已有记录，并重试加载。",
       "retry": "重试",
       "today": "今日辅导安排 · {date}",
-      "scheduleHelp": "以下为已确认的具体日期辅导，包括已商定的改期与额外辅导。请在日程中选择本次辅导记录出勤。",
+      "scheduleHelp": "最多显示三个已确认的具体课次，包括已商定的调整和加课。请在日程中打开课次以处理考勤。",
       "noSessions": "今天没有已确认的辅导。",
       "noRoom": "尚未分配教室",
       "confirmRemoval": "通过{subject}配对转达{name}退出辅导的请求？参与状态在七天撤回期内保持有效。期满后将自动处理移除，除非你撤回或管理人员取消。",
@@ -2508,6 +2508,21 @@
         "VALID": "有效",
         "PENDING": "审核中"
       }
+    },
+    "navigation": {
+      "label": "导师工作区",
+      "dashboard": "主页",
+      "schedule": "日程"
+    },
+    "schedulePage": {
+      "title": "日程",
+      "help": "在同一处查看辅导课次、已分配的面试和个人会议。打开日程项目，即可使用相应的考勤或面试流程。",
+      "backToPairings": "我的配对",
+      "preferences": "可用时间与偏好",
+      "rooms": "教室安排",
+      "openSchedule": "查看日程",
+      "interviews": "我的面试安排",
+      "legacyHelp": "此日程部分已移至新页面。请打开日程继续；在你选择链接前，主页将保持当前状态。"
     }
   },
   "public": {
@@ -6156,12 +6171,12 @@
     },
     "interview_panel_assigned": {
       "title": "已分配面试小组",
-      "body": "您已被分配至面试小组。请在工作台查看申请和职责；小组分配本身不代表已安排面试时间。",
+      "body": "您已被分配至面试小组。请在日程中查看申请和职责；小组分配本身不代表已安排面试时间。",
       "action": "查看面试小组"
     },
     "interview_scheduled": {
       "title": "已安排新的面试",
-      "body": "您有一场新安排的面试。请在工作台核对记录的时间和面试详情。如本通知未显示时间，请查看工作台。",
+      "body": "您有一场新安排的面试。请在日程中核对记录的时间和面试详情。如本通知未显示时间，请查看日程。",
       "action": "查看已安排的面试"
     },
     "management_review_pending": {
@@ -7219,5 +7234,42 @@
     "datedDuration": "系统会保留你原先每周的上课时间。具体日期的课程按现行的45分钟课时安排；加入后请查看课表。",
     "currentResults": "当前配对结果",
     "requiredSubjects": "本次报名需要选择两个不同的科目，已有申请中的科目也计入其中。"
+  },
+  "unifiedScheduleInterview": {
+    "title": "面试工作与记录",
+    "chairWorkspace": "打开面试组长工作区",
+    "unavailable": "您当前的面试小组任务已无法访问此面试。",
+    "emptyGroup": "此分组暂无面试。"
+  },
+  "unifiedSchedule": {
+    "agenda": "我的日程",
+    "interview": "面试",
+    "interviews": "面试待办",
+    "meeting": "会议",
+    "meetings": "会议",
+    "chair": "面试组长",
+    "panelist": "面试官",
+    "endUnknown": "已安排开始时间 · 未记录结束时间",
+    "openChair": "打开面试组长工作区",
+    "openInterview": "查看面试并投票",
+    "openMeeting": "查看会议",
+    "excused": "已提交缺席请假",
+    "interviewWork": "面试待办与历史",
+    "meetingWork": "会议事项与历史",
+    "loadingInterviews": "正在加载已分配的面试…",
+    "loadingMeetings": "正在加载个人会议…",
+    "interviewsFailed": "无法刷新面试信息。",
+    "meetingsFailed": "无法刷新会议信息。",
+    "denied": "你已无法访问此日程来源。",
+    "retry": "重试",
+    "interviewAttention": "这些面试仍有待处理事项，包括尚未安排时间的面试。",
+    "interviewHelp": "已分配的面试时间显示在日程中。主考官工作区仍保留在概览页。",
+    "meetingHelp": "即将举行的会议显示在日程中。打开会议事项可办理请假、查看其他待举行的会议和个人历史。",
+    "calendarScope": "日历订阅目前仅包含辅导课。面试和会议可在此门户日程中查看。",
+    "task": {
+      "unscheduled": "等待安排面试时间",
+      "pastOpen": "面试仍待决定",
+      "completionNeeded": "仍需补充完成记录"
+    }
   }
 }

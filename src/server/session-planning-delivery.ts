@@ -88,7 +88,7 @@ export async function admitSessionNotice(
     });
     return { row: admitted, obsolete: context.isActionable === true && !state.current,
       destination: state.response?.actorKey.startsWith("tutor:") || (!state.response && user.tutorId)
-        ? "/dashboard#sessions" : "/student?view=schedule#sessions" };
+        ? "/schedule#sessions" : "/student?view=schedule#sessions" };
   });
 }
 

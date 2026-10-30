@@ -268,8 +268,8 @@ const show = (status = "ACTIVE", enabled = true) =>
         meetingsEnabled={enabled}
         now={new Date("2026-10-01T17:00:00Z")}
       />
-      <section id="attendance" tabIndex={-1}>
-        Attendance target
+      <section id="tutor-pairings" tabIndex={-1}>
+        Pairings target
       </section>
     </NextIntlClientProvider>,
   );
@@ -280,6 +280,29 @@ it("shows the single dated cohort for a reusable group once in today’s summary
   expect(screen.getByText("Friday maths + Thursday science")).toBeTruthy();
   expect(screen.queryByText("Friday maths")).toBeNull();
   expect(screen.queryByText("Thursday science")).toBeNull();
+});
+
+it("keeps today's preview to three dated sessions and links each to Schedule", () => {
+  state.cohorts = Array.from({ length: 5 }, (_, index) =>
+    datedCohort({
+      id: `preview-${index}`,
+      subjects: [`Preview ${index}`],
+    }),
+  );
+  show();
+  for (let index = 0; index < 3; index++)
+    expect(
+      screen
+        .getByRole("link", { name: `Preview ${index}` })
+        .getAttribute("href"),
+    ).toBe(`/schedule#session-preview-${index}`);
+  expect(screen.queryByText("Preview 3")).toBeNull();
+  expect(screen.queryByText("Preview 4")).toBeNull();
+  expect(
+    screen
+      .getByRole("link", { name: messages.tutor.schedulePage.openSchedule })
+      .getAttribute("href"),
+  ).toBe("/schedule");
 });
 
 it("counts an unscheduled group once and does not invent a session for it", () => {
@@ -324,8 +347,21 @@ it("prioritizes attendance and the program-zone date while preserving recurring 
   expect(
     screen.getByRole("link", { name: "Pending qualifications (1)" }),
   ).toBeTruthy();
-  fireEvent.click(screen.getByRole("link", { name: "Record attendance" }));
-  expect(document.activeElement?.id).toBe("attendance");
+  expect(
+    screen
+      .getByRole("link", { name: "Record attendance" })
+      .getAttribute("href"),
+  ).toBe("/schedule#attendance");
+  expect(
+    screen
+      .getByRole("link", { name: "Open interviews (1)" })
+      .getAttribute("href"),
+  ).toBe("/schedule#tutor-interviews");
+  expect(
+    screen
+      .getByRole("link", { name: "Upcoming meetings (1)" })
+      .getAttribute("href"),
+  ).toBe("/schedule#tutor-meetings");
 });
 it.each(["PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
   "keeps %s read-only with pending requirements visible",
@@ -621,15 +657,17 @@ it("reveals repeated anchors after native hash navigation and handles history ha
   });
   vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
   const view = show();
-  const link = screen.getByRole("link", { name: "Record attendance" });
+  const link = screen.getByRole("link", {
+    name: messages.dashboard.pairings.title,
+  });
   fireEvent.click(link);
-  expect(link.getAttribute("href")).toBe("#attendance");
+  expect(link.getAttribute("href")).toBe("#tutor-pairings");
   // JSDOM does not execute browser scrolling. Supply only the native URL result;
   // actual header bounds and reveal position are covered by browser evidence.
-  window.history.replaceState(null, "", "#attendance");
+  window.history.replaceState(null, "", "#tutor-pairings");
   act(() => frame(0));
   expect(focusVisibleContext).toHaveBeenLastCalledWith(
-    document.getElementById("attendance"),
+    document.getElementById("tutor-pairings"),
   );
   fireEvent.click(link);
   act(() => frame(1));
@@ -651,11 +689,11 @@ it.each([
   show();
   const before = raf.mock.calls.length;
   fireEvent.click(
-    screen.getByRole("link", { name: "Record attendance" }),
+    screen.getByRole("link", { name: messages.dashboard.pairings.title }),
     modifiers,
   );
   expect(raf.mock.calls.length).toBe(before);
-  expect(document.activeElement?.id).not.toBe("attendance");
+  expect(document.activeElement?.id).not.toBe("tutor-pairings");
 });
 
 it("refreshes interview attention from the shared result without treating completion or queued decision as a terminal outcome", () => {

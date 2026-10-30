@@ -1790,7 +1790,7 @@ export const tutorRouter = createTRPCRouter({
               }),
               title: "Interview scheduled",
               body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
-              link: "/dashboard",
+              link: "/schedule#tutor-interviews",
             },
             tx,
           );

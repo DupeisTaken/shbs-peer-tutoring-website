@@ -4300,7 +4300,7 @@ export const adminRouter = createTRPCRouter({
         ...notificationEvent("interview_panel_assigned"),
         title: "You're on an interview panel",
         body: `Applicant: ${app.name}`,
-        link: "/dashboard",
+        link: "/schedule#tutor-interviews",
       });
       return { ok: true };
     }),

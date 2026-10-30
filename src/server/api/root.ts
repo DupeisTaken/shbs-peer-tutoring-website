@@ -47,6 +47,7 @@ import { messagingRouter } from "./routers/messaging";
 import { interviewManagementRouter } from "./routers/interview-management";
 import { subjectAvailabilityRouter } from "./routers/subject-availability";
 import { translationReviewRouter } from "./routers/translation-review";
+import { personalScheduleRouter } from "./routers/personal-schedule";
 
 export const appRouter = createTRPCRouter({
   recordInspector: recordInspectorRouter,
@@ -71,6 +72,7 @@ export const appRouter = createTRPCRouter({
   studentWorkflow: studentWorkflowRouter,
   tutor: tutorRouter,
   sessionPlanning: sessionPlanningRouter,
+  personalSchedule: personalScheduleRouter,
   pairingGroups: pairingGroupsRouter,
   tutorDetails: tutorDetailsRouter,
   tutee: tuteeRouter,

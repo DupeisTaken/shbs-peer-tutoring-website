@@ -35,6 +35,10 @@ vi.mock("~/trpc/react", () => ({
         meetingRecords: { invalidate: vi.fn() },
         meetingPeriods: { invalidate: vi.fn() },
       },
+      personalSchedule: {
+        meetings: { invalidate: vi.fn() },
+        meetingDetail: { invalidate: vi.fn() },
+      },
     }),
     tutor: {
       meetingPeriods: {
@@ -161,12 +165,18 @@ it("keeps an excuse draft and pending owner through Q→S→Q grouping changes",
   view.rerender(element());
   expect(screen.getByRole("textbox")).toBe(draft);
   expect(draft.value).toBe("Exam conflict draft");
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.meetingPeriods.reload }).disabled).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.meetingPeriods.reload,
+    }).disabled,
+  ).toBe(true);
   state.pending = false;
   state.quarters = true;
   view.rerender(element());
   expect(screen.getByRole("textbox")).toBe(draft);
-  expect(screen.queryByText(messages.meetingPeriods.groupingChanged)).toBeNull();
+  expect(
+    screen.queryByText(messages.meetingPeriods.groupingChanged),
+  ).toBeNull();
   expect(state.mutate).not.toHaveBeenCalled();
 });
 it("cancel writes nothing; failed writes retain the reason and pending writes freeze it", async () => {
@@ -223,13 +233,14 @@ it("uses standard controls for the reason draft and both row actions", () => {
   }
 });
 
-it("does not announce an earlier success beside a failed cancellation", () => {
+it("does not announce an earlier success beside a failed cancellation", async () => {
   const view = start();
   fireEvent.click(
     screen.getByRole("button", { name: messages.tutor.meetings.submitExcuse }),
   );
   state.success = true;
   state.excused = true;
+  await act(async () => state.onSuccess());
   view.rerender(element());
   expect(screen.getByRole("status").textContent).toBe(messages.workflows.saved);
   fireEvent.click(

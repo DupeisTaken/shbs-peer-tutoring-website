@@ -404,16 +404,28 @@ See the [tutee policy draft](../../prisma/policies/tutee-policy.en.md) or [中�
 
 ## Tutors
 
-The dashboard distinguishes **Needs attention** from **Dashboard sections**.
-Attention links summarize loaded records that need follow-up: unconfirmed
-schedules, roster changes, active interviews, meetings and pending qualifications.
-A paused invalid interview is not counted as actionable work. Section links remain
-available even when there are no follow-ups; unavailable reads are not reported as
-zero tasks. Links move keyboard focus to the corresponding section.
-Today's schedule uses confirmed dated sessions in the program timezone, including
-agreed moves and extras. My Pairings stays prominent; the session agenda opens
-attendance for the selected ended lesson before optional editors. Pending participation, policy and request notices remain visible.
-**Interviews to Conduct** starts expanded, with a count and **Collapse interviews** /
+Choose **Dashboard** or **Schedule** from the tutor workspace navigation.
+**My Pairings** remains expanded near the top of the dashboard for recurring
+assignments, roster follow-up and schedule setup. **Needs attention** summarizes
+unconfirmed schedules, roster changes, open interviews, meetings and pending
+qualifications. A paused invalid interview is not counted as actionable work;
+unavailable reads are not reported as zero tasks. Local follow-up links focus their
+dashboard section; attendance, interview and meeting links open **Schedule**.
+Today's dashboard preview shows up to three effective dated tutoring sessions in
+the program timezone, including agreed moves and extras. Select a lesson to open
+its Schedule card, or **View Schedule** for the full workspace. Pending
+participation, policy and request notices remain visible.
+
+**Schedule** brings together dated tutoring, your assigned interview appointments
+and personal meetings. Open each appointment's existing workflow for its permitted
+attendance, vote, decision or absence actions; moving to this page does not change
+those permissions or submission rules. Pairings, availability preferences and the
+shared room schedule remain on the dashboard, linked from Schedule. The tutee
+workspace's **My Tutors & Schedule** remains separate.
+
+The dashboard retains the chair's **Interviews to Conduct** workspace; ordinary
+panelists use **My interview appointments** in Schedule. Chairs also find their own
+appointments there. The chair workspace starts expanded, with a count and **Collapse interviews** /
 **Expand interviews** controls. Scheduled open work appears earliest first (including
 overdue interviews), then unscheduled and paused work. One initially closed
 **Completed interviews** menu holds terminal history, newest decision first.
@@ -428,19 +440,11 @@ even when completed history is collapsed or filtered.
 Pending tutors confirm whether to participate before tutoring actions appear.
 Inactive tutors retain their records but cannot edit pairings or submit attendance.
 
-In **Room schedule → Upcoming — Next 7 Days**, active tutors see today and the
-following six program-local dates. Confirmed current-period sessions with a current
-roster remain until their scheduled end; coherent pairing groups appear once.
-Unconfirmed default slots are excluded. Valid pending/interview panel assignments
-appear at their recorded start, without an invented end or room booking. Unscheduled,
-elapsed, invalid, recalled and finalized interviews remain in the full interview
-workflow rather than this preview. **View workflow** moves keyboard focus to the
-corresponding authorized section. Refreshing or returning to the page updates changed
-plans; separate refresh controls recover unavailable sources without scheduling or
-deciding anything. Calendar notices do not automatically cancel recurring plans.
-The program timezone governs midnight and the seven-date boundary. A skipped or
-repeated daylight-saving wall time needs review and is called out rather than guessed.
-Private interview evidence never appears in the shared room grid.
+Older dashboard links ending in `#sessions`, `#attendance` or `#tutor-meetings`
+show a **View Schedule** continuation for the same section. They keep the dashboard
+mounted until you choose that link, so an arriving notification cannot discard an
+open editor or interrupt a pending write. `#tutor-interviews` still opens the chair
+workspace. Private interview evidence never appears in the shared room grid.
 
 In **My Availability → Edit My Time Availability** on the tutor dashboard, active
 tutors find **Preferred Sessions** below the weekday slot choices. Select one of
@@ -509,7 +513,7 @@ account restriction can still return through the application workflow.
 
 Existing tutors can use **Subject Qualifications** on their dashboard to request another subject or a higher offered level in a subject they already teach. Choose a subject, explain your qualifications and submit; the request history shows outcomes, the decision note, and the subjects granted on approval. Under **Your Requests**, filter by **Pending** (including interviews), **Approved**, **Rejected**, or **Recalled**; counts show how many requests are in each category. History starts with Pending. Use **Collapse** / **Expand** to hide or show the history without losing the selected filter. Active tutors can **Recall request** while a request is pending or under interview. Confirming recall stops review, records who recalled it and when, and retains the request and panel history. A recalled request cannot be approved or reopened; submit a new request for that subject and level when ready. Approved and rejected decisions cannot be recalled. Pending, rejected and recalled requests do not change current qualifications. Duplicate open requests for the same subject and level are blocked. Inactive tutors retain read-only history.
 
-In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly or assign an interview panel. Rejection requires an interview and a decision note. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair, regardless of other panelists' rank; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
+In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly or assign an interview panel. Rejection requires an interview and a decision note. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair, regardless of other panelists' rank; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation in Schedule. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
 
 For a pending additional-subject or higher-level request without an assigned panel, select **Approve without Interview** to open its review. Check the applicant and subject, enter the required **Decision note**, then choose **Approve qualification**. This dialog has no reject action: **Reject request** is available only to the assigned Admin/Head chair after all interview panelists have voted, following the panel majority. Opening the dialog submits nothing. **Cancel** or Escape closes it and retains the note while the application card remains mounted. Failed submissions keep the note for retry; **Reload review** clears it only after the latest application loads successfully. A saved decision whose refresh fails offers **Try again** to refresh records without repeating the decision. Interview-stage requests keep the chair/voting workflow, and initial applications keep their existing screening process.
 

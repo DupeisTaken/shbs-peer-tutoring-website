@@ -7,13 +7,10 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
-import { SessionAgenda } from "~/app/_components/session-agenda";
-import { TutorUpcoming } from "~/app/(tutor)/_components/tutor-upcoming";
 import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
-import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
 import { TutorDiscipline } from "~/app/(tutor)/_components/tutor-discipline";
 import { QualificationRequests } from "~/app/(tutor)/_components/qualification-requests";
@@ -26,6 +23,7 @@ import { SessionPagePosition } from "~/app/_components/session-view-state";
 import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
+import { DashboardScheduleLinks } from "~/app/(tutor)/_components/dashboard-schedule-links";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -149,20 +147,13 @@ export default async function TutorDashboard() {
         meetingsEnabled={features.MEETINGS}
         now={new Date()}
       />
-      <div id="attendance" tabIndex={-1} className="scroll-mt-6">
-        <SessionAgenda role="tutor" />
-      </div>
-      <TutorUpcoming
-        active={!inactive}
-        interviewsEnabled={features.INTERVIEWS}
-        includeSessions={false}
-        now={new Date()}
+      <DashboardScheduleLinks
+        interviewsEnabled={!inactive && features.INTERVIEWS}
       />
 
       {/* Unresolved work remains expanded. Only optional editors and completed
           evidence use disclosures, which retain mounted drafts when collapsed. */}
-      {!inactive && features.INTERVIEWS && <MyInterviews />}
-      {!inactive && features.MEETINGS && <TutorMeetings />}
+      {!inactive && features.INTERVIEWS && <MyInterviews audience="chair" />}
       <QualificationRequests
         active={!inactive}
         viewScope={total.periodLabel ?? ""}
