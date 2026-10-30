@@ -170,7 +170,7 @@ async function mailboxConfirmedSource(before: Awaited<ReturnType<typeof existing
   const current = await db.studentSurvey.findUniqueOrThrow({ where: { id: before.id } });
   expect(current).toEqual({
     ...before,
-    publicSignupEmailConfirmedAt: before.publicSignupEmailConfirmedAt ?? expect.any(Date),
+    publicSignupEmailConfirmedAt: before.publicSignupEmailConfirmedAt ?? (expect.any(Date) as Date),
   });
   expect(await db.studentSignupRevision.count()).toBe(0);
   return current;
