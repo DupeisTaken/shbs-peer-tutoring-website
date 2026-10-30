@@ -64,8 +64,8 @@ it("renders every hours-only row, preserves negative/fractional values and escap
   );
   expect(`${preview.html}${preview.text}`).not.toContain(input.reportUrl);
   expect(`${preview.html}${preview.text}`).not.toContain(input.unsubscribeUrl);
-  expect(preview.html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1]).toBe(
-    copy.html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1],
+  expect(/<tbody>([\s\S]*?)<\/tbody>/.exec(preview.html)?.[1]).toBe(
+    /<tbody>([\s\S]*?)<\/tbody>/.exec(copy.html)?.[1],
   );
   expect(preview.text.split("\n\nView saved report")[0]).toBe(
     copy.text.split("\n\nView saved report")[0],
