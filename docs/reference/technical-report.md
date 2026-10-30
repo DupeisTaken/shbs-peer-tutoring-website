@@ -1637,36 +1637,58 @@ only renders the persisted outcome. Focused evidence is in [allocator tests](../
 [management allocation tests](<../../src/app/(admin)/admin/pairings/page.allocation.test.tsx>)
 and [tutor allocation tests](<../../src/app/(tutor)/_components/tutor-pairings.allocation.test.tsx>).
 
-The tutor dashboard's task summary reuses the same tRPC query keys as its feature
-sections, including explicit unknown/error states. It uses the program-zone date
-and confirmed weekly pairing times, resolved through the school calendar for that
-actual date. A closure suppresses ordinary recurrence; a mapped school date uses
-the selected weekday's timetable. Neither is attendance-completion evidence. Active membership controls attendance
-and pairing writes; pending/inactive membership keeps read-only records and
-unresolved requirements. Hash shortcuts focus their section for keyboard users.
+The tutor dashboard keeps Pairings expanded and reuses the feature queries for its
+task summary, including explicit unknown/error states. Its three-item today preview
+comes from effective dated `sessionPlanning.agenda` cohorts in the program timezone;
+cancelled originals and unavailable plans are excluded. Attendance, interview and
+meeting shortcuts link into [Schedule](<../../src/app/(tutor)/schedule/page.tsx>),
+while local setup and qualification shortcuts focus their dashboard section.
+The shared tutor layout supplies Dashboard/Schedule navigation with the existing
+`SectionLinks` contract and retains account, suspension, onboarding and tutor-link
+gates. The schedule page repeats the dashboard's early authenticated tutor guard
+before self-scoped reads. Active membership controls attendance and pairing writes;
+pending/inactive membership keeps read-only records and unresolved requirements.
+Legacy dashboard `#sessions`, `#attendance` and `#tutor-meetings` arrivals focus an
+explicit Schedule continuation instead of automatically unmounting a live editor;
+`#tutor-interviews` remains the chair workspace. Fragment targets grant no access.
 Attendance freezes its submitted fields and distinguishes a saved entry from a
 failed totals refresh. Pending qualification records stay outside history filters;
 completed interview evidence and optional editor disclosures retain mounted drafts.
 The [contributor action inventory](../contributing/implementation.md#consequential-action-inventory)
 documents draft, reversible and confirmed action boundaries.
 
-[The personal upcoming projection](../../src/lib/tutor-upcoming.ts) reuses self-scoped
-`tutor.myPairings` and `tutor.myInterviews` evidence outside `RoomGrid`. It includes
-today plus six program-local dates, retains ongoing confirmed populated sessions
-until their end, and projects coherent `pairingEntries` groups once. Active-period
-filtering stays in the existing pairing reader; inactive accounts have no preview.
-Only valid PENDING/INTERVIEW assignments with a future recorded start appear;
-interviews have no inferred end or room. Existing workflow anchors retain all
-unresolved/history records. The shared grid/API projection gains no applicant data.
-School-calendar facts resolve ordinary recurrence; separate informational no-tutoring
-notices do not modify it. Strict program-time conversion reports
-ambiguous/nonexistent DST wall clocks rather than choosing an instant; 24:00 uses
-the next local boundary. Ties sort by instant then stable event ID.
-The client advances its clock every 30 seconds and on focus, with one-minute query
-refreshes sharing existing cache keys. A source denial conceals the combined evidence until every enabled source freshly
-recovers; untouched cached success cannot release this boundary. Transient read
-failures retain partial evidence with an explicit stale warning and independent retries. Feature-disabled interviews are not queried or projected. Rendering and
-workflow links never call scheduling, voting, attendance or booking mutations.
+The personal [Schedule workspace](<../../src/app/(tutor)/_components/tutor-schedule.tsx>)
+interleaves dated tutoring, assigned interviews and eligible personal meetings in
+the current and next program-local Monday–Sunday weeks. Sunday preparation remains
+owned by tutoring publication. The [personal source router](../../src/server/api/routers/personal-schedule.ts)
+provides independent active-tutor, feature-guarded reads; interview summaries omit
+applicant contacts, panel comments and votes, and meeting summaries omit reasons.
+Interviews and meetings keep their explicitly recorded starts without fabricated
+ends, rooms or 45-minute durations. School timetable mapping only changes the
+ordinary tutoring recurrence that owns it. Calendar subscriptions remain tutoring-only.
+
+Sources refresh independently every 30 seconds. A failed or denied source cannot
+erase usable sibling appointments; denied cached evidence stays concealed until a
+successful authorized read. Disabled sources are neither queried nor projected.
+Unscheduled and past-open interviews remain tasks even if completion was recorded;
+decided interviews missing completion evidence remain follow-ups. Their work/history
+entry retains records beyond the dated window. Rendering performs no new writes;
+existing tutoring agenda reads retain their publication and deadline behavior.
+
+Panelist detail opens lazily into one retained controller and reuses the existing
+vote operation. Each deliberately opened interview keeps its draft across Close and
+selection changes; access or assignment loss hides private evidence. Chair entries
+link to the retained dashboard workspace, where current `canChair` authority still
+governs decisions and time changes. Historical `isHead` selects the chair workspace
+without granting live chair authority. Staff assignment, completion correction and
+registration follow-up remain in Applications; initial admission stays in chair approval.
+
+Meeting details and the period/history browser share one retained excuse controller.
+Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh
+failures offer reads without repeating the mutation. The existing sixty-minute cutoff
+and server eligibility checks remain authoritative. Session-specific attendance stays
+with its dated agenda controller and records actual duration. Known session fragments
+reveal the loaded card without opening a form or moving focus out of an active dialog.
 
 ### School calendar dates and timetable mapping
 

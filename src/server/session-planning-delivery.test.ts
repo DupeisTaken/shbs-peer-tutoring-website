@@ -127,7 +127,7 @@ it("qualifies the tutor's B response only through that tutor's delivery receipt"
   f.notice.context = { isActionable: true, stage: "B" };
   await deliverSessionNotices(10, f.database);
   expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now);
-  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("%2Fdashboard%23sessions") as unknown }));
+  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("%2Fschedule%23sessions") as unknown }));
   expect(transport.owned).not.toHaveBeenCalled();
 });
 

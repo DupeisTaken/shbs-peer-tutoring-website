@@ -8,6 +8,12 @@ in `Session` and may have a different duration. The implementation lives in
 [the planning service](../../src/server/session-planning/index.ts) and
 [router](../../src/server/api/routers/session-planning.ts).
 
+Tutors open dated tutoring and its attendance workflow in `/schedule#sessions`,
+alongside their independently authorized interview and meeting appointments.
+Recurring pairing setup remains on the dashboard. The tutee agenda remains at
+`/student?view=schedule#sessions`; sharing the tutor's presentation does not change
+the tutee route, planning permissions or source-owned writes.
+
 ## Publication and existing data
 
 The visible school-timezone window is Monday–Sunday for the current and next week.

@@ -58,6 +58,14 @@ tutoring session or write to an external calendar provider.
 Account authentication, signup confirmation and request-invalidity service mail use
 separate direct/essential flows and are not silently reclassified as optional events.
 
+New panel-assignment and interview-time notices open the tutor's personal interview
+work in `/schedule#tutor-interviews`. A chair can follow its appointment back to
+the retained dashboard chair workspace. Essential dated-tutoring notices use
+`/schedule#sessions` for tutors; the tutee destination remains
+`/student?view=schedule#sessions`. Existing in-app records retain their recorded
+destinations, including older dashboard links; those legacy schedule fragments
+offer an explicit Schedule continuation without unmounting a live dashboard editor.
+
 **School-calendar audience** means eligible active tutors and tutees with confirmed,
 populated active-period pairings on the union of the actual date's civil weekday,
 prior mapped weekday and new mapped weekday. Retained tutee ownership is included;
@@ -282,23 +290,23 @@ authorized decision interfaces and policy rules.
 
 - Recipient: Accounts linked to assigned panel tutors.
 - Trigger: Management commits interview-panel assignment. [Emitter](../../src/server/api/routers/admin.ts).
-- Authorized destination: /dashboard.
+- Authorized destination: /schedule#tutor-interviews.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Interview Panel Assignment | You were assigned to an interview panel. Review the application and panel duties on your dashboard; a panel assignment alone does not schedule an interview. | View interview panel |
-| 中文 | 已分配面试小组 | 您已被分配至面试小组。请在工作台查看申请和职责；小组分配本身不代表已安排面试时间。 | 查看面试小组 |
+| English | Interview Panel Assignment | You were assigned to an interview panel. Review the application and panel duties in Schedule; a panel assignment alone does not schedule an interview. | View interview panel |
+| 中文 | 已分配面试小组 | 您已被分配至面试小组。请在日程查看申请和职责；小组分配本身不代表已安排面试时间。 | 查看面试小组 |
 
 ### interview_scheduled
 
 - Recipient: Accounts linked to panel tutors other than the scheduling chair.
 - Trigger: Chair sets a non-null interview time; repeated setting/rescheduling uses the same event. [Emitter](../../src/server/api/routers/tutor.ts).
-- Authorized destination: /dashboard.
+- Authorized destination: /schedule#tutor-interviews.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Interview Scheduled | You have a new interview scheduled. Review the recorded time and interview details on your dashboard. If no time is shown here, check the dashboard. | View scheduled interview |
-| 中文 | 已安排新的面试 | 您有一场新安排的面试。请在工作台核对记录的时间和面试详情。如本通知未显示时间，请查看工作台。 | 查看已安排的面试 |
+| English | New Interview Scheduled | You have a new interview scheduled. Review the recorded time and interview details in Schedule. If no time is shown here, check Schedule. | View scheduled interview |
+| 中文 | 已安排新的面试 | 您有一场新安排的面试。请在日程核对记录的时间和面试详情。如本通知未显示时间，请查看日程。 | 查看已安排的面试 |
 
 ### interview_approved
 

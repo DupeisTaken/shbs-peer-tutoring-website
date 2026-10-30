@@ -14,17 +14,19 @@ import { focusVisibleContext } from "~/app/_components/focus-visible-context";
 import { resolveSchoolCalendarDay } from "~/lib/school-calendar";
 import { SchoolCalendarDayContext } from "~/app/_components/school-calendar-notice";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
+import Link from "next/link";
 
 const taskTargets = new Set([
   "tutor-activation",
-  "attendance",
   "tutor-pairings",
-  "tutor-interviews",
-  "tutor-meetings",
   "qualification-requests",
   "tutor-preferences",
   "room-schedule",
-  "sessions",
+]);
+const scheduleTargets = new Set([
+  "attendance",
+  "tutor-interviews",
+  "tutor-meetings",
 ]);
 
 /** Summary queries share the feature components' cache. Unknown/failed reads must
@@ -44,6 +46,7 @@ export function DashboardTasks({
   const groupText = useTranslations("pairingGroups");
   const pairingsText = useTranslations("dashboard.pairings");
   const planning = useTranslations("sessionPlanning");
+  const scheduleText = useTranslations("tutor.schedulePage");
   const format = useFormatter();
   const timeZone = useTimeZone();
   const [now, setNow] = useState(initialNow);
@@ -197,27 +200,35 @@ export function DashboardTasks({
       : []),
   ];
   // Native anchors keep history/modifier behavior; actionable tasks retain measured-header reveal.
-  const anchor = (id: string, label: string) => (
-    <a
-      className="link inline-flex min-h-11 items-center lg:min-h-8"
-      href={`#${id}`}
-      onClick={(event) => {
-        if (
-          event.defaultPrevented ||
-          event.button !== 0 ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.altKey
-        )
-          return;
-        document.getElementById(id)?.focus({ preventScroll: true });
-        revealTask(id);
-      }}
-    >
-      {label}
-    </a>
-  );
+  const anchor = (id: string, label: string) =>
+    scheduleTargets.has(id) ? (
+      <Link
+        className="link inline-flex min-h-11 items-center lg:min-h-8"
+        href={`/schedule#${id}`}
+      >
+        {label}
+      </Link>
+    ) : (
+      <a
+        className="link inline-flex min-h-11 items-center lg:min-h-8"
+        href={`#${id}`}
+        onClick={(event) => {
+          if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          document.getElementById(id)?.focus({ preventScroll: true });
+          revealTask(id);
+        }}
+      >
+        {label}
+      </a>
+    );
 
   return (
     <section
@@ -313,12 +324,17 @@ export function DashboardTasks({
             <p className="mt-2 text-sm">{t("noSessions")}</p>
           )}
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {today.map((cohort) => (
+            {today.slice(0, 3).map((cohort) => (
               <li
                 key={cohort.id}
                 className="rounded-lg bg-slate-50 p-3 text-sm"
               >
-                <p className="font-semibold">{cohort.subjects.join(" + ")}</p>
+                <Link
+                  className="link inline-flex min-h-11 items-center font-semibold lg:min-h-8"
+                  href={`/schedule#session-${cohort.id}`}
+                >
+                  {cohort.subjects.join(" + ")}
+                </Link>
                 <p>
                   {minToHm(cohort.startMin)}–{minToHm(cohort.endMin)} ·{" "}
                   {cohort.online
@@ -341,6 +357,12 @@ export function DashboardTasks({
               </li>
             ))}
           </ul>
+          <Link
+            className="link mt-2 inline-flex min-h-11 items-center lg:min-h-8"
+            href="/schedule"
+          >
+            {scheduleText("openSchedule")}
+          </Link>
         </div>
       )}
     </section>

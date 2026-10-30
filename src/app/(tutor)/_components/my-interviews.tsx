@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
@@ -10,6 +16,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { Button } from "~/app/_components/ui/button";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
 import {
   InterviewApprovalDialog,
   type InterviewApprovalDraft,
@@ -173,11 +180,16 @@ function VoteForm({
   myVote,
   status,
   paused = false,
+  renderContent,
+  onPendingChange,
 }: {
   applicationId: string;
   myVote: { accept: boolean; comment: string | null } | null;
   status: Status;
   paused?: boolean;
+  /** Retained Schedule owners keep this draft and mutation alive when closed. */
+  renderContent?: (content: ReactNode, pending: boolean) => ReactNode;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
@@ -186,8 +198,12 @@ function VoteForm({
   const cast = api.tutor.castInterviewVote.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
+  useLayoutEffect(() => {
+    onPendingChange?.(!!cast.isPending);
+    return () => onPendingChange?.(false);
+  }, [cast.isPending, onPendingChange]);
 
-  return (
+  const content = (
     <div className="mt-2 space-y-2">
       <input
         className="input min-h-11 w-full lg:min-h-10"
@@ -264,6 +280,7 @@ function VoteForm({
       )}
     </div>
   );
+  return renderContent ? renderContent(content, cast.isPending) : content;
 }
 
 function HeadDecision({
@@ -472,8 +489,219 @@ function HeadDecision({
   );
 }
 
-export function MyInterviews() {
+/** Share evidence and voting presentation without moving chair authority to Schedule. */
+function InterviewRow({
+  interview: a,
+  hidden = false,
+  chairActions = true,
+  approvalBlocked = false,
+  onApprove,
+  voteForm,
+}: {
+  interview: TutorInterview;
+  hidden?: boolean;
+  chairActions?: boolean;
+  approvalBlocked?: boolean;
+  onApprove?: (comment: string, version: Date) => void;
+  voteForm?: ReactNode;
+}) {
+  const t = useTranslations();
   const programFormat = useFormatter();
+  const votes = a.votes;
+  // Historical assignment is evidence; current server authority controls actions.
+  const canChair = chairActions && a.isHead && a.canChair;
+  return (
+    <div
+      key={a.id}
+      id={`completed-interview-${a.id}`}
+      hidden={hidden}
+      data-interview-id={a.id}
+      className="rounded-lg border border-slate-200 p-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium text-slate-900">
+          {a.name}
+          {a.isInvalid && (
+            <span className="ml-2">
+              <InvalidityBadge />
+            </span>
+          )}
+          {a.isHead && (
+            <span className="badge bg-accent-100 text-accent-700 ml-2">
+              {t("tutor.interviews.youAreHead")}
+            </span>
+          )}
+        </p>
+        <p className="muted">{a.email}</p>
+      </div>
+      {a.isInvalid && (
+        <div className="mt-2">
+          <InvalidityNotice />
+        </div>
+      )}
+
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {a.subjectIntents.map((ci, i) => (
+          <li
+            key={i}
+            className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+          >
+            {ci.subject.name}
+            {/* Course-taking evidence belongs only to the initial intake. */}
+            {a.type === "INITIAL" &&
+              (ci.taken
+                ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
+                : ` · ${t("tutor.interviews.notTaken")}`)}
+          </li>
+        ))}
+      </ul>
+
+      {a.type !== "INITIAL" && a.qualificationReason && (
+        <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+          {a.qualificationReason}
+        </p>
+      )}
+
+      <p className="muted mt-2">
+        {t("tutor.interviews.panel", {
+          members: a.interviewers
+            .map(
+              (x) =>
+                `${x.tutor.englishName}${x.isHead ? ` ${t("tutor.interviews.headSuffix")}` : ""}`,
+            )
+            .join(", "),
+        })}
+      </p>
+
+      {a.status === "RECALLED" ? (
+        <p className="badge-slate mt-2">
+          {t("qualificationRequests.RECALLED")}
+        </p>
+      ) : canChair &&
+        !a.isInvalid &&
+        (a.status === "PENDING" || a.status === "INTERVIEW") ? (
+        <HeadScheduler applicationId={a.id} current={a.interviewAt} />
+      ) : (
+        <p className="muted mt-2">
+          {a.interviewAt
+            ? t("tutor.interviews.scheduled", {
+                time: programFormat.dateTime(new Date(a.interviewAt), {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }),
+              })
+            : t("tutor.interviews.awaitingSchedule")}
+        </p>
+      )}
+      {a.isHead && !canChair && !a.isInvalid && isOpenInterview(a) && (
+        <p className="mt-2 text-sm text-amber-800">
+          {t("interviewReview.chairNeedsUpdate")}
+        </p>
+      )}
+
+      <p className="mt-2 text-sm">
+        {a.interviewCompletedAt
+          ? t("interviewReview.recorded", {
+              minutes: a.interviewDurationMin ?? 0,
+              date: programFormat.dateTime(a.interviewCompletedAt, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }),
+            })
+          : t("interviewReview.completionPending")}
+      </p>
+      {a.interviewCompletedAt && (
+        <p className="muted text-sm">
+          {t("interviewReview.myCredit", {
+            // Match completion review's locale-aware display; retain exact stored credit.
+            hours: programFormat.number(a.myAwardedHours, {
+              maximumFractionDigits: 4,
+            }),
+          })}
+        </p>
+      )}
+      {a.pendingDecision && (
+        <p className="mt-2 text-sm text-amber-800">
+          {t("interviewReview.decisionPending")}
+        </p>
+      )}
+      {/* Your vote */}
+      {voteForm ?? (
+        <VoteForm
+          applicationId={a.id}
+          myVote={a.myVote}
+          status={a.status}
+          paused={a.isInvalid}
+        />
+      )}
+
+      {/* Panel votes (visible to all panelists) */}
+      {votes.length > 0 && (
+        <ul className="mt-2 space-y-0.5">
+          {votes.map((v) => (
+            <li key={v.tutorId} className="text-xs text-slate-600">
+              {v.accept ? "👍" : "👎"} {v.tutor.englishName}
+              {v.comment ? ` — ${v.comment}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Head's final decision */}
+      {canChair &&
+        !a.isInvalid &&
+        a.type !== "ADDITIONAL_SUBJECT" &&
+        a.type !== "HIGHER_LEVEL" && (
+          <HeadDecision
+            applicationId={a.id}
+            name={a.name}
+            status={a.status}
+            tally={a.tally}
+            panelSize={a.interviewers.length}
+            decisionComment={a.decisionComment}
+            decidedBy={a.decidedByTutor?.englishName ?? null}
+            expectedUpdatedAt={a.updatedAt}
+            approvalBlocked={approvalBlocked}
+            onApprove={(comment, version) => onApprove?.(comment, version)}
+          />
+        )}
+      {canChair &&
+        a.status !== "RECALLED" &&
+        (a.type === "ADDITIONAL_SUBJECT" || a.type === "HIGHER_LEVEL") && (
+          <a
+            className="link mt-3 inline-flex min-h-11 items-center lg:min-h-8"
+            href={`/admin/applications#application-${a.id}`}
+          >
+            {t("qualificationRequests.reviewLink")}
+          </a>
+        )}
+      {(a.isInvalid ||
+        !canChair ||
+        a.type === "ADDITIONAL_SUBJECT" ||
+        a.type === "HIGHER_LEVEL") &&
+        (a.status === "ACCEPTED" || a.status === "REJECTED") && (
+          <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
+            <span
+              className={a.status === "ACCEPTED" ? "badge-green" : "badge-red"}
+            >
+              {a.status === "ACCEPTED"
+                ? t("tutor.interviews.statusAccepted")
+                : t("tutor.interviews.statusRejected")}
+            </span>
+            {a.decisionComment && (
+              <span className="ml-2 text-slate-700">“{a.decisionComment}”</span>
+            )}
+          </div>
+        )}
+    </div>
+  );
+}
+
+export function MyInterviews({
+  audience = "all",
+}: {
+  audience?: "all" | "chair" | "panelist";
+}) {
   const t = useTranslations();
   const interviews = api.tutor.myInterviews.useQuery();
   const [approvalSaved, setApprovalSaved] = useState(false);
@@ -497,7 +725,13 @@ export function MyInterviews() {
     window.addEventListener("hashchange", arrive);
     return () => window.removeEventListener("hashchange", arrive);
   }, []);
-  const list = orderInterviews(interviews.data ?? []);
+  const list = orderInterviews(interviews.data ?? []).filter((row) =>
+    audience === "chair"
+      ? row.isHead
+      : audience === "panelist"
+        ? !row.isHead
+        : true,
+  );
   const active = list.filter(isOpenInterview);
   const history = list.filter((row) => !isOpenInterview(row));
   const currentApproval = approval
@@ -633,206 +867,275 @@ export function MyInterviews() {
                 )}
               </div>
             );
-          const votes = a.votes;
-          // An old chair assignment remains evidence, but only the server's
-          // current role projection enables chair actions.
-          const canChair = a.isHead && a.canChair;
-          const content = (
-            <div
+          return (
+            <InterviewRow
               key={a.id}
-              id={`completed-interview-${a.id}`}
+              interview={a}
               hidden={!isOpenInterview(a) && !historyOpen}
-              data-interview-id={a.id}
-              className="rounded-lg border border-slate-200 p-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium text-slate-900">
-                  {a.name}
-                  {a.isInvalid && (
-                    <span className="ml-2">
-                      <InvalidityBadge />
-                    </span>
-                  )}
-                  {a.isHead && (
-                    <span className="badge bg-accent-100 text-accent-700 ml-2">
-                      {t("tutor.interviews.youAreHead")}
-                    </span>
-                  )}
-                </p>
-                <p className="muted">{a.email}</p>
-              </div>
-              {a.isInvalid && (
-                <div className="mt-2">
-                  <InvalidityNotice />
-                </div>
-              )}
-
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {a.subjectIntents.map((ci, i) => (
-                  <li
-                    key={i}
-                    className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
-                  >
-                    {ci.subject.name}
-                    {/* Course-taking evidence belongs only to the initial intake. */}
-                    {a.type === "INITIAL" &&
-                      (ci.taken
-                        ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
-                        : ` · ${t("tutor.interviews.notTaken")}`)}
-                  </li>
-                ))}
-              </ul>
-
-              {a.type !== "INITIAL" && a.qualificationReason && (
-                <p className="mt-2 text-sm break-words whitespace-pre-wrap">
-                  {a.qualificationReason}
-                </p>
-              )}
-
-              <p className="muted mt-2">
-                {t("tutor.interviews.panel", {
-                  members: a.interviewers
-                    .map(
-                      (x) =>
-                        `${x.tutor.englishName}${x.isHead ? ` ${t("tutor.interviews.headSuffix")}` : ""}`,
-                    )
-                    .join(", "),
-                })}
-              </p>
-
-              {a.status === "RECALLED" ? (
-                <p className="badge-slate mt-2">
-                  {t("qualificationRequests.RECALLED")}
-                </p>
-              ) : canChair &&
-                !a.isInvalid &&
-                (a.status === "PENDING" || a.status === "INTERVIEW") ? (
-                <HeadScheduler applicationId={a.id} current={a.interviewAt} />
-              ) : (
-                <p className="muted mt-2">
-                  {a.interviewAt
-                    ? t("tutor.interviews.scheduled", {
-                        time: programFormat.dateTime(new Date(a.interviewAt), {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }),
-                      })
-                    : t("tutor.interviews.awaitingSchedule")}
-                </p>
-              )}
-              {a.isHead && !canChair && !a.isInvalid && isOpenInterview(a) && (
-                <p className="mt-2 text-sm text-amber-800">
-                  {t("interviewReview.chairNeedsUpdate")}
-                </p>
-              )}
-
-              <p className="mt-2 text-sm">
-                {a.interviewCompletedAt
-                  ? t("interviewReview.recorded", {
-                      minutes: a.interviewDurationMin ?? 0,
-                      date: programFormat.dateTime(a.interviewCompletedAt, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }),
-                    })
-                  : t("interviewReview.completionPending")}
-              </p>
-              {a.interviewCompletedAt && (
-                <p className="muted text-sm">
-                  {t("interviewReview.myCredit", {
-                    // Match completion review's locale-aware display; retain exact stored credit.
-                    hours: programFormat.number(a.myAwardedHours, {
-                      maximumFractionDigits: 4,
-                    }),
-                  })}
-                </p>
-              )}
-              {a.pendingDecision && (
-                <p className="mt-2 text-sm text-amber-800">
-                  {t("interviewReview.decisionPending")}
-                </p>
-              )}
-              {/* Your vote */}
-              <VoteForm
-                applicationId={a.id}
-                myVote={a.myVote}
-                status={a.status}
-                paused={a.isInvalid}
-              />
-
-              {/* Panel votes (visible to all panelists) */}
-              {votes.length > 0 && (
-                <ul className="mt-2 space-y-0.5">
-                  {votes.map((v) => (
-                    <li key={v.tutorId} className="text-xs text-slate-600">
-                      {v.accept ? "👍" : "👎"} {v.tutor.englishName}
-                      {v.comment ? ` — ${v.comment}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Head's final decision */}
-              {canChair &&
-                !a.isInvalid &&
-                a.type !== "ADDITIONAL_SUBJECT" &&
-                a.type !== "HIGHER_LEVEL" && (
-                  <HeadDecision
-                    applicationId={a.id}
-                    name={a.name}
-                    status={a.status}
-                    tally={a.tally}
-                    panelSize={a.interviewers.length}
-                    decisionComment={a.decisionComment}
-                    decidedBy={a.decidedByTutor?.englishName ?? null}
-                    expectedUpdatedAt={a.updatedAt}
-                    approvalBlocked={!!approval}
-                    onApprove={(comment, version) =>
-                      setApproval({
-                        evidence: { ...a, updatedAt: version },
-                        comment,
-                      })
-                    }
-                  />
-                )}
-              {canChair &&
-                a.status !== "RECALLED" &&
-                (a.type === "ADDITIONAL_SUBJECT" ||
-                  a.type === "HIGHER_LEVEL") && (
-                  <a
-                    className="link mt-3 inline-flex min-h-11 items-center lg:min-h-8"
-                    href={`/admin/applications#application-${a.id}`}
-                  >
-                    {t("qualificationRequests.reviewLink")}
-                  </a>
-                )}
-              {(a.isInvalid ||
-                !canChair ||
-                a.type === "ADDITIONAL_SUBJECT" ||
-                a.type === "HIGHER_LEVEL") &&
-                (a.status === "ACCEPTED" || a.status === "REJECTED") && (
-                  <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
-                    <span
-                      className={
-                        a.status === "ACCEPTED" ? "badge-green" : "badge-red"
-                      }
-                    >
-                      {a.status === "ACCEPTED"
-                        ? t("tutor.interviews.statusAccepted")
-                        : t("tutor.interviews.statusRejected")}
-                    </span>
-                    {a.decisionComment && (
-                      <span className="ml-2 text-slate-700">
-                        “{a.decisionComment}”
-                      </span>
-                    )}
-                  </div>
-                )}
-            </div>
+              approvalBlocked={!!approval}
+              onApprove={(comment, version) =>
+                setApproval({ evidence: { ...a, updatedAt: version }, comment })
+              }
+            />
           );
-          return content;
         })}
       </div>
     </section>
+  );
+}
+
+/** Keep each deliberately opened vote owner alive even after its reader closes.
+ * Cached evidence is never rendered after denial or removal from the live panel. */
+function RetainedScheduleInterview({
+  interview,
+  authorized,
+  open,
+  onClose,
+  onPendingChange,
+  feedback,
+  readable,
+}: {
+  interview: TutorInterview;
+  authorized: boolean;
+  open: boolean;
+  onClose: () => void;
+  onPendingChange: (id: string, pending: boolean) => void;
+  feedback: ReactNode;
+  readable: boolean;
+}) {
+  const reportPending = useCallback(
+    (pending: boolean) => onPendingChange(interview.id, pending),
+    [interview.id, onPendingChange],
+  );
+  return (
+    <VoteForm
+      applicationId={interview.id}
+      myVote={interview.myVote}
+      status={interview.status}
+      paused={!authorized || !readable || interview.isInvalid}
+      onPendingChange={reportPending}
+      renderContent={(vote, pending) =>
+        authorized && open ? (
+          <ProfileDialog
+            title={interview.name}
+            onClose={onClose}
+            pending={pending}
+          >
+            {feedback}
+            <InterviewRow
+              interview={interview}
+              chairActions={false}
+              voteForm={vote}
+            />
+          </ProfileDialog>
+        ) : null
+      }
+    />
+  );
+}
+
+/** Schedule owns one always-mounted controller. Its first deliberate open starts
+ * private reads; later closes retain independent drafts and in-flight vote observers.
+ * This retains the existing vote/invalidation contract, without receipt recovery. */
+export function ScheduleInterviewDetails({
+  applicationId,
+  onClose,
+  showAll = false,
+  enabled = true,
+}: {
+  applicationId: string | null;
+  onClose: () => void;
+  showAll?: boolean;
+  /** The summary owner conceals this retained controller when live access changes. */
+  enabled?: boolean;
+}) {
+  const t = useTranslations();
+  const format = useFormatter();
+  const requested = applicationId !== null || showAll;
+  const [activated, setActivated] = useState(requested);
+  const interviews = api.tutor.myInterviews.useQuery(undefined, {
+    enabled: enabled && (requested || activated),
+  });
+  const accessDenied = useSessionAccessDenied(interviews);
+  const [selection, setSelection] = useState({
+    request: applicationId,
+    id: applicationId,
+  });
+  const [retained, setRetained] = useState<ReadonlyMap<string, TutorInterview>>(
+    () => new Map(),
+  );
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const pending = pendingIds.size > 0;
+  const reportPending = useCallback((id: string, busy: boolean) => {
+    setPendingIds((current) => {
+      if (current.has(id) === busy) return current;
+      const next = new Set(current);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  useLayoutEffect(() => {
+    if (requested) setActivated(true);
+    // A changed route/list selection waits for the existing write to settle.
+    // Its owner remains mounted throughout, including an external Close request.
+    if (!pending && selection.request !== applicationId)
+      setSelection({ request: applicationId, id: applicationId });
+  }, [requested, applicationId, pending, selection.request]);
+  const rows = orderInterviews(interviews.data ?? []);
+  const current = rows.find((row) => row.id === selection.id);
+  useEffect(() => {
+    if (!enabled || !current || current.isHead || accessDenied) return;
+    setRetained((previous) => {
+      if (previous.has(current.id)) return previous;
+      return new Map(previous).set(current.id, current);
+    });
+  }, [current, accessDenied, enabled]);
+  const close = () => {
+    if (pending) return;
+    setSelection({ request: applicationId, id: null });
+    onClose();
+  };
+  // Include the first selected record immediately, then retain it by stable ID.
+  const owners = new Map(retained);
+  if (enabled && current && !current.isHead && !accessDenied)
+    owners.set(current.id, current);
+  const visible = enabled && (requested || pending);
+  const authorizedCurrent = !accessDenied && !!current;
+  const showFallback =
+    visible && (!selection.id || !authorizedCurrent || current?.isHead);
+  const panelistRows = rows.filter((row) => !row.isHead);
+  const feedback = interviews.error ? (
+    <div className="mb-3 space-y-2">
+      <p role="alert">{interviews.error.message}</p>
+      <Button
+        disabled={interviews.isFetching}
+        onClick={() => void interviews.refetch()}
+      >
+        {t("tutor.tasks.retry")}
+      </Button>
+    </div>
+  ) : null;
+  return (
+    <>
+      {[...owners.values()].map((snapshot) => {
+        const live = rows.find((row) => row.id === snapshot.id);
+        return (
+          <RetainedScheduleInterview
+            key={snapshot.id}
+            interview={live ?? snapshot}
+            authorized={enabled && !accessDenied && !!live && !live.isHead}
+            open={visible && selection.id === snapshot.id}
+            onClose={close}
+            onPendingChange={reportPending}
+            feedback={feedback}
+            readable={!interviews.error}
+          />
+        );
+      })}
+      {showFallback && (
+        <ProfileDialog
+          title={t("unifiedScheduleInterview.title")}
+          onClose={close}
+          pending={pending}
+        >
+          {accessDenied ? (
+            <p role="alert">{t("interviewReview.accessDenied")}</p>
+          ) : interviews.isLoading ? (
+            <p role="status">{t("tutor.tasks.loading")}</p>
+          ) : selection.id ? (
+            current?.isHead ? (
+              <a
+                className="link inline-flex min-h-11 items-center"
+                href="/dashboard#tutor-interviews"
+              >
+                {t("unifiedScheduleInterview.chairWorkspace")}
+              </a>
+            ) : (
+              <p role="alert">{t("unifiedScheduleInterview.unavailable")}</p>
+            )
+          ) : (
+            <div className="space-y-4">
+              {[true, false].map((active) => {
+                const group = panelistRows.filter(
+                  (row) => isOpenInterview(row) === active,
+                );
+                return (
+                  <section key={String(active)} className="space-y-2">
+                    <h3 className="font-semibold">
+                      {t(
+                        active
+                          ? "interviewReview.active"
+                          : "interviewReview.completed",
+                        { count: group.length },
+                      )}
+                    </h3>
+                    {group.length === 0 ? (
+                      <p className="muted">
+                        {t("unifiedScheduleInterview.emptyGroup")}
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-slate-200">
+                        {group.map((row) => (
+                          <li
+                            key={row.id}
+                            className="flex flex-wrap items-center justify-between gap-2 py-2"
+                          >
+                            <div>
+                              <p className="font-medium">{row.name}</p>
+                              <p className="muted text-sm">
+                                {row.interviewAt
+                                  ? format.dateTime(row.interviewAt, {
+                                      dateStyle: "medium",
+                                      timeStyle: "short",
+                                    })
+                                  : t("tutor.interviews.awaitingSchedule")}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="link inline-flex min-h-11 items-center"
+                              disabled={pending}
+                              aria-label={`${t("tablePatterns.details")}: ${row.name}`}
+                              onClick={() =>
+                                setSelection({
+                                  request: applicationId,
+                                  id: row.id,
+                                })
+                              }
+                            >
+                              {t("tablePatterns.details")}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                );
+              })}
+              <a
+                className="link inline-flex min-h-11 items-center"
+                href="/dashboard#tutor-interviews"
+              >
+                {t("unifiedScheduleInterview.chairWorkspace")}
+              </a>
+            </div>
+          )}
+          {(!!interviews.error || accessDenied) && (
+            <div className="mt-3 space-y-2">
+              {!accessDenied && <p role="alert">{interviews.error?.message}</p>}
+              <Button
+                disabled={interviews.isFetching}
+                onClick={() => void interviews.refetch()}
+              >
+                {t("tutor.tasks.retry")}
+              </Button>
+            </div>
+          )}
+        </ProfileDialog>
+      )}
+    </>
   );
 }

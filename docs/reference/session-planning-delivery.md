@@ -16,6 +16,11 @@ Notices identify the lesson with bounded subject labels, original/proposed progr
 times and a room or online location. These fields are allowlisted independently;
 their presence never permits arbitrary profile, free-text or roster payloads.
 
+Dispatched tutor notices link to `/schedule#sessions`; tutee notices continue to
+use `/student?view=schedule#sessions`. The validated sign-in continuation retains
+that destination, and the portal rechecks the recipient's current access before
+showing the dated agenda. A link does not accept an offer or submit attendance.
+
 The persistent Node worker runs an immediate sweep and then every 30 seconds. An
 idempotent weekly-plan preparation runs on startup and at most every 15 minutes;
 this catches missed Sunday preparation without making timers own published dates. Each
