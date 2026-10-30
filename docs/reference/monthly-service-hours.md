@@ -9,7 +9,7 @@ cannot read the configuration, audience or saved reports.
 
 ## Preview before delivery
 
-**Program Settings → Communication → Email previews** provides a read-only
+**Program Settings → Deployment Configurations → Email previews** provides a read-only
 monthly-report preview. The same preview appears in **Service Hours → Monthly
 reports**. Choose a completed month, load it, then switch between **Admin report**,
 **Email HTML** and **Plain text**. The email views use the delivery renderer and

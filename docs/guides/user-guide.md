@@ -1254,7 +1254,7 @@ does not backfill months while it was off.
 Preview a completed month to inspect the full report and intended destinations.
 Use **Admin report**, **Email HTML** and **Plain text** to see the report and
 staff email before generation. The same read-only preview is available under
-**Program Settings → Communication → Email previews**. Preview sends nothing;
+**Program Settings → Deployment Configurations → Email previews**. Preview sends nothing;
 its report and unsubscribe links are placeholders.
 Page filters do not affect it: inactive contributors and zero/negative records
 remain included. Admin/Head can review **Generate report** to save and queue that
