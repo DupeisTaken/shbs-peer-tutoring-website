@@ -62,6 +62,7 @@ const tutorInput = async () => ({
 });
 const tuteeInput = async () => ({
   clientKey: randomUUID(),
+  expectedTermId: "fields-term",
   englishName: "Student",
   email: "student@example.test",
   preferredContact: "Email",
@@ -108,7 +109,7 @@ beforeEach(async () => {
       data: { slug, locale: "en", title: "Policy", body: "Synthetic policy" },
     });
   await db.term.create({
-    data: { name: "Q1", schoolYear: "26-27", quarter: "Q1", active: true },
+    data: { id: "fields-term", name: "Q1", schoolYear: "26-27", quarter: "Q1", active: true },
   });
   await db.subject.createMany({
     data: [

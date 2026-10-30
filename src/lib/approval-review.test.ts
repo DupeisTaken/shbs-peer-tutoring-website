@@ -2,7 +2,26 @@ import { describe, expect, it } from "vitest";
 import en from "../../messages/en.json";
 import zh from "../../messages/zh.json";
 import { APPROVAL_OPERATIONS } from "./approval-policy";
-import { approvalReview, nextRecruitmentApprovalReview } from "./approval-review";
+import { approvalReview, nextRecruitmentApprovalReview, scheduledRefreshApprovalReview } from "./approval-review";
+
+it("binds scheduled and cancellation reviews to captured schedule versions and target", () => {
+  const target = { sourceTermId: "term", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 1 };
+  const snapshot = { target, currentName: "26-27 Q1", nextName: "26-27 Q2", timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, refreshEvidence: { destination: null } };
+  const schedule = { ...target, id: "schedule", version: 2, state: "SCHEDULED", executeAt: "2026-11-01T01:00:00.000Z", timeZone: "Asia/Shanghai", authorizedById: "private-actor", expectedPreparation: "private-evidence" };
+  const payload = { executeAt: "2026-11-02T01:00:00.000Z", expectedScheduleVersion: 2, expectedTermId: "term", expectedPreparation: { target } };
+  const targets = { nextRecruitment: snapshot, schedule };
+  const original = structuredClone(targets);
+  const parsed = scheduledRefreshApprovalReview("admin.scheduleRefresh", payload, targets);
+  expect(parsed).toMatchObject({ kind: "schedule", executeAt: new Date(payload.executeAt), previous: { id: "schedule", version: 2 } });
+  expect(parsed).not.toHaveProperty("previous.authorizedById");
+  expect(parsed).not.toHaveProperty("previous.expectedPreparation");
+  expect(scheduledRefreshApprovalReview("admin.scheduleRefresh", { ...payload, expectedScheduleVersion: 1 }, targets)).toBeNull();
+  expect(scheduledRefreshApprovalReview("admin.scheduleRefresh", { ...payload, expectedTermId: "other" }, targets)).toBeNull();
+  expect(scheduledRefreshApprovalReview("admin.scheduleRefresh", payload, { nextRecruitment: snapshot })).toBeNull();
+  expect(scheduledRefreshApprovalReview("admin.cancelRefresh", { id: "schedule", expectedVersion: 2 }, targets)).toMatchObject({ kind: "cancel", schedule: { executeAt: new Date(schedule.executeAt) } });
+  expect(scheduledRefreshApprovalReview("admin.cancelRefresh", { id: "other", expectedVersion: 2 }, targets)).toBeNull();
+  expect(targets).toEqual(original);
+});
 
 it("restores recorded preparation instants without conflating absent preparation and an explicit clear", () => {
   const target = { sourceTermId: "term", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 1 };

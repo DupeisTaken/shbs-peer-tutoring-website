@@ -300,6 +300,34 @@ openings are allowed; the inclusive opening boundary still composes with accepta
 exclusive closing and normal signup prerequisites. Operator behavior is documented
 in [next-period openings](../guides/program-configuration.md#prepare-next-period-openings).
 
+## Scheduled refresh and public signup transitions
+
+[`refresh.ts`](../../src/server/program/refresh.ts) owns the atomic activation shared
+by immediate refresh and [`scheduled-refresh.ts`](../../src/server/program/scheduled-refresh.ts).
+`ScheduledProgramRefresh` stores one versioned authorization per source term with
+serialized review, UTC execution instant and approving Head authority revision.
+A database trigger increments `User.refreshAuthorityRevision` on role, suspension
+or merge changes, so reversing a change cannot revive an earlier authorization.
+Audit preserves replaced authorizations.
+
+Scheduling, cancellation and execution share the existing period barrier. Execution
+checks database time after locking and revalidates review/authority before applying
+effects. Completion and notification intent commit with activation. Failed transactions
+leave no partial participation change; a separate version-checked failure record
+bounds retries to five. Review conflicts block immediately. Node instrumentation
+starts a 30-second worker and startup sweep; elapsed valid schedules catch up.
+
+The [public projection](../../src/server/program/public-signup-transition.ts) reads
+allowlisted current/future intake metadata under the period barrier. Its
+[view resolver](../../src/lib/public-signup-transition.ts) selects Q1→Q2 or Q3→Q4
+after pause/closure. The live form owns the badge, countdown and read recovery;
+zero never grants eligibility. Fresh public submissions require `expectedTermId`.
+The intent service checks it under the period barrier after recovering an exact
+accepted receipt. The shared field remains optional for retained legacy intents.
+
+See [operator behavior](../guides/program-configuration.md#schedule-a-refresh) and
+[worker operations](../guides/deployment.md#scheduled-program-refresh-worker).
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.

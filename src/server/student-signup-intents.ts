@@ -131,6 +131,10 @@ export async function stageStudentSignupIntent(
       where: { active: true },
       orderBy: { createdAt: "desc" },
     });
+    // Recover an accepted intent above first. A new draft must never be silently
+    // enrolled into a different quarter after a manual or scheduled refresh.
+    if (term && posted.expectedTermId && term.id !== posted.expectedTermId)
+      throw new TRPCError({ code: "CONFLICT", message: "SIGNUP_PERIOD_CHANGED" });
     if (!term || recruitmentStatus(recruitmentWindow(term, "tutee")) !== "open")
       throw new TRPCError({
         code: "PRECONDITION_FAILED",

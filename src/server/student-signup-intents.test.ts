@@ -87,12 +87,14 @@ afterAll(() => db.$disconnect());
 
 async function answers(overrides: Record<string, unknown> = {}) {
   const policy = await currentPolicy(db, "tutee-policy");
-  return surveyInput.parse({
+  const parsed = surveyInput.parse({
+    expectedTermId: termId,
     englishName: "Original Request Name", email, preferredContact: "Original contact",
     firstChoiceId: "math", secondChoiceId: "science", slotIds: ["monday"],
     signatureName: "Original Signature", agreed: true, policyRevision: policy.revision,
     ...overrides,
   });
+  return { ...parsed, expectedTermId: termId };
 }
 
 async function owner(options: { unfinished?: boolean; mfa?: boolean } = {}) {
@@ -168,6 +170,35 @@ async function unchangedSource(id: string, before: unknown) {
   expect(await db.studentSurvey.findUniqueOrThrow({ where: { id } })).toEqual(before);
   expect(await db.studentSignupRevision.count()).toBe(0);
 }
+
+it("requires a reviewed period for a fresh public submission", async () => {
+  const input = { ...await answers(), expectedTermId: undefined };
+  type Submission = Parameters<ReturnType<typeof anonymous>["tutee"]["submitSurvey"]>[0];
+  await expect(anonymous().tutee.submitSurvey({ ...input, clientKey: randomUUID() } as unknown as Submission))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.studentSignupIntent.count()).toBe(0);
+});
+
+it("rejects an old-period draft after activation without reserving new demand", async () => {
+  const input = await answers();
+  await db.term.update({ where: { id: termId }, data: { active: false } });
+  await db.term.create({ data: { id: "next-signup-term", name: "Next quarter", schoolYear: "26-27", quarter: "Q2", active: true } });
+  await expect(stageStudentSignupIntent(db, input, randomUUID()))
+    .rejects.toThrow("SIGNUP_PERIOD_CHANGED");
+  expect(await db.studentSurvey.count()).toBe(0);
+  expect(fixtures.send).not.toHaveBeenCalled();
+});
+
+it("recovers the exact accepted receipt after rollover without creating next-period demand", async () => {
+  const input = await answers();
+  const key = randomUUID();
+  const receipt = await stageStudentSignupIntent(db, input, key);
+  await db.term.update({ where: { id: termId }, data: { active: false } });
+  await db.term.create({ data: { id: "next-signup-term", name: "Next quarter", schoolYear: "26-27", quarter: "Q2", active: true } });
+  expect(await stageStudentSignupIntent(db, input, key)).toEqual(receipt);
+  expect(await db.studentSurvey.count()).toBe(1);
+  expect(fixtures.send).toHaveBeenCalledTimes(1);
+});
 
 it("preserves legacy intent codes and their remaining attempt until a delivered resend upgrades them", async () => {
   const accepted = await staged(await answers());

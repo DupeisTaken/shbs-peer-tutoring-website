@@ -193,7 +193,7 @@ export const approvalRouter = createTRPCRouter({
         ].includes(initial.operation);
       const nextRecruitmentApproval =
         !!initial &&
-        ["program.prepareNextRecruitment", "admin.refresh"].includes(
+        ["program.prepareNextRecruitment", "admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"].includes(
           initial.operation,
         );
       const runDecision = () =>

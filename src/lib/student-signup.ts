@@ -4,6 +4,8 @@ import { preferredLatinNameSchema } from "./username";
 
 // Shared intake schemas have no server orchestration imports, avoiding invitation/editor cycles.
 export const surveyInput = z.object({
+  // Optional for retained intents; fresh public submissions require this fence.
+  expectedTermId: z.string().min(1).optional(),
   ...optionalPersonNameFields,
   englishName: z.string().trim().max(200),
   preferredLatinName: preferredLatinNameSchema,

@@ -13,6 +13,39 @@ import zh from "../../../messages/zh.json";
 import { ApprovalReviewDetails } from "./approval-review-details";
 
 afterEach(cleanup);
+
+it.each(["en", "zh"])("renders a scheduled refresh's captured date, zone, replacement and effects (%s)", (locale) => {
+  const copy = locale === "en" ? en : zh;
+  const target = { sourceTermId: "term", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q3", semesterMode: true, modeRevision: 1 };
+  const snapshot = { target, currentName: "26-27 S1", nextName: "26-27 S2", timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, refreshEvidence: { destination: null } };
+  show("admin.scheduleRefresh", { executeAt: new Date("2026-11-02T01:00:00Z"), expectedTermId: "term", expectedScheduleVersion: 2, expectedPreparation: { target } }, {
+    nextRecruitment: snapshot,
+    schedule: { ...target, id: "schedule", version: 2, state: "SCHEDULED", executeAt: "2026-11-01T01:00:00.000Z", timeZone: "Asia/Shanghai", authorizedById: "private-actor" },
+  }, locale);
+  expect(screen.getAllByText(/9:00/).length).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText(/26-27 S2/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Asia\/Shanghai/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(copy.scheduledRefresh.catchUp)).toBeTruthy();
+  expect(screen.getAllByText(copy.admin.program.effectReactivate)).toBeTruthy();
+  expect(screen.queryByText(/private-actor/)).toBeNull();
+});
+
+it.each(["en", "zh"])("shows cancellation intent and exact scheduled transition without raw fields (%s)", (locale) => {
+  const copy = locale === "en" ? en : zh;
+  show("admin.cancelRefresh", { id: "schedule", expectedVersion: 3 }, { schedule: {
+    id: "schedule", version: 3, state: "BLOCKED", executeAt: "2026-11-01T01:00:00.000Z", timeZone: "Asia/Shanghai",
+    sourceTermId: "term", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false,
+  } }, locale);
+  expect(screen.getAllByText(copy.scheduledRefresh.cancelTitle)).toBeTruthy();
+  expect(screen.getAllByText(copy.scheduledRefresh.cancelEffect)).toBeTruthy();
+  expect(screen.getAllByText(/26-27 Q2/)).toBeTruthy();
+  expect(screen.queryByText("expectedVersion")).toBeNull();
+});
+
+it("marks missing deferred-refresh evidence unavailable instead of guessing from payload", () => {
+  show("admin.scheduleRefresh", { executeAt: new Date("2026-11-02T01:00:00Z") }, {});
+  expect(screen.getAllByText(en.approvals.review.unavailable)).toBeTruthy();
+});
 it.each(["en", "zh"])(
   "renders offset-free captured UTC dates in the program zone (%s)",
   (locale) => {

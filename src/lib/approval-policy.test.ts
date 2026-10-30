@@ -6,16 +6,16 @@ import {
 } from "./approval-policy";
 
 describe("management authority by effect", () => {
-  it.each(Object.keys(APPROVAL_OPERATIONS).filter((operation) => operation !== "admin.refresh"))(
+  it.each(Object.keys(APPROVAL_OPERATIONS).filter((operation) => !HEAD_APPROVAL_OPERATIONS.has(operation)))(
     "inherits Admin direct and review authority in Head for %s", (operation) => {
       const authority = classifyApproval(operation);
       expect(authority?.directRoles).toEqual(["ADMIN", "HEAD"]);
       expect(authority?.reviewerRoles).toEqual(["ADMIN", "HEAD"]);
     },
   );
-  it("reserves refresh execution for Head while keeping both Admin and Head able to request it", () => {
-    expect([...HEAD_APPROVAL_OPERATIONS]).toEqual(["admin.refresh"]);
-    expect(classifyApproval("admin.refresh")).toMatchObject({
+  it.each(["admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"])("reserves %s for Head while keeping both Admin and Head able to request it", (operation) => {
+    expect([...HEAD_APPROVAL_OPERATIONS]).toEqual(["admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"]);
+    expect(classifyApproval(operation)).toMatchObject({
       directRoles: ["HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"],
     });
   });

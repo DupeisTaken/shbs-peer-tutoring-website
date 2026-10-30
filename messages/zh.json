@@ -3611,7 +3611,9 @@
         "admin_retryRoomAllocation": "重试配对的教室自动分配",
         "admin_autoAssignUnassignedRooms": "为所有已审核的未分配课程自动分配教室",
         "admin_correctApplicationIdentity": "更正待处理申请姓名",
-        "admin_setUserCanTranslate": "更改翻译权限"
+        "admin_setUserCanTranslate": "更改翻译权限",
+        "admin_scheduleRefresh": "预约项目刷新",
+        "admin_cancelRefresh": "取消项目刷新预约"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认您的账户密码",
@@ -6187,6 +6189,16 @@
       "title": "面试已通过",
       "body": "指定主席已批准面试并记录评审组服务时数。请查看申请结果。",
       "action": "查看申请"
+    },
+    "scheduled_refresh_completed": {
+      "title": "计划项目刷新已完成",
+      "body": "计划项目刷新已完成。请检查当前学期及报名设置。",
+      "action": "查看项目设置"
+    },
+    "scheduled_refresh_blocked": {
+      "title": "计划项目刷新需要重新审核",
+      "body": "计划项目刷新未能执行。主管须检查当前设置及授权后重新安排。",
+      "action": "查看刷新计划"
     }
   },
   "requestAppeal": {
@@ -6863,5 +6875,78 @@
     "CANCELLATION": "已撤回的申请",
     "REVERSAL": "已撤销的操作",
     "ATTEMPT": "尝试进行的变更"
+  },
+  "scheduledRefresh": {
+    "title": "预约下一次刷新",
+    "help": "选择项目进入下一季度或学期的时间。保存预约后，当前周期仍保持生效。",
+    "loading": "正在加载刷新预约…",
+    "loadFailed": "无法加载最新刷新预约。草稿已保留，请重试读取后再修改。",
+    "retry": "重试读取最新状态",
+    "readOnly": "仅 Admin 和 Head 可以管理刷新预约。预约生效前需要 Head 批准。",
+    "none": "当前周期尚未预约刷新。",
+    "summary": "于 {time}（{zone}）进入 {target}。",
+    "states": {
+      "SCHEDULED": "已预约",
+      "COMPLETED": "已完成",
+      "CANCELLED": "已取消",
+      "BLOCKED": "需要重新审核",
+      "FAILED": "执行失败"
+    },
+    "catchUp": "服务器会定期检查到期预约。如果服务器曾离线，只要审核条件仍然有效，恢复运行后就会执行刷新。",
+    "staleHelp": "已审核的周期、招募准备、功能、时区或 Head 发生变化后，需要重新审核才能执行预约刷新。",
+    "blockedHelp": "此预约无法再按原审核执行。请重新加载并检查最新条件，然后重新预约或取消。",
+    "changed": "已保存的预约或刷新条件发生了变化。草稿已保留，请主动重新加载并审核最新值。",
+    "stalePreparation": "某个下一周期开放时间绑定了其他目标周期。请先处理该准备项，再预约刷新。",
+    "pendingApproval": "请求正在等待 Head 批准。批准前，原有预约保持不变。",
+    "viewRequest": "查看审批请求",
+    "timeLabel": "刷新日期和时间",
+    "draftTarget": "本次审核将进入 {target}。",
+    "confirmLabel": "输入 REFRESH 以授权预约刷新",
+    "review": "审核预约",
+    "closeEditor": "关闭编辑器",
+    "create": "选择刷新时间",
+    "edit": "编辑刷新预约",
+    "reload": "重新加载预约与审核信息",
+    "checkApproval": "检查审批状态",
+    "reviewTitle": "审核预约刷新",
+    "reviewHelp": "授权于 {time}（{zone}）刷新至 {target}。",
+    "save": "保存刷新预约",
+    "saved": "刷新已预约。执行前，当前周期仍保持生效。",
+    "cancelTitle": "取消刷新预约",
+    "cancelHelp": "取消原定于 {time}（{zone}）刷新至 {target} 的预约。",
+    "cancelEffect": "此操作将取消预约切换，不会推进周期，也不会修改已准备的报名开放时间。",
+    "cancelSchedule": "取消刷新预约",
+    "cancelled": "刷新预约已取消。",
+    "saveFailed": "无法修改预约。草稿已保留，请重新加载最新审核信息后再试。",
+    "errors": {
+      "SCHEDULED_REFRESH_CHANGED": "预约或审核条件发生了变化。请重新加载并审核最新值后再试。",
+      "SCHEDULED_REFRESH_TIME_INVALID": "请按显示的项目时区选择未来日期和时间。夏令时重复或跳过的时间无效。",
+      "SCHEDULED_REFRESH_BLOCKED": "此预约执行前需要重新审核。请重新加载最新条件后重新预约。",
+      "SCHEDULED_REFRESH_HEAD_CHANGED": "批准后 Head 已发生变更。当前 Head 需要重新审核预约。",
+      "SCHEDULED_REFRESH_REVIEW_CHANGED": "已审核的刷新条件发生了变化。请重新加载并审核新的预约。",
+      "SCHEDULED_REFRESH_EXECUTION_FAILED": "多次尝试后仍未完成刷新。请检查部署，再审核新的预约或取消当前预约。",
+      "SCHEDULED_REFRESH_AFTER_OPENING": "刷新时间不得晚于已准备的学员报名开放时间；也可先修改该准备项。"
+    }
+  },
+  "signupTransition": {
+    "currentClosed": "{period} 的学员报名已关闭。下方显示下一季度的报名安排。",
+    "nextTitle": "{period} 学员报名",
+    "plannedTitle": "{period} 学员报名：计划于 {time} 开放",
+    "plannedHelp": "这是计划开放时间。必须先启用下一季度，才能接受报名。",
+    "scheduledHelp": "季度切换已安排。完成切换且报名开关开启后，才会接受报名。",
+    "pendingActivation": "下一季度尚未启用，暂不能报名。本页会自动检查更新。",
+    "awaitingSchedule": "下一次报名开放时间尚未公布，请稍后查看确认后的安排。",
+    "unavailable": "下一季度暂不接受报名。开放报名后会公布安排。",
+    "needsReview": "报名安排需要重新审核，目前没有已确认的开放时间。",
+    "cancelled": "已取消定时季度切换，下一次报名开放时间待确认。",
+    "open": "当前阶段已开放报名。",
+    "closed": "当前阶段报名已关闭。",
+    "currentScheduled": "报名尚未开放。",
+    "planned": "下一次报名开放时间已计划，等待季度启用。",
+    "scheduled": "下一季度的切换时间已安排。",
+    "reviewPeriod": "查看 {period} 的报名申请",
+    "periodChanged": "此草稿开始于 {period}，当前阶段现已变更。填写内容已保留；请查看新阶段并同意其政策后再提交。",
+    "reviewFailed": "无法加载最新阶段或政策。草稿已保留，请重试。",
+    "unverified": "暂时无法确认报名安排，之前的公告可能已变更。请点击下方重试，确认最新开放时间。"
   }
 }

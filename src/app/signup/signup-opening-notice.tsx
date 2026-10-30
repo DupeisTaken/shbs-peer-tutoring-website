@@ -22,6 +22,11 @@ interface SignupOpeningNoticeProps {
   previewUrl: string | null;
   /** Server-render time keeps the first client render hydration-stable. */
   serverNow: string;
+  /** A live transition owner passes its clock so mounting at closure cannot restart elapsed time. */
+  sharedNowMs?: number;
+  programTimeZone?: string;
+  onRefresh?: () => void;
+  openingKind?: "current" | "planned" | "scheduled" | "pending";
 }
 
 /**
@@ -33,19 +38,27 @@ export function SignupOpeningNotice({
   opensAt,
   previewUrl,
   serverNow,
+  sharedNowMs,
+  programTimeZone,
+  onRefresh,
+  openingKind = "current",
 }: SignupOpeningNoticeProps) {
   const t = useTranslations("public.signup.gate");
+  const transition = useTranslations("signupTransition");
   const format = useFormatter();
   const locale = useLocale();
-  const timeZone = useTimeZone() ?? DEFAULT_TIME_ZONE;
+  const contextTimeZone = useTimeZone();
+  const timeZone = programTimeZone ?? contextTimeZone ?? DEFAULT_TIME_ZONE;
   const router = useRouter();
   const openingTime = useMemo(() => new Date(opensAt), [opensAt]);
   const openingMs = openingTime.getTime();
   const serverNowMs = useMemo(() => new Date(serverNow).getTime(), [serverNow]);
   const [nowMs, setNowMs] = useState(serverNowMs);
+  const hasSharedClock = sharedNowMs !== undefined;
   const lastRefreshAt = useRef<number | null>(null);
 
   useEffect(() => {
+    if (hasSharedClock) return;
     // Anchor the countdown to server time and advance it with a monotonic browser clock. This keeps
     // a misconfigured client wall clock from opening early or delaying the public transition.
     const startedAt = window.performance.now();
@@ -61,17 +74,19 @@ export function SignupOpeningNotice({
           nextNow - lastRefreshAt.current >= OPENING_REFRESH_RETRY_MS)
       ) {
         lastRefreshAt.current = nextNow;
-        router.refresh();
+        if (onRefresh) onRefresh();
+        else router.refresh();
       }
     };
 
     tick();
     const interval = window.setInterval(tick, 1_000);
     return () => window.clearInterval(interval);
-  }, [openingMs, router, serverNowMs]);
+  }, [openingMs, router, serverNowMs, onRefresh, hasSharedClock]);
 
-  const countdown = signupCountdown(openingTime, nowMs);
-  const hasReachedOpening = nowMs >= openingMs;
+  const displayNowMs = sharedNowMs ?? nowMs;
+  const countdown = signupCountdown(openingTime, displayNowMs);
+  const hasReachedOpening = displayNowMs >= openingMs;
   const units = [
     [countdown.days, t("days")],
     [countdown.hours, t("hours")],
@@ -81,6 +96,7 @@ export function SignupOpeningNotice({
   const formattedOpening = format.dateTime(openingTime, {
     dateStyle: "long",
     timeStyle: "short",
+    timeZone,
   });
 
   return (
@@ -118,11 +134,27 @@ export function SignupOpeningNotice({
           id="signup-opening-title"
           className="mt-3 text-2xl font-bold tracking-tight text-balance text-slate-900 sm:text-3xl"
         >
-          {t("periodTitle", { period: periodLabel, time: formattedOpening })}
+          {openingKind === "current"
+            ? t("periodTitle", { period: periodLabel, time: formattedOpening })
+            : transition("plannedTitle", {
+                period: periodLabel,
+                time: formattedOpening,
+              })}
         </h2>
         <p className="muted mt-3 text-sm break-words">
           {programTimeZoneLabel(timeZone, openingTime, locale)}
         </p>
+        {openingKind !== "current" && (
+          <p className="mt-3 text-sm text-slate-700">
+            {transition(
+              openingKind === "pending"
+                ? "pendingActivation"
+                : openingKind === "planned"
+                  ? "plannedHelp"
+                  : "scheduledHelp",
+            )}
+          </p>
+        )}
 
         <div
           className="mt-7 grid grid-cols-4 gap-2 sm:gap-3"
@@ -150,7 +182,9 @@ export function SignupOpeningNotice({
 
         {hasReachedOpening ? (
           <p className="text-accent-700 mt-6 text-sm font-medium">
-            {t("opening")}
+            {openingKind === "current"
+              ? t("opening")
+              : transition("pendingActivation")}
           </p>
         ) : previewUrl ? (
           <p className="mt-6 text-sm text-slate-600">

@@ -7,6 +7,9 @@ export async function register() {
     const { startStudentDeadlineWorker } =
       await import("./server/student-deadline-worker");
     startStudentDeadlineWorker();
+    const { startScheduledRefreshWorker } =
+      await import("./server/program/scheduled-refresh-worker");
+    startScheduledRefreshWorker();
     const { startNotificationWorker } =
       await import("./server/email/notification-delivery");
     startNotificationWorker();

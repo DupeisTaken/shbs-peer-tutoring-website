@@ -9,6 +9,7 @@ import {
 } from "~/lib/review-vocabulary";
 import {
   nextRecruitmentApprovalReview,
+  scheduledRefreshApprovalReview,
   reviewTechnicalFields,
   type ReviewField,
 } from "~/lib/approval-review";
@@ -20,6 +21,7 @@ import { reviewInstant } from "~/lib/review-instant";
 import { NextRecruitmentReview } from "./next-recruitment-review";
 import { ProgramRefreshEffects } from "./program-refresh-effects";
 import { minToHm } from "~/lib/time";
+import { periodLabel } from "~/lib/period";
 import { roomBlockReview } from "~/lib/room-block-review";
 import { RoomBlockReview } from "./room-block-review";
 import {
@@ -62,7 +64,28 @@ export function ApprovalReviewDetails({
   const roomOrderText = useTranslations("roomOrder");
   const featureText = useTranslations("admin.program.features");
   const recruitmentText = useTranslations("nextRecruitment");
+  const scheduledText = useTranslations("scheduledRefresh");
   const format = useFormatter();
+  if (operation === "admin.scheduleRefresh" || operation === "admin.cancelRefresh") {
+    const review = scheduledRefreshApprovalReview(operation, payload, targets);
+    if (!review) return <p className="text-sm text-slate-600">{t("unavailable")}</p>;
+    const time = (value: Date, zone: string) => format.dateTime(value, { dateStyle: "medium", timeStyle: "short", timeZone: zone });
+    if (review.kind === "cancel") {
+      const row = review.schedule;
+      return <section aria-label={t("affected")} className="space-y-3 text-sm">
+        <p className="font-medium">{scheduledText("cancelTitle")}</p>
+        <p>{scheduledText("cancelHelp", { target: periodLabel({ schoolYear: row.destinationSchoolYear, quarter: row.destinationQuarter }, row.semesterMode), time: time(row.executeAt, row.timeZone), zone: row.timeZone })}</p>
+        <p>{scheduledText("cancelEffect")}</p>
+      </section>;
+    }
+    return <section aria-label={t("affected")} className="space-y-4 text-sm">
+      <p className="font-medium">{scheduledText("reviewHelp", { target: review.snapshot.nextName, time: time(review.executeAt, review.snapshot.timeZone), zone: review.snapshot.timeZone })}</p>
+      {review.previous && <div><p className="muted text-xs">{t("before")}</p><p>{scheduledText("summary", { target: periodLabel({ schoolYear: review.previous.destinationSchoolYear, quarter: review.previous.destinationQuarter }, review.previous.semesterMode), time: time(review.previous.executeAt, review.previous.timeZone), zone: review.previous.timeZone })}</p><p>{scheduledText(`states.${review.previous.state}`)}</p></div>}
+      <NextRecruitmentReview snapshot={review.snapshot} />
+      <ProgramRefreshEffects target={review.snapshot.target} />
+      <p>{scheduledText("catchUp")}</p><p>{scheduledText("staleHelp")}</p>
+    </section>;
+  }
   if (
     operation === "program.prepareNextRecruitment" ||
     operation === "admin.refresh"

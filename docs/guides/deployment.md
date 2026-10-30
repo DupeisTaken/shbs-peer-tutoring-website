@@ -5,6 +5,27 @@ The memory-heavy image build runs in **GitHub Actions → GHCR**; the VPS only p
 The disk size is an example, not a capacity guarantee; check the actual filesystems
 and planned peak allocations using the [storage preflight](#storage-capacity-preflight).
 
+## Scheduled program refresh worker
+
+Apply `20261030120000_scheduled_program_refresh` and regenerate Prisma before
+starting this release. The migration creates durable schedules and the database
+authority revision trigger; no existing period is activated by migration.
+
+The persistent Node server starts a sweep immediately and every 30 seconds.
+It processes up to ten due schedules serially, using database time and the shared
+period lock. Multiple application instances may run workers safely. An overdue
+schedule catches up after restart only while its exact review and approving Head
+authority remain valid. Do not promise exact-second execution or execution while
+all app instances are offline. Keep a persistent instance running for this workflow.
+
+Transient execution failures roll back and retry on later sweeps; five recorded
+failures stop execution and notify management. Inspect the schedule status in
+Program Settings, correct the deployment problem, then have Head review a new
+schedule. Review/authority conflicts are blocked immediately. Notification delivery
+failure never repeats a committed activation. Cancellation queued for Head approval
+does not stop a due schedule until approved. See the
+[operator guide](program-configuration.md#schedule-a-refresh).
+
 ## Architecture
 
 ```
