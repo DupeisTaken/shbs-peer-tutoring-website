@@ -327,6 +327,7 @@ it("renders the exact read-only delivery preview with inert links and escaped na
         reason: null,
         reportUrl: "#report-preview",
         unsubscribeUrl: "#unsubscribe-preview",
+        preview: true,
       }),
     );
     expect(preview.email.subject).toContain("r1");
@@ -334,13 +335,15 @@ it("renders the exact read-only delivery preview with inert links and escaped na
       "&lt;script&gt;Synthetic preview name&lt;/script&gt;",
     );
     expect(preview.email.html).not.toContain("<script>");
-    expect(
-      [...preview.email.html.matchAll(/href="([^"]+)"/g)].map(
-        (match) => match[1],
-      ),
-    ).toEqual(["#report-preview", "#unsubscribe-preview"]);
-    expect(preview.email.text).toContain("#report-preview");
-    expect(preview.email.text).toContain("#unsubscribe-preview");
+    expect(preview.email.html).not.toMatch(/<a\b|\bhref=/i);
+    expect(preview.email.html).toContain('aria-disabled="true"');
+    expect(preview.email.text).toContain("preview only / 仅供预览");
+    expect(`${preview.email.html}${preview.email.text}`).not.toContain(
+      "#report-preview",
+    );
+    expect(`${preview.email.html}${preview.email.text}`).not.toContain(
+      "#unsubscribe-preview",
+    );
     expect(`${preview.email.html}${preview.email.text}`).not.toContain(
       "token=",
     );
@@ -377,6 +380,7 @@ it("previews the next revision without changing its content hash or creating del
       reason: null,
       reportUrl: "#report-preview",
       unsubscribeUrl: "#unsubscribe-preview",
+      preview: true,
     }),
   );
   expect(preview.contentHash).toBe(

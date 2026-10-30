@@ -460,7 +460,7 @@ export async function previewMonthlyHours(db: DomainDb, month: string) {
       const recipients = await monthlyHoursRecipients(tx, config);
       const generatedAt = new Date();
       // Preview uses the delivery renderer without creating a report, mailbox
-      // receipt or live account capability. Fragments keep its links inert.
+      // receipt or live account capability. Preview controls are labels, not links.
       const email = monthlyHoursEmailCopy({
         snapshot,
         revision: (latest?.revision ?? 0) + 1,
@@ -469,6 +469,7 @@ export async function previewMonthlyHours(db: DomainDb, month: string) {
         reason: null,
         reportUrl: "#report-preview",
         unsubscribeUrl: "#unsubscribe-preview",
+        preview: true,
       });
       return {
         month,

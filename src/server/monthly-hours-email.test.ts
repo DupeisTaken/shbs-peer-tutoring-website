@@ -27,7 +27,7 @@ it("renders every hours-only row, preserves negative/fractional values and escap
       total: row.total,
     },
   };
-  const copy = monthlyHoursEmailCopy({
+  const input = {
     snapshot,
     revision: 2,
     generatedAt: new Date("2024-10-03T01:00:00Z"),
@@ -35,7 +35,8 @@ it("renders every hours-only row, preserves negative/fractional values and escap
     reason: "Private correction review note",
     reportUrl: "https://example.test/saved",
     unsubscribeUrl: "https://example.test/unsubscribe",
-  });
+  };
+  const copy = monthlyHoursEmailCopy(input);
   expect(copy.html).toContain("&lt;img src=x onerror=alert(1)&gt;");
   expect(copy.html).not.toContain("<img src=x");
   expect(copy.text).toContain("Inactive / 非活跃");
@@ -51,5 +52,22 @@ it("renders every hours-only row, preserves negative/fractional values and escap
   );
   expect(copy.html).toMatch(
     /TOTAL \/ 总计 \(1 tutors \/ 位辅导伙伴\)<\/th><th[^>]*><\/th><th[^>]*>0<\/th>/,
+  );
+  expect(
+    [...copy.html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]),
+  ).toEqual([input.reportUrl, input.unsubscribeUrl]);
+  const preview = monthlyHoursEmailCopy({ ...input, preview: true });
+  expect(preview.subject).toBe(copy.subject);
+  expect(preview.html).not.toMatch(/<a\b|\bhref=/i);
+  expect(preview.html).toContain(
+    '<span style="color:#B6D5FF" aria-disabled="true">Unsubscribe / 取消订阅</span>',
+  );
+  expect(`${preview.html}${preview.text}`).not.toContain(input.reportUrl);
+  expect(`${preview.html}${preview.text}`).not.toContain(input.unsubscribeUrl);
+  expect(preview.html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1]).toBe(
+    copy.html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1],
+  );
+  expect(preview.text.split("\n\nView saved report")[0]).toBe(
+    copy.text.split("\n\nView saved report")[0],
   );
 });

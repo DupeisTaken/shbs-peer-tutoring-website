@@ -138,7 +138,7 @@ function sample(month = "2026-08"): Preview {
     recipients: [],
     email: {
       subject: `Synthetic report ${month}`,
-      html: '<!doctype html><html><body><p>&lt;img src=x onerror=&quot;throw 1&quot;&gt;</p><a href="#report-preview">Report</a><a href="#unsubscribe-preview">Unsubscribe</a></body></html>',
+      html: "<!doctype html><html><body><p>&lt;img src=x onerror=&quot;throw 1&quot;&gt;</p><span>Report</span><span>Unsubscribe</span></body></html>",
       text: `Synthetic report ${month}\n${maliciousName}\n-0.0167`,
     },
   };
@@ -225,11 +225,7 @@ it.each(["en", "zh"] as const)(
       "text/html",
     );
     expect(parsed.querySelector("img")).toBeNull();
-    expect(
-      [...parsed.querySelectorAll("a")].map((link) =>
-        link.getAttribute("href"),
-      ),
-    ).toEqual(["#report-preview", "#unsubscribe-preview"]);
+    expect(parsed.querySelectorAll("a[href]")).toHaveLength(0);
     fireEvent.click(screen.getByRole("tab", { name: copy.plainTextTab }));
     expect(view.container.querySelector("pre")!.textContent).toBe(
       data.email.text,

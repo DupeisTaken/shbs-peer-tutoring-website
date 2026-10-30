@@ -21,6 +21,8 @@ export function monthlyHoursEmailCopy(input: {
   reason: string | null;
   reportUrl: string;
   unsubscribeUrl: string;
+  /** Browser previews expose no navigation or account capabilities. */
+  preview?: boolean;
 }) {
   const { snapshot, revision, reportUrl, unsubscribeUrl } = input;
   const subject = `${snapshot.month} service-hours report / 服务时数报告 · r${revision}`;
@@ -52,7 +54,13 @@ export function monthlyHoursEmailCopy(input: {
     hours(snapshot.totals.punishments),
     hours(snapshot.totals.total),
   ];
-  const text = `${intro}\n\n${notice}\n\n${header}\n${values.map((row) => row.join(" | ")).join("\n")}\n${total.join(" | ")}\n\nView saved report / 查看已保存报告: ${reportUrl}\n\nUnsubscribe / 取消订阅: ${unsubscribeUrl}`;
+  const reportText = input.preview
+    ? "View saved report / 查看已保存报告 (preview only / 仅供预览)"
+    : `View saved report / 查看已保存报告: ${reportUrl}`;
+  const unsubscribeText = input.preview
+    ? "Unsubscribe / 取消订阅 (preview only / 仅供预览)"
+    : `Unsubscribe / 取消订阅: ${unsubscribeUrl}`;
+  const text = `${intro}\n\n${notice}\n\n${header}\n${values.map((row) => row.join(" | ")).join("\n")}\n${total.join(" | ")}\n\n${reportText}\n\n${unsubscribeText}`;
   const labels = [
     "Tutor<br>辅导伙伴",
     "Status<br>状态",
@@ -64,6 +72,10 @@ export function monthlyHoursEmailCopy(input: {
   ];
   const cells = (row: (string | number)[], heading = false) =>
     `<tr>${row.map((value, index) => `<${heading ? "th" : "td"} style="padding:10px 7px;border-bottom:1px solid #454B56;text-align:${index > 1 ? "right" : "left"};vertical-align:top;${heading ? "font-weight:700;" : ""}">${escape(value)}</${heading ? "th" : "td"}>`).join("")}</tr>`;
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(subject)}</title></head><body style="margin:0;background:#181B20;color:#E8EDF5;font-family:Arial,sans-serif"><main style="max-width:900px;margin:auto;padding:24px 12px"><p style="color:#A8C8F5">${escape(APP_TITLE)}</p><h1 style="font-size:24px">${escape(snapshot.month)} service-hours report<br>服务时数报告 · r${revision}</h1><p>${escape(intro).replaceAll("\n", "<br>")}</p><p style="font-size:14px;line-height:1.6;color:#C1CAD8">${escape(notice).replaceAll("\n", "<br>")}</p><div style="overflow-x:auto;background:#272D35;border-radius:8px;padding:8px"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>${labels.map((label) => `<th scope="col" style="padding:10px 7px;text-align:left">${label}</th>`).join("")}</tr></thead><tbody>${values.map((row) => cells(row)).join("")}${cells(total, true)}</tbody></table></div><p style="padding-top:16px"><a style="color:#B6D5FF" href="${escape(reportUrl)}">View saved report and download CSV / 查看报告并下载 CSV</a></p><p style="font-size:13px;color:#B3BDCB">Contains staff reporting information. Share only with authorized program staff.<br>此邮件包含项目管理报告信息，请仅向获授权工作人员分享。</p><p><a style="color:#B6D5FF" href="${escape(unsubscribeUrl)}">Unsubscribe / 取消订阅</a></p></main></body></html>`;
+  const action = (url: string, label: string) =>
+    input.preview
+      ? `<span style="color:#B6D5FF" aria-disabled="true">${escape(label)}</span>`
+      : `<a style="color:#B6D5FF" href="${escape(url)}">${escape(label)}</a>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(subject)}</title></head><body style="margin:0;background:#181B20;color:#E8EDF5;font-family:Arial,sans-serif"><main style="max-width:900px;margin:auto;padding:24px 12px"><p style="color:#A8C8F5">${escape(APP_TITLE)}</p><h1 style="font-size:24px">${escape(snapshot.month)} service-hours report<br>服务时数报告 · r${revision}</h1><p>${escape(intro).replaceAll("\n", "<br>")}</p><p style="font-size:14px;line-height:1.6;color:#C1CAD8">${escape(notice).replaceAll("\n", "<br>")}</p><div style="overflow-x:auto;background:#272D35;border-radius:8px;padding:8px"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>${labels.map((label) => `<th scope="col" style="padding:10px 7px;text-align:left">${label}</th>`).join("")}</tr></thead><tbody>${values.map((row) => cells(row)).join("")}${cells(total, true)}</tbody></table></div><p style="padding-top:16px">${action(reportUrl, "View saved report and download CSV / 查看报告并下载 CSV")}</p><p style="font-size:13px;color:#B3BDCB">Contains staff reporting information. Share only with authorized program staff.<br>此邮件包含项目管理报告信息，请仅向获授权工作人员分享。</p><p>${action(unsubscribeUrl, "Unsubscribe / 取消订阅")}</p></main></body></html>`;
   return { subject, text, html };
 }
