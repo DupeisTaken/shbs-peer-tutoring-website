@@ -161,7 +161,7 @@ it("concurrent viewer starts send one mail and failed delivery retains previous 
   expect(after.codeExpiresAt).toEqual(before.codeExpiresAt);
 });
 it("allows 100 mixed registrations, reads, verification and ordinary retries from one school in 15 minutes", async () => {
-  await db.term.create({
+  const term = await db.term.create({
     data: { name: "Intake", schoolYear: "26-27", quarter: "Q1", active: true },
   });
   await db.subject.create({ data: { id: "math", name: "Math" } });
@@ -192,6 +192,7 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
     if (i % 2 === 0) {
       const submission = {
         clientKey: randomUUID(),
+        expectedTermId: term.id,
         englishName: `Student ${String.fromCharCode(65 + (i % 26))}`,
         email,
         firstChoiceId: "math",

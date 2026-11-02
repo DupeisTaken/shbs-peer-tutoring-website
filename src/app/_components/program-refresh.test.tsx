@@ -9,6 +9,8 @@ import zh from "../../../messages/zh.json";
 import { ProgramRefresh } from "./program-refresh";
 import type { NextRecruitmentSettingsData } from "./next-recruitment-settings";
 
+vi.mock("./scheduled-program-refresh", () => ({ ScheduledProgramRefresh: () => null }));
+
 const mocks = vi.hoisted(() => ({ write: vi.fn(), fetch: vi.fn(), currentFetch: vi.fn(), cancel: vi.fn(), currentCancel: vi.fn(), refetch: vi.fn(), data: undefined as NextRecruitmentSettingsData | undefined, error: null as Error | null }));
 vi.mock("~/trpc/react", () => ({ api: {
   useUtils: () => ({ program: { nextRecruitment: { fetch: mocks.fetch, cancel: mocks.cancel } }, admin: { currentPeriod: { fetch: mocks.currentFetch, cancel: mocks.currentCancel } } }),

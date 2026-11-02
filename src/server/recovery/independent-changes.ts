@@ -34,6 +34,7 @@ const preservedFields: Record<string, ReadonlySet<string>> = {
     "emailVerifiedAt",
     "suspendedAt",
     "suspendedReason",
+    "refreshAuthorityRevision",
     "role",
     "canTranslate",
     "crewStatus",
@@ -77,6 +78,15 @@ export function preservedRecoveryChange(change: Change): boolean {
     return allowed.length > 0 && parsed.data.length > 0 && parsed.data.every((field) => allowed.includes(field));
   }
   if (change.operation !== "UPDATE") return false;
+  // A supported independent role/suspension write also advances the database-owned
+  // scheduling epoch. Preserve it; compensation must never restore old authority.
+  // A standalone epoch edit or a merge/ownership change remains unsupported.
+  if (
+    change.entity === "User" &&
+    parsed.data.includes("refreshAuthorityRevision") &&
+    !parsed.data.some((field) => field === "role" || field === "suspendedAt")
+  )
+    return false;
   if (change.entity === "User" && parsed.data.includes("role")) {
     const after = z
       .object({

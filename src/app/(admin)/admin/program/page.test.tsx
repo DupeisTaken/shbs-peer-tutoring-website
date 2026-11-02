@@ -47,6 +47,11 @@ vi.mock("~/app/_components/next-recruitment-settings", () => ({
   NextRecruitmentSettings: access.privateChild,
   NextRecruitmentError: ({ message }: { message: string }) => message,
 }));
+// Scheduling owns its versioned query/write tests; keep this suite focused on
+// immediate refresh and the page's private-child admission boundary.
+vi.mock("~/app/_components/scheduled-program-refresh", () => ({
+  ScheduledProgramRefresh: access.privateChild,
+}));
 const target = { sourceTermId: "term-1", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 0 };
 const nextRecruitment = { canEdit: true, canApply: true, target, currentName: "Current", nextName: "Next", timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, refreshEvidence: { target, timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, destination: null } };
 // This suite owns refresh confirmation. Relocated settings own separate query tests.

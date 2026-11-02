@@ -10,6 +10,7 @@ import { NextRecruitmentError } from "./next-recruitment-settings";
 import { useActionReview } from "./ui/action-review";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import { ScheduledProgramRefresh } from "./scheduled-program-refresh";
 
 type Period = NonNullable<RouterOutputs["admin"]["currentPeriod"]>;
 
@@ -40,7 +41,7 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
   const stale = data ? Object.values(data.preparations).some((row) => row !== null && !row.matchesTarget) : false;
   const key = `refresh:${period.termId}`;
   const blocked = !liveCanEdit || !data || !!query.error || stale || data.target.sourceTermId !== period.termId || review.blocked(key);
-  return <section className="card space-y-4 border-amber-200 p-5">
+  return <><ScheduledProgramRefresh period={period} canEdit={canEdit} canApply={canApply} onActivated={onActivated} /><section className="card space-y-4 border-amber-200 p-5">
     <div><h2 className="section-title">{t("refreshHeading")}</h2><p className="muted mt-1">{t("advancesTo", { name: data?.nextName ?? period.next.name })}</p></div>
     {query.error && <InlineNotice tone="error" announcement="alert" action={<button className="btn-secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>{nextText("retry")}</button>}>{nextText("loadFailed")}</InlineNotice>}
     {!data && !query.error && <StatePanel kind="loading" title={nextText("loading")} />}
@@ -105,5 +106,5 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
       </div>
     </div>
     {review.dialog}
-  </section>;
+  </section></>;
 }

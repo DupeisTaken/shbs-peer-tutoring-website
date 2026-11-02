@@ -127,6 +127,8 @@ const fieldPolicies: Record<string, string> = {
   Term: "id name schoolYear quarter startDate endDate active scheduleConfirmed tutorSignupOpen tuteeSignupOpen signupOpeningStateSince signupFirstOpenedAt continuationSourceTermId continuationQuarterTransition createdAt updatedAt",
   NextRecruitmentPreparation:
     "sourceTermId audience targetTermId createdAt updatedAt",
+  ScheduledProgramRefresh:
+    "id sourceTermId sourceSchoolYear sourceQuarter destinationSchoolYear destinationQuarter semesterMode executeAt timeZone state version attempts blockedReason completedAt createdAt updatedAt",
   Tutor:
     "id personId username name englishName chineseName firstName lastName preferredName alternativeNames email grade gradeLevel classYear status canTutor createdAt updatedAt",
   CourseGroup: "id name active order createdAt updatedAt",

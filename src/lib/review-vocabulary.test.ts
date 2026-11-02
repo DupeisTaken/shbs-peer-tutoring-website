@@ -31,6 +31,21 @@ const at = (catalog: unknown, path: string | null): unknown =>
       catalog,
     );
 
+it("labels scheduled-refresh business state without registering private execution evidence for display", () => {
+  expect(auditEntityLabelKey("ScheduledProgramRefresh")).toBe("auditEventDetails.presentation.entities.ScheduledProgramRefresh");
+  expect(auditEnumLabelKey("ScheduledProgramRefresh", "state", "BLOCKED")).toBe("auditEventDetails.presentation.enums.ScheduledRefreshState.BLOCKED");
+  expect(auditEnumLabelKey("ScheduledProgramRefresh", "blockedReason", "SCHEDULED_REFRESH_HEAD_CHANGED")).toBe("scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED");
+  expect(auditFieldLabelKey("ScheduledProgramRefresh", "executeAt")).toBe("auditEventDetails.presentation.fields.executeAt");
+  expect(auditReferenceEntity("ScheduledProgramRefresh", "sourceTermId")).toBe("Term");
+  for (const field of ["expectedPreparation", "authorizedById", "authorizedByName", "authorityRevision"]) {
+    expect(auditFieldLabelKey("ScheduledProgramRefresh", field)).toBeNull();
+    expect(auditReferenceEntity("ScheduledProgramRefresh", field)).toBeUndefined();
+  }
+  expect(reviewSchema.User.fields).toContain("refreshAuthorityRevision");
+  expect(auditFieldLabelKey("User", "refreshAuthorityRevision")).toBeNull();
+  expect(auditEnumLabelKey("User", "blockedReason", "SCHEDULED_REFRESH_HEAD_CHANGED")).toBeNull();
+});
+
 it("labels recovery evidence only within its known schema owners", () => {
   expect(auditEntityLabelKey("RecoveryReceipt")).toBe(
     "auditEventDetails.presentation.entities.RecoveryReceipt",

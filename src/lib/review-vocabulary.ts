@@ -40,6 +40,13 @@ export const reviewStringDomains = {
       request_service: `${prefix}.deliveryCategories.request_service`,
     },
   },
+  ScheduledProgramRefresh: {
+    blockedReason: {
+      SCHEDULED_REFRESH_HEAD_CHANGED: "scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED",
+      SCHEDULED_REFRESH_REVIEW_CHANGED: "scheduledRefresh.errors.SCHEDULED_REFRESH_REVIEW_CHANGED",
+      SCHEDULED_REFRESH_EXECUTION_FAILED: "scheduledRefresh.errors.SCHEDULED_REFRESH_EXECUTION_FAILED",
+    },
+  },
   TranslationDraft: {
     state: {
       PENDING: "translationEditor.PENDING",

@@ -105,6 +105,7 @@ describe("tutee signup window procedures", () => {
     // freezing unrelated asynchronous work.
     const opensAt = new Date(Date.now() + 60_000);
     const findFirst = vi.fn().mockResolvedValue({
+      id: "current",
       signupOpensAt: opensAt,
     });
     const caller = createTuteeCaller(
@@ -122,6 +123,7 @@ describe("tutee signup window procedures", () => {
     await expect(
       caller.requestSignup({
         clientKey: randomUUID(),
+        expectedTermId: "current",
         englishName: "Early Student",
         email: "early-student@example.test",
         policyRevision: "test-revision",
@@ -190,6 +192,7 @@ describe("tutee signup window procedures", () => {
           role: true,
           suspendedAt: true,
           mergedIntoId: true,
+          refreshAuthorityRevision: true,
         },
       });
       expect(ctx.fixtures.lockActor.mock.invocationCallOrder[0]).toBeLessThan(
@@ -280,6 +283,7 @@ it.each(["paused", "scheduled", "ended", "no-period"])(
       state === "no-period"
         ? null
         : {
+            id: "current",
             signupEnabled: state !== "paused",
             tutorSignupEnabled: state !== "paused",
             signupOpensAt:
@@ -313,6 +317,7 @@ it.each(["paused", "scheduled", "ended", "no-period"])(
     await expect(
       createTuteeCaller(ctx).submitSurvey({
         clientKey: randomUUID(),
+        expectedTermId: "current",
         englishName: "Test Student",
         email: `closed-${state}@example.test`,
         agreed: true,

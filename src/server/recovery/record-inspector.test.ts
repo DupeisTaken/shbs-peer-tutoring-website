@@ -25,12 +25,32 @@ function fixture() {
     recoveryChange: { findMany: vi.fn().mockResolvedValue([]) },
     programFeature: { findMany: vi.fn().mockResolvedValue([]) },
     recoveryFence: { findMany: vi.fn().mockResolvedValue([]) },
+    scheduledProgramRefresh: { findMany: vi.fn().mockResolvedValue([]) },
   };
   return { db, client: db as unknown as DomainDb };
 }
 
 describe("read-only database inspector", () => {
   beforeEach(() => vi.clearAllMocks());
+  it("inspects safe schedule status without selecting private authorization evidence", async () => {
+    const { db, client } = fixture();
+    db.scheduledProgramRefresh.findMany.mockResolvedValue([{
+      id: "schedule", sourceTermId: "source", state: "SCHEDULED", version: 1,
+      executeAt: new Date("2030-01-01T00:00:00Z"),
+      expectedPreparation: { private: "must-not-escape" }, authorizedById: "private-head",
+      authorizedByName: "Private approver", authorityRevision: 4,
+    }]);
+    const result = await inspectRecords(client, web, { table: "ScheduledProgramRefresh" });
+    expect(result.table).toMatchObject({ available: true, keyFields: ["id"] });
+    expect(result.rows[0]?.fields).toMatchObject({ state: "SCHEDULED", executeAt: "2030-01-01T00:00:00.000Z" });
+    const args = db.scheduledProgramRefresh.findMany.mock.calls[0]?.[0] as unknown as {
+      select: Record<string, boolean>;
+    };
+    for (const name of ["expectedPreparation", "authorizedById", "authorizedByName", "authorityRevision"])
+      expect(args.select[name]).toBeUndefined();
+    expect(JSON.stringify(result.rows)).not.toContain("must-not-escape");
+    expect(result.rows[0]?.fields).not.toHaveProperty("authorizedById");
+  });
   it("catalogues unsupported models without reading rows or private existence", async () => {
     const { db, client } = fixture();
     const tables = await listRecordTables(client, web);

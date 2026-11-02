@@ -2309,6 +2309,7 @@ it("PASS: signup gate rejects submissions before the configured opening", async 
       headers: new Headers(),
     }).tutee.requestSignup({
       clientKey: randomUUID(),
+      expectedTermId: "review-term",
       englishName: "New Student",
       email: "new-student@example.test",
       policyRevision: "test-revision",
