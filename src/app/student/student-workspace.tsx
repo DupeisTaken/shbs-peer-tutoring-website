@@ -42,7 +42,6 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   });
   useEffect(() => {
     if (!requestDenied && !legacyDenied) return;
-    setDenied(true);
     if (requestDenied)
       queryClient.removeQueries({
         queryKey: getQueryKey(api.studentWorkflow.mine, undefined, "query"),
@@ -56,15 +55,19 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
         ),
       });
   }, [requestDenied, legacyDenied, queryClient]);
-  useEffect(() => {
-    if (
-      query.isSuccess &&
-      legacy.isSuccess &&
-      !query.isFetching &&
-      !legacy.isFetching
-    )
-      setDenied(false);
-  }, [query.isSuccess, legacy.isSuccess, query.isFetching, legacy.isFetching]);
+  // Both owned reads must recover before cached request children can return.
+  const nextDenied =
+    requestDenied || legacyDenied
+      ? true
+      : query.isSuccess &&
+          legacy.isSuccess &&
+          !query.isFetching &&
+          !legacy.isFetching &&
+          !query.error &&
+          !legacy.error
+        ? false
+        : denied;
+  if (nextDenied !== denied) setDenied(nextDenied);
   const retry = () => {
     void query.refetch();
     void legacy.refetch();

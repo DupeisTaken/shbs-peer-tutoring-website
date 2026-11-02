@@ -309,17 +309,23 @@ export type AdditionalRequestEntry = {
   content: ReactNode;
   invalid?: boolean;
 };
-export function StudentRequestBoard({
-  additionalEntries = [],
-  additionalLoading = false,
-  viewScope = "",
-  viewDenied = false,
-}: {
+type StudentRequestBoardProps = {
   additionalEntries?: AdditionalRequestEntry[];
   additionalLoading?: boolean;
   viewScope?: string;
   viewDenied?: boolean;
-}) {
+};
+export function StudentRequestBoard(props: StudentRequestBoardProps) {
+  const account = api.account.me.useQuery().data;
+  // Private child drafts cannot cross accounts; a scope change only resets views.
+  return <StudentRequestBoardView key={account?.id ?? "unverified"} {...props} />;
+}
+function StudentRequestBoardView({
+  additionalEntries = [],
+  additionalLoading = false,
+  viewScope = "",
+  viewDenied = false,
+}: StudentRequestBoardProps) {
   const t = useTranslations("workflow");
   const ui = useTranslations("uiPatterns");
   const rows = api.studentWorkflow.adminRequests.useQuery(undefined, {
@@ -341,7 +347,7 @@ export function StudentRequestBoard({
     (NotificationRecordArrival & { group?: RequestTab }) | null
   >(null);
   const [targetMissing, setTargetMissing] = useState(false);
-  const [tab, setTab] = useSessionViewState({
+  const [tab, setTab, reconcileTab] = useSessionViewState({
     id: "requests.tab.v1",
     initialState: "matching",
     parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
@@ -350,7 +356,7 @@ export function StudentRequestBoard({
     // Static tab choices stay usable during reads; explicit notice reveal and
     // page-scroll restoration still wait for their complete authorized content.
   });
-  const [invalidity, setInvalidity] =
+  const [invalidity, setInvalidity, reconcileInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
       id: "requests.invalidity.v1",
       initialState: "valid",
@@ -376,24 +382,32 @@ export function StudentRequestBoard({
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
   }, [verified, denied]);
-  useEffect(() => {
-    if (
-      !arrival ||
-      arrival.group ||
-      additionalLoading ||
-      !rows.data ||
-      !legacyReviews.data ||
-      rows.isFetching
-    )
-      return;
+  const [noticeScope, setNoticeScope] = useState(viewScope);
+  if (noticeScope !== viewScope) {
+    // A pending arrival belongs to its original period, never a later read scope.
+    // Keep the board mounted so accepted-write recovery is not discarded.
+    setNoticeScope(viewScope);
+    setArrival(null);
+    setTargetMissing(false);
+  }
+  if (
+    noticeScope === viewScope &&
+    verified &&
+    !denied &&
+    arrival &&
+    !arrival.group &&
+    !additionalLoading &&
+    rows.data &&
+    legacyReviews.data &&
+    !rows.isFetching
+  ) {
     const target = requestBoardTarget(arrival.hash);
-    if (!target) return;
     const row =
-      target.kind === "survey"
+      target?.kind === "survey"
         ? rows.data.find((entry) => entry.id === target.id)
         : null;
     const legacy =
-      target.kind === "signup"
+      target?.kind === "signup"
         ? additionalEntries.find(
             (entry) => (entry.sourceId ?? entry.id) === target.id,
           )
@@ -407,22 +421,15 @@ export function StudentRequestBoard({
       : legacy?.group;
     setTargetMissing(!group);
     if (group) {
-      // Explicit event navigation wins over remembered filters only for this
-      // arrival; it never rebases a retained request/editor draft.
-      setTab(group);
-      setInvalidity("all");
+      // Reconcile authorized presentation before committing children. The shared
+      // hook persists after commit, so bare returns retain these choices without
+      // storage writes during render. Consume this arrival once; later manual
+      // choices and background reads must not replay its filter selection.
+      reconcileTab(group);
+      reconcileInvalidity("all");
       setArrival({ ...arrival, group });
     } else setArrival(null);
-  }, [
-    arrival,
-    additionalLoading,
-    rows.data,
-    rows.isFetching,
-    legacyReviews.data,
-    additionalEntries,
-    setTab,
-    setInvalidity,
-  ]);
+  }
   useNotificationRecordReveal(
     arrival,
     !denied &&
@@ -862,13 +869,17 @@ function Assignment({
   const names = useTranslations("participantNames");
   const utils = api.useUtils();
   const [tutorId, setTutorId] = useState("");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<number | null>(null);
+  const reviewSequence = useRef(0);
+  const activeReview = useRef<number | null>(null);
   const [consequenceTicket, setConsequenceTicket] = useState<string | null>(
     null,
   );
   const readOnly = useReadOnly();
   const assign = api.studentWorkflow.assign.useMutation();
-  const canWrite = useRef(!readOnly && !row.isInvalid);
+  const allowed = !readOnly && !row.isInvalid;
+  const canWrite = useRef(allowed);
+  const [previousAllowed, setPreviousAllowed] = useState(allowed);
   const activeTicket = useRef<string | null>(null);
   const admitted = useRef(false);
   const accepted = useRef(false);
@@ -883,16 +894,21 @@ function Assignment({
       () => invalidateAndReport(utils.admin.pairings),
       () => invalidateWorkloads(utils, true),
     ]);
-  useEffect(() => {
-    canWrite.current = !readOnly && !row.isInvalid;
-    if (readOnly || row.isInvalid) {
-      // Revocation conceals the review and discards only its unsubmitted proof.
-      // Restored access cannot resurrect it or replay a write already in flight.
-      setOpen(false);
-      activeTicket.current = null;
+  if (previousAllowed !== allowed) {
+    setPreviousAllowed(allowed);
+    if (!allowed) {
+      // Unsubmitted proof is revoked without discarding accepted-write recovery.
+      setOpen(null);
       setConsequenceTicket(null);
     }
-  }, [readOnly, row.isInvalid]);
+  }
+  useEffect(() => {
+    canWrite.current = allowed;
+    if (!allowed) {
+      activeReview.current = null;
+      activeTicket.current = null;
+    }
+  }, [allowed]);
   const recover = async () => {
     if (admitted.current) return;
     admitted.current = true;
@@ -936,7 +952,7 @@ function Assignment({
       // Acceptance closes the write lifecycle before reads. A failed refresh
       // offers only read recovery, never another submission of the saved intent.
       accepted.current = true;
-      setOpen(false);
+      setOpen(null);
       activeTicket.current = null;
       setConsequenceTicket(null);
       try {
@@ -987,7 +1003,8 @@ function Assignment({
                     accepted.current = false;
                     setEmailFailed(false);
                     setApprovalId(null);
-                    setOpen(true);
+                    activeReview.current = ++reviewSequence.current;
+                    setOpen(activeReview.current);
                   }}
                 >
                   {t("assign")}
@@ -1007,7 +1024,8 @@ function Assignment({
               value={tutorId}
               disabled={working || needsRefresh}
               onChange={(value) => {
-                setOpen(false);
+                setOpen(null);
+                activeReview.current = null;
                 activeTicket.current = null;
                 setConsequenceTicket(null);
                 setTutorId(value);
@@ -1068,9 +1086,14 @@ function Assignment({
           message={`${subject.name} → ${participantNameLabel(tutors.find((tu) => tu.id === tutorId)?.englishName, tutors.find((tu) => tu.id === tutorId)?.user?.username, names("unnamed"))}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
           busy={working}
           error={assign.error?.message}
-          onCancel={() => setOpen(false)}
+          onCancel={() => {
+            activeReview.current = null;
+            setOpen(null);
+          }}
           onConfirm={(ticket) => {
-            setOpen(false);
+            if (!canWrite.current || activeReview.current !== open) return;
+            activeReview.current = null;
+            setOpen(null);
             activeTicket.current = ticket;
             setConsequenceTicket(ticket);
           }}

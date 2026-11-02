@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -456,21 +456,37 @@ function ReadSchoolPreview({ parentDenied }: { parentDenied: boolean }) {
     schoolHoursDenied(settings.error) ||
     schoolHoursDenied(preview.error);
   const hidden = denied || accessDenied;
+  const readGeneration = useRef(0);
+  // A retry cannot restore access after a newer denial from another read.
+  useLayoutEffect(() => {
+    if (accessDenied) readGeneration.current += 1;
+  }, [accessDenied, settings.error, preview.error]);
+  useLayoutEffect(
+    () => () => {
+      readGeneration.current += 1;
+    },
+    [],
+  );
+  // Keep denial latched until an explicit successful read; cached/late data
+  // cannot restore the previous private preview request.
+  if (accessDenied && !denied) {
+    setDenied(true);
+    setRequested("");
+  }
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
-      setRequested("");
+    if (hidden)
       client.removeQueries({ queryKey: getQueryKey(api.schoolHours) });
-    } else if (settings.isSuccess && !settings.isFetching) setDenied(false);
-  }, [accessDenied, settings.isSuccess, settings.isFetching, client]);
-  useEffect(() => {
-    if (!hidden && settings.data && !initialized) {
-      setMonth(
-        programDateKey(new Date(), settings.data.config.timeZone).slice(0, 7),
-      );
-      setInitialized(true);
-    }
-  }, [hidden, settings.data, initialized]);
+  }, [hidden, client]);
+  if (!hidden && settings.data && !initialized) {
+    setMonth(programDateKey(new Date(), settings.data.config.timeZone).slice(0, 7));
+    setInitialized(true);
+  }
+  const retryRead = async () => {
+    const started = readGeneration.current;
+    const result = await settings.refetch();
+    if (started === readGeneration.current && result.isSuccess && result.data)
+      setDenied(false);
+  };
   const data = hidden ? undefined : settings.data;
   const snapshot =
     data &&
@@ -489,7 +505,7 @@ function ReadSchoolPreview({ parentDenied }: { parentDenied: boolean }) {
           action={
             <Button
               disabled={settings.isFetching || parentDenied}
-              onClick={() => void settings.refetch()}
+              onClick={() => void retryRead()}
             >
               {t("retryRead")}
             </Button>
@@ -506,7 +522,7 @@ function ReadSchoolPreview({ parentDenied }: { parentDenied: boolean }) {
             loadingTitle={t("loading")}
             errorTitle={t(data ? "refreshFailed" : "loadFailed")}
             retryLabel={t("retryRead")}
-            onRetry={() => void settings.refetch()}
+            onRetry={() => void retryRead()}
           />
           {data && (
             <>

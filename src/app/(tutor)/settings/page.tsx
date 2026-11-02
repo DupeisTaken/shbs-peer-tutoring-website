@@ -69,15 +69,15 @@ export default function SettingsPage() {
     ready: !!profile.data && !!me.data,
     enabled: !profileDenied && !deniedNow,
   });
+  // Denial is part of the rendered read state, while eviction synchronizes the
+  // external cache once per episode. Only explicit successful recovery clears it.
+  if (deniedNow && !profileDenied) setProfileDenied(true);
   useEffect(() => {
-    // One eviction per denial episode keeps recovery bounded if another owner
-    // subscribes to this profile; only successful explicit recovery clears the latch.
-    if (!deniedNow || profileDenied) return;
-    setProfileDenied(true);
+    if (!profileDenied) return;
     queryClient.removeQueries({
       queryKey: getQueryKey(api.tutor.myProfile, undefined, "query"),
     });
-  }, [deniedNow, profileDenied, queryClient]);
+  }, [profileDenied, queryClient]);
 
   const updateProfile = api.tutor.updateProfile.useMutation({
     onSuccess: async () => {
@@ -113,19 +113,25 @@ export default function SettingsPage() {
   });
 
   // Profile form — seeded from the loaded profile.
-  const [names, setNames] = useState(() => nameDraft());
+  const [names, setNames] = useState(() => nameDraft(profile.data));
   const {
     ready: namePolicyReady,
     hasFields: editableNames,
     observe: observeNamePolicy,
   } = useNameFieldPresentation();
-  const [originalNames, setOriginalNames] = useState(() => nameDraft());
-  const [legacyName, setLegacyName] = useState<string | null | undefined>();
+  const [originalNames, setOriginalNames] = useState(() => nameDraft(profile.data));
+  const [legacyName, setLegacyName] = useState(() =>
+    profile.data ? unsplitLegacyName(profile.data) : undefined,
+  );
   const identity = personNameEdit(names, originalNames, legacyName);
-  const [profileVersion, setProfileVersion] = useState<number>();
+  const [profileVersion, setProfileVersion] = useState(profile.data?.profileVersion);
   const [profileDirty, setProfileDirty] = useState(false);
   const [optOutReason, setOptOutReason] = useState("");
-  useEffect(() => {
+  const [observedProfile, setObservedProfile] = useState(profile.data);
+  // A pristine form follows newly delivered data; edited and accepted sections
+  // retain their snapshot until their explicit reload/refresh adopts a new one.
+  if (profile.data !== observedProfile) {
+    setObservedProfile(profile.data);
     if (
       profile.data &&
       !profileDirty &&
@@ -137,7 +143,7 @@ export default function SettingsPage() {
       setLegacyName(unsplitLegacyName(profile.data));
       setProfileVersion(profile.data.profileVersion);
     }
-  }, [profile.data, profileDirty, profileCommitted, profileReloading]);
+  }
   const profileBlocked =
     profileDenied ||
     deniedNow ||
@@ -310,9 +316,10 @@ export default function SettingsPage() {
     (error) =>
       error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED",
   );
+  const { revoke: revokeOptOutReview } = optOutReview;
   useEffect(() => {
-    if (membershipDenied) optOutReview.revoke();
-  }, [membershipDenied, optOutReview.revoke]);
+    if (membershipDenied) revokeOptOutReview();
+  }, [membershipDenied, revokeOptOutReview]);
   const reviewOptOut = () => {
     if (
       membershipBlocked ||

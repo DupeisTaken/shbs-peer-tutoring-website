@@ -184,28 +184,27 @@ function InvitationRedemptionFlow({
   const [sessionPending, startSession] = useTransition();
   const admitted = useRef(false);
   const verifying = useRef(false);
-  const { mutateAsync: readReview } =
+  const { mutateAsync: readReview, isPending: reading } =
     api.accountInvitation.review.useMutation();
   const [reviewData, setReviewData] = useState<
     RouterOutputs["accountInvitation"]["review"] | undefined
   >();
   const [reviewError, setReviewError] = useState<Error | null>(null);
-  const [reading, setReading] = useState(false);
   const readSequence = useRef(0);
   const loadReview = useCallback(
-    async (recipientProof: string) => {
+    (recipientProof: string) => {
       const sequence = ++readSequence.current;
-      setReading(true);
-      try {
-        const fresh = await readReview({
-          invitationId,
-          ...(recipientProof ? { proof: recipientProof } : {}),
-        });
+      // Subscribe to the POST read's settlement. Its observer owns pending state;
+      // only the response belonging to this opening may update private evidence.
+      return readReview({
+        invitationId,
+        ...(recipientProof ? { proof: recipientProof } : {}),
+      }).then((fresh) => {
         if (sequence === readSequence.current) {
           setReviewData(fresh);
           setReviewError(null);
         }
-      } catch (error) {
+      }, (error: unknown) => {
         if (sequence === readSequence.current) {
           const code =
             typeof error === "object" && error !== null && "data" in error
@@ -224,16 +223,17 @@ function InvitationRedemptionFlow({
             error instanceof Error ? error : new Error("Review failed"),
           );
         }
-      } finally {
-        if (sequence === readSequence.current) setReading(false);
-      }
+      });
     },
     [readReview, invitationId],
   );
   useEffect(() => {
+    // The mutation observer owns network pending state. This effect starts only
+    // the authorized read; responses adopt data after the request settles.
+    const sequenceOwner = readSequence;
     if (proof || signedIn) void loadReview(proof);
     return () => {
-      readSequence.current++;
+      sequenceOwner.current++;
     };
   }, [proof, signedIn, loadReview]);
   const info = reviewData;

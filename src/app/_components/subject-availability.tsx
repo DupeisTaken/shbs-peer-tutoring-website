@@ -33,17 +33,21 @@ export function SubjectAvailability() {
   const authorizationDenied =
     data.error?.data?.code === "FORBIDDEN" ||
     data.error?.data?.code === "UNAUTHORIZED";
+  // Authorization evidence owns the local latch; ordinary failures cannot
+  // release it. Keep cache eviction outside the render transition.
+  if (authorizationDenied && !denied) setDenied(true);
+  else if (!authorizationDenied && denied && data.isSuccess && !data.isFetching)
+    setDenied(false);
   useEffect(() => {
     if (authorizationDenied) {
-      setDenied(true);
       // Retaining cached content for ordinary failures must never revive revoked
       // staff evidence during a later transport failure or a reopened feature.
       queryClient.removeQueries({
         queryKey: getQueryKey(api.subjectAvailability.options),
         exact: false,
       });
-    } else if (data.isSuccess && !data.isFetching) setDenied(false);
-  }, [authorizationDenied, data.isSuccess, data.isFetching, queryClient]);
+    }
+  }, [authorizationDenied, queryClient]);
   const utils = api.useUtils();
   const [editing, setEditing] = useState<{
     tutorId: string;

@@ -36,6 +36,7 @@ const state = vi.hoisted(() => ({
       }) => void
     >(),
   close: vi.fn(),
+  deleted: vi.fn(),
   recovery: vi.fn(),
   options: vi.fn(),
   callbacks: undefined as
@@ -108,7 +109,10 @@ function Controller() {
           state.close();
           setTarget(null);
         }}
-        onDeleted={() => setTarget(null)}
+        onDeleted={(id) => {
+          state.deleted(id);
+          setTarget(null);
+        }}
       />
     </>
   );
@@ -365,4 +369,154 @@ it("retains accepted deletion recovery after row/dialog removal and retries read
   expect(
     screen.queryByText(messages.accountDeletion.savedRefreshFailed),
   ).toBeNull();
+});
+
+it("resets the target password and rejects the prior target's cached preview", () => {
+  const view = mount();
+  open();
+  fireEvent.change(password(), { target: { value: "Casey's confirmation" } });
+  fireEvent.click(screen.getByRole("button", { name: "Delete Drew" }));
+  expect(screen.queryByText("casey@example.test · @casey")).toBeNull();
+  expect(screen.queryByLabelText(messages.admin.users.confirm.passwordLabel)).toBeNull();
+  state.data = {
+    ...preview(),
+    target: { id: "second", name: "Drew Vale", email: "drew@example.test", username: "drew" },
+    fingerprint: "drew-review",
+  };
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <Controller />
+    </NextIntlClientProvider>,
+  );
+  expect(password().value).toBe("");
+  submit();
+  expect(state.mutate).toHaveBeenCalledExactlyOnceWith({
+    userId: "second",
+    fingerprint: "drew-review",
+    confirmPassword: "synthetic password",
+  });
+});
+
+it("retains the adopted fingerprint on background refresh until explicit reload", () => {
+  const view = mount();
+  open();
+  fireEvent.change(password(), { target: { value: "My confirmation" } });
+  state.data = {
+    ...preview(),
+    fingerprint: "background-review",
+    retained: { messages: 20 },
+  };
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <Controller />
+    </NextIntlClientProvider>,
+  );
+  expect(password().value).toBe("My confirmation");
+  expect(password().matches(":disabled")).toBe(true);
+  expect(screen.getByText(messages.accountDeletion.changed)).toBeTruthy();
+  expect(screen.queryByText("20")).toBeNull();
+  fireEvent.submit(password().closest("form")!);
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("does not attach a late reload to a reopened dialog for the same target", async () => {
+  const view = mount();
+  open();
+  state.data = { ...preview(), fingerprint: "changed" };
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <Controller />
+    </NextIntlClientProvider>,
+  );
+  let resolveRead!: (value: { data: ReturnType<typeof preview>; error: null }) => void;
+  state.refetch.mockImplementation(() => new Promise((resolve) => { resolveRead = resolve; }));
+  fireEvent.click(screen.getByRole("button", { name: messages.accountDeletion.reload }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  state.data = { ...preview(), fingerprint: "reopened" };
+  open();
+  fireEvent.change(password(), { target: { value: "New opening confirmation" } });
+  await act(async () => { resolveRead({ data: { ...preview(), fingerprint: "late" }, error: null }); });
+  expect(password().value).toBe("New opening confirmation");
+  fireEvent.submit(password().closest("form")!);
+  expect(state.mutate).toHaveBeenCalledExactlyOnceWith({
+    userId: "login",
+    fingerprint: "reopened",
+    confirmPassword: "New opening confirmation",
+  });
+});
+
+it("keeps the list-owned deletion lease and original receipt across a forced pending target change", async () => {
+  mount();
+  open();
+  submit();
+  const originalCallbacks = state.callbacks!;
+  const originalInput = state.mutate.mock.calls[0]![0];
+  state.data = {
+    ...preview(),
+    target: { id: "second", name: "Drew Vale", email: "drew@example.test", username: "drew" },
+    fingerprint: "drew-review",
+  };
+  fireEvent.click(screen.getByRole("button", { name: "Delete Drew" }));
+  expect(password().value).toBe("");
+  expect(password().matches(":disabled")).toBe(true);
+  fireEvent.submit(password().closest("form")!);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(state.mutate).toHaveBeenCalledOnce();
+  expect(state.close).not.toHaveBeenCalled();
+
+  let rejectRefresh!: (reason: Error) => void;
+  state.refresh.mockImplementation(() => new Promise((_resolve, reject) => { rejectRefresh = reject; }));
+  let acceptance!: Promise<void>;
+  act(() => { acceptance = originalCallbacks.onSuccess({}, originalInput); });
+  expect(state.deleted).toHaveBeenCalledExactlyOnceWith("login");
+  expect(screen.getByText(messages.accountDeletion.saved.replace("{name}", "Casey Brook"))).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Delete Drew" }));
+  expect(password().matches(":disabled")).toBe(true);
+  await act(async () => {
+    rejectRefresh(new Error("List refresh failed"));
+    await acceptance;
+    originalCallbacks.onSettled();
+  });
+  expect(screen.getByText(messages.accountDeletion.savedRefreshFailed)).toBeTruthy();
+  expect(password().matches(":disabled")).toBe(true);
+  fireEvent.submit(password().closest("form")!);
+  expect(state.mutate).toHaveBeenCalledOnce();
+
+  state.refresh.mockResolvedValue(undefined);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: messages.accountDeletion.retryList }));
+  });
+  expect(password().matches(":disabled")).toBe(false);
+  submit();
+  expect(state.mutate).toHaveBeenCalledTimes(2);
+  expect(state.mutate).toHaveBeenLastCalledWith({
+    userId: "second",
+    fingerprint: "drew-review",
+    confirmPassword: "synthetic password",
+  });
+  act(() => { originalCallbacks.onSettled(); });
+  expect(password().matches(":disabled")).toBe(true);
+});
+
+it("releases the old target's lease after a rejected deletion without attaching its error to the replacement", () => {
+  mount();
+  open();
+  submit();
+  const originalCallbacks = state.callbacks!;
+  state.data = {
+    ...preview(),
+    target: { id: "second", name: "Drew Vale", email: "drew@example.test", username: "drew" },
+    fingerprint: "drew-review",
+  };
+  fireEvent.click(screen.getByRole("button", { name: "Delete Drew" }));
+  expect(password().matches(":disabled")).toBe(true);
+  act(() => {
+    originalCallbacks.onError({ message: "Original password rejected" });
+    originalCallbacks.onSettled();
+  });
+  expect(screen.queryByText("Original password rejected")).toBeNull();
+  expect(password().matches(":disabled")).toBe(false);
+  submit();
+  expect(state.mutate).toHaveBeenCalledTimes(2);
+  expect(state.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ userId: "second" }));
 });

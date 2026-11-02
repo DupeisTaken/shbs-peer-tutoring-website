@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -52,6 +53,9 @@ function ConfirmationInstance({
   const t = useTranslations("assignmentQualification");
   const workloadText = useTranslations("tutorWorkload");
   const statusId = useId();
+  // The keyed instance owns one selection, including an equivalent payload
+  // recreated by the parent while a ticket or accepted write is still pending.
+  const [selection] = useState(() => ({ operation, payload }));
   const prepare = api.assignment.prepare.useMutation();
   const cancel = api.assignment.cancel.useMutation();
   const [result, setResult] = useState<Awaited<
@@ -74,7 +78,7 @@ function ConfirmationInstance({
     [run],
   );
   const callbacks = useRef({ onConfirm, onCancel, run: runAttempt });
-  useEffect(() => {
+  useLayoutEffect(() => {
     callbacks.current = { onConfirm, onCancel, run: runAttempt };
   }, [onConfirm, onCancel, runAttempt]);
   const ticketRef = useRef<string | null>(null);
@@ -83,13 +87,16 @@ function ConfirmationInstance({
   const cancelTicket = cancel.mutate;
   useEffect(() => {
     let live = true;
+    // Retain this instance's mutable admission handle, not its initial boolean:
+    // cleanup must observe submissions made after preparation completed.
+    const submissionStatus = submitted;
     // Defer one microtask so Strict Mode's throwaway effect cannot create a competing
     // server ticket that invalidates the visible dialog's acknowledgement.
     void Promise.resolve()
       .then(async () => {
         if (!live) return;
         const requestStartedAt = performance.now();
-        const data = await mutateAsync({ operation, payload });
+        const data = await mutateAsync(selection);
         if (!live) {
           if (data.ticket) cancelTicket({ ticket: data.ticket.id });
           return;
@@ -112,12 +119,10 @@ function ConfirmationInstance({
       });
     return () => {
       live = false;
-      if (ticketRef.current && !submitted.current)
+      if (ticketRef.current && !submissionStatus.current)
         cancelTicket({ ticket: ticketRef.current });
     };
-    // The keyed parent supplies an immutable selection for this instance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mutateAsync, cancelTicket, attempt]);
+  }, [mutateAsync, cancelTicket, attempt, selection, submitted]);
   useEffect(() => {
     // A fresh workload read must finish before the qualified fast path can submit.
     // A failed advisory read does not create a new permission or block assignment.
@@ -133,7 +138,7 @@ function ConfirmationInstance({
       // not silently repeat this qualified fast path with the same intent.
       callbacks.current.run(() => callbacks.current.onConfirm());
     }
-  }, [result, workloadReview?.pending, workloadReview?.warning]);
+  }, [result, workloadReview?.pending, workloadReview?.warning, submitted]);
   useEffect(() => {
     // A queued approval is an accepted handoff, not a user dismissal. Keep this
     // lifecycle separate from Modal's pending-write Escape/backdrop protection.

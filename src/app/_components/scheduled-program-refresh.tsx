@@ -50,9 +50,9 @@ export function ScheduledProgramRefresh(props: Props) {
   });
   const [watchedId, setWatchedId] = useState<string>();
   const activeScheduleId = query.data?.schedule?.id;
-  useEffect(() => {
-    if (activeScheduleId) setWatchedId(activeScheduleId);
-  }, [activeScheduleId]);
+  if (activeScheduleId && activeScheduleId !== watchedId) {
+    setWatchedId(activeScheduleId);
+  }
   // The current-source read becomes empty after activation. Keep the prior
   // receipt independently so completion remains visible without rebinding edits.
   const receipt = api.admin.refreshSchedule.useQuery(

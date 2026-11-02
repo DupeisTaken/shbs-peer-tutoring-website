@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useTranslations, useTimeZone } from "next-intl";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -137,7 +137,8 @@ export function AttendanceForm({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
+    getValues,
     setValue,
     formState: { errors },
   } = useForm<FormInputs, unknown, FormValues>({
@@ -151,10 +152,10 @@ export function AttendanceForm({
       endTime: minToHm(snapshot.endMin % 1440),
     },
   });
-  const tutorStatus = watch("tutorStatus");
-  const comments = watch("comments");
-  const startTime = watch("startTime");
-  const endTime = watch("endTime");
+  const [tutorStatus, comments, startTime, endTime] = useWatch({
+    control,
+    name: ["tutorStatus", "comments", "startTime", "endTime"],
+  });
   const incomplete = !comments?.trim() || !startTime || !endTime;
   const held = tutorStatus !== "TUTOR_ABSENT";
   const mergeIds = snapshot.pairingIds.filter(
@@ -301,7 +302,7 @@ export function AttendanceForm({
         )}
       </p>
       <p className="muted mb-5 text-sm">{planning("actualHelp")}</p>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={(event) => void handleSubmit(onSubmit)(event)}>
         <input type="hidden" {...register("pairingId")} />
         <input type="hidden" {...register("date")} />
         {[roomsQuery, schedule].some((query) => query.error) && (
@@ -391,7 +392,10 @@ export function AttendanceForm({
                   value={actualRoomId}
                   onChange={async (e) => {
                     const roomId = e.target.value;
-                    const day = new Date(watch("date")).getUTCDay() || 7;
+                    // Read the current form snapshot for this interaction; the
+                    // rendered conditions above subscribe independently.
+                    const values = getValues();
+                    const day = new Date(values.date).getUTCDay() || 7;
                     const occupied =
                       !!schedule.data?.pairings.some(
                         (p) =>
@@ -399,15 +403,15 @@ export function AttendanceForm({
                           !mergeIds.includes(p.id) &&
                           p.roomId === roomId &&
                           p.dayOfWeek === day &&
-                          p.startMin < hmToMin(endTime || "00:00") &&
-                          p.endMin > hmToMin(startTime || "24:00"),
+                          p.startMin < hmToMin(values.endTime || "00:00") &&
+                          p.endMin > hmToMin(values.startTime || "24:00"),
                       ) ||
                       schedule.data?.blocks.some(
                         (b) =>
                           b.roomId === roomId &&
                           b.dayOfWeek === day &&
-                          b.startMin < hmToMin(endTime || "00:00") &&
-                          b.endMin > hmToMin(startTime || "24:00"),
+                          b.startMin < hmToMin(values.endTime || "00:00") &&
+                          b.endMin > hmToMin(values.startTime || "24:00"),
                       );
                     if (
                       occupied &&

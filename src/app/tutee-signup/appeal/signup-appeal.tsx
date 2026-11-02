@@ -17,37 +17,21 @@ type Review = RouterOutputs["studentWorkflow"]["inspectSignupAppeal"];
 /** Email proof starts in a fragment, is removed from visible history and lives
  * only in memory. Every inspection is a read-only POST, never a proof-bearing GET. */
 export function SignupAppeal({ token = "" }: { token?: string }) {
+  return <AppealCapability key={token} token={token} />;
+}
+
+function AppealCapability({ token }: { token: string }) {
   const t = useTranslations("signupAppeal");
   const [capability, setCapability] = useState(token);
   const [initialized, setInitialized] = useState(!!token);
-  const validToken = /^[a-f0-9]{64}$/.test(capability);
-  const inspector = api.studentWorkflow.inspectSignupAppeal.useMutation();
-  const { mutateAsync: inspect } = inspector;
-  const [record, setRecord] = useState<Review | null>(null);
-  const [readFailure, setReadFailure] = useState<Error | null>(null);
-  const readSequence = useRef(0);
-  const activeCapability = useRef(capability);
-  const mutation = api.studentWorkflow.appealSignup.useMutation();
-  const [reason, setReason] = useState("");
-  const [working, setWorking] = useState(false);
-  const [accepted, setAccepted] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [revoked, setRevoked] = useState(false);
-  const admitted = useRef(false);
-  const attempt = useRef<{ reason: string; clientKey: string } | null>(null);
   useEffect(() => {
     if (token) return;
     const takeFragment = () => {
       const proof =
         new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
       if (!proof && initialized) return;
-      activeCapability.current = proof;
       setCapability(proof);
       setInitialized(true);
-      setRecord(null);
-      setAccepted(false);
-      setReason("");
-      attempt.current = null;
       if (proof)
         window.history.replaceState(
           window.history.state,
@@ -60,27 +44,45 @@ export function SignupAppeal({ token = "" }: { token?: string }) {
     window.addEventListener("hashchange", takeFragment);
     return () => window.removeEventListener("hashchange", takeFragment);
   }, [token, initialized]);
+  if (!initialized) return <StatePanel kind="loading" title={t("loading")} />;
+  // Proof identity owns every read, draft and accepted receipt. Replacing a URL
+  // capability cannot inherit an old request's mutation callbacks or recovery.
+  return <AppealInstance key={capability} capability={capability} />;
+}
+
+function AppealInstance({ capability }: { capability: string }) {
+  const t = useTranslations("signupAppeal");
+  const validToken = /^[a-f0-9]{64}$/.test(capability);
+  const inspector = api.studentWorkflow.inspectSignupAppeal.useMutation();
+  const { mutateAsync: inspect } = inspector;
+  const [record, setRecord] = useState<Review | null>(null);
+  const [readFailure, setReadFailure] = useState<Error | null>(null);
+  const readOwner = useRef({ active: true, sequence: 0 });
+  const mutation = api.studentWorkflow.appealSignup.useMutation();
+  const [reason, setReason] = useState("");
+  const [working, setWorking] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [revoked, setRevoked] = useState(false);
+  const admitted = useRef(false);
+  const attempt = useRef<{ reason: string; clientKey: string } | null>(null);
   const read = useCallback(
-    async (proof: string) => {
-      const sequence = ++readSequence.current;
-      try {
-        const fresh = await inspect({ token: proof });
-        if (
-          sequence === readSequence.current &&
-          activeCapability.current === proof
-        ) {
+    (proof: string) => {
+      const owner = readOwner.current;
+      const sequence = ++owner.sequence;
+      // Completion handlers synchronize external POST results. Starting a read
+      // does not reset the retained record or mutate render state.
+      return inspect({ token: proof }).then((fresh) => {
+        if (owner.active && sequence === owner.sequence) {
           setRecord(fresh);
           setReadFailure(null);
           setRevoked(false);
         }
         return { data: fresh, error: undefined };
-      } catch (error) {
+      }, (error: unknown) => {
         const failure =
           error instanceof Error ? error : new Error("Read failed");
-        if (
-          sequence === readSequence.current &&
-          activeCapability.current === proof
-        ) {
+        if (owner.active && sequence === owner.sequence) {
           const code =
             typeof error === "object" && error !== null && "data" in error
               ? (error.data as { code?: string } | null)?.code
@@ -97,17 +99,20 @@ export function SignupAppeal({ token = "" }: { token?: string }) {
           setReadFailure(failure);
         }
         return { data: undefined, error: failure };
-      }
+      });
     },
     [inspect],
   );
   useEffect(() => {
-    if (initialized && validToken) void read(capability);
+    const owner = readOwner.current;
+    owner.active = true;
+    if (validToken) void read(capability);
     return () => {
-      readSequence.current++;
+      owner.active = false;
+      owner.sequence++;
     };
-  }, [initialized, validToken, capability, read]);
-  if (initialized && (!validToken || revoked))
+  }, [validToken, capability, read]);
+  if (!validToken || revoked)
     return <StatePanel kind="denied" title={t("invalid")} />;
   const feedback = (
     <QueryFeedback
@@ -143,13 +148,13 @@ export function SignupAppeal({ token = "" }: { token?: string }) {
     const proof = capability;
     try {
       await mutation.mutateAsync({ token: proof, ...attempt.current });
-      if (activeCapability.current !== proof) return;
+      if (!readOwner.current.active) return;
       setAccepted(true);
       // Refresh failures recover with a read, never by resubmitting an accepted appeal.
       const fresh = await read(capability);
       if (fresh.error) setFailure(t("loadFailed"));
     } catch (error) {
-      if (activeCapability.current === proof)
+      if (readOwner.current.active)
         setFailure(error instanceof Error ? error.message : t("saveFailed"));
     } finally {
       admitted.current = false;

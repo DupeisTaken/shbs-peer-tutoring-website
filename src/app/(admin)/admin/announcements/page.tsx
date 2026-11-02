@@ -219,6 +219,21 @@ export default function AnnouncementsPage() {
   const candidateAccessDenied =
     candidates.error?.data?.code === "FORBIDDEN" ||
     candidates.error?.data?.code === "UNAUTHORIZED";
+  // Each independent read retains denial through transport failures.
+  const nextDenied = {
+    announcements:
+      announcementAccessDenied ||
+      (denied.announcements &&
+        !(announcements.isSuccess && !announcements.isFetching)),
+    candidates:
+      candidateAccessDenied ||
+      (denied.candidates && !(candidates.isSuccess && !candidates.isFetching)),
+  };
+  if (
+    nextDenied.announcements !== denied.announcements ||
+    nextDenied.candidates !== denied.candidates
+  )
+    setDenied(nextDenied);
   const announcementsHidden = denied.announcements || announcementAccessDenied;
   const candidatesHidden = denied.candidates || candidateAccessDenied;
   useSessionPageScroll({
@@ -229,28 +244,15 @@ export default function AnnouncementsPage() {
   const revokeReview = review.revoke;
   useEffect(() => {
     if (announcementAccessDenied) {
-      setDenied((previous) => ({ ...previous, announcements: true }));
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.announcements, undefined, "query"),
         exact: true,
       });
       revokeReview();
-    } else if (announcements.isSuccess && !announcements.isFetching)
-      setDenied((previous) =>
-        previous.announcements
-          ? { ...previous, announcements: false }
-          : previous,
-      );
-  }, [
-    announcementAccessDenied,
-    announcements.isSuccess,
-    announcements.isFetching,
-    queryClient,
-    revokeReview,
-  ]);
+    }
+  }, [announcementAccessDenied, queryClient, revokeReview]);
   useEffect(() => {
     if (candidateAccessDenied) {
-      setDenied((previous) => ({ ...previous, candidates: true }));
       queryClient.removeQueries({
         queryKey: getQueryKey(
           api.admin.announcementCandidates,
@@ -259,16 +261,8 @@ export default function AnnouncementsPage() {
         ),
         exact: true,
       });
-    } else if (candidates.isSuccess && !candidates.isFetching)
-      setDenied((previous) =>
-        previous.candidates ? { ...previous, candidates: false } : previous,
-      );
-  }, [
-    candidateAccessDenied,
-    candidates.isSuccess,
-    candidates.isFetching,
-    queryClient,
-  ]);
+    }
+  }, [candidateAccessDenied, queryClient]);
   const [createOpen, setCreateOpen] = useState(false);
   const [audience, setAudience] = useState(defaultAnnouncementAudience);
   const recipientCount = selectAnnouncementRecipients(

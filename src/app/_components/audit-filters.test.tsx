@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
-import { AuditFilters } from "./audit-filters";
+import { AuditFilters, emptyAuditView } from "./audit-filters";
 
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -15,6 +15,38 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 afterEach(cleanup);
+
+it("retains unfinished edits for equal applied values and adopts changed committed criteria", () => {
+  const apply = vi.fn();
+  const tree = (search: string) => (
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      <AuditFilters
+        onApply={apply}
+        appliedView={{ ...emptyAuditView, search }}
+      />
+    </NextIntlClientProvider>
+  );
+  const view = render(tree("Committed"));
+  const search = () =>
+    screen.getByLabelText<HTMLInputElement>(messages.auditFilters.search);
+  fireEvent.change(search(), { target: { value: "Unfinished edit" } });
+  view.rerender(tree("Committed"));
+  expect(search().value).toBe("Unfinished edit");
+  expect(apply).not.toHaveBeenCalled();
+  view.rerender(tree("Restored from navigation"));
+  expect(search().value).toBe("Restored from navigation");
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.auditFilters.apply }),
+  );
+  expect(apply).toHaveBeenCalledWith(
+    expect.objectContaining({ search: "Restored from navigation" }),
+    expect.objectContaining({ search: "Restored from navigation" }),
+  );
+});
 
 it.each(["ATTEMPT", "REVERSAL"])(
   "submits the localized %s filter unchanged",

@@ -233,6 +233,64 @@ it("retains the completed prior-source receipt after polling observes the new ac
   expect(mocks.cancel).not.toHaveBeenCalled();
 });
 
+it("recovers polled schedule reads after denial without refetching unchanged recruitment evidence", () => {
+  const deniedError = { data: { code: "FORBIDDEN" } };
+  const nextRead = {
+    data: next(),
+    error: null,
+    isSuccess: true,
+    isFetching: false,
+    dataUpdatedAt: 1,
+    errorUpdatedAt: 0,
+    refetch: vi.fn(),
+  };
+  const currentRead = {
+    data: data(schedule()),
+    error: null as typeof deniedError | { message: string } | null,
+    isSuccess: true,
+    isFetching: false,
+    dataUpdatedAt: 1,
+    errorUpdatedAt: 0,
+    refetch: vi.fn(),
+  };
+  const receiptRead = { ...currentRead };
+  mocks.nextQuery.mockReturnValue(nextRead);
+  mocks.scheduleQuery.mockImplementation((input?: { id?: string }) =>
+    input?.id ? { ...receiptRead } : { ...currentRead },
+  );
+  const page = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ScheduledProgramRefresh period={period} canEdit canApply />
+    </NextIntlClientProvider>
+  );
+  const view = render(page());
+  expect(screen.getByText(en.scheduledRefresh.states.SCHEDULED)).toBeTruthy();
+  Object.assign(currentRead, {
+    error: deniedError, isSuccess: false, errorUpdatedAt: 2,
+  });
+  Object.assign(receiptRead, {
+    error: deniedError, isSuccess: false, errorUpdatedAt: 2,
+  });
+  view.rerender(page());
+  expect(screen.queryByText(en.scheduledRefresh.states.SCHEDULED)).toBeNull();
+  Object.assign(currentRead, {
+    error: null, isSuccess: true, dataUpdatedAt: 3,
+  });
+  Object.assign(receiptRead, {
+    error: { message: "Offline" }, isSuccess: false, errorUpdatedAt: 3,
+  });
+  view.rerender(page());
+  expect(screen.queryByText(en.scheduledRefresh.states.SCHEDULED)).toBeNull();
+  Object.assign(receiptRead, {
+    error: null, isSuccess: true, dataUpdatedAt: 4,
+  });
+  view.rerender(page());
+  expect(screen.getByText(en.scheduledRefresh.states.SCHEDULED)).toBeTruthy();
+  expect(nextRead.refetch).not.toHaveBeenCalled();
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.cancel).not.toHaveBeenCalled();
+});
+
 it.each(["en", "zh"] as const)(
   "reviews date, target, timezone and consequences in %s without writing before confirmation",
   async (locale) => {
@@ -302,9 +360,25 @@ it("keeps a rejected-write draft and prevents writes after a failed latest read"
       .value,
   ).toBe("2026-11-01T09:00");
   view.rerender(tree({ readFailed: true }));
-  fireEvent.click(
-    within(dialog).getByRole("button", { name: en.scheduledRefresh.save }),
-  );
+  await act(async () => {
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: en.scheduledRefresh.save }),
+    );
+  });
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: en.scheduledRefresh.save,
+    }).disabled,
+  ).toBe(false);
+  expect(
+    within(dialog).getByText(
+      en.scheduledRefresh.errors.SCHEDULED_REFRESH_CHANGED,
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.scheduledRefresh.timeLabel)
+      .value,
+  ).toBe("2026-11-01T09:00");
   expect(mocks.save).toHaveBeenCalledTimes(1);
 });
 

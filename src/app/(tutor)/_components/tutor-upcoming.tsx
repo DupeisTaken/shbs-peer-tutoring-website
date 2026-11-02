@@ -71,9 +71,9 @@ export function TutorUpcoming({
     (includeSessions && viewAccessDenied(pairings.error)) ||
     viewAccessDenied(calendar.error) ||
     (interviewsEnabled && viewAccessDenied(interviews.error));
-  useEffect(() => {
-    if (deniedNow) setDenied(true);
-  }, [deniedNow]);
+  // Record authoritative denial before committing any private content. Only
+  // the explicit all-source recovery below can release this latch.
+  if (deniedNow && !denied) setDenied(true);
   const sources = [
     ...(includeSessions ? [{ name: t("sessions"), query: pairings }] : []),
     { name: calendarText("title"), query: calendar },

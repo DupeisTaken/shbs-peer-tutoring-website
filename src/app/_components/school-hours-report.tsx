@@ -55,35 +55,35 @@ function SchoolReportReader({ id }: { id: string }) {
   useLayoutEffect(() => {
     hiddenNow.current = hidden;
   }, [hidden]);
+  useLayoutEffect(() => {
+    if (accessDenied) generation.current += 1;
+  }, [accessDenied, report.error, settings.error]);
   useLayoutEffect(
     () => () => {
       generation.current += 1;
     },
     [],
   );
+  if (accessDenied && !denied) {
+    setDenied(true);
+    setCopyResult(null);
+  }
+  const { revoke: revokeReview } = review;
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
-      generation.current += 1;
-      setCopyResult(null);
-      review.revoke();
+    if (hidden) {
+      revokeReview();
       client.removeQueries({ queryKey: getQueryKey(api.schoolHours) });
-    } else if (
-      report.isSuccess &&
-      !report.isFetching &&
-      settings.isSuccess &&
-      !settings.isFetching
+    }
+  }, [hidden, client, revokeReview]);
+  const retryRead = async () => {
+    const started = generation.current;
+    const results = await Promise.all([report.refetch(), settings.refetch()]);
+    if (
+      started === generation.current &&
+      results.every((result) => result.isSuccess && result.data)
     )
       setDenied(false);
-  }, [
-    accessDenied,
-    report.isSuccess,
-    report.isFetching,
-    settings.isSuccess,
-    settings.isFetching,
-    client,
-    review.revoke,
-  ]);
+  };
   const data = hidden ? undefined : report.data;
   const canManage =
     !hidden &&
@@ -177,10 +177,7 @@ function SchoolReportReader({ id }: { id: string }) {
           action={
             <Button
               disabled={report.isFetching || settings.isFetching}
-              onClick={() => {
-                void report.refetch();
-                void settings.refetch();
-              }}
+              onClick={() => void retryRead()}
             >
               {t("retryRead")}
             </Button>

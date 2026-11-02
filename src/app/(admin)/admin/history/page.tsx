@@ -12,6 +12,7 @@ import {
   isValidElement,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactElement,
   type ReactNode,
@@ -61,7 +62,11 @@ export default function ReportsPage() {
   const t = useTranslations();
   const readOnly = useReadOnly(); // VIEWER — PII is always masked server-side
   const queryClient = useQueryClient();
-  const [denied, setDenied] = useState(false);
+  const utils = api.useUtils();
+  const [denial, setDenial] = useState<{ periods: boolean } | null>(null);
+  const denied = denial !== null;
+  const [retryingAccess, setRetryingAccess] = useState(false);
+  const retryAdmission = useRef(false);
   const periods = api.admin.periods.useQuery(undefined, { enabled: !denied });
   const featureQuery = api.program.features.useQuery();
   const features = featureQuery.data;
@@ -122,54 +127,65 @@ export default function ReportsPage() {
     (error) =>
       error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED",
   );
+  // Resetting remembered controls changes the report key. A successful cache
+  // entry at that new key is not fresh authority for the denied report family.
+  // Only the explicit recovery below may release this episode.
+  const periodsDenied = viewAccessDenied(periods.error);
+  if (accessDenied && !denial) {
+    setDenial({ periods: periodsDenied });
+  } else if (denial && periodsDenied && !denial.periods) {
+    // A recovery attempt can revoke a prerequisite after the report started
+    // this episode. Evict that newly denied family without releasing the latch.
+    setDenial({ periods: true });
+  }
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
+    if (!denial) return;
+    // Evict from the durable episode, not the transient error at a changing key.
+    queryClient.removeQueries({
+      queryKey: getQueryKey(api.admin.periodReport, undefined, "query"),
+    });
+    if (denial.periods)
       queryClient.removeQueries({
-        queryKey: getQueryKey(api.admin.periodReport, undefined, "query"),
+        queryKey: getQueryKey(api.admin.periods, undefined, "query"),
       });
-      if (
-        periods.error?.data?.code === "FORBIDDEN" ||
-        periods.error?.data?.code === "UNAUTHORIZED"
-      )
-        queryClient.removeQueries({
-          queryKey: getQueryKey(api.admin.periods, undefined, "query"),
-        });
-    } else if (
-      periods.isSuccess &&
-      !periods.isFetching &&
-      featureQuery.isSuccess &&
-      !featureQuery.isFetching &&
-      (!activeYear || (report.isSuccess && !report.isFetching))
-    ) {
-      setDenied(false);
-    }
-  }, [
-    accessDenied,
-    periods.error,
-    featureQuery.error,
-    featureQuery.isSuccess,
-    featureQuery.isFetching,
-    periods.isSuccess,
-    periods.isFetching,
-    report.isSuccess,
-    report.isFetching,
-    activeYear,
-    queryClient,
-  ]);
+  }, [denial, queryClient]);
   const section = t("admin.reports.title");
   const retryAccess = async () => {
-    if (featureQuery.error || features === undefined)
-      void featureQuery.refetch();
-    if (periods.data === undefined) {
-      // Period denial evicts the implicit active year too. Restore that
-      // prerequisite first, then let the newly keyed report authorize itself.
-      // Its private cache was evicted and cannot be shown by this transition.
-      const recovered = await periods.refetch();
-      if (recovered.isSuccess) setDenied(false);
-    } else {
-      if (periods.error) void periods.refetch();
-      if (activeYear) void report.refetch();
+    if (retryAdmission.current) return;
+    retryAdmission.current = true;
+    setRetryingAccess(true);
+    try {
+      // Both prerequisite reads must settle successfully in this retry. Cached
+      // success or a later transport failure cannot clear an earlier denial.
+      const [freshPeriods, freshFeatures] = await Promise.all([
+        periods.refetch(),
+        featureQuery.refetch(),
+      ]);
+      if (
+        !freshPeriods.isSuccess ||
+        !freshFeatures.isSuccess ||
+        freshPeriods.error ||
+        freshFeatures.error ||
+        !freshPeriods.data ||
+        !freshFeatures.data
+      ) return;
+      const freshYear = [
+        ...new Set(freshPeriods.data.map((period) => period.schoolYear)),
+      ].sort((a, b) => b.localeCompare(a))[0];
+      if (freshYear) {
+        // Denial clears remembered controls. Authorize their default report with
+        // a forced network read, including when period eviction removed its year.
+        await utils.admin.periodReport.fetch(
+          { schoolYear: freshYear, depth: "summary", maskPii: readOnly },
+          { staleTime: 0 },
+        );
+      }
+      setDenial(null);
+    } catch {
+      // Recovery is read-only. Failed reads leave the private family concealed.
+    } finally {
+      retryAdmission.current = false;
+      setRetryingAccess(false);
     }
   };
   useSessionPageScroll({
@@ -195,7 +211,10 @@ export default function ReportsPage() {
           action={
             <Button
               size="compact"
-              disabled={periods.isFetching || report.isFetching}
+              disabled={
+                retryingAccess || periods.isFetching ||
+                featureQuery.isFetching || report.isFetching
+              }
               onClick={retryAccess}
             >
               {t("managementRecovery.retry", { section })}

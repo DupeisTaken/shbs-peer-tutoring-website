@@ -123,3 +123,44 @@ it("extracts and clears an email fragment, sending proof only through read-only 
   expect(mocks.query).toHaveBeenCalledWith({ token });
   expect(window.location.search).toBe("");
 });
+
+it("ignores an old inspection after the capability changes", async () => {
+  let finishOld!: (value: typeof initial) => void;
+  mocks.query.mockReturnValueOnce(new Promise((resolve) => {
+    finishOld = resolve;
+  }));
+  const mounted = render(view());
+  const replacement = "b".repeat(64);
+  mounted.rerender(view(replacement));
+  await screen.findByRole("textbox");
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "New capability draft" },
+  });
+  await act(async () => finishOld({ ...initial, canAppeal: false }));
+  expect(screen.getByDisplayValue("New capability draft")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.signupAppeal.submit }));
+  await screen.findByText(en.signupAppeal.submitted);
+  expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+    token: replacement, reason: "New capability draft",
+  }));
+});
+
+it("does not let a previous capability's pending write accept or unlock the current appeal", async () => {
+  let finishOld!: (value: { ok: boolean }) => void;
+  mocks.save.mockReturnValueOnce(new Promise((resolve) => {
+    finishOld = resolve;
+  }));
+  const mounted = render(view());
+  await screen.findByRole("textbox");
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Old capability draft" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: en.signupAppeal.submit }));
+  mounted.rerender(view("c".repeat(64)));
+  await screen.findByRole("textbox");
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("");
+  await act(async () => finishOld({ ok: true }));
+  expect(screen.queryByText(en.signupAppeal.submitted)).toBeNull();
+  expect(screen.getByRole("textbox")).toBeTruthy();
+  expect(mocks.query).toHaveBeenCalledTimes(2);
+});

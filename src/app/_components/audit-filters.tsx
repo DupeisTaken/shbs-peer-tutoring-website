@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
@@ -46,9 +46,13 @@ export function AuditFilters({
   const [inputError, setInputError] = useState("");
   const [draft, setDraft] = useState(appliedView ?? emptyAuditView);
   const appliedKey = appliedView ? JSON.stringify(appliedView) : "";
-  useEffect(() => {
-    if (appliedKey) setDraft(JSON.parse(appliedKey) as AuditView);
-  }, [appliedKey]);
+  const [previousAppliedKey, setPreviousAppliedKey] = useState(appliedKey);
+  // A changed committed view replaces the draft before children render. Equal
+  // criteria (including a background refresh) leave unfinished edits untouched.
+  if (previousAppliedKey !== appliedKey) {
+    setPreviousAppliedKey(appliedKey);
+    if (appliedView) setDraft(appliedView);
+  }
   const options = api.admin.auditFilterOptions.useQuery();
   const set = (key: keyof AuditView, value: string) =>
     setDraft((old) => ({ ...old, [key]: value }));
