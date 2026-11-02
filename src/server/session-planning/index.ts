@@ -13,6 +13,7 @@ import {
 import { participantKeys, participantsOverlap } from "./participants";
 import { notificationTuteeRecipients } from "./notification-recipients";
 import { insertSessionNotices } from "./notice-inserts";
+import { readContinuationPairingIds } from "./publication-continuations";
 import { lockPlanningSources } from "./source-locks";
 import { readOverlappingCohorts, readOverlappingHolds } from "./conflict-reads";
 import {
@@ -1348,6 +1349,10 @@ export async function ensureSessionPlanningWindow(
       parseDateTime: createProgramDateTimeParser(),
     };
     const publicationNotices: PublicationNotice[] = [];
+    const continuationPairingIds = await readContinuationPairingIds(
+      tx,
+      rows.map((row) => row.id),
+    );
     for (const entry of pairingEntries(rows)) {
       const primary = entry.primary;
       if (
@@ -1378,12 +1383,9 @@ export async function ensureSessionPlanningWindow(
       const candidates: { date: string; generationKey: string }[] = [];
       let termStart: string | undefined;
       let termEnd: string | undefined;
-      const continuationCount = await tx.studentContinuationPairing.count({
-        where: {
-          pairingId: { in: entry.pairings.map((pairing) => pairing.id) },
-        },
-      });
-      const continuing = continuationCount === entry.pairings.length;
+      const continuing = entry.pairings.every((pairing) =>
+        continuationPairingIds.has(pairing.id),
+      );
       const publications = continuing
         ? latestContinuationPublications(
             await tx.sessionPlan.findMany({
