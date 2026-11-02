@@ -232,6 +232,30 @@ test("Vitest shards cover every discovered test file exactly once without runnin
   assert.deepEqual(combined.sort(), all, "no file may be dropped");
 });
 
+test("the required image build reads cache without optional export or ignored verification failures", () => {
+  const build = image.steps.find((step) => step.id === "build");
+  const smoke = image.steps.find(
+    (step) => step.run === "bash scripts/smoke-image.sh shbs-smoke:local",
+  );
+  assert.equal(build.with["cache-from"], "type=gha");
+  assert.equal(
+    build.with["cache-to"],
+    undefined,
+    "cache backend timeouts do not bound the full preparation/upload phase",
+  );
+  assert.equal(build.if, undefined);
+  assert.equal(smoke.if, undefined);
+  assert.equal(image["timeout-minutes"], 9);
+  assert.equal(image["continue-on-error"], undefined);
+  for (const step of image.steps) {
+    assert.equal(
+      step["continue-on-error"],
+      undefined,
+      `${step.name} must still fail the required image job`,
+    );
+  }
+});
+
 test("publishing receives only the smoke-tested artifact and cannot bypass the gate", () => {
   assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.deepEqual(publish.needs, ["verify", "image"]);

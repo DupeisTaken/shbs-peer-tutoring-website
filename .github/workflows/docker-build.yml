@@ -164,8 +164,10 @@ jobs:
           load: true
           tags: shbs-smoke:local
           labels: ${{ steps.meta.outputs.labels }}
+          # Reuse existing cache, but never export it on the required build path.
+          # GHA's backend timeout does not bound all preparation/blob uploads;
+          # keep the remaining job budget for smoke checks and tested-image upload.
           cache-from: type=gha
-          cache-to: type=gha,mode=max
       # The branding assertions use jsdom. No host Prisma generation or build is
       # needed; the runtime image already contains its own generated client.
       - name: Install smoke-test dependencies
