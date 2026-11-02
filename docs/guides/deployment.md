@@ -849,15 +849,94 @@ operational verification items.
 ## 7. Backups
 
 ```bash
-./scripts/backup.sh            # pg_dump | gzip into ./backups, 14-day rotation
+./scripts/backup.sh            # private validated daily dump; rotate after configured uploads
 # Schedule daily:
 #   crontab -e
 #   0 3 * * *  /opt/shbs/scripts/backup.sh >> /var/log/shbs-backup.log 2>&1
 ```
 
+The host needs Bash, Docker Compose, gzip, awk and GNU-compatible core utilities
+(including `mktemp`, `find` and `ln`). The script reads the existing shell-compatible
+`.env` and requires `POSTGRES_DB` and `POSTGRES_USER`. `BACKUP_DIR` defaults to
+checkout `backups/`; use an operator-owned directory on a filesystem supporting
+same-filesystem hard links, with private access and enough space for the new dump
+alongside retained recovery points. A newly created backup directory is mode 700;
+the script does not change permissions of an existing directory or old archives.
+
+Each run holds `BACKUP_DIR/.backup.lock` through dump, validation, publication,
+configured uploads and rotation. An overlapping run exits nonzero without touching
+the owner's staging or existing backups. New dump data is mode 600 in a private
+temporary file inside the mode-700 lock directory. Only a successful `pg_dump |
+gzip`, gzip integrity check and plain PostgreSQL dump header/completion check
+permit publication. A hard link atomically publishes the validated file without
+replacing an existing name; the temporary link is then removed. Daily filenames
+are `<database>-daily-YYYYMMDD-HHMMSS-<10 random characters>.sql.gz`, so retries in
+the same second do not overwrite each other. Validation establishes archive
+integrity and expected framing; it does not prove a successful restoration.
+
 Set one or more optional destinations in `.env` to copy each successful dump off-box:
-`BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, or `BACKUP_SCP_DEST`. The matching CLI must be
-installed on the host; the script exits non-zero if a configured upload cannot run.
+`BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, or `BACKUP_SCP_DEST`. The matching CLI must
+be installed on the host. The existing `rclone copy`, `aws s3 cp` and `scp` commands
+retain their destination semantics; use a destination directory/prefix when keeping
+multiple recovery points. Every configured command must complete successfully
+before retention begins. Missing tools or failed uploads exit nonzero and skip
+retention. An upload failure preserves the validated local backup and all older
+backups; inspect any partial remote copy and retry the transfer or scheduled run.
+CLI success is a transfer receipt, not independent proof of remote restorability
+or provider retention. Review remote access controls, retention and restoration
+separately. With no destination configured, successful local publication permits
+local retention; this does not establish an off-host recovery point.
+
+### Daily rotation and recovery holds
+
+Rotation owns only top-level regular files matching the exact daily naming format
+for the current database. It preserves the existing `find -mtime +14` boundary:
+eligibility starts after **15 completed 24-hour periods**, based on file modification
+time. The newly published file is always preserved, even if its timestamp changes.
+Old `<database>-YYYYMMDD-HHMMSS.sql.gz` archives, `database-before-RELEASE.sql.gz`
+release checkpoints, other databases, symlinks, nested directories, configuration
+copies and evidence files are outside automatic rotation. Review legacy archives
+explicitly; adoption does not silently delete private backup history.
+
+An adjacent `<daily-filename>.hold` marker protects a daily backup regardless of
+age; any marker type, including a dangling symlink, is treated as a hold. Record
+the release/checkpoint, owner, reason and review conditions in a private marker.
+Held pre-migration dumps can instead live in a private `recovery-hold/` subdirectory
+or retain their distinct `database-before-RELEASE.sql.gz` names. Normal rotation
+never traverses those directories or removes markers. Keep configuration snapshots
+and recovery evidence private and separate from disposable daily archives.
+
+Before establishing or releasing a hold, stop scheduling and confirm the active
+backup has finished, or acquire the same `.backup.lock` directory exclusively.
+Do not add/remove holds concurrently with rotation. Release a hold only after
+the operator has reviewed restoration evidence, the schema transition and the
+remaining local/off-host recovery points. Removing a marker makes an otherwise
+eligible daily file deletable on the next successful run; it does not delete it
+immediately. Do not rename release checkpoints into the daily namespace as a disk
+cleanup shortcut.
+
+### Interruption and retry
+
+Ordinary failures and handled HUP/INT/TERM remove only this run's exact temporary
+paths and release its lock. Bash may defer a signal while dump/compression or an
+upload child finishes; ownership remains held until that command returns. Never
+remove the lock to force an overlapping retry. Published valid backups remain
+available if a later step fails.
+
+SIGKILL, host power loss or a cleanup error can leave `.backup.lock` and partial
+files. Subsequent runs deliberately refuse to proceed; no PID-only stale-lock
+guessing or automatic partial-file sweep occurs. Pause the scheduler, identify
+the interrupted invocation and confirm **all** its dump/compressor/upload children
+have stopped. Preserve and inspect its exact private staging directory, then move
+that confirmed stale directory to a private quarantine location on the same
+filesystem before retrying. Do not quarantine an active lock, overwrite an earlier
+quarantine, or delete unrelated temporary files. Unvalidated partial data is not a
+recovery point. Review it separately under the operator retention plan.
+
+The daemon-free regression suite runs in `npm run test:deployment`; run it alone with `node --test --test-concurrency=1
+scripts/backup.test.mjs` (on Windows set `SHBS_TEST_BASH` to Git Bash). It invokes
+the real script with synthetic Docker/upload commands and isolated temporary
+directories, never a production database or off-host service.
 
 Restore:
 
