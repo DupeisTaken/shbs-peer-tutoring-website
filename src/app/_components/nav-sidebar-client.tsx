@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 
 import { NavLink } from "~/app/_components/nav-link";
 import { DisclosureIcon } from "~/app/_components/icons";
@@ -13,11 +13,46 @@ export type NavSection = {
 };
 
 const STORAGE_KEY = "adminNavCollapsed";
+const STORAGE_CHANGED = "admin-nav-collapsed-changed";
+
+function readCollapsedSnapshot() {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function subscribeCollapsed(onChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY || event.key === null) onChange();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(STORAGE_CHANGED, onChange);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(STORAGE_CHANGED, onChange);
+  };
+}
+
+function parseCollapsed(raw: string | null): Record<string, boolean> {
+  try {
+    const value: unknown = raw ? JSON.parse(raw) : null;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).filter(([, entry]) => typeof entry === "boolean"),
+    );
+  } catch {
+    return {};
+  }
+}
+
+const serverCollapsedSnapshot = () => null;
 
 /**
  * The admin/localization left nav, with collapsible groups + a collapse/expand-all toggle. Collapse
- * state persists in localStorage so it survives navigation. Sections render expanded on first paint
- * (matching SSR) and apply the stored state after hydration, so there's no flash or mismatch.
+ * state persists in localStorage so it survives navigation. The server snapshot
+ * keeps hydration expanded; the browser subscribes to the saved presentation.
  */
 export function NavSidebarClient({
   sections,
@@ -30,33 +65,34 @@ export function NavSidebarClient({
   expandAllLabel: string;
   sticky?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [hydrated, setHydrated] = useState(false);
+  const stored = useSyncExternalStore(
+    subscribeCollapsed,
+    readCollapsedSnapshot,
+    serverCollapsedSnapshot,
+  );
+  const [localChoice, setLocalChoice] = useState<{
+    source: string | null;
+    value: Record<string, boolean>;
+  } | null>(null);
+  // A failed storage write still applies the user's choice in this mounted nav.
+  const collapsed =
+    localChoice?.source === stored ? localChoice.value : parseCollapsed(stored);
   const navId = useId();
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setCollapsed(JSON.parse(raw) as Record<string, boolean>);
-    } catch {
-      // ignore malformed storage
-    }
-    setHydrated(true);
-  }, []);
-
   const persist = (next: Record<string, boolean>) => {
-    setCollapsed(next);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
       // ignore (private mode / quota)
     }
+    setLocalChoice({ source: readCollapsedSnapshot(), value: next });
+    window.dispatchEvent(new Event(STORAGE_CHANGED));
   };
 
   const toggle = (key: string) =>
     persist({ ...collapsed, [key]: !collapsed[key] });
   const allCollapsed =
-    hydrated && sections.length > 0 && sections.every((s) => collapsed[s.key]);
+    sections.length > 0 && sections.every((s) => collapsed[s.key]);
   const setAll = (value: boolean) =>
     persist(Object.fromEntries(sections.map((s) => [s.key, value])));
 
@@ -71,7 +107,7 @@ export function NavSidebarClient({
         {allCollapsed ? expandAllLabel : collapseAllLabel}
       </Button>
       {sections.map((section) => {
-        const isCollapsed = hydrated && !!collapsed[section.key];
+        const isCollapsed = !!collapsed[section.key];
         // Desktop and drawer instances need distinct disclosure destinations.
         const sectionId = `${navId}-${section.key}`;
         return (
