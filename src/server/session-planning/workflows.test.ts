@@ -804,21 +804,34 @@ describe("publication and scoped attendance", () => {
       });
       expect(plans).toHaveLength(2);
       for (const plan of plans) {
-        expect(plan.generationKey.startsWith(`regular:planning-term:${group.id}:`)).toBe(true);
-        expect(plan.generationKey.endsWith(":continuation:0")).toBe(continuingPairings === 2);
-        expect(plan.assignments.map((row) => row.pairingId).sort()).toEqual([...pairingIds].sort());
-        expect(plan.participants.map((row) => row.tuteeId).sort()).toEqual(["planning-one", "planning-two"]);
-        expect(plan.participants.every((row) => row.status === "SCHEDULED")).toBe(true);
+        expect(
+          plan.generationKey.startsWith(`regular:planning-term:${group.id}:`),
+        ).toBe(true);
+        expect(plan.generationKey.endsWith(":continuation:0")).toBe(
+          continuingPairings === 2,
+        );
+        expect(plan.assignments.map((row) => row.pairingId).sort()).toEqual(
+          [...pairingIds].sort(),
+        );
+        expect(plan.participants.map((row) => row.tuteeId).sort()).toEqual([
+          "planning-one",
+          "planning-two",
+        ]);
+        expect(
+          plan.participants.every((row) => row.status === "SCHEDULED"),
+        ).toBe(true);
       }
       const notices = await db.sessionNotice.count();
       await Promise.all([
         ensureSessionPlanningWindow(db, now),
         ensureSessionPlanningWindow(db, now),
       ]);
-      expect(await db.sessionPlan.findMany({
-        include: { assignments: true, participants: true },
-        orderBy: { generationKey: "asc" },
-      })).toEqual(plans);
+      expect(
+        await db.sessionPlan.findMany({
+          include: { assignments: true, participants: true },
+          orderBy: { generationKey: "asc" },
+        }),
+      ).toEqual(plans);
       expect(await db.sessionNotice.count()).toBe(notices);
     },
   );

@@ -149,7 +149,11 @@ describe("fresh initial-publication validation snapshot", () => {
     await withFixture(async (tx, f) => {
       const weekday = new Date(`${f.input.date}T00:00:00Z`).getUTCDay() || 7;
       await tx.schoolCalendarDay.create({
-        data: { date: f.input.date, isSchoolDay: true, timetableWeekday: weekday },
+        data: {
+          date: f.input.date,
+          isSchoolDay: true,
+          timetableWeekday: weekday,
+        },
       });
       for (const offset of [-90, -45, -44, 0, 44, 45, 90]) {
         const row = await pairing(tx, f, `boundary-${offset}`, weekday);
@@ -195,12 +199,19 @@ describe("fresh initial-publication validation snapshot", () => {
           weekdayHint,
         });
         expect(ordered(snapshot.recurring)).toEqual(ordered(expected));
-        expect(snapshot.materialized).toEqual(new Set(expected.map((row) => row.id)));
+        expect(snapshot.materialized).toEqual(
+          new Set(expected.map((row) => row.id)),
+        );
         expect(snapshot.keys).toEqual(
           await participantKeys(
             tx,
             [f.input.tutorId, ...expected.map((row) => row.tutorId)],
-            [...f.input.participantIds, ...expected.flatMap((row) => row.tutees.map((person) => person.tuteeId))],
+            [
+              ...f.input.participantIds,
+              ...expected.flatMap((row) =>
+                row.tutees.map((person) => person.tuteeId),
+              ),
+            ],
           ),
         );
       }
