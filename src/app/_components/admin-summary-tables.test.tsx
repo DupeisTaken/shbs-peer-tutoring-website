@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type * as AuditFiltersModule from "./audit-filters";
 import zh from "../../../messages/zh.json";
 import messages from "../../../messages/en.json";
 import AuditPage from "../(admin)/admin/audit/page";
@@ -18,6 +19,7 @@ import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import HistoryPage from "../(admin)/admin/history/page";
 import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+import type { RouterOutputs } from "~/trpc/react";
 
 vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
@@ -28,6 +30,58 @@ const state = vi.hoisted(() => {
     summaryInput: undefined,
   };
   const date = new Date("2026-09-15T08:00:00Z");
+  // Expanded details read recorded evidence; keep this fixture aligned with the API.
+  const sessions: RouterOutputs["admin"]["sessions"] = [
+    {
+      id: "session-1",
+      date,
+      createdAt: date,
+      updatedAt: date,
+      planningCohortId: null,
+      submissionKey: null,
+      submissionPayloadHash: null,
+      tutorId: "tutor-1",
+      tutor: { englishName: "Alex Tutor" },
+      pairingId: "pairing-1",
+      pairing: { subject: "Mathematics" },
+      timeSlotId: null,
+      actualRoomId: null,
+      online: true,
+      tutorStatus: "PRESENT",
+      tutorAbsentReason: null,
+      startMin: 480,
+      endMin: 540,
+      durationMin: 60,
+      month: "2026-09",
+      schoolYear: "26-27",
+      quarter: "Q1",
+      ratingPreparedness: 4,
+      ratingParticipation: 4,
+      ratingUnderstanding: 4,
+      ratingBehavior: 4,
+      ratingProgress: 4,
+      comments: "Reviewed algebra together.",
+      tutees: [
+        {
+          sessionId: "session-1",
+          tuteeId: "student-1",
+          tutee: { englishName: "First Student" },
+          status: "PRESENT",
+          absenceReason: null,
+        },
+        {
+          sessionId: "session-1",
+          tuteeId: "student-2",
+          tutee: { englishName: "Second Student" },
+          status: "EXCUSED_ABSENT",
+          absenceReason: "School appointment; notified in advance.",
+        },
+      ],
+      shFactor: 2,
+      shCount: 2,
+      mergeGroupId: null,
+    },
+  ];
   const tutor = {
     tutorId: "tutor-1",
     englishName: "Alex Tutor",
@@ -67,21 +121,7 @@ const state = vi.hoisted(() => {
         undoneAt: null,
       },
     ],
-    sessions: [
-      {
-        id: "session-1",
-        date,
-        tutor: { englishName: "Alex Tutor" },
-        pairing: { subject: "Mathematics" },
-        tutorStatus: "PRESENT",
-        tutees: [
-          { tutee: { englishName: "First Student" } },
-          { tutee: { englishName: "Second Student" } },
-        ],
-        shCount: 1,
-        mergeGroupId: null as string | null,
-      },
-    ],
+    sessions,
     cards: [
       {
         id: "card-1",
@@ -237,7 +277,7 @@ vi.mock("./branding-provider", () => ({
 vi.mock("./audit-filters", async (importOriginal) => ({
   // The page shares pure filter defaults with the real editor. Only skip the
   // editor UI here; retain its exports so summary/authority checks use real data.
-  ...(await importOriginal<typeof import("./audit-filters")>()),
+  ...(await importOriginal<typeof AuditFiltersModule>()),
   AuditFilters: () => null,
 }));
 vi.mock("./attendance-correction", () => ({
@@ -686,7 +726,22 @@ it.each(["en", "zh"] as const)(
     expect(screen.getByRole("dialog").textContent).toContain(
       copy.tutor.attendance.tutorStatusOpt.PRESENT,
     );
+    const entries = within(screen.getByRole("dialog")).getAllByRole("listitem");
+    expect(entries).toHaveLength(2);
+    expect(entries[0]!.textContent).toContain("First Student");
+    expect(entries[0]!.textContent).toContain(
+      copy.tutor.attendance.tuteeStatusOpt.PRESENT,
+    );
+    expect(entries[1]!.textContent).toContain("Second Student");
+    expect(entries[1]!.textContent).toContain(
+      copy.tutor.attendance.tuteeStatusOpt.EXCUSED_ABSENT,
+    );
+    expect(entries[1]!.textContent).toContain(
+      "School appointment; notified in advance.",
+    );
+    expect(screen.getByRole("dialog").textContent).toContain("08:00–09:00");
     expect(screen.getByRole("dialog").textContent).not.toContain("PRESENT");
+    expect(screen.getByRole("dialog").textContent).not.toContain("EXCUSED_ABSENT");
     expect(state.correction).not.toHaveBeenCalled();
   },
 );

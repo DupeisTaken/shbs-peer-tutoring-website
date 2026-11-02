@@ -16,6 +16,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { BrandingProvider } from "~/app/_components/branding-provider";
 import { resolveBranding } from "~/lib/branding-config";
 import { signupSettings } from "~/lib/signup-fields";
+import type * as SignupTransitionNoticeModule from "./signup-transition-notice";
 import { SignupForm } from "./signup-form";
 import type { PublicSignupTransition } from "~/lib/public-signup-transition";
 import type { RouterOutputs } from "~/trpc/react";
@@ -98,7 +99,7 @@ vi.mock("~/app/_components/policy-agreement", () => ({
 vi.mock("./signin-access", () => ({ SigninAccess: () => null }));
 // Countdown/period rendering has dedicated real-provider tests; these cases own form draft/retry behavior.
 vi.mock("./signup-transition-notice", async () => ({
-  ...await vi.importActual<typeof import("./signup-transition-notice")>("./signup-transition-notice"),
+  ...await vi.importActual<typeof SignupTransitionNoticeModule>("./signup-transition-notice"),
   SignupTransitionNotice: () => null,
 }));
 vi.mock("./survey-verification", () => ({

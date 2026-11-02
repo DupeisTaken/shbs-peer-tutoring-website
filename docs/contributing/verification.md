@@ -11,6 +11,11 @@ Run commands from the repository root:
 `npm run check` generates Next.js route/framework types before lint and TypeScript
 checks, so it also works in a fresh checkout that has never started the dev server.
 
+`npm run check` runs ESLint with `--max-warnings=0`: both warnings and errors fail
+the required local/CI gate. Fix their causes before handoff; do not suppress
+diagnostics or lower rule severity to obtain a pass. A focused file check helps
+during development but does not replace the full repository check.
+
 | Change                        | Verify with                                                                                           |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Any commit                    | `npm run check` and relevant tests                                                                    |
