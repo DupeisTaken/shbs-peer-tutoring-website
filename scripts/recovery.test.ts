@@ -6,16 +6,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { Readable } from "node:stream";
+import { Client } from "pg";
 import {
   parseRecoveryCommand,
   parseRecordKey,
 } from "../src/server/recovery/operator-cli";
 import {
   databaseIdentity,
+  postgresClientUrl,
   planHash,
   readOperatorPlan,
   writeOperatorJson,
 } from "../src/server/recovery/operator-plan";
+import { utcDatabaseUrl } from "../src/server/database-url";
 import {
   createSitePlan,
   stageSitePlan,
@@ -209,6 +212,59 @@ void test("database identity excludes passwords and rejects redirect options", (
     assert.throws(() => databaseIdentity(url));
 });
 
+void test("node-pg receives the IPv6 address without losing credentials, SSL or reviewed identity", () => {
+  for (const [host, expectedHost, expectedIdentity] of [
+    ["[::1]", "::1", "[::1]"],
+    ["[0:0:0:0:0:0:0:1]", "::1", "[::1]"],
+    ["[2001:db8::1234]", "2001:db8::1234", "[2001:db8::1234]"],
+    ["127.0.0.1", "127.0.0.1", "127.0.0.1"],
+    ["localhost", "localhost", "localhost"],
+  ] as const) {
+    for (const sslmode of ["verify-full", "disable"]) {
+      const original = `postgresql://synthetic%2Boperator:synthetic%40pass%3Aword@${host}:5544/synthetic%20db?sslmode=${sslmode}&schema=public&connection_limit=3&pool_timeout=10`;
+      const identity = databaseIdentity(original);
+      const reviewedHash = planHash(identity);
+      const normalized = postgresClientUrl(original);
+      const parsed = new URL(normalized);
+      const baseline = new Client({ connectionString: original });
+      // Client construction is offline. The explicit wrong host proves the
+      // connectionString parser, not config spread order, selects the endpoint.
+      const client = new Client({
+        host: "ignored.example.test",
+        connectionString: normalized,
+      });
+      assert.equal(client.host, expectedHost);
+      assert.equal(client.port, 5544);
+      assert.equal(client.user, "synthetic+operator");
+      assert.equal(client.password, "synthetic@pass:word");
+      assert.equal(client.database, "synthetic db");
+      assert.deepEqual(client.ssl, baseline.ssl);
+      for (const [key, value] of new URL(original).searchParams)
+        assert.equal(parsed.searchParams.get(key), value);
+      assert.equal(databaseIdentity(original).host, expectedIdentity);
+      assert.equal(planHash(databaseIdentity(original)), reviewedHash);
+      if (!host.startsWith("[")) assert.equal(normalized, original);
+      // Record/admission clients add UTC options after the same normalization.
+      const utc = new Client({ connectionString: utcDatabaseUrl(normalized) });
+      assert.equal(utc.host, client.host);
+      assert.deepEqual(utc.ssl, client.ssl);
+      assert.equal(
+        new URL(utcDatabaseUrl(normalized)).searchParams.get("options"),
+        "-c timezone=UTC",
+      );
+    }
+  }
+  for (const option of [
+    "host=remote.example",
+    "hostaddr=192.0.2.1",
+    "options=-csearch_path=bad",
+  ])
+    assert.throws(
+      () => postgresClientUrl(`postgresql://synthetic@[::1]/test?${option}`),
+      /UNSUPPORTED_DATABASE_URL_OPTIONS/,
+    );
+});
+
 function fixture(
   overrides: {
     targetExists?: boolean;
@@ -284,6 +340,7 @@ function fixture(
 async function planned(
   t: TestContext,
   overrides: Parameters<typeof fixture>[0] = {},
+  endpoints = { source: sourceUrl, maintenance: maintenanceUrl },
 ) {
   const dir = await temporary(t);
   const backup = join(dir, "backup.sql.gz");
@@ -293,8 +350,8 @@ async function planned(
   const fake = fixture(overrides);
   const plan = await createSitePlan(
     { backup, targetName: "shbs_recovery_test", evidenceDir },
-    sourceUrl,
-    maintenanceUrl,
+    endpoints.source,
+    endpoints.maintenance,
     fake.dependencies,
   );
   return { dir, backup, plan, ...fake };
@@ -392,6 +449,84 @@ void test("invalid current evidence prevents even isolated target creation", asy
     /SITE_STAGE_FAILED_REVIEW_EVIDENCE/,
   );
   assert.ok(!queries.some((query) => query.startsWith("CREATE DATABASE")));
+});
+void test("staging converts IPv6 URI hosts for both PostgreSQL tools without changing plan identities", async (t) => {
+  for (const [sourceHost, maintenanceHost] of [
+    ["[::1]", "[::1]"],
+    ["[0:0:0:0:0:0:0:1]", "[0:0:0:0:0:0:0:1]"],
+    ["[::1]", "127.0.0.1"],
+    ["127.0.0.1", "[::1]"],
+    ["localhost", "localhost"],
+  ] as const) {
+    await t.test(`${sourceHost} source and ${maintenanceHost} staging`, async (t) => {
+      const endpoints = {
+        source: sourceUrl.replace("127.0.0.1", sourceHost),
+        maintenance: maintenanceUrl.replace("127.0.0.1", maintenanceHost),
+      };
+      const { plan, dependencies, tools, queries } = await planned(
+        t,
+        {},
+        endpoints,
+      );
+      const reviewedHash = planHash(plan);
+      assert.equal(
+        plan.source.host,
+        sourceHost.startsWith("[") ? "[::1]" : sourceHost,
+      );
+      assert.equal(
+        plan.maintenance.host,
+        maintenanceHost.startsWith("[") ? "[::1]" : maintenanceHost,
+      );
+      const receipt = await stageSitePlan(
+        plan,
+        endpoints.source,
+        endpoints.maintenance,
+        "Synthetic endpoint rehearsal",
+        dependencies,
+      );
+      assert.deepEqual(
+        tools.map(({ tool, env }) => [tool, env.PGHOST, env.PGPORT]),
+        [
+          ["pg_dump", sourceHost.startsWith("[") ? "::1" : sourceHost, "5432"],
+          [
+            "psql",
+            maintenanceHost.startsWith("[") ? "::1" : maintenanceHost,
+            "5544",
+          ],
+        ],
+      );
+      assert.equal(planHash(plan), reviewedHash);
+      assert.equal(receipt.planHash, reviewedHash);
+      assert.equal(receipt.state, "SEALED_STAGING_ONLY");
+      assert.ok(
+        queries.includes(
+          'ALTER DATABASE "shbs_recovery_test" ALLOW_CONNECTIONS false',
+        ),
+      );
+    });
+  }
+});
+void test("loopback aliases cannot bypass separate-port isolation", async (t) => {
+  const { plan, backup } = await planned(t);
+  const hosts = ["127.0.0.1", "localhost", "[::1]", "[0:0:0:0:0:0:0:1]"];
+  for (const sourceHost of hosts) {
+    for (const maintenanceHost of hosts) {
+      const { dependencies, queries, tools } = fixture();
+      await assert.rejects(
+        createSitePlan(
+          { ...plan, backup },
+          sourceUrl.replace("127.0.0.1", sourceHost),
+          maintenanceUrl
+            .replace("127.0.0.1", maintenanceHost)
+            .replace("5544", "5432"),
+          dependencies,
+        ),
+        /RECOVERY_REQUIRES_SEPARATE_POSTGRES_INSTANCE/,
+      );
+      assert.deepEqual(queries, []);
+      assert.deepEqual(tools, []);
+    }
+  }
 });
 void test("staging captures external current evidence, restores only fresh database and fences connections", async (t) => {
   const { plan, dependencies, queries, tools } = await planned(t);

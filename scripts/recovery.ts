@@ -9,6 +9,7 @@ import {
 } from "../src/server/recovery/operator-cli";
 import {
   databaseIdentity,
+  postgresClientUrl,
   planHash,
   readOperatorPlan,
   writeOperatorJson,
@@ -53,7 +54,7 @@ async function siteDependencies(): Promise<SiteDependencies> {
     execute: executeRecoveryTool,
     async connect(connectionString) {
       const client = new Client({
-        connectionString,
+        connectionString: postgresClientUrl(connectionString),
         connectionTimeoutMillis: 10_000,
         statement_timeout: 60_000,
         application_name: "shbs-recovery-operator",
@@ -125,7 +126,9 @@ async function main() {
       import("../src/server/database-url"),
     ]);
   const db = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: utcDatabaseUrl(sourceUrl) }),
+    adapter: new PrismaPg({
+      connectionString: utcDatabaseUrl(postgresClientUrl(sourceUrl)),
+    }),
   });
   try {
     if (

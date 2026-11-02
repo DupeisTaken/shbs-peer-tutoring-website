@@ -60,6 +60,16 @@ export function databaseIdentity(connectionString: string) {
   );
   return identity;
 }
+/** Driver-only URL: keep the original URL identity in plans and reviewed hashes. */
+export function postgresClientUrl(connectionString: string): string {
+  const identity = databaseIdentity(connectionString);
+  if (!identity.host.startsWith("[")) return connectionString;
+  const url = new URL(connectionString);
+  // node-pg parses connectionString after config.host. Its host query parameter
+  // wins over URI hostname, so derive it only after rejecting caller overrides.
+  url.searchParams.set("host", identity.host.slice(1, -1));
+  return url.toString();
+}
 export async function writeOperatorJson(
   path: string,
   value: unknown,
