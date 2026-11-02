@@ -177,12 +177,12 @@ const catalog = {
   ],
 };
 let current = source();
-const view = (managed = false) => (
+const view = (managed = false, requestId = "request") => (
   <QueryClientProvider client={new QueryClient()}>
     <NextIntlClientProvider locale="en" messages={en}>
       <StudentSignupEditor
         managed={managed}
-        requestId="request"
+        requestId={requestId}
         onClose={vi.fn()}
       />
     </NextIntlClientProvider>
@@ -499,4 +499,28 @@ it("shows an accepted management proposal without replaying it or pretending the
       .getByRole("button", { name: en.signupEditing.headEdit })
       .hasAttribute("disabled"),
   ).toBe(true);
+});
+
+
+it("starts a distinct draft when the request or management mode changes", () => {
+  const mounted = render(view());
+  fireEvent.change(screen.getByLabelText("Request name"), {
+    target: { value: "Unsaved first request" },
+  });
+  current = {
+    ...source(),
+    id: "second-request",
+    answers: { ...source().answers, firstName: "Second request" },
+  };
+  mounted.rerender(view(false, "second-request"));
+  expect(screen.queryByDisplayValue("Unsaved first request")).toBeNull();
+  expect(screen.getByDisplayValue("Second request")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Request name"), {
+    target: { value: "Unsaved self-service draft" },
+  });
+  mounted.rerender(view(true, "second-request"));
+  expect(screen.queryByDisplayValue("Unsaved self-service draft")).toBeNull();
+  expect(screen.getByDisplayValue("Second request")).toBeTruthy();
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.headSave).not.toHaveBeenCalled();
 });

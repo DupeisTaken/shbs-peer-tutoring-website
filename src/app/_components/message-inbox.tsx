@@ -60,8 +60,7 @@ export function MessageInbox({
   const planning = useTranslations("sessionPlanning");
   const recovery = useTranslations("participantRecovery");
   const roleLabel = useTranslations("admin.users.roles");
-  const [viewDenied, setViewDenied] = useState(false);
-  const [scopedAccessLost, setScopedAccessLost] = useState(false);
+  const [accessLost, setAccessLost] = useState(false);
   const [recoveringScope, setRecoveringScope] = useState(false);
   const scopeRecoveryAdmission = useRef(false);
   // Only the visible list/search choices persist; recipients, body, reply drafts
@@ -71,7 +70,7 @@ export function MessageInbox({
     scope: viewScope,
     initialState: { page: 0, contactPage: 0, search: "" },
     parse: parseInboxView,
-    enabled: !viewDenied && !dialog,
+    enabled: !accessLost && !dialog,
   });
   const { page, contactPage, search } = view;
   const setPage = (page: number) =>
@@ -114,21 +113,13 @@ export function MessageInbox({
     { page, sessionCohortId },
     { refetchInterval: 30000, refetchIntervalInBackground: false },
   );
-  const readDenied = [contacts, inbox].some(
-    (query) =>
-      query.error?.data?.code === "FORBIDDEN" ||
-      query.error?.data?.code === "UNAUTHORIZED",
+  const readDenied = [contacts, inbox, permission].some((query) =>
+    viewAccessDenied(query.error),
   );
-  const scopeDeniedNow =
-    !!sessionCohortId &&
-    [contacts, inbox, permission].some((query) =>
-      viewAccessDenied(query.error),
-    );
-  useEffect(() => {
-    if (scopeDeniedNow) setScopedAccessLost(true);
-  }, [scopeDeniedNow]);
-  const concealScope =
-    !!sessionCohortId && (scopeDeniedNow || scopedAccessLost);
+  // Cached private content is concealed before commit. Only the explicit complete
+  // read recovery below releases this latch; cached sibling success cannot do so.
+  if (readDenied && !accessLost) setAccessLost(true);
+  const concealScope = readDenied || accessLost;
   async function recoverScope() {
     if (scopeRecoveryAdmission.current) return;
     scopeRecoveryAdmission.current = true;
@@ -147,27 +138,24 @@ export function MessageInbox({
         },
         async () => {
           const result = await permission.refetch({ throwOnError: true });
-          if (!result.data || result.data.restricted)
+          // A general send restriction still permits reading historical mail.
+          if (!result.data || (sessionCohortId && result.data.restricted))
             throw new Error("Messaging unavailable");
         },
       ]);
-      setScopedAccessLost(false);
+      setAccessLost(false);
     } catch {
-      setScopedAccessLost(true);
+      setAccessLost(true);
     } finally {
       scopeRecoveryAdmission.current = false;
       setRecoveringScope(false);
     }
   }
-  useEffect(() => {
-    if (readDenied) setViewDenied(true);
-    else if (contacts.data && inbox.data) setViewDenied(false);
-  }, [readDenied, contacts.data, inbox.data]);
   useSessionPageScroll({
     id: "message-inbox-v1",
     scope: `${viewScope}:${page}:${contactPage}:${search}`,
     ready: !!contacts.data && !!inbox.data,
-    enabled: !dialog && !viewDenied && !readDenied,
+    enabled: !dialog && !concealScope,
   });
   const send = api.messaging.send.useMutation({
     onSuccess: async () => {
