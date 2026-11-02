@@ -466,7 +466,6 @@ async function seedHistory() {
 
   for (let qi = 0; qi < HISTORY_TERMS.length; qi++) {
     const h = HISTORY_TERMS[qi]!;
-    const pk = `${HISTORY_SCHOOL_YEAR} ${h.quarter}`;
     const adjMonth = monthKey(new Date(`${h.dates[0]!}T00:00:00Z`));
 
     // Sessions: each slot, each date. Mostly present, one excused + one tutor-absent per quarter.

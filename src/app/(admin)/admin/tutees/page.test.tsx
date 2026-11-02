@@ -28,7 +28,6 @@ const mocks = vi.hoisted(() => ({
   scheduleConfirmed: true,
 }));
 vi.mock("~/trpc/react", async () => {
-  const empty = { useQuery: () => ({ data: [] }) };
   return {
     api: {
       account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },

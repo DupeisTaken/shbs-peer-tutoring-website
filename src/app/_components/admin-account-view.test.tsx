@@ -4,12 +4,13 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import { AdminAccountView } from "./admin-account-view";
+import type * as SessionViewStateModule from "./session-view-state";
 
 const state = vi.hoisted(() => ({
   missing: "emails", error: null as null | { data?: { code?: string }; message: string }, scroll: vi.fn(),
 }));
 vi.mock("./session-view-state", async (original) => ({
-  ...await original<typeof import("./session-view-state")>(), useSessionPageScroll: state.scroll,
+  ...await original<typeof SessionViewStateModule>(), useSessionPageScroll: state.scroll,
 }));
 vi.mock("./account-settings", () => ({ AccountSettings: () => <input aria-label="Private password" defaultValue="" /> }));
 vi.mock("~/trpc/react", () => {
