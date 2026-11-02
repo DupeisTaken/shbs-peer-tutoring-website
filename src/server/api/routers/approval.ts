@@ -7,6 +7,7 @@ import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import superjson from "superjson";
+import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
 import {
   createTRPCRouter,
   protectedProcedure,
@@ -163,6 +164,11 @@ export const approvalRouter = createTRPCRouter({
         : null;
       const attendanceApproval =
         initial && isAttendanceApproval(initial.operation);
+      const calendarApproval =
+        !!initial &&
+        ["student.setCalendarDay", "student.resetCalendarDay"].includes(
+          initial.operation,
+        );
       // Fence identity-capable replays before profile locks or mutation callbacks. A stale
       // Serializable snapshot may retry here; no callback/email has executed at that point.
       const identityApproval =
@@ -183,17 +189,20 @@ export const approvalRouter = createTRPCRouter({
           "admin.setUserRole",
           "program.setProfilePolicy",
           "program.setNameFields",
+          // School delivery owns namespace/account before schedule admission.
+          "schoolHours.save",
         ].includes(initial.operation);
       const periodIdentityApproval =
         !!initial &&
         [
+          "schoolHours.save",
           "admin.updateTutor",
           "admin.updateTutee",
           "admin.updateAccountAcademics",
         ].includes(initial.operation);
       const nextRecruitmentApproval =
         !!initial &&
-        ["program.prepareNextRecruitment", "admin.refresh"].includes(
+        ["program.prepareNextRecruitment", "admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"].includes(
           initial.operation,
         );
       const runDecision = () =>
@@ -514,10 +523,19 @@ export const approvalRouter = createTRPCRouter({
                     data: {
                       userId: request.requesterId,
                       title: `Change ${input.approve ? "approved" : "rejected"}`,
-                      ...notificationEvent(
+                      ...notificationInAppEvent(
                         input.approve
                           ? "management_approved"
                           : "management_rejected",
+                        {},
+                        approvalNotificationDetail(
+                          request.operation,
+                          // Names and target IDs are JSON scalars; decoding is not
+                          // needed and must not prevent rejecting malformed legacy input.
+                          (request.payload as { json?: unknown } | null)?.json,
+                          request.targets,
+                          input.approve ? "approved" : "rejected",
+                        ),
                       ),
                       body: `${reviewerName}: ${input.note}`,
                       link:
@@ -536,9 +554,21 @@ export const approvalRouter = createTRPCRouter({
             timeout: 20000,
           },
         );
-      const result = identityApproval
-        ? await retryUsernameSnapshot(runDecision)
-        : await runDecision();
+      const result = await (
+        identityApproval ? retryUsernameSnapshot(runDecision) : runDecision()
+      ).catch((cause: unknown) => {
+        // The calendar lock prevents deadlock, but a Serializable snapshot taken
+        // before the wait may still conflict. Keep the rolled-back proposal for
+        // fresh review; never replay a callback through the identity-only retry.
+        if (calendarApproval && isSerializationFailure(cause))
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "The school calendar changed. Reload before reviewing again.",
+            cause,
+          });
+        throw cause;
+      });
       // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
       let emailSent: boolean | null = null;
       if (input.approve && result.operation === "studentWorkflow.assign") {
@@ -606,4 +636,4 @@ export const approvalRouter = createTRPCRouter({
     ),
 });
 import { accountHistoryIds } from "~/server/account-history";
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";

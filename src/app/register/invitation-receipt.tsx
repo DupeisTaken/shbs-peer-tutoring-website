@@ -9,6 +9,7 @@ import { Modal } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
 import { SignupError } from "~/app/_components/signup-error";
 import { rememberInvitation } from "./actions";
+import { SignupProgress } from "../signup/signup-progress";
 
 export type InvitationReceiptData = {
   invitationId: string;
@@ -17,14 +18,22 @@ export type InvitationReceiptData = {
   email?: string;
 };
 
-/** Both public applications finish here. Closing the popup retains its receipt;
+/** Mailbox verification issues a receipt here; account review still follows. Closing retains it;
  * optional email failure never forces the applicant to repeat verification. */
 export function InvitationReceipt({
   invitation,
+  tuteeSignup = false,
 }: {
   invitation: InvitationReceiptData;
+  tuteeSignup?: boolean;
 }) {
   const t = useTranslations("accountInvitation");
+  const survey = useTranslations("survey");
+  const title = tuteeSignup ? survey("reviewTitle") : t("receiptTitle");
+  const help = tuteeSignup ? survey("reviewHelp") : t("receiptHelp");
+  const continueLabel = tuteeSignup
+    ? survey("stepReview")
+    : t("continueSignup");
   const [open, setOpen] = useState(true);
   const reopen = useRef<HTMLButtonElement>(null);
   const [ready, setReady] = useState(!invitation.proof);
@@ -60,26 +69,42 @@ export function InvitationReceipt({
   };
   return (
     <section className="space-y-4 text-center">
-      <h2 className="section-title">{t("receiptTitle")}</h2>
-      <p className="muted text-sm">{t("receiptHelp")}</p>
+      {tuteeSignup ? (
+        <SignupProgress current={2} title={title} />
+      ) : (
+        <h2 className="section-title">{title}</h2>
+      )}
+      <p className="muted text-sm">{help}</p>
+      {/* Closing a receipt must leave the actual next step reachable, not only its code. */}
+      {!open &&
+        tuteeSignup &&
+        (ready && !send.isPending ? (
+          <Link className="btn-primary w-full text-center" href={href}>
+            {continueLabel}
+          </Link>
+        ) : (
+          <Button disabled className="w-full">
+            {continueLabel}
+          </Button>
+        ))}
       <Button ref={reopen} onClick={() => setOpen(true)}>
         {t("showCode")}
       </Button>
       {open && (
         <Modal
-          title={t("receiptTitle")}
-          description={t("receiptHelp")}
+          title={title}
+          description={help}
           onClose={closeReceipt}
           busy={send.isPending || !ready}
           footer={
             <>
               {ready && !send.isPending ? (
                 <Link className="btn-primary w-full text-center" href={href}>
-                  {t("continueSignup")}
+                  {continueLabel}
                 </Link>
               ) : (
                 <Button disabled className="w-full">
-                  {t("continueSignup")}
+                  {continueLabel}
                 </Button>
               )}
               <Button variant="secondary" onClick={closeReceipt}>

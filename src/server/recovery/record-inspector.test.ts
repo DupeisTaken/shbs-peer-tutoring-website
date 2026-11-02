@@ -25,12 +25,36 @@ function fixture() {
     recoveryChange: { findMany: vi.fn().mockResolvedValue([]) },
     programFeature: { findMany: vi.fn().mockResolvedValue([]) },
     recoveryFence: { findMany: vi.fn().mockResolvedValue([]) },
+    scheduledProgramRefresh: { findMany: vi.fn().mockResolvedValue([]) },
+    monthlyHoursSchedule: { findMany: vi.fn() },
+    monthlyHoursReport: { findMany: vi.fn() },
+    schoolHoursSchedule: { findMany: vi.fn() },
+    schoolHoursReport: { findMany: vi.fn() },
   };
   return { db, client: db as unknown as DomainDb };
 }
 
 describe("read-only database inspector", () => {
   beforeEach(() => vi.clearAllMocks());
+  it("inspects safe schedule status without selecting private authorization evidence", async () => {
+    const { db, client } = fixture();
+    db.scheduledProgramRefresh.findMany.mockResolvedValue([{
+      id: "schedule", sourceTermId: "source", state: "SCHEDULED", version: 1,
+      executeAt: new Date("2030-01-01T00:00:00Z"),
+      expectedPreparation: { private: "must-not-escape" }, authorizedById: "private-head",
+      authorizedByName: "Private approver", authorityRevision: 4,
+    }]);
+    const result = await inspectRecords(client, web, { table: "ScheduledProgramRefresh" });
+    expect(result.table).toMatchObject({ available: true, keyFields: ["id"] });
+    expect(result.rows[0]?.fields).toMatchObject({ state: "SCHEDULED", executeAt: "2030-01-01T00:00:00.000Z" });
+    const args = db.scheduledProgramRefresh.findMany.mock.calls[0]?.[0] as unknown as {
+      select: Record<string, boolean>;
+    };
+    for (const name of ["expectedPreparation", "authorizedById", "authorizedByName", "authorityRevision"])
+      expect(args.select[name]).toBeUndefined();
+    expect(JSON.stringify(result.rows)).not.toContain("must-not-escape");
+    expect(result.rows[0]?.fields).not.toHaveProperty("authorizedById");
+  });
   it("catalogues unsupported models without reading rows or private existence", async () => {
     const { db, client } = fixture();
     const tables = await listRecordTables(client, web);
@@ -129,11 +153,43 @@ describe("read-only database inspector", () => {
     "CaptchaGrant",
     "HistoricalRecordClaimReceipt",
     "StudentSignup",
+    "SessionPlanningReceipt",
+    "SessionPlanningResponse",
+    "SessionNotice",
+    "SessionCalendarToken",
+    "MonthlyHoursSchedule",
+    "MonthlyHoursReport",
+    "SchoolHoursSchedule",
+    "SchoolHoursReport",
   ])("refuses row reads for %s even with operator authority", async (table) => {
     const { client } = fixture();
     await expect(
       inspectRecords(client, operator, { table, key: { id: "guessed" } }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+  it("catalogues reporting tables without fetching their private balances, recipients or capabilities", async () => {
+    const { db, client } = fixture();
+    const tables = await listRecordTables(client, web);
+    for (const name of [
+      "MonthlyHoursSchedule",
+      "MonthlyHoursReport",
+      "SchoolHoursSchedule",
+      "SchoolHoursReport",
+    ]) {
+      const table = tables.find((entry) => entry.name === name);
+      expect(table).toMatchObject({ available: false, keyFields: ["id"] });
+      expect(table?.fields.every((field) => !field.readable)).toBe(true);
+      await expect(
+        inspectRecords(client, web, {
+          table: name,
+          key: { id: "private-report" },
+        }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+    expect(db.monthlyHoursSchedule.findMany).not.toHaveBeenCalled();
+    expect(db.monthlyHoursReport.findMany).not.toHaveBeenCalled();
+    expect(db.schoolHoursSchedule.findMany).not.toHaveBeenCalled();
+    expect(db.schoolHoursReport.findMany).not.toHaveBeenCalled();
   });
   it("uses complete compound keys as bound exact filters", async () => {
     const { db, client } = fixture();

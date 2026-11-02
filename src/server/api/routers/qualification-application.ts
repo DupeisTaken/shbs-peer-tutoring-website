@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -138,7 +138,10 @@ export const qualificationApplicationRouter = createTRPCRouter({
         await notifyUsers(
           reviewers.map((reviewer) => reviewer.id),
           {
-            ...notificationEvent("qualification_requested"),
+            ...notificationInAppEvent("qualification_requested", undefined, {
+              en: `${user.tutor.englishName} requested the qualification ${option.name}.`,
+              zh: `${user.tutor.englishName} 申请资格：${option.name}。`,
+            }),
             title: "Additional qualification request",
             body: `${user.tutor.englishName}: ${option.name}`,
             link: `/admin/applications#application-${request.id}`,

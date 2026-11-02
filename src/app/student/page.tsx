@@ -6,6 +6,7 @@ import { AccountSettings } from "~/app/_components/account-settings";
 import { getTranslations } from "next-intl/server";
 import { StudentPortal } from "~/app/_components/student-portal";
 import { LegacyParticipation } from "./legacy-participation";
+import { LegacyContinuation } from "./legacy-continuation";
 import { StudentWorkspace } from "./student-workspace";
 import { TuteeOverview } from "./tutee-overview";
 import { resolveTuteeView } from "./views";
@@ -63,6 +64,9 @@ export default async function StudentPage({
           </Link>
         )}
       </div>
+      {(view === "dashboard" || view === "requests") && !access?.departed && (
+        <LegacyContinuation key={viewScope} />
+      )}
       {view === "dashboard" && <TuteeOverview viewScope={viewScope} />}
       {view === "messages" && <MessageInbox viewScope={viewScope} />}
       {view === "account" && <AccountSettings embedded />}

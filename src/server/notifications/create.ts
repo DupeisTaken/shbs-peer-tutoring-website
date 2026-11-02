@@ -5,23 +5,37 @@ import { db } from "~/server/db";
 import { inTransaction, lockEntity, type DomainDb, type TransactionDb } from "~/server/transactions";
 import type { Prisma } from "../../../generated/prisma";
 import { APPROVAL_OPERATIONS, classifyApproval, humanizeOperation } from "~/lib/approval-policy";
+import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
 import superjson from "superjson";
-import {
-  notificationEvent,
-  type NotificationEvent,
-  type NotificationContext,
+import type {
+  NotificationEvent,
+  NotificationContext,
 } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import enMessages from "../../../messages/en.json";
+import zhMessages from "../../../messages/zh.json";
+
+/** Name only the affected record; free-text reasons stay in their authorized workflow. */
+export function namedNotificationDetail(
+  event: NotificationEvent,
+  name: string,
+) {
+  return {
+    en: `${name}: ${enMessages.notificationEvents[event].body}`,
+    zh: `${name}：${zhMessages.notificationEvents[event].body}`,
+  };
+}
 
 /** Retain a readable English text snapshot for older readers without inferring event
  * identity from free text. Current UI and mail localize the explicit event. */
 export function notificationData(
   event: NotificationEvent,
   context?: NotificationContext,
+  detail?: { en: string; zh: string },
 ) {
   return {
     title: enMessages.notificationEvents[event].title,
-    ...notificationEvent(event, context),
+    ...notificationInAppEvent(event, context, detail),
   };
 }
 
@@ -32,7 +46,7 @@ export interface NotificationInput {
   /** Explicitly suppress optional email copies for a workflow with an in-app-only contract. */
   inAppOnly?: boolean;
   event?: NotificationEvent;
-  context?: NotificationContext;
+  context?: NotificationContext & { inAppDetail?: { en: string; zh: string } };
 }
 
 /** Create the same notification for each of the given user ids (de-duplicated, skips empty). */
@@ -50,7 +64,7 @@ export async function notifyUsers(
       body: data.body ?? null,
       link: data.link ?? null,
       ...(data.inAppOnly ? { inAppOnly: true } : {}),
-      ...(data.event ? notificationEvent(data.event, data.context) : {}),
+      ...(data.event ? notificationInAppEvent(data.event, data.context) : {}),
     })),
   });
 }
@@ -132,6 +146,7 @@ type DomainReviewNotice = {
   event: NotificationEvent;
   link: string;
   body: string;
+  detail: { en: string; zh: string };
 };
 
 /** All three formerly Head-owned domain queues retain their own decisions and
@@ -157,6 +172,8 @@ async function reconcileDomainReviewNotifications(
           row.tutor.status !== (row.kind === "OPT_OUT" ? "ACTIVE" : "OPTED_OUT")) return [];
         return [{ event: row.kind === "OPT_OUT" ? "tutor_optout_requested" : "tutor_reentry_requested",
           link: managementReviewSourceLink("TutorStatusRequest", row.id),
+          detail: { en: `${row.tutor.englishName}: ${row.kind === "OPT_OUT" ? "tutor opt-out" : "tutor reentry"} awaiting review.`,
+            zh: `${row.tutor.englishName}：${row.kind === "OPT_OUT" ? "退出辅导伙伴" : "重新加入辅导伙伴"}申请待审核。` },
           body: `${row.tutor.englishName}: ${row.kind === "OPT_OUT" ? "opt-out" : "reentry"} awaiting review.` }];
       }) };
     },
@@ -173,6 +190,8 @@ async function reconcileDomainReviewNotifications(
           row.user.crewStatus !== (row.kind === "OPT_OUT" ? "ACTIVE" : "OPTED_OUT")) return [];
         return [{ event: row.kind === "OPT_OUT" ? "crew_optout_requested" : "crew_reentry_requested",
           link: managementReviewSourceLink("CrewStatusRequest", row.id),
+          detail: { en: `${row.user.name ?? row.user.username ?? "Crew member"}: ${row.kind === "OPT_OUT" ? "crew opt-out" : "crew reentry"} awaiting review.`,
+            zh: `${row.user.name ?? row.user.username ?? "工作组成员"}：${row.kind === "OPT_OUT" ? "退出工作组" : "重新加入工作组"}申请待审核。` },
           body: `${row.user.name ?? row.user.username ?? "Crew member"}: ${row.kind === "OPT_OUT" ? "opt-out" : "reentry"} awaiting review.` }];
       }) };
     },
@@ -184,6 +203,7 @@ async function reconcileDomainReviewNotifications(
       return { cursor: rows.at(-1)?.id, pending: rows.length, notices: rows.map((row): DomainReviewNotice => ({
         event: "crew_application_pending", link: managementReviewSourceLink("CrewApplication", row.id),
         body: `${row.name} applied to join the crew.`,
+        detail: { en: `${row.name} applied to join the crew.`, zh: `${row.name} 已申请加入工作组。` },
       })) };
     },
   ];
@@ -204,7 +224,7 @@ async function reconcileDomainReviewNotifications(
       const delivered = new Set(existing.map((notice) => `${notice.userId}:${notice.event}:${notice.link}`));
       const data = page.notices.flatMap((notice) => reviewers.flatMap((reviewer) =>
         delivered.has(`${reviewer.id}:${notice.event}:${notice.link}`) ? [] : [{
-          userId: reviewer.id, link: notice.link, body: notice.body, ...notificationData(notice.event),
+          userId: reviewer.id, link: notice.link, body: notice.body, ...notificationData(notice.event, {}, notice.detail),
         }],
       ));
       if (data.length) created += (await tx.notification.createMany({ data })).count;
@@ -286,7 +306,8 @@ export async function reconcileManagementReviewNotifications(database: DomainDb)
           deliveries.push({
             userId: reviewer.id, link,
             title: headOnly ? "Management change awaiting Head approval" : "Management change awaiting approval",
-            ...notificationEvent(headOnly ? "management_head_review_pending" : "management_review_pending"),
+            ...notificationInAppEvent(headOnly ? "management_head_review_pending" : "management_review_pending", {},
+              approvalNotificationDetail(request.operation, value, request.targets, "pending")),
             body: `${request.requesterName}: ${humanizeOperation(request.operation)}`,
           });
         }

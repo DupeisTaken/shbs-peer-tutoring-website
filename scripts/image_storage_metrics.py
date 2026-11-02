@@ -1,9 +1,9 @@
 """Inspect a Docker-save stream without extracting image files.
 
 ``read_image_archive(stream)`` returns a mapping from RepoTag to selected image
-metadata. Each image contains its config digest and ordered layer records with
-DiffID, archive payload size, and snapshot chain ID. Whole configs are never
-returned. ``summarize_pairs`` compares two ordered pairs from that mapping.
+metadata. Each image contains its config digest, verified manifest digests and
+ordered layer records with DiffID, archive payload size, and snapshot chain ID.
+Whole configs are never returned. ``summarize_pairs`` compares two ordered pairs.
 
 The byte metrics describe exported layer payloads. Content union and chain-key
 weighted union are sharing proxies, not registry transfer or host allocation.
@@ -27,6 +27,14 @@ MAX_INTEGER = (1 << 63) - 1
 _SHA256 = re.compile(r"sha256:[a-f0-9]{64}\Z")
 _CONFIG_NAME = re.compile(r"(?:([a-f0-9]{64})\.json|blobs/sha256/([a-f0-9]{64}))\Z")
 _TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@-]{0,511}\Z")
+_MANIFEST_TYPES = {
+    "application/vnd.oci.image.manifest.v1+json",
+    "application/vnd.docker.distribution.manifest.v2+json",
+}
+_CONFIG_TYPES = {
+    "application/vnd.oci.image.config.v1+json",
+    "application/vnd.docker.container.image.v1+json",
+}
 
 
 def _fail(message):
@@ -80,6 +88,57 @@ def _chain(parent, diff_id):
     if parent is None:
         return diff_id
     return "sha256:" + hashlib.sha256(f"{parent} {diff_id}".encode("ascii")).hexdigest()
+
+
+def _descriptor_payload(descriptor, members):
+    if not isinstance(descriptor, dict):
+        _fail("Invalid image manifest descriptor")
+    digest = descriptor.get("digest")
+    size = descriptor.get("size")
+    if (not isinstance(digest, str) or not _SHA256.fullmatch(digest)
+            or type(size) is not int or not 0 <= size <= MAX_INTEGER):
+        _fail("Invalid image manifest descriptor identity or size")
+    payload = members.get("blobs/sha256/" + digest[7:])
+    if not payload or payload.get("digest") != digest or payload.get("size") != size:
+        _fail("Missing or inconsistent image manifest descriptor payload")
+    return digest, size
+
+
+def _manifest_proofs(members, metadata):
+    """Index authenticated config + ordered payloads by their manifest hash.
+
+    Containerd exports the original OCI blobs alongside Docker's manifest.json.
+    Hash the manifest itself and every referenced blob before granting a proof;
+    an index, matching config alone, or archive tag is not an image identity.
+    """
+    proofs = {}
+    for name, raw in metadata.items():
+        if not name.startswith("blobs/sha256/"):
+            continue
+        try:
+            manifest = _json(raw)
+        except ValueError:
+            # A small layer can resemble JSON. It provides no identity proof.
+            continue
+        if (not isinstance(manifest, dict) or not isinstance(manifest.get("mediaType"), str)
+                or manifest["mediaType"] not in _MANIFEST_TYPES):
+            continue
+        manifest_digest = _config_digest(name)
+        if members[name]["digest"] != manifest_digest:
+            _fail("Inconsistent image manifest blob identity")
+        if type(manifest.get("schemaVersion")) is not int or manifest["schemaVersion"] != 2:
+            _fail("Unsupported image manifest schema")
+        config = manifest.get("config")
+        if (not isinstance(config, dict) or not isinstance(config.get("mediaType"), str)
+                or config["mediaType"] not in _CONFIG_TYPES):
+            _fail("Invalid image manifest config descriptor")
+        config_digest, _ = _descriptor_payload(config, members)
+        layers = manifest.get("layers")
+        if not isinstance(layers, list) or len(layers) > 4096:
+            _fail("Invalid image manifest layers")
+        payloads = tuple(_descriptor_payload(layer, members) for layer in layers)
+        proofs.setdefault((config_digest, payloads), set()).add(manifest_digest)
+    return proofs
 
 
 class _BoundedTarInfo(tarfile.TarInfo):
@@ -167,6 +226,7 @@ def read_image_archive(stream):
     manifest = _json(metadata["manifest.json"])
     if not isinstance(manifest, list) or not manifest or len(manifest) > 256:
         _fail("Invalid Docker archive manifest")
+    manifest_proofs = _manifest_proofs(members, metadata)
     images = {}
     content_sizes = {}
     for entry in manifest:
@@ -191,6 +251,7 @@ def read_image_archive(stream):
         ):
             _fail("Invalid manifest/config layer or tag metadata")
         layers = []
+        payloads = []
         parent = None
         for name, diff_id in zip(layer_names, diff_ids):
             name = _path(name)
@@ -208,6 +269,7 @@ def read_image_archive(stream):
             # For compressed payloads DiffID is the config's uncompressed
             # identity. This tool does not decompress them or estimate disk use.
             size = item["size"]
+            payloads.append((item["digest"], size))
             if diff_id in content_sizes and content_sizes[diff_id] != size:
                 _fail("Inconsistent exported payload sizes for one DiffID")
             content_sizes[diff_id] = size
@@ -218,7 +280,10 @@ def read_image_archive(stream):
             tag = _tag(value)
             if tag in images:
                 _fail("Duplicate manifest image tag")
-            images[tag] = {"config_digest": expected_config_digest, "layers": layers, "exported_layer_payload_bytes": sum(layer["payload_bytes"] for layer in layers)}
+            images[tag] = {"config_digest": expected_config_digest,
+                           "manifest_digests": sorted(manifest_proofs.get((expected_config_digest, tuple(payloads)), ())),
+                           "layers": layers,
+                           "exported_layer_payload_bytes": sum(layer["payload_bytes"] for layer in layers)}
     return images
 
 

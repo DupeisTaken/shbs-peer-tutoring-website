@@ -1,6 +1,21 @@
-import { notificationEvent } from "~/lib/notification-events";
+import {
+  sessionAttendanceContext,
+  markSessionCohortRecorded,
+  lockSessionPlanning,
+} from "~/server/session-planning";
+import { lockTutorContinuationRequests, reconcileTutorContinuations } from "~/server/student-continuation-assignment";
+import { lockCatalogue } from "~/server/qualifications";
+import { notificationList, notificationCard, notificationInstant } from "~/lib/notification-facts";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { isInterviewChairRole } from "~/lib/interview-chair";
-import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
+import {
+  meetingPeriodInput,
+  meetingPeriodContext,
+  meetingPeriods,
+  meetingPeriodsOverlap,
+  meetingScope,
+  recordedMeetingPeriod,
+} from "~/server/meeting-periods";
 import {
   INTERVIEW_HOURS_REASON,
   interviewHoursId,
@@ -55,7 +70,10 @@ import { computeSessionHours } from "~/lib/service-hours";
 import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
 import { reconcileApplication } from "~/server/tutors/application-status";
-import { beginAdmissionRecoveryCapture, finishAdmissionRecoveryCapture } from "~/server/recovery/capture";
+import {
+  beginAdmissionRecoveryCapture,
+  finishAdmissionRecoveryCapture,
+} from "~/server/recovery/capture";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
 import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
@@ -72,7 +90,12 @@ import { standingFromCounts } from "~/lib/discipline";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
-import { allocateAndPersistRoomUnit, assertRoomVersion, roomUnitInclude, roomUnitMembers } from "~/server/room-allocation";
+import {
+  allocateAndPersistRoomUnit,
+  assertRoomVersion,
+  roomUnitInclude,
+  roomUnitMembers,
+} from "~/server/room-allocation";
 import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
 import { pairingEntries } from "~/lib/pairing-groups";
 
@@ -358,6 +381,8 @@ export const tutorRouter = createTRPCRouter({
     .input(
       z
         .object({
+          cohortId: z.string().min(1).optional(),
+          expectedCohortVersion: z.number().int().positive().optional(),
           pairingId: z.string().min(1),
           // Other pairings (subjects) run in the same combined block. Each becomes its own
           // Session linked by mergeGroupId; the block's clock time is counted once.
@@ -408,6 +433,20 @@ export const tutorRouter = createTRPCRouter({
             .optional(),
         })
         .superRefine((val, ctx) => {
+          if (
+            val.cohortId &&
+            (val.expectedCohortVersion === undefined ||
+              val.startMin === undefined ||
+              val.endMin === undefined ||
+              !["PRESENT", "TUTOR_ABSENT"].includes(val.tutorStatus))
+          ) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["cohortId"],
+              message:
+                "Use the dated session version, actual times and attendance outcome. Scheduling provenance is automatic.",
+            });
+          }
           if (
             val.tutorStatus === "TUTOR_ABSENT" &&
             !val.tutorAbsentReason?.trim()
@@ -465,17 +504,66 @@ export const tutorRouter = createTRPCRouter({
       // Discipline side-effects (auto-issued absence cards + tutor card requests + punishment
       // removal) only fire when the DISCIPLINE module is on; attendance + hours always record.
       const features = await getFeatures(ctx.db);
-      // The block can cover several subjects (pairings). Primary first, then the merged ones.
-      const mergeIds = [...new Set(input.mergePairingIds ?? [])].filter(
-        (id) => id !== input.pairingId,
+      // Dated attendance derives its subject set from the immutable lesson snapshot.
+      // A split cohort can contain only part of a recurring pairing's roster.
+      const planned = input.cohortId
+        ? await ctx.db.sessionPlanCohort.findFirst({
+            where: { id: input.cohortId, plan: { tutorId } },
+            include: {
+              participants: true,
+              plan: {
+                include: { assignments: true, continuationMembers: true },
+              },
+            },
+          })
+        : null;
+      if (input.cohortId && !planned)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Dated session not found for this tutor.",
+        });
+      const plannedAssignments = planned?.plan.assignments.filter((row) =>
+        [
+          ...(Array.isArray(row.tuteeIds) ? row.tuteeIds : []),
+          ...planned.plan.continuationMembers
+            .filter((member) => member.pairingId === row.pairingId)
+            .map((member) => member.tuteeId),
+        ].some((id) =>
+          planned.participants.some(
+            (person) => person.tuteeId === id && person.status === "SCHEDULED",
+          ),
+        ),
       );
+      if (
+        planned &&
+        (!plannedAssignments?.some(
+          (row) => row.pairingId === input.pairingId,
+        ) ||
+          planned.date !== input.date.toISOString().slice(0, 10))
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "The attendance date or pairing does not match this dated session.",
+        });
+      // The block can cover several subjects (pairings). Primary first, then the merged ones.
+      const mergeIds = [
+        ...new Set(
+          plannedAssignments?.map((row) => row.pairingId) ??
+            input.mergePairingIds ??
+            [],
+        ),
+      ].filter((id) => id !== input.pairingId);
       const allPairingIds = [input.pairingId, ...mergeIds];
 
       // Row scoping: every pairing in the block must belong to this tutor.
       const found = await ctx.db.pairing.findMany({
         where: { id: { in: allPairingIds }, tutorId },
         include: {
-          tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, select: { tuteeId: true } },
+          tutees: {
+            where: { tutee: { status: { not: "INACTIVE" } } },
+            select: { tuteeId: true },
+          },
           // The session is stamped with this pairing's program period (for semester-scoped hours).
           term: { select: { schoolYear: true, quarter: true } },
         },
@@ -498,6 +586,7 @@ export const tutorRouter = createTRPCRouter({
 
       // Placeholder assignment times are never evidence of when a session actually ran.
       if (
+        !planned &&
         found.some((pairing) => !pairing.scheduleConfirmed) &&
         (input.startMin === undefined || input.endMin === undefined)
       ) {
@@ -507,8 +596,8 @@ export const tutorRouter = createTRPCRouter({
             "Enter actual start and end times for an assignment awaiting scheduling.",
         });
       }
-      const startMin = input.startMin ?? primary.startMin;
-      const endMin = input.endMin ?? primary.endMin;
+      const startMin = input.startMin ?? planned?.startMin ?? primary.startMin;
+      const endMin = input.endMin ?? planned?.endMin ?? primary.endMin;
       if (endMin <= startMin) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -544,6 +633,8 @@ export const tutorRouter = createTRPCRouter({
       return ctx.db.$transaction(
         async (tx) => {
           await lockAttendanceSchedule(tx);
+          // Match catalogue/lifecycle ordering before acquiring dated-session locks.
+          await lockEntity(tx, "program:period");
           await lockEntity(tx, "policy:tutor-policy");
           await requirePolicy(tx, ctx.session.user.id, "tutor-policy");
           // Pairing subsets and slightly changed times must not buy a second credit for the
@@ -553,13 +644,15 @@ export const tutorRouter = createTRPCRouter({
           // Same tutoring block means one attendance record, even across retries/processes.
           const submissionKey = createHash("sha256")
             .update(
-              JSON.stringify([
-                tutorId,
-                [...allPairingIds].sort(),
-                input.date.toISOString().slice(0, 10),
-                startMin,
-                endMin,
-              ]),
+              input.cohortId
+                ? `planned:${input.cohortId}`
+                : JSON.stringify([
+                    tutorId,
+                    [...allPairingIds].sort(),
+                    input.date.toISOString().slice(0, 10),
+                    startMin,
+                    endMin,
+                  ]),
             )
             .digest("hex");
           const submissionPayloadHash = createHash("sha256")
@@ -592,52 +685,163 @@ export const tutorRouter = createTRPCRouter({
           // Preserve immutable receipt replay above, then re-read the selected
           // assignments under the same fence as roster/group/schedule writers.
           await lockPlannedRoomSchedule(tx);
+          const plannedContext = input.cohortId
+            ? await sessionAttendanceContext(
+                tx,
+                { id: ctx.session.user.id, tutorId },
+                input.cohortId,
+                input.expectedCohortVersion,
+              )
+            : null;
+          if (
+            plannedContext &&
+            (plannedContext.date !== dateKey ||
+              plannedContext.primaryPairingId !== input.pairingId ||
+              [...plannedContext.pairingIds].sort().join(":") !==
+                [...allPairingIds].sort().join(":"))
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The dated session changed. Reload before recording attendance.",
+            });
           const currentMembers = await tx.pairing.findMany({
             where: { id: { in: allPairingIds }, tutorId },
-            include: { tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, select: { tuteeId: true } } },
+            include: {
+              tutees: {
+                where: { tutee: { status: { not: "INACTIVE" } } },
+                select: { tuteeId: true },
+              },
+            },
           });
           // A tutor schedule may change while the initial attendance read waits
           // for this fence. Recheck defaults here; explicit actual clocks remain
           // independent, while linkage still identifies their catalog evidence.
-          const currentPairing = currentMembers.find(member => member.id === primary.id);
-          if (currentPairing?.timeSlotId !== primary.timeSlotId ||
-            (input.startMin === undefined && (currentPairing?.startMin !== startMin || !currentPairing?.scheduleConfirmed)) ||
-            (input.endMin === undefined && (currentPairing?.endMin !== endMin || !currentPairing?.scheduleConfirmed)))
-            throw new TRPCError({ code: "CONFLICT", message: "The pairing schedule changed. Reload before recording attendance." });
-          const rosterKey = (rows: readonly { tuteeId: string }[]) => rows.map(row => row.tuteeId).sort().join(":");
-          if (currentMembers.length !== found.length || currentMembers.some(member => {
-            const earlier = found.find(row => row.id === member.id);
-            return earlier?.termId !== member.termId || earlier.subject !== member.subject ||
-              rosterKey(earlier.tutees) !== rosterKey(member.tutees);
-          })) throw new TRPCError({ code: "CONFLICT", message: "The assignment roster or subjects changed. Reload before recording attendance." });
+          const currentPairing = currentMembers.find(
+            (member) => member.id === primary.id,
+          );
+          if (
+            !plannedContext &&
+            (currentPairing?.timeSlotId !== primary.timeSlotId ||
+              (input.startMin === undefined &&
+                (currentPairing?.startMin !== startMin ||
+                  !currentPairing?.scheduleConfirmed)) ||
+              (input.endMin === undefined &&
+                (currentPairing?.endMin !== endMin ||
+                  !currentPairing?.scheduleConfirmed)))
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The pairing schedule changed. Reload before recording attendance.",
+            });
+          const rosterKey = (rows: readonly { tuteeId: string }[]) =>
+            rows
+              .map((row) => row.tuteeId)
+              .sort()
+              .join(":");
+          if (
+            currentMembers.length !== found.length ||
+            currentMembers.some((member) => {
+              const earlier = found.find((row) => row.id === member.id);
+              return (
+                earlier?.termId !== member.termId ||
+                earlier.subject !== member.subject ||
+                rosterKey(earlier.tutees) !== rosterKey(member.tutees)
+              );
+            })
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The assignment roster or subjects changed. Reload before recording attendance.",
+            });
           // New attendance uses the same active roster as the tutor reader.
           // Admission checks follow receipt replay so later roster changes cannot
           // invalidate immutable accepted evidence or turn a retry into a write.
-          const rosterByPairing = new Map(currentMembers.map(member => [member.id,
-            new Set(member.tutees.map(row => row.tuteeId))]));
-          const unionRoster = new Set(currentMembers.flatMap(member => member.tutees.map(row => row.tuteeId)));
-          const submittedIds = tuteeRows.map(row => row.tuteeId);
+          const rosterByPairing = new Map(
+            currentMembers.map((member) => [
+              member.id,
+              new Set(
+                plannedContext?.assignments.find(
+                  (row) => row.pairingId === member.id,
+                )?.tuteeIds ?? member.tutees.map((row) => row.tuteeId),
+              ),
+            ]),
+          );
+          const unionRoster = new Set(
+            plannedContext?.tuteeIds ??
+              currentMembers.flatMap((member) =>
+                member.tutees.map((row) => row.tuteeId),
+              ),
+          );
+          const submittedIds = tuteeRows.map((row) => row.tuteeId);
           const submittedIdSet = new Set(submittedIds);
           if (submittedIdSet.size !== submittedIds.length)
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Record each tutee exactly once." });
-          if (tuteeRows.some(row => !unionRoster.has(row.tuteeId)))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Selected tutee is not on any of these pairings." });
-          if (submittedIdSet.size !== unionRoster.size || [...unionRoster].some(id => !submittedIdSet.has(id)))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Record attendance for every tutee in the selected block." });
-          if (cardRequests.some(row => !unionRoster.has(row.tuteeId)))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot card a tutee who is not on these pairings." });
-          if (mergeIds.length && (currentMembers.some(member => member.termId !== primary.termId) ||
-            !pairingGroupEligibility(currentMembers).eligible))
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Combined attendance requires every selected student to have the same complete set of subjects." });
-          const explicitGroups = [...new Set(currentMembers.flatMap(member => member.groupId ? [member.groupId] : []))];
-          if (mergeIds.length && explicitGroups.length) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Record each tutee exactly once.",
+            });
+          if (tuteeRows.some((row) => !unionRoster.has(row.tuteeId)))
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Selected tutee is not on any of these pairings.",
+            });
+          if (
+            submittedIdSet.size !== unionRoster.size ||
+            [...unionRoster].some((id) => !submittedIdSet.has(id))
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Record attendance for every tutee in the selected block.",
+            });
+          if (cardRequests.some((row) => !unionRoster.has(row.tuteeId)))
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Cannot card a tutee who is not on these pairings.",
+            });
+          if (
+            !plannedContext &&
+            mergeIds.length &&
+            (currentMembers.some(
+              (member) => member.termId !== primary.termId,
+            ) ||
+              !pairingGroupEligibility(currentMembers).eligible)
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Combined attendance requires every selected student to have the same complete set of subjects.",
+            });
+          const explicitGroups = [
+            ...new Set(
+              currentMembers.flatMap((member) =>
+                member.groupId ? [member.groupId] : [],
+              ),
+            ),
+          ];
+          if (!plannedContext && mergeIds.length && explicitGroups.length) {
             const groupMembers = await tx.pairing.findMany({
               where: { groupId: { in: explicitGroups } },
-              include: { group: { select: { primaryPairingId: true } },
-                tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, select: { tuteeId: true } } },
+              include: {
+                group: { select: { primaryPairingId: true } },
+                tutees: {
+                  where: { tutee: { status: { not: "INACTIVE" } } },
+                  select: { tuteeId: true },
+                },
+              },
             });
-            if (pairingEntries(groupMembers).some(entry => entry.groupStatus === "needsRepair"))
-              throw new TRPCError({ code: "BAD_REQUEST", message: "This combined group needs repair. Repair or split it before recording attendance." });
+            if (
+              pairingEntries(groupMembers).some(
+                (entry) => entry.groupStatus === "needsRepair",
+              )
+            )
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message:
+                  "This combined group needs repair. Repair or split it before recording attendance.",
+              });
           }
           await requireExistingRooms(tx, actualRoomId ? [actualRoomId] : []);
           const dayStart = new Date(`${dateKey}T00:00:00Z`);
@@ -671,10 +875,20 @@ export const tutorRouter = createTRPCRouter({
                 submissionPayloadHash: isPrimary ? submissionPayloadHash : null,
                 // A merged block ran at the primary pairing's time, so every sibling retains that
                 // same slot. This keeps the whole block together when an admin later edits it.
-                timeSlotId: primary.timeSlotId,
+                timeSlotId: plannedContext ? null : primary.timeSlotId,
+                planningCohortId: plannedContext?.cohortId,
                 tutorId,
                 date: input.date,
-                tutorStatus: input.tutorStatus,
+                tutorStatus:
+                  input.tutorStatus === "TUTOR_ABSENT"
+                    ? "TUTOR_ABSENT"
+                    : plannedContext
+                      ? plannedContext.kind === "EXTRA"
+                        ? "EXTRA"
+                        : plannedContext.rescheduled
+                          ? "RESCHEDULED"
+                          : "PRESENT"
+                      : input.tutorStatus,
                 tutorAbsentReason:
                   input.tutorStatus === "TUTOR_ABSENT"
                     ? (input.tutorAbsentReason?.trim() ?? null)
@@ -710,6 +924,8 @@ export const tutorRouter = createTRPCRouter({
           }
 
           // Link merged siblings under the primary session's id as the group key.
+          if (plannedContext)
+            await markSessionCohortRecorded(tx, plannedContext.cohortId);
           if (merged) {
             await tx.session.updateMany({
               where: { id: { in: sessionIds } },
@@ -766,10 +982,14 @@ export const tutorRouter = createTRPCRouter({
 
           // Tutor-requested cards need a team review — surface them for admins.
           if (features.DISCIPLINE && cardRequests.length > 0) {
+            const cardPeople = await tx.tutee.findMany({ where: { id: { in: cardRequests.map((card) => card.tuteeId) } }, select: { id: true, englishName: true } });
             await notifyAdmins(
               {
-                ...notificationEvent("attendance_cards_pending", {
+                ...notificationInAppEvent("attendance_cards_pending", {
                   count: cardRequests.length,
+                }, {
+                  en: `${ctx.session.user.name ?? "Tutor"} requested ${cardRequests.length} discipline card(s) for ${primary.subject}, ${input.date.toISOString().slice(0, 10)}: ${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "Tutee"} (${notificationCard(card.color, "en")})`))}. Awaiting review.`,
+                  zh: `${ctx.session.user.name ?? "辅导伙伴"} 为 ${input.date.toISOString().slice(0, 10)} 的 ${primary.subject} 辅导申请 ${cardRequests.length} 张纪律卡：${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "学习伙伴"}（${notificationCard(card.color, "zh")}）`))}。待审核。`,
                 }),
                 title: "Discipline cards to review",
                 body: `${cardRequests.length} card(s) submitted with an attendance survey.`,
@@ -820,6 +1040,7 @@ export const tutorRouter = createTRPCRouter({
               },
             });
             if (conflict || blocked) {
+              const reportedRoom = await tx.room.findUnique({ where: { id: actualRoomId }, select: { name: true } });
               await tx.auditLog.create({
                 data: {
                   userId: ctx.session.user.id,
@@ -835,7 +1056,14 @@ export const tutorRouter = createTRPCRouter({
               });
               await notifyAdmins(
                 {
-                  ...notificationEvent("attendance_room_reported"),
+                  ...notificationInAppEvent(
+                    "attendance_room_reported",
+                    undefined,
+                    {
+                      en: `${ctx.session.user.name ?? "A tutor"} reported ${primary.subject} attendance on ${input.date.toISOString().slice(0, 10)} in ${reportedRoom?.name ?? "an unavailable room"}, which was allocated elsewhere or blocked. Review the room conflict.`,
+                      zh: `${ctx.session.user.name ?? "一位辅导伙伴"} 在 ${input.date.toISOString().slice(0, 10)} 上报了 ${primary.subject} 在 ${reportedRoom?.name ?? "不可用教室"} 的出勤；该教室已被其他安排占用或禁用。请审核教室冲突。`,
+                    },
+                  ),
                   title: "Attendance reported in an allocated room",
                   link: "/admin/attendance",
                 },
@@ -886,25 +1114,56 @@ export const tutorRouter = createTRPCRouter({
     .input(z.object({ slotIds: z.array(z.string().min(1)) }))
     .mutation(async ({ ctx, input }) => {
       const slotIds = [...new Set(input.slotIds)];
-      // Ignore any inactive/unknown slots defensively.
-      const valid = await ctx.db.timeSlot.findMany({
-        where: { id: { in: slotIds }, active: true },
-        select: { id: true },
-      });
-      const validIds = valid.map((s) => s.id);
-
-      await ctx.db.$transaction([
-        ctx.db.tutorAvailability.deleteMany({
+      return inTransaction(ctx.db, async (tx) => {
+        // Continuation admission and release share these fences. Availability
+        // cannot change between the tutee's final check and assignment commit.
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        await lockSessionPlanning(tx);
+        await lockTutorContinuationRequests(tx, ctx.session.tutorId);
+        await lockAccountProfile(tx, ctx.session.user.id);
+        const account = await tx.user.findUniqueOrThrow({
+          where: { id: ctx.session.user.id },
+        });
+        const tutor = await tx.tutor.findUnique({
+          where: { id: ctx.session.tutorId },
+        });
+        if (
+          account.tutorId !== ctx.session.tutorId ||
+          account.suspendedAt ||
+          account.mergedIntoId ||
+          account.tutorAccessRevoked ||
+          account.role === "VIEWER" ||
+          tutor?.status !== "ACTIVE"
+        )
+          throw new TRPCError({ code: "FORBIDDEN" });
+        await requireSchoolParticipation(tx, account.id);
+        const valid = await tx.timeSlot.findMany({
+          where: { id: { in: slotIds }, active: true },
+          select: { id: true },
+        });
+        const validIds = valid.map((slot) => slot.id);
+        await tx.tutorAvailability.deleteMany({
           where: { tutorId: ctx.session.tutorId },
-        }),
-        ctx.db.tutorAvailability.createMany({
+        });
+        await tx.tutorAvailability.createMany({
           data: validIds.map((slotId) => ({
             tutorId: ctx.session.tutorId,
             slotId,
           })),
-        }),
-      ]);
-      return { ok: true, count: validIds.length };
+        });
+        const reconciliation = await reconcileTutorContinuations(
+          tx,
+          ctx.session.tutorId,
+          new Date(),
+        );
+        return {
+          ok: true,
+          count: validIds.length,
+          released: reconciliation.released,
+        };
+      });
     }),
 
   /** The signed-in tutor's own domain record (used to gate the read-only inactive state). */
@@ -1237,25 +1496,53 @@ export const tutorRouter = createTRPCRouter({
         // cannot combine with this slot change into an unvalidated final tuple.
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.pairingId, tutorId: ctx.session.tutorId, term: { active: true } },
+          where: {
+            id: input.pairingId,
+            tutorId: ctx.session.tutorId,
+            term: { active: true },
+          },
           include: roomUnitInclude,
         });
-        if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found for this tutor." });
+        if (!pairing)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Current pairing not found for this tutor.",
+          });
         assertRoomVersion(pairing, input.expectedRoomVersion);
         if (input.slotId === null) {
           const members = await roomUnitMembers(tx, pairing);
           // Detaching only the catalog link retains the confirmed shared reservation.
-          await tx.pairing.updateMany({ where: { id: { in: members.map(member => member.id) } },
-            data: { timeSlotId: null, roomVersion: { increment: 1 } } });
-          const saved = await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
-          const roomOutcome = saved.roomId ? "RETAINED" as const : saved.roomNeedsAssignment ? "UNAVAILABLE" as const : saved.roomMode === "NONE" ? "NONE" as const : "UNASSIGNED" as const;
+          await tx.pairing.updateMany({
+            where: { id: { in: members.map((member) => member.id) } },
+            data: { timeSlotId: null, roomVersion: { increment: 1 } },
+          });
+          const saved = await tx.pairing.findUniqueOrThrow({
+            where: { id: pairing.id },
+          });
+          const roomOutcome = saved.roomId
+            ? ("RETAINED" as const)
+            : saved.roomNeedsAssignment
+              ? ("UNAVAILABLE" as const)
+              : saved.roomMode === "NONE"
+                ? ("NONE" as const)
+                : ("UNASSIGNED" as const);
           return { ...saved, roomOutcome };
         }
-        const slot = await tx.timeSlot.findFirst({ where: { id: input.slotId, active: true },
-          select: { dayOfWeek: true, startMin: true, endMin: true } });
-        if (!slot) throw new TRPCError({ code: "BAD_REQUEST", message: "Time slot not found." });
-        return allocateAndPersistRoomUnit(tx, pairing, { expectedRoomVersion: input.expectedRoomVersion },
-          { ...slot, timeSlotId: input.slotId, scheduleConfirmed: true });
+        const slot = await tx.timeSlot.findFirst({
+          where: { id: input.slotId, active: true },
+          select: { dayOfWeek: true, startMin: true, endMin: true },
+        });
+        if (!slot)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Time slot not found.",
+          });
+        return allocateAndPersistRoomUnit(
+          tx,
+          pairing,
+          { expectedRoomVersion: input.expectedRoomVersion },
+          { ...slot, timeSlotId: input.slotId, scheduleConfirmed: true },
+        );
       });
     }),
 
@@ -1413,24 +1700,28 @@ export const tutorRouter = createTRPCRouter({
         canChair: a.isHead && isInterviewChairRole(ctx.session.role),
         ...application,
         panel: application.interviewers.map((person) => ({
-          tutorId: person.tutorId, name: person.tutor.englishName,
-          isHead: person.isHead, attended: person.attended,
+          tutorId: person.tutorId,
+          name: person.tutor.englishName,
+          isHead: person.isHead,
+          attended: person.attended,
         })),
         isInvalid: !!invalidatedAt,
         myAwardedHours:
           credits.find(
             (row) => row.id === interviewHoursId(application.id, myTutorId),
           )?.amount ?? 0,
-        pendingDecision: ["PENDING", "INTERVIEW"].includes(application.status) && pendingDecisions.some(
-          ({ payload }) =>
-            payload &&
-            typeof payload === "object" &&
-            !Array.isArray(payload) &&
-            payload.json &&
-            typeof payload.json === "object" &&
-            !Array.isArray(payload.json) &&
-            payload.json.applicationId === application.id,
-        ),
+        pendingDecision:
+          ["PENDING", "INTERVIEW"].includes(application.status) &&
+          pendingDecisions.some(
+            ({ payload }) =>
+              payload &&
+              typeof payload === "object" &&
+              !Array.isArray(payload) &&
+              payload.json &&
+              typeof payload.json === "object" &&
+              !Array.isArray(payload.json) &&
+              payload.json.applicationId === application.id,
+          ),
         myVote: myVote
           ? { accept: myVote.accept, comment: myVote.comment }
           : null,
@@ -1506,13 +1797,20 @@ export const tutorRouter = createTRPCRouter({
           await notifyTutors(
             panel.map((p) => p.tutorId),
             {
-              ...notificationEvent("interview_scheduled", {
-                startsAt: input.interviewAt.toISOString(),
-                timeZone: await getProgramTimeZone(tx),
-              }),
+              ...notificationInAppEvent(
+                "interview_scheduled",
+                {
+                  startsAt: input.interviewAt.toISOString(),
+                  timeZone: await getProgramTimeZone(tx),
+                },
+                {
+                  en: `An interview for ${updated.name} was scheduled. Review the recorded time and panel duties.`,
+                  zh: `已为 ${updated.name} 安排面试。请查看面试时间和小组职责。`,
+                },
+              ),
               title: "Interview scheduled",
               body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
-              link: "/dashboard",
+              link: "/schedule#tutor-interviews",
             },
             tx,
           );
@@ -1621,13 +1919,21 @@ export const tutorRouter = createTRPCRouter({
         }
         const currentChair = await tx.user.findUnique({
           where: { id: chairUserId },
-          select: { role: true, tutorId: true, suspendedAt: true, mergedIntoId: true, tutorAccessRevoked: true },
+          select: {
+            role: true,
+            tutorId: true,
+            suspendedAt: true,
+            mergedIntoId: true,
+            tutorAccessRevoked: true,
+          },
         });
         if (
           !chairTutorId ||
           currentChair?.tutorId !== chairTutorId ||
           !isInterviewChairRole(currentChair?.role) ||
-          currentChair.suspendedAt || currentChair.mergedIntoId || currentChair.tutorAccessRevoked ||
+          currentChair.suspendedAt ||
+          currentChair.mergedIntoId ||
+          currentChair.tutorAccessRevoked ||
           !(await tx.tutor.count({
             where: { id: chairTutorId, status: "ACTIVE" },
           }))
@@ -1659,32 +1965,66 @@ export const tutorRouter = createTRPCRouter({
         }
 
         const before = await tx.tutorApplication.findUniqueOrThrow({
-          where: { id: input.applicationId }, include: { interviewers: true },
+          where: { id: input.applicationId },
+          include: { interviewers: true },
         });
         if (before.type !== "INITIAL" || before.status === "RECALLED")
-          throw new TRPCError({ code: "CONFLICT", message: "This application cannot receive this interview decision." });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This application cannot receive this interview decision.",
+          });
         if (input.accept) {
           // Only a previously queued, Head-reviewed payload may omit completion.
           // A new direct approval can never recreate the former decision-only path.
           if (!input.completion && !reviewId)
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Report interview duration, completion time and attendance before approving." });
-          if (before.status === "ACCEPTED" && input.completion &&
-            before.decidedByTutorId === chairTutorId && before.decisionComment === input.comment) {
-            const credits = await interviewHourRows(tx, before.id, before.interviewers.map((p) => p.tutorId));
-            if (sameInterviewCompletionEvidence(before, credits, input.completion)) return { ok: true };
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Report interview duration, completion time and attendance before approving.",
+            });
+          if (
+            before.status === "ACCEPTED" &&
+            input.completion &&
+            before.decidedByTutorId === chairTutorId &&
+            before.decisionComment === input.comment
+          ) {
+            const credits = await interviewHourRows(
+              tx,
+              before.id,
+              before.interviewers.map((p) => p.tutorId),
+            );
+            if (
+              sameInterviewCompletionEvidence(before, credits, input.completion)
+            )
+              return { ok: true };
           }
           if (before.status !== "INTERVIEW")
-            throw new TRPCError({ code: "CONFLICT", message: "This interview has already been decided. Reload its current outcome." });
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This interview has already been decided. Reload its current outcome.",
+            });
         }
-        if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) staleConflict();
+        if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+          staleConflict();
         if (input.accept && input.completion) {
           if (!z.string().email().safeParse(before.email.trim()).success)
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Add a valid applicant email before approving so tutor registration can be prepared." });
-          await recordInterviewApprovalService(tx, before.id, before, input.completion);
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Add a valid applicant email before approving so tutor registration can be prepared.",
+            });
+          await recordInterviewApprovalService(
+            tx,
+            before.id,
+            before,
+            input.completion,
+          );
         }
 
         const recoveryActionId = input.accept
-          ? await beginAdmissionRecoveryCapture(tx, input.applicationId) : null;
+          ? await beginAdmissionRecoveryCapture(tx, input.applicationId)
+          : null;
         // The source lock and pre-write version check cover both completion and decision.
         await tx.tutorApplication.update({
           where: { id: input.applicationId },
@@ -1704,26 +2044,51 @@ export const tutorRouter = createTRPCRouter({
           // Reconciliation owns provisioning. Verify its exact outcome rather than
           // claiming success if a malformed legacy code prevented valid issuance.
           const promoted = await tx.tutorApplication.findUniqueOrThrow({
-            where: { id: before.id }, select: { promotedTutorId: true },
+            where: { id: before.id },
+            select: { promotedTutorId: true },
           });
           const email = before.email.trim().toLowerCase();
           const tutorId = promoted.promotedTutorId;
-          const linked = tutorId && await tx.user.count({ where: {
-            tutorId, email, emailVerifiedAt: { not: null }, tutorAccessRevoked: false,
-            suspendedAt: null, mergedIntoId: null,
-          } });
-          const codes = tutorId ? await tx.registrationCode.findMany({ where: {
-            applicationId: before.id, tutorId, email, kind: "TUTOR",
-            code: { not: null }, attempts: { lt: MAX_CODE_ATTEMPTS },
-            usedAt: null, expiresAt: { gt: new Date() },
-          }, select: { code: true } }) : [];
+          const linked =
+            tutorId &&
+            (await tx.user.count({
+              where: {
+                tutorId,
+                email,
+                emailVerifiedAt: { not: null },
+                tutorAccessRevoked: false,
+                suspendedAt: null,
+                mergedIntoId: null,
+              },
+            }));
+          const codes = tutorId
+            ? await tx.registrationCode.findMany({
+                where: {
+                  applicationId: before.id,
+                  tutorId,
+                  email,
+                  kind: "TUTOR",
+                  code: { not: null },
+                  attempts: { lt: MAX_CODE_ATTEMPTS },
+                  usedAt: null,
+                  expiresAt: { gt: new Date() },
+                },
+                select: { code: true },
+              })
+            : [];
           // Legacy rows may contain blank plaintext, which cannot be shared for setup.
           const usableCode = codes.some(({ code }) => !!code?.trim());
           if (!linked && !usableCode)
             throw new TRPCError({ code: "CONFLICT", message: "Tutor registration could not be prepared. Review the application's existing account or invitation before approving." });
+          const grants = tutorId ? await tx.qualificationGrant.findMany({ where: { tutorId }, select: { subjectId: true } }) : [];
+          const grantedSubjects = grants.length ? await tx.subject.findMany({ where: { id: { in: grants.map((grant) => grant.subjectId) } }, select: { name: true, level: { select: { name: true } } }, orderBy: { name: "asc" } }) : [];
+          const awarded = notificationList(grantedSubjects.map((subject) => `${subject.name}${subject.level ? ` (${subject.level.name})` : ""}`));
           await notifyAdmins({
             title: "Interview approved",
-            ...notificationEvent("interview_approved"),
+            ...notificationInAppEvent("interview_approved", undefined, {
+              en: `${before.name}'s interview was approved and the tutor admission was applied.${awarded ? ` Granted subjects/levels: ${awarded}.` : ""}`,
+              zh: `${before.name} 的面试已获批准，辅导伙伴录取已生效。${awarded ? `授予的科目及等级：${awarded}。` : ""}`,
+            }),
             link: `/admin/applications#application-${input.applicationId}`,
             inAppOnly: true,
           }, undefined, tx);
@@ -1899,7 +2264,10 @@ export const tutorRouter = createTRPCRouter({
         });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_optout_requested"),
+            ...notificationInAppEvent("tutee_optout_requested", undefined, {
+              en: `${tutor?.englishName ?? "A tutor"} requested an opt-out for tutee ${tutee?.englishName ?? "(name not recorded)"}; automatic approval follows the ${TUTEE_OPT_OUT_COOLDOWN_DAYS}-day cooldown.`,
+              zh: `${tutor?.englishName ?? "辅导伙伴"} 为学习伙伴 ${tutee?.englishName ?? "（未记录姓名）"} 提交退出申请，将在 ${TUTEE_OPT_OUT_COOLDOWN_DAYS} 天冷静期后自动批准。`,
+            }),
             title: "Tutee opt-out",
             body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
             link: "/admin/tutee-requests",
@@ -1973,8 +2341,13 @@ export const tutorRouter = createTRPCRouter({
       });
       await notifyAdmins({
         title: input.available ? "Tutor reactivated" : "Tutor opted out",
-        ...notificationEvent(
+        ...notificationInAppEvent(
           input.available ? "tutor_reactivated" : "tutor_opted_out",
+          undefined,
+          {
+            en: `Tutor ${tutor.englishName} ${input.available ? "activated participation" : "opted out"} for the current program period.`,
+            zh: `辅导伙伴 ${tutor.englishName} 已${input.available ? "开启" : "退出"}当前项目周期的参与。`,
+          },
         ),
         body: `${tutor.englishName} ${input.available ? "is available" : "opted out"} this term.`,
         link: "/admin/tutors",
@@ -1985,48 +2358,63 @@ export const tutorRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor meetings — self-excuse an upcoming absence (up to 60 min before the meeting).
   // --------------------------------------------------------------------------
-  meetingPeriods: tutorProcedure.query(({ ctx }) => meetingPeriods(ctx.db, ctx.session.tutorId)),
+  meetingPeriods: tutorProcedure.query(({ ctx }) =>
+    meetingPeriods(ctx.db, ctx.session.tutorId),
+  ),
 
   /** The current linked tutor's evidence only. Retained historical identities keep
    * their existing owned personal-history route; this read accepts no tutor ID. */
-  meetingRecords: tutorProcedure.input(meetingPeriodInput).query(async ({ ctx, input }) => {
-    const now = new Date();
-    const { current } = await meetingPeriodContext(ctx.db);
-    const historical = !["current", "upcomingOutside"].includes(input.period) &&
-      !meetingPeriodsOverlap(input.period, current?.key);
-    const meetings = await ctx.db.tutorMeeting.findMany({
-      where: {
-        AND: [
-          await meetingScope(ctx.db, input.period, now, input.outsideCurrent),
-          // A retained semester key can overlap today's quarter without granting
-          // access to other tutors' past evidence in its other quarter.
-          { OR: [
-            { attendances: { some: { tutorId: ctx.session.tutorId } } },
-            { date: { gte: now } },
-            ...(current ? [recordedMeetingPeriod(current.key)] : []),
-          ] },
-        ],
-      },
-      orderBy: [{ date: "asc" }, { id: "asc" }],
-      select: {
-        id: true, title: true, date: true,
-        attendances: {
-          where: { tutorId: ctx.session.tutorId },
-          select: { status: true, reason: true, excusedAt: true },
+  meetingRecords: tutorProcedure
+    .input(meetingPeriodInput)
+    .query(async ({ ctx, input }) => {
+      const now = new Date();
+      const { current } = await meetingPeriodContext(ctx.db);
+      const historical =
+        !["current", "upcomingOutside"].includes(input.period) &&
+        !meetingPeriodsOverlap(input.period, current?.key);
+      const meetings = await ctx.db.tutorMeeting.findMany({
+        where: {
+          AND: [
+            await meetingScope(ctx.db, input.period, now, input.outsideCurrent),
+            // A retained semester key can overlap today's quarter without granting
+            // access to other tutors' past evidence in its other quarter.
+            {
+              OR: [
+                { attendances: { some: { tutorId: ctx.session.tutorId } } },
+                { date: { gte: now } },
+                ...(current ? [recordedMeetingPeriod(current.key)] : []),
+              ],
+            },
+          ],
         },
-      },
-    });
-    return meetings.map(meeting => {
-      const own = meeting.attendances[0];
-      return {
-        id: meeting.id, title: meeting.title, date: meeting.date,
-        status: own?.status ?? null, reason: own?.reason ?? null,
-        upcoming: meeting.date >= now,
-        excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
-        canExcuse: !historical && now.getTime() <= meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
-      };
-    });
-  }),
+        orderBy: [{ date: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          date: true,
+          attendances: {
+            where: { tutorId: ctx.session.tutorId },
+            select: { status: true, reason: true, excusedAt: true },
+          },
+        },
+      });
+      return meetings.map((meeting) => {
+        const own = meeting.attendances[0];
+        return {
+          id: meeting.id,
+          title: meeting.title,
+          date: meeting.date,
+          status: own?.status ?? null,
+          reason: own?.reason ?? null,
+          upcoming: meeting.date >= now,
+          excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
+          canExcuse:
+            !historical &&
+            now.getTime() <=
+              meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
+        };
+      });
+    }),
 
   /** Upcoming task count deliberately stays independent of period/history browsing. */
   myMeetings: tutorProcedure.query(async ({ ctx }) => {
@@ -2119,7 +2507,10 @@ export const tutorRouter = createTRPCRouter({
         select: { englishName: true },
       });
       await notifyAdmins({
-        ...notificationEvent("meeting_absence_excused"),
+        ...notificationInAppEvent("meeting_absence_excused", undefined, {
+          en: `${tutor?.englishName ?? "A tutor"} will be absent from the meeting “${meeting.title}” on ${notificationInstant(meeting.date, await getProgramTimeZone(ctx.db), "en")}.`,
+          zh: `${tutor?.englishName ?? "辅导伙伴"} 将缺席 ${notificationInstant(meeting.date, await getProgramTimeZone(ctx.db), "zh")} 的会议“${meeting.title}”。`,
+        }),
         title: "Meeting absence excused",
         body: `${tutor?.englishName ?? "A tutor"} will miss "${meeting.title}".`,
         link: "/admin/meetings",

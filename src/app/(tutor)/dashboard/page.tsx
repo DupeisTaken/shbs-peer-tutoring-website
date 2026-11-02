@@ -7,13 +7,10 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
-import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
 import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
-import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
-import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
 import { TutorDiscipline } from "~/app/(tutor)/_components/tutor-discipline";
 import { QualificationRequests } from "~/app/(tutor)/_components/qualification-requests";
@@ -23,9 +20,7 @@ import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
-import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
-import { TutorUpcoming } from "~/app/(tutor)/_components/tutor-upcoming";
-import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
+import { DashboardScheduleLinks } from "~/app/(tutor)/_components/dashboard-schedule-links";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -44,9 +39,8 @@ export default async function TutorDashboard() {
   const inactive = me.status !== "ACTIVE";
   const pending = me.status === "PENDING";
 
-  const [total, schedule, crew, features] = await Promise.all([
+  const [total, crew, features] = await Promise.all([
     api.tutor.myMonthlyTotal(),
-    api.tutor.schedule(),
     api.tutor.myCrew(),
     getFeatures(db),
   ]);
@@ -133,53 +127,29 @@ export default async function TutorDashboard() {
         </div>
       )}
 
+      <section
+        id="tutor-pairings"
+        tabIndex={-1}
+        className="card scroll-mt-6 p-4 sm:p-5"
+      >
+        <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
+        <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
+        <TutorPairings active={!inactive} />
+      </section>
+
       <DashboardTasks
         status={me.status}
         interviewsEnabled={features.INTERVIEWS}
         meetingsEnabled={features.MEETINGS}
         now={new Date()}
       />
-
-      <MergeProvider>
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5 lg:gap-6">
-          {/* Attendance form */}
-          {!inactive && (
-            <section
-              id="attendance"
-              tabIndex={-1}
-              className="card scroll-mt-6 p-4 sm:p-5 lg:col-span-3"
-            >
-              <h2 className="section-title">
-                {t("dashboard.attendance.title")}
-              </h2>
-              <p className="muted mt-1 mb-4">
-                {t("dashboard.attendance.help")}
-              </p>
-              <AttendanceForm />
-            </section>
-          )}
-
-          {/* Pairings + availability */}
-          <div
-            className={`space-y-5 lg:space-y-6 ${inactive ? "lg:col-span-5" : "lg:col-span-2"}`}
-          >
-            <section
-              id="tutor-pairings"
-              tabIndex={-1}
-              className="card scroll-mt-6 p-4 sm:p-5"
-            >
-              <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
-              <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
-              <TutorPairings active={!inactive} />
-            </section>
-          </div>
-        </div>
-      </MergeProvider>
+      <DashboardScheduleLinks
+        interviewsEnabled={!inactive && features.INTERVIEWS}
+      />
 
       {/* Unresolved work remains expanded. Only optional editors and completed
           evidence use disclosures, which retain mounted drafts when collapsed. */}
-      {!inactive && features.INTERVIEWS && <MyInterviews />}
-      {!inactive && features.MEETINGS && <TutorMeetings />}
+      {!inactive && features.INTERVIEWS && <MyInterviews audience="chair" />}
       <QualificationRequests
         active={!inactive}
         viewScope={total.periodLabel ?? ""}
@@ -211,25 +181,6 @@ export default async function TutorDashboard() {
 
       {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}
       {!inactive && features.DISCIPLINE && <TutorDiscipline />}
-
-      {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
-      <section
-        id="room-schedule"
-        tabIndex={-1}
-        className="scroll-mt-6 space-y-2"
-      >
-        <div className="text-center sm:text-left">
-          <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
-          <p className="muted">{t("dashboard.schedule.help")}</p>
-        </div>
-        <ProgramCalendarNotice />
-        <TutorUpcoming
-          active={!inactive}
-          interviewsEnabled={features.INTERVIEWS}
-          now={new Date()}
-        />
-        <TutorRoomSchedule initialData={schedule} />
-      </section>
     </div>
   );
 }

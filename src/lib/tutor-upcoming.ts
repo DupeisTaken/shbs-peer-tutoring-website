@@ -1,5 +1,9 @@
 import { pairingEntries, type GroupablePairing } from "./pairing-groups";
 import {
+  resolveSchoolCalendarDay,
+  type SchoolCalendarOverride,
+} from "./school-calendar";
+import {
   parseProgramDateTime,
   programDateKey,
   programDayStart,
@@ -40,18 +44,21 @@ function occurrence(date: string, minute: number, timeZone: string) {
 }
 
 /** Read-only projection of authorized current-period plans. Never interpret a
- * default slot as confirmation, infer interview duration or apply calendar closures.
+ * default slot as confirmation or infer interview duration. Calendar rules affect
+ * ordinary recurrence; interviews retain their explicitly recorded dates.
  * Today + six local dates is deliberately different from 168 elapsed hours. */
 export function tutorUpcoming({
   pairings,
   interviews,
   now,
   timeZone,
+  schoolCalendar = [],
 }: {
   pairings: readonly UpcomingPairing[];
   interviews: readonly UpcomingInterview[];
   now: Date;
   timeZone: string;
+  schoolCalendar?: readonly SchoolCalendarOverride[];
 }) {
   const today = programDateKey(now, timeZone);
   const lastDate = dateAfter(today, 6);
@@ -69,7 +76,10 @@ export function tutorUpcoming({
     if (!primary.scheduleConfirmed || !primary.tutees.length) continue;
     for (let day = 0; day < 7; day++) {
       const date = dateAfter(today, day);
-      const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+      const { effectiveTimetableWeekday: weekday } = resolveSchoolCalendarDay(
+        date,
+        schoolCalendar,
+      );
       if (primary.dayOfWeek !== weekday) continue;
       try {
         const start = occurrence(date, primary.startMin, timeZone);

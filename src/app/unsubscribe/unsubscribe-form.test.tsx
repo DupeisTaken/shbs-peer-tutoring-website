@@ -12,12 +12,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { UnsubscribeForm } from "./unsubscribe-form";
+import {
+  notificationCategories,
+  type NotificationCategory,
+} from "~/lib/notification-categories";
 
 const request = vi.fn<typeof fetch>();
 const response = (body: unknown, ok = true) =>
   ({ ok, json: async () => body }) as Response;
-const ready = (category: "messages" | "info" = "messages") =>
-  response({ status: "ready", category });
+const ready = (
+  category: NotificationCategory | "info" | "review" | "reminder" = "messages",
+) => response({ status: "ready", category });
 function deferred() {
   let resolve!: (value: Response) => void;
   const promise = new Promise<Response>((accept) => {
@@ -54,6 +59,56 @@ afterEach(() => {
 });
 
 describe("public unsubscribe confirmation", () => {
+  it.each(notificationCategories)(
+    "recognizes exact %s topic without broadening the submitted scope",
+    async (category) => {
+      request.mockResolvedValueOnce(ready(category));
+      request.mockResolvedValueOnce(
+        response({ status: "unsubscribed", category }),
+      );
+      render(view("topic-capability"));
+      await screen.findByRole("radio", {
+        name: (name) => name.startsWith(en.unsubscribe[category]),
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: en.unsubscribe.confirmCategory }),
+      );
+      await screen.findByText(en.unsubscribe.successTitle);
+      expect(request.mock.calls.at(-1)?.[1]?.body).toBe(
+        JSON.stringify({ token: "topic-capability", scope: "category" }),
+      );
+    },
+  );
+  it.each(["review", "reminder"] as const)(
+    "offers a distinct %s unsubscribe category in both languages",
+    async (category) => {
+      for (const locale of ["en", "zh"] as const) {
+        request.mockResolvedValueOnce(ready(category));
+        request.mockResolvedValueOnce(
+          response({ status: "unsubscribed", category }),
+        );
+        render(view("synthetic-capability", locale));
+        const messages = locale === "en" ? en : zh;
+        const option = await screen.findByRole<HTMLInputElement>("radio", {
+          name: (name) => name.startsWith(messages.unsubscribe[category]),
+        });
+        expect(option.checked).toBe(true);
+        expect(
+          screen.getByText(messages.unsubscribe[`${category}Help`]),
+        ).toBeTruthy();
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: messages.unsubscribe.confirmCategory,
+          }),
+        );
+        await screen.findByText(messages.unsubscribe.successTitle);
+        expect(request.mock.calls.at(-1)?.[1]?.body).toBe(
+          JSON.stringify({ token: "synthetic-capability", scope: "category" }),
+        );
+        cleanup();
+      }
+    },
+  );
   it("shows a generic invalid link without a request when no token is present", () => {
     render(view());
     expect(screen.getByText(en.unsubscribe.invalidTitle)).toBeTruthy();
@@ -133,9 +188,11 @@ describe("public unsubscribe confirmation", () => {
     });
     expect(screen.getByRole("group").getAttribute("aria-busy")).toBe("true");
     expect(
-      screen.getByRole("button", {
-        name: en.unsubscribe.saving,
-      }).matches(":disabled"),
+      screen
+        .getByRole("button", {
+          name: en.unsubscribe.saving,
+        })
+        .matches(":disabled"),
     ).toBe(true);
     await act(async () =>
       mutation.resolve(

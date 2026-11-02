@@ -153,6 +153,13 @@ removal of the original row, permission changes, nested-dialog focus and pending
 dismissal where applicable. Pair focused component/domain tests with EN/ZH and
 desktop/mobile screenshots; do not count a mocked response as a database write.
 
+## English peer-tutoring wording
+
+Use **tutor** and **tutee** for the two participant roles in English interface copy,
+notifications and documentation. Use the same terms in English fallback text in
+other catalogs. Display wording does not rename message keys, identifiers or role
+enums, and repository edits do not rewrite stored content or acceptance evidence.
+
 ## Chinese peer-tutoring wording
 
 Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and policy drafts. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.

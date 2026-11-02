@@ -1,4 +1,5 @@
 import { captchaAction } from "~/lib/captcha";
+import { updateContinuationOpening } from "~/server/program/continuation-opening";
 import {
   captchaStatus,
   publicCaptcha,
@@ -49,6 +50,7 @@ import { profilePolicySchema } from "~/lib/profile-policy";
 import { getProfilePolicy } from "~/server/program/profile-policy";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import {
+  programCalendarDate,
   programCalendarWrite,
   programCalendarRemove,
 } from "~/lib/program-calendar";
@@ -161,6 +163,31 @@ export const programRouter = createTRPCRouter({
       select: { date: true, endDate: true, reason: true },
     }),
   ),
+  // Participants read only bounded calendar facts; staff notes and editor history stay private.
+  schoolCalendar: protectedProcedure
+    .input(
+      z
+        .object({ from: programCalendarDate, to: programCalendarDate })
+        .strict()
+        .refine(
+          ({ from, to }) =>
+            to >= from && Date.parse(to) - Date.parse(from) < 92 * 86_400_000,
+          "Choose a calendar range of at most 92 days.",
+        ),
+    )
+    .query(({ ctx, input }) =>
+      ctx.db.schoolCalendarDay.findMany({
+        where: { active: true, date: { gte: input.from, lte: input.to } },
+        orderBy: { date: "asc" },
+        select: {
+          date: true,
+          isSchoolDay: true,
+          timetableWeekday: true,
+          version: true,
+          scheduleRevision: true,
+        },
+      }),
+    ),
   calendarSettings: adminProcedure.query(async ({ ctx }) => ({
     days: await ctx.db.programCalendarDay.findMany({
       orderBy: { date: "asc" },
@@ -419,14 +446,21 @@ export const programRouter = createTRPCRouter({
           update: { emailNotificationsEnabled: input.enabled },
         });
         // Drop only optional backlog on disable; mandatory security alerts must still be delivered.
-        if (!input.enabled)
+        if (!input.enabled) {
           await tx.emailDelivery.updateMany({
             where: {
               status: "PENDING",
-              category: { notIn: ["security", "request_service"] },
+              category: { notIn: ["security", "request_service", "school_hours"] },
             },
             data: { status: "SKIPPED", completedAt: new Date() },
           });
+          // Issued school instructions retain their baseline and receipt. Mail
+          // availability may block delivery, but must not discard that evidence.
+          await tx.emailDelivery.updateMany({
+            where: { status: "PENDING", category: "school_hours" },
+            data: { status: "BLOCKED", completedAt: new Date(), leaseUntil: null, lastError: "EMAIL_OFF" },
+          });
+        }
         return { ok: true };
       }),
     ),
@@ -484,7 +518,10 @@ export const programRouter = createTRPCRouter({
         // Period first matches preparation/refresh; changing the display zone never
         // rewrites saved instants, but an older entered-time review must be reloaded.
         await lockNextRecruitment(tx);
-        await assertNextRecruitmentActor(tx, ctx.session.user.id, ["ADMIN", "HEAD"]);
+        await assertNextRecruitmentActor(tx, ctx.session.user.id, [
+          "ADMIN",
+          "HEAD",
+        ]);
         const previous = await getProgramTimeZone(tx);
         if (previous !== input.expectedTimeZone)
           throw new TRPCError({
@@ -533,7 +570,9 @@ export const programRouter = createTRPCRouter({
   })),
   prepareNextRecruitment: adminOnlyProcedure
     .input(prepareNextRecruitmentSchema)
-    .mutation(({ ctx, input }) => saveNextRecruitment(ctx.db, input, ctx.session.user)),
+    .mutation(({ ctx, input }) =>
+      saveNextRecruitment(ctx.db, input, ctx.session.user),
+    ),
 
   /** Immediate, independent intake settings; serialize with submissions and period refresh. */
   setSignupWindow: adminOnlyProcedure
@@ -563,7 +602,10 @@ export const programRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const updated = await inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:period");
-        await assertNextRecruitmentActor(tx, ctx.session.user.id, ["ADMIN", "HEAD"]);
+        await assertNextRecruitmentActor(tx, ctx.session.user.id, [
+          "ADMIN",
+          "HEAD",
+        ]);
         const active = await tx.term.findFirst({
           where: { active: true },
           orderBy: { createdAt: "desc" },
@@ -590,21 +632,21 @@ export const programRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message: "Closing time must be after opening time.",
           });
+        if (!tutor)
+          return updateContinuationOpening(tx, active.id, {
+            signupEnabled: input.enabled,
+            signupOpensAt: input.opensAt,
+            signupClosesAt: input.closesAt,
+            signupPreviewUrl: input.previewUrl,
+          });
         return tx.term.update({
           where: { id: active.id },
-          data: tutor
-            ? {
-                tutorSignupEnabled: input.enabled,
-                tutorSignupOpensAt: input.opensAt,
-                tutorSignupClosesAt: input.closesAt,
-                tutorSignupPreviewUrl: input.previewUrl,
-              }
-            : {
-                signupEnabled: input.enabled,
-                signupOpensAt: input.opensAt,
-                signupClosesAt: input.closesAt,
-                signupPreviewUrl: input.previewUrl,
-              },
+          data: {
+            tutorSignupEnabled: input.enabled,
+            tutorSignupOpensAt: input.opensAt,
+            tutorSignupClosesAt: input.closesAt,
+            tutorSignupPreviewUrl: input.previewUrl,
+          },
         });
       });
       await recordAudit({
@@ -639,50 +681,61 @@ export const programRouter = createTRPCRouter({
    *  target back to the current effective value clears any pending change. */
   setFeaturePending: adminOnlyProcedure
     .input(z.object({ key: featureKey, enabled: z.boolean() }))
-    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
-      if (
-        input.key === "EMAIL_2FA" &&
-        input.enabled &&
-        !isEmailDeliveryAvailable("SECURITY")
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "Configure SMTP before enabling email two-factor authentication.",
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        if (
+          input.key === "EMAIL_2FA" &&
+          input.enabled &&
+          !isEmailDeliveryAvailable("SECURITY")
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Configure SMTP before enabling email two-factor authentication.",
+          });
+        }
+        // Every staged module shares refresh's barrier and durable source fence, so
+        // an approval's older Serializable snapshot cannot silently miss a new toggle.
+        if (input.key === "QUARTER_SYSTEM") await lockNextRecruitment(tx);
+        else await lockEntity(tx, "program:period");
+        await assertNextRecruitmentActor(tx, ctx.session.user.id, [
+          "ADMIN",
+          "HEAD",
+        ]);
+        const existing = await tx.programFeature.findUnique({
+          where: { key: input.key },
+          select: { enabled: true, pendingEnabled: true },
         });
-      }
-      // Every staged module shares refresh's barrier and durable source fence, so
-      // an approval's older Serializable snapshot cannot silently miss a new toggle.
-      if (input.key === "QUARTER_SYSTEM") await lockNextRecruitment(tx);
-      else await lockEntity(tx, "program:period");
-      await assertNextRecruitmentActor(tx, ctx.session.user.id, ["ADMIN", "HEAD"]);
-      const existing = await tx.programFeature.findUnique({
-        where: { key: input.key },
-        select: { enabled: true, pendingEnabled: true },
-      });
-      const current = existing?.enabled ?? DEFAULT_FEATURES[input.key];
-      const pendingEnabled = input.enabled === current ? null : input.enabled;
-      const changed = (existing?.pendingEnabled ?? null) !== pendingEnabled;
-      await tx.programFeature.upsert({
-        where: { key: input.key },
-        update: { pendingEnabled, updatedByName: ctx.session.user.name,
-          ...(changed ? { revision: { increment: 1 } } : {}) },
-        create: {
-          key: input.key,
-          enabled: current,
-          pendingEnabled,
-          revision: changed ? 1 : 0,
-          updatedByName: ctx.session.user.name,
-        },
-      });
-      if (changed) await advanceNextRecruitmentFence(tx);
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Staged ${input.key} ${input.enabled ? "on" : "off"} for next refresh`,
-        entity: "ProgramFeature",
-        entityId: input.key,
-      }, tx);
-      return { ok: true };
-    })),
+        const current = existing?.enabled ?? DEFAULT_FEATURES[input.key];
+        const pendingEnabled = input.enabled === current ? null : input.enabled;
+        const changed = (existing?.pendingEnabled ?? null) !== pendingEnabled;
+        await tx.programFeature.upsert({
+          where: { key: input.key },
+          update: {
+            pendingEnabled,
+            updatedByName: ctx.session.user.name,
+            ...(changed ? { revision: { increment: 1 } } : {}),
+          },
+          create: {
+            key: input.key,
+            enabled: current,
+            pendingEnabled,
+            revision: changed ? 1 : 0,
+            updatedByName: ctx.session.user.name,
+          },
+        });
+        if (changed) await advanceNextRecruitmentFence(tx);
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `Staged ${input.key} ${input.enabled ? "on" : "off"} for next refresh`,
+            entity: "ProgramFeature",
+            entityId: input.key,
+          },
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
 });

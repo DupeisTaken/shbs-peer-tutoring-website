@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationSchedule } from "~/lib/notification-facts";
 import { pairingEntries } from "~/lib/pairing-groups";
 import {
   rankRoomCandidates,
@@ -12,8 +14,13 @@ import {
   lockPlannedRoomSchedule,
 } from "~/server/room-bookings";
 import type { TransactionDb } from "~/server/transactions";
-import { assertTutorScheduleAvailable, assertTutorScheduleCohortAvailable } from "~/server/tutor-scheduling";
+import {
+  assertTutorScheduleAvailable,
+  assertTutorScheduleCohortAvailable,
+} from "~/server/tutor-scheduling";
 import type { Prisma } from "../../generated/prisma";
+import { participantKeys } from "~/server/session-planning/participants";
+import { datedUnavailableRooms } from "~/server/session-planning/room-occupancy";
 
 export type AllocationSchedule = {
   id?: string;
@@ -58,41 +65,6 @@ export function assertRoomVersion(
       message:
         "This pairing changed. Reload it before saving your schedule or room choice.",
     });
-}
-
-/** Resolve linked historical aliases through verified ownership, never through mutable email/name. */
-async function participantKeys(
-  db: TransactionDb,
-  tutorIds: string[],
-  tuteeIds: string[],
-) {
-  const [users, tutors, students] = await Promise.all([
-    db.user.findMany({
-      where: {
-        OR: [{ tutorId: { in: tutorIds } }, { studentId: { in: tuteeIds } }],
-      },
-      select: { id: true, tutorId: true, studentId: true },
-    }),
-    db.tutorProfileOwnership.findMany({
-      where: { tutorId: { in: tutorIds } },
-      select: { tutorId: true, userId: true },
-    }),
-    db.studentProfileOwnership.findMany({
-      where: { tuteeId: { in: tuteeIds } },
-      select: { tuteeId: true, userId: true },
-    }),
-  ]);
-  const tutor = new Map(tutorIds.map((id) => [id, `tutor:${id}`]));
-  const tutee = new Map(tuteeIds.map((id) => [id, `tutee:${id}`]));
-  // Familiarity follows the person even across roles; scoring below keeps the tutor's
-  // one vote separate from each distinct tutee's one vote.
-  for (const row of tutors) tutor.set(row.tutorId, `user:${row.userId}`);
-  for (const row of students) tutee.set(row.tuteeId, `user:${row.userId}`);
-  for (const user of users) {
-    if (user.tutorId) tutor.set(user.tutorId, `user:${user.id}`);
-    if (user.studentId) tutee.set(user.studentId, `user:${user.id}`);
-  }
-  return { tutor, tutee };
 }
 
 /** A stable interval/roster signature suppresses notices for unchanged shortages. */
@@ -208,7 +180,9 @@ export async function allocateRoom(
         roomId: { not: null },
         ...(schedule.excludePairingIds?.length
           ? { id: { notIn: schedule.excludePairingIds } }
-          : schedule.id ? { id: { not: schedule.id } } : {}),
+          : schedule.id
+            ? { id: { not: schedule.id } }
+            : {}),
       },
       select: {
         id: true,
@@ -231,6 +205,18 @@ export async function allocateRoom(
     }),
   ]);
   const unavailable = new Set(blocks.map((block) => block.roomId));
+  for (const id of await datedUnavailableRooms(
+    db,
+    {
+      ...schedule,
+      excludePairingIds: [
+        ...(schedule.excludePairingIds ?? []),
+        ...(schedule.id ? [schedule.id] : []),
+      ],
+    },
+    rooms.map((room) => room.id),
+  ))
+    unavailable.add(id);
   for (const booking of bookings)
     if (
       booking.roomId &&
@@ -255,8 +241,17 @@ export async function allocateRoom(
   );
   const tutorKey = keys.tutor.get(schedule.tutorId)!;
   const tuteeKeys = new Set(schedule.tuteeIds.map((id) => keys.tutee.get(id)!));
+  // Index once without reordering a room's evidence: group usage below deliberately
+  // keeps the last row's minutes when subject rows share one reservation.
+  const bookingsByRoom = new Map<string, (typeof bookings)[number][]>();
+  for (const booking of bookings) {
+    if (booking.roomId === null) continue;
+    const evidence = bookingsByRoom.get(booking.roomId);
+    if (evidence) evidence.push(booking);
+    else bookingsByRoom.set(booking.roomId, [booking]);
+  }
   const candidates = eligible.map((room) => {
-    const evidence = bookings.filter((booking) => booking.roomId === room.id);
+    const evidence = bookingsByRoom.get(room.id) ?? [];
     const familiar = new Set(
       evidence.flatMap((booking) => [
         keys.tutor.get(booking.tutorId)!,
@@ -270,10 +265,16 @@ export async function allocateRoom(
         [...tuteeKeys].filter((key) => familiar.has(key)).length,
       familiarTutor: familiar.has(tutorKey),
       // A combined group's repeated subject rows are one weekly booking, not extra usage.
-      occupiedMinutes: [...new Map(evidence.map((booking) => [
-        booking.groupId ? `group:${booking.groupId}` : `pairing:${booking.id}`,
-        booking.endMin - booking.startMin,
-      ])).values()].reduce((total, minutes) => total + minutes, 0),
+      occupiedMinutes: [
+        ...new Map(
+          evidence.map((booking) => [
+            booking.groupId
+              ? `group:${booking.groupId}`
+              : `pairing:${booking.id}`,
+            booking.endMin - booking.startMin,
+          ]),
+        ).values(),
+      ].reduce((total, minutes) => total + minutes, 0),
     };
   });
   const selected = rankRoomCandidates(candidates)[0]!.id;
@@ -300,33 +301,61 @@ export const roomUnitInclude = {
   term: { select: { active: true } },
   group: { select: { primaryPairingId: true } },
 } satisfies Prisma.PairingInclude;
-export type RoomUnitMember = Prisma.PairingGetPayload<{ include: typeof roomUnitInclude }>;
+export type RoomUnitMember = Prisma.PairingGetPayload<{
+  include: typeof roomUnitInclude;
+}>;
 
 /** Caller holds the schedule fence; primary identity is authoritative for shared intent. */
-export async function roomUnitMembers(db: TransactionDb, pairing: RoomUnitMember) {
+export async function roomUnitMembers(
+  db: TransactionDb,
+  pairing: RoomUnitMember,
+) {
   const members = pairing.groupId
     ? await db.pairing.findMany({
-        where: { groupId: pairing.groupId, tutorId: pairing.tutorId, termId: pairing.termId },
-        include: roomUnitInclude, orderBy: { id: "asc" },
+        where: {
+          groupId: pairing.groupId,
+          tutorId: pairing.tutorId,
+          termId: pairing.termId,
+        },
+        include: roomUnitInclude,
+        orderBy: { id: "asc" },
       })
     : [pairing];
   const primaryId = pairing.group?.primaryPairingId ?? pairing.id;
   // Current membership governs live plans only. Archived groups retain their
   // original roster after departure and still follow existing catalog corrections.
-  if (pairing.groupId && pairing.term.active && (pairingEntries(members.map(member => ({
-    ...member, tutees: member.tutees.filter(row => row.tutee.status !== "INACTIVE"),
-  })))[0]?.groupStatus === "needsRepair"))
-    throw new TRPCError({ code: "BAD_REQUEST",
-      message: "This combined group needs repair. Every student must have the same complete set of subjects. Repair or split the group before scheduling it." });
-  return members.sort((a, b) => Number(b.id === primaryId) - Number(a.id === primaryId) || (a.id < b.id ? -1 : 1));
+  if (
+    pairing.groupId &&
+    pairing.term.active &&
+    pairingEntries(
+      members.map((member) => ({
+        ...member,
+        tutees: member.tutees.filter((row) => row.tutee.status !== "INACTIVE"),
+      })),
+    )[0]?.groupStatus === "needsRepair"
+  )
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "This combined group needs repair. Every student must have the same complete set of subjects. Repair or split the group before scheduling it.",
+    });
+  return members.sort(
+    (a, b) =>
+      Number(b.id === primaryId) - Number(a.id === primaryId) ||
+      (a.id < b.id ? -1 : 1),
+  );
 }
 
 export function roomUnitSchedule(members: RoomUnitMember[]) {
   const primary = members[0]!;
   return {
     ...primary,
-    excludePairingIds: members.map(member => member.id),
-    tuteeIds: [...new Set(members.flatMap(member => member.tutees.map(row => row.tuteeId)))],
+    excludePairingIds: members.map((member) => member.id),
+    tuteeIds: [
+      ...new Set(
+        members.flatMap((member) => member.tutees.map((row) => row.tuteeId)),
+      ),
+    ],
   };
 }
 
@@ -336,21 +365,34 @@ export async function persistRoomUnit(
   db: TransactionDb,
   members: RoomUnitMember[],
   allocation: AllocationResult,
-  schedule: { timeSlotId: string | null; dayOfWeek: number; startMin: number; endMin: number; scheduleConfirmed: boolean } = members[0]!,
+  schedule: {
+    timeSlotId: string | null;
+    dayOfWeek: number;
+    startMin: number;
+    endMin: number;
+    scheduleConfirmed: boolean;
+  } = members[0]!,
 ) {
-  const ids = members.map(member => member.id);
+  const ids = members.map((member) => member.id);
   if (members[0]!.groupId)
     await db.pairing.updateMany({
       where: { id: { in: ids } },
-      data: { groupId: null, scheduleConfirmed: false, roomNeedsAssignment: false, roomShortageKey: null },
+      data: {
+        groupId: null,
+        scheduleConfirmed: false,
+        roomNeedsAssignment: false,
+        roomShortageKey: null,
+      },
     });
   for (const member of members) {
     await db.pairing.update({
       where: { id: member.id },
       data: {
         ...allocationData(allocation),
-        timeSlotId: schedule.timeSlotId, dayOfWeek: schedule.dayOfWeek,
-        startMin: schedule.startMin, endMin: schedule.endMin,
+        timeSlotId: schedule.timeSlotId,
+        dayOfWeek: schedule.dayOfWeek,
+        startMin: schedule.startMin,
+        endMin: schedule.endMin,
         scheduleConfirmed: schedule.scheduleConfirmed,
         groupId: member.groupId,
         roomVersion: { increment: 1 },
@@ -364,18 +406,30 @@ export async function allocateAndPersistRoomUnit(
   db: TransactionDb,
   selected: RoomUnitMember,
   intent: RoomIntent,
-  schedule?: { timeSlotId: string; dayOfWeek: number; startMin: number; endMin: number; scheduleConfirmed: boolean },
+  schedule?: {
+    timeSlotId: string;
+    dayOfWeek: number;
+    startMin: number;
+    endMin: number;
+    scheduleConfirmed: boolean;
+  },
 ) {
   await lockPlannedRoomSchedule(db);
   assertRoomVersion(selected, intent.expectedRoomVersion);
   const members = await roomUnitMembers(db, selected);
   const primary = members[0]!;
-  const allocation = await allocateRoom(db,
+  const allocation = await allocateRoom(
+    db,
     { ...roomUnitSchedule(members), ...schedule },
-    { ...intent, expectedRoomVersion: undefined }, primary);
+    { ...intent, expectedRoomVersion: undefined },
+    primary,
+  );
   await persistRoomUnit(db, members, allocation, schedule);
   await notifyRoomShortage(db, primary.id, allocation, primary.roomShortageKey);
-  return { ...await db.pairing.findUniqueOrThrow({ where: { id: selected.id } }), roomOutcome: allocation.roomOutcome };
+  return {
+    ...(await db.pairing.findUniqueOrThrow({ where: { id: selected.id } })),
+    roomOutcome: allocation.roomOutcome,
+  };
 }
 
 /** In-app rows become visible only when the scheduling transaction commits. */
@@ -390,9 +444,14 @@ export async function notifyRoomShortage(
     allocation.roomShortageKey === previousKey
   )
     return;
+  const pairing = await db.pairing.findUnique({ where: { id: pairingId }, select: { subject: true, dayOfWeek: true, startMin: true, endMin: true, tutor: { select: { englishName: true } } } });
   await notifyAdmins(
     {
       title: "Pairing needs a room",
+      ...notificationInAppEvent("room_assignment_needed", undefined, {
+        en: `${pairing?.tutor.englishName ?? "Tutor"}${pairing ? ` — ${pairing.subject}, ${notificationSchedule(pairing, "en")}` : ""}: no room is available for this confirmed schedule. Review the pairing to allocate a room.`,
+        zh: `${pairing?.tutor.englishName ?? "辅导伙伴"}${pairing ? ` — ${pairing.subject}，${notificationSchedule(pairing, "zh")}` : ""}：已确认的辅导安排暂无可用教室，请审核并分配教室。`,
+      }),
       body: "A confirmed tutoring schedule has no available room. Review the pairing to retry allocation or select a room.",
       link: `/admin/pairings#${encodeURIComponent(pairingId)}`,
       inAppOnly: true,
@@ -411,72 +470,136 @@ export async function allocateSlotCohort(
   const linked = await db.pairing.findMany({
     // A catalog correction never promotes a legacy awaiting placeholder into a
     // confirmed lesson. Only existing confirmed reservations follow its clocks.
-    where: { timeSlotId: slot.id, scheduleConfirmed: true }, include: roomUnitInclude, orderBy: { id: "asc" },
+    where: { timeSlotId: slot.id, scheduleConfirmed: true },
+    include: roomUnitInclude,
+    orderBy: { id: "asc" },
   });
   const units: RoomUnitMember[][] = [];
   const seen = new Set<string>();
   for (const member of linked) {
     if (seen.has(member.id)) continue;
     const unit = await roomUnitMembers(db, member);
-    unit.forEach(row => seen.add(row.id));
+    unit.forEach((row) => seen.add(row.id));
     units.push(unit);
   }
-  await assertTutorScheduleCohortAvailable(db, units.map(unit => ({
-    ...roomUnitSchedule(unit), ...slot, scheduleConfirmed: true,
-    memberIds: unit.map(member => member.id),
-  })));
+  await assertTutorScheduleCohortAvailable(
+    db,
+    units.map((unit) => ({
+      ...roomUnitSchedule(unit),
+      ...slot,
+      scheduleConfirmed: true,
+      memberIds: unit.map((member) => member.id),
+    })),
+  );
   const enabled = (await getFeatures(db)).AUTO_ASSIGN_ROOMS;
-  const movable = units.filter(unit => enabled && unit[0]!.term.active && unit[0]!.roomMode === "AUTO");
-  const fixed = units.filter(unit => !movable.includes(unit));
-  const movableIds = movable.flatMap(unit => unit.map(row => row.id));
+  const movable = units.filter(
+    (unit) => enabled && unit[0]!.term.active && unit[0]!.roomMode === "AUTO",
+  );
+  const fixed = units.filter((unit) => !movable.includes(unit));
+  const movableIds = movable.flatMap((unit) => unit.map((row) => row.id));
   if (movableIds.length)
     await db.pairing.updateMany({
-      where: { id: { in: movableIds } }, data: { groupId: null, roomId: null },
+      where: { id: { in: movableIds } },
+      data: { groupId: null, roomId: null },
     });
-  const fixedIds = fixed.flatMap(unit => unit.map(row => row.id));
+  const fixedIds = fixed.flatMap((unit) => unit.map((row) => row.id));
   const occupied = new Set<string>();
   for (const unit of fixed) {
     const primary = unit[0]!;
     await assertPlannedRoomAvailable(db, {
-      ...slot, roomId: primary.roomId, termId: primary.termId, excludePairingIds: fixedIds,
+      ...slot,
+      roomId: primary.roomId,
+      termId: primary.termId,
+      excludePairingIds: fixedIds,
     });
     if (primary.roomId) {
       const key = primary.termId + ":" + primary.roomId;
-      if (occupied.has(key)) throw new TRPCError({ code: "CONFLICT", message: "That slot would double-book a fixed room in one program period." });
+      if (occupied.has(key))
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "That slot would double-book a fixed room in one program period.",
+        });
       occupied.add(key);
     }
   }
   for (const unit of fixed) {
     const primary = unit[0]!;
     const roomShortageKey = primary.roomNeedsAssignment
-      ? shortageSignature({ ...roomUnitSchedule(unit), ...slot }) : null;
-    const allocation: AllocationResult = { ...primary, roomShortageKey, roomOutcome: primary.roomNeedsAssignment ? "UNAVAILABLE" : "RETAINED" };
-    await persistRoomUnit(db, unit, allocation, { ...slot, timeSlotId: slot.id, scheduleConfirmed: true });
-    if (primary.term.active) await notifyRoomShortage(db, primary.id, allocation, primary.roomShortageKey);
+      ? shortageSignature({ ...roomUnitSchedule(unit), ...slot })
+      : null;
+    const allocation: AllocationResult = {
+      ...primary,
+      roomShortageKey,
+      roomOutcome: primary.roomNeedsAssignment ? "UNAVAILABLE" : "RETAINED",
+    };
+    await persistRoomUnit(db, unit, allocation, {
+      ...slot,
+      timeSlotId: slot.id,
+      scheduleConfirmed: true,
+    });
+    if (primary.term.active)
+      await notifyRoomShortage(
+        db,
+        primary.id,
+        allocation,
+        primary.roomShortageKey,
+      );
   }
   // Reserve every eligible old automatic room first so a displaced earlier unit
   // cannot steal another unit's continuity reservation.
   const remaining: RoomUnitMember[][] = [];
   for (const unit of movable) {
     const primary = unit[0]!;
-    if (!primary.roomId) { remaining.push(unit); continue; }
-    try {
-      await assertPlannedRoomAvailable(db, {
-        ...slot, roomId: primary.roomId, termId: primary.termId, excludePairingIds: unit.map(row => row.id),
-      });
-    } catch (error) {
-      if (!(error instanceof TRPCError) || error.code !== "CONFLICT") throw error;
+    if (!primary.roomId) {
       remaining.push(unit);
       continue;
     }
-    await persistRoomUnit(db, unit, { ...primary, roomNeedsAssignment: false, roomShortageKey: null, roomOutcome: "RETAINED" }, { ...slot, timeSlotId: slot.id, scheduleConfirmed: true });
+    try {
+      await assertPlannedRoomAvailable(db, {
+        ...slot,
+        roomId: primary.roomId,
+        termId: primary.termId,
+        excludePairingIds: unit.map((row) => row.id),
+      });
+    } catch (error) {
+      if (!(error instanceof TRPCError) || error.code !== "CONFLICT")
+        throw error;
+      remaining.push(unit);
+      continue;
+    }
+    await persistRoomUnit(
+      db,
+      unit,
+      {
+        ...primary,
+        roomNeedsAssignment: false,
+        roomShortageKey: null,
+        roomOutcome: "RETAINED",
+      },
+      { ...slot, timeSlotId: slot.id, scheduleConfirmed: true },
+    );
   }
   for (const unit of remaining) {
     const primary = unit[0]!;
-    const allocation = await allocateRoom(db,
-      { ...roomUnitSchedule(unit), ...slot, scheduleConfirmed: true }, {}, primary, { preserveLegacy: true });
-    await persistRoomUnit(db, unit, allocation, { ...slot, timeSlotId: slot.id, scheduleConfirmed: true });
-    await notifyRoomShortage(db, primary.id, allocation, primary.roomShortageKey);
+    const allocation = await allocateRoom(
+      db,
+      { ...roomUnitSchedule(unit), ...slot, scheduleConfirmed: true },
+      {},
+      primary,
+      { preserveLegacy: true },
+    );
+    await persistRoomUnit(db, unit, allocation, {
+      ...slot,
+      timeSlotId: slot.id,
+      scheduleConfirmed: true,
+    });
+    await notifyRoomShortage(
+      db,
+      primary.id,
+      allocation,
+      primary.roomShortageKey,
+    );
   }
   return linked.length;
 }

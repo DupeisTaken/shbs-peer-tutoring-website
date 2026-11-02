@@ -106,6 +106,13 @@ it("appends three source-specific domain notices concurrently without rewriting 
   const notices = await sourceNotices(source.links);
   expect(notices).toHaveLength(3);
   expect(notices.every((notice) => notice.userId === admin)).toBe(true);
+  expect(notices.every((notice) => notice.category === "reviews")).toBe(true);
+  const captured = JSON.stringify(notices.map((notice) => notice.context));
+  expect(captured).toContain("Pending Tutor");
+  expect(captured).toContain("Domain Owner");
+  expect(captured).toContain("Public Crew Applicant");
+  expect(captured).toContain("申请");
+  expect(captured).not.toMatch(/Original tutor request evidence|Original crew request evidence|Original application evidence|domain-applicant@example/);
   expect(notices.map((notice) => notice.event).sort()).toEqual([
     "crew_application_pending", "crew_optout_requested", "tutor_optout_requested",
   ]);

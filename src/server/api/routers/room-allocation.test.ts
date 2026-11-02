@@ -1284,7 +1284,7 @@ it("keeps shortage delivery in-app even for opted-in email recipients, without d
   });
   await db.user.updateMany({
     where: { role: { in: ["HEAD", "ADMIN"] } },
-    data: { emailInfo: true },
+    data: { emailInfo: true, emailReviewRequests: true },
   });
   await db.accountEmail.updateMany({
     where: { userId: { in: ["allocation-HEAD", "allocation-ADMIN"] } },

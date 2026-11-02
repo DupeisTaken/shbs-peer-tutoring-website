@@ -12,11 +12,13 @@ import {
   auditEntityLabelKey,
   auditEnumLabelKey,
   auditFieldLabelKey,
+  auditReferenceEntity,
   reviewSchema,
   reviewEnumValues,
   reviewFieldKeys,
   reviewStringDomains,
 } from "./review-vocabulary";
+import { notificationCategories } from "./notification-categories";
 
 const at = (catalog: unknown, path: string | null): unknown =>
   path
@@ -28,6 +30,45 @@ const at = (catalog: unknown, path: string | null): unknown =>
           : undefined,
       catalog,
     );
+
+it("labels scheduled-refresh business state without registering private execution evidence for display", () => {
+  expect(auditEntityLabelKey("ScheduledProgramRefresh")).toBe("auditEventDetails.presentation.entities.ScheduledProgramRefresh");
+  expect(auditEnumLabelKey("ScheduledProgramRefresh", "state", "BLOCKED")).toBe("auditEventDetails.presentation.enums.ScheduledRefreshState.BLOCKED");
+  expect(auditEnumLabelKey("ScheduledProgramRefresh", "blockedReason", "SCHEDULED_REFRESH_HEAD_CHANGED")).toBe("scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED");
+  expect(auditFieldLabelKey("ScheduledProgramRefresh", "executeAt")).toBe("auditEventDetails.presentation.fields.executeAt");
+  expect(auditReferenceEntity("ScheduledProgramRefresh", "sourceTermId")).toBe("Term");
+  for (const field of ["expectedPreparation", "authorizedById", "authorizedByName", "authorityRevision"]) {
+    expect(auditFieldLabelKey("ScheduledProgramRefresh", field)).toBeNull();
+    expect(auditReferenceEntity("ScheduledProgramRefresh", field)).toBeUndefined();
+  }
+  expect(reviewSchema.User.fields).toContain("refreshAuthorityRevision");
+  expect(auditFieldLabelKey("User", "refreshAuthorityRevision")).toBeNull();
+  expect(auditEnumLabelKey("User", "blockedReason", "SCHEDULED_REFRESH_HEAD_CHANGED")).toBeNull();
+});
+
+it("labels school-report proposal aliases and delivery references within their owners", () => {
+  expect(auditEntityLabelKey("schoolHoursSchedule")).toBe(
+    "auditEventDetails.presentation.entities.SchoolHoursSchedule",
+  );
+  expect(auditFieldLabelKey("schoolHoursSchedule", "dateOverrides")).toBe(
+    "auditEventDetails.presentation.fields.dateOverrides",
+  );
+  expect(auditFieldLabelKey("SchoolHoursReport", "sourceBaseline")).toBe(
+    "auditEventDetails.presentation.fields.sourceBaseline",
+  );
+  expect(auditFieldLabelKey("SchoolHoursReport", "linkVersion")).toBe(
+    "auditEventDetails.presentation.fields.linkVersion",
+  );
+  expect(auditReferenceEntity("SchoolHoursReport", "scheduleId")).toBe(
+    "SchoolHoursSchedule",
+  );
+  expect(auditReferenceEntity("EmailDelivery", "schoolHoursReportId")).toBe(
+    "SchoolHoursReport",
+  );
+  expect(auditFieldLabelKey("MonthlyHoursSchedule", "dateOverrides")).toBeNull();
+  expect(auditFieldLabelKey("User", "sourceBaseline")).toBeNull();
+  expect(auditFieldLabelKey("SchoolHoursReport", "linkTokenHash")).toBeNull();
+});
 
 it("labels recovery evidence only within its known schema owners", () => {
   expect(auditEntityLabelKey("RecoveryReceipt")).toBe(
@@ -43,6 +84,60 @@ it("labels recovery evidence only within its known schema owners", () => {
   expect(auditFieldLabelKey("UnknownRecord", "changedFields")).toBeNull();
 });
 
+it("labels continuation evidence and retained-request outcomes only on their owning records", () => {
+  for (const entity of [
+    "StudentContinuationReceipt",
+    "StudentContinuationAssignment",
+    "StudentContinuationPairing",
+    "SessionPlanContinuationMember",
+  ])
+    expect(auditEntityLabelKey(entity)).toBe(
+      `auditEventDetails.presentation.entities.${entity}`,
+    );
+  expect(auditFieldLabelKey("Term", "signupFirstOpenedAt")).toBe(
+    "auditEventDetails.presentation.fields.signupFirstOpenedAt",
+  );
+  expect(
+    auditFieldLabelKey("StudentContinuationAssignment", "sourcePairingId"),
+  ).toBe("auditEventDetails.presentation.fields.sourcePairingId");
+  expect(
+    auditFieldLabelKey("SessionPlanContinuationMember", "releasedAt"),
+  ).toBe("auditEventDetails.presentation.fields.releasedAt");
+  expect(auditFieldLabelKey("StudentSurvey", "signupFirstOpenedAt")).toBeNull();
+  expect(auditFieldLabelKey("StudentSurvey", "publicSignupEmailConfirmedAt")).toBe(
+    "auditEventDetails.presentation.fields.publicSignupEmailConfirmedAt",
+  );
+  expect(auditFieldLabelKey("User", "publicSignupEmailConfirmedAt")).toBeNull();
+  expect(
+    auditEnumLabelKey("StudentContinuationAssignment", "status", "UNASSIGNED"),
+  ).toBe("legacyContinuation.result.queued");
+  expect(
+    auditEnumLabelKey("StudentContinuationAssignment", "status", "RELEASED"),
+  ).toBe("legacyContinuation.result.released");
+  expect(
+    auditEnumLabelKey("StudentContinuationAssignment", "reason", "RELEASED"),
+  ).toBeNull();
+  expect(auditEnumLabelKey("StudentSurvey", "status", "UNASSIGNED")).toBeNull();
+});
+
+it("labels notification preference schema and scopes closed topics without exposing literal evidence", () => {
+  expect(auditReferenceEntity("NotificationPreference", "userId")).toBe("User");
+  for (const [entity, field] of [
+    ["User", "emailReviewRequests"], ["User", "emailEventReminders"], ["User", "notificationPreferences"],
+    ["Notification", "category"], ["EmailDelivery", "preferenceTopic"], ["EmailDelivery", "reminderKey"],
+    ["NotificationPreference", "category"], ["NotificationPreference", "badgeEnabled"], ["NotificationPreference", "emailEnabled"],
+  ]) expect(auditFieldLabelKey(entity, field!)).toBe(`auditEventDetails.presentation.fields.${field}`);
+  for (const category of notificationCategories) {
+    for (const [entity, field] of [["Notification", "category"], ["NotificationPreference", "category"], ["EmailDelivery", "preferenceTopic"]])
+      expect(auditEnumLabelKey(entity, field!, category)).toBe(`notificationPreferences.categories.${category}`);
+    expect(auditEnumLabelKey("Notification", "body", category)).toBeNull();
+  }
+  expect(auditEnumLabelKey("EmailDelivery", "category", "reviews")).toBeNull();
+  expect(auditEnumLabelKey("EmailDelivery", "category", "review")).toBe("notificationPreferences.categories.reviews");
+  expect(auditEnumLabelKey("EmailDelivery", "category", "security")).toBe("auditEventDetails.presentation.deliveryCategories.security");
+  expect(auditEnumLabelKey("NotificationPreference", "category", "PRIVATE_SENTINEL")).toBeNull();
+  expect(auditEnumLabelKey("EmailDelivery", "reminderKey", "reminders")).toBeNull();
+});
 it.each(Object.entries({ en, zh, de, el, es, fr, ja, ko }))(
   "has localized schema vocabulary in %s",
   (_locale, catalog) => {

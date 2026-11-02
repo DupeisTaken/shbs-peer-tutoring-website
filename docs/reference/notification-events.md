@@ -12,7 +12,11 @@ review aid, not the source of authority.
 
 ## Delivery and access boundaries
 
-New typed in-app notifications localize through the shared formatter. Email includes
+Typed in-app notifications retain localized event headings and show their captured
+change details. [In-app detail formatting](../../src/lib/notification-details.ts)
+selects a bounded English/Chinese snapshot (English for other interface languages),
+then the original nonempty stored body, then the event's generic description.
+Historical notices are never reconstructed from current mutable records. Email includes
 both English and Chinese because no recipient email-language preference is saved.
 Old in-app records retain their original title/body; an unknown email event uses the
 safe generic program-update copy, never arbitrary stored titles or bodies.
@@ -25,34 +29,186 @@ and enabled verified secondary addresses. The previous verified primary receives
 primary-change security exception. A listed in-app audience does not imply that every
 account in it has opted into email.
 
-Context is allowlisted on write and read, and again by the notification-email database
-trigger. Only card-request/history-block counts and scheduled-interview ISO instant +
-timezone are used. No private message, announcement, appeal/review text, original
-answers, names, contacts or account secrets become event email context. Unknown counts
+Email context is allowlisted on write and read, and again by the notification-email database
+trigger. Counts, scheduled-event ISO instants/timezones and explicitly selected bilingual
+factual descriptions (`emailDetail`) are used. These descriptions may identify affected
+participants and concrete changes. School-calendar context also carries actual date,
+school-day flag, effective timetable weekday, semantic revision and timezone; staff
+calendar notes are excluded. No arbitrary stored body, private message, appeal/review
+reason, original answers, contacts or account secrets become email context. Unknown counts
 use the catalogue's count-free description.
+
+In-app `context.inAppDetail` holds only an explicit `{ en, zh }` description, with
+both nonempty strings limited to 1,000 characters and revalidated by the list API.
+Emitters compose these snapshots from selected names and action facts, never whole
+payloads, contact details, secrets or review reasons. Management notices summarize
+the immutable proposal: pending assignments say **Proposed assignment**, while
+decisions say **Approved** or **Declined**. New committed assignment notices name
+the tutee, tutor and subject and explicitly say when the schedule awaits confirmation;
+placeholder weekdays/times are not published as confirmed appointments.
+Admission-recovery notices use the immutable plan's captured applicant name and
+distinguish a proposed withdrawal from an applied or declined one; recovery reasons
+and graph evidence are excluded.
+The database trigger promotes the validated detail only for explicitly allowlisted
+domain events, as `emailDetail`. Message email uses only its selected sender name;
+announcement email uses its title and publication/update action, never either full
+body. These two events construct email copy from separate typed fields rather than
+promoting an arbitrary description. Account-change email uses allowlisted field
+identities: password versus two-factor enabled/disabled, and the particular profile
+or access change. It never includes passwords, codes, addresses or entire account rows.
+The tables below document fallback copy; captured descriptions can be more specific.
+
+### Category preferences and upcoming reminders
+
+The shared **Notification preferences** card is available to staff, tutors and tutees
+through their account settings. Each category has separate unread-badge and optional
+email controls. The exhaustive [category mapping](../../src/lib/notification-categories.ts)
+is shared by settings, badge queries and delivery; the migration's SQL classification
+is checked against it by integration tests.
+
+| Category | Examples | Bell badge | Optional email |
+| --- | --- | --- | --- |
+| Private messages | A message from a named sender | Configurable | Configurable |
+| Review requests | Pending decisions for eligible staff reviewers | Configurable | Active Admin/Head only |
+| Applications and interviews | Applications, qualifications, panel assignments and interview outcomes | Configurable | Configurable |
+| Tutoring | Assignments, availability, request lifecycle, schedule changes and withdrawals | Configurable | Configurable |
+| Attendance and feedback | Lesson attendance, cards, appeals, feedback and corrections | Configurable | Configurable |
+| Membership | Tutor/Crew participation changes and school departure | Configurable | Configurable |
+| Account updates | Optional profile, access and account-appeal updates | Configurable for bell notices | Configurable; essential security mail is separate |
+| Announcements | Published or updated announcement titles | Configurable | Configurable |
+| Management updates | Management outcomes and translation updates | Configurable | Configurable |
+| General program updates | Unclassified legacy and general program notices | Configurable | Configurable |
+| Upcoming reminders | Interviews, meetings and confirmed tutoring | Email only | Configurable |
+
+Disabling a badge category **does not hide notifications or mark them read**. The list
+still shows all recent notices, including their original unread styling. Mark all read
+continues to work when only muted unread notices remain. Re-enabling a badge category
+counts its still-unread notices again. Saving badge preferences is allowed while
+optional program email is disabled. The global switch still gates optional email;
+it does not alter personal badge choices or required mail.
+
+New notices record their category at insertion so later role changes cannot reclassify
+their history. Migration classifies older bell records from their existing event/link
+and available recipient role; old email rows retain their recorded reviewer/participant
+transport distinction. A sparse `NotificationPreference` override inherits the old
+email setting until explicitly changed: messages, review requests and reminders keep
+their respective switches; the other categories inherit information updates. New
+accounts start with badge categories enabled and optional email off. Legacy broad
+settings only propagate switches whose values actually change, preserving unrelated
+category overrides when an old client submits an unchanged value.
+
+Only active Admin/Head accounts can enable reviewer email, and Head-only events keep
+their narrower authority. Participant copies of a pending workflow event keep their
+domain category. Dispatch rechecks recipient eligibility, category preferences and
+verified address ownership. Unsubscribe disables the delivery's exact category or all
+optional categories, without changing badge settings. An intentionally in-app-only
+event, such as a room-allocation shortage, still does not produce email merely because
+its category's email preference is enabled.
+
+The migration retains old delivery evidence and skips pending reviewer mail rather
+than replaying a backlog under the new opt-in. Existing notices without captured facts
+retain readable fallback copy; no migration invents details from current records.
+
+Reminders cover scheduled interviews, meetings and confirmed tutoring at 24 hours
+and 1 hour before the actual occurrence. Published tutoring uses the current dated
+cohort, its captured timezone and its participating roster, including agreed extras
+and reschedules. A published original date never falls back to its superseded weekly
+time after a move or cancellation. Unpublished recurring assignments use the school
+date's effective timetable weekday, including mapped school days.
+Each threshold has a ten-minute lateness allowance; prolonged downtime does not send
+both notices together or reminders after the event starts. A unique durable delivery
+key prevents ordinary repeated/concurrent sweeps from creating duplicate mail.
+Publishing a regular session at the same instant retains its weekly reminder receipt:
+unsent snapshots may be refreshed, while an accepted message is not sent again.
+Dispatch revalidates the source and audience, so deleted/rescheduled events or newly
+ineligible participants do not receive stale reminders. SMTP acceptance still cannot
+provide an exactly-once guarantee after a process crash.
+Each worker tick drains serial batches for up to 20 seconds or 1,000 rows, keeping
+the existing queue order. An in-flight SMTP attempt can finish beyond that budget;
+slow transport or a prolonged outage can still exhaust a reminder's lateness window.
+
+Tutoring reminders require an active term, confirmed schedule and active participants.
+Optional term bounds, active inclusive **No tutoring** date ranges and explicit
+non-school days suppress occurrences. Recorded tutor or assigned-tutee absence
+suppresses the whole tutoring occurrence, including queued reminders. Missing
+attendance is not absence; future absence cannot be inferred from an unrecorded plan.
+These rules affect reminders only, never attendance or appeal-school-day calculations.
+They also leave essential proposal, outcome and publication notices independent of
+optional reminder preferences; suppressing a reminder does not cancel an agreed session.
+Ambiguous/nonexistent local times during daylight-saving transitions are skipped.
+Interview applicants without an eligible account are not enrolled in optional mail.
+
+### Required email and captured detail
+
+Required security, verification, recovery, requested invitation and request-service
+mail is not optional; its sender identity (`SECURITY` or `PROGRAM`) does not determine
+whether it is optional. Verification and invitation emails identify their operation
+or audience and expiry. Historical invitations describe the reviewed profile types
+and counts while keeping private attendance records in the portal. Existing request
+status email retains its mailbox-proof rule for disclosing private reasons.
+
+Domain details identify the affected people and recorded facts: attendance dates,
+subjects and status/room changes; added/removed availability; approved qualifications
+and levels; withdrawal periods; and safe before/after fields in management proposals.
+Proposed changes remain labelled as proposed. Details are captured at the write and
+are not reconstructed from today's mutable records when an old notification is read.
 
 Destinations identify the existing authorized workflow, not an access grant. Email
 uses the canonical public origin and a validated sign-in callback; current route
-permissions still apply. If an email destination begins with /admin and the account
-is no longer Head/Admin/Coordinator (including Viewer), it falls back to /. Unknown
+permissions still apply. Detailed staff mail and reviewer requests are skipped after
+the recipient loses the required authority. Generic legacy mail whose /admin
+destination is no longer accessible falls back to /. Unknown
 email events and account-change events use /my-account. In-app links retain the original
 recorded destination. See [URL handling](../../src/server/email/urls.ts).
 
-**Survey request audience** means active, unmerged Admin/Head, the explicit retained
+**Survey request audience** includes eligible managers, the explicit retained
 tutee owner (otherwise the linked student account), and accounts linked to that tutee's
 assigned tutors. [notifyRequest](../../src/server/student-request-state.ts) directs
 Admin/Head to /admin/requests, the owner/request-email branch to /student, and remaining
 tutors to /dashboard. A matching email alone does not add a recipient.
-**Legacy review audience** means active, unmerged Admin/Head, the review requester and
+**Legacy review audience** includes eligible managers, the review requester and
 the account linked to the legacy tutee; [notifyLegacySchedule](../../src/server/student-workflow.ts)
 directs managers to /admin/requests, linked tutors to /dashboard, and others to /student.
-Pending management and membership review notices go to eligible active, unmerged Admins, with Head fallback when none can review. Requester exclusions are applied before choosing the fallback; only current Head can review their own management proposal. Head retains review permission regardless of notification delivery. Official refresh review remains Head-only. Outcomes and operational alerts keep their documented audiences.
+For these two audiences, pending review events select active, unmerged Admins with Head fallback; outcomes include all active, unmerged Admin/Head. Pending management and membership review notices go to eligible active, unmerged Admins, with Head fallback when none can review. Requester exclusions are applied before choosing the fallback; only current Head can review their own management proposal. Head retains review permission regardless of notification delivery. Official refresh review remains Head-only. Outcomes and operational alerts keep their documented audiences.
 
-There is **no dated tutoring-session notification emitter**. The scheduled-interview
-event records an actual date/time/timezone. Tutoring assignment events describe recurring
-weekly arrangements and confirmation state; they do not invent a next-session date.
+The scheduled-interview event records an actual date/time/timezone. Tutoring
+assignment events describe recurring weekly arrangements and confirmation state;
+they do not invent a next-session date. School-calendar events separately name the
+actual school date and resolved timetable; they do not promise an individual dated
+tutoring session or write to an external calendar provider.
+Optional reminder emails derive dated occurrences only from confirmed schedules.
 Account authentication, signup confirmation and request-invalidity service mail use
 separate direct/essential flows and are not silently reclassified as optional events.
+
+New panel-assignment and interview-time notices open the tutor's personal interview
+work in `/schedule#tutor-interviews`. A chair can follow its appointment back to
+the retained dashboard chair workspace. Essential dated-tutoring notices use
+`/schedule#sessions` for tutors; the tutee destination remains
+`/student?view=schedule#sessions`. Existing in-app records retain their recorded
+destinations, including older dashboard links; those legacy schedule fragments
+offer an explicit Schedule continuation without unmounting a live dashboard editor.
+
+**School-calendar audience** means eligible active tutors and tutees with confirmed,
+populated active-period pairings on the union of the actual date's civil weekday,
+prior mapped weekday and new mapped weekday. Retained tutee ownership is included;
+suspended, merged, departed and inactive participants are excluded. Still-eligible
+prior recipients receive corrections. The [dated-session adapter](../../src/server/school-calendar-session-audience.ts)
+also includes current eligible participants from actual scheduled cohorts, including
+agreed extras and reschedules on a closed date; cancelled or moved-away participants
+are excluded from that date. Calendar events use optional information email and normal verified
+address, program-switch and personal-preference gates.
+
+[Calendar emitters](../../src/server/school-calendar-notifications.ts) use stable
+date/semantic-revision/phase/recipient notification IDs. A lookup under the date's
+source lock also recognizes an existing phase/date/revision receipt moved to a
+surviving account, preserving its historical ID instead of repeating the notice.
+Notes change the editor version without advancing the semantic revision or
+repeating a notice. Applied
+changes invalidate superseded pending/failed email; dispatch rechecks the source
+revision, resolved state, recipient eligibility and reminder window. Sent and in-app
+records remain historical evidence. These checks cannot recall SMTP already
+accepted and do not guarantee exactly-once transport. There are no provider-calendar
+writes.
 
 ### Reviewer notification reconciliation
 
@@ -66,7 +222,7 @@ focus the loaded authorized row. Background refresh does not repeatedly move foc
 
 ### Record arrivals and scroll ownership
 
-Validated request/application record links in the bell disable Next's default page
+Validated request/application record links and school-calendar date links in the bell disable Next's default page
 scroll for that navigation. The authorized destination first selects its required
 panel and filters, then reveals and focuses the committed record in its native
 scroll container. A delayed read or mount must not consume the arrival before the
@@ -74,6 +230,13 @@ record exists. Incoming fragments take precedence over remembered page position;
 ordinary notification destinations retain normal navigation. Once revealed, later
 scrolling belongs to the user. A new location, access denial or intervening user
 gesture cancels an unfinished reveal; it must not pull the user back later.
+
+School-calendar links use `/dashboard#school-calendar/YYYY-MM-DD` or
+`/student#school-calendar/YYYY-MM-DD`. The participant adapter reads that exact
+validated date, including dates outside the ordinary fourteen-day notice window.
+It shows current authoritative facts or restored weekday/weekend defaults after a
+reset, without staff notes. A deliberate repeated click reveals the date again;
+paired Back/Forward events and background refreshes do not steal focus.
 
 At desktop management widths, the actual scrollable `#admin-content` pane owns
 record positioning. Revealing a child must not chain a second scroll into the
@@ -249,23 +412,23 @@ authorized decision interfaces and policy rules.
 
 - Recipient: Accounts linked to assigned panel tutors.
 - Trigger: Management commits interview-panel assignment. [Emitter](../../src/server/api/routers/admin.ts).
-- Authorized destination: /dashboard.
+- Authorized destination: /schedule#tutor-interviews.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Interview Panel Assignment | You were assigned to an interview panel. Review the application and panel duties on your dashboard; a panel assignment alone does not schedule an interview. | View interview panel |
-| 中文 | 已分配面试小组 | 您已被分配至面试小组。请在工作台查看申请和职责；小组分配本身不代表已安排面试时间。 | 查看面试小组 |
+| English | Interview Panel Assignment | You were assigned to an interview panel. Review the application and panel duties in Schedule; a panel assignment alone does not schedule an interview. | View interview panel |
+| 中文 | 已分配面试小组 | 您已被分配至面试小组。请在日程查看申请和职责；小组分配本身不代表已安排面试时间。 | 查看面试小组 |
 
 ### interview_scheduled
 
 - Recipient: Accounts linked to panel tutors other than the scheduling chair.
 - Trigger: Chair sets a non-null interview time; repeated setting/rescheduling uses the same event. [Emitter](../../src/server/api/routers/tutor.ts).
-- Authorized destination: /dashboard.
+- Authorized destination: /schedule#tutor-interviews.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Interview Scheduled | You have a new interview scheduled. Review the recorded time and interview details on your dashboard. If no time is shown here, check the dashboard. | View scheduled interview |
-| 中文 | 已安排新的面试 | 您有一场新安排的面试。请在工作台核对记录的时间和面试详情。如本通知未显示时间，请查看工作台。 | 查看已安排的面试 |
+| English | New Interview Scheduled | You have a new interview scheduled. Review the recorded time and interview details in Schedule. If no time is shown here, check Schedule. | View scheduled interview |
+| 中文 | 已安排新的面试 | 您有一场新安排的面试。请在日程核对记录的时间和面试详情。如本通知未显示时间，请查看日程。 | 查看已安排的面试 |
 
 ### interview_approved
 
@@ -289,6 +452,28 @@ authorized decision interfaces and policy rules.
 | --- | --- | --- | --- |
 | English | Management Change Awaiting Review | A management change proposal is awaiting approval. Review its recorded evidence before applying or declining it; the proposed change has not been applied. | Review management change |
 | 中文 | 管理变更待审核 | 一项管理变更提案正等待批准。请先查看记录的依据，再决定应用或拒绝；提议的变更尚未应用。 | 查看管理变更 |
+
+### scheduled_refresh_completed
+
+- Recipient: Active, unmerged Admins and Head.
+- Trigger: Scheduled refresh and its terminal outcome commit together. Repeated worker ticks do not duplicate this notice. [Emitter](../../src/server/program/scheduled-refresh.ts).
+- Authorized destination: /admin/program?panel=period.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Scheduled Program Refresh Completed | The scheduled program refresh completed. Review the active period and signup settings. | Review program settings |
+| 中文 | 计划项目刷新已完成 | 计划项目刷新已完成。请检查当前学期及报名设置。 | 查看项目设置 |
+
+### scheduled_refresh_blocked
+
+- Recipient: Active, unmerged Admins and Head.
+- Trigger: A due refresh is blocked by review/authority drift, or reaches five failed execution attempts. The notice commits with its terminal state. [Emitter](../../src/server/program/scheduled-refresh.ts).
+- Authorized destination: /admin/program?panel=period.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Scheduled Program Refresh Needs Review | The scheduled program refresh could not proceed. Head must review the current settings and authorization before scheduling again. | Review refresh schedule |
+| 中文 | 计划项目刷新需要重新审核 | 计划项目刷新未能执行。主管须检查当前设置及授权后重新安排。 | 查看刷新计划 |
 
 ### management_head_review_pending
 
@@ -791,6 +976,46 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 | English | Invalid Request Appeal Awaiting Review | A submitter appealed an applied invalid-request flag. Open the linked request to review the appeal; submitting an appeal does not clear the flag. | Review invalid request appeal |
 | 中文 | 无效申请申诉待审核 | 一位申请提交者对已应用的无效标记提出申诉。请打开链接中的申请审核申诉；提交申诉不会解除标记。 | 查看无效申请申诉 |
 
+### school_calendar_changed
+
+- Recipient: School-calendar audience, including eligible prior recipients.
+- Trigger: Applied create/reactivation or resolved school-day/timetable change on today or a future date. Pending proposals and note-only edits emit nothing. [Emitter](../../src/server/school-calendar-notifications.ts).
+- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Timing: Immediate, including same-day changes after the advance-reminder cutoff. A same-revision change receipt within the advance window also serves as that recipient's advance reminder.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | School Schedule Changed | The school schedule for {date} changed: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
+| 中文 | 学校课表已调整 | {date}的学校安排已调整：{schedule}。请查看可能受影响的辅导安排。 | 查看学校课表 |
+
+### school_calendar_reset
+
+- Recipient: School-calendar audience, including eligible prior recipients.
+- Trigger: Applied reset restores weekday/weekend defaults on today or a future date while retaining the override tombstone. [Emitter](../../src/server/school-calendar-notifications.ts).
+- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Timing: Immediate. Historical resets retain audit evidence without a new operational notice.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | School Schedule Restored | The school schedule for {date} returned to its default: {schedule}. Review your tutoring sessions. | Review school schedule |
+| 中文 | 学校课表已恢复 | {date}的学校安排已恢复默认：{schedule}。请查看辅导安排。 | 查看学校课表 |
+
+### school_calendar_upcoming
+
+- Recipient: School-calendar audience for the active override, including eligible recipients of that revision's earlier change notice.
+- Trigger: Existing notification worker rereads an active override under its calendar lock and records one advance reminder per semantic revision and recipient. [Emitter](../../src/server/school-calendar-notifications.ts).
+- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Timing: From the prior school-local date at 18:00, inclusive, until noon on the actual date, exclusive. A change notice already issued to that recipient in the same window and revision suppresses the duplicate advance phase; earlier announcements still receive it. School timezone wall clocks, rather than 24 elapsed hours, define the window.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Upcoming School Schedule Override | Reminder for {date}: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
+| 中文 | 即将生效的学校课表调整 | {date}的安排提醒：{schedule}。请查看可能受影响的辅导安排。 | 查看学校课表 |
+
+`{date}` is the actual date label, never shifted through a recipient timezone.
+`{schedule}` is “No school / 不上课” or “Follows {weekday} timetable / 采用{weekday}课表”,
+with the effective weekday localized by the shared formatter.
+
 ## Essential request-service notices
 
 The separate request_service outbox uses request_invalid and request_cleared; these
@@ -816,3 +1041,47 @@ See [the source copy](../../src/server/email/request-notice-copy.ts),
 | --- | --- | --- | --- |
 | English | Invalid Request Closed | The appeal was declined. This request is closed and its queue priority is removed; you can submit a fresh request. | Review request history |
 | 中文 | 无效申请已关闭 | 申诉未获接受。此申请已关闭并移除排队优先顺序；您可以重新提交申请。 | 查看申请记录 |
+
+### interview_upcoming
+
+- Recipient: Opted-in active interview panel accounts (including the chair) and the linked qualification applicant account. No accountless applicant email is inferred.
+- Trigger: A still-undecided scheduled interview reaches either reminder threshold; effective Interviews feature must be enabled. [Emitter and preflight](../../src/server/email/event-reminders.ts).
+- Authorized destination: /dashboard. Email only; no bell backlog.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Upcoming Interview | Your scheduled interview is coming up. Review the recorded time and panel duties. | View interview |
+| 中文 | 面试即将开始 | 您已安排的面试即将开始。请查看记录的时间及面试小组职责。 | 查看面试 |
+
+### meeting_upcoming
+
+- Recipient: Opted-in active tutor accounts, excluding excused attendees.
+- Trigger: An existing dated meeting reaches either reminder threshold; effective Meetings feature must be enabled. [Emitter and preflight](../../src/server/email/event-reminders.ts).
+- Authorized destination: /dashboard. Email only.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Upcoming Meeting | Your scheduled meeting is coming up. Review the recorded time and meeting details. | View meeting |
+| 中文 | 会议即将开始 | 您已安排的会议即将开始。请查看记录的时间及会议详情。 | 查看会议 |
+
+### tutoring_upcoming
+
+- Recipient: Opted-in assigned tutor and explicit current/retained tutee owners who can participate. Shared tutoring groups deduplicate their tutor notice; tutee copy omits peers' names.
+- Trigger: A confirmed weekly arrangement reaches either reminder threshold, subject to the calendar, term, participation and absence checks above. [Emitter and preflight](../../src/server/email/event-reminders.ts).
+- Authorized destination: Assigned tutor /dashboard; tutee /student. Email only.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Upcoming Tutoring Session | Your confirmed tutoring session is coming up. Review the recorded time and session details. | View tutoring session |
+| 中文 | 辅导课程即将开始 | 您已确认的辅导课程即将开始。请查看记录的时间及课程详情。 | 查看辅导课程 |
+
+### room_assignment_needed
+
+- Recipient: Existing eligible staff room-allocation audience.
+- Trigger: A confirmed tutoring arrangement has no available room. Captures tutor, subjects and confirmed weekly time. [Emitter](../../src/server/room-allocation.ts).
+- Category: Tutoring. Authorized destination: `/admin/pairings#<encoded assignment ID>`. Intentionally in-app only.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Room Assignment Needed | A confirmed tutoring arrangement still needs a room. | Review room assignment |
+| 中文 | 需要分配教室 | 已确认的辅导安排仍需分配教室。 | 查看教室分配 |

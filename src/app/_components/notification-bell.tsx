@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { formatNotificationEvent } from "~/lib/notification-events";
+import { formatNotificationInApp } from "~/lib/notification-details";
 import {
   isNotificationRecordDestination,
   navigateNotificationFragment,
@@ -32,15 +32,17 @@ export function NotificationBell() {
   const utils = api.useUtils();
   const list = api.notification.list.useQuery();
   const unread = api.notification.unreadCount.useQuery();
-  const denied = useSessionAccessDenied(list, unread);
-  const readFailed = !!list.error || !!unread.error;
+  const totalUnread = api.notification.unreadCount.useQuery({ includeMuted: true });
+  const denied = useSessionAccessDenied(list, unread, totalUnread);
+  const readFailed = !!list.error || !!unread.error || !!totalUnread.error;
   const retry = () => {
     // Retry reads only: marking a notice is never replayed to recover its display.
-    void Promise.allSettled([list.refetch(), unread.refetch()]);
+    void Promise.allSettled([list.refetch(), unread.refetch(), totalUnread.refetch()]);
   };
   const invalidate = async () => {
     await Promise.all([
       utils.notification.list.invalidate(),
+      // No input filter: refresh both badge-only and include-muted counts.
       utils.notification.unreadCount.invalidate(),
     ]);
   };
@@ -83,7 +85,7 @@ export function NotificationBell() {
           <span className="text-sm font-semibold text-slate-900">
             {t("components.notifications.title")}
           </span>
-          {count > 0 && (
+          {(!denied && ((totalUnread.data ?? 0) > 0 || count > 0 || items.some((item) => !item.readAt))) && (
             <button
               className="link min-h-11 text-xs lg:min-h-8"
               disabled={markAll.isPending || markOne.isPending || writeBlocked}
@@ -93,6 +95,14 @@ export function NotificationBell() {
             </button>
           )}
         </div>
+        <div className="border-b border-slate-100 px-3">
+          <Link
+            href="/my-account#notification-preferences"
+            className="link inline-flex min-h-11 items-center text-xs"
+          >
+            {t("notificationPreferences.manage")}
+          </Link>
+        </div>
         <div className="px-3">
           {denied ? (
             <StatePanel
@@ -101,7 +111,7 @@ export function NotificationBell() {
               action={
                 <Button
                   onClick={retry}
-                  disabled={list.isFetching || unread.isFetching}
+                  disabled={list.isFetching || unread.isFetching || totalUnread.isFetching}
                 >
                   {t("uiPatterns.retry")}
                 </Button>
@@ -112,7 +122,7 @@ export function NotificationBell() {
               hasData={!!list.data}
               loading={!list.data && !list.error}
               error={readFailed}
-              retrying={list.isFetching || unread.isFetching}
+              retrying={list.isFetching || unread.isFetching || totalUnread.isFetching}
               loadingTitle={t("participantRecovery.loading")}
               errorTitle={t(
                 list.data
@@ -139,16 +149,15 @@ export function NotificationBell() {
             </li>
           )}
           {items.map((n) => {
-            // New notices localize an explicit event. Older records retain their
-            // original readable text without guessing an event from private body text.
-            const copy = formatNotificationEvent(
+            // Preserve recorded change details while localizing the event heading.
+            const copy = formatNotificationInApp(
               n.event,
               n.context,
               locale,
               eventText,
+              n,
             );
-            const title = copy?.title ?? n.title;
-            const body = copy?.body ?? n.body;
+            const { title, body } = copy;
             const inner = (
               <>
                 <p

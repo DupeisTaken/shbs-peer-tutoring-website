@@ -7,6 +7,13 @@ import { StudentRegistration } from "./student-registration";
 const mocks = vi.hoisted(() => ({ inspect: vi.fn(), verify: vi.fn() }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      studentWorkflow: {
+        continuationStatus: {
+          reset: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    }),
     tutee: { inspectSurvey: { useQuery: mocks.inspect } },
     accountInvitation: { fromSurvey: { useMutation: () => ({}) } },
   },

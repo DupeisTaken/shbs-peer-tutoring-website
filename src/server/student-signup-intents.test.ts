@@ -45,6 +45,7 @@ import { hashPassword, verifyPassword } from "./auth/password";
 import { studentSignupLocalAnswers } from "./student-signup-answers";
 import { verifySignupCaptcha } from "./captcha";
 import { withSignupLease } from "./signup-admission";
+import { studentRequestRows } from "./student-workflow";
 
 const email = "owner@example.test";
 const password = "Existing-password-268!";
@@ -87,12 +88,14 @@ afterAll(() => db.$disconnect());
 
 async function answers(overrides: Record<string, unknown> = {}) {
   const policy = await currentPolicy(db, "tutee-policy");
-  return surveyInput.parse({
+  const parsed = surveyInput.parse({
+    expectedTermId: termId,
     englishName: "Original Request Name", email, preferredContact: "Original contact",
     firstChoiceId: "math", secondChoiceId: "science", slotIds: ["monday"],
     signatureName: "Original Signature", agreed: true, policyRevision: policy.revision,
     ...overrides,
   });
+  return { ...parsed, expectedTermId: termId };
 }
 
 async function owner(options: { unfinished?: boolean; mfa?: boolean } = {}) {
@@ -164,10 +167,87 @@ async function complete(intentId: string, userId?: string, setupPassword?: strin
   return { invite, receipt };
 }
 
+/** Mailbox proof changes only its sticky evidence; later rejected review must
+ * preserve that exact post-proof source, including the first timestamp. */
+async function mailboxConfirmedSource(before: Awaited<ReturnType<typeof existing>>["row"]) {
+  const current = await db.studentSurvey.findUniqueOrThrow({ where: { id: before.id } });
+  expect(current).toEqual({
+    ...before,
+    publicSignupEmailConfirmedAt: before.publicSignupEmailConfirmedAt ?? (expect.any(Date) as Date),
+  });
+  expect(await db.studentSignupRevision.count()).toBe(0);
+  return current;
+}
+
 async function unchangedSource(id: string, before: unknown) {
   expect(await db.studentSurvey.findUniqueOrThrow({ where: { id } })).toEqual(before);
   expect(await db.studentSignupRevision.count()).toBe(0);
 }
+
+it("requires a reviewed period for a fresh public submission", async () => {
+  const input = { ...await answers(), expectedTermId: undefined };
+  type Submission = Parameters<ReturnType<typeof anonymous>["tutee"]["submitSurvey"]>[0];
+  await expect(anonymous().tutee.submitSurvey({ ...input, clientKey: randomUUID() } as unknown as Submission))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.studentSignupIntent.count()).toBe(0);
+});
+
+it("rejects an old-period draft after activation without reserving new demand", async () => {
+  const input = await answers();
+  await db.term.update({ where: { id: termId }, data: { active: false } });
+  await db.term.create({ data: { id: "next-signup-term", name: "Next quarter", schoolYear: "26-27", quarter: "Q2", active: true } });
+  await expect(stageStudentSignupIntent(db, input, randomUUID()))
+    .rejects.toThrow("SIGNUP_PERIOD_CHANGED");
+  expect(await db.studentSurvey.count()).toBe(0);
+  expect(fixtures.send).not.toHaveBeenCalled();
+});
+
+it("recovers the exact accepted receipt after rollover without creating next-period demand", async () => {
+  const input = await answers();
+  const key = randomUUID();
+  const receipt = await stageStudentSignupIntent(db, input, key);
+  await db.term.update({ where: { id: termId }, data: { active: false } });
+  await db.term.create({ data: { id: "next-signup-term", name: "Next quarter", schoolYear: "26-27", quarter: "Q2", active: true } });
+  expect(await stageStudentSignupIntent(db, input, key)).toEqual(receipt);
+  expect(await db.studentSurvey.count()).toBe(1);
+  expect(fixtures.send).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the management completion signal pending through mailbox verification and resend until account review", async () => {
+  const accepted = await staged(await answers());
+  const managed = async () => (await studentRequestRows(db)).find(row => row.id === accepted.intent.surveyId)!;
+  expect((await managed()).confirmedAt).toBeNull();
+  await invitation(accepted.intent.id);
+  expect((await db.studentSignupIntent.findUniqueOrThrow({ where: { id: accepted.intent.id } })).verifiedAt).toBeInstanceOf(Date);
+  expect((await managed()).confirmedAt).toBeNull();
+  await resendStudentSignupIntent(db, accepted.intent.id, email);
+  expect((await managed()).confirmedAt).toBeNull();
+  await complete(accepted.intent.id, undefined, "New-password-533!");
+  expect((await managed()).confirmedAt).toBeInstanceOf(Date);
+  expect((await managed()).submittedAt).toEqual(accepted.intent.receivedAt);
+  // An unfinished replacement cannot remove an already confirmed request's status.
+  const replacement = await staged(await answers());
+  await db.studentSignupIntent.update({where:{id:replacement.intent.id},data:{expiresAt:new Date(0)}});
+  const sent = fixtures.send.mock.calls.length;
+  await expect(resendStudentSignupIntent(db, replacement.intent.id, email)).rejects.toMatchObject({ message: "INVITATION_INVALID" });
+  expect(fixtures.send).toHaveBeenCalledTimes(sent);
+  expect((await managed()).confirmedAt).toBeInstanceOf(Date);
+});
+
+it("emails both remaining signup steps with a program-zone deadline and exact-intent recovery link", async () => {
+  await db.programSettings.upsert({where:{id:"program"},create:{id:"program",timeZone:"Asia/Shanghai"},update:{timeZone:"Asia/Shanghai"}});
+  const accepted = await staged(await answers());
+  const message = fixtures.send.mock.lastCall![0];
+  expect(message.subject).toContain("验证");
+  expect(message.text).toContain("signup is not complete");
+  expect(message.text).toContain("finish account review");
+  expect(message.text).toContain("报名尚未完成");
+  expect(message.text).toContain("Asia/Shanghai");
+  expect(message.text).not.toContain(accepted.intent.expiresAt.toISOString());
+  expect(message.text).not.toContain("Your previous request");
+  expect(message.presentation?.action?.url).toContain(`?intent=${accepted.intent.id}`);
+  expect(message.presentation?.code).toBe(surveyEmailCode(accepted.intent.tokenHash, accepted.intent.emailCodeVersion));
+});
 
 it("preserves legacy intent codes and their remaining attempt until a delivered resend upgrades them", async () => {
   const accepted = await staged(await answers());
@@ -335,12 +415,14 @@ it("requires the exact source mailbox code and explicit owner authentication bef
       code: surveyEmailCode(row.tokenHash, row.emailCodeVersion),
     }),
   ).rejects.toMatchObject({ message: "INVITATION_INVALID" });
+  await unchangedSource(row.id, row);
   const invite = await invitation(intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   await db.user.create({ data: { id: "other", email: "other@example.test", name: "Other" } });
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, "other")).rejects.toMatchObject({
     code: "UNAUTHORIZED",
   });
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
 });
 
 it("rejects a mailbox proof in the read-query input and accepts verified review through the POST mutation", async () => {
@@ -525,6 +607,7 @@ it.each(["session", "alias", "ownership"] as const)("refuses completion after %s
   if (change === "alias") await db.accountEmail.create({ data: { email: alias, userId: user.id, verifiedAt: new Date() } });
   const accepted = await staged({ ...payload, email: change === "alias" ? alias : email });
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   if (change === "session") {
     // PostgreSQL owns credential generations and discards manual version changes.
     // Rotate the actual password so the previously issued mailbox proof is stale.
@@ -538,7 +621,7 @@ it.each(["session", "alias", "ownership"] as const)("refuses completion after %s
     await db.studentProfileOwnership.update({ where: { tuteeId: tutee.id }, data: { userId: "new-owner" } });
   }
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toBeDefined();
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
   expect((await db.accountInvitation.findUniqueOrThrow({ where: { id: invite.invitationId } })).completedAt).toBeNull();
 });
 
@@ -651,6 +734,7 @@ it("successful send-only retry invalidates only that intent's older review proof
   const { user, row, payload } = await existing();
   const accepted = await staged(payload);
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   fixtures.send.mockRejectedValueOnce(new Error("Synthetic resend failure"));
   await resendStudentSignupIntent(db, accepted.intent.id, email);
   expect(await anonymous().accountInvitation.review(invite)).toMatchObject({ existing: true });
@@ -658,7 +742,7 @@ it("successful send-only retry invalidates only that intent's older review proof
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toMatchObject({
     message: "INVITATION_INVALID",
   });
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
   await complete(accepted.intent.id, user.id);
   expect(await db.studentSignupRevision.count()).toBe(1);
 });
@@ -690,6 +774,7 @@ it.each(["required-field", "subject", "slot", "grade"] as const)("rechecks chang
   const { user, row, payload } = await existing();
   const accepted = await staged(change === "grade" ? { ...payload, gradeLevel: "11" } : payload);
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   if (change === "required-field") await db.programSettings.create({ data: { id: "program", signupFields: { tutee: { phone: "required" } } } });
   if (change === "subject") await db.subject.update({ where: { id: "science" }, data: { active: false } });
   if (change === "slot") await db.timeSlot.update({ where: { id: "monday" }, data: { active: false } });
@@ -697,7 +782,7 @@ it.each(["required-field", "subject", "slot", "grade"] as const)("rechecks chang
     await db.programSettings.create({ data: { id: "program", offeredGrades: [10] } });
   }
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toBeDefined();
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
   expect((await db.studentSignupIntent.findUniqueOrThrow({ where: { id: accepted.intent.id } })).completedAt).toBeNull();
   expect((await db.accountInvitation.findUniqueOrThrow({ where: { id: invite.invitationId } })).completedAt).toBeNull();
 });
@@ -737,6 +822,7 @@ it("rechecks a newly assigned subject and fails closed on an unresolved legacy a
   const { user, tutor, tutee, row, payload } = await existing();
   const accepted = await staged({ ...payload, secondChoiceId: "writing" });
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   const pairing = await db.pairing.create({
     data: {
       tutorId: tutor.id,
@@ -764,7 +850,7 @@ it("rechecks a newly assigned subject and fails closed on an unresolved legacy a
     code: "CONFLICT",
     message: "SIGNUP_ASSIGNMENT_UNKNOWN",
   });
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
 });
 
 it("allows issued OPEN-request review after intake closes while refusing new public demand", async () => {

@@ -1,4 +1,6 @@
 import { enforceAssignmentQualification } from "./assignment-qualification";
+import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { discretionarySignupChange } from "./student-signup-management";
 import { createHash } from "node:crypto";
 import { TRPCError, type AnyTRPCProcedure } from "@trpc/server";
@@ -30,6 +32,12 @@ import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
 import { DEFAULT_FEATURES } from "./program/features";
 import { getProgramTimeZone } from "./program/time-zone";
+import {
+  schoolCalendarWrite,
+  schoolCalendarReset,
+} from "~/lib/school-calendar";
+import { schoolHoursLock, validateSchoolHoursSettings } from "./school-hours";
+import { schoolHoursSettingsInput } from "./school-hours-input";
 import { captureReviewReferences } from "./approval-reference-capture";
 import {
   applicationIdentityCorrectionInput,
@@ -48,6 +56,9 @@ import {
   validateNextRecruitmentRefresh,
   validateNextRecruitmentWrite,
 } from "./program/next-recruitment";
+import {
+  scheduleRefreshInput, cancelRefreshInput, validateScheduleRefresh, validateCancelRefresh,
+} from "./program/scheduled-refresh";
 
 export class ApprovalQueued extends Error {
   constructor(public readonly approvalId: string) {
@@ -260,8 +271,15 @@ export async function proposalAuthority(
         })
       : null;
   return classifyApproval(operation, value, {
-    currentAccountRole: operation === "admin.setMemberships" && typeof input.userId === "string"
-      ? (await client.user.findUnique({ where: { id: input.userId }, select: { role: true } }))?.role : undefined,
+    currentAccountRole:
+      operation === "admin.setMemberships" && typeof input.userId === "string"
+        ? (
+            await client.user.findUnique({
+              where: { id: input.userId },
+              select: { role: true },
+            })
+          )?.role
+        : undefined,
     currentTutorStatus: tutor?.status,
     currentCardReviewStatus: card?.reviewStatus,
     currentTuteeStatus: tutee?.status,
@@ -315,6 +333,11 @@ export function canRequestProposal(
 /** Only registered management mutations may be replayed. Reuse their Zod parsers so
  * invalid input cannot enter the queue and dates/defaults have exactly the usual meaning. */
 export async function parseProposal(operation: string, input: unknown) {
+  if (["monthlyHours.save", "monthlyHours.generate", "monthlyHours.retry"].includes(operation))
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Monthly overviews have been retired. Use School Month Reports.",
+    });
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation))
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -395,7 +418,13 @@ async function authoritySnapshot(client: TransactionDb) {
     term: await client.term.findFirst({
       where: { active: true },
       orderBy: { createdAt: "desc" },
-      omit: { nextRecruitmentRevision: true },
+      omit: {
+        nextRecruitmentRevision: true,
+        signupOpeningStateSince: true,
+        signupFirstOpenedAt: true,
+        continuationSourceTermId: true,
+        continuationQuarterTransition: true,
+      },
     }),
   };
 }
@@ -421,10 +450,22 @@ export async function proposalTargets(
     // The complete causal graph is review evidence, not a requester assertion.
     // Rebuilding it at approval detects changed-away-and-back descendant writes.
     const { inspectAdmissionRecovery } = await import("./recovery/admission");
-    const plan = await inspectAdmissionRecovery(client, { actionId: z.string().parse(fields.actionId) });
-    if (!plan.websiteEligible || plan.fingerprint !== fields.expectedFingerprint)
-      throw new TRPCError({ code: "CONFLICT", message: "Recovery evidence changed or requires the operator CLI. Inspect it again." });
-    return JSON.parse(JSON.stringify(plan)) as Record<string, Prisma.InputJsonValue>;
+    const plan = await inspectAdmissionRecovery(client, {
+      actionId: z.string().parse(fields.actionId),
+    });
+    if (
+      !plan.websiteEligible ||
+      plan.fingerprint !== fields.expectedFingerprint
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "Recovery evidence changed or requires the operator CLI. Inspect it again.",
+      });
+    return JSON.parse(JSON.stringify(plan)) as Record<
+      string,
+      Prisma.InputJsonValue
+    >;
   }
   // Reference labels have their own version. Keep every existing v1 display/
   // authority projection byte-for-byte stable when this separate marker is absent.
@@ -442,6 +483,38 @@ export async function proposalTargets(
       );
     return captured;
   };
+  if (operation === "schoolHours.save") {
+    const proposed = schoolHoursSettingsInput.parse(input);
+    await lockEntity(client, schoolHoursLock);
+    await validateSchoolHoursSettings(client, proposed);
+    const config = await client.schoolHoursSchedule.findUnique({
+      where: { id: "program" },
+      select: {
+        id: true,
+        enabled: true,
+        recipientEmails: true,
+        timeZone: true,
+        includeStatistics: true,
+        dateOverrides: true,
+        version: true,
+        baselineVersion: true,
+        openingReviewedAt: true,
+        headReportId: true,
+      },
+    });
+    if ((config?.version ?? 0) !== proposed.expectedVersion)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "The school report settings changed. Reload before proposing this change.",
+      });
+    return capturedTargets({
+      schoolHoursSchedule: config,
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
+  }
   if (operation === "admin.correctApplicationIdentity") {
     // Queue interception happens before the resolver. Capture only a validated,
     // locked correction; replay repeats the same validation before fingerprinting.
@@ -487,6 +560,21 @@ export async function proposalTargets(
     return capturedTargets({
       nextRecruitment: { audience: proposal.audience, ...evidence },
       ...(includeAuthorityContext ? { authorityContext: { version: 2 } } : {}),
+    });
+  }
+  if (operation === "admin.scheduleRefresh") {
+    const input = scheduleRefreshInput.parse(fields);
+    const { snapshot, row } = await validateScheduleRefresh(client, input);
+    return capturedTargets({
+      nextRecruitment: snapshot,
+      schedule: row,
+      ...(includeAuthorityContext ? { authorityContext: { version: 1 } } : {}),
+    });
+  }
+  if (operation === "admin.cancelRefresh") {
+    const row = await validateCancelRefresh(client, cancelRefreshInput.parse(fields));
+    return capturedTargets({ schedule: row,
+      ...(includeAuthorityContext ? { authorityContext: { version: 1 } } : {}),
     });
   }
   if (operation === "admin.refresh") {
@@ -539,6 +627,30 @@ export async function proposalTargets(
         code: "CONFLICT",
         message:
           "The tutoring notice changed. Reload before requesting review.",
+      });
+  }
+  if (
+    ["student.setCalendarDay", "student.resetCalendarDay"].includes(operation)
+  ) {
+    const calendarInput =
+      operation === "student.setCalendarDay"
+        ? schoolCalendarWrite.parse(input)
+        : schoolCalendarReset.parse(input);
+    // Replay retains these locks while the writer reconciles dated plans. Match
+    // direct calendar writes before taking the date lock to avoid date → period
+    // inversion between approval and a concurrent direct save/reset.
+    await lockEntity(client, "program:period");
+    const { lockSessionPlanning } = await import("./session-planning");
+    await lockSessionPlanning(client);
+    await lockEntity(client, `school-calendar:${calendarInput.date}`);
+    const day = await client.schoolCalendarDay.findUnique({
+      where: { date: calendarInput.date },
+    });
+    if ((day?.version ?? 0) !== calendarInput.expectedVersion)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "The school calendar changed. Reload before requesting review.",
       });
   }
   if (operation === "program.setNameFields") {
@@ -817,7 +929,13 @@ export async function proposalTargets(
     targets.term = await client.term.findFirst({
       where: { active: true },
       orderBy: { createdAt: "desc" },
-      omit: { nextRecruitmentRevision: true },
+      omit: {
+        nextRecruitmentRevision: true,
+        signupOpeningStateSince: true,
+        signupFirstOpenedAt: true,
+        continuationSourceTermId: true,
+        continuationQuarterTransition: true,
+      },
     });
   if (operation === "messaging.restrict")
     targets.restriction = await client.messageRestriction.findUnique({
@@ -1113,6 +1231,10 @@ export async function queueProposal(
       await lockUsernameNamespace(tx);
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;
     }
+    // School recipient notifications must not take account rows after holding
+    // the schedule while a delivery admission owns the opposite lock order.
+    if (operation === "schoolHours.save")
+      await lockUsernameNamespace(tx);
     // Retry/double-click of the same unchanged proposal returns its existing request.
     await lockEntity(
       tx,
@@ -1197,7 +1319,7 @@ export async function queueProposal(
       true,
     );
     if (
-      ["program.prepareNextRecruitment", "admin.refresh"].includes(operation)
+      ["program.prepareNextRecruitment", "admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"].includes(operation)
     ) {
       // Capturing evidence may wait behind a refresh or mode edit. Retain the
       // requester's live authority under a row lock until the proposal commits.
@@ -1316,9 +1438,13 @@ export async function queueProposal(
         },
       },
     });
-    const headOnly = authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN");
+    const headOnly =
+      authority.reviewerRoles.includes("HEAD") &&
+      !authority.reviewerRoles.includes("ADMIN");
     const reviewers = await managementReviewers(tx, {
-      headOnly, exclude: session.user.id, allowHeadSelfReview: true,
+      headOnly,
+      exclude: session.user.id,
+      allowHeadSelfReview: true,
     });
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
@@ -1327,10 +1453,12 @@ export async function queueProposal(
           headOnly
             ? "Management change awaiting Head approval"
             : "Management change awaiting approval",
-        ...notificationEvent(
+        ...notificationInAppEvent(
           headOnly
             ? "management_head_review_pending"
             : "management_review_pending",
+          {},
+          approvalNotificationDetail(operation, value, targets, "pending"),
         ),
         body: `${requesterName}: ${humanizeOperation(operation)}`,
         link: `/admin/approvals?request=${request.id}`,
@@ -1339,4 +1467,3 @@ export async function queueProposal(
     return request;
   });
 }
-import { notificationEvent } from "~/lib/notification-events";

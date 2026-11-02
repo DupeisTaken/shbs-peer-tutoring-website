@@ -7,6 +7,11 @@ import zh from "../../../messages/zh.json";
 import { NotificationBell } from "./notification-bell";
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
+  count: 2,
+  totalCount: 2,
+  totalError: null as null | { message: string; data?: { code: string } },
+  refetch: vi.fn(),
+  allSuccess: undefined as undefined | (() => Promise<void>),
   mark: vi.fn(),
   all: vi.fn(),
   invalidate: vi.fn(),
@@ -21,9 +26,9 @@ vi.mock("~/trpc/react", () => ({
     }),
     notification: {
       list: { useQuery: mocks.list },
-      unreadCount: { useQuery: () => ({ data: 2 }) },
+      unreadCount: { useQuery: (input?: { includeMuted?: boolean }) => ({ data: input?.includeMuted ? mocks.totalCount : mocks.count, error: input?.includeMuted ? mocks.totalError : null, refetch: mocks.refetch }) },
       markRead: { useMutation: () => ({ mutate: mocks.mark }) },
-      markAllRead: { useMutation: () => ({ mutate: mocks.all }) },
+      markAllRead: { useMutation: (options: { onSuccess: () => Promise<void> }) => { mocks.allSuccess = options.onSuccess; return { mutate: mocks.all }; } },
     },
   },
 }));
@@ -47,6 +52,9 @@ vi.mock("next/link", () => ({
 }));
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.count = 2;
+  mocks.totalCount = 2;
+  mocks.totalError = null;
   mocks.list.mockReturnValue({
     data: [
       {
@@ -54,7 +62,7 @@ beforeEach(() => {
         event: "tutor_application_pending",
         context: { body: "Private body" },
         title: "Old literal title",
-        body: "Private old body",
+        body: "Fiona Example submitted a tutor application.",
         link: "/admin/applications",
         createdAt: new Date("2026-10-13T03:00:00Z"),
         readAt: null,
@@ -73,6 +81,95 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("blocks writes when the total unread read fails and hides cached notices on its access denial", () => {
+  mocks.totalError = { message: "Read failed" };
+  const wrap = () => <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai"><NotificationBell /></NextIntlClientProvider>;
+  const view = render(wrap());
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: en.components.notifications.markAllRead }).disabled).toBe(true);
+  mocks.totalError = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(wrap());
+  expect(screen.queryByText("Fiona Example submitted a tutor application.")).toBeNull();
+  expect(screen.queryByRole("button", { name: en.components.notifications.markAllRead })).toBeNull();
+  expect(mocks.all).not.toHaveBeenCalled();
+});
+it("keeps mark-all available for muted unread notices older than the visible thirty and invalidates every count", async () => {
+  mocks.count = 0;
+  mocks.totalCount = 1;
+  mocks.list.mockReturnValue({ data: Array.from({ length: 30 }, (_, index) => ({
+    id: `read-${index}`, title: `Read notice ${index}`, event: null, context: null,
+    body: null, link: null, createdAt: new Date(), readAt: new Date(),
+  })) });
+  const { container } = render(<NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai"><NotificationBell /></NextIntlClientProvider>);
+  expect(container.querySelector("summary .bg-red-500")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.components.notifications.markAllRead }));
+  expect(mocks.all).toHaveBeenCalledOnce();
+  await mocks.allSuccess!();
+  expect(mocks.invalidate).toHaveBeenCalledTimes(2);
+  expect(mocks.invalidate).toHaveBeenCalledWith();
+});
+it("retains muted unread notices and mark-all-read when the badge is zero", () => {
+  mocks.count = 0;
+  render(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <NotificationBell />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.getByText("Fiona Example submitted a tutor application."),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.components.notifications.markAllRead,
+    }),
+  );
+  expect(mocks.all).toHaveBeenCalledOnce();
+  expect(
+    screen
+      .getByRole("link", { name: en.notificationPreferences.manage })
+      .getAttribute("href"),
+  ).toBe("/my-account#notification-preferences");
+});
+it.each(["en", "zh"] as const)(
+  "shows the recorded %s assignment detail as text and preserves navigation",
+  (locale) => {
+    const detail = {
+      en: "Proposed assignment: Emma <Example> to Alice Example for Mathematics. Not yet applied.",
+      zh: "分配提案：将 Emma <Example> 分配给数学辅导伙伴 Alice Example。尚未应用。",
+    };
+    mocks.list.mockReturnValue({
+      data: [
+        {
+          id: "specific",
+          event: "management_review_pending",
+          context: { inAppDetail: detail },
+          title: "Old heading",
+          body: "New assignment",
+          link: "/admin/approvals?request=specific",
+          createdAt: new Date(),
+          readAt: null,
+        },
+      ],
+    });
+    const { container } = render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={locale === "zh" ? zh : en}
+        timeZone="Asia/Shanghai"
+      >
+        <NotificationBell />
+      </NextIntlClientProvider>,
+    );
+    const body = screen.getByText(detail[locale]);
+    expect(body.className).toContain("break-words");
+    expect(container.querySelector("example")).toBeNull();
+    expect(screen.queryByText("New assignment")).toBeNull();
+    expect(body.closest("a")?.getAttribute("href")).toBe(
+      "/admin/approvals?request=specific",
+    );
+    fireEvent.click(body);
+    expect(mocks.mark).toHaveBeenCalledWith({ id: "specific" });
+  },
+);
 it.each([
   ["/admin/requests#request-survey-abc123", "disabled"],
   ["/admin/requests#request-signup-abc123", "disabled"],
@@ -134,13 +231,11 @@ it.each(["en", "zh"] as const)(
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(
-        messages.notificationEvents.tutor_application_pending.body,
-      ),
+      screen.getByText("Fiona Example submitted a tutor application."),
     ).toBeTruthy();
     expect(screen.getByText("Retained legacy notice")).toBeTruthy();
     expect(screen.getByText("Readable original notice")).toBeTruthy();
-    expect(screen.queryByText("Private old body")).toBeNull();
+    expect(screen.queryByText("Private body")).toBeNull();
     fireEvent.click(screen.getByText("Retained legacy notice"));
     expect(mocks.mark).toHaveBeenCalledWith({ id: "legacy" });
     fireEvent.click(

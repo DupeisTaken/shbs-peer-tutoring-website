@@ -4,6 +4,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { InlineNotice, StatePanel } from "./ui/patterns";
+import { ProgramSchoolHoursPreview } from "./school-hours-preview";
 
 /** Independent immediate controls share query invalidation, never a combined toggle. */
 export function ProgramEmailSettings() {
@@ -46,6 +47,14 @@ export function ProgramEmailSettings() {
         <EmailDeliveryStatus
           canEdit={data.canEdit}
           settingsReady={!settings.error}
+        />
+      )}
+      {data && (
+        <ProgramSchoolHoursPreview
+          denied={
+            settings.error?.data?.code === "FORBIDDEN" ||
+            settings.error?.data?.code === "UNAUTHORIZED"
+          }
         />
       )}
       {!data && !settings.error && (

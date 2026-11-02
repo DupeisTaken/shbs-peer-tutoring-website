@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { SurveyVerification } from "./survey-verification";
 const state = vi.hoisted(() => ({
   verify: vi.fn(),
@@ -16,21 +17,43 @@ const state = vi.hoisted(() => ({
   captcha: vi.fn(),
   pending: false,
   captchaPending: false,
+  resendData: undefined as undefined | { emailSent: boolean },
+  error: null as null | { message: string },
   settled: undefined as (() => void) | undefined,
+  confirmed: undefined as (() => void) | undefined,
+  resetContinuation: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      studentWorkflow: {
+        continuationStatus: { reset: state.resetContinuation },
+      },
+    }),
     accountInvitation: {
       verifySurvey: {
-        useMutation: (options: { onSettled: () => void }) => {
+        useMutation: (options: {
+          onSettled: () => void;
+          onSuccess: () => void;
+        }) => {
           state.settled = options.onSettled;
-          return { mutate: state.verify, isPending: state.pending, data: null };
+          state.confirmed = options.onSuccess;
+          return {
+            mutate: state.verify,
+            isPending: state.pending,
+            data: null,
+            error: state.error,
+          };
         },
       },
     },
     tutee: {
       resendSurvey: {
-        useMutation: () => ({ mutateAsync: state.resend, isPending: false }),
+        useMutation: () => ({
+          mutateAsync: state.resend,
+          isPending: false,
+          data: state.resendData,
+        }),
       },
     },
   },
@@ -55,10 +78,29 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.pending = false;
   state.captchaPending = false;
+  state.resendData = undefined;
+  state.error = null;
   state.captcha.mockImplementation((work: () => Promise<unknown>) => work());
   state.resend.mockResolvedValue({ emailSent: true });
+  state.resetContinuation.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
+it("refreshes cached continuation eligibility only after successful mailbox proof", async () => {
+  const mounted = render(view("specific-intent"));
+  fireEvent.change(screen.getByLabelText(/^Email verification code/), {
+    target: { value: "ABC123" },
+  });
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  expect(state.resetContinuation).not.toHaveBeenCalled();
+  await act(async () => state.confirmed!());
+  expect(state.resetContinuation).toHaveBeenCalledOnce();
+});
+it("does not reject accepted mailbox proof when the continuation refresh fails", async () => {
+  state.resetContinuation.mockRejectedValue(new Error("Read failed"));
+  render(view());
+  await act(async () => state.confirmed!());
+  expect(state.resetContinuation).toHaveBeenCalledOnce();
+});
 it.each(["0012", "ABC123"])(
   "binds verification code %s and resend to the exact submission intent",
   async (code) => {
@@ -123,7 +165,7 @@ it("blocks verification during resend admission and keeps CAPTCHA outside disabl
   expect(
     screen
       .getByRole<HTMLButtonElement>("button", {
-        name: en.accountInvitation.verify,
+        name: en.survey.verifyContinue,
       })
       .matches(":disabled"),
   ).toBe(true);
@@ -134,3 +176,45 @@ it("blocks verification during resend admission and keeps CAPTCHA outside disabl
   ).toBe(false);
   await act(async () => finish({ emailSent: true }));
 });
+
+it.each(["en", "zh"] as const)(
+  "makes the %s unfinished step and failed delivery visible, then recovers in place",
+  (locale) => {
+    const messages = locale === "en" ? en : zh;
+    const content = () => (
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <SurveyVerification
+          email="student@example.test"
+          intentId="exact-intent"
+          emailSent={false}
+          focusOnMount
+        />
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(content());
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { name: messages.survey.savedTitle }),
+    );
+    expect(screen.getByRole("alert").textContent).toBe(
+      messages.survey.mailFailed,
+    );
+    expect(
+      screen.getByRole("button", { name: messages.survey.verifyContinue }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("link", { name: messages.survey.signIn }),
+    ).toBeNull();
+    const input = screen.getByLabelText(new RegExp(messages.codes.emailLabel));
+    fireEvent.change(input, { target: { value: "0012" } });
+    state.error = { message: "INVITATION_INVALID" };
+    rerender(content());
+    expect(screen.getByText(messages.survey.verificationRecovery)).toBeTruthy();
+    expect(screen.getByDisplayValue("0012")).toBe(input);
+    state.error = null;
+    state.resendData = { emailSent: true };
+    rerender(content());
+    expect(screen.queryByText(messages.survey.mailFailed)).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(messages.survey.resent);
+    expect(state.verify).not.toHaveBeenCalled();
+  },
+);

@@ -21,7 +21,9 @@ import {
 type Row = Record<string, unknown>;
 // Deliberately positive: adding a password/token/body field to a model cannot expose it.
 const safeFields = new Set([
-  "roomMode", "roomNeedsAssignment", "roomVersion",
+  "roomMode",
+  "roomNeedsAssignment",
+  "roomVersion",
   "programOrder",
   "preferredAssignedBlocks",
   "workloadPreferenceVersion",
@@ -103,6 +105,10 @@ const safeFields = new Set([
   "tuteeSignupOpensAt",
   "tuteeSignupClosesAt",
   "signupEnabled",
+  "signupOpeningStateSince",
+  "signupFirstOpenedAt",
+  "continuationSourceTermId",
+  "continuationQuarterTransition",
   "signupOpensAt",
   "signupClosesAt",
   "tutorSignupEnabled",
@@ -456,6 +462,9 @@ const writes = new Set([
   "deleteMany",
 ]);
 const independentlyAudited = new Set([
+  // Snapshot/outbox generation owns its coherent transaction and aggregate audit.
+  "monthlyHours",
+  "schoolHours",
   // Recovery owns its Serializable graph recheck, compensation and receipt.
   // Wrapping it in the default ReadCommitted transaction would weaken that fence.
   "recovery",

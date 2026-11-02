@@ -1,5 +1,11 @@
 import { requireStudentSchoolParticipation } from "./school-departure";
-import { managementNotificationRecipients, notificationData } from "./notifications/create";
+import { notificationSchedule } from "~/lib/notification-facts";
+import {
+  notificationData,
+  namedNotificationDetail,
+} from "./notifications/create";
+import { currentStudentSignupPayload } from "./student-signup-answers";
+import { managementNotificationRecipients } from "./notifications/create";
 import type { NotificationEvent } from "~/lib/notification-events";
 import {
   assertRequestProcessable,
@@ -22,7 +28,12 @@ export async function notifyRequest(
   tx: TransactionDb,
   row: StudentSurvey,
   event: NotificationEvent,
+  detail?: { en: string; zh: string },
+  pairingId?: string | null,
 ) {
+  const answers = currentStudentSignupPayload(row);
+  const name =
+    typeof answers.englishName === "string" ? answers.englishName : null;
   const links = row.tuteeId
     ? await tx.pairingTutee.findMany({
         where: { tuteeId: row.tuteeId },
@@ -51,10 +62,18 @@ export async function notifyRequest(
     },
     select: { id: true, role: true, email: true },
   });
+  const scheduleDetail = pairingId ? await studentScheduleDetail(tx, pairingId, name ?? "—", event) : undefined;
+  const period = event.startsWith("student_withdrawal_") && row.intakeTermId
+    ? await tx.term.findUnique({ where: { id: row.intakeTermId }, select: { name: true } }) : null;
+  const withdrawal = period ? namedNotificationDetail(event, `${name ?? "—"} (${period.name})`) : undefined;
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      ...notificationData(event),
+      ...notificationData(
+        event,
+        undefined,
+        detail ?? scheduleDetail ?? withdrawal ?? (name ? namedNotificationDetail(event, name) : undefined),
+      ),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.id === owner?.userId || user.email === row.email
@@ -62,6 +81,21 @@ export async function notifyRequest(
           : "/dashboard",
     })),
   });
+}
+
+/** Capture the affected assignment before detaching it; never include conflict reasons. */
+export async function studentScheduleDetail(tx: TransactionDb, pairingId: string, name: string, event: NotificationEvent) {
+  const pairing = await tx.pairing.findUnique({ where: { id: pairingId }, select: { subject: true, dayOfWeek: true, startMin: true, endMin: true, tutor: { select: { englishName: true } } } });
+  if (!pairing) return namedNotificationDetail(event, name);
+  const result = event === "student_schedule_review_approved"
+    ? { en: "Schedule conflict approved; this assignment is removed and the tutee returns to the assignment queue.", zh: "时间冲突已获批准；此分配已移除，学习伙伴返回待分配队列。" }
+    : event === "student_schedule_review_declined"
+      ? { en: "Schedule conflict declined; the assignment remains unchanged.", zh: "时间冲突申请未获批准；分配保持不变。" }
+      : { en: "Schedule conflict awaits review; the assignment remains unchanged.", zh: "时间冲突申请待审核；分配暂不变更。" };
+  return {
+    en: `${name} / Tutor ${pairing.tutor.englishName} / ${pairing.subject}, ${notificationSchedule(pairing, "en")}: ${result.en}`,
+    zh: `${name} / 辅导伙伴 ${pairing.tutor.englishName} / ${pairing.subject}，${notificationSchedule(pairing, "zh")}：${result.zh}`,
+  };
 }
 
 /** Terminal transitions keep evidence, remove roster membership, and cannot be undone. */

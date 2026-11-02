@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  assertMeasuredIdentity,
   baselineRevision,
+  buildIdentity,
   compareInventories,
+  identityDiagnostics,
   needsStorageComparison,
   pinBase,
   runtimeConfig,
@@ -11,6 +14,204 @@ import {
 
 const dockerfile =
   "FROM node:22-alpine AS deps\nFROM deps AS runtime-deps\nFROM node:22-alpine AS build\nRUN npm run build\nFROM node:22-alpine AS runner\n";
+
+const configDigest = `sha256:${"a".repeat(64)}`;
+const manifestDigest = `sha256:${"b".repeat(64)}`;
+const differentDigest = `sha256:${"c".repeat(64)}`;
+const layerIds = [`sha256:${"d".repeat(64)}`, `sha256:${"e".repeat(64)}`];
+const buildMetadata = {
+  "containerimage.config.digest": configDigest,
+  "containerimage.digest": manifestDigest,
+};
+const measuredImage = (id) => ({ Id: id, RootFS: { Layers: [...layerIds] } });
+const exportedImage = () => ({
+  config_digest: configDigest,
+  manifest_digests: [manifestDigest],
+  layers: layerIds.map((diff_id) => ({ diff_id })),
+});
+
+test("build metadata binds both classic config IDs and containerd manifest IDs", () => {
+  for (const id of [configDigest, manifestDigest]) {
+    const image = measuredImage(id);
+    const identity = buildIdentity(buildMetadata, image);
+    const exported = exportedImage();
+    delete exported.manifest_digests; // Classic Docker archives have no OCI proof.
+    assert.deepEqual(identity, { configDigest, manifestDigest });
+    assert.deepEqual(
+      assertMeasuredIdentity(image, identity, exported, measuredImage(id)),
+      { configDigest, manifestDigest },
+    );
+  }
+});
+
+test("missing, malformed or unrelated build identities fail closed", () => {
+  for (const metadata of [
+    undefined,
+    {},
+    { ...buildMetadata, "containerimage.config.digest": null },
+    { ...buildMetadata, "containerimage.config.digest": undefined },
+    { ...buildMetadata, "containerimage.config.digest": "sha256:short" },
+    { ...buildMetadata, "containerimage.digest": undefined },
+    { ...buildMetadata, "containerimage.digest": `sha256:${"A".repeat(64)}` },
+  ])
+    assert.throws(() => buildIdentity(metadata, measuredImage(manifestDigest)));
+  assert.throws(
+    () => buildIdentity(buildMetadata, measuredImage(differentDigest)),
+    /Loaded image identity does not match/,
+  );
+});
+
+test("containerd --load metadata binds the config through an authenticated manifest", () => {
+  const metadata = { "containerimage.digest": manifestDigest };
+  const image = measuredImage(manifestDigest);
+  const identity = buildIdentity(metadata, image);
+  assert.deepEqual(identity, { configDigest: null, manifestDigest });
+  assert.deepEqual(
+    assertMeasuredIdentity(image, identity, exportedImage(), image),
+    { configDigest, manifestDigest },
+  );
+  assert.throws(
+    () => buildIdentity(metadata, measuredImage(configDigest)),
+    /Loaded image identity does not match/,
+  );
+});
+
+test("a deferred config cannot be trusted without the build's exact manifest proof", () => {
+  const image = measuredImage(manifestDigest);
+  const identity = buildIdentity(
+    { "containerimage.digest": manifestDigest }, image,
+  );
+  for (const proofs of [undefined, [], [differentDigest], manifestDigest]) {
+    assert.throws(
+      () =>
+        assertMeasuredIdentity(
+          image, identity, { ...exportedImage(), manifest_digests: proofs }, image,
+        ),
+      /Exported manifest identity does not match/,
+    );
+  }
+  assert.throws(
+    () =>
+      assertMeasuredIdentity(
+        image, identity, { ...exportedImage(), config_digest: undefined }, image,
+      ),
+    /Exported config identity does not match/,
+  );
+});
+
+test("diagnostics expose only selected valid digests or fixed missing/invalid markers", () => {
+  const privateValue = "PRIVATE_SENTINEL";
+  const metadata = {
+    ...buildMetadata,
+    "containerimage.config.digest": privateValue,
+    "buildx.build.provenance": { secret: privateValue },
+  };
+  assert.deepEqual(identityDiagnostics(metadata, { Id: privateValue }), {
+    configDigest: "invalid",
+    manifestDigest,
+    imageId: "invalid",
+  });
+  assert.deepEqual(identityDiagnostics(undefined, undefined), {
+    configDigest: "missing",
+    manifestDigest: "missing",
+    imageId: "missing",
+  });
+  assert.deepEqual(identityDiagnostics(buildMetadata, measuredImage(manifestDigest)), {
+    configDigest, manifestDigest, imageId: manifestDigest,
+  });
+  assert.throws(
+    () => buildIdentity(metadata, measuredImage(manifestDigest)),
+    (error) => !String(error).includes(privateValue),
+  );
+});
+
+test("the archive must match the build config even when layer IDs match", () => {
+  const image = measuredImage(manifestDigest);
+  const identity = buildIdentity(buildMetadata, image);
+  for (const digest of [differentDigest, manifestDigest, undefined]) {
+    assert.throws(
+      () =>
+        assertMeasuredIdentity(
+          image,
+          identity,
+          { ...exportedImage(), config_digest: digest },
+          image,
+        ),
+      /Exported config identity does not match/,
+    );
+  }
+  assert.throws(
+    () => assertMeasuredIdentity(image, identity, undefined, image),
+    /Exported config identity does not match/,
+  );
+});
+
+test("retargeted tags are rejected even when exported config and layers match", () => {
+  const image = measuredImage(manifestDigest);
+  for (const metadata of [
+    buildMetadata, { "containerimage.digest": manifestDigest },
+  ]) {
+    const identity = buildIdentity(metadata, image);
+    for (const current of [
+      measuredImage(differentDigest),
+      measuredImage(configDigest),
+      undefined,
+    ]) {
+      assert.throws(
+        () => assertMeasuredIdentity(image, identity, exportedImage(), current),
+        /Tag identity changed during measurement/,
+      );
+    }
+  }
+});
+
+test("exported layer order, membership and count remain bound to inspection", () => {
+  const image = measuredImage(manifestDigest);
+  for (const metadata of [
+    buildMetadata, { "containerimage.digest": manifestDigest },
+  ]) {
+    const identity = buildIdentity(metadata, image);
+    for (const diffIds of [
+      [...layerIds].reverse(),
+      [differentDigest, layerIds[1]],
+      [layerIds[0]],
+      [...layerIds, differentDigest],
+    ]) {
+      assert.throws(
+        () =>
+          assertMeasuredIdentity(
+            image,
+            identity,
+            {
+              ...exportedImage(),
+              layers: diffIds.map((diff_id) => ({ diff_id })),
+            },
+            image,
+          ),
+        /Exported layer identities changed/,
+      );
+    }
+  }
+});
+
+test("distinct comparison tags may legitimately share the same immutable image", () => {
+  // Equal baseline/candidate layouts are valid zero-growth measurements, not
+  // evidence of tag corruption. Each role must still pass the full binding.
+  for (const role of ["baseline", "candidate"]) {
+    const image = measuredImage(manifestDigest);
+    assert.doesNotThrow(
+      () =>
+        assertMeasuredIdentity(
+          image,
+          buildIdentity(buildMetadata, image),
+          exportedImage(),
+          image,
+        ),
+      role,
+    );
+  }
+});
+
 test("manual comparisons use the first parent or an explicit immutable baseline", () => {
   const revision = "b".repeat(40);
   const calls = [];

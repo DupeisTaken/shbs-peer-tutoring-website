@@ -51,6 +51,7 @@ export const reviewTechnicalFields = new Set([
   "expectedFingerprint",
   "expectedTarget",
   "expectedPreparation",
+  "expectedScheduleVersion",
   "ticket",
   "signedTicket",
   "overrideTicket",
@@ -103,6 +104,40 @@ const reviewNextSnapshot = z.object({
     stagedFeatures: nextRecruitmentRefreshEvidenceSchema.shape.stagedFeatures,
   }),
 });
+
+const reviewScheduledRefresh = z.object({
+  id: z.string().min(1), version: z.number().int().positive(),
+  state: z.enum(["SCHEDULED", "BLOCKED", "FAILED", "CANCELLED", "COMPLETED"]),
+  executeAt: z.preprocess((value) => typeof value === "string" ? new Date(value) : value, z.date()),
+  timeZone: z.string().refine(isProgramTimeZone),
+  sourceTermId: z.string(), sourceSchoolYear: z.string(), sourceQuarter: z.enum(["Q1", "Q2", "Q3", "Q4"]),
+  destinationSchoolYear: z.string(), destinationQuarter: z.enum(["Q1", "Q2", "Q3", "Q4"]),
+  semesterMode: z.boolean(),
+});
+
+/** Deferred authorization is reviewed from captured evidence only. Strip private
+ * execution authority and never replace missing history with current settings. */
+export function scheduledRefreshApprovalReview(operation: string, payload: unknown, targets: unknown) {
+  const fields = record(payload);
+  const captured = record(targets);
+  if (!fields || !captured) return null;
+  if (operation === "admin.cancelRefresh") {
+    const schedule = reviewScheduledRefresh.safeParse(captured.schedule);
+    if (!schedule.success || fields.id !== schedule.data.id || fields.expectedVersion !== schedule.data.version) return null;
+    return { kind: "cancel" as const, schedule: schedule.data };
+  }
+  if (operation !== "admin.scheduleRefresh") return null;
+  const snapshot = reviewNextSnapshot.safeParse(captured.nextRecruitment);
+  const input = z.object({ executeAt: reviewScheduledRefresh.shape.executeAt, expectedScheduleVersion: z.number().int().nonnegative(), expectedTermId: z.string(), expectedPreparation: z.object({ target: nextRecruitmentTargetSchema }) }).safeParse(payload);
+  const previous = captured.schedule === null ? null : reviewScheduledRefresh.safeParse(captured.schedule);
+  if (!snapshot.success || !input.success || previous && !previous.success || captured.schedule === undefined) return null;
+  const schedule = previous?.success ? previous.data : null;
+  if (input.data.expectedTermId !== snapshot.data.target.sourceTermId ||
+    !sameNextRecruitmentTarget(input.data.expectedPreparation.target, snapshot.data.target) ||
+    input.data.expectedScheduleVersion !== (schedule?.version ?? 0) ||
+    schedule && schedule.sourceTermId !== snapshot.data.target.sourceTermId) return null;
+  return { kind: "schedule" as const, snapshot: snapshot.data, executeAt: input.data.executeAt, previous: schedule };
+}
 
 /** Approval JSON dates are restored only for this typed evidence. Legacy requests
  * without a captured target stay visibly unavailable, never inferred from live data. */
@@ -187,11 +222,15 @@ const tableAliases: Record<string, string> = {
   PolicyDocument: "policy",
   PageLayout: "layout",
   ProgramSettings: "programSettings",
+  MonthlyHoursSchedule: "monthlyHoursSchedule",
+  SchoolHoursSchedule: "schoolHoursSchedule",
   Language: "languages",
 };
 // Only operations that write record fields directly get an automatic field comparison.
 // A decision/action's input must never be mistaken for its resulting database state.
 const comparable = new Set([
+  "monthlyHours.save",
+  "schoolHours.save",
   "admin.reorderRooms",
   "program.setNameFields",
   "program.setCalendarDay",
@@ -217,6 +256,7 @@ const comparable = new Set([
   "admin.upsertPolicy",
   "admin.saveCourseGroup",
   "student.setCalendarDay",
+  "student.resetCalendarDay",
   "student.setFeedbackSettings",
   "home.updateNews",
   "home.updateSection",
@@ -256,7 +296,12 @@ export function approvalReview(
   payload: unknown,
   targets: unknown,
 ) {
-  const input = record(payload) ?? {};
+  const rawInput = record(payload) ?? {};
+  // Reset has a fixed, reviewable resulting effect; retained fields remain historical evidence.
+  const input =
+    operation === "student.resetCalendarDay"
+      ? { ...rawInput, active: false }
+      : rawInput;
   const evidence = record(targets) ?? {};
   const groups = Object.entries(evidence).flatMap(([table, value]) => {
     const rows = (Array.isArray(value) ? value : [value])
@@ -369,8 +414,15 @@ export function approvalReview(
       // The standalone grant uses the same authored capability label as the
       // membership editor, and compares only a captured boolean permission.
       const hasBefore = typeof primary?.canTranslate === "boolean";
-      const field = { key: "translator", requested, before: primary?.canTranslate, hasBefore };
-      (hasBefore && equal(field.before, requested) ? unchanged : changes).push(field);
+      const field = {
+        key: "translator",
+        requested,
+        before: primary?.canTranslate,
+        hasBefore,
+      };
+      (hasBefore && equal(field.before, requested) ? unchanged : changes).push(
+        field,
+      );
       continue;
     }
     if (

@@ -595,7 +595,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const format = useFormatter();
   const locale = useLocale();
   const t = useTranslations("workflow");
-  const requests = useTranslations("admin.requests");
+  const survey = useTranslations("survey");
   const appeals = useTranslations("signupAppeal");
   const names = useTranslations("participantNames");
   const displayName = participantNameLabel(
@@ -646,9 +646,11 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
               <ParticipantName name={row.name} username={row.username} />
             </h3>
             <SignupSourceBadge source="SELF_SERVICE" />
-            {/* Use this submission's proof, independently of its workflow state. */}
+            {/* confirmedAt records final account review, not intermediate mailbox proof. */}
             <span className={row.confirmedAt ? "badge-green" : "badge-amber"}>
-              {t(row.confirmedAt ? "verified" : "emailPending")}
+              {survey(
+                row.confirmedAt ? "requestConfirmed" : "requestIncomplete",
+              )}
             </span>
             {row.isInvalid && <InvalidityBadge />}
             {row.state !== "OPEN" && (
@@ -668,17 +670,10 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
               }),
             })}
           </p>
-          {/* Keep contextual contact labels alongside the private email reader. */}
+          {!row.confirmedAt && row.state === "OPEN" && !row.isInvalid && (
+            <p className="text-sm text-slate-600">{survey("incompleteHelp")}</p>
+          )}
           <div className="flex flex-wrap items-center gap-x-2 text-sm">
-            <span>
-              {t("emailStatus", {
-                status: requests(
-                  row.confirmedAt
-                    ? "emailVerifiedShort"
-                    : "emailUnverifiedShort",
-                ),
-              })}
-            </span>
             <EmailDetails contactOnly email={row.email} name={displayName} />
           </div>
         </div>

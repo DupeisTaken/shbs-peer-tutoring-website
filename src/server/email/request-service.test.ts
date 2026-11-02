@@ -122,7 +122,9 @@ it.each([
     });
     await db.user.update({
       where: { id: actor.id },
-      data: { emailInfo: true, emailMessages: true },
+      // The attendance-card case is reviewer mail; opt into each tested category
+      // so this test reaches the transport privacy boundary rather than its gate.
+      data: { emailInfo: true, emailMessages: true, emailReviewRequests: true },
     });
     await db.accountEmail.upsert({
       where: { email: "admin@example.test" },

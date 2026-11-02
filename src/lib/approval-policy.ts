@@ -12,7 +12,7 @@
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 /** Policy version belongs to authorization, independently of immutable evidence shapes. */
 export const APPROVAL_POLICY_VERSION = 2;
-export const HEAD_APPROVAL_OPERATIONS = new Set(["admin.refresh"]);
+export const HEAD_APPROVAL_OPERATIONS = new Set(["admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"]);
 
 const accountAccessOperations = new Set([
   "studentWorkflow.headEditSignup",
@@ -26,6 +26,7 @@ const accountAccessOperations = new Set([
   "program.setEmailNotifications",
   "program.setSecondaryEmailBinding",
   "program.setTimeZone",
+  "schoolHours.save",
   "program.setSignupWindow",
   "program.prepareNextRecruitment",
   "program.setFeaturePending",
@@ -35,6 +36,7 @@ const accountAccessOperations = new Set([
   "i18n.reorderLanguages",
   "messaging.setPermission",
   "student.setCalendarDay",
+  "student.resetCalendarDay",
   "student.setFeedbackSettings",
   "admin.upsertPolicy",
   "admin.deletePolicyLocale",
@@ -83,10 +85,13 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "program.setEmailNotifications": "ProgramSettings",
   "program.setSecondaryEmailBinding": "ProgramSettings",
   "program.setTimeZone": "ProgramSettings",
+  "schoolHours.save": "SchoolHoursSchedule",
   "program.setSignupWindow": "Term",
   "program.prepareNextRecruitment": "NextRecruitmentPreparation",
   "program.setFeaturePending": "ProgramFeature",
   "admin.refresh": "Term",
+  "admin.scheduleRefresh": "ScheduledProgramRefresh",
+  "admin.cancelRefresh": "ScheduledProgramRefresh",
   "i18n.setLanguageEnabled": "Language",
   "i18n.deleteLanguage": "Language",
   "i18n.reorderLanguages": "Language",
@@ -105,6 +110,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "subjectAvailability.setWillingness": "Tutor",
   "interviewManagement.complete": "TutorApplication",
   "student.setCalendarDay": "SchoolCalendarDay",
+  "student.resetCalendarDay": "SchoolCalendarDay",
   "student.setFeedbackSettings": "StudentSettings",
   "student.decideAppeal": "StudentAppeal",
   "studentWorkflow.assign": "StudentSurvey",
@@ -224,6 +230,7 @@ export type ApprovalAuthority = {
 };
 
 const significantSettings = new Set([
+  "schoolHours.save",
   "program.setNameFields",
   "program.setCalendarDay",
   "program.removeCalendarDay",
@@ -242,6 +249,7 @@ const significantSettings = new Set([
   "i18n.reorderLanguages",
   "messaging.setPermission",
   "student.setCalendarDay",
+  "student.resetCalendarDay",
   "student.setFeedbackSettings",
   "admin.upsertPolicy",
   "admin.deletePolicyLocale",
@@ -307,9 +315,9 @@ export function classifyApproval(
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
       : {};
-  // Head inherits every Admin capability. Only activation of the next period is
-  // exclusive: Admin/Head can prepare its settings without activating them.
-  if (operation === "admin.refresh")
+  // Head inherits every Admin capability. Activation and its deferred authorization
+  // remain exclusive: Admin may propose a schedule/change/cancellation for Head review.
+  if (HEAD_APPROVAL_OPERATIONS.has(operation))
     return {
       category: "SIGNIFICANT_SETTING",
       directRoles: ["HEAD"],
@@ -332,18 +340,26 @@ export function classifyApproval(
     return {
       category: "SIGNIFICANT_SETTING",
       directRoles: ["ADMIN", "HEAD"],
-      requesterRoles: operation.startsWith("messaging.") ? ["ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
+      requesterRoles: operation.startsWith("messaging.")
+        ? ["ADMIN", "HEAD"]
+        : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["ADMIN", "HEAD"],
     };
   if (managementEdits.has(operation))
     return {
       category: "ACCOUNT_ACCESS",
       directRoles: ["ADMIN", "HEAD"],
-      requesterRoles: operation === "admin.setUserRole" ||
+      requesterRoles:
+        operation === "admin.setUserRole" ||
         (operation === "admin.setMemberships" &&
-          (["ADMIN", "COORDINATOR", "HEAD"].includes(String((value.membership as { rank?: unknown } | undefined)?.rank)) ||
-           ["ADMIN", "COORDINATOR", "HEAD"].includes(context.currentAccountRole ?? "")))
-        ? ["ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
+          (["ADMIN", "COORDINATOR", "HEAD"].includes(
+            String((value.membership as { rank?: unknown } | undefined)?.rank),
+          ) ||
+            ["ADMIN", "COORDINATOR", "HEAD"].includes(
+              context.currentAccountRole ?? "",
+            )))
+          ? ["ADMIN", "HEAD"]
+          : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["ADMIN", "HEAD"],
     };
   if (
@@ -413,15 +429,18 @@ export function classifyApproval(
     // The resolver still validates recipient ownership and interview eligibility.
     // This only removes the extra reviewer: the resolver still requires the
     // current assigned Admin/Head chair, all votes and atomic service evidence.
-    const chairApproval = operation === "tutor.decideInterview" && value.accept === true;
+    const chairApproval =
+      operation === "tutor.decideInterview" && value.accept === true;
     return {
       category: "ACCOUNT_ACCESS",
       directRoles: ["ADMIN", "HEAD"],
       requesterRoles: managementCode
         ? ["ADMIN", "HEAD"]
-        : chairApproval ? ["ADMIN", "HEAD"] : operation === "tutor.decideInterview"
-          ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"]
-          : ["COORDINATOR", "ADMIN", "HEAD"],
+        : chairApproval
+          ? ["ADMIN", "HEAD"]
+          : operation === "tutor.decideInterview"
+            ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"]
+            : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["ADMIN", "HEAD"],
     };
   }

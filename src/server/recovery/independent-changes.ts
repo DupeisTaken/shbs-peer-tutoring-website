@@ -24,6 +24,8 @@ const preservedFields: Record<string, ReadonlySet<string>> = {
     "emailSecurity",
     "emailMessages",
     "emailInfo",
+    "emailReviewRequests",
+    "emailEventReminders",
     "emailSecondaryRecipients",
     "passwordHash",
     "sessionVersion",
@@ -32,6 +34,7 @@ const preservedFields: Record<string, ReadonlySet<string>> = {
     "emailVerifiedAt",
     "suspendedAt",
     "suspendedReason",
+    "refreshAuthorityRevision",
     "role",
     "canTranslate",
     "crewStatus",
@@ -63,9 +66,27 @@ const expiry = z.object({ expiresAt: z.string() });
 /** This is preservation, never replay. Full changed-column coverage is required:
  * equal redacted snapshots cannot prove that an ownership or private field stayed put. */
 export function preservedRecoveryChange(change: Change): boolean {
-  if (change.operation !== "UPDATE") return false;
   const parsed = fields.safeParse(change.changedFields);
   if (!parsed.success) return false;
+  // Delivery preferences belong to the account, not its admission. Journal
+  // every write, but preserve these settings rather than compensating them.
+  if (change.entity === "NotificationPreference") {
+    const allowed = change.operation === "UPDATE"
+      ? ["badgeEnabled", "emailEnabled"]
+      : ["INSERT", "DELETE"].includes(change.operation)
+        ? ["userId", "category", "badgeEnabled", "emailEnabled"] : [];
+    return allowed.length > 0 && parsed.data.length > 0 && parsed.data.every((field) => allowed.includes(field));
+  }
+  if (change.operation !== "UPDATE") return false;
+  // A supported independent role/suspension write also advances the database-owned
+  // scheduling epoch. Preserve it; compensation must never restore old authority.
+  // A standalone epoch edit or a merge/ownership change remains unsupported.
+  if (
+    change.entity === "User" &&
+    parsed.data.includes("refreshAuthorityRevision") &&
+    !parsed.data.some((field) => field === "role" || field === "suspendedAt")
+  )
+    return false;
   if (change.entity === "User" && parsed.data.includes("role")) {
     const after = z
       .object({

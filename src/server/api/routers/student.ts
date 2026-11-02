@@ -1,4 +1,5 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationCard } from "~/lib/notification-facts";
 import { accountHistoryIds } from "~/server/account-history";
 import { findAccountPolicy } from "~/server/policy-acceptance";
 import type { Prisma } from "../../../../generated/prisma";
@@ -24,6 +25,16 @@ import { assertFeatureEnabled } from "~/server/program/features";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey, programDayEnd } from "~/lib/program-time";
 import { DEFAULT_TIME_ZONE } from "~/i18n/config";
+import {
+  resolveSchoolCalendarDay,
+  schoolCalendarWrite,
+  schoolCalendarReset,
+  type SchoolCalendarOverride,
+} from "~/lib/school-calendar";
+import {
+  saveSchoolCalendar,
+  resetSchoolCalendar,
+} from "~/server/program/school-calendar";
 const staff = (role: string) => ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
 const text = z.string().trim().min(1).max(2000);
 const paging = z
@@ -32,16 +43,18 @@ const paging = z
 /** Weekday deadline uses the configured school calendar; staff may still correct cards independently. */
 export function appealDeadline(
   date: Date,
-  overrides: { date: string; isSchoolDay: boolean }[] = [],
+  overrides: readonly SchoolCalendarOverride[] = [],
   timeZone = DEFAULT_TIME_ZONE,
 ) {
   const day = new Date(`${programDateKey(date, timeZone)}T00:00:00Z`);
   for (let remaining = 5; remaining > 0;) {
     day.setUTCDate(day.getUTCDate() + 1);
-    const override = overrides.find(
-      (o) => o.date === day.toISOString().slice(0, 10),
-    );
-    if (override?.isSchoolDay ?? ![0, 6].includes(day.getUTCDay())) remaining--;
+    // Timetable substitutions never change counting; reset overrides use ordinary weekdays.
+    if (
+      resolveSchoolCalendarDay(day.toISOString().slice(0, 10), overrides)
+        .isSchoolDay
+    )
+      remaining--;
   }
   return programDayEnd(day.toISOString().slice(0, 10), timeZone);
 }
@@ -119,39 +132,14 @@ export const studentRouter = createTRPCRouter({
     ctx.db.schoolCalendarDay.findMany({ orderBy: { date: "asc" } }),
   ),
   setCalendarDay: adminProcedure
-    .input(
-      z.object({
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        isSchoolDay: z.boolean(),
-        note: z.string().trim().max(300),
-      }),
-    )
-    .mutation(async ({ ctx, input }) =>
-      inTransaction(ctx.db, async (tx) => {
-        if (
-          Number.isNaN(Date.parse(input.date)) ||
-          new Date(input.date).toISOString().slice(0, 10) !== input.date
-        )
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Invalid calendar date.",
-          });
-        await tx.schoolCalendarDay.upsert({
-          where: { date: input.date },
-          update: input,
-          create: input,
-        });
-        await tx.auditLog.create({
-          data: {
-            userId: ctx.session.user.id,
-            entity: "SchoolCalendarDay",
-            entityId: input.date,
-            action: `School calendar: ${input.isSchoolDay ? "school day" : "holiday"}`,
-            details: input,
-          },
-        });
-        return { ok: true };
-      }),
+    .input(schoolCalendarWrite)
+    .mutation(({ ctx, input }) =>
+      saveSchoolCalendar(ctx.db, input, ctx.session.user.id),
+    ),
+  resetCalendarDay: adminProcedure
+    .input(schoolCalendarReset)
+    .mutation(({ ctx, input }) =>
+      resetSchoolCalendar(ctx.db, input, ctx.session.user.id),
     ),
 
   policy: protectedProcedure
@@ -418,6 +406,7 @@ export const studentRouter = createTRPCRouter({
         const owned = await ownedStudentIds(tx, ctx.session.user.id);
         const attendance = await tx.sessionTutee.findFirst({
           where: { sessionId: input.sessionId, tuteeId: { in: owned } },
+          include: { tutee: { select: { englishName: true } }, session: { select: { date: true, pairing: { select: { subject: true } }, tutor: { select: { englishName: true } } } } },
         });
         if (!attendance) throw new TRPCError({ code: "FORBIDDEN" });
         const row = await tx.studentFeedback.upsert({
@@ -432,7 +421,10 @@ export const studentRouter = createTRPCRouter({
         });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_feedback_received"),
+            ...notificationInAppEvent("tutee_feedback_received", undefined, {
+              en: `Tutee ${attendance.tutee.englishName} submitted feedback for ${attendance.session.pairing.subject} with ${attendance.session.tutor.englishName} on ${attendance.session.date.toISOString().slice(0, 10)}.`,
+              zh: `学习伙伴 ${attendance.tutee.englishName} 提交了 ${attendance.session.date.toISOString().slice(0, 10)} 与辅导伙伴 ${attendance.session.tutor.englishName} 的 ${attendance.session.pairing.subject} 辅导反馈。`,
+            }),
             title: "Tutee feedback received",
             link: "/student-support",
           },
@@ -522,9 +514,16 @@ export const studentRouter = createTRPCRouter({
         await tx.studentAppeal.create({
           data: { studentId: card.tuteeId, ...input },
         });
+        const tutee = await tx.tutee.findUniqueOrThrow({
+          where: { id: card.tuteeId },
+          select: { englishName: true },
+        });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_card_appeal"),
+            ...notificationInAppEvent("tutee_card_appeal", undefined, {
+              en: `Tutee ${tutee.englishName} appealed the ${notificationCard(card.color, "en")} issued on ${programDateKey(card.createdAt, await getProgramTimeZone(tx))}. Awaiting review.`,
+              zh: `学习伙伴 ${tutee.englishName} 对 ${programDateKey(card.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(card.color, "zh")}提出申诉，待审核。`,
+            }),
             title: "Tutee card appeal",
             link: "/student-support",
           },
@@ -648,7 +647,14 @@ export const studentRouter = createTRPCRouter({
           await notifyUsers(
             [owner.id],
             {
-              ...notificationEvent("tutee_appeal_reviewed"),
+              ...notificationInAppEvent("tutee_appeal_reviewed", undefined, {
+                en: input.overturn
+                  ? `Your appeal of the ${notificationCard(before.color, "en")} issued on ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} was upheld; that card was invalidated.`
+                  : `Your appeal of the ${notificationCard(before.color, "en")} issued on ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} was declined; that card remains in effect.`,
+                zh: input.overturn
+                  ? `您对 ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(before.color, "zh")}所提申诉已获支持，该卡已作废。`
+                  : `您对 ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(before.color, "zh")}所提申诉未获支持，该卡仍然有效。`,
+              }),
               title: "Your appeal was reviewed",
               link: "/student",
             },

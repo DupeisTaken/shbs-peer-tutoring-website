@@ -88,6 +88,7 @@ export async function verifySurveyEmail(
   code: string,
 ) {
   const row = await inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockEntity(tx, `student-survey:${email}`);
     const current = await tx.studentSurvey.findFirst({
       where: { email, state: "OPEN", confirmedAt: null },
@@ -111,11 +112,25 @@ export async function verifySurveyEmail(
       });
       return null;
     }
+    await recordPublicSignupEmailConfirmation(tx, current.id);
     return current;
   });
   if (!row)
     throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
   return row;
+}
+
+/** Mailbox proof is a durable intake event, independent of later account review.
+ * Call under the period barrier so continuation admission cannot race the event. */
+export async function recordPublicSignupEmailConfirmation(
+  tx: TransactionDb,
+  surveyId: string,
+  now = new Date(),
+) {
+  await tx.studentSurvey.updateMany({
+    where: { id: surveyId, publicSignupEmailConfirmedAt: null },
+    data: { publicSignupEmailConfirmedAt: now },
+  });
 }
 
 export function surveyLimit(key: string, max = 6) {
@@ -380,7 +395,12 @@ export async function resendSurveyResult(
   const send = async () => {
     // A post-commit exception must leave an explicit retryable delivery outcome.
     result.emailSent = false;
-    result.emailSent = await sendSurveyReplacement(deliveryDb, email, false, false);
+    result.emailSent = await sendSurveyReplacement(
+      deliveryDb,
+      email,
+      false,
+      false,
+    );
     if (!result.emailSent)
       throw new Error("Signup link delivery failed or was superseded.");
   };
@@ -775,6 +795,7 @@ export async function confirmSurvey(
       where: { id: row.id },
       data: { confirmedAt: new Date() },
     });
+    await recordPublicSignupEmailConfirmation(tx, row.id);
     return { ok: true };
   });
 }

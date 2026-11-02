@@ -33,11 +33,13 @@ import {
   assertIntakeEligibility,
   surveyEmailCode,
   freshSurveyToken,
+  recordPublicSignupEmailConfirmation,
 } from "./student-survey";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
 import { emailOrigin } from "./email/urls";
 import { requireSchoolParticipation } from "./school-departure";
 import { signupRejected } from "./signup-admission";
+import { getProgramTimeZone } from "./program/time-zone";
 
 type Input = z.infer<typeof surveyInput>;
 const hashKey = (key: string) => createHash("sha256").update(key).digest("hex");
@@ -131,6 +133,10 @@ export async function stageStudentSignupIntent(
       where: { active: true },
       orderBy: { createdAt: "desc" },
     });
+    // Recover an accepted intent above first. A new draft must never be silently
+    // enrolled into a different quarter after a manual or scheduled refresh.
+    if (term && posted.expectedTermId && term.id !== posted.expectedTermId)
+      throw new TRPCError({ code: "CONFLICT", message: "SIGNUP_PERIOD_CHANGED" });
     if (!term || recruitmentStatus(recruitmentWindow(term, "tutee")) !== "open")
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
@@ -268,16 +274,25 @@ async function sendStudentSignupIntent(
   intent: StudentSignupIntent,
 ) {
   try {
+    const timeZone = await getProgramTimeZone(db);
+    const deadline = (locale: string) =>
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone,
+      }).format(intent.expiresAt);
+    const url = `${emailOrigin()}/tutee-signup/account?intent=${intent.id}`;
     await emailSender.send({
       category: "PROGRAM",
       signup: true,
       to: intent.email,
-      subject: "Tutoring signup — verify this submission",
+      subject: "Verify your tutoring signup / 请验证辅导报名邮箱",
       presentation: {
         code: surveyEmailCode(intent.tokenHash, intent.emailCodeVersion),
         codePurpose: "verification",
+        action: { label: "Verify email / 验证邮箱", url },
       },
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}. / 您的邮箱验证码是 ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}。\n\nThis code is for this exact submitted signup. Your previous request stays unchanged until you sign in and review this submission. Priority and existing assignments are preserved. / 此验证码仅用于本次提交。登录并确认前，原申请保持不变。\n\nVerify by ${intent.expiresAt.toISOString()}.\n${emailOrigin()}/tutee-signup/account?intent=${intent.id}`,
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}. / 您的邮箱验证码是 ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}。\n\nYour tutoring request is saved, but signup is not complete. Enter this code for this submission, then continue to finish account review and confirm your request. Your original submission priority is kept.\n\n辅导申请已保存，但报名尚未完成。请输入本次提交的验证码，再继续完成账户确认并确认申请。原提交优先顺序将保留。\n\nVerify by ${deadline("en")} (${timeZone}). / 请在 ${deadline("zh")}（${timeZone}）前验证。\n${url}`,
     });
     return true;
   } catch {
@@ -319,6 +334,7 @@ export async function verifyStudentSignupIntent(
   code: string,
 ) {
   const verified = await inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, `student-signup-intent-id:${id}`);
     const { intent } = await validStudentSignupIntent(tx, id);
@@ -338,6 +354,7 @@ export async function verifyStudentSignupIntent(
         where: { id },
         data: { verifiedAt: new Date() },
       });
+    await recordPublicSignupEmailConfirmation(tx, intent.surveyId);
     return true;
   });
   if (!verified) throw invalid();

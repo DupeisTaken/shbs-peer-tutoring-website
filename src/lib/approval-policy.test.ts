@@ -6,16 +6,16 @@ import {
 } from "./approval-policy";
 
 describe("management authority by effect", () => {
-  it.each(Object.keys(APPROVAL_OPERATIONS).filter((operation) => operation !== "admin.refresh"))(
+  it.each(Object.keys(APPROVAL_OPERATIONS).filter((operation) => !HEAD_APPROVAL_OPERATIONS.has(operation)))(
     "inherits Admin direct and review authority in Head for %s", (operation) => {
       const authority = classifyApproval(operation);
       expect(authority?.directRoles).toEqual(["ADMIN", "HEAD"]);
       expect(authority?.reviewerRoles).toEqual(["ADMIN", "HEAD"]);
     },
   );
-  it("reserves refresh execution for Head while keeping both Admin and Head able to request it", () => {
-    expect([...HEAD_APPROVAL_OPERATIONS]).toEqual(["admin.refresh"]);
-    expect(classifyApproval("admin.refresh")).toMatchObject({
+  it.each(["admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"])("reserves %s for Head while keeping both Admin and Head able to request it", (operation) => {
+    expect([...HEAD_APPROVAL_OPERATIONS]).toEqual(["admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"]);
+    expect(classifyApproval(operation)).toMatchObject({
       directRoles: ["HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"],
     });
   });
@@ -48,8 +48,8 @@ describe("management authority by effect", () => {
   it.each([
     "program.setSignupWindow", "program.prepareNextRecruitment", "program.setFeaturePending", "program.setTimeZone",
     "program.setCaptcha", "program.setProfilePolicy", "program.setSignupField",
-    "program.setEmailNotifications", "program.setSecondaryEmailBinding",
-    "student.setCalendarDay", "student.setFeedbackSettings", "admin.upsertPolicy",
+    "program.setEmailNotifications", "program.setSecondaryEmailBinding", "schoolHours.save",
+    "student.setCalendarDay", "student.resetCalendarDay", "student.setFeedbackSettings", "admin.upsertPolicy",
     "admin.deletePolicyLocale", "i18n.setLanguageEnabled", "i18n.deleteLanguage",
     "i18n.reorderLanguages", "messaging.setPermission", "admin.updateAccountProfile",
     "admin.updateAccountAcademics", "admin.updateAccountUsername", "admin.setMemberships",
@@ -141,6 +141,13 @@ describe("management authority by effect", () => {
     expect(classifyApproval("admin.createRoom")).toMatchObject({ directRoles: ["ADMIN", "HEAD"], requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"], reviewerRoles: ["ADMIN", "HEAD"] });
     expect(classifyApproval("admin.futureWrite")).toBeNull();
     expect(classifyApproval("account.updateProfile")).toBeNull();
+  });
+
+  it("does not grant replay authority to the retired monthly overview workflow", () => {
+    for (const operation of ["monthlyHours.save", "monthlyHours.generate", "monthlyHours.retry"]) {
+      expect(APPROVAL_OPERATIONS[operation]).toBeUndefined();
+      expect(classifyApproval(operation)).toBeNull();
+    }
   });
 
   it("requires management authority when a slot edit propagates changes to submitted attendance", () => {

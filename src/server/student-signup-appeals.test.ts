@@ -311,7 +311,12 @@ it.each(["token", "owner"] as const)(
         event: "request_invalidity_appeal_pending",
         link: "/admin/requests#request-survey-source",
         body: null,
-        context: {},
+        context: {
+          inAppDetail: {
+            en: expect.stringContaining("Original Request") as unknown,
+            zh: expect.stringContaining("Original Request") as unknown,
+          },
+        },
       })),
     );
     expect(JSON.stringify(events)).not.toContain(common.reason);

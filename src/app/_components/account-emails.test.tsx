@@ -4,9 +4,17 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
+import { notificationCategories } from "~/lib/notification-categories";
+import type { NotificationPreferenceAvailability } from "./notification-preference-fields";
 
 const mocks = vi.hoisted(() => ({
   data: {},
+  preferenceData: {
+    categories: [] as NotificationPreferenceAvailability[],
+    emailEnabled: true,
+    emailSecondaryRecipients: false,
+  },
   request: vi.fn(),
   confirm: vi.fn(),
   manage: vi.fn(),
@@ -23,9 +31,16 @@ vi.mock("~/trpc/react", () => ({
         me: { invalidate: vi.fn() },
       },
       tutor: { myProfile: { invalidate: vi.fn() } },
+      notification: {
+        list: { invalidate: vi.fn() },
+        unreadCount: { invalidate: vi.fn() },
+      },
     }),
     account: {
       emailSettings: { useQuery: () => ({ data: mocks.data }) },
+      notificationPreferences: {
+        useQuery: () => ({ data: mocks.preferenceData }),
+      },
       requestSecondaryEmail: {
         useMutation: () => ({ mutate: mocks.request, reset: vi.fn() }),
       },
@@ -35,7 +50,7 @@ vi.mock("~/trpc/react", () => ({
       manageSecondaryEmail: {
         useMutation: () => ({ mutate: mocks.manage, reset: vi.fn() }),
       },
-      setEmailPreferences: {
+      setNotificationPreferences: {
         useMutation: () => ({ mutate: mocks.preferences }),
       },
     },
@@ -91,6 +106,17 @@ const view = (component: React.ReactNode) =>
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.canEdit = true;
+  mocks.preferenceData = {
+    categories: notificationCategories.map((category) => ({
+      category,
+      badgeEnabled: true,
+      emailEnabled: false,
+      badgeAvailable: category !== "reminders",
+      emailEditable: true,
+    })),
+    emailEnabled: true,
+    emailSecondaryRecipients: false,
+  };
   mocks.data = {
     email: "primary@example.test",
     emails: [
@@ -102,8 +128,11 @@ beforeEach(() => {
     secondaryEmailBindingEnabled: true,
     deliveryAvailable: true,
     emailSecurity: true,
+    canReceiveReviewRequests: true,
     emailMessages: false,
     emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
     emailSecondaryRecipients: false,
   };
 });
@@ -168,37 +197,156 @@ it.each([
   },
 );
 
-it("saves independent categories and recipients", () => {
+it("saves badge and email categories independently", () => {
   view(<EmailPreferences />);
-  fireEvent.click(screen.getByRole("checkbox", { name: /Messages/ }));
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Tutoring assignments: unread badge",
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Attendance and discipline: email" }),
+  );
   fireEvent.click(screen.getByRole("checkbox", { name: /Include verified/ }));
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
-    emailMessages: true,
-    emailInfo: false,
+    categories: notificationCategories.map((category) => ({
+      category,
+      badgeEnabled: category !== "tutoring",
+      emailEnabled: category === "attendance",
+    })),
     emailSecondaryRecipients: true,
   });
 });
 
-it("disables preference editing behind the admin gate while explaining essential mail", () => {
-  mocks.data = { ...mocks.data, enabled: false };
+it.each(["en", "zh"] as const)(
+  "labels every available channel in %s",
+  (locale) => {
+    const catalog = locale === "zh" ? zh : messages;
+    render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={catalog}
+        timeZone="Asia/Shanghai"
+      >
+        <EmailPreferences />
+      </NextIntlClientProvider>,
+    );
+    for (const category of notificationCategories) {
+      const label = catalog.notificationPreferences.categories[category];
+      expect(
+        screen.getByRole("checkbox", {
+          name: catalog.notificationPreferences.emailFor.replace(
+            "{category}",
+            label,
+          ),
+        }),
+      ).toBeTruthy();
+      if (category !== "reminders")
+        expect(
+          screen.getByRole("checkbox", {
+            name: catalog.notificationPreferences.badgeFor.replace(
+              "{category}",
+              label,
+            ),
+          }),
+        ).toBeTruthy();
+    }
+    expect(
+      screen.getByText(catalog.notificationPreferences.emailOnly),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(catalog.notificationPreferences.essential),
+    ).toBeTruthy();
+  },
+);
+
+it("keeps badge preferences editable when optional email is disabled", () => {
+  mocks.preferenceData.emailEnabled = false;
+  mocks.preferenceData.categories = mocks.preferenceData.categories.map(
+    (row) => ({ ...row, emailEditable: false }),
+  );
   view(<EmailPreferences />);
   expect(
-    screen.getByText(/disabled by the program administrator/),
+    screen.getByText(messages.notificationPreferences.disabled),
   ).toBeTruthy();
-  expect(screen.getByRole("group").hasAttribute("disabled")).toBe(true);
   expect(
     screen
-      .getByRole("button", {
-        name: "Save preferences",
-      })
-      .hasAttribute("disabled"),
+      .getByRole("checkbox", { name: "Tutoring assignments: email" })
+      .matches(":disabled"),
   ).toBe(true);
-  expect(
-    screen.getByText(/account security alerts always remain available/),
-  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Tutoring assignments: unread badge",
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+  expect(mocks.preferences).toHaveBeenCalledWith({
+    categories: notificationCategories.map((category) => ({
+      category,
+      badgeEnabled: category !== "tutoring",
+      emailEnabled: false,
+    })),
+  });
 });
 
+it("keeps historical review badge available without reviewer email eligibility", () => {
+  mocks.preferenceData.categories = mocks.preferenceData.categories.map(
+    (row) =>
+      row.category === "reviews" ? { ...row, emailEditable: false } : row,
+  );
+  view(<EmailPreferences />);
+  expect(
+    screen
+      .getByRole("checkbox", { name: "Review requests: email" })
+      .matches(":disabled"),
+  ).toBe(true);
+  expect(
+    screen
+      .getByRole("checkbox", { name: "Review requests: unread badge" })
+      .matches(":disabled"),
+  ).toBe(false);
+  expect(
+    screen.queryByRole("checkbox", {
+      name: "Upcoming reminders: unread badge",
+    }),
+  ).toBeNull();
+});
+
+it("does not submit a stale email enabling draft after the global gate closes", () => {
+  const rendered = view(<EmailPreferences />);
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Review requests: email" }),
+  );
+  mocks.preferenceData = {
+    ...mocks.preferenceData,
+    emailEnabled: false,
+    categories: mocks.preferenceData.categories.map((row) => ({
+      ...row,
+      emailEditable: false,
+    })),
+  };
+  rendered.rerender(
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      <EmailPreferences />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Review requests: unread badge" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+  expect(mocks.preferences).toHaveBeenCalledWith({
+    categories: notificationCategories.map((category) => ({
+      category,
+      badgeEnabled: category !== "reviews",
+      emailEnabled: false,
+    })),
+  });
+});
 it("blocks additions and pending verification while keeping existing addresses manageable", () => {
   mocks.data = { ...mocks.data, secondaryEmailBindingEnabled: false };
   view(<AccountEmails />);
@@ -233,7 +381,9 @@ it("supports accounts without secondary addresses and does not offer a security 
   expect(screen.getByText("primary@example.test")).toBeTruthy();
   expect(screen.queryByRole("checkbox", { name: /Security/ })).toBeNull();
   expect(
-    screen.getByRole("checkbox", { name: /Messages/ }).hasAttribute("disabled"),
+    screen
+      .getByRole("checkbox", { name: "Private messages: email" })
+      .hasAttribute("disabled"),
   ).toBe(false);
 });
 

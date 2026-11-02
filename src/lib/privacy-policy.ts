@@ -12,7 +12,7 @@ type PrivacyPolicy = {
   sections: { id: string; title: string; paragraphs: string[] }[];
 };
 
-export const PRIVACY_POLICY_UPDATED = "2026-10-02";
+export const PRIVACY_POLICY_UPDATED = "2026-10-30";
 
 const en: PrivacyPolicy = {
   lang: "en",
@@ -27,7 +27,14 @@ const en: PrivacyPolicy = {
   contactFallback:
     "If you do not have an account, contact the school's peer-tutoring program team through your usual school contact. If you are signed in, you can also use private messages to contact management.",
   sections: [
-    { id: "captcha", title: "Optional bot verification", paragraphs: ["When management enables CAPTCHA, public tutee and viewer signup/resend uses Aliyun CAPTCHA 2.0. Starting verification loads Aliyun scripts that collect device, browser, network and interaction signals for risk assessment in mainland China. Contact the program team if you cannot complete the challenge. Existing-account sign-in and emailed account confirmation do not require this check.", "The application stores keyed hashes for abuse counters, proof-replay prevention and short-lived, action-bound grants. It does not store raw CAPTCHA proofs. Expired security records are removed in bounded batches as requests arrive. Disabling CAPTCHA stops new application-initiated checks as open pages refresh; requests already sent to Aliyun cannot be recalled."] },
+    {
+      id: "captcha",
+      title: "Optional bot verification",
+      paragraphs: [
+        "When management enables CAPTCHA, public tutee and viewer signup/resend uses Aliyun CAPTCHA 2.0. Starting verification loads Aliyun scripts that collect device, browser, network and interaction signals for risk assessment in mainland China. Contact the program team if you cannot complete the challenge. Existing-account sign-in and emailed account confirmation do not require this check.",
+        "The application stores keyed hashes for abuse counters, proof-replay prevention and short-lived, action-bound grants. It does not store raw CAPTCHA proofs. Expired security records are removed in bounded batches as requests arrive. Disabling CAPTCHA stops new application-initiated checks as open pages refresh; requests already sent to Aliyun cannot be recalled.",
+      ],
+    },
     {
       id: "information",
       title: "Information we collect",
@@ -41,7 +48,7 @@ const en: PrivacyPolicy = {
       id: "purposes",
       title: "How information is used",
       paragraphs: [
-        "Information supports account access and recovery, matching learning partners with tutors, scheduling, attendance and service-hour records, recruitment, program communication, feedback, appeals and management review. Security and audit records help prevent misuse and investigate problems.",
+        "Information supports account access and recovery, matching tutees with tutors, scheduling, attendance and service-hour records, recruitment, program communication, feedback, appeals and management review. Security and audit records help prevent misuse and investigate problems.",
         "You can manage available profile, email and notification settings in your account. Optional email notices depend on your preferences and program settings; account security notices are sent independently of optional notification preferences.",
         "Staff-reviewed historical-record invitations use the invited email, a separate verification code and a password to create a personal login when needed. Staff record identity-review evidence; the account name comes from the reviewed archive. Creating this login does not enroll you or accept a current participation agreement. Personal historical access is limited to records explicitly owned by your account.",
       ],
@@ -52,6 +59,7 @@ const en: PrivacyPolicy = {
       paragraphs: [
         "Access depends on role, participation and assignment. Participants can access their own records and the information made available for their tutoring or crew duties. Authorized program staff can access records needed for management and review. Viewers and departure-based observers receive permitted read-only summaries, including names, schedules, statuses, attendance ratings and totals. Contact details, signatures, private comments, absence reasons, application evidence and decision notes are withheld. Audit entries show category summaries without private action text. These summaries are not anonymous.",
         "Private messages are available to their sender and recipient. Messages marked for supervision can also be reviewed by authorized administrators and the program head; a review records the reviewer and reason. Private messaging is not end-to-end encrypted.",
+        "Authorized program staff can send selected school recipients service-hour reports containing participants' export names, school-account references and individual tutoring and Crew hour changes. A report link can be opened without signing in by anyone who possesses it; administrators can revoke or replace the link. Shared reports exclude tutee details, patrol observations, private adjustment reasons and the recipient list. Issuing or emailing a report does not confirm that the school has credited the hours to its accounts.",
         "The configured hosting, database and email services process information needed to run the website and deliver messages. Website operators with infrastructure access may also access stored data and backups. Ask program management for the providers and storage locations used by your school.",
       ],
     },
@@ -101,7 +109,14 @@ const zh: PrivacyPolicy = {
   contactFallback:
     "如果你没有账号，请通过日常学校联系渠道联系同伴辅导项目团队。已登录的用户也可以通过站内私信联系管理人员。",
   sections: [
-    { id: "captcha", title: "可选的机器人验证", paragraphs: ["管理人员开启验证码后，公开学伴和访客报名、重发邮件会使用阿里云验证码 2.0。开始验证将加载阿里云脚本，收集设备、浏览器、网络及交互信号，并在中国内地进行风险评估。若无法完成验证，请联系项目团队。已有账户登录及邮件中的账户确认无需此验证。", "应用仅保存用于频率限制、防重放及短期操作凭证的密钥哈希，不存储原始验证码证明。过期安全记录会在请求到达时分批清理。关闭后，页面刷新设置时会停止发起新的验证；已发送给阿里云的请求无法撤回。"] },
+    {
+      id: "captcha",
+      title: "可选的机器人验证",
+      paragraphs: [
+        "管理人员开启验证码后，公开学伴和访客报名、重发邮件会使用阿里云验证码 2.0。开始验证将加载阿里云脚本，收集设备、浏览器、网络及交互信号，并在中国内地进行风险评估。若无法完成验证，请联系项目团队。已有账户登录及邮件中的账户确认无需此验证。",
+        "应用仅保存用于频率限制、防重放及短期操作凭证的密钥哈希，不存储原始验证码证明。过期安全记录会在请求到达时分批清理。关闭后，页面刷新设置时会停止发起新的验证；已发送给阿里云的请求无法撤回。",
+      ],
+    },
     {
       id: "information",
       title: "我们收集的信息",
@@ -126,6 +141,7 @@ const zh: PrivacyPolicy = {
       paragraphs: [
         "访问范围取决于角色、参与情况与任务安排。参与者可以访问自己的记录，以及履行辅导或巡查职责所需的信息。获授权的项目人员可以访问管理与审核所需的记录。观察员及离校后获准观察的用户可以查看允许范围内的只读摘要，包括姓名、时间安排、状态、出勤评分和汇总数据。联系方式、签名、私人评论、缺席原因、申请证明材料及决定说明不会显示。审计记录仅显示类别摘要，不包含私人操作说明。这些摘要并非匿名数据。",
         "私信的发送者和接收者可以查看消息。标记为可监督的消息也可由获授权的管理员和项目负责人审核；审核会记录审核人和原因。站内私信不采用端到端加密。",
+        "获授权的项目人员可向选定的学校收件人发送服务时数报告，其中包含参与者的导出姓名、学校账户标识以及个人辅导和执勤时数变化。任何持有报告链接的人均可免登录查看，管理员可撤销或更换链接。共享报告不包含学习伙伴详情、巡查观察内容、私人调整原因或收件人名单。生成或发送报告并不表示学校已将时数计入账户。",
         "网站配置的托管、数据库和邮件服务会处理运行网站与发送消息所需的信息。拥有基础设施访问权限的网站运营人员也可能访问存储的数据与备份。如需了解学校使用的服务商和存储地点，请联系项目管理团队。",
       ],
     },

@@ -1,4 +1,9 @@
 import type { Prisma } from "../../../generated/prisma";
+import {
+  newContinuationOpening,
+  settleContinuationOpening,
+  updateContinuationOpening,
+} from "./continuation-opening";
 
 /** Production bootstrap creates configuration only, never demonstration people or attendance. */
 export async function initializeProgram(
@@ -16,14 +21,20 @@ export async function initializeProgram(
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('program:period', 0))`;
   const active = await tx.term.findFirst({ where: { active: true } });
   if (active) return active;
-  return tx.term.upsert({
+  const existing = await tx.term.findUnique({
     where: { schoolYear_quarter: { schoolYear, quarter } },
-    update: { active: true },
-    create: {
+  });
+  if (existing)
+    return updateContinuationOpening(tx, existing.id, { active: true });
+  const now = new Date();
+  const created = await tx.term.create({
+    data: {
       schoolYear,
       quarter,
       name: `${schoolYear} ${quarter}`,
       active: true,
+      ...newContinuationOpening(null, { schoolYear, quarter }, false, now),
     },
   });
+  return settleContinuationOpening(tx, created.id, now);
 }

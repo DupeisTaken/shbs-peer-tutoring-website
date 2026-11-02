@@ -68,11 +68,10 @@ function runtimeCliGraph(entry) {
   return { files, packages };
 }
 
-function runtimeSourceCopies() {
-  const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+function runtimeSourceCopies(dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8")) {
   const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
   assert.ok(runner, "the final runtime stage must be inspected");
-  return runner.replace(/\\\r?\n\s*/g, " ").split(/\r?\n/).flatMap((line) => {
+  const direct = runner.replace(/\\\r?\n\s*/g, " ").split(/\r?\n/).flatMap((line) => {
     if (!/^COPY\s+--from=build\s/.test(line)) return [];
     const args = line.split(/\s+/).slice(1).filter((arg) => !arg.startsWith("--"));
     const target = args.pop();
@@ -81,6 +80,15 @@ function runtimeSourceCopies() {
       target: path.posix.normalize(target.endsWith("/") ? path.posix.join(target, path.posix.basename(source)) : target).replace(/^\/app\//, ""),
     }));
   });
+  // Staged sources count only when the complete prepared app is copied into
+  // /app. A source written elsewhere or an omitted final COPY must fail closed.
+  if (!/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m.test(runner)) return direct;
+  const prepared = dockerfile.split(/^FROM .+ AS runtime-files\s*$/m)[1]?.split(/^FROM /m)[0] ?? "";
+  for (const line of prepared.split(/\r?\n/)) {
+    const copy = /^COPY --from=build \/app\/(\S+) \/runtime-output\/app\/(\S+)\s*$/.exec(line);
+    if (copy) direct.push({ source: copy[1], target: copy[2] });
+  }
+  return direct;
 }
 
 function missingRuntimeFiles(graph, copies) {
@@ -110,6 +118,7 @@ test("CLI packaging guard catches omitted entry points and transitive identity d
   for (const [entry, omitted] of [
     ["scripts/create-admin.ts", "src/server/person-source-initialization.ts"],
     ["scripts/create-admin.ts", "src/server/auth/username-snapshot.ts"],
+    ["scripts/create-admin.ts", "src/server/program/continuation-opening.ts"],
     ["scripts/reconcile-person-sources.ts", "scripts/reconcile-person-sources.ts"],
     ["scripts/reconcile-person-sources.ts", "src/server/person-reconciliation.ts"],
   ]) {
@@ -117,6 +126,16 @@ test("CLI packaging guard catches omitted entry points and transitive identity d
     assert.ok(graph.files.has(omitted), `${omitted} must be exercised by ${entry}`);
     assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== omitted)), [omitted]);
   }
+});
+
+test("prepared operator sources require their exact destination and final app copy", () => {
+  const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+  const graph = runtimeCliGraph("scripts/create-admin.ts");
+  const missing = "src/server/program/continuation-opening.ts";
+  for (const changed of [
+    dockerfile.replace("/runtime-output/app/src/server/program/continuation-opening.ts", "/elsewhere/continuation-opening.ts"),
+    dockerfile.replace(/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m, ""),
+  ]) assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(changed)).includes(missing));
 });
 
 test("CLI import discovery includes deferred, side-effect and re-export edges but excludes types", () => {

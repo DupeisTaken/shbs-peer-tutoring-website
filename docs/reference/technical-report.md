@@ -300,6 +300,40 @@ openings are allowed; the inclusive opening boundary still composes with accepta
 exclusive closing and normal signup prerequisites. Operator behavior is documented
 in [next-period openings](../guides/program-configuration.md#prepare-next-period-openings).
 
+## Scheduled refresh and public signup transitions
+
+[`refresh.ts`](../../src/server/program/refresh.ts) owns the atomic activation shared
+by immediate refresh and [`scheduled-refresh.ts`](../../src/server/program/scheduled-refresh.ts).
+`ScheduledProgramRefresh` stores one versioned authorization per source term with
+serialized review, UTC execution instant and approving Head authority revision.
+A database trigger increments `User.refreshAuthorityRevision` on role, suspension
+or merge changes, so reversing a change cannot revive an earlier authorization.
+Audit preserves replaced authorizations.
+
+Scheduling, cancellation and execution share the existing period barrier. Execution
+checks database time after locking and revalidates review/authority before applying
+effects. Completion and notification intent commit with activation. Failed transactions
+leave no partial participation change; a separate version-checked failure record
+bounds retries to five. Review conflicts block immediately. Node instrumentation
+starts a 30-second worker and startup sweep; elapsed valid schedules catch up.
+
+The [public projection](../../src/server/program/public-signup-transition.ts) reads
+allowlisted current/future intake metadata under the period barrier. Its
+[view resolver](../../src/lib/public-signup-transition.ts) selects Q1→Q2 or Q3→Q4
+after pause/closure. The live form owns the badge, countdown and read recovery;
+zero never grants eligibility. The announcement uses the public form's standard
+card: period heading, distinct planned/scheduled status, opening instant with its
+program timezone, a quiet grouped timer and a single eligibility explanation.
+Closed-current-period context stays inside the next-period card. The form below
+owns preview/disabled-field guidance; the timer does not repeat it. At zero the
+clock disappears while server confirmation is pending, without enabling fields.
+Fresh public submissions require `expectedTermId`.
+The intent service checks it under the period barrier after recovering an exact
+accepted receipt. The shared field remains optional for retained legacy intents.
+
+See [operator behavior](../guides/program-configuration.md#schedule-a-refresh) and
+[worker operations](../guides/deployment.md#scheduled-program-refresh-worker).
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.
@@ -728,7 +762,7 @@ Each of those handlers uses `invalidateAndReport` to report actual read failures
 
 Discipline review and attendance correction also register their own writes inside table details. Their notes and correction fields freeze with dismissal while saving, and queued approvals retain the draft with an explicit pending-approval message. Background refreshes preserve each draft's expected version; explicit successful Reload replaces it. Attendance correction collapses only after an applied write has synchronized and settled.
 
-Account name and management username Reloads exclude their own Save immediately through refs as well as disabled form fields. A failed read preserves the draft, version and mutation error; a successful explicit read adopts only the matching account. These reads never register as dialog writes, so Close/Escape remains available. Username writes keep their existing live Head authority, audit and server-version checks.
+Account name and management username Reloads exclude their own Save immediately through refs as well as disabled form fields. A failed read preserves the draft, version and mutation error; a successful explicit read adopts only the matching account. These reads never register as dialog writes, so Close/Escape remains available. Username writes keep their existing live Admin/Head authority, audit and server-version checks.
 
 Explicit Reload in discipline review and the account name/username editors bypasses the normal 30-second query freshness window. A still-fresh cached list cannot clear a conflict or replace the draft; the requested server read must succeed first.
 
@@ -774,6 +808,13 @@ Stacked card grids should declare their narrow layout explicitly, such as `grid-
 Feature integrations include the three participant/account editors, roster actions, account identity settings, meeting attendance, interview panels, profile/CAPTCHA settings, combine-account candidates and public history. Cached query failures retain usable content and drafts. Background refetches preserve the profile policy snapshot; successful saves and explicit successful Reloads update it. The shared-pattern migration is recorded in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); verify each changed feature against its current domain contract.
 
 Tutor availability keeps a local draft once editing begins, so background query updates cannot discard it. A successful mutation is followed by an explicit throwing refetch before releasing the draft: the server filters inactive slot IDs and returns only a count, so the submitted list is not authoritative. If synchronization fails, the submitted choices remain visible and locked with a read-only retry; only the refreshed result unlocks editing. See [issue #223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223).
+
+The dated planning model and agreement workflow are described in
+[Session planning](session-planning.md), with
+[essential mail and private calendar delivery](session-planning-delivery.md).
+The tutor agenda opens attendance for one captured cohort; its retained dialog
+owns the draft and immutable submission receipt. Planned extra/rescheduled
+provenance is authoritative, while actual attendance duration remains independent.
 
 Tutor attendance also admits a submission synchronously, before React can render
 disabled controls. A failed write releases admission without replacing the draft;
@@ -1089,6 +1130,13 @@ In **Users & Roles → Edit profile**, Admin/Head can save a username for any lo
 
 ### Notification record navigation
 
+Individual school service-hours reports use per-person reporting baselines, an
+immutable issue chain, a versioned schedule and the shared email outbox. Staff
+manage the workflow; school recipients retrieve one hours-only saved report by
+capability link. See [school reporting contracts](school-hours.md) for accounting,
+opening review, configuration authority, atomic issuance and retry behavior.
+The replaced admin monthly overview retains historical snapshots only.
+
 Notification record navigation composes the existing bell and authorized request/
 application cards. Validated record links opt out of Next's default scroll so it
 cannot overwrite an intentional incoming fragment. Destination filters commit
@@ -1227,6 +1275,87 @@ real QueryClient regressions cover the denial/retry/reopen sequence.
 
 ## Student lifecycle and ownership
 
+### Prior-quarter continuation
+
+[Continuation intake](../../src/server/student-continuation.ts) provides
+ownership-scoped status, explicit signed-in selection and receipt recovery for
+the [tutee continuation UI](../../src/app/student/legacy-continuation.tsx).
+Only an actual same-school-year Q1 → Q2 or Q3 → Q4 refresh under quarter mode
+establishes eligibility. `Term.continuationSourceTermId` is scalar immutable
+refresh provenance; `continuationQuarterTransition` distinguishes that event from
+bootstrap, imported or merely adjacent historical terms. Direct and retained
+student-profile ownership determine candidates, never names or email matches.
+
+[Opening settlement](../../src/server/program/continuation-opening.ts) owns
+`signupOpeningStateSince` and `signupFirstOpenedAt`. A null state checkpoint means
+untracked history, not a previously unopened window. For a tracked active/enabled
+state, the candidate first opening is the later of its state checkpoint and
+configured opening (or checkpoint when the opening is null), provided it precedes
+the optional close. An elapsed candidate is recorded even when the whole window
+passed before observation. Gate writers settle their previous interval before
+changing it and checkpoint the next state. Refresh and bootstrap initialize only
+new operational terms; preparation never opens intake. The existing deadline
+worker and continuation reads can settle the same durable fact under the
+`program:period` barrier. First opening and actual-refresh provenance cannot be
+reset by ordinary updates; CSV transfer excludes these operational fields.
+Approval snapshots omit the derived fields so observation alone does not change
+the reviewed mutation's fingerprint.
+
+Admission rechecks the current recruitment gate and the exclusive one-hour
+deadline, current actor eligibility, source ownership, request version and current
+policy. A new accepted selection creates a destination `StudentSurvey`; additional
+choices append a signed `StudentSignupRevision` to the same open request without
+resetting submission priority. The existing two-distinct-subject limit remains.
+Each selected source pairing has a `StudentContinuationAssignment` record, and
+`StudentContinuationReceipt` binds the actor and retry key to the exact submitted
+intent. Accepted transport retries recover that result rather than adding demand
+again. Ordinary public signup and its mailbox challenge remain separate.
+
+`StudentSurvey.publicSignupEmailConfirmedAt` records the first successful
+ordinary public mailbox proof, including a verified replacement of an existing
+continuation request. OTP proof, explicit legacy-link confirmation and verified
+invitation envelopes record it under the period barrier; a bare link inspection
+or pending submission does not. It is immutable across resends and recalls.
+The continuation read exposes `hasFreshRequest` for matching current-quarter
+owned profiles or primary/verified email addresses, and admission rejects new
+Join attempts after that proof. Immutable continuation receipts distinguish
+continuation-created or adopted requests from ordinary confirmation, preserving
+signed additions. Accepted receipt replay and read-only recovery remain available.
+The UI clears continuation choices and reviews after suppression and resets its
+cached status after mailbox confirmation.
+
+[Assignment and release](../../src/server/student-continuation-assignment.ts)
+revalidate tutor eligibility, qualification, willingness, prior confirmed weekly
+time, conflicts and room/group constraints. Expected assignment failures retain
+the accepted request and an unassigned outcome; selected choices can have mixed
+results. Destination pairings and dated-plan membership preserve source history
+and append current participation rather than copying old attendance. The existing
+dated-session 45-minute normalization remains unchanged; the selection UI shows
+the inherited weekly source interval. `StudentContinuationPairing` records the
+destination mapping so another consenting member does not duplicate the same
+physical teaching block. Consent additions and targeted releases retain the
+current dated publication. Unrelated staff roster changes create a new numbered
+publication revision, including when the roster returns to an older shape;
+later consent attaches only to the current revision and never revives an obsolete
+publication or its cancelled participants.
+Later participants retain their original future weekly window even if earlier
+participants moved their lesson to a time that has already started. Pending
+agreement audiences stay frozen; a request originally addressed to everyone
+cannot vacate a source window now occupied by a later participant. Conflict
+validation uses the actual current source roster before releasing its time.
+
+During the destination quarter, availability reconciliation releases the affected
+continuation membership and future dated participation while retaining request
+priority, earlier attendance and unaffected assignments. It records the release
+and notifies current administrators and affected participants. It does not
+silently reattach a released choice when availability returns, or overwrite an
+explicit newer staff arrangement. Unknown migrated opening history stays
+unavailable for the shortcut; it is not reconstructed from a configured timestamp.
+See [operator timing rules](../guides/program-configuration.md#continuation-opening-window)
+and [issue #530](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/530)
+for the feature context. Verification receipts belong in the implementation report,
+not this maintained behavior reference.
+
 Public intake invalidity is separate from lifecycle state. Staff may flag initial
 tutor applications and student signup requests with a bounded reason, recorded
 actor and timestamp. Clearing requires a reason too; audit evidence retains the
@@ -1280,6 +1409,23 @@ outside the list; its retry only reads and never repeats the write. Read-only
 access removes private reviews and their evidence from the rendered page.
 
 The original survey submission determines queue priority. Mailbox-code verification or explicit legacy-link confirmation issues the receipt shown in the popup; final shared invitation review creates or links the account and confirms the original request. Existing credentials and unrelated access remain, while an exclusive Viewer transitions to tutee participation. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
+
+The public tutee flow presents Submit request, Verify email and Finish account
+review through the existing registration-progress/focus contract. Verification
+owns the saved-state explanation and delivery recovery so issuing an invitation
+replaces that explanation rather than leaving an earlier completion signal above
+it. The invitation receipt retains its account-review link after closing; the
+sign-in QR/link belongs to completed account setup. New intent mail explains both
+remaining steps in English/Chinese and formats expiry in the program time zone.
+
+Management survey cards label `StudentSurvey.confirmedAt` as Request confirmed or
+Signup incomplete. This timestamp is final account-review evidence, whereas
+`StudentSignupIntent.verifiedAt` is intermediate, exact-submission mailbox proof.
+The list intentionally does not infer mailbox failure from an absent confirmation
+or promote arbitrary historical, expired, resent or superseded intent proof into
+current completion. Legacy/manual contact-verification labels retain their own
+evidence rules. Assignment, deadlines and authorization continue to use their
+existing domain contracts; these presentation changes create no new authority.
 
 | Action                          | Invariant                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -1549,34 +1695,125 @@ only renders the persisted outcome. Focused evidence is in [allocator tests](../
 [management allocation tests](<../../src/app/(admin)/admin/pairings/page.allocation.test.tsx>)
 and [tutor allocation tests](<../../src/app/(tutor)/_components/tutor-pairings.allocation.test.tsx>).
 
-The tutor dashboard's task summary reuses the same tRPC query keys as its feature
-sections, including explicit unknown/error states. It uses the program-zone date
-and only confirmed weekly pairing times; this is a regular timetable, not a
-holiday or attendance-completion inference. Active membership controls attendance
-and pairing writes; pending/inactive membership keeps read-only records and
-unresolved requirements. Hash shortcuts focus their section for keyboard users.
+The tutor dashboard keeps Pairings expanded and reuses the feature queries for its
+task summary, including explicit unknown/error states. Its three-item today preview
+comes from effective dated `sessionPlanning.agenda` cohorts in the program timezone;
+cancelled originals and unavailable plans are excluded. Attendance, interview and
+meeting shortcuts link into [Schedule](<../../src/app/(tutor)/schedule/page.tsx>),
+while local setup and qualification shortcuts focus their dashboard section.
+The shared tutor layout supplies Dashboard/Schedule navigation with the existing
+`SectionLinks` contract and retains account, suspension, onboarding and tutor-link
+gates. The schedule page repeats the dashboard's early authenticated tutor guard
+before self-scoped reads. Active membership controls attendance and pairing writes;
+pending/inactive membership keeps read-only records and unresolved requirements.
+Legacy dashboard `#sessions`, `#attendance` and `#tutor-meetings` arrivals focus an
+explicit Schedule continuation instead of automatically unmounting a live editor;
+`#tutor-interviews` remains the chair workspace. Fragment targets grant no access.
 Attendance freezes its submitted fields and distinguishes a saved entry from a
 failed totals refresh. Pending qualification records stay outside history filters;
 completed interview evidence and optional editor disclosures retain mounted drafts.
 The [contributor action inventory](../contributing/implementation.md#consequential-action-inventory)
 documents draft, reversible and confirmed action boundaries.
 
-[The personal upcoming projection](../../src/lib/tutor-upcoming.ts) reuses self-scoped
-`tutor.myPairings` and `tutor.myInterviews` evidence outside `RoomGrid`. It includes
-today plus six program-local dates, retains ongoing confirmed populated sessions
-until their end, and projects coherent `pairingEntries` groups once. Active-period
-filtering stays in the existing pairing reader; inactive accounts have no preview.
-Only valid PENDING/INTERVIEW assignments with a future recorded start appear;
-interviews have no inferred end or room. Existing workflow anchors retain all
-unresolved/history records. The shared grid/API projection gains no applicant data.
-Calendar notices do not modify recurrence. Strict program-time conversion reports
-ambiguous/nonexistent DST wall clocks rather than choosing an instant; 24:00 uses
-the next local boundary. Ties sort by instant then stable event ID.
-The client advances its clock every 30 seconds and on focus, with one-minute query
-refreshes sharing existing cache keys. Either source denial conceals both caches until every enabled source freshly
-recovers; untouched cached success cannot release this boundary. Transient read
-failures retain partial evidence with an explicit stale warning and independent retries. Feature-disabled interviews are not queried or projected. Rendering and
-workflow links never call scheduling, voting, attendance or booking mutations.
+The personal [Schedule workspace](<../../src/app/(tutor)/_components/tutor-schedule.tsx>)
+interleaves dated tutoring, assigned interviews and eligible personal meetings in
+the current and next program-local Monday–Sunday weeks. Sunday preparation remains
+owned by tutoring publication. The [personal source router](../../src/server/api/routers/personal-schedule.ts)
+provides independent active-tutor, feature-guarded reads; interview summaries omit
+applicant contacts, panel comments and votes, and meeting summaries omit reasons.
+Interviews and meetings keep their explicitly recorded starts without fabricated
+ends, rooms or 45-minute durations. School timetable mapping only changes the
+ordinary tutoring recurrence that owns it. Calendar subscriptions remain tutoring-only.
+
+Sources refresh independently every 30 seconds. A failed or denied source cannot
+erase usable sibling appointments; denied cached evidence stays concealed until a
+successful authorized read. Disabled sources are neither queried nor projected.
+Unscheduled and past-open interviews remain tasks even if completion was recorded;
+decided interviews missing completion evidence remain follow-ups. Their work/history
+entry retains records beyond the dated window. Rendering performs no new writes;
+existing tutoring agenda reads retain their publication and deadline behavior.
+
+Panelist detail opens lazily into one retained controller and reuses the existing
+vote operation. Each deliberately opened interview keeps its draft across Close and
+selection changes; access or assignment loss hides private evidence. Chair entries
+link to the retained dashboard workspace, where current `canChair` authority still
+governs decisions and time changes. Historical `isHead` selects the chair workspace
+without granting live chair authority. Staff assignment, completion correction and
+registration follow-up remain in Applications; initial admission stays in chair approval.
+
+Meeting details and the period/history browser share one retained excuse controller.
+Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh
+failures offer reads without repeating the mutation. The existing sixty-minute cutoff
+and server eligibility checks remain authoritative. Session-specific attendance stays
+with its dated agenda controller and records actual duration. Known session fragments
+reveal the loaded card without opening a form or moving focus out of an active dialog.
+
+### School calendar dates and timetable mapping
+
+[`SchoolCalendarDay`](../../prisma/schema.prisma) stores an actual program-local
+`YYYY-MM-DD` date, `isSchoolDay`, optional ISO `timetableWeekday` (Monday 1 through
+Sunday 7), a staff note, `active`, editor `version`, semantic `scheduleRevision`
+and `updatedAt`. The [additive migration](../../prisma/migrations/20261029010000_school_calendar_mapping/migration.sql)
+preserves existing school-day flags and notes, leaves mappings unset, and starts
+both revisions at 1. Database checks reject mappings outside 1–7 and a mapped
+weekday on a closed date.
+
+The shared [resolver](../../src/lib/school-calendar.ts) defaults Monday–Friday to
+school days and weekends to closed. An active open override uses its mapped
+weekday, or the date's civil weekday when no mapping is set. A closure has no
+effective timetable weekday. An inactive tombstone restores these defaults while
+retaining its semantic revision. `calendarRevision` uses `scheduleRevision`, with
+the legacy editor version or 0 as fallback. Mapping a Sunday to Monday changes the
+timetable selected for Sunday; the actual date and stored weekly pairings remain
+unchanged. Appeal counting uses only school-day status and ignores inactive rows;
+a timetable substitution alone cannot change the five-school-day window.
+
+[Set/reset services](../../src/server/program/school-calendar.ts) serialize each
+date, validate the captured editor version and commit audit and notification intent
+together. Admin/Head apply both operations directly; Coordinators propose them
+for Admin/Head review under the current authority policy. A proposal changes no
+live calendar or operational notice. Reset retains the row and advances both revisions; recreation must use
+that tombstone's current version. An unchanged save/reset is a no-op. Notes and
+equivalent timetable edits advance only the editor version; changes to active
+state or resolved school-day/timetable meaning also advance `scheduleRevision`.
+Legacy set inputs without an expected version retain create-only version-0
+behavior; an existing row or incompatible older proposal requires fresh review.
+
+Protected participant reads expose bounded calendar facts without staff notes.
+Tutor upcoming sessions and today's task summary share these facts; attendance,
+historical session dates and service hours remain actual evidence. The separate
+`ProgramCalendarDay` inclusive no-tutoring ranges retain their informational meaning.
+The [dated-session audience adapter](../../src/server/school-calendar-session-audience.ts)
+adds current eligible tutors and tutees from actual scheduled cohorts, including
+explicit extras and moved commitments retained on closed dates. Split rosters use
+their destination date rather than the original assignment. Cancelled participants
+and attendance-only history are excluded. See [session planning](session-planning.md)
+for agreement, occupancy and private subscription behavior. No calendar provider
+receives writes from these operations.
+
+[Calendar notices](../../src/server/school-calendar-notifications.ts) identify the
+actual date and resolved timetable, using eligible tutors and tutees with confirmed,
+populated active-period pairings on the union of the civil, prior mapped and new
+mapped weekdays. Retained tutee ownership is respected, and still-eligible prior
+recipients receive corrections. The existing notification worker checks today and
+tomorrow for advance reminders from the prior date at 18:00 until the actual date
+at noon, in the program timezone. A change receipt already issued to that recipient
+in the same window and semantic revision also serves as the advance reminder;
+later same-day changes still issue immediate notices. Historical changes do not
+create new operational notices.
+
+Deterministic date/revision/phase/recipient notification IDs make logical retries
+idempotent. A source-locked receipt lookup also respects notification ownership
+moved by account combination by matching the current recipient, phase, date and
+semantic revision without rewriting historical IDs. Superseded pending/failed mail
+is skipped, and delivery rechecks current semantic revision, resolved state,
+recipient eligibility and reminder timing.
+These notices use optional information email, with normal program and personal
+preferences; they are not essential request-service mail. Safe mail context holds
+only actual date, school-day flag, effective weekday, semantic revision and timezone,
+never staff notes. Source rechecking does not recall SMTP already accepted, and the
+ordinary optional-mail path does not guarantee exactly-once transport. The
+[event inventory](notification-events.md) owns the maintained bilingual copy.
 
 `Pairing.scheduleConfirmed` separates assigned tutors from agreed schedules. New request assignments default false; catalog-slot creation or selection sets true. Clearing a slot link retains the flag and copied times. Lists expose the awaiting state, dashboard counts exclude it, and attendance requires explicit actual start/end values whenever any selected pairing is unconfirmed. Recording actual attendance never confirms the recurring schedule. The [scheduling migration](../../prisma/migrations/20260922200100_pairing_scheduling/migration.sql) conservatively marks preexisting rows true because copied-time provenance is unknown; new rows default false. No historical schedule or session time is inferred or rewritten.
 
@@ -1644,6 +1881,18 @@ list mounted through collapse, history toggles and reorder, and shares the same 
 as task counts; only applied server outcomes move records between groups.
 
 Meeting deductions use the semester allowance in [meeting-hours.ts](../../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
+
+The [service-hours summary](../../src/server/service-hours-summary.ts) aggregates
+stored session credits and adjustments for an exact month or recorded program
+period, independently of current tutor status. `admin.periodSummary` retains the
+complete roster and program totals; its observer projection includes only the
+adjustment count needed to recognize evidence, not adjustment reasons. The
+[view helper](../../src/lib/service-hours-view.ts) applies current-status,
+record-activity and name filters to the roster, defaulting to Active. Session and
+adjustment counts keep zero-credit, zero-valued, negative and offset-zero records
+discoverable. Summary and Breakdown share that selection and sort; a separately
+labelled subtotal must not replace the complete program totals. Current status is
+not a historical membership assertion, and identical names never merge tutor IDs.
 
 Meeting workspaces use the count-only catalog in
 [meeting-periods.ts](../../src/server/meeting-periods.ts), grouping stored term ownership
@@ -1723,7 +1972,7 @@ self-service slot changes expand to all members, and catalog preflight recognize
 one grouped room booking. Group tables precede Pairing in historical export/import
 dependency order.
 
-The [group editor](<../../src/app/(tutor)/_components/pairing-group-editor.tsx>) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Attendance group selection copies a distinct-student snapshot into its separate draft; changing saved groups does not rewrite a pending/saved attendance form. One-off combined attendance and individual-subject attendance remain available. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
+The [group editor](<../../src/app/(tutor)/_components/pairing-group-editor.tsx>) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Dated publication captures the group roster and subjects; agenda attendance selects that exact cohort. Changing recurring groups does not rewrite a retained attendance draft or historical evidence. The generic one-off merge/subject picker remains legacy API compatibility and is no longer exposed by the current attendance UI. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
 
 Use [pairingEntries](../../src/lib/pairing-groups.ts) for coherent grouped read
 projections, and keep `Session.mergeGroupId` as independent saved attendance evidence.
@@ -1753,6 +2002,18 @@ Changing the program timezone writes only the singleton setting and audit entry,
 
 ## Communication
 
+The notification bell uses [captured in-app details](../../src/lib/notification-details.ts)
+before generic event copy, retaining localized headings and historical stored bodies.
+New bilingual details identify affected records and actions; management summaries use
+immutable proposal evidence, and pending assignments never claim to be applied.
+The list API revalidates the bounded snapshots. Email uses a separate explicit event
+allowlist to copy selected factual descriptions, never arbitrary stored bodies or
+review reasons. Independent review/reminder preferences retain the global optional
+mail gate. Durable reminder deliveries revalidate their source and audience before
+SMTP; calendar/absence suppression affects reminders only. See the
+[event inventory](notification-events.md#delivery-and-access-boundaries) for fallback,
+language and delivery rules.
+
 [Messaging permissions](../../src/server/messaging-permissions.ts) use explicit ownership and recorded assignment evidence. Role contact groups form a union; a user override replaces that union. The same checks govern search, sends and replies. Permission or assignment writes cannot race send validation and commit.
 
 A send validates the entire recipient batch and atomically writes separate deliveries, a retry receipt and notifications. A sender lock serializes retries and quotas; reusing a client key with different recipients, text or disclosure fails. Notifications omit private message bodies and recipient lists. No external I/O belongs inside the transaction.
@@ -1762,6 +2023,29 @@ Supervision requires the message's recorded disclosure. Head/Admin may inspect a
 Announcements freeze tutor IDs at publication, or at approval for a coordinator proposal. Editing or restoring a post does not recompute its recipients. Empty restricted audiences never become broadcasts. Preview, publication, reads and acknowledgements must share recipient-selection rules; notifications and publication commit together.
 
 ### Account emails and delivery
+
+Staff, tutors and tutees share the staged **Notification preferences** card. The
+[exhaustive category contract](../../src/lib/notification-categories.ts) defines
+messages, reviews, applications, tutoring, attendance, membership, account,
+announcements, management, program and reminders. `Notification.category` is
+captured by an insertion trigger; reviewer overrides apply only to eligible reviewer
+copies. `EmailDelivery.preferenceTopic` selects the personal email preference while
+its transport category retains review/reminder/security eligibility rules. Upcoming
+reminders remain email-only and expose no badge control.
+
+Sparse `NotificationPreference` rows inherit the existing message, information,
+review or reminder email switch until explicitly saved; badge defaults are true.
+The additive migration backfills notification topics and existing optional outbox
+topics without enabling mail or replaying a backlog. Legacy clients propagate broad
+switches only when those switches actually change. The category API saves badge and
+email choices transactionally, permits badge-only saves with the global email gate
+off or reviewer access lost, and prevents newly enabling unavailable email choices.
+The unread-count query excludes disabled badge categories using the user/read/category
+index; list and mark-read operations retain all categories and their original read
+state. A separate total-unread query keeps Mark all read available when muted unread
+notices fall outside the latest thirty displayed records. Saving invalidates both
+counts and the list; an accepted save followed by a failed
+refresh offers read-only recovery rather than repeating the write.
 
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.
 
@@ -1777,17 +2061,38 @@ is not persisted. Old in-app rows retain their original readable title/body; unk
 email events use the generic program-update description. Count context is limited to
 discipline-card requests and changed historical teaching blocks. Scheduled interviews
 carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
-no invented date; there is no dated tutoring-session notification emitter. The
+no invented date. School-calendar change/reset/advance notices carry actual date,
+resolved school-day/timetable facts and semantic revision; staff notes are excluded.
+These calendar events do not promise an individual dated tutoring session. Dated
+tutoring reminders use the separate email-only occurrence worker and live-source
+preflight. The
 [event inventory](notification-events.md) maps every supported event to its actual
 emitter, audience, maintained copy and destination, including email-only account events.
 
 Every [email sender](../../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](../guides/deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
+
+Required direct mail names its operation (verification, recovery, sign-in/step-up,
+invitation or signup) rather than using an unrelated generic update. Account triggers
+capture allowlisted changed-field keys and distinguish password changes from enabling
+or disabling two-step verification; simultaneous primary-address and security changes
+enqueue both notices. Message and announcement mail constructs factual copy from
+bounded sender-name or title/action fields, never arbitrary message/announcement
+bodies, recipient lists or supplied free-form descriptions. Other audited event
+details use bounded bilingual snapshots. Account secrets and profile field values
+are excluded; request-status reason disclosure retains its separate mailbox-proof
+rule. Historical rows are not reconstructed from mutable current records.
 
 The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
 
 Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
+
+When a receipt records a preference topic, unsubscribe disables only that exact
+topic and cancels its pending copies without changing badge settings or sibling
+topics. Legacy null-topic receipts retain their broad messages/information/review/
+reminder behavior. All-optional unsubscribe covers all eleven topics; security and
+essential request-service transport never grants an unsubscribe capability.
 
 ### Public-request invalidity notices and appeals
 
@@ -2296,6 +2601,6 @@ capability. Original answers are compared separately from the current projection
 
 Preview runs the same validation/insertion code and deliberately rolls back the transaction. This exercises actual unique and referential constraints without retained writes, notifications or emails. A 15-minute HMAC ticket binds the exact uploaded files to the actor. Import verifies the ticket and revalidates against the current database. Exact primary-key matches are skipped only when all supplied values match; conflicting rows abort the transaction. The import audit entry commits with the data. These three operations bypass the generic post-mutation audit hook because export/import already write transactional evidence and preview must remain a dry run. Imported survey tokens are random hashes with no issued plaintext link.
 
-`src/lib/record-transfer.ts` defines strict CSV parsing and reversible, formula-safe encoding; `record-transfer-archive.ts` checks ZIP names and expanded sizes before extraction. `src/app/_components/record-transfer.tsx` loads ZIP support only on demand and clears preview/confirmation state when files change. The server page and navigation both restrict the feature to HEAD; existing Reports CSV controls use the refreshed account role. Limits are 5 MiB and 5,000 rows across a transfer. This feature is additive history ingestion, not a replacement for database backup/restore or account provisioning.
+`src/lib/record-transfer.ts` defines strict CSV parsing and reversible, formula-safe encoding; `record-transfer-archive.ts` checks ZIP names and expanded sizes before extraction. `src/app/_components/record-transfer.tsx` loads ZIP support only on demand and clears preview/confirmation state when files change. The server page and navigation both restrict the feature to ADMIN/HEAD; existing Reports CSV controls use the refreshed account role. Limits are 5 MiB and 5,000 rows across a transfer. This feature is additive history ingestion, not a replacement for database backup/restore or account provisioning.
 
 Regression coverage is in the three `record-transfer.test` files under `src/lib`, `src/server/api/routers` and `src/app/_components`: role denial, stale privileges, rollback, related-record ordering, retries/conflicts, ticket integrity, CSV/ZIP encoding and bounds, upload/confirmation states and error display. Integration fixtures require the isolated `shbs_shipping_test` database.

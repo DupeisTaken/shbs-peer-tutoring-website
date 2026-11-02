@@ -13,8 +13,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import SessionFlagsPage from "../(admin)/admin/session-flags/page";
-import ServiceHoursPage from "../(admin)/admin/service-hours/page";
+import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import { ReadOnlyProvider } from "./read-only";
+
+vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const state = vi.hoisted(() => ({
   loaded: true,
@@ -41,7 +43,13 @@ vi.mock("~/trpc/react", () => ({
       periodSummary: {
         useQuery: (input: unknown) => {
           state.summary(input);
-          return { data: { scope: { label: "Synthetic semester" }, rows: [] } };
+          return {
+            data: {
+              scope: { label: "Synthetic semester" },
+              rows: [],
+              totals: { earned: 0, extras: 0, punishments: 0, total: 0 },
+            },
+          };
         },
       },
       sessionFlags: {

@@ -5,7 +5,7 @@ import {
   withSignupAdmission,
   withSignupLease,
 } from "~/server/signup-admission";
-import { getRecruitment } from "~/server/program/recruitment";
+import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { courseChoices } from "~/server/course-choices";
 import { issueSurveyAccountInvitation } from "~/server/auth/account-invitations";
@@ -41,6 +41,8 @@ import {
 // A school may share one public IP; keep the network burst allowance generous.
 // The separate per-email limiter still constrains repeated requests and email delivery.
 const publicSubmission = surveyInput.extend({
+  // A newly accepted request must stay bound to the period the applicant reviewed.
+  expectedTermId: z.string().min(1),
   captchaGrant: captchaGrantInput,
   clientKey: z.string().uuid(),
 });
@@ -191,7 +193,7 @@ export const tuteeRouter = createTRPCRouter({
   /** Options needed to render the public signup form: active subjects + active time slots. */
   signupOptions: publicProcedure.query(async ({ ctx }) =>
     withSignupAdmission(ctx.db, ctx.headers, "read", undefined, async () => {
-      const [subjects, slots, settings, recruitment] = await Promise.all([
+      const [subjects, slots, settings, transition] = await Promise.all([
         courseChoices(ctx.db, { active: true }),
         ctx.db.timeSlot.findMany({
           where: { active: true },
@@ -205,13 +207,20 @@ export const tuteeRouter = createTRPCRouter({
           },
         }),
         getSignupSettings(ctx.db),
-        getRecruitment(ctx.db, "tutee"),
+        readPublicSignupTransition(ctx.db),
       ]);
       return {
         subjects: subjects.map(({ id, name }) => ({ id, name })),
         slots,
         fields: settings.tutee,
-        recruitment,
+        recruitment: {
+          enabled: transition.current?.window.enabled ?? false,
+          opensAt: transition.current?.window.opensAt ?? null,
+          closesAt: transition.current?.window.closesAt ?? null,
+          previewUrl: transition.current?.window.previewUrl ?? null,
+          serverNow: transition.serverNow,
+        },
+        transition,
       };
     }),
   ),

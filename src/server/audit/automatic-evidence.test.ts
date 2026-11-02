@@ -12,6 +12,8 @@ function expiredFixture(failAudit = false) {
     studentSurvey: {
       findMany: async () => current.state === "OPEN" ? [{ id: "survey", email: "PRIVATE_EMAIL" }] : [],
       findUniqueOrThrow: async () => ({ id: "survey", email: "PRIVATE_EMAIL", state: current.state,
+        // Real survey rows retain object answers; notification snapshots now read the name.
+        payload: { englishName: "Synthetic Student" }, currentPayload: null,
         tuteeId: "student", verificationDueAt: dueAt, confirmedAt: null, passwordHash: "PRIVATE_HASH" }),
       update: async ({ data }: { data: { state: string } }) => { current.state = data.state; return {}; },
     },

@@ -5,6 +5,30 @@ The memory-heavy image build runs in **GitHub Actions → GHCR**; the VPS only p
 The disk size is an example, not a capacity guarantee; check the actual filesystems
 and planned peak allocations using the [storage preflight](#storage-capacity-preflight).
 
+## Scheduled program refresh worker
+
+Apply `20261030120000_scheduled_program_refresh` and
+`20261030130000_scheduled_refresh_recovery_coverage`, then regenerate Prisma before
+starting this release. These migrations create durable schedules, the database
+authority revision trigger and recovery-journal coverage for schedule writes.
+The coverage migration conservatively journals any existing schedule related to
+a tracked admission; it does not change schedule settings or activate a period.
+
+The persistent Node server starts a sweep immediately and every 30 seconds.
+It processes up to ten due schedules serially, using database time and the shared
+period lock. Multiple application instances may run workers safely. An overdue
+schedule catches up after restart only while its exact review and approving Head
+authority remain valid. Do not promise exact-second execution or execution while
+all app instances are offline. Keep a persistent instance running for this workflow.
+
+Transient execution failures roll back and retry on later sweeps; five recorded
+failures stop execution and notify management. Inspect the schedule status in
+Program Settings, correct the deployment problem, then have Head review a new
+schedule. Review/authority conflicts are blocked immediately. Notification delivery
+failure never repeats a committed activation. Cancellation queued for Head approval
+does not stop a due schedule until approved. See the
+[operator guide](program-configuration.md#schedule-a-refresh).
+
 ## Architecture
 
 ```
@@ -910,6 +934,43 @@ The same panel checks SECURITY and PROGRAM SMTP connection/authentication separa
 After correcting the transport, ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 oldest eligible failed or retrying notifications for the normal worker. This starts a fresh retry cycle; the result reports how many were queued, not delivered. Active leases, completed/skipped mail and untouched pending mail are excluded. Unconfigured production categories and disabled optional notifications stay excluded; security notices remain independent. The worker rechecks current preferences and recipient ownership before sending and retains each message's existing ID. Repeated or concurrent clicks cannot requeue a row that is already waiting with a fresh retry budget. Each request records an aggregate audit entry. SMTP still cannot guarantee exactly-once delivery across an expired lease or a process failure after acceptance. If queuing succeeds but status refresh fails, use the read-only **Refresh status** recovery rather than submitting the resend again.
 
 Configure and test the real email transport before enabling optional notifications. Admin and Head apply switch changes directly; Coordinators request Admin approval. Disabling cancels queued optional notices without discarding preferences; security alerts continue through the same worker, and essential authentication mail remains independent. The optional-email availability migration adds the independent secondary-binding flag (default on) without changing stored addresses or preferences, and updates enqueue rules so security alerts cannot be suppressed. Apply the migration and updated dispatcher together; legacy `emailSecurity` values are retained but no longer control delivery. See [notification controls](program-configuration.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
+
+## Monthly service-hours delivery
+
+Apply the complete migration chain, including
+`20261103020000_hours_recovery_baseline`, and regenerate Prisma before starting
+the updated application. This adds the individual school reporting chain and
+outbox relation, disables the legacy monthly overview schedule and retires its
+unsent receipts. Sent historical evidence remains intact. Node instrumentation
+starts the school generator at boot and once per minute. PostgreSQL retains the
+cursor, individual baselines, snapshots and receipts across restarts.
+
+The reporting recovery migrations preserve compatible existing journal triggers
+and reject disabled or incompatible coverage for operator inspection. They also
+register privacy-safe metadata for preexisting rows connected to unfinished
+recovery actions. This baseline does not rewrite reports or reconstruct historical
+event order; it conservatively prevents automatic compensation of those report
+consequences. Report bodies, recipients and access-link hashes are excluded.
+
+Automation is disabled by default. In **Service Hours → School reports**, review
+each individual's already-reported opening balance and school-account reference,
+then configure school recipient addresses and the PROGRAM sender. The default is
+month-end noon in the saved program timezone; admins can override each occurrence.
+Global program mail and the Service Hours module must be enabled. School mailboxes
+need no site accounts; retrieval uses a revocable report-only link. Saving settings
+sends no report. Protect AUTH_SECRET, which derives report capabilities, and do not
+include capability URLs in public logs or validation artifacts.
+Configure reverse-proxy/access-log redaction for `/reports/service-hours/*` paths:
+the path carries the report capability. Application diagnostics do not log it.
+
+Use persistent Node hosting, such as the supplied Docker stack. Short-lived
+hosting needs a separately operated persistent worker; this feature supplies no
+public scheduler endpoint. Catchup is bounded to enabled-period due months and
+uses data available at actual generation time. Retry preserves the saved report
+and Message-ID, but SMTP acceptance followed by a process crash can still result
+in duplicate delivery. Confirm real sender/inbox delivery on the intended host
+before enabling its schedule; synthetic tests do not establish SMTP readiness.
+See [school report contracts](../reference/school-hours.md).
 
 ## Verify before opening intake
 

@@ -18,6 +18,14 @@ effects and event chronology. Coverage must be complete before either supported
 write route can apply it. Unknown changes or a conflicting graph cannot be
 overridden with an operator flag.
 
+Notification preferences are independent account settings. `NotificationPreference`
+uses the explicit `(userId, category)` identity and participates in the recovery
+change journal. Known preference inserts, deletes, and badge/email flag updates
+are preserved, never replayed or reverted by admission recovery. Ownership/category
+rewrites and unknown changed fields remain unsupported. The legacy review/reminder
+email flags on `User` are likewise preserved. Missing journal coverage still blocks
+recovery; the preference table is not excluded from coverage checks.
+
 Canonical diagnostic text remains stable in saved plans and CLI evidence. The
 website resolves that shared vocabulary through localized messages, preserving
 record/table identifiers and displaying unknown future diagnostics verbatim.
@@ -35,12 +43,30 @@ extending or rebinding that code is not. These transactions still count toward t
 website's zero-or-one limit, even when their independent fields are kept.
 
 Account compensation is limited to the admission's captured, attached or code-using
-accounts. A learning partner's account may appear in the transitive journal after
+accounts. A tutee's account may appear in the transitive journal after
 an independent edit, but that does not make it a login created by this admission.
 Independent password changes do not preserve a login whose only authorization was
 the voided admission. Inactive tutors continue to use zero workload under the
 existing lifecycle rule; the later preference remains in immutable history.
-Adapter revision 2 is included in the plan fingerprint, invalidating older previews.
+Adapter revision 3 is included in the plan fingerprint, invalidating older previews.
+Supported independent role/suspension edits preserve their database-generated
+`refreshAuthorityRevision` increase; recovery never restores earlier scheduling
+authority. Standalone epoch edits and merge/ownership changes remain unsupported.
+
+Monthly and school-hours reports and schedules also require journal coverage,
+even when their tables are empty. Unrelated reporting does not become an admission
+dependency. Related reporting, including reporting within the original admission
+transaction, requires manual review because automatic compensation has no reporting
+adapter. The journal retains causal record IDs, not private balances, recipient
+lists, report contents or link capabilities.
+
+`ScheduledProgramRefresh` participates in the same mandatory change journal as
+other domain tables. A schedule linked to an admission's tracked account is
+recorded as later unsupported work and blocks automatic compensation. The coverage
+migration journals existing related schedules conservatively without changing
+their execution or authorization. The record inspector exposes only explicit
+period/time/status fields; private refresh evidence and approving identities are
+not selected.
 
 Recovery source rows lead with the applicant and an authored decision description.
 Chronology distinguishes preserved independent edits from changes needing review;
@@ -64,6 +90,31 @@ children. `applyAdmissionRecoveryFromOperator` permits a larger covered chain;
 it preserves the ordinary domain's live actor, fingerprint, conflict and receipt
 requirements. Only the trusted CLI imports this operator adapter. Browser input
 never chooses a trusted channel or supplies an authoritative role.
+
+Dated scheduling has journal coverage across plans, assignment snapshots, cohorts,
+individual commitments, suggestions, requests, offers, responses, mutation receipts,
+essential delivery notices and calendar subscriptions. These remain unsupported
+admission descendants: recovery cannot cancel an agreed lesson, erase attendance,
+replay consent or revoke a separate calendar capability as compensation. Their
+presence in a related causal graph blocks both website and operator admission undo;
+this also applies when trusted admission code wrote scheduling records in the original
+ADMISSION transaction. A shared event label cannot make those effects compensable.
+Empty or unrelated scheduling tables do not block every admission. Planning references
+follow exact current and retained profile ownership, including a tutor's tutee alias,
+and retain the parent plan for later source invalidation or cohort changes.
+
+The scheduling journal uses its own positive projection of record identities,
+statuses, clocks and revisions. Notice addresses, bodies, context, SMTP diagnostics,
+request hashes and calendar token hashes are excluded; `changedFields` retains only
+column names. The additive coverage migration baselines existing related rows as
+unsupported evidence without inventing past event order. Completed admission voids
+reject stale new plans for the voided tutor unless independent authorization exists.
+An already installed scheduling journal trigger is reused only when its function,
+row/event coverage and origin-enabled configuration match; incompatible coverage
+aborts the migration rather than being silently replaced.
+Planning transactions retain period → room/session → recovery-fence lock order;
+admission recovery takes period before its recovery fence and never enters room or
+calendar delivery locks.
 
 The management website uses `/admin/recovery` for eligible admission plans and
 `/admin/database` for permitted current-record inspection. Admin and Head apply

@@ -25,7 +25,7 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:lint-glob": "node --test scripts/lint-glob.test.mjs",
+    "test:lint-glob": "node --test scripts/lint-glob.test.mjs scripts/lint-minimatch.test.mjs",
     "test:pr-size": "node --test scripts/pr-size.test.mjs",
     "test:ci": "node --test scripts/ci.test.mjs",
     "test:deployment": "node --test --test-concurrency=1 scripts/deployment-config.test.mjs scripts/collect-network-evidence.test.mjs scripts/check-storage-capacity.test.mjs scripts/assemble-runtime.test.mjs scripts/runtime-file-inventory.test.mjs scripts/compare-runtime-images.test.mjs",
@@ -79,6 +79,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "16.4.3",
     "fast-glob": "file:tools/next-lint-glob",
+    "minimatch": "file:tools/next-lint-glob/minimatch-compat",
     "js-yaml": "^4.3.2",
     "jsdom": "^30.0.1",
     "jsqr": "^1.4.0",
@@ -95,6 +96,27 @@
     "vitest": "^4.1.12"
   },
   "overrides": {
+    "@eslint/config-array": {
+      "minimatch": "$minimatch"
+    },
+    "@eslint/eslintrc": {
+      "minimatch": "$minimatch"
+    },
+    "eslint": {
+      "minimatch": "$minimatch"
+    },
+    "eslint-plugin-import": {
+      "minimatch": "$minimatch"
+    },
+    "eslint-plugin-jsx-a11y": {
+      "minimatch": "$minimatch"
+    },
+    "eslint-plugin-react": {
+      "minimatch": "$minimatch"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.1"
+    },
     "@next/eslint-plugin-next": {
       "fast-glob": "$fast-glob"
     },

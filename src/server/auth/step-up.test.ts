@@ -44,6 +44,11 @@ describe("step-up verification codes", () => {
     await issueStepUpCode(USER_ID, "PASSWORD_CHANGE");
     const code = extractCode();
     expect(code).toMatch(/^[0-9]{4}$/);
+    const message = send.mock.calls.at(-1)![0];
+    expect(message.subject).toContain("change your password");
+    expect(message.text).toContain("更改密码");
+    expect(message.text).toContain("15 minutes");
+    expect(message.text).toContain("does not complete the requested action");
 
     const results = await Promise.all(
       Array.from({ length: 8 }, () =>

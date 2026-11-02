@@ -5,6 +5,28 @@ import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
 import { notificationEmailCopy } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
+import { effectiveNotificationPreference, isNotificationCategory } from "~/lib/notification-categories";
+import {
+  eligibleReviewRecipient,
+  notificationEmailDetail,
+} from "./notification-policy";
+import { queueEventReminders, validateEventReminder } from "./event-reminders";
+import {
+  remindUpcomingSchoolCalendar,
+  schoolCalendarEmailEligible,
+} from "../school-calendar-notifications";
+import { monthlyHoursCategory } from "~/server/monthly-hours";
+import {
+  admitMonthlyHoursDelivery,
+  finishMonthlyHoursDelivery,
+  monthlyHoursDeliveryCopy,
+} from "~/server/monthly-hours-delivery";
+import {
+  schoolHoursCategory,
+  admitSchoolHoursDelivery,
+  finishSchoolHoursDelivery,
+  schoolHoursDeliveryCopy,
+} from "~/server/school-hours-delivery";
 import {
   admitRequestDelivery,
   finishRequestDelivery,
@@ -14,10 +36,15 @@ import {
 /** Leased batches survive restarts and SKIP LOCKED keeps concurrent application workers independent.
  * SMTP has no exactly-once guarantee: a crash after acceptance may retry, but ordinary concurrent
  * dispatches cannot send the same row. A stable Message-ID further identifies retries. */
-export async function deliverNotifications(limit = 10) {
+export async function deliverNotifications(limit = 10, deadline?: number) {
   // Defer the entire lease/send/status workflow, otherwise a deferred SMTP call would
   // mark an outbox row SENT before transport actually accepted it.
-  if (deferUntilCommit(() => deliverNotifications(limit))) return;
+  if (
+    deferUntilCommit(async () => {
+      await deliverNotifications(limit);
+    })
+  )
+    return 0;
   const settings = await db.programSettings.findUnique({
     where: { id: "program" },
   });
@@ -25,7 +52,9 @@ export async function deliverNotifications(limit = 10) {
     await db.emailDelivery.updateMany({
       where: {
         status: "PENDING",
-        category: { notIn: ["security", requestServiceCategory] },
+        category: {
+          notIn: ["security", requestServiceCategory, schoolHoursCategory],
+        },
       },
       data: { status: "SKIPPED", completedAt: new Date() },
     });
@@ -34,26 +63,50 @@ export async function deliverNotifications(limit = 10) {
     !isEmailDeliveryAvailable("SECURITY") &&
     !isEmailDeliveryAvailable("PROGRAM")
   )
-    return;
+    return 0;
   // Freeze the candidate set before updating leases so eligibility changes do
   // not expand a bounded sweep; row locks still give concurrent workers disjoint rows.
   const rows = await db.$queryRaw<
     { id: string; leaseUntil: Date; attemptId: string | null }[]
   >`
     WITH candidates AS MATERIALIZED (SELECT id FROM "EmailDelivery" WHERE (status = 'PENDING'
-      OR (status = 'SENDING' AND category = 'request_service')) AND "availableAt" <= NOW()
+      OR (status = 'SENDING' AND category IN ('request_service', 'monthly_hours', 'school_hours'))) AND "availableAt" <= NOW()
       AND ("leaseUntil" IS NULL OR "leaseUntil" < NOW()) ORDER BY "createdAt" LIMIT ${limit} FOR UPDATE SKIP LOCKED)
     UPDATE "EmailDelivery" delivery SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
     FROM candidates WHERE delivery.id = candidates.id
     RETURNING delivery.id, delivery."leaseUntil", delivery."attemptId"`;
-  for (const { id, leaseUntil, attemptId } of rows) {
+  for (const [index, { id, leaseUntil, attemptId }] of rows.entries()) {
+    if (deadline !== undefined && performance.now() >= deadline) {
+      // The budget stops before another SMTP attempt, never interrupts one in
+      // flight. Release only the exact unprocessed leases this batch acquired.
+      await db.emailDelivery.updateMany({
+        where: {
+          status: { in: ["PENDING", "SENDING"] },
+          OR: rows
+            .slice(index)
+            .map((row) => ({
+              id: row.id,
+              leaseUntil: row.leaseUntil,
+              attemptId: row.attemptId,
+            })),
+        },
+        data: { leaseUntil: null },
+      });
+      return index;
+    }
     const row = await db.emailDelivery.findUniqueOrThrow({
       where: { id },
-      include: { user: { include: { emails: true } } },
+      include: { user: { include: { emails: true, notificationPreferences: true } } },
     });
     if (
       row.status !== "PENDING" &&
-      !(row.category === requestServiceCategory && row.status === "SENDING")
+      !(
+        [
+          requestServiceCategory,
+          monthlyHoursCategory,
+          schoolHoursCategory,
+        ].includes(row.category) && row.status === "SENDING"
+      )
     )
       continue;
     // Account security notices are essential; other notifications are program mail.
@@ -74,6 +127,57 @@ export async function deliverNotifications(limit = 10) {
     const current = await db.programSettings.findUnique({
       where: { id: "program" },
     });
+    if (row.category === schoolHoursCategory) {
+      const admitted = await admitSchoolHoursDelivery(
+        db,
+        id,
+        leaseUntil,
+        attemptId,
+      );
+      if (!admitted?.row.attemptId) continue;
+      let accepted = false;
+      try {
+        await emailSender.send({
+          category: "PROGRAM",
+          to: admitted.row.recipient,
+          messageId: `<school-hours-${id}@shbs-notifications>`,
+          ...schoolHoursDeliveryCopy(admitted),
+        });
+        accepted = true;
+      } catch {
+        /* Keep transport diagnostics free of report tokens and addresses. */
+      }
+      await finishSchoolHoursDelivery(db, id, admitted.row.attemptId, accepted);
+      continue;
+    }
+    if (row.category === monthlyHoursCategory) {
+      const admitted = await admitMonthlyHoursDelivery(
+        db,
+        id,
+        leaseUntil,
+        attemptId,
+      );
+      if (!admitted?.row.attemptId) continue;
+      let accepted = false;
+      try {
+        await emailSender.send({
+          category: "PROGRAM",
+          to: admitted.row.recipient,
+          messageId: `<monthly-hours-${id}@shbs-notifications>`,
+          ...monthlyHoursDeliveryCopy(admitted),
+        });
+        accepted = true;
+      } catch {
+        /* Completion retains only safe transport diagnostics. */
+      }
+      await finishMonthlyHoursDelivery(
+        db,
+        id,
+        admitted.row.attemptId,
+        accepted,
+      );
+      continue;
+    }
     if (row.category === requestServiceCategory) {
       // Preserve the lease/fence from the UPDATE itself. A paused older candidate
       // must not borrow a newer worker's lease from this later row read.
@@ -109,11 +213,19 @@ export async function deliverNotifications(limit = 10) {
       // ordinary row with no account fails closed rather than taking a request path.
       const essential = row.category === "security";
       const user = row.user;
+      const review = row.category === "review";
+      const reminder = row.category === "reminder";
       const preference = essential
         ? true
-        : row.category === "messages"
-          ? user?.emailMessages
-          : user?.emailInfo;
+        : user && isNotificationCategory(row.preferenceTopic)
+          ? effectiveNotificationPreference(user, row.preferenceTopic, user.notificationPreferences).emailEnabled
+        : review
+          ? user?.emailReviewRequests
+          : reminder
+            ? user?.emailEventReminders
+            : row.category === "messages"
+              ? user?.emailMessages
+              : user?.emailInfo;
       const owned = user?.emails.some(
         (address) =>
           address.email === row.recipient &&
@@ -125,7 +237,17 @@ export async function deliverNotifications(limit = 10) {
         user.mergedIntoId ||
         (!essential && !current?.emailNotificationsEnabled) ||
         !preference ||
-        (!owned && !row.previousPrimary)
+        (review && !eligibleReviewRecipient(user, row.event)) ||
+        (reminder && !(await validateEventReminder(db, row))) ||
+        // Generic historical mail retains its safe home-link fallback. Newly
+        // detailed staff facts must not follow an account after staff access ends.
+        (!essential &&
+          notificationEmailDetail(row.event, row.context) &&
+          row.destination?.startsWith("/admin") &&
+          (user.suspendedAt ||
+            !["HEAD", "ADMIN", "COORDINATOR"].includes(user.role))) ||
+        (!owned && !row.previousPrimary) ||
+        !(await schoolCalendarEmailEligible(db, row))
       ) {
         await db.emailDelivery.updateMany({
           where: { id, status: "PENDING" },
@@ -157,9 +279,13 @@ export async function deliverNotifications(limit = 10) {
         ? "If you do not recognize this activity, contact the program team through private support.\n如非本人操作，请通过私密支持联系项目团队。"
         : "Sign in to review the update. You can manage optional email notifications in account settings.\n请登录查看通知。您可在账户设置中管理可选邮件通知。";
       // Only optional notification classes receive this narrowly scoped account capability.
-      const unsubscribeUrl = ["messages", "info", "information"].includes(
-        row.category,
-      )
+      const unsubscribeUrl = [
+        "messages",
+        "info",
+        "information",
+        "review",
+        "reminder",
+      ].includes(row.category)
         ? notificationUnsubscribeUrl(id)
         : undefined;
       await emailSender.send({
@@ -174,7 +300,11 @@ export async function deliverNotifications(limit = 10) {
             ? "ACCOUNT SECURITY"
             : row.category === "messages"
               ? "PRIVATE MESSAGES"
-              : "PROGRAM UPDATE",
+              : review
+                ? "REVIEW REQUEST"
+                : reminder
+                  ? "UPCOMING EVENT"
+                  : "PROGRAM UPDATE",
           action: {
             label: copy.action,
             url: link,
@@ -208,6 +338,36 @@ export async function deliverNotifications(limit = 10) {
       });
     }
   }
+  return rows.length;
+}
+
+const DRAIN_BUDGET_MS = 20_000;
+const DRAIN_BATCH_SIZE = 10;
+const DRAIN_MAX_BATCHES = 100;
+
+/** Drain bursts serially in original queue order, preserving security/ordinary
+ * fairness. Bound both elapsed admission time and work even with a static clock.
+ * An SMTP attempt already in flight may finish after the twenty-second budget. */
+export async function drainNotificationQueue(
+  sendBatch: (
+    limit: number,
+    deadline: number,
+  ) => Promise<number> = deliverNotifications,
+  clock: () => number = () => performance.now(),
+) {
+  const deadline = clock() + DRAIN_BUDGET_MS;
+  let processed = 0;
+  for (
+    let batch = 0;
+    batch < DRAIN_MAX_BATCHES && clock() < deadline;
+    batch++
+  ) {
+    const count = await sendBatch(DRAIN_BATCH_SIZE, deadline);
+    processed += count;
+    // Empty/unavailable transport and a partially drained final batch stop here.
+    if (count < DRAIN_BATCH_SIZE) break;
+  }
+  return processed;
 }
 
 const state = globalThis as typeof globalThis & {
@@ -220,7 +380,24 @@ export function startNotificationWorker() {
     if (running) return;
     running = true;
     try {
-      await deliverNotifications();
+      // Calendar receipts are durable and idempotent; the existing bounded worker
+      // owns this small sweep rather than creating a second process-local timer.
+      try {
+        await remindUpcomingSchoolCalendar(db);
+      } catch {
+        console.error(
+          "[school-calendar] Reminder sweep failed; retrying on the next delivery sweep.",
+        );
+      }
+      try {
+        await queueEventReminders();
+      } catch {
+        // A failed source scan must never stall security or already queued delivery.
+        console.error(
+          "[email-notifications] Reminder sweep failed; existing mail delivery will continue.",
+        );
+      }
+      await drainNotificationQueue();
     } catch {
       console.error(
         "[email-notifications] Delivery sweep failed; check database and transport availability.",

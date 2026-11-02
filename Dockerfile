@@ -40,6 +40,9 @@ RUN npm prune --omit=dev --ignore-scripts
 FROM build AS runtime-files
 COPY --from=runtime-deps /app/node_modules /runtime-production/node_modules
 RUN node scripts/assemble-runtime.mjs .next/standalone /runtime-production/node_modules /runtime-output
+# Complete the operator graph before its single app-layer copy. A later runner
+# COPY would store a duplicate layer when Next already traced this source.
+COPY --from=build /app/src/server/program/continuation-opening.ts /runtime-output/app/src/server/program/continuation-opening.ts
 
 ############################
 # 3. Runtime (slim, non-root)

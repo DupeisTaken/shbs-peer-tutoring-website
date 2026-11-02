@@ -38,7 +38,7 @@ function IntentRegistration({ intentId }: { intentId: string }) {
     <section className="card space-y-5 p-6">
       <p className="muted">{t("intentVerification")}</p>
       {recipient ? (
-        <SurveyVerification email={recipient} intentId={intentId} />
+        <SurveyVerification email={recipient} intentId={intentId} focusOnMount />
       ) : (
         <form
           className="space-y-4"
@@ -86,16 +86,24 @@ function LegacyStudentRegistration({
   const signup = useTranslations("public.signup");
   const invitation = useTranslations("accountInvitation");
   const admitted = useRef(false);
+  const utils = api.useUtils();
   const request = api.tutee.inspectSurvey.useQuery(
     { token },
     { enabled: !!token, retry: false, refetchOnWindowFocus: false },
   );
   const complete = api.accountInvitation.fromSurvey.useMutation({
+    onSuccess: () => {
+      // The explicit legacy-link confirmation has the same intake effect as OTP proof.
+      void utils.studentWorkflow.continuationStatus
+        .reset()
+        .catch(() => undefined);
+    },
     onSettled: () => {
       admitted.current = false;
     },
   });
-  if (complete.data) return <InvitationReceipt invitation={complete.data} />;
+  if (complete.data)
+    return <InvitationReceipt invitation={complete.data} tuteeSignup />;
   if (
     request.error &&
     !request.data &&

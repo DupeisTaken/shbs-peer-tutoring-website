@@ -1,6 +1,10 @@
 import { TRPCError } from "@trpc/server";
 
 import { lockEntity, type TransactionDb } from "~/server/transactions";
+import {
+  datedUnavailableRooms,
+  assertDatedRoomBlackoutAvailable,
+} from "~/server/session-planning/room-occupancy";
 
 type PlannedRoomBooking = {
   roomId: string | null | undefined;
@@ -105,6 +109,16 @@ export async function assertPlannedRoomAvailable(
       message: "That room is already booked during the selected time.",
     });
   }
+  if (
+    (await datedUnavailableRooms(db, booking, [booking.roomId])).has(
+      booking.roomId,
+    )
+  )
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "That room is reserved by an agreed dated session or pending offer.",
+    });
 }
 
 /** Validate creates and edits against other blocks and current planned bookings. */
@@ -158,6 +172,7 @@ export async function assertRoomBlackoutAvailable(
       message: "That room already has a planned booking during this time.",
     });
   }
+  await assertDatedRoomBlackoutAvailable(db, blackout);
 }
 
 /** Read edit/remove targets under the same lock as schedule writers. */

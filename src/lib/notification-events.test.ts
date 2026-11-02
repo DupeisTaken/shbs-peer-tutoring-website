@@ -19,6 +19,21 @@ const translators = {
     namespace: "notificationEvents",
   }),
 };
+it("only admits selected message sender and announcement title fields", () => {
+  const privateText = "PRIVATE_BODY_AND_RECIPIENTS";
+  expect(notificationEvent("message_received", {
+    actorName: "  Alex   Synthetic ", body: privateText, recipients: [privateText],
+    announcementTitle: privateText,
+  }).context).toEqual({ actorName: "Alex Synthetic" });
+  expect(notificationEvent("announcement_published", {
+    announcementTitle: " Autumn tutoring ", announcementAction: "updated",
+    body: privateText, actorName: privateText,
+  }).context).toEqual({ announcementTitle: "Autumn tutoring", announcementAction: "updated" });
+  expect(notificationEvent("announcement_published", {
+    announcementTitle: "Autumn tutoring", announcementAction: privateText,
+  }).context).toEqual({});
+  expect(notificationEvent("message_received", { actorName: "x".repeat(161) }).context).toEqual({});
+});
 describe.each(["en", "zh"] as const)("%s event copy", (locale) => {
   it.each(notificationEvents)(
     "has a specific title, description and next step for %s",
@@ -147,3 +162,72 @@ it.each([
     );
   },
 );
+
+describe("school calendar event context", () => {
+  const calendar = {
+    schoolDate: "2026-11-02",
+    isSchoolDay: true,
+    timetableWeekday: 2,
+    calendarRevision: 4,
+    timeZone: "Pacific/Kiritimati",
+  };
+  it("retains only structured schedule facts for calendar events", () => {
+    expect(
+      notificationEvent("school_calendar_changed", {
+        ...calendar,
+        note: "PRIVATE NOTE",
+        userId: "PRIVATE USER",
+        email: "private@example.test",
+      }).context,
+    ).toEqual(calendar);
+    expect(notificationEvent("message_received", calendar).context).toEqual({});
+  });
+  it.each([
+    { schoolDate: "2026-02-30" },
+    { schoolDate: "2026-11-02T00:00Z" },
+    { timetableWeekday: 0 },
+    { timetableWeekday: 8 },
+    { timetableWeekday: null },
+    { calendarRevision: 0 },
+    { calendarRevision: 1.5 },
+    { timeZone: "Not/A_Zone" },
+    { isSchoolDay: "true" },
+    { isSchoolDay: false },
+  ])("rejects malformed or inconsistent calendar facts (%j)", (invalid) => {
+    expect(
+      notificationEvent("school_calendar_changed", { ...calendar, ...invalid })
+        .context,
+    ).toEqual({});
+  });
+  it.each(["en", "zh"] as const)(
+    "formats actual date labels and mapped weekdays without timezone shifting (%s)",
+    (locale) => {
+      const copy = formatNotificationEvent(
+        "school_calendar_changed",
+        calendar,
+        locale,
+        translators[locale],
+      )!;
+      const date = new Intl.DateTimeFormat(locale, {
+        dateStyle: "full",
+        timeZone: "UTC",
+      }).format(new Date("2026-11-02T12:00:00Z"));
+      const weekday = new Intl.DateTimeFormat(locale, {
+        weekday: "long",
+        timeZone: "UTC",
+      }).format(new Date("2026-11-03T12:00:00Z"));
+      expect(copy.body).toContain(date);
+      expect(copy.body).toContain(weekday);
+      expect(copy.time).toBe("");
+      const closed = formatNotificationEvent(
+        "school_calendar_upcoming",
+        { ...calendar, isSchoolDay: false, timetableWeekday: null },
+        locale,
+        translators[locale],
+      )!;
+      expect(closed.body).toContain(
+        translators[locale]("schoolCalendarScheduleNoSchool"),
+      );
+    },
+  );
+});

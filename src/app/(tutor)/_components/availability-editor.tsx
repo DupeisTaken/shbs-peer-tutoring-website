@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useLocale, useTranslations } from "next-intl";
 
@@ -10,6 +10,9 @@ import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { invalidateWorkloads } from "~/lib/workload-cache";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 /**
  * Lets a tutor mark which catalog time slots they can teach. Slots are reference-only;
@@ -20,6 +23,8 @@ export function AvailabilityEditor() {
   // Localize presentation and group names; selected IDs stay catalog-owned.
   const locale = useLocale();
   const query = api.tutor.myAvailability.useQuery();
+  const utils = api.useUtils();
+  const releaseRefresh = useRef(false);
   const denied = useSessionAccessDenied(query);
   // Follow live server data until editing starts; background refetches must not
   // replace an unsaved selection or a draft retained after a failed request.
@@ -34,7 +39,22 @@ export function AvailabilityEditor() {
     try {
       // The mutation returns a count and may filter inactive slots. Only a fresh
       // GET can tell us the accepted IDs; invalidation alone can swallow failure.
-      await query.refetch({ throwOnError: true });
+      await settleRefreshes([
+        async () => {
+          await query.refetch({ throwOnError: true });
+        },
+        ...(releaseRefresh.current
+          ? [
+              () => invalidateAndReport(utils.tutor.myPairings),
+              () => invalidateAndReport(utils.tutor.schedule),
+              () => invalidateAndReport(utils.studentWorkflow.tutorRoster),
+              () => invalidateAndReport(utils.sessionPlanning.agenda),
+              () => invalidateAndReport(utils.pairingGroups.mine),
+              () => invalidateWorkloads(utils, true),
+            ]
+          : []),
+      ]);
+      releaseRefresh.current = false;
       setDraft(null);
       setSync({ status: "idle" });
     } catch (error) {
@@ -46,7 +66,12 @@ export function AvailabilityEditor() {
     }
   };
   const save = api.tutor.setAvailability.useMutation({
-    onSuccess: refreshSavedSelection,
+    onSuccess: async (result) => {
+      // A continuation release also changes mounted roster, agenda and workload
+      // readers. Retain that read set after failure; Retry never replays the save.
+      releaseRefresh.current = (result?.released ?? 0) > 0;
+      await refreshSavedSelection();
+    },
   });
   // After a successful write, keep the submitted selection visible but prevent
   // another write or Cancel from restoring a stale cache until refresh succeeds.

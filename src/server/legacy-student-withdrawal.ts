@@ -64,7 +64,11 @@ export async function applyLegacyStudentWithdrawal(
 ) {
   return inTransaction(db, async (tx) => {
     await lockEntity(tx, `legacy-student:${tuteeId}`);
-    const { term } = await ownedLegacyParticipation(tx, userId, tuteeId);
+    const { term, student } = await ownedLegacyParticipation(
+      tx,
+      userId,
+      tuteeId,
+    );
     await requirePolicy(tx, userId, "tutee-policy");
     await consumeStudentAction(
       tx,
@@ -99,7 +103,10 @@ export async function applyLegacyStudentWithdrawal(
       data: managers.map((u) => ({
         userId: u.id,
         title: "Tutee withdrawal awaiting review / 学习伙伴退出申请待审核",
-        ...notificationEvent("student_withdrawal_pending"),
+        ...notificationInAppEvent("student_withdrawal_pending", undefined, {
+          en: `Tutee ${student.englishName} requested withdrawal for ${term.name}. Participation continues until approval.`,
+          zh: `学习伙伴 ${student.englishName} 申请退出 ${term.name} 的辅导。批准前仍继续参与。`,
+        }),
         link: "/admin/tutee-requests",
       })),
     });
@@ -148,4 +155,4 @@ export async function approveLegacyStudentWithdrawal(
     data: { state: "DENIED", resolvedAt: new Date() },
   });
 }
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";

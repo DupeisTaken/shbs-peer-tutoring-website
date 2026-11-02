@@ -462,14 +462,14 @@ it.each(
     ),
   ),
 )(
-  "shows the submission email badge for verified=$verified viewer=$viewer locale=$locale",
+  "shows final request completion independently of mailbox proof for confirmed=$verified viewer=$viewer locale=$locale",
   ({ verified, viewer, locale }) => {
     mocks.invalid = false;
     mocks.verified = verified;
     const messages = locale === "zh" ? zh : en;
     const view = render(content(false, viewer, locale));
     const badge = screen.getByText(
-      messages.workflow[verified ? "verified" : "emailPending"],
+      messages.survey[verified ? "requestConfirmed" : "requestIncomplete"],
     );
     expect(
       badge.classList.contains(verified ? "badge-green" : "badge-amber"),
@@ -477,21 +477,21 @@ it.each(
     expect(badge.parentElement?.textContent).toContain("Public survey student");
     expect(
       screen.queryByText(
-        messages.workflow[verified ? "emailPending" : "verified"],
+        messages.survey[verified ? "requestIncomplete" : "requestConfirmed"],
       ),
     ).toBeNull();
 
-    // A refreshed proof replaces the badge without leaving stale pending status.
+    // Final account review replaces the badge; intermediate mailbox proof cannot.
     mocks.verified = !verified;
     view.rerender(content(false, viewer, locale));
     expect(
       screen.queryByText(
-        messages.workflow[verified ? "verified" : "emailPending"],
+        messages.survey[verified ? "requestConfirmed" : "requestIncomplete"],
       ),
     ).toBeNull();
     expect(
       screen.getByText(
-        messages.workflow[verified ? "emailPending" : "verified"],
+        messages.survey[verified ? "requestIncomplete" : "requestConfirmed"],
       ),
     ).toBeTruthy();
   },
@@ -610,7 +610,9 @@ it.each([true, false])(
     show();
     fireEvent.click(screen.getByRole("tab", { name: /Processed/ }));
     expect(
-      screen.getByText(en.workflow[verified ? "verified" : "emailPending"]),
+      screen.getByText(
+        en.survey[verified ? "requestConfirmed" : "requestIncomplete"],
+      ),
     ).toBeTruthy();
     expect(screen.getByText("Invalid entry")).toBeTruthy();
     expect(screen.getByText(en.signupAppeal.rejectedTitle)).toBeTruthy();
@@ -953,9 +955,14 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
           name: action,
         }),
       ).toHaveLength(1);
-      expect(within(mathRows[index]!).queryByRole("button", {
-        name: role === "COORDINATOR" ? en.signupAppeal.unassign : en.signupAppeal.proposeUnassign,
-      })).toBeNull();
+      expect(
+        within(mathRows[index]!).queryByRole("button", {
+          name:
+            role === "COORDINATOR"
+              ? en.signupAppeal.unassign
+              : en.signupAppeal.proposeUnassign,
+        }),
+      ).toBeNull();
       expect(mathRows[index]!.children[0]?.textContent).toBe("Mathematics");
     }
     const historicalChoice = screen.getByRole("group", {

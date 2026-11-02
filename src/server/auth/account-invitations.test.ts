@@ -637,6 +637,9 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
   const before = await db.accountInvitation.findUniqueOrThrow({
     where: { id: invite.invitationId },
   });
+  expect(mail.send.mock.calls.at(-1)?.[0].subject).toContain("read-only Viewer access");
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(before.emailCodeExpiresAt!.toISOString());
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain("新增权限仍须另行确认");
   mail.send.mockRejectedValueOnce(Error("offline"));
   await expect(
     emailDisplayedInvitation(db, {
@@ -660,6 +663,8 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
   expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(
     "5 letters and numbers",
   );
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain("read-only Viewer access");
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(before.expiresAt.toISOString());
 });
 
 it.each(["staff", "display"] as const)(

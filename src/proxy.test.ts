@@ -19,6 +19,37 @@ function pageRequest(url: string, init?: ConstructorParameters<typeof NextReques
 }
 
 const event = { waitUntil: () => undefined } as unknown as NextFetchEvent;
+it("leaves only school capability report handlers public, independently of site cookies", async () => {
+  for (const path of [
+    "/reports/service-hours/sample-token",
+    "/reports/service-hours/sample-token/csv",
+  ]) {
+    const response = await proxy(
+      pageRequest(`http://localhost:3109${path}`, {
+        headers: { cookie: "authjs.session-token=invalid-stale-session" },
+      }),
+      event,
+    );
+    expect(response?.headers.get("location")).toBeNull();
+    expect(response?.headers.getSetCookie()).toEqual([]);
+  }
+  expect(account.findUnique).not.toHaveBeenCalled();
+  for (const path of [
+    "/reports/service-hours",
+    "/reports/service-hours/sample-token/admin",
+    "/reports/service-hours/sample-token/csv/private",
+    "/reports/service-hours-admin/sample-token",
+  ]) {
+    const response = await proxy(
+      pageRequest(`http://localhost:3109${path}`),
+      event,
+    );
+    expect(response?.status).toBe(307);
+    expect(new URL(response!.headers.get("location")!).pathname).toBe(
+      "/signin",
+    );
+  }
+});
 // Exact public entries must never grant anonymous access to adjacent private paths.
 it("keeps canonical signup pages and aliases public while protecting their neighbors", async () => {
   const publicPaths = [
