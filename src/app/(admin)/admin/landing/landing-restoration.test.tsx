@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
+import zh from "../../../../../messages/zh.json";
 import LandingAdminPage from "./landing-editor";
 import type * as SessionViewState from "~/app/_components/session-view-state";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
@@ -29,11 +30,42 @@ vi.mock("~/trpc/react", () => {
   }) });
   return { api: { home, useUtils: () => ({ home }), i18n: { languages: { useQuery: () => ({ data: [{ code: "en", label: "English" }], isSuccess: true }) } } } };
 });
-const tree = () => <SessionViewProvider identity="head" pathname="/admin/landing" verified>
-  <NextIntlClientProvider locale="en" messages={en}><LandingAdminPage /></NextIntlClientProvider>
+const tree = (locale: "en" | "zh" = "en") => <SessionViewProvider identity="head" pathname="/admin/landing" verified>
+  <NextIntlClientProvider locale={locale} messages={locale === "zh" ? zh : en}><LandingAdminPage /></NextIntlClientProvider>
 </SessionViewProvider>;
 beforeEach(() => { window.sessionStorage.clear(); state.news = undefined; state.records = {}; state.error = null; state.scroll.mockClear(); state.mutate.mockClear(); state.write.mockReset().mockResolvedValue({ ok: true }); state.read.mockReset().mockImplementation(async (name) => ({ data: state.records[name] ?? [] })); });
 afterEach(cleanup);
+
+it.each([
+  ["en", "pages"], ["en", "sections"],
+  ["zh", "pages"], ["zh", "sections"],
+] as const)("names each %s %s slug with a visible label and separate blur guidance", (locale, tab) => {
+  const messages = locale === "zh" ? zh : en;
+  state.records[tab] = ["first", "second"].map((id) => ({
+    id, slug: id, title: { en: "Synthetic page" }, published: true,
+    showInNav: false, navOrder: 0, sortOrder: 0, openByDefault: false,
+    mode: "PAGE", translations: [], createdByName: null,
+    createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
+  }));
+  render(tree(locale));
+  fireEvent.click(screen.getByRole("tab", { name: messages.admin.landing.tabs[tab] }));
+  const inputs = screen.getAllByRole<HTMLInputElement>("textbox", {
+    name: messages.admin.landing.pageAddress,
+  });
+  expect(inputs).toHaveLength(2);
+  expect(new Set(inputs.map((input) => input.id)).size).toBe(2);
+  for (const input of inputs) {
+    const label = input.labels?.[0];
+    expect(label?.textContent).toBe(messages.admin.landing.pageAddress);
+    expect(label?.htmlFor).toBe(input.id);
+    expect(label?.hidden).toBe(false);
+    expect(label?.classList.contains("sr-only")).toBe(false);
+    const helper = document.getElementById(input.getAttribute("aria-describedby")!);
+    expect(helper?.textContent).toBe(messages.saveBoundary.blur);
+    expect(label?.contains(helper)).toBe(false);
+  }
+  expect(state.mutate).not.toHaveBeenCalled();
+});
 
 it("mounts a remembered lazy tab and waits for its own read instead of the image library", () => {
   writeViewState(window.sessionStorage, viewStateKey("head", "/admin/landing", "landing.tab.v1", ""), "news");
