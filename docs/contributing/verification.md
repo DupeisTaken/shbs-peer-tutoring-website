@@ -26,7 +26,7 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
-CI runs static/tooling checks, eight test shards, image build/smoke verification
+CI runs static/tooling checks, thirty test shards, image build/smoke verification
 and a separate image-storage measurement job in parallel. Each job has a
 nine-minute timeout (the short `verify` gate uses two
 minutes). This is a whole-job limit, including setup, installation and migrations;
@@ -39,27 +39,43 @@ cancelled, skipped or missing prerequisites fail
 the gate. Keep `verify` as the branch-protection check when changing job names.
 
 Run `npm run test:ci` for workflow and image-promotion regressions. It also checks
-that Vitest's eight shards cover every discovered file exactly once without running
+that Vitest's thirty shards cover every discovered file exactly once without running
 database fixtures. Each CI shard uploads a seven-day JSON report with test timings
 and failures. Use these reports and whole-job durations to assess shard balance
 before adding more runners. The matrix size supplies Vitest's shard denominator;
 keep the matrix contiguous from 1 and preserve serial files within each runner.
 Local `npm test` still runs the complete suite serially.
 
-The current sizing evidence is [run 40735002104](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/40735002104)
-at `01255cf9258cc836130f9cbde89ec1d1f7fc1cb1`: its five JSON reports contain
-526 files and 7,164 passing tests, but shard 2 exceeded the whole-job limit.
-Its test step alone took 538.39 seconds. A passing test report does not override
-that cancellation or the failed required gate. Replaying Vitest's path-hash
-partitioning over all measured file durations, adding 0.9 seconds per file for
-runner overhead and 60 seconds for setup, estimates the slowest whole jobs at
-599 seconds for five shards, 517 for six, 591 for seven and 481 for eight.
-Eight adds three hosted runners while retaining roughly a minute of headroom
-under the unchanged nine-minute limit. These are projections, not a hosted
-eight-shard result: confirm complete jobs on the changed revision, including
-cleanup and report upload. Runner queues are outside the job execution budget.
-Preserve assertions and database isolation; refactor measured slow fixtures or
-split an oversized file only when timings show that partitioning is insufficient.
+The current sizing evidence is [run 41489477923](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41489477923)
+at `9b30d7347bcd2e4639405142681533719730dd90`: seven shards passed, but shard 8
+was cancelled before completing and shard 3 took 534 seconds for its whole job.
+Of the 617 current files, completed JSON reports time 540 and the cancelled
+shard's log times another 10. Three files clustered in shard 8 took 232, 111 and
+109 seconds by themselves. Cancellation and incomplete coverage fail the gate;
+successful partial results do not establish a passing run.
+
+Sizing replays the installed Vitest SHA-1 path ordering and contiguous partition
+ranges against all 617 files. It takes the larger available duration from that
+run and the 604-file timing set in [run 41484295636](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41484295636).
+The 66 files lacking current timings use 2.1 times their older duration, rounding
+up the largest observed slowdown among completed files in the cancelled shard.
+The one unmeasured, mocked `school-hours-worker.test.ts` gets an explicit assumed
+10-second reserve; it is not treated as a zero-cost file. Add 0.9 seconds per
+file for runner/import overhead and 110 seconds per job for setup, uploads and
+cleanup, rounded up from observed maxima of 0.86 seconds and 106 seconds.
+
+Projected slowest whole jobs are 543 seconds with 16 shards, 516 with 24, 434
+with 27, 416 with 29 and 382 with 30. Adding a further 20% to all file durations
+gives 622, 592, 495, 473 and 433 seconds respectively. Thirty shards therefore
+retain about 107 seconds below the unchanged 540-second cap in that sensitivity
+case, at the cost of 22 additional isolated hosted jobs and setup runs compared
+with eight. More shards do not monotonically improve this hash partition: 32
+projects to 473 seconds in the same sensitivity case. No test filters, retry
+flags, custom sequencer or local defaults change. These are projections, not a
+hosted thirty-shard result: verify all jobs, cleanup and uploads at the new head.
+Runner queues are outside the per-job budget and may increase overall elapsed
+time. Reassess timings as files change; preserve assertions and database
+isolation, and refactor measured slow fixtures when their cost warrants it.
 
 For a dependency-audit failure, inspect the reported advisory and dependency path,
 then update the affected lockfile entries within the supported version range.
@@ -90,7 +106,13 @@ the measurement artifacts.
 The comparison requires identical `/app` inventories (paths, types, modes,
 UID/GID, literal symlink targets and file sizes/hashes) between corresponding
 baseline/candidate images, plus equal runtime configuration. Inventory timestamps
-are excluded. It checks that the controlled probe changes only `server.js` and
+are excluded. Buildx metadata binds each build's manifest and configuration digests
+separately: classic Docker may inspect by config ID, while the containerd store may
+inspect by manifest ID. Inventory runs against that immutable inspected identity;
+archive verification checks the independently recorded config digest and ordered
+layer identities, then rechecks each tag for rebinding. Raw build metadata is not
+included in uploaded JSON reports. The comparison checks that the controlled
+probe changes only `server.js` and
 compares per-image Docker `Size`, the two-image exported-layer-content union and
 a snapshot-chain-weighted payload proxy. The candidate single-image size and
 both pair proxies must not grow. Seven-day JSON artifacts retain file-equivalence,

@@ -93,6 +93,43 @@ export function runtimeConfig(image) {
   };
 }
 
+export function buildIdentity(metadata, image) {
+  const configDigest = metadata?.["containerimage.config.digest"];
+  const manifestDigest = metadata?.["containerimage.digest"];
+  for (const digest of [configDigest, manifestDigest, image?.Id])
+    assert.match(
+      digest,
+      /^sha256:[a-f0-9]{64}$/,
+      "Missing or invalid build image identity",
+    );
+  // Classic Docker identifies an image by its config; the containerd store can
+  // identify it by its manifest. Bind either form to this build's own metadata,
+  // never infer the expected config from the archive being checked.
+  assert.ok(
+    image.Id === configDigest || image.Id === manifestDigest,
+    "Loaded image identity does not match the Buildx result",
+  );
+  return { configDigest, manifestDigest };
+}
+
+export function assertMeasuredIdentity(image, identity, exported, currentImage) {
+  assert.equal(
+    currentImage?.Id,
+    image.Id,
+    "Tag identity changed during measurement",
+  );
+  assert.equal(
+    exported?.config_digest,
+    identity.configDigest,
+    "Exported config identity does not match the Buildx result",
+  );
+  assert.deepEqual(
+    exported.layers.map((layer) => layer.diff_id),
+    image.RootFS.Layers,
+    "Exported layer identities changed during measurement",
+  );
+}
+
 export function compareInventories(baseline, candidate) {
   const differences = [];
   const first = new Map(baseline.map((entry) => [entry.path, entry]));
@@ -132,7 +169,7 @@ function scope() {
   console.log(JSON.stringify({ baselineRevision: revision, compare }));
 }
 
-function imageInventory(tag) {
+function imageInventory(imageId) {
   const name = `shbs-storage-inventory-${randomUUID()}`;
   try {
     return JSON.parse(
@@ -148,7 +185,7 @@ function imageInventory(tag) {
         "node",
         "--mount",
         `type=bind,src=${path.join(root, "scripts/runtime-file-inventory.mjs")},dst=/tmp/inventory.mjs,readonly`,
-        tag,
+        imageId,
         "/tmp/inventory.mjs",
         "/app",
       ]),
@@ -216,6 +253,9 @@ function compare(output) {
   ];
   for (const layout of layouts) {
     const file = path.join(destination, `${layout.role}.Dockerfile`);
+    // Raw Buildx metadata may include provenance. Only the selected digests go
+    // into comparison.json; the workflow uploads *.json, not this raw metadata.
+    const metadataFile = path.join(destination, `${layout.role}.build-metadata`);
     writeFileSync(file, layout.source);
     console.log(`Building controlled ${layout.role} layout`);
     run(
@@ -230,6 +270,8 @@ function compare(output) {
         file,
         "--tag",
         layout.tag,
+        "--metadata-file",
+        metadataFile,
         "--cache-from",
         "type=gha",
         ".",
@@ -239,7 +281,12 @@ function compare(output) {
     layout.image = JSON.parse(
       run("docker", ["image", "inspect", layout.tag]),
     )[0];
-    layout.inventory = imageInventory(layout.tag);
+    layout.identity = buildIdentity(
+      JSON.parse(readFileSync(metadataFile, "utf8")),
+      layout.image,
+    );
+    // Inventory the bound immutable image, not a mutable tag name.
+    layout.inventory = imageInventory(layout.image.Id);
   }
   const [before, after, beforeProbe, afterProbe] = layouts;
   const checks = {
@@ -286,15 +333,11 @@ function compare(output) {
   );
   const metrics = JSON.parse(readFileSync(metricsFile, "utf8"));
   for (const layout of layouts) {
-    const exported = metrics.images[layout.tag];
-    assert.equal(
-      exported.config_digest,
-      layout.image.Id,
-      "Tag identity changed during measurement",
-    );
-    assert.deepEqual(
-      exported.layers.map((layer) => layer.diff_id),
-      layout.image.RootFS.Layers,
+    assertMeasuredIdentity(
+      layout.image,
+      layout.identity,
+      metrics.images[layout.tag],
+      JSON.parse(run("docker", ["image", "inspect", layout.tag]))[0],
     );
   }
   json(path.join(destination, "comparison.json"), {
@@ -307,6 +350,7 @@ function compare(output) {
       role: layout.role,
       tag: layout.tag,
       id: layout.image.Id,
+      ...layout.identity,
       dockerSizeBytes: layout.image.Size,
       inventoryCount: layout.inventory.length,
       inventorySha256: sha(layout.inventory),
