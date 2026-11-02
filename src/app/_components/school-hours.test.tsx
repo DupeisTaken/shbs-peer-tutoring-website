@@ -398,6 +398,86 @@ it.each(["en", "zh"] as const)(
   },
 );
 
+it.each(["en", "zh"] as const)(
+  "keeps the full person, exact amount, tutoring/Crew and evidence together in mobile cards (%s)",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const person = {
+      ...row('Alexandra "Alex" Anderson (艾力克斯)', 0.5, 0.25),
+      schoolAccountKey: "SCHOOL-ACCOUNT-0123456789",
+      change: { earned: 1, extras: 0.25, deductions: 0.75, crew: 0.25 },
+    };
+    render(
+      show(
+        <SchoolHoursIndividuals
+          rows={[person, row("Fraction", -1 / 60, 0), row("NoChange", 0, 0)]}
+          revision={1}
+        />,
+        locale,
+      ),
+    );
+    const list = screen.getByRole("list", { name: copy.individualAmounts });
+    const cards = within(list).getAllByRole("listitem");
+    expect(cards).toHaveLength(2);
+    const card = cards[0]!;
+    expect(within(card).getByText(person.exportName)).toBeTruthy();
+    expect(
+      within(card).getByText(
+        `${copy.schoolAccount}: ${person.schoolAccountKey}`,
+      ),
+    ).toBeTruthy();
+    for (const [label, value] of [
+      [copy.amountToApply, "+0.75"],
+      [copy.tutoring, "+0.5"],
+      [copy.crew, "+0.25"],
+    ]) {
+      expect(
+        within(card).getByText(label!).nextElementSibling?.textContent,
+      ).toBe(value);
+    }
+    expect(
+      within(cards[1]!).getByText(copy.amountToApply).nextElementSibling
+        ?.textContent,
+    ).toBe("-0.016666666666666666");
+    expect(within(list).queryByText("NoChange")).toBeNull();
+    fireEvent.click(within(card).getByRole("button"));
+    const dialog = screen.getByRole("dialog", { name: person.exportName });
+    for (const [label, value] of [
+      [copy.schoolAccount, person.schoolAccountKey],
+      [copy.earnedChange, "+1"],
+      [copy.extrasChange, "+0.25"],
+      [copy.deductionsChange, "+0.75"],
+      [copy.crewChange, "+0.25"],
+      [copy.amountToApply, "+0.75"],
+    ]) {
+      expect(
+        within(dialog).getByText(label!).nextElementSibling?.textContent,
+      ).toBe(value);
+    }
+  },
+);
+
+it("omits private evidence controls from both mobile cards and the desktop report when disabled", () => {
+  render(
+    show(
+      <SchoolHoursIndividuals
+        rows={[row("Alex", 0.5, 0.25)]}
+        revision={1}
+        showEvidence={false}
+      />,
+    ),
+  );
+  for (const role of ["list", "table"]) {
+    const individuals = screen.getByRole(role, {
+      name: en.schoolHours.individualAmounts,
+    });
+    expect(within(individuals).getByText("Alex")).toBeTruthy();
+    expect(
+      within(individuals).queryByRole("button", { name: /Alex/ }),
+    ).toBeNull();
+  }
+});
+
 it("preserves offsetting and fractional component changes while filtering only truly unchanged normal rows", () => {
   const offset = {
     ...row("Offset", 1, -1),
@@ -442,9 +522,20 @@ it("distinguishes revision corrections from the corrected full month and keeps u
   });
   expect(within(table).getAllByText("+0.5")).toHaveLength(2);
   expect(
-    screen.getByText(en.schoolHours.correctedMonth.replace("{hours}", "+7.5")),
+    within(table).getByText(
+      en.schoolHours.correctedMonth.replace("{hours}", "+7.5"),
+    ),
   ).toBeTruthy();
-  expect(screen.getByText(en.schoolHours.unchanged)).toBeTruthy();
+  expect(within(table).getByText(en.schoolHours.unchanged)).toBeTruthy();
+  const cards = screen.getByRole("list", {
+    name: en.schoolHours.individualAmounts,
+  });
+  expect(within(cards).getByText(en.schoolHours.unchanged)).toBeTruthy();
+  expect(
+    within(cards).getByText(
+      en.schoolHours.correctedMonth.replace("{hours}", "+7.5"),
+    ),
+  ).toBeTruthy();
   expect(screen.getByText(en.schoolHours.revisionInstructions)).toBeTruthy();
   await openDisclosure(en.schoolHours.comparisons);
   const comparison = screen.getByRole("table", {
@@ -465,8 +556,11 @@ it("lets each individual choose exactly one correction when an intermediate revi
     ],
   };
   render(show(<SchoolHoursIndividuals rows={[alex]} revision={3} />));
+  const table = screen.getByRole("table", {
+    name: en.schoolHours.individualAmounts,
+  });
   expect(
-    screen.getByText(
+    within(table).getByText(
       en.schoolHours.priorEditionCorrection
         .replace("{revision}", "2")
         .replace("{hours}", "+0.2"),
@@ -482,11 +576,14 @@ it("lets each individual choose exactly one correction when an intermediate revi
         .replace("{hours}", "+0.7"),
     ),
   ).toBeTruthy();
+  const correctedMonthDisclosure = screen
+    .getByText(en.schoolHours.priorEditionHelp)
+    .closest("details")!;
   expect(
-    screen.getAllByText(
+    within(correctedMonthDisclosure).getByText(
       en.schoolHours.correctedMonth.replace("{hours}", "+7.7"),
     ),
-  ).toHaveLength(2);
+  ).toBeTruthy();
   expect(remote.generate).not.toHaveBeenCalled();
 });
 
@@ -833,11 +930,15 @@ it.each(["en", "zh"] as const)(
     expect(summary.textContent).toContain(
       copy.baselineSummary.replace("{review}", "0").replace("{committed}", "1"),
     );
-    expect(screen.queryByRole("table", { name: copy.baselineTitle })).toBeNull();
+    expect(
+      screen.queryByRole("table", { name: copy.baselineTitle }),
+    ).toBeNull();
     expect(screen.getByLabelText(copy.recipients)).toBeTruthy();
     expect(screen.getByRole("button", { name: copy.preview })).toBeTruthy();
     await openDisclosure(summary.textContent);
-    expect(screen.getByRole("table", { name: copy.baselineTitle })).toBeTruthy();
+    expect(
+      screen.getByRole("table", { name: copy.baselineTitle }),
+    ).toBeTruthy();
     expect(remote.reviewBaseline).not.toHaveBeenCalled();
   },
 );
@@ -891,7 +992,8 @@ it("retains an opening-review draft when its disclosure is collapsed and reopene
   expect(disclosure.open).toBe(false);
   await openDisclosure(summary.textContent);
   expect(
-    screen.getByLabelText<HTMLTextAreaElement>(en.schoolHours.baselineReason).value,
+    screen.getByLabelText<HTMLTextAreaElement>(en.schoolHours.baselineReason)
+      .value,
   ).toBe("Checked original school records");
   expect(remote.reviewBaseline).not.toHaveBeenCalled();
 });
