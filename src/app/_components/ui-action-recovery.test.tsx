@@ -16,7 +16,7 @@ import SessionFlagsPage from "../(admin)/admin/session-flags/page";
 import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import { ReadOnlyProvider } from "./read-only";
 
-vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
+vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const state = vi.hoisted(() => ({
   loaded: true,

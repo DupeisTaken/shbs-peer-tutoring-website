@@ -19,7 +19,7 @@ import HistoryPage from "../(admin)/admin/history/page";
 import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
-vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
+vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const state = vi.hoisted(() => {
   const permissions: { accountRole: string | null } = { accountRole: "HEAD" };

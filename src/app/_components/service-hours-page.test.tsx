@@ -15,7 +15,7 @@ import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import { SessionViewProvider } from "./session-view-state";
 import type { ServiceHoursRow } from "~/lib/service-hours-view";
 
-vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
+vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const query = vi.hoisted(() => ({
   error: null as null | { data: { code: string } },

@@ -1,13 +1,11 @@
-import { randomUUID } from "node:crypto";
+import type { EmailDelivery, MonthlyHoursReport } from "../../generated/prisma";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { lockAccountProfile } from "~/server/account-profile";
 import {
   inTransaction,
   lockEntity,
   type DomainDb,
-  type TransactionDb,
 } from "~/server/transactions";
-import { getFeatures } from "~/server/program/features";
 import {
   monthlyHoursCategory,
   monthlyHoursLock,
@@ -17,50 +15,17 @@ import { monthlyHoursEmailCopy } from "./monthly-hours-email";
 import { notificationUnsubscribeUrl } from "~/server/email/unsubscribe-token";
 import { emailUrl } from "~/server/email/urls";
 
-async function admissionReason(
-  tx: TransactionDb,
-  row: { userId: string | null; recipient: string },
-) {
-  const [config, settings, features, user] = await Promise.all([
-    tx.monthlyHoursSchedule.findUnique({ where: { id: "program" } }),
-    tx.programSettings.findUnique({ where: { id: "program" } }),
-    getFeatures(tx),
-    row.userId
-      ? tx.user.findUnique({
-          where: { id: row.userId },
-          include: { emails: true },
-        })
-      : null,
-  ]);
-  if (!config?.enabled) return "SCHEDULE_OFF";
-  if (!features.SERVICE_HOURS) return "FEATURE_OFF";
-  if (!settings?.emailNotificationsEnabled) return "EMAIL_OFF";
-  if (!user || user.suspendedAt || user.mergedIntoId)
-    return "UNAVAILABLE_ACCOUNT";
-  if (!["ADMIN", "HEAD"].includes(user.role)) return "ROLE_CHANGED";
-  if (!config.recipientUserIds.includes(user.id)) return "NOT_SELECTED";
-  if (!user.emailInfo) return "OPTED_OUT";
-  if (
-    !user.emails.some(
-      (address) =>
-        address.email === row.recipient &&
-        address.verifiedAt &&
-        (address.email === user.email || user.emailSecondaryRecipients),
-    )
-  )
-    return "NO_VERIFIED_ADDRESS";
-  return null;
-}
-
 /** Period, namespace and optional-mail fences precede account, schedule and outbox
  * locks. This matches refresh, identity edits and preference updates. The claimed lease and
- * previous attempt are inputs, so a paused worker cannot borrow a newer lease. */
+ * previous attempt are inputs, so a paused worker cannot borrow a newer lease.
+ * Retired overview mail is never admitted, even if a stale schedule was enabled.
+ * Keep the historical admission shape while the dispatcher drains old receipts. */
 export async function admitMonthlyHoursDelivery(
   db: DomainDb,
   id: string,
   leaseUntil: Date | null,
   expectedAttemptId: string | null,
-) {
+): Promise<{ row: EmailDelivery; report: MonthlyHoursReport } | null> {
   return inTransaction(db, async (tx) => {
     const observed = await tx.emailDelivery.findUnique({ where: { id } });
     if (
@@ -83,32 +48,16 @@ export async function admitMonthlyHoursDelivery(
       row.attemptId !== expectedAttemptId
     )
       return null;
-    const reason = await admissionReason(tx, row);
-    if (reason || row.attempts >= 5) {
-      await tx.emailDelivery.update({
-        where: { id },
-        data: {
-          status: reason ? "SKIPPED" : "FAILED",
-          completedAt: new Date(),
-          leaseUntil: null,
-          lastError: reason ?? "Email delivery exhausted its retry budget.",
-        },
-      });
-      return null;
-    }
-    const report = await tx.monthlyHoursReport.findUniqueOrThrow({
-      where: { id: row.monthlyHoursReportId! },
-    });
-    const admitted = await tx.emailDelivery.update({
+    await tx.emailDelivery.update({
       where: { id },
       data: {
-        status: "SENDING",
-        attemptId: randomUUID(),
-        attemptStartedAt: new Date(),
-        attempts: { increment: 1 },
+        status: "SKIPPED",
+        completedAt: new Date(),
+        leaseUntil: null,
+        lastError: "WORKFLOW_REPLACED",
       },
     });
-    return { row: admitted, report };
+    return null;
   });
 }
 
@@ -129,8 +78,9 @@ export function monthlyHoursDeliveryCopy(
   });
 }
 
-/** SMTP acceptance is retained even after later cancellation. Stale completions
- * cannot overwrite a newer attempt; failures recheck current authorization. */
+/** Preserve acceptance evidence from an already admitted pre-upgrade send.
+ * Stale completions cannot overwrite a newer attempt or a retired receipt;
+ * failed old sends become retired evidence and can never schedule a retry. */
 export async function finishMonthlyHoursDelivery(
   db: DomainDb,
   id: string,
@@ -148,24 +98,13 @@ export async function finishMonthlyHoursDelivery(
     await tx.$queryRaw`SELECT id FROM "EmailDelivery" WHERE id = ${id} FOR UPDATE`;
     const row = await tx.emailDelivery.findUniqueOrThrow({ where: { id } });
     if (row.status !== "SENDING" || row.attemptId !== attemptId) return;
-    const reason = sent ? null : await admissionReason(tx, row);
     await tx.emailDelivery.update({
       where: { id },
       data: {
-        status: sent
-          ? "SENT"
-          : reason
-            ? "SKIPPED"
-            : row.attempts >= 5
-              ? "FAILED"
-              : "PENDING",
-        completedAt: sent || reason || row.attempts >= 5 ? new Date() : null,
+        status: sent ? "SENT" : "SKIPPED",
+        completedAt: new Date(),
         leaseUntil: null,
-        availableAt: new Date(Date.now() + 60_000 * 2 ** row.attempts),
-        lastError: sent
-          ? null
-          : (reason ??
-            "Email delivery failed; check the configured transport."),
+        lastError: sent ? null : "WORKFLOW_REPLACED",
       },
     });
   });

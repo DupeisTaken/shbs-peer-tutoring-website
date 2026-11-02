@@ -250,87 +250,83 @@ async function generate() {
   );
 }
 
-it("dispatches one complete bilingual snapshot per selected mailbox with protected links and no private fields", async () => {
+it("retires queued overview mail without SMTP even when the old schedule is enabled", async () => {
   const generated = await generate();
+  const before = await getMonthlyHoursReport(db, generated.reportId);
   expect(fixture.send).not.toHaveBeenCalled();
   await deliverNotifications();
-  expect(fixture.send).toHaveBeenCalledTimes(2);
-  const messages = fixture.send.mock.calls.map(([message]) => message);
-  expect(messages.map((message) => message.to).sort()).toEqual(
-    [mailbox(fixture.actorId), mailbox(fixture.recipientId)].sort(),
-  );
-  for (const message of messages) {
-    expect(message.category).toBe("PROGRAM");
-    expect(message.subject).toContain(fixture.month);
-    expect(message.subject).toContain("服务时数报告");
-    expect(message.text).toContain("Synthetic <Tutor>");
-    expect(message.html).toContain("Synthetic &lt;Tutor&gt;");
-    expect(message.text).toContain("Inactive / 非活跃");
-    expect(message.text).toContain("0.75");
-    expect(message.text).toContain(
-      `https://reports.example.test/signin?callbackUrl=${encodeURIComponent(`/admin/service-hours/reports/${generated.reportId}`)}`,
-    );
-    expect(message.html).toContain("Unsubscribe / 取消订阅");
-    expect(`${message.text}${message.html}`).not.toContain(
-      "Synthetic private adjustment reason",
-    );
-    expect(`${message.text}${message.html}`).not.toContain(
-      mailbox(fixture.actorId),
-    );
-    expect(`${message.text}${message.html}`).not.toContain(
-      mailbox(fixture.recipientId),
-    );
-    expect(message.messageId).toMatch(
-      /^<monthly-hours-.+@shbs-notifications>$/,
-    );
+  expect(fixture.send).not.toHaveBeenCalled();
+  const receipts = await db.emailDelivery.findMany({
+    where: { monthlyHoursReportId: generated.reportId },
+    orderBy: { id: "asc" },
+  });
+  expect(receipts).toHaveLength(2);
+  for (const row of receipts) {
+    expect(row).toMatchObject({
+      status: "SKIPPED",
+      lastError: "WORKFLOW_REPLACED",
+      attempts: 0,
+      attemptId: null,
+      leaseUntil: null,
+    });
   }
   const report = await getMonthlyHoursReport(db, generated.reportId);
-  expect(report.status).toBe("SENT");
-  expect(report.deliveryCounts.sent).toBe(2);
+  expect(report.deliveryCounts.skipped).toBe(2);
+  expect(report.rows).toEqual(before.rows);
+  await deliverNotifications();
+  expect(fixture.send).not.toHaveBeenCalled();
+  expect(
+    await db.emailDelivery.findMany({
+      where: { monthlyHoursReportId: generated.reportId },
+      orderBy: { id: "asc" },
+    }),
+  ).toEqual(receipts);
 });
 
-it("retries only the unsuccessful mailbox with its stable ID and original saved content", async () => {
+it("retires a stale retry without replacing sent evidence or saved report content", async () => {
   const generated = await generate();
-  fixture.send.mockImplementation(async (message) => {
-    if (message.to === mailbox(fixture.recipientId))
-      throw new Error("Synthetic SMTP rejection");
+  const saved = await getMonthlyHoursReport(db, generated.reportId);
+  const historical = await db.emailDelivery.findFirstOrThrow({
+    where: {
+      monthlyHoursReportId: generated.reportId,
+      userId: fixture.actorId,
+    },
   });
-  await deliverNotifications();
-  const firstMessages = fixture.send.mock.calls.map(([message]) => message);
-  expect(firstMessages).toHaveLength(2);
-  const failedMessage = firstMessages.find(
-    (message) => message.to === mailbox(fixture.recipientId),
-  )!;
-  const partial = await getMonthlyHoursReport(db, generated.reportId);
-  expect(partial.status).toBe("PARTIAL");
-  expect(partial.deliveryCounts.sent).toBe(1);
-  expect(partial.deliveryCounts.retrying).toBe(1);
+  const sent = await db.emailDelivery.update({
+    where: { id: historical.id },
+    data: {
+      status: "SENT",
+      attempts: 1,
+      completedAt: new Date("2013-10-03T01:00:00Z"),
+    },
+  });
+  await db.emailDelivery.updateMany({
+    where: {
+      monthlyHoursReportId: generated.reportId,
+      userId: fixture.recipientId,
+    },
+    data: { status: "FAILED", attempts: 5 },
+  });
   await db.serviceHourAdjustment.update({
     where: { id: `${fixture.prefix}adjustment` },
     data: { amount: 99 },
   });
-  fixture.send.mockResolvedValue(undefined);
   expect(
     await retryMonthlyHoursReport(db, generated.reportId, fixture.actorId),
   ).toEqual({ queued: 1 });
   await deliverNotifications();
-  expect(fixture.send).toHaveBeenCalledTimes(3);
-  const retryMessage = fixture.send.mock.calls[2]![0];
-  expect(retryMessage.to).toBe(failedMessage.to);
-  expect(retryMessage.messageId).toBe(failedMessage.messageId);
-  // Unsubscribe capability expiry may refresh; saved report content stays fixed.
-  expect(retryMessage.text.split("Unsubscribe / 取消订阅:")[0]).toBe(
-    failedMessage.text.split("Unsubscribe / 取消订阅:")[0],
-  );
-  const withoutCapability = (html: string | undefined) =>
-    html?.replace(/token=[^"&<>]+/g, "token=SYNTHETIC_CAPABILITY");
-  expect(withoutCapability(retryMessage.html)).toBe(
-    withoutCapability(failedMessage.html),
-  );
+  expect(fixture.send).not.toHaveBeenCalled();
+  expect(
+    await db.emailDelivery.findUniqueOrThrow({ where: { id: historical.id } }),
+  ).toEqual(sent);
   const complete = await getMonthlyHoursReport(db, generated.reportId);
-  expect(complete.status).toBe("SENT");
+  expect(complete.deliveryCounts.sent).toBe(1);
+  expect(complete.deliveryCounts.skipped).toBe(1);
   expect(complete.totals.extras).toBe(0.75);
-  expect(complete.rows).toEqual(partial.rows);
+  expect(complete.rows).toEqual(saved.rows);
+  expect(
+    await retryMonthlyHoursReport(db, generated.reportId, fixture.actorId),
+  ).toEqual({ queued: 0 });
 });
 
 it("the existing unsubscribe capability cancels monthly information mail before dispatcher admission", async () => {
@@ -356,8 +352,7 @@ it("the existing unsubscribe capability cancels monthly information mail before 
       .status,
   ).toBe("SKIPPED");
   await deliverNotifications();
-  expect(fixture.send).toHaveBeenCalledTimes(1);
-  expect(fixture.send.mock.calls[0]![0].to).toBe(mailbox(fixture.actorId));
+  expect(fixture.send).not.toHaveBeenCalled();
   expect(
     (await db.user.findUniqueOrThrow({ where: { id: fixture.recipientId } }))
       .email,

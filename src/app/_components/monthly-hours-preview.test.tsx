@@ -236,17 +236,12 @@ it.each(["en", "zh"] as const)(
   },
 );
 
-it("loads the actual Communication email-settings preview only after opening and explicit Preview", async () => {
+it("replaces the active Communication overview preview with the individual school report disclosure", () => {
   render(show(<ProgramEmailSettings />));
-  expect(screen.getByText(en.monthlyHours.emailPreviewsTitle)).toBeTruthy();
+  expect(screen.getByText(en.schoolHours.emailPreview)).toBeTruthy();
+  expect(screen.queryByText(en.monthlyHours.emailPreviewsTitle)).toBeNull();
   expect(remote.settings).not.toHaveBeenCalled();
-  await openPreview();
   expect(remote.preview).not.toHaveBeenCalled();
-  await loadPreview();
-  expect(remote.preview).toHaveBeenCalledWith({ month: "2026-08" });
-  expect(
-    screen.getByRole("tab", { name: en.monthlyHours.emailHtmlTab }),
-  ).toBeTruthy();
   expect(remote.write).not.toHaveBeenCalled();
 });
 

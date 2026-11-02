@@ -822,17 +822,24 @@ Configure and test the real email transport before enabling optional notificatio
 
 ## Monthly service-hours delivery
 
-Apply `20261030010000_monthly_service_hours` and regenerate Prisma before starting
-the updated application. The Node instrumentation starts the monthly generator
-once at boot and every minute; each pass materializes at most one due month.
-PostgreSQL retains the cursor, snapshot and outbox receipts across restarts and
-coordinates multiple instances. Existing email dispatch handles transport.
+Apply the complete migration chain, including
+`20261031010000_individual_school_hours`, and regenerate Prisma before starting
+the updated application. This adds the individual school reporting chain and
+outbox relation, disables the legacy monthly overview schedule and retires its
+unsent receipts. Sent historical evidence remains intact. Node instrumentation
+starts the school generator at boot and once per minute. PostgreSQL retains the
+cursor, individual baselines, snapshots and receipts across restarts.
 
-Automation is disabled by default. Configure it in **Service Hours → Monthly
-reports**, using the existing PROGRAM sender. Selected Admin/Head accounts need
-verified mailboxes and information-email consent; global optional mail and the
-Service Hours module must be enabled. The page displays next due time, last
-generation failure and delivery outcomes. Saving configuration sends no report.
+Automation is disabled by default. In **Service Hours → School reports**, review
+each individual's already-reported opening balance and school-account reference,
+then configure school recipient addresses and the PROGRAM sender. The default is
+month-end noon in the saved program timezone; admins can override each occurrence.
+Global program mail and the Service Hours module must be enabled. School mailboxes
+need no site accounts; retrieval uses a revocable report-only link. Saving settings
+sends no report. Protect AUTH_SECRET, which derives report capabilities, and do not
+include capability URLs in public logs or validation artifacts.
+Configure reverse-proxy/access-log redaction for `/reports/service-hours/*` paths:
+the path carries the report capability. Application diagnostics do not log it.
 
 Use persistent Node hosting, such as the supplied Docker stack. Short-lived
 hosting needs a separately operated persistent worker; this feature supplies no
@@ -841,7 +848,7 @@ uses data available at actual generation time. Retry preserves the saved report
 and Message-ID, but SMTP acceptance followed by a process crash can still result
 in duplicate delivery. Confirm real sender/inbox delivery on the intended host
 before enabling its schedule; synthetic tests do not establish SMTP readiness.
-See [monthly report contracts](../reference/monthly-service-hours.md).
+See [school report contracts](../reference/school-hours.md).
 
 ## Verify before opening intake
 

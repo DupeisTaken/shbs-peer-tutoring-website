@@ -2445,9 +2445,63 @@ model EmailDelivery {
   lastError String?
   monthlyHoursReportId String?
   monthlyHoursReport MonthlyHoursReport? @relation(fields: [monthlyHoursReportId], references: [id], onDelete: Restrict)
+  schoolHoursReportId String?
+  schoolHoursReport SchoolHoursReport? @relation(fields: [schoolHoursReportId], references: [id], onDelete: Restrict)
   @@index([status, availableAt])
   @@unique([requestKind, requestId, requestVersion])
   @@unique([monthlyHoursReportId, recipient])
+  @@unique([schoolHoursReportId, recipient])
+}
+
+/// Independent school issue chain; previews and mail delivery never advance it.
+model SchoolHoursSchedule {
+  id String @id @default("program")
+  enabled Boolean @default(false)
+  recipientEmails String[] @default([])
+  timeZone String @default("Asia/Shanghai")
+  includeStatistics Boolean @default(false)
+  dateOverrides Json @default("{}")
+  version Int @default(0)
+  baselineVersion Int @default(0)
+  openingBaseline Json?
+  openingReviewedAt DateTime?
+  headReportId String?
+  nextMonth String?
+  nextDueAt DateTime?
+  lastGenerationError String?
+  updatedAt DateTime @default(now()) @updatedAt
+  reports SchoolHoursReport[]
+}
+
+/// Financial snapshot is immutable; only link and supersession metadata can change.
+model SchoolHoursReport {
+  id String @id @default(cuid())
+  scheduleId String
+  schedule SchoolHoursSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  month String
+  revision Int
+  predecessorId String?
+  supersedesId String?
+  supersededById String?
+  configVersion Int
+  baselineVersion Int
+  timeZone String
+  generatedAt DateTime @default(now())
+  dueAt DateTime?
+  snapshot Json
+  sourceBaseline Json
+  intendedRecipients String[]
+  contentHash String
+  generationKey String @unique
+  generationHash String
+  generatedById String?
+  reason String?
+  linkTokenHash String
+  linkVersion Int @default(1)
+  linkRevokedAt DateTime?
+  deliveries EmailDelivery[]
+  @@unique([scheduleId, month, revision])
+  @@index([generatedAt])
 }
 
 /// Durable calendar cursor; configuration edits never rebucket recorded accounting months.

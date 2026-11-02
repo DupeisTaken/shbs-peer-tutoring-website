@@ -460,6 +460,7 @@ const writes = new Set([
 const independentlyAudited = new Set([
   // Snapshot/outbox generation owns its coherent transaction and aggregate audit.
   "monthlyHours",
+  "schoolHours",
   "approval",
   "recordTransfer",
   "accountCombine",

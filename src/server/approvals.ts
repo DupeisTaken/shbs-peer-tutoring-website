@@ -30,11 +30,8 @@ import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
 import { DEFAULT_FEATURES } from "./program/features";
 import { getProgramTimeZone } from "./program/time-zone";
-import {
-  monthlyHoursLock,
-  validateMonthlyHoursSettings,
-} from "./monthly-hours";
-import { monthlyHoursSettingsInput } from "./monthly-hours-input";
+import { schoolHoursLock, validateSchoolHoursSettings } from "./school-hours";
+import { schoolHoursSettingsInput } from "./school-hours-input";
 import { captureReviewReferences } from "./approval-reference-capture";
 import {
   applicationIdentityCorrectionInput,
@@ -327,6 +324,11 @@ export function canRequestProposal(
 /** Only registered management mutations may be replayed. Reuse their Zod parsers so
  * invalid input cannot enter the queue and dates/defaults have exactly the usual meaning. */
 export async function parseProposal(operation: string, input: unknown) {
+  if (["monthlyHours.save", "monthlyHours.generate", "monthlyHours.retry"].includes(operation))
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Monthly overviews have been retired. Use School Month Reports.",
+    });
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation))
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -445,57 +447,33 @@ export async function proposalTargets(
       );
     return captured;
   };
-  if (operation === "monthlyHours.save") {
-    const proposed = monthlyHoursSettingsInput.parse(input);
-    await lockEntity(client, monthlyHoursLock);
-    await validateMonthlyHoursSettings(client, proposed);
-    const config = await client.monthlyHoursSchedule.findUnique({
+  if (operation === "schoolHours.save") {
+    const proposed = schoolHoursSettingsInput.parse(input);
+    await lockEntity(client, schoolHoursLock);
+    await validateSchoolHoursSettings(client, proposed);
+    const config = await client.schoolHoursSchedule.findUnique({
       where: { id: "program" },
       select: {
         id: true,
         enabled: true,
-        recipientUserIds: true,
-        dayOfMonth: true,
-        localTime: true,
+        recipientEmails: true,
         timeZone: true,
+        includeStatistics: true,
+        dateOverrides: true,
         version: true,
+        baselineVersion: true,
+        openingReviewedAt: true,
+        headReportId: true,
       },
     });
     if ((config?.version ?? 0) !== proposed.expectedVersion)
       throw new TRPCError({
         code: "CONFLICT",
         message:
-          "The monthly report settings changed. Reload before proposing this change.",
+          "The school report settings changed. Reload before proposing this change.",
       });
-    // Include both added and removed recipients. Background generation advances
-    // its cursor without invalidating this independently versioned configuration.
-    const ids = [
-      ...new Set([
-        ...(config?.recipientUserIds ?? []),
-        ...proposed.recipientUserIds,
-      ]),
-    ].sort();
-    const recipients = await client.user.findMany({
-      where: { id: { in: ids } },
-      orderBy: { id: "asc" },
-      select: {
-        id: true,
-        name: true,
-        role: true,
-        suspendedAt: true,
-        mergedIntoId: true,
-        email: true,
-        emailInfo: true,
-        emailSecondaryRecipients: true,
-        emails: {
-          select: { email: true, verifiedAt: true },
-          orderBy: { email: "asc" },
-        },
-      },
-    });
     return capturedTargets({
-      monthlyHoursSchedule: config,
-      User: recipients.map((record) => ({ record })),
+      schoolHoursSchedule: config,
       ...(includeAuthorityContext
         ? { authorityContext: await authoritySnapshot(client) }
         : {}),
@@ -1172,9 +1150,10 @@ export async function queueProposal(
       await lockUsernameNamespace(tx);
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;
     }
-    // Monthly recipient notifications must not take account rows after holding
+    // School recipient notifications must not take account rows after holding
     // the schedule while a delivery admission owns the opposite lock order.
-    if (operation === "monthlyHours.save") await lockUsernameNamespace(tx);
+    if (operation === "schoolHours.save")
+      await lockUsernameNamespace(tx);
     // Retry/double-click of the same unchanged proposal returns its existing request.
     await lockEntity(
       tx,

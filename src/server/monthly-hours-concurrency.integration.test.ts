@@ -19,7 +19,6 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
-import { ApprovalQueued } from "~/server/approvals";
 import { emailSender, type EmailSender } from "~/server/email/sender";
 import { lockEntity } from "~/server/transactions";
 import { databaseScope } from "~/server/db-scope";
@@ -407,7 +406,7 @@ it("a concurrent preference opt-out completes before the waiting report is admit
     await expect(pending).resolves.toBeNull();
     expect(
       await db.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
-    ).toMatchObject({ status: "SKIPPED", lastError: "OPTED_OUT" });
+    ).toMatchObject({ status: "SKIPPED", lastError: "WORKFLOW_REPLACED" });
   } finally {
     admissionRequestsGlobal.resolve();
     await Promise.allSettled([preference, ...(pending ? [pending] : [])]);
@@ -452,7 +451,7 @@ it("waits for an effective feature change under the program-period fence before 
     await expect(pending).resolves.toBeNull();
     expect(
       await db.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
-    ).toMatchObject({ status: "SKIPPED", lastError: "FEATURE_OFF" });
+    ).toMatchObject({ status: "SKIPPED", lastError: "WORKFLOW_REPLACED" });
   } finally {
     requestedFence.resolve("cancelled");
     await Promise.allSettled([featureChange, ...(pending ? [pending] : [])]);
@@ -488,52 +487,40 @@ function overlappingAdmission() {
   return { accountLocked, proceed, admissionDatabase, competingDatabase };
 }
 
-it("an approving report recipient and their in-flight admission do not invert account and schedule locks", async () => {
-  const failure: unknown = await actor("COORDINATOR")
-    .monthlyHours.save({
-      enabled: true,
-      recipientUserIds: [adminId],
-      expectedVersion: 1,
-      dayOfMonth: 4,
-      localTime: "09:00",
-      timeZone: "Asia/Shanghai",
-    })
-    .catch((error: unknown) => error);
-  expect((failure as { cause?: unknown }).cause).toBeInstanceOf(ApprovalQueued);
-  const proposalId = (failure as { cause: ApprovalQueued }).cause.approvalId;
-  const overlap = overlappingAdmission();
-  const pending = admission(overlap.admissionDatabase);
-  void pending.catch(() => undefined);
-  let review: Promise<unknown> | undefined;
-  try {
-    await deadline(overlap.accountLocked.promise, "admission's recipient lock");
-    review = actor("ADMIN", overlap.competingDatabase).approval.decide({
-      id: proposalId,
-      approve: true,
-      note: "Synthetic concurrent report configuration review",
-    });
-    void review.catch(() => undefined);
-    const [admitted] = await Promise.all([pending, review]);
-    expect(admitted).not.toBeNull();
+it("a stale Coordinator save cannot revive an overview while its retired delivery is being claimed", async () => {
+  const before = await db.monthlyHoursSchedule.findUniqueOrThrow({
+    where: { id: "program" },
+  });
+  const [admitted] = await Promise.all([
+    admission(),
     expect(
-      (
-        await db.approvalRequest.findUniqueOrThrow({
-          where: { id: proposalId },
-        })
-      ).state,
-    ).toBe("APPROVED");
-    expect(
-      await db.monthlyHoursSchedule.findUniqueOrThrow({
-        where: { id: "program" },
+      actor("COORDINATOR").monthlyHours.save({
+        enabled: true,
+        recipientUserIds: [adminId],
+        expectedVersion: 1,
+        dayOfMonth: 4,
+        localTime: "09:00",
+        timeZone: "Asia/Shanghai",
       }),
-    ).toMatchObject({ version: 2, dayOfMonth: 4 });
-  } finally {
-    overlap.proceed.resolve();
-    await Promise.allSettled([pending, ...(review ? [review] : [])]);
-  }
-}, 20_000);
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" }),
+  ]);
+  expect(admitted).toBeNull();
+  expect(
+    await db.monthlyHoursSchedule.findUniqueOrThrow({
+      where: { id: "program" },
+    }),
+  ).toEqual(before);
+  expect(
+    await db.approvalRequest.count({
+      where: { requesterId: coordinatorId },
+    }),
+  ).toBe(0);
+  expect(
+    await db.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } }),
+  ).toMatchObject({ status: "SKIPPED", lastError: "WORKFLOW_REPLACED" });
+});
 
-it("automatic snapshot insertion and an admitted recipient do not invert schedule and delivery foreign-key locks", async () => {
+it("historical snapshot insertion and a retiring recipient do not invert schedule and delivery foreign-key locks", async () => {
   const overlap = overlappingAdmission();
   const pending = admission(overlap.admissionDatabase);
   void pending.catch(() => undefined);
@@ -544,7 +531,7 @@ it("automatic snapshot insertion and an admitted recipient do not invert schedul
       overlap.competingDatabase,
       new Date("1987-11-04T00:00:00Z"),
     );
-    expect(await pending).not.toBeNull();
+    expect(await pending).toBeNull();
     await expect(generation).resolves.toEqual({ generated: 1 });
     const report = await db.monthlyHoursReport.findUniqueOrThrow({
       where: { generationKey: automaticKey },

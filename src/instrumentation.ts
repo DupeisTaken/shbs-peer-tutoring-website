@@ -10,7 +10,8 @@ export async function register() {
     const { startNotificationWorker } =
       await import("./server/email/notification-delivery");
     startNotificationWorker();
-    const { startMonthlyHoursWorker } = await import("./server/monthly-hours-worker");
-    startMonthlyHoursWorker();
+    const { startSchoolHoursWorker } =
+      await import("./server/school-hours-worker");
+    startSchoolHoursWorker();
   }
 }

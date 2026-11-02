@@ -48,7 +48,7 @@ describe("management authority by effect", () => {
   it.each([
     "program.setSignupWindow", "program.prepareNextRecruitment", "program.setFeaturePending", "program.setTimeZone",
     "program.setCaptcha", "program.setProfilePolicy", "program.setSignupField",
-    "program.setEmailNotifications", "program.setSecondaryEmailBinding",
+    "program.setEmailNotifications", "program.setSecondaryEmailBinding", "schoolHours.save",
     "student.setCalendarDay", "student.setFeedbackSettings", "admin.upsertPolicy",
     "admin.deletePolicyLocale", "i18n.setLanguageEnabled", "i18n.deleteLanguage",
     "i18n.reorderLanguages", "messaging.setPermission", "admin.updateAccountProfile",
@@ -141,6 +141,13 @@ describe("management authority by effect", () => {
     expect(classifyApproval("admin.createRoom")).toMatchObject({ directRoles: ["ADMIN", "HEAD"], requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"], reviewerRoles: ["ADMIN", "HEAD"] });
     expect(classifyApproval("admin.futureWrite")).toBeNull();
     expect(classifyApproval("account.updateProfile")).toBeNull();
+  });
+
+  it("does not grant replay authority to the retired monthly overview workflow", () => {
+    for (const operation of ["monthlyHours.save", "monthlyHours.generate", "monthlyHours.retry"]) {
+      expect(APPROVAL_OPERATIONS[operation]).toBeUndefined();
+      expect(classifyApproval(operation)).toBeNull();
+    }
   });
 
   it("requires management authority when a slot edit propagates changes to submitted attendance", () => {

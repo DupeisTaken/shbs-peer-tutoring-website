@@ -1,5 +1,15 @@
 # Monthly service-hours reports
 
+This is the retained contract for legacy saved monthly snapshots. Active overview
+controls and automatic delivery have been replaced by
+[individual school reporting](school-hours.md). The replacement migration disables
+the old schedule and retires unsent overview receipts; historical sent reports
+remain inspectable. The configuration and preview descriptions below document the
+retained legacy implementation, not the current management entry points.
+Public management mutations and live previews now refuse this workflow; pending
+configuration approvals cannot replay it. Saved report/CSV readers remain
+available, while transport admission retires unsent legacy receipts.
+
 The **Service Hours → Monthly reports** controls configure one consolidated
 report for selected current Admin/Head accounts. Automation is off by default.
 Admin and Head apply configuration changes; Coordinators submit proposals for

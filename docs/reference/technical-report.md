@@ -1089,10 +1089,12 @@ In **Users & Roles → Edit profile**, Admin/Head can save a username for any lo
 
 ### Notification record navigation
 
-Monthly consolidated service-hours reports use a separate immutable snapshot and
-versioned schedule, with their own staff-only reader and the shared email outbox.
-See [monthly service-hours contracts](monthly-service-hours.md) for accounting,
-configuration authority, atomic generation, admission fences and retry behavior.
+Individual school service-hours reports use per-person reporting baselines, an
+immutable issue chain, a versioned schedule and the shared email outbox. Staff
+manage the workflow; school recipients retrieve one hours-only saved report by
+capability link. See [school reporting contracts](school-hours.md) for accounting,
+opening review, configuration authority, atomic issuance and retry behavior.
+The replaced admin monthly overview retains historical snapshots only.
 
 Notification record navigation composes the existing bell and authorized request/
 application cards. Validated record links opt out of Next's default scroll so it

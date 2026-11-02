@@ -641,43 +641,76 @@ it.each([
   ).toBe("SKIPPED");
 });
 
-it("fences expired leases/stale completion and retries the same immutable report only", async () => {
+it("fences expired or stale leases and completions while retiring old attempts without another award", async () => {
   const result = await generate();
   const row = await db.emailDelivery.findFirstOrThrow({
     where: { monthlyHoursReportId: result.reportId, userId: actorId },
   });
-  const first = await claim(row.id);
-  expect(first?.row.attemptId).toBeTruthy();
-  const staleLease = first!.row.leaseUntil!;
-  await db.emailDelivery.update({
+  const staleLease = new Date(Date.now() + 300_000);
+  const currentLease = new Date(Date.now() + 600_000);
+  const oldAttempt = randomUUID();
+  const currentAttempt = randomUUID();
+  // These attempts were admitted by the pre-upgrade worker. The retired
+  // dispatcher can drain them, but must not borrow a successor's lease.
+  const expiredLease = new Date(Date.now() - 1_000);
+  const expired = await db.emailDelivery.update({
     where: { id: row.id },
-    data: { leaseUntil: new Date(Date.now() + 600_000) },
+    data: {
+      status: "SENDING",
+      attemptId: oldAttempt,
+      attempts: 1,
+      leaseUntil: expiredLease,
+    },
   });
   expect(
-    await admitMonthlyHoursDelivery(
-      db,
-      row.id,
-      staleLease,
-      first!.row.attemptId,
-    ),
+    await admitMonthlyHoursDelivery(db, row.id, expiredLease, oldAttempt),
   ).toBeNull();
-  const second = await claim(row.id);
-  await finishMonthlyHoursDelivery(db, row.id, first!.row.attemptId!, true);
   expect(
-    (await db.emailDelivery.findUniqueOrThrow({ where: { id: row.id } }))
-      .attemptId,
-  ).toBe(second!.row.attemptId);
-  await finishMonthlyHoursDelivery(db, row.id, second!.row.attemptId!, false);
+    await db.emailDelivery.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toEqual(expired);
+  await db.emailDelivery.update({
+    where: { id: row.id },
+    data: {
+      status: "SENDING",
+      attemptId: currentAttempt,
+      attempts: 2,
+      leaseUntil: currentLease,
+    },
+  });
+  expect(
+    await admitMonthlyHoursDelivery(db, row.id, staleLease, oldAttempt),
+  ).toBeNull();
+  await finishMonthlyHoursDelivery(db, row.id, oldAttempt, true);
+  expect(
+    await db.emailDelivery.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({
+    status: "SENDING",
+    attemptId: currentAttempt,
+    leaseUntil: currentLease,
+  });
+  expect(
+    await admitMonthlyHoursDelivery(db, row.id, currentLease, oldAttempt),
+  ).toBeNull();
   const snapshot = await db.monthlyHoursReport.findUniqueOrThrow({
     where: { id: result.reportId },
   });
-  await db.emailDelivery.update({
+  expect(
+    await admitMonthlyHoursDelivery(db, row.id, currentLease, currentAttempt),
+  ).toBeNull();
+  const retired = await db.emailDelivery.findUniqueOrThrow({
     where: { id: row.id },
-    data: { status: "FAILED", attempts: 5 },
   });
-  expect(await retryMonthlyHoursReport(db, result.reportId, actorId)).toEqual({
-    queued: 1,
+  expect(retired).toMatchObject({
+    status: "SKIPPED",
+    lastError: "WORKFLOW_REPLACED",
+    attempts: 2,
+    attemptId: currentAttempt,
+    leaseUntil: null,
   });
+  await finishMonthlyHoursDelivery(db, row.id, currentAttempt, true);
+  expect(
+    await db.emailDelivery.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toEqual(retired);
   expect(await retryMonthlyHoursReport(db, result.reportId, actorId)).toEqual({
     queued: 0,
   });
@@ -690,37 +723,31 @@ it("fences expired leases/stale completion and retries the same immutable report
   ).toEqual(snapshot.snapshot);
 });
 
-it("records partial recipient success and stops failed delivery at the bounded attempt budget", async () => {
+it("preserves accepted pre-upgrade mail and retires its failed counterpart without a retry", async () => {
   const result = await generate();
   const rows = await db.emailDelivery.findMany({
     where: { monthlyHoursReportId: result.reportId },
     orderBy: { recipient: "asc" },
   });
-  const accepted = await claim(rows[0]!.id);
-  await finishMonthlyHoursDelivery(
-    db,
-    rows[0]!.id,
-    accepted!.row.attemptId!,
-    true,
-  );
+  const acceptedAttempt = randomUUID();
+  const failedAttempt = randomUUID();
+  await db.emailDelivery.update({
+    where: { id: rows[0]!.id },
+    data: { status: "SENDING", attemptId: acceptedAttempt, attempts: 1 },
+  });
+  await finishMonthlyHoursDelivery(db, rows[0]!.id, acceptedAttempt, true);
   await db.emailDelivery.update({
     where: { id: rows[1]!.id },
-    data: { attempts: 4 },
+    data: { status: "SENDING", attemptId: failedAttempt, attempts: 5 },
   });
-  const failed = await claim(rows[1]!.id);
-  await finishMonthlyHoursDelivery(
-    db,
-    rows[1]!.id,
-    failed!.row.attemptId!,
-    false,
-  );
+  await finishMonthlyHoursDelivery(db, rows[1]!.id, failedAttempt, false);
   const report = await getMonthlyHoursReport(db, result.reportId);
   expect(report.status).toBe("PARTIAL");
   expect(report.deliveryCounts.sent).toBe(1);
-  expect(report.deliveryCounts.failed).toBe(1);
+  expect(report.deliveryCounts.skipped).toBe(1);
   expect(await claim(rows[1]!.id)).toBeNull();
   expect(await retryMonthlyHoursReport(db, result.reportId, actorId)).toEqual({
-    queued: 1,
+    queued: 0,
   });
   expect(
     (await db.emailDelivery.findUniqueOrThrow({ where: { id: rows[0]!.id } }))
