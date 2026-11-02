@@ -33,20 +33,25 @@ async function run({
   documentation = 0,
   labels = [],
   gitDiff,
+  gitFetch,
+  gitCommand,
+  base = "base",
   head = "head",
   fetchedHead = head,
   latestHead = head,
   state = "open",
-  latestBase = "base",
+  latestState = state,
+  latestBase = base,
+  latestError,
   missing = false,
   race = false,
   apiError,
   addError,
   removeError,
+  mutations = [],
+  commands = [],
 } = {}) {
-  const mutations = [];
   const messages = [];
-  const commands = [];
   const created = new Set();
   let reads = 0;
   const issues = {
@@ -75,13 +80,17 @@ async function run({
     rest: {
       issues,
       pulls: {
-        get: async () => ({
-          data: {
-            state,
-            head: { sha: reads++ === 0 ? head : latestHead },
-            base: { sha: reads === 1 ? "base" : latestBase },
-          },
-        }),
+        get: async () => {
+          const initial = reads++ === 0;
+          if (!initial && latestError) throw latestError;
+          return {
+            data: {
+              state: initial ? state : latestState,
+              head: { sha: initial ? head : latestHead },
+              base: { sha: initial ? base : latestBase },
+            },
+          };
+        },
       },
     },
     paginate: async (method, params) => {
@@ -97,7 +106,8 @@ async function run({
         execFileSync: (command, args) => {
           assert.equal(command, "git");
           commands.push(args);
-          if (args[0] === "fetch") return "";
+          if (gitCommand) return gitCommand(args);
+          if (args[0] === "fetch") return gitFetch ? gitFetch(args) : "";
           if (args[0] === "rev-parse") return fetchedHead;
           assert.equal(
             args[0],
@@ -332,6 +342,169 @@ test("closed or changing PRs cause no label mutations", async () => {
       );
     }
   }
+});
+
+const missingPullRef = (args) => {
+  if (args.at(-1).startsWith("+refs/pull/")) {
+    throw new Error("fatal: couldn't find remote ref refs/pull/7/head");
+  }
+  return "";
+};
+
+test("missing PR ref falls back once to the exact API SHA on origin", async () => {
+  const head = "a".repeat(40);
+  const { commands, mutations, messages } = await run({
+    head,
+    total: 35,
+    gitFetch: missingPullRef,
+  });
+  assert.deepEqual(commands.slice(0, 4), [
+    ["fetch", "--no-tags", "origin", "base"],
+    [
+      "fetch",
+      "--no-tags",
+      "origin",
+      "+refs/pull/7/head:refs/remotes/pr-size/7",
+    ],
+    ["fetch", "--no-tags", "origin", `+${head}:refs/remotes/pr-size/7`],
+    ["rev-parse", "refs/remotes/pr-size/7"],
+  ]);
+  assert.ok(commands.slice(4).every((args) => args[0] === "diff"));
+  assert.deepEqual(
+    mutations.find(([action]) => action === "add"),
+    ["add", ["code:M"]],
+  );
+  assert.match(messages[0], /exact API head SHA from origin/);
+
+  const normal = await run({ head });
+  assert.equal(
+    normal.commands.filter(([command]) => command === "fetch").length,
+    2,
+  );
+  const moved = await run({ head, fetchedHead: "b".repeat(40) });
+  assert.equal(
+    moved.commands.filter(([command]) => command === "fetch").length,
+    2,
+  );
+  assert.deepEqual(moved.mutations, []);
+  assert.ok(!moved.commands.some(([command]) => command === "diff"));
+});
+
+test("fallback still rejects stale head, base and closed PR metadata before label writes", async () => {
+  for (const options of [
+    { latestHead: "changed-head" },
+    { latestBase: "changed-base" },
+    { latestState: "closed" },
+  ]) {
+    const { mutations, commands } = await run({
+      gitFetch: missingPullRef,
+      documentation: 500,
+      labels: ["code:L", "docs:L"],
+      ...options,
+    });
+    assert.deepEqual(mutations, []);
+    assert.equal(commands.filter(([command]) => command === "diff").length, 3);
+  }
+});
+
+test("fetch, verification, diff and metadata failures never mutate labels", async () => {
+  const unavailable = new Error("exact commit unavailable");
+  const baseFailure = new Error("base fetch failed");
+  const diffFailure = new Error("diff failed");
+  const metadataFailure = new Error("metadata unavailable");
+  for (const [options, expected] of [
+    [
+      {
+        gitFetch: () => {
+          throw baseFailure;
+        },
+      },
+      baseFailure,
+    ],
+    [
+      {
+        gitFetch: (args) => {
+          missingPullRef(args);
+          if (args.at(-1).startsWith("+")) throw unavailable;
+          return "";
+        },
+      },
+      unavailable,
+    ],
+    [{ gitFetch: missingPullRef, fetchedHead: "wrong" }, /does not match/],
+    [
+      {
+        gitFetch: missingPullRef,
+        gitDiff: () => {
+          throw diffFailure;
+        },
+      },
+      diffFailure,
+    ],
+    [
+      { gitFetch: missingPullRef, latestError: metadataFailure },
+      metadataFailure,
+    ],
+  ]) {
+    const mutations = [];
+    const commands = [];
+    await assert.rejects(run({ ...options, mutations, commands }), expected);
+    assert.deepEqual(mutations, []);
+    assert.ok(commands.filter(([command]) => command === "fetch").length <= 3);
+  }
+});
+
+test("real Git fetches the immutable head without a PR ref or checking out PR files", async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "shbs-pr-size-fetch-"),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const origin = path.join(directory, "origin");
+  const checkout = path.join(directory, "trusted");
+  const git = (cwd, ...args) =>
+    execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  fs.mkdirSync(origin);
+  git(origin, "init", "--quiet");
+  git(origin, "config", "user.name", "PR size test");
+  git(origin, "config", "user.email", "test@example.invalid");
+  git(origin, "config", "core.autocrlf", "false");
+  fs.writeFileSync(path.join(origin, "app.ts"), "trusted\n");
+  git(origin, "add", ".");
+  git(origin, "commit", "--quiet", "-m", "trusted base");
+  const base = git(origin, "rev-parse", "HEAD").trim();
+  git(directory, "clone", "--quiet", origin, checkout);
+  const trustedContent = fs.readFileSync(path.join(checkout, "app.ts"));
+  fs.writeFileSync(path.join(origin, "app.ts"), "PR data\n".repeat(35));
+  git(origin, "commit", "--quiet", "-am", "PR head");
+  const head = git(origin, "rev-parse", "HEAD").trim();
+  // Move the advertised branch beyond the API snapshot: only the exact commit
+  // should be measured, even when a newer branch tip is available.
+  fs.writeFileSync(path.join(origin, "app.ts"), "newer PR data\n".repeat(500));
+  git(origin, "commit", "--quiet", "-am", "newer branch tip");
+  const { mutations, messages } = await run({
+    base,
+    head,
+    gitCommand: (args) => git(checkout, ...args),
+  });
+  assert.equal(
+    git(checkout, "rev-parse", "refs/remotes/pr-size/7").trim(),
+    head,
+  );
+  assert.equal(git(checkout, "rev-parse", "HEAD").trim(), base);
+  assert.deepEqual(
+    fs.readFileSync(path.join(checkout, "app.ts")),
+    trustedContent,
+  );
+  assert.equal(git(checkout, "status", "--porcelain"), "");
+  assert.match(messages.at(-1), /36 effective lines -> code:M/);
+  assert.deepEqual(
+    mutations.find(([action]) => action === "add"),
+    ["add", ["code:M"]],
+  );
 });
 
 test("API failures propagate, except removal of an already missing label", async () => {
