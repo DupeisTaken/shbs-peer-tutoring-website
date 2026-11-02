@@ -316,10 +316,9 @@ export function SchoolHoursBlockers({
   const t = useTranslations("schoolHours");
   if (!blockers.length) return null;
   const names = new Map(
-    participants.map((person) => [
-      person.beneficiaryId,
-      person.exportName.trim(),
-    ]),
+    participants
+      .filter((person) => person.exportName.trim().length > 0)
+      .map((person) => [person.beneficiaryId, person.exportName.trim()]),
   );
   return (
     <StatePanel kind="error" title={t("blocked")}>
@@ -331,7 +330,7 @@ export function SchoolHoursBlockers({
               : blocker.message}
             {blocker.beneficiaryId && (
               <span className="block text-xs">
-                {names.get(blocker.beneficiaryId) || blocker.beneficiaryId}
+                {names.get(blocker.beneficiaryId) ?? blocker.beneficiaryId}
               </span>
             )}
           </li>
