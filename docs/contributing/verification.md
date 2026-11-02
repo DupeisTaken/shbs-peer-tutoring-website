@@ -102,6 +102,10 @@ nine-minute whole-job budget and does not replace it.
 
 Operator CLIs run outside Next's bundled server. When changing their imports,
 keep the runtime stage's explicit source copies complete. `npm run test:deployment`
+also follows explicit sources staged into `runtime-output/app` when that whole
+directory is copied into the final image. Stage new CLI sources there to avoid
+storing duplicate runner layers for files already present in Next's trace. Tests
+reject missing final copies and incorrect source destinations. The suite
 traverses all CLI dependency graphs and verifies production packages without
 importing application code. Image smoke runs administrator bootstrap twice and
 reconciliation with clean/findings exit statuses, using only each CLI's required

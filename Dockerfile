@@ -40,6 +40,9 @@ RUN npm prune --omit=dev --ignore-scripts
 FROM build AS runtime-files
 COPY --from=runtime-deps /app/node_modules /runtime-production/node_modules
 RUN node scripts/assemble-runtime.mjs .next/standalone /runtime-production/node_modules /runtime-output
+# Complete the operator graph before its single app-layer copy. A later runner
+# COPY would store a duplicate layer when Next already traced this source.
+COPY --from=build /app/src/server/program/continuation-opening.ts /runtime-output/app/src/server/program/continuation-opening.ts
 
 ############################
 # 3. Runtime (slim, non-root)
@@ -87,7 +90,6 @@ COPY --from=build --chown=nextjs:nodejs \
 COPY --from=build --chown=nextjs:nodejs /app/src/server/database-url.ts ./src/server/database-url.ts
 COPY --from=build --chown=nextjs:nodejs /app/src/server/auth/password.ts ./src/server/auth/password.ts
 COPY --from=build --chown=nextjs:nodejs /app/src/server/program/bootstrap.ts ./src/server/program/bootstrap.ts
-COPY --from=build --chown=nextjs:nodejs /app/src/server/program/continuation-opening.ts ./src/server/program/continuation-opening.ts
 # Operator CLIs run outside Next's bundle. Keep their complete source dependency
 # graph explicit; deployment tests traverse imports to catch missing descendants.
 COPY --from=build --chown=nextjs:nodejs \
