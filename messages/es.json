@@ -3505,6 +3505,7 @@
         "TuteeRequestInvalidity": "Revisión de inscripción pública anterior"
       },
       "operations": {
+        "schoolHours_save": "Cambiar la programación de informes de horas para la escuela",
         "monthlyHours_save": "Cambiar la programación de informes mensuales de horas",
         "corrections_correctAttendance": "Corregir la asistencia de una sesión",
         "corrections_correctPatrol": "Corregir el registro de una ronda",
@@ -3743,6 +3744,8 @@
     "recordedPosition": "Posición registrada {number}",
     "presentation": {
       "entities": {
+        "SchoolHoursSchedule": "Calendario de informes escolares",
+        "SchoolHoursReport": "Informe individual de horas para la escuela",
         "MonthlyHoursSchedule": "Programación de informes mensuales",
         "MonthlyHoursReport": "Informe mensual de horas de servicio",
         "User": "Cuenta",
@@ -3867,6 +3870,22 @@
         "RecoveryReceipt": "Comprobante de recuperación"
       },
       "fields": {
+        "recipientEmails": "Correos de los destinatarios de la escuela",
+        "includeStatistics": "Incluir estadísticas del programa",
+        "dateOverrides": "Fechas de envío mensuales personalizadas",
+        "baselineVersion": "Versión de los saldos informados",
+        "openingBaseline": "Saldos iniciales revisados",
+        "openingReviewedAt": "Fecha de revisión de los saldos iniciales",
+        "headReportId": "Último informe escolar confirmado",
+        "nextMonth": "Próximo mes del informe escolar",
+        "predecessorId": "Informe emitido anterior",
+        "supersedesId": "Edición del informe sustituida",
+        "supersededById": "Edición del informe de reemplazo",
+        "sourceBaseline": "Saldos de origen informados y fijados",
+        "linkVersion": "Versión del enlace del informe",
+        "linkRevokedAt": "Fecha de revocación del enlace del informe",
+        "schoolHoursReportId": "ID del informe escolar",
+        "schoolHoursReport": "Informe escolar",
         "recipientUserIds": "Cuentas de personal seleccionadas",
         "dayOfMonth": "Día del mes",
         "localTime": "Hora local",

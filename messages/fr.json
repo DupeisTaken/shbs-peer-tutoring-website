@@ -3505,6 +3505,7 @@
         "TuteeRequestInvalidity": "Examen d’une ancienne inscription publique"
       },
       "operations": {
+        "schoolHours_save": "Modifier la planification des rapports d’heures pour l’école",
         "monthlyHours_save": "Modifier la planification des rapports mensuels des heures",
         "corrections_correctAttendance": "Corriger la présence à une séance",
         "corrections_correctPatrol": "Corriger un dossier de ronde",
@@ -3743,6 +3744,8 @@
     "recordedPosition": "Position enregistrée {number}",
     "presentation": {
       "entities": {
+        "SchoolHoursSchedule": "Calendrier des rapports scolaires",
+        "SchoolHoursReport": "Rapport individuel des heures pour l’école",
         "MonthlyHoursSchedule": "Planification des rapports mensuels",
         "MonthlyHoursReport": "Rapport mensuel des heures de service",
         "User": "Compte",
@@ -3867,6 +3870,22 @@
         "RecoveryReceipt": "Reçu de récupération"
       },
       "fields": {
+        "recipientEmails": "Adresses e-mail des destinataires scolaires",
+        "includeStatistics": "Inclure les statistiques du programme",
+        "dateOverrides": "Dates d’envoi mensuelles personnalisées",
+        "baselineVersion": "Version des soldes déclarés",
+        "openingBaseline": "Soldes initiaux vérifiés",
+        "openingReviewedAt": "Date de vérification des soldes initiaux",
+        "headReportId": "Dernier rapport scolaire confirmé",
+        "nextMonth": "Prochain mois de rapport scolaire",
+        "predecessorId": "Rapport émis précédent",
+        "supersedesId": "Édition du rapport remplacée",
+        "supersededById": "Édition de remplacement du rapport",
+        "sourceBaseline": "Soldes sources déclarés et figés",
+        "linkVersion": "Version du lien du rapport",
+        "linkRevokedAt": "Date de révocation du lien du rapport",
+        "schoolHoursReportId": "Identifiant du rapport scolaire",
+        "schoolHoursReport": "Rapport scolaire",
         "recipientUserIds": "Comptes du personnel sélectionnés",
         "dayOfMonth": "Jour du mois",
         "localTime": "Heure locale",

@@ -12,6 +12,7 @@ import {
   auditEntityLabelKey,
   auditEnumLabelKey,
   auditFieldLabelKey,
+  auditReferenceEntity,
   reviewSchema,
   reviewEnumValues,
   reviewFieldKeys,
@@ -28,6 +29,30 @@ const at = (catalog: unknown, path: string | null): unknown =>
           : undefined,
       catalog,
     );
+
+it("labels school-report proposal aliases and delivery references within their owners", () => {
+  expect(auditEntityLabelKey("schoolHoursSchedule")).toBe(
+    "auditEventDetails.presentation.entities.SchoolHoursSchedule",
+  );
+  expect(auditFieldLabelKey("schoolHoursSchedule", "dateOverrides")).toBe(
+    "auditEventDetails.presentation.fields.dateOverrides",
+  );
+  expect(auditFieldLabelKey("SchoolHoursReport", "sourceBaseline")).toBe(
+    "auditEventDetails.presentation.fields.sourceBaseline",
+  );
+  expect(auditFieldLabelKey("SchoolHoursReport", "linkVersion")).toBe(
+    "auditEventDetails.presentation.fields.linkVersion",
+  );
+  expect(auditReferenceEntity("SchoolHoursReport", "scheduleId")).toBe(
+    "SchoolHoursSchedule",
+  );
+  expect(auditReferenceEntity("EmailDelivery", "schoolHoursReportId")).toBe(
+    "SchoolHoursReport",
+  );
+  expect(auditFieldLabelKey("MonthlyHoursSchedule", "dateOverrides")).toBeNull();
+  expect(auditFieldLabelKey("User", "sourceBaseline")).toBeNull();
+  expect(auditFieldLabelKey("SchoolHoursReport", "linkTokenHash")).toBeNull();
+});
 
 it("labels recovery evidence only within its known schema owners", () => {
   expect(auditEntityLabelKey("RecoveryReceipt")).toBe(

@@ -22,7 +22,7 @@ import {
 
 const reportId = z.object({ id: z.string().min(1).max(128) });
 const linkInput = reportId.extend({
-  expectedLinkVersion: z.number().int().positive().optional(),
+  expectedLinkVersion: z.number().int().positive(),
 });
 
 /** Retained reports are staff-readable even while service hours is disabled.

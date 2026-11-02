@@ -3505,6 +3505,7 @@
         "TuteeRequestInvalidity": "旧方式の公開申込の審査"
       },
       "operations": {
+        "schoolHours_save": "学校向け奉仕時間報告のスケジュールを変更",
         "monthlyHours_save": "月次サービス時間レポートのスケジュールを変更",
         "corrections_correctAttendance": "指導回の出欠記録を訂正",
         "corrections_correctPatrol": "巡回記録を訂正",
@@ -3743,6 +3744,8 @@
     "recordedPosition": "記録位置 {number}",
     "presentation": {
       "entities": {
+        "SchoolHoursSchedule": "学校向け報告スケジュール",
+        "SchoolHoursReport": "学校向け個人奉仕時間報告",
         "MonthlyHoursSchedule": "月次レポートのスケジュール",
         "MonthlyHoursReport": "月次サービス時間レポート",
         "User": "アカウント",
@@ -3867,6 +3870,22 @@
         "RecoveryReceipt": "復旧の完了記録"
       },
       "fields": {
+        "recipientEmails": "学校の受信者メールアドレス",
+        "includeStatistics": "プログラム統計を含める",
+        "dateOverrides": "月別の送信日時の変更",
+        "baselineVersion": "報告済み残高のバージョン",
+        "openingBaseline": "確認済み開始残高",
+        "openingReviewedAt": "開始残高の確認日時",
+        "headReportId": "最新の確定済み学校向け報告",
+        "nextMonth": "次の学校向け報告月",
+        "predecessorId": "前回発行した報告",
+        "supersedesId": "置き換えられた報告版",
+        "supersededById": "置き換え後の報告版",
+        "sourceBaseline": "固定した報告済み記録残高",
+        "linkVersion": "報告リンクのバージョン",
+        "linkRevokedAt": "報告リンクの取り消し日時",
+        "schoolHoursReportId": "学校向け報告ID",
+        "schoolHoursReport": "学校向け報告",
         "recipientUserIds": "選択した職員アカウント",
         "dayOfMonth": "毎月の日付",
         "localTime": "現地時刻",

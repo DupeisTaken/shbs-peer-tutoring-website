@@ -5,6 +5,7 @@ import { db } from "./db";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import type { DomainDb } from "./transactions";
 import {
+  changeSchoolHoursLink,
   generateSchoolHours,
   getSchoolHoursReport,
   previewSchoolHours,
@@ -15,6 +16,8 @@ import {
   schoolHoursCsv,
   sweepSchoolHours,
 } from "./school-hours";
+import { issueSchoolHoursToken } from "./school-hours-link";
+import { retrieveSchoolHoursReport } from "./school-hours-public";
 
 vi.mock("~/server/email/sender", () => ({
   isEmailDeliveryAvailable: () => true,
@@ -481,6 +484,108 @@ it("allows signed reversals for source removal under an existing owner and retai
   ).toBe(false);
 });
 
+it("retains factual credits after login recovery retirement and reports only subsequent changes", async () => {
+  await expect(
+    db.$transaction(
+      async (tx) => {
+        const ownerId = id("recovery-retained-owner");
+        await tx.user.create({
+          data: {
+            id: ownerId,
+            role: "TUTOR",
+            tutorId: id("A"),
+            email: `${ownerId}@example.test`,
+          },
+        });
+        await reviewOpening(tx);
+        await enable(tx);
+        await issue(month, undefined, tx);
+        // Recovery retires login authority, not the factual sessions or their owner.
+        await tx.user.update({
+          where: { id: ownerId },
+          data: {
+            recoveryVoidedAt: new Date(),
+            tutorAccessRevoked: true,
+          },
+        });
+        const afterRetirement = await previewSchoolHours(tx, "2013-10");
+        expect(afterRetirement.blockers).toEqual([]);
+        expect(
+          afterRetirement.rows.find(
+            (row) => row.beneficiaryId === `user:${ownerId}`,
+          )?.hoursToAdd,
+        ).toBe(0);
+        await tx.serviceHourAdjustment.create({
+          data: {
+            id: id("recovery-late-credit"),
+            tutorId: id("A"),
+            type: "EXTRA",
+            amount: 0.25,
+            month: "2012-01",
+            schoolYear: "11-12",
+            quarter: "Q2",
+          },
+        });
+        const next = await issue("2013-10", undefined, tx);
+        expect(
+          next.report.rows.find(
+            (row) => row.beneficiaryId === `user:${ownerId}`,
+          )?.hoursToAdd,
+        ).toBe(0.25);
+        const repeated = await previewSchoolHours(tx, "2013-11");
+        expect(
+          repeated.rows.find((row) => row.beneficiaryId === `user:${ownerId}`)
+            ?.hoursToAdd,
+        ).toBe(0);
+        throw new Error("rollback synthetic recovery-retained account");
+      },
+      { timeout: 20000 },
+    ),
+  ).rejects.toThrow("rollback synthetic recovery-retained account");
+});
+
+it("rechecks login recovery retirement inside the school mutation fence", async () => {
+  await expect(
+    db.$transaction(
+      async (tx) => {
+        const voidedActor = id("recovery-voided-reviewer");
+        await tx.user.create({
+          data: {
+            id: voidedActor,
+            email: `${voidedActor}@example.test`,
+            role: "HEAD",
+            recoveryVoidedAt: new Date(),
+          },
+        });
+        const before = await tx.schoolHoursSchedule.findUniqueOrThrow({
+          where: { id: "program" },
+        });
+        await expect(
+          saveSchoolHoursSettings(
+            tx,
+            {
+              enabled: false,
+              recipientEmails: [],
+              timeZone: "Asia/Shanghai",
+              includeStatistics: false,
+              dateOverrides: {},
+              expectedVersion: 0,
+            },
+            voidedActor,
+          ),
+        ).rejects.toMatchObject({ code: "FORBIDDEN" });
+        expect(
+          await tx.schoolHoursSchedule.findUniqueOrThrow({
+            where: { id: "program" },
+          }),
+        ).toEqual(before);
+        throw new Error("rollback synthetic recovery-voided reviewer");
+      },
+      { timeout: 20000 },
+    ),
+  ).rejects.toThrow("rollback synthetic recovery-voided reviewer");
+});
+
 it("retains combined Crew history under the survivor and preserves the permanent deletion guard", async () => {
   // Permanent retirement fixtures belong in a rollback transaction. The real
   // retention guard must remain enabled, including during test cleanup.
@@ -824,4 +929,110 @@ it("advances an older due occurrence already covered by a later manual issue wit
       .filter((row) => row.beneficiaryId.includes(prefix))
       .every((row) => row.hoursToAdd === 0),
   ).toBe(true);
+});
+
+it("a newer revocation defeats a stale reissue review and only a fresh review can restore access", async () => {
+  await reviewOpening();
+  await enable();
+  const issued = await issue();
+  const reportId = issued.receipt.reportId;
+  const firstReview = await getSchoolHoursReport(db, reportId);
+  const secondReview = await getSchoolHoursReport(db, reportId);
+  const originalToken = issueSchoolHoursToken(
+    reportId,
+    firstReview.linkVersion,
+  );
+  expect(firstReview.linkVersion).toBe(1);
+  expect(secondReview.linkVersion).toBe(1);
+  expect(firstReview.linkUrl).toBe(`/reports/service-hours/${originalToken}`);
+  expect(await retrieveSchoolHoursReport(db, originalToken)).toMatchObject({
+    status: "ready",
+  });
+
+  await changeSchoolHoursLink(
+    db,
+    reportId,
+    actorId,
+    false,
+    firstReview.linkVersion,
+  );
+  const revoked = await db.schoolHoursReport.findUniqueOrThrow({
+    where: { id: reportId },
+  });
+  expect(revoked.linkVersion).toBe(2);
+  expect(revoked.linkRevokedAt).not.toBeNull();
+  expect(await retrieveSchoolHoursReport(db, originalToken)).toMatchObject({
+    status: "unavailable",
+  });
+  await expect(
+    changeSchoolHoursLink(
+      db,
+      reportId,
+      actorId,
+      true,
+      secondReview.linkVersion,
+    ),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    changeSchoolHoursLink(
+      db,
+      reportId,
+      actorId,
+      false,
+      firstReview.linkVersion,
+    ),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.schoolHoursReport.findUniqueOrThrow({
+      where: { id: reportId },
+    }),
+  ).toEqual(revoked);
+
+  const freshReview = await getSchoolHoursReport(db, reportId);
+  expect(freshReview.linkUrl).toBeNull();
+  expect(
+    await changeSchoolHoursLink(
+      db,
+      reportId,
+      actorId,
+      false,
+      freshReview.linkVersion,
+    ),
+  ).toEqual({ revoked: true });
+  expect(
+    await db.schoolHoursReport.findUniqueOrThrow({
+      where: { id: reportId },
+    }),
+  ).toEqual(revoked);
+  expect(
+    await db.auditLog.count({
+      where: { entityId: reportId, operation: "schoolHours.revokeLink" },
+    }),
+  ).toBe(1);
+
+  const replacementToken = issueSchoolHoursToken(reportId, 3);
+  expect(
+    await changeSchoolHoursLink(
+      db,
+      reportId,
+      actorId,
+      true,
+      freshReview.linkVersion,
+    ),
+  ).toEqual({
+    linkVersion: 3,
+    url: `/reports/service-hours/${replacementToken}`,
+  });
+  expect(await retrieveSchoolHoursReport(db, replacementToken)).toMatchObject({
+    status: "ready",
+  });
+  expect(await retrieveSchoolHoursReport(db, originalToken)).toMatchObject({
+    status: "unavailable",
+  });
+  const restored = await db.schoolHoursReport.findUniqueOrThrow({
+    where: { id: reportId },
+  });
+  expect(restored.linkRevokedAt).toBeNull();
+  expect(restored.snapshot).toEqual(revoked.snapshot);
+  expect(restored.sourceBaseline).toEqual(revoked.sourceBaseline);
 });

@@ -3505,6 +3505,7 @@
         "messagePermissions": "消息权限"
       },
       "operations": {
+        "schoolHours_save": "更改学校服务时数报告计划",
         "monthlyHours_save": "更改月度服务时数报告计划",
         "corrections_correctAttendance": "更正课次考勤",
         "corrections_correctPatrol": "更正巡查记录",
@@ -3743,6 +3744,8 @@
     "recordedPosition": "记录位置 {number}",
     "presentation": {
       "entities": {
+        "SchoolHoursSchedule": "学校报告计划",
+        "SchoolHoursReport": "个人学校服务时数报告",
         "MonthlyHoursSchedule": "月度报告计划",
         "MonthlyHoursReport": "月度服务时数报告",
         "User": "账号",
@@ -3867,6 +3870,22 @@
         "RecoveryReceipt": "恢复回执"
       },
       "fields": {
+        "recipientEmails": "学校收件人邮箱",
+        "includeStatistics": "包含项目统计",
+        "dateOverrides": "各月发送日期调整",
+        "baselineVersion": "已报告余额版本",
+        "openingBaseline": "已审核的起始余额",
+        "openingReviewedAt": "起始余额审核时间",
+        "headReportId": "最新已确认的学校报告",
+        "nextMonth": "下一学校报告月份",
+        "predecessorId": "上一份已发出报告",
+        "supersedesId": "被替代的报告版本",
+        "supersededById": "替代报告版本",
+        "sourceBaseline": "冻结的已报告来源余额",
+        "linkVersion": "报告链接版本",
+        "linkRevokedAt": "报告链接撤销时间",
+        "schoolHoursReportId": "学校报告编号",
+        "schoolHoursReport": "学校报告",
         "recipientUserIds": "选定的工作人员账号",
         "dayOfMonth": "每月日期",
         "localTime": "当地时间",

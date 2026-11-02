@@ -3505,6 +3505,7 @@
         "TuteeRequestInvalidity": "Prüfung früherer öffentlicher Anmeldungen"
       },
       "operations": {
+        "schoolHours_save": "Zeitplan der Schulstundenberichte ändern",
         "monthlyHours_save": "Zeitplan der monatlichen Dienststundenberichte ändern",
         "corrections_correctAttendance": "Anwesenheit einer Sitzung korrigieren",
         "corrections_correctPatrol": "Kontrollprotokoll korrigieren",
@@ -3743,6 +3744,8 @@
     "recordedPosition": "Erfasste Position {number}",
     "presentation": {
       "entities": {
+        "SchoolHoursSchedule": "Zeitplan für Schulberichte",
+        "SchoolHoursReport": "Individueller Schulstundenbericht",
         "MonthlyHoursSchedule": "Monatsberichtszeitplan",
         "MonthlyHoursReport": "Monatlicher Dienststundenbericht",
         "User": "Konto",
@@ -3867,6 +3870,22 @@
         "RecoveryReceipt": "Wiederherstellungsbeleg"
       },
       "fields": {
+        "recipientEmails": "E-Mail-Adressen der Schulempfänger",
+        "includeStatistics": "Programmstatistik einschließen",
+        "dateOverrides": "Abweichende monatliche Versandtermine",
+        "baselineVersion": "Version der gemeldeten Salden",
+        "openingBaseline": "Geprüfte Anfangssalden",
+        "openingReviewedAt": "Prüfzeitpunkt der Anfangssalden",
+        "headReportId": "Neuester bestätigter Schulbericht",
+        "nextMonth": "Nächster Schulberichtsmonat",
+        "predecessorId": "Vorheriger ausgegebener Bericht",
+        "supersedesId": "Ersetzte Berichtsversion",
+        "supersededById": "Neue Ersatzversion des Berichts",
+        "sourceBaseline": "Festgehaltene gemeldete Quellsalden",
+        "linkVersion": "Version des Berichtslinks",
+        "linkRevokedAt": "Widerrufszeitpunkt des Berichtslinks",
+        "schoolHoursReportId": "Schulberichts-ID",
+        "schoolHoursReport": "Schulbericht",
         "recipientUserIds": "Gewählte Mitarbeiterkonten",
         "dayOfMonth": "Tag im Monat",
         "localTime": "Ortszeit",

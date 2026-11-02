@@ -188,12 +188,14 @@ const tableAliases: Record<string, string> = {
   PageLayout: "layout",
   ProgramSettings: "programSettings",
   MonthlyHoursSchedule: "monthlyHoursSchedule",
+  SchoolHoursSchedule: "schoolHoursSchedule",
   Language: "languages",
 };
 // Only operations that write record fields directly get an automatic field comparison.
 // A decision/action's input must never be mistaken for its resulting database state.
 const comparable = new Set([
   "monthlyHours.save",
+  "schoolHours.save",
   "admin.reorderRooms",
   "program.setNameFields",
   "program.setCalendarDay",

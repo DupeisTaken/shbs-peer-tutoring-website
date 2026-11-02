@@ -117,16 +117,29 @@ propose settings changes for review. Opening-baseline review, issuance, retry an
 link management require direct Admin/Head authority. Public capabilities confer
 no management or write access.
 
-Apply all three migrations through `20261031030000_school_hours_context_guard`
+Apply all five reporting migrations through `20261103020000_hours_recovery_baseline`
 and regenerate Prisma before starting the updated application. The first migration
-adds the school reporting tables
-and outbox relation, disables the replaced monthly schedule and retires unsent
+adds the school reporting tables and outbox relation, disables the replaced
+monthly schedule and retires unsent
 overview receipts while preserving sent evidence. The two follow-up migrations
-permit only the narrowly scoped external school
-delivery shape and forbid request-specific context on those receipts.
+permit only the narrowly scoped external school delivery shape and forbid
+request-specific context on those receipts.
+The journal migration registers both legacy and school-reporting tables with the
+recovery change journal. It reuses compatible origin/always coverage and installs
+missing triggers; it refuses disabled, replica-only or otherwise incompatible
+triggers without replacing them. Investigate that database state before retrying.
+The final migration records a present-day `UNSUPPORTED` baseline for existing rows
+linked to unfinished recovery actions by the journal's top-level identities. It
+does not update report rows, reconstruct past event order, infer ownership from
+private report contents or reopen completed recoveries. Repeating registration
+does not duplicate baseline evidence. Registration follows connected report and
+schedule identities to completion in one call; a shared schedule conservatively
+connects all its editions. These consequences require manual review,
+not automatic admission compensation. The record inspector exposes only permitted
+metadata; report bodies, opening balances, recipients and link hashes stay private.
 Automation starts disabled; review opening balances and configure recipients
-before activation. No new
-environment secret is required. Persistent Node hosting is required for automatic
+before activation. No new environment secret is required. Persistent Node hosting
+is required for automatic
 sending; real SMTP/inbox readiness must be verified on the intended deployment.
 
 See the [staff guide](../guides/user-guide.md) and

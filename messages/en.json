@@ -3505,6 +3505,7 @@
         "messagePermissions": "Messaging permissions"
       },
       "operations": {
+        "schoolHours_save": "Change school hours report schedule",
         "monthlyHours_save": "Change monthly service-hours report schedule",
         "corrections_correctAttendance": "Correct a session's attendance",
         "corrections_correctPatrol": "Correct a patrol record",
@@ -3743,6 +3744,8 @@
     "recordedPosition": "Recorded position {number}",
     "presentation": {
       "entities": {
+        "SchoolHoursSchedule": "School report schedule",
+        "SchoolHoursReport": "Individual school-hours report",
         "MonthlyHoursSchedule": "Monthly report schedule",
         "MonthlyHoursReport": "Monthly service-hours report",
         "User": "Account",
@@ -3867,6 +3870,22 @@
         "RecoveryReceipt": "Recovery receipt"
       },
       "fields": {
+        "recipientEmails": "School recipient email addresses",
+        "includeStatistics": "Include program statistics",
+        "dateOverrides": "Monthly send-date overrides",
+        "baselineVersion": "Reported-balance version",
+        "openingBaseline": "Reviewed opening balances",
+        "openingReviewedAt": "Opening balances reviewed at",
+        "headReportId": "Latest committed school report",
+        "nextMonth": "Next school-report month",
+        "predecessorId": "Previous issued report",
+        "supersedesId": "Replaced report edition",
+        "supersededById": "Replacement report edition",
+        "sourceBaseline": "Frozen reported-source balances",
+        "linkVersion": "Report link version",
+        "linkRevokedAt": "Report link revoked at",
+        "schoolHoursReportId": "School report ID",
+        "schoolHoursReport": "School report",
         "recipientUserIds": "Selected staff accounts",
         "dayOfMonth": "Day of month",
         "localTime": "Local time",
