@@ -6,6 +6,7 @@ import { api } from "~/trpc/react";
 import { Button } from "~/app/_components/ui/button";
 import { SignupError } from "~/app/_components/signup-error";
 import { InvitationReceipt } from "../register/invitation-receipt";
+import { SignupProgress } from "./signup-progress";
 import {
   useSignupCaptcha,
   CaptchaError,
@@ -15,11 +16,14 @@ import {
 export function SurveyVerification({
   email,
   intentId,
+  emailSent = true,
+  focusOnMount = false,
 }: {
   email: string;
   intentId?: string;
+  emailSent?: boolean;
+  focusOnMount?: boolean;
 }) {
-  const t = useTranslations("accountInvitation");
   const survey = useTranslations("survey");
   const utils = api.useUtils();
   const [code, setCode] = useState("");
@@ -41,9 +45,18 @@ export function SurveyVerification({
   // Verification and resend own the same challenge. One shared admission boundary
   // prevents a resend rotating the source while verification issues its receipt.
   const busy = verify.isPending || resend.isPending || captcha.pending;
-  if (verify.data) return <InvitationReceipt invitation={verify.data} />;
+  if (verify.data)
+    return <InvitationReceipt invitation={verify.data} tuteeSignup />;
+  // A successful resend supersedes the initial delivery failure without resubmitting answers.
+  const deliveryFailed = !(resend.data?.emailSent ?? emailSent);
   return (
     <div className="mx-auto max-w-md space-y-5 text-left">
+      <SignupProgress
+        current={1}
+        title={survey("savedTitle")}
+        focusOnMount={focusOnMount}
+      />
+      <p className="break-words">{survey("savedBody", { email })}</p>
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -64,8 +77,17 @@ export function SurveyVerification({
             }
           />
           <Button type="submit" variant="primary" className="w-full">
-            {t("verify")}
+            {survey("verifyContinue")}
           </Button>
+          <p className="text-sm text-slate-600">{survey("mailboxHelp")}</p>
+          {deliveryFailed && (
+            <p
+              role="alert"
+              className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+            >
+              {survey("mailFailed")}
+            </p>
+          )}
           <Button
             variant="secondary"
             className="w-full"
@@ -99,11 +121,17 @@ export function SurveyVerification({
           </p>
         )}
       </form>
-      {resend.data && (
+      {resend.data?.emailSent && (
         <p role="status" className="muted text-sm">
-          {survey(resend.data.emailSent ? "resent" : "mailFailed")}
+          {survey("resent")}
         </p>
       )}
+      {intentId && (verify.error ?? resend.error) && (
+        <p className="text-sm text-slate-600">
+          {survey("verificationRecovery")}
+        </p>
+      )}
+      <p className="muted text-sm">{survey("priority")}</p>
       {resend.error && (
         <p role="alert" className="text-sm text-red-700">
           <CaptchaError error={resend.error} />

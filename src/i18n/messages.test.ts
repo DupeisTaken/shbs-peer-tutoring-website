@@ -310,6 +310,8 @@ describe("English heading and navigation capitalization", () => {
     const proseTitles = new Set([
       "landing.heroTitle",
       "admin.requests.banFlagTitle",
+      "survey.savedTitle",
+      "survey.reviewTitle",
     ]);
     // Some rendered h1–h3 labels use action or section keys instead of Title/Heading.
     const sectionHeadings = new Set([

@@ -43,9 +43,9 @@ const invitation = {
   proof: "a".repeat(64),
   email: "verified@example.test",
 };
-const view = (locale: "en" | "zh" = "en") => (
+const view = (locale: "en" | "zh" = "en", tuteeSignup = false) => (
   <NextIntlClientProvider locale={locale} messages={locale === "en" ? en : zh}>
-    <InvitationReceipt invitation={invitation} />
+    <InvitationReceipt invitation={invitation} tuteeSignup={tuteeSignup} />
   </NextIntlClientProvider>
 );
 beforeEach(() => {
@@ -71,6 +71,42 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it.each(["en", "zh"] as const)(
+  "keeps the %s account-review action reachable after closing a tutee receipt",
+  async (locale) => {
+    const messages = locale === "en" ? en : zh;
+    const { rerender } = render(view(locale, true));
+    expect(
+      screen.getByRole("dialog", { name: messages.survey.reviewTitle }),
+    ).toBeTruthy();
+    const link = await screen.findByRole("link", {
+      name: messages.survey.stepReview,
+    });
+    const href = link.getAttribute("href");
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.accountInvitation.close }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen
+        .getByRole("link", { name: messages.survey.stepReview })
+        .getAttribute("href"),
+    ).toBe(href);
+    expect(screen.getByText(messages.survey.reviewHelp)).toBeTruthy();
+    state.pending = true;
+    rerender(view(locale, true));
+    expect(
+      screen.queryByRole("link", { name: messages.survey.stepReview }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: messages.survey.stepReview })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(state.send).not.toHaveBeenCalled();
+  },
+);
 
 it("admits one email write per click burst and allows retry after failure", async () => {
   const { rerender } = render(view());
