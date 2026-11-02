@@ -39,11 +39,14 @@ const remote = vi.hoisted(() => ({
   headEdit: vi.fn(),
   calendar: vi.fn(),
   agenda: vi.fn(),
+  history: vi.fn(),
   calendarStatus: vi.fn(),
   planningWrite: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
-  const { useQuery, useMutation } = await import("@tanstack/react-query");
+  const { useQuery, useInfiniteQuery, useMutation } = await import(
+    "@tanstack/react-query"
+  );
   const read = (path: string[], load: typeof remote.me) => ({
     _def: () => ({ path }),
     useQuery(input?: unknown, options?: { enabled?: boolean }) {
@@ -65,6 +68,20 @@ vi.mock("~/trpc/react", async () => {
     api: {
       sessionPlanning: {
         agenda: read(["sessionPlanning", "agenda"], remote.agenda),
+        history: {
+          useInfiniteQuery(input: unknown, options?: { enabled?: boolean }) {
+            return useInfiniteQuery({
+              queryKey: [
+                ["sessionPlanning", "history"],
+                { input, type: "infinite" },
+              ],
+              initialPageParam: null,
+              queryFn: (): unknown => remote.history(),
+              getNextPageParam: () => undefined,
+              ...options,
+            });
+          },
+        },
         calendarStatus: read(
           ["sessionPlanning", "calendarStatus"],
           remote.calendarStatus,
@@ -371,6 +388,9 @@ it("recovers school-calendar reads independently while retaining the tutee's wee
   // Keep the real agenda mounted: an absent API fixture must surface as an app
   // error, while calendar recovery must not refetch either participant read.
   await screen.findByText(en.sessionPlanning.empty);
+  // The shared agenda declares its history hook, but the default tutee view
+  // must not fetch history or couple it to school-calendar recovery.
+  expect(remote.history).not.toHaveBeenCalled();
   expect(
     screen.getByRole("heading", { name: en.tuteePortal.weeklyArrangements }),
   ).toBeTruthy();
