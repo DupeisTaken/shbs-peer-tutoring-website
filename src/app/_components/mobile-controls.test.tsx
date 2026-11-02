@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
@@ -613,12 +614,13 @@ describe("patrol headcount choices", () => {
 });
 
 describe("program feature switches", () => {
-  it("names a switch and derives the next request from its staged state", () => {
+  it("names a switch and derives the next request from its staged state", async () => {
+    state.setFeature.mockResolvedValueOnce(undefined);
     render(<ProgramPage />, { wrapper });
     fireEvent.click(
       screen.getByRole("tab", { name: messages.admin.program.panels.access }),
     );
-    const toggle = screen.getByRole("switch", {
+    const toggle = screen.getByRole<HTMLButtonElement>("switch", {
       name: messages.admin.program.features.name.QUARTER_SYSTEM,
     });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
@@ -627,6 +629,9 @@ describe("program feature switches", () => {
       key: "QUARTER_SYSTEM",
       enabled: true,
     });
+    expect(toggle.disabled).toBe(true);
+    await waitFor(() => expect(toggle.disabled).toBe(false));
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
   });
 
   it("uses the effective state when no staged state exists and prevents duplicate writes", () => {

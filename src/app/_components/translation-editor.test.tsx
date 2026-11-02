@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   missing: false,
@@ -134,7 +134,7 @@ it("retains a visited editor draft and leaves arrow navigation manually activate
   fireEvent.change(draft, { target: { value: "Unsaved translation" } });
   const strings = screen.getByRole("tab", { name: "strings" });
   const website = screen.getByRole("tab", { name: "website" });
-  strings.focus();
+  act(() => strings.focus());
   fireEvent.keyDown(strings, { key: "ArrowRight" });
   expect(document.activeElement).toBe(website);
   expect(strings.getAttribute("aria-selected")).toBe("true");

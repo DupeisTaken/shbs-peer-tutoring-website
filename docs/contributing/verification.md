@@ -11,6 +11,11 @@ Run commands from the repository root:
 `npm run check` generates Next.js route/framework types before lint and TypeScript
 checks, so it also works in a fresh checkout that has never started the dev server.
 
+`npm run check` runs ESLint with `--max-warnings=0`: both warnings and errors fail
+the required local/CI gate. Fix their causes before handoff; do not suppress
+diagnostics or lower rule severity to obtain a pass. A focused file check helps
+during development but does not replace the full repository check.
+
 | Change                        | Verify with                                                                                           |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Any commit                    | `npm run check` and relevant tests                                                                    |
@@ -45,6 +50,12 @@ and failures. Use these reports and whole-job durations to assess shard balance
 before adding more runners. The matrix size supplies Vitest's shard denominator;
 keep the matrix contiguous from 1 and preserve serial files within each runner.
 Local `npm test` still runs the complete suite serially.
+
+When reviewing React or translation diagnostics, keep Vitest's visible default
+reporter enabled. A JSON-only report establishes test results, not the absence of
+console diagnostics. Use `--reporter=default --reporter=json --outputFile=<path>`
+to retain both visible output and machine-readable results; inspect the output
+before claiming a run was free of warnings.
 
 The current sizing evidence is [run 41489477923](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41489477923)
 at `9b30d7347bcd2e4639405142681533719730dd90`: seven shards passed, but shard 8
