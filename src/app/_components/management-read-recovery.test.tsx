@@ -12,6 +12,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactElement } from "react";
+import type { RoomOutcome } from "~/lib/room-allocation";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import RegistrationCodesPage from "../(admin)/admin/registration-codes/page";
@@ -234,7 +235,10 @@ beforeEach(() => {
     { id: "room", name: "101", unavailabilities: [] },
   ]);
   remote.summary.mockResolvedValue(totals);
-  remote.write.mockResolvedValue({ roomOutcome: "none" });
+  // Saving this confirmed legacy assignment retains its existing fixed room.
+  remote.write.mockResolvedValue({
+    roomOutcome: "RETAINED",
+  } satisfies { roomOutcome: RoomOutcome });
 });
 afterEach(() => {
   cleanup();
@@ -423,6 +427,7 @@ it("retains pairing edits, identifies the failed prerequisite and preserves an a
   expect(remote.write).toHaveBeenCalledWith(
     expect.objectContaining({ id: "pair", overrideTicket: "existing-ticket" }),
   );
+  expect(await screen.findByText(en.roomAllocation.outcome.RETAINED)).toBeTruthy();
 });
 it("retains recorded service-hour totals beside background recovery", async () => {
   mount(<ServiceHoursPage />);

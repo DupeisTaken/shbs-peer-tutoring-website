@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -99,8 +99,12 @@ function AuditLog() {
     approvalId,
     cursor: cursors.at(-1),
   });
-  const denied = useSessionAccessDenied(log, options);
-  useEffect(() => setAccessDenied(denied), [denied]);
+  const denied = useSessionAccessDenied(
+    { ...log, denialKey: "audit-log" },
+    options,
+  );
+  // The read key depends on the view, so synchronize its denial bridge before commit.
+  if (accessDenied !== denied) setAccessDenied(denied);
   useSessionPageScroll({
     id: "audit",
     scope: JSON.stringify([approvalId ?? "all", timeZone, view]),

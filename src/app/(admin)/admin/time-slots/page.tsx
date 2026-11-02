@@ -59,14 +59,17 @@ export default function TimeSlotsPage() {
   const accessDenied =
     slots.error?.data?.code === "FORBIDDEN" ||
     slots.error?.data?.code === "UNAUTHORIZED";
+  // Latch denial before committing any cached private content. Effects only evict.
+  if (accessDenied && !denied) setDenied(true);
+  else if (denied && !accessDenied && slots.isSuccess && !slots.isFetching)
+    setDenied(false);
   useEffect(() => {
     if (accessDenied) {
-      setDenied(true);
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.timeSlots, undefined, "query"),
       });
-    } else if (slots.isSuccess && !slots.isFetching) setDenied(false);
-  }, [accessDenied, slots.isSuccess, slots.isFetching, queryClient]);
+    }
+  }, [accessDenied, queryClient]);
   const readBlocked = slots.data === undefined || !!slots.error;
   useSessionPageScroll({
     id: "time-slots-v1",

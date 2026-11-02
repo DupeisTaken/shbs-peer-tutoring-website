@@ -122,26 +122,31 @@ export default function CrewPage() {
   useEffect(() => {
     if (reviewRevoked) revokeReview();
   }, [reviewRevoked, revokeReview]);
-  // Each crew section owns an independent read and denial. A failed application
-  // query must neither empty unrelated roster data nor expose stale private text.
+  // Each crew section owns an independent read and denial. Compute the next
+  // latch before commit; cache removal remains an external effect.
+  const nextDenied = new Set(denied);
+  for (const scope of Object.keys(sources) as Scope[]) {
+    const query = sources[scope].query;
+    if (accessDenied(scope)) nextDenied.add(scope);
+    else if (query.isSuccess && !query.isFetching) nextDenied.delete(scope);
+  }
+  if (
+    nextDenied.size !== denied.size ||
+    [...nextDenied].some((scope) => !denied.has(scope))
+  )
+    setDenied(nextDenied);
+  const evictedScopes = useRef<ReadonlySet<Scope>>(new Set());
   useEffect(() => {
-    const next = new Set(denied);
-    for (const scope of Object.keys(sources) as Scope[]) {
-      const source = sources[scope];
-      const code = source.query.error?.data?.code;
-      if (code === "FORBIDDEN" || code === "UNAUTHORIZED") {
-        if (!denied.has(scope))
-          queryClient.removeQueries({ queryKey: source.key(), exact: true });
-        next.add(scope);
-      } else if (source.query.isSuccess && !source.query.isFetching)
-        next.delete(scope);
+    for (const scope of denied) {
+      if (!evictedScopes.current.has(scope))
+        queryClient.removeQueries({
+          queryKey: sources[scope].key(),
+          exact: true,
+        });
     }
-    if (
-      next.size !== denied.size ||
-      [...next].some((scope) => !denied.has(scope))
-    )
-      setDenied(next);
-  }, [sources, denied, queryClient]);
+    // Re-rendering a pending Retry must not remove the newly fetching query.
+    evictedScopes.current = denied;
+  }, [denied, sources, queryClient]);
   const feedback = (scope: Scope) => {
     const { query, title } = sources[scope];
     const retry = () => {
