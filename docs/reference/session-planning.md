@@ -188,6 +188,12 @@ Room ranking builds one booking index while retaining canonical-person scoring,
 group usage order and the final authoritative room check. Private calendar output
 skips folding only when a complete line already fits within 75 UTF-8 bytes.
 
+Continuation membership is read once per publication in batches of at most 500
+distinct source pairing IDs. The period/planning fences also serialize its
+writers; the operation-local set selects the continuation key scheme only when
+every pairing in the group belongs to it. Partial groups keep ordinary keys.
+Source reconciliation, consent evidence and conflict validation remain live.
+
 Agenda reads still catch up publication and deadlines. The period, room, planning
 and authority-row fences remain in force, including re-reads after waiting for
 source locks. A worker interval or TTL cannot replace these checks without a
@@ -211,6 +217,11 @@ future candidate assignments early: their presence would incorrectly suppress
 unmaterialized recurring commitments. Direct account links retain precedence over
 retained profile aliases. Existing agreements and restoration keep their live
 validation path.
+
+The publication statement excludes recurring bookings outside the strict
+45-minute overlap before loading their rosters and canonical ownership. It uses
+the normalized duration, not a legacy pairing's stored end time; exact adjacency
+remains available. Calendar hint validation and unfiltered fallback are retained.
 
 The PostgreSQL adapter names only the fixed publication-validation statement,
 using a hash of its complete SQL. PostgreSQL can reuse its prepared statement on
@@ -243,6 +254,26 @@ both modes. The room harness includes allocator computation with immediate mock
 reads and explicit guard stubs. Neither measures network, rendering, real database
 latency, lock contention or a website-wide speedup. Preserve the emitted revisions,
 source hashes, runtime, sample ranges and scope alongside any reported medians.
+
+The PostgreSQL domain benchmark is `scripts/benchmark-session-publication.ts`.
+It requires an explicitly owned loopback database on port 55439 named
+`shbs_performance_test`, with this checkout's complete migrations already applied.
+It **truncates that database** for each synthetic fixture; never use a database
+owned by another task. Run baseline and changed sources serially with the exact
+same script, runtime, migrations and scenario:
+
+```sh
+node --conditions=react-server --import tsx scripts/benchmark-session-publication.ts --scenario basic --output outputs/scheduling-performance/baseline-basic.json
+node --conditions=react-server --import tsx scripts/benchmark-session-publication.ts --scenario basic --output outputs/scheduling-performance/after-basic.json --compare outputs/scheduling-performance/baseline-basic.json
+```
+
+Repeat with `--scenario rooms` and separate result paths for 100 assigned rooms.
+The script checks complete normalized publication/agenda results, migration
+checksums and source stability. One warmup and five measured samples establish
+illustrative medians/ranges and query counts, not production p95. Locks and
+recovery triggers execute normally, but the fixture has no competing requests,
+negotiations, HTTP, rendering or SMTP. Recovery journal semantics and concurrent
+publication require the domain tests in addition to benchmark output parity.
 
 [Workflow tests](../../src/server/session-planning/workflows.test.ts) exercise
 the real transaction/state model against the guarded isolated test database.

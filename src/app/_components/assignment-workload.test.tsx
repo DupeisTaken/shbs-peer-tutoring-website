@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
@@ -13,7 +14,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
-import { WorkloadAssignmentConfirmation } from "./assignment-workload";
+import {
+  WorkloadAssignmentConfirmation,
+  useAssignmentWorkloads,
+} from "./assignment-workload";
 import type { WorkloadProposal } from "~/lib/tutor-workload";
 import { invalidateWorkloads } from "~/lib/workload-cache";
 
@@ -229,6 +233,58 @@ it("conceals and evicts private preference on denial, then recovers explicitly",
   expect(
     await screen.findByRole("option", { name: "Synthetic Tutor (1/1)" }),
   ).toBeTruthy();
+});
+
+function WorkloadReader({ name }: { name: string }) {
+  const query = useAssignmentWorkloads();
+  return (
+    <section aria-label={name}>
+      <span>
+        {query.unavailable ? "Denied" : query.data ? "Authorized" : "Loading"}
+      </span>
+      <button onClick={() => void query.retry()}>Retry</button>
+    </section>
+  );
+}
+
+it("releases both mounted readers only after one sibling's authorized retry", async () => {
+  state.client = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  });
+  render(
+    <QueryClientProvider client={state.client}>
+      <WorkloadReader name="First reader" />
+      <WorkloadReader name="Second reader" />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(screen.getAllByText("Authorized")).toHaveLength(2));
+  state.read.mockRejectedValue(
+    Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+  );
+  await act(async () => {
+    await state.client!.invalidateQueries({ queryKey: ["assignment-workload"] });
+  });
+  await waitFor(() => expect(screen.getAllByText("Denied")).toHaveLength(2));
+  state.read.mockRejectedValue(new Error("Offline"));
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "First reader" })).getByRole(
+      "button", { name: "Retry" },
+    ),
+  );
+  await waitFor(() => expect(state.read).toHaveBeenCalledTimes(3));
+  await waitFor(() =>
+    expect(state.client!.getQueryState(["assignment-workload"])?.fetchStatus).toBe(
+      "idle",
+    ),
+  );
+  expect(screen.getAllByText("Denied")).toHaveLength(2);
+  state.read.mockResolvedValue(workload());
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "First reader" })).getByRole(
+      "button", { name: "Retry" },
+    ),
+  );
+  await waitFor(() => expect(screen.getAllByText("Authorized")).toHaveLength(2));
 });
 const review = (proposals?: WorkloadProposal[]) => {
   state.client = new QueryClient({

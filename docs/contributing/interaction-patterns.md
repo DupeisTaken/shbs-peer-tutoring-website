@@ -78,6 +78,16 @@ approval rules, immutable evidence, query access or profile/policy version owner
 - A successful write followed by failed synchronization is distinct from a failed
   write. Use the feature's read-only refresh recovery instead of resubmitting it;
   tutor availability is the existing example.
+- Give each target and dialog opening its own password, draft and adopted review
+  snapshot; late reads from a closed opening cannot populate its replacement.
+  Keep pending-write admission and accepted receipts in the list or route owner,
+  so replacing a target or removing its row cannot admit another write or discard
+  recovery. A settling operation may release only its own admission lease.
+- Conceal private evidence immediately on authoritative denial and retain that
+  denial through transport failures and query-key changes. A cached success at a
+  reset/default key is not fresh authority. Recovery must freshly authorize the
+  affected reads and their prerequisites; drive cache eviction from the retained
+  denial episode, including prerequisites newly denied during recovery.
 - Nested review owns Escape and keyboard focus. Restore the exact opener when it
   remains usable; otherwise focus the remaining parent dialog. Pending writes block
   parent dismissal until they settle. Keep long editors' Close header reachable.
@@ -120,14 +130,23 @@ passwords, private record text or authorization results in navigation storage.
 
 Use `useSessionViewState({ id, initialState, parse, scope, enabled })` from
 `src/app/_components/session-view-state.tsx` for explicit presentation choices.
-It returns the usual state/setter pair. Give each feature/schema a stable `id`,
+The first two tuple entries are the usual state/event-setter pair. The optional
+third entry, `reconcileValue(next)`, uses the current render's parser for guarded
+same-component reconciliation (for example, consuming an authorized notification
+arrival). It accepts a concrete value, preserves explicit choices before identity
+verification, and leaves storage writes to committed effects. Keep the ordinary
+setter for events/effects; its stable identity does not depend on inline parsers.
+Give each feature/schema a stable `id`,
 include its period and validated query context in `scope`, and supply a parser
 that allowlists the currently available choices. `viewEnum`, `viewPage` and
 `viewSearch` are small helpers; record parsers must select only named filter
 fields. `viewFields` composes those named field parsers and drops unknown fields.
 Restored values are checked against the current parser on every render, and a
 normalized result replaces the stored representation so removed IDs cannot return
-when a catalog changes again.
+when a catalog changes again. Browser storage is read through a pure, bounded
+external-store snapshot, with an empty server snapshot for hydration. Normalized
+writes and rejected-entry removal happen after commit; abandoned renders must not
+change storage. A failed optional storage write retains the usable mounted choice.
 Parsers validate live feature values as well as restored values; they must not add
 input limits that the feature did not have. `viewSearch` checks text shape, while
 `viewIdentifier` retains a 160-character bound for IDs and URL choices before their
@@ -146,8 +165,17 @@ arrive, then allowlist current IDs. This exposes the initial presentation while
 loading and leaves the saved choice intact; `enabled: false` still clears denial.
 `useSessionAccessDenied(...ownedQueries)` provides a presentation-only denial latch:
 an authoritative access error remains denied through later transport failures until
-the owned reads succeed again. Hide cached denied content in the same owner; this
-helper never grants permission or replaces server checks.
+the owned reads succeed again. Denial decisions reconcile before children commit;
+cache eviction and review revocation remain effects owned by the feature. Hide
+cached denied content in that same owner, and drive eviction from the retained
+latch if clearing a filter can change the failed query key before commit.
+When denial resets query inputs, opt that read into a stable named slot, for example
+`useSessionAccessDenied({ ...query, denialKey: "audit-log" }, options)`. Keep the
+name fixed across filter changes and independent of query-array position. With
+query timestamps available, only a success newer than that slot's denial can
+release it; an older cached default scope cannot. Unrelated successful reads need
+no extra refresh, and callers without a named slot retain the ordinary recovery
+contract. The helper never grants permission or replaces server checks.
 
 Apply-only filters save their committed read criteria, not the unfinished input.
 Audit reconstructs timezone-aware query dates from date-control strings; its form

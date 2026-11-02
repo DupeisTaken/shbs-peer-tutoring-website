@@ -26,6 +26,11 @@ export async function initializePersonSource(
     const survivorId = chain[chain.length - 1]!;
     if (survivorId !== source.id) {
       const personId = await initializePersonSource(tx, { kind: "USER", id: survivorId });
+      // Existing survivor metadata is preserved for reconciliation, but must not
+      // propagate a redirected group to another missing source.
+      const person = await tx.person.findUniqueOrThrow({ where: { id: personId }, select: { mergedIntoId: true } });
+      if (person.mergedIntoId)
+        throw new TRPCError({ code: "CONFLICT", message: "The survivor points to a retired directory group. Review identity reconciliation before initializing this account." });
       await tx.user.update({ where: { id: source.id }, data: { personId } });
       await tx.person.update({ where: { id: personId }, data: { revision: { increment: 1 } } });
       return personId;

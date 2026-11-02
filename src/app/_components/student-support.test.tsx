@@ -4,11 +4,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   appealsUseQuery: vi.fn(),
+  feedbackUseQuery: vi.fn<(input: { page: number }) => unknown>(),
+  feedbackRefetch: vi.fn(),
+  appealsRefetch: vi.fn(),
   refetch: vi.fn(),
   settings: vi.fn(),
   role: "HEAD",
   feedbackError: null as Error | null,
   feedbackBody: "",
+  feedbackUpdatedAt: 1,
+  feedbackErrorUpdatedAt: 0,
   saveError: null as { message: string; data?: { approvalId?: string } } | null,
   decideError: null as {
     message: string;
@@ -36,7 +41,7 @@ vi.mock("~/trpc/react", () => ({
     student: {
       feedbackSettings: { useQuery: state.settings },
       feedbackList: {
-        useQuery: () => ({
+        useQuery: (input: { page: number }) => state.feedbackUseQuery(input) ?? ({
           data: state.feedbackBody
             ? [
                 {
@@ -50,6 +55,11 @@ vi.mock("~/trpc/react", () => ({
               ]
             : [],
           error: state.feedbackError,
+          dataUpdatedAt: state.feedbackUpdatedAt,
+          errorUpdatedAt: state.feedbackErrorUpdatedAt,
+          refetch: state.feedbackRefetch,
+          isSuccess: !state.feedbackError,
+          isFetching: false,
         }),
       },
       appeals: { useQuery: state.appealsUseQuery },
@@ -107,10 +117,16 @@ beforeEach(() => {
   state.role = "HEAD";
   state.feedbackError = null;
   state.feedbackBody = "";
+  state.feedbackUpdatedAt = 1;
+  state.feedbackErrorUpdatedAt = 0;
+  state.feedbackUseQuery.mockReset();
   state.saveError = null;
   state.decideError = null;
   state.settings.mockReturnValue({ data: false, isSuccess: true });
-  state.appealsUseQuery.mockReturnValue({ data: { rows: [], total: 0 } });
+  state.appealsUseQuery.mockReturnValue({
+    data: { rows: [], total: 0 },
+    refetch: state.appealsRefetch,
+  });
 });
 it("clears a denied feed page and conceals cached private feedback instead of restoring it", () => {
   state.feedbackBody = "Sensitive review body";
@@ -136,9 +152,18 @@ it("clears a denied feed page and conceals cached private feedback instead of re
   state.feedbackError = Object.assign(new Error("Denied"), {
     data: { code: "FORBIDDEN" },
   });
+  state.feedbackErrorUpdatedAt = 2;
   rendered.rerender(content());
   expect(screen.queryByText("Sensitive review body")).toBeNull();
   expect(window.sessionStorage.getItem(key)).toBeNull();
+  expect(screen.getByRole("button", { name: "next-0" })).toBeTruthy();
+  state.feedbackError = new Error("Network unavailable");
+  rendered.rerender(content());
+  expect(screen.queryByText("Sensitive review body")).toBeNull();
+  state.feedbackError = null;
+  state.feedbackUpdatedAt = 3;
+  rendered.rerender(content());
+  expect(screen.getByText("Sensitive review body")).toBeTruthy();
   expect(screen.getByRole("button", { name: "next-0" })).toBeTruthy();
 });
 it("drops staff-only panel/filter choices when authoritative account role loses staff access", () => {
@@ -310,4 +335,164 @@ it("keeps queued appeal approval feedback visible after leaving Appeals", () => 
   fireEvent.click(screen.getByRole("tab", { name: "feedback" }));
   expect(screen.getByRole("status").textContent).toBe("queuedBody");
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+
+it("keeps denied appeal evidence concealed through transport failures until a successful read", () => {
+  const data = {
+    rows: [{
+      id: "appeal",
+      studentName: "Synthetic student",
+      state: "RESOLVED",
+      cardReason: "Synthetic card reason",
+      body: "Private appeal evidence",
+    }],
+    total: 1,
+  };
+  const result = {
+    data,
+    isSuccess: true,
+    isFetching: false,
+    error: null,
+    dataUpdatedAt: 1,
+    errorUpdatedAt: 0,
+  };
+  state.appealsUseQuery.mockReturnValue(result);
+  const view = render(<StudentSupport />);
+  expect(screen.getByText("Private appeal evidence")).toBeTruthy();
+  state.appealsUseQuery.mockReturnValue({
+    ...result,
+    isSuccess: false,
+    error: { message: "Denied", data: { code: "FORBIDDEN" } },
+    errorUpdatedAt: 2,
+  });
+  view.rerender(<StudentSupport />);
+  expect(screen.queryByText("Private appeal evidence")).toBeNull();
+  state.appealsUseQuery.mockReturnValue({
+    ...result,
+    isSuccess: false,
+    error: new Error("Network unavailable"),
+  });
+  view.rerender(<StudentSupport />);
+  expect(screen.queryByText("Private appeal evidence")).toBeNull();
+  state.appealsUseQuery.mockReturnValue({ ...result, dataUpdatedAt: 3 });
+  view.rerender(<StudentSupport />);
+  expect(screen.getByText("Private appeal evidence")).toBeTruthy();
+});
+
+
+it("keeps feedback concealed when denial resets its page to an older successful cache entry", () => {
+  let denyPageOne = false;
+  let firstPageUpdatedAt = 20;
+  let fetching = false;
+  state.feedbackUseQuery.mockImplementation(({ page }: { page: number }) => ({
+    data: [{
+      id: `feedback-${page}`,
+      studentName: "Synthetic learner",
+      subject: "Math",
+      rating: 5,
+      body: page === 1 ? "Second-page feedback" : "First-page feedback",
+      updatedAt: new Date("2026-10-01T00:00:00Z"),
+    }],
+    error: page === 1 && denyPageOne
+      ? { message: "Denied", data: { code: "FORBIDDEN" } }
+      : null,
+    isSuccess: !(page === 1 && denyPageOne),
+    isFetching: fetching,
+    dataUpdatedAt: page === 1 ? 10 : firstPageUpdatedAt,
+    errorUpdatedAt: page === 1 && denyPageOne ? 100 : 0,
+    refetch: state.feedbackRefetch,
+  }));
+  const key = viewStateKey("head", "/admin/student-support", "support-feedback-page-v1", "");
+  writeViewState(window.sessionStorage, key, 1);
+  const content = () => (
+    <SessionViewProvider identity="head" pathname="/admin/student-support" verified>
+      <StudentSupport />
+    </SessionViewProvider>
+  );
+  const view = render(content());
+  expect(screen.getByText("Second-page feedback")).toBeTruthy();
+  denyPageOne = true;
+  view.rerender(content());
+  expect(state.feedbackUseQuery).toHaveBeenLastCalledWith({ page: 0 });
+  expect(window.sessionStorage.getItem(key)).toBeNull();
+  expect(screen.queryByText("Second-page feedback")).toBeNull();
+  expect(screen.queryByText("First-page feedback")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "feedback · retry" }));
+  expect(state.feedbackRefetch).toHaveBeenCalledOnce();
+  expect(state.appealsRefetch).not.toHaveBeenCalled();
+  expect(screen.queryByText("First-page feedback")).toBeNull();
+  firstPageUpdatedAt = 100;
+  view.rerender(content());
+  expect(screen.queryByText("First-page feedback")).toBeNull();
+  firstPageUpdatedAt = 101;
+  fetching = true;
+  view.rerender(content());
+  expect(screen.queryByText("First-page feedback")).toBeNull();
+  expect(screen.getByRole<HTMLButtonElement>("button", {
+    name: "feedback · retry",
+  }).disabled).toBe(true);
+  fetching = false;
+  view.rerender(content());
+  expect(screen.getByText("First-page feedback")).toBeTruthy();
+  expect(state.feedbackUseQuery).toHaveBeenLastCalledWith({ page: 0 });
+});
+
+it("keeps appeals concealed when denial resets page and filter to an older successful cache entry", () => {
+  let denyResolvedPage = false;
+  let pendingUpdatedAt = 20;
+  state.appealsUseQuery.mockImplementation(({ page, state: filter }: { page: number; state: string }) => {
+    const denied = denyResolvedPage && page === 1 && filter === "RESOLVED";
+    return {
+      data: {
+        rows: [{
+          id: `appeal-${filter}-${page}`,
+          studentName: "Synthetic learner",
+          state: filter,
+          cardReason: "Synthetic card reason",
+          body: `${filter} appeal evidence`,
+        }],
+        total: 21,
+      },
+      error: denied ? { message: "Denied", data: { code: "FORBIDDEN" } } : null,
+      isSuccess: !denied,
+      isFetching: false,
+      dataUpdatedAt: filter === "RESOLVED" ? 10 : pendingUpdatedAt,
+      errorUpdatedAt: denied ? 100 : 0,
+      refetch: state.appealsRefetch,
+    };
+  });
+  for (const [id, value] of [
+    ["support-panel-v1", "appeals"],
+    ["support-appeal-page-v1", 1],
+    ["support-appeal-filter-v1", "RESOLVED"],
+  ] as const)
+    writeViewState(window.sessionStorage, viewStateKey("head", "/admin/student-support", id, ""), value);
+  const content = () => (
+    <SessionViewProvider identity="head" pathname="/admin/student-support" verified>
+      <StudentSupport />
+    </SessionViewProvider>
+  );
+  const view = render(content());
+  expect(screen.getByText("RESOLVED appeal evidence")).toBeTruthy();
+  denyResolvedPage = true;
+  view.rerender(content());
+  expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
+    { page: 0, state: "PENDING" },
+    { enabled: true },
+  );
+  expect(screen.queryByText("RESOLVED appeal evidence")).toBeNull();
+  expect(screen.queryByText("PENDING appeal evidence")).toBeNull();
+  // The appeal panel has reset to Feedback, but this read-only recovery stays visible.
+  fireEvent.click(screen.getByRole("button", { name: "staffAppeals · retry" }));
+  expect(state.appealsRefetch).toHaveBeenCalledOnce();
+  expect(state.feedbackRefetch).not.toHaveBeenCalled();
+  expect(screen.queryByText("PENDING appeal evidence")).toBeNull();
+  pendingUpdatedAt = 101;
+  view.rerender(content());
+  expect(screen.getByText("PENDING appeal evidence")).toBeTruthy();
+  expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
+    { page: 0, state: "PENDING" },
+    { enabled: true },
+  );
 });

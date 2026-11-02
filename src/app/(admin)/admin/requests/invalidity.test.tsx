@@ -49,6 +49,7 @@ const mocks = vi.hoisted(() => ({
   assign: vi.fn(),
   assignError: null as Error | null,
   assignmentConfirm: null as ((overrideTicket?: string) => unknown) | null,
+  timedConfirm: null as ((ticket: string) => unknown) | null,
   fetchRequests: vi.fn(),
   fetchTutees: vi.fn(),
   changeSurvey: vi.fn(),
@@ -77,7 +78,9 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
     error?: string;
     onConfirm: (ticket: string) => unknown;
     onCancel: () => void;
-  }) => (
+  }) => {
+    mocks.timedConfirm = onConfirm;
+    return (
     <div role="dialog" aria-label={title} data-target={target} aria-busy={busy}>
       {error && <p role="alert">{error}</p>}
       <button
@@ -94,7 +97,8 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
         Cancel release
       </button>
     </div>
-  ),
+    );
+  },
 }));
 vi.mock("~/app/_components/qualified-tutor-select", () => ({
   // Preserve caller-owned companions so these page tests exercise their placement.
@@ -378,6 +382,7 @@ beforeEach(() => {
   mocks.pairings = null;
   mocks.assignError = null;
   mocks.assignmentConfirm = null;
+  mocks.timedConfirm = null;
   mocks.assign.mockResolvedValue({ ok: true, emailSent: true });
   mocks.invalidateRequests.mockResolvedValue(undefined);
   mocks.invalidateTutees.mockResolvedValue(undefined);
@@ -1478,5 +1483,41 @@ it("treats a queued assignment proposal as accepted and retries only its failed 
   expect(
     screen.getAllByRole("link", { name: en.signupEditing.queued }),
   ).toHaveLength(1);
+  expect(mocks.assign).toHaveBeenCalledOnce();
+});
+
+it("ignores a late timed assignment ticket after access is revoked and restored", async () => {
+  mocks.invalid = false;
+  const page = render(content());
+  openSubjectAssignment();
+  const staleTimedConfirm = mocks.timedConfirm!;
+  page.rerender(content(false, true));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  page.rerender(content());
+  await act(async () => { await staleTimedConfirm("stale-ticket"); });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.assign).not.toHaveBeenCalled();
+  openSubjectAssignment();
+  await act(async () => { await staleTimedConfirm("stale-ticket"); });
+  expect(screen.queryByRole("dialog", { name: "Assignment consequences" })).toBeNull();
+  expect(mocks.assign).not.toHaveBeenCalled();
+});
+
+it("retains read-only assignment recovery when access changes during an accepted write", async () => {
+  mocks.invalid = false;
+  mocks.invalidateTutees.mockRejectedValue(new Error("Read unavailable"));
+  let accept!: (value: { ok: boolean; emailSent: boolean }) => void;
+  mocks.assign.mockImplementationOnce(() => new Promise((resolve) => { accept = resolve; }));
+  const page = render(content());
+  fireEvent.click(within(reviewSubjectAssignment()).getByRole("button", { name: "Confirm assignment" }));
+  expect(mocks.assign).toHaveBeenCalledOnce();
+  page.rerender(content(false, true));
+  await act(async () => { accept({ ok: true, emailSent: true }); });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await screen.findByRole("button", { name: en.signupEditing.retryRefresh });
+  page.rerender(content());
+  mocks.invalidateTutees.mockResolvedValue(undefined);
+  fireEvent.click(screen.getByRole("button", { name: en.signupEditing.retryRefresh }));
+  await waitFor(() => expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull());
   expect(mocks.assign).toHaveBeenCalledOnce();
 });

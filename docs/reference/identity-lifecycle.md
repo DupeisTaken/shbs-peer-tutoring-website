@@ -42,6 +42,11 @@ owned source group. Two established groups or contradictory current/retained
 owners require reviewed correction or Combine Records; initialization does not
 choose an owner or join those groups.
 
+A missing retired account may inherit only its surviving account's unredirected
+Person. If the survivor still points to a redirected group, initialization rejects
+the new association for reconciliation; it does not follow that redirect or repair
+existing metadata. Already initialized sources remain untouched.
+
 Source association uses the narrow metadata assignment primitive, preserving
 Tutor/Tutee `updatedAt`, original names, academic/period evidence, signatures and
 edit versions. Identity-specific revisions still advance when membership or

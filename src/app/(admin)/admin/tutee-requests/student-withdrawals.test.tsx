@@ -50,6 +50,8 @@ vi.mock("~/trpc/react", () => ({
       },
       legacyReviews: {
         useQuery: () => ({
+          isSuccess: true,
+          isFetching: false,
           data: [
             {
               id: "manual-review",
@@ -175,5 +177,22 @@ it("reports parent page readiness from both authorized feeds without passing rec
     denied: true,
   });
   expect(screen.queryByText("Survey Student")).toBeNull();
+  expect(mocks.mutate).not.toHaveBeenCalled();
+});
+
+it("keeps cached withdrawal details concealed after denial until both reads recover", () => {
+  const view = render(page());
+  expect(screen.getByText("Survey Student")).toBeTruthy();
+  mocks.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(page());
+  expect(screen.queryByText("Survey Student")).toBeNull();
+  mocks.error = { message: "Network unavailable" };
+  view.rerender(page());
+  expect(screen.queryByText("Survey Student")).toBeNull();
+  expect(screen.queryByText("Manual Student")).toBeNull();
+  mocks.error = null;
+  view.rerender(page());
+  expect(screen.getByText("Survey Student")).toBeTruthy();
+  expect(screen.getByText("Manual Student")).toBeTruthy();
   expect(mocks.mutate).not.toHaveBeenCalled();
 });

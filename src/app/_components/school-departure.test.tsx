@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -22,6 +23,10 @@ const fixture = vi.hoisted(() => ({
   save: vi.fn(),
   request: vi.fn(),
   pending: false,
+  callbacks: undefined as undefined | {
+    onSuccess: () => Promise<void>;
+    onSettled: () => void;
+  },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("./management-actions", () => ({
@@ -34,10 +39,13 @@ vi.mock("~/trpc/react", () => ({
       state: { useQuery: () => ({ data: fixture.data }) },
       setState: { useMutation: () => ({ mutate: fixture.save }) },
       request: {
-        useMutation: () => ({
-          mutate: fixture.request,
-          isPending: fixture.pending,
-        }),
+        useMutation: (callbacks: typeof fixture.callbacks) => {
+          fixture.callbacks = callbacks;
+          return {
+            mutate: fixture.request,
+            isPending: fixture.pending,
+          };
+        },
       },
     },
   },
@@ -54,6 +62,7 @@ beforeEach(() => {
   fixture.request.mockClear();
   fixture.pending = false;
   fixture.data.access.canReadManagement = true;
+  fixture.data.departure.revision = 2;
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -180,4 +189,55 @@ it("requires a reason and consequence review before requesting a departure", () 
   expect(
     screen.queryByRole("option", { name: "Restore viewer access" }),
   ).toBeNull();
+});
+
+it("keeps a completed review mounted while its write is pending, then clears the reason and adopts the refreshed revision", async () => {
+  const content = () => (
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <ProfileDialog title="Parent account" onClose={vi.fn()}>
+        <SchoolDeparturePanel />
+      </ProfileDialog>
+    </NextIntlClientProvider>
+  );
+  const view = render(content());
+  const reason = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Reason for review" });
+  fireEvent.change(reason(), { target: { value: "Moving to a new school" } });
+  fireEvent.click(screen.getByRole("button", { name: "Request change" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm change" }));
+  fixture.pending = true;
+  view.rerender(content());
+  fixture.data.departure.revision = 3;
+  await act(async () => { await fixture.callbacks!.onSuccess(); });
+  expect(screen.getAllByRole("dialog")).toHaveLength(2);
+  expect(reason().value).toBe("Moving to a new school");
+  fixture.pending = false;
+  fixture.callbacks!.onSettled();
+  view.rerender(content());
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(reason().value).toBe("");
+  fireEvent.change(reason(), { target: { value: "Another reviewed change" } });
+  fireEvent.click(screen.getByRole("button", { name: "Request change" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm change" }));
+  expect(fixture.request).toHaveBeenLastCalledWith({
+    action: "TRANSFERRED",
+    expectedRevision: 3,
+    explanation: "Another reviewed change",
+  });
+});
+
+it("gives another departure target a fresh reason and review", () => {
+  const content = (userId: string) => (
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <SchoolDeparturePanel userId={userId} />
+    </NextIntlClientProvider>
+  );
+  const view = render(content("first"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Reason for review" }), {
+    target: { value: "First person's reason" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Request change" }));
+  view.rerender(content("second"));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Reason for review" }).value).toBe("");
+  expect(fixture.save).not.toHaveBeenCalled();
 });

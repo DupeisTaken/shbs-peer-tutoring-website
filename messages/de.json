@@ -2014,6 +2014,7 @@
       "refreshFailed": "Die Entscheidung wurde gespeichert. Aktualisieren Sie die Einträge, um den aktuellen Prüfstatus zu sehen."
     },
     "landing": {
+      "pageAddress": "Seitenadresse",
       "title": "Startseite",
       "subtitle": "Öffentliche Webseitentexte, Neuigkeiten und Bilder bearbeiten. Änderungen von Koordinatoren und Textänderungen von Übersetzern müssen geprüft werden. Berechtigte Änderungen von Admin/Head gelten direkt; Nachrichtenentwürfe bleiben bis zur Veröffentlichung privat.",
       "loading": "Wird geladen…",

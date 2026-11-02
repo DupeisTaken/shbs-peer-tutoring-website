@@ -73,6 +73,14 @@ Missing label definitions are created automatically; colors and descriptions sta
 synchronized while unrelated PR labels are preserved. The workflow uses the
 built-in GitHub token. Its `pull_request_target` job reads PR commits only as Git
 data: never add PR checkouts, dependency installation, builds or cache restores.
+If fetching GitHub's synthetic `refs/pull/<number>/head` fails, the job makes one
+fallback fetch of the API-reported immutable head SHA from the base repository's
+`origin`. It verifies the fetched SHA before sizing; it never substitutes a branch
+tip, merge ref or head-repository URL. An unavailable exact commit or mismatched
+fallback fails the job without label writes. A moving PR ref skips the stale run,
+and fresh PR metadata must still match the measured head/base and open state before
+label writes. This repair must reach the trusted default branch before it can fix
+existing PR runs; editing an unmerged PR cannot change its privileged workflow.
 Run `npm run test:pr-size` to verify sizing and label updates locally; CI also runs
 these tests in the build workflow's `checks` job, which gates required `verify`.
 Automatic `code:` and `docs:` label updates run in the separate PR Size workflow

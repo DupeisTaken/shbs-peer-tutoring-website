@@ -2020,6 +2020,18 @@ A send validates the entire recipient batch and atomically writes separate deliv
 
 Supervision requires the message's recorded disclosure. Head/Admin may inspect and hide disclosed messages with audit evidence. Admin/Head can restore visibility or lift a contact restriction directly. Participant-only messages remain excluded from all supervision queries. Hiding retains the original content for authorized review. Contact restrictions block new sending and incoming eligibility without erasing readable history. See [contact configuration](../guides/program-configuration.md#message-permissions-and-supervision).
 
+The [inbox](../../src/app/_components/message-inbox.tsx) conceals cached messages,
+recipients and drafts after an authoritative read denial. Drafts stay with their
+mounted owner; recovery explicitly refetches contacts, inbox and permission and
+waits for all three reads. Cached sibling success or a later transport error cannot
+restore access. An ordinary send restriction still permits historical mail reads.
+
+[Support lists](../../src/app/_components/student-support.tsx) retain a per-feed
+denial timestamp across page and filter resets. An older successful cache entry
+cannot reveal feedback or appeal evidence; only a settled successful read newer
+than the denial and retained-data timestamps releases the fence. Feed-specific
+Retry actions remain visible when navigation resets hide the affected panel.
+
 Announcements freeze tutor IDs at publication, or at approval for a coordinator proposal. Editing or restoring a post does not recompute its recipients. Empty restricted audiences never become broadcasts. Preview, publication, reads and acknowledgements must share recipient-selection rules; notifications and publication commit together.
 
 ### Account emails and delivery
@@ -2211,6 +2223,12 @@ The dashboard's `PolicyConsent` accepted message opens `CurrentPolicyDialog`, a 
 
 [Bundled policy drafts](../guides/policies/README.md) are English/Chinese development sources requiring school adaptation and approval. The running site reads `PolicyDocument` rows. Staff publish reviewed revisions through the policy editor; changing Markdown does not update live policy records.
 
+The [policy editor](<../../src/app/(admin)/admin/policies/page.tsx>) conceals private
+editors on authoritative denial while the route retains accepted-write recovery,
+including late acceptance after an editor unmounts. Recovery explicitly refetches
+identity, policies and archives; invalidating disabled or removed queries alone
+cannot release it. Retry performs reads only, and account changes reset drafts.
+
 Acceptance keeps the exact revision, text, signature and timestamp. Participation requires current consent; history, feedback, appeals, account settings and messages stay available during renewal. Student and tutor applicability are checked independently. Client scrolling and confirmation controls assist review but do not replace server revision and action-ticket validation.
 
 Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
@@ -2218,6 +2236,15 @@ Translation drafts capture a fingerprint of their destination. Publication reche
 The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
 
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
+
+The [landing editor](<../../src/app/(admin)/admin/landing/landing-editor.tsx>)
+normalizes slug text on blur, then reads the canonical slug after the write succeeds.
+Both page and page-mode section address inputs have a persistent localized label;
+their blur-save guidance remains a separate accessible description.
+This acknowledgement adopts collision suffixes only for the submitted edit revision;
+newer edits, including identical text entered again, survive. Unrelated refreshes
+do not acknowledge drafts. Failed post-write reads offer read-only Retry, and
+repeated blur cannot replay an accepted write while parent query props catch up.
 
 ## Data and deployment
 
@@ -2372,8 +2399,22 @@ The audit boundary composes database writes and safe before/after evidence in on
 including helpers that import the shared database. Database-owned workflows retain their
 existing isolation and retry boundaries. Bulk writes retain every captured affected record
 and safe submitted relationship rather than sampling the first fifty rows, so storage and
-transaction work grow with the batch. Safe snapshots use an explicit field allowlist;
-established account/roster contact edits are retained for authorized staff, while observer
+transaction work grow with the batch. Bulk after-state reads use the captured
+primary-key tuples, including compound keys,
+from the shared [schema-validated identity catalog](../../src/server/recovery/record-catalog.ts).
+Prisma's reduced runtime metadata is not a source of primary-key definitions.
+These rereads assume primary-key values remain unchanged; they do not reconstruct
+key-changing bulk writes or introduce a new concurrency/isolation guarantee.
+Identity columns are selected for internal lookups independently of the snapshot
+allowlist: private retry keys and credential hashes never become audit JSON.
+Tutor subject willingness includes the recorded boolean alongside its tutor/subject
+identity. [Identity drift coverage](../../src/server/audit/identity-evidence.test.ts)
+checks every schema model through the audit interceptor; the
+[database regressions](../../src/server/audit/compound-evidence.integration.test.ts)
+cover compound updates, exact affected-row scope, privacy and rollback.
+
+Safe snapshots use an explicit field allowlist; established account/roster contact
+edits are retained for authorized staff, while observer
 projections mask the details. Management review notes and correction/discipline reasons
 are retained only for explicitly allowed domain models; attendance self-excuses and
 participant appeal bodies remain private. Passwords, invitation/proof codes, credential

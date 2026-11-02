@@ -39,9 +39,13 @@ export default function TuteeRequestsPage() {
   const accessDenied =
     data.error?.data?.code === "FORBIDDEN" ||
     data.error?.data?.code === "UNAUTHORIZED";
+  // Retain denial across cache eviction and transport failures; only a settled
+  // authorized read releases it, before private children can render again.
+  const recovered = data.isSuccess && !data.isFetching && !data.error;
+  if (accessDenied && !denied) setDenied(true);
+  else if (!accessDenied && recovered && denied) setDenied(false);
   useEffect(() => {
     if (accessDenied) {
-      setDenied(true);
       queryClient.removeQueries({
         queryKey: getQueryKey(
           api.admin.tuteeRemovalRequests,
@@ -49,8 +53,8 @@ export default function TuteeRequestsPage() {
           "query",
         ),
       });
-    } else if (data.isSuccess && !data.isFetching) setDenied(false);
-  }, [accessDenied, data.isSuccess, data.isFetching, queryClient]);
+    }
+  }, [accessDenied, queryClient]);
   // The parent owns page scroll once. Staff-only child feeds report readiness
   // without lending their permissions to this viewer-safe summary.
   useSessionPageScroll({

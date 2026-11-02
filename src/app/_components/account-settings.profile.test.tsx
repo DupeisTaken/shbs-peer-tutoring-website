@@ -329,3 +329,32 @@ it("clears the previous success notice when a new identity draft starts", () => 
   fireEvent.change(firstName(), { target: { value: "New draft" } });
   expect(state.reset).toHaveBeenCalledOnce();
 });
+
+it("derives an untouched profile from new reads and captures that version on the first edit", () => {
+  const view = render(ui());
+  state.account = { ...state.account, firstName: "Updated", profileVersion: 8 };
+  view.rerender(ui());
+  expect(firstName().value).toBe("Updated");
+  fireEvent.change(firstName(), { target: { value: "My draft" } });
+  state.account = { ...state.account, firstName: "Later", profileVersion: 9 };
+  view.rerender(ui());
+  expect(firstName().value).toBe("My draft");
+  fireEvent.click(save());
+  expect(state.save).toHaveBeenCalledWith(
+    expect.objectContaining({ firstName: "My draft", expectedProfileVersion: 8 }),
+    expect.any(Object),
+  );
+});
+
+it("never carries a name draft into another account identity", () => {
+  const view = render(ui());
+  fireEvent.change(firstName(), { target: { value: "Private draft" } });
+  state.account = { ...state.account, id: "other", firstName: "Other", profileVersion: 1 };
+  view.rerender(ui());
+  expect(firstName().value).toBe("Other");
+  fireEvent.click(save());
+  expect(state.save).toHaveBeenCalledWith(
+    expect.objectContaining({ firstName: "Other", expectedProfileVersion: 1 }),
+    expect.any(Object),
+  );
+});

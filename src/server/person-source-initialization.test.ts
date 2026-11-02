@@ -55,6 +55,77 @@ it("uses explicit retained ownership through a retired account without granting 
   expect(await db.tutor.findUniqueOrThrow({ where: { id: "t" } })).toMatchObject({ personId, status: "ARCHIVED" });
 });
 
+it("rejects a redirected survivor group without initializing the retired account or changing revisions", async () => {
+  await db.person.create({ data: { id: "canonical" } });
+  await db.person.create({ data: { id: "redirected", mergedIntoId: "canonical", resolutionState: "REVIEW_REQUIRED" } });
+  await db.user.create({ data: { id: "owner", email: "owner@example.test", personId: "redirected" } });
+  await db.user.create({ data: { id: "retired", email: "retired@example.test", mergedIntoId: "owner" } });
+  const users = await db.user.findMany({ orderBy: { id: "asc" } });
+  const persons = await db.person.findMany({ orderBy: { id: "asc" } });
+
+  await expect(db.$transaction((tx) => initializePersonSource(tx, { kind: "USER", id: "retired" }))).rejects.toMatchObject({
+    code: "CONFLICT",
+    message: "The survivor points to a retired directory group. Review identity reconciliation before initializing this account.",
+  });
+
+  expect(await db.user.findMany({ orderBy: { id: "asc" } })).toEqual(users);
+  expect(await db.person.findMany({ orderBy: { id: "asc" } })).toEqual(persons);
+});
+
+it.each([false, true])("initializes a retired account through a valid retirement chain and preserves retries (survivor initialized: %s)", async (initialized) => {
+  if (initialized)
+    await db.person.create({ data: { id: "canonical", resolutionState: "REVIEW_REQUIRED" } });
+  await db.user.create({ data: {
+    id: "owner", email: "owner@example.test", personId: initialized ? "canonical" : null,
+    role: "STUDENT", tuteeMember: false, tutorAccessRevoked: true,
+  } });
+  await db.user.create({ data: { id: "intermediate", email: "intermediate@example.test", mergedIntoId: "owner" } });
+  const retired = await db.user.create({ data: { id: "retired", email: "retired@example.test", mergedIntoId: "intermediate" } });
+  const before = await db.user.findMany({ orderBy: { id: "asc" } });
+  const originalPerson = initialized
+    ? await db.person.findUniqueOrThrow({ where: { id: "canonical" } })
+    : null;
+
+  const personId = await db.$transaction((tx) => initializePersonSource(tx, { kind: "USER", id: retired.id }));
+  const users = await db.user.findMany({ orderBy: { id: "asc" } });
+  expect(users).toEqual(before.map((row) => ({
+    ...row,
+    personId: row.id === "intermediate" ? row.personId : personId,
+  })));
+  const persons = await db.person.findMany({ orderBy: { id: "asc" } });
+  expect(persons).toHaveLength(1);
+  expect(persons[0]).toMatchObject({
+    id: personId,
+    mergedIntoId: null,
+    resolutionState: initialized ? "REVIEW_REQUIRED" : "GROUPED",
+  });
+  if (originalPerson) {
+    expect(personId).toBe(originalPerson.id);
+    // The first association advances the group fence and its edit timestamp;
+    // the subsequent no-op retry below must preserve both exactly.
+    expect(persons[0]).toEqual({ ...originalPerson, revision: persons[0]!.revision, updatedAt: persons[0]!.updatedAt });
+    expect(persons[0]!.revision).toBeGreaterThan(originalPerson.revision);
+    expect(persons[0]!.updatedAt.getTime()).toBeGreaterThanOrEqual(originalPerson.updatedAt.getTime());
+  }
+
+  expect(await db.$transaction((tx) => initializePersonSource(tx, { kind: "USER", id: retired.id }))).toBe(personId);
+  expect(await db.user.findMany({ orderBy: { id: "asc" } })).toEqual(users);
+  expect(await db.person.findMany({ orderBy: { id: "asc" } })).toEqual(persons);
+});
+
+it("leaves an already initialized retired account's redirected metadata for reconciliation", async () => {
+  await db.person.create({ data: { id: "canonical" } });
+  await db.person.create({ data: { id: "redirected", mergedIntoId: "canonical", resolutionState: "REVIEW_REQUIRED" } });
+  await db.user.create({ data: { id: "owner", email: "owner@example.test", personId: "canonical" } });
+  await db.user.create({ data: { id: "retired", email: "retired@example.test", mergedIntoId: "owner", personId: "redirected" } });
+  const users = await db.user.findMany({ orderBy: { id: "asc" } });
+  const persons = await db.person.findMany({ orderBy: { id: "asc" } });
+
+  expect(await db.$transaction((tx) => initializePersonSource(tx, { kind: "USER", id: "retired" }))).toBe("redirected");
+  expect(await db.user.findMany({ orderBy: { id: "asc" } })).toEqual(users);
+  expect(await db.person.findMany({ orderBy: { id: "asc" } })).toEqual(persons);
+});
+
 it("rejects conflicting explicit current and retained owners and rolls initialization back", async () => {
   await db.tutee.create({ data: { id: "s", englishName: "Original" } });
   await db.user.create({ data: { id: "owner", email: "owner@example.test", studentId: "s" } });
