@@ -38,40 +38,21 @@ export function StudentWithdrawals({
     (error) =>
       error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED",
   );
-  // These staff-only reads must never borrow permission from the viewer-safe
-  // parent summary. A denial closes this private section until both reads recover.
+  // Keep the two private reads revoked across eviction/transport errors until
+  // both have settled successfully; the viewer-safe parent grants no authority.
+  const recovered = rows.isSuccess && legacy.isSuccess &&
+    !rows.isFetching && !legacy.isFetching && !rows.error && !legacy.error;
+  if (accessDenied && !denied) setDenied(true);
+  else if (!accessDenied && recovered && denied) setDenied(false);
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
-      queryClient.removeQueries({
-        queryKey: getQueryKey(
-          api.studentWorkflow.adminRequests,
-          undefined,
-          "query",
-        ),
-      });
-      queryClient.removeQueries({
-        queryKey: getQueryKey(
-          api.studentWorkflow.legacyReviews,
-          undefined,
-          "query",
-        ),
-      });
-    } else if (
-      rows.isSuccess &&
-      legacy.isSuccess &&
-      !rows.isFetching &&
-      !legacy.isFetching
-    )
-      setDenied(false);
-  }, [
-    accessDenied,
-    rows.isSuccess,
-    legacy.isSuccess,
-    rows.isFetching,
-    legacy.isFetching,
-    queryClient,
-  ]);
+    if (!accessDenied) return;
+    queryClient.removeQueries({
+      queryKey: getQueryKey(api.studentWorkflow.adminRequests, undefined, "query"),
+    });
+    queryClient.removeQueries({
+      queryKey: getQueryKey(api.studentWorkflow.legacyReviews, undefined, "query"),
+    });
+  }, [accessDenied, queryClient]);
   const hasData = rows.data !== undefined && legacy.data !== undefined;
   const readError = !!rows.error || !!legacy.error;
   // Report only read lifecycle booleans, never the review records or drafts.

@@ -441,9 +441,14 @@ function PolicyCard({
       ? DEFAULT_LOCALE
       : (existing.find((locale) => byLocale.has(locale)) ?? DEFAULT_LOCALE)),
   );
-  useEffect(() => {
-    if (rememberedLocale) setActive(rememberedLocale);
-  }, [rememberedLocale]);
+  const [previousRememberedLocale, setPreviousRememberedLocale] = useState(rememberedLocale);
+  if (previousRememberedLocale !== rememberedLocale) {
+    setPreviousRememberedLocale(rememberedLocale);
+    // A changed/restored navigation scope selects only its own remembered locale.
+    setActive(rememberedLocale ?? (byLocale.has(DEFAULT_LOCALE)
+      ? DEFAULT_LOCALE
+      : (existing.find((locale) => byLocale.has(locale)) ?? DEFAULT_LOCALE)));
+  }
   const [visited, setVisited] = useState<string[]>([]);
   const [busyLocales, setBusyLocales] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -653,11 +658,64 @@ export default function PoliciesPage() {
     enabled: !denied.archives,
   });
   const languages = api.i18n.languages.useQuery();
-  const invalidate = () =>
-    settleRefreshes([
-      () => invalidateAndReport(utils.admin.policies),
-      () => invalidateAndReport(utils.admin.policyArchives),
-    ]);
+  // This route survives revoked private children. An accepted write whose read
+  // fails must still have a read-only recovery path after those children unmount.
+  const refreshGeneration = useRef(0);
+  const [recovery, setRecovery] = useState({
+    required: false, orphaned: false, pending: false, denied: false, accessEpoch: 0,
+  });
+  const invalidate = async () => {
+    const generation = ++refreshGeneration.current;
+    const ownerEpoch = recovery.accessEpoch;
+    setRecovery((current) => ({
+      ...current, pending: true, required: true,
+      orphaned: current.orphaned || current.denied || current.accessEpoch !== ownerEpoch,
+    }));
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.admin.policies),
+        () => invalidateAndReport(utils.admin.policyArchives),
+      ]);
+      if (generation === refreshGeneration.current) {
+        // Invalidating disabled/removed queries can complete without a read.
+        // Only explicit refetch recovery can release an orphaned accepted write.
+        setRecovery((current) => ({ ...current, required: current.orphaned }));
+      }
+    } catch (error) {
+      if (generation === refreshGeneration.current) {
+        setRecovery((current) => ({ ...current, required: true }));
+      }
+      throw error;
+    } finally {
+      if (generation === refreshGeneration.current) {
+        setRecovery((current) => ({ ...current, pending: false }));
+      }
+    }
+  };
+  const recoverOrphanedWrite = async () => {
+    if (recovery.pending) return;
+    const generation = ++refreshGeneration.current;
+    setRecovery((current) => ({ ...current, pending: true }));
+    try {
+      const results = await settleRefreshes([
+        () => identity.refetch({ throwOnError: true }).then((result) => !result.error && result.data !== undefined),
+        () => policies.refetch({ throwOnError: true }).then((result) => !result.error && result.data !== undefined),
+        () => archives.refetch({ throwOnError: true }).then((result) => !result.error && result.data !== undefined),
+      ]);
+      if (results.some((success) => !success)) {
+        throw new Error("Policy recovery requires successful identity and policy reads.");
+      }
+      if (generation === refreshGeneration.current) {
+        setRecovery((current) => ({ ...current, required: false, orphaned: false }));
+      }
+    } catch {
+      // Keep the accepted-write latch; this action never repeats a mutation.
+    } finally {
+      if (generation === refreshGeneration.current) {
+        setRecovery((current) => ({ ...current, pending: false }));
+      }
+    }
+  };
   const identityAccessDenied =
     identity.error?.data?.code === "FORBIDDEN" ||
     identity.error?.data?.code === "UNAUTHORIZED";
@@ -671,44 +729,40 @@ export default function PoliciesPage() {
     archives.error?.data?.code === "UNAUTHORIZED";
   const policyDenied = policyAccessDenied || denied.policies;
   const archiveDenied = archiveAccessDenied || denied.archives;
+  if (recovery.denied !== policyDenied) {
+    setRecovery({
+      ...recovery,
+      denied: policyDenied,
+      accessEpoch: recovery.accessEpoch + (policyDenied ? 1 : 0),
+      orphaned: recovery.orphaned || (policyDenied && (recovery.required || recovery.pending)),
+    });
+  }
+  // Record the authoritative read outcome before committing private children.
+  // Cache removal can erase the query error; only a completed authorized read
+  // releases that latch, including after a later transport failure.
+  const nextPolicyDenied = policyAccessDenied ||
+    (denied.policies && !(policies.isSuccess && !policies.isFetching && !identity.error));
+  const nextArchiveDenied = archiveAccessDenied ||
+    (denied.archives && !(archives.isSuccess && !archives.isFetching && !identity.error));
+  if (denied.policies !== nextPolicyDenied || denied.archives !== nextArchiveDenied) {
+    setDenied({ policies: nextPolicyDenied, archives: nextArchiveDenied });
+  }
   useEffect(() => {
     if (policyAccessDenied) {
-      setDenied((previous) => ({ ...previous, policies: true }));
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.policies, undefined, "query"),
         exact: true,
       });
-    } else if (policies.isSuccess && !policies.isFetching && !identity.error) {
-      setDenied((previous) =>
-        previous.policies ? { ...previous, policies: false } : previous,
-      );
     }
-  }, [
-    policyAccessDenied,
-    policies.isSuccess,
-    policies.isFetching,
-    identity.error,
-    queryClient,
-  ]);
+  }, [policyAccessDenied, queryClient]);
   useEffect(() => {
     if (archiveAccessDenied) {
-      setDenied((previous) => ({ ...previous, archives: true }));
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.policyArchives, undefined, "query"),
         exact: true,
       });
-    } else if (archives.isSuccess && !archives.isFetching && !identity.error) {
-      setDenied((previous) =>
-        previous.archives ? { ...previous, archives: false } : previous,
-      );
     }
-  }, [
-    archiveAccessDenied,
-    archives.isSuccess,
-    archives.isFetching,
-    identity.error,
-    queryClient,
-  ]);
+  }, [archiveAccessDenied, queryClient]);
 
   // A seed-free installation still needs editors for both required policies. Wait for
   // the query before mounting them so a blank draft cannot hide subsequently loaded text.
@@ -765,6 +819,19 @@ export default function PoliciesPage() {
         <p className="muted mt-1">{t("admin.policies.subtitle")}</p>
       </div>
 
+      {recovery.required && recovery.orphaned && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button disabled={recovery.pending} onClick={() => void recoverOrphanedWrite()}>
+              {t("admin.policies.editor.retryRefresh")}
+            </Button>
+          }
+        >
+          {t("managementRecovery.refreshFailed", { section: t("admin.policies.title") })}
+        </InlineNotice>
+      )}
       {policyDenied ? (
         <StatePanel
           kind="denied"
@@ -866,12 +933,12 @@ export default function PoliciesPage() {
       )}
       {[...groups.entries()].map(([slug, byLocale]) => (
         <PolicyCard
-          key={slug}
+          key={`${identity.data?.id ?? "unknown"}:${slug}`}
           slug={slug}
           byLocale={byLocale}
           archivesByLocale={archiveGroups.get(slug) ?? new Map()}
           languages={languages.data ?? []}
-          readOnly={readOnly}
+          readOnly={readOnly || recovery.orphaned}
           onSaved={invalidate}
           archivesReady={archives.data !== undefined && !archiveDenied}
           rememberedLocale={rememberedLocales[slug]}

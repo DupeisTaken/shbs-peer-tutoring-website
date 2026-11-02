@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   refresh: vi.fn<() => Promise<void>>(),
   fail: undefined as undefined | (() => void),
   accept: undefined as undefined | (() => Promise<void>),
+  languages: ["en", "zh"],
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
@@ -27,10 +28,7 @@ vi.mock("~/trpc/react", () => ({
     i18n: {
       managedLanguages: {
         useQuery: () => ({
-          data: [
-            { code: "en", label: "English", enabled: true },
-            { code: "zh", label: "中文", enabled: true },
-          ],
+          data: state.languages.map((code) => ({ code, label: code, enabled: true })),
         }),
       },
     },
@@ -84,6 +82,7 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
+  state.languages = ["en", "zh"];
   state.write.mockReset();
   state.refresh.mockReset().mockResolvedValue(undefined);
   state.fail = undefined;
@@ -94,6 +93,26 @@ const field = () =>
   screen.getByRole<HTMLTextAreaElement>("textbox", { name: "common.title" });
 const toggle = () =>
   fireEvent.click(screen.getByRole("button", { name: /^Common/ }));
+
+it("falls back after language removal without reviving the old selection or discarding its draft", () => {
+  const view = render(<TranslationStrings />);
+  toggle();
+  const select = () => screen.getByRole<HTMLSelectElement>("combobox", {
+    name: "localization.targetLanguage",
+  });
+  fireEvent.change(select(), { target: { value: "zh" } });
+  fireEvent.change(field(), { target: { value: "保留的草稿" } });
+  state.languages = ["en"];
+  view.rerender(<TranslationStrings />);
+  expect(select().value).toBe("en");
+  expect(field().value).toBe("Original title");
+  state.languages = ["en", "zh"];
+  view.rerender(<TranslationStrings />);
+  expect(select().value).toBe("en");
+  fireEvent.change(select(), { target: { value: "zh" } });
+  expect(field().value).toBe("保留的草稿");
+  expect(state.write).not.toHaveBeenCalled();
+});
 
 it("exposes namespace expansion and associates each editor with its save boundary", () => {
   render(<TranslationStrings />);

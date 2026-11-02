@@ -227,9 +227,10 @@ it("unlocks visible short policies and observes viewport/content resizing, with 
 
 it.each(["slug", "revision", "locale", "body"])(
   "resets read and agreement state when %s changes",
-  (change) => {
+  async (change) => {
     documentHeight = 1200;
     const view = render(<StudentPolicyGate />);
+    await act(async () => undefined);
     fireEvent.scroll(screen.getByRole("region"), {
       target: { scrollTop: 800 },
     });
@@ -242,6 +243,7 @@ it.each(["slug", "revision", "locale", "body"])(
       replacement.documents[0]!.body = "Replaced policy content";
     mocks.status.mockReturnValue({ data: replacement, refetch: mocks.refetch });
     view.rerender(<StudentPolicyGate />);
+    await act(async () => undefined);
     expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
     expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
     expect(mocks.accept).not.toHaveBeenCalled();
@@ -449,6 +451,7 @@ it("refreshes query-only student tabs without interrupting personal navigation f
     refetch: mocks.refetch,
   });
   view.rerender(<StudentPolicyGate />);
+  await act(async () => undefined);
   expect(screen.getByRole("dialog")).toBeTruthy();
 });
 
@@ -511,3 +514,30 @@ it.each(["/history", "/history/claim"])(
     expect(screen.queryByText("policyTitle")).toBeNull();
   },
 );
+
+
+it("ends dismissal on a bypass-route visit without restoring it on return", async () => {
+  const view = render(<StudentPolicyGate />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  mocks.path = "/privacy";
+  view.rerender(<StudentPolicyGate />);
+  expect(screen.queryByRole("status")).toBeNull();
+  mocks.path = "/student";
+  view.rerender(<StudentPolicyGate />);
+  await act(async () => undefined);
+  expect(screen.getByRole("dialog", { name: "policyTitle" })).toBeTruthy();
+  expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+  expect(mocks.accept).not.toHaveBeenCalled();
+});
+
+it("preserves an active review across verified focus with unchanged policy", async () => {
+  const view = render(<StudentPolicyGate />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByRole("checkbox"));
+  mocks.focusVersion++;
+  view.rerender(<StudentPolicyGate />);
+  expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(true);
+  expect(mocks.prepare).toHaveBeenCalledTimes(1);
+});
