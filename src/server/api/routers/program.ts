@@ -446,14 +446,21 @@ export const programRouter = createTRPCRouter({
           update: { emailNotificationsEnabled: input.enabled },
         });
         // Drop only optional backlog on disable; mandatory security alerts must still be delivered.
-        if (!input.enabled)
+        if (!input.enabled) {
           await tx.emailDelivery.updateMany({
             where: {
               status: "PENDING",
-              category: { notIn: ["security", "request_service"] },
+              category: { notIn: ["security", "request_service", "school_hours"] },
             },
             data: { status: "SKIPPED", completedAt: new Date() },
           });
+          // Issued school instructions retain their baseline and receipt. Mail
+          // availability may block delivery, but must not discard that evidence.
+          await tx.emailDelivery.updateMany({
+            where: { status: "PENDING", category: "school_hours" },
+            data: { status: "BLOCKED", completedAt: new Date(), leaseUntil: null, lastError: "EMAIL_OFF" },
+          });
+        }
         return { ok: true };
       }),
     ),

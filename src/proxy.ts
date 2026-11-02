@@ -31,6 +31,14 @@ export default async function proxy(
   request: NextRequest,
   event: NextFetchEvent,
 ) {
+  // The capability is checked by these two report-only handlers. A stale site
+  // session must not redirect a school recipient away from their report link.
+  if (
+    /^\/reports\/service-hours\/[^/]+(?:\/csv)?\/?$/.test(
+      request.nextUrl.pathname,
+    )
+  )
+    return NextResponse.next();
   const recovery = await recoverInvalidSession(
     request,
     runtimeAuthConfig.secret,

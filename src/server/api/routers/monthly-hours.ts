@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { adminOnlyProcedure, adminProcedure, createTRPCRouter } from "../trpc";
-import { assertFeatureEnabled } from "~/server/program/features";
+import { TRPCError } from "@trpc/server";
+import { adminProcedure, createTRPCRouter, protectedProcedure } from "../trpc";
 import {
   getMonthlyHoursSettings,
-  saveMonthlyHoursSettings,
-  previewMonthlyHours,
-  generateMonthlyHours,
+  type saveMonthlyHoursSettings,
+  type previewMonthlyHours,
+  type generateMonthlyHours,
   getMonthlyHoursReport,
   monthlyHoursCsv,
-  retryMonthlyHoursReport,
+  type retryMonthlyHoursReport,
 } from "~/server/monthly-hours";
 import {
   monthlyHoursMonth,
@@ -18,37 +18,45 @@ import {
 
 const reportId = z.object({ id: z.string().min(1).max(128) });
 
-/** Saved reports remain inspectable when the module is off. New generation is
- * gated separately; roster filters are never accepted as report parameters. */
+// Keep stale staff clients readable without letting them restart the replaced
+// workflow or queue a new approval. This procedure authorizes no successful write.
+const retiredStaffProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!["ADMIN", "HEAD", "COORDINATOR"].includes(ctx.session.role))
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Admin access required.",
+    });
+  return next();
+});
+function retired<T>(): T {
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: "Monthly overviews have been retired. Use School Month Reports.",
+  });
+}
+
+/** Historical snapshots and CSVs remain readable; no legacy action can create,
+ * alter or resend an overview, even from a tab opened before the replacement. */
 export const monthlyHoursRouter = createTRPCRouter({
   settings: adminProcedure.query(({ ctx }) =>
     getMonthlyHoursSettings(ctx.db, ctx.session.role),
   ),
-  save: adminOnlyProcedure
+  save: retiredStaffProcedure
     .input(monthlyHoursSettingsInput)
-    .mutation(({ ctx, input }) =>
-      saveMonthlyHoursSettings(ctx.db, input, ctx.session.user.id),
-    ),
+    .mutation(() => retired<ReturnType<typeof saveMonthlyHoursSettings>>()),
   preview: adminProcedure
     .input(z.object({ month: monthlyHoursMonth }))
-    .query(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "SERVICE_HOURS");
-      return previewMonthlyHours(ctx.db, input.month);
-    }),
-  generate: adminOnlyProcedure
+    .query(() => retired<ReturnType<typeof previewMonthlyHours>>()),
+  generate: retiredStaffProcedure
     .input(monthlyHoursGenerateInput)
-    .mutation(({ ctx, input }) =>
-      generateMonthlyHours(ctx.db, input, ctx.session.user.id),
-    ),
+    .mutation(() => retired<ReturnType<typeof generateMonthlyHours>>()),
   report: adminProcedure
     .input(reportId)
     .query(({ ctx, input }) => getMonthlyHoursReport(ctx.db, input.id)),
   csv: adminProcedure
     .input(reportId)
     .query(({ ctx, input }) => monthlyHoursCsv(ctx.db, input.id)),
-  retry: adminOnlyProcedure
+  retry: retiredStaffProcedure
     .input(reportId)
-    .mutation(({ ctx, input }) =>
-      retryMonthlyHoursReport(ctx.db, input.id, ctx.session.user.id),
-    ),
+    .mutation(() => retired<ReturnType<typeof retryMonthlyHoursReport>>()),
 });

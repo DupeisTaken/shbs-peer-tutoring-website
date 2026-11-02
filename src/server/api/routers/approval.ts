@@ -189,12 +189,13 @@ export const approvalRouter = createTRPCRouter({
           "admin.setUserRole",
           "program.setProfilePolicy",
           "program.setNameFields",
-          // Monthly delivery owns namespace/account before schedule admission.
-          "monthlyHours.save",
+          // School delivery owns namespace/account before schedule admission.
+          "schoolHours.save",
         ].includes(initial.operation);
       const periodIdentityApproval =
         !!initial &&
         [
+          "schoolHours.save",
           "admin.updateTutor",
           "admin.updateTutee",
           "admin.updateAccountAcademics",

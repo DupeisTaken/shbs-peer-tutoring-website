@@ -694,7 +694,7 @@ function reportSummary(
   };
 }
 
-export async function getMonthlyHoursSettings(db: DomainDb, actorRole: string) {
+export async function getMonthlyHoursSettings(db: DomainDb, _actorRole: string) {
   const [row, zone, settings, features, reports] = await Promise.all([
     db.monthlyHoursSchedule.findUnique({ where: { id: "program" } }),
     getProgramTimeZone(db),
@@ -714,9 +714,10 @@ export async function getMonthlyHoursSettings(db: DomainDb, actorRole: string) {
     serviceHoursEnabled: features.SERVICE_HOURS,
     optionalEmailEnabled: settings?.emailNotificationsEnabled ?? false,
     transportAvailable: isEmailDeliveryAvailable("PROGRAM"),
-    canEdit: ["ADMIN", "HEAD", "COORDINATOR"].includes(actorRole),
-    canApply: ["ADMIN", "HEAD"].includes(actorRole),
-    canGenerate: ["ADMIN", "HEAD"].includes(actorRole),
+    // Saved overview evidence is retained, but stale clients cannot restart it.
+    canEdit: false,
+    canApply: false,
+    canGenerate: false,
     recentReports: reports.map(reportSummary),
     lastGenerationError: row?.lastGenerationError ?? null,
   };

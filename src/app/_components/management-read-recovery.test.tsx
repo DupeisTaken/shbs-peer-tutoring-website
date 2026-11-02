@@ -20,7 +20,7 @@ import TimeSlotsPage from "../(admin)/admin/time-slots/page";
 import PairingsPage from "../(admin)/admin/pairings/page";
 import { ReadOnlyProvider } from "./read-only";
 
-vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
+vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const remote = vi.hoisted(() => ({
   codes: vi.fn(),

@@ -26,7 +26,7 @@ const accountAccessOperations = new Set([
   "program.setEmailNotifications",
   "program.setSecondaryEmailBinding",
   "program.setTimeZone",
-  "monthlyHours.save",
+  "schoolHours.save",
   "program.setSignupWindow",
   "program.prepareNextRecruitment",
   "program.setFeaturePending",
@@ -85,7 +85,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "program.setEmailNotifications": "ProgramSettings",
   "program.setSecondaryEmailBinding": "ProgramSettings",
   "program.setTimeZone": "ProgramSettings",
-  "monthlyHours.save": "MonthlyHoursSchedule",
+  "schoolHours.save": "SchoolHoursSchedule",
   "program.setSignupWindow": "Term",
   "program.prepareNextRecruitment": "NextRecruitmentPreparation",
   "program.setFeaturePending": "ProgramFeature",
@@ -230,7 +230,7 @@ export type ApprovalAuthority = {
 };
 
 const significantSettings = new Set([
-  "monthlyHours.save",
+  "schoolHours.save",
   "program.setNameFields",
   "program.setCalendarDay",
   "program.removeCalendarDay",

@@ -1,0 +1,105 @@
+import type { SchoolHoursSnapshot } from "./school-hours-input";
+
+/** Synthetic shared renderer/link fixtures; no live participant or mailbox data. */
+export function schoolHoursTestSnapshot(revision = 1): SchoolHoursSnapshot {
+  const components = (earned = 0, deductions = 0, crew = 0) => ({
+    earned,
+    extras: 0,
+    deductions,
+    crew,
+  });
+  const nameParts = {
+    firstName: "Alexander",
+    lastName: "Chen",
+    preferredName: "Alex",
+    alternativeNames: "陈安",
+    legacyName: null,
+    confirmed: true,
+  };
+  const revised = revision > 1;
+  const rows: SchoolHoursSnapshot["rows"] = [
+    {
+      beneficiaryId: "private-person-a",
+      exportName: 'Alexander "Alex" Chen (陈安)',
+      schoolAccountKey: "school-A",
+      nameParts,
+      current: components(revised ? 6.5 : 6, 0, 1),
+      previous: revised ? components(6, 0, 1) : components(),
+      change: components(revised ? 0.5 : 6, 0, revised ? 0 : 1),
+      tutoringChange: revised ? 0.5 : 6,
+      crewChange: revised ? 0 : 1,
+      hoursToAdd: revised ? 0.5 : 7,
+      monthAmount: revised ? 7.5 : 7,
+      previousEditionAmount: revised ? 7 : null,
+      previousMonthAmount: 6,
+      monthComparison: revised ? 1.5 : 1,
+      unchanged: false,
+      priorEditions: [],
+    },
+    {
+      beneficiaryId: "private-person-b",
+      exportName: "Blair <Synthetic>",
+      schoolAccountKey: "school-B",
+      nameParts: {
+        ...nameParts,
+        firstName: "Blair",
+        lastName: null,
+        preferredName: null,
+        alternativeNames: null,
+      },
+      current: components(0, 0.5),
+      previous: revised ? components(0, 0.5) : components(),
+      change: components(0, revised ? 0 : 0.5),
+      tutoringChange: revised ? 0 : -0.5,
+      crewChange: 0,
+      hoursToAdd: revised ? 0 : -0.5,
+      monthAmount: -0.5,
+      previousEditionAmount: revised ? -0.5 : null,
+      previousMonthAmount: 1,
+      monthComparison: -1.5,
+      unchanged: revised,
+      priorEditions: [],
+    },
+    {
+      beneficiaryId: "private-person-c",
+      exportName: "Casey Synthetic",
+      schoolAccountKey: "school-C",
+      nameParts: {
+        ...nameParts,
+        firstName: "Casey",
+        preferredName: null,
+        alternativeNames: null,
+      },
+      current: components(2),
+      previous: components(2),
+      change: components(),
+      tutoringChange: 0,
+      crewChange: 0,
+      hoursToAdd: 0,
+      monthAmount: 0,
+      previousEditionAmount: revised ? 0 : null,
+      previousMonthAmount: null,
+      monthComparison: null,
+      unchanged: true,
+      priorEditions: [],
+    },
+  ];
+  return {
+    schemaVersion: 1,
+    month: "2026-10",
+    revision,
+    generatedAt: "2026-10-31T04:00:00.000Z",
+    timeZone: "Asia/Shanghai",
+    predecessorId: "private-previous-report",
+    supersedesId: revised ? "private-replaced-report" : null,
+    includeStatistics: false,
+    rows,
+    totals: {
+      people: 3,
+      tutoringChange: revised ? 0.5 : 5.5,
+      crewChange: revised ? 0 : 1,
+      hoursToAdd: revised ? 0.5 : 6.5,
+      monthAmount: revised ? 7 : 6.5,
+    },
+  };
+}

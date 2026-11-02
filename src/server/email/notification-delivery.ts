@@ -16,7 +16,17 @@ import {
   schoolCalendarEmailEligible,
 } from "../school-calendar-notifications";
 import { monthlyHoursCategory } from "~/server/monthly-hours";
-import { admitMonthlyHoursDelivery, finishMonthlyHoursDelivery, monthlyHoursDeliveryCopy } from "~/server/monthly-hours-delivery";
+import {
+  admitMonthlyHoursDelivery,
+  finishMonthlyHoursDelivery,
+  monthlyHoursDeliveryCopy,
+} from "~/server/monthly-hours-delivery";
+import {
+  schoolHoursCategory,
+  admitSchoolHoursDelivery,
+  finishSchoolHoursDelivery,
+  schoolHoursDeliveryCopy,
+} from "~/server/school-hours-delivery";
 import {
   admitRequestDelivery,
   finishRequestDelivery,
@@ -42,7 +52,9 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     await db.emailDelivery.updateMany({
       where: {
         status: "PENDING",
-        category: { notIn: ["security", requestServiceCategory] },
+        category: {
+          notIn: ["security", requestServiceCategory, schoolHoursCategory],
+        },
       },
       data: { status: "SKIPPED", completedAt: new Date() },
     });
@@ -58,7 +70,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     { id: string; leaseUntil: Date; attemptId: string | null }[]
   >`
     WITH candidates AS MATERIALIZED (SELECT id FROM "EmailDelivery" WHERE (status = 'PENDING'
-      OR (status = 'SENDING' AND category IN ('request_service', 'monthly_hours'))) AND "availableAt" <= NOW()
+      OR (status = 'SENDING' AND category IN ('request_service', 'monthly_hours', 'school_hours'))) AND "availableAt" <= NOW()
       AND ("leaseUntil" IS NULL OR "leaseUntil" < NOW()) ORDER BY "createdAt" LIMIT ${limit} FOR UPDATE SKIP LOCKED)
     UPDATE "EmailDelivery" delivery SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
     FROM candidates WHERE delivery.id = candidates.id
@@ -88,7 +100,13 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     });
     if (
       row.status !== "PENDING" &&
-      !([requestServiceCategory, monthlyHoursCategory].includes(row.category) && row.status === "SENDING")
+      !(
+        [
+          requestServiceCategory,
+          monthlyHoursCategory,
+          schoolHoursCategory,
+        ].includes(row.category) && row.status === "SENDING"
+      )
     )
       continue;
     // Account security notices are essential; other notifications are program mail.
@@ -109,16 +127,55 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     const current = await db.programSettings.findUnique({
       where: { id: "program" },
     });
-    if (row.category === monthlyHoursCategory) {
-      const admitted = await admitMonthlyHoursDelivery(db, id, leaseUntil, attemptId);
+    if (row.category === schoolHoursCategory) {
+      const admitted = await admitSchoolHoursDelivery(
+        db,
+        id,
+        leaseUntil,
+        attemptId,
+      );
       if (!admitted?.row.attemptId) continue;
       let accepted = false;
       try {
-        await emailSender.send({ category: "PROGRAM", to: admitted.row.recipient,
-          messageId: `<monthly-hours-${id}@shbs-notifications>`, ...monthlyHoursDeliveryCopy(admitted) });
+        await emailSender.send({
+          category: "PROGRAM",
+          to: admitted.row.recipient,
+          messageId: `<school-hours-${id}@shbs-notifications>`,
+          ...schoolHoursDeliveryCopy(admitted),
+        });
         accepted = true;
-      } catch { /* Completion retains only safe transport diagnostics. */ }
-      await finishMonthlyHoursDelivery(db, id, admitted.row.attemptId, accepted);
+      } catch {
+        /* Keep transport diagnostics free of report tokens and addresses. */
+      }
+      await finishSchoolHoursDelivery(db, id, admitted.row.attemptId, accepted);
+      continue;
+    }
+    if (row.category === monthlyHoursCategory) {
+      const admitted = await admitMonthlyHoursDelivery(
+        db,
+        id,
+        leaseUntil,
+        attemptId,
+      );
+      if (!admitted?.row.attemptId) continue;
+      let accepted = false;
+      try {
+        await emailSender.send({
+          category: "PROGRAM",
+          to: admitted.row.recipient,
+          messageId: `<monthly-hours-${id}@shbs-notifications>`,
+          ...monthlyHoursDeliveryCopy(admitted),
+        });
+        accepted = true;
+      } catch {
+        /* Completion retains only safe transport diagnostics. */
+      }
+      await finishMonthlyHoursDelivery(
+        db,
+        id,
+        admitted.row.attemptId,
+        accepted,
+      );
       continue;
     }
     if (row.category === requestServiceCategory) {

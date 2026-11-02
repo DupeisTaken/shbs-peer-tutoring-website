@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { TRPCError } from "@trpc/server";
+import superjson from "superjson";
 import {
   afterAll,
   afterEach,
@@ -12,6 +12,7 @@ import {
 import type { MockInstance } from "vitest";
 import type { Session } from "next-auth";
 import type {
+  Prisma,
   MonthlyHoursSchedule,
   ProgramFeature,
   ProgramSettings,
@@ -22,7 +23,7 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
-import { ApprovalQueued } from "~/server/approvals";
+import { queueProposal } from "~/server/approvals";
 import { emailSender, type EmailSender } from "~/server/email/sender";
 
 // These API/approval regressions own prefixed fixtures and temporarily configure
@@ -254,41 +255,33 @@ async function settingsInput(
   };
 }
 
-async function generationInput() {
-  const preview = await actor().monthlyHours.preview({ month });
+function generationInput() {
   return {
     month,
-    expectedVersion: preview.configVersion,
-    expectedContentHash: preview.contentHash,
-    expectedLatestRevision: preview.latestRevision,
+    expectedVersion: 0,
+    expectedContentHash: "a".repeat(64),
+    expectedLatestRevision: 1,
     requestId: randomUUID(),
-    reason: "Synthetic reviewed revision",
+    reason: "Synthetic stale-tab issue",
   };
 }
 
-async function queued(input: MonthlyHoursSettingsInput) {
-  const failure: unknown = await actor("COORDINATOR")
-    .monthlyHours.save(input)
-    .catch((error: unknown) => error);
-  expect((failure as { cause?: unknown }).cause).toBeInstanceOf(ApprovalQueued);
-  return db.approvalRequest.findUniqueOrThrow({
-    where: { id: (failure as { cause: ApprovalQueued }).cause.approvalId },
-  });
-}
-
-async function expectRefusal(
-  work: Promise<unknown>,
-  allowedCodes: readonly string[],
-) {
-  const failure: unknown = await work.catch((error: unknown) => error);
-  expect(failure).toBeInstanceOf(TRPCError);
-  expect(allowedCodes).toContain(
-    failure instanceof TRPCError ? failure.code : undefined,
-  );
+async function retainedState() {
+  return {
+    schedule: await db.monthlyHoursSchedule.findUniqueOrThrow({
+      where: { id: "program" },
+    }),
+    report: await db.monthlyHoursReport.findUniqueOrThrow({
+      where: { id: reportId },
+    }),
+    reports: await db.monthlyHoursReport.count(),
+    deliveries: await db.emailDelivery.count(),
+    proposals: await db.approvalRequest.count(),
+  };
 }
 
 it.each(["VIEWER", "TUTOR"] as const)(
-  "denies %s all monthly-report reads",
+  "denies %s all legacy monthly-report reads",
   async (role) => {
     const api = actor(role).monthlyHours;
     for (const read of [
@@ -301,212 +294,131 @@ it.each(["VIEWER", "TUTOR"] as const)(
   },
 );
 
-it("lets a Coordinator inspect settings, preview and saved evidence without applying or sending", async () => {
-  const api = actor("COORDINATOR").monthlyHours;
-  const settings = await api.settings();
-  expect(settings).toMatchObject({
-    canEdit: true,
-    canApply: false,
-    canGenerate: false,
-  });
-  expect(settings.recentReports.some((report) => report.id === reportId)).toBe(
-    true,
-  );
-  expect(await api.preview({ month })).toMatchObject({
-    month,
-    configVersion: 0,
-  });
-  expect(await api.report({ id: reportId })).toMatchObject({
-    month,
-    revision: 1,
-    rows: [
-      { englishName: "Synthetic Historical Tutor", active: false, total: 0.5 },
-    ],
-  });
-  expect((await api.csv({ id: reportId })).content).toContain(
-    "Synthetic Historical Tutor",
-  );
-  expect(
-    (
-      await db.monthlyHoursSchedule.findUniqueOrThrow({
-        where: { id: "program" },
-      })
-    ).version,
-  ).toBe(0);
+it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
+  "lets %s inspect read-only settings and saved evidence without applying or sending",
+  async (role) => {
+    const before = await retainedState();
+    const api = actor(role).monthlyHours;
+    const settings = await api.settings();
+    expect(settings).toMatchObject({
+      canEdit: false,
+      canApply: false,
+      canGenerate: false,
+    });
+    expect(
+      settings.recentReports.some((report) => report.id === reportId),
+    ).toBe(true);
+    expect(await api.report({ id: reportId })).toMatchObject({
+      month,
+      revision: 1,
+      rows: [
+        {
+          englishName: "Synthetic Historical Tutor",
+          active: false,
+          total: 0.5,
+        },
+      ],
+    });
+    expect((await api.csv({ id: reportId })).content).toContain(
+      "Synthetic Historical Tutor",
+    );
+    expect(await retainedState()).toEqual(before);
+  },
+);
+
+it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
+  "refuses every retired overview action from a stale %s tab without source, delivery or proposal writes",
+  async (role) => {
+    // A stale/deployed schedule state cannot weaken the permanent API retirement.
+    await db.monthlyHoursSchedule.update({
+      where: { id: "program" },
+      data: { enabled: true, recipientUserIds: [id("HEAD")] },
+    });
+    const before = await retainedState();
+    const api = actor(role).monthlyHours;
+    for (const attempt of [
+      () => api.preview({ month }),
+      async () => api.save(await settingsInput()),
+      () => api.generate(generationInput()),
+      () => api.retry({ id: reportId }),
+    ]) {
+      await expect(attempt()).rejects.toMatchObject({
+        code: "PRECONDITION_FAILED",
+        message:
+          "Monthly overviews have been retired. Use School Month Reports.",
+      });
+      expect(await retainedState()).toEqual(before);
+    }
+  },
+);
+
+it("refuses direct proposal queuing for the retired configuration", async () => {
+  const before = await retainedState();
+  await expect(
+    queueProposal(
+      {
+        user: { id: id("COORDINATOR"), name: "Synthetic Coordinator" },
+        role: "COORDINATOR",
+        tutorId: null,
+        expires: "2099-01-01T00:00:00Z",
+      },
+      "monthlyHours.save",
+      await settingsInput(),
+    ),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await retainedState()).toEqual(before);
 });
 
 it.each(["ADMIN", "HEAD"] as const)(
-  "lets %s apply configuration directly with no approval proposal",
+  "refuses %s replay of a pending legacy proposal even with captured review authority",
   async (role) => {
-    const result = await actor(role).monthlyHours.save(await settingsInput());
-    expect(result.config).toMatchObject({
-      enabled: true,
-      version: 1,
-      recipientUserIds: [id("HEAD")],
-    });
-    expect(
-      await db.approvalRequest.count({ where: { requesterId: id(role) } }),
-    ).toBe(0);
-    expect(
-      await db.auditLog.count({
-        where: { userId: id(role), operation: "monthlyHours.save" },
-      }),
-    ).toBeGreaterThan(0);
-  },
-);
-
-it("queues a Coordinator settings change without live writes and lets an Admin replay the reviewed configuration", async () => {
-  const before = await db.monthlyHoursSchedule.findUniqueOrThrow({
-    where: { id: "program" },
-  });
-  const proposal = await queued(await settingsInput());
-  expect(proposal).toMatchObject({
-    operation: "monthlyHours.save",
-    state: "PENDING",
-  });
-  expect(
-    await db.monthlyHoursSchedule.findUniqueOrThrow({
-      where: { id: "program" },
-    }),
-  ).toEqual(before);
-  await expect(
-    actor("COORDINATOR").approval.decide({
-      id: proposal.id,
-      approve: true,
-      note: "Synthetic self-review refused",
-    }),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await actor("ADMIN").approval.decide({
-    id: proposal.id,
-    approve: true,
-    note: "Synthetic configuration reviewed",
-  });
-  expect(
-    await db.monthlyHoursSchedule.findUniqueOrThrow({
-      where: { id: "program" },
-    }),
-  ).toMatchObject({
-    enabled: true,
-    version: 1,
-    recipientUserIds: [id("HEAD")],
-  });
-  expect(
-    await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } }),
-  ).toMatchObject({ state: "APPROVED" });
-});
-
-it("does not turn Coordinator generation or retry into an approval bypass", async () => {
-  await actor().monthlyHours.save(await settingsInput());
-  const before = await db.monthlyHoursReport.count({
-    where: { generatedById: { startsWith: prefix } },
-  });
-  await expect(
-    actor("COORDINATOR").monthlyHours.generate(await generationInput()),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(
-    actor("COORDINATOR").monthlyHours.retry({ id: reportId }),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect(
-    await db.approvalRequest.count({
-      where: { requesterId: id("COORDINATOR") },
-    }),
-  ).toBe(0);
-  expect(
-    await db.monthlyHoursReport.count({
-      where: { generatedById: { startsWith: prefix } },
-    }),
-  ).toBe(before);
-});
-
-it("rejects a stale settings version without overwriting applied configuration", async () => {
-  const stale = await settingsInput();
-  await actor().monthlyHours.save(stale);
-  const applied = await db.monthlyHoursSchedule.findUniqueOrThrow({
-    where: { id: "program" },
-  });
-  await expect(
-    actor("ADMIN").monthlyHours.save({ ...stale, dayOfMonth: 4 }),
-  ).rejects.toMatchObject({ code: "CONFLICT" });
-  expect(
-    await db.monthlyHoursSchedule.findUniqueOrThrow({
-      where: { id: "program" },
-    }),
-  ).toEqual(applied);
-});
-
-it("refuses proposal replay after a different configuration has been applied", async () => {
-  const proposal = await queued(await settingsInput());
-  await actor().monthlyHours.save(
-    await settingsInput({ enabled: false, dayOfMonth: 4 }),
-  );
-  const applied = await db.monthlyHoursSchedule.findUniqueOrThrow({
-    where: { id: "program" },
-  });
-  await expect(
-    actor("ADMIN").approval.decide({
-      id: proposal.id,
-      approve: true,
-      note: "Synthetic stale review",
-    }),
-  ).rejects.toMatchObject({ code: "CONFLICT" });
-  expect(
-    await db.monthlyHoursSchedule.findUniqueOrThrow({
-      where: { id: "program" },
-    }),
-  ).toEqual(applied);
-  expect(
-    (await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } }))
-      .state,
-  ).toBe("PENDING");
-});
-
-it.each(["role", "unverified", "proof-changed"] as const)(
-  "refuses proposal replay when the selected recipient's %s evidence changes",
-  async (change) => {
-    const proposal = await queued(await settingsInput());
-    if (change === "role")
-      await db.user.update({
-        where: { id: id("HEAD") },
-        data: { role: "VIEWER" },
-      });
-    else
-      await db.accountEmail.update({
-        where: { email: mailbox("HEAD") },
-        data: {
-          verifiedAt:
-            change === "unverified" ? null : new Date("1991-01-02T00:00:00Z"),
+    const proposal = await db.approvalRequest.create({
+      data: {
+        requesterId: id("COORDINATOR"),
+        requesterName: "Synthetic Coordinator",
+        operation: "monthlyHours.save",
+        payload: superjson.serialize(
+          await settingsInput(),
+        ) as unknown as Prisma.InputJsonObject,
+        targets: {
+          reviewAuthority: {
+            category: "SIGNIFICANT_SETTING",
+            directRoles: ["ADMIN", "HEAD"],
+            requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"],
+            reviewerRoles: ["ADMIN", "HEAD"],
+          },
         },
-      });
-    await expectRefusal(
-      actor("ADMIN").approval.decide({
+        fingerprint: "c".repeat(64),
+      },
+    });
+    const before = await retainedState();
+    await expect(
+      actor(role).approval.decide({
         id: proposal.id,
         approve: true,
-        note: "Synthetic recipient evidence changed",
+        note: "A saved old approval must not restart the workflow",
       }),
-      ["CONFLICT", "BAD_REQUEST", "PRECONDITION_FAILED"],
-    );
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await retainedState()).toEqual(before);
     expect(
-      await db.monthlyHoursSchedule.findUniqueOrThrow({
-        where: { id: "program" },
+      await db.approvalRequest.findUniqueOrThrow({
+        where: { id: proposal.id },
       }),
-    ).toMatchObject({ enabled: false, version: 0 });
-    expect(
-      (
-        await db.approvalRequest.findUniqueOrThrow({
-          where: { id: proposal.id },
-        })
-      ).state,
-    ).toBe("PENDING");
+    ).toEqual(proposal);
   },
 );
 
-it("preserves staff settings and saved history when the feature is off, blocks preview and enabling, and allows disabling", async () => {
+it("preserves saved evidence with the feature off while all legacy live actions remain retired", async () => {
   await db.programFeature.update({
     where: { key: "SERVICE_HOURS" },
     data: { enabled: false },
   });
+  const before = await retainedState();
   expect(await actor("COORDINATOR").monthlyHours.settings()).toMatchObject({
     serviceHoursEnabled: false,
+    canEdit: false,
+    canApply: false,
+    canGenerate: false,
   });
   expect(
     await actor("COORDINATOR").monthlyHours.report({ id: reportId }),
@@ -515,31 +427,10 @@ it("preserves staff settings and saved history when the feature is off, blocks p
     (await actor("COORDINATOR").monthlyHours.csv({ id: reportId })).filename,
   ).toContain(month);
   await expect(actor().monthlyHours.preview({ month })).rejects.toMatchObject({
-    code: "FORBIDDEN",
+    code: "PRECONDITION_FAILED",
   });
   await expect(
-    actor().monthlyHours.save(await settingsInput()),
+    actor().monthlyHours.save(await settingsInput({ enabled: false })),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect(
-    (await actor().monthlyHours.save(await settingsInput({ enabled: false })))
-      .config,
-  ).toMatchObject({ enabled: false, version: 1 });
-});
-
-it("refuses a new manual report after service hours is disabled, even with an earlier valid preview", async () => {
-  await actor().monthlyHours.save(await settingsInput());
-  const input = await generationInput();
-  await db.programFeature.update({
-    where: { key: "SERVICE_HOURS" },
-    data: { enabled: false },
-  });
-  await expectRefusal(actor().monthlyHours.generate(input), [
-    "FORBIDDEN",
-    "PRECONDITION_FAILED",
-  ]);
-  expect(
-    await db.monthlyHoursReport.count({
-      where: { generatedById: { startsWith: prefix } },
-    }),
-  ).toBe(1);
+  expect(await retainedState()).toEqual(before);
 });
