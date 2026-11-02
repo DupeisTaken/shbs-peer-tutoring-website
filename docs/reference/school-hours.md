@@ -24,7 +24,14 @@ deductions and stored Crew credit. Their next amount is the difference in earned
 and extra credit, minus the difference in deductions, plus the difference in Crew
 credit. Opposite changes on different people remain separate even when the
 program-wide net is zero. Stored precision is retained; display rounding never
-becomes a new source value.
+becomes a new source value. Lengthy values have an explicitly approximate summary
+using the existing four-decimal display convention. School instructions keep the
+exact posting value visible beside that summary in management, public HTML and
+plain-text email; CSV retains the exact numeric value. Opening-review summaries
+keep exact source amounts in screen-reader text and the evidence dialog, without
+rounding the editable already-reported values. Tiny nonzero amounts never appear
+as zero. Neither repeating fractions nor floating-point tails are silently
+reclassified as accounting errors, and saved snapshots are not rewritten.
 
 The report month identifies the reporting occurrence, not a service-date filter.
 Late attendance for earlier dates remains eligible, and school-calendar changes

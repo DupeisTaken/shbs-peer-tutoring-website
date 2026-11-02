@@ -93,18 +93,33 @@ export function runtimeConfig(image) {
   };
 }
 
+const isDigest = (value) =>
+  typeof value === "string" && /^sha256:[a-f0-9]{64}$/.test(value);
+
+export function identityDiagnostics(metadata, image) {
+  const selected = (value) =>
+    isDigest(value) ? value : value === undefined ? "missing" : "invalid";
+  // Never log arbitrary metadata values, config contents or Buildx provenance.
+  return {
+    configDigest: selected(metadata?.["containerimage.config.digest"]),
+    manifestDigest: selected(metadata?.["containerimage.digest"]),
+    imageId: selected(image?.Id),
+  };
+}
+
 export function buildIdentity(metadata, image) {
-  const configDigest = metadata?.["containerimage.config.digest"];
+  const hasConfig = Object.hasOwn(metadata ?? {}, "containerimage.config.digest");
+  const configDigest = hasConfig ? metadata["containerimage.config.digest"] : null;
   const manifestDigest = metadata?.["containerimage.digest"];
-  for (const digest of [configDigest, manifestDigest, image?.Id])
-    assert.match(
-      digest,
-      /^sha256:[a-f0-9]{64}$/,
-      "Missing or invalid build image identity",
-    );
+  assert.ok(
+    (!hasConfig || isDigest(configDigest)) &&
+      isDigest(manifestDigest) && isDigest(image?.Id),
+    "Missing or invalid build image identity",
+  );
   // Classic Docker identifies an image by its config; the containerd store can
-  // identify it by its manifest. Bind either form to this build's own metadata,
-  // never infer the expected config from the archive being checked.
+  // identify it by its manifest. Buildx --load intentionally omits the config
+  // digest for containerd. Defer that config binding to a verified archive
+  // manifest whose hash must equal this independently recorded build digest.
   assert.ok(
     image.Id === configDigest || image.Id === manifestDigest,
     "Loaded image identity does not match the Buildx result",
@@ -118,16 +133,29 @@ export function assertMeasuredIdentity(image, identity, exported, currentImage) 
     image.Id,
     "Tag identity changed during measurement",
   );
-  assert.equal(
-    exported?.config_digest,
-    identity.configDigest,
+  assert.ok(
+    isDigest(exported?.config_digest),
     "Exported config identity does not match the Buildx result",
   );
+  if (identity.configDigest === null) {
+    assert.ok(
+      Array.isArray(exported.manifest_digests) &&
+        exported.manifest_digests.includes(identity.manifestDigest),
+      "Exported manifest identity does not match the Buildx result",
+    );
+  } else {
+    assert.equal(
+      exported.config_digest,
+      identity.configDigest,
+      "Exported config identity does not match the Buildx result",
+    );
+  }
   assert.deepEqual(
     exported.layers.map((layer) => layer.diff_id),
     image.RootFS.Layers,
     "Exported layer identities changed during measurement",
   );
+  return { ...identity, configDigest: exported.config_digest };
 }
 
 export function compareInventories(baseline, candidate) {
@@ -254,7 +282,7 @@ function compare(output) {
   for (const layout of layouts) {
     const file = path.join(destination, `${layout.role}.Dockerfile`);
     // Raw Buildx metadata may include provenance. Only the selected digests go
-    // into comparison.json; the workflow uploads *.json, not this raw metadata.
+    // into selected JSON reports; the workflow never uploads this raw metadata.
     const metadataFile = path.join(destination, `${layout.role}.build-metadata`);
     writeFileSync(file, layout.source);
     console.log(`Building controlled ${layout.role} layout`);
@@ -281,10 +309,12 @@ function compare(output) {
     layout.image = JSON.parse(
       run("docker", ["image", "inspect", layout.tag]),
     )[0];
-    layout.identity = buildIdentity(
-      JSON.parse(readFileSync(metadataFile, "utf8")),
-      layout.image,
+    const metadata = JSON.parse(readFileSync(metadataFile, "utf8"));
+    json(
+      path.join(destination, `${layout.role}.identity.json`),
+      identityDiagnostics(metadata, layout.image),
     );
+    layout.identity = buildIdentity(metadata, layout.image);
     // Inventory the bound immutable image, not a mutable tag name.
     layout.inventory = imageInventory(layout.image.Id);
   }
@@ -333,7 +363,7 @@ function compare(output) {
   );
   const metrics = JSON.parse(readFileSync(metricsFile, "utf8"));
   for (const layout of layouts) {
-    assertMeasuredIdentity(
+    layout.identity = assertMeasuredIdentity(
       layout.image,
       layout.identity,
       metrics.images[layout.tag],

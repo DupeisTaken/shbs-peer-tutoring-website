@@ -106,13 +106,16 @@ the measurement artifacts.
 The comparison requires identical `/app` inventories (paths, types, modes,
 UID/GID, literal symlink targets and file sizes/hashes) between corresponding
 baseline/candidate images, plus equal runtime configuration. Inventory timestamps
-are excluded. Buildx metadata binds each build's manifest and configuration digests
-separately: classic Docker may inspect by config ID, while the containerd store may
-inspect by manifest ID. Inventory runs against that immutable inspected identity;
-archive verification checks the independently recorded config digest and ordered
-layer identities, then rechecks each tag for rebinding. Raw build metadata is not
-included in uploaded JSON reports. The comparison checks that the controlled
-probe changes only `server.js` and
+are excluded. Buildx metadata binds each build's identity: classic Docker may
+inspect by config ID, while the containerd store may inspect by manifest ID and
+omit the config digest from build metadata. Inventory runs against that immutable
+inspected identity. Archive verification uses the recorded config digest when
+present; otherwise it authenticates the saved manifest against the recorded build
+digest and verifies that manifest's config and ordered layer payloads. Both paths
+check the inspected layer identities and recheck each tag for rebinding. Raw build
+metadata is not uploaded; selected digest diagnostics contain no provenance or
+configuration contents. The comparison checks that the controlled probe changes
+only `server.js` and
 compares per-image Docker `Size`, the two-image exported-layer-content union and
 a snapshot-chain-weighted payload proxy. The candidate single-image size and
 both pair proxies must not grow. Seven-day JSON artifacts retain file-equivalence,

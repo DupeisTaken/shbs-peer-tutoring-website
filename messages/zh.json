@@ -7703,6 +7703,8 @@
     }
   },
   "schoolHours": {
+    "approximateHours": "约 {hours}",
+    "exactHours": "精确值：{hours}",
     "loading": "正在加载月度报告…",
     "loadFailed": "无法加载月度报告。",
     "refreshFailed": "刷新失败。保留已加载数据，恢复读取前无法提交更改。",

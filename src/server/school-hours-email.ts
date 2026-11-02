@@ -1,5 +1,8 @@
 import { APP_TITLE } from "~/lib/branding";
-import { formatSchoolHours } from "~/lib/school-hours-format";
+import {
+  formatSchoolHours,
+  schoolHoursApproximation,
+} from "~/lib/school-hours-format";
 import { schoolHoursVisibleRows } from "~/lib/school-hours-visibility";
 import {
   schoolHoursPriorEditions,
@@ -99,6 +102,20 @@ function editionChoicesText(row: SchoolHoursPublicRow, revision: number) {
   return `\nLast applied edition -> correction to apply now / 最后入账版本 -> 现在应应用的更正额 (choose one / 仅选一项):\n${choices}${choices ? "\n" : ""}Nothing applied / 从未入账 -> ${formatSchoolHours(row.monthAmount, true)} h once / 一次\nChoose only one matching row; never add alternatives. If unknown or not listed, ask the program team. Negative corrections are deductions. / 仅选符合情况的一项，切勿相加；若不确定或未列出，请先联系项目团队。负数应扣除。`;
 }
 
+function schoolHoursValueHtml(value: number) {
+  const exact = escapeSchoolHours(formatSchoolHours(value, true));
+  const approximation = schoolHoursApproximation(value, true);
+  if (approximation === null) return `${exact} h`;
+  return `<span style="display:block">≈ ${escapeSchoolHours(approximation)} h <span style="font-size:12px;font-weight:400">(approximate / 约数)</span></span><span style="display:block;font-size:13px;font-weight:400;overflow-wrap:anywhere">Exact / 精确值: ${exact} h</span>`;
+}
+
+function schoolHoursSummaryText(value: number) {
+  const approximation = schoolHoursApproximation(value, true);
+  return approximation === null
+    ? ""
+    : `Approximate summary / 约数摘要: ≈ ${approximation} h\n`;
+}
+
 /** This view accepts only the public hours projection. It cannot accidentally
  * recover source evidence, private reasons or the intended recipient list. */
 export function renderSchoolHoursContent(
@@ -113,7 +130,7 @@ export function renderSchoolHoursContent(
   const cards = rows
     .map((row) => {
       const instruction = individualInstruction(row, report.revision);
-      return `<section class="person" style="background:#F8FAFC;border:1px solid #CBD5E1;border-radius:12px;padding:18px;margin:14px 0;color:#0F172A"><h2 style="font-size:19px;margin:0 0 6px;overflow-wrap:anywhere">${e(row.exportName)}</h2><p style="font-size:13px;color:#475569;margin:0 0 12px;overflow-wrap:anywhere">School account / 学校账户: ${e(row.schoolAccountKey)}</p><p style="margin:0;font-size:30px;font-weight:750;font-variant-numeric:tabular-nums;color:${row.hoursToAdd < 0 ? "#B42318" : "#115E59"}">${e(formatSchoolHours(row.hoursToAdd, true))} h</p><p style="margin:5px 0 14px;font-weight:600">${e(instruction)}</p><p style="font-size:14px;margin:0;line-height:1.7">Tutoring net / 辅导净额: <strong>${e(formatSchoolHours(row.tutoringChange, true))} h</strong><br>Crew / 执勤: <strong>${e(formatSchoolHours(row.crewChange, true))} h</strong></p>${report.revision > 1 ? `<p style="font-size:14px;border-top:1px solid #CBD5E1;margin:12px 0 0;padding-top:12px">Previous edition amount / 上版金额: ${e(row.previousEditionAmount === null ? "—" : `${formatSchoolHours(row.previousEditionAmount, true)} h`)}<br>Replacement month amount / 替代月度金额: <strong>${e(formatSchoolHours(row.monthAmount, true))} h</strong></p>${editionChoicesHtml(row, report.revision)}` : ""}</section>`;
+      return `<section class="person" style="background:#F8FAFC;border:1px solid #CBD5E1;border-radius:12px;padding:18px;margin:14px 0;color:#0F172A"><h2 style="font-size:19px;margin:0 0 6px;overflow-wrap:anywhere">${e(row.exportName)}</h2><p style="font-size:13px;color:#475569;margin:0 0 12px;overflow-wrap:anywhere">School account / 学校账户: ${e(row.schoolAccountKey)}</p><p style="margin:0;font-size:30px;font-weight:750;font-variant-numeric:tabular-nums;color:${row.hoursToAdd < 0 ? "#B42318" : "#115E59"}">${schoolHoursValueHtml(row.hoursToAdd)}</p><p style="margin:5px 0 14px;font-weight:600">${e(instruction)}</p><p style="font-size:14px;margin:0;line-height:1.7">Tutoring net / 辅导净额: <strong>${schoolHoursValueHtml(row.tutoringChange)}</strong><br>Crew / 执勤: <strong>${schoolHoursValueHtml(row.crewChange)}</strong></p>${report.revision > 1 ? `<p style="font-size:14px;border-top:1px solid #CBD5E1;margin:12px 0 0;padding-top:12px">Previous edition amount / 上版金额: ${e(row.previousEditionAmount === null ? "—" : `${formatSchoolHours(row.previousEditionAmount, true)} h`)}<br>Replacement month amount / 替代月度金额: <strong>${e(formatSchoolHours(row.monthAmount, true))} h</strong></p>${editionChoicesHtml(row, report.revision)}` : ""}</section>`;
     })
     .join("");
   const comparisons = rows
@@ -142,7 +159,7 @@ export function schoolHoursEmailCopy(input: {
   const textRows = report.rows
     .map(
       (row) =>
-        `${row.exportName}\nSchool account / 学校账户: ${row.schoolAccountKey}\n${individualInstruction(row, report.revision)}: ${formatSchoolHours(row.hoursToAdd, true)} h\nTutoring net / 辅导净额: ${formatSchoolHours(row.tutoringChange, true)} h; Crew / 执勤: ${formatSchoolHours(row.crewChange, true)} h${report.revision > 1 ? `\nPrevious edition / 上版: ${row.previousEditionAmount === null ? "—" : formatSchoolHours(row.previousEditionAmount, true)} h; Replacement month amount / 替代月度金额: ${formatSchoolHours(row.monthAmount, true)} h${editionChoicesText(row, report.revision)}` : ""}${row.previousMonthAmount === null ? "" : `\nInformational monthly comparison only / 仅供参考的月度比较: ${formatSchoolHours(row.previousMonthAmount)} → ${formatSchoolHours(row.monthAmount)} h (${row.monthComparison === null ? "—" : formatSchoolHours(row.monthComparison, true)} h). Not an additional account correction / 非额外账户更正。`}`,
+        `${row.exportName}\nSchool account / 学校账户: ${row.schoolAccountKey}\n${schoolHoursSummaryText(row.hoursToAdd)}${individualInstruction(row, report.revision)}: ${formatSchoolHours(row.hoursToAdd, true)} h\nTutoring net / 辅导净额: ${formatSchoolHours(row.tutoringChange, true)} h; Crew / 执勤: ${formatSchoolHours(row.crewChange, true)} h${report.revision > 1 ? `\nPrevious edition / 上版: ${row.previousEditionAmount === null ? "—" : formatSchoolHours(row.previousEditionAmount, true)} h; Replacement month amount / 替代月度金额: ${formatSchoolHours(row.monthAmount, true)} h${editionChoicesText(row, report.revision)}` : ""}${row.previousMonthAmount === null ? "" : `\nInformational monthly comparison only / 仅供参考的月度比较: ${formatSchoolHours(row.previousMonthAmount)} → ${formatSchoolHours(row.monthAmount)} h (${row.monthComparison === null ? "—" : formatSchoolHours(row.monthComparison, true)} h). Not an additional account correction / 非额外账户更正。`}`,
     )
     .join("\n\n");
   const capabilityNotice =

@@ -19,6 +19,7 @@ import { SchoolHoursPanel } from "./school-hours-panel";
 import {
   SchoolHoursPreview,
   SchoolHoursIndividuals,
+  SchoolHoursBlockers,
   ProgramSchoolHoursPreview,
 } from "./school-hours-preview";
 import { SchoolHoursReport } from "./school-hours-report";
@@ -438,7 +439,10 @@ it.each(["en", "zh"] as const)(
     expect(
       within(cards[1]!).getByText(copy.amountToApply).nextElementSibling
         ?.textContent,
-    ).toBe("-0.016666666666666666");
+    ).toBe(
+      copy.approximateHours.replace("{hours}", "-0.0167") +
+        copy.exactHours.replace("{hours}", "-0.016666666666666666"),
+    );
     expect(within(list).queryByText("NoChange")).toBeNull();
     fireEvent.click(within(card).getByRole("button"));
     const dialog = screen.getByRole("dialog", { name: person.exportName });
@@ -456,6 +460,108 @@ it.each(["en", "zh"] as const)(
     }
   },
 );
+
+it.each(["en", "zh"] as const)(
+  "keeps exact posting values visible beside approximate summaries without evidence controls (%s)",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    render(
+      show(
+        <SchoolHoursIndividuals
+          rows={[
+            row("Alex", 1.7500000000000002, 0),
+            row("Iris", 3.5833333333333335, 0.5),
+            row("Tiny", -1e-16, 0),
+          ]}
+          revision={1}
+          showEvidence={false}
+        />,
+        locale,
+      ),
+    );
+    for (const role of ["list", "table"]) {
+      const individuals = within(
+        screen.getByRole(role, { name: copy.individualAmounts }),
+      );
+      for (const [approximate, exact] of [
+        ["+1.75", "+1.7500000000000002"],
+        ["+4.0833", "+4.083333333333334"],
+      ] as const) {
+        expect(
+          individuals.getAllByText(
+            copy.approximateHours.replace("{hours}", approximate),
+          ).length,
+        ).toBeGreaterThan(0);
+        expect(
+          individuals.getAllByText(copy.exactHours.replace("{hours}", exact))
+            .length,
+        ).toBeGreaterThan(0);
+      }
+      expect(individuals.getAllByText("-1e-16")).toHaveLength(2);
+      expect(
+        individuals.queryByText(copy.approximateHours.replace("{hours}", "0")),
+      ).toBeNull();
+      // Sorting remains available; only private evidence controls are omitted.
+      expect(
+        individuals.queryByRole("button", { name: /View details:|查看详情:/ }),
+      ).toBeNull();
+    }
+  },
+);
+
+it("labels blockers by their explicit participant identity and retains a safe fallback when unavailable", () => {
+  render(
+    show(
+      <SchoolHoursBlockers
+        blockers={[
+          {
+            code: "OWNER_MISSING",
+            message: "Missing owner",
+            beneficiaryId: "user:known",
+          },
+          {
+            code: "OWNER_MISSING",
+            message: "Missing owner",
+            beneficiaryId: "user:unavailable",
+          },
+          {
+            code: "OWNER_MISSING",
+            message: "Missing owner",
+            beneficiaryId: "user:blank",
+          },
+        ]}
+        participants={[
+          {
+            beneficiaryId: "user:known",
+            exportName: 'Alexander "Alex" Chen (陈安)',
+          },
+          { beneficiaryId: "user:blank", exportName: " " },
+        ]}
+      />,
+    ),
+  );
+  expect(screen.getByText('Alexander "Alex" Chen (陈安)')).toBeTruthy();
+  expect(screen.queryByText("user:known")).toBeNull();
+  expect(screen.getByText("user:unavailable")).toBeTruthy();
+  expect(screen.getByText("user:blank")).toBeTruthy();
+});
+
+it("uses preview participants for blocker labels without requiring a baseline query", () => {
+  const snapshot = preview();
+  snapshot.blockers = [
+    {
+      code: "OWNER_MISSING",
+      message: "Missing owner",
+      beneficiaryId: snapshot.rows[0]!.beneficiaryId,
+    },
+  ];
+  render(show(<SchoolHoursPreview preview={snapshot} />));
+  expect(
+    screen.getByText(en.schoolHours.blockers.OWNER_MISSING).closest("li")!
+      .textContent,
+  ).toContain(snapshot.rows[0]!.exportName);
+  expect(remote.baselinePreview).not.toHaveBeenCalled();
+});
 
 it("omits private evidence controls from both mobile cards and the desktop report when disabled", () => {
   render(
@@ -496,7 +602,11 @@ it("preserves offsetting and fractional component changes while filtering only t
   );
   const table = screen.getByRole("table");
   expect(within(table).getByText("Offset")).toBeTruthy();
-  expect(within(table).getAllByText("-0.016666666666666666")).toHaveLength(2);
+  expect(
+    within(table).getAllByText(
+      en.schoolHours.exactHours.replace("{hours}", "-0.016666666666666666"),
+    ),
+  ).toHaveLength(2);
   expect(within(table).queryByText("NoChange")).toBeNull();
   expect(screen.queryByText(en.schoolHours.noChanges)).toBeNull();
 });
@@ -820,6 +930,11 @@ it("surfaces identity blockers and invalidates a review when source evidence cha
   render(show());
   await openPanel();
   expect(screen.getByText(en.schoolHours.blockers.OWNER_MISSING)).toBeTruthy();
+  expect(
+    screen.getByText(en.schoolHours.blockers.OWNER_MISSING).closest("li")!
+      .textContent,
+  ).toContain("Alex");
+  expect(screen.queryByText("alex")).toBeNull();
   remote.baselinePreview.mockResolvedValue({
     ...basis(true),
     contentHash: "c".repeat(64),
@@ -845,13 +960,30 @@ it("allows a reviewed opening balance to be corrected before the first issue usi
     participants: [
       {
         ...basis().participants[0]!,
-        alreadyReported: { earned: 2, extras: 1, deductions: 0.5, crew: 0.25 },
+        current: { ...zero, earned: 28.041666666666668 },
+        alreadyReported: {
+          earned: 1.7500000000000002,
+          extras: 1,
+          deductions: 0.5,
+          crew: 0.25,
+        },
       },
     ],
   };
   remote.baselinePreview.mockResolvedValue(opening);
   render(show());
   await openPanel();
+  const sourceSummary = en.schoolHours.approximateHours.replace(
+    "{hours}",
+    "28.0417",
+  );
+  const sourceExact = en.schoolHours.exactHours.replace(
+    "{hours}",
+    "28.041666666666668",
+  );
+  expect(screen.getByTitle(sourceExact).textContent).toBe(
+    `${sourceSummary}; ${sourceExact}`,
+  );
   fireEvent.click(
     screen.getByRole("button", {
       name: `${en.schoolHours.reviewPerson}: Alex`,
@@ -859,7 +991,7 @@ it("allows a reviewed opening balance to be corrected before the first issue usi
   );
   const dialog = screen.getByRole("dialog", { name: "Alex" });
   for (const [key, value] of [
-    ["earned", "2"],
+    ["earned", "1.7500000000000002"],
     ["extras", "1"],
     ["deductions", "0.5"],
     ["crew", "0.25"],
@@ -873,8 +1005,12 @@ it("allows a reviewed opening balance to be corrected before the first issue usi
       en.schoolHours.personAcknowledgement,
     ).checked,
   ).toBe(false);
+  expect(within(dialog).getAllByText("28.041666666666668")).toHaveLength(2);
+  expect(
+    within(dialog).getByLabelText(en.schoolHours.earned).getAttribute("step"),
+  ).toBe("any");
   fireEvent.change(within(dialog).getByLabelText(en.schoolHours.earned), {
-    target: { value: "3" },
+    target: { value: "3.5833333333333335" },
   });
   fireEvent.change(
     within(dialog).getByLabelText(en.schoolHours.schoolAccount),
@@ -904,7 +1040,7 @@ it("allows a reviewed opening balance to be corrected before the first issue usi
           {
             beneficiaryId: "alex",
             schoolAccountKey: "corrected-account",
-            earned: 3,
+            earned: 3.5833333333333335,
             extras: 1,
             deductions: 0.5,
             crew: 0.25,

@@ -7703,6 +7703,8 @@
     }
   },
   "schoolHours": {
+    "approximateHours": "Approx. {hours}",
+    "exactHours": "Exact: {hours}",
     "loading": "Loading monthly reports…",
     "loadFailed": "Monthly reports could not be loaded.",
     "refreshFailed": "Refresh failed. Previously loaded data is retained; changes are blocked until recovery.",

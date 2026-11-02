@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { formatSchoolHours as hours } from "~/lib/school-hours-format";
-import { SchoolHoursBlockers } from "./school-hours-preview";
+import { SchoolHoursBlockers, SchoolHoursValue } from "./school-hours-preview";
 import type { useActionReview } from "./ui/action-review";
 import { Button } from "./ui/button";
 import { InlineNotice } from "./ui/patterns";
@@ -139,7 +139,10 @@ export function SchoolHoursBaselineEditor({
       <h3 className="text-sm font-semibold">{t("baselineTitle")}</h3>
       <p className="text-sm text-slate-700">{t("baselineHelp")}</p>
       <p className="muted text-sm">{t("mappingHelp")}</p>
-      <SchoolHoursBlockers blockers={basis.blockers} />
+      <SchoolHoursBlockers
+        blockers={basis.blockers}
+        participants={basis.participants}
+      />
       {stale && (
         <InlineNotice
           tone="warning"
@@ -184,14 +187,17 @@ export function SchoolHoursBaselineEditor({
                 </span>
               </td>
               <td className="text-right tabular-nums">
-                {hours(
-                  person.current.earned +
+                <SchoolHoursValue
+                  value={
+                    person.current.earned +
                     person.current.extras -
-                    person.current.deductions,
-                )}
+                    person.current.deductions
+                  }
+                  sourceSummary
+                />
               </td>
               <td className="text-right tabular-nums">
-                {hours(person.current.crew)}
+                <SchoolHoursValue value={person.current.crew} sourceSummary />
               </td>
               <td>
                 {t(
@@ -211,6 +217,14 @@ export function SchoolHoursBaselineEditor({
                 >
                   <p>{t("sourceEvidence")}</p>
                   <dl className="grid grid-cols-2 gap-3">
+                    <dt>{t("sourceTutoring")}</dt>
+                    <dd>
+                      {hours(
+                        person.current.earned +
+                          person.current.extras -
+                          person.current.deductions,
+                      )}
+                    </dd>
                     {fields.map((key) => (
                       <div key={key} className="contents">
                         <dt>{t(key)}</dt>

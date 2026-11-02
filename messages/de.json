@@ -7703,6 +7703,8 @@
     }
   },
   "schoolHours": {
+    "approximateHours": "Ca. {hours}",
+    "exactHours": "Exakt: {hours}",
     "loading": "Monatsberichte werden geladen…",
     "loadFailed": "Monatsberichte konnten nicht geladen werden.",
     "refreshFailed": "Aktualisierung fehlgeschlagen. Geladene Daten bleiben erhalten; Änderungen bis zur Wiederherstellung gesperrt.",

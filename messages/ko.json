@@ -7703,6 +7703,8 @@
     }
   },
   "schoolHours": {
+    "approximateHours": "약 {hours}",
+    "exactHours": "정확한 값: {hours}",
     "loading": "월간 보고서를 불러오는 중…",
     "loadFailed": "월간 보고서를 불러올 수 없습니다.",
     "refreshFailed": "새로고침에 실패했습니다. 기존 데이터는 유지되며 읽기가 복구될 때까지 변경이 차단됩니다.",

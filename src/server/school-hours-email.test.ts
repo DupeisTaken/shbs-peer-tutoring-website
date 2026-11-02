@@ -1,7 +1,58 @@
 import { expect, it } from "vitest";
 import { schoolHoursEmailCopy } from "./school-hours-email";
-import { publicSchoolHoursReport, schoolHoursCsv } from "./school-hours-public";
+import {
+  publicSchoolHoursReport,
+  schoolHoursCsv,
+  schoolHoursHtmlResponse,
+} from "./school-hours-public";
 import { schoolHoursTestSnapshot } from "./school-hours-test-fixture";
+
+it.each([
+  [1.7500000000000002, "+1.75"],
+  [3.5833333333333335, "+3.5833"],
+  [28.041666666666668, "+28.0417"],
+  [4.083333333333334, "+4.0833"],
+  [1 / 12, "+0.0833"],
+  [-1 / 60, "-0.0167"],
+  [1e-16, null],
+  [-1e-16, null],
+] as const)(
+  "retains exact %s posting instructions across HTML, text and CSV beside clearly approximate summaries",
+  async (value, approximation) => {
+    const snapshot = schoolHoursTestSnapshot();
+    const person = snapshot.rows[0]!;
+    person.hoursToAdd = value;
+    person.monthAmount = value;
+    person.tutoringChange = value;
+    person.crewChange = 0;
+    const frozen = JSON.stringify(snapshot);
+    const report = publicSchoolHoursReport(snapshot);
+    const email = schoolHoursEmailCopy({
+      report,
+      reportUrl: "https://reports.example.test/saved",
+    });
+    const html = await schoolHoursHtmlResponse(
+      report,
+      "synthetic-token",
+    ).text();
+    const exact = `${value > 0 ? "+" : ""}${value}`;
+    for (const content of [email.html, email.text, html]) {
+      expect(content).toContain(`${exact} h`);
+      if (approximation !== null)
+        expect(content).toContain(`≈ ${approximation} h`);
+      else expect(content).not.toContain("≈");
+    }
+    if (approximation !== null) {
+      expect(email.html).toContain(`Exact / 精确值: ${exact} h`);
+      expect(email.html).toContain("(approximate / 约数)");
+      expect(email.text).toContain("Approximate summary / 约数摘要:");
+    }
+    const csv = schoolHoursCsv(report).content;
+    expect(csv).toContain(`,${value},`);
+    expect(csv).not.toContain("≈");
+    expect(JSON.stringify(snapshot)).toBe(frozen);
+  },
+);
 
 it("leads with each individual's signed account instruction and excludes private source evidence", () => {
   const report = publicSchoolHoursReport(schoolHoursTestSnapshot());

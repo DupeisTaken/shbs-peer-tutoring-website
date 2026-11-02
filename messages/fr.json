@@ -7703,6 +7703,8 @@
     }
   },
   "schoolHours": {
+    "approximateHours": "Env. {hours}",
+    "exactHours": "Exact : {hours}",
     "loading": "Chargement des rapports mensuels…",
     "loadFailed": "Impossible de charger les rapports mensuels.",
     "refreshFailed": "Échec d’actualisation. Les données chargées sont conservées ; modifications bloquées jusqu’au rétablissement.",

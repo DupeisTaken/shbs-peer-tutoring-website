@@ -7703,6 +7703,8 @@
     }
   },
   "schoolHours": {
+    "approximateHours": "Aprox. {hours}",
+    "exactHours": "Exacto: {hours}",
     "loading": "Cargando informes mensuales…",
     "loadFailed": "No se pudieron cargar los informes mensuales.",
     "refreshFailed": "Error al actualizar. Se conservan los datos cargados; los cambios quedan bloqueados hasta recuperar la lectura.",

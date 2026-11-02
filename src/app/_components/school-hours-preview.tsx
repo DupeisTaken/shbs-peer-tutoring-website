@@ -7,7 +7,10 @@ import { getQueryKey } from "@trpc/react-query";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { schoolHoursVisibleRows } from "~/lib/school-hours-visibility";
 import { schoolHoursPriorEditions } from "~/lib/school-hours-corrections";
-import { formatSchoolHours as hours } from "~/lib/school-hours-format";
+import {
+  formatSchoolHours as hours,
+  schoolHoursApproximation,
+} from "~/lib/school-hours-format";
 import { programDateKey } from "~/lib/program-time";
 import { useReadOnly } from "./read-only";
 import { Button } from "./ui/button";
@@ -23,6 +26,38 @@ type View = "report" | "html" | "text";
 export const schoolHoursDenied = (
   error: { data?: { code?: string } | null } | null | undefined,
 ) => error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED";
+
+/** Keep the exact posting value visible. Source-only summaries may instead use
+ * the existing evidence dialog, with the exact value also in screen-reader text. */
+export function SchoolHoursValue({
+  value,
+  signed = false,
+  sourceSummary = false,
+}: {
+  value: number;
+  signed?: boolean;
+  sourceSummary?: boolean;
+}) {
+  const t = useTranslations("schoolHours");
+  const exact = hours(value, signed);
+  const approximation = schoolHoursApproximation(value, signed);
+  if (approximation === null) return <>{exact}</>;
+  const exactLabel = t("exactHours", { hours: exact });
+  const approximateLabel = t("approximateHours", { hours: approximation });
+  return sourceSummary ? (
+    <span title={exactLabel}>
+      {approximateLabel}
+      <span className="sr-only">{`; ${exactLabel}`}</span>
+    </span>
+  ) : (
+    <>
+      <span className="block">{approximateLabel}</span>
+      <span className="block text-xs font-normal [overflow-wrap:anywhere]">
+        {exactLabel}
+      </span>
+    </>
+  );
+}
 
 /** The highlighted incremental instruction belongs to this individual only.
  * Tutoring/Crew explain it; optional aggregate statistics never award credit. */
@@ -41,7 +76,7 @@ export function SchoolHoursIndividuals({
   const rows = schoolHoursVisibleRows({ revision, rows: allRows });
   const amount = (row: SchoolHoursRow) => (
     <>
-      {hours(row.hoursToAdd, true)}
+      <SchoolHoursValue value={row.hoursToAdd} signed />
       {revision > 1 && (
         <>
           <span className="block text-xs font-normal text-slate-700">
@@ -127,13 +162,13 @@ export function SchoolHoursIndividuals({
               <div className="min-w-0">
                 <dt className="muted text-xs">{t("tutoring")}</dt>
                 <dd className="mt-1 tabular-nums">
-                  {hours(row.tutoringChange, true)}
+                  <SchoolHoursValue value={row.tutoringChange} signed />
                 </dd>
               </div>
               <div className="min-w-0">
                 <dt className="muted text-xs">{t("crew")}</dt>
                 <dd className="mt-1 tabular-nums">
-                  {hours(row.crewChange, true)}
+                  <SchoolHoursValue value={row.crewChange} signed />
                 </dd>
               </div>
             </dl>
@@ -173,13 +208,13 @@ export function SchoolHoursIndividuals({
                   className="text-right tabular-nums"
                   data-sort-value={row.tutoringChange}
                 >
-                  {hours(row.tutoringChange, true)}
+                  <SchoolHoursValue value={row.tutoringChange} signed />
                 </td>
                 <td
                   className="text-right tabular-nums"
                   data-sort-value={row.crewChange}
                 >
-                  {hours(row.crewChange, true)}
+                  <SchoolHoursValue value={row.crewChange} signed />
                 </td>
                 {showEvidence && <TableActions>{details(row)}</TableActions>}
               </tr>
@@ -273,11 +308,19 @@ export function SchoolHoursIndividuals({
 
 export function SchoolHoursBlockers({
   blockers,
+  participants,
 }: {
   blockers: SchoolPreview["blockers"];
+  participants: ReadonlyArray<{ beneficiaryId: string; exportName: string }>;
 }) {
   const t = useTranslations("schoolHours");
   if (!blockers.length) return null;
+  const names = new Map(
+    participants.map((person) => [
+      person.beneficiaryId,
+      person.exportName.trim(),
+    ]),
+  );
   return (
     <StatePanel kind="error" title={t("blocked")}>
       <ul className="list-disc space-y-2 pl-5">
@@ -287,7 +330,9 @@ export function SchoolHoursBlockers({
               ? t(`blockers.${blocker.code}`)
               : blocker.message}
             {blocker.beneficiaryId && (
-              <span className="block text-xs">{blocker.beneficiaryId}</span>
+              <span className="block text-xs">
+                {names.get(blocker.beneficiaryId) || blocker.beneficiaryId}
+              </span>
             )}
           </li>
         ))}
@@ -329,7 +374,10 @@ export function SchoolHoursPreview({ preview }: { preview: SchoolPreview }) {
           <dd className="[overflow-wrap:anywhere]">{preview.timeZone}</dd>
         </div>
       </dl>
-      <SchoolHoursBlockers blockers={preview.blockers} />
+      <SchoolHoursBlockers
+        blockers={preview.blockers}
+        participants={preview.rows}
+      />
       <SectionTabs<View>
         label={t("previewViews")}
         items={[

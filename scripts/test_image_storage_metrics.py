@@ -25,7 +25,7 @@ def archive_bytes(members):
     return stream.getvalue()
 
 
-def fixture(images, *, blobs=False, manifest_first=False):
+def fixture(images, *, blobs=False, manifest_first=False, compressed=False):
     """images is [(tag, [raw layer payloads])]; identical members are shared."""
     members = {}
     manifest = []
@@ -36,6 +36,8 @@ def fixture(images, *, blobs=False, manifest_first=False):
         members[config_name] = config
         paths = []
         for layer in layers:
+            if compressed:
+                layer = gzip.compress(layer, mtime=0)
             layer_hash = digest(layer).split(":")[1]
             name = f"blobs/sha256/{layer_hash}" if blobs else f"{layer_hash}/layer.tar"
             paths.append(name)
@@ -44,6 +46,27 @@ def fixture(images, *, blobs=False, manifest_first=False):
     manifest_member = ("manifest.json", json.dumps(manifest).encode())
     ordered = list(members.items())
     return [manifest_member, *ordered] if manifest_first else [*ordered, manifest_member]
+
+
+def image_manifest(members, mutate=None, *, docker=False):
+    """Add the original content-addressed manifest carried by containerd save."""
+    contents = dict(members)
+    entry = json.loads(contents["manifest.json"])[0]
+    def descriptor(name, media_type):
+        return {"mediaType": media_type, "digest": digest(contents[name]), "size": len(contents[name])}
+    manifest = {
+        "schemaVersion": 2,
+        "mediaType": ("application/vnd.docker.distribution.manifest.v2+json" if docker
+                      else "application/vnd.oci.image.manifest.v1+json"),
+        "config": descriptor(entry["Config"], "application/vnd.docker.container.image.v1+json" if docker
+                             else "application/vnd.oci.image.config.v1+json"),
+        "layers": [descriptor(name, "application/vnd.oci.image.layer.v1.tar+gzip" if contents[name].startswith(b"\x1f\x8b")
+                              else "application/vnd.oci.image.layer.v1.tar") for name in entry["Layers"]],
+    }
+    if mutate:
+        mutate(manifest)
+    raw = json.dumps(manifest, sort_keys=True).encode()
+    return ("blobs/sha256/" + digest(raw)[7:], raw)
 
 
 class ImageStorageMetricsTests(unittest.TestCase):
@@ -58,6 +81,101 @@ class ImageStorageMetricsTests(unittest.TestCase):
                     self.assertEqual(images["base:a"]["exported_layer_payload_bytes"], 11)
                     self.assertEqual(images["base:a"]["layers"][0]["chain_id"], digest(b"common"))
                     self.assertNotIn("PRIVATE_SENTINEL", json.dumps(images))
+                    self.assertEqual(images["base:a"]["manifest_digests"], [])
+
+    def test_manifest_proof_binds_config_and_ordered_payloads(self):
+        for docker in (False, True):
+            for compressed in (False, True):
+                for layers in ([], [b"common", b"app-a"]):
+                    members = fixture([("base:a", layers)], blobs=True, compressed=compressed)
+                    proof = image_manifest(members, docker=docker)
+                    for reverse in (False, True):
+                        ordered = [*members, proof]
+                        if reverse:
+                            ordered.reverse()
+                        with self.subTest(docker=docker, compressed=compressed, layers=layers, reverse=reverse):
+                            image = self.read(ordered)["base:a"]
+                            self.assertEqual(image["manifest_digests"], [digest(proof[1])])
+                            self.assertEqual([layer["diff_id"] for layer in image["layers"]], [digest(layer) for layer in layers])
+                            self.assertNotIn("PRIVATE_SENTINEL", json.dumps(image))
+
+    def test_manifest_hash_and_referenced_payloads_are_verified(self):
+        members = fixture([("base:a", [b"a"])], blobs=True, compressed=True)
+        proof = image_manifest(members)
+        with self.assertRaisesRegex(ValueError, "manifest blob identity"):
+            self.read([*members, (proof[0], proof[1] + b" ")])
+        for target in (0, 1):
+            changed = list(members)
+            changed[target] = (changed[target][0], changed[target][1] + b"changed")
+            with self.subTest(target=target), self.assertRaisesRegex(ValueError, "descriptor payload"):
+                self.read([*changed, proof])
+            with self.subTest(missing=target), self.assertRaisesRegex(ValueError, "descriptor payload"):
+                self.read([*members[:target], *members[target + 1:], proof])
+
+    def test_manifest_descriptor_sizes_and_digests_fail_closed(self):
+        members = fixture([("base:a", [b"a"])], blobs=True)
+        for target in ("config", "layer"):
+            for field, value in (("size", -1), ("size", True), ("size", 999),
+                                 ("digest", "sha256:invalid"), ("digest", digest(b"absent"))):
+                def mutate(manifest):
+                    descriptor = manifest["config"] if target == "config" else manifest["layers"][0]
+                    descriptor[field] = value
+                with self.subTest(target=target, field=field, value=value), self.assertRaisesRegex(ValueError, "descriptor"):
+                    self.read([*members, image_manifest(members, mutate)])
+
+    def test_manifest_proof_requires_exact_layer_order_and_count(self):
+        members = fixture([("base:a", [b"a", b"b"])], blobs=True, compressed=True)
+        for replacement in (lambda layers: layers[::-1], lambda layers: layers[:1],
+                            lambda layers: layers + layers[:1], lambda layers: [layers[0], layers[0]]):
+            def mutate(manifest):
+                manifest["layers"] = replacement(manifest["layers"])
+            image = self.read([*members, image_manifest(members, mutate)])["base:a"]
+            self.assertEqual(image["manifest_digests"], [])
+
+    def test_config_substitution_cannot_borrow_manifest_with_same_diff_ids(self):
+        members = fixture([("base:a", [b"a"])], blobs=True)
+        proof = image_manifest(members)
+        config = json.loads(members[0][1])
+        config["config"]["Env"] = ["OTHER_PRIVATE_SENTINEL=not-output"]
+        raw = json.dumps(config).encode()
+        name = "blobs/sha256/" + digest(raw)[7:]
+        manifest = json.loads(members[-1][1])
+        manifest[0]["Config"] = name
+        members[-1] = ("manifest.json", json.dumps(manifest).encode())
+        image = self.read([*members, (name, raw), proof])["base:a"]
+        self.assertEqual(image["config_digest"], digest(raw))
+        self.assertEqual(image["manifest_digests"], [])
+        self.assertNotIn("PRIVATE_SENTINEL", json.dumps(image))
+
+    def test_compressed_layer_substitution_cannot_borrow_manifest_with_same_config(self):
+        members = fixture([("base:a", [b"a"])], blobs=True, compressed=True)
+        proof = image_manifest(members)
+        replacement = gzip.compress(b"a", mtime=1)
+        self.assertEqual(len(replacement), len(members[1][1]))
+        name = "blobs/sha256/" + digest(replacement)[7:]
+        manifest = json.loads(members[-1][1])
+        manifest[0]["Layers"] = [name]
+        members[-1] = ("manifest.json", json.dumps(manifest).encode())
+        image = self.read([*members, (name, replacement), proof])["base:a"]
+        self.assertEqual(image["manifest_digests"], [])
+
+    def test_missing_manifest_and_non_manifest_json_cannot_grant_proof(self):
+        members = fixture([("base:a", [b"a"])], blobs=True)
+        for media_type in ("application/vnd.oci.image.index.v1+json", "unrelated", None, []):
+            def mutate(manifest):
+                manifest["mediaType"] = media_type
+            image = self.read([*members, image_manifest(members, mutate)])["base:a"]
+            self.assertEqual(image["manifest_digests"], [])
+        self.assertEqual(self.read(members)["base:a"]["manifest_digests"], [])
+
+    def test_invalid_manifest_structure_cannot_grant_proof(self):
+        members = fixture([("base:a", [b"a"])], blobs=True)
+        for field, value in (("schemaVersion", 1), ("schemaVersion", "2"),
+                             ("config", []), ("layers", None), ("layers", [None])):
+            def mutate(manifest):
+                manifest[field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(ValueError):
+                self.read([*members, image_manifest(members, mutate)])
 
     def test_pair_unions_distinguish_content_from_parent_chains(self):
         images = self.read(fixture([

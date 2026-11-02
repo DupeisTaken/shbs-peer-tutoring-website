@@ -7703,6 +7703,8 @@
     }
   },
   "schoolHours": {
+    "approximateHours": "約 {hours}",
+    "exactHours": "正確な値：{hours}",
     "loading": "月次レポートを読み込み中…",
     "loadFailed": "月次レポートを読み込めませんでした。",
     "refreshFailed": "更新に失敗しました。読み込み済みデータを保持し、回復まで変更を停止します。",
