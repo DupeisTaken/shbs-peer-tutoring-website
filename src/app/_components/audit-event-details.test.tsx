@@ -865,6 +865,25 @@ it.each(["FORBIDDEN", "UNAUTHORIZED"])(
   },
 );
 
+it("starts a separate denial lifetime when the selected event changes", () => {
+  mocks.query.mockReturnValue(
+    result(event, { message: "Denied", data: { code: "FORBIDDEN" } }),
+  );
+  const view = render(<AuditEventDetails id="event-1" />, { wrapper });
+  expect(screen.getByText("Event details access denied")).toBeTruthy();
+  mocks.query.mockReturnValue({
+    ...result(undefined, { message: "Another event is offline" }),
+    data: undefined,
+  });
+  view.rerender(<AuditEventDetails id="event-2" />);
+  expect(screen.queryByText("Event details access denied")).toBeNull();
+  expect(screen.getByText("Another event is offline")).toBeTruthy();
+  expect(mocks.query).toHaveBeenLastCalledWith(
+    { id: "event-2" },
+    { refetchOnMount: "always", enabled: true },
+  );
+});
+
 it("lazily exposes faithful JSON types and escaped text while excluding internal undo instructions", () => {
   const details = {
     number: 0,

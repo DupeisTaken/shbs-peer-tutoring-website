@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { StrictMode, Suspense, use } from "react";
 import {
   act,
   cleanup,
@@ -954,4 +955,248 @@ it("changes from the fixed desktop pane to document scroll at the responsive bre
   expect(window.sessionStorage.getItem(scrollKey("mobile"))).toBe("120");
   expect(fixture.pane.scrollTop).toBe(300);
   fixture.remove();
+});
+
+it("keeps named denial freshness with a changing query list without refetching unrelated catalogues", () => {
+  type Query = Parameters<typeof useSessionAccessDenied>[number];
+  function Authority({ queries }: { queries: Query[] }) {
+    const denied = useSessionAccessDenied(...queries);
+    return <p>{denied ? "denied" : "authorized"}</p>;
+  }
+  const catalogue = { isSuccess: true, isFetching: false, dataUpdatedAt: 100 };
+  const read = { ...catalogue, denialKey: "filtered-read" };
+  const rendered = render(<Authority queries={[read, catalogue]} />);
+  rendered.rerender(
+    <Authority
+      queries={[
+        {
+          denialKey: read.denialKey,
+          error: { data: { code: "FORBIDDEN" } },
+          errorUpdatedAt: 200,
+        },
+        catalogue,
+      ]}
+    />,
+  );
+  // Resetting the input exposes older cached data, and a conditional unrelated
+  // query is inserted ahead of it. Neither can migrate or release this denial.
+  rendered.rerender(<Authority queries={[catalogue, read, catalogue]} />);
+  expect(screen.getByText("denied")).toBeTruthy();
+  rendered.rerender(
+    <Authority
+      queries={[
+        catalogue,
+        {
+          ...read,
+          isSuccess: false,
+          error: { data: { code: "INTERNAL_SERVER_ERROR" } },
+        },
+        catalogue,
+      ]}
+    />,
+  );
+  expect(screen.getByText("denied")).toBeTruthy();
+  const recovered = { ...read, dataUpdatedAt: 300 };
+  rendered.rerender(
+    <Authority
+      queries={[catalogue, { ...recovered, isFetching: true }, catalogue]}
+    />,
+  );
+  expect(screen.getByText("denied")).toBeTruthy();
+  // A successful catalogue needs no new request when the failed read recovers.
+  rendered.rerender(<Authority queries={[catalogue, recovered, catalogue]} />);
+  expect(screen.getByText("authorized")).toBeTruthy();
+});
+
+it("retains default multi-query recovery when only the failed polling read refreshes", () => {
+  type Query = Parameters<typeof useSessionAccessDenied>[number];
+  function Authority({ queries }: { queries: Query[] }) {
+    const denied = useSessionAccessDenied(...queries);
+    return <p>{denied ? "denied" : "authorized"}</p>;
+  }
+  const catalogue = { isSuccess: true, isFetching: false, dataUpdatedAt: 100 };
+  const rendered = render(<Authority queries={[catalogue, catalogue]} />);
+  rendered.rerender(
+    <Authority
+      queries={[
+        { error: { data: { code: "FORBIDDEN" } }, errorUpdatedAt: 200 },
+        catalogue,
+      ]}
+    />,
+  );
+  expect(screen.getByText("denied")).toBeTruthy();
+  rendered.rerender(
+    <Authority
+      queries={[
+        { error: { data: { code: "INTERNAL_SERVER_ERROR" } } },
+        catalogue,
+      ]}
+    />,
+  );
+  expect(screen.getByText("denied")).toBeTruthy();
+  rendered.rerender(
+    <Authority queries={[{ ...catalogue, dataUpdatedAt: 300 }, catalogue]} />,
+  );
+  expect(screen.getByText("authorized")).toBeTruthy();
+});
+
+it("follows external session changes until a deliberate local choice owns the view", () => {
+  const key = viewStateKey("head", "/admin/tutees", "roster-v1", "period-1");
+  render(view());
+  act(() => {
+    writeViewState(sessionStorage, key, "history");
+    window.dispatchEvent(new StorageEvent("storage", { key }));
+  });
+  expect(screen.getByText("history")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "History" }));
+  act(() => {
+    writeViewState(sessionStorage, key, "current");
+    window.dispatchEvent(new StorageEvent("storage", { key }));
+  });
+  expect(screen.getByText("history")).toBeTruthy();
+});
+
+it("keeps live choices functional with unavailable sessionStorage and resets their ownership", () => {
+  vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+    throw new DOMException("Blocked", "SecurityError");
+  });
+  const rendered = render(earlyView({ verified: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Choose history" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+  expect(earlyState()).toEqual({ tab: "history", page: 2 });
+  rendered.rerender(earlyView({ verified: true, historyAllowed: false }));
+  expect(earlyState()).toEqual({ tab: "current", page: 0 });
+  rendered.rerender(earlyView({ verified: true }));
+  expect(earlyState()).toEqual({ tab: "current", page: 0 });
+  fireEvent.click(screen.getByRole("button", { name: "Choose history" }));
+  rendered.rerender(earlyView({ verified: true, scope: "period-2" }));
+  expect(earlyState()).toEqual({ tab: "current", page: 0 });
+});
+
+it("removes invalid saved choices so a later catalog cannot revive them", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/tutees",
+    "early-choice-v1",
+    "period-1",
+  );
+  writeViewState(sessionStorage, key, { tab: "history", page: 6 });
+  const rendered = render(earlyView({ verified: true, historyAllowed: false }));
+  expect(earlyState()).toEqual({ tab: "current", page: 0 });
+  expect(sessionStorage.getItem(key)).toBeNull();
+  rendered.rerender(earlyView({ verified: true }));
+  expect(earlyState()).toEqual({ tab: "current", page: 0 });
+});
+
+it.each([
+  { scope: "period-1", raw: JSON.stringify("x".repeat(5000)) },
+  { scope: "中".repeat(1500), raw: JSON.stringify("history") },
+  { scope: "period-1", raw: "{malformed" },
+])(
+  "leaves rejected storage untouched in an abandoned render and cleans it after commit",
+  async ({ scope, raw }) => {
+    const key = viewStateKey("head", "/admin/tutees", "roster-v1", scope);
+    sessionStorage.setItem(key, raw);
+    const pending = new Promise<void>(() => undefined);
+    function Abandoned() {
+      useSessionViewState({
+        id: "roster-v1",
+        scope,
+        initialState: "current",
+        parse,
+      });
+      use(pending);
+      return null;
+    }
+    let rendered!: ReturnType<typeof render>;
+    await act(async () => {
+      rendered = render(
+        <StrictMode>
+          <SessionViewProvider
+            identity="head"
+            pathname="/admin/tutees"
+            verified
+          >
+            <Suspense fallback={<p>Waiting</p>}>
+              <Abandoned />
+            </Suspense>
+          </SessionViewProvider>
+        </StrictMode>,
+      );
+    });
+    expect(screen.getByText("Waiting")).toBeTruthy();
+    expect(sessionStorage.getItem(key)).toBe(raw);
+    await act(async () => {
+      rendered.rerender(view("head", scope));
+    });
+    expect(screen.getByText("current")).toBeTruthy();
+    expect(sessionStorage.getItem(key)).toBeNull();
+  },
+);
+
+it.each([false, true])(
+  "keeps a restored choice when optional storage rejects its normalized write (extra field: %s)",
+  (extra) => {
+    const key = viewStateKey(
+      "head",
+      "/admin/tutees",
+      "early-choice-v1",
+      "period-1",
+    );
+    writeViewState(sessionStorage, key, {
+      tab: "history",
+      page: 6,
+      ...(extra ? { removed: "discard" } : {}),
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Quota exceeded", "QuotaExceededError");
+    });
+    const rendered = render(earlyView({ verified: true }));
+    expect(earlyState()).toEqual({ tab: "history", page: 6 });
+    expect(sessionStorage.getItem(key)).toBeNull();
+    rendered.rerender(earlyView({ verified: true }));
+    expect(earlyState()).toEqual({ tab: "history", page: 6 });
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(earlyState()).toEqual({ tab: "history", page: 7 });
+    rendered.rerender(earlyView({ verified: true, scope: "period-2" }));
+    expect(earlyState()).toEqual({ tab: "current", page: 0 });
+  },
+);
+
+it("preserves an allowed null choice before verification and across remounts", () => {
+  function Nullable() {
+    const [value, setValue] = useSessionViewState<"current" | null>({
+      id: "nullable",
+      initialState: "current",
+      parse: (candidate) => {
+        if (candidate === null || candidate === "current") return candidate;
+        return undefined;
+      },
+    });
+    return (
+      <>
+        <p>{value ?? "No selection"}</p>
+        <button onClick={() => setValue(null)}>Clear</button>
+      </>
+    );
+  }
+  const tree = (verified: boolean) => (
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/tutees"
+      verified={verified}
+    >
+      <Nullable />
+    </SessionViewProvider>
+  );
+  const key = viewStateKey("head", "/admin/tutees", "nullable", "");
+  writeViewState(sessionStorage, key, "current");
+  const rendered = render(tree(false));
+  fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+  rendered.rerender(tree(true));
+  expect(screen.getByText("No selection")).toBeTruthy();
+  expect(sessionStorage.getItem(key)).toBe("null");
+  rendered.unmount();
+  render(tree(true));
+  expect(screen.getByText("No selection")).toBeTruthy();
 });

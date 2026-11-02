@@ -632,17 +632,26 @@ export default function ApplicationsPage() {
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
   }, [verified, denied]);
-  useEffect(() => {
-    if (arrival && !arrival.selected && !apps.isFetching && apps.data) {
+  // Resolve each arrival once against a settled authorized read. User filter
+  // events cancel pending arrivals, so a delayed result cannot replace their choice.
+  if (
+    arrival &&
+    !arrival.selected &&
+    !denied &&
+    !apps.error &&
+    !apps.isFetching &&
+    apps.data
+  ) {
+    const exists = apps.data.some(
+      (app) => `#application-${app.id}` === arrival.hash,
+    );
+    if (exists) {
       setFilters(emptyApplicationFilters);
       setInvalidity("all");
-      const exists = apps.data.some(
-        (app) => `#application-${app.id}` === arrival.hash,
-      );
-      setNoticeTargetMissing(!exists);
-      setArrival(exists ? { ...arrival, selected: true } : null);
     }
-  }, [arrival, apps.data, apps.isFetching, setFilters, setInvalidity]);
+    setNoticeTargetMissing(!exists);
+    setArrival(exists ? { ...arrival, selected: true } : null);
+  }
   useNotificationRecordReveal(
     arrival,
     !denied &&
@@ -720,14 +729,25 @@ export default function ApplicationsPage() {
         {apps.data && (
           <ApplicationFilters
             value={filters}
-            onChange={setFilters}
+            onChange={(next) => {
+              setArrival(null);
+              setNoticeTargetMissing(false);
+              setFilters(next);
+            }}
             subjects={subjects}
             count={filtered.length}
             total={list.length}
           />
         )}
         {apps.data && (
-          <InvalidityFilter value={invalidity} onChange={setInvalidity} />
+          <InvalidityFilter
+            value={invalidity}
+            onChange={(next) => {
+              setArrival(null);
+              setNoticeTargetMissing(false);
+              setInvalidity(next);
+            }}
+          />
         )}
         <div className="space-y-3">
           {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}

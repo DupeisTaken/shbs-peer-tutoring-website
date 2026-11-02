@@ -14,6 +14,7 @@ import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import AuditPage from "./page";
+import type * as AuditFiltersModule from "~/app/_components/audit-filters";
 
 const mocks = vi.hoisted(() => ({ detail: vi.fn(), undo: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -22,7 +23,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("~/app/_components/audit-filters", async (importOriginal) => ({
   // The integrated page uses the editor's pure defaults/parsers; skip only its
   // UI so the actual immutable reader and its authorization checks stay real.
-  ...(await importOriginal<typeof import("~/app/_components/audit-filters")>()),
+  ...(await importOriginal<typeof AuditFiltersModule>()),
   AuditFilters: () => null,
 }));
 vi.mock("~/trpc/react", () => ({

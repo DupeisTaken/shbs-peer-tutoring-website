@@ -127,7 +127,10 @@ that allowlists the currently available choices. `viewEnum`, `viewPage` and
 fields. `viewFields` composes those named field parsers and drops unknown fields.
 Restored values are checked against the current parser on every render, and a
 normalized result replaces the stored representation so removed IDs cannot return
-when a catalog changes again.
+when a catalog changes again. Browser storage is read through a pure, bounded
+external-store snapshot, with an empty server snapshot for hydration. Normalized
+writes and rejected-entry removal happen after commit; abandoned renders must not
+change storage. A failed optional storage write retains the usable mounted choice.
 Parsers validate live feature values as well as restored values; they must not add
 input limits that the feature did not have. `viewSearch` checks text shape, while
 `viewIdentifier` retains a 160-character bound for IDs and URL choices before their
@@ -146,8 +149,17 @@ arrive, then allowlist current IDs. This exposes the initial presentation while
 loading and leaves the saved choice intact; `enabled: false` still clears denial.
 `useSessionAccessDenied(...ownedQueries)` provides a presentation-only denial latch:
 an authoritative access error remains denied through later transport failures until
-the owned reads succeed again. Hide cached denied content in the same owner; this
-helper never grants permission or replaces server checks.
+the owned reads succeed again. Denial decisions reconcile before children commit;
+cache eviction and review revocation remain effects owned by the feature. Hide
+cached denied content in that same owner, and drive eviction from the retained
+latch if clearing a filter can change the failed query key before commit.
+When denial resets query inputs, opt that read into a stable named slot, for example
+`useSessionAccessDenied({ ...query, denialKey: "audit-log" }, options)`. Keep the
+name fixed across filter changes and independent of query-array position. With
+query timestamps available, only a success newer than that slot's denial can
+release it; an older cached default scope cannot. Unrelated successful reads need
+no extra refresh, and callers without a named slot retain the ordinary recovery
+contract. The helper never grants permission or replaces server checks.
 
 Apply-only filters save their committed read criteria, not the unfinished input.
 Audit reconstructs timezone-aware query dates from date-control strings; its form

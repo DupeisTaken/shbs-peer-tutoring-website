@@ -17,6 +17,7 @@ import { Modal } from "./ui/modal";
 import { FilterToolbar, InlineNotice, StatePanel } from "./ui/patterns";
 import { TableDetails } from "./ui/summary-table";
 import {
+  useSessionAccessDenied,
   useSessionPageScroll,
   useSessionViewState,
 } from "./session-view-state";
@@ -98,19 +99,21 @@ export function SessionFlagBoard() {
     },
   });
   const pending = decide.isPending || refreshing;
-  const authorizationDenied =
-    flags.error?.data?.code === "FORBIDDEN" ||
-    flags.error?.data?.code === "UNAUTHORIZED";
+  const denied = useSessionAccessDenied({
+    ...flags,
+    denialKey: "session-flags",
+  });
+  if (accessDenied !== denied) setAccessDenied(denied);
   useEffect(() => {
-    if (authorizationDenied) {
-      setAccessDenied(true);
+    // The filter reset can replace the failed query before commit. Evict from
+    // the latched outcome so an older cached default cannot skip revocation.
+    if (denied) {
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.sessionFlags),
         exact: false,
       });
-    } else if (flags.isSuccess && !flags.isFetching) setAccessDenied(false);
-  }, [authorizationDenied, flags.isSuccess, flags.isFetching, queryClient]);
-  const denied = authorizationDenied || accessDenied;
+    }
+  }, [denied, queryClient]);
   useSessionPageScroll({
     id: "session-flags",
     scope: filter,

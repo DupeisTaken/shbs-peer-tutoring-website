@@ -137,9 +137,10 @@ export default function PairingsPage() {
   const readsSucceeded = reads.every(
     ({ query }) => query.isSuccess && !query.isFetching,
   );
+  if (authorizationDenied && !denied) setDenied(true);
+  else if (denied && !authorizationDenied && readsSucceeded) setDenied(false);
   useEffect(() => {
     if (authorizationDenied) {
-      setDenied(true);
       // Conceal this feature on revoked authority, evicting only denied query families.
       if (accessDenied(pairings.error))
         queryClient.removeQueries({
@@ -165,10 +166,9 @@ export default function PairingsPage() {
         queryClient.removeQueries({
           queryKey: getQueryKey(api.admin.timeSlots, undefined, "query"),
         });
-    } else if (readsSucceeded) setDenied(false);
+    }
   }, [
     authorizationDenied,
-    readsSucceeded,
     pairings.error,
     tutors.error,
     subjects.error,
@@ -247,9 +247,9 @@ export default function PairingsPage() {
   const [confirming, setConfirming] = useState(false);
   const [needsRoomOnly, setNeedsRoomOnly] = useState(false);
   const arrivalSequence = useRef(0);
-  const [arrival, setArrival] = useState<NotificationRecordArrival | null>(
-    null,
-  );
+  const [arrival, setArrival] = useState<
+    (NotificationRecordArrival & { selected?: boolean }) | null
+  >(null);
   // Queue the validated location before reads settle so a user gesture can cancel
   // an unfinished arrival. Only the authorized matching row may reveal after commit.
   useEffect(() => {
@@ -272,10 +272,18 @@ export default function PairingsPage() {
   const arrivalKnown =
     !!arrival &&
     (pairings.data ?? []).some((row) => "#" + row.id === arrival.hash);
-  useEffect(() => {
-    if (denied || authorizationDenied) setArrival(null);
-    else if (arrivalKnown) setNeedsRoomOnly(false);
-  }, [denied, authorizationDenied, arrivalKnown]);
+  if (arrival && (denied || authorizationDenied)) setArrival(null);
+  else if (
+    arrival &&
+    !arrival.selected &&
+    arrivalKnown &&
+    !readBlocked &&
+    !reads.some(({ query }) => query.isFetching)
+  ) {
+    // Consume an arrival once; later reads must not undo deliberate filtering.
+    setNeedsRoomOnly(false);
+    setArrival({ ...arrival, selected: true });
+  }
   useNotificationRecordReveal(
     arrival,
     hasData &&
@@ -1069,13 +1077,19 @@ export default function PairingsPage() {
       >
         <ChoiceButton
           selected={!needsRoomOnly}
-          onClick={() => setNeedsRoomOnly(false)}
+          onClick={() => {
+            setArrival(null);
+            setNeedsRoomOnly(false);
+          }}
         >
           {a("all")}
         </ChoiceButton>
         <ChoiceButton
           selected={needsRoomOnly}
-          onClick={() => setNeedsRoomOnly(true)}
+          onClick={() => {
+            setArrival(null);
+            setNeedsRoomOnly(true);
+          }}
         >
           {a("needsRoomReservations", { count: needsRoomReservations })}
         </ChoiceButton>
