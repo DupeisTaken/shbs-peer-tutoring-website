@@ -776,3 +776,58 @@ it("offers the full form when eligible prior pairings cannot meet the configured
     screen.getByText(/This signup requires two distinct subjects/),
   ).toBeTruthy();
 });
+
+
+it("latches an initial denial across cache removal and a later transport failure", () => {
+  queryError = { message: "Access revoked", data: { code: "FORBIDDEN" } };
+  const view = mount();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  mocks.query.mockReturnValue({
+    data: undefined,
+    error: null,
+    isSuccess: false,
+    isFetching: false,
+    refetch: mocks.refetch,
+  });
+  view.refresh();
+  expect(screen.getByText("You no longer have access to these pairings.")).toBeTruthy();
+  mocks.query.mockReturnValue({
+    data,
+    error: new Error("Network unavailable"),
+    isSuccess: false,
+    isFetching: false,
+    refetch: mocks.refetch,
+  });
+  view.refresh();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  expect(screen.getByText("You no longer have access to these pairings.")).toBeTruthy();
+  mocks.query.mockReturnValue({
+    data,
+    error: null,
+    isSuccess: true,
+    isFetching: false,
+    refetch: mocks.refetch,
+  });
+  view.refresh();
+  expect(screen.getByRole("checkbox", { name: "Select Math with Math Tutor" })).toBeTruthy();
+});
+
+it("retains accepted receipt recovery across denial without replaying Join", async () => {
+  mocks.mine.mockRejectedValueOnce(new Error("Read unavailable"));
+  const view = mount();
+  reviewMath();
+  agree();
+  fireEvent.click(screen.getByRole("button", { name: "Join selected pairings" }));
+  await screen.findByText("Your signup request has been filed.");
+  queryError = { message: "Access revoked", data: { code: "FORBIDDEN" } };
+  view.refresh();
+  expect(screen.queryByText("Your signup request has been filed.")).toBeNull();
+  queryError = { message: "Network unavailable" };
+  view.refresh();
+  expect(screen.queryByText(/Math Tutor/)).toBeNull();
+  queryError = null;
+  view.refresh();
+  expect(screen.getByText("Your signup request has been filed.")).toBeTruthy();
+  expect(mocks.join).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

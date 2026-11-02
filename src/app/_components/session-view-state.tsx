@@ -9,11 +9,13 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   clearOtherViewIdentities,
   readViewState,
+  readViewStateSnapshot,
   removeViewState,
   viewStateKey,
   writeViewState,
@@ -33,18 +35,44 @@ export function useSessionAccessDenied(
     error?: { data?: { code?: string } | null } | null;
     isSuccess?: boolean;
     isFetching?: boolean;
+    dataUpdatedAt?: number;
+    errorUpdatedAt?: number;
+    /** Stable feature-owned read slot, opt in when denial resets its query input. */
+    denialKey?: string;
   }[]
 ) {
+  const [authority, setAuthority] = useState<{
+    denied: boolean;
+    failures: Record<string, number>;
+  }>({ denied: false, failures: {} });
+  const failures = { ...authority.failures };
+  for (const query of queries) {
+    if (query.denialKey && viewAccessDenied(query.error))
+      failures[query.denialKey] = Math.max(
+        failures[query.denialKey] ?? 0,
+        query.errorUpdatedAt ?? query.dataUpdatedAt ?? 0,
+      );
+  }
   const denied = queries.some((query) => viewAccessDenied(query.error));
-  const recovered = queries.every(
-    (query) => query.isSuccess && !query.isFetching,
-  );
-  const [latched, setLatched] = useState(false);
-  useEffect(() => {
-    if (denied) setLatched(true);
-    else if (recovered) setLatched(false);
-  }, [denied, recovered]);
-  return denied || latched;
+  const recovered = queries.every((query) => {
+    const failedAt = query.denialKey ? (failures[query.denialKey] ?? 0) : 0;
+    return (
+      query.isSuccess &&
+      !query.isFetching &&
+      (query.dataUpdatedAt === undefined ||
+        !failedAt ||
+        query.dataUpdatedAt > failedAt)
+    );
+  });
+  // Query-input resets opt into named read slots: an older cached scope cannot
+  // release that denial. Other callers retain their existing recovery contract,
+  // including dynamic query lists and unrelated catalogues that do not refetch.
+  const next = {
+    denied: denied || (!recovered && authority.denied),
+    failures: denied || !recovered ? failures : {},
+  };
+  if (JSON.stringify(next) !== JSON.stringify(authority)) setAuthority(next);
+  return next.denied;
 }
 
 /** Reuses the existing live-session check. It performs no requests and stores no private DOM. */
@@ -83,11 +111,32 @@ export type SessionViewOptions<T extends ViewState> = {
   restoreReady?: boolean;
 };
 
+const VIEW_STORAGE_EVENT = "shbs:view-state-change";
+const emptyStorageSnapshot = () => null;
+function subscribeViewStorage(notify: () => void) {
+  window.addEventListener("storage", notify);
+  window.addEventListener(VIEW_STORAGE_EVENT, notify);
+  return () => {
+    window.removeEventListener("storage", notify);
+    window.removeEventListener(VIEW_STORAGE_EVENT, notify);
+  };
+}
+function subscribeViewport(notify: () => void) {
+  window.addEventListener("resize", notify);
+  window.addEventListener("popstate", notify);
+  return () => {
+    window.removeEventListener("resize", notify);
+    window.removeEventListener("popstate", notify);
+  };
+}
+const readViewport = () =>
+  JSON.stringify([window.location.pathname, window.innerWidth >= 1024]);
+
 /** Drop-in state for tabs/filters/sort/page only. URL choices belong in initialState + scope,
  * or should override the returned value in the owning feature. Never use for form drafts. */
 export function useSessionViewState<T extends ViewState>(
   options: SessionViewOptions<T>,
-): [T, Dispatch<SetStateAction<T>>] {
+): [T, Dispatch<SetStateAction<T>>, (next: T) => void] {
   const context = useContext(Context);
   const key = context
     ? viewStateKey(
@@ -105,119 +154,145 @@ export function useSessionViewState<T extends ViewState>(
   useLayoutEffect(() => {
     latest.current = options;
   });
-  const [stored, setStored] = useState({
+  const canRestore = !!key && active && enabled && restoreReady;
+  const readSnapshot = useCallback(() => {
+    if (!canRestore) return null;
+    try {
+      return readViewStateSnapshot(window.sessionStorage, key);
+    } catch {
+      return null;
+    }
+  }, [key, canRestore]);
+  // Browser storage is an external source. The server snapshot stays empty so
+  // hydration never renders another identity's remembered choice prematurely.
+  const snapshot = useSyncExternalStore(
+    subscribeViewStorage,
+    readSnapshot,
+    emptyStorageSnapshot,
+  );
+  type Selection = {
+    key: string;
+    value: T;
+    explicit: boolean;
+    enabled: boolean;
+    restored: boolean;
+    snapshot: string | null | undefined;
+    persistence: "none" | "write" | "remove";
+  };
+  const initial: Selection = {
     key,
     value: options.initialState,
     explicit: false,
-  });
-  // An early deliberate choice belongs only to this exact identity/path/scope.
-  // Drop its provenance even when the next key is not verified yet.
-  useLayoutEffect(() => {
-    setStored((previous) =>
-      previous.key === key
-        ? previous
-        : {
-            key,
-            value: latest.current.initialState,
-            explicit: false,
-          },
-    );
-  }, [key]);
-  // Cached choices must satisfy today's allowlist, including removed modules/rooms.
-  const parsed =
-    restoreReady && stored.key === key
-      ? options.parse(stored.value)
+    enabled,
+    restored: false,
+    snapshot: null,
+    persistence: enabled ? "none" : "remove",
+  };
+  const [stored, setStored] = useState(initial);
+  let selection = stored.key === key ? stored : initial;
+  if (!enabled) {
+    selection = { ...initial, persistence: "remove" };
+  } else if (
+    canRestore &&
+    (!selection.restored ||
+      (snapshot !== null && selection.snapshot !== snapshot))
+  ) {
+    // An early explicit choice wins only within its original identity/path/scope.
+    // An absent snapshot cannot erase a mounted selection: optional storage may
+    // become unavailable or remove this entry after rejecting our normalized write.
+    const deliberate = selection.explicit
+      ? options.parse(selection.value)
       : undefined;
-  const invalid = restoreReady && stored.key === key && parsed === undefined;
-  const normalized =
-    parsed !== undefined &&
-    JSON.stringify(parsed) !== JSON.stringify(stored.value)
-      ? JSON.stringify(parsed)
-      : "";
-  const value = enabled && parsed !== undefined ? parsed : options.initialState;
+    let restored = options.parse(
+      typeof snapshot === "string" ? JSON.parse(snapshot) : undefined,
+    );
+    if (deliberate !== undefined) restored = deliberate;
+    let restoredValue = options.initialState;
+    if (restored !== undefined) restoredValue = restored;
+    selection = {
+      ...selection,
+      value: restoredValue,
+      explicit: deliberate !== undefined,
+      persistence:
+        restored !== undefined
+          ? "write"
+          : snapshot === null
+            ? "none"
+            : "remove",
+    };
+  }
+  selection = { ...selection, enabled, restored: canRestore, snapshot };
+  if (enabled && restoreReady) {
+    const parsed = options.parse(selection.value);
+    if (parsed === undefined) {
+      selection = {
+        ...selection,
+        value: options.initialState,
+        explicit: false,
+        persistence: "remove",
+      };
+    } else if (JSON.stringify(parsed) !== JSON.stringify(selection.value)) {
+      // Drop removed catalogue IDs in memory too, so they cannot revive while
+      // storage is unavailable or a long live search exceeds its size budget.
+      selection = { ...selection, value: parsed, persistence: "write" };
+    }
+  }
+  if (JSON.stringify(selection) !== JSON.stringify(stored))
+    setStored(selection);
+  const value =
+    enabled && restoreReady ? selection.value : options.initialState;
+  const serialized = JSON.stringify(selection.value);
+  const persistence = selection.persistence;
   useEffect(() => {
-    if (!invalid || !key) return;
+    if (!key) return;
     try {
-      removeViewState(window.sessionStorage, key);
+      if (persistence === "remove") removeViewState(window.sessionStorage, key);
+      else if (persistence === "write" && active && enabled && restoreReady)
+        writeViewState(window.sessionStorage, key, JSON.parse(serialized) as T);
+      else return;
+      window.dispatchEvent(new Event(VIEW_STORAGE_EVENT));
     } catch {
-      /* Optional storage. */
+      /* Optional storage never takes ownership of the live selection. */
     }
-    setStored({ key, value: latest.current.initialState, explicit: false });
-  }, [invalid, key]);
-  useEffect(() => {
-    if (!normalized || !enabled || !key) return;
-    const value = JSON.parse(normalized) as T;
-    // Parsers may drop removed catalogue IDs or unknown fields. Replace their
-    // stored representation too, so a later catalogue cannot revive them.
-    if (active) {
-      try {
-        writeViewState(window.sessionStorage, key, value);
-      } catch {
-        /* Optional storage. */
-      }
-    }
-    setStored((previous) => ({
-      key,
-      value,
-      explicit: previous.key === key && previous.explicit,
-    }));
-  }, [normalized, enabled, active, key]);
-  useEffect(() => {
-    if (enabled) return;
-    try {
-      if (key) removeViewState(window.sessionStorage, key);
-    } catch {
-      /* Optional storage. */
-    }
-    setStored({ key, value: latest.current.initialState, explicit: false });
-  }, [key, enabled]);
-  useEffect(() => {
-    if (!key || !active || !enabled || !restoreReady) return;
-    setStored((previous) => {
-      // Verification may finish after a user clicked. Prefer a still-allowed
-      // same-key choice, while never transferring it to another identity/query.
-      const deliberate =
-        previous.key === key && previous.explicit
-          ? latest.current.parse(previous.value)
-          : undefined;
-      try {
-        const restored =
-          deliberate ??
-          latest.current.parse(readViewState(window.sessionStorage, key));
-        if (restored !== undefined)
-          writeViewState(window.sessionStorage, key, restored);
-        return {
-          key,
-          value: restored ?? latest.current.initialState,
-          explicit: deliberate !== undefined,
-        };
-      } catch {
-        return previous;
-      }
-    });
-  }, [key, active, enabled, restoreReady]);
+  }, [key, active, enabled, restoreReady, persistence, serialized]);
   const setValue = useCallback<Dispatch<SetStateAction<T>>>(
     (next) => {
       if (!enabled || !restoreReady) return;
+      // Event/effect callers use committed options, captured before React queues
+      // or replays the pure updater. Render callers use reconcileValue below.
+      const { initialState, parse } = latest.current;
       setStored((previous) => {
-        const current =
-          previous.key === key ? previous.value : latest.current.initialState;
+        const current = previous.key === key ? previous.value : initialState;
         const proposed = typeof next === "function" ? next(current) : next;
-        const parsed = latest.current.parse(proposed);
+        const parsed = parse(proposed);
         if (parsed === undefined) return previous;
-        if (key && active) {
-          try {
-            writeViewState(window.sessionStorage, key, parsed);
-          } catch {
-            /* Optional storage. */
-          }
-        }
-        return { key, value: parsed, explicit: true };
+        return {
+          ...previous,
+          key,
+          value: parsed,
+          explicit: true,
+          persistence: "write",
+        };
       });
     },
-    [key, active, enabled, restoreReady],
+    [key, enabled, restoreReady],
   );
-  return [value, setValue];
+  // Only for guarded reconciliation in the component that owns this hook.
+  // Capture this render's allowlist before queuing a pure state update; no refs
+  // or storage access may escape an abandoned render. Persistence stays above.
+  const reconcileValue = (next: T) => {
+    if (!enabled || !restoreReady) return;
+    const parsed = options.parse(next);
+    if (parsed === undefined) return;
+    setStored((previous) => ({
+      ...previous,
+      key,
+      value: parsed,
+      explicit: true,
+      persistence: "write",
+    }));
+  };
+  return [value, setValue, reconcileValue];
 }
 
 export type SessionScrollOptions = {
@@ -248,23 +323,21 @@ export function useSessionPageScroll({
   const active = !!context?.verified && identity !== "anonymous";
   // A retained outgoing feature must not adopt a newly verified destination
   // pathname. A new mount or explicit feature ID establishes the next owner.
+  const viewport = useSyncExternalStore(
+    subscribeViewport,
+    readViewport,
+    emptyStorageSnapshot,
+  );
+  const [browserPath, desktop] =
+    viewport === null
+      ? ["", null]
+      : (JSON.parse(viewport) as [string, boolean]);
   const [routeOwner, setRouteOwner] = useState(() => ({ id, pathname: "" }));
-  useLayoutEffect(() => {
-    setRouteOwner((previous) => {
-      if (previous.id === id && previous.pathname) return previous;
-      if (!pathname || window.location.pathname !== pathname)
-        return previous.id === id ? previous : { id, pathname: "" };
-      return { id, pathname };
-    });
-  }, [id, pathname]);
+  const matchingPath = pathname && browserPath === pathname ? pathname : "";
+  if (routeOwner.id !== id || (!routeOwner.pathname && matchingPath)) {
+    setRouteOwner({ id, pathname: matchingPath });
+  }
   const ownsRoute = routeOwner.id === id && routeOwner.pathname === pathname;
-  const [desktop, setDesktop] = useState<boolean | null>(null);
-  useEffect(() => {
-    const resize = () => setDesktop(window.innerWidth >= 1024);
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, []);
   useEffect(() => {
     if (
       !active ||

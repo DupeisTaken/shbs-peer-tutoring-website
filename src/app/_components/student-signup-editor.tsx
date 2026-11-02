@@ -51,7 +51,11 @@ export function StudentSignupEditor({
       size="wide"
       onClose={onClose}
     >
-      <SignupEditorForm requestId={requestId} managed={managed} />
+      <SignupEditorForm
+        key={`${managed ? "managed" : "self"}:${requestId}`}
+        requestId={requestId}
+        managed={managed}
+      />
     </ProfileDialog>
   );
 }
@@ -101,23 +105,19 @@ function SignupEditorForm({
   const denied =
     query.error?.data?.code === "FORBIDDEN" ||
     query.error?.data?.code === "UNAUTHORIZED";
+  // Keep the draft/recovery owner, but conceal it until this exact read recovers.
+  const nextRevoked = denied
+    ? true
+    : query.isSuccess && !query.isFetching && !query.error
+      ? false
+      : revoked;
+  if (nextRevoked !== revoked) setRevoked(nextRevoked);
   useEffect(() => {
-    if (denied) {
-      setRevoked(true);
+    if (denied)
       queryClient.removeQueries({
         queryKey: getQueryKey(queryProcedure, { id: requestId }, "query"),
       });
-    } else if (query.isSuccess && !query.isFetching && !query.error)
-      setRevoked(false);
-  }, [
-    denied,
-    query.isSuccess,
-    query.isFetching,
-    query.error,
-    queryClient,
-    queryProcedure,
-    requestId,
-  ]);
+  }, [denied, queryClient, queryProcedure, requestId]);
 
   // Seed exactly once. Later adoption is an explicit Reload or completed save refresh.
   if (!snapshot && query.data && !denied) {

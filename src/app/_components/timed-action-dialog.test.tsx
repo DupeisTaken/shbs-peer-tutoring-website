@@ -14,26 +14,37 @@ import en from "../../../messages/en.json";
 import { TimedActionDialog } from "./timed-action-dialog";
 
 const mocks = vi.hoisted(() => ({
-  prepare: vi.fn(),
+  prepare: vi.fn<(input: { action: string; target: string }) => Promise<{
+    id: string;
+    readyAt: Date;
+    serverNow: Date;
+    expiresAt: Date;
+  }>>(),
   readyAt: new Date(),
   confirm: vi.fn(),
   cancel: vi.fn(),
-  cancelTicket: vi.fn(),
+  cancelTicket: vi.fn<(input: { ticket: string }) => void>(),
+  unstableApi: false,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     studentWorkflow: {
       prepareAction: {
         useMutation: () => ({
-          mutateAsync: mocks.prepare,
+          mutateAsync: mocks.unstableApi
+            ? (input: { action: string; target: string }) => mocks.prepare(input)
+            : mocks.prepare,
           reset: vi.fn(),
         }),
       },
-      cancelAction: { useMutation: () => ({ mutate: mocks.cancelTicket }) },
+      cancelAction: { useMutation: () => ({ mutate: mocks.unstableApi
+        ? (input: { ticket: string }) => mocks.cancelTicket(input)
+        : mocks.cancelTicket }) },
     },
   },
 }));
 beforeEach(() => {
+  mocks.unstableApi = false;
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2030-01-01T00:00:00Z"));
   mocks.readyAt = new Date(Date.now() + 2000);
@@ -81,6 +92,24 @@ const flush = () =>
   });
 const show = (mandatory = false, busy = false) =>
   render(element(mandatory, busy));
+
+it("keeps the prepared deadline when callback identities change and invokes the latest confirmation", async () => {
+  mocks.unstableApi = true;
+  const view = show();
+  await flush();
+  await act(() => vi.advanceTimersByTime(1000));
+  const confirm = vi.fn();
+  view.rerender(element(false, false, { onConfirm: confirm }));
+  await flush();
+  expect(mocks.prepare).toHaveBeenCalledOnce();
+  expect(screen.getByRole("status").textContent).toBe("Confirm in 1s");
+  await act(() => vi.advanceTimersByTime(1000));
+  fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
+  expect(confirm).toHaveBeenCalledWith("ticket");
+  expect(mocks.confirm).not.toHaveBeenCalled();
+  view.unmount();
+  expect(mocks.cancelTicket).not.toHaveBeenCalled();
+});
 
 it("shows consequences and prevents confirmation before the timer ends", async () => {
   show();
@@ -322,8 +351,9 @@ it("closes a submitted proposal dialog so its approval notice can be opened", as
   expect(mocks.cancel).toHaveBeenCalledOnce();
   expect(mocks.confirm).not.toHaveBeenCalled();
 });
-it("cannot dismiss mandatory policy confirmation with Escape", () => {
+it("cannot dismiss mandatory policy confirmation with Escape", async () => {
   show(true);
+  await flush();
   const event = new Event("cancel", { cancelable: true });
   fireEvent(screen.getByRole("dialog"), event);
   expect(event.defaultPrevented).toBe(true);
@@ -333,8 +363,9 @@ it("cannot dismiss mandatory policy confirmation with Escape", () => {
 
 it.each([false, true])(
   "blocks repeated Escape during a write and restores the idle dismissal rule (mandatory: %s)",
-  (mandatory) => {
+  async (mandatory) => {
     const view = show(mandatory, true);
+    await flush();
     const dialog = screen.getByRole("dialog");
     const cancel = screen.getByRole<HTMLButtonElement>("button", {
       name: mandatory ? "Sign out" : "Cancel",

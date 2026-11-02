@@ -20,7 +20,7 @@ import {
   type InvalidityRecord,
 } from "~/app/_components/request-invalidity";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -144,9 +144,12 @@ function RequestCard({
   const choicesId = useId();
   // Collapse fulfilled requests by default; auto-collapse once a request becomes fulfilled.
   const [collapsed, setCollapsed] = useState(fulfilled);
-  useEffect(() => {
+  const [previousFulfilled, setPreviousFulfilled] = useState(fulfilled);
+  // A newly fulfilled request closes once; a deliberate later expansion survives refreshes.
+  if (previousFulfilled !== fulfilled) {
+    setPreviousFulfilled(fulfilled);
     if (fulfilled) setCollapsed(true);
-  }, [fulfilled]);
+  }
 
   // Always show both choice positions; a position the tutee left blank renders grayed/disabled
   // so the request stays in the queue and the admin can still assign whatever was provided.

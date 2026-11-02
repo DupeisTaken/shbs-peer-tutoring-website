@@ -314,6 +314,39 @@ it.each(["contacts", "inbox", "permission"] as const)(
     expect(mocks.send).not.toHaveBeenCalled();
   },
 );
+it.each(["contacts", "inbox", "permission"] as const)(
+  "conceals ordinary cached messages after %s denial and restores drafts only after complete recovery",
+  async (source) => {
+    mocks.replies = true;
+    const view = show();
+    fireEvent.change(screen.getByRole("textbox", { name: en.workflows.body }), {
+      target: { value: "Private draft awaiting recovery" },
+    });
+    if (source === "contacts") mocks.contactsCode = "FORBIDDEN";
+    if (source === "inbox") mocks.inboxCode = "UNAUTHORIZED";
+    if (source === "permission") mocks.permission = "forbidden";
+    view.rerender(ui());
+    expect(screen.queryByText("Incoming message 1")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: en.workflows.body })).toBeNull();
+    mocks.contactsCode = undefined;
+    mocks.inboxCode = undefined;
+    mocks.permission = "ready";
+    mocks.error = true;
+    view.rerender(ui());
+    expect(screen.queryByText("Incoming message 1")).toBeNull();
+    mocks.error = false;
+    await act(async () => fireEvent.click(screen.getByRole("button", {
+      name: en.participantRecovery.retry,
+    })));
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.workflows.body,
+    }).value).toBe("Private draft awaiting recovery");
+    expect(mocks.contactsRefetch).toHaveBeenCalledOnce();
+    expect(mocks.inboxRefetch).toHaveBeenCalledOnce();
+    expect(mocks.permissionRefetch).toHaveBeenCalledOnce();
+    expect(mocks.send).not.toHaveBeenCalled();
+  },
+);
 it("holds scoped concealment when a fresh permission read fails and retries every source without sending", async () => {
   mocks.contactsCode = "FORBIDDEN";
   const view = render(scopedUI());
@@ -338,6 +371,25 @@ it("holds scoped concealment when a fresh permission read fails and retries ever
   expect(mocks.inboxRefetch).toHaveBeenCalledTimes(2);
   expect(mocks.permissionRefetch).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("textbox", { name: en.workflows.body })).toBeTruthy();
+  expect(mocks.send).not.toHaveBeenCalled();
+});
+
+it("recovers ordinary historical mail when fresh permission allows reads but restricts sending", async () => {
+  mocks.replies = true;
+  mocks.inboxCode = "UNAUTHORIZED";
+  const view = show();
+  expect(screen.queryByText("Incoming message 1")).toBeNull();
+  mocks.inboxCode = undefined;
+  mocks.permission = "denied";
+  mocks.permissionRefetch.mockResolvedValue({ data: { restricted: true } });
+  view.rerender(ui());
+  await act(async () => fireEvent.click(screen.getByRole("button", {
+    name: en.participantRecovery.retry,
+  })));
+  expect(screen.getByText("Incoming message 1")).toBeTruthy();
+  expect(screen.getByRole<HTMLButtonElement>("button", {
+    name: en.workflows.send,
+  }).disabled).toBe(true);
   expect(mocks.send).not.toHaveBeenCalled();
 });
 it("retains a scoped message draft while closing its dialog and blocks pending dismissal", () => {
