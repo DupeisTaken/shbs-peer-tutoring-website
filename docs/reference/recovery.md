@@ -53,6 +53,13 @@ Supported independent role/suspension edits preserve their database-generated
 `refreshAuthorityRevision` increase; recovery never restores earlier scheduling
 authority. Standalone epoch edits and merge/ownership changes remain unsupported.
 
+Monthly and school-hours reports and schedules also require journal coverage,
+even when their tables are empty. Unrelated reporting does not become an admission
+dependency. Related reporting, including reporting within the original admission
+transaction, requires manual review because automatic compensation has no reporting
+adapter. The journal retains causal record IDs, not private balances, recipient
+lists, report contents or link capabilities.
+
 `ScheduledProgramRefresh` participates in the same mandatory change journal as
 other domain tables. A schedule linked to an admission's tracked account is
 recorded as later unsupported work and blocks automatic compensation. The coverage

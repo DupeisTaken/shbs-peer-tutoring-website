@@ -82,6 +82,7 @@ async function admission(
   options: {
     existingStudent?: boolean;
     planningDuringAdmission?: boolean;
+    reportingDuringAdmission?: boolean;
   } = {},
 ) {
   if (options.existingStudent) {
@@ -142,6 +143,10 @@ async function admission(
           cohorts: { create: cohortData },
         },
       });
+    }
+    if (options.reportingDuringAdmission) {
+      await tx.monthlyHoursSchedule.create({ data: { id: "program" } });
+      await tx.monthlyHoursReport.create({ data: monthlyReportData("admin") });
     }
     await finishAdmissionRecoveryCapture(tx, action);
     return action!;
@@ -253,6 +258,132 @@ const planningTables = [
   "SessionNotice",
   "SessionCalendarToken",
 ];
+const monthlyReportData = (generatedById: string, revision = 1) => ({
+  scheduleId: "program",
+  month: "2026-09",
+  revision,
+  configVersion: 0,
+  timeZone: "Asia/Shanghai",
+  generatedById,
+  contentHash: "synthetic-content-hash",
+  generationKey: randomUUID(),
+  generationHash: "synthetic-generation-hash",
+  snapshot: { privateName: "PRIVATE SNAPSHOT SENTINEL" },
+  intendedRecipients: [{ email: "private-recipient@example.test" }],
+  reason: "PRIVATE REASON SENTINEL",
+});
+
+it.each([
+  "MonthlyHoursSchedule",
+  "MonthlyHoursReport",
+  "SchoolHoursSchedule",
+  "SchoolHoursReport",
+])(
+  "requires %s recovery coverage even while the table is empty",
+  async (table) => {
+    const source = await admission();
+    const complete = await inspectAdmissionRecovery(db, source);
+    expect(complete, complete.blockers.join(" ")).toMatchObject({
+      coverage: "COMPLETE",
+      websiteEligible: true,
+    });
+    // The table name comes only from the fixed test cases above.
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "${table}" DISABLE TRIGGER recovery_change_journal`,
+    );
+    try {
+      const plan = await inspectAdmissionRecovery(db, source);
+      expect(plan).toMatchObject({
+        coverage: "UNKNOWN",
+        websiteEligible: false,
+      });
+      expect(plan.blockers.join(" ")).toContain(table);
+    } finally {
+      await db.$executeRawUnsafe(
+        `ALTER TABLE "${table}" ENABLE TRIGGER recovery_change_journal`,
+      );
+    }
+  },
+);
+
+it("keeps unrelated monthly reports independent and records related reporting without private content", async () => {
+  const source = await admission({ existingStudent: true });
+  await db.monthlyHoursSchedule.create({ data: { id: "program" } });
+  await db.monthlyHoursReport.create({ data: monthlyReportData("admin") });
+  const unrelated = await inspectAdmissionRecovery(db, source);
+  expect(unrelated, unrelated.blockers.join(" ")).toMatchObject({
+    coverage: "COMPLETE",
+    websiteEligible: true,
+    dependentEventCount: 0,
+  });
+  const report = await db.monthlyHoursReport.create({
+    data: monthlyReportData("prior-user", 2),
+  });
+  const change = await db.recoveryChange.findFirstOrThrow({
+    where: {
+      actionId: source.actionId,
+      entity: "MonthlyHoursReport",
+      operation: "INSERT",
+    },
+  });
+  expect(change.recordKey).toMatchObject({
+    id: report.id,
+    scheduleId: "program",
+    generatedById: "prior-user",
+  });
+  expect(JSON.stringify(change.after)).not.toMatch(
+    /PRIVATE|private-recipient|synthetic.*hash/,
+  );
+  expect(change.after).not.toHaveProperty("snapshot");
+  expect(change.after).not.toHaveProperty("intendedRecipients");
+  expect(change.after).not.toHaveProperty("generationKey");
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({ coverage: "UNKNOWN", websiteEligible: false });
+  expect(plan.blockers).toContain("Unsupported dependent event: UNSUPPORTED.");
+  await expect(
+    applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    await db.monthlyHoursReport.findUniqueOrThrow({ where: { id: report.id } }),
+  ).toEqual(report);
+});
+
+it("does not hide reporting in an original admission transaction", async () => {
+  const source = await admission({ reportingDuringAdmission: true });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({
+    coverage: "UNKNOWN",
+    websiteEligible: false,
+    dependentEventCount: 0,
+  });
+  expect(plan.blockers).toContain("Unsupported dependent event: UNSUPPORTED.");
+});
+
+it("preserves school-report lineage IDs in the journal projection without report content or link capabilities", async () => {
+  const ids = {
+    id: "report",
+    scheduleId: "program",
+    predecessorId: "prior",
+    supersedesId: "revised",
+    supersededById: "replacement",
+    generatedById: "operator",
+  };
+  const input = {
+    ...ids,
+    snapshot: { privateName: "PRIVATE SNAPSHOT" },
+    sourceBaseline: { privateBalance: 12 },
+    intendedRecipients: ["private@example.test"],
+    reason: "PRIVATE REASON",
+    linkTokenHash: "PRIVATE LINK HASH",
+    contentHash: "PRIVATE CONTENT HASH",
+    generationKey: "PRIVATE CAPABILITY",
+    generationHash: "PRIVATE GENERATION HASH",
+  };
+  const [row] = await db.$queryRaw<{ projected: unknown }[]>`
+    SELECT recovery_safe_row(${JSON.stringify(input)}::jsonb) AS projected
+  `;
+  expect(row?.projected).toEqual(ids);
+});
 const planData = (tutorId: string, suffix: string) => ({
   generationKey: `recovery-synthetic:${suffix}`,
   tutorId,

@@ -121,6 +121,10 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     ProgramSettings: ["id"],
     AccountEmail: ["email"],
     EmailDelivery: ["id"],
+    // Their schema is catalogued; row inspection remains unavailable because
+    // the reporting domain owns private balances and capability projections.
+    MonthlyHoursSchedule: ["id"],
+    MonthlyHoursReport: ["id"],
     RequestInvalidityAppeal: ["id"],
     PublicApplicationRateLimit: ["key"],
     AcademicProfile: ["userId"],

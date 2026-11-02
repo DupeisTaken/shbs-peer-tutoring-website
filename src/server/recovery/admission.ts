@@ -92,7 +92,11 @@ const assignmentTables = new Set([
   "Tutee",
   "MessageTutorAssignment",
 ]);
-const unsupportedSchedulingTables = new Set([
+const unsupportedDependentTables = new Set([
+  "MonthlyHoursSchedule",
+  "MonthlyHoursReport",
+  "SchoolHoursSchedule",
+  "SchoolHoursReport",
   "StudentContinuationReceipt",
   "StudentContinuationAssignment",
   "StudentContinuationPairing",
@@ -402,11 +406,11 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     blockers.push(RECOVERY_EVIDENCE.clockChanged);
   const rootEvents = g.events.filter((event) => event.kind === "ADMISSION");
   if (rootEvents.length !== 1) blockers.push(RECOVERY_EVIDENCE.sourceEvent);
-  // Events group a whole transaction. A scheduling write inside trusted admission
+  // Events group a whole transaction. Scheduling/reporting inside trusted admission
   // capture still needs its own compensation adapter; the ADMISSION label must
-  // not hide a commitment, consent receipt or private calendar capability.
+  // not hide a commitment, published report or private calendar capability.
   if (
-    g.changes.some((change) => unsupportedSchedulingTables.has(change.entity))
+    g.changes.some((change) => unsupportedDependentTables.has(change.entity))
   )
     blockers.push(recoveryEventPrefix + "UNSUPPORTED.");
   const later = g.events.filter((event) => event.kind !== "ADMISSION");
