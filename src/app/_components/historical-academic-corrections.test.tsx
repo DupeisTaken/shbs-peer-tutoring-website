@@ -140,6 +140,24 @@ function edit() {
   });
 }
 
+it("replaces an unfinished search when explicit participant criteria change without losing corrections", () => {
+  const view = (initialSearch: string) => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <HistoricalAcademicCorrections coordinator={false} initialSearch={initialSearch} />
+    </NextIntlClientProvider>
+  );
+  const mounted = render(view("original participant"));
+  edit();
+  fireEvent.change(screen.getByLabelText(en.historicalAcademics.search), {
+    target: { value: "unfinished search" },
+  });
+  mounted.rerender(view("another participant"));
+  expect(screen.getByLabelText<HTMLInputElement>(en.historicalAcademics.search).value).toBe("another participant");
+  expect(screen.getByLabelText<HTMLInputElement>("Historical grade (raw text)").value).toBe("初三");
+  mounted.rerender(view("original participant"));
+  expect(screen.getByLabelText<HTMLInputElement>(en.historicalAcademics.search).value).toBe("original participant");
+});
+
 it("waits for the refreshed records before allowing a CSV download", () => {
   mocks.fetching = true;
   const mounted = mount();
