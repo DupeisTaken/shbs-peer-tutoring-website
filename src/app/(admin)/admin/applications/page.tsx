@@ -562,7 +562,7 @@ export default function ApplicationsPage() {
 
   const denied = useSessionAccessDenied(apps, tutors, features);
   const verified = useSessionViewVerified();
-  const [filters, setFilters] = useSessionViewState({
+  const [filters, setFilters, reconcileFilters] = useSessionViewState({
     id: "applications.filters.v1",
     initialState: emptyApplicationFilters,
     enabled: !denied,
@@ -594,7 +594,7 @@ export default function ApplicationsPage() {
         value === undefined ? "" : viewEnum(APPLICATION_SORTS)(value),
     }),
   });
-  const [invalidity, setInvalidity] =
+  const [invalidity, setInvalidity, reconcileInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
       id: "applications.invalidity.v1",
       initialState: "valid",
@@ -632,17 +632,26 @@ export default function ApplicationsPage() {
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
   }, [verified, denied]);
-  useEffect(() => {
-    if (arrival && !arrival.selected && !apps.isFetching && apps.data) {
-      setFilters(emptyApplicationFilters);
-      setInvalidity("all");
-      const exists = apps.data.some(
-        (app) => `#application-${app.id}` === arrival.hash,
-      );
-      setNoticeTargetMissing(!exists);
-      setArrival(exists ? { ...arrival, selected: true } : null);
+  // Resolve each arrival once against a settled authorized read. User filter
+  // events cancel pending arrivals, so a delayed result cannot replace their choice.
+  if (
+    arrival &&
+    !arrival.selected &&
+    !denied &&
+    !apps.error &&
+    !apps.isFetching &&
+    apps.data
+  ) {
+    const exists = apps.data.some(
+      (app) => `#application-${app.id}` === arrival.hash,
+    );
+    if (exists) {
+      reconcileFilters(emptyApplicationFilters);
+      reconcileInvalidity("all");
     }
-  }, [arrival, apps.data, apps.isFetching, setFilters, setInvalidity]);
+    setNoticeTargetMissing(!exists);
+    setArrival(exists ? { ...arrival, selected: true } : null);
+  }
   useNotificationRecordReveal(
     arrival,
     !denied &&
@@ -720,14 +729,25 @@ export default function ApplicationsPage() {
         {apps.data && (
           <ApplicationFilters
             value={filters}
-            onChange={setFilters}
+            onChange={(next) => {
+              setArrival(null);
+              setNoticeTargetMissing(false);
+              setFilters(next);
+            }}
             subjects={subjects}
             count={filtered.length}
             total={list.length}
           />
         )}
         {apps.data && (
-          <InvalidityFilter value={invalidity} onChange={setInvalidity} />
+          <InvalidityFilter
+            value={invalidity}
+            onChange={(next) => {
+              setArrival(null);
+              setNoticeTargetMissing(false);
+              setInvalidity(next);
+            }}
+          />
         )}
         <div className="space-y-3">
           {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}

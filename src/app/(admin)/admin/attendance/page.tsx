@@ -42,6 +42,8 @@ export default function SubmissionsPage() {
   const queryClient = useQueryClient();
   const [deniedTutors, setDeniedTutors] = useState(false);
   const [deniedSessions, setDeniedSessions] = useState(false);
+  // Resetting a denied filter can select an older cached month before eviction.
+  const [sessionDeniedAt, setSessionDeniedAt] = useState(0);
   const tutors = api.admin.tutors.useQuery(undefined, {
     enabled: !deniedTutors,
   });
@@ -88,31 +90,43 @@ export default function SubmissionsPage() {
   });
   // These keys and their authorization belong to the attendance feature. The
   // feedback component only presents the resulting read/retry state.
+  if (tutorAccessDenied && !deniedTutors) setDeniedTutors(true);
+  else if (
+    deniedTutors &&
+    !tutorAccessDenied &&
+    tutors.isSuccess &&
+    !tutors.isFetching
+  )
+    setDeniedTutors(false);
   useEffect(() => {
     if (tutorAccessDenied) {
-      setDeniedTutors(true);
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.tutors, undefined, "query"),
         exact: true,
       });
-    } else if (tutors.isSuccess && !tutors.isFetching) setDeniedTutors(false);
-  }, [tutorAccessDenied, tutors.isSuccess, tutors.isFetching, queryClient]);
+    }
+  }, [tutorAccessDenied, queryClient]);
+  if (sessionAccessDenied && !deniedSessions) {
+    setDeniedSessions(true);
+    setSessionDeniedAt(sessions.errorUpdatedAt ?? 0);
+  } else if (
+    deniedSessions &&
+    !sessionAccessDenied &&
+    sessions.isSuccess &&
+    !sessions.isFetching &&
+    (sessions.dataUpdatedAt === undefined ||
+      sessions.dataUpdatedAt > sessionDeniedAt)
+  )
+    setDeniedSessions(false);
   useEffect(() => {
-    if (sessionAccessDenied) {
-      setDeniedSessions(true);
+    if (deniedSessions) {
       queryClient.removeQueries({
         // Clearing saved filters changes the query key; conceal and evict all
         // attendance scopes so another cached month cannot release the denial.
         queryKey: getQueryKey(api.admin.sessions, undefined, "query"),
       });
-    } else if (sessions.isSuccess && !sessions.isFetching)
-      setDeniedSessions(false);
-  }, [
-    sessionAccessDenied,
-    sessions.isSuccess,
-    sessions.isFetching,
-    queryClient,
-  ]);
+    }
+  }, [deniedSessions, queryClient]);
 
   return (
     <div className="space-y-6">

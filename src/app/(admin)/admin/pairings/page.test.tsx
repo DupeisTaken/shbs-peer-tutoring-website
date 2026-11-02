@@ -606,3 +606,38 @@ it("marks a legacy incomplete saved group as needing repair in its summary and r
   expect(within(screen.getByRole("dialog")).getByText(en.pairingGroups.needsRepair)).toBeTruthy();
   expect(state.mutate).not.toHaveBeenCalled();
 });
+
+it("keeps a deliberate room filter when an arrival is still waiting for its read", () => {
+  const scroll = revealSpy();
+  const client = new QueryClient();
+  window.history.replaceState(null, "", "/admin/pairings#pairing");
+  state.pendingRead = true;
+  const page = render(arrivalPage(client));
+  fireEvent.click(screen.getByRole("button", { name: /Needs room/ }));
+  state.pendingRead = false;
+  page.rerender(arrivalPage(client));
+  expect(
+    screen
+      .getByRole("button", { name: /Needs room/ })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(document.getElementById("pairing")).toBeNull();
+  expect(scroll).not.toHaveBeenCalled();
+});
+
+it("does not reapply an already revealed arrival after a user filters its row out", () => {
+  const scroll = revealSpy();
+  const client = new QueryClient();
+  window.history.replaceState(null, "", "/admin/pairings#pairing");
+  const page = render(arrivalPage(client));
+  expect(scroll).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: /Needs room/ }));
+  page.rerender(arrivalPage(client));
+  expect(document.getElementById("pairing")).toBeNull();
+  expect(
+    screen
+      .getByRole("button", { name: /Needs room/ })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(scroll).toHaveBeenCalledOnce();
+});

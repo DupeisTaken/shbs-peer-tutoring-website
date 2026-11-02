@@ -374,7 +374,13 @@ function ApprovalQueue({
     params.has("requester") ||
     !!requestId;
   const urlPage = viewPage(selectedPage) ?? 0;
-  const [requesters, setRequesters] = useState<string[] | null>(null);
+  const [knownRequesterKey, setKnownRequesterKey] = useState<string | null>(
+    null,
+  );
+  const requesters =
+    knownRequesterKey === null
+      ? null
+      : (JSON.parse(knownRequesterKey) as string[]);
   const [accessDenied, setAccessDenied] = useState(false);
   const verified = useSessionViewVerified();
   const [remembered, setRemembered] = useSessionViewState<{
@@ -464,15 +470,18 @@ function ApprovalQueue({
     requesterId: requestId ? undefined : requesterId || undefined,
     requestId,
   });
-  const denied = useSessionAccessDenied(queue);
-  useEffect(() => setAccessDenied(denied), [denied]);
+  const denied = useSessionAccessDenied({
+    ...queue,
+    denialKey: "approval-queue",
+  });
+  if (accessDenied !== denied) setAccessDenied(denied);
   const requesterKey = queue.data
     ? JSON.stringify(queue.data.requesters.map((user) => user.id))
     : null;
-  useEffect(() => {
-    if (requesterKey !== null && !denied)
-      setRequesters(JSON.parse(requesterKey) as string[]);
-  }, [requesterKey, denied]);
+  // Catalogue changes validate recalled filters in the same render cycle;
+  // temporary read failures retain the last authorized catalogue.
+  if (requesterKey !== null && !denied && requesterKey !== knownRequesterKey)
+    setKnownRequesterKey(requesterKey);
   useSessionPageScroll({
     id: "approvals",
     scope: JSON.stringify([requestId ?? "all", state, page, requesterId]),
