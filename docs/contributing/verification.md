@@ -90,6 +90,31 @@ rebuild. PR runs skip the image archive/upload. Image-transfer costs and GitHub
 runner queues still affect total latency; compare successful runs at the same
 scope rather than treating a failed early exit as a speed improvement.
 
+The required image build imports the existing GHA cache with `cache-from:
+type=gha` but does not export cache. In [main run 41499237387](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41499237387)
+at `b5ece262d35a3edb91c47de81f1d933ad664c20f`, the image loaded about 255 seconds
+after job start; optional `mode=max` cache preparation then took 83.6 seconds and
+uploading continued until cancellation, before smoke checks could start. Removing
+that export reserves the remaining budget for verification and image transfer;
+the nine-minute job limit and fatal build/smoke/archive failures remain unchanged.
+There is no second cache-only build or image rebuild during promotion.
+
+[Docker's GHA cache options](https://docs.docker.com/build/cache/backends/gha/)
+document `timeout` and `ignore-error`, but these are not a reliable total export
+deadline in the observed BuildKit v0.33.1. Its [export preparation and finalization](https://github.com/moby/buildkit/blob/v0.33.1/solver/llbsolver/export.go#L99-L131)
+have no separate overall timeout; the [cache client's request retry budget](https://github.com/moby/buildkit/blob/v0.33.1/vendor/github.com/tonistiigi/go-actions-cache/cache.go#L483-L525)
+does not bound every [Azure blob upload](https://github.com/moby/buildkit/blob/v0.33.1/vendor/github.com/tonistiigi/go-actions-cache/cache_v2.go#L59-L70).
+Ignoring an eventual cache error cannot recover time already spent before the
+required job is cancelled.
+
+The import keeps the existing default `buildkit` scope; the storage-comparison
+helper also only imports that cache. This workflow no longer refreshes it, so
+cache eviction or misses can make later builds colder. [GitHub's cache access rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache)
+also prevent main from restoring a cache written to a PR merge ref: successful
+PR caching does not establish a warm main build. Validate both the next complete
+PR run and main's smoke/save/upload/promotion path, including cache-miss behavior;
+the 255-second observation is evidence from one build, not a future timing guarantee.
+
 The separate `image-storage` job detects changes to the Dockerfile, build-context
 exclusions, workflow or runtime packaging/measurement helpers. Unrelated changes finish successfully after scope
 detection without another image build. Relevant changes compare the baseline
