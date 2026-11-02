@@ -140,6 +140,15 @@ The direct development dependency anchors the local package at the repository
 root; the override references it with `$fast-glob`. Keep the adapter's Docker
 `COPY` before `npm ci` so clean image builds resolve the same package.
 
+Legacy ESLint consumers also receive a small CommonJS compatibility export from
+`tools/next-lint-glob/minimatch-compat`. It delegates matching to minimatch 11.0.1,
+the patched release for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249),
+while retaining the callable default export required by their v3 API usage.
+TypeScript ESLint receives 11.0.1 directly through its named-export API. The
+scoped overrides preserve lint rules; `test:lint-glob` exercises actual package
+resolution, file inclusion/exclusion and real rule violations. Remove the
+compatibility export when all legacy consumers support the modern API.
+
 The `vite` override pins the test runner's transitive toolchain to 8.1.6, which
 contains the patched editor launcher (see
 [GHSA-698v-4r3x-3vcv](https://github.com/advisories/GHSA-698v-4r3x-3vcv)).

@@ -89,31 +89,42 @@ it.each([
   ["scheduled", "Q1", "Q2"],
   ["immediate", "Q3", "Q4"],
   ["scheduled", "Q3", "Q4"],
-] as const)("%s refresh preserves the %s to %s continuation opening", async (mode, from, to) => {
-  await db.term.update({ where: { id: source }, data: { quarter: from } });
-  const value = await input();
-  const started = new Date();
-  if (mode === "scheduled") {
-    const row = await caller("HEAD").admin.scheduleRefresh(value);
-    await due(row.id);
-    await processScheduledRefresh(db, row.id);
-  } else {
-    await caller("HEAD").admin.refresh(value);
-  }
-  const destination = await db.term.findFirstOrThrow({ where: { active: true } });
-  expect(destination).toMatchObject({
-    quarter: to,
-    continuationSourceTermId: source,
-    continuationQuarterTransition: true,
-    signupOpeningStateSince: expect.any(Date),
-    signupFirstOpenedAt: expect.any(Date),
-  });
-  expect(destination.signupFirstOpenedAt!.getTime()).toBeGreaterThanOrEqual(started.getTime());
-  expect(destination.signupFirstOpenedAt).toEqual(destination.signupOpeningStateSince);
-  expect((await db.term.findUniqueOrThrow({ where: { id: source } })).active).toBe(false);
-  // Rollover records eligibility only: continuation still requires a signed choice.
-  expect(await db.studentContinuationReceipt.count()).toBe(0);
-});
+] as const)(
+  "%s refresh preserves the %s to %s continuation opening",
+  async (mode, from, to) => {
+    await db.term.update({ where: { id: source }, data: { quarter: from } });
+    const value = await input();
+    const started = new Date();
+    if (mode === "scheduled") {
+      const row = await caller("HEAD").admin.scheduleRefresh(value);
+      await due(row.id);
+      await processScheduledRefresh(db, row.id);
+    } else {
+      await caller("HEAD").admin.refresh(value);
+    }
+    const destination = await db.term.findFirstOrThrow({
+      where: { active: true },
+    });
+    expect(destination).toMatchObject({
+      quarter: to,
+      continuationSourceTermId: source,
+      continuationQuarterTransition: true,
+    });
+    expect(destination.signupOpeningStateSince).toBeInstanceOf(Date);
+    expect(destination.signupFirstOpenedAt).toBeInstanceOf(Date);
+    expect(destination.signupFirstOpenedAt!.getTime()).toBeGreaterThanOrEqual(
+      started.getTime(),
+    );
+    expect(destination.signupFirstOpenedAt).toEqual(
+      destination.signupOpeningStateSince,
+    );
+    expect(
+      (await db.term.findUniqueOrThrow({ where: { id: source } })).active,
+    ).toBe(false);
+    // Rollover records eligibility only: continuation still requires a signed choice.
+    expect(await db.studentContinuationReceipt.count()).toBe(0);
+  },
+);
 
 it("persists approved scheduling without activating early and excludes private evidence from public metadata", async () => {
   const value = await input();

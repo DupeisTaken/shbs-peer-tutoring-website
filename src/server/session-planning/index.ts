@@ -278,8 +278,7 @@ export async function readCurrentSessionReminderCohort(db: DomainDb, id: string)
       include: { plan: { include: planInclude } },
     });
     if (
-      !cohort ||
-      cohort.status !== "SCHEDULED" ||
+      cohort?.status !== "SCHEDULED" ||
       cohort.sourceInvalidated ||
       !(await sourceIsCurrent(tx, cohort.plan))
     )

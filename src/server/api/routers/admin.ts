@@ -1,7 +1,13 @@
-import { applyProgramRefresh, refreshProgramInput } from "~/server/program/refresh";
 import {
-  scheduleRefreshInput, cancelRefreshInput, scheduleProgramRefresh,
-  cancelProgramRefresh, readRefreshSchedule,
+  applyProgramRefresh,
+  refreshProgramInput,
+} from "~/server/program/refresh";
+import {
+  scheduleRefreshInput,
+  cancelRefreshInput,
+  scheduleProgramRefresh,
+  cancelProgramRefresh,
+  readRefreshSchedule,
 } from "~/server/program/scheduled-refresh";
 import {
   allocateAndPersistRoomUnit,
@@ -162,6 +168,7 @@ import {
   defaultUsername,
   ensureUniqueUsername,
   canonicalUsername,
+  lockUsernameNamespace,
   backfillStudentUsernames,
   ensureUserUsername,
   splitDisplayName,
@@ -207,10 +214,7 @@ import {
   semesterQuarters,
 } from "~/lib/period";
 import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
-import {
-  assertFeatureEnabled,
-  getFeatures,
-} from "~/server/program/features";
+import { assertFeatureEnabled, getFeatures } from "~/server/program/features";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import {
@@ -2052,18 +2056,29 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /** Head applies now; Admin submits the exact refresh for Head review. */
-  refresh: adminOnlyProcedure.input(refreshProgramInput)
-    .mutation(({ ctx, input }) => applyProgramRefresh(ctx.db, input, ctx.session.user)),
+  refresh: adminOnlyProcedure
+    .input(refreshProgramInput)
+    .mutation(({ ctx, input }) =>
+      applyProgramRefresh(ctx.db, input, ctx.session.user),
+    ),
 
-  refreshSchedule: adminProcedure.input(z.object({ id: z.string().min(1).optional() }).optional())
+  refreshSchedule: adminProcedure
+    .input(z.object({ id: z.string().min(1).optional() }).optional())
     .query(async ({ ctx, input }) => ({
-      ...await readRefreshSchedule(ctx.db, input?.id),
-      canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role), canApply: ctx.session.role === "HEAD",
+      ...(await readRefreshSchedule(ctx.db, input?.id)),
+      canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
+      canApply: ctx.session.role === "HEAD",
     })),
-  scheduleRefresh: adminOnlyProcedure.input(scheduleRefreshInput)
-    .mutation(({ ctx, input }) => scheduleProgramRefresh(ctx.db, input, ctx.session.user)),
-  cancelRefresh: adminOnlyProcedure.input(cancelRefreshInput)
-    .mutation(({ ctx, input }) => cancelProgramRefresh(ctx.db, input, ctx.session.user)),
+  scheduleRefresh: adminOnlyProcedure
+    .input(scheduleRefreshInput)
+    .mutation(({ ctx, input }) =>
+      scheduleProgramRefresh(ctx.db, input, ctx.session.user),
+    ),
+  cancelRefresh: adminOnlyProcedure
+    .input(cancelRefreshInput)
+    .mutation(({ ctx, input }) =>
+      cancelProgramRefresh(ctx.db, input, ctx.session.user),
+    ),
 
   // --------------------------------------------------------------------------
   // Tutor / Tutee / Room management
@@ -6349,10 +6364,17 @@ export const adminRouter = createTRPCRouter({
               title,
               body,
               link: "/dashboard",
-              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
-                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
-                zh: `公告“${input.title}”已发布，请打开公告查看。`,
-              }),
+              ...notificationInAppEvent(
+                "announcement_published",
+                {
+                  announcementTitle: input.title,
+                  announcementAction: "published",
+                },
+                {
+                  en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                  zh: `公告“${input.title}”已发布，请打开公告查看。`,
+                },
+              ),
             },
             tx,
           ),
@@ -6366,10 +6388,17 @@ export const adminRouter = createTRPCRouter({
               title,
               body,
               link: "/admin/announcements",
-              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
-                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
-                zh: `公告“${input.title}”已发布，请打开公告查看。`,
-              }),
+              ...notificationInAppEvent(
+                "announcement_published",
+                {
+                  announcementTitle: input.title,
+                  announcementAction: "published",
+                },
+                {
+                  en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                  zh: `公告“${input.title}”已发布，请打开公告查看。`,
+                },
+              ),
             },
             tx,
           ),

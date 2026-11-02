@@ -177,8 +177,7 @@ async function datedOccurrence(
 ): Promise<Occurrence | null> {
   const cohort = await readCurrentSessionReminderCohort(client, sourceId);
   if (
-    !cohort ||
-    cohort.startsAt.getTime() !== startsAt.getTime() ||
+    cohort?.startsAt.getTime() !== startsAt.getTime() ||
     cohort.plan.timeZone !== timeZone
   )
     return null;
