@@ -14,10 +14,12 @@ import messages from "../../../messages/en.json";
 import AuditPage from "../(admin)/admin/audit/page";
 import AttendancePage from "../(admin)/admin/attendance/page";
 import DisciplinePage from "../(admin)/admin/discipline/page";
-import ServiceHoursPage from "../(admin)/admin/service-hours/page";
+import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import HistoryPage from "../(admin)/admin/history/page";
 import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+
+vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
 
 const state = vi.hoisted(() => {
   const permissions: { accountRole: string | null } = { accountRole: "HEAD" };
@@ -31,6 +33,7 @@ const state = vi.hoisted(() => {
     englishName: "Alex Tutor",
     active: true,
     sessions: 3,
+    adjustmentCount: 2,
     earned: 3,
     extras: 2,
     punishments: 1,
@@ -302,7 +305,11 @@ vi.mock("~/trpc/react", () => ({
         useQuery: (input: unknown) => {
           state.summaryInput = input;
           return {
-            data: { scope: { label: "Current semester" }, rows: [state.tutor] },
+            data: {
+              scope: { label: "Current semester" },
+              rows: [state.tutor],
+              totals: { earned: 3, extras: 2, punishments: 1, total: 4 },
+            },
           };
         },
       },

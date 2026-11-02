@@ -222,11 +222,13 @@ const tableAliases: Record<string, string> = {
   PolicyDocument: "policy",
   PageLayout: "layout",
   ProgramSettings: "programSettings",
+  MonthlyHoursSchedule: "monthlyHoursSchedule",
   Language: "languages",
 };
 // Only operations that write record fields directly get an automatic field comparison.
 // A decision/action's input must never be mistaken for its resulting database state.
 const comparable = new Set([
+  "monthlyHours.save",
   "admin.reorderRooms",
   "program.setNameFields",
   "program.setCalendarDay",
@@ -410,8 +412,15 @@ export function approvalReview(
       // The standalone grant uses the same authored capability label as the
       // membership editor, and compares only a captured boolean permission.
       const hasBefore = typeof primary?.canTranslate === "boolean";
-      const field = { key: "translator", requested, before: primary?.canTranslate, hasBefore };
-      (hasBefore && equal(field.before, requested) ? unchanged : changes).push(field);
+      const field = {
+        key: "translator",
+        requested,
+        before: primary?.canTranslate,
+        hasBefore,
+      };
+      (hasBefore && equal(field.before, requested) ? unchanged : changes).push(
+        field,
+      );
       continue;
     }
     if (

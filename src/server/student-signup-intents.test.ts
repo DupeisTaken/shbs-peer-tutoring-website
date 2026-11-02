@@ -211,6 +211,8 @@ it("recovers the exact accepted receipt after rollover without creating next-per
   expect(await stageStudentSignupIntent(db, input, key)).toEqual(receipt);
   expect(await db.studentSurvey.count()).toBe(1);
   expect(fixtures.send).toHaveBeenCalledTimes(1);
+});
+
 it("keeps the management completion signal pending through mailbox verification and resend until account review", async () => {
   const accepted = await staged(await answers());
   const managed = async () => (await studentRequestRows(db)).find(row => row.id === accepted.intent.surveyId)!;

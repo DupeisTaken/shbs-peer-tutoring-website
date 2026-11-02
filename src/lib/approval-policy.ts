@@ -26,6 +26,7 @@ const accountAccessOperations = new Set([
   "program.setEmailNotifications",
   "program.setSecondaryEmailBinding",
   "program.setTimeZone",
+  "monthlyHours.save",
   "program.setSignupWindow",
   "program.prepareNextRecruitment",
   "program.setFeaturePending",
@@ -84,6 +85,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "program.setEmailNotifications": "ProgramSettings",
   "program.setSecondaryEmailBinding": "ProgramSettings",
   "program.setTimeZone": "ProgramSettings",
+  "monthlyHours.save": "MonthlyHoursSchedule",
   "program.setSignupWindow": "Term",
   "program.prepareNextRecruitment": "NextRecruitmentPreparation",
   "program.setFeaturePending": "ProgramFeature",
@@ -228,6 +230,7 @@ export type ApprovalAuthority = {
 };
 
 const significantSettings = new Set([
+  "monthlyHours.save",
   "program.setNameFields",
   "program.setCalendarDay",
   "program.removeCalendarDay",
@@ -337,18 +340,26 @@ export function classifyApproval(
     return {
       category: "SIGNIFICANT_SETTING",
       directRoles: ["ADMIN", "HEAD"],
-      requesterRoles: operation.startsWith("messaging.") ? ["ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
+      requesterRoles: operation.startsWith("messaging.")
+        ? ["ADMIN", "HEAD"]
+        : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["ADMIN", "HEAD"],
     };
   if (managementEdits.has(operation))
     return {
       category: "ACCOUNT_ACCESS",
       directRoles: ["ADMIN", "HEAD"],
-      requesterRoles: operation === "admin.setUserRole" ||
+      requesterRoles:
+        operation === "admin.setUserRole" ||
         (operation === "admin.setMemberships" &&
-          (["ADMIN", "COORDINATOR", "HEAD"].includes(String((value.membership as { rank?: unknown } | undefined)?.rank)) ||
-           ["ADMIN", "COORDINATOR", "HEAD"].includes(context.currentAccountRole ?? "")))
-        ? ["ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
+          (["ADMIN", "COORDINATOR", "HEAD"].includes(
+            String((value.membership as { rank?: unknown } | undefined)?.rank),
+          ) ||
+            ["ADMIN", "COORDINATOR", "HEAD"].includes(
+              context.currentAccountRole ?? "",
+            )))
+          ? ["ADMIN", "HEAD"]
+          : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["ADMIN", "HEAD"],
     };
   if (
@@ -418,15 +429,18 @@ export function classifyApproval(
     // The resolver still validates recipient ownership and interview eligibility.
     // This only removes the extra reviewer: the resolver still requires the
     // current assigned Admin/Head chair, all votes and atomic service evidence.
-    const chairApproval = operation === "tutor.decideInterview" && value.accept === true;
+    const chairApproval =
+      operation === "tutor.decideInterview" && value.accept === true;
     return {
       category: "ACCOUNT_ACCESS",
       directRoles: ["ADMIN", "HEAD"],
       requesterRoles: managementCode
         ? ["ADMIN", "HEAD"]
-        : chairApproval ? ["ADMIN", "HEAD"] : operation === "tutor.decideInterview"
-          ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"]
-          : ["COORDINATOR", "ADMIN", "HEAD"],
+        : chairApproval
+          ? ["ADMIN", "HEAD"]
+          : operation === "tutor.decideInterview"
+            ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"]
+            : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["ADMIN", "HEAD"],
     };
   }

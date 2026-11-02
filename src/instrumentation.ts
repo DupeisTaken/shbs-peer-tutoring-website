@@ -16,5 +16,7 @@ export async function register() {
     const { startSessionPlanningWorker } =
       await import("./server/session-planning-delivery");
     startSessionPlanningWorker();
+    const { startMonthlyHoursWorker } = await import("./server/monthly-hours-worker");
+    startMonthlyHoursWorker();
   }
 }
