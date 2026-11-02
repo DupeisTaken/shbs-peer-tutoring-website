@@ -2239,6 +2239,8 @@ Custom pages and page-mode landing sections share `/p/<slug>`. Their writers mus
 
 The [landing editor](<../../src/app/(admin)/admin/landing/landing-editor.tsx>)
 normalizes slug text on blur, then reads the canonical slug after the write succeeds.
+Both page and page-mode section address inputs have a persistent localized label;
+their blur-save guidance remains a separate accessible description.
 This acknowledgement adopts collision suffixes only for the submitted edit revision;
 newer edits, including identical text entered again, survive. Unrelated refreshes
 do not acknowledge drafts. Failed post-write reads offer read-only Retry, and

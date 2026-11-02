@@ -1767,15 +1767,19 @@ function SlugField({
   readSlug: (id: string) => Promise<string>;
 }) {
   const t = useTranslations();
+  const inputId = useId();
   const guidanceId = useId();
   const update = api.home.updateSection.useMutation();
   const slug = useSlugDraft(section.slug ?? "", (value) => update.mutateAsync({ id: section.id, slug: value }), () => readSlug(section.id));
 
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex flex-wrap items-center gap-1.5">
+      <label htmlFor={inputId} className="muted">
+        {t("admin.landing.pageAddress")}
+      </label>
       <span className="muted">/p/</span>
-      <span id={guidanceId} className="muted text-xs">{t("saveBoundary.blur")}</span>
       <input
+        id={inputId}
         className="input field-auto min-w-32"
         value={slug.value}
         placeholder={t("admin.landing.sections.slug.placeholder")}
@@ -1783,6 +1787,7 @@ function SlugField({
         aria-describedby={guidanceId}
         onBlur={() => void slug.commit()}
       />
+      <span id={guidanceId} className="muted text-xs">{t("saveBoundary.blur")}</span>
       {section.slug && (
         <a
           href={`/p/${section.slug}`}
@@ -3021,14 +3026,19 @@ function PageSlugField({
   readSlug: (id: string) => Promise<string>;
 }) {
   const t = useTranslations();
+  const inputId = useId();
   const guidanceId = useId();
   const update = api.home.updatePage.useMutation();
   const slug = useSlugDraft(page.slug, (value) => update.mutateAsync({ id: page.id, slug: value }), () => readSlug(page.id));
 
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex flex-wrap items-center gap-1.5">
+      <label htmlFor={inputId} className="muted">
+        {t("admin.landing.pageAddress")}
+      </label>
       <span className="muted">/p/</span>
       <input
+        id={inputId}
         className="input field-auto min-w-28"
         value={slug.value}
         onChange={(e) => slug.change(e.target.value)}
