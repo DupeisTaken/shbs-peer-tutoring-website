@@ -1354,11 +1354,10 @@ it.each([
               status: "ACCEPTED",
               expectedUpdatedAt: app.updatedAt,
             });
-    // Undo intentionally translates domain refusals into its existing recovery
-    // message; the other entry points must expose the actual restriction.
+    // Legacy undo refuses before dispatch because its evidence has no causal closure.
     await expect(action).rejects.toHaveProperty(
       "code",
-      entryPoint === "audit undo" ? "BAD_REQUEST" : "FORBIDDEN",
+      entryPoint === "audit undo" ? "PRECONDITION_FAILED" : "FORBIDDEN",
     );
 
     expect(await promotionState(app.id)).toEqual(before);

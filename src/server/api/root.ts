@@ -1,4 +1,6 @@
 import { departureRouter } from "./routers/departure";
+import { recordInspectorRouter } from "./routers/record-inspector";
+import { recoveryRouter } from "./routers/recovery";
 import { accountInvitationRouter } from "./routers/account-invitation";
 import { historicalAcademicsRouter } from "./routers/historical-academics";
 import { assignmentRouter } from "./routers/assignment";
@@ -50,6 +52,8 @@ import { translationReviewRouter } from "./routers/translation-review";
 export const appRouter = createTRPCRouter({
   monthlyHours: monthlyHoursRouter,
   schoolHours: schoolHoursRouter,
+  recordInspector: recordInspectorRouter,
+  recovery: recoveryRouter,
   historicalAcademics: historicalAcademicsRouter,
   tuteeHistory: tuteeHistoryRouter,
   departure: departureRouter,

@@ -7,9 +7,10 @@ case "$DATABASE_URL" in */shbs_boot_test) ;; *) echo 'Use the isolated shbs_boot
 name="shbs-smoke-${RANDOM}-$$"
 health_file="$(mktemp)"
 reconciliation_file="$(mktemp)"
+recovery_file="$(mktemp)"
 cleanup() {
   docker rm -f "$name" >/dev/null 2>&1 || true
-  rm -f "$health_file" "$reconciliation_file"
+  rm -f "$health_file" "$reconciliation_file" "$recovery_file"
 }
 trap cleanup EXIT
 # Synthetic server-only sentinels must never appear in HTML, React payloads or client JS.
@@ -46,6 +47,30 @@ for attempt in 1 2; do
     BOOTSTRAP_SCHOOL_YEAR=26-27 BOOTSTRAP_QUARTER=Q1 \
     node node_modules/tsx/dist/cli.mjs scripts/create-admin.ts
 done
+# Verify the recovery entry point from this exact image, with no web credentials.
+# Help needs no database; the table catalog uses its trusted read-only operator path.
+timeout --kill-after=1s 30s docker exec "$name" env -i PATH=/usr/local/bin:/usr/bin:/bin NODE_ENV=production \
+  npm run --silent recovery -- --help > "$recovery_file"
+node --input-type=module - "$recovery_file" <<'JS'
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+assert.match(readFileSync(process.argv[2], 'utf8'), /records tables/);
+JS
+timeout --kill-after=1s 30s docker exec "$name" env -i PATH=/usr/local/bin:/usr/bin:/bin NODE_ENV=production \
+  DATABASE_URL="$DATABASE_URL" npm run --silent recovery -- records tables > "$recovery_file"
+node --input-type=module - "$recovery_file" <<'JS'
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const text = readFileSync(process.argv[2], 'utf8');
+const result = JSON.parse(text);
+assert.equal(result.version, 1);
+assert.equal(result.kind, 'records.tables');
+assert.ok(Number.isFinite(Date.parse(result.generatedAt)));
+assert.ok(Array.isArray(result.report));
+const tables = result.report.map(({ name }) => name);
+for (const expected of ['User', 'RecoveryAction', 'RecoveryReceipt']) assert.ok(tables.includes(expected), expected);
+assert.doesNotMatch(text, /smoke@example\.test|DisposableSmokePassword|smoke-private/);
+JS
 reconcile_identity() {
   docker exec "$name" env -i PATH=/usr/local/bin:/usr/bin:/bin NODE_ENV=production \
     DATABASE_URL="$DATABASE_URL" npm run --silent identity:reconcile > "$reconciliation_file"
@@ -138,4 +163,4 @@ await c.end();
 if (!passed) throw Error('Deadline worker did not resume safely after image restart');
 JS
 curl --fail --silent http://127.0.0.1:3100/api/trpc/health >/dev/null
-echo 'Image boot, runtime branding, metadata, icon, secret exclusion, migrations, repeat bootstrap, read-only reconciliation and record preservation after recreation passed.'
+echo 'Image boot, runtime branding, metadata, icon, secret exclusion, migrations, repeat bootstrap, read-only reconciliation, recovery CLI metadata and record preservation after recreation passed.'

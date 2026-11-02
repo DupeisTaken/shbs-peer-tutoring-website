@@ -41,6 +41,7 @@ export async function findSigninTwoFactorUser(
   return db.user.findFirst({
     where: {
       mergedIntoId: null,
+      recoveryVoidedAt: null,
       OR: signinIdentifiers(identifier),
     },
     select: { id: true, twoFactorEnabled: true },
@@ -73,6 +74,7 @@ export async function verifySigninPassword(
   const user = await db.user.findFirst({
     where: {
       mergedIntoId: null,
+      recoveryVoidedAt: null,
       OR: signinIdentifiers(identifier),
     },
     select: {
@@ -80,6 +82,7 @@ export async function verifySigninPassword(
       name: true,
       email: true,
       passwordHash: true,
+      recoveryVoidedAt: true,
       suspendedAt: true,
       twoFactorEnabled: true,
       sessionVersion: true,
@@ -87,7 +90,7 @@ export async function verifySigninPassword(
   });
   // Suspension removes participation permissions, not proof of identity. A verified login
   // is necessary to reach the restricted suspension/appeal page; API middleware gates access.
-  if (!user?.passwordHash)
+  if (!user?.passwordHash || user.recoveryVoidedAt)
     return { ok: false, reason: "invalid" };
   if (!verifyPassword(password, user.passwordHash))
     return { ok: false, reason: "invalid" };

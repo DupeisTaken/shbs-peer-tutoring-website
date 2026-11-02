@@ -1,5 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), verifyPassword: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  findFirst: vi.fn(),
+  verifyPassword: vi.fn(),
+}));
 vi.mock("~/server/db", () => ({
   db: { user: { findFirst: mocks.findFirst } },
 }));
@@ -68,8 +71,33 @@ it("authenticates a suspended account so it can reach the restricted appeal page
 });
 
 it("still rejects incorrect credentials for a suspended account", async () => {
-  mocks.findFirst.mockResolvedValueOnce({ id: "suspended", passwordHash: "hash", suspendedAt: new Date() });
+  mocks.findFirst.mockResolvedValueOnce({
+    id: "suspended",
+    passwordHash: "hash",
+    suspendedAt: new Date(),
+  });
   mocks.verifyPassword.mockReturnValue(false);
-  expect(await verifySigninPassword("suspended-wrong@example.test", "wrong", "suspended-wrong-ip"))
-    .toEqual({ ok: false, reason: "invalid" });
+  expect(
+    await verifySigninPassword(
+      "suspended-wrong@example.test",
+      "wrong",
+      "suspended-wrong-ip",
+    ),
+  ).toEqual({ ok: false, reason: "invalid" });
+});
+
+it("rejects a voided admission account even if a credential read contains an old hash", async () => {
+  mocks.findFirst.mockResolvedValueOnce({
+    id: "voided",
+    passwordHash: "old-hash",
+    recoveryVoidedAt: new Date(),
+  });
+  expect(
+    await verifySigninPassword("voided@example.test", "password", "voided-ip"),
+  ).toEqual({ ok: false, reason: "invalid" });
+  expect(mocks.verifyPassword).not.toHaveBeenCalled();
+  const query = mocks.findFirst.mock.calls[0]?.[0] as {
+    where: { recoveryVoidedAt: Date | null };
+  };
+  expect(query.where.recoveryVoidedAt).toBeNull();
 });

@@ -6,6 +6,11 @@ on:
   # Stacked PRs receive the same checks as PRs targeting main.
   pull_request:
   workflow_dispatch:
+    inputs:
+      storage-baseline:
+        description: "Optional immutable baseline commit for packaging comparison (defaults to HEAD's first parent)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -43,6 +48,10 @@ jobs:
         run: npm run test:pr-size
       - name: Test deployment helpers
         run: npm run test:deployment
+      - name: Test image storage accounting
+        run: python3 scripts/test_image_storage_metrics.py
+      - name: Test standalone recovery tooling
+        run: npm run test:recovery
       - name: Audit all dependencies
         run: npm audit
 
@@ -50,13 +59,13 @@ jobs:
     name: tests (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     # Whole-job budget includes container startup, installation and migrations.
-    # Five shards leave headroom below nine minutes using the recorded CI timings.
+    # Eight shards retain setup headroom as the integration suite grows; see verification.md.
     timeout-minutes: 9
     strategy:
       # Let every shard finish so a failure still leaves complete diagnostics.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     # Each runner owns its database. Files stay serial within each shard because
     # integration fixtures truncate shared tables; local test defaults are unchanged.
     services:
@@ -176,10 +185,56 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+  image-storage:
+    # A separate bounded job protects the production image/smoke budget. Most PRs
+    # finish after scope detection; packaging edits compare four cached layouts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      STORAGE_BASE_REF: ${{ inputs.storage-baseline || github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Checkout source and immutable baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node for storage comparison
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Select packaging comparison scope
+        id: scope
+        run: node scripts/compare-runtime-images.mjs scope
+      - name: Set up isolated storage comparison builder
+        if: steps.scope.outputs.compare == 'true'
+        uses: docker/setup-buildx-action@v3
+      - name: Expose cache authentication to the comparison build
+        if: steps.scope.outputs.compare == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (!process.env.ACTIONS_RUNTIME_TOKEN || !process.env.ACTIONS_RESULTS_URL) {
+              throw new Error('GitHub Actions runtime cache credentials are unavailable');
+            }
+            core.setSecret(process.env.ACTIONS_RUNTIME_TOKEN);
+            for (const name of ['ACTIONS_RUNTIME_TOKEN', 'ACTIONS_CACHE_URL', 'ACTIONS_RESULTS_URL', 'ACTIONS_CACHE_SERVICE_V2']) {
+              if (process.env[name]) core.exportVariable(name, process.env[name]);
+            }
+      - name: Compare identical runtime files and retained image layouts
+        if: steps.scope.outputs.compare == 'true'
+        run: node scripts/compare-runtime-images.mjs compare "$RUNNER_TEMP/runtime-storage-comparison"
+      - name: Upload storage comparison evidence
+        if: ${{ !cancelled() && steps.scope.outputs.compare == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-storage-comparison-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/runtime-storage-comparison/*.json
+          retention-days: 7
+          if-no-files-found: warn
+
   verify:
     # Preserve the required check's name. always() makes failed/skipped prerequisites
     # visible here instead of allowing GitHub to treat a skipped gate as success.
-    needs: [checks, tests, image]
+    needs: [checks, tests, image, image-storage]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -191,7 +246,7 @@ jobs:
         with:
           script: |
             const results = JSON.parse(process.env.NEEDS_JSON);
-            for (const job of ["checks", "tests", "image"]) {
+            for (const job of ["checks", "tests", "image", "image-storage"]) {
               if (results[job]?.result !== "success") {
                 core.setFailed(`${job}: ${results[job]?.result ?? "missing"}`);
               }

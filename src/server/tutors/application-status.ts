@@ -41,6 +41,7 @@ export async function reconcileApplication(
       await tx.tutorApplication.count({
         where: {
           email: app.email,
+          type: "INITIAL",
           status: "ACCEPTED",
           id: { not: applicationId },
         },
@@ -62,7 +63,13 @@ export async function reconcileApplication(
         where: { pairing: { tutorId, term: { active: true } } },
       });
       await tx.tutee.updateMany({
-        where: { id: { in: links.map((l) => l.tuteeId) }, status: "ACTIVE" },
+        // Releasing one tutor is not evidence that an independently assigned
+        // student stopped participating. Only requeue requests with no survivor.
+        where: { id: { in: links.map((l) => l.tuteeId) }, status: "ACTIVE",
+          pairings: { none: { pairing: { term: { active: true }, tutor: {
+            status: "ACTIVE", OR: [{ user: null }, { user: { tutorAccessRevoked: false, suspendedAt: null, mergedIntoId: null } }],
+          } } } },
+        },
         data: { status: "PENDING" },
       });
     }

@@ -8,6 +8,41 @@ import { ApprovalReviewDetails } from "./approval-review-details";
 import { APPROVAL_OPERATIONS } from "~/lib/approval-policy";
 
 afterEach(cleanup);
+
+it.each(["en", "zh"])(
+  "shows the captured recovery applicant and reason without technical hashes (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    show(
+      "recovery.voidAdmission",
+      {
+        actionId: "synthetic-admission",
+        reason: "Review the mistaken admission",
+        clientKey: "technical-retry-key",
+        expectedFingerprint: "technical-evidence-hash",
+      },
+      {
+        version: 1,
+        actionId: "synthetic-admission",
+        applicantName: "Synthetic Avery",
+      },
+      locale,
+    );
+    expect(screen.getByText("Synthetic Avery")).toBeTruthy();
+    expect(
+      screen.getByText(
+        copy.approvals.review.recordId.replace("{id}", "synthetic-admission"),
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(copy.auditEventDetails.presentation.fields.actionId),
+    ).toBeTruthy();
+    expect(screen.getByText("Review the mistaken admission")).toBeTruthy();
+    expect(screen.queryByText("technical-retry-key")).toBeNull();
+    expect(screen.queryByText("technical-evidence-hash")).toBeNull();
+  },
+);
+
 function show(
   operation: string,
   payload: unknown,

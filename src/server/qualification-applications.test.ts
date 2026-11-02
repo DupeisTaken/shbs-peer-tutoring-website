@@ -277,15 +277,17 @@ it("takes inheritance at decision time and not submission time", async () => {
 });
 
 // The entry dialog calls this same route for both request types, regardless of
-// interview availability. Exercise blank-note rejection and the committed effects.
-it.each([
-  { higher: false, interviews: true },
-  { higher: false, interviews: false },
-  { higher: true, interviews: true },
-  { higher: true, interviews: false },
-])(
-  "requires a note and preserves direct approval effects ($higher/$interviews)",
-  async ({ higher, interviews }) => {
+// interview availability. A direct decision closes queue work without inventing
+// interview service or removing the approved qualification's immutable history.
+it.each(
+  [false, true].flatMap((higher) =>
+    [false, true].flatMap((interviews) =>
+      ["admin", "head"].map((reviewer) => ({ higher, interviews, reviewer })),
+    ),
+  ),
+)(
+  "requires a note and closes only open interview work after direct approval ($higher/$interviews/$reviewer)",
+  async ({ higher, interviews, reviewer }) => {
     await db.programFeature.create({
       data: { key: "INTERVIEWS", enabled: interviews },
     });
@@ -303,6 +305,11 @@ it.each([
     const { id } = await request();
     const app = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
     expect(app.type).toBe(higher ? "HIGHER_LEVEL" : "ADDITIONAL_SUBJECT");
+    const queue = caller(reviewer).interviewManagement;
+    expect(
+      (await queue.options({ applicationId: id, completion: "OPEN" }))
+        .applications,
+    ).toMatchObject({ total: 1, rows: [{ id, status: "PENDING" }] });
     const input = {
       id,
       accept: true,
@@ -310,7 +317,7 @@ it.each([
       comment: " \n ",
     };
     await expect(
-      caller("admin").qualificationApplication.decide(input),
+      caller(reviewer).qualificationApplication.decide(input),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(
       (await db.tutorApplication.findUniqueOrThrow({ where: { id } })).status,
@@ -321,19 +328,52 @@ it.each([
       }),
     ).toBe(0);
     expect(await db.auditLog.findFirst({ where: { operation: "qualificationApplication.decide", kind: "ATTEMPT" } })).toMatchObject({
-      details: { actorRole: "ADMIN", outcome: "FAILED", applied: false },
+      details: { actorRole: reviewer.toUpperCase(), outcome: "FAILED", applied: false },
     });
-    await caller("admin").qualificationApplication.decide({
+    await caller(reviewer).qualificationApplication.decide({
       ...input,
       comment: " Reviewed evidence ",
     });
-    expect(
-      await db.tutorApplication.findUniqueOrThrow({ where: { id } }),
-    ).toMatchObject({
+    const approved = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
+    expect(approved).toMatchObject({
       status: "ACCEPTED",
       decisionComment: "Reviewed evidence",
-      qualificationDecidedById: "admin",
+      qualificationDecidedById: reviewer,
+      decidedByTutorId: null,
+      interviewAt: null,
+      interviewCompletedAt: null,
+      interviewDurationMin: null,
     });
+    expect(approved.decidedAt).not.toBeNull();
+    for (const status of ["", "ACCEPTED"] as const)
+      expect(
+        (await queue.options({ applicationId: id, completion: "OPEN", status }))
+          .applications,
+      ).toMatchObject({ total: 0, rows: [] });
+    expect(
+      (await queue.options({ applicationId: id, completion: "COMPLETED" }))
+        .applications,
+    ).toMatchObject({ total: 0, rows: [] });
+    expect(
+      (await queue.options({ applicationId: id, completion: "ALL", status: "ACCEPTED" }))
+        .applications,
+    ).toMatchObject({ total: 1, rows: [{ id, status: "ACCEPTED", interviewCompletedAt: null }] });
+    expect(
+      (await caller().qualificationApplication.mine()).requests,
+    ).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id,
+        status: "ACCEPTED",
+        decisionComment: "Reviewed evidence",
+        qualificationSnapshot: approved.qualificationSnapshot,
+      }),
+    ]));
+    expect(
+      qualificationSnapshot(approved.qualificationSnapshot).map((subject) => subject.id).sort(),
+    ).toEqual(["history-ap", "history-honors", "history-standard"]);
+    expect(await db.interviewAssignment.count({ where: { applicationId: id } })).toBe(0);
+    expect(await db.interviewVote.count({ where: { applicationId: id } })).toBe(0);
+    expect(await db.serviceHourAdjustment.count()).toBe(0);
     expect(
       (await eligibleSubjectIds(db, "applicant-tutor")).includes("history-ap"),
     ).toBe(true);
@@ -354,13 +394,13 @@ it.each([
       await db.auditLog.count({
         where: {
           operation: "qualificationApplication.decide",
-          userId: "admin",
+          userId: reviewer,
           kind: { not: "ATTEMPT" },
         },
       }),
     ).toBe(1);
     await expect(
-      caller("admin").qualificationApplication.decide({
+      caller(reviewer).qualificationApplication.decide({
         ...input,
         comment: "Duplicate decision",
       }),

@@ -176,6 +176,13 @@ output/inventory limits and secret exclusion. It never queries the real daemon o
 probes production. Production acceptance still requires the operator worksheet and
 independent external checks in the deployment runbook.
 
+The same daemon-free suite covers the [storage capacity preflight](../guides/deployment.md#storage-capacity-preflight)
+with synthetic byte/inode measurements and bounded command failures. It checks
+headroom boundaries, input validation and unknown/insufficient results without
+pulling images, inspecting a real daemon, filling disks or reading `.env`.
+These fixtures establish helper behavior; the operator must still map actual
+filesystems, budget overlapping allocations and observe current host capacity.
+
 ### Option B — An existing local Postgres
 
 Create a database and point `DATABASE_URL` at it, e.g.:
@@ -326,10 +333,10 @@ npm test            # one-shot
 npm run test:watch  # watch mode
 ```
 
-CI divides the complete suite across five independent runners, with a nine-minute
+CI divides the complete suite across eight independent runners, with a nine-minute
 limit per whole job including setup. To reproduce one partition locally after
 configuring the isolated database below, run
-`npm test -- --shard=1/5 --maxWorkers=1` (replace `1` with `2` through `5`). Run
+`npm test -- --shard=1/8 --maxWorkers=1` (replace `1` with `2` through `8`). Run
 these partitions serially on a shared local database; the CI matrix's separate
 PostgreSQL services are what make parallel execution safe. `npm test` continues
 to run the complete suite. See [CI checks and timing evidence](verification.md#required-checks)
@@ -422,6 +429,28 @@ remove only exclusive, unused identity metadata; never truncate unrelated people
 Profile-editor fixtures must provide the real grouping child's disabled candidate
 query and read-recovery utilities even while its section is closed. Opening or
 closing a review must not submit a combination.
+
+### Runtime packaging checks
+
+Run `npm run test:deployment` for the synthetic runtime assembler, canonical file
+inventory and image-comparison regressions as well as the deployment helpers.
+Run `python3 scripts/test_image_storage_metrics.py` separately with Python 3;
+it uses only the standard library and synthetic Docker-save archives. These
+checks do not build images, contact the Docker daemon or use a database.
+
+The assembler combines traced standalone dependencies with full production
+dependencies before final image copies, while keeping dependency and application
+outputs disjoint. Its fixtures cover production-file precedence, links, metadata
+and refused unsafe outputs. Inventory/comparison fixtures check content and
+runtime-configuration comparisons; archive fixtures exercise layer-content and
+snapshot-chain accounting. See [CI runtime packaging verification](verification.md#required-checks)
+for the actual controlled-image measurement and its limits.
+
+The full image comparison is restricted to an isolated CI job. Do not set `CI`
+locally just to bypass that guard or run four image layouts against a shared
+daemon. Use the current workflow's JSON evidence; coordinate any necessary local
+image smoke through the existing [Compose smoke test](#6-smoke-test-the-production-docker-stack-optional)
+and resource-ownership rules instead.
 
 ## 6. Smoke-test the production Docker stack (optional)
 

@@ -1123,7 +1123,10 @@ export async function redeemAccountInvitation(
     // flags are not reset by accepting participation; deliberate recovery remains separate.
     // The staged source checks the credential generation captured at issuance. Complete
     // it before our own authorized missing-password write increments that generation.
-    if (owner && !owner.passwordHash && !state.signupIntent)
+    // Application-backed tutor redemption owns credential creation and its fresh
+    // admission-generation fence in completeRegistration below.
+    if (owner && !owner.passwordHash && !state.signupIntent &&
+      !(state.staff?.kind === "TUTOR" && state.staff.applicationId))
       await tx.user.update({
         where: { id: owner.id },
         data: {

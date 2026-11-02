@@ -461,6 +461,9 @@ const independentlyAudited = new Set([
   // Snapshot/outbox generation owns its coherent transaction and aggregate audit.
   "monthlyHours",
   "schoolHours",
+  // Recovery owns its Serializable graph recheck, compensation and receipt.
+  // Wrapping it in the default ReadCommitted transaction would weaken that fence.
+  "recovery",
   "approval",
   "recordTransfer",
   "accountCombine",

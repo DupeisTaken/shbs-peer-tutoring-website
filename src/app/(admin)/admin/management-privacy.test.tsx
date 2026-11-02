@@ -84,7 +84,7 @@ it.each([
       expect(screen.queryByText("Tutee One")).toBeNull();
       expect(screen.getByText("1.0")).toBeTruthy();
     } else {
-      expect(screen.getByText("Management decision")).toBeTruthy();
+      expect(screen.getByText(messages.approvals.review.operations.student_decideAppeal)).toBeTruthy();
       expect(screen.getByRole("option", { name: /Staff One/ })).toBeTruthy();
     }
 
