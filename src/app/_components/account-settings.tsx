@@ -10,7 +10,7 @@ import {
   unsplitLegacyName,
 } from "~/lib/person-name";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -76,15 +76,21 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const deniedNow =
     me.error?.data?.code === "FORBIDDEN" ||
     me.error?.data?.code === "UNAUTHORIZED";
+  if (deniedNow && !identityDenied) setIdentityDenied(true);
+  const denialEvicted = useRef(false);
   useEffect(() => {
     // Sibling academic/security owners subscribe to this query. Evict once per denial
     // episode so an enabled sibling cannot turn recreated denied reads into a loop.
-    if (!deniedNow || identityDenied) return;
-    setIdentityDenied(true);
+    if (!identityDenied) {
+      denialEvicted.current = false;
+      return;
+    }
+    if (denialEvicted.current) return;
+    denialEvicted.current = true;
     queryClient.removeQueries({
       queryKey: getQueryKey(api.account.me, undefined, "query"),
     });
-  }, [deniedNow, identityDenied, queryClient]);
+  }, [identityDenied, queryClient]);
   const updateName = api.account.updateName.useMutation({
     onSettled: () => {
       nameSubmitting.current = false;
@@ -96,21 +102,37 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     },
   });
 
-  // Name form — seeded from the loaded account.
-  const [names, setNames] = useState(() => nameDraft());
+  // A pristine form is derived from the account read. The first edit captures
+  // names and version together; background reads cannot replace that draft.
+  const [draft, setDraft] = useState<{
+    ownerId: string;
+    names: ReturnType<typeof nameDraft>;
+    originalNames: ReturnType<typeof nameDraft>;
+    legacyName: string | null | undefined;
+    version: number;
+  } | null>(null);
+  if (draft && me.data && draft.ownerId !== me.data.id) setDraft(null);
+  const names = draft?.names ?? nameDraft(me.data);
+  const originalNames = draft?.originalNames ?? nameDraft(me.data);
+  const legacyName = draft ? draft.legacyName : me.data && unsplitLegacyName(me.data);
+  const nameDraftVersion = draft?.version ?? me.data?.profileVersion;
+  const accountId = me.data?.id;
+  const owner = useRef(accountId);
+  const active = useRef(true);
+  useLayoutEffect(() => {
+    if (accountId) owner.current = accountId;
+  }, [accountId]);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
   const {
     ready: namePolicyReady,
     hasFields: editableNames,
     observe: observeNamePolicy,
   } = useNameFieldPresentation();
-  const [originalNames, setOriginalNames] = useState(() => nameDraft());
-  const [legacyName, setLegacyName] = useState<string | null | undefined>();
   const identity = personNameEdit(names, originalNames, legacyName);
   const name = identity.name;
-  const [nameDraftVersion, setNameDraftVersion] = useState<
-    number | undefined
-  >();
-  const [nameDirty, setNameDirty] = useState(false);
   const nameBusy =
     !me.data ||
     updateName.isPending ||
@@ -119,23 +141,20 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     identityDenied ||
     deniedNow ||
     !!me.error;
-  const adoptIdentity = (snapshot: NonNullable<typeof me.data>) => {
-    setNames(nameDraft(snapshot));
-    setOriginalNames(nameDraft(snapshot));
-    setLegacyName(unsplitLegacyName(snapshot));
-    setNameDraftVersion(snapshot.profileVersion);
-    setNameDirty(false);
-  };
   async function refreshIdentity(afterWrite = false) {
     if (nameReloading || (!afterWrite && nameSubmitting.current)) return;
     if (!afterWrite) nameSubmitting.current = true;
+    const requestedOwner = owner.current;
     setNameReloading(true);
     try {
       const result = await me.refetch();
       // Cached data returned with a failed read never authorizes discarding a draft.
       if (!result.isSuccess || !result.data)
         throw new Error("Identity refresh failed");
-      adoptIdentity(result.data);
+      if (!active.current ||
+          (requestedOwner && (owner.current !== requestedOwner || result.data.id !== requestedOwner)) ||
+          (!requestedOwner && owner.current && result.data.id !== owner.current)) return;
+      setDraft(null);
       setIdentityDenied(false);
       setNameCommitted(false);
       setNameSyncError(false);
@@ -151,24 +170,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const cancelNameDraft = () => {
     if (nameBusy || nameSubmitting.current) return;
     // Cancel is an explicit discard. Background refreshes alone never adopt a new version.
-    if (me.data) {
-      setNames(nameDraft(me.data));
-      setOriginalNames(nameDraft(me.data));
-      setLegacyName(unsplitLegacyName(me.data));
-      setNameDraftVersion(me.data.profileVersion);
-    }
-    setNameDirty(false);
+    setDraft(null);
     updateName.reset();
   };
-  useEffect(() => {
-    // Other profile sections refetch this query. Keep unsaved identity edits and their version.
-    if (me.data && !nameDirty && !nameBusy) {
-      setNames(nameDraft(me.data));
-      setOriginalNames(nameDraft(me.data));
-      setLegacyName(unsplitLegacyName(me.data));
-      setNameDraftVersion(me.data.profileVersion);
-    }
-  }, [me.data, nameDirty, nameBusy]);
 
   // Password form — a two-step flow: verify the current password to get an emailed code, then
   // submit the code with the new password (step-up email 2FA).
@@ -375,6 +379,15 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                     !me.data
                   )
                     return;
+                  if (!draft) {
+                    setDraft({
+                      ownerId: me.data.id,
+                      names,
+                      originalNames,
+                      legacyName,
+                      version: me.data.profileVersion,
+                    });
+                  }
                   nameSubmitting.current = true;
                   updateName.mutate(
                     {
@@ -415,8 +428,14 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                     onPolicyAvailabilityChange={observeNamePolicy}
                     value={names}
                     onChange={(value) => {
-                      setNames(value);
-                      setNameDirty(true);
+                      if (!me.data) return;
+                      setDraft({
+                        ownerId: me.data.id,
+                        names: value,
+                        originalNames,
+                        legacyName,
+                        version: nameDraftVersion ?? me.data.profileVersion,
+                      });
                       if (updateName.isSuccess) updateName.reset();
                     }}
                     legacyName={legacyName}

@@ -7,7 +7,13 @@ import {
 } from "~/lib/registration-kind";
 import { EmailDetails } from "~/app/_components/email-details";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useTranslations } from "next-intl";
@@ -23,6 +29,11 @@ import { Button } from "~/app/_components/ui/button";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
+
+// Origin is browser-owned, immutable for this document, and absent during SSR.
+const subscribeOrigin = () => () => undefined;
+const browserOrigin = () => window.location.origin;
+const serverOrigin = () => "";
 
 /**
  * Registration codes: issue single-use five-character mixed security keys for new tutors and track their
@@ -49,9 +60,16 @@ export default function RegistrationCodesPage() {
   const identityDenied =
     identity.error?.data?.code === "FORBIDDEN" ||
     identity.error?.data?.code === "UNAUTHORIZED";
+  const authorizationDenied = codesDenied || identityDenied;
+  const readsSucceeded =
+    codes.isSuccess &&
+    identity.isSuccess &&
+    !codes.isFetching &&
+    !identity.isFetching;
+  if (authorizationDenied && !denied) setDenied(true);
+  else if (denied && !authorizationDenied && readsSucceeded) setDenied(false);
   useEffect(() => {
-    if (codesDenied || identityDenied) {
-      setDenied(true);
+    if (authorizationDenied) {
       if (codesDenied)
         queryClient.removeQueries({
           queryKey: getQueryKey(
@@ -64,22 +82,8 @@ export default function RegistrationCodesPage() {
         queryClient.removeQueries({
           queryKey: getQueryKey(api.account.me, undefined, "query"),
         });
-    } else if (
-      codes.isSuccess &&
-      identity.isSuccess &&
-      !codes.isFetching &&
-      !identity.isFetching
-    )
-      setDenied(false);
-  }, [
-    codesDenied,
-    identityDenied,
-    codes.isSuccess,
-    identity.isSuccess,
-    codes.isFetching,
-    identity.isFetching,
-    queryClient,
-  ]);
+    }
+  }, [authorizationDenied, codesDenied, identityDenied, queryClient]);
   const readBlocked =
     codes.data === undefined ||
     !identity.data ||
@@ -156,8 +160,11 @@ export default function RegistrationCodesPage() {
     };
   }, [codes.data, denied, codesDenied, identityDenied, readBlocked]);
   // Site origin (client-only) for the full /register URL shown to tutors.
-  const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
+  const origin = useSyncExternalStore(
+    subscribeOrigin,
+    browserOrigin,
+    serverOrigin,
+  );
   const registerUrl = `${origin}/register`;
 
   const invalidate = () => utils.admin.registrationCodes.invalidate();

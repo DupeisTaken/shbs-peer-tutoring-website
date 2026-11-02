@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   supervision: vi.fn(),
   people: vi.fn(),
   peopleMore: false,
+  supervisionCode: undefined as string | undefined,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -34,6 +35,11 @@ vi.mock("~/trpc/react", () => ({
         useQuery: (input: unknown) => {
           mocks.supervision(input);
           return {
+            error: mocks.supervisionCode
+              ? { message: "Private access denied", data: { code: mocks.supervisionCode } }
+              : null,
+            isSuccess: !mocks.supervisionCode,
+            isFetching: false,
             data: {
               more: mocks.more,
               rows: [
@@ -101,6 +107,7 @@ beforeEach(() => {
   mocks.opened = false;
   mocks.more = false;
   mocks.peopleMore = false;
+  mocks.supervisionCode = undefined;
 });
 afterEach(cleanup);
 const ui = () => (
@@ -108,6 +115,22 @@ const ui = () => (
     <MessageAdmin />
   </NextIntlClientProvider>
 );
+
+it("conceals a cached conversation through denial and transport failure", () => {
+  const view = render(ui());
+  fireEvent.click(screen.getByRole("button", { name: en.messaging.viewConversation }));
+  expect(screen.getByText("Sender ↔ Recipient")).toBeTruthy();
+  mocks.supervisionCode = "FORBIDDEN";
+  view.rerender(ui());
+  expect(screen.queryByText("Sender ↔ Recipient")).toBeNull();
+  expect(screen.queryByRole("button", { name: en.messaging.openReview })).toBeNull();
+  mocks.supervisionCode = "INTERNAL_SERVER_ERROR";
+  view.rerender(ui());
+  expect(screen.queryByText("Sender ↔ Recipient")).toBeNull();
+  mocks.supervisionCode = undefined;
+  view.rerender(ui());
+  expect(screen.getByText("Sender ↔ Recipient")).toBeTruthy();
+});
 
 it.each(["en", "zh"] as const)(
   "names each %s pager, preserves independent positions and resets only the searched list",

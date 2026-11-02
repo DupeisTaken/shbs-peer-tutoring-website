@@ -43,24 +43,26 @@ export function TutorWorkloadPreference({
     setDraft(data.preferredMaximum);
     setDirty(false);
   }
+  if (deniedNow && !denied) setDenied(true);
   useEffect(() => {
-    if (deniedNow && !denied) {
-      setDenied(true);
+    if (deniedNow) {
       client.removeQueries({
         queryKey: getQueryKey(api.tutor.workloadPreference, undefined, "query"),
       });
     }
-  }, [client, denied, deniedNow]);
-  useEffect(() => {
-    if (!query.data || denied || deniedNow || committed || refreshing) return;
-    // The snapshot state update must not schedule a second adoption of the same
-    // response: a quick edit between those effects still owns its new draft.
-    if (query.data === snapshot) return;
-    // Inactivity authoritatively resets this setting. Never revive its old active
-    // draft on return; independent profile/academic forms remain untouched.
-    if (query.data.status !== "ACTIVE" || !snapshot || !dirty)
-      adopt(query.data);
-  }, [query.data, snapshot, dirty, committed, refreshing, denied, deniedNow]);
+  }, [client, deniedNow]);
+  // Adopt only an eligible new snapshot before rendering its controls. Dirty
+  // active drafts retain their version; inactivity authoritatively resets them.
+  if (
+    query.data &&
+    query.data !== snapshot &&
+    !denied &&
+    !deniedNow &&
+    !committed &&
+    !refreshing &&
+    (query.data.status !== "ACTIVE" || !snapshot || !dirty)
+  )
+    adopt(query.data);
   async function refresh(preserveDeniedDraft = false) {
     if (admission.current || refreshing) return;
     admission.current = true;

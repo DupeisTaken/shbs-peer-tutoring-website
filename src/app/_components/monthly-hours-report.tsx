@@ -45,19 +45,27 @@ function ReportReader({ id }: { id: string }) {
   useLayoutEffect(() => {
     hiddenNow.current = hidden;
   }, [hidden]);
+  useLayoutEffect(() => {
+    if (accessDenied) generation.current += 1;
+  }, [accessDenied, report.error]);
   useLayoutEffect(
     () => () => {
       generation.current += 1;
     },
     [],
   );
+  if (accessDenied && !denied) setDenied(true);
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
-      generation.current += 1;
+    if (hidden) {
       queryClient.removeQueries({ queryKey: getQueryKey(api.monthlyHours) });
-    } else if (report.isSuccess && !report.isFetching) setDenied(false);
-  }, [accessDenied, report.isSuccess, report.isFetching, queryClient]);
+    }
+  }, [hidden, queryClient]);
+  const retryRead = async () => {
+    const started = generation.current;
+    const result = await report.refetch();
+    if (started === generation.current && result.isSuccess && result.data)
+      setDenied(false);
+  };
   const data = hidden ? undefined : report.data;
   const date = (value: Date, zone: string) =>
     format.dateTime(value, {
@@ -124,7 +132,7 @@ function ReportReader({ id }: { id: string }) {
             <Button
               size="compact"
               disabled={report.isFetching}
-              onClick={() => void report.refetch()}
+              onClick={() => void retryRead()}
             >
               {t("retryRead")}
             </Button>
@@ -139,7 +147,7 @@ function ReportReader({ id }: { id: string }) {
           loadingTitle={t("loading")}
           errorTitle={t(data ? "refreshFailed" : "loadFailed")}
           retryLabel={t("retryRead")}
-          onRetry={() => void report.refetch()}
+          onRetry={() => void retryRead()}
         />
       )}
       {data && (

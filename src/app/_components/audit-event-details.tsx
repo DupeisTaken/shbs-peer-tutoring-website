@@ -494,6 +494,10 @@ function Metadata({ label, children }: { label: string; children: ReactNode }) {
 /** Mounted by TableDetails only on opening; each reopening rechecks the event.
  * Recovery repeats this read, never the audited write or an undo operation. */
 export function AuditEventDetails({ id }: { id: string }) {
+  return <AuditEventDetailsReader key={id} id={id} />;
+}
+
+function AuditEventDetailsReader({ id }: { id: string }) {
   const t = useTranslations("auditEventDetails");
   const vocabulary = useTranslations();
   const kinds = useTranslations("auditFilters.kinds");
@@ -507,21 +511,25 @@ export function AuditEventDetails({ id }: { id: string }) {
   const authorizationDenied =
     query.error?.data?.code === "FORBIDDEN" ||
     query.error?.data?.code === "UNAUTHORIZED";
+  // Latch the read outcome before rendering private evidence. Network failures
+  // cannot clear it; changing the event starts a separate reader lifetime.
+  if (authorizationDenied && deniedId !== id) setDeniedId(id);
+  else if (
+    !authorizationDenied &&
+    deniedId !== null &&
+    query.isSuccess &&
+    !query.isFetching
+  )
+    setDeniedId(null);
   useEffect(() => {
     if (!authorizationDenied) return;
     // Evict only this event so reopening cannot recover evidence that authority
     // has revoked. Disable automatic reads while denied; Retry remains explicit.
-    setDeniedId(id);
     queryClient.removeQueries({
       queryKey: getQueryKey(api.admin.auditLogDetail, { id }, "query"),
       exact: true,
     });
   }, [authorizationDenied, id, queryClient]);
-  useEffect(() => {
-    // A subsequent network failure must not lift the denial. Only a completed
-    // successful read can establish permission again and resume normal caching.
-    if (query.isSuccess && !query.isFetching) setDeniedId(null);
-  }, [query.isSuccess, query.isFetching]);
   const event = query.data;
   const retry = (
     <Button

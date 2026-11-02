@@ -12,6 +12,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { SessionFlagBoard } from "./session-flag-board";
+import { SessionViewProvider } from "./session-view-state";
 
 const flag = {
   id: "flag",
@@ -44,6 +45,16 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   refetch: vi.fn(),
   invalidate: vi.fn(),
+  readResult: undefined as
+    | undefined
+    | ((input: { state: string }) => {
+        data: unknown[];
+        error: null | { message: string; data?: { code?: string } };
+        isSuccess: boolean;
+        isFetching: boolean;
+        dataUpdatedAt: number;
+        errorUpdatedAt: number;
+      }),
   success: undefined as
     | undefined
     | ((_result: unknown, input: { flagId: string }) => Promise<void>),
@@ -63,7 +74,7 @@ vi.mock("~/trpc/react", () => ({
     }),
     admin: {
       sessionFlags: {
-        useQuery: (input: unknown) => {
+        useQuery: (input: { state: string }) => {
           mock.input = input;
           return {
             data: mock.data,
@@ -71,6 +82,7 @@ vi.mock("~/trpc/react", () => ({
             isSuccess: !mock.error,
             isFetching: false,
             refetch: mock.refetch,
+            ...mock.readResult?.(input),
           };
         },
       },
@@ -111,6 +123,7 @@ beforeEach(() => {
   mock.mutationError = null;
   mock.readOnly = false;
   mock.pending = false;
+  mock.readResult = undefined;
   mock.invalidate.mockResolvedValue(undefined);
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
@@ -293,4 +306,83 @@ it("retains cached rows beside transport recovery but conceals denied evidence a
     </QueryClientProvider>,
   );
   expect(screen.queryByText("Alex · Math")).toBeNull();
+  mock.error = null;
+  mock.data = [{ ...flag, tutor: "Fresh authorized tutor" }];
+  view.rerender(
+    <QueryClientProvider client={client}>
+      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+        <SessionFlagBoard />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
+  );
+  expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+});
+
+it("keeps nondefault-filter denial latched across a cached default and failed retry until a fresh success", () => {
+  window.sessionStorage.clear();
+  const remove = vi.spyOn(client, "removeQueries");
+  let defaultRead = {
+    data: [{ ...flag, tutor: "Cached pending tutor" }],
+    error: null as null | { message: string; data?: { code?: string } },
+    isSuccess: true,
+    isFetching: false,
+    dataUpdatedAt: 100,
+    errorUpdatedAt: 0,
+  };
+  let historyDenied = false;
+  mock.readResult = ({ state }) =>
+    state === "PENDING"
+      ? defaultRead
+      : {
+          ...defaultRead,
+          data: [{ ...flag, tutor: "Resolved tutor", state: "DISMISSED" }],
+          error: historyDenied
+            ? { message: "Denied", data: { code: "FORBIDDEN" } }
+            : null,
+          isSuccess: !historyDenied,
+          errorUpdatedAt: historyDenied ? 200 : 0,
+        };
+  const tree = () => (
+    <QueryClientProvider client={client}>
+      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+        <SessionViewProvider
+          identity="head"
+          pathname="/admin/session-flags"
+          verified
+        >
+          <SessionFlagBoard />
+        </SessionViewProvider>
+      </NextIntlClientProvider>
+    </QueryClientProvider>
+  );
+  const view = render(tree());
+  fireEvent.click(screen.getByRole("button", { name: "Dismissed" }));
+  expect(screen.getByText("Resolved tutor · Math")).toBeTruthy();
+  historyDenied = true;
+  view.rerender(tree());
+  expect(mock.input).toEqual({ state: "PENDING" });
+  expect(screen.queryByText("Resolved tutor · Math")).toBeNull();
+  expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
+  expect(remove).toHaveBeenCalledWith({ queryKey: ["flags"], exact: false });
+
+  defaultRead = {
+    ...defaultRead,
+    error: { message: "Offline" },
+    isSuccess: false,
+    errorUpdatedAt: 300,
+  };
+  view.rerender(tree());
+  expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  expect(mock.refetch).toHaveBeenCalledTimes(1);
+
+  defaultRead = {
+    ...defaultRead,
+    data: [{ ...flag, tutor: "Fresh authorized tutor" }],
+    error: null,
+    isSuccess: true,
+    dataUpdatedAt: 400,
+  };
+  view.rerender(tree());
+  expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
 });

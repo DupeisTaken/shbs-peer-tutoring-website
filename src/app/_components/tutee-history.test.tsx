@@ -691,6 +691,31 @@ it("clears a completed ownership preview and refreshes dependent views while rem
   expect(screen.getByRole("button", { name: "Review Link" })).toBeTruthy();
 });
 
+it("notifies a linked record once after its host finishes pending work", async () => {
+  const linked = vi.fn();
+  const view = (parentPending: boolean) => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <TuteeHistoryLinkForm
+        row={row}
+        canCorrectOwnership={false}
+        parentPending={parentPending}
+        onLinked={() => { linked(); }}
+      />
+    </NextIntlClientProvider>
+  );
+  const mounted = render(view(false));
+  await review();
+  mounted.rerender(view(true));
+  await act(async () => { await mock.success!(); });
+  expect(linked).not.toHaveBeenCalled();
+  mounted.rerender(view(false));
+  expect(linked).toHaveBeenCalledOnce();
+  // A host rerender supplies a new callback but is not a second completion.
+  mounted.rerender(view(false));
+  expect(linked).toHaveBeenCalledOnce();
+  expect(mock.link).not.toHaveBeenCalled();
+});
+
 it("retains an accepted link through failed synchronization and retries only reads", async () => {
   mount();
   await review();

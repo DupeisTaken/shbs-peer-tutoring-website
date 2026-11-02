@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -173,7 +174,7 @@ it("keeps same-name IDs distinct, and retains selected sort and rows across summ
   const summary = screen.getByRole("tab", {
     name: en.admin.summary.viewSummary,
   });
-  summary.focus();
+  act(() => summary.focus());
   fireEvent.keyDown(summary, { key: "ArrowRight" });
   const breakdown = screen.getByRole("tab", {
     name: en.admin.summary.viewBreakdown,

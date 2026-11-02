@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
@@ -29,9 +29,8 @@ export function PersonalTutorHistory() {
     !records.error &&
     records.data !== undefined &&
     !records.data.some((record) => record.id === selected.id);
-  useEffect(() => {
-    if (denied || selectedMissing) setSelected(null);
-  }, [denied, selectedMissing]);
+  // Revocation ends this selection, including after a later successful read.
+  if (selected !== null && (denied || selectedMissing)) setSelected(null);
   return (
     <section className="space-y-3" aria-labelledby="tutor-history-title">
       <h2 id="tutor-history-title" className="text-lg font-semibold">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
@@ -12,6 +12,7 @@ import { DisclosureSection } from "./ui/disclosure-section";
 import { participantNameLabel } from "./participant-name";
 
 type Preview = RouterOutputs["admin"]["previewDeleteUser"];
+type Target = { id: string; name: string };
 
 /** One list-owned controller survives row removal and idle dismissal. The password
  * and reviewed fingerprint are feature drafts; accepted writes recover by reads. */
@@ -21,36 +22,122 @@ export function AccountDeletion({
   onDeleted,
   onRecoveryChange,
 }: {
-  target: { id: string; name: string } | null;
+  target: Target | null;
   onClose: () => void;
   onDeleted: (id: string) => void;
   onRecoveryChange?: (blocked: boolean) => void;
 }) {
   const t = useTranslations("accountDeletion");
-  const common = useTranslations();
   const utils = api.useUtils();
+  const [refreshError, setRefreshError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [accepted, setAccepted] = useState<Target | null>(null);
+  const admission = useRef<object | null>(null);
+  const [admitted, setAdmitted] = useState(false);
+  // The list owns the write lease as well as its receipt. Replacing a keyed
+  // target editor must not admit another deletion while its predecessor settles.
+  function acquireAdmission() {
+    if (admission.current || refreshing || refreshError) return null;
+    const lease = {};
+    admission.current = lease;
+    setAdmitted(true);
+    return () => {
+      if (admission.current !== lease) return;
+      admission.current = null;
+      setAdmitted(false);
+    };
+  }
+  async function refreshList() {
+    onRecoveryChange?.(true);
+    setRefreshing(true);
+    setRefreshError(false);
+    try {
+      await invalidateAndReport(utils.admin.accounts);
+      onRecoveryChange?.(false);
+    } catch {
+      setRefreshError(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+  const saved = !!accepted && accepted.id === target?.id;
+  return (
+    <>
+      {accepted && (
+        <InlineNotice tone="success" announcement="status">
+          <p>{t("saved", { name: accepted.name })}</p>
+          {refreshError && <p>{t("savedRefreshFailed")}</p>}
+          {refreshError && (
+            <Button disabled={refreshing} onClick={() => void refreshList()}>
+              {t("retryList")}
+            </Button>
+          )}
+        </InlineNotice>
+      )}
+      {target && (
+        <AccountDeletionReview
+          key={target.id}
+          target={target}
+          saved={saved}
+          refreshing={refreshing}
+          recoveryBlocked={refreshError}
+          admitted={admitted}
+          acquireAdmission={acquireAdmission}
+          isAdmitted={() => admission.current !== null}
+          onClose={onClose}
+          onAccepted={async (done) => {
+            setAccepted(done);
+            onDeleted(done.id);
+            await refreshList();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** A dialog opening owns its password and fingerprint. Remounting on target change
+ * also isolates late reads; the parent alone owns accepted-write recovery. */
+function AccountDeletionReview({
+  target,
+  saved,
+  refreshing,
+  recoveryBlocked,
+  admitted,
+  acquireAdmission,
+  isAdmitted,
+  onClose,
+  onAccepted,
+}: {
+  target: Target;
+  saved: boolean;
+  refreshing: boolean;
+  recoveryBlocked: boolean;
+  admitted: boolean;
+  acquireAdmission: () => (() => void) | null;
+  isAdmitted: () => boolean;
+  onClose: () => void;
+  onAccepted: (target: Target) => Promise<void>;
+}) {
+  const t = useTranslations("accountDeletion");
+  const common = useTranslations();
   const formId = useId();
   const passwordId = useId();
-  const admission = useRef(false);
+  const releaseAdmission = useRef<(() => void) | null>(null);
   const passwordInput = useRef<HTMLInputElement>(null);
   const initialFocus = useRef(true);
   const focusMoved = useRef(false);
-  const [admitted, setAdmitted] = useState(false);
   const [snapshot, setSnapshot] = useState<Preview | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
-  const [refreshError, setRefreshError] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [accepted, setAccepted] = useState<{ id: string; name: string } | null>(
-    null,
-  );
-  const selectedId = target?.id;
-  const currentTarget = useRef(selectedId);
-  // A late read belongs to the committed dialog target, never an abandoned render.
-  useLayoutEffect(() => {
-    currentTarget.current = selectedId;
-  }, [selectedId]);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const selectedId = target.id;
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
   const query = api.admin.previewDeleteUser.useQuery(
     { userId: selectedId ?? "" },
     {
@@ -60,38 +147,24 @@ export function AccountDeletion({
       refetchOnWindowFocus: false,
     },
   );
-  useEffect(() => {
-    setSnapshot(null);
-    setPassword("");
-    setError(null);
-    setStale(false);
-    setAccessDenied(false);
-    initialFocus.current = true;
-    focusMoved.current = false;
-  }, [selectedId]);
-  // Adopt only an initial fresh read. Background updates cannot silently replace
-  // an existing review; explicit Reload owns replacement of the version snapshot.
-  useEffect(() => {
-    if (
-      !snapshot &&
-      selectedId &&
-      query.data?.target.id === selectedId &&
-      !query.isFetching &&
-      !query.error
-    )
-      setSnapshot(query.data);
-  }, [selectedId, query.data, query.isFetching, query.error, snapshot]);
-  const review = snapshot?.target.id === selectedId ? snapshot : null;
   const denied = ["FORBIDDEN", "UNAUTHORIZED"].includes(
     query.error?.data?.code ?? "",
   );
-  const [accessDenied, setAccessDenied] = useState(false);
-  useEffect(() => {
-    if (denied) {
-      setAccessDenied(true);
-      setSnapshot(null);
-    }
-  }, [denied]);
+  // Adopt only an initial fresh read. Background updates cannot silently replace
+  // an existing review; explicit Reload owns replacement of the version snapshot.
+  if (denied && !accessDenied) {
+    setAccessDenied(true);
+    setSnapshot(null);
+  } else if (
+      !snapshot &&
+      !accessDenied &&
+      query.data?.target.id === selectedId &&
+      !query.isFetching &&
+      !query.error
+  ) {
+    setSnapshot(query.data);
+  }
+  const review = snapshot?.target.id === selectedId ? snapshot : null;
   useEffect(() => {
     if (!selectedId || review) return;
     const moved = () => {
@@ -112,19 +185,6 @@ export function AccountDeletion({
     if (!focusMoved.current && document.activeElement?.closest("dialog"))
       passwordInput.current?.focus();
   }, [review]);
-  async function refreshList() {
-    onRecoveryChange?.(true);
-    setRefreshing(true);
-    setRefreshError(false);
-    try {
-      await invalidateAndReport(utils.admin.accounts);
-      onRecoveryChange?.(false);
-    } catch {
-      setRefreshError(true);
-    } finally {
-      setRefreshing(false);
-    }
-  }
   const deletion = api.admin.deleteUser.useMutation({
     onSuccess: async (_result, variables) => {
       const done = {
@@ -135,10 +195,8 @@ export function AccountDeletion({
           common("participantNames.unnamed"),
         ),
       };
-      setAccepted(done);
       setPassword("");
-      onDeleted(done.id);
-      await refreshList();
+      await onAccepted(done);
     },
     onError: (failure) => {
       setError(failure.message);
@@ -149,26 +207,26 @@ export function AccountDeletion({
         setStale(true);
     },
     onSettled: () => {
-      admission.current = false;
-      setAdmitted(false);
+      releaseAdmission.current?.();
+      releaseAdmission.current = null;
     },
   });
-  const pending = admitted || deletion.isPending;
-  const saved = !!accepted && accepted.id === selectedId;
+  const pending = admitted || deletion.isPending || refreshing;
   const fresh =
     !!review &&
+    !recoveryBlocked &&
     !accessDenied &&
     !query.error &&
     !query.isFetching &&
     !stale &&
     query.data?.fingerprint === review.fingerprint;
   async function reload() {
-    if (admission.current || pending || saved) return;
+    if (isAdmitted() || pending || saved) return;
     const result = await query.refetch();
     if (!selectedId || !result.data) return;
     if (
-      !admission.current &&
-      currentTarget.current === selectedId &&
+      !isAdmitted() &&
+      active.current &&
       !result.error &&
       result.data.target.id === selectedId
     ) {
@@ -180,19 +238,6 @@ export function AccountDeletion({
     }
   }
   return (
-    <>
-      {accepted && (!target || saved) && (
-        <InlineNotice tone="success" announcement="status">
-          <p>{t("saved", { name: accepted.name })}</p>
-          {refreshError && <p>{t("savedRefreshFailed")}</p>}
-          {refreshError && (
-            <Button disabled={refreshing} onClick={() => void refreshList()}>
-              {t("retryList")}
-            </Button>
-          )}
-        </InlineNotice>
-      )}
-      {target && (
         <Modal
           title={common("admin.users.confirm.deleteTitle")}
           description={
@@ -202,14 +247,14 @@ export function AccountDeletion({
           }
           busy={pending}
           onClose={() => {
-            if (!admission.current) onClose();
+            if (!isAdmitted() && !pending) onClose();
           }}
           wide
           footer={
             <>
               <Button
                 onClick={() => {
-                  if (!admission.current) onClose();
+                  if (!isAdmitted() && !pending) onClose();
                 }}
               >
                 {common(saved ? "common.close" : "admin.users.confirm.cancel")}
@@ -340,7 +385,7 @@ export function AccountDeletion({
                     onSubmit={(event) => {
                       event.preventDefault();
                       if (
-                        admission.current ||
+                        isAdmitted() ||
                         pending ||
                         !fresh ||
                         !review ||
@@ -348,8 +393,9 @@ export function AccountDeletion({
                         !password
                       )
                         return;
-                      admission.current = true;
-                      setAdmitted(true);
+                      const release = acquireAdmission();
+                      if (!release) return;
+                      releaseAdmission.current = release;
                       setError(null);
                       deletion.mutate({
                         userId: review.target.id,
@@ -392,11 +438,9 @@ export function AccountDeletion({
           )}
           {saved && (
             <p role="status">
-              {t("saved", { name: accepted?.name ?? target.name })}
+              {t("saved", { name: target.name })}
             </p>
           )}
         </Modal>
-      )}
-    </>
   );
 }

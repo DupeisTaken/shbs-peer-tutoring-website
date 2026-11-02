@@ -30,16 +30,22 @@ export function TutorDiscipline() {
   const authorizationDenied =
     discipline.error?.data?.code === "FORBIDDEN" ||
     discipline.error?.data?.code === "UNAUTHORIZED";
+  // Query evidence owns the privacy latch; cache eviction remains an external
+  // effect and cannot make a later transport error reveal cached discipline.
+  if (authorizationDenied && !denied) setDenied(true);
+  else if (
+    denied &&
+    !authorizationDenied &&
+    discipline.isSuccess &&
+    !discipline.isFetching
+  )
+    setDenied(false);
   useEffect(() => {
     if (!authorizationDenied) return;
-    setDenied(true);
     queryClient.removeQueries({
       queryKey: getQueryKey(api.tutor.myTuteeDiscipline, undefined, "query"),
     });
   }, [authorizationDenied, queryClient]);
-  useEffect(() => {
-    if (discipline.isSuccess && !discipline.isFetching) setDenied(false);
-  }, [discipline.isSuccess, discipline.isFetching]);
   const retry = () => {
     void discipline.refetch();
   };

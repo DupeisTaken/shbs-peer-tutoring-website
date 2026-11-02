@@ -1,5 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   act,
   cleanup,
@@ -7,12 +9,16 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import { InvitationRedemption } from "./invitation-redemption";
 const mocks = vi.hoisted(() => ({
-  inspect: vi.fn(),
+  inspect:
+    vi.fn<
+      (input: { invitationId: string; proof?: string }) => Promise<unknown>
+    >(),
   complete: vi.fn(),
   verify: vi.fn(),
   invalidate: vi.fn(),
@@ -30,32 +36,51 @@ vi.mock("~/app/_components/profile-policy", () => ({
   ProfilePolicyLoadError: () => null,
   OfferedGradeSelect: () => null,
 }));
-vi.mock("~/trpc/react", () => ({
-  api: {
-    useUtils: () => ({
-      studentWorkflow: { continuationStatus: { reset: mocks.invalidate } },
-    }),
-    accountInvitation: {
-      review: { useMutation: () => ({ mutateAsync: mocks.inspect }) },
-      verify: {
-        useMutation: (options: {
-          onSuccess: (result: { proof: string }) => void;
-          onSettled: () => void;
-        }) => {
-          mocks.verified = options.onSuccess;
-          mocks.verificationSettled = options.onSettled;
-          return { mutate: mocks.verify };
+vi.mock("~/trpc/react", async () => {
+  const { useMutation } = await import("@tanstack/react-query");
+  return {
+    api: {
+      useUtils: () => ({
+        studentWorkflow: { continuationStatus: { reset: mocks.invalidate } },
+      }),
+      accountInvitation: {
+        review: {
+          useMutation: () =>
+            useMutation({
+              mutationFn: (input: { invitationId: string; proof?: string }) =>
+                mocks.inspect(input),
+            }),
         },
-      },
-      complete: {
-        useMutation: (options: { onSuccess: () => void }) => {
-          mocks.completed = options.onSuccess;
-          return { mutate: mocks.complete };
+        verify: {
+          useMutation: (options: {
+            onSuccess: (result: { proof: string }) => void;
+            onSettled: () => void;
+          }) => {
+            mocks.verified = options.onSuccess;
+            mocks.verificationSettled = options.onSettled;
+            return { mutate: mocks.verify };
+          },
+        },
+        complete: {
+          useMutation: (options: { onSuccess: () => void }) => {
+            mocks.completed = options.onSuccess;
+            return { mutate: mocks.complete };
+          },
         },
       },
     },
-  },
-}));
+  };
+});
+let client: QueryClient;
+function TestInvitationRedemption(
+  props: ComponentProps<typeof InvitationRedemption>,
+) {
+  return (
+    <QueryClientProvider client={client}>
+      <InvitationRedemption {...props} />
+    </QueryClientProvider>
+  );
+}
 const staged = {
   id: "request",
   expectedVersion: 2,
@@ -119,16 +144,23 @@ const info = {
 };
 const view = () => (
   <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
-    <InvitationRedemption invitationId="invitation" signedIn />
+    <TestInvitationRedemption invitationId="invitation" signedIn />
   </NextIntlClientProvider>
 );
 beforeEach(() => {
   vi.clearAllMocks();
+  // jsdom has no layout scrolling; focus behavior uses the browser API.
+  vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
+  client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   mocks.inspect.mockResolvedValue(info);
   mocks.login.mockResolvedValue({ signedIn: true, completedLogin: false });
   mocks.invalidate.mockResolvedValue(undefined);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  client.clear();
+  vi.restoreAllMocks();
+});
 it("shows reusable sign-in access only after completed tutee account review", async () => {
   mocks.inspect.mockResolvedValue({ ...info, completed: true });
   render(view());
@@ -190,8 +222,8 @@ it("shows exact staged answers and consent separately from canonical account ide
 });
 it("never renders source answers before a proof-authorized inspection", () => {
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <InvitationRedemption invitationId="invitation" />
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <TestInvitationRedemption invitationId="invitation" />
     </NextIntlClientProvider>,
   );
   expect(mocks.inspect).not.toHaveBeenCalled();
@@ -211,8 +243,8 @@ it("preserves legacy invitation review when there is no staged replacement", asy
 
 it("discards cached continuation eligibility only after generic mailbox verification succeeds", async () => {
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <InvitationRedemption invitationId="invitation" />
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <TestInvitationRedemption invitationId="invitation" />
     </NextIntlClientProvider>,
   );
   fireEvent.change(screen.getByLabelText(/^Email verification code/), {
@@ -268,8 +300,8 @@ it("retains successful proof and session recovery when continuation refresh fail
   mocks.invalidate.mockRejectedValue(new Error("Read failed"));
   mocks.login.mockResolvedValue({ signedIn: false, completedLogin: false });
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <InvitationRedemption invitationId="invitation" />
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <TestInvitationRedemption invitationId="invitation" />
     </NextIntlClientProvider>,
   );
   await act(async () => mocks.verified!({ proof: "verified-proof" }));
@@ -279,4 +311,54 @@ it("retains successful proof and session recovery when continuation refresh fail
     invitationId: "invitation",
     proof: "verified-proof",
   });
+});
+
+it("keeps verification blocked while the authorized initial review is pending", async () => {
+  let resolve!: (value: typeof info) => void;
+  mocks.inspect.mockImplementationOnce(
+    () =>
+      new Promise<typeof info>((yes) => {
+        resolve = yes;
+      }),
+  );
+  const rendered = render(view());
+  const verify = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.accountInvitation.verify,
+  });
+  await waitFor(() => expect(verify.matches(":disabled")).toBe(true));
+  rendered.rerender(view());
+  expect(mocks.inspect).toHaveBeenCalledTimes(1);
+  fireEvent.submit(verify.closest("form")!);
+  expect(mocks.verify).not.toHaveBeenCalled();
+  await act(async () => resolve(info));
+  await screen.findByText("Canonical Account");
+  expect(screen.getByRole("checkbox").matches(":disabled")).toBe(false);
+});
+
+it("does not attach a late review to a different invitation or a reopened flow", async () => {
+  let resolveOld!: (value: typeof info) => void;
+  mocks.inspect.mockImplementationOnce(
+    () =>
+      new Promise<typeof info>((yes) => {
+        resolveOld = yes;
+      }),
+  );
+  const invitationView = (invitationId: string) => (
+    <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
+      <TestInvitationRedemption invitationId={invitationId} signedIn />
+    </NextIntlClientProvider>
+  );
+  const rendered = render(invitationView("old-invitation"));
+  await waitFor(() => expect(mocks.inspect).toHaveBeenCalledTimes(1));
+  mocks.inspect.mockResolvedValue({ ...info, name: "Current Account" });
+  rendered.rerender(invitationView("current-invitation"));
+  await screen.findByText("Current Account");
+  await act(async () => resolveOld({ ...info, name: "Late private identity" }));
+  expect(screen.queryByText("Late private identity")).toBeNull();
+  expect(screen.getByText("Current Account")).toBeTruthy();
+  rendered.unmount();
+  render(invitationView("old-invitation"));
+  await screen.findByText("Current Account");
+  expect(screen.queryByText("Late private identity")).toBeNull();
+  expect(mocks.complete).not.toHaveBeenCalled();
 });

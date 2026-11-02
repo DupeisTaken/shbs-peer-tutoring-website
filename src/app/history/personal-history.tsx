@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
@@ -26,9 +26,8 @@ export function PersonalTuteeHistory() {
     !records.error &&
     records.data !== undefined &&
     !records.data.some((record) => record.id === selected);
-  useEffect(() => {
-    if (denied || selectedMissing) setSelected(null);
-  }, [denied, selectedMissing]);
+  // Revocation ends this selection, including after a later successful read.
+  if (selected !== null && (denied || selectedMissing)) setSelected(null);
   return (
     <section className="space-y-3" aria-labelledby="tutee-history-title">
       <h2 id="tutee-history-title" className="text-lg font-semibold">

@@ -39,11 +39,14 @@ export function HistoricalAcademicCorrections({
   const [accessDenied, setAccessDenied] = useState(false);
   const scope = initialSearch ? `participant:${initialSearch}` : "all";
   const [kind, setKind] = useSessionViewState({ id: "academic-corrections.kind.v1", initialState: "TUTEE", parse: viewEnum(["TUTEE", "TUTOR"]), scope, enabled: !accessDenied });
-  const [search, setSearch] = useState(initialSearch);
+  const [searchDraft, setSearchDraft] = useState<{ applied: string; value: string } | null>(null);
   const [rememberedSearch, setSubmittedSearch] = useSessionViewState({ id: "academic-corrections.search.v1", initialState: initialSearch, parse: viewSearch, scope, enabled: !accessDenied && !initialSearch });
   // An explicit participant link wins over a previously applied list search.
   const submittedSearch = initialSearch || rememberedSearch;
-  useEffect(() => setSearch(submittedSearch), [submittedSearch]);
+  // An unfinished search belongs to its applied criteria. Restoring another
+  // criteria set must not display the old input or discard record-edit drafts.
+  const search = searchDraft?.applied === submittedSearch ? searchDraft.value : submittedSearch;
+  if (searchDraft && searchDraft.applied !== submittedSearch) setSearchDraft(null);
   const [page, setPage] = useSessionViewState({ id: "academic-corrections.page.v1", initialState: 0, parse: viewPage, scope, enabled: !accessDenied });
   const [drafts, setDrafts] = useState<
     Record<string, { row: HistoricalCorrectionRow; record: AcademicRow }>
@@ -77,7 +80,7 @@ export function HistoricalAcademicCorrections({
     page,
   });
   const denied = useSessionAccessDenied(list);
-  useEffect(() => setAccessDenied(denied), [denied]);
+  if (accessDenied !== denied) setAccessDenied(denied);
   useSessionPageScroll({ id: "academic-corrections", scope: JSON.stringify([scope, kind, submittedSearch, page]), ready: !!list.data, enabled: !denied });
   const preview = api.historicalAcademics.preview.useMutation();
   const save = api.historicalAcademics.correctBatch.useMutation();
@@ -418,7 +421,7 @@ export function HistoricalAcademicCorrections({
               className={control}
               value={search}
               disabled={busy}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => setSearchDraft({ applied: submittedSearch, value: event.target.value })}
             />
           </label>
           <button

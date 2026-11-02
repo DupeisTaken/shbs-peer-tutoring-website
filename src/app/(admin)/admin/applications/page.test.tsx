@@ -14,6 +14,7 @@ import type { InvalidationTarget } from "~/lib/invalidate-refresh";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import ApplicationsPage from "./page";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { projectManagementRead } from "~/server/management-read-models";
 import { applicationRow, PRIVATE } from "~/test/management-read-fixtures";
@@ -29,6 +30,8 @@ const mocks = vi.hoisted(() => {
   return {
     ...navigation,
     enabled: true,
+    applicationsFetching: false,
+    applicationsError: null as null | { message: string },
     history: vi.fn(),
     identity: vi.fn(),
     invalidate: vi.fn(),
@@ -141,6 +144,9 @@ vi.mock("~/trpc/react", () => ({
       },
       tutorApplications: {
         useQuery: () => ({
+          isFetching: mocks.applicationsFetching,
+          isSuccess: !mocks.applicationsError,
+          error: mocks.applicationsError,
           data: mocks.minimized
             ? projectManagementRead("admin.tutorApplications", [applicationRow])
             : [
@@ -244,6 +250,10 @@ vi.mock("~/trpc/react", () => ({
 }));
 beforeEach(() => {
   vi.resetAllMocks();
+  window.history.replaceState(null, "", "/admin/applications");
+  sessionStorage.clear();
+  mocks.applicationsFetching = false;
+  mocks.applicationsError = null;
   mocks.success = undefined;
   mocks.invalidate.mockResolvedValue(undefined);
   mocks.invalidateApplications.mockResolvedValue(undefined);
@@ -762,3 +772,59 @@ it.each([
     }
   },
 );
+
+const notificationContent = () => (
+  <SessionViewProvider identity="head" pathname="/admin/applications" verified>
+    {content(true)}
+  </SessionViewProvider>
+);
+
+it("does not replace a deliberate application search when a notification read settles later", () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/applications#application-candidate",
+  );
+  mocks.applicationsFetching = true;
+  const view = render(notificationContent());
+  const search = screen.getByRole<HTMLInputElement>("searchbox", {
+    name: "Name or email",
+  });
+  fireEvent.change(search, { target: { value: "My explicit search" } });
+  mocks.applicationsFetching = false;
+  view.rerender(notificationContent());
+  expect(search.value).toBe("My explicit search");
+  expect(screen.queryByText(en.workflow.noticeTargetMissing)).toBeNull();
+  expect(screen.queryByText("Candidate One")).toBeNull();
+});
+
+it("does not resolve a missing notification against stale failed application data", () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/applications#application-missing",
+  );
+  mocks.applicationsError = { message: "Refresh failed" };
+  const view = render(notificationContent());
+  expect(screen.queryByText(en.workflow.noticeTargetMissing)).toBeNull();
+  mocks.applicationsError = null;
+  view.rerender(notificationContent());
+  expect(screen.getByText(en.workflow.noticeTargetMissing)).toBeTruthy();
+});
+
+it("resolves a fresh application arrival once and preserves later filter edits", () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/applications#application-candidate",
+  );
+  const view = render(notificationContent());
+  const search = screen.getByRole<HTMLInputElement>("searchbox", {
+    name: "Name or email",
+  });
+  expect(search.value).toBe("");
+  fireEvent.change(search, { target: { value: "Later choice" } });
+  view.rerender(notificationContent());
+  expect(search.value).toBe("Later choice");
+  expect(screen.queryByText("Candidate One")).toBeNull();
+});

@@ -4,6 +4,7 @@ import {
   clearOtherViewIdentities,
   isViewState,
   readViewState,
+  readViewStateSnapshot,
   viewStateKey,
   writeViewState,
   viewIdentifier,
@@ -146,3 +147,22 @@ it("bounds entries without deleting unrelated session keys and tolerates blocked
   expect(readViewState(blocked, "key")).toBeUndefined();
   expect(() => writeViewState(blocked, "key", "current")).not.toThrow();
 });
+
+it.each([
+  { key: "key", raw: JSON.stringify("x".repeat(5000)) },
+  { key: "中".repeat(1500), raw: JSON.stringify("history") },
+  { key: "key", raw: "{malformed" },
+  { key: "key", raw: JSON.stringify({ nested: { value: "history" } }) },
+])(
+  "rejects invalid snapshots without mutating storage during reads",
+  ({ key, raw }) => {
+    sessionStorage.setItem(key, raw);
+    for (let read = 0; read < 3; read++) {
+      expect(readViewStateSnapshot(sessionStorage, key)).toBeUndefined();
+      expect(sessionStorage.getItem(key)).toBe(raw);
+    }
+    // Imperative readers retain their committed cleanup contract.
+    expect(readViewState(sessionStorage, key)).toBeUndefined();
+    expect(sessionStorage.getItem(key)).toBeNull();
+  },
+);

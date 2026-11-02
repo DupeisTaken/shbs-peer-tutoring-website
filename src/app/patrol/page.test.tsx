@@ -452,3 +452,48 @@ it.each(["en", "zh"] as const)(
     ).toBe("TEXTAREA");
   },
 );
+
+it.each(["status", "config"])(
+  "starts a fresh intent after %s revocation clears an uncertain submission",
+  (scope) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-02T01:00:00Z"));
+    state.isSuccess = false;
+    const rendered = show();
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    fireEvent.change(screen.getByLabelText(messages.crew.patrol.noteLabel), {
+      target: { value: "Synthetic private note" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Submit Patrol/ }));
+    const original = state.mutate.mock.calls[0]?.[0] as PatrolInput;
+    lifecycle.onSettled();
+    state.readError[scope] = {
+      message: "Revoked",
+      data: { code: "FORBIDDEN" },
+    };
+    rendered.rerender(view());
+    expect(screen.queryByText("Test room")).toBeNull();
+    state.readError[scope] = { message: "Offline" };
+    rendered.rerender(view());
+    expect(screen.queryByText("Test room")).toBeNull();
+    state.readError = {};
+    rendered.rerender(view());
+    expect(
+      screen.getByLabelText<HTMLTextAreaElement>(messages.crew.patrol.noteLabel)
+        .value,
+    ).toBe("");
+    expect(
+      screen.getByRole("button", { name: "1" }).getAttribute("aria-pressed"),
+    ).toBe("false");
+    // Even the exact same payload and timestamp now belongs to a new intent.
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    fireEvent.change(screen.getByLabelText(messages.crew.patrol.noteLabel), {
+      target: { value: "Synthetic private note" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Submit Patrol/ }));
+    const fresh = state.mutate.mock.calls[1]?.[0] as PatrolInput;
+    expect(fresh.observations).toEqual(original.observations);
+    expect(fresh.note).toBe(original.note);
+    expect(fresh.submissionKey).not.toBe(original.submissionKey);
+  },
+);

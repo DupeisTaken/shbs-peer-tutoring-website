@@ -189,27 +189,22 @@ export function CombineRecords({
     accessDenied ||
     (!reviewPersonId && ["UNAUTHORIZED", "FORBIDDEN"].includes(candidates.error?.data?.code ?? ""));
   const denied = accessLost || currentDenial;
+  const candidateRead = currentDenial
+    ? "denied"
+    : !reviewPersonId && candidates.isSuccess && !candidates.isFetching && !candidates.error && !unavailable
+      ? "ready"
+      : "unavailable";
+  const [observedCandidateRead, setObservedCandidateRead] = useState("unavailable");
+  // Reconcile new read authority before rendering private evidence. A mutation
+  // denial cannot be cleared by an unchanged, previously successful cache entry.
+  if (observedCandidateRead !== candidateRead) {
+    setObservedCandidateRead(candidateRead);
+    if (candidateRead === "denied") setAccessLost(true);
+    else if (candidateRead === "ready") setAccessLost(false);
+  }
   useEffect(() => {
-    if (currentDenial) {
-      setAccessLost(true);
-      reviewGeneration.current++;
-    }
-    else if (
-      !reviewPersonId &&
-      candidates.isSuccess &&
-      !candidates.isFetching &&
-      !candidates.error &&
-      !unavailable
-    )
-      setAccessLost(false);
-  }, [
-    currentDenial,
-    candidates.isSuccess,
-    candidates.isFetching,
-    candidates.error,
-    unavailable,
-    reviewPersonId,
-  ]);
+    if (currentDenial) reviewGeneration.current++;
+  }, [currentDenial]);
   const disabled =
     busy ||
     reviewing ||

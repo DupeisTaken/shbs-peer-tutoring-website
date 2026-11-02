@@ -2014,6 +2014,7 @@
       "refreshFailed": "La decisión se ha guardado. Actualiza los registros para ver el estado de revisión más reciente."
     },
     "landing": {
+      "pageAddress": "Dirección de la página",
       "title": "Página de inicio",
       "subtitle": "Edita textos, noticias e imágenes del sitio público. Los cambios de coordinadores y textos de traductores requieren revisión. Los cambios autorizados de Admin/Head se aplican directamente; las noticias en borrador siguen privadas hasta publicarse.",
       "loading": "Cargando…",
