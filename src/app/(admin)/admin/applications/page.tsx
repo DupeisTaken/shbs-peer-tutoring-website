@@ -562,7 +562,7 @@ export default function ApplicationsPage() {
 
   const denied = useSessionAccessDenied(apps, tutors, features);
   const verified = useSessionViewVerified();
-  const [filters, setFilters] = useSessionViewState({
+  const [filters, setFilters, reconcileFilters] = useSessionViewState({
     id: "applications.filters.v1",
     initialState: emptyApplicationFilters,
     enabled: !denied,
@@ -594,7 +594,7 @@ export default function ApplicationsPage() {
         value === undefined ? "" : viewEnum(APPLICATION_SORTS)(value),
     }),
   });
-  const [invalidity, setInvalidity] =
+  const [invalidity, setInvalidity, reconcileInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
       id: "applications.invalidity.v1",
       initialState: "valid",
@@ -646,8 +646,8 @@ export default function ApplicationsPage() {
       (app) => `#application-${app.id}` === arrival.hash,
     );
     if (exists) {
-      setFilters(emptyApplicationFilters);
-      setInvalidity("all");
+      reconcileFilters(emptyApplicationFilters);
+      reconcileInvalidity("all");
     }
     setNoticeTargetMissing(!exists);
     setArrival(exists ? { ...arrival, selected: true } : null);

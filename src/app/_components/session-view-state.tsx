@@ -136,7 +136,7 @@ const readViewport = () =>
  * or should override the returned value in the owning feature. Never use for form drafts. */
 export function useSessionViewState<T extends ViewState>(
   options: SessionViewOptions<T>,
-): [T, Dispatch<SetStateAction<T>>] {
+): [T, Dispatch<SetStateAction<T>>, (next: T) => void] {
   const context = useContext(Context);
   const key = context
     ? viewStateKey(
@@ -258,11 +258,13 @@ export function useSessionViewState<T extends ViewState>(
   const setValue = useCallback<Dispatch<SetStateAction<T>>>(
     (next) => {
       if (!enabled || !restoreReady) return;
+      // Event/effect callers use committed options, captured before React queues
+      // or replays the pure updater. Render callers use reconcileValue below.
+      const { initialState, parse } = latest.current;
       setStored((previous) => {
-        const current =
-          previous.key === key ? previous.value : latest.current.initialState;
+        const current = previous.key === key ? previous.value : initialState;
         const proposed = typeof next === "function" ? next(current) : next;
-        const parsed = latest.current.parse(proposed);
+        const parsed = parse(proposed);
         if (parsed === undefined) return previous;
         return {
           ...previous,
@@ -275,7 +277,22 @@ export function useSessionViewState<T extends ViewState>(
     },
     [key, enabled, restoreReady],
   );
-  return [value, setValue];
+  // Only for guarded reconciliation in the component that owns this hook.
+  // Capture this render's allowlist before queuing a pure state update; no refs
+  // or storage access may escape an abandoned render. Persistence stays above.
+  const reconcileValue = (next: T) => {
+    if (!enabled || !restoreReady) return;
+    const parsed = options.parse(next);
+    if (parsed === undefined) return;
+    setStored((previous) => ({
+      ...previous,
+      key,
+      value: parsed,
+      explicit: true,
+      persistence: "write",
+    }));
+  };
+  return [value, setValue, reconcileValue];
 }
 
 export type SessionScrollOptions = {

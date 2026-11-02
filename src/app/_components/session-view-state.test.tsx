@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { StrictMode, Suspense, use } from "react";
+import { StrictMode, Suspense, use, useEffect, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import {
   act,
   cleanup,
@@ -1199,4 +1200,125 @@ it("preserves an allowed null choice before verification and across remounts", (
   rendered.unmount();
   render(tree(true));
   expect(screen.getByText("No selection")).toBeTruthy();
+});
+
+
+function RenderSelection({
+  allowHistory,
+  suspended,
+  onSetter,
+}: {
+  allowHistory: boolean;
+  suspended?: Promise<void>;
+  onSetter: (setter: Dispatch<SetStateAction<string>>) => void;
+}) {
+  const [tab, setTab, reconcileTab] = useSessionViewState<string>({
+    id: "render-choice", initialState: "current",
+    // Deliberately inline: equivalent parser functions must not churn the setter.
+    parse: viewEnum(allowHistory ? ["current", "history"] : ["current"]),
+  });
+  const [previousAllowed, setPreviousAllowed] = useState(allowHistory);
+  if (previousAllowed !== allowHistory) {
+    setPreviousAllowed(allowHistory);
+    if (allowHistory) reconcileTab("history");
+  }
+  useEffect(() => onSetter(setTab), [onSetter, setTab]);
+  if (suspended) use(suspended);
+  return <p data-testid="render-choice">{tab}</p>;
+}
+
+it("uses the current parser for guarded render selections without changing the setter for inline parsers", () => {
+  const onSetter = vi.fn();
+  const tree = (allowHistory: boolean) => (
+    <StrictMode>
+      <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+        <RenderSelection allowHistory={allowHistory} onSetter={onSetter} />
+      </SessionViewProvider>
+    </StrictMode>
+  );
+  const rendered = render(tree(false));
+  const initialCalls = onSetter.mock.calls.length;
+  rendered.rerender(tree(true));
+  expect(screen.getByTestId("render-choice").textContent).toBe("history");
+  expect(readViewState(sessionStorage, viewStateKey("head", "/admin/tutees", "render-choice", ""))).toBe("history");
+  rendered.rerender(tree(true));
+  expect(onSetter).toHaveBeenCalledTimes(initialCalls);
+});
+
+it("discards render-time selection from an abandoned StrictMode render", async () => {
+  const key = viewStateKey("head", "/admin/tutees", "render-choice", "");
+  writeViewState(sessionStorage, key, "current");
+  const pending = new Promise<void>(() => undefined);
+  const onSetter = vi.fn();
+  const tree = (allowHistory: boolean, suspended?: Promise<void>) => (
+    <StrictMode>
+      <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+        <Suspense fallback={<p>Waiting for arrival</p>}>
+          <RenderSelection allowHistory={allowHistory} suspended={suspended} onSetter={onSetter} />
+        </Suspense>
+      </SessionViewProvider>
+    </StrictMode>
+  );
+  const rendered = render(tree(false));
+  await act(async () => { rendered.rerender(tree(true, pending)); });
+  expect(screen.getByText("Waiting for arrival")).toBeTruthy();
+  expect(readViewState(sessionStorage, key)).toBe("current");
+  await act(async () => { rendered.rerender(tree(false)); });
+  expect(screen.getByTestId("render-choice").textContent).toBe("current");
+  expect(readViewState(sessionStorage, key)).toBe("current");
+});
+
+it("applies batched functional choices sequentially and rejects invalid proposals without replacing the accepted value", () => {
+  function Counter() {
+    const [count, setCount] = useSessionViewState<number>({
+      id: "counter", initialState: 1,
+      parse: (value) => typeof value === "number" && value >= 0 && value <= 10 ? value : undefined,
+    });
+    return <><p data-testid="counter">{count}</p><button onClick={() => {
+      setCount((current) => current + 1);
+      setCount(999);
+      setCount((current) => current * 2);
+    }}>Batch choices</button></>;
+  }
+  render(<StrictMode><SessionViewProvider identity="head" pathname="/admin/tutees" verified><Counter /></SessionViewProvider></StrictMode>);
+  fireEvent.click(screen.getByRole("button", { name: "Batch choices" }));
+  expect(screen.getByTestId("counter").textContent).toBe("4");
+  expect(readViewState(sessionStorage, viewStateKey("head", "/admin/tutees", "counter", ""))).toBe(4);
+});
+
+it("uses current scope defaults for guarded selection during the scope's first render", () => {
+  function Scoped({ base }: { base: number }) {
+    const [value, , reconcileValue] = useSessionViewState<number>({
+      id: "scope-default", scope: String(base), initialState: base,
+      parse: (candidate) => typeof candidate === "number" && candidate >= base ? candidate : undefined,
+    });
+    const [previousBase, setPreviousBase] = useState(base);
+    if (previousBase !== base) {
+      setPreviousBase(base);
+      reconcileValue(value + 1);
+    }
+    return <p data-testid="scope-default">{value}</p>;
+  }
+  const tree = (base: number) => <SessionViewProvider identity="head" pathname="/admin/tutees" verified><Scoped base={base} /></SessionViewProvider>;
+  const rendered = render(tree(1));
+  rendered.rerender(tree(20));
+  expect(screen.getByTestId("scope-default").textContent).toBe("21");
+});
+
+it("preserves an unverified render choice through verification without persisting it early", () => {
+  const key = viewStateKey("head", "/admin/tutees", "render-choice", "");
+  writeViewState(sessionStorage, key, "current");
+  const onSetter = vi.fn();
+  const tree = (allowHistory: boolean, verified: boolean) => (
+    <SessionViewProvider identity="head" pathname="/admin/tutees" verified={verified}>
+      <RenderSelection allowHistory={allowHistory} onSetter={onSetter} />
+    </SessionViewProvider>
+  );
+  const rendered = render(tree(false, false));
+  rendered.rerender(tree(true, false));
+  expect(screen.getByTestId("render-choice").textContent).toBe("history");
+  expect(readViewState(sessionStorage, key)).toBe("current");
+  rendered.rerender(tree(true, true));
+  expect(screen.getByTestId("render-choice").textContent).toBe("history");
+  expect(readViewState(sessionStorage, key)).toBe("history");
 });
