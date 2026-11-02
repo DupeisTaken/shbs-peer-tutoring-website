@@ -3804,7 +3804,8 @@
         "admin_setUserCanTranslate": "更改翻译权限",
         "admin_scheduleRefresh": "预约项目刷新",
         "admin_cancelRefresh": "取消项目刷新预约",
-        "monthlyHours_save": "更改月度服务时数报告计划"
+        "monthlyHours_save": "更改月度服务时数报告计划",
+        "schoolHours_save": "更改学校服务时数报告计划"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认您的账户密码",
@@ -4048,7 +4049,9 @@
         "NotificationPreference": "通知偏好",
         "ScheduledProgramRefresh": "预约项目刷新",
         "MonthlyHoursSchedule": "月度报告计划",
-        "MonthlyHoursReport": "月度服务时数报告"
+        "MonthlyHoursReport": "月度服务时数报告",
+        "SchoolHoursSchedule": "学校报告计划",
+        "SchoolHoursReport": "个人学校服务时数报告"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "公开报名邮箱确认时间",
@@ -4423,7 +4426,23 @@
         "scheduleId": "计划编号",
         "schedule": "月度报告计划",
         "reports": "月度报告",
-        "deliveries": "收件人投递任务"
+        "deliveries": "收件人投递任务",
+        "recipientEmails": "学校收件人邮箱",
+        "includeStatistics": "包含项目统计",
+        "dateOverrides": "各月发送日期调整",
+        "baselineVersion": "已报告余额版本",
+        "openingBaseline": "已审核的起始余额",
+        "openingReviewedAt": "起始余额审核时间",
+        "headReportId": "最新已确认的学校报告",
+        "nextMonth": "下一学校报告月份",
+        "predecessorId": "上一份已发出报告",
+        "supersedesId": "被替代的报告版本",
+        "supersededById": "替代报告版本",
+        "sourceBaseline": "冻结的已报告来源余额",
+        "linkVersion": "报告链接版本",
+        "linkRevokedAt": "报告链接撤销时间",
+        "schoolHoursReportId": "学校报告编号",
+        "schoolHoursReport": "学校报告"
       },
       "enums": {
         "Role": {

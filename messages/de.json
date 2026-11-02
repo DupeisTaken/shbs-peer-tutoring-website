@@ -3804,7 +3804,8 @@
         "admin_setUserCanTranslate": "Übersetzerzugriff ändern",
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
-        "monthlyHours_save": "Zeitplan der monatlichen Dienststundenberichte ändern"
+        "monthlyHours_save": "Zeitplan der monatlichen Dienststundenberichte ändern",
+        "schoolHours_save": "Zeitplan der Schulstundenberichte ändern"
       },
       "decisionRequestHelp": "„Genehmigen und anwenden“ führt die beantragte Aktion aus, auch eine beantragte Ablehnung. „Mit Rückmeldung ablehnen“ lehnt diesen Antrag ohne Änderungen ab. Begründen Sie beide Entscheidungen mit einer Notiz.",
       "confirmPassword": "Passwort Ihres Kontos bestätigen",
@@ -4048,7 +4049,9 @@
         "NotificationPreference": "Benachrichtigungseinstellungen",
         "ScheduledProgramRefresh": "Scheduled program refresh",
         "MonthlyHoursSchedule": "Monatsberichtszeitplan",
-        "MonthlyHoursReport": "Monatlicher Dienststundenbericht"
+        "MonthlyHoursReport": "Monatlicher Dienststundenbericht",
+        "SchoolHoursSchedule": "Zeitplan für Schulberichte",
+        "SchoolHoursReport": "Individueller Schulstundenbericht"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "E-Mail-Bestätigung der öffentlichen Anmeldung",
@@ -4423,7 +4426,23 @@
         "scheduleId": "Zeitplan-ID",
         "schedule": "Monatsberichtszeitplan",
         "reports": "Monatsberichte",
-        "deliveries": "Empfängerzustellungen"
+        "deliveries": "Empfängerzustellungen",
+        "recipientEmails": "E-Mail-Adressen der Schulempfänger",
+        "includeStatistics": "Programmstatistik einschließen",
+        "dateOverrides": "Abweichende monatliche Versandtermine",
+        "baselineVersion": "Version der gemeldeten Salden",
+        "openingBaseline": "Geprüfte Anfangssalden",
+        "openingReviewedAt": "Prüfzeitpunkt der Anfangssalden",
+        "headReportId": "Neuester bestätigter Schulbericht",
+        "nextMonth": "Nächster Schulberichtsmonat",
+        "predecessorId": "Vorheriger ausgegebener Bericht",
+        "supersedesId": "Ersetzte Berichtsversion",
+        "supersededById": "Neue Ersatzversion des Berichts",
+        "sourceBaseline": "Festgehaltene gemeldete Quellsalden",
+        "linkVersion": "Version des Berichtslinks",
+        "linkRevokedAt": "Widerrufszeitpunkt des Berichtslinks",
+        "schoolHoursReportId": "Schulberichts-ID",
+        "schoolHoursReport": "Schulbericht"
       },
       "enums": {
         "Role": {

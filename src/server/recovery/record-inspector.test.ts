@@ -26,6 +26,10 @@ function fixture() {
     programFeature: { findMany: vi.fn().mockResolvedValue([]) },
     recoveryFence: { findMany: vi.fn().mockResolvedValue([]) },
     scheduledProgramRefresh: { findMany: vi.fn().mockResolvedValue([]) },
+    monthlyHoursSchedule: { findMany: vi.fn() },
+    monthlyHoursReport: { findMany: vi.fn() },
+    schoolHoursSchedule: { findMany: vi.fn() },
+    schoolHoursReport: { findMany: vi.fn() },
   };
   return { db, client: db as unknown as DomainDb };
 }
@@ -153,11 +157,39 @@ describe("read-only database inspector", () => {
     "SessionPlanningResponse",
     "SessionNotice",
     "SessionCalendarToken",
+    "MonthlyHoursSchedule",
+    "MonthlyHoursReport",
+    "SchoolHoursSchedule",
+    "SchoolHoursReport",
   ])("refuses row reads for %s even with operator authority", async (table) => {
     const { client } = fixture();
     await expect(
       inspectRecords(client, operator, { table, key: { id: "guessed" } }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+  it("catalogues reporting tables without fetching their private balances, recipients or capabilities", async () => {
+    const { db, client } = fixture();
+    const tables = await listRecordTables(client, web);
+    for (const name of [
+      "MonthlyHoursSchedule",
+      "MonthlyHoursReport",
+      "SchoolHoursSchedule",
+      "SchoolHoursReport",
+    ]) {
+      const table = tables.find((entry) => entry.name === name);
+      expect(table).toMatchObject({ available: false, keyFields: ["id"] });
+      expect(table?.fields.every((field) => !field.readable)).toBe(true);
+      await expect(
+        inspectRecords(client, web, {
+          table: name,
+          key: { id: "private-report" },
+        }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    }
+    expect(db.monthlyHoursSchedule.findMany).not.toHaveBeenCalled();
+    expect(db.monthlyHoursReport.findMany).not.toHaveBeenCalled();
+    expect(db.schoolHoursSchedule.findMany).not.toHaveBeenCalled();
+    expect(db.schoolHoursReport.findMany).not.toHaveBeenCalled();
   });
   it("uses complete compound keys as bound exact filters", async () => {
     const { db, client } = fixture();

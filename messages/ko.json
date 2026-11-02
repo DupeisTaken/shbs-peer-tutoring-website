@@ -3804,7 +3804,8 @@
         "admin_setUserCanTranslate": "번역자 권한 변경",
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
-        "monthlyHours_save": "월간 서비스 시간 보고서 일정 변경"
+        "monthlyHours_save": "월간 서비스 시간 보고서 일정 변경",
+        "schoolHours_save": "학교 봉사시간 보고서 일정 변경"
       },
       "decisionRequestHelp": "'승인 및 적용'은 원래 신청을 거부하는 작업을 포함하여 제안된 작업을 실행합니다. '피드백과 함께 거부'는 이 제안을 거부하고 변경하지 않습니다. 어느 쪽이든 결정 사유를 메모에 작성하세요.",
       "confirmPassword": "계정 비밀번호 확인",
@@ -4048,7 +4049,9 @@
         "NotificationPreference": "알림 환경설정",
         "ScheduledProgramRefresh": "Scheduled program refresh",
         "MonthlyHoursSchedule": "월간 보고서 일정",
-        "MonthlyHoursReport": "월간 서비스 시간 보고서"
+        "MonthlyHoursReport": "월간 서비스 시간 보고서",
+        "SchoolHoursSchedule": "학교 보고 일정",
+        "SchoolHoursReport": "학교 제출용 개인 봉사시간 보고서"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "공개 신청 이메일 확인 시각",
@@ -4423,7 +4426,23 @@
         "scheduleId": "일정 ID",
         "schedule": "월간 보고서 일정",
         "reports": "월간 보고서",
-        "deliveries": "수신자별 전송"
+        "deliveries": "수신자별 전송",
+        "recipientEmails": "학교 수신자 이메일 주소",
+        "includeStatistics": "프로그램 통계 포함",
+        "dateOverrides": "월별 발송 날짜 변경",
+        "baselineVersion": "보고된 잔액 버전",
+        "openingBaseline": "검토된 시작 잔액",
+        "openingReviewedAt": "시작 잔액 검토 시각",
+        "headReportId": "최근 확정된 학교 보고서",
+        "nextMonth": "다음 학교 보고 월",
+        "predecessorId": "이전에 발행된 보고서",
+        "supersedesId": "대체된 보고서 버전",
+        "supersededById": "대체 보고서 버전",
+        "sourceBaseline": "고정된 보고 원본 잔액",
+        "linkVersion": "보고서 링크 버전",
+        "linkRevokedAt": "보고서 링크 취소 시각",
+        "schoolHoursReportId": "학교 보고서 ID",
+        "schoolHoursReport": "학교 보고서"
       },
       "enums": {
         "Role": {

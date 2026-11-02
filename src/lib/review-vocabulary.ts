@@ -95,6 +95,7 @@ const stringDomains = reviewStringDomains as Readonly<
 >;
 const aliases: Readonly<Record<string, string>> = {
   programSettings: "ProgramSettings",
+  schoolHoursSchedule: "SchoolHoursSchedule",
   monthlyHoursSchedule: "MonthlyHoursSchedule",
   programFeature: "ProgramFeature",
   term: "Term",

@@ -938,12 +938,19 @@ Configure and test the real email transport before enabling optional notificatio
 ## Monthly service-hours delivery
 
 Apply the complete migration chain, including
-`20261031010000_individual_school_hours`, and regenerate Prisma before starting
+`20261103020000_hours_recovery_baseline`, and regenerate Prisma before starting
 the updated application. This adds the individual school reporting chain and
 outbox relation, disables the legacy monthly overview schedule and retires its
 unsent receipts. Sent historical evidence remains intact. Node instrumentation
 starts the school generator at boot and once per minute. PostgreSQL retains the
 cursor, individual baselines, snapshots and receipts across restarts.
+
+The reporting recovery migrations preserve compatible existing journal triggers
+and reject disabled or incompatible coverage for operator inspection. They also
+register privacy-safe metadata for preexisting rows connected to unfinished
+recovery actions. This baseline does not rewrite reports or reconstruct historical
+event order; it conservatively prevents automatic compensation of those report
+consequences. Report bodies, recipients and access-link hashes are excluded.
 
 Automation is disabled by default. In **Service Hours → School reports**, review
 each individual's already-reported opening balance and school-account reference,

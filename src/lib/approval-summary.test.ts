@@ -83,6 +83,32 @@ it("authors a semantic summary contract for every allowed approval operation", (
   }
 });
 
+it("compares school recipients and monthly dates with the captured schedule", () => {
+  const model = approvalPresentation(
+    "schoolHours.save",
+    {
+      recipientEmails: ["registrar@example.test"],
+      dateOverrides: { "2026-11": "2026-11-27T12:00" },
+      timeZone: "Asia/Shanghai",
+      expectedVersion: 4,
+    },
+    {
+      schoolHoursSchedule: {
+        id: "program",
+        recipientEmails: ["prior@example.test"],
+        dateOverrides: {},
+        timeZone: "Asia/Shanghai",
+        version: 4,
+      },
+    },
+  );
+  expect(model.summary).toMatchObject({ known: true, operationKey: "schoolHours_save" });
+  expect(model.summary.changes).toEqual([
+    expect.objectContaining({ key: "recipientEmails", before: ["prior@example.test"], requested: ["registrar@example.test"], hasBefore: true }),
+    expect.objectContaining({ key: "dateOverrides", before: {}, requested: { "2026-11": "2026-11-27T12:00" }, hasBefore: true }),
+  ]);
+});
+
 it("summarizes a Translator grant with its captured user and permission change", () => {
   const model = approvalPresentation(
     "admin.setUserCanTranslate",

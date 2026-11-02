@@ -3804,7 +3804,8 @@
         "admin_setUserCanTranslate": "翻訳者権限を変更",
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
-        "monthlyHours_save": "月次サービス時間レポートのスケジュールを変更"
+        "monthlyHours_save": "月次サービス時間レポートのスケジュールを変更",
+        "schoolHours_save": "学校向け奉仕時間報告のスケジュールを変更"
       },
       "decisionRequestHelp": "「承認して適用」は、元の申請を却下する操作も含め、提案された操作を実行します。「フィードバックを付けて却下」は、この提案を却下し、変更を行いません。どちらの場合も判断の理由を備考に記入してください。",
       "confirmPassword": "アカウントのパスワードを確認",
@@ -4048,7 +4049,9 @@
         "NotificationPreference": "通知の設定",
         "ScheduledProgramRefresh": "Scheduled program refresh",
         "MonthlyHoursSchedule": "月次レポートのスケジュール",
-        "MonthlyHoursReport": "月次サービス時間レポート"
+        "MonthlyHoursReport": "月次サービス時間レポート",
+        "SchoolHoursSchedule": "学校向け報告スケジュール",
+        "SchoolHoursReport": "学校向け個人奉仕時間報告"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "公開申込メールの確認日時",
@@ -4423,7 +4426,23 @@
         "scheduleId": "スケジュールID",
         "schedule": "月次レポートのスケジュール",
         "reports": "月次レポート",
-        "deliveries": "宛先別の配信"
+        "deliveries": "宛先別の配信",
+        "recipientEmails": "学校の受信者メールアドレス",
+        "includeStatistics": "プログラム統計を含める",
+        "dateOverrides": "月別の送信日時の変更",
+        "baselineVersion": "報告済み残高のバージョン",
+        "openingBaseline": "確認済み開始残高",
+        "openingReviewedAt": "開始残高の確認日時",
+        "headReportId": "最新の確定済み学校向け報告",
+        "nextMonth": "次の学校向け報告月",
+        "predecessorId": "前回発行した報告",
+        "supersedesId": "置き換えられた報告版",
+        "supersededById": "置き換え後の報告版",
+        "sourceBaseline": "固定した報告済み記録残高",
+        "linkVersion": "報告リンクのバージョン",
+        "linkRevokedAt": "報告リンクの取り消し日時",
+        "schoolHoursReportId": "学校向け報告ID",
+        "schoolHoursReport": "学校向け報告"
       },
       "enums": {
         "Role": {

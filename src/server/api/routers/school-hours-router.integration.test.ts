@@ -358,6 +358,28 @@ it.each(["ADMIN", "HEAD"] as const)(
     ).toBeGreaterThan(0);
   },
 );
+
+it.each(["revokeLink", "reissueLink"] as const)(
+  "refuses %s without the reviewed link version before changing a saved report",
+  async (operation) => {
+    const api = caller("ADMIN").schoolHours;
+    const before = await db.schoolHoursReport.findUniqueOrThrow({
+      where: { id: reportId },
+    });
+    // Exercise an old/raw client payload that omits the now-required guard.
+    const unversioned = { id: reportId } as Parameters<
+      typeof api.revokeLink
+    >[0];
+    await expect(api[operation](unversioned)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(
+      await db.schoolHoursReport.findUniqueOrThrow({
+        where: { id: reportId },
+      }),
+    ).toEqual(before);
+  },
+);
 it("queues Coordinator settings without live writes and lets Admin apply the exact proposal", async () => {
   const before = await db.schoolHoursSchedule.findUniqueOrThrow({
     where: { id: "program" },

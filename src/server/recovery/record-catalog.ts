@@ -125,6 +125,8 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     // the reporting domain owns private balances and capability projections.
     MonthlyHoursSchedule: ["id"],
     MonthlyHoursReport: ["id"],
+    SchoolHoursSchedule: ["id"],
+    SchoolHoursReport: ["id"],
     RequestInvalidityAppeal: ["id"],
     PublicApplicationRateLimit: ["key"],
     AcademicProfile: ["userId"],

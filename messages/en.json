@@ -3804,7 +3804,8 @@
         "admin_setUserCanTranslate": "Change Translator access",
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
-        "monthlyHours_save": "Change monthly service-hours report schedule"
+        "monthlyHours_save": "Change monthly service-hours report schedule",
+        "schoolHours_save": "Change school hours report schedule"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your account password",
@@ -4048,7 +4049,9 @@
         "NotificationPreference": "Notification preferences",
         "ScheduledProgramRefresh": "Scheduled program refresh",
         "MonthlyHoursSchedule": "Monthly report schedule",
-        "MonthlyHoursReport": "Monthly service-hours report"
+        "MonthlyHoursReport": "Monthly service-hours report",
+        "SchoolHoursSchedule": "School report schedule",
+        "SchoolHoursReport": "Individual school-hours report"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Public signup email confirmation",
@@ -4423,7 +4426,23 @@
         "scheduleId": "Schedule ID",
         "schedule": "Monthly report schedule",
         "reports": "Monthly reports",
-        "deliveries": "Recipient deliveries"
+        "deliveries": "Recipient deliveries",
+        "recipientEmails": "School recipient email addresses",
+        "includeStatistics": "Include program statistics",
+        "dateOverrides": "Monthly send-date overrides",
+        "baselineVersion": "Reported-balance version",
+        "openingBaseline": "Reviewed opening balances",
+        "openingReviewedAt": "Opening balances reviewed at",
+        "headReportId": "Latest committed school report",
+        "nextMonth": "Next school-report month",
+        "predecessorId": "Previous issued report",
+        "supersedesId": "Replaced report edition",
+        "supersededById": "Replacement report edition",
+        "sourceBaseline": "Frozen reported-source balances",
+        "linkVersion": "Report link version",
+        "linkRevokedAt": "Report link revoked at",
+        "schoolHoursReportId": "School report ID",
+        "schoolHoursReport": "School report"
       },
       "enums": {
         "Role": {

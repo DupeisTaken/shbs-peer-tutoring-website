@@ -147,12 +147,18 @@ async function actor(tx: TransactionDb, actorId: string) {
   await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actorId} FOR SHARE`;
   const user = await tx.user.findUnique({
     where: { id: actorId },
-    select: { role: true, suspendedAt: true, mergedIntoId: true },
+    select: {
+      role: true,
+      suspendedAt: true,
+      mergedIntoId: true,
+      recoveryVoidedAt: true,
+    },
   });
   if (
     !user ||
     user.suspendedAt ||
     user.mergedIntoId ||
+    user.recoveryVoidedAt ||
     !["ADMIN", "HEAD"].includes(user.role)
   )
     throw new TRPCError({
@@ -1307,7 +1313,7 @@ export async function changeSchoolHoursLink(
   id: string,
   actorId: string,
   reissue: boolean,
-  expectedLinkVersion?: number,
+  expectedLinkVersion: number,
 ) {
   return snapshotTransaction(db, async (tx) => {
     await fence(tx);
@@ -1315,14 +1321,14 @@ export async function changeSchoolHoursLink(
     await lockEntity(tx, schoolHoursLock);
     const report = await tx.schoolHoursReport.findUnique({ where: { id } });
     if (!report) throw new TRPCError({ code: "NOT_FOUND" });
-    if (
-      expectedLinkVersion != null &&
-      expectedLinkVersion !== report.linkVersion
-    )
-      throw conflict();
+    if (expectedLinkVersion !== report.linkVersion) throw conflict();
     if (reissue && report.supersededById)
       throw invalid("A superseded issue cannot receive a new link.");
-    const linkVersion = report.linkVersion + (reissue ? 1 : 0),
+    // Revocation changes the reviewed link state too. Advancing its version
+    // prevents an older reissue confirmation from silently undoing revocation.
+    // A fresh repeat revoke is a no-op and does not consume another version.
+    if (!reissue && report.linkRevokedAt) return { revoked: true as const };
+    const linkVersion = report.linkVersion + 1,
       token = reissue ? issueSchoolHoursToken(id, linkVersion) : null;
     await tx.schoolHoursReport.update({
       where: { id },
@@ -1332,7 +1338,7 @@ export async function changeSchoolHoursLink(
             linkTokenHash: schoolHoursTokenHash(token!),
             linkRevokedAt: null,
           }
-        : { linkRevokedAt: new Date() },
+        : { linkVersion, linkRevokedAt: new Date() },
     });
     await audit(tx, actorId, reissue ? "reissueLink" : "revokeLink", id, {
       linkVersion,

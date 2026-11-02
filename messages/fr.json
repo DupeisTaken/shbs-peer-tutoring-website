@@ -3804,7 +3804,8 @@
         "admin_setUserCanTranslate": "Modifier l’accès à la traduction",
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
-        "monthlyHours_save": "Modifier la planification des rapports mensuels des heures"
+        "monthlyHours_save": "Modifier la planification des rapports mensuels des heures",
+        "schoolHours_save": "Modifier la planification des rapports d’heures pour l’école"
       },
       "decisionRequestHelp": "Approuver et appliquer exécute l’action demandée, y compris un rejet demandé. Rejeter avec un commentaire refuse cette proposition sans rien modifier. Ajoutez une note pour expliquer votre décision.",
       "confirmPassword": "Confirmez le mot de passe de votre compte",
@@ -4048,7 +4049,9 @@
         "NotificationPreference": "Préférences de notification",
         "ScheduledProgramRefresh": "Scheduled program refresh",
         "MonthlyHoursSchedule": "Planification des rapports mensuels",
-        "MonthlyHoursReport": "Rapport mensuel des heures de service"
+        "MonthlyHoursReport": "Rapport mensuel des heures de service",
+        "SchoolHoursSchedule": "Calendrier des rapports scolaires",
+        "SchoolHoursReport": "Rapport individuel des heures pour l’école"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Confirmation de l’e-mail d’inscription publique",
@@ -4423,7 +4426,23 @@
         "scheduleId": "Identifiant de planification",
         "schedule": "Planification des rapports mensuels",
         "reports": "Rapports mensuels",
-        "deliveries": "Livraisons aux destinataires"
+        "deliveries": "Livraisons aux destinataires",
+        "recipientEmails": "Adresses e-mail des destinataires scolaires",
+        "includeStatistics": "Inclure les statistiques du programme",
+        "dateOverrides": "Dates d’envoi mensuelles personnalisées",
+        "baselineVersion": "Version des soldes déclarés",
+        "openingBaseline": "Soldes initiaux vérifiés",
+        "openingReviewedAt": "Date de vérification des soldes initiaux",
+        "headReportId": "Dernier rapport scolaire confirmé",
+        "nextMonth": "Prochain mois de rapport scolaire",
+        "predecessorId": "Rapport émis précédent",
+        "supersedesId": "Édition du rapport remplacée",
+        "supersededById": "Édition de remplacement du rapport",
+        "sourceBaseline": "Soldes sources déclarés et figés",
+        "linkVersion": "Version du lien du rapport",
+        "linkRevokedAt": "Date de révocation du lien du rapport",
+        "schoolHoursReportId": "Identifiant du rapport scolaire",
+        "schoolHoursReport": "Rapport scolaire"
       },
       "enums": {
         "Role": {

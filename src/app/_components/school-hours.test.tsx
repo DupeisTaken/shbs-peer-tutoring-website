@@ -341,7 +341,7 @@ async function openBaseline() {
   const summary = await screen.findByText(
     new RegExp(`${en.schoolHours.baselineTitle} ·`),
   );
-  await openDisclosure(summary.textContent!);
+  await openDisclosure(summary.textContent);
 }
 async function loadPreview(month = "2026-10") {
   fireEvent.change(screen.getByLabelText(en.schoolHours.reportMonth), {
@@ -825,7 +825,7 @@ it.each(["en", "zh"] as const)(
     const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
     render(show(<SchoolHoursPanel />, locale));
     const heading = await screen.findByText(new RegExp(`${copy.title} ·`));
-    await openDisclosure(heading.textContent!);
+    await openDisclosure(heading.textContent);
     const summary = await screen.findByText(
       new RegExp(`${copy.baselineTitle} ·`),
     );
@@ -836,7 +836,7 @@ it.each(["en", "zh"] as const)(
     expect(screen.queryByRole("table", { name: copy.baselineTitle })).toBeNull();
     expect(screen.getByLabelText(copy.recipients)).toBeTruthy();
     expect(screen.getByRole("button", { name: copy.preview })).toBeTruthy();
-    await openDisclosure(summary.textContent!);
+    await openDisclosure(summary.textContent);
     expect(screen.getByRole("table", { name: copy.baselineTitle })).toBeTruthy();
     expect(remote.reviewBaseline).not.toHaveBeenCalled();
   },
@@ -889,7 +889,7 @@ it("retains an opening-review draft when its disclosure is collapsed and reopene
     await Promise.resolve();
   });
   expect(disclosure.open).toBe(false);
-  await openDisclosure(summary.textContent!);
+  await openDisclosure(summary.textContent);
   expect(
     screen.getByLabelText<HTMLTextAreaElement>(en.schoolHours.baselineReason).value,
   ).toBe("Checked original school records");

@@ -3804,7 +3804,8 @@
         "admin_setUserCanTranslate": "Αλλαγή πρόσβασης μεταφραστή",
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
-        "monthlyHours_save": "Αλλαγή προγράμματος μηνιαίων αναφορών ωρών"
+        "monthlyHours_save": "Αλλαγή προγράμματος μηνιαίων αναφορών ωρών",
+        "schoolHours_save": "Αλλαγή προγράμματος αναφορών ωρών προς το σχολείο"
       },
       "decisionRequestHelp": "Η «Έγκριση και εφαρμογή» εκτελεί την αιτούμενη ενέργεια, ακόμη και αν αυτή είναι απόρριψη. Η «Απόρριψη με σχόλια» απορρίπτει την πρόταση χωρίς αλλαγές. Προσθέστε σημείωση που εξηγεί την απόφασή σας.",
       "confirmPassword": "Επιβεβαιώστε τον κωδικό πρόσβασης του λογαριασμού σας",
@@ -4048,7 +4049,9 @@
         "NotificationPreference": "Προτιμήσεις ειδοποιήσεων",
         "ScheduledProgramRefresh": "Scheduled program refresh",
         "MonthlyHoursSchedule": "Πρόγραμμα μηνιαίων αναφορών",
-        "MonthlyHoursReport": "Μηνιαία αναφορά ωρών υπηρεσίας"
+        "MonthlyHoursReport": "Μηνιαία αναφορά ωρών υπηρεσίας",
+        "SchoolHoursSchedule": "Πρόγραμμα αναφορών σχολείου",
+        "SchoolHoursReport": "Ατομική αναφορά ωρών προς το σχολείο"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Επιβεβαίωση email δημόσιας εγγραφής",
@@ -4423,7 +4426,23 @@
         "scheduleId": "Αναγνωριστικό προγράμματος",
         "schedule": "Πρόγραμμα μηνιαίων αναφορών",
         "reports": "Μηνιαίες αναφορές",
-        "deliveries": "Παραδόσεις παραληπτών"
+        "deliveries": "Παραδόσεις παραληπτών",
+        "recipientEmails": "Διευθύνσεις email παραληπτών σχολείου",
+        "includeStatistics": "Συμπερίληψη στατιστικών προγράμματος",
+        "dateOverrides": "Ειδικές μηνιαίες ημερομηνίες αποστολής",
+        "baselineVersion": "Έκδοση δηλωμένων υπολοίπων",
+        "openingBaseline": "Ελεγμένα αρχικά υπόλοιπα",
+        "openingReviewedAt": "Χρόνος ελέγχου αρχικών υπολοίπων",
+        "headReportId": "Τελευταία οριστικοποιημένη αναφορά σχολείου",
+        "nextMonth": "Επόμενος μήνας αναφοράς σχολείου",
+        "predecessorId": "Προηγούμενη εκδοθείσα αναφορά",
+        "supersedesId": "Έκδοση αναφοράς που αντικαταστάθηκε",
+        "supersededById": "Έκδοση αναφοράς αντικατάστασης",
+        "sourceBaseline": "Παγιωμένα δηλωμένα υπόλοιπα πηγών",
+        "linkVersion": "Έκδοση συνδέσμου αναφοράς",
+        "linkRevokedAt": "Χρόνος ανάκλησης συνδέσμου αναφοράς",
+        "schoolHoursReportId": "Αναγνωριστικό αναφοράς σχολείου",
+        "schoolHoursReport": "Αναφορά σχολείου"
       },
       "enums": {
         "Role": {
