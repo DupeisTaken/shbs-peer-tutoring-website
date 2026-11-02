@@ -145,6 +145,79 @@ async function pairing(
 }
 
 describe("fresh initial-publication validation snapshot", () => {
+  it("narrows recurring facts at normalized 45-minute boundaries with live-reader parity", async () => {
+    await withFixture(async (tx, f) => {
+      const weekday = new Date(`${f.input.date}T00:00:00Z`).getUTCDay() || 7;
+      await tx.schoolCalendarDay.create({
+        data: {
+          date: f.input.date,
+          isSchoolDay: true,
+          timetableWeekday: weekday,
+        },
+      });
+      for (const offset of [-90, -45, -44, 0, 44, 45, 90]) {
+        const row = await pairing(tx, f, `boundary-${offset}`, weekday);
+        await tx.pairing.update({
+          where: { id: row.id },
+          // Publication normalizes lessons to 45 minutes, regardless of the
+          // recurring source's old duration. Do not filter on its endMin.
+          data: { startMin: f.input.startMin + offset, endMin: 600 },
+        });
+        await tx.sessionPlanAssignment.create({
+          data: {
+            planId: f.planId,
+            pairingId: row.id,
+            subject: row.subject,
+            tuteeIds: [f.tuteeIds[1]!],
+          },
+        });
+      }
+      const expected = (
+        await tx.pairing.findMany({
+          where: {
+            termId: f.input.termId,
+            scheduleConfirmed: true,
+            dayOfWeek: weekday,
+            startMin: { lt: f.input.endMin },
+          },
+          select: {
+            id: true,
+            tutorId: true,
+            roomId: true,
+            startMin: true,
+            dayOfWeek: true,
+            tutees: { select: { tuteeId: true } },
+          },
+        })
+      ).filter((row) => row.startMin + 45 > f.input.startMin);
+      expect(expected.map((row) => row.startMin).sort((a, b) => a - b)).toEqual(
+        [406, 450, 494],
+      );
+      for (const weekdayHint of [undefined, weekday, weekday === 1 ? 2 : 1]) {
+        const snapshot = await readPublicationValidationSnapshot(tx, {
+          ...f.input,
+          weekdayHint,
+        });
+        expect(ordered(snapshot.recurring)).toEqual(ordered(expected));
+        expect(snapshot.materialized).toEqual(
+          new Set(expected.map((row) => row.id)),
+        );
+        expect(snapshot.keys).toEqual(
+          await participantKeys(
+            tx,
+            [f.input.tutorId, ...expected.map((row) => row.tutorId)],
+            [
+              ...f.input.participantIds,
+              ...expected.flatMap((row) =>
+                row.tutees.map((person) => person.tuteeId),
+              ),
+            ],
+          ),
+        );
+      }
+    });
+  });
+
   it("matches live cohort/current-offer readers at strict UTC boundaries and observes preceding writes", async () => {
     await withFixture(async (tx, f) => {
       const occupied = await cohort(tx, f, "occupied");
