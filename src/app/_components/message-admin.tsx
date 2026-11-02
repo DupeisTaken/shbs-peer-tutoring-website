@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -82,10 +82,6 @@ function Supervision() {
   const page = privateQuery ? privatePage : rememberedPage;
   const setPage = (value: number | ((previous: number) => number)) =>
     privateQuery ? setPrivatePage(value) : setRememberedPage(value);
-  useEffect(
-    () => setPrivatePage(0),
-    [search, conversation?.first, conversation?.second],
-  );
   const rows = api.messaging.supervision.useQuery({
     search,
     page,
@@ -95,7 +91,9 @@ function Supervision() {
       : undefined,
   });
   const denied = useSessionAccessDenied(rows);
-  useEffect(() => setAccessDenied(denied), [denied]);
+  // Reconcile before committing children: revoked access also clears remembered
+  // navigation, while the query's denial latch survives transient read failures.
+  if (accessDenied !== denied) setAccessDenied(denied);
   useSessionPageScroll({
     id: "message-supervision",
     scope: JSON.stringify([page, visibility]),
@@ -127,6 +125,7 @@ function Supervision() {
             maxLength={100}
             onChange={(e) => {
               setSearch(e.target.value);
+              setPrivatePage(0);
               setPage(0);
               review.reset();
             }}
@@ -162,6 +161,7 @@ function Supervision() {
             className="btn-secondary btn-sm"
             onClick={() => {
               setConversation(undefined);
+              setPrivatePage(0);
               setPage(0);
               review.reset();
             }}
@@ -230,6 +230,7 @@ function Supervision() {
                 second: row.recipientId,
                 label: `${row.sender?.name ?? row.senderId} ↔ ${row.recipient?.name ?? row.recipientId}`,
               });
+              setPrivatePage(0);
               setPage(0);
               setSearch("");
               review.reset();

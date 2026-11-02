@@ -15,7 +15,9 @@ export function StudentPolicyGate() {
   const path = usePathname();
   const search = useSearchParams().toString();
   const focusVersion = useIdentityFocus();
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<
+    { policy: string; focusVersion: number; gateVisit: number } | null
+  >(null);
   // Credential setup and recovery must stay usable before policy participation.
   const skipPolicyGate = [
     // A privacy notice must stay readable even when participation consent is due.
@@ -56,13 +58,11 @@ export function StudentPolicyGate() {
     },
   );
   const { refetch } = status;
-  useEffect(() => {
-    if (skipPolicyGate) {
-      setDismissed(null);
-      return;
-    }
-    setDismissed(null);
-  }, [focusVersion, skipPolicyGate]);
+  // Dismissal belongs to this focus/participation visit, not just the policy.
+  // A visit to a bypass route ends it without resetting an active review on focus.
+  const [gateVisit, setGateVisit] = useState({ skipped: skipPolicyGate, version: 0 });
+  if (gateVisit.skipped !== skipPolicyGate)
+    setGateVisit({ skipped: skipPolicyGate, version: gateVisit.version + 1 });
   // Path/focus refreshes belong to the identity provider. Only query-only tabs
   // need a local refresh; mounting/enabling this query already fetches once.
   const previousVisit = useRef({ path, search });
@@ -102,7 +102,10 @@ export function StudentPolicyGate() {
   const policy = status.data?.state === "review" ? status.data : null;
   if (
     status.error ||
-    (policy && dismissed === `${policy.slug}:${policy.revision}`)
+    (policy &&
+      dismissed?.policy === `${policy.slug}:${policy.revision}` &&
+      dismissed.focusVersion === focusVersion &&
+      dismissed.gateVisit === gateVisit.version)
   )
     return (
       <aside
@@ -127,7 +130,13 @@ export function StudentPolicyGate() {
     <PolicyPrompt
       key={`${policy.slug}:${policy.revision}`}
       policy={policy}
-      onDismiss={() => setDismissed(`${policy.slug}:${policy.revision}`)}
+      onDismiss={() =>
+        setDismissed({
+          policy: `${policy.slug}:${policy.revision}`,
+          focusVersion,
+          gateVisit: gateVisit.version,
+        })
+      }
     />
   ) : null;
 }
