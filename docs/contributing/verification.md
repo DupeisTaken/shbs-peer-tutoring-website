@@ -51,6 +51,12 @@ before adding more runners. The matrix size supplies Vitest's shard denominator;
 keep the matrix contiguous from 1 and preserve serial files within each runner.
 Local `npm test` still runs the complete suite serially.
 
+When reviewing React or translation diagnostics, keep Vitest's visible default
+reporter enabled. A JSON-only report establishes test results, not the absence of
+console diagnostics. Use `--reporter=default --reporter=json --outputFile=<path>`
+to retain both visible output and machine-readable results; inspect the output
+before claiming a run was free of warnings.
+
 The current sizing evidence is [run 41489477923](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41489477923)
 at `9b30d7347bcd2e4639405142681533719730dd90`: seven shards passed, but shard 8
 was cancelled before completing and shard 3 took 534 seconds for its whole job.

@@ -218,7 +218,7 @@ it("loads diagnostics with bounded foreground polling and no automatic retry sto
 
 it.each([false, true])(
   "initial diagnostic failure is unknown and recoverable (Chinese=%s)",
-  (chinese) => {
+  async (chinese) => {
     mock.status = undefined;
     mock.statusError = new Error("private transport detail");
     render(content(chinese));
@@ -230,6 +230,14 @@ it.each([false, true])(
       screen.getByRole("button", { name: messages.refreshStatus }),
     );
     expect(mock.refetch).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: messages.refreshStatus,
+        }).disabled,
+      ).toBe(false),
+    );
+    expect(screen.getByRole("alert").textContent).toBe(messages.statusFailed);
   },
 );
 
@@ -262,26 +270,42 @@ it("keeps cached results and unrelated drafts visible during failure, then recov
 
 it("admits one refresh before React disables its button", async () => {
   let resolve!: (value: object) => void;
-  mock.refetch.mockReturnValue(
-    new Promise((done) => {
+  let pendingRead!: Promise<object>;
+  mock.refetch.mockImplementation(() => {
+    pendingRead = new Promise((done) => {
       resolve = done;
-    }),
-  );
+    });
+    return pendingRead;
+  });
   render(content());
-  const button = screen.getByRole("button", {
+  const button = screen.getByRole<HTMLButtonElement>("button", {
     name: en.programEmail.refreshStatus,
   });
-  fireEvent.click(button);
-  fireEvent.click(button);
+  act(() => {
+    // Both native clicks arrive before React commits the disabled button.
+    button.click();
+    expect(button.disabled).toBe(false);
+    button.click();
+  });
   expect(mock.refetch).toHaveBeenCalledOnce();
+  expect(button.disabled).toBe(true);
   await act(async () => {
     resolve({ isSuccess: true, data: mock.status });
+    await pendingRead;
   });
+  expect(button.disabled).toBe(false);
   fireEvent.click(button);
   expect(mock.refetch).toHaveBeenCalledTimes(2);
+  expect(button.disabled).toBe(true);
+  await act(async () => {
+    resolve({ isSuccess: true, data: mock.status });
+    await pendingRead;
+  });
+  expect(button.disabled).toBe(false);
+  expect(button.textContent).toBe(en.programEmail.refreshStatus);
 });
 
-it("leaves a coordinator's diagnostic reads available without exposing setting writes", () => {
+it("leaves a coordinator's diagnostic reads available without exposing setting writes", async () => {
   mock.settings!.canEdit = false;
   render(content());
   expect(screen.queryByRole("checkbox")).toBeNull();
@@ -289,6 +313,13 @@ it("leaves a coordinator's diagnostic reads available without exposing setting w
     screen.getByRole("button", { name: en.programEmail.refreshStatus }),
   );
   expect(mock.refetch).toHaveBeenCalledOnce();
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.programEmail.refreshStatus,
+      }).disabled,
+    ).toBe(false),
+  );
   expect(mock.mutate).not.toHaveBeenCalled();
   expect(mock.binding).not.toHaveBeenCalled();
 });

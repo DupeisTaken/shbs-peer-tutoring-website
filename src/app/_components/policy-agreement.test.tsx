@@ -3,9 +3,11 @@ import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import en from "../../../messages/en.json";
 import { PolicyAgreement } from "./policy-agreement";
 
 const messages = {
+  signupFields: { required: en.signupFields.required },
   agreement: "I agree to the <policy>{appTitle} Policy</policy>.",
   public: {
     policy: {

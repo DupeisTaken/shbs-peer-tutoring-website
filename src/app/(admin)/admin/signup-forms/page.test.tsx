@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -71,7 +72,7 @@ it("lets keyboard users inspect signup tabs before activating another form", () 
   wrap(<SignupFormsPage />);
   const student = screen.getByRole("tab", { name: "Tutee signup" });
   const tutor = screen.getByRole("tab", { name: "Tutor signup" });
-  student.focus();
+  act(() => student.focus());
   fireEvent.keyDown(student, { key: "ArrowRight" });
   expect(document.activeElement).toBe(tutor);
   expect(student.getAttribute("aria-selected")).toBe("true");
