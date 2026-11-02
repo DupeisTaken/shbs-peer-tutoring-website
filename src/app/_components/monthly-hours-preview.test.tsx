@@ -208,7 +208,7 @@ it.each(["en", "zh"] as const)(
     expect(within(screen.getByRole("table")).getByText("-0.0167")).toBeTruthy();
     expect(view.container.querySelector("img")).toBeNull();
     const reportTab = screen.getByRole("tab", { name: copy.adminReportTab });
-    reportTab.focus();
+    act(() => reportTab.focus());
     fireEvent.keyDown(reportTab, { key: "ArrowRight" });
     const htmlTab = screen.getByRole("tab", { name: copy.emailHtmlTab });
     expect(document.activeElement).toBe(htmlTab);
@@ -375,5 +375,70 @@ it("clears every preview representation on denial and cannot revive a late respo
   );
   await waitFor(() => expect(remote.settings).toHaveBeenCalledTimes(3));
   expect(screen.queryByRole("tab")).toBeNull();
+  expect(remote.write).not.toHaveBeenCalled();
+});
+
+
+it("retains the selected month across settings refetch and requires a new preview after denial recovery", async () => {
+  render(show());
+  await openPreview();
+  await loadPreview("2026-07");
+  remote.settings.mockResolvedValue({
+    ...settings,
+    config: { ...settings.config, timeZone: "Pacific/Kiritimati" },
+  });
+  await act(async () => {
+    await client.refetchQueries({ queryKey: [["monthlyHours", "settings"]] });
+  });
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.monthlyHours.reportMonth).value,
+  ).toBe("2026-07");
+  remote.settings.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  await act(async () => {
+    await client.refetchQueries({ queryKey: [["monthlyHours", "settings"]] });
+  });
+  await screen.findByText(en.monthlyHours.denied);
+  remote.settings.mockResolvedValue(settings);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.retryRead }),
+  );
+  const picker = await screen.findByLabelText<HTMLInputElement>(
+    en.monthlyHours.reportMonth,
+  );
+  expect(picker.value).toBe("2026-07");
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(remote.preview).toHaveBeenCalledTimes(1);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.preview }),
+  );
+  await screen.findByRole("table");
+  expect(remote.preview).toHaveBeenCalledTimes(2);
+});
+
+
+it("recovers a preview-origin denial through settings Retry without reviving its cached snapshot", async () => {
+  render(show());
+  await openPreview();
+  await loadPreview();
+  remote.preview.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.preview }),
+  );
+  await screen.findByText(en.monthlyHours.denied);
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(remote.settings).toHaveBeenCalledTimes(1);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.retryRead }),
+  );
+  await screen.findByLabelText(en.monthlyHours.reportMonth);
+  expect(remote.settings).toHaveBeenCalledTimes(2);
+  expect(remote.preview).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(screen.queryByRole("tab")).toBeNull();
+  remote.preview.mockImplementation((input: { month: string }) =>
+    Promise.resolve(sample(input.month)),
+  );
+  await loadPreview();
+  expect(remote.preview).toHaveBeenCalledTimes(3);
   expect(remote.write).not.toHaveBeenCalled();
 });

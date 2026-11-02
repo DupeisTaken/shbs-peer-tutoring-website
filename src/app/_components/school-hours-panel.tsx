@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { getQueryKey } from "@trpc/react-query";
 import { useQueryClient } from "@tanstack/react-query";
@@ -88,36 +88,50 @@ function SchoolHoursController() {
     schoolHoursDenied,
   );
   const hidden = denied || accessDenied;
+  const readGeneration = useRef(0);
+  // A retry cannot restore access after a newer denial from another read.
+  useLayoutEffect(() => {
+    if (accessDenied) readGeneration.current += 1;
+  }, [accessDenied, settings.error, baseline.error, preview.error]);
+  useLayoutEffect(
+    () => () => {
+      readGeneration.current += 1;
+    },
+    [],
+  );
+  // A denied read ends the private draft session, including a requested preview.
+  if (accessDenied && !denied) {
+    setDenied(true);
+    setDraft(null);
+    setRequested("");
+    setReason("");
+  }
+  const { revoke } = review;
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
-      setDraft(null);
-      setRequested("");
-      setReason("");
-      review.revoke();
+    if (hidden) {
+      revoke();
       client.removeQueries({ queryKey: getQueryKey(api.schoolHours) });
-    } else if (settings.isSuccess && !settings.isFetching) setDenied(false);
-  }, [
-    accessDenied,
-    settings.isSuccess,
-    settings.isFetching,
-    client,
-    review.revoke,
-  ]);
-  useEffect(() => {
-    if (!hidden && settings.data) {
-      if (!draft) setDraft(draftFrom(settings.data.config));
-      if (!initialized) {
-        const current = programDateKey(
-          new Date(),
-          settings.data.config.timeZone,
-        ).slice(0, 7);
-        setMonth(current);
-        setOverrideMonth(current);
-        setInitialized(true);
-      }
     }
-  }, [hidden, settings.data, draft, initialized]);
+  }, [hidden, client, revoke]);
+  // Keep the adopted version and month stable across background settings reads.
+  if (!hidden && settings.data) {
+    if (!draft) setDraft(draftFrom(settings.data.config));
+    if (!initialized) {
+      const current = programDateKey(
+        new Date(),
+        settings.data.config.timeZone,
+      ).slice(0, 7);
+      setMonth(current);
+      setOverrideMonth(current);
+      setInitialized(true);
+    }
+  }
+  const retryRead = async () => {
+    const started = readGeneration.current;
+    const result = await settings.refetch();
+    if (started === readGeneration.current && result.isSuccess && result.data)
+      setDenied(false);
+  };
   const data = hidden ? undefined : settings.data;
   const dirty =
     !!draft &&
@@ -154,11 +168,18 @@ function SchoolHoursController() {
     return result.data;
   }
   async function refresh(acceptConfig = false) {
+    const started = readGeneration.current;
     const [fresh, basis] = await Promise.all([
       settings.refetch(),
       baseline.refetch(),
     ]);
-    if (!fresh.isSuccess || !fresh.data || !basis.isSuccess || !basis.data)
+    if (
+      started !== readGeneration.current ||
+      !fresh.isSuccess ||
+      !fresh.data ||
+      !basis.isSuccess ||
+      !basis.data
+    )
       throw new Error("School hours refresh failed");
     if (acceptConfig) setDraft(draftFrom(fresh.data.config));
     setRequested("");
@@ -267,7 +288,7 @@ function SchoolHoursController() {
           action={
             <Button
               disabled={settings.isFetching}
-              onClick={() => void settings.refetch()}
+              onClick={() => void retryRead()}
             >
               {t("retryRead")}
             </Button>
@@ -283,7 +304,7 @@ function SchoolHoursController() {
             loadingTitle={t("loading")}
             errorTitle={t(data ? "refreshFailed" : "loadFailed")}
             retryLabel={t("retryRead")}
-            onRetry={() => void settings.refetch()}
+            onRetry={() => void retryRead()}
           />
           {data && draft && (
             <div className="space-y-6">
@@ -624,7 +645,7 @@ function SchoolHoursController() {
                   <Button
                     size="compact"
                     disabled={settings.isFetching || review.busy}
-                    onClick={() => void settings.refetch()}
+                    onClick={() => void retryRead()}
                   >
                     {t("refreshStatus")}
                   </Button>

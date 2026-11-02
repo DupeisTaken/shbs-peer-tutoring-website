@@ -374,13 +374,17 @@ it("recovers school-calendar reads independently while retaining the tutee's wee
       {
         id: "calendar-pairing",
         subject: "Calendar mathematics",
-        tutor: { englishName: "Synthetic Tutor" },
+        tutor: { englishName: "Synthetic Tutor", user: null },
+        timeSlotId: null,
+        groupId: null,
         scheduleConfirmed: true,
+        roomMode: "LEGACY",
+        roomNeedsAssignment: false,
         dayOfWeek: 1,
         startMin: 930,
         endMin: 990,
         room: null,
-      },
+      } satisfies RouterOutputs["student"]["me"]["schedule"][number],
     ],
   });
   mount(<StudentPortal view="schedule" />);
