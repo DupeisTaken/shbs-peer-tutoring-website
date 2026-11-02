@@ -28,7 +28,6 @@ const mocks = vi.hoisted(() => ({
   scheduleConfirmed: true,
 }));
 vi.mock("~/trpc/react", async () => {
-  const empty = { useQuery: () => ({ data: [] }) };
   return {
     api: {
       account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
@@ -778,7 +777,7 @@ it("uses manually activated tabs for views and pressed choices for record filter
   mount();
   const tutees = screen.getByRole("tab", { name: en.admin.tutees.viewTutees });
   const tutors = screen.getByRole("tab", { name: en.admin.tutees.viewTutors });
-  tutees.focus();
+  act(() => tutees.focus());
   fireEvent.keyDown(tutees, { key: "ArrowRight" });
   expect(document.activeElement).toBe(tutors);
   expect(tutees.getAttribute("aria-selected")).toBe("true");
