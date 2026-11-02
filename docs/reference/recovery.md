@@ -165,6 +165,11 @@ Database identity contains host, port, database name and username, never its
 password. Redirecting URL options are rejected. Plans do not authorize writes to
 another configured database, even if action IDs happen to match.
 
+For IPv6 endpoints, the CLI derives an unbracketed host only in the node-postgres
+connection URL after validating the caller's URL. This handles the driver's
+connection-string precedence without changing the original plan identity,
+credentials or SSL options. Caller-supplied redirect parameters remain rejected.
+
 Record inspection uses the shared model-specific safe field policies. Operator
 authority does not remove masking. Safe AuditLog and Recovery* identifiers allow
 chronology/relationship investigation; JSON snapshots, private evidence and
@@ -190,8 +195,11 @@ verify a separate isolated instance and safe role memberships.
 The external intent directory acts as a durable replay lock. Before creating a
 target the service saves the current source database as a custom-format dump
 outside either database. Subprocesses receive fixed argv arrays with `shell:false`
-and an explicit PostgreSQL environment. Credentials use environment variables;
-stdout is streamed with a size bound, stderr is consumed without printing, and a
+and an explicit PostgreSQL environment. Credentials use environment variables.
+IPv6 hosts keep their URI brackets in reviewed plan identities, while PostgreSQL
+tool environment values use the unbracketed address. This conversion does not
+change the separate-port isolation check or the saved plan hash.
+Stdout is streamed with a size bound, stderr is consumed without printing, and a
 ten-minute deadline terminates only that child tool. Errors use stable codes.
 The operator supplies compatible PostgreSQL tools; the web runtime does not
 contain them by default.

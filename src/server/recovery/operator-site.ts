@@ -107,7 +107,8 @@ function credentials(urlText: string, database?: string): NodeJS.ProcessEnv {
     PATH: process.env.PATH,
     SystemRoot: process.env.SystemRoot,
     TEMP: process.env.TEMP,
-    PGHOST: identity.host,
+    // URI brackets belong to the saved identity, not libpq's host parameter.
+    PGHOST: identity.host.replace(/^\[(.*)\]$/, "$1"),
     PGPORT: identity.port,
     PGUSER: identity.user,
     PGPASSWORD: decodeURIComponent(url.password),
