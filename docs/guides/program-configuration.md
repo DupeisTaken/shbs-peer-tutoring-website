@@ -366,6 +366,8 @@ For a new destination reached by Q1 → Q2 or Q3 → Q4 in quarter mode, refresh
 also records the source period for optional tutee continuation. It does not enroll
 anyone automatically: tutees explicitly select and sign for their previous
 pairings during the [continuation opening window](#continuation-opening-window).
+Immediate and scheduled refreshes use the same continuation provenance and first-opening
+rules; a delayed scheduled refresh cannot backdate the first effective opening.
 Q3 → Q4 graduation still applies; a graduated tutor cannot receive an automatic
 continuation assignment, and the accepted tutee request waits for staff assignment.
 ### Schedule a refresh

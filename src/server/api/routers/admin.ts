@@ -2064,3 +2064,4612 @@ export const adminRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => scheduleProgramRefresh(ctx.db, input, ctx.session.user)),
   cancelRefresh: adminOnlyProcedure.input(cancelRefreshInput)
     .mutation(({ ctx, input }) => cancelProgramRefresh(ctx.db, input, ctx.session.user)),
+
+  // --------------------------------------------------------------------------
+  // Tutor / Tutee / Room management
+  // --------------------------------------------------------------------------
+  // Deliberate, auditable batches; verified students never acquire handles merely by reading a page.
+  backfillStudentUsernames: adminOnlyProcedure
+    .input(z.object({ userIds: z.array(cuid).min(1).max(100) }))
+    .mutation(({ ctx, input }) =>
+      backfillStudentUsernames(ctx.db, ctx.session.user.id, input.userIds),
+    ),
+
+  createTutor: adminProcedure
+    .input(
+      z.object({
+        ...optionalPersonNameFields,
+        firstName: optionalPersonNameFields.firstName.unwrap(),
+        lastName: optionalPersonNameFields.lastName.unwrap(),
+        // Optional name in another language; Unicode is preserved.
+        alternativeNames: z.string().trim().max(200).optional(),
+        email: z.string().email().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
+        status: z.enum(TUTOR_STATUS).default("ACTIVE"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Graduated cannot have a current grade.",
+        });
+      const tutor = await inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        const configured = await configuredNewNames(tx, input, "TUTOR", true);
+        input = {
+          ...input,
+          ...configured,
+          preferredName: configured.preferredName ?? undefined,
+          alternativeNames: configured.alternativeNames ?? undefined,
+        };
+        await assertPrimaryName(tx, `${input.firstName} ${input.lastName}`);
+
+        await assertOfferedGrade(tx, input.gradeLevel);
+        await lockUsernameNamespace(tx);
+        const username = await ensureUniqueUsername(
+          defaultUsername(input.firstName, input.lastName),
+          {},
+          tx,
+        );
+        return await tx.tutor.create({
+          data: {
+            // Standalone roster identity has no login or ownership grant.
+            personId: (await tx.person.create({ data: {} })).id,
+            preferredName: input.preferredName,
+            nameFieldsConfirmed: true,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            englishName: `${input.firstName} ${input.lastName}`,
+            alternativeNames: input.alternativeNames?.trim()
+              ? input.alternativeNames.trim()
+              : null,
+            username,
+            status: input.status,
+            gradeLevel: input.gradeLevel ?? null,
+            academicallyGraduated: input.academicallyGraduated ?? false,
+            email: input.email?.trim()
+              ? input.email.trim().toLowerCase()
+              : null,
+          },
+        });
+      });
+      // Manually-added tutors have no login yet — remind the team to send a setup link.
+      await notifyAdmins(
+        {
+          ...notificationInAppEvent("tutor_setup_needed", undefined, {
+            en: `Tutor ${tutor.englishName} was added and needs an account setup link.`,
+            zh: `辅导伙伴 ${tutor.englishName} 已添加，需要发送账户设置链接。`,
+          }),
+          title: "New tutor needs an account",
+          body: `${tutor.englishName} was added — send them a setup link.`,
+          link: "/admin/users",
+        },
+        { exclude: ctx.session.user.id },
+      );
+      return tutor;
+    }),
+
+  updateTutor: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        expectedUpdatedAt: expectedUpdatedAt.optional(),
+        ...optionalPersonNameFields,
+        alternativeNames: z.string().trim().max(200).nullable().optional(),
+        // Admin/Head can correct an unlinked handle; linked logins use the account editor.
+        username: z.string().trim().optional(),
+        email: z.string().email().nullable().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
+        status: z.enum(TUTOR_STATUS),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Graduated cannot have a current grade.",
+        });
+      const account = await ctx.db.user.findUnique({
+        where: { tutorId: input.id },
+        select: { id: true, email: true },
+      });
+      if (
+        account &&
+        input.email !== undefined &&
+        input.email?.trim().toLowerCase() !== account.email
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Change a linked account email through verified account settings.",
+        });
+      }
+      const roster = await ctx.db.tutor.findUniqueOrThrow({
+        where: { id: input.id },
+      });
+      if (
+        account &&
+        input.gradeLevel !== undefined &&
+        input.gradeLevel !== roster.gradeLevel
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "ACADEMIC_SHARED_EDITOR_REQUIRED",
+        });
+      if (
+        account &&
+        input.academicallyGraduated !== undefined &&
+        input.academicallyGraduated !== roster.academicallyGraduated
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "ACADEMIC_SHARED_EDITOR_REQUIRED",
+        });
+      if (
+        account &&
+        input.username !== undefined &&
+        input.username.trim().toLowerCase() !== (roster.username ?? "")
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Edit login usernames through Users & Roles as Admin or Head.",
+        });
+      const prev = await ctx.db.tutor.findUnique({
+        where: { id: input.id },
+        select: { status: true },
+      });
+      const updated = await inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        if (account) await lockAccountProfile(tx, account.id);
+        await lockEntity(tx, `tutor:${input.id}`);
+        const before = await tx.tutor.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        // Setup and profile edits share the namespace lock. Recheck linkage before
+        // writing so a concurrently created login cannot bypass verified email changes.
+        const linkedNow = await tx.user.findUnique({
+          where: { tutorId: input.id },
+          select: { id: true },
+        });
+        if ((linkedNow?.id ?? null) !== (account?.id ?? null)) staleConflict();
+        let username = before.username;
+        if (
+          input.username !== undefined &&
+          input.username.trim().toLowerCase() !== (before.username ?? "")
+        ) {
+          if (account || !["HEAD", "ADMIN"].includes(ctx.session.role))
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Only Admin or Head may edit an unlinked tutor username.",
+            });
+          const parsed = accountUsernameSchema.safeParse(input.username);
+          if (!parsed.success)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Use 1–64 letters or numbers for the username.",
+            });
+          username = parsed.data;
+          const [userClash, tutorClash] = await Promise.all([
+            tx.user.findFirst({
+              where: { username: { equals: username, mode: "insensitive" } },
+            }),
+            tx.tutor.findFirst({
+              where: {
+                username: { equals: username, mode: "insensitive" },
+                id: { not: input.id },
+              },
+            }),
+          ]);
+          if (userClash || tutorClash)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "That username is already taken.",
+            });
+        }
+        const email = input.email?.trim().toLowerCase();
+        if (!account && email && email !== before.email?.toLowerCase()) {
+          const [userClash, tutorClash, secondaryClash] = await Promise.all([
+            tx.user.findFirst({
+              where: { email: { equals: email, mode: "insensitive" } },
+            }),
+            tx.tutor.findFirst({
+              where: {
+                email: { equals: email, mode: "insensitive" },
+                id: { not: input.id },
+              },
+            }),
+            tx.accountEmail.findFirst({
+              where: {
+                email: { equals: email, mode: "insensitive" },
+                verifiedAt: { not: null },
+              },
+            }),
+          ]);
+          if (userClash || tutorClash || secondaryClash)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "That email is already in use.",
+            });
+        }
+        if (
+          (input.academicallyGraduated ?? before.academicallyGraduated) &&
+          (input.gradeLevel === undefined
+            ? before.gradeLevel
+            : input.gradeLevel) != null
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Graduated cannot have a current grade.",
+          });
+        // Omitted Latin fields preserve the locked legacy identity. Any explicit
+        // edit is validated as a complete name, including partial API updates.
+        const explicitNames =
+          input.firstName !== undefined ||
+          input.lastName !== undefined ||
+          input.preferredName !== undefined
+            ? await configuredProfileNames(
+                tx,
+                {
+                  ...before,
+                  ...input,
+                  firstName: input.firstName ?? before.firstName ?? "",
+                  lastName: input.lastName ?? before.lastName ?? "",
+                },
+                before,
+                account
+                  ? (
+                      await tx.user.findUniqueOrThrow({
+                        where: { id: account.id },
+                        select: { role: true },
+                      })
+                    ).role
+                  : "TUTOR",
+                true,
+              )
+            : null;
+        // Native editors may post unchanged blank fields for an unsplit legacy
+        // record. Validation still applies, but those blanks must not convert
+        // original SQL nulls into a newly confirmed empty structured identity.
+        const latinNameChanged =
+          !!explicitNames &&
+          (["firstName", "lastName", "preferredName"] as const).some(
+            (key) =>
+              (explicitNames[key]?.trim() ?? "") !==
+              (before[key]?.trim() ?? ""),
+          );
+
+        const changedAcademicChoice =
+          !account &&
+          ((input.gradeLevel !== undefined &&
+            input.gradeLevel !== before.gradeLevel) ||
+            (input.academicallyGraduated !== undefined &&
+              input.academicallyGraduated !== before.academicallyGraduated));
+        const recordId = legacyAcademicRecordId("TUTOR", before.id);
+        const historicalGrade =
+          isHistoricalTutor(before) ||
+          !!(await tx.historicalAcademicRecord.count({
+            where: { id: recordId },
+          }));
+        if (changedAcademicChoice && historicalGrade)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "HISTORICAL_EDITOR_REQUIRED",
+          });
+        if (!account && input.gradeLevel !== before.gradeLevel)
+          await assertOfferedGrade(tx, input.gradeLevel);
+        // Preserve a virtual original before a status-only reactivation can make it
+        // look provisional again. This creates no correction or confirmation date.
+        if (
+          isHistoricalTutor(before) &&
+          !isHistoricalTutor({ status: input.status })
+        )
+          await preserveHistoricalAcademics(tx, "TUTOR", before.id);
+        // The middleware's routing decision is not authority for a later state transition.
+        if (
+          before.status !== input.status &&
+          !["HEAD", "ADMIN"].includes(ctx.session.role)
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Tutor membership changed. Ask Admin or Head to review this status change.",
+          });
+        if (
+          input.expectedUpdatedAt &&
+          before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()
+        )
+          staleConflict();
+        if (account && before.status !== input.status) {
+          if (["ACTIVE", "PENDING"].includes(input.status))
+            await requireSchoolParticipation(tx, account.id);
+          if (input.status === "GRADUATED" || input.status === "TRANSFERRED") {
+            const departure = await tx.schoolDeparture.findUnique({
+              where: { userId: account.id },
+            });
+            await changeSchoolDeparture(
+              tx,
+              {
+                userId: account.id,
+                action: input.status,
+                expectedRevision: departure?.revision ?? 0,
+                explanation:
+                  "Management confirmed departure through tutor roster",
+              },
+              ctx.session.user.id,
+            );
+          }
+        }
+        const updated = await tx.tutor.update({
+          where: { id: input.id },
+          data: {
+            ...(explicitNames && latinNameChanged
+              ? {
+                  nameFieldsConfirmed: true,
+                  preferredName: explicitNames.preferredName,
+                  firstName: explicitNames.firstName,
+                  lastName: explicitNames.lastName,
+                  englishName: fullPersonName(explicitNames),
+                }
+              : {}),
+            ...(input.alternativeNames === undefined
+              ? {}
+              : { alternativeNames: blankToNull(input.alternativeNames) }),
+            username,
+            status: input.status,
+            // Linked academic mirrors are written only by the versioned academic workflow.
+            ...(account
+              ? {}
+              : {
+                  ...(input.gradeLevel === undefined
+                    ? {}
+                    : { gradeLevel: input.gradeLevel }),
+                  ...(input.academicallyGraduated === undefined
+                    ? {}
+                    : { academicallyGraduated: input.academicallyGraduated }),
+                  ...(changedAcademicChoice
+                    ? { gradeSchoolYear: null, gradeConfirmedAt: null }
+                    : {}),
+                }),
+            ...(input.email === undefined
+              ? {}
+              : { email: blankToNull(input.email)?.toLowerCase() ?? null }),
+          },
+        });
+        if (account) {
+          updated.username = await ensureUserUsername(account.id, tx);
+          await updateAccountProfile(
+            tx,
+            account.id,
+            {
+              firstName: input.firstName,
+              lastName: input.lastName,
+              preferredName: input.preferredName,
+              name:
+                explicitNames && latinNameChanged
+                  ? fullPersonName(explicitNames)
+                  : undefined,
+              alternativeNames: updated.alternativeNames,
+              expectedTutorId: input.id,
+            },
+            { management: true },
+          );
+        }
+        // On an ACTIVE -> inactive transition, re-queue this tutor's tutees so none are stranded on
+        // a tutor who can no longer serve them (mirrors opt-out / can-tutor-off). Only on the actual
+        // transition, so re-saving an already-inactive tutor doesn't disturb anything.
+        if (prev?.status === "ACTIVE" && input.status !== "ACTIVE") {
+          await requeueTutorActiveTermTutees(tx, input.id);
+        }
+        return updated;
+      });
+      return updated;
+    }),
+
+  /**
+   * Provision + invite a tutor to set up their login: ensures a `User` exists and emails a
+   * "set your password" link (which also confirms their email). Only the recipient receives the
+   * recovery secret; staff receive delivery status. Needs a tutor/account email.
+   */
+  sendTutorSetup: adminProcedure
+    .input(z.object({ tutorId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await issueTutorSetupLink(
+        input.tutorId,
+        ctx.session.user.id,
+      );
+      if (!result.ok) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            result.error === "no-email"
+              ? "Add an email for this tutor before sending a setup link."
+              : "Tutor not found.",
+        });
+      }
+      const tutor = await ctx.db.tutor.findUnique({
+        where: { id: input.tutorId },
+        select: { englishName: true },
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Sent account setup link to ${tutor?.englishName ?? "tutor"}`,
+        entity: "Tutor",
+        entityId: input.tutorId,
+      });
+      return { emailed: result.emailed };
+    }),
+
+  createTutee: adminProcedure
+    .input(
+      z.object({
+        ...optionalPersonNameFields,
+        englishName: z.string().trim(),
+        email: z.string().email().nullable().optional(),
+        phone: z.string().trim().nullable().optional(),
+        gradeLevel: z.string().trim().nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
+        notes: z.string().trim().nullable().optional(),
+        status: z.enum(TUTEE_STATUS).default("ACTIVE"),
+        firstChoiceId: cuid.nullable().optional(),
+        secondChoiceId: cuid.nullable().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        if (input.academicallyGraduated && input.gradeLevel != null)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Graduated cannot have a current grade.",
+          });
+        if (
+          input.firstName !== undefined ||
+          input.lastName !== undefined ||
+          input.preferredName !== undefined
+        ) {
+          const names = await configuredNewNames(tx, input, "STUDENT", true);
+          input = {
+            ...input,
+            ...names,
+            preferredName: names.preferredName ?? undefined,
+            alternativeNames: names.alternativeNames ?? undefined,
+            englishName: fullPersonName(names),
+          };
+        } else
+          input = {
+            ...input,
+            englishName: await configuredLegacyIntakeName(
+              tx,
+              input.englishName,
+              "STUDENT",
+            ),
+          };
+        await assertPrimaryName(tx, input.englishName);
+        await assertOfferedGrade(
+          tx,
+          normalizeGrade(input.gradeLevel).gradeLevel,
+        );
+        return tx.tutee.create({
+          data: {
+            personId: (await tx.person.create({ data: {} })).id,
+            // Persist entry provenance at creation; subsequent edits/links retain it.
+            signupSource: "STAFF",
+            firstName: input.firstName,
+            lastName: input.lastName,
+            preferredName: input.preferredName,
+            alternativeNames: input.alternativeNames,
+            englishName: input.englishName,
+            email: blankToNull(input.email)?.toLowerCase() ?? null,
+            phone: blankToNull(input.phone),
+            gradeLevel: blankToNull(input.gradeLevel),
+            academicallyGraduated: input.academicallyGraduated ?? false,
+            notes: blankToNull(input.notes),
+            status: input.status,
+            firstChoiceId: input.firstChoiceId ?? null,
+            secondChoiceId: input.secondChoiceId ?? null,
+          },
+        });
+      }),
+    ),
+
+  updateTutee: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        expectedUpdatedAt,
+        preferredContact: z.string().trim().max(200).nullable().optional(),
+        slotIds: z.array(cuid).optional(),
+        ...optionalPersonNameFields,
+        englishName: z.string().trim(),
+        alternativeNames: z.string().trim().max(200).nullable().optional(),
+        email: z.string().email().nullable().optional(),
+        phone: z.string().trim().nullable().optional(),
+        gradeLevel: z.string().trim().nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
+        notes: z.string().trim().nullable().optional(),
+        status: z.enum(TUTEE_STATUS),
+        firstChoiceId: cuid.nullable().optional(),
+        secondChoiceId: cuid.nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        if (input.academicallyGraduated && input.gradeLevel != null)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Graduated cannot have a current grade.",
+          });
+        // Serialize profile restoration with departure, including historically owned profiles.
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        await lockCatalogue(tx);
+        // Take the reservation fence before request/account/tutee row locks, as
+        // assignment writers hold it while replacing a group's active roster.
+        await lockPlannedRoomSchedule(tx);
+        const signup = await tx.studentSurvey.findUnique({
+          where: { tuteeId: input.id },
+        });
+        if (signup) await lockStudentRequestReview(tx, signup);
+        await assertHeadDiscretionarySignupChange(
+          tx,
+          ctx.session.user.id,
+          "admin.updateTutee",
+          input,
+        );
+        const linkedStudent = await tx.user.findUnique({
+          where: { studentId: input.id },
+          select: { id: true, email: true },
+        });
+        if (linkedStudent) await lockAccountProfile(tx, linkedStudent.id);
+        if (input.status !== "INACTIVE")
+          await requireStudentSchoolParticipation(tx, input.id);
+        await lockEntity(tx, `tutee:${input.id}`);
+        const before = await tx.tutee.findUniqueOrThrow({
+          where: { id: input.id },
+          include: { availabilities: true },
+        });
+        if (
+          input.firstName !== undefined ||
+          input.lastName !== undefined ||
+          input.preferredName !== undefined
+        ) {
+          const names = await configuredProfileNames(
+            tx,
+            { ...before, ...input },
+            before,
+            linkedStudent
+              ? (
+                  await tx.user.findUniqueOrThrow({
+                    where: { id: linkedStudent.id },
+                    select: { role: true },
+                  })
+                ).role
+              : "STUDENT",
+            true,
+          );
+          const latinNameChanged = (
+            ["firstName", "lastName", "preferredName"] as const
+          ).some(
+            (key) => (names[key]?.trim() ?? "") !== (before[key]?.trim() ?? ""),
+          );
+          input = {
+            ...input,
+            firstName: latinNameChanged ? names.firstName : undefined,
+            lastName: latinNameChanged ? names.lastName : undefined,
+            preferredName: latinNameChanged
+              ? (names.preferredName ?? undefined)
+              : undefined,
+            alternativeNames:
+              input.alternativeNames === undefined
+                ? undefined
+                : (names.alternativeNames ?? null),
+            englishName: latinNameChanged
+              ? fullPersonName(names)
+              : before.englishName,
+          };
+        }
+        if (input.status !== "INACTIVE" && input.status !== before.status)
+          await assertStudentRequestAssignable(tx, input.id);
+        const historicalGradeChange =
+          (input.gradeLevel !== undefined &&
+            input.gradeLevel !== before.gradeLevel) ||
+          (input.academicallyGraduated !== undefined &&
+            input.academicallyGraduated !== before.academicallyGraduated);
+        if (historicalGradeChange) {
+          const activeTerm = await tx.term.findFirst({
+            where: { active: true },
+            select: { id: true },
+          });
+          if (
+            isHistoricalTutee(before, activeTerm?.id ?? null) ||
+            (await tx.historicalAcademicRecord.count({
+              where: { id: legacyAcademicRecordId("TUTEE", before.id) },
+            }))
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "HISTORICAL_EDITOR_REQUIRED",
+            });
+        }
+        if (
+          (input.academicallyGraduated ?? before.academicallyGraduated) &&
+          (input.gradeLevel === undefined
+            ? before.gradeLevel
+            : input.gradeLevel) != null
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Graduated cannot have a current grade.",
+          });
+        if (input.englishName !== before.englishName)
+          await assertPrimaryName(
+            tx,
+            input.englishName,
+            before.firstName
+              ? before.englishName
+              : (before.legacyName ?? before.englishName),
+          );
+
+        if (!linkedStudent && input.gradeLevel !== before.gradeLevel)
+          await assertOfferedGrade(
+            tx,
+            normalizeGrade(input.gradeLevel).gradeLevel,
+          );
+        if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+          staleConflict();
+        if (
+          linkedStudent &&
+          input.email !== undefined &&
+          (input.email?.trim().toLowerCase() ?? null) !== linkedStudent.email
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Tutee login emails must be changed through verified account settings.",
+          });
+        if (
+          linkedStudent &&
+          input.gradeLevel !== undefined &&
+          input.gradeLevel !== before.gradeLevel
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "ACADEMIC_SHARED_EDITOR_REQUIRED",
+          });
+        if (
+          linkedStudent &&
+          input.academicallyGraduated !== undefined &&
+          input.academicallyGraduated !== before.academicallyGraduated
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "ACADEMIC_SHARED_EDITOR_REQUIRED",
+          });
+        const { id, expectedUpdatedAt: _version, slotIds, ...fields } = input;
+        void _version;
+        if (
+          fields.firstChoiceId &&
+          fields.firstChoiceId === fields.secondChoiceId
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose two different subjects.",
+          });
+        if (
+          slotIds &&
+          (await tx.timeSlot.count({
+            where: { id: { in: [...new Set(slotIds)] }, active: true },
+          })) !== new Set(slotIds).size
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose active time slots.",
+          });
+        if (input.status !== "INACTIVE" && before.status !== input.status)
+          await preserveHistoricalAcademics(tx, "TUTEE", id);
+        if (fields.status === "INACTIVE" && before.status !== "INACTIVE")
+          await assertPairingGroupsRemainEligible(tx, {
+            tuteeIds: [id],
+            removeTuteeIds: [id],
+          });
+        if (fields.status !== "INACTIVE" && before.status === "INACTIVE")
+          await assertPairingGroupsRemainEligible(tx, {
+            activateTuteeIds: [id],
+          });
+        const updated = await tx.tutee.update({
+          where: { id },
+          data: {
+            ...fields,
+            ...(fields.email === undefined
+              ? {}
+              : { email: blankToNull(fields.email)?.toLowerCase() ?? null }),
+            ...(slotIds
+              ? {
+                  availabilities: {
+                    deleteMany: {},
+                    create: [...new Set(slotIds)].map((slotId) => ({ slotId })),
+                  },
+                }
+              : {}),
+          },
+        });
+        if (signup) {
+          const currentSignup = await tx.studentSurvey.findUniqueOrThrow({
+            where: { id: signup.id },
+          });
+          await synchronizeStudentSignupAnswers(
+            tx,
+            currentSignup,
+            ctx.session.user.id,
+            {
+              ...(fields.phone !== undefined
+                ? { phone: fields.phone ?? undefined }
+                : {}),
+              ...(fields.preferredContact !== undefined
+                ? { preferredContact: fields.preferredContact ?? "" }
+                : {}),
+              ...(fields.firstChoiceId !== undefined
+                ? { firstChoiceId: fields.firstChoiceId }
+                : {}),
+              ...(fields.secondChoiceId !== undefined
+                ? { secondChoiceId: fields.secondChoiceId ?? undefined }
+                : {}),
+              ...(slotIds ? { slotIds: [...new Set(slotIds)] } : {}),
+            },
+          );
+        }
+        if (linkedStudent)
+          await updateAccountProfile(
+            tx,
+            linkedStudent.id,
+            {
+              firstName: fields.firstName,
+              lastName: fields.lastName,
+              preferredName: fields.preferredName,
+              name: fields.englishName,
+              alternativeNames: fields.alternativeNames,
+              expectedStudentId: input.id,
+            },
+            { management: true },
+          );
+        if (fields.status === "INACTIVE")
+          await tx.pairingTutee.deleteMany({
+            where: { tuteeId: id, pairing: { term: { active: true } } },
+          });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: "Updated tutee profile",
+            entity: "Tutee",
+            entityId: id,
+            details: {
+              before: JSON.parse(
+                JSON.stringify(before),
+              ) as Prisma.InputJsonValue,
+            },
+          },
+        });
+        return updated;
+      }),
+    ),
+
+  /**
+   * Review action: assign a tutee to a tutor. Creates a pairing (subject defaults to the
+   * tutee's first-choice subject) in the given term and marks the tutee ACTIVE. The tutor
+   * then picks the default time slot from their own dashboard.
+   */
+  assignTuteeToTutor: adminProcedure
+    .input(
+      z.object({
+        overrideTicket: z.string().optional(),
+        tuteeId: cuid,
+        tutorId: cuid,
+        termId: cuid,
+        subject: z.string().trim().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tutee = await ctx.db.tutee.findUnique({
+        where: { id: input.tuteeId },
+        select: { id: true, firstChoice: { select: { name: true } } },
+      });
+      if (!tutee) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Tutee not found." });
+      }
+      const subject = input.subject ?? tutee.firstChoice?.name;
+      if (!subject) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "No subject: pick a subject for this tutee or pass a subject.",
+        });
+      }
+
+      return inTransaction(ctx.db, async (tx) => {
+        await enforceAssignmentQualification(
+          tx,
+          ctx.session.user.id,
+          "admin.assignTuteeToTutor",
+          input,
+        );
+        await assertStudentRequestAssignable(tx, input.tuteeId);
+        await preserveHistoricalAcademics(tx, "TUTEE", input.tuteeId);
+
+        const pairing = await tx.pairing.create({
+          data: {
+            tutorId: input.tutorId,
+            termId: input.termId,
+            subject,
+            // Placeholder schedule — the tutor sets the real time when they pick a slot.
+            scheduleConfirmed: false,
+            dayOfWeek: 1,
+            startMin: 15 * 60 + 30,
+            endMin: 16 * 60 + 30,
+            tutees: { create: [{ tuteeId: input.tuteeId }] },
+          },
+          select: { id: true },
+        });
+        await tx.tutee.update({
+          where: { id: input.tuteeId },
+          data: { status: "ACTIVE" },
+        });
+        await stampStudentAssignment(tx, input.tuteeId);
+        return pairing;
+      });
+    }),
+
+  /**
+   * Assign a pending signup's subject choices to tutors in one go — e.g. their first choice
+   * (Chemistry) to tutor A and second choice (Biology) to tutor B. Creates a pairing per
+   * assignment and flips the tutee ACTIVE. Each tutor then picks the real time slot.
+   */
+  assignSignup: adminProcedure
+    .input(
+      z.object({
+        overrideTicket: z.string().optional(),
+        tuteeId: cuid,
+        expectedUpdatedAt,
+        assignments: z
+          .array(
+            z.object({
+              subject: z.string().trim().min(1),
+              subjectId: cuid.optional(),
+              tutorId: cuid,
+            }),
+          )
+          .min(1, "Pick a tutor for at least one subject"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // New pairings land in the active program period.
+      const period = await getActivePeriod(ctx.db);
+      return inTransaction(ctx.db, async (tx) => {
+        await enforceAssignmentQualification(
+          tx,
+          ctx.session.user.id,
+          "admin.assignSignup",
+          input,
+        );
+        await assertStudentRequestAssignable(tx, input.tuteeId);
+        const tutee = await tx.tutee.findUnique({
+          where: { id: input.tuteeId },
+          select: {
+            status: true,
+            englishName: true,
+            firstChoice: { select: { name: true } },
+            secondChoice: { select: { name: true } },
+          },
+        });
+        if (tutee?.status !== "PENDING") staleConflict();
+
+        // Subjects this tutee already has a tutor for — re-assigns of the same subject are
+        // skipped so a partially-processed request can be finished without duplicating pairings.
+        const existing = await tx.pairingTutee.findMany({
+          where: { tuteeId: input.tuteeId, pairing: { termId: period.termId } },
+          select: { pairing: { select: { subject: true } } },
+        });
+        const assignedSubjects = new Set(
+          existing.map((e) => e.pairing.subject),
+        );
+
+        const addedAssignments: { tutorName: string; subject: string }[] = [];
+        for (const a of input.assignments) {
+          const choices = [tutee.firstChoice?.name, tutee.secondChoice?.name];
+          if (
+            !choices.includes(a.subject) ||
+            !(await tx.tutor.count({
+              where: { id: a.tutorId, status: "ACTIVE" },
+            }))
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Choose a requested subject and an active tutor.",
+            });
+          }
+          if (assignedSubjects.has(a.subject)) continue;
+
+          await tx.pairing.create({
+            data: {
+              tutorId: a.tutorId,
+              termId: period.termId,
+              subject: a.subject,
+              // Placeholder schedule — the tutor sets the real time when they pick a slot.
+              scheduleConfirmed: false,
+              dayOfWeek: 1,
+              startMin: 15 * 60 + 30,
+              endMin: 16 * 60 + 30,
+              tutees: { create: [{ tuteeId: input.tuteeId }] },
+            },
+          });
+          assignedSubjects.add(a.subject);
+          const assignedTutor = await tx.tutor.findUniqueOrThrow({
+            where: { id: a.tutorId },
+            select: { englishName: true },
+          });
+          addedAssignments.push({
+            tutorName: assignedTutor.englishName,
+            subject: a.subject,
+          });
+        }
+
+        // A request is "fulfilled" once every subject choice the tutee actually provided has
+        // a tutor. Only then does it leave the queue (→ ACTIVE); partial assignments keep it
+        // PENDING so the remaining choice can still be processed.
+        const provided = [
+          tutee.firstChoice?.name,
+          tutee.secondChoice?.name,
+        ].filter((n): n is string => !!n);
+        const fulfilled =
+          provided.length > 0 && provided.every((c) => assignedSubjects.has(c));
+
+        // Concurrency guard: the version match + still-PENDING status both must hold, or another
+        // coordinator got there first. The status flip (or no-op touch) bumps updatedAt.
+        const flip = await tx.tutee.updateMany({
+          where: {
+            id: input.tuteeId,
+            status: "PENDING",
+            updatedAt: input.expectedUpdatedAt,
+          },
+          data: { status: fulfilled ? "ACTIVE" : "PENDING" },
+        });
+        if (flip.count === 0) staleConflict();
+
+        const account = await tx.user.findUnique({
+          where: { studentId: input.tuteeId },
+          select: { id: true },
+        });
+        if (account)
+          await notifyUsers(
+            [account.id],
+            {
+              ...notificationInAppEvent(
+                "student_assignment_updated",
+                undefined,
+                {
+                  en: addedAssignments.length
+                    ? `Tutee ${tutee.englishName} is assigned to ${addedAssignments.map((a) => `${a.tutorName} (${a.subject})`).join("; ")}. The weekly schedule is awaiting confirmation.`
+                    : `Assignment review for tutee ${tutee.englishName} is complete; no additional assignments were added.`,
+                  zh: addedAssignments.length
+                    ? `学习伙伴 ${tutee.englishName} 已分配给 ${addedAssignments.map((a) => `${a.tutorName}（${a.subject}）`).join("；")}。每周辅导时间待确认。`
+                    : `学习伙伴 ${tutee.englishName} 的分配审核已完成；未新增分配。`,
+                },
+              ),
+              title: "Your tutoring assignment was updated",
+              link: "/student",
+            },
+            tx,
+          );
+        await stampStudentAssignment(tx, input.tuteeId);
+        return { ok: true, fulfilled };
+      });
+    }),
+
+  /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
+  setTuteeStatus: adminProcedure
+    .input(
+      z.object({ id: cuid, status: z.enum(TUTEE_STATUS), expectedUpdatedAt }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Keep status, current roster removal and audit atomic; historical assignments survive.
+        await lockEntity(tx, "program:period");
+        await lockCatalogue(tx);
+        await assertHeadDiscretionarySignupChange(
+          tx,
+          ctx.session.user.id,
+          "admin.setTuteeStatus",
+          input,
+        );
+        await lockEntity(tx, `tutee:${input.id}`);
+        if (input.status !== "INACTIVE")
+          await assertStudentRequestAssignable(tx, input.id);
+        const prev = await tx.tutee.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { status: true, englishName: true },
+        });
+        if (input.status !== "INACTIVE" && prev.status !== input.status)
+          await preserveHistoricalAcademics(tx, "TUTEE", input.id);
+        const updated = await tx.tutee.updateMany({
+          where: { id: input.id, updatedAt: input.expectedUpdatedAt },
+          data: { status: input.status },
+        });
+        if (updated.count === 0) staleConflict();
+        // Removing a tutee (→ INACTIVE) detaches them from their pairings so they drop off tutors'
+        // rosters/attendance immediately. Session history is kept. (Re-activating doesn't re-pair —
+        // a coordinator reassigns on /admin/requests, consistent with requeueTutorTutees.)
+        if (input.status === "INACTIVE" && prev.status !== "INACTIVE") {
+          await tx.pairingTutee.deleteMany({
+            where: { tuteeId: input.id, pairing: { term: { active: true } } },
+          });
+        }
+        if (prev.status !== input.status) {
+          await recordAudit(
+            {
+              userId: ctx.session.user.id,
+              userName: ctx.session.user.name,
+              action: `Set ${prev.englishName} to ${input.status.toLowerCase()}`,
+              entity: "Tutee",
+              entityId: input.id,
+              undo: {
+                kind: "tutee.status",
+                payload: { id: input.id, status: prev.status },
+              },
+            },
+            tx,
+          );
+        }
+        return { ok: true };
+      }),
+    ),
+
+  deleteTutee: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockCatalogue(tx);
+        await assertHeadDiscretionarySignupChange(
+          tx,
+          ctx.session.user.id,
+          "admin.deleteTutee",
+          input,
+        );
+        await assertTuteeInvalidityCleared(tx, input.id);
+        await assertNoPublishedTuteeDeletion(tx, input.id);
+        const sessions = await tx.sessionTutee.count({
+          where: { tuteeId: input.id },
+        });
+        if (sessions > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Cannot delete a tutee with attendance history. Set them inactive instead.",
+          });
+        }
+        await tx.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
+        return tx.tutee.delete({ where: { id: input.id } });
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Subject catalog (subjects offered; tutees pick first/second choice at signup)
+  // --------------------------------------------------------------------------
+  // Compatibility endpoints keep base-name semantics and the same transactional invariants.
+  createSubject: adminProcedure
+    .input(
+      z.object({
+        name: z.string().trim().min(1),
+        levelId: cuid.nullable().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const group = await saveCourseGroup(tx, {
+          name: input.name,
+          offerings: [{ baseName: input.name, levelId: input.levelId ?? null }],
+        });
+        return tx.subject.findFirstOrThrow({ where: { groupId: group.id } });
+      }),
+    ),
+  updateSubject: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        name: z.string().trim().min(1),
+        levelId: cuid.nullable().optional(),
+        active: z.boolean(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const before = await tx.subject.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        return writeVariant(tx, {
+          id: input.id,
+          baseName: input.name,
+          levelId: input.levelId === undefined ? before.levelId : input.levelId,
+          active: input.active,
+        });
+      }),
+    ),
+  // Archive instead of deleting: surveys and historical scalar references must remain resolvable.
+  deleteSubject: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        return tx.subject.update({
+          where: { id: input.id },
+          data: { active: false },
+        });
+      }),
+    ),
+  batchUpdateSubjects: adminProcedure
+    .input(
+      z.object({
+        ids: z.array(cuid).min(1),
+        levelId: cuid.nullable().optional(),
+        active: z.boolean().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const variants = await tx.subject.findMany({
+          where: { id: { in: input.ids } },
+        });
+        for (const variant of variants)
+          await writeVariant(tx, {
+            id: variant.id,
+            baseName: variant.baseName || variant.name,
+            levelId:
+              input.levelId === undefined ? variant.levelId : input.levelId,
+            active: input.active ?? variant.active,
+          });
+        return { count: variants.length };
+      }),
+    ),
+  importCourseGroups: adminProcedure
+    .input(courseImportInput)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, (tx) => importCourseGroups(tx, input)),
+    ),
+  importSubjects: adminProcedure
+    .input(
+      z.object({
+        subjects: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1),
+              level: z.string().trim().optional(),
+            }),
+          )
+          .min(1)
+          .max(500),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const levels = await tx.subjectLevel.findMany();
+        let created = 0;
+        for (const row of input.subjects) {
+          const level = row.level
+            ? levels.find(
+                (l) => l.name.toLowerCase() === row.level!.toLowerCase(),
+              )
+            : null;
+          if (row.level && !level)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unknown level: ${row.level}`,
+            });
+          const name = [level?.prefix, row.name].filter(Boolean).join(" ");
+          if (await tx.subject.count({ where: { name } })) continue;
+          await saveCourseGroup(tx, {
+            name: row.name,
+            offerings: [{ baseName: row.name, levelId: level?.id ?? null }],
+          });
+          created++;
+        }
+        return { created, received: input.subjects.length };
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Time-slot catalog (reference scheduling; tutors/tutees mark availability)
+  // --------------------------------------------------------------------------
+  createTimeSlot: adminProcedure
+    .input(
+      z.object({
+        label: z.string().trim().min(1),
+        dayOfWeek: z.number().int().min(1).max(7),
+        startMin: z.number().int().min(0).max(1439),
+        endMin: z.number().int().min(1).max(1440),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      if (input.endMin <= input.startMin) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "End must be after start.",
+        });
+      }
+      return ctx.db.timeSlot.create({ data: input });
+    }),
+
+  updateTimeSlot: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        label: z.string().trim().min(1),
+        dayOfWeek: z.number().int().min(1).max(7),
+        startMin: z.number().int().min(0).max(1439),
+        endMin: z.number().int().min(1).max(1440),
+        active: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.endMin <= input.startMin) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "End must be after start.",
+        });
+      }
+      const { id, ...data } = input;
+
+      // One transaction keeps the catalog, copied pairing schedule, attendance history, and
+      // derived service-hour totals from ever exposing a partially updated timetable.
+      return inTransaction(ctx.db, async (tx) => {
+        await lockAttendanceSchedule(tx, true);
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        await lockSessionPlanning(tx);
+        const current = await tx.timeSlot.findUniqueOrThrow({
+          where: { id },
+          select: { dayOfWeek: true, startMin: true, endMin: true },
+        });
+        const scheduleChanged =
+          current.dayOfWeek !== data.dayOfWeek ||
+          current.startMin !== data.startMin ||
+          current.endMin !== data.endMin;
+        const timeChanged =
+          current.startMin !== data.startMin || current.endMin !== data.endMin;
+
+        const slot = await tx.timeSlot.update({ where: { id }, data });
+        // Catalogue edits change tutor availability too. Release only the commitments
+        // this feature owns before the ordinary timetable propagation runs.
+        const tutors = await tx.tutorAvailability.findMany({
+          where: { slotId: id },
+          select: { tutorId: true },
+        });
+        for (const tutor of tutors)
+          await reconcileTutorContinuations(tx, tutor.tutorId);
+        if (!scheduleChanged) {
+          return { ...slot, updatedPairings: 0, updatedSessions: 0 };
+        }
+
+        // Widening an available slot does not authorize rescheduling signed prior
+        // commitments. Preserve their tuple while ordinary catalogue pairings follow.
+        const linked = await tx.pairing.findMany({
+          where: {
+            timeSlotId: id,
+            term: { active: true },
+            scheduleConfirmed: true,
+          },
+          select: { id: true },
+        });
+        const continued = await tx.studentContinuationAssignment.findMany({
+          where: {
+            status: "ASSIGNED",
+            targetPairingId: { in: linked.map((pairing) => pairing.id) },
+          },
+          select: { targetPairingId: true, tuteeId: true, snapshot: true },
+        });
+        const commitment = z.object({
+          tutorId: z.string(),
+          subject: z.string(),
+          dayOfWeek: z.number(),
+          startMin: z.number(),
+          endMin: z.number(),
+        });
+        for (const row of continued) {
+          if (!row.targetPairingId) continue;
+          const snapshot = commitment.safeParse(row.snapshot);
+          if (snapshot.success)
+            await tx.pairing.updateMany({
+              where: {
+                id: row.targetPairingId,
+                timeSlotId: id,
+                term: { active: true },
+                scheduleConfirmed: true,
+                ...snapshot.data,
+                tutees: { some: { tuteeId: row.tuteeId } },
+              },
+              data: { timeSlotId: null },
+            });
+        }
+
+        const pairingCount = await allocateSlotCohort(tx, { id, ...data });
+
+        // A weekday-only change does not alter a submitted session's actual calendar date. Clock
+        // edits do flow to every session stamped with this slot, including sessions from pairings
+        // that have since moved elsewhere.
+        if (!timeChanged) {
+          return {
+            ...slot,
+            updatedPairings: pairingCount,
+            updatedSessions: 0,
+          };
+        }
+
+        const updatedSessions = await propagateSlotAttendance(
+          tx,
+          id,
+          { startMin: data.startMin, endMin: data.endMin },
+          ctx.session.user,
+        );
+
+        return {
+          ...slot,
+          updatedPairings: pairingCount,
+          updatedSessions,
+        };
+      });
+    }),
+
+  deleteTimeSlot: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        await lockSessionPlanning(tx);
+        const used = await tx.pairing.count({
+          where: { timeSlotId: input.id },
+        });
+        if (used > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Slot is referenced by a pairing. Mark it inactive instead.",
+          });
+        }
+        // Tutor/tutee availability rows cascade-delete with the slot.
+        const tutors = await tx.tutorAvailability.findMany({
+          where: { slotId: input.id },
+          select: { tutorId: true },
+        });
+        const deleted = await tx.timeSlot.delete({ where: { id: input.id } });
+        for (const tutor of tutors)
+          await reconcileTutorContinuations(tx, tutor.tutorId);
+        return deleted;
+      });
+    }),
+
+  createRoom: adminProcedure
+    .input(z.object({ name: z.string().min(1) }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockProgramRooms(tx);
+        const last = await tx.room.aggregate({ _max: { programOrder: true } });
+        return tx.room.create({
+          data: { ...input, programOrder: (last._max.programOrder ?? -1) + 1 },
+        });
+      }),
+    ),
+
+  reorderRooms: adminProcedure
+    .input(roomOrderInput)
+    .mutation(({ ctx, input }) => reorderProgramRooms(ctx.db, input)),
+
+  updateRoom: adminProcedure
+    .input(z.object({ id: cuid, name: z.string().min(1) }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.room.update({
+        where: { id: input.id },
+        data: { name: input.name },
+      }),
+    ),
+
+  deleteRoom: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Serialize catalog membership with room reorder drafts before reservation checks.
+        await lockProgramRooms(tx);
+        // Do not race an allocator or erase retained actual attendance location evidence.
+        await lockPlannedRoomSchedule(tx);
+        // Attendance writers acquire this row's FK key-share lock without the
+        // planned-room advisory lock. Wait for them before counting references;
+        // otherwise ON DELETE SET NULL could erase a concurrently committed room.
+        await tx.$queryRaw`SELECT id FROM "Room" WHERE id = ${input.id} FOR UPDATE`;
+        const [used, actual] = await Promise.all([
+          tx.pairing.count({ where: { roomId: input.id } }),
+          tx.session.count({ where: { actualRoomId: input.id } }),
+        ]);
+        if (used > 0 || actual > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Room is in use by a pairing or retained attendance record.",
+          });
+        }
+        return tx.room.delete({ where: { id: input.id } });
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Room unavailability (recurring weekly blackout periods, shown on the grid)
+  // --------------------------------------------------------------------------
+  createRoomUnavailability: adminProcedure
+    .input(createRoomBlockSchema)
+    .mutation(({ ctx, input }) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await assertRoomBlackoutAvailable(tx, input);
+        return tx.roomUnavailability.create({
+          data: {
+            roomId: input.roomId,
+            dayOfWeek: input.dayOfWeek,
+            startMin: input.startMin,
+            endMin: input.endMin,
+            reason: blankToNull(input.reason),
+          },
+        });
+      });
+    }),
+
+  updateRoomUnavailability: adminProcedure
+    .input(updateRoomBlockSchema)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Resolve the room from the persisted block; an edit cannot move it to an
+        // unrelated room. Approval replay reuses this transaction and validation.
+        const block = await roomBlockForWrite(tx, input.id);
+        await assertRoomBlackoutAvailable(tx, {
+          ...input,
+          roomId: block.roomId,
+          excludeBlockId: block.id,
+        });
+        return tx.roomUnavailability.update({
+          where: { id: block.id },
+          data: {
+            dayOfWeek: input.dayOfWeek,
+            startMin: input.startMin,
+            endMin: input.endMin,
+            reason: blankToNull(input.reason),
+          },
+        });
+      }),
+    ),
+
+  deleteRoomUnavailability: adminProcedure
+    .input(removeRoomBlockSchema)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await roomBlockForWrite(tx, input.id);
+        return tx.roomUnavailability.delete({ where: { id: input.id } });
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Tutor meetings + attendance (P / EA / UA / X)
+  // --------------------------------------------------------------------------
+  meetingPeriods: viewerProcedure.query(({ ctx }) => meetingPeriods(ctx.db)),
+
+  // The optional scope preserves existing all-record readers; the workspace
+  // always supplies a recorded period and loads older groups on demand.
+  meetings: viewerProcedure
+    .input(meetingPeriodInput.optional())
+    .query(async ({ ctx, input }) =>
+      ctx.db.tutorMeeting.findMany({
+        where: input
+          ? await meetingScope(
+              ctx.db,
+              input.period,
+              new Date(),
+              input.outsideCurrent,
+            )
+          : undefined,
+        orderBy: { date: "desc" },
+        include: {
+          attendances: {
+            include: { tutor: { select: { englishName: true } } },
+          },
+        },
+      }),
+    ),
+
+  createMeeting: adminProcedure
+    .input(
+      z.object({
+        title: z.string().min(1),
+        date: z.coerce.date(),
+        termId: cuid.optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
+      const period = await getActivePeriod(ctx.db);
+      return ctx.db.tutorMeeting.create({
+        data: { ...input, termId: input.termId ?? period.termId },
+      });
+    }),
+
+  deleteMeeting: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
+      return inTransaction(ctx.db, async (tx) => {
+        const participants = await tx.meetingAttendance.findMany({
+          where: { meetingId: input.id },
+          select: { tutorId: true },
+        });
+        for (const id of [
+          ...new Set(participants.map((p) => p.tutorId)),
+        ].sort())
+          await lockEntity(tx, `meeting-hours:${id}`);
+        const removed = await tx.tutorMeeting.delete({
+          where: { id: input.id },
+        });
+        for (const p of participants)
+          await reconcileMeetingHours(tx, p.tutorId);
+        return removed;
+      });
+    }),
+
+  recordMeetingAttendance: adminProcedure
+    .input(
+      z.object({
+        meetingId: cuid,
+        entries: z.array(
+          z.object({ tutorId: cuid, status: z.enum(MEETING_STATUS) }),
+        ),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
+      const meeting = await ctx.db.tutorMeeting.findUnique({
+        where: { id: input.meetingId },
+        select: {
+          date: true,
+          term: { select: { schoolYear: true, quarter: true } },
+        },
+      });
+      if (!meeting)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
+      // Deductions land in the meeting's month, scoped to its term (or the active period).
+
+      await ctx.db.$transaction(async (tx) => {
+        for (const id of [
+          ...new Set(input.entries.map((e) => e.tutorId)),
+        ].sort())
+          await lockEntity(tx, `meeting-hours:${id}`);
+        for (const e of input.entries) {
+          await tx.meetingAttendance.upsert({
+            where: {
+              meetingId_tutorId: {
+                meetingId: input.meetingId,
+                tutorId: e.tutorId,
+              },
+            },
+            update: { status: e.status },
+            create: {
+              meetingId: input.meetingId,
+              tutorId: e.tutorId,
+              status: e.status,
+            },
+          });
+
+          await reconcileMeetingHours(tx, e.tutorId);
+        }
+      });
+      return { ok: true };
+    }),
+
+  // --------------------------------------------------------------------------
+  // Service-hour adjustments (per tutor, per month). Tutor "punishments" are PUNISHMENT-type
+  // adjustments (they deduct hours); tutee discipline lives in the card system instead.
+  // --------------------------------------------------------------------------
+  adjustments: viewerProcedure
+    .input(z.object({ month: monthInput.optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const isViewer = ctx.portalAccess.maskManagementData;
+      const rows = await ctx.db.serviceHourAdjustment.findMany({
+        where: input?.month ? { month: input.month } : {},
+        orderBy: { createdAt: "desc" },
+        include: { tutor: { select: { englishName: true } } },
+      });
+      // Withhold the staff-entered adjustment reason from VIEWER.
+      return isViewer ? rows.map((r) => ({ ...r, reason: null })) : rows;
+    }),
+
+  createAdjustment: adminProcedure
+    .input(
+      z.object({
+        tutorId: cuid,
+        month: monthInput,
+        type: z.enum(ADJUSTMENT_TYPE),
+        amount: z.number().positive(),
+        reason: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "SERVICE_HOURS");
+      // Stamp the active program period so the adjustment counts toward the right semester.
+      const period = await getActivePeriod(ctx.db);
+      return ctx.db.serviceHourAdjustment.create({
+        data: {
+          ...input,
+          schoolYear: period.schoolYear,
+          quarter: period.quarter,
+        },
+      });
+    }),
+
+  deleteAdjustment: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "SERVICE_HOURS");
+      return ctx.db.serviceHourAdjustment.delete({ where: { id: input.id } });
+    }),
+
+  // --------------------------------------------------------------------------
+  // Tutor applications + interview assignment
+  // --------------------------------------------------------------------------
+  setApplicationInvalidity: adminProcedure
+    .input(requestInvalidityInput)
+    .mutation(({ ctx, input }) =>
+      setApplicationInvalidity(ctx.db, input, ctx.session.user),
+    ),
+
+  setSignupInvalidity: adminProcedure
+    .input(requestInvalidityInput)
+    .mutation(({ ctx, input }) =>
+      setSignupInvalidity(ctx.db, input, ctx.session.user),
+    ),
+
+  /** Application-specific credentials are loaded only by an authorized open action. */
+  applicationAccountSetup: adminProcedure
+    .input(z.object({ applicationId: cuid }))
+    .query(({ ctx, input }) =>
+      applicationAccountSetup(ctx.db, input.applicationId),
+    ),
+
+  /** Read submitted evidence and the effective promotion identity without changing either. */
+  applicationIdentity: adminProcedure
+    .input(z.object({ applicationId: cuid }))
+    .query(({ ctx, input }) =>
+      applicationIdentitySnapshot(ctx.db, input.applicationId),
+    ),
+
+  // Classification denies Coordinator before proposal interception. The domain helper
+  // rechecks the live reviewer under the same locks used by promotion and review replay.
+  correctApplicationIdentity: adminOnlyProcedure
+    .input(applicationIdentityCorrectionInput)
+    .mutation(({ ctx, input }) =>
+      correctApplicationIdentity(ctx.db, input, { id: ctx.session.user.id }),
+    ),
+
+  tutorApplications: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.portalAccess.maskManagementData;
+    const apps = await ctx.db.tutorApplication.findMany({
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+      include: {
+        subjectIntents: {
+          include: {
+            subject: {
+              select: { name: true, level: { select: { name: true } } },
+            },
+          },
+        },
+        interviewers: {
+          include: { tutor: { select: { id: true, englishName: true } } },
+        },
+        votes: {
+          select: {
+            accept: true,
+            comment: true,
+            tutor: { select: { englishName: true } },
+          },
+        },
+        decidedByTutor: { select: { englishName: true } },
+      },
+    });
+    if (!isViewer) {
+      const identitySummaries = await applicationIdentitySummaries(
+        ctx.db,
+        apps.filter(
+          (app) =>
+            app.type === "INITIAL" &&
+            ["PENDING", "INTERVIEW"].includes(app.status),
+        ),
+      );
+      // Legacy accepted applications predate promotedTutorId. Only their own
+      // code provenance may recover the roster link; names/emails are not identity.
+      const legacyIds = apps
+        .filter(
+          (app) =>
+            app.type === "INITIAL" &&
+            app.status === "ACCEPTED" &&
+            !app.promotedTutorId,
+        )
+        .map((app) => app.id);
+      const codes = legacyIds.length
+        ? await ctx.db.registrationCode.findMany({
+            where: {
+              applicationId: { in: legacyIds },
+              kind: "TUTOR",
+              tutorId: { not: null },
+            },
+            select: { applicationId: true, tutorId: true },
+          })
+        : [];
+      const legacyTutors = new Map<string, Set<string>>();
+      for (const code of codes) {
+        if (!code.applicationId || !code.tutorId) continue;
+        const targets =
+          legacyTutors.get(code.applicationId) ?? new Set<string>();
+        targets.add(code.tutorId);
+        legacyTutors.set(code.applicationId, targets);
+      }
+      return apps.map((app) => {
+        const targets = legacyTutors.get(app.id);
+        // Reissued codes may share one tutor; conflicting bindings must not guess.
+        const legacyTutorId =
+          targets?.size === 1 ? ([...targets][0] ?? null) : null;
+        return {
+          ...app,
+          ...requestInvalidity(app),
+          setupTutorId: app.promotedTutorId ?? legacyTutorId,
+          identityNeedsReview:
+            identitySummaries.get(app.id)?.needsReview ?? false,
+        };
+      });
+    }
+    // Withhold panelist deliberation free-text (vote comments) from VIEWER.
+    return apps.map((a) => ({
+      ...a,
+      ...requestInvalidity(a, false),
+      setupTutorId: null,
+      identityNeedsReview: false,
+      votes: a.votes.map((v) => ({ ...v, comment: null })),
+    }));
+  }),
+
+  /** Assign up to three tutors (one head) to interview an applicant; moves it to INTERVIEW. */
+  assignInterviewers: adminProcedure
+    .input(
+      z.object({
+        applicationId: cuid,
+        tutorIds: z
+          .array(cuid)
+          .min(3, "Pick at least three interviewers")
+          .max(8),
+        headTutorId: cuid,
+        expectedUpdatedAt,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "INTERVIEWS");
+      const tutorIds = [...new Set(input.tutorIds)];
+      if (!tutorIds.includes(input.headTutorId)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The head must be one of the assigned interviewers.",
+        });
+      }
+      const app = await ctx.db.tutorApplication.findUnique({
+        where: { id: input.applicationId },
+        select: { name: true, status: true },
+      });
+      if (!app)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Application not found.",
+        });
+      if (
+        app.status === "ACCEPTED" &&
+        !["HEAD", "ADMIN"].includes(ctx.session.role)
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only Admin or Head can replace the panel of an accepted applicant and revoke its tutor grant.",
+        });
+      const found = await ctx.db.tutor.count({
+        where: { id: { in: tutorIds }, status: "ACTIVE" },
+      });
+      if (found !== tutorIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unknown tutor selected.",
+        });
+      }
+
+      await ctx.db.$transaction(async (tx) => {
+        await lockUsernameNamespace(tx);
+        await lockApplicationReview(tx, input.applicationId);
+        const lockedApplication = await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: input.applicationId },
+        });
+        assertRequestProcessable(lockedApplication);
+        if (lockedApplication.type !== "INITIAL") {
+          if (
+            ctx.session.tutorId === lockedApplication.requestedTutorId ||
+            (await tx.user.count({
+              where: {
+                id: ctx.session.user.id,
+                tutorId: lockedApplication.requestedTutorId,
+              },
+            }))
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Another Admin or Head must choose your review panel.",
+            });
+          if (!["ADMIN", "HEAD"].includes(ctx.session.role))
+            throw new TRPCError({ code: "FORBIDDEN" });
+          if (lockedApplication.status !== "PENDING")
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "Keep the existing qualification review and panel history.",
+            });
+          if (
+            lockedApplication.requestedTutorId &&
+            tutorIds.includes(lockedApplication.requestedTutorId)
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "An applicant cannot review their own qualification request.",
+            });
+          const chair = await tx.user.findUnique({
+            where: { tutorId: input.headTutorId },
+            select: { role: true, tutorAccessRevoked: true },
+          });
+          if (
+            !chair ||
+            chair.tutorAccessRevoked ||
+            !["ADMIN", "HEAD"].includes(chair.role)
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Choose an Admin or Head tutor as chair for additional qualifications.",
+            });
+        }
+        if (
+          lockedApplication.status === "ACCEPTED" &&
+          !["HEAD", "ADMIN"].includes(ctx.session.role)
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Applicant membership changed. Admin or Head must review replacement of this panel.",
+          });
+        await validatePanel(
+          tx,
+          input.applicationId,
+          tutorIds,
+          input.headTutorId,
+        );
+        // Concurrency guard on the application — rolls back the panel edit on a stale write.
+        const upd = await tx.tutorApplication.updateMany({
+          where: {
+            id: input.applicationId,
+            updatedAt: input.expectedUpdatedAt,
+          },
+          data: {
+            status: "INTERVIEW",
+            interviewCompletedAt: null,
+            interviewDurationMin: null,
+            decidedAt: null,
+            decidedByTutorId: null,
+            decisionComment: null,
+          },
+        });
+        if (upd.count === 0) staleConflict();
+        await reconcileApplication(tx, input.applicationId);
+        const oldPanel = await tx.interviewAssignment.findMany({
+          where: { applicationId: input.applicationId },
+          select: { tutorId: true },
+        });
+        await clearInterviewHours(
+          tx,
+          input.applicationId,
+          oldPanel.map((row) => row.tutorId),
+        );
+        // Replacing a panel starts a fresh review; votes from its previous panel cannot decide it.
+        await tx.interviewVote.deleteMany({
+          where: { applicationId: input.applicationId },
+        });
+        await tx.interviewAssignment.deleteMany({
+          where: { applicationId: input.applicationId },
+        });
+        await tx.interviewAssignment.createMany({
+          data: tutorIds.map((tutorId) => ({
+            applicationId: input.applicationId,
+            tutorId,
+            isHead: tutorId === input.headTutorId,
+          })),
+        });
+      });
+      // Notify the assigned panelists.
+      await notifyTutors(tutorIds, {
+        ...notificationInAppEvent("interview_panel_assigned", undefined, {
+          en: `You were assigned to the interview panel for ${app.name}.`,
+          zh: `您已被安排参加 ${app.name} 的面试评审小组。`,
+        }),
+        title: "You're on an interview panel",
+        body: `Applicant: ${app.name}`,
+        link: "/schedule#tutor-interviews",
+      });
+      return { ok: true };
+    }),
+
+  setApplicationStatus: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        status: z.enum(TUTOR_APP_STATUS),
+        expectedUpdatedAt,
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        await lockApplicationReview(tx, input.id);
+        const prev = await tx.tutorApplication.findUnique({
+          where: { id: input.id },
+          select: {
+            status: true,
+            invalidatedAt: true,
+            decidedAt: true,
+            interviewers: { select: { tutorId: true } },
+          },
+        });
+        if (!prev)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Application not found.",
+          });
+
+        assertRequestProcessable(prev);
+        // Recalled qualification requests cannot enter the legacy status/undo workflow.
+        if (prev.status === "RECALLED")
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This qualification request was recalled.",
+          });
+        const interviewsEnabled = (await getFeatures(tx)).INTERVIEWS;
+        const hasInterviewHistory =
+          prev.status === "INTERVIEW" ||
+          prev.decidedAt != null ||
+          prev.interviewers.length > 0;
+        /**
+         * Once a panel owns an application, only the assigned chair may record its outcome through
+         * tutor.decideInterview. Blocking every alternate status transition also preserves the
+         * chair identity, votes and decision note after completion. Before panel assignment,
+         * management may still reject an applicant during ordinary screening. When the interview
+         * module is disabled, direct acceptance remains available for panel-free applications.
+         */
+        if (
+          input.status !== prev.status &&
+          (hasInterviewHistory ||
+            input.status === "INTERVIEW" ||
+            (interviewsEnabled && input.status === "ACCEPTED"))
+        )
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Interview panels and outcomes must use the assigned interview workflow.",
+          });
+        const recoveryActionId =
+          input.status === "ACCEPTED" && prev.status !== "ACCEPTED"
+            ? await beginAdmissionRecoveryCapture(tx, input.id)
+            : null;
+        const updated = await tx.tutorApplication.updateMany({
+          where: { id: input.id, updatedAt: input.expectedUpdatedAt },
+          data: { status: input.status },
+        });
+        if (updated.count === 0) staleConflict();
+        // On the transition to ACCEPTED, add the applicant to the tutors list.
+        await reconcileApplication(tx, input.id);
+        await finishAdmissionRecoveryCapture(tx, recoveryActionId);
+        const after = await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { updatedAt: true },
+        });
+        if (prev && prev.status !== input.status) {
+          await recordAudit(
+            {
+              userId: ctx.session.user.id,
+              userName: ctx.session.user.name,
+              action: `Set application status to ${input.status.toLowerCase()}`,
+              entity: "TutorApplication",
+              entityId: input.id,
+              undo: {
+                kind: "application.status",
+                payload: {
+                  id: input.id,
+                  status: prev.status,
+                  expectedUpdatedAt: after.updatedAt.toISOString(),
+                },
+              },
+            },
+            tx,
+          );
+        }
+        return { ok: true };
+      }),
+    ),
+
+  deleteApplication: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockApplicationReview(tx, input.id);
+        const row = await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        assertRequestProcessable(row);
+        return tx.tutorApplication.delete({ where: { id: input.id } });
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Tutor lifecycle requests (opt-out / reentry) — admin review
+  // --------------------------------------------------------------------------
+  /** All open (PENDING) tutor lifecycle requests, with eligibility and affected-tutee counts. */
+  tutorRequests: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.portalAccess.maskManagementData;
+    const now = new Date();
+    const active = await getActivePeriodOrNull(ctx.db);
+    const requests = await ctx.db.tutorStatusRequest.findMany({
+      where: { state: "PENDING" },
+      orderBy: { createdAt: "asc" }, // earliest-first queue
+      select: {
+        id: true,
+        kind: true,
+        reason: true,
+        eligibleAt: true,
+        createdAt: true,
+        tutor: {
+          select: { id: true, englishName: true, status: true, email: true },
+        },
+      },
+    });
+
+    // Affected tutees for each opting-out tutor = tutees they serve in the active term.
+    const optOutTutorIds = requests
+      .filter((r) => r.kind === "OPT_OUT")
+      .map((r) => r.tutor.id);
+    const tuteeCounts = new Map<string, number>();
+    if (optOutTutorIds.length > 0 && active) {
+      const pairings = await ctx.db.pairing.findMany({
+        where: { tutorId: { in: optOutTutorIds }, termId: active.termId },
+        select: { tutorId: true, tutees: { select: { tuteeId: true } } },
+      });
+      for (const p of pairings) {
+        const set = tuteeCounts.get(p.tutorId) ?? 0;
+        tuteeCounts.set(p.tutorId, set + p.tutees.length);
+      }
+    }
+
+    return requests.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      // Withhold the member-entered request reason from VIEWER.
+      reason: isViewer ? null : r.reason,
+      createdAt: r.createdAt,
+      eligibleAt: r.eligibleAt,
+      // Opt-out can only be approved once the cooldown has elapsed.
+      approvable:
+        r.kind === "REENTRY" || (r.eligibleAt != null && r.eligibleAt <= now),
+      tutor: r.tutor,
+      affectedTutees: tuteeCounts.get(r.tutor.id) ?? 0,
+    }));
+  }),
+
+  /**
+   * Approve or deny a tutor lifecycle request. Approving an OPT_OUT (only after its cooldown)
+   * flips the tutor to OPTED_OUT; approving a REENTRY flips them back to ACTIVE. Denying just
+   * closes the request. Opting-out leaves the tutor's tutees in place — use `requeueTutorTutees`
+   * to send them back to the signup queue.
+   */
+  decideTutorRequest: adminProcedure
+    .input(z.object({ requestId: cuid, approve: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      decideMembership(
+        ctx.db,
+        "tutor",
+        input.requestId,
+        input.approve,
+        ctx.session.user,
+      ),
+    ),
+
+  /**
+   * Re-queue an (opted-out) tutor's tutees back onto the signup queue: set them PENDING and
+   * detach them from this tutor's active-term pairings, so a coordinator can reassign them on
+   * /admin/requests. Leaves session/attendance history intact.
+   */
+  requeueTutorTutees: adminProcedure
+    .input(z.object({ tutorId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const requeued = await requeueTutorActiveTermTutees(
+        ctx.db,
+        input.tutorId,
+      );
+      if (requeued > 0) {
+        await recordAudit({
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: `Re-queued ${requeued} tutee(s) from an opted-out tutor`,
+          entity: "Tutor",
+          entityId: input.tutorId,
+        });
+      }
+      return { ok: true, requeued };
+    }),
+
+  // --------------------------------------------------------------------------
+  // Tutee opt-outs & removals — the combined "/admin/tutee-requests" surface
+  // --------------------------------------------------------------------------
+  /**
+   * Two lists for the combined page: `pendingOptOuts` (relayed opt-outs still in their recall
+   * window — an admin can cancel them, or they auto-approve) and `finalized` (tutees currently
+   * removed: opted-out or discipline-removed, each reinstatable). Finalizes any due opt-outs first
+   * so the page reflects auto-approvals lazily (no scheduler).
+   */
+  tuteeRemovalRequests: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.portalAccess.maskManagementData;
+    await finalizeDueOptOuts(ctx.db);
+    const [pending, finalized] = await Promise.all([
+      ctx.db.tuteeRemovalRequest.findMany({
+        where: { kind: "VOLUNTARY", state: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          reason: true,
+          createdAt: true,
+          eligibleAt: true,
+          pairingId: true,
+          requestedByTutorId: true,
+          tutee: { select: { id: true, englishName: true } },
+        },
+      }),
+      ctx.db.tuteeRemovalRequest.findMany({
+        where: { state: "APPROVED", tutee: { is: { status: "INACTIVE" } } },
+        orderBy: { resolvedAt: "desc" },
+        select: {
+          id: true,
+          kind: true,
+          reason: true,
+          resolvedAt: true,
+          removedPeriodKey: true,
+          requestedByTutorId: true,
+          tutee: { select: { id: true, englishName: true } },
+        },
+      }),
+    ]);
+
+    // Resolve tutor names + pairing subjects in batch (requests store scalar ids).
+    const tutorIds = [
+      ...new Set(
+        [...pending, ...finalized]
+          .map((r) => r.requestedByTutorId)
+          .filter(Boolean) as string[],
+      ),
+    ];
+    const pairingIds = [
+      ...new Set(pending.map((r) => r.pairingId).filter(Boolean) as string[]),
+    ];
+    const [tutors, pairings] = await Promise.all([
+      tutorIds.length
+        ? ctx.db.tutor.findMany({
+            where: { id: { in: tutorIds } },
+            select: { id: true, englishName: true },
+          })
+        : Promise.resolve([]),
+      pairingIds.length
+        ? ctx.db.pairing.findMany({
+            where: { id: { in: pairingIds } },
+            select: { id: true, subject: true },
+          })
+        : Promise.resolve([]),
+    ]);
+    const tutorName = new Map(tutors.map((t) => [t.id, t.englishName]));
+    const subject = new Map(pairings.map((p) => [p.id, p.subject]));
+
+    return {
+      pendingOptOuts: pending.map((r) => ({
+        id: r.id,
+        // Withhold the removal reason free-text from VIEWER.
+        reason: isViewer ? null : r.reason,
+        createdAt: r.createdAt,
+        eligibleAt: r.eligibleAt,
+        tutee: r.tutee,
+        tutorName: r.requestedByTutorId
+          ? (tutorName.get(r.requestedByTutorId) ?? null)
+          : null,
+        subject: r.pairingId ? (subject.get(r.pairingId) ?? null) : null,
+      })),
+      finalized: finalized.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        reason: isViewer ? null : r.reason,
+        resolvedAt: r.resolvedAt,
+        period: r.removedPeriodKey,
+        tutee: r.tutee,
+        tutorName: r.requestedByTutorId
+          ? (tutorName.get(r.requestedByTutorId) ?? null)
+          : null,
+      })),
+    };
+  }),
+
+  /**
+   * Cancel an in-flight opt-out during its recall window (admin override; the tutor can also
+   * recall). Closes the request as DENIED — the tutee stays active. Notifies the relaying tutor.
+   */
+  cancelTuteeOptOut: adminProcedure
+    .input(z.object({ requestId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const req = await ctx.db.tuteeRemovalRequest.findUniqueOrThrow({
+        where: { id: input.requestId },
+        select: {
+          id: true,
+          state: true,
+          kind: true,
+          requestedByTutorId: true,
+          tutee: { select: { englishName: true } },
+        },
+      });
+      if (req.state !== "PENDING" || req.kind !== "VOLUNTARY") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No in-flight opt-out to cancel.",
+        });
+      }
+      await ctx.db.tuteeRemovalRequest.update({
+        where: { id: req.id },
+        data: {
+          state: "DENIED",
+          resolvedAt: new Date(),
+          resolvedById: ctx.session.user.id,
+          resolvedByName: ctx.session.user.name,
+        },
+      });
+      if (req.requestedByTutorId) {
+        const tutor = await ctx.db.tutor.findUnique({
+          where: { id: req.requestedByTutorId },
+          select: { user: { select: { id: true } } },
+        });
+        if (tutor?.user?.id) {
+          await notifyUsers([tutor.user.id], {
+            ...notificationInAppEvent("tutee_optout_cancelled", undefined, {
+              en: `Management cancelled the opt-out request for tutee ${req.tutee.englishName}.`,
+              zh: `管理人员已取消学习伙伴 ${req.tutee.englishName} 的退出申请。`,
+            }),
+            title: "Tutee opt-out cancelled",
+            body: `An admin cancelled the opt-out for ${req.tutee.englishName}.`,
+            link: "/dashboard",
+          });
+        }
+      }
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Cancelled opt-out for ${req.tutee.englishName}`,
+        entity: "TuteeRemovalRequest",
+        entityId: req.id,
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Reinstate a removed tutee (opted-out or discipline-removed): set them ACTIVE again and mark
+   * the removal REINSTATED, which lifts any same-quarter re-signup flag. Pairings are NOT
+   * restored automatically — reassign on /admin/requests.
+   */
+  reinstateTutee: adminProcedure
+    .input(z.object({ requestId: cuid }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        const req = await tx.tuteeRemovalRequest.findUniqueOrThrow({
+          where: { id: input.requestId },
+          select: {
+            id: true,
+            state: true,
+            tuteeId: true,
+            tutee: { select: { englishName: true } },
+          },
+        });
+        if (req.state !== "APPROVED") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This removal isn't in effect.",
+          });
+        }
+        await requireStudentSchoolParticipation(tx, req.tuteeId);
+        await preserveHistoricalAcademics(tx, "TUTEE", req.tuteeId);
+        await tx.tutee.update({
+          where: { id: req.tuteeId },
+          data: { status: "PENDING" },
+        });
+        await tx.tuteeRemovalRequest.update({
+          where: { id: req.id },
+          data: {
+            state: "REINSTATED",
+            resolvedAt: new Date(),
+            resolvedById: ctx.session.user.id,
+            resolvedByName: ctx.session.user.name,
+          },
+        });
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `Reinstated ${req.tutee.englishName}`,
+            entity: "TuteeRemovalRequest",
+            entityId: req.id,
+          },
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Crew patrols — membership + patrol order config, and the attendance-flag review queue
+  // --------------------------------------------------------------------------
+  /** Set a crew member's lifecycle status: ACTIVE (enable/re-enable), INACTIVE (soft-remove,
+   *  revertible), or OPTED_OUT. Use a crew registration code to add a brand-new crew member. */
+  setCrewStatus: adminProcedure
+    .input(
+      z.object({
+        userId: cuid,
+        status: z.enum(["ACTIVE", "INACTIVE", "OPTED_OUT"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await lockUsernameNamespace(ctx.db);
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
+      await ctx.db.user.update({
+        where: { id: input.userId },
+        data: { crewStatus: input.status },
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Set crew status to ${input.status}`,
+        entity: "User",
+        entityId: input.userId,
+      });
+      return { ok: true };
+    }),
+
+  /** Hard-delete a crew-only login (role CREW). Soft-remove (INACTIVE) is preferred + revertible;
+   *  this is the explicit, irreversible option. Guarded to crew-only accounts so it can never nuke
+   *  a tutor/admin login. Patrols + requests cascade. */
+  deleteCrewMember: adminOnlyProcedure
+    .input(z.object({ userId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      await lockEntity(ctx.db, "program:period");
+      await lockUsernameNamespace(ctx.db);
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: {
+          id: true,
+          role: true,
+          name: true,
+          email: true,
+          mergedIntoId: true,
+        },
+      });
+      if (
+        target.mergedIntoId ||
+        (await ctx.db.user.count({ where: { mergedIntoId: target.id } }))
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Combined account history must be retained. Change the surviving account's crew status instead.",
+        });
+      if (target.role !== "CREW") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Only crew-only logins can be deleted here. Use Users & Roles for other accounts.",
+        });
+      }
+      if (
+        await ctx.db.tutorProfileOwnership.count({
+          where: { userId: target.id },
+        })
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Retained tutor history must be preserved. Review historical ownership before deleting this account.",
+        });
+      await assertNoSchedulingNoticeDeletion(ctx.db, target.id);
+      await ctx.db.user.delete({ where: { id: target.id } });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Deleted crew account ${target.name ?? target.email}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return { ok: true };
+    }),
+
+  /** Rooms in their current patrol order, for the order editor. */
+  patrolOrder: viewerProcedure.query(({ ctx }) =>
+    ctx.db.room.findMany({
+      orderBy: [{ patrolOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, patrolOrder: true },
+    }),
+  ),
+
+  /** Crew members (anyone with a crewStatus) + their patrol tally. Crew hours are separate from
+   *  tutoring. Crew-only logins (role CREW) can be hard-deleted; tutor-crew are managed via status. */
+  crewRoster: viewerProcedure.query(async ({ ctx }) => {
+    const [users, agg, retired] = await Promise.all([
+      ctx.db.user.findMany({
+        where: { crewStatus: { not: null }, mergedIntoId: null },
+        orderBy: { name: "asc" },
+        // Fall back to username (never email) for the label — emails are PII masked from VIEWER, and
+        // the unmasked `name` key must never carry one.
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          role: true,
+          crewStatus: true,
+          tutor: { select: { englishName: true } },
+        },
+      }),
+      ctx.db.patrol.groupBy({
+        by: ["crewUserId"],
+        _sum: { hours: true },
+        _count: { _all: true },
+      }),
+      ctx.db.user.findMany({
+        where: { mergedIntoId: { not: null } },
+        select: { id: true, mergedIntoId: true },
+      }),
+    ]);
+    // Attribute current totals through the explicit merge map; patrol evidence keeps
+    // its original author, while each live crew member appears only once.
+    const survivorById = new Map(
+      retired.map((user) => [user.id, user.mergedIntoId!]),
+    );
+    const byUser = new Map<string, { hours: number; count: number }>();
+    for (const patrol of agg) {
+      const id = survivorById.get(patrol.crewUserId) ?? patrol.crewUserId;
+      const previous = byUser.get(id) ?? { hours: 0, count: 0 };
+      byUser.set(id, {
+        hours: previous.hours + (patrol._sum.hours ?? 0),
+        count: previous.count + patrol._count._all,
+      });
+    }
+    const rank = { ACTIVE: 0, OPTED_OUT: 1, INACTIVE: 2 } as Record<
+      string,
+      number
+    >;
+    return (
+      users
+        .map((u) => ({
+          id: u.id,
+          name: u.name ?? u.username ?? "—",
+          // Keep the legacy name/sort projection; expose its current source for display-only fallbacks.
+          canonicalName: u.name,
+          username: u.username,
+          tutor: u.tutor?.englishName ?? null,
+          crewOnly: u.role === "CREW",
+          status: u.crewStatus ?? "INACTIVE",
+          patrols: byUser.get(u.id)?.count ?? 0,
+          hours: byUser.get(u.id)?.hours ?? 0,
+        }))
+        // Active first, then by patrol count.
+        .sort(
+          (a, b) =>
+            (rank[a.status] ?? 9) - (rank[b.status] ?? 9) ||
+            b.patrols - a.patrols ||
+            a.name.localeCompare(b.name),
+        )
+    );
+  }),
+
+  /** Save the crew's room patrol order (roomIds in the order they should be visited). */
+  setPatrolOrder: adminProcedure
+    .input(z.object({ roomIds: z.array(cuid).min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.$transaction(
+        input.roomIds.map((id, i) =>
+          ctx.db.room.update({ where: { id }, data: { patrolOrder: i } }),
+        ),
+      );
+      return { ok: true };
+    }),
+
+  /** Headline crew totals for the dashboard + activity: patrols, crew hours, open discrepancy
+   *  flags, active members, and the pending application / opt-out request counts. */
+  crewSummary: viewerProcedure.query(async ({ ctx }) => {
+    const [patrolAgg, flagCount, crewCount, appCount, reqCount] =
+      await Promise.all([
+        ctx.db.patrol.aggregate({
+          _sum: { hours: true },
+          _count: { _all: true },
+        }),
+        ctx.db.sessionFlag.count({ where: { state: "PENDING" } }),
+        ctx.db.user.count({ where: { crewStatus: "ACTIVE" } }),
+        ctx.db.crewApplication.count({ where: { status: "PENDING" } }),
+        ctx.db.crewStatusRequest.count({ where: { state: "PENDING" } }),
+      ]);
+    return {
+      patrols: patrolAgg._count._all,
+      hours: patrolAgg._sum.hours ?? 0,
+      openFlags: flagCount,
+      members: crewCount,
+      openApplications: appCount,
+      openRequests: reqCount,
+    };
+  }),
+
+  /** Pending crew applications (public "apply to be crew" submissions), earliest-first. */
+  crewApplications: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.portalAccess.maskManagementData;
+    const apps = await ctx.db.crewApplication.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        gradeLevel: true,
+        preferredContact: true,
+        message: true,
+        createdAt: true,
+      },
+    });
+    // Withhold the applicant's free-text message from VIEWER.
+    return isViewer ? apps.map((a) => ({ ...a, message: null })) : apps;
+  }),
+
+  /** Accepted crew applications with an outstanding (unused, unexpired) code — so the issued code
+   *  stays visible on /admin/crew where it was issued. The code is withheld from the VIEWER.
+   *  Revoking the code on /admin/registration-codes reverts the application to PENDING. */
+  crewIssuedCodes: viewerProcedure.query(async ({ ctx }) => {
+    const canSee = !ctx.portalAccess.maskManagementData;
+    const codes = await ctx.db.registrationCode.findMany({
+      where: {
+        crewApplicationId: { not: null },
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        code: true,
+        label: true,
+        expiresAt: true,
+        crewApplicationId: true,
+      },
+    });
+    const appIds = codes
+      .map((c) => c.crewApplicationId)
+      .filter((x): x is string => !!x);
+    const apps = appIds.length
+      ? await ctx.db.crewApplication.findMany({
+          where: { id: { in: appIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const nameById = new Map(apps.map((a) => [a.id, a.name]));
+    return codes.map((c) => ({
+      id: c.id,
+      code: canSee ? c.code : null,
+      name:
+        (c.crewApplicationId ? nameById.get(c.crewApplicationId) : null) ??
+        (canSee ? c.label : null) ??
+        "—",
+      expiresAt: c.expiresAt,
+    }));
+  }),
+
+  /** Decide a crew application: ACCEPT issues a CREW registration code bound to the applicant's
+   *  email (shown on /admin/registration-codes to hand over); REJECT closes it. */
+  decideCrewApplication: adminProcedure
+    .input(
+      z.object({
+        applicationId: cuid,
+        action: z.enum(["ACCEPT", "REJECT"]),
+        comment: z.string().trim().max(500).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      decideCrewApplication(ctx.db, input, {
+        id: ctx.session.user.id,
+        name: ctx.session.user.name ?? null,
+      }),
+    ),
+
+  /** Pending crew opt-out/reentry requests (member-initiated), earliest-first. Opt-out becomes
+   *  approvable only after its recall cooldown elapses. */
+  crewRequests: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.portalAccess.maskManagementData;
+    const now = new Date();
+    const reqs = await ctx.db.crewStatusRequest.findMany({
+      where: { state: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        kind: true,
+        eligibleAt: true,
+        reason: true,
+        createdAt: true,
+        user: { select: { id: true, name: true, username: true } },
+      },
+    });
+    return reqs.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      member: r.user.name ?? r.user.username ?? "—",
+      canonicalName: r.user.name,
+      username: r.user.username,
+      // Withhold the member-entered request reason from VIEWER.
+      reason: isViewer ? null : r.reason,
+      eligibleAt: r.eligibleAt,
+      approvable: r.kind === "REENTRY" || !r.eligibleAt || r.eligibleAt <= now,
+      createdAt: r.createdAt,
+    }));
+  }),
+
+  /** Approve or deny a crew opt-out/reentry request. Approving OPT_OUT sets crewStatus OPTED_OUT
+   *  (only after the cooldown); approving REENTRY sets ACTIVE. The member is notified. */
+  decideCrewRequest: adminProcedure
+    .input(z.object({ requestId: cuid, action: z.enum(["APPROVE", "DENY"]) }))
+    .mutation(({ ctx, input }) =>
+      decideMembership(
+        ctx.db,
+        "crew",
+        input.requestId,
+        input.action === "APPROVE",
+        ctx.session.user,
+      ),
+    ),
+
+  /** Recorded attendance-discrepancy decisions. Default stays Pending; broader states
+   * only extend this authorized read, never reopen a settled decision. */
+  sessionFlags: viewerProcedure
+    .input(
+      z
+        .object({ state: z.enum(SESSION_FLAG_FILTERS).default("PENDING") })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const flags = await ctx.db.sessionFlag.findMany({
+        where:
+          !input || input.state === "PENDING"
+            ? { state: "PENDING" }
+            : input.state === "ALL"
+              ? {}
+              : { state: input.state },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          state: true,
+          decisionNote: true,
+          resolvedAt: true,
+          resolvedByName: true,
+          expected: true,
+          observed: true,
+          createdAt: true,
+          tutor: { select: { englishName: true } },
+          session: {
+            select: {
+              id: true,
+              date: true,
+              startMin: true,
+              endMin: true,
+              pairing: { select: { subject: true } },
+              actualRoom: { select: { name: true } },
+            },
+          },
+        },
+      });
+      return flags.map((f) => ({
+        id: f.id,
+        state: f.state,
+        decisionNote: ctx.portalAccess.maskManagementData
+          ? null
+          : f.decisionNote,
+        resolvedAt: f.resolvedAt,
+        resolvedByName: ctx.portalAccess.maskManagementData
+          ? null
+          : f.resolvedByName,
+        expected: f.expected,
+        observed: f.observed,
+        createdAt: f.createdAt,
+        tutor: f.tutor.englishName,
+        subject: f.session.pairing.subject,
+        room: f.session.actualRoom?.name ?? null,
+        date: f.session.date,
+        startMin: f.session.startMin,
+        endMin: f.session.endMin,
+      }));
+    }),
+
+  /**
+   * Decide a flagged session: dismiss as valid, record a warning, apply a service-hour penalty
+   * (a PUNISHMENT adjustment for the session's period), or escalate for removal review. Notifies
+   * the tutor (except a silent dismissal).
+   */
+  decideSessionFlag: adminProcedure
+    .input(
+      z.object({
+        flagId: cuid,
+        action: z.enum(["DISMISS", "WARN", "PENALIZE", "ESCALATE"]),
+        note: z.string().trim().max(500).optional(),
+        penaltyHours: z.number().min(0).max(24).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const reference = await tx.sessionFlag.findUniqueOrThrow({
+          where: { id: input.flagId },
+          select: { sessionId: true },
+        });
+        await lockEntity(tx, `session-flag:${reference.sessionId}`);
+        const flag = await tx.sessionFlag.findUniqueOrThrow({
+          where: { id: input.flagId },
+          select: {
+            id: true,
+            state: true,
+            tutorId: true,
+            tutor: {
+              select: { englishName: true, user: { select: { id: true } } },
+            },
+            session: {
+              select: {
+                schoolYear: true,
+                quarter: true,
+                month: true,
+                date: true,
+                pairing: { select: { subject: true } },
+              },
+            },
+          },
+        });
+        if (flag.state !== "PENDING") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This flag is already resolved.",
+          });
+        }
+        const stateByAction = {
+          DISMISS: "DISMISSED",
+          WARN: "WARNED",
+          PENALIZE: "PENALIZED",
+          ESCALATE: "ESCALATED",
+        } as const;
+        const note = input.note?.trim() ? input.note.trim() : null;
+
+        const changed = await tx.sessionFlag.updateMany({
+          where: { id: flag.id, state: "PENDING" },
+          data: {
+            state: stateByAction[input.action],
+            decisionNote: note,
+            resolvedAt: new Date(),
+            resolvedById: ctx.session.user.id,
+            resolvedByName: ctx.session.user.name,
+          },
+        });
+
+        if (changed.count !== 1) staleConflict();
+
+        if (input.action === "PENALIZE") {
+          await tx.serviceHourAdjustment.create({
+            data: {
+              id: `flag:${flag.id}`,
+              tutorId: flag.tutorId,
+              month: flag.session.month,
+              schoolYear: flag.session.schoolYear,
+              quarter: flag.session.quarter,
+              type: "PUNISHMENT",
+              amount: input.penaltyHours ?? 0.5,
+              reason: `Attendance discrepancy (crew check)${note ? ` — ${note}` : ""}.`,
+            },
+          });
+        }
+
+        if (input.action !== "DISMISS" && flag.tutor.user?.id) {
+          const body =
+            input.action === "WARN"
+              ? "An attendance entry was flagged after a crew check — a warning was recorded."
+              : input.action === "PENALIZE"
+                ? "An attendance entry was flagged after a crew check — a service-hour penalty was applied."
+                : "An attendance entry was flagged after a crew check and escalated for review.";
+          await notifyUsers(
+            [flag.tutor.user.id],
+            {
+              title: "Attendance review",
+              body,
+              link: "/dashboard",
+              ...notificationInAppEvent(
+                input.action === "WARN"
+                  ? "attendance_review_warning"
+                  : input.action === "PENALIZE"
+                    ? "attendance_review_penalty"
+                    : "attendance_review_escalated",
+                undefined,
+                {
+                  en: `${flag.tutor.englishName}'s ${flag.session.pairing.subject} attendance for ${flag.session.date.toISOString().slice(0, 10)}: ${input.action === "WARN" ? "a warning was recorded" : input.action === "PENALIZE" ? `a ${input.penaltyHours ?? 0.5}-hour service penalty was applied` : "the discrepancy was escalated for review"}.`,
+                  zh: `${flag.tutor.englishName} 在 ${flag.session.date.toISOString().slice(0, 10)} 的 ${flag.session.pairing.subject} 出勤：${input.action === "WARN" ? "已记录警告" : input.action === "PENALIZE" ? `已扣减 ${input.penaltyHours ?? 0.5} 服务小时` : "异常已提交进一步审核"}。`,
+                },
+              ),
+            },
+            tx,
+          );
+        }
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `${input.action} attendance flag for ${flag.tutor.englishName}`,
+            entity: "SessionFlag",
+            entityId: flag.id,
+          },
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Registration codes (admins + coordinators) — the security keys handed to new tutors
+  // --------------------------------------------------------------------------
+  /**
+   * Every registration code with its status. The plaintext code + issuer email are withheld from
+   * the read-only VIEWER. `issuedByEmail` is the issuing admin/coordinator's email (resolved from
+   * `issuedById`; null for system-issued codes, e.g. from an accepted application). Newest-first.
+   */
+  registrationCodes: viewerProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    // The code + issuer email are withheld from the read-only VIEWER.
+    const canSee = !ctx.portalAccess.maskManagementData;
+    const codes = await ctx.db.registrationCode.findMany({
+      where: ["HEAD", "ADMIN"].includes(ctx.session.role)
+        ? {}
+        : { kind: { in: ["TUTOR", "CREW"] } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        code: true,
+        kind: true,
+        email: true,
+        label: true,
+        issuedById: true,
+        issuedByName: true,
+        tutorId: true,
+        applicationId: true,
+        expiresAt: true,
+        usedAt: true,
+        createdAt: true,
+        tutor: { select: { englishName: true } },
+      },
+    });
+    // Resolve the issuer's email (the admin/coordinator who issued the code).
+    const issuerIds = [
+      ...new Set(codes.map((c) => c.issuedById).filter(Boolean) as string[]),
+    ];
+    const issuers = issuerIds.length
+      ? await ctx.db.user.findMany({
+          where: { id: { in: issuerIds } },
+          select: { id: true, email: true },
+        })
+      : [];
+    const issuerEmail = new Map(issuers.map((u) => [u.id, u.email]));
+    return codes.map((c) => ({
+      id: c.id,
+      code: canSee ? c.code : null,
+      kind: c.kind,
+      email: c.email,
+      label: c.label,
+      issuedByName: c.issuedByName,
+      issuedByEmail:
+        canSee && c.issuedById ? (issuerEmail.get(c.issuedById) ?? null) : null,
+      tutorName: c.tutor?.englishName ?? null,
+      fromApplication: !!c.applicationId,
+      createdAt: c.createdAt,
+      expiresAt: c.expiresAt,
+      status: c.usedAt ? "used" : c.expiresAt < now ? "expired" : "active",
+    }));
+  }),
+
+  /**
+   * Issue a five-character registration code for authorized staff to share.
+   * Active codes remain viewable by their permitted staff audience. Optionally bind to an email and/or an existing
+   * roster Tutor (so registration links to that record instead of creating a new one).
+   */
+  issueRegistrationCode: adminProcedure
+    .input(
+      z.object({
+        email: z.string().email().optional(),
+        tutorId: cuid.optional(),
+        label: z.string().trim().max(120).optional(),
+        kind: z.enum(REGISTRATION_KINDS).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // If bound to a tutor, default the label/email from that tutor for the menu.
+      let label = input.label?.trim() ? input.label.trim() : null;
+      let email = input.email?.trim() ? input.email.trim().toLowerCase() : null;
+      const kind = input.kind ?? "TUTOR";
+      if (kind === "TUTOR" && input.tutorId) {
+        const tutor = await ctx.db.tutor.findUnique({
+          where: { id: input.tutorId },
+          select: { englishName: true, email: true },
+        });
+        if (!tutor)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Tutor not found.",
+          });
+        label ??= tutor.englishName;
+        email ??= tutor.email?.toLowerCase() ?? null;
+      }
+      if (isManagementCode(kind) && input.tutorId)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Management invitations cannot link a tutor.",
+        });
+      const result = await issueRegistrationCode({
+        email,
+        tutorId: kind === "TUTOR" ? (input.tutorId ?? null) : null,
+        kind,
+        label,
+        issuedById: ctx.session.user.id,
+        issuedByName: ctx.session.user.name,
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Issued a registration code${label ? ` for ${label}` : ""}`,
+        entity: "RegistrationCode",
+        entityId: result.id,
+      });
+      // The plaintext code is in the return value only — copy it now.
+      return {
+        id: result.id,
+        code: result.code,
+        expiresAt: result.expiresAt,
+        kind,
+      };
+    }),
+
+  /** Revoke an unused registration code (deletes it). Used codes stay for the record. */
+  revokeRegistrationCode: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.$transaction(async (tx) => {
+        // Redemption claims this same row. A concurrent revoke must not delete used history.
+        await lockUsernameNamespace(tx);
+        await tx.$queryRaw`SELECT id FROM "RegistrationCode" WHERE id = ${input.id} FOR UPDATE`;
+        const code = await tx.registrationCode.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        if (isManagementCode(code.kind)) {
+          await activeManagementActor(tx, ctx.session.user.id);
+        }
+        if (code.usedAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This code has already been used.",
+          });
+        await tx.registrationCode.delete({ where: { id: input.id } });
+        if (code.crewApplicationId) {
+          await tx.crewApplication.updateMany({
+            where: { id: code.crewApplicationId, status: "ACCEPTED" },
+            data: {
+              status: "PENDING",
+              decidedByName: null,
+              decidedAt: null,
+              decisionComment: null,
+            },
+          });
+        }
+        const issuance = await tx.auditLog.findFirst({
+          where: {
+            entity: "RegistrationCode",
+            entityId: code.id,
+            operation: "registration.issue",
+          },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            entity: "RegistrationCode",
+            entityId: code.id,
+            operation: "admin.revokeRegistrationCode",
+            action: "Revoked unused registration invitation",
+            approvalId: approvalScope.getStore(),
+            details: {
+              actorRole: ctx.session.role,
+              outcome: "APPLIED",
+              kind: code.kind,
+              issuedById: code.issuedById,
+              before: { active: true },
+              after: { active: false },
+              crewApplicationId: code.crewApplicationId,
+              originalActionId: issuance?.id ?? null,
+              originalEvidence: issuance ? "RECORDED" : "LEGACY_UNAVAILABLE",
+            },
+          },
+        });
+        return { ok: true };
+      });
+    }),
+
+  // --------------------------------------------------------------------------
+  // User / role management (ADMIN only)
+  // --------------------------------------------------------------------------
+  /**
+   * Unified account list for the Users & Roles page: every login plus any admin-created tutor
+   * that doesn't have a login yet (so they can be invited from here). Each row carries the
+   * tutor's account/setup status and a `isSelf` flag; `caller` lets the client gate controls
+   * (coordinators may only send links + toggle their own "can tutor"). ADMIN or COORDINATOR only.
+   */
+  accountAcademics: adminProcedure
+    .input(z.object({ userId: cuid }))
+    .query(async ({ ctx, input }) => ({
+      ...(await accountAcademics(ctx.db, input.userId)),
+      history: await ctx.db.academicConfirmation.findMany({
+        where: {
+          userId: { in: await accountHistoryIds(ctx.db, input.userId) },
+        },
+        orderBy: { confirmedAt: "desc" },
+        take: 50,
+      }),
+    })),
+  updateAccountAcademics: adminProcedure
+    .input(currentAcademicInput.extend({ userId: cuid }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        return confirmCurrentAccountAcademics(tx, input.userId, input, {
+          actorId: ctx.session.user.id,
+          source: "STAFF",
+        });
+      }),
+    ),
+
+  updateAccountUsername: adminOnlyProcedure
+    .input(
+      z.object({
+        userId: cuid,
+        username: accountUsernameSchema,
+        expectedProfileVersion: z.number().int().nonnegative(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      updateAccountUsername(ctx.db, ctx.session.user.id, input),
+    ),
+
+  updateAccountProfile: adminProcedure
+    .input(
+      z.object({
+        userId: cuid,
+        ...optionalPersonNameFields,
+        name: z.string().trim().max(200),
+        alternativeNames: z.string().trim().max(200).nullable(),
+        expectedProfileVersion: z.number().int().nonnegative(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        const updated = await updateAccountProfile(tx, input.userId, input, {
+          management: true,
+        });
+        return { profileVersion: updated.profileVersion };
+      });
+    }),
+
+  sendAccountVerification: adminProcedure
+    .input(z.object({ userId: cuid }))
+    .mutation(({ input }) => issueAccountVerification(input.userId)),
+
+  accountDetails: adminProcedure
+    .input(
+      z.union([
+        z.object({ userId: cuid }),
+        z.object({ tutorId: cuid }),
+        z.object({ tuteeId: cuid }),
+      ]),
+    )
+    .query(({ ctx, input }) => accountDirectoryDetails(ctx.db, input)),
+
+  // A grouped live login can be edited independently of the directory's chosen
+  // representative. Returning its exact version keeps conflict reload explicit.
+  accountProfile: adminProcedure
+    .input(z.object({ userId: cuid }))
+    .query(async ({ ctx, input }) => {
+      const row = await ctx.db.user.findUnique({
+        where: { id: input.userId, mergedIntoId: null },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+          legacyName: true,
+          alternativeNames: true,
+          profileVersion: true,
+        },
+      });
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      return { ...row, userId: row.id, name: row.name ?? row.email };
+    }),
+
+  accounts: adminProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const [term, users, tutorSources, openCodes, historyOwners] =
+      await Promise.all([
+        ctx.db.term.findFirst({
+          where: { active: true },
+          select: { id: true, schoolYear: true },
+        }),
+        ctx.db.user.findMany({
+          where: { mergedIntoId: null },
+          orderBy: { email: "asc" },
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            preferredName: true,
+            legacyName: true,
+            alternativeNames: true,
+            profileVersion: true,
+            academicProfile: true,
+            personId: true,
+            email: true,
+            username: true,
+            role: true,
+            canTranslate: true,
+            tuteeMember: true,
+            tutorAccessRevoked: true,
+            crewStatus: true,
+            affiliation: true,
+            suspendedAt: true,
+            emailVerifiedAt: true,
+            passwordHash: true,
+            mustChangePassword: true,
+            student: { select: { status: true, intakeTermId: true } },
+            retainedTutorProfiles: { select: { tutorId: true } },
+            combinedAccounts: {
+              select: {
+                id: true,
+                retainedTutorProfiles: { select: { tutorId: true } },
+              },
+            },
+            tutorId: true,
+            tutor: {
+              select: {
+                englishName: true,
+                status: true,
+                username: true,
+                gradeLevel: true,
+                academicallyGraduated: true,
+                email: true,
+              },
+            },
+          },
+        }),
+        ctx.db.tutor.findMany({
+          // Read exact destinations alongside accountless rows. Retained and
+          // grouped sources must stay addressable without becoming login rows.
+          orderBy: { englishName: "asc" },
+          select: {
+            id: true,
+            englishName: true,
+            status: true,
+            username: true,
+            gradeLevel: true,
+            gradeSchoolYear: true,
+            academicallyGraduated: true,
+            email: true,
+            personId: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                passwordHash: true,
+                emailVerifiedAt: true,
+                mustChangePassword: true,
+                suspendedAt: true,
+              },
+            },
+            retainedOwner: {
+              select: {
+                userId: true,
+                user: { select: { name: true, username: true } },
+              },
+            },
+          },
+        }),
+        // Outstanding (unused, unexpired) registration codes — used to flag "invited" accounts.
+        ctx.db.registrationCode.findMany({
+          where: { usedAt: null, expiresAt: { gt: now } },
+          select: { tutorId: true, email: true },
+        }),
+        ctx.db.studentProfileOwnership.findMany({
+          select: { userId: true, tuteeId: true },
+        }),
+      ]);
+
+    // Uphold the "every account has a username" invariant: backfill any login that predates the
+    // field (e.g. a bootstrap admin who never had a tutor record), then reflect the new handles.
+    const missingUsername = users.filter(
+      (u) =>
+        !u.username &&
+        (u.tutorId !== null || !["STUDENT", "VIEWER"].includes(u.role)),
+    );
+    if (missingUsername.length > 0) {
+      await Promise.all(missingUsername.map((u) => ensureUserUsername(u.id)));
+      const filled = await ctx.db.user.findMany({
+        where: { id: { in: missingUsername.map((u) => u.id) } },
+        select: { id: true, username: true, profileVersion: true },
+      });
+      const byId = new Map(filled.map((f) => [f.id, f]));
+      for (const u of missingUsername) {
+        const current = byId.get(u.id);
+        if (current) {
+          u.username = current.username;
+          u.profileVersion = current.profileVersion;
+        }
+      }
+    }
+
+    const codedTutorIds = new Set(
+      openCodes.map((c) => c.tutorId).filter(Boolean) as string[],
+    );
+    const codedEmails = new Set(
+      openCodes.map((c) => c.email?.toLowerCase()).filter(Boolean) as string[],
+    );
+    const hasOpenCode = (
+      tutorId: string | null,
+      email: string | null | undefined,
+    ) =>
+      (tutorId != null && codedTutorIds.has(tutorId)) ||
+      (!!email && codedEmails.has(email.toLowerCase()));
+
+    const historicalOwnerIds = new Set(
+      historyOwners.map((owner) => owner.userId),
+    );
+    const userRows = users.map((u) => ({
+      userId: u.id,
+      personId: u.personId,
+      tuteeId: null as string | null,
+      name: u.name ?? u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      preferredName: u.preferredName,
+      legacyName: u.legacyName,
+      alternativeNames: u.alternativeNames,
+      profileVersion: u.profileVersion,
+      emailVerifiedAt: u.emailVerifiedAt,
+      email: u.email,
+      username: u.username ?? u.tutor?.username ?? null,
+      role: u.role,
+      isSelf: u.id === ctx.session.user.id,
+      tutorId: u.tutorId,
+      tutor: u.tutor,
+      tutorStatus: u.tutor?.status ?? null,
+      classOf: academicSummary(u.academicProfile, term?.schoolYear)
+        .expectedGraduationYear,
+      academic: academicSummary(u.academicProfile, term?.schoolYear),
+      canTranslate: u.canTranslate,
+      tuteeMember: u.tuteeMember,
+      hasTuteeHistory:
+        historicalOwnerIds.has(u.id) ||
+        u.combinedAccounts.some((account) =>
+          historicalOwnerIds.has(account.id),
+        ) ||
+        (!!u.student && isHistoricalTutee(u.student, term?.id ?? null)),
+      hasTutorHistory:
+        u.retainedTutorProfiles.length > 0 ||
+        u.combinedAccounts.some(
+          (account) => account.retainedTutorProfiles.length > 0,
+        ),
+      currentTutee:
+        u.tuteeMember &&
+        !!u.student &&
+        !isHistoricalTutee(u.student, term?.id ?? null),
+      tutorAccessRevoked: u.tutorAccessRevoked,
+      crewStatus: u.crewStatus,
+      tutorHasEmail: !!u.tutor?.email,
+      // Viewer (VIEWER) identity + suspension state, for the suspend/reinstate controls.
+      affiliation: u.affiliation,
+      suspended: !!u.suspendedAt,
+      // registered = finished setup; setup = login exists but not finished; (no "none"/"invited"
+      // here — those only apply to login-less tutors below).
+      account: hasReadyCredentials(u) ? "registered" : "setup",
+    }));
+
+    const tutorRows = tutorSources
+      .filter((tu) => !tu.user && !tu.retainedOwner)
+      .map((tu) => ({
+        userId: null,
+        personId: tu.personId,
+        tuteeId: null as string | null,
+        name: tu.englishName,
+        firstName: null,
+        lastName: null,
+        preferredName: null,
+        legacyName: tu.englishName,
+        alternativeNames: null,
+        profileVersion: null,
+        emailVerifiedAt: null,
+        email: tu.email,
+        username: tu.username,
+        role: null,
+        isSelf: false,
+        tutorId: tu.id,
+        tutor: {
+          englishName: tu.englishName,
+          status: tu.status,
+          username: tu.username,
+          gradeLevel: tu.gradeLevel,
+          email: tu.email,
+        },
+        tutorStatus: tu.status,
+        classOf: null,
+        academic: academicSummary(
+          {
+            ...legacyAcademic(tu.gradeLevel, tu.academicallyGraduated),
+            schoolYear: tu.gradeSchoolYear,
+          },
+          tu.gradeSchoolYear,
+        ),
+        canTranslate: false,
+        tuteeMember: false,
+        currentTutee: false,
+        hasTuteeHistory: false,
+        hasTutorHistory: false,
+        tutorAccessRevoked: false,
+        crewStatus: null,
+        tutorHasEmail: !!tu.email,
+        affiliation: null,
+        suspended: false,
+        // invited = a registration code is outstanding; none = no login and no code.
+        account: hasOpenCode(tu.id, tu.email) ? "invited" : "none",
+      }));
+
+    // Accountless tutees are real participant records too. A retained or current
+    // owner already represents them; names and email addresses never hide a row.
+    const unlinkedTutees = await ctx.db.tutee.findMany({
+      where: {
+        user: { is: null },
+        id: { notIn: historyOwners.map((owner) => owner.tuteeId) },
+      },
+      orderBy: [{ englishName: "asc" }, { id: "asc" }],
+    });
+    const tuteePeriods = new Map(
+      (
+        await ctx.db.term.findMany({
+          where: {
+            id: {
+              in: unlinkedTutees.flatMap((row) =>
+                row.intakeTermId ? [row.intakeTermId] : [],
+              ),
+            },
+          },
+          select: { id: true, schoolYear: true },
+        })
+      ).map((period) => [period.id, period.schoolYear]),
+    );
+    const tuteeRows = unlinkedTutees.map((student) => ({
+      userId: null,
+      personId: student.personId,
+      tuteeId: student.id,
+      name: student.englishName,
+      firstName: null,
+      lastName: null,
+      preferredName: null,
+      legacyName: student.englishName,
+      alternativeNames: null,
+      profileVersion: null,
+      emailVerifiedAt: null,
+      email: student.email,
+      username: null,
+      role: null,
+      isSelf: false,
+      tutorId: null,
+      tutor: null,
+      tutorStatus: null,
+      classOf: null,
+      academic: academicSummary(
+        {
+          ...legacyAcademic(student.gradeLevel, student.academicallyGraduated),
+          schoolYear: tuteePeriods.get(student.intakeTermId ?? "") ?? null,
+        },
+        tuteePeriods.get(student.intakeTermId ?? ""),
+      ),
+      canTranslate: false,
+      tuteeMember: false,
+      currentTutee: !isHistoricalTutee(student, term?.id ?? null),
+      hasTuteeHistory: isHistoricalTutee(student, term?.id ?? null),
+      hasTutorHistory: false,
+      tutorAccessRevoked: false,
+      crewStatus: null,
+      tutorHasEmail: false,
+      affiliation: null,
+      suspended: false,
+      account: "none",
+    }));
+
+    return {
+      caller: { id: ctx.session.user.id, role: ctx.session.role },
+      rows: await groupDirectoryRows(
+        ctx.db,
+        [...userRows, ...tutorRows, ...tuteeRows],
+        tutorSources.map((source): TutorDirectorySource => ({
+          personId: source.personId,
+          userId: source.user?.id ?? null,
+          retainedOwnerId: source.retainedOwner?.userId ?? null,
+          destination: {
+            tutorId: source.id,
+            name: source.englishName,
+            username: source.username,
+            status: source.status,
+            // Readiness belongs to this direct login only. An invitation requires
+            // the exact source ID; an email match never supplies destination state.
+            account: source.user
+              ? hasReadyCredentials(source.user)
+                ? "registered"
+                : "setup"
+              : source.retainedOwner
+                ? null
+                : codedTutorIds.has(source.id)
+                  ? "invited"
+                  : "none",
+            hasEmail: !!(source.user?.email ?? source.email),
+            suspended: !!source.user?.suspendedAt,
+            retainedOwnerName: source.retainedOwner
+              ? (source.retainedOwner.user.name ??
+                source.retainedOwner.user.username ??
+                "")
+              : null,
+          },
+        })),
+      ),
+    };
+  }),
+
+  /** Admin and Head apply non-Head role changes directly.
+   * Leadership transfer stays separate and credentials never enter saved proposals. */
+  setUserRole: adminOnlyProcedure
+    .input(
+      z.object({
+        userId: cuid,
+        role: z.enum(["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]),
+        confirmPassword: z.string().min(1).max(1024),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        await lockEntity(tx, "program:leadership");
+        const actor = await activeManagementActor(tx, ctx.session.user.id);
+        requireManagementPassword(actor, input.confirmPassword);
+        const target = await tx.user.findUniqueOrThrow({
+          where: { id: input.userId },
+        });
+        if (target.role === "HEAD")
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Use leadership transfer to change the Head.",
+          });
+        if (
+          input.role === "VIEWER" &&
+          ((target.tutorId && !target.tutorAccessRevoked) ||
+            target.tuteeMember ||
+            target.canTranslate ||
+            target.crewStatus)
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Viewer cannot be combined with any other badge or participant identity.",
+          });
+        if (input.role === "TUTOR" && !target.tutorId)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Assign tutor membership in Edit Profile.",
+          });
+        await ensureNameFallbackForRole(tx, target.id, input.role);
+        const updated = await tx.user.update({
+          where: { id: input.userId },
+          data: { role: input.role },
+        });
+        if (target.role !== input.role)
+          await reconcileManagementReviewNotifications(tx);
+        return updated;
+      });
+    }),
+
+  /** Apply a complete badge set atomically. Approval replays use the reviewer's fresh identity;
+   * password values are never stored inside proposal evidence. Links/history survive removal. */
+  setMemberships: adminOnlyProcedure
+    .input(
+      z.object({
+        userId: cuid,
+        membership: membershipSchema,
+        confirmPassword: z.string().min(1).max(1024).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return inTransaction(ctx.db, (tx) =>
+        databaseScope.run(databaseScope.getStore() ?? tx, async () => {
+          // This wrapper can delegate tutor creation; take the namespace before account locks.
+          await lockUsernameNamespace(tx);
+          await lockEntity(tx, "program:leadership");
+          const actor = await activeManagementActor(tx, ctx.session.user.id);
+          if (!approvalScope.getStore())
+            requireManagementPassword(actor, input.confirmPassword ?? "");
+          await lockAccountProfile(tx, input.userId);
+          const target = await tx.user.findUniqueOrThrow({
+            where: { id: input.userId },
+            include: { tutor: true },
+          });
+          const value = input.membership;
+          if ((target.role === "HEAD") !== (value.rank === "HEAD"))
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Use leadership transfer to change the Head.",
+            });
+          const role = value.viewer
+            ? "VIEWER"
+            : value.rank !== "NONE"
+              ? value.rank
+              : value.tutor
+                ? "TUTOR"
+                : value.crew
+                  ? "CREW"
+                  : "STUDENT";
+          // Leave Viewer before assigning any capability; the database enforces exclusivity too.
+          await ensureNameFallbackForRole(tx, target.id, role);
+          const tutorChanged = accountMembership(target).tutor !== value.tutor;
+          const deferSelfDemotion =
+            target.id === actor.id && !["ADMIN", "HEAD"].includes(role);
+          const changeTutorAccess = async () => {
+            const { createCaller } = await import("../root");
+            await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({
+              userId: target.id,
+              canTutor: value.tutor,
+            });
+          };
+          // Finish dependent writes while the self-editing Admin still has authority.
+          // The final rank and badge changes remain one atomic transaction.
+          if (deferSelfDemotion && tutorChanged) await changeTutorAccess();
+          await tx.user.update({
+            where: { id: target.id },
+            data: {
+              role,
+              tuteeMember: value.tutee,
+              tutorAccessRevoked: !value.tutor,
+              canTranslate: value.translator,
+              crewStatus: value.crew ? (target.crewStatus ?? "ACTIVE") : null,
+            },
+          });
+          if (!deferSelfDemotion && tutorChanged) await changeTutorAccess();
+          if (target.role !== role)
+            await reconcileManagementReviewNotifications(tx);
+          return { ok: true };
+        }),
+      );
+    }),
+
+  /**
+   * Transfer leadership (HEAD only). Demotes the current head to ADMIN and promotes the target
+   * (an ADMIN or COORDINATOR) to HEAD, in one transaction — so there is always exactly one head
+   * and the head can't accidentally leave the program leaderless.
+   */
+  transferHead: headProcedure
+    .input(
+      z.object({ userId: cuid, confirmPassword: z.string().min(1).max(1024) }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.session.user.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You are already the head.",
+        });
+      }
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, role: true, name: true, email: true },
+      });
+      if (target.role !== "ADMIN" && target.role !== "COORDINATOR") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Leadership can only pass to an admin or coordinator.",
+        });
+      }
+      await inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        await lockEntity(tx, "program:leadership");
+        const actor = await activeManagementActor(
+          tx,
+          ctx.session.user.id,
+          true,
+        );
+        requireManagementPassword(actor, input.confirmPassword);
+        const liveTarget = await tx.user.findUniqueOrThrow({
+          where: { id: target.id },
+        });
+        if (
+          !["ADMIN", "COORDINATOR"].includes(liveTarget.role) ||
+          liveTarget.suspendedAt ||
+          liveTarget.mergedIntoId
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Leadership target changed. Review the current profile.",
+          });
+        await ensureNameFallbackForRole(tx, ctx.session.user.id, "ADMIN");
+        await ensureNameFallbackForRole(tx, target.id, "HEAD");
+        const demoted = await tx.user.updateMany({
+          where: { id: ctx.session.user.id, role: "HEAD" },
+          data: { role: "ADMIN" },
+        });
+        if (demoted.count !== 1) staleConflict();
+        await tx.user.update({
+          where: { id: target.id },
+          data: { role: "HEAD" },
+        });
+        await reconcileManagementReviewNotifications(tx);
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Transferred head leadership to ${target.name ?? target.email}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Delete a login account (Admin/Head, identity-confirmed). The linked Tutor record is NOT
+   * deleted — the user's tutor link is dropped first so its username/class/history stay on the
+   * roster. A fresh invitation is a separate account-creation decision, not deletion undo. The login's personal rows
+   * (notifications, acks, verification codes, reset tokens) cascade away; authored content
+   * (announcements, card reviews, policy edits) is detached (set-null), not lost. You cannot
+   * delete yourself or another head — transfer leadership first.
+   */
+  previewDeleteUser: adminOnlyProcedure
+    .input(z.object({ userId: cuid }))
+    .query(({ ctx, input }) =>
+      previewDeleteAccount(ctx.db, ctx.session.user.id, input.userId),
+    ),
+
+  deleteUser: adminOnlyProcedure
+    .input(deleteAccountInput)
+    .mutation(({ ctx, input }) =>
+      deleteAccount(ctx.db, ctx.session.user.id, input),
+    ),
+  /** Assign (or unassign) a user as a translator — grants access to the /localization editor. */
+  setUserCanTranslate: adminOnlyProcedure
+    .input(z.object({ userId: cuid, canTranslate: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      // protectedProcedure owns the audit transaction; identity locks survive to commit.
+      await lockUsernameNamespace(ctx.db);
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+      });
+      if (target.role === "VIEWER" && input.canTranslate)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Viewer cannot be a Translator.",
+        });
+      return ctx.db.user.update({
+        where: { id: input.userId },
+        data: { canTranslate: input.canTranslate },
+      });
+    }),
+
+  /** Suspend a suspicious viewer (VIEWER) account: blocks access until reinstated; the user is
+   *  notified and can appeal. Scoped to viewer accounts so it can't lock out staff. */
+  suspendUser: adminProcedure
+    .input(
+      z.object({ userId: cuid, reason: z.string().trim().max(500).optional() }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, role: true, name: true },
+      });
+      if (target.role !== "VIEWER") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only viewer (VIEWER) accounts can be suspended.",
+        });
+      }
+      await ctx.db.user.update({
+        where: { id: target.id },
+        data: {
+          suspendedAt: new Date(),
+          suspendedReason: input.reason?.trim() ? input.reason.trim() : null,
+        },
+      });
+      await notifyUsers([target.id], {
+        ...notificationInAppEvent("account_suspended", undefined, {
+          en: `${target.name ?? "Your account"}: Viewer access was suspended. You may submit an account appeal.`,
+          zh: `${target.name ?? "您的账户"}：观察员访问权限已暂停，您可提交账户申诉。`,
+        }),
+        title: "Account suspended",
+        body: "Your account access was suspended pending review. You can submit an appeal.",
+        link: "/suspended",
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Suspended viewer ${target.name ?? target.id}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return { ok: true };
+    }),
+
+  /** Reinstate a suspended account (clears suspension, approves any pending appeal). */
+  reinstateUser: adminProcedure
+    .input(z.object({ userId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: input.userId },
+          data: { suspendedAt: null, suspendedReason: null },
+        });
+        await tx.accountAppeal.updateMany({
+          where: { userId: input.userId, state: "PENDING" },
+          data: {
+            state: "APPROVED",
+            decidedByName: ctx.session.user.name,
+            decidedAt: new Date(),
+          },
+        });
+      });
+      await notifyUsers([input.userId], {
+        ...notificationInAppEvent("account_reinstated", undefined, {
+          en: "Your account suspension was lifted. Account access is restored and pending account appeals were approved.",
+          zh: "您的账户暂停状态已解除，访问权限已恢复，待处理的账户申诉已批准。",
+        }),
+        title: "Account reinstated",
+        body: "Your account access has been restored.",
+        link: "/",
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: "Reinstated a suspended account",
+        entity: "User",
+        entityId: input.userId,
+      });
+      return { ok: true };
+    }),
+
+  /** Pending reinstatement appeals from suspended users. */
+  appeals: adminProcedure.query(({ ctx }) =>
+    ctx.db.accountAppeal
+      .findMany({
+        where: { state: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          message: true,
+          createdAt: true,
+          user: {
+            select: { id: true, name: true, username: true, affiliation: true },
+          },
+        },
+      })
+      .then((rows) =>
+        rows.map((r) => ({
+          id: r.id,
+          message: r.message,
+          createdAt: r.createdAt,
+          userId: r.user.id,
+          name: r.user.name ?? r.user.username ?? "—",
+          affiliation: r.user.affiliation,
+        })),
+      ),
+  ),
+
+  /** Decide an appeal: APPROVE reinstates the account; DENY keeps it suspended. User notified. */
+  decideAppeal: adminProcedure
+    .input(z.object({ appealId: cuid, action: z.enum(["APPROVE", "DENY"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const appeal = await ctx.db.accountAppeal.findUniqueOrThrow({
+        where: { id: input.appealId },
+        select: { id: true, state: true, userId: true, createdAt: true },
+      });
+      if (appeal.state !== "PENDING") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This appeal is already decided.",
+        });
+      }
+      await ctx.db.$transaction(async (tx) => {
+        await tx.accountAppeal.update({
+          where: { id: appeal.id },
+          data: {
+            state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
+            decidedByName: ctx.session.user.name,
+            decidedAt: new Date(),
+          },
+        });
+        if (input.action === "APPROVE") {
+          await tx.user.update({
+            where: { id: appeal.userId },
+            data: { suspendedAt: null, suspendedReason: null },
+          });
+        }
+      });
+      await notifyUsers([appeal.userId], {
+        title:
+          input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
+        ...notificationInAppEvent(
+          input.action === "APPROVE"
+            ? "account_appeal_approved"
+            : "account_appeal_declined",
+          undefined,
+          {
+            en: `Your account appeal submitted on ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} was ${input.action === "APPROVE" ? "approved; account access was restored" : "declined; account access remains suspended"}.`,
+            zh: `您于 ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} 提交的账户申诉${input.action === "APPROVE" ? "已批准，账户访问权限已恢复" : "未获批准，账户访问权限仍被暂停"}。`,
+          },
+        ),
+        body:
+          input.action === "APPROVE"
+            ? "Your account access has been restored."
+            : "Your appeal was declined; your account stays suspended.",
+        link: "/",
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `${input.action === "APPROVE" ? "Approved" : "Denied"} an account appeal`,
+        entity: "AccountAppeal",
+        entityId: appeal.id,
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Let an admin/coordinator also tutor: link the user to an (active) Tutor record so they get
+   * a tutor area. Re-enables an existing linked/email-matched tutor, or creates one from their
+   * name. Disabling deactivates the tutor and unlinks it (revertible — re-enable relinks).
+   */
+  setUserCanTutor: adminOnlyProcedure
+    .input(z.object({ userId: cuid, canTutor: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        await lockAccountProfile(tx, input.userId);
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: input.userId },
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            legacyName: true,
+            email: true,
+            tutorId: true,
+            role: true,
+            username: true,
+          },
+        });
+
+        if (input.canTutor) await requireSchoolParticipation(tx, user.id);
+        if (user.role === "VIEWER" && input.canTutor)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Viewer cannot be a Tutor.",
+          });
+        if (!input.canTutor) {
+          await tx.user.update({
+            where: { id: user.id },
+            data: { tutorAccessRevoked: true },
+          });
+          // Archive the tutor but KEEP the link, so the account keeps its other attributes
+          // (username, class, history) and the toggle is cleanly reversible. Re-enabling
+          // reactivates the same record. (Tutor-area access is denied while ARCHIVED — see the
+          // gate in (tutor)/layout.tsx.)
+          if (user.tutorId) {
+            await tx.tutor.update({
+              where: { id: user.tutorId },
+              data: { status: "ARCHIVED" },
+            });
+            // Don't strand their tutees — re-queue them for reassignment (the chain's inverse).
+            await requeueTutorActiveTermTutees(tx, user.tutorId);
+          }
+          return { ok: true, linked: false };
+        }
+
+        // Enabling: reuse the already-linked tutor, else an existing tutor with the same email,
+        // else create a fresh one from the user's display name.
+        const existing =
+          (user.tutorId
+            ? await tx.tutor.findUnique({
+                where: { id: user.tutorId },
+                select: { id: true },
+              })
+            : null) ??
+          (await tx.tutor.findUnique({
+            where: { email: user.email },
+            select: { id: true },
+          }));
+
+        let tutorId: string;
+        if (existing) {
+          await preserveHistoricalAcademics(tx, "TUTOR", existing.id);
+          await tx.tutor.update({
+            where: { id: existing.id },
+            data: { status: "ACTIVE" },
+          });
+          tutorId = existing.id;
+        } else {
+          // Split only a legacy string for a username suggestion. Explicit identity
+          // fields are mirrored by updateAccountProfile below.
+          const { firstName, lastName } = user.firstName
+            ? { firstName: user.firstName, lastName: user.lastName ?? "" }
+            : splitDisplayName(user.legacyName ?? user.name ?? user.email);
+          const englishName = user.name ?? user.email;
+          const usernameBase = lastName
+            ? defaultUsername(firstName, lastName)
+            : firstName;
+          const username = await canonicalUsername(tx, usernameBase, {
+            excludeUserId: user.id,
+            userUsername: user.username,
+          });
+          const created = await tx.tutor.create({
+            data: {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              englishName,
+              username,
+              email: user.email,
+              status: "ACTIVE",
+            },
+            select: { id: true },
+          });
+          tutorId = created.id;
+        }
+        await tx.user.update({
+          where: { id: user.id },
+          data: { tutorId, tutorAccessRevoked: false },
+        });
+        await initializeAccountAcademics(tx, user.id);
+        await updateAccountProfile(tx, user.id);
+        // Guarantee the account carries a username (mirrors the linked tutor if it had none).
+        await ensureUserUsername(user.id, tx);
+        return { ok: true, linked: true };
+      });
+    }),
+
+  // --------------------------------------------------------------------------
+  // Policy documents (editable handbooks)
+  // --------------------------------------------------------------------------
+  // Every stored policy version (one row per slug + locale); the page groups them by slug
+  // and offers a per-language tab (the default `en` copy is the fallback).
+  policies: viewerProcedure.query(({ ctx }) =>
+    ctx.db.policyDocument.findMany({
+      orderBy: [{ slug: "asc" }, { locale: "asc" }],
+      select: {
+        id: true,
+        slug: true,
+        locale: true,
+        title: true,
+        body: true,
+        version: true,
+        updatedAt: true,
+        updatedBy: { select: { name: true, email: true } },
+      },
+    }),
+  ),
+
+  // Save a policy version for a (slug, locale) — creating the language version if it's the
+  // first time that translation is edited.
+  upsertPolicy: adminProcedure
+    .input(
+      z.object({
+        slug: z.string().trim().min(1),
+        locale: z.string().trim().min(1).max(10),
+        title: z.string().trim().min(1).max(200),
+        version: z.string().trim().max(40).nullable().optional(),
+        body: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `policy:${input.slug}`);
+        const version = input.version?.trim() ? input.version.trim() : null;
+        // Snapshot the outgoing version into the archive before overwriting it (only when it
+        // actually changes), so admins can review earlier copies.
+        const existing = await tx.policyDocument.findUnique({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+          select: { title: true, body: true, version: true },
+        });
+        if (
+          existing &&
+          (existing.body !== input.body ||
+            existing.title !== input.title ||
+            (existing.version ?? null) !== version)
+        ) {
+          await tx.policyArchive.create({
+            data: {
+              slug: input.slug,
+              locale: input.locale,
+              title: existing.title,
+              body: existing.body,
+              version: existing.version,
+              archivedByName: ctx.session.user.name,
+            },
+          });
+        }
+        return tx.policyDocument.upsert({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+          update: {
+            title: input.title,
+            version,
+            body: input.body,
+            updatedById: ctx.session.user.id,
+          },
+          create: {
+            slug: input.slug,
+            locale: input.locale,
+            title: input.title,
+            version,
+            body: input.body,
+            updatedById: ctx.session.user.id,
+          },
+        });
+      }),
+    ),
+
+  /**
+   * Remove one language version of a policy (cannot remove the default `en` copy, which is the
+   * fallback shown when a translation is missing). Snapshots into the archive first, so it's
+   * recoverable from version history.
+   */
+  deletePolicyLocale: adminProcedure
+    .input(
+      z.object({
+        slug: z.string().trim().min(1),
+        locale: z.string().trim().min(1).max(10),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Consent snapshots and edits share a lock across locales.
+        await lockEntity(tx, `policy:${input.slug}`);
+        if (input.locale === DEFAULT_POLICY_LOCALE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The default language can't be removed.",
+          });
+        }
+        const existing = await tx.policyDocument.findUnique({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+          select: { title: true, body: true, version: true },
+        });
+        if (!existing) return { ok: true };
+        await tx.policyArchive.create({
+          data: {
+            slug: input.slug,
+            locale: input.locale,
+            title: existing.title,
+            body: existing.body,
+            version: existing.version,
+            archivedByName: ctx.session.user.name,
+          },
+        });
+        await tx.policyDocument.delete({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+        });
+        return { ok: true };
+      }),
+    ),
+
+  /** Archived (superseded) policy versions, newest first — for the version-history viewer. */
+  policyArchives: viewerProcedure.query(({ ctx }) =>
+    ctx.db.policyArchive.findMany({
+      orderBy: { archivedAt: "desc" },
+      select: {
+        id: true,
+        slug: true,
+        locale: true,
+        title: true,
+        body: true,
+        version: true,
+        archivedByName: true,
+        archivedAt: true,
+      },
+    }),
+  ),
+
+  // --------------------------------------------------------------------------
+  // Announcements (broadcast to tutors)
+  // --------------------------------------------------------------------------
+  announcements: viewerProcedure.query(({ ctx }) =>
+    ctx.db.announcement.findMany({
+      orderBy: [{ active: "desc" }, { pinned: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        pinned: true,
+        active: true,
+        createdAt: true,
+        createdBy: { select: { name: true } },
+        audienceRestricted: true,
+        recipientTutorIds: true,
+        _count: { select: { acks: true } },
+      },
+    }),
+  ),
+
+  announcementCandidates: viewerProcedure.query(({ ctx }) =>
+    announcementCandidates(ctx.db),
+  ),
+
+  createAnnouncement: adminProcedure
+    .input(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        body: z.string().trim().min(1).max(5000),
+        pinned: z.boolean().default(false),
+        // Parse an omitted audience through its nested defaults; Zod 4's
+        // default({}) would return the unparsed empty object immediately.
+        audience: announcementAudienceSchema.prefault({}),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Resolve once at publication (or approval execution). Subsequent roster changes never
+      // broaden readership. Tutor identities never match by mutable names or email addresses.
+      return inTransaction(ctx.db, async (tx) => {
+        const candidates = await announcementCandidates(tx);
+        const knownIds = new Set(candidates.map((candidate) => candidate.id));
+        if (
+          [
+            ...input.audience.includeTutorIds,
+            ...input.audience.excludeTutorIds,
+          ].some((id) => !knownIds.has(id))
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "A selected tutor no longer exists. Refresh the recipients.",
+          });
+        }
+        if (
+          input.audience.mode === "filtered" &&
+          input.audience.assignment !== "any" &&
+          !(await tx.term.findFirst({
+            where: { active: true },
+            select: { id: true },
+          }))
+        ) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Set an active term before filtering tutor assignments.",
+          });
+        }
+        const recipientTutorIds = selectAnnouncementRecipients(
+          candidates,
+          input.audience,
+        ).map((candidate) => candidate.id);
+        if (!recipientTutorIds.length)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Select at least one announcement recipient.",
+          });
+        const announcement = await tx.announcement.create({
+          data: {
+            title: input.title,
+            body: input.body,
+            pinned: input.pinned,
+            createdById: ctx.session.user.id,
+            audienceRestricted: true,
+            recipientTutorIds,
+          },
+        });
+        // Notification bodies are private too. Management retains oversight; unrelated
+        // student accounts never receive the announcement body or an inaccessible admin link.
+        const users = await tx.user.findMany({
+          where: {
+            id: { not: ctx.session.user.id },
+            OR: [
+              { tutorId: { in: recipientTutorIds } },
+              { role: { in: ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"] } },
+            ],
+          },
+          select: { id: true, tutorId: true },
+        });
+        const body = input.body;
+        const title = `📣 ${input.title}`;
+        await Promise.all([
+          notifyUsers(
+            users
+              .filter((u) => u.tutorId && recipientTutorIds.includes(u.tutorId))
+              .map((u) => u.id),
+            {
+              title,
+              body,
+              link: "/dashboard",
+              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
+                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                zh: `公告“${input.title}”已发布，请打开公告查看。`,
+              }),
+            },
+            tx,
+          ),
+          notifyUsers(
+            users
+              .filter(
+                (u) => !u.tutorId || !recipientTutorIds.includes(u.tutorId),
+              )
+              .map((u) => u.id),
+            {
+              title,
+              body,
+              link: "/admin/announcements",
+              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
+                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                zh: `公告“${input.title}”已发布，请打开公告查看。`,
+              }),
+            },
+            tx,
+          ),
+        ]);
+        return announcement;
+      });
+    }),
+
+  updateAnnouncement: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        title: z.string().trim().min(1).max(200).optional(),
+        body: z.string().trim().min(1).max(5000).optional(),
+        pinned: z.boolean().optional(),
+        active: z.boolean().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const { id, ...rest } = input;
+      return ctx.db.announcement.update({ where: { id }, data: rest });
+    }),
+
+  deleteAnnouncement: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const a = await tx.announcement.findUniqueOrThrow({
+          where: { id: input.id },
+          select: {
+            id: true,
+            title: true,
+            body: true,
+            pinned: true,
+            active: true,
+            createdById: true,
+            createdAt: true,
+            acks: { select: { userId: true, ackedAt: true } },
+            audienceRestricted: true,
+            recipientTutorIds: true,
+          },
+        });
+        const deleted = await tx.announcement.delete({
+          where: { id: input.id },
+        });
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `Deleted announcement "${a.title}"`,
+            entity: "Announcement",
+            entityId: a.id,
+            undo: {
+              kind: "announcement.restore",
+              payload: {
+                ...a,
+                createdAt: a.createdAt.toISOString(),
+                acks: a.acks.map((r) => ({
+                  ...r,
+                  ackedAt: r.ackedAt.toISOString(),
+                })),
+              },
+            },
+          },
+          tx,
+        );
+        return deleted;
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Disciplinary cards (team recheck of yellow/red cards)
+  // --------------------------------------------------------------------------
+  disciplinaryCards: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.portalAccess.maskManagementData;
+    const cards = await ctx.db.disciplinaryCard.findMany({
+      orderBy: [{ reviewStatus: "asc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        color: true,
+        source: true,
+        reason: true,
+        reviewStatus: true,
+        reviewNote: true,
+        createdAt: true,
+        updatedAt: true,
+        tutee: { select: { id: true, englishName: true } },
+        issuedByTutor: { select: { englishName: true } },
+        session: { select: { date: true } },
+      },
+    });
+    // Withhold the card reason + staff review note free-text from VIEWER.
+    return isViewer
+      ? cards.map((c) => ({ ...c, reason: null, reviewNote: null }))
+      : cards;
+  }),
+
+  reviewCard: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        reviewStatus: z.enum(["VALID", "INVALID"]),
+        reviewNote: z.string().trim().max(500).optional(),
+        expectedUpdatedAt,
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await assertFeatureEnabled(tx, "DISCIPLINE");
+        const prev = await tx.disciplinaryCard.findUniqueOrThrow({
+          where: { id: input.id },
+          select: {
+            reviewStatus: true,
+            reviewNote: true,
+            reviewedAt: true,
+            reviewedById: true,
+            tuteeId: true,
+            tutee: { select: { englishName: true } },
+          },
+        });
+        const res = await tx.disciplinaryCard.updateMany({
+          where: { id: input.id, updatedAt: input.expectedUpdatedAt },
+          data: {
+            reviewStatus: input.reviewStatus,
+            reviewNote: input.reviewNote?.trim()
+              ? input.reviewNote.trim()
+              : null,
+            reviewedById: ctx.session.user.id,
+            reviewedAt: new Date(),
+          },
+        });
+        if (res.count === 0) staleConflict();
+        // Validating a card can push the tutee over the removal threshold — auto-remove if so
+        // (the helper sets them INACTIVE, detaches pairings, and notifies the tutor + admins).
+        await syncPunishmentRemoval(tx, prev.tuteeId);
+        const after = await tx.disciplinaryCard.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { updatedAt: true },
+        });
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `Flagged ${prev.tutee.englishName}'s card ${input.reviewStatus.toLowerCase()}`,
+            entity: "DisciplinaryCard",
+            entityId: input.id,
+            undo: {
+              kind: "card.review",
+              payload: {
+                id: input.id,
+                reviewStatus: prev.reviewStatus,
+                reviewNote: prev.reviewNote,
+                reviewedAt: prev.reviewedAt?.toISOString() ?? null,
+                reviewedById: prev.reviewedById,
+                expectedUpdatedAt: after.updatedAt.toISOString(),
+              },
+            },
+          },
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Audit log + undo
+  // --------------------------------------------------------------------------
+  auditLog: viewerProcedure
+    .input(auditFilters.optional())
+    .query(({ ctx, input }) =>
+      ctx.db.auditLog.findMany({
+        where: auditWhere(input, ctx.portalAccess.maskManagementData),
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 100,
+        ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      }),
+    ),
+
+  auditLogDetail: adminProcedure
+    .input(z.object({ id: cuid }))
+    .query(async ({ ctx, input }) => {
+      // Read immutable event evidence on demand. Executable undo instructions and
+      // current entity/account joins are intentionally outside this read contract.
+      const entry = await ctx.db.auditLog.findUnique({
+        where: { id: input.id },
+        select: {
+          id: true,
+          userId: true,
+          userName: true,
+          createdAt: true,
+          kind: true,
+          operation: true,
+          entity: true,
+          entityId: true,
+          action: true,
+          approvalId: true,
+          details: true,
+          undone: true,
+          undoneAt: true,
+        },
+      });
+      if (!entry)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Audit entry not found.",
+        });
+      return entry;
+    }),
+
+  auditFilterOptions: viewerProcedure.query(async ({ ctx }) => {
+    const [users, historical, operations, entities] = await Promise.all([
+      ctx.db.user.findMany({
+        select: { id: true, name: true, username: true },
+        orderBy: { name: "asc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["userId"],
+        select: { userId: true, userName: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["operation"],
+        select: { operation: true },
+        where: { operation: { not: null } },
+        orderBy: { operation: "asc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["entity"],
+        select: { entity: true },
+        orderBy: { entity: "asc" },
+      }),
+    ]);
+    return {
+      users: auditActors(users, historical),
+      operations: operations.flatMap((o) => (o.operation ? [o.operation] : [])),
+      entities: entities.map((e) => e.entity),
+    };
+  }),
+
+  undoAudit: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `audit:${input.id}`);
+        const entry = await tx.auditLog.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { id: true, undone: true, undoData: true },
+        });
+        if (entry.undone) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Already undone.",
+          });
+        }
+        if (entry.undoData == null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This action can't be undone automatically.",
+          });
+        }
+        let ok = false;
+        try {
+          ok = await applyUndo(entry.undoData, tx);
+        } catch {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Undo failed — the item may have changed since.",
+          });
+        }
+        if (!ok) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Undo data was invalid.",
+          });
+        }
+        const undone = await tx.auditLog.update({
+          where: { id: entry.id },
+          data: { undone: true, undoneAt: new Date() },
+        });
+        // A reversal retains its own actor/review link and points to the immutable source event.
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            entity: "AuditLog",
+            entityId: entry.id,
+            operation: "admin.undoAudit",
+            action: "Reversed recorded action",
+            approvalId: approvalScope.getStore(),
+            details: {
+              actorRole: ctx.session.role,
+              outcome: "APPLIED",
+              originalActionId: entry.id,
+              before: { undone: false },
+              after: { undone: true },
+            },
+          },
+        });
+        return undone;
+      }),
+    ),
+});
+import { accountHistoryIds } from "~/server/account-history";

@@ -2604,7 +2604,6 @@ export const reviewFieldKeys = [
   // add it to display labels, identity references or audit snapshot allowlists.
   "executeAt",
   "blockedReason",
-  "completedAt",
   "sourceTermId",
   "sourceSchoolYear",
   "destinationSchoolYear",
@@ -2650,7 +2649,6 @@ export const reviewFieldKeys = [
   "snapshot",
   "intendedRecipients",
   "generatedById",
-  "generationKey",
   "generationHash",
   "monthlyHoursReportId",
   "scheduleId",

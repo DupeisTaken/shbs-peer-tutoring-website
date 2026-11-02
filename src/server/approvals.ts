@@ -1470,3 +1470,21 @@ export async function queueProposal(
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
+        title:
+          headOnly
+            ? "Management change awaiting Head approval"
+            : "Management change awaiting approval",
+        ...notificationInAppEvent(
+          headOnly
+            ? "management_head_review_pending"
+            : "management_review_pending",
+          {},
+          approvalNotificationDetail(operation, value, targets, "pending"),
+        ),
+        body: `${requesterName}: ${humanizeOperation(operation)}`,
+        link: `/admin/approvals?request=${request.id}`,
+      })),
+    });
+    return request;
+  });
+}
