@@ -14,6 +14,79 @@ Recurring pairing setup remains on the dashboard. The tutee agenda remains at
 `/student?view=schedule#sessions`; sharing the tutor's presentation does not change
 the tutee route, planning permissions or source-owned writes.
 
+## Tutor Schedule workspace
+
+[Schedule](<../../src/app/(tutor)/_components/tutor-schedule.tsx>) starts with
+Interviews, Meetings, Sessions and Upcoming summaries. Feature-disabled interviews
+and meetings are neither queried nor shown. Pairings remains expanded on the
+dashboard, alongside the chair's interview workspace; an assigned chair's personal
+appointment still appears in Schedule and links back to that workspace. Ordinary
+panelists deliberately open their own interview reader and voting workflow.
+
+**Sessions → Add Extra Session** selects an existing pairing's published future
+session and participants before opening the existing extra-session proposal
+editor. It requires active tutoring access and a usable published source. Selecting
+the source neither submits a proposal nor changes a recurring assignment; the
+existing 45-minute, agreement, version and conflict rules still govern submission.
+An unavailable source leaves the action disabled and provides a Pairings link.
+
+**Upcoming** previews up to three distinct unresolved items across the personal
+sources. Items requiring action come first, most recent first; other commitments
+follow by nearest start. Ended tutoring stays outstanding until attendance is
+recorded. Interview action labels distinguish an unrecorded own vote, an eligible
+chair's scheduling or decision work, and permitted completion follow-up. A saved
+vote, pending decision/completion review or recorded completion does not become a
+second action merely because the interview remains open. An unscheduled interview
+may require action but never acquires an invented dated appointment. The preview
+is independent of event filters and paged event lists; its three rows are not a
+total count of all available records.
+
+The event filters default to **Upcoming (2 weeks)**: the current and next school
+weeks in the program timezone, plus ended tutoring missing attendance. Upcoming
+events appear earliest first. **All** and **History** show newest events first,
+using each source's authorized scope. Interviews and meetings keep their original
+workflow and personal-history readers. The room grid and both calendar notices
+appear below the personal agenda at `/schedule#room-schedule`. New tutor calendar
+notices use `/schedule#school-calendar/YYYY-MM-DD`; tutee notices retain
+`/student#school-calendar/YYYY-MM-DD`. Old dashboard room/calendar fragments offer
+an explicit continuation retaining the validated date; they never automatically
+unmount a live dashboard editor.
+
+The live agenda loads up to 300 recent unfinished sessions independently of the
+current two-week window. Its overdue-attendance query reads 301 source rows,
+retains the newest 300 and returns `attendanceBacklogHasMore` when another match
+exists. The current-window query has its own 300-row bound; IDs merge before
+chronological display, so the combined result can exceed 300 cohorts. Current
+request and suggestion lists retain their separate 100-row limits. The backlog
+notice explains that recording loaded attendance allows older unfinished sessions
+to enter Upcoming, while All/History can browse more published cohorts without
+granting historical attendance writes. It does not imply that the loaded working
+set is the entire backlog.
+
+Session history reads captured published planning evidence rather than rebuilding
+the past from current Pairings. It includes retained cancellation/move evidence
+and recorded planned sessions; older attendance without a published plan remains
+in personal attendance history. There is no standalone historical-attendance union
+in this agenda. The self-scoped
+[history reader](../../src/server/session-planning/index.ts) returns bounded pages
+with stable timestamp/ID cursors, without publishing plans or running scheduling
+writes. Interview and meeting event pages use independent bounded cursors in the
+[personal-source router](../../src/server/api/routers/personal-schedule.ts).
+Each source has its own **Load more** and refresh recovery. A partial page is not
+presented as the complete history.
+
+Historical session projections grant no write authority. When the same cohort
+also belongs to the current authoritative agenda, its live projection wins by ID,
+preserving any existing permitted attendance workflow. Event filters and paging
+do not reset retained proposal, attendance, vote, completion or meeting-excuse
+controllers, captured versions or pending submissions. Each feature still owns
+its independent Save, Cancel and accepted-write refresh recovery. Transient
+source failures retain available evidence with an explicit error; unavailable
+interviews, meetings or tutoring cannot erase the independently authorized sibling
+sources. Authoritative access denial conceals that source's private records and
+disables its retained readers until fresh access succeeds. Opening a history or
+appointment reader performs no generic event write.
+
 ## Publication and existing data
 
 The visible school-timezone window is Monday–Sunday for the current and next week.

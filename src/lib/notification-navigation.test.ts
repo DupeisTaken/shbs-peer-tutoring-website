@@ -165,7 +165,7 @@ it("preserves router history state when a same-page shortage link changes its ta
   window.removeEventListener("hashchange", reveal);
 });
 
-it.each(["/dashboard", "/student"])(
+it.each(["/dashboard", "/schedule", "/student"])(
   "delegates same-page school-calendar navigation on %s to its authorized date reader",
   (route) => {
     const routerState = { __NA: true, retainedRouterTree: [route] };
@@ -190,6 +190,12 @@ it.each(["/dashboard", "/student"])(
 
 it.each([
   ["/dashboard#school-calendar/2026-12-01", true],
+  ["/schedule#school-calendar/2026-12-01", true],
+  ["/schedule#school-calendar/2028-02-29", true],
+  ["/schedule#school-calendar/2026-02-30", false],
+  ["/schedule#school-calendar/2026-12-01/extra", false],
+  ["/schedule#school-calendar/2026%2D12%2D01", false],
+  ["/schedule?view=private#school-calendar/2026-12-01", false],
   ["/student#school-calendar/2028-02-29", true],
   ["/student#school-calendar/2026-02-29", false],
   ["/student#school-calendar/2026-13-01", false],

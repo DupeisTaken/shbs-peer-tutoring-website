@@ -131,7 +131,13 @@ const show = (interviewsEnabled = true) =>
     </NextIntlClientProvider>,
   );
 
-it.each(["sessions", "attendance", "tutor-meetings"])(
+it.each([
+  "sessions",
+  "attendance",
+  "tutor-meetings",
+  "room-schedule",
+  "school-calendar",
+])(
   "keeps legacy #%s usable through an explicit Schedule continuation",
   (target) => {
     let frame: FrameRequestCallback = () => undefined;
@@ -155,29 +161,76 @@ it.each(["sessions", "attendance", "tutor-meetings"])(
   },
 );
 
-it("retains a mounted editor when a legacy notification hash arrives", () => {
+it.each(["attendance", "room-schedule", "school-calendar/2026-12-01"])(
+  "retains a mounted editor when legacy #%s arrives",
+  (target) => {
+    let frame: FrameRequestCallback = () => undefined;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frame = callback;
+      return 1;
+    });
+    show();
+    const editor = document.createElement("dialog");
+    editor.setAttribute("open", "");
+    editor.innerHTML = '<input value="Unsaved draft">';
+    document.body.append(editor);
+    window.history.replaceState(null, "", `/dashboard#${target}`);
+    fireEvent(window, new HashChangeEvent("hashchange"));
+    act(() => frame(0));
+    expect(editor.querySelector("input")?.value).toBe("Unsaved draft");
+    expect(editor.open).toBe(true);
+    expect(focusVisibleContext).not.toHaveBeenCalled();
+    expect(
+      screen
+        .getByRole("link", { name: messages.tutor.schedulePage.openSchedule })
+        .getAttribute("href"),
+    ).toBe(`/schedule#${target}`);
+    editor.remove();
+  },
+);
+
+it("retains the exact validated school date in a legacy dashboard continuation", () => {
   let frame: FrameRequestCallback = () => undefined;
   vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
     frame = callback;
     return 1;
   });
+  window.history.replaceState(
+    null,
+    "",
+    "/dashboard#school-calendar/2028-02-29",
+  );
   show();
-  const editor = document.createElement("dialog");
-  editor.setAttribute("open", "");
-  editor.innerHTML = '<input value="Unsaved draft">';
-  document.body.append(editor);
-  window.history.replaceState(null, "", "/dashboard#attendance");
-  fireEvent(window, new HashChangeEvent("hashchange"));
   act(() => frame(0));
-  expect(editor.querySelector("input")?.value).toBe("Unsaved draft");
-  expect(editor.open).toBe(true);
-  expect(focusVisibleContext).not.toHaveBeenCalled();
   expect(
     screen
       .getByRole("link", { name: messages.tutor.schedulePage.openSchedule })
       .getAttribute("href"),
-  ).toBe("/schedule#attendance");
-  editor.remove();
+  ).toBe("/schedule#school-calendar/2028-02-29");
+  expect(focusVisibleContext).toHaveBeenCalledExactlyOnceWith(
+    document.getElementById("school-calendar"),
+  );
+  expect(window.location.pathname).toBe("/dashboard");
+  expect(window.location.hash).toBe("#school-calendar/2028-02-29");
+});
+
+it.each([
+  "2026-02-30",
+  "2026-13-01",
+  "2026-12-01/extra",
+  "2026-12-01?private=1",
+  "2026%2D12%2D01",
+  "not-a-date",
+])("does not forward an invalid legacy school-calendar date %s", (date) => {
+  window.history.replaceState(null, "", `/dashboard#school-calendar/${date}`);
+  show();
+  expect(
+    screen
+      .getByRole("link", { name: messages.tutor.schedulePage.openSchedule })
+      .getAttribute("href"),
+  ).toBe("/schedule");
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(focusVisibleContext).not.toHaveBeenCalled();
 });
 
 it("keeps chair anchors on the dashboard and gates the panelist shortcut", () => {

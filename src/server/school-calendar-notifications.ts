@@ -210,7 +210,7 @@ async function createNotices(
         user.tutorId &&
         !user.tutorAccessRevoked &&
         user.tutor?.status === "ACTIVE"
-          ? `/dashboard#school-calendar/${source.date}`
+          ? `/schedule#school-calendar/${source.date}`
           : `/student#school-calendar/${source.date}`,
     })),
   });

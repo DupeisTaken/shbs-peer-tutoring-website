@@ -4,8 +4,15 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
+import { schoolCalendarHashDate } from "~/lib/notification-navigation";
 
-const legacyTargets = new Set(["sessions", "attendance", "tutor-meetings"]);
+const legacyTargets = new Set([
+  "sessions",
+  "attendance",
+  "tutor-meetings",
+  "room-schedule",
+  "school-calendar",
+]);
 
 /** A fragment arrival must not unmount a dashboard editor or interrupt a write.
  * Keep old bookmarks usable through an explicit continuation into Schedule. */
@@ -29,7 +36,10 @@ export function DashboardScheduleLinks({
     const reveal = () => {
       cancelReveal();
       const target = window.location.hash.slice(1);
-      const legacy = legacyTargets.has(target) ? target : null;
+      // Old dated notices retain only a validated public calendar date. This
+      // continuation performs no source read and leaves dashboard editors alive.
+      const calendarDate = schoolCalendarHashDate(`#${target}`);
+      const legacy = legacyTargets.has(target) || calendarDate ? target : null;
       setLegacyTarget(legacy);
       if (legacy)
         revealFrame.current = requestAnimationFrame(() => {
@@ -39,7 +49,11 @@ export function DashboardScheduleLinks({
             window.location.hash === `#${legacy}` &&
             !document.querySelector("dialog[open]")
           )
-            focusVisibleContext(document.getElementById(legacy));
+            focusVisibleContext(
+              document.getElementById(
+                calendarDate ? "school-calendar" : legacy,
+              ),
+            );
         });
       else if (target === "tutor-interviews" && interviewsEnabled) {
         // The chair workspace first renders a loading shell. Its existing row

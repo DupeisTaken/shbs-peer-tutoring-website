@@ -9,7 +9,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import type { ScheduleView } from "~/lib/schedule-overview";
 import type { RouterOutputs } from "~/trpc/react";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
@@ -20,6 +21,8 @@ type Agenda = RouterOutputs["sessionPlanning"]["agenda"];
 const state = vi.hoisted(() => ({
   data: undefined as Agenda | undefined,
   error: null as null | { data?: { code: string } },
+  historyError: null as null | { data: { code: string } },
+  historyRetry: vi.fn(),
   refetch: vi.fn(),
   propose: vi.fn(),
   suggest: vi.fn(),
@@ -31,6 +34,16 @@ const state = vi.hoisted(() => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     sessionPlanning: {
+      history: {
+        useInfiniteQuery: () => ({
+          data: { pages: [{ cohorts: [], nextCursor: null }] },
+          isFetching: false,
+          isLoading: false,
+          isSuccess: !state.historyError,
+          error: state.historyError,
+          refetch: state.historyRetry,
+        }),
+      },
       agenda: {
         useQuery: () => ({
           data: state.data,
@@ -130,6 +143,8 @@ const sample = (): Agenda => ({
 beforeEach(() => {
   state.data = sample();
   state.error = null;
+  state.historyError = null;
+  state.historyRetry.mockReset();
   for (const fn of [
     state.propose,
     state.suggest,
@@ -279,7 +294,8 @@ it("keeps the final Sunday and older incomplete attendance reachable", () => {
     },
   ];
   show();
-  expect(screen.getAllByRole("article")).toHaveLength(2);
+  expect(screen.getAllByRole("article")).toHaveLength(3);
+  expect(screen.getByText("Older subject")).toBeTruthy();
   fireEvent.click(screen.getByRole("tab", { name: messages.needsAttendance }));
   expect(screen.getByText("Older subject")).toBeTruthy();
 });
@@ -379,6 +395,7 @@ it.each(["en", "zh"] as const)(
   },
 );
 it("reviews scope and clocks before sending an extra, then preserves saved read recovery", async () => {
+  state.data!.cohorts[0]!.startsAt = new Date("2099-01-01T07:00:00Z");
   show();
   fireEvent.click(screen.getByRole("button", { name: messages.addExtra }));
   const dialog = screen.getByRole("dialog");
@@ -448,6 +465,7 @@ it("keeps explicitly agreed closed-day sessions visible and warns in a new-time 
     {
       ...attendanceOccurrence,
       kind: "EXTRA",
+      startsAt: new Date("2099-01-01T07:00:00Z"),
       rescheduled: true,
       schoolClosed: true,
     },
@@ -625,4 +643,143 @@ it("distinguishes undelivered, explicit short-notice and elapsed response window
   );
   expect(screen.getByText(messages.checking)).toBeTruthy();
   expect(state.respond).not.toHaveBeenCalled();
+});
+
+function UnifiedAgenda() {
+  const [view, setView] = useState<ScheduleView>("upcoming");
+  return (
+    <SessionAgenda
+      role="tutor"
+      view={view}
+      onViewChange={setView}
+      renderOverview={(overview) => (
+        <section aria-label="Overview test">
+          <button disabled={!overview.canAddExtra} onClick={overview.openExtra}>
+            Global extra
+          </button>
+          {overview.items.map((item) => (
+            <div key={item.id}>
+              {item.title}
+              {item.action}
+            </div>
+          ))}
+        </section>
+      )}
+    />
+  );
+}
+it("keeps ended missing attendance in Upcoming and its overview, preserving a draft across filters", () => {
+  state.data!.cohorts = [
+    {
+      ...attendanceOccurrence,
+      date: "2026-10-19",
+      startsAt: new Date("2026-10-19T07:00:00Z"),
+      endsAt: new Date("2026-10-19T07:45:00Z"),
+      needsAttendance: true,
+    },
+    {
+      ...attendanceOccurrence,
+      id: "recorded",
+      subjects: ["Already recorded"],
+      status: "RECORDED",
+      needsAttendance: false,
+      canRecordAttendance: false,
+    },
+  ];
+  render(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <UnifiedAgenda />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen
+      .getByRole("button", { name: en.unifiedSchedule.filter.upcoming })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(screen.queryByText("Already recorded")).toBeNull();
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "Overview test" })).getByRole(
+      "button",
+      { name: messages.record },
+    ),
+  );
+  const draft = screen.getByRole("dialog");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.unifiedSchedule.filter.history }),
+  );
+  expect(screen.getByRole("dialog")).toBe(draft);
+  expect(screen.getByText("Already recorded")).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.unifiedSchedule.filter.all }),
+  );
+  expect(screen.getByRole("dialog")).toBe(draft);
+  expect(document.querySelectorAll("#session-cohort-synthetic")).toHaveLength(
+    1,
+  );
+});
+it("global extra requires a real future source and keeps the selected cohort version", () => {
+  const future = {
+    ...attendanceOccurrence,
+    id: "future-source",
+    version: 9,
+    subjects: ["Future pairing"],
+    startsAt: new Date("2099-01-01T07:00:00Z"),
+    endsAt: new Date("2099-01-01T07:45:00Z"),
+    needsAttendance: false,
+    canRecordAttendance: false,
+  };
+  state.data!.cohorts.push(future);
+  render(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <UnifiedAgenda />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
+  const picker = screen.getByRole("dialog");
+  expect(
+    within(picker).getAllByRole("button", {
+      name: en.unifiedSchedule.chooseSession,
+    }),
+  ).toHaveLength(1);
+  expect(within(picker).getByText("Future pairing")).toBeTruthy();
+  fireEvent.click(
+    within(picker).getByRole("button", {
+      name: en.unifiedSchedule.chooseSession,
+    }),
+  );
+  expect(screen.getByRole("dialog").textContent).toContain("Future pairing");
+  expect(state.propose).not.toHaveBeenCalled();
+});
+
+it("a denied history read conceals tutoring caches while keeping independent filters and pagination", () => {
+  state.historyError = { data: { code: "FORBIDDEN" } };
+  const onViewChange = vi.fn();
+  render(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <SessionAgenda
+        role="tutor"
+        view="history"
+        onViewChange={onViewChange}
+        supplementalEvents={[
+          {
+            id: "meeting-independent",
+            startsAt: new Date(),
+            content: <article>Independent meeting</article>,
+          },
+        ]}
+        pagination={<button>More independent events</button>}
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.queryByText("Remaining Learner")).toBeNull();
+  expect(screen.getByText("Independent meeting")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "More independent events" }),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.unifiedSchedule.filter.all }),
+  );
+  expect(onViewChange).toHaveBeenCalledWith("all");
+  fireEvent.click(screen.getByRole("button", { name: messages.retry }));
+  expect(state.historyRetry).toHaveBeenCalledOnce();
 });

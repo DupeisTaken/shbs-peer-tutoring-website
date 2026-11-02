@@ -2454,6 +2454,253 @@ export async function formalizeSeparateSessions(
   });
 }
 
+async function agendaActorContext(
+  tx: TransactionDb,
+  actor: Actor,
+  role: "tutor" | "tutee",
+) {
+  const account = await actorAccount(tx, actor);
+  const owned = await ownedStudentIds(tx, actor.id);
+  if (role === "tutee" && !account.tuteeMember)
+    return fail(
+      "Accept the tutee policy before entering the tutee area.",
+      "FORBIDDEN",
+    );
+  const tutor = account.tutorId
+    ? await tx.tutor.findUnique({ where: { id: account.tutorId } })
+    : null;
+  if (role === "tutor" && (!tutor || account.tutorAccessRevoked))
+    return fail("Tutor access is required.", "FORBIDDEN");
+  const visibility: Prisma.SessionPlanWhereInput =
+    role === "tutor"
+      ? { tutorId: tutor!.id }
+      : { participants: { some: { tuteeId: { in: owned } } } };
+  return { owned, account, tutor, visibility };
+}
+
+const agendaCohortInclude = {
+  plan: { include: planInclude },
+  participants: { include: { tutee: true } },
+  sessions: { select: { id: true } },
+} satisfies Prisma.SessionPlanCohortInclude;
+type AgendaCohortRow = Prisma.SessionPlanCohortGetPayload<{
+  include: typeof agendaCohortInclude;
+}>;
+
+/** History reads captured planning evidence, never live Pairings or actual attendance.
+ * A fully moved/cancelled source can have no remaining cohort joins; its immutable
+ * published assignment roster still identifies the planned source participants. */
+function projectAgendaCohort(
+  row: AgendaCohortRow,
+  role: "tutor" | "tutee",
+  { owned, tutor }: Awaited<ReturnType<typeof agendaActorContext>>,
+  roomRows: readonly { id: string; name: string }[],
+  calendar: Parameters<typeof resolvePlanningTimetableDay>[1],
+  now: Date,
+  history = false,
+) {
+  const roster = row.participants.filter(
+    (person) => person.status === "SCHEDULED",
+  );
+  const capturedIds = new Set(
+    row.plan.assignments.flatMap((assignment) =>
+      assignmentRoster(row.plan, assignment),
+    ),
+  );
+  const captured = row.plan.participants.filter((person) =>
+    capturedIds.has(person.tuteeId),
+  );
+  const displayRoster =
+    history && !row.participants.length ? captured : row.participants;
+  if (
+    role === "tutee" &&
+    !displayRoster.some((person) => owned.includes(person.tuteeId))
+  )
+    return [];
+  const personal =
+    role === "tutee"
+      ? displayRoster.filter((person) => owned.includes(person.tuteeId))
+      : history
+        ? displayRoster
+        : roster;
+  const assignments = row.plan.assignments.filter((assignment) =>
+    assignmentRoster(row.plan, assignment).some((id) =>
+      personal.some((person) => person.tuteeId === id),
+    ),
+  );
+  const sorted = [...assignments].sort(
+    (a, b) =>
+      Number(b.primary) - Number(a.primary) ||
+      a.pairingId.localeCompare(b.pairingId),
+  );
+  return [
+    {
+      id: row.id,
+      planId: row.planId,
+      version: row.version,
+      date: row.date,
+      startMin: row.startMin,
+      endMin: row.endMin,
+      startsAt: row.startsAt,
+      endsAt: row.endsAt,
+      roomId: row.roomId,
+      roomName: roomRows.find((room) => room.id === row.roomId)?.name ?? null,
+      online: row.online,
+      kind: row.plan.kind,
+      rescheduled:
+        role === "tutee"
+          ? personal.some((person) => person.scheduleOverride)
+          : row.rescheduled || roster.some((person) => person.scheduleOverride),
+      schoolClosed: !resolvePlanningTimetableDay(row.date, calendar)
+        .isSchoolDay,
+      unavailable: row.sourceInvalidated,
+      status:
+        role === "tutee" &&
+        personal.every((person) => person.status === "CANCELLED")
+          ? "CANCELLED"
+          : row.sessions.length
+            ? "RECORDED"
+            : history
+              ? row.status
+              : !roster.length
+                ? "CANCELLED"
+                : row.status,
+      subjects: [...new Set(assignments.map((item) => item.subject))],
+      pairingIds: sorted.map((item) => item.pairingId),
+      primaryPairingId: sorted[0]?.pairingId ?? null,
+      tutorId: row.plan.tutorId,
+      tutorName: row.plan.tutor.englishName,
+      tutees:
+        role === "tutor"
+          ? (history ? displayRoster : roster).map((person) => ({
+              id: person.tuteeId,
+              name: person.tutee.englishName,
+            }))
+          : (history ? displayRoster : roster)
+              .filter((person) => owned.includes(person.tuteeId))
+              .map((person) => ({
+                id: person.tuteeId,
+                name: person.tutee.englishName,
+              })),
+      needsAttendance:
+        !row.sessions.length &&
+        roster.length > 0 &&
+        row.status === "SCHEDULED" &&
+        row.endsAt <= now,
+      canRecordAttendance:
+        !history &&
+        role === "tutor" &&
+        tutor?.status === "ACTIVE" &&
+        !row.sessions.length &&
+        roster.length > 0 &&
+        sorted.length > 0 &&
+        row.status === "SCHEDULED" &&
+        row.endsAt <= now,
+    },
+  ];
+}
+
+export type SessionAgendaHistoryInput = {
+  role: "tutor" | "tutee";
+  view?: "history" | "all";
+  cursor?: { startsAt: Date; id: string };
+  limit?: number;
+};
+
+/** Planned commitments, ended by default. This read never publishes plans, settles
+ * responses or rebuilds historical attendance from mutable recurring Pairings. */
+export async function readSessionAgendaHistory(
+  db: DomainDb,
+  actor: Actor,
+  input: SessionAgendaHistoryInput,
+  now = new Date(),
+) {
+  return inTransaction(db, async (tx) => {
+    const context = await agendaActorContext(tx, actor, input.role);
+    const limit = Math.min(50, Math.max(1, input.limit ?? 50));
+    const rows = await tx.sessionPlanCohort.findMany({
+      where: {
+        plan: context.visibility,
+        ...(input.view === "all" ? {} : { endsAt: { lte: now } }),
+        ...(input.role === "tutee"
+          ? {
+              AND: [
+                {
+                  OR: [
+                    {
+                      participants: {
+                        some: { tuteeId: { in: context.owned } },
+                      },
+                    },
+                    {
+                      participants: { none: {} },
+                      plan: {
+                        OR: [
+                          {
+                            assignments: {
+                              some: {
+                                OR: context.owned.map((id) => ({
+                                  tuteeIds: { array_contains: [id] },
+                                })),
+                              },
+                            },
+                          },
+                          {
+                            continuationMembers: {
+                              some: { tuteeId: { in: context.owned } },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            }
+          : {}),
+        ...(input.cursor
+          ? {
+              OR: [
+                { startsAt: { lt: input.cursor.startsAt } },
+                {
+                  startsAt: input.cursor.startsAt,
+                  id: { lt: input.cursor.id },
+                },
+              ],
+            }
+          : {}),
+      },
+      include: agendaCohortInclude,
+      orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+    });
+    const [rooms, calendar] = await Promise.all([
+      tx.room.findMany({ select: { id: true, name: true } }),
+      tx.schoolCalendarDay.findMany(),
+    ]);
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    return {
+      cohorts: page.flatMap((row) =>
+        projectAgendaCohort(
+          row,
+          input.role,
+          context,
+          rooms,
+          calendar,
+          now,
+          true,
+        ),
+      ),
+      // The cursor belongs to the last source row, not a mutable count or offset.
+      nextCursor:
+        rows.length > limit && last
+          ? { startsAt: last.startsAt, id: last.id }
+          : null,
+    };
+  });
+}
+
 export async function readSessionAgenda(
   db: DomainDb,
   actor: Actor,
@@ -2463,134 +2710,8 @@ export async function readSessionAgenda(
   const publication = await ensureSessionPlanningWindow(db, now);
   await sweepSessionPlanning(db, now);
   return inTransaction(db, async (tx) => {
-    await actorAccount(tx, actor);
-    const owned = await ownedStudentIds(tx, actor.id);
-    const account = await tx.user.findUniqueOrThrow({
-      where: { id: actor.id },
-    });
-    if (role === "tutee" && !account.tuteeMember)
-      return fail(
-        "Accept the tutee policy before entering the tutee area.",
-        "FORBIDDEN",
-      );
-    const tutor = account.tutorId
-      ? await tx.tutor.findUnique({ where: { id: account.tutorId } })
-      : null;
-    if (role === "tutor" && (!tutor || account.tutorAccessRevoked))
-      return fail("Tutor access is required.", "FORBIDDEN");
-    const visibility: Prisma.SessionPlanWhereInput =
-      role === "tutor"
-        ? { tutorId: tutor!.id }
-        : { participants: { some: { tuteeId: { in: owned } } } };
-    const rows = await tx.sessionPlanCohort.findMany({
-      where: {
-        plan: visibility,
-        OR: [
-          { date: { gte: publication.start, lte: publication.end } },
-          { endsAt: { lt: now }, status: "SCHEDULED", sessions: { none: {} } },
-        ],
-      },
-      include: {
-        plan: { include: planInclude },
-        participants: { include: { tutee: true } },
-        sessions: { select: { id: true } },
-      },
-      orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-      take: 300,
-    });
-    const roomRows = await tx.room.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    });
-    const calendar = await tx.schoolCalendarDay.findMany();
-    const cohorts = rows.flatMap((row) => {
-      const roster = row.participants.filter(
-        (person) => person.status === "SCHEDULED",
-      );
-      if (
-        role === "tutee" &&
-        !row.participants.some((person) => owned.includes(person.tuteeId))
-      )
-        return [];
-      const personal =
-        role === "tutee"
-          ? row.participants.filter((person) => owned.includes(person.tuteeId))
-          : roster;
-      const assignments = row.plan.assignments.filter((assignment) =>
-        assignmentRoster(row.plan, assignment).some((id) =>
-          personal.some((person) => person.tuteeId === id),
-        ),
-      );
-      const sorted = [...assignments].sort(
-        (a, b) =>
-          Number(b.primary) - Number(a.primary) ||
-          a.pairingId.localeCompare(b.pairingId),
-      );
-      return [
-        {
-          id: row.id,
-          planId: row.planId,
-          version: row.version,
-          date: row.date,
-          startMin: row.startMin,
-          endMin: row.endMin,
-          startsAt: row.startsAt,
-          endsAt: row.endsAt,
-          roomId: row.roomId,
-          roomName:
-            roomRows.find((room) => room.id === row.roomId)?.name ?? null,
-          online: row.online,
-          kind: row.plan.kind,
-          rescheduled:
-            role === "tutee"
-              ? personal.some((person) => person.scheduleOverride)
-              : row.rescheduled ||
-                roster.some((person) => person.scheduleOverride),
-          schoolClosed: !resolvePlanningTimetableDay(row.date, calendar)
-            .isSchoolDay,
-          unavailable: row.sourceInvalidated,
-          status:
-            role === "tutee" &&
-            personal.every((person) => person.status === "CANCELLED")
-              ? "CANCELLED"
-              : row.sessions.length
-                ? "RECORDED"
-                : !roster.length
-                  ? "CANCELLED"
-                  : row.status,
-          subjects: [...new Set(assignments.map((item) => item.subject))],
-          pairingIds: sorted.map((item) => item.pairingId),
-          primaryPairingId: sorted[0]?.pairingId ?? null,
-          tutorId: row.plan.tutorId,
-          tutorName: row.plan.tutor.englishName,
-          tutees:
-            role === "tutor"
-              ? roster.map((person) => ({
-                  id: person.tuteeId,
-                  name: person.tutee.englishName,
-                }))
-              : roster
-                  .filter((person) => owned.includes(person.tuteeId))
-                  .map((person) => ({
-                    id: person.tuteeId,
-                    name: person.tutee.englishName,
-                  })),
-          needsAttendance:
-            !row.sessions.length &&
-            roster.length > 0 &&
-            row.status === "SCHEDULED" &&
-            row.endsAt <= now,
-          canRecordAttendance:
-            role === "tutor" &&
-            tutor?.status === "ACTIVE" &&
-            !row.sessions.length &&
-            roster.length > 0 &&
-            sorted.length > 0 &&
-            row.status === "SCHEDULED" &&
-            row.endsAt <= now,
-        },
-      ];
-    });
+    const context = await agendaActorContext(tx, actor, role);
+    const { owned, account, tutor, visibility } = context;
     const requests = await tx.sessionPlanningRequest.findMany({
       where: {
         plan: visibility,
@@ -2600,6 +2721,72 @@ export async function readSessionAgenda(
       orderBy: { createdAt: "desc" },
       take: 100,
     });
+    const suggestions = await tx.sessionPlanningSuggestion.findMany({
+      where: {
+        usedAt: null,
+        plan: visibility,
+        ...(role === "tutee" ? { tuteeId: { in: owned } } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    const sourceIds = [
+      ...new Set([
+        ...requests.map((request) => request.cohortId),
+        ...suggestions.map((suggestion) => suggestion.cohortId),
+      ]),
+    ];
+    // Bound publication and overdue work independently: old attendance backlog
+    // cannot consume every slot and hide this week's actionable sessions. Sources
+    // of loaded requests/suggestions remain available regardless of those limits.
+    const [windowRows, backlogRows, sourceRows] = await Promise.all([
+      tx.sessionPlanCohort.findMany({
+        where: {
+          plan: visibility,
+          date: { gte: publication.start, lte: publication.end },
+        },
+        include: agendaCohortInclude,
+        orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+        take: 300,
+      }),
+      tx.sessionPlanCohort.findMany({
+        where: {
+          plan: visibility,
+          endsAt: { lte: now },
+          status: "SCHEDULED",
+          sessions: { none: {} },
+        },
+        include: agendaCohortInclude,
+        orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+        take: 301,
+      }),
+      sourceIds.length
+        ? tx.sessionPlanCohort.findMany({
+            where: { plan: visibility, id: { in: sourceIds } },
+            include: agendaCohortInclude,
+            orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+          })
+        : [],
+    ]);
+    const rows = [
+      ...new Map(
+        [...windowRows, ...backlogRows.slice(0, 300), ...sourceRows].map(
+          (row) => [row.id, row],
+        ),
+      ).values(),
+    ].sort(
+      (left, right) =>
+        left.startsAt.getTime() - right.startsAt.getTime() ||
+        left.id.localeCompare(right.id),
+    );
+    const roomRows = await tx.room.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+    const calendar = await tx.schoolCalendarDay.findMany();
+    const cohorts = rows.flatMap((row) =>
+      projectAgendaCohort(row, role, context, roomRows, calendar, now),
+    );
     const projected = [];
     for (const request of requests) {
       if (
@@ -2681,15 +2868,6 @@ export async function readSessionAgenda(
           : null,
       });
     }
-    const suggestions = await tx.sessionPlanningSuggestion.findMany({
-      where: {
-        usedAt: null,
-        plan: visibility,
-        ...(role === "tutee" ? { tuteeId: { in: owned } } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
     const notices = await tx.sessionNotice.findMany({
       where: { recipientUserId: actor.id },
       orderBy: { createdAt: "desc" },
@@ -2705,7 +2883,13 @@ export async function readSessionAgenda(
         context: true,
       },
     });
+    // Optional at the type boundary for older consumers/fixtures, but always
+    // returned by this reader. Newest work is bounded without claiming a total.
+    const backlogPage: { attendanceBacklogHasMore?: boolean } = {
+      attendanceBacklogHasMore: backlogRows.length > 300,
+    };
     return {
+      ...backlogPage,
       timeZone: publication.timeZone,
       windowStart: publication.start,
       windowEnd: publication.end,

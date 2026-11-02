@@ -31,6 +31,7 @@ import {
   sweepSessionPlanning,
   sessionAttendanceContext,
   readSessionAgenda,
+  readSessionAgendaHistory,
 } from ".";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -1870,9 +1871,7 @@ describe("bounded conflict evidence queries", () => {
     // The original Tuesday offer still matches the database relation filter, but
     // Wednesday's current offer is the only reservation this request can hold.
     const historical = await suggestTarget(two, "2026-11-03", 900);
-    await expect(
-      suggestTarget(two, "2026-11-04", 900),
-    ).rejects.toMatchObject({
+    await expect(suggestTarget(two, "2026-11-04", 900)).rejects.toMatchObject({
       code: "CONFLICT",
       message: "That time is held by another pending scheduling request.",
     });
@@ -2040,4 +2039,261 @@ describe("bounded conflict evidence queries", () => {
     });
     expect(await db.sessionPlanningSuggestion.count()).toBe(0);
   });
+});
+
+describe("planned agenda history", () => {
+  async function ended(
+    id: string,
+    patch: { startsAt?: Date; status?: string; planId?: string } = {},
+  ) {
+    const original = await source();
+    const startsAt = patch.startsAt ?? new Date("2026-10-20T07:00:00Z");
+    return db.sessionPlanCohort.create({
+      data: {
+        id,
+        planId: patch.planId ?? original.planId,
+        date: startsAt.toISOString().slice(0, 10),
+        startMin: 900,
+        endMin: 945,
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + 45 * 60_000),
+        status: patch.status ?? "CANCELLED",
+      },
+    });
+  }
+
+  it("pages ended planned cohorts in stable descending order with an honest final cursor", async () => {
+    const same = new Date("2026-10-20T07:00:00Z");
+    await ended("history-a", { startsAt: same });
+    await ended("history-b", { startsAt: same });
+    await ended("history-older", {
+      startsAt: new Date("2026-10-19T07:00:00Z"),
+    });
+    const first = await readSessionAgendaHistory(db, tutor, {
+      role: "tutor",
+      limit: 1,
+    });
+    expect(first.cohorts.map((row) => row.id)).toEqual(["history-b"]);
+    expect(first.nextCursor).toEqual({ startsAt: same, id: "history-b" });
+    const second = await readSessionAgendaHistory(db, tutor, {
+      role: "tutor",
+      limit: 1,
+      cursor: first.nextCursor!,
+    });
+    expect(second.cohorts.map((row) => row.id)).toEqual(["history-a"]);
+    const last = await readSessionAgendaHistory(db, tutor, {
+      role: "tutor",
+      limit: 1,
+      cursor: second.nextCursor!,
+    });
+    expect(last.cohorts.map((row) => row.id)).toEqual(["history-older"]);
+    expect(last.nextCursor).toBeNull();
+    expect(first.cohorts.every((row) => !row.canRecordAttendance)).toBe(true);
+    expect(first.cohorts.some((row) => row.date >= "2026-10-26")).toBe(false);
+  });
+
+  it("retains captured cancelled subjects and participants without reconstructing the live pairing", async () => {
+    await ended("cancelled-source");
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { subject: "Changed live subject" },
+    });
+    const result = await readSessionAgendaHistory(db, tutor, { role: "tutor" });
+    expect(result.cohorts[0]).toMatchObject({
+      id: "cancelled-source",
+      subjects: ["Math"],
+      status: "CANCELLED",
+      canRecordAttendance: false,
+    });
+    expect(result.cohorts[0]!.tutees.map((person) => person.id).sort()).toEqual(
+      ["planning-one", "planning-two"],
+    );
+    const personal = await readSessionAgendaHistory(db, one, { role: "tutee" });
+    expect(personal.cohorts[0]!.tutees).toEqual([
+      { id: "planning-one", name: "Synthetic One" },
+    ]);
+    expect(JSON.stringify(personal)).not.toContain("Synthetic Two");
+  });
+
+  it("reads history without publishing a new window, expiring requests or writing receipts", async () => {
+    const request = await propose();
+    const counts = async () => ({
+      plans: await db.sessionPlan.count(),
+      cohorts: await db.sessionPlanCohort.count(),
+      notices: await db.sessionNotice.count(),
+      receipts: await db.sessionPlanningReceipt.count(),
+    });
+    const before = await counts();
+    await readSessionAgendaHistory(
+      db,
+      tutor,
+      { role: "tutor" },
+      new Date("2026-12-20T00:00:00Z"),
+    );
+    expect(await counts()).toEqual(before);
+    expect((await read(request.id)).status).toBe("PENDING");
+    expect(await db.session.count()).toBe(0);
+  });
+
+  it("preserves personal cohort eligibility and the agenda's live account denial", async () => {
+    const row = await ended("peer-only");
+    await db.sessionPlanParticipant.update({
+      where: {
+        planId_tuteeId: { planId: row.planId, tuteeId: "planning-two" },
+      },
+      data: { cohortId: row.id },
+    });
+    expect(
+      (await readSessionAgendaHistory(db, one, { role: "tutee" })).cohorts,
+    ).toEqual([]);
+    expect(
+      (await readSessionAgendaHistory(db, two, { role: "tutee" })).cohorts.map(
+        (item) => item.id,
+      ),
+    ).toEqual([row.id]);
+    await db.user.update({
+      where: { id: tutor.id },
+      data: { tutorAccessRevoked: true },
+    });
+    await expect(
+      readSessionAgendaHistory(db, tutor, { role: "tutor" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("keeps current-window sessions visible beyond a full overdue attendance backlog", async () => {
+    const original = await source();
+    const old = new Date("2026-10-01T07:00:00Z");
+    const plan = await db.sessionPlan.findUniqueOrThrow({
+      where: { id: original.planId },
+    });
+    const batch = Array.from({ length: 301 }, (_, index) =>
+      String(index).padStart(3, "0"),
+    );
+    await db.sessionPlan.createMany({
+      data: batch.map((key) => ({
+        id: `backlog-plan-${key}`,
+        generationKey: `history-backlog-${key}`,
+        tutorId: plan.tutorId,
+        termId: plan.termId,
+        originalDate: "2026-10-01",
+        timeZone: plan.timeZone,
+        sourceFingerprint: plan.sourceFingerprint,
+        sourceScheduleFingerprint: plan.sourceScheduleFingerprint,
+      })),
+    });
+    await db.sessionPlanAssignment.createMany({
+      data: batch.map((key) => ({
+        planId: `backlog-plan-${key}`,
+        pairingId: "planning-pairing",
+        subject: "Math",
+        tuteeIds: ["planning-one", "planning-two"],
+        primary: true,
+      })),
+    });
+    await db.sessionPlanCohort.createMany({
+      data: batch.map((key) => ({
+        id: `backlog-${key}`,
+        planId: `backlog-plan-${key}`,
+        date: "2026-10-01",
+        startMin: 900 + Number(key),
+        endMin: 945 + Number(key),
+        startsAt: new Date(old.getTime() + Number(key) * 60_000),
+        endsAt: new Date(old.getTime() + (Number(key) + 45) * 60_000),
+        status: "SCHEDULED",
+      })),
+    });
+    await db.sessionPlanParticipant.createMany({
+      data: batch.flatMap((key) =>
+        ["planning-one", "planning-two"].map((tuteeId) => ({
+          planId: `backlog-plan-${key}`,
+          cohortId: `backlog-${key}`,
+          tuteeId,
+        })),
+      ),
+    });
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda.attendanceBacklogHasMore).toBe(true);
+    expect(agenda.cohorts.some((item) => item.id === "backlog-300")).toBe(true);
+    expect(agenda.cohorts.some((item) => item.id === "backlog-000")).toBe(
+      false,
+    );
+    expect(agenda.cohorts.some((item) => item.id === original.id)).toBe(true);
+    expect(
+      agenda.cohorts
+        .filter((item) => item.id.startsWith("backlog-"))
+        .every((item) => item.needsAttendance),
+    ).toBe(true);
+    expect(
+      agenda.cohorts.filter((item) => item.id.startsWith("backlog-")),
+    ).toHaveLength(300);
+    expect(new Set(agenda.cohorts.map((item) => item.id)).size).toBe(
+      agenda.cohorts.length,
+    );
+    const history = await readSessionAgendaHistory(db, tutor, {
+      role: "tutor",
+      limit: 50,
+    });
+    expect(history.cohorts).toHaveLength(50);
+    expect(history.nextCursor).not.toBeNull();
+    await db.session.create({
+      data: {
+        planningCohortId: "backlog-300",
+        pairingId: "planning-pairing",
+        tutorId: tutor.tutorId,
+        date: old,
+        startMin: 1200,
+        endMin: 1245,
+        durationMin: 45,
+        shFactor: 1,
+        shCount: 0.75,
+        month: "2026-10",
+        schoolYear: "26-27",
+        quarter: "Q1",
+      },
+    });
+    const refreshed = await readSessionAgenda(db, tutor, "tutor");
+    expect(refreshed.attendanceBacklogHasMore).toBe(false);
+    expect(refreshed.cohorts.some((item) => item.id === "backlog-000")).toBe(
+      true,
+    );
+    expect(refreshed.cohorts.some((item) => item.id === "backlog-300")).toBe(
+      false,
+    );
+  });
+
+  it("includes agreed future extras beyond the publication window only when All is requested", async () => {
+    const request = await propose("ONE", "EXTRA", "2026-11-20");
+    await respond(request.id, one, "ACCEPT");
+    const extra = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { date: "2026-11-20", plan: { kind: "EXTRA" } },
+    });
+    const history = await readSessionAgendaHistory(db, tutor, {
+      role: "tutor",
+    });
+    expect(history.cohorts.some((item) => item.id === extra.id)).toBe(false);
+    const all = await readSessionAgendaHistory(db, tutor, {
+      role: "tutor",
+      view: "all",
+    });
+    expect(all.cohorts.find((item) => item.id === extra.id)).toMatchObject({
+      kind: "EXTRA",
+      date: "2026-11-20",
+      status: "SCHEDULED",
+      canRecordAttendance: false,
+    });
+  });
+});
+
+it("retains pending request source cohorts beyond the displayed week and backlog bounds", async () => {
+  const original = await source();
+  const request = await propose();
+  const agenda = await readSessionAgenda(
+    db,
+    tutor,
+    "tutor",
+    new Date("2026-10-12T00:00:00Z"),
+  );
+  expect(original.date > agenda.windowEnd).toBe(true);
+  expect(agenda.requests.some((item) => item.id === request.id)).toBe(true);
+  expect(agenda.cohorts.some((item) => item.id === original.id)).toBe(true);
 });

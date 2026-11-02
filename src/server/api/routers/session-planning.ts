@@ -7,6 +7,7 @@ import {
 } from "../trpc";
 import {
   readSessionAgenda,
+  readSessionAgendaHistory,
   suggestSessionTime,
   proposeSession,
   respondSession,
@@ -30,6 +31,24 @@ const timeInput = planningTimeInput.extend({
   ...versioned.shape,
 });
 export const sessionPlanningRouter = createTRPCRouter({
+  history: protectedProcedure
+    .input(
+      z.object({
+        role: z.enum(["tutor", "tutee"]),
+        view: z.enum(["history", "all"]).optional(),
+        cursor: z
+          .object({ startsAt: z.date(), id: z.string().min(1) })
+          .optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      readSessionAgendaHistory(
+        ctx.db,
+        { id: ctx.session.user.id, tutorId: ctx.session.tutorId },
+        input,
+      ),
+    ),
   calendarStatus: protectedProcedure.query(({ ctx }) =>
     sessionCalendarStatus(ctx.db, ctx.session.user.id),
   ),

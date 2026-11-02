@@ -8,6 +8,9 @@ import { api } from "~/trpc/server";
 import { TutorSchedule } from "~/app/(tutor)/_components/tutor-schedule";
 import { DepartureBanner } from "~/app/_components/school-departure";
 import { PolicyConsent } from "~/app/_components/policy-consent";
+import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
+import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
+import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 
 /** The shared tutor layout owns suspension, onboarding and linked-account gates;
  * repeat the dashboard's early guard before invoking any self-scoped reader. */
@@ -15,10 +18,11 @@ export default async function TutorSchedulePage() {
   const session = await auth();
   if (!session?.user) redirect("/signin");
   if (!session.tutorId) redirect("/admin");
-  const [me, features, t] = await Promise.all([
+  const [me, features, t, rooms] = await Promise.all([
     api.tutor.me(),
     getFeatures(db),
     getTranslations(),
+    api.tutor.schedule(),
   ]);
   const inactive = me.status !== "ACTIVE";
 
@@ -43,12 +47,12 @@ export default async function TutorSchedulePage() {
           >
             {t("tutor.schedulePage.preferences")}
           </Link>
-          <Link
+          <a
             className="link inline-flex min-h-11 items-center lg:min-h-8"
-            href="/dashboard#room-schedule"
+            href="#room-schedule"
           >
             {t("tutor.schedulePage.rooms")}
-          </Link>
+          </a>
         </nav>
       </div>
       <PolicyConsent slug="tutor-policy" />
@@ -90,6 +94,20 @@ export default async function TutorSchedulePage() {
         meetingsEnabled={features.MEETINGS}
         now={new Date()}
       />
+      {/* The shared read-only room projection remains separate from personal appointments. */}
+      <section
+        id="room-schedule"
+        tabIndex={-1}
+        className="scroll-mt-6 space-y-2"
+      >
+        <div className="text-center sm:text-left">
+          <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
+          <p className="muted">{t("dashboard.schedule.help")}</p>
+        </div>
+        <ProgramCalendarNotice />
+        <SchoolCalendarNotice />
+        <TutorRoomSchedule initialData={rooms} />
+      </section>
     </div>
   );
 }
