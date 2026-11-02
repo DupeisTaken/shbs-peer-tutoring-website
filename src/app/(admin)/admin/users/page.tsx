@@ -1045,26 +1045,12 @@ export default function UsersPage() {
                       <p className="font-medium text-slate-900">
                         {nameFor(u.name, u.username)}
                       </p>
-                      {(u.username ?? u.tutor?.username) ? (
-                        <p className="muted text-xs">
-                          @{u.username ?? u.tutor?.username}
-                        </p>
-                      ) : (
-                        <p className="muted text-xs">
-                          {t(
-                            u.userId
-                              ? "academics.usernameMissing"
-                              : "tuteeHistory.noAccount",
-                          )}
-                        </p>
-                      )}
-                      {u.combinedRecordCount > 1 && (
-                        <p className="muted mt-1 text-xs">
-                          {t("combineRecords.combinedRecords", {
-                            count: u.combinedRecordCount,
-                          })}
-                        </p>
-                      )}
+                      {/* Reserve the handle line; login status belongs in Login setup. */}
+                      <p className="muted min-h-4 text-xs">
+                        {(u.username ?? u.tutor?.username)
+                          ? `@${u.username ?? u.tutor?.username}`
+                          : null}
+                      </p>
                       {u.identityReviewRequired && (
                         <p className="mt-1 text-xs text-amber-800">
                           {t("combineRecords.reviewRequired")}
