@@ -144,6 +144,8 @@ Legacy ESLint consumers also receive a small CommonJS compatibility export from
 `tools/next-lint-glob/minimatch-compat`. It delegates matching to minimatch 11.0.1,
 the patched release for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249),
 while retaining the callable default export required by their v3 API usage.
+The import plugin's `makeRe(...).test(path)` usage delegates to the patched matcher;
+it does not generate a legacy regular expression or expose a general RegExp API.
 TypeScript ESLint receives 11.0.1 directly through its named-export API. The
 scoped overrides preserve lint rules; `test:lint-glob` exercises actual package
 resolution, file inclusion/exclusion and real rule violations. Remove the
