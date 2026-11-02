@@ -124,6 +124,15 @@ formula-protection helper.
 
 ## Authority and deployment
 
+The settings editor adopts its configuration version and initial reporting month
+once. Background reads expose stale settings without replacing the draft or its
+selected month; an explicit successful Reload replaces the configuration snapshot.
+Authoritative denial clears private drafts, reviews and requested previews. A fresh
+successful Retry restores reading, but a discarded preview must be requested again.
+Retry and reload completions overtaken by newer denial or unmount cannot restore
+old evidence. Accepted writes retain their read-only recovery instead of replaying
+the mutation after a failed refresh.
+
 Admin, Head and Coordinator can inspect management previews and reports; Viewer
 and participant roles cannot. Admin/Head apply settings directly; Coordinators
 propose settings changes for review. Opening-baseline review, issuance, retry and

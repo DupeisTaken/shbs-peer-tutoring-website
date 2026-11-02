@@ -92,8 +92,17 @@ export function InterviewManagement({
     parse: viewSearch,
     enabled: !accessDenied,
   });
-  const [searchDraft, setSearchDraft] = useState("");
-  useEffect(() => setSearchDraft(search), [search]);
+  const [searchEditor, setSearchEditor] = useState({
+    source: search,
+    value: search,
+  });
+  // Restored/applied search owns this input; unrelated filter reads retain edits.
+  if (searchEditor.source !== search) {
+    setSearchEditor({ source: search, value: search });
+  }
+  const searchDraft = searchEditor.value;
+  const setSearchDraft = (value: string) =>
+    setSearchEditor({ source: search, value });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((previous) => {
@@ -142,18 +151,23 @@ export function InterviewManagement({
     sort,
   });
   const denied = useSessionAccessDenied(data);
+  const [observedDenied, setObservedDenied] = useState(false);
+  // Preserve the explicit-recovery latch after the query helper recovers. Only
+  // a new denial transition latches again, so a successful manual read can clear it.
+  if (denied !== observedDenied) {
+    setObservedDenied(denied);
+    if (denied) setAccessDenied(true);
+  }
+  const viewReady = !!data.data && !accessDenied && !denied;
   // The parent Applications page owns viewport position; nested history owns only its read controls.
   useEffect(() => {
-    if (denied) setAccessDenied(true);
-  }, [denied]);
-  useEffect(() => {
     onViewReadyChange?.(
-      !!data.data && !accessDenied,
+      viewReady,
       JSON.stringify([page, search, completion, status, sort]),
       denied || accessDenied,
     );
   }, [
-    !!data.data,
+    viewReady,
     page,
     search,
     completion,
