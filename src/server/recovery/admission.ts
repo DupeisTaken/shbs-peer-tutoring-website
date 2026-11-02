@@ -92,6 +92,23 @@ const assignmentTables = new Set([
   "Tutee",
   "MessageTutorAssignment",
 ]);
+const unsupportedSchedulingTables = new Set([
+  "StudentContinuationReceipt",
+  "StudentContinuationAssignment",
+  "StudentContinuationPairing",
+  "SessionPlanContinuationMember",
+  "SessionPlan",
+  "SessionPlanAssignment",
+  "SessionPlanCohort",
+  "SessionPlanParticipant",
+  "SessionPlanningSuggestion",
+  "SessionPlanningRequest",
+  "SessionPlanningOffer",
+  "SessionPlanningResponse",
+  "SessionPlanningReceipt",
+  "SessionNotice",
+  "SessionCalendarToken",
+]);
 const surveyClock = z.object({
   id: z.string(),
   tuteeId: z.string(),
@@ -290,7 +307,7 @@ async function graph(tx: TransactionDb, actionId: string) {
       : 0;
   const missingCoverage = await tx.$queryRaw<
     Array<{ tableName: string }>
-  >`SELECT tablename AS "tableName" FROM pg_tables p WHERE schemaname='public' AND tablename NOT LIKE 'Recovery%' AND tablename NOT IN ('_prisma_migrations','AuditLog','Notification','EmailDelivery','EmailOutbox','SignupMailAttempt','UsernameNamespaceGuard','SignupQuota','SignupLease','PublicApplicationRateLimit','CaptchaProof','CaptchaGrant') AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid=format('%I.%I',p.schemaname,p.tablename)::regclass AND t.tgname='recovery_change_journal' AND t.tgenabled IN ('O','A') AND t.tgtype=29 AND t.tgfoid='recovery_capture_change()'::regprocedure) ORDER BY tablename`;
+  >`SELECT tablename AS "tableName" FROM pg_tables p WHERE schemaname='public' AND tablename NOT LIKE 'Recovery%' AND tablename NOT IN ('_prisma_migrations','AuditLog','Notification','EmailDelivery','EmailOutbox','SignupMailAttempt','UsernameNamespaceGuard','SignupQuota','SignupLease','PublicApplicationRateLimit','CaptchaProof','CaptchaGrant') AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid=format('%I.%I',p.schemaname,p.tablename)::regclass AND t.tgname='recovery_change_journal' AND t.tgenabled IN ('O','A') AND t.tgtype=29 AND t.tgfoid=CASE WHEN p.tablename IN ('StudentContinuationReceipt','StudentContinuationAssignment','StudentContinuationPairing','SessionPlanContinuationMember') THEN 'recovery_capture_continuation_change()'::regprocedure ELSE 'recovery_capture_change()'::regprocedure END) ORDER BY tablename`;
   const [replication] = await tx.$queryRaw<
     Array<{ mode: string }>
   >`SELECT current_setting('session_replication_role') AS mode`;
@@ -318,7 +335,7 @@ async function graph(tx: TransactionDb, actionId: string) {
 }
 
 type Graph = Awaited<ReturnType<typeof graph>>;
-// Transitive tracking includes learning-partner accounts. Only accounts attached
+// Transitive tracking includes tutee accounts. Only accounts attached
 // to this admission receive compensation; related accounts remain independent.
 function admissionAccounts(g: Graph) {
   return g.users.filter(
@@ -385,6 +402,13 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     blockers.push(RECOVERY_EVIDENCE.clockChanged);
   const rootEvents = g.events.filter((event) => event.kind === "ADMISSION");
   if (rootEvents.length !== 1) blockers.push(RECOVERY_EVIDENCE.sourceEvent);
+  // Events group a whole transaction. A scheduling write inside trusted admission
+  // capture still needs its own compensation adapter; the ADMISSION label must
+  // not hide a commitment, consent receipt or private calendar capability.
+  if (
+    g.changes.some((change) => unsupportedSchedulingTables.has(change.entity))
+  )
+    blockers.push(recoveryEventPrefix + "UNSUPPORTED.");
   const later = g.events.filter((event) => event.kind !== "ADMISSION");
   for (const event of later) {
     const changes = g.changes.filter((change) => change.eventId === event.id);

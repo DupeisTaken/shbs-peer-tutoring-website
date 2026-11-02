@@ -7,7 +7,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
@@ -54,6 +54,7 @@ vi.mock("~/app/(tutor)/_components/merge-context", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
+      sessionPlanning: { agenda: { invalidate: async () => undefined } },
       tutor: {
         myMonthlyTotal: { fetch: mocks.fetchMonthlyTotal },
         mySessions: { invalidate: mocks.invalidateSessions },
@@ -112,6 +113,26 @@ vi.mock("~/trpc/react", () => ({
 }));
 
 import { AttendanceForm } from "./attendance-form";
+import { attendanceOccurrence } from "./attendance-test-data";
+import type { AgendaCohort } from "~/app/_components/session-agenda";
+vi.mock("~/app/_components/profile-dialog", () => ({
+  ProfileDialog: ({
+    children,
+    pending,
+    onClose,
+  }: {
+    children: React.ReactNode;
+    pending: boolean;
+    onClose: () => void;
+  }) => (
+    <div role="dialog">
+      {children}
+      <button disabled={pending} onClick={onClose}>
+        Close
+      </button>
+    </div>
+  ),
+}));
 
 afterEach(() => {
   cleanup();
@@ -130,203 +151,123 @@ afterEach(() => {
   mocks.setAttendanceLocked.mockClear();
 });
 
-it.each([
-  ["en", "Mon"],
-  ["zh", "周一"],
-])(
-  "localizes the %s pairing selector while leaving unconfirmed placeholders hidden",
-  (locale, weekday) => {
-    mocks.locale = locale;
-    render(<AttendanceForm />);
-    expect(
-      screen.getByRole("option", {
-        name: `Mathematics · ${weekday} 15:00–16:00 · A101`,
-      }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("option", { name: "Mathematics · scheduling.awaiting" }),
-    ).toBeTruthy();
-    expect(screen.queryByRole("option", { name: /15:30/ })).toBeNull();
-  },
+const tree = (open = true, occurrence: AgendaCohort = attendanceOccurrence) => (
+  <AttendanceForm occurrence={occurrence} open={open} onClose={vi.fn()} />
 );
-
-it("keeps a failed attendance draft and freezes pending/successful snapshots until a new entry", () => {
-  const view = render(<AttendanceForm />);
-  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), {
-    target: { value: "pairing-1" },
-  });
+it("binds attendance to the exact occurrence and shows only actual tutor states", () => {
+  render(tree());
+  expect(screen.queryByLabelText("tutor.attendance.pairing")).toBeNull();
+  expect(screen.queryByLabelText("tutor.attendance.date")).toBeNull();
+  expect(screen.getByText("Remaining Learner")).toBeTruthy();
+  const select = screen.getByLabelText<HTMLSelectElement>(
+    "tutor.attendance.tutorStatus",
+  );
+  expect([...select.options].map((option) => option.value)).toEqual([
+    "PRESENT",
+    "TUTOR_ABSENT",
+  ]);
+  expect(
+    screen.getByText("Mathematics + Physics · 2026-10-26 · 15:00–15:45"),
+  ).toBeTruthy();
+});
+it("retains notes and actual duration when its dialog closes and reopens", () => {
+  const view = render(tree());
   fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
-    target: { value: "Retained attendance notes" },
+    target: { value: "Retained synthetic notes" },
   });
-  mocks.error = "Synthetic rejected write";
-  view.rerender(<AttendanceForm />);
+  fireEvent.change(screen.getByLabelText("tutor.attendance.end"), {
+    target: { value: "16:00" },
+  });
+  view.rerender(tree(false));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  view.rerender(tree());
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
+      .value,
+  ).toBe("Retained synthetic notes");
+  expect(
+    screen.getByLabelText<HTMLInputElement>("tutor.attendance.end").value,
+  ).toBe("16:00");
+});
+it("does not replace its roster/version snapshot on a background occurrence update", () => {
+  const view = render(tree());
+  fireEvent.change(screen.getByLabelText("tutor.attendance.start"), {
+    target: { value: "14:20" },
+  });
+  view.rerender(
+    tree(true, {
+      ...attendanceOccurrence,
+      version: 8,
+      tutees: [{ id: "other", name: "Different Learner" }],
+    }),
+  );
+  expect(screen.getByText("Remaining Learner")).toBeTruthy();
+  expect(screen.queryByText("Different Learner")).toBeNull();
+  expect(
+    screen.getByLabelText<HTMLInputElement>("tutor.attendance.start").value,
+  ).toBe("14:20");
+});
+it("keeps extra and rescheduled provenance together without allowing either to be selected", () => {
+  render(
+    tree(true, { ...attendanceOccurrence, kind: "EXTRA", rescheduled: true }),
+  );
+  expect(screen.getByText("extra")).toBeTruthy();
+  expect(screen.getByText("rescheduled")).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "extra" })).toBeNull();
+});
+it("keeps a failed draft editable and freezes pending and accepted evidence", () => {
+  const view = render(tree());
+  fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
+    target: { value: "Retained notes" },
+  });
+  mocks.error = "Synthetic rejection";
+  view.rerender(tree());
   expect(screen.getByRole("alert").textContent).toBe(mocks.error);
   expect(
     screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
       .value,
-  ).toBe("Retained attendance notes");
+  ).toBe("Retained notes");
   mocks.pending = true;
-  view.rerender(<AttendanceForm />);
-  expect(mocks.setAttendanceLocked).toHaveBeenLastCalledWith(true);
+  view.rerender(tree());
   expect(
     screen.getByLabelText("tutor.attendance.comments").closest("fieldset")
       ?.disabled,
+  ).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Close" }).disabled,
   ).toBe(true);
   mocks.pending = false;
   mocks.success = true;
   mocks.error = "";
-  view.rerender(<AttendanceForm />);
-  expect(mocks.setAttendanceLocked).toHaveBeenLastCalledWith(true);
+  view.rerender(tree());
   expect(
     screen.getByLabelText("tutor.attendance.comments").closest("fieldset")
       ?.disabled,
   ).toBe(true);
-  fireEvent.click(
-    screen.getByRole("button", { name: "tutor.attendance.submitAnother" }),
-  );
-  expect(mocks.reset).toHaveBeenCalledOnce();
   expect(
-    screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
-      .value,
-  ).toBe("");
+    screen.queryByRole("button", { name: "tutor.attendance.submitAnother" }),
+  ).toBeNull();
 });
-
-it("keeps the saved receipt when refreshing totals fails", async () => {
+it("keeps a saved receipt through read-only totals recovery", async () => {
   mocks.fetchMonthlyTotal.mockRejectedValueOnce(new Error("Refresh offline"));
-  render(<AttendanceForm />);
+  render(tree());
   await act(async () => mocks.submitOnSuccess?.());
   expect(screen.getByRole("alert").textContent).toContain(
     "tutor.tasks.savedRefreshError",
   );
-  expect(mocks.refresh).toHaveBeenCalledOnce();
   await act(async () =>
     fireEvent.click(screen.getByRole("button", { name: "tutor.tasks.retry" })),
   );
   expect(mocks.fetchMonthlyTotal).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole("alert")).toBeNull();
 });
-
-it("keeps all five meanings visible beside each criterion and accessible on its compact radio row", () => {
-  render(<AttendanceForm />);
+it("keeps the five rating meanings and labelled actual attendance fields", () => {
+  render(tree());
   expect(screen.getAllByRole("radio")).toHaveLength(25);
-  expect(
-    screen.getByRole("radio", {
-      name: "tutor.attendance.rating.ratingPreparedness: 3 · tutor.attendance.likert.3",
-    }),
-  ).toBeTruthy();
-  for (const value of [1, 2, 3, 4, 5]) {
+  for (const value of [1, 2, 3, 4, 5])
     expect(
       screen.getAllByText(`${value} · tutor.attendance.likert.${value}`),
     ).toHaveLength(5);
-  }
-  expect(
-    screen.getAllByRole("radio")[0]?.parentElement?.parentElement?.className,
-  ).toContain("grid-cols-5");
+  for (const key of ["tutorStatus", "start", "end", "comments", "roomUsed"])
+    expect(screen.getByLabelText(`tutor.attendance.${key}`)).toBeTruthy();
 });
-
-it("does not replace an attendance draft when a background query changes its schedule", () => {
-  const view = render(<AttendanceForm />);
-  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), {
-    target: { value: "pairing-1" },
-  });
-  fireEvent.change(screen.getByLabelText("tutor.attendance.start"), {
-    target: { value: "14:20" },
-  });
-  mocks.scheduleConfirmed = false;
-  view.rerender(<AttendanceForm />);
-  expect(
-    screen.getByLabelText<HTMLInputElement>("tutor.attendance.start").value,
-  ).toBe("14:20");
-});
-
-describe("attendance form", () => {
-  it("refreshes server-rendered totals after a successful save", async () => {
-    render(<AttendanceForm />);
-
-    expect(mocks.submitOnSuccess).toBeTypeOf("function");
-    await act(async () => {
-      await mocks.submitOnSuccess?.();
-    });
-
-    expect(mocks.fetchMonthlyTotal).toHaveBeenCalledWith(undefined, {
-      staleTime: 0,
-    });
-    expect(mocks.invalidateSessions).toHaveBeenCalledOnce();
-    expect(mocks.refresh).toHaveBeenCalledOnce();
-  });
-
-  it("associates the visible attendance labels with their controls", async () => {
-    render(<AttendanceForm />);
-
-    const pairing = screen.getByLabelText("tutor.attendance.pairing");
-    expect(screen.getByLabelText("tutor.attendance.date")).toBeTruthy();
-    expect(screen.getByLabelText("tutor.attendance.tutorStatus")).toBeTruthy();
-    expect(screen.getByLabelText("tutor.attendance.start")).toBeTruthy();
-    expect(screen.getByLabelText("tutor.attendance.end")).toBeTruthy();
-    expect(screen.getByLabelText("tutor.attendance.comments")).toBeTruthy();
-
-    fireEvent.change(pairing, { target: { value: "pairing-1" } });
-    expect(
-      await screen.findByLabelText("tutor.attendance.roomUsed"),
-    ).toBeTruthy();
-  });
-});
-
-it("leaves actual attendance times blank for an unscheduled assignment", () => {
-  mocks.scheduleConfirmed = false;
-  render(<AttendanceForm />);
-  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), {
-    target: { value: "pairing-1" },
-  });
-  expect(
-    screen.getByLabelText<HTMLInputElement>("tutor.attendance.start").value,
-  ).toBe("");
-  expect(
-    screen.getByLabelText<HTMLInputElement>("tutor.attendance.end").value,
-  ).toBe("");
-  expect(screen.getByText("scheduling.actualTimesRequired")).toBeTruthy();
-  expect(screen.queryByText(/15:30–16:30/)).toBeNull();
-});
-it("defaults confirmed schedules but clears assumed times when an unscheduled course is merged", () => {
-  const { rerender } = render(<AttendanceForm />);
-  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), {
-    target: { value: "pairing-1" },
-  });
-  const start = screen.getByLabelText<HTMLInputElement>(
-    "tutor.attendance.start",
-  );
-  const end = screen.getByLabelText<HTMLInputElement>("tutor.attendance.end");
-  expect(start.value).toBe("15:00");
-  expect(end.value).toBe("16:00");
-  mocks.mergeIds = ["pairing-2"];
-  rerender(<AttendanceForm />);
-  expect(start.value).toBe("");
-  expect(end.value).toBe("");
-  fireEvent.change(start, { target: { value: "14:00" } });
-  fireEvent.change(end, { target: { value: "14:40" } });
-  rerender(<AttendanceForm />);
-  expect(start.value).toBe("14:00");
-  expect(end.value).toBe("14:40");
-});
-
-it.each([false, true])(
-  "retains entered merge times after a background schedule change (saved: %s)",
-  (saved) => {
-    mocks.mergeScheduleConfirmed = true;
-    const view = render(<AttendanceForm />);
-    fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), {
-      target: { value: "pairing-1" },
-    });
-    mocks.mergeIds = ["pairing-2"];
-    view.rerender(<AttendanceForm />);
-    fireEvent.change(screen.getByLabelText("tutor.attendance.start"), {
-      target: { value: "14:20" },
-    });
-    mocks.success = saved;
-    mocks.mergeScheduleConfirmed = false;
-    view.rerender(<AttendanceForm />);
-    expect(
-      screen.getByLabelText<HTMLInputElement>("tutor.attendance.start").value,
-    ).toBe("14:20");
-  },
-);

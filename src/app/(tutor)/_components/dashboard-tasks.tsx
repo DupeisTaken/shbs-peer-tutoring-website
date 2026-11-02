@@ -1,25 +1,32 @@
 "use client";
 
 import { useFormatter, useTimeZone, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { isOpenInterview } from "~/lib/interview-order";
 import { programDateKey } from "~/lib/program-time";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 import { minToHm } from "~/lib/time";
 import { pairingEntries } from "~/lib/pairing-groups";
-import { InlineNotice } from "~/app/_components/ui/patterns";
+import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
+import { resolveSchoolCalendarDay } from "~/lib/school-calendar";
+import { SchoolCalendarDayContext } from "~/app/_components/school-calendar-notice";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
+import Link from "next/link";
 
 const taskTargets = new Set([
   "tutor-activation",
-  "attendance",
   "tutor-pairings",
-  "tutor-interviews",
-  "tutor-meetings",
   "qualification-requests",
   "tutor-preferences",
   "room-schedule",
+]);
+const scheduleTargets = new Set([
+  "attendance",
+  "tutor-interviews",
+  "tutor-meetings",
 ]);
 
 /** Summary queries share the feature components' cache. Unknown/failed reads must
@@ -28,7 +35,7 @@ export function DashboardTasks({
   status,
   interviewsEnabled,
   meetingsEnabled,
-  now,
+  now: initialNow,
 }: {
   status: string;
   interviewsEnabled: boolean;
@@ -38,8 +45,21 @@ export function DashboardTasks({
   const t = useTranslations("tutor.tasks");
   const groupText = useTranslations("pairingGroups");
   const pairingsText = useTranslations("dashboard.pairings");
+  const planning = useTranslations("sessionPlanning");
+  const scheduleText = useTranslations("tutor.schedulePage");
   const format = useFormatter();
   const timeZone = useTimeZone();
+  const [now, setNow] = useState(initialNow);
+  useEffect(() => {
+    if (status !== "ACTIVE") return;
+    const update = () => setNow(new Date());
+    const timer = window.setInterval(update, 30_000);
+    window.addEventListener("focus", update);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", update);
+    };
+  }, [status]);
   const revealFrame = useRef<number | null>(null);
   const revealTask = useCallback((id: string) => {
     if (!taskTargets.has(id)) return;
@@ -63,6 +83,23 @@ export function DashboardTasks({
     };
   }, [revealTask]);
   const active = status === "ACTIVE";
+  const agenda = api.sessionPlanning.agenda.useQuery(
+    { role: "tutor" },
+    {
+      enabled: active,
+      refetchInterval: active ? 30_000 : false,
+    },
+  );
+  const agendaDenied = useSessionAccessDenied(agenda);
+  const schoolTimeZone = agenda.data?.timeZone ?? timeZone ?? DEFAULT_TIME_ZONE;
+  const date = programDateKey(now, schoolTimeZone);
+  const calendar = api.program.schoolCalendar.useQuery(
+    { from: date, to: date },
+    {
+      enabled: active,
+      refetchInterval: active ? 60_000 : false,
+    },
+  );
   const pairings = api.tutor.myPairings.useQuery();
   const roster = api.studentWorkflow.tutorRoster.useQuery();
   const removals = api.tutor.myTuteeRemovalRequests.useQuery();
@@ -80,23 +117,30 @@ export function DashboardTasks({
     qualifications,
     removals,
     membership,
+    ...(active ? [calendar] : []),
+    ...(active ? [agenda] : []),
     ...(active && interviewsEnabled ? [interviews] : []),
     ...(active && meetingsEnabled ? [meetings] : []),
   ];
-  const date = programDateKey(now, timeZone);
-  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+  const schoolDay = resolveSchoolCalendarDay(date, calendar.data ?? []);
   const entries = pairingEntries(pairings.data ?? []);
-  const today = entries.filter(
-    (entry) =>
-      entry.groupStatus !== "needsRepair" &&
-      entry.primary.scheduleConfirmed && entry.primary.dayOfWeek === weekday,
+  // Weekly assignments still own setup/repair tasks. Today's teaching uses only
+  // effective dated cohorts, so moved/cancelled originals cannot reappear here.
+  const today = (agendaDenied ? [] : (agenda.data?.cohorts ?? [])).filter(
+    (cohort) =>
+      cohort.date === date &&
+      !cohort.unavailable &&
+      (cohort.status === "SCHEDULED" || cohort.status === "RECORDED"),
   );
   // One valid unscheduled group is one plan, not one task for every subject.
   // Invalid groups get their own repair task rather than an invented appointment.
   const unscheduled = entries.filter(
-    (entry) => entry.groupStatus !== "needsRepair" && !entry.primary.scheduleConfirmed,
+    (entry) =>
+      entry.groupStatus !== "needsRepair" && !entry.primary.scheduleConfirmed,
   ).length;
-  const needsRepair = entries.filter((entry) => entry.groupStatus === "needsRepair").length;
+  const needsRepair = entries.filter(
+    (entry) => entry.groupStatus === "needsRepair",
+  ).length;
   const reviews = (roster.data ?? []).filter(
     (r) => r.pending || !r.verified || r.editedAt,
   ).length;
@@ -156,27 +200,35 @@ export function DashboardTasks({
       : []),
   ];
   // Native anchors keep history/modifier behavior; actionable tasks retain measured-header reveal.
-  const anchor = (id: string, label: string) => (
-    <a
-      className="link inline-flex min-h-11 items-center lg:min-h-8"
-      href={`#${id}`}
-      onClick={(event) => {
-        if (
-          event.defaultPrevented ||
-          event.button !== 0 ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.altKey
-        )
-          return;
-        document.getElementById(id)?.focus({ preventScroll: true });
-        revealTask(id);
-      }}
-    >
-      {label}
-    </a>
-  );
+  const anchor = (id: string, label: string) =>
+    scheduleTargets.has(id) ? (
+      <Link
+        className="link inline-flex min-h-11 items-center lg:min-h-8"
+        href={`/schedule#${id}`}
+      >
+        {label}
+      </Link>
+    ) : (
+      <a
+        className="link inline-flex min-h-11 items-center lg:min-h-8"
+        href={`#${id}`}
+        onClick={(event) => {
+          if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          document.getElementById(id)?.focus({ preventScroll: true });
+          revealTask(id);
+        }}
+      >
+        {label}
+      </a>
+    );
 
   return (
     <section
@@ -209,6 +261,9 @@ export function DashboardTasks({
           }
         >
           {t("loadError")}
+          {active && !agendaDenied && agenda.data && agenda.error && (
+            <p className="mt-1">{planning("refreshFailed")}</p>
+          )}
         </InlineNotice>
       )}
       <nav aria-label={t("attention")}>
@@ -237,28 +292,77 @@ export function DashboardTasks({
         <div className="border-t border-slate-100 pt-3">
           <h3 className="font-semibold">
             {t("today", {
-              date: format.dateTime(now, { dateStyle: "medium" }),
+              date: format.dateTime(now, {
+                dateStyle: "medium",
+                timeZone: schoolTimeZone,
+              }),
             })}
           </h3>
           <p className="muted mt-1 text-sm">{t("scheduleHelp")}</p>
+          <p className="muted text-xs">
+            {planning("zone", { timeZone: schoolTimeZone })}
+          </p>
+          {calendar.data && !calendar.error && (
+            <SchoolCalendarDayContext {...schoolDay} />
+          )}
           {anchor("attendance", t("attendance"))}
-          {pairings.data && !today.length && (
+          {agendaDenied && (
+            <StatePanel
+              kind="denied"
+              title={planning("denied")}
+              action={
+                <Button
+                  disabled={agenda.isFetching}
+                  onClick={() => void agenda.refetch()}
+                >
+                  {planning("retry")}
+                </Button>
+              }
+            />
+          )}
+          {agenda.data && !agenda.error && !agendaDenied && !today.length && (
             <p className="mt-2 text-sm">{t("noSessions")}</p>
           )}
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {today.map((entry) => (
-              <li key={entry.id} className="rounded-lg bg-slate-50 p-3 text-sm">
-                <p className="font-semibold">
-                  {entry.pairings.map((p) => p.subject).join(" + ")}
-                </p>
+            {today.slice(0, 3).map((cohort) => (
+              <li
+                key={cohort.id}
+                className="rounded-lg bg-slate-50 p-3 text-sm"
+              >
+                <Link
+                  className="link inline-flex min-h-11 items-center font-semibold lg:min-h-8"
+                  href={`/schedule#session-${cohort.id}`}
+                >
+                  {cohort.subjects.join(" + ")}
+                </Link>
                 <p>
-                  {minToHm(entry.primary.startMin)}–
-                  {minToHm(entry.primary.endMin)} ·{" "}
-                  {entry.primary.room?.name ?? t("noRoom")}
+                  {minToHm(cohort.startMin)}–{minToHm(cohort.endMin)} ·{" "}
+                  {cohort.online
+                    ? planning("online")
+                    : (cohort.roomName ?? t("noRoom"))}
                 </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {cohort.kind === "EXTRA" && (
+                    <span className="badge-slate">{planning("extra")}</span>
+                  )}
+                  {cohort.rescheduled && (
+                    <span className="badge-slate">
+                      {planning("rescheduled")}
+                    </span>
+                  )}
+                  {cohort.status === "RECORDED" && (
+                    <span className="badge-slate">{planning("recorded")}</span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
+          <Link
+            className="link mt-2 inline-flex min-h-11 items-center lg:min-h-8"
+            href="/schedule"
+          >
+            {scheduleText("openSchedule")}
+          </Link>
         </div>
       )}
     </section>

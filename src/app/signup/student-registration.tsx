@@ -86,11 +86,18 @@ function LegacyStudentRegistration({
   const signup = useTranslations("public.signup");
   const invitation = useTranslations("accountInvitation");
   const admitted = useRef(false);
+  const utils = api.useUtils();
   const request = api.tutee.inspectSurvey.useQuery(
     { token },
     { enabled: !!token, retry: false, refetchOnWindowFocus: false },
   );
   const complete = api.accountInvitation.fromSurvey.useMutation({
+    onSuccess: () => {
+      // The explicit legacy-link confirmation has the same intake effect as OTP proof.
+      void utils.studentWorkflow.continuationStatus
+        .reset()
+        .catch(() => undefined);
+    },
     onSettled: () => {
       admitted.current = false;
     },

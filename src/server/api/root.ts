@@ -17,6 +17,7 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { tutorRouter } from "~/server/api/routers/tutor";
+import { sessionPlanningRouter } from "~/server/api/routers/session-planning";
 import { pairingGroupsRouter } from "~/server/api/routers/pairing-groups";
 import { tutorDetailsRouter } from "~/server/api/routers/tutor-details";
 import { tuteeRouter } from "~/server/api/routers/tutee";
@@ -46,6 +47,7 @@ import { messagingRouter } from "./routers/messaging";
 import { interviewManagementRouter } from "./routers/interview-management";
 import { subjectAvailabilityRouter } from "./routers/subject-availability";
 import { translationReviewRouter } from "./routers/translation-review";
+import { personalScheduleRouter } from "./routers/personal-schedule";
 
 export const appRouter = createTRPCRouter({
   recordInspector: recordInspectorRouter,
@@ -69,6 +71,8 @@ export const appRouter = createTRPCRouter({
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
   studentWorkflow: studentWorkflowRouter,
   tutor: tutorRouter,
+  sessionPlanning: sessionPlanningRouter,
+  personalSchedule: personalScheduleRouter,
   pairingGroups: pairingGroupsRouter,
   tutorDetails: tutorDetailsRouter,
   tutee: tuteeRouter,

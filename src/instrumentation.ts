@@ -10,5 +10,8 @@ export async function register() {
     const { startNotificationWorker } =
       await import("./server/email/notification-delivery");
     startNotificationWorker();
+    const { startSessionPlanningWorker } =
+      await import("./server/session-planning-delivery");
+    startSessionPlanningWorker();
   }
 }

@@ -167,7 +167,7 @@ continue to operate. If saving succeeds but reloading settings fails, use
 | Names and grades                  | Admin/Head apply offered grades and independently controls **Use preferred names** and **Show names in another language**; Coordinators request review; see [name fields and display settings](user-guide.md#names-and-academic-details)                                                                                           |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows                                                                                                                                                                                                                                                 |
 | Policy versions                   | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it                                                                                                                                                                                                    |
-| School calendar                   | Staff define holidays and make-up days used for school-day appeal deadlines                                                                                                                                                                                                                                                   |
+| School calendar                   | Admin/Head apply date-specific school closures, make-up school days and timetable weekdays; Coordinators request Admin/Head review. Defaults are Monday–Friday school days. School-day status affects appeal deadlines; a timetable mapping alone does not. See [school calendar](#school-calendar-and-timetable-dates) |
 | No-tutoring dates                 | Admin/Head apply inclusive start/end date ranges with a reason; Coordinators request review. Protected tutor/tutee schedules display this informational context. It does not restrict attendance, cancel sessions, change recurrence, alter appeal deadlines or modify school-day rules |
 | Name field requirements           | Admin/Head configure Required/Optional/Hidden for each field and account type; Coordinators request review. New signup uses its intake type; later shared-profile edits use the current account role. Hidden originals remain visible in authorized management editors; active labels exclude them and use username fallback when needed |
 | Feedback visibility               | Management-only by default; configured sharing also affects earlier feedback                                                                                                                                                                                                                                                  |
@@ -186,8 +186,10 @@ language. Email includes English and Chinese together; the system does not save 
 recipient email-language preference. The [notification event inventory](../reference/notification-events.md)
 maps all supported events to their actual trigger, recipients, wording and destination.
 Interview scheduling can carry a recorded date/time/timezone. Tutoring assignments
-remain recurring weekly arrangements: there is no dated tutoring-session notification
-emitter, and an assignment notice does not create or promise a specific session date.
+remain recurring weekly arrangements; an assignment notice does not create or promise
+a specific session date. School-calendar notices separately name an actual date and
+its school-day/timetable meaning, with optional information email copies. They do not
+write to an external calendar provider or announce an individual dated session.
 
 The independent **Secondary-Email Binding** switch takes effect when Admin/Head apply it; Coordinators can propose either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
 
@@ -359,6 +361,13 @@ Head runs refresh in **Program Settings → Recruitment and Refresh** after revi
 Reload and review again after the source period, prepared values, destination intake settings or any staged feature revision changes. Changing a feature away and back still requires renewed review. A preparation bound to an older target must be explicitly replaced or cleared for the new target before refresh; it is never silently moved or discarded. Previously queued refresh requests without preparation and complete staged-feature evidence require a fresh request.
 
 A failed refresh rolls back activation, participant changes and opening settings together, retaining the preparations for review and retry. Replaying a completed refresh cannot advance another period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
+
+For a new destination reached by Q1 → Q2 or Q3 → Q4 in quarter mode, refresh
+also records the source period for optional tutee continuation. It does not enroll
+anyone automatically: tutees explicitly select and sign for their previous
+pairings during the [continuation opening window](#continuation-opening-window).
+Q3 → Q4 graduation still applies; a graduated tutor cannot receive an automatic
+continuation assignment, and the accepted tutee request waits for staff assignment.
 
 ## School departure and viewer access
 
@@ -560,6 +569,51 @@ images after a domain change. Place the black QR and text over a plain, light
 background, keeping the clear border around the QR free of other artwork.
 Verify the finished print or shared image with a scanner.
 
+### School calendar and timetable dates
+
+Open **Program Settings → Recruitment and Refresh → School Calendar**. Admin/Head apply
+changes and resets directly; Coordinators submit them for Admin/Head review.
+Pending proposals do not change schedules or send
+operational calendar notices.
+
+Use **Add date override** for a holiday, make-up school day or different timetable. Select
+the actual date, whether school is open, an optional timetable weekday, and a note.
+Without an override, Monday–Friday are school days and weekends are closed. An open
+date with no selected timetable weekday follows its own civil weekday. For example,
+an open Sunday can follow Monday's timetable; its displayed and recorded date remains
+Sunday. A closed date cannot also select a timetable weekday. Ordinary recurring
+plans are suppressed on a closed date. The coordinated dated-session workflows
+remain responsible for agreed extras/reschedules and their closure warnings; this
+setting does not rewrite attendance or historical service hours.
+
+Edit a saved date deliberately, or use **Reset to normal** to restore ordinary
+weekday/weekend behavior. Reset retains internal version evidence so an older open
+editor cannot recreate a removed override. Background reads preserve unfinished
+drafts. If another editor changes the date, explicitly reload and review it before
+saving. After an accepted write, a failed refresh offers a read-only retry rather
+than repeating the change. A note-only edit does not send another operational
+notice. School-day appeal deadlines use open/closed status; changing the timetable
+weekday alone has no effect on those deadlines.
+
+Eligible tutors and tutees with potentially affected confirmed active-period
+pairings receive in-app change/reset notices. The audience includes the actual
+date's civil weekday, the prior timetable weekday and the new timetable weekday,
+plus eligible prior recipients for corrections. Advance reminders run from 18:00
+on the prior date until noon on the actual date, using the program timezone. A
+same-revision change notice issued inside that window serves as that recipient's
+reminder; a later same-day change still notifies immediately. Changes to historical
+dates do not generate a new operational notice. Participants in agreed dated extras
+and reschedules on the affected date also receive these calendar notices. Essential
+session-agreement emails use the separate delivery rules in [session planning](../reference/session-planning.md).
+
+Email copies use the optional **Information / Program** category and require both
+the program switch and the recipient's preference. Copy includes the actual date
+and school-day/timetable facts, never the staff note. Delivery rechecks the current
+calendar revision and participant eligibility; SMTP already accepted cannot be
+recalled. No external calendar provider is modified. The separate **No-tutoring
+dates** control remains informational: its inclusive ranges do not cancel sessions,
+change recurrence, restrict attendance or alter school-day appeal counting.
+
 ### Configure recruitment windows
 
 In **Program Settings**, Admin/Head apply **Tutor recruitment** and **Tutee recruitment** settings separately for the active period; Coordinators submit each change for Admin/Head review. Each current-period panel has an **Accept applications** switch, independently optional starting and ending times, and an optional external preview link. Save each panel separately. Times use the configured program timezone; the start is inclusive and the end is exclusive. An enabled form with neither bound accepts applications immediately, provided its prerequisites are configured. Turning off the switch pauses applications regardless of dates.
@@ -575,6 +629,45 @@ The review and save stay bound to their original target and version. Background 
 For an Admin proposal, **Check approval status** preserves the draft and request link while the decision is pending. The editor unlocks only after reading the terminal decision and current settings; checking status never submits another proposal.
 
 At official refresh, both applied preparations are checked again and installed atomically with the destination period. They then appear in the normal current-period editors. The original source preparations and audit evidence remain retained. See [refresh the program](#refresh-the-program) for cases requiring renewed review.
+
+### Continuation opening window
+
+The tutee continuation shortcut is available only after an actual Q1 → Q2 or
+Q3 → Q4 refresh in the same school year with quarter mode applied. Its one-hour
+window starts at the destination's **first effective opening**: the period must
+be active, tutee signup enabled, and its configured start reached before its
+exclusive closing time. The window includes its opening instant and excludes
+the instant one hour later. Signup must also remain currently open to accept a
+join.
+
+A future scheduled opening uses that exact instant, even if no one opens a page
+then or the server observes it later. If refresh happens after the configured
+start, or the start is cleared, activation is the earliest possible opening.
+If the switch stays off through the configured start, the first later enabling
+can open signup. Pausing, reopening, or editing the start after signup has already
+opened never grants another hour. Closing signup earlier also closes the shortcut.
+Preparing next-period settings does not start this clock.
+
+Existing periods at deployment and imported historical periods have unknown
+first-opening evidence. They do not receive a new hour merely because the feature
+was installed or the period was reopened. A genuine eligible refresh into a new
+destination records the required evidence. Reused periods retain their original
+known or unknown provenance; CSV import cannot set or reset this operational
+evidence. Normal signup remains available according to its usual gates.
+
+Each accepted continuation selection is recorded in the destination signup
+request. Confirming the email for an ordinary new request in that destination
+quarter hides continuation and prevents a stale Join. Pending unconfirmed
+submissions do not hide it, and signed additions to a continuation-created
+request remain available. The first public mailbox-confirmation timestamp is
+retained across resends and recalls; it is distinct from account redemption.
+Unavailable selections remain queued; valid selections can succeed
+independently. Later tutor availability changes release only the affected
+continued assignments during the destination quarter, retain request priority
+and notify administrators and affected participants. Availability restoration
+does not automatically reassign them. Review the retained request through
+**Signup Requests**. The participant steps are in
+[Continue selected pairings](user-guide.md#continue-selected-pairings-into-the-next-quarter).
 
 ### Current-period access and submissions
 

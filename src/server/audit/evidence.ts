@@ -21,7 +21,9 @@ import {
 type Row = Record<string, unknown>;
 // Deliberately positive: adding a password/token/body field to a model cannot expose it.
 const safeFields = new Set([
-  "roomMode", "roomNeedsAssignment", "roomVersion",
+  "roomMode",
+  "roomNeedsAssignment",
+  "roomVersion",
   "programOrder",
   "preferredAssignedBlocks",
   "workloadPreferenceVersion",
@@ -103,6 +105,10 @@ const safeFields = new Set([
   "tuteeSignupOpensAt",
   "tuteeSignupClosesAt",
   "signupEnabled",
+  "signupOpeningStateSince",
+  "signupFirstOpenedAt",
+  "continuationSourceTermId",
+  "continuationQuarterTransition",
   "signupOpensAt",
   "signupClosesAt",
   "tutorSignupEnabled",

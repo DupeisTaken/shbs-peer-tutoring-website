@@ -81,23 +81,83 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
+it("reviews essential scheduling notices as retained blockers instead of failing the User foreign key", async () => {
+  await db.sessionNotice.create({
+    data: {
+      dedupeKey: "delete-account-session-notice",
+      recipientUserId: targetId,
+      recipientEmail: "casey375@example.test",
+      event: "accepted",
+      context: { isActionable: false },
+    },
+  });
+  const preview = await previewDeleteAccount(db, headId, targetId);
+  expect(preview.blockers).toContain("schedulingHistory");
+  expect(preview.retained.sessionNotices).toBe(1);
+  await expect(caller().admin.deleteUser(await input())).rejects.toThrow(
+    /Scheduling notices must be retained/,
+  );
+  expect(await db.user.findUnique({ where: { id: targetId } })).not.toBeNull();
+  expect(
+    await db.sessionNotice.count({ where: { recipientUserId: targetId } }),
+  ).toBe(1);
+});
+
+it("preserves scheduling notices on the dedicated crew-only deletion path", async () => {
+  await db.user.update({
+    where: { id: targetId },
+    data: { role: "CREW", crewStatus: "ACTIVE" },
+  });
+  await db.sessionNotice.create({
+    data: {
+      dedupeKey: "delete-crew-session-notice",
+      recipientUserId: targetId,
+      recipientEmail: "casey375@example.test",
+      event: "accepted",
+      context: {},
+    },
+  });
+  await expect(
+    caller().admin.deleteCrewMember({ userId: targetId }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    caller().admin.deleteCrewMember({ userId: targetId }),
+  ).rejects.toThrow(/Suspend this account/);
+  expect(await db.user.findUnique({ where: { id: targetId } })).not.toBeNull();
+});
+
+it("includes private calendar capabilities in the reviewed credential cascade for an otherwise eligible account", async () => {
+  await db.sessionCalendarToken.create({
+    data: {
+      userId: targetId,
+      tokenHash: "synthetic-delete-calendar-capability",
+    },
+  });
+  const preview = await previewDeleteAccount(db, headId, targetId);
+  expect(preview.blockers).toEqual([]);
+  expect(preview.removed.credentials).toBe(1);
+  await caller().admin.deleteUser(await input());
+  expect(
+    await db.sessionCalendarToken.count({ where: { userId: targetId } }),
+  ).toBe(0);
+});
+
 it("lets Admin delete an eligible login with a fresh review and their own password", async () => {
   await db.user.update({ where: { id: headId }, data: { role: "ADMIN" } });
   const reviewed = await input();
-  await expect(caller(headId, "ADMIN").admin.deleteUser({ ...reviewed, confirmPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller(headId, "ADMIN").admin.deleteUser({
+      ...reviewed,
+      confirmPassword: "wrong",
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.user.findUnique({ where: { id: targetId } })).not.toBeNull();
   await caller(headId, "ADMIN").admin.deleteUser(reviewed);
   expect(await db.user.findUnique({ where: { id: targetId } })).toBeNull();
   expect(await db.approvalRequest.count()).toBe(0);
 });
 
-it.each([
-  "COORDINATOR",
-  "STUDENT",
-  "TUTOR",
-  "CREW",
-  "VIEWER",
-] as const)(
+it.each(["COORDINATOR", "STUDENT", "TUTOR", "CREW", "VIEWER"] as const)(
   "denies %s preview and deletion even with a stale Head claim",
   async (role) => {
     await db.user.update({ where: { id: targetId }, data: { role } });
@@ -466,7 +526,10 @@ it("rechecks the live actor and current password when the helper is called direc
   await expect(
     deleteAccount(db, headId, { ...reviewed, confirmPassword: "wrong" }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await db.user.update({ where: { id: headId }, data: { role: "COORDINATOR" } });
+  await db.user.update({
+    where: { id: headId },
+    data: { role: "COORDINATOR" },
+  });
   await expect(deleteAccount(db, headId, reviewed)).rejects.toMatchObject({
     code: "FORBIDDEN",
   });

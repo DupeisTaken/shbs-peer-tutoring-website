@@ -13,6 +13,8 @@ user tasks and operational procedures belong in [guides](../guides/README.md).
 | Identity sources, reader/writer authority, reconciliation and cutover | [Identity lifecycle](identity-lifecycle.md)                                                                         |
 | Causal admission recovery, database inspection and operator staging | [Recovery contracts](recovery.md)                                                                                      |
 | Notification triggers, recipients, bilingual copy and destinations | [Notification inventory](notification-events.md)                                                                       |
+| Dated sessions, agreements, attendance and publication | [Session planning](session-planning.md) |
+| Essential scheduling email and private calendar feeds | [Scheduling delivery](session-planning-delivery.md) |
 | Public signup rate limits, recovery and trusted proxy boundary     | [Signup protection](signup-protection.md)                                                                              |
 | Optional CAPTCHA integration and rollout requirements              | [CAPTCHA](captcha.md)                                                                                                  |
 

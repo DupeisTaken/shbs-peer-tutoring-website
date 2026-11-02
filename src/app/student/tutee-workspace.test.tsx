@@ -11,11 +11,22 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TuteeOverview } from "./tutee-overview";
 import { TuteeNavigation } from "./navigation";
 import { StudentPortal } from "~/app/_components/student-portal";
+import { programDateKey } from "~/lib/program-time";
+vi.mock("~/app/_components/session-agenda", () => ({
+  // Preserve the child's heading contract while its query/interaction coverage
+  // stays in session-agenda.test.tsx. The portal owns weekly arrangement headings.
+  SessionAgenda: () => (
+    <section aria-label="Dated session agenda">
+      <h2>Dated sessions</h2>
+    </section>
+  ),
+}));
 const mocks = vi.hoisted(() => ({
   personal: vi.fn(),
   requests: vi.fn(),
   view: "dashboard",
   settings: vi.fn(),
+  calendar: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/student",
@@ -24,6 +35,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
+  useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
   useFormatter: () => ({ dateTime: () => "Sep 13" }),
 }));
@@ -36,7 +48,10 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    program: { calendar: { useQuery: () => ({ data: [] }) } },
+    program: {
+      calendar: { useQuery: () => ({ data: [] }) },
+      schoolCalendar: { useQuery: mocks.calendar },
+    },
     student: {
       me: { useQuery: mocks.personal },
       feedbackSettings: { useQuery: mocks.settings },
@@ -48,6 +63,14 @@ vi.mock("~/trpc/react", () => ({
 }));
 beforeEach(() => {
   mocks.view = "dashboard";
+  window.history.replaceState(null, "", "/student");
+  mocks.calendar.mockReset().mockReturnValue({
+    data: [],
+    error: null,
+    isSuccess: true,
+    isFetching: false,
+    refetch: vi.fn(),
+  });
   mocks.personal.mockReturnValue({
     data: {
       user: { name: "Sam" },
@@ -61,6 +84,41 @@ beforeEach(() => {
   mocks.settings.mockReturnValue({ data: false });
 });
 afterEach(cleanup);
+it("reads bounded school-date facts beside the weekly overview without displaying staff notes", () => {
+  const date = programDateKey(new Date(), "Asia/Shanghai");
+  const last = new Date(`${date}T00:00:00Z`);
+  last.setUTCDate(last.getUTCDate() + 13);
+  mocks.calendar.mockReturnValue({
+    data: [
+      {
+        date,
+        isSchoolDay: false,
+        timetableWeekday: null,
+        version: 2,
+        scheduleRevision: 2,
+        note: "Private staff note",
+      },
+    ],
+    error: null,
+    isSuccess: true,
+    isFetching: false,
+    refetch: vi.fn(),
+  });
+  render(<TuteeOverview />);
+  expect(mocks.calendar).toHaveBeenLastCalledWith(
+    { from: date, to: last.toISOString().slice(0, 10) },
+    { enabled: true, refetchInterval: 60_000 },
+  );
+  expect(screen.getByText("closureWarning")).toBeTruthy();
+  expect(
+    document.querySelector(`time[datetime="${date}"]`)?.parentElement
+      ?.textContent,
+  ).toContain("noSchool");
+  expect(screen.queryByText("Private staff note")).toBeNull();
+  expect(
+    screen.getByRole("link", { name: /schedule 0 scheduledSubjects/ }),
+  ).toBeTruthy();
+});
 it("leaves the route-owned intake action singular and retains account navigation without enrollment", () => {
   render(<TuteeOverview />);
   expect(screen.queryByRole("link", { name: "requestTutor" })).toBeNull();
@@ -280,11 +338,20 @@ it("combines initial overview recovery without duplicate loading or failed-read 
   expect(requestRead).toHaveBeenCalledOnce();
 });
 
-it("retains meaningful headings in the combined portal while dedicated attendance omits its duplicate heading", () => {
+it("separates dated sessions, weekly arrangements and attendance headings while dedicated attendance omits unrelated sections", () => {
   const { unmount } = render(<StudentPortal view="all" />);
-  expect(screen.getByRole("heading", { name: "schedule" })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "Dated sessions", level: 2 }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "weeklyArrangements", level: 2 }),
+  ).toBeTruthy();
   expect(screen.getByRole("heading", { name: "attendance" })).toBeTruthy();
   unmount();
   render(<StudentPortal view="attendance" />);
   expect(screen.queryByRole("heading", { name: "attendance" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Dated sessions" })).toBeNull();
+  expect(
+    screen.queryByRole("heading", { name: "weeklyArrangements" }),
+  ).toBeNull();
 });

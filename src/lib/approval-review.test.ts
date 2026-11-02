@@ -39,6 +39,35 @@ it("preserves exact staged switch evidence and keeps legacy omissions absent", (
 });
 
 describe("immutable approval presentation", () => {
+  it("shows the captured active override being reset without inventing changes to its retained timetable", () => {
+    const model = approvalReview(
+      "student.resetCalendarDay",
+      { date: "2026-11-01", expectedVersion: 3 },
+      {
+        calendar: [
+          {
+            date: "2026-11-01",
+            active: true,
+            isSchoolDay: true,
+            timetableWeekday: 1,
+            version: 3,
+          },
+        ],
+      },
+    );
+    expect(model.kind).toBe("update");
+    expect(model.changes).toContainEqual({
+      key: "active",
+      requested: false,
+      before: true,
+      hasBefore: true,
+    });
+    expect(
+      model.changes.some(
+        ({ key }) => key === "timetableWeekday" || key === "expectedVersion",
+      ),
+    ).toBe(false);
+  });
   it.each([[false, true], [true, false], [false, false]] as const)("compares standalone Translator access with captured membership evidence (%s to %s)", (before, requested) => {
     const model = approvalReview("admin.setUserCanTranslate", { userId: "u", canTranslate: requested }, { User: [{ record: { id: "u", canTranslate: before } }] });
     expect(model.kind).toBe("update");

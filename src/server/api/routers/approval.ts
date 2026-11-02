@@ -163,6 +163,11 @@ export const approvalRouter = createTRPCRouter({
         : null;
       const attendanceApproval =
         initial && isAttendanceApproval(initial.operation);
+      const calendarApproval =
+        !!initial &&
+        ["student.setCalendarDay", "student.resetCalendarDay"].includes(
+          initial.operation,
+        );
       // Fence identity-capable replays before profile locks or mutation callbacks. A stale
       // Serializable snapshot may retry here; no callback/email has executed at that point.
       const identityApproval =
@@ -536,9 +541,21 @@ export const approvalRouter = createTRPCRouter({
             timeout: 20000,
           },
         );
-      const result = identityApproval
-        ? await retryUsernameSnapshot(runDecision)
-        : await runDecision();
+      const result = await (
+        identityApproval ? retryUsernameSnapshot(runDecision) : runDecision()
+      ).catch((cause: unknown) => {
+        // The calendar lock prevents deadlock, but a Serializable snapshot taken
+        // before the wait may still conflict. Keep the rolled-back proposal for
+        // fresh review; never replay a callback through the identity-only retry.
+        if (calendarApproval && isSerializationFailure(cause))
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "The school calendar changed. Reload before reviewing again.",
+            cause,
+          });
+        throw cause;
+      });
       // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
       let emailSent: boolean | null = null;
       if (input.approve && result.operation === "studentWorkflow.assign") {

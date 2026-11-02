@@ -6,6 +6,10 @@ import { notificationUnsubscribeUrl } from "./unsubscribe-token";
 import { notificationEmailCopy } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
 import {
+  remindUpcomingSchoolCalendar,
+  schoolCalendarEmailEligible,
+} from "../school-calendar-notifications";
+import {
   admitRequestDelivery,
   finishRequestDelivery,
   requestServiceCategory,
@@ -125,7 +129,8 @@ export async function deliverNotifications(limit = 10) {
         user.mergedIntoId ||
         (!essential && !current?.emailNotificationsEnabled) ||
         !preference ||
-        (!owned && !row.previousPrimary)
+        (!owned && !row.previousPrimary) ||
+        !(await schoolCalendarEmailEligible(db, row))
       ) {
         await db.emailDelivery.updateMany({
           where: { id, status: "PENDING" },
@@ -220,6 +225,15 @@ export function startNotificationWorker() {
     if (running) return;
     running = true;
     try {
+      // Calendar receipts are durable and idempotent; the existing bounded worker
+      // owns this small sweep rather than creating a second process-local timer.
+      try {
+        await remindUpcomingSchoolCalendar(db);
+      } catch {
+        console.error(
+          "[school-calendar] Reminder sweep failed; retrying on the next delivery sweep.",
+        );
+      }
       await deliverNotifications();
     } catch {
       console.error(

@@ -1,5 +1,11 @@
 import { applyLegacyStudentWithdrawal } from "~/server/legacy-student-withdrawal";
 import {
+  continuationInput,
+  continuationStatus,
+  joinContinuation,
+  continuationReceipt,
+} from "~/server/student-continuation";
+import {
   assertRequestProcessable,
   requestInvalidityInput,
   setStudentRequestInvalidity,
@@ -56,6 +62,21 @@ const ticket = z.string().min(1).max(128);
 const reason = z.string().trim().min(1).max(2000);
 
 export const studentWorkflowRouter = createTRPCRouter({
+  continuationStatus: protectedProcedure
+    .input(z.object({ locale: z.string().max(12).optional() }).optional())
+    .query(({ ctx, input }) =>
+      continuationStatus(ctx.db, ctx.session.user.id, input?.locale),
+    ),
+  joinContinuation: protectedProcedure
+    .input(continuationInput)
+    .mutation(({ ctx, input }) =>
+      joinContinuation(ctx.db, ctx.session.user.id, input),
+    ),
+  continuationReceipt: protectedProcedure
+    .input(z.object({ clientKey: z.string().uuid() }).strict())
+    .query(({ ctx, input }) =>
+      continuationReceipt(ctx.db, ctx.session.user.id, input.clientKey),
+    ),
   managedSignup: adminProcedure
     .input(z.object({ id }).strict())
     .query(({ ctx, input }) =>
@@ -139,7 +160,9 @@ export const studentWorkflowRouter = createTRPCRouter({
     }),
   cancelAction: protectedProcedure
     .input(z.object({ ticket }))
-    .mutation(({ ctx, input }) => cancelStudentAction(ctx.db, ctx.session.user.id, input.ticket)),
+    .mutation(({ ctx, input }) =>
+      cancelStudentAction(ctx.db, ctx.session.user.id, input.ticket),
+    ),
   policyStatus: publicProcedure
     .input(z.object({ tuteeEntry: z.boolean().default(false) }).optional())
     .query(({ ctx, input }) =>

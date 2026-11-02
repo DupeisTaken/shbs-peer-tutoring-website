@@ -129,6 +129,10 @@ describe("read-only database inspector", () => {
     "CaptchaGrant",
     "HistoricalRecordClaimReceipt",
     "StudentSignup",
+    "SessionPlanningReceipt",
+    "SessionPlanningResponse",
+    "SessionNotice",
+    "SessionCalendarToken",
   ])("refuses row reads for %s even with operator authority", async (table) => {
     const { client } = fixture();
     await expect(

@@ -18,7 +18,7 @@ import deMessages from "../../../../messages/de.json";
 import frMessages from "../../../../messages/fr.json";
 import { type Locale } from "~/i18n/config";
 import { TutorPairings } from "./tutor-pairings";
-import { MergeProvider, useMerge } from "./merge-context";
+import { MergeProvider } from "./merge-context";
 const state = vi.hoisted(() => ({
   confirm: vi.fn(async (_options: { message: string }) => false),
   setSlot: vi.fn(),
@@ -123,9 +123,17 @@ vi.mock("~/trpc/react", () => ({
                     user: { username: state.username },
                   },
                 },
-                ...(state.savedGroup && !state.incompleteGroup ? state.memberTuteeIds.filter((id) => id !== "tutee").map((tuteeId) => ({
-                  tuteeId, tutee: { englishName: `Learner ${tuteeId}`, user: { username: null } },
-                })) : []),
+                ...(state.savedGroup && !state.incompleteGroup
+                  ? state.memberTuteeIds
+                      .filter((id) => id !== "tutee")
+                      .map((tuteeId) => ({
+                        tuteeId,
+                        tutee: {
+                          englishName: `Learner ${tuteeId}`,
+                          user: { username: null },
+                        },
+                      }))
+                  : []),
               ],
             },
             {
@@ -533,10 +541,13 @@ it.each(["learner", null])(
 it.each([
   ["en", "Mon"],
   ["zh", "周一"],
-] as const)("localizes %s tutor pairing schedule evidence", (locale, weekday) => {
-  render(element(false, locale));
-  expect(screen.getByText(`· ${weekday} 15:00–16:00`)).toBeTruthy();
-});
+] as const)(
+  "localizes %s tutor pairing schedule evidence",
+  (locale, weekday) => {
+    render(element(false, locale));
+    expect(screen.getByText(`· ${weekday} 15:00–16:00`)).toBeTruthy();
+  },
+);
 
 it("never exposes an unconfirmed placeholder schedule in Chinese", () => {
   state.confirmed = false;
@@ -645,50 +656,18 @@ it("keeps the learner present during the recall window and permits an inactive t
   expect(state.recall).not.toHaveBeenCalled();
 });
 
-function MergeHarness() {
-  const { setPrimaryPairingId, setAttendanceLocked } = useMerge();
-  return (
-    <>
-      <button onClick={() => setPrimaryPairingId("pairing")}>
-        Choose attendance pairing
-      </button>
-      <button onClick={() => setAttendanceLocked(true)}>
-        Lock saved attendance
-      </button>
-      <button onClick={() => setAttendanceLocked(false)}>
-        Begin another attendance
-      </button>
-    </>
-  );
-}
-it("locks merge choices with the attendance save and releases them for a new entry", () => {
-  render(
-    <NextIntlClientProvider
-      locale="en"
-      timeZone="Asia/Shanghai"
-      messages={messages}
-    >
-      <MergeProvider>
-        <MergeHarness />
-        <TutorPairings />
-      </MergeProvider>
-    </NextIntlClientProvider>,
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Choose attendance pairing" }),
-  );
-  const merge = screen.getByRole<HTMLInputElement>("checkbox");
-  fireEvent.click(merge);
-  expect(merge.checked).toBe(true);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Lock saved attendance" }),
-  );
-  expect(merge.disabled).toBe(true);
-  expect(merge.checked).toBe(true);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Begin another attendance" }),
-  );
-  expect(merge.disabled).toBe(false);
+it("keeps attendance entry on exact dated sessions rather than pairing merge controls", () => {
+  state.savedGroup = true;
+  render(element());
+  expect(
+    screen
+      .getByRole("link", { name: messages.sessionPlanning.viewSessions })
+      .getAttribute("href"),
+  ).toBe("#sessions");
+  expect(
+    screen.queryByRole("button", { name: messages.pairingGroups.record }),
+  ).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
 });
 
 it("conceals cached Details and forgets its drafts after authoritative denial until fresh recovery", () => {
@@ -796,22 +775,43 @@ it("does not claim an allocation was saved when ordinary availability recovery a
   expect(state.setSlot).not.toHaveBeenCalled();
 });
 
-
 it("puts copied-interval collisions in disabled Unavailable even when mutually selected and permits adjacency", async () => {
   state.copiedConflict = true;
   state.slots = [
-    { id: "overlap", label: "Partial overlap", dayOfWeek: 2, startMin: 930, endMin: 990 },
-    { id: "adjacent", label: "Adjacent", dayOfWeek: 2, startMin: 960, endMin: 1020 },
+    {
+      id: "overlap",
+      label: "Partial overlap",
+      dayOfWeek: 2,
+      startMin: 930,
+      endMin: 990,
+    },
+    {
+      id: "adjacent",
+      label: "Adjacent",
+      dayOfWeek: 2,
+      startMin: 960,
+      endMin: 1020,
+    },
   ];
   state.selectedSlotIds = ["overlap", "adjacent"];
-  state.workflowRows = [{ pairingId: "pairing", tuteeId: "tutee", slots: [{ id: "overlap" }, { id: "adjacent" }] }];
+  state.workflowRows = [
+    {
+      pairingId: "pairing",
+      tuteeId: "tutee",
+      slots: [{ id: "overlap" }, { id: "adjacent" }],
+    },
+  ];
   render(element());
   const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
-  const overlap = select.querySelector<HTMLOptionElement>('option[value="overlap"]')!;
+  const overlap = select.querySelector<HTMLOptionElement>(
+    'option[value="overlap"]',
+  )!;
   expect(overlap.parentElement?.getAttribute("label")).toBe("Unavailable");
   expect(overlap.disabled).toBe(true);
   expect(overlap.textContent).toContain("Overlaps Maths");
-  const adjacent = select.querySelector<HTMLOptionElement>('option[value="adjacent"]')!;
+  const adjacent = select.querySelector<HTMLOptionElement>(
+    'option[value="adjacent"]',
+  )!;
   expect(adjacent.disabled).toBe(false);
   expect(adjacent.parentElement?.getAttribute("label")).toBe("Both Available");
   state.confirm.mockResolvedValue(true);
@@ -819,7 +819,13 @@ it("puts copied-interval collisions in disabled Unavailable even when mutually s
   expect(state.confirm).not.toHaveBeenCalled();
   expect(state.setSlot).not.toHaveBeenCalled();
   fireEvent.change(select, { target: { value: "adjacent" } });
-  await waitFor(() => expect(state.setSlot).toHaveBeenCalledWith({ pairingId: "pairing", slotId: "adjacent", expectedRoomVersion: 2 }));
+  await waitFor(() =>
+    expect(state.setSlot).toHaveBeenCalledWith({
+      pairingId: "pairing",
+      slotId: "adjacent",
+      expectedRoomVersion: 2,
+    }),
+  );
 });
 
 it("keeps an incomplete saved group visible and blocks scheduling and combined attendance", () => {
@@ -828,21 +834,38 @@ it("keeps an incomplete saved group visible and blocks scheduling and combined a
   state.memberTuteeIds = ["tutee", "second"];
   render(element());
   expect(screen.getByText(messages.pairingGroups.needsRepair)).toBeTruthy();
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.pairingGroups.record }).disabled).toBe(true);
-  const details = screen.getByText(messages.pairingGroups.memberDetails).closest("details")!;
+  expect(
+    screen.queryByRole("button", { name: messages.pairingGroups.record }),
+  ).toBeNull();
+  const details = screen
+    .getByText(messages.pairingGroups.memberDetails)
+    .closest("details")!;
   details.open = true;
   fireEvent(details, new Event("toggle"));
-  expect(screen.getAllByRole<HTMLSelectElement>("combobox").every((select) => select.disabled)).toBe(true);
+  expect(
+    screen
+      .getAllByRole<HTMLSelectElement>("combobox")
+      .every((select) => select.disabled),
+  ).toBe(true);
   expect(state.setSlot).not.toHaveBeenCalled();
 });
 
-
 it("does not reserve a different period's copied interval when multiple legacy periods remain active", () => {
   state.otherTerm = true;
-  state.slots = [{ id: "overlap", label: "Other period time", dayOfWeek: 2, startMin: 930, endMin: 990 }];
+  state.slots = [
+    {
+      id: "overlap",
+      label: "Other period time",
+      dayOfWeek: 2,
+      startMin: 930,
+      endMin: 990,
+    },
+  ];
   render(element());
   const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
-  const option = select.querySelector<HTMLOptionElement>('option[value="overlap"]')!;
+  const option = select.querySelector<HTMLOptionElement>(
+    'option[value="overlap"]',
+  )!;
   expect(option.disabled).toBe(false);
   expect(option.parentElement?.getAttribute("label")).toBe("Other Time Slots");
   expect(state.setSlot).not.toHaveBeenCalled();

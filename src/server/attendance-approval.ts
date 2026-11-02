@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { lockAttendanceSchedule } from "~/server/attendance-schedule";
-import { lockPlannedRoomSchedule } from "~/server/room-bookings";
+import { lockUsernameNamespace } from "~/server/auth/username";
+import { lockCatalogue } from "~/server/qualifications";
+import { lockSessionPlanning } from "~/server/session-planning";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 
 export function isAttendanceApproval(operation: string) {
@@ -22,7 +24,13 @@ export async function lockAttendanceApproval(
 ) {
   await lockAttendanceSchedule(tx, operation === "admin.updateTimeSlot");
   await lockEntity(tx, "program:period");
-  if (operation === "admin.updateTimeSlot") await lockPlannedRoomSchedule(tx);
+  if (operation === "admin.updateTimeSlot") {
+    // Continuation reconciliation uses these fences too. Take them before actor
+    // rows so a profile writer cannot hold username while waiting on our share lock.
+    await lockUsernameNamespace(tx);
+    await lockCatalogue(tx);
+    await lockSessionPlanning(tx);
+  }
   // FOR SHARE protects role/suspension checks too; KEY SHARE would permit those updates.
   for (const id of [...new Set(userIds)].sort())
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${id} FOR SHARE`;

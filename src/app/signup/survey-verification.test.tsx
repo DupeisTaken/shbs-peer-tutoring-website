@@ -17,13 +17,24 @@ const state = vi.hoisted(() => ({
   pending: false,
   captchaPending: false,
   settled: undefined as (() => void) | undefined,
+  confirmed: undefined as (() => void) | undefined,
+  resetContinuation: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      studentWorkflow: {
+        continuationStatus: { reset: state.resetContinuation },
+      },
+    }),
     accountInvitation: {
       verifySurvey: {
-        useMutation: (options: { onSettled: () => void }) => {
+        useMutation: (options: {
+          onSettled: () => void;
+          onSuccess: () => void;
+        }) => {
           state.settled = options.onSettled;
+          state.confirmed = options.onSuccess;
           return { mutate: state.verify, isPending: state.pending, data: null };
         },
       },
@@ -57,8 +68,25 @@ beforeEach(() => {
   state.captchaPending = false;
   state.captcha.mockImplementation((work: () => Promise<unknown>) => work());
   state.resend.mockResolvedValue({ emailSent: true });
+  state.resetContinuation.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
+it("refreshes cached continuation eligibility only after successful mailbox proof", async () => {
+  const mounted = render(view("specific-intent"));
+  fireEvent.change(screen.getByLabelText(/^Email verification code/), {
+    target: { value: "ABC123" },
+  });
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  expect(state.resetContinuation).not.toHaveBeenCalled();
+  await act(async () => state.confirmed!());
+  expect(state.resetContinuation).toHaveBeenCalledOnce();
+});
+it("does not reject accepted mailbox proof when the continuation refresh fails", async () => {
+  state.resetContinuation.mockRejectedValue(new Error("Read failed"));
+  render(view());
+  await act(async () => state.confirmed!());
+  expect(state.resetContinuation).toHaveBeenCalledOnce();
+});
 it.each(["0012", "ABC123"])(
   "binds verification code %s and resend to the exact submission intent",
   async (code) => {

@@ -41,7 +41,7 @@ const en: PrivacyPolicy = {
       id: "purposes",
       title: "How information is used",
       paragraphs: [
-        "Information supports account access and recovery, matching learning partners with tutors, scheduling, attendance and service-hour records, recruitment, program communication, feedback, appeals and management review. Security and audit records help prevent misuse and investigate problems.",
+        "Information supports account access and recovery, matching tutees with tutors, scheduling, attendance and service-hour records, recruitment, program communication, feedback, appeals and management review. Security and audit records help prevent misuse and investigate problems.",
         "You can manage available profile, email and notification settings in your account. Optional email notices depend on your preferences and program settings; account security notices are sent independently of optional notification preferences.",
         "Staff-reviewed historical-record invitations use the invited email, a separate verification code and a password to create a personal login when needed. Staff record identity-review evidence; the account name comes from the reviewed archive. Creating this login does not enroll you or accept a current participation agreement. Personal historical access is limited to records explicitly owned by your account.",
       ],

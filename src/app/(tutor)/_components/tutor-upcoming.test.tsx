@@ -16,6 +16,8 @@ import { TutorUpcoming } from "./tutor-upcoming";
 const state = vi.hoisted(() => ({
   pairings: [] as unknown[],
   interviews: [] as unknown[],
+  calendar: [] as unknown[],
+  calendarError: null as null | { data?: { code: string } },
   pairingsError: null as null | { data?: { code: string } },
   interviewsError: null as null | { data?: { code: string } },
   missing: false,
@@ -25,6 +27,15 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: {
+      schoolCalendar: {
+        useQuery: () => ({
+          data: state.calendar,
+          error: state.calendarError,
+          refetch: async () => ({ data: state.calendar }),
+        }),
+      },
+    },
     tutor: {
       myPairings: {
         useQuery: (_: unknown, options: unknown) => {
@@ -58,6 +69,7 @@ function page({
   locale = "en",
   timeZone = "Asia/Shanghai",
   instant = now,
+  includeSessions = true,
 } = {}) {
   return (
     <NextIntlClientProvider
@@ -69,11 +81,16 @@ function page({
         active={active}
         interviewsEnabled={interviewsEnabled}
         now={instant}
+        includeSessions={includeSessions}
       />
     </NextIntlClientProvider>
   );
 }
 beforeEach(() => {
+  state.calendar = [
+    { date: "2026-10-18", isSchoolDay: true, timetableWeekday: null },
+  ];
+  state.calendarError = null;
   state.pairings = [
     {
       id: "p",
@@ -99,7 +116,9 @@ beforeEach(() => {
   state.interviewsError = null;
   state.missing = false;
   vi.clearAllMocks();
-  state.refreshPairings.mockImplementation(async () => {
+  // Reset queued one-shot transports too: an earlier failed assertion must not
+  // leave an unresolved recovery promise for a later test to consume.
+  state.refreshPairings.mockReset().mockImplementation(async () => {
     if (state.pairingsError)
       throw Object.assign(
         new Error("Pairings read failed"),
@@ -107,7 +126,7 @@ beforeEach(() => {
       );
     return { data: state.pairings };
   });
-  state.refreshInterviews.mockImplementation(async () => {
+  state.refreshInterviews.mockReset().mockImplementation(async () => {
     if (state.interviewsError)
       throw Object.assign(
         new Error("Interviews read failed"),
@@ -141,13 +160,37 @@ it.each(["en", "zh"])(
     ).toContain(locale === "en" ? "04:00 PM" : "16:00");
   },
 );
+it("suppresses ordinary tutoring on closure and keeps dated interview context; failed calendar reads stay explicit", () => {
+  state.calendar = [{ date: "2026-10-18", isSchoolDay: false }];
+  const view = render(page());
+  expect(screen.queryByText("Synthetic Mathematics")).toBeNull();
+  expect(screen.getByText("Synthetic Applicant")).toBeTruthy();
+  expect(screen.getByText(en.schoolCalendar.closureWarning)).toBeTruthy();
+  state.calendarError = { data: { code: "INTERNAL_SERVER_ERROR" } };
+  view.rerender(page());
+  expect(screen.queryByText("Synthetic Mathematics")).toBeNull();
+  expect(screen.getByRole("button", { name: /school calendar/i })).toBeTruthy();
+});
+
 it("shows a repair warning without presenting an incomplete group as a confirmed appointment", () => {
   const base = state.pairings[0] as Record<string, unknown>;
   state.pairings = [
-    { ...base, id: "chem", groupId: "g", subject: "Chemistry",
-      group: { primaryPairingId: "chem" }, tutees: [{ tuteeId: "a" }] },
-    { ...base, id: "math", groupId: "g", subject: "Mathematics",
-      group: { primaryPairingId: "chem" }, tutees: [{ tuteeId: "a" }, { tuteeId: "b" }] },
+    {
+      ...base,
+      id: "chem",
+      groupId: "g",
+      subject: "Chemistry",
+      group: { primaryPairingId: "chem" },
+      tutees: [{ tuteeId: "a" }],
+    },
+    {
+      ...base,
+      id: "math",
+      groupId: "g",
+      subject: "Mathematics",
+      group: { primaryPairingId: "chem" },
+      tutees: [{ tuteeId: "a" }, { tuteeId: "b" }],
+    },
   ];
   state.interviews = [];
   render(page());
@@ -172,7 +215,7 @@ it.each(["pairings", "interviews"])(
     view.rerender(page());
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Refresh Tutoring sessions / Interviews",
+        name: "Refresh Tutoring sessions / School Calendar / Interviews",
       }),
     );
     await waitFor(() => expect(state.refreshInterviews).toHaveBeenCalledOnce());
@@ -190,7 +233,7 @@ it.each(["pairings", "interviews"])(
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Refresh Tutoring sessions / Interviews",
+        name: "Refresh Tutoring sessions / School Calendar / Interviews",
       }),
     );
     await waitFor(() =>
@@ -223,7 +266,7 @@ it("holds the shared denial boundary through all pending reads and guards duplic
       }),
   );
   const button = screen.getByRole<HTMLButtonElement>("button", {
-    name: "Refresh Tutoring sessions / Interviews",
+    name: "Refresh Tutoring sessions / School Calendar / Interviews",
   });
   fireEvent.click(button);
   fireEvent.click(button);
@@ -243,7 +286,9 @@ it("recovers only the enabled source when interviews are disabled", async () => 
   state.pairingsError = null;
   view.rerender(page({ interviewsEnabled: false }));
   fireEvent.click(
-    screen.getByRole("button", { name: "Refresh Tutoring sessions" }),
+    screen.getByRole("button", {
+      name: "Refresh Tutoring sessions / School Calendar",
+    }),
   );
   await waitFor(() =>
     expect(screen.getByText("Synthetic Mathematics")).toBeTruthy(),
@@ -257,6 +302,7 @@ it("does not claim an empty schedule when a source is still unavailable", () => 
   expect(screen.getByText("Loading Tutoring sessions…")).toBeTruthy();
 });
 it("does not claim an empty schedule when a confirmed recurrence needs DST time review", () => {
+  state.calendar = [{ date: "2026-11-01", isSchoolDay: true }];
   state.pairings = [
     {
       id: "dst",
@@ -292,6 +338,52 @@ it("disables inactive and feature-restricted interview reads and suppresses cach
     enabled: false,
     refetchInterval: false,
   });
+});
+it("retains upcoming interviews without reading or projecting duplicate weekly tutoring", () => {
+  state.pairingsError = { data: { code: "FORBIDDEN" } };
+  render(page({ includeSessions: false }));
+  expect(screen.getByText("Synthetic Applicant")).toBeTruthy();
+  expect(screen.queryByText("Synthetic Mathematics")).toBeNull();
+  expect(state.options).toHaveBeenCalledWith("pairings", {
+    enabled: false,
+    refetchInterval: false,
+  });
+  expect(
+    screen.getByRole("heading", { name: en.tutorUpcoming.interviewsTitle }),
+  ).toBeTruthy();
+});
+it("recovers calendar and interview evidence without a disabled pairing read in interviews-only mode", async () => {
+  state.interviewsError = { data: { code: "FORBIDDEN" } };
+  const view = render(page({ includeSessions: false }));
+  expect(screen.queryByText("Synthetic Applicant")).toBeNull();
+  state.interviewsError = null;
+  view.rerender(page({ includeSessions: false }));
+  let finish!: (value: { data: unknown[] }) => void;
+  state.refreshInterviews.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await act(async () =>
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: en.tutorUpcoming.retry.replace(
+          "{source}",
+          `${en.schoolCalendar.title} / ${en.tutorUpcoming.interviews}`,
+        ),
+      }),
+    ),
+  );
+  expect(screen.queryByText("Synthetic Applicant")).toBeNull();
+  expect(state.refreshPairings).not.toHaveBeenCalled();
+  expect(state.refreshInterviews).toHaveBeenCalledOnce();
+  await act(async () => finish({ data: state.interviews }));
+  await waitFor(() =>
+    expect(screen.getByText("Synthetic Applicant")).toBeTruthy(),
+  );
+  expect(state.refreshPairings).not.toHaveBeenCalled();
+  expect(state.refreshInterviews).toHaveBeenCalledOnce();
 });
 
 it("expires ongoing sessions on its clock tick and cleans up the clock on unmount", () => {

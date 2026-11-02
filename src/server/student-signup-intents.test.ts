@@ -164,6 +164,18 @@ async function complete(intentId: string, userId?: string, setupPassword?: strin
   return { invite, receipt };
 }
 
+/** Mailbox proof changes only its sticky evidence; later rejected review must
+ * preserve that exact post-proof source, including the first timestamp. */
+async function mailboxConfirmedSource(before: Awaited<ReturnType<typeof existing>>["row"]) {
+  const current = await db.studentSurvey.findUniqueOrThrow({ where: { id: before.id } });
+  expect(current).toEqual({
+    ...before,
+    publicSignupEmailConfirmedAt: before.publicSignupEmailConfirmedAt ?? (expect.any(Date) as Date),
+  });
+  expect(await db.studentSignupRevision.count()).toBe(0);
+  return current;
+}
+
 async function unchangedSource(id: string, before: unknown) {
   expect(await db.studentSurvey.findUniqueOrThrow({ where: { id } })).toEqual(before);
   expect(await db.studentSignupRevision.count()).toBe(0);
@@ -335,12 +347,14 @@ it("requires the exact source mailbox code and explicit owner authentication bef
       code: surveyEmailCode(row.tokenHash, row.emailCodeVersion),
     }),
   ).rejects.toMatchObject({ message: "INVITATION_INVALID" });
+  await unchangedSource(row.id, row);
   const invite = await invitation(intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   await db.user.create({ data: { id: "other", email: "other@example.test", name: "Other" } });
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, "other")).rejects.toMatchObject({
     code: "UNAUTHORIZED",
   });
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
 });
 
 it("rejects a mailbox proof in the read-query input and accepts verified review through the POST mutation", async () => {
@@ -525,6 +539,7 @@ it.each(["session", "alias", "ownership"] as const)("refuses completion after %s
   if (change === "alias") await db.accountEmail.create({ data: { email: alias, userId: user.id, verifiedAt: new Date() } });
   const accepted = await staged({ ...payload, email: change === "alias" ? alias : email });
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   if (change === "session") {
     // PostgreSQL owns credential generations and discards manual version changes.
     // Rotate the actual password so the previously issued mailbox proof is stale.
@@ -538,7 +553,7 @@ it.each(["session", "alias", "ownership"] as const)("refuses completion after %s
     await db.studentProfileOwnership.update({ where: { tuteeId: tutee.id }, data: { userId: "new-owner" } });
   }
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toBeDefined();
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
   expect((await db.accountInvitation.findUniqueOrThrow({ where: { id: invite.invitationId } })).completedAt).toBeNull();
 });
 
@@ -651,6 +666,7 @@ it("successful send-only retry invalidates only that intent's older review proof
   const { user, row, payload } = await existing();
   const accepted = await staged(payload);
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   fixtures.send.mockRejectedValueOnce(new Error("Synthetic resend failure"));
   await resendStudentSignupIntent(db, accepted.intent.id, email);
   expect(await anonymous().accountInvitation.review(invite)).toMatchObject({ existing: true });
@@ -658,7 +674,7 @@ it("successful send-only retry invalidates only that intent's older review proof
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toMatchObject({
     message: "INVITATION_INVALID",
   });
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
   await complete(accepted.intent.id, user.id);
   expect(await db.studentSignupRevision.count()).toBe(1);
 });
@@ -690,6 +706,7 @@ it.each(["required-field", "subject", "slot", "grade"] as const)("rechecks chang
   const { user, row, payload } = await existing();
   const accepted = await staged(change === "grade" ? { ...payload, gradeLevel: "11" } : payload);
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   if (change === "required-field") await db.programSettings.create({ data: { id: "program", signupFields: { tutee: { phone: "required" } } } });
   if (change === "subject") await db.subject.update({ where: { id: "science" }, data: { active: false } });
   if (change === "slot") await db.timeSlot.update({ where: { id: "monday" }, data: { active: false } });
@@ -697,7 +714,7 @@ it.each(["required-field", "subject", "slot", "grade"] as const)("rechecks chang
     await db.programSettings.create({ data: { id: "program", offeredGrades: [10] } });
   }
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toBeDefined();
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
   expect((await db.studentSignupIntent.findUniqueOrThrow({ where: { id: accepted.intent.id } })).completedAt).toBeNull();
   expect((await db.accountInvitation.findUniqueOrThrow({ where: { id: invite.invitationId } })).completedAt).toBeNull();
 });
@@ -737,6 +754,7 @@ it("rechecks a newly assigned subject and fails closed on an unresolved legacy a
   const { user, tutor, tutee, row, payload } = await existing();
   const accepted = await staged({ ...payload, secondChoiceId: "writing" });
   const invite = await invitation(accepted.intent.id);
+  const confirmedSource = await mailboxConfirmedSource(row);
   const pairing = await db.pairing.create({
     data: {
       tutorId: tutor.id,
@@ -764,7 +782,7 @@ it("rechecks a newly assigned subject and fails closed on an unresolved legacy a
     code: "CONFLICT",
     message: "SIGNUP_ASSIGNMENT_UNKNOWN",
   });
-  await unchangedSource(row.id, row);
+  await unchangedSource(row.id, confirmedSource);
 });
 
 it("allows issued OPEN-request review after intake closes while refusing new public demand", async () => {

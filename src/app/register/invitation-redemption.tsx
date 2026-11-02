@@ -164,6 +164,7 @@ function InvitationRedemptionFlow({
 }: InvitationRedemptionProps) {
   const t = useTranslations("accountInvitation");
   const participantText = useTranslations("participantNames");
+  const utils = api.useUtils();
   const policy = useProfilePolicy();
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
@@ -257,6 +258,11 @@ function InvitationRedemptionFlow({
   }
   const verify = api.accountInvitation.verify.useMutation({
     onSuccess: ({ proof: verified }) => {
+      // Verification exposes no source kind before its proof-authorized review.
+      // Discard only the continuation snapshot; its next read decides eligibility.
+      void utils.studentWorkflow.continuationStatus
+        .reset()
+        .catch(() => undefined);
       setProof(verified);
       login(verified);
     },
@@ -266,6 +272,10 @@ function InvitationRedemptionFlow({
   });
   const complete = api.accountInvitation.complete.useMutation({
     onSuccess: () => {
+      if (info?.kind === "TUTEE")
+        void utils.studentWorkflow.continuationStatus
+          .reset()
+          .catch(() => undefined);
       setPassword("");
       setConfirm("");
       login(effectiveProof);

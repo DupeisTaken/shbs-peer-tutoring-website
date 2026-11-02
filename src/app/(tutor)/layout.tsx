@@ -11,6 +11,7 @@ import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { APP_TITLE } from "~/lib/branding";
+import { SectionLinks } from "~/app/_components/section-links";
 
 /**
  * Gates the entire tutor section. Requires an authenticated user linked to a Tutor record.
@@ -79,7 +80,10 @@ export default async function TutorLayout({
   // turned off (the link is kept only to preserve the record) — so this account is NOT permitted in
   // the tutor area; send them back to their admin area. (A genuine ARCHIVED *pure* tutor isn't
   // management and keeps read-only access to their own history per the lifecycle, so it's unaffected.)
-  if ((isElevated || session.role === "VIEWER") && linkedTutor.status === "ARCHIVED")
+  if (
+    (isElevated || session.role === "VIEWER") &&
+    linkedTutor.status === "ARCHIVED"
+  )
     redirect("/admin");
 
   // First-login gate: confirm contact email + set a real password (auto-provisioned
@@ -91,7 +95,16 @@ export default async function TutorLayout({
   const workspaceItems = [
     { href: "/student", label: t("components.userMenu.enterTutee") },
     ...(canEnterManagement
-      ? [{ href: "/admin", label: t(access.managementReadOnly ? "schoolDeparture.enter" : "components.userMenu.backToManagement") }]
+      ? [
+          {
+            href: "/admin",
+            label: t(
+              access.managementReadOnly
+                ? "schoolDeparture.enter"
+                : "components.userMenu.backToManagement",
+            ),
+          },
+        ]
       : []),
   ];
   const accountItems = [
@@ -146,6 +159,15 @@ export default async function TutorLayout({
           />
         }
       />
+      <div className="mx-auto max-w-6xl px-4 pt-4">
+        <SectionLinks
+          label={t("tutor.navigation.label")}
+          items={[
+            { href: "/dashboard", label: t("tutor.navigation.dashboard") },
+            { href: "/schedule", label: t("tutor.navigation.schedule") },
+          ]}
+        />
+      </div>
       {children}
     </div>
   );

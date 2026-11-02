@@ -21,11 +21,19 @@ export function SurveyVerification({
 }) {
   const t = useTranslations("accountInvitation");
   const survey = useTranslations("survey");
+  const utils = api.useUtils();
   const [code, setCode] = useState("");
   const admitted = useRef(false);
   const captcha = useSignupCaptcha("tutee.resend", email);
   const resend = api.tutee.resendSurvey.useMutation();
   const verify = api.accountInvitation.verifySurvey.useMutation({
+    onSuccess: () => {
+      // Discard the old eligible snapshot so returning to the portal cannot flash
+      // its shortcut while the authoritative post-confirmation read is pending.
+      void utils.studentWorkflow.continuationStatus
+        .reset()
+        .catch(() => undefined);
+    },
     onSettled: () => {
       admitted.current = false;
     },
