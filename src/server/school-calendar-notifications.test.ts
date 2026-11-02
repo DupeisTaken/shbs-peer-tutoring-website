@@ -195,7 +195,7 @@ it("unions civil/prior/new weekdays and prior recipients, plus the actual dated 
       expect.objectContaining({
         userId: "tutor",
         event: "school_calendar_changed",
-        link: `/dashboard#school-calendar/${source.date}`,
+        link: `/schedule#school-calendar/${source.date}`,
         context,
       }),
       expect.objectContaining({
@@ -235,7 +235,7 @@ it("records same-day corrections after the advance reminder cutoff and omits his
       expect.objectContaining({
         userId: "tutor",
         event: "school_calendar_reset",
-        link: `/dashboard#school-calendar/${source.date}`,
+        link: `/schedule#school-calendar/${source.date}`,
         context: resetContext,
       }),
       expect.objectContaining({

@@ -7244,7 +7244,7 @@
   "unifiedSchedule": {
     "agenda": "My agenda",
     "interview": "Interview",
-    "interviews": "Interview work",
+    "interviews": "Interviews",
     "meeting": "Meeting",
     "meetings": "Meetings",
     "chair": "Chair",
@@ -7254,8 +7254,8 @@
     "openInterview": "View interview and own vote",
     "openMeeting": "View meeting",
     "excused": "Absence excuse submitted",
-    "interviewWork": "Interview work & history",
-    "meetingWork": "Meeting work & history",
+    "interviewWork": "Interviews & history",
+    "meetingWork": "Meetings & history",
     "loadingInterviews": "Loading assigned interviews…",
     "loadingMeetings": "Loading personal meetings…",
     "interviewsFailed": "Interviews could not be refreshed.",
@@ -7264,12 +7264,44 @@
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
     "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
-    "meetingHelp": "Upcoming dates appear in your agenda. Open meeting work for absence excuses, other upcoming dates and personal history.",
+    "meetingHelp": "Upcoming dates appear in your agenda. Open meetings for absence excuses and personal history.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
-      "unscheduled": "Awaiting an interview time",
-      "pastOpen": "Interview still awaiting a decision",
+      "unscheduled": "Awaiting time",
+      "pastOpen": "Awaiting decision",
       "completionNeeded": "Completion evidence still needed"
-    }
+    },
+    "sessions": "Sessions",
+    "addExtra": "Add Extra Session",
+    "sessionsHelp": "Choose a pairing and published session to arrange an extra 45-minute session.",
+    "openPairings": "View pairings",
+    "noExtraSource": "An active pairing with a future published session is needed to add an extra session.",
+    "upcoming": "Upcoming",
+    "upcomingHelp": "Three unresolved items: action needed first, then the nearest upcoming events. Ended sessions stay here until attendance is recorded.",
+    "nothingUpcoming": "No outstanding items.",
+    "viewEvent": "View event",
+    "eventFilters": "Event filters",
+    "filterHelp": "Upcoming covers the current school week and next week, plus ended sessions missing attendance.",
+    "filter": {
+      "all": "All",
+      "upcoming": "Upcoming (2 weeks)",
+      "history": "History"
+    },
+    "loadingHistory": "Loading session history…",
+    "historyFailed": "Session history could not be refreshed.",
+    "moreSessions": "Load more sessions",
+    "moreInterviews": "Load more interviews",
+    "moreMeetings": "Load more meetings",
+    "historyScope": "Session history includes published sessions. Earlier attendance records remain in your personal history.",
+    "chooseExtraHelp": "Choose the pairing and session whose participants should receive the extra-session proposal.",
+    "chooseSession": "Choose session",
+    "action": {
+      "vote": "Awaiting your vote",
+      "schedule": "Awaiting time",
+      "decision": "Awaiting decision",
+      "completion": "Completion evidence needed",
+      "reviewMeeting": "Upcoming meeting"
+    },
+    "moreAttendance": "More unfinished sessions exist. Record the loaded sessions to bring older ones into Upcoming, or browse them in History."
   }
 }

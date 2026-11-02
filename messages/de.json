@@ -7244,7 +7244,7 @@
   "unifiedSchedule": {
     "agenda": "My agenda",
     "interview": "Interview",
-    "interviews": "Interview work",
+    "interviews": "Interviews",
     "meeting": "Meeting",
     "meetings": "Meetings",
     "chair": "Chair",
@@ -7254,8 +7254,8 @@
     "openInterview": "View interview and own vote",
     "openMeeting": "View meeting",
     "excused": "Absence excuse submitted",
-    "interviewWork": "Interview work & history",
-    "meetingWork": "Meeting work & history",
+    "interviewWork": "Interviews und Verlauf",
+    "meetingWork": "Besprechungen und Verlauf",
     "loadingInterviews": "Loading assigned interviews…",
     "loadingMeetings": "Loading personal meetings…",
     "interviewsFailed": "Interviews could not be refreshed.",
@@ -7264,12 +7264,44 @@
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
     "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
-    "meetingHelp": "Upcoming dates appear in your agenda. Open meeting work for absence excuses, other upcoming dates and personal history.",
+    "meetingHelp": "Anstehende Termine erscheinen in deiner Agenda. Öffne die Besprechungen, um Abwesenheiten zu entschuldigen und deinen persönlichen Verlauf anzusehen.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
-      "unscheduled": "Awaiting an interview time",
-      "pastOpen": "Interview still awaiting a decision",
+      "unscheduled": "Uhrzeit ausstehend",
+      "pastOpen": "Entscheidung ausstehend",
       "completionNeeded": "Completion evidence still needed"
-    }
+    },
+    "sessions": "Stunden",
+    "addExtra": "Zusätzliche Stunde hinzufügen",
+    "sessionsHelp": "Wähle eine Zuordnung und eine veröffentlichte Stunde, um eine zusätzliche 45-minütige Stunde zu vereinbaren.",
+    "openPairings": "Zuordnungen ansehen",
+    "noExtraSource": "Für eine zusätzliche Stunde ist eine aktive Zuordnung mit einer veröffentlichten zukünftigen Stunde erforderlich.",
+    "upcoming": "Anstehend",
+    "upcomingHelp": "Drei offene Einträge: zuerst erforderliche Aktionen, danach die zeitlich nächsten Termine. Beendete Stunden bleiben hier, bis die Anwesenheit erfasst wurde.",
+    "nothingUpcoming": "Keine offenen Einträge.",
+    "viewEvent": "Termin ansehen",
+    "eventFilters": "Terminfilter",
+    "filterHelp": "Anstehend umfasst die aktuelle und die nächste Schulwoche sowie beendete Stunden ohne erfasste Anwesenheit.",
+    "filter": {
+      "all": "Alle",
+      "upcoming": "Anstehend (2 Wochen)",
+      "history": "Verlauf"
+    },
+    "loadingHistory": "Stundenverlauf wird geladen…",
+    "historyFailed": "Der Stundenverlauf konnte nicht aktualisiert werden.",
+    "moreSessions": "Weitere Stunden laden",
+    "moreInterviews": "Weitere Interviews laden",
+    "moreMeetings": "Weitere Besprechungen laden",
+    "historyScope": "Der Stundenverlauf enthält veröffentlichte Stunden. Frühere Anwesenheitsaufzeichnungen bleiben in deinem persönlichen Verlauf.",
+    "chooseExtraHelp": "Wähle die Zuordnung und die Stunde, deren Teilnehmende den Vorschlag für die zusätzliche Stunde erhalten sollen.",
+    "chooseSession": "Stunde auswählen",
+    "action": {
+      "vote": "Deine Stimme ausstehend",
+      "schedule": "Uhrzeit ausstehend",
+      "decision": "Entscheidung ausstehend",
+      "completion": "Abschlussnachweis erforderlich",
+      "reviewMeeting": "Anstehende Besprechung"
+    },
+    "moreAttendance": "Es gibt weitere offene Stunden. Erfasse die Anwesenheit der geladenen Stunden, damit ältere unter Anstehend erscheinen, oder sieh sie dir im Verlauf an."
   }
 }

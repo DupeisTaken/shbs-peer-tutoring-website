@@ -20,9 +20,6 @@ import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
-import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
-import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
-import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 import { DashboardScheduleLinks } from "~/app/(tutor)/_components/dashboard-schedule-links";
 
 export default async function TutorDashboard() {
@@ -42,9 +39,8 @@ export default async function TutorDashboard() {
   const inactive = me.status !== "ACTIVE";
   const pending = me.status === "PENDING";
 
-  const [total, schedule, crew, features] = await Promise.all([
+  const [total, crew, features] = await Promise.all([
     api.tutor.myMonthlyTotal(),
-    api.tutor.schedule(),
     api.tutor.myCrew(),
     getFeatures(db),
   ]);
@@ -185,21 +181,6 @@ export default async function TutorDashboard() {
 
       {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}
       {!inactive && features.DISCIPLINE && <TutorDiscipline />}
-
-      {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
-      <section
-        id="room-schedule"
-        tabIndex={-1}
-        className="scroll-mt-6 space-y-2"
-      >
-        <div className="text-center sm:text-left">
-          <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
-          <p className="muted">{t("dashboard.schedule.help")}</p>
-        </div>
-        <ProgramCalendarNotice />
-        <SchoolCalendarNotice />
-        <TutorRoomSchedule initialData={schedule} />
-      </section>
     </div>
   );
 }

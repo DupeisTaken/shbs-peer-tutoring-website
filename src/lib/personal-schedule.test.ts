@@ -2,6 +2,8 @@ import { expect, it } from "vitest";
 import {
   canExcusePersonalMeeting,
   personalScheduleWindow,
+  personalScheduleReadInput,
+  personalSchedulePage,
 } from "./personal-schedule";
 
 it("uses current and next school weeks and advances only on school-local Monday", () => {
@@ -20,6 +22,49 @@ it("uses current and next school weeks and advances only on school-local Monday"
     personalScheduleWindow(new Date("2026-11-01T16:00:00Z"), "Asia/Shanghai")
       .window.start,
   ).toBe("2026-11-02");
+});
+
+it("defaults old callers to Upcoming and bounds both independent page inputs", () => {
+  expect(personalScheduleReadInput.parse(undefined)).toEqual({
+    view: "upcoming",
+    limit: 20,
+    includeSummary: true,
+  });
+  expect(
+    personalScheduleReadInput.parse({
+      view: "history",
+      limit: 50,
+      cursor: { at: new Date("2026-10-01"), id: "record" },
+    }).view,
+  ).toBe("history");
+  for (const input of [
+    { limit: 0 },
+    { limit: 51 },
+    { limit: 1.5 },
+    { view: "unknown" },
+    { cursor: { at: "2026-10-01", id: "record" } },
+    { taskCursor: { at: new Date(), id: "" } },
+  ]) {
+    expect(personalScheduleReadInput.safeParse(input).success).toBe(false);
+  }
+});
+
+it("reports continuation explicitly and preserves timestamp/ID ties without inventing event times", () => {
+  const at = new Date("2026-10-01");
+  const rows = ["a", "b", "c"].map((id) => ({ id, at }));
+  const cursorOf = (row: (typeof rows)[number]) => ({ at: row.at, id: row.id });
+  expect(personalSchedulePage(rows, 2, cursorOf)).toEqual({
+    items: rows.slice(0, 2),
+    pageInfo: { hasMore: true, nextCursor: { at, id: "b" } },
+  });
+  expect(personalSchedulePage(rows.slice(2), 2, cursorOf)).toEqual({
+    items: rows.slice(2),
+    pageInfo: { hasMore: false, nextCursor: null },
+  });
+  expect(personalSchedulePage([], 2, cursorOf).pageInfo).toEqual({
+    hasMore: false,
+    nextCursor: null,
+  });
 });
 
 it("uses local midnight across DST instead of a fixed elapsed fourteen days", () => {

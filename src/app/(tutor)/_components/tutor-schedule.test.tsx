@@ -8,9 +8,11 @@ import zh from "../../../../messages/zh.json";
 import { TutorSchedule } from "./tutor-schedule";
 
 const state = vi.hoisted(() => ({
+  completionTask: false,
   chairTask: false,
   interviewError: null as null | { data: { code: string } },
   meetingError: null as null | { data: { code: string } },
+  interviewInput: vi.fn(),
   interviewOptions: vi.fn(),
   meetingOptions: vi.fn(),
   interviewRetry: vi.fn(),
@@ -24,91 +26,141 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-vi.mock("~/trpc/react", () => ({
-  api: {
-    personalSchedule: {
-      interviews: {
-        useQuery: (_input: unknown, options: unknown) => {
-          state.interviewOptions(options);
-          return {
-            data: {
-              appointments: [
-                {
-                  id: "panel",
-                  name: "Synthetic Panel Applicant",
-                  subjects: ["Math"],
-                  interviewAt: new Date("2026-10-28T07:00:00Z"),
-                  isHead: false,
-                },
-                {
-                  id: "chair",
-                  name: "Synthetic Chair Applicant",
-                  subjects: ["Science"],
-                  interviewAt: new Date("2026-10-29T07:00:00Z"),
-                  isHead: true,
-                },
-              ],
-              tasks: [
-                {
-                  id: "unscheduled",
-                  name: "Synthetic Unscheduled Applicant",
-                  reason: "unscheduled",
-                  interviewAt: null,
-                  isHead: false,
-                },
-                ...(state.chairTask
+vi.mock("~/trpc/react", () => {
+  const mocked = {
+    api: {
+      personalSchedule: {
+        interviews: {
+          useQuery: (_input: unknown, options: unknown) => {
+            state.interviewOptions(options);
+            return {
+              data: {
+                actionableTasks: state.completionTask
                   ? [
                       {
-                        id: "past-chair",
-                        name: "Synthetic Past Chair Applicant",
-                        reason: "pastOpen",
-                        interviewAt: new Date("2026-10-25T07:00:00Z"),
-                        isHead: true,
+                        id: "completion",
+                        name: "Completion example",
+                        isHead: false,
+                        canChair: false,
+                        action: "completion",
+                        sortAt: new Date(),
+                        startsAt: null,
                       },
                     ]
-                  : []),
-              ],
-            },
-            error: state.interviewError,
-            isLoading: false,
-            isSuccess: !state.interviewError,
-            isFetching: false,
-            refetch: state.interviewRetry,
-          };
+                  : [],
+                appointments: [
+                  {
+                    id: "panel",
+                    name: "Synthetic Panel Applicant",
+                    subjects: ["Math"],
+                    interviewAt: new Date("2026-10-28T07:00:00Z"),
+                    isHead: false,
+                  },
+                  {
+                    id: "chair",
+                    name: "Synthetic Chair Applicant",
+                    subjects: ["Science"],
+                    interviewAt: new Date("2026-10-29T07:00:00Z"),
+                    isHead: true,
+                  },
+                ],
+                tasks: [
+                  {
+                    id: "unscheduled",
+                    name: "Synthetic Unscheduled Applicant",
+                    reason: "unscheduled",
+                    interviewAt: null,
+                    isHead: false,
+                  },
+                  ...(state.chairTask
+                    ? [
+                        {
+                          id: "past-chair",
+                          name: "Synthetic Past Chair Applicant",
+                          reason: "pastOpen",
+                          interviewAt: new Date("2026-10-25T07:00:00Z"),
+                          isHead: true,
+                        },
+                      ]
+                    : []),
+                ],
+              },
+              error: state.interviewError,
+              isLoading: false,
+              isSuccess: !state.interviewError,
+              isFetching: false,
+              refetch: state.interviewRetry,
+            };
+          },
         },
-      },
-      meetings: {
-        useQuery: (_input: unknown, options: unknown) => {
-          state.meetingOptions(options);
-          return {
-            data: {
-              appointments: [
-                {
-                  id: "meeting",
-                  title: "Synthetic Briefing",
-                  date: new Date("2026-10-30T07:00:00Z"),
-                  excused: false,
-                },
-              ],
-            },
-            error: state.meetingError,
-            isLoading: false,
-            isSuccess: !state.meetingError,
-            isFetching: false,
-            refetch: state.meetingRetry,
-          };
+        meetings: {
+          useQuery: (_input: unknown, options: unknown) => {
+            state.meetingOptions(options);
+            return {
+              data: {
+                appointments: [
+                  {
+                    id: "meeting",
+                    title: "Synthetic Briefing",
+                    date: new Date("2026-10-30T07:00:00Z"),
+                    excused: false,
+                  },
+                ],
+              },
+              error: state.meetingError,
+              isLoading: false,
+              isSuccess: !state.meetingError,
+              isFetching: false,
+              refetch: state.meetingRetry,
+            };
+          },
         },
       },
     },
-  },
-}));
+  };
+  return {
+    api: {
+      personalSchedule: Object.fromEntries(
+        Object.entries(mocked.api.personalSchedule).map(([key, value]) => [
+          key,
+          {
+            ...value,
+            useInfiniteQuery: (input: unknown, options: unknown) => {
+              if (key === "interviews") state.interviewInput(input);
+              const result = value.useQuery(undefined, options);
+              return {
+                ...result,
+                data: { pages: [result.data] },
+                hasNextPage: false,
+                fetchNextPage: vi.fn(),
+              };
+            },
+          },
+        ]),
+      ),
+    },
+  };
+});
 vi.mock("~/app/_components/session-agenda", () => ({
   SessionAgenda: ({
     supplementalEvents,
+    renderOverview,
+    view,
+    onViewChange,
   }: {
     supplementalEvents: { id: string; content: ReactNode }[];
+    renderOverview: (overview: {
+      canAddExtra: boolean;
+      openExtra: () => void;
+      items: [];
+    }) => ReactNode;
+    view: string;
+    onViewChange: (view: string) => void;
   }) => (
     <section>
+      {renderOverview({ canAddExtra: true, openExtra: vi.fn(), items: [] })}
+      <button onClick={() => onViewChange("history")}>History filter</button>
+      <span>{view}</span>
       <p>Tutoring retained</p>
       {supplementalEvents.map((event) => (
         <div key={event.id}>{event.content}</div>
@@ -158,6 +210,7 @@ vi.mock("./schedule-meeting-details", () => ({
 }));
 beforeEach(() => {
   state.chairTask = false;
+  state.completionTask = false;
   state.interviewError = null;
   state.meetingError = null;
   vi.clearAllMocks();
@@ -188,7 +241,7 @@ it("opens one panelist controller and keeps chair navigation in its owning works
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(
     screen
-      .getByRole("link", { name: en.unifiedSchedule.openChair })
+      .getAllByRole("link", { name: en.unifiedSchedule.openChair })[0]!
       .getAttribute("href"),
   ).toBe("/dashboard#tutor-interviews");
   fireEvent.click(
@@ -210,7 +263,7 @@ it("uses native chair return links for appointments and outstanding work", () =>
   const links = screen.getAllByRole("link", {
     name: en.unifiedSchedule.openChair,
   });
-  expect(links).toHaveLength(2);
+  expect(links).toHaveLength(3);
   for (const link of links) {
     expect(link.getAttribute("href")).toBe("/dashboard#tutor-interviews");
     expect(link.hasAttribute("data-client-navigation")).toBe(false);
@@ -247,7 +300,9 @@ it("retains independent cached meetings beside a source-specific read retry", ()
   state.meetingError = { data: { code: "INTERNAL_SERVER_ERROR" } };
   render(ui());
   expect(screen.getByText("Synthetic Briefing")).toBeTruthy();
-  expect(screen.getByText("Synthetic Panel Applicant")).toBeTruthy();
+  expect(
+    screen.getAllByText("Synthetic Panel Applicant").length,
+  ).toBeGreaterThan(0);
   fireEvent.click(
     screen.getByRole("button", { name: en.unifiedSchedule.retry }),
   );
@@ -278,4 +333,35 @@ it("opens meeting history through its single controller in Chinese", () => {
   );
   expect(screen.getByRole("dialog").textContent).toContain("Meeting history");
   expect(screen.getByText(zh.unifiedSchedule.calendarScope)).toBeTruthy();
+});
+
+it("defaults dated events to Upcoming and changes filters without resetting the open interview owner", () => {
+  render(ui());
+  expect(state.interviewInput).toHaveBeenLastCalledWith({
+    view: "upcoming",
+    includeSummary: false,
+  });
+  fireEvent.click(
+    screen.getAllByRole("button", {
+      name: en.unifiedSchedule.openInterview,
+    })[1]!,
+  );
+  const detail = screen.getByRole("dialog");
+  fireEvent.click(screen.getByRole("button", { name: "History filter" }));
+  expect(state.interviewInput).toHaveBeenLastCalledWith({
+    view: "history",
+    includeSummary: false,
+  });
+  expect(screen.getByRole("dialog")).toBe(detail);
+  expect(state.interviewMounted).toHaveBeenCalledOnce();
+});
+
+it("routes missing completion evidence to its management workspace", () => {
+  state.completionTask = true;
+  render(ui());
+  expect(
+    screen
+      .getByRole("link", { name: en.unifiedSchedule.viewEvent })
+      .getAttribute("href"),
+  ).toBe("/admin/applications#interview-records");
 });

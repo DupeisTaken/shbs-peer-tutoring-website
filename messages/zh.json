@@ -7244,7 +7244,7 @@
   "unifiedSchedule": {
     "agenda": "我的日程",
     "interview": "面试",
-    "interviews": "面试待办",
+    "interviews": "面试",
     "meeting": "会议",
     "meetings": "会议",
     "chair": "面试组长",
@@ -7254,8 +7254,8 @@
     "openInterview": "查看面试并投票",
     "openMeeting": "查看会议",
     "excused": "已提交缺席请假",
-    "interviewWork": "面试待办与历史",
-    "meetingWork": "会议事项与历史",
+    "interviewWork": "面试与历史",
+    "meetingWork": "会议与历史",
     "loadingInterviews": "正在加载已分配的面试…",
     "loadingMeetings": "正在加载个人会议…",
     "interviewsFailed": "无法刷新面试信息。",
@@ -7263,13 +7263,45 @@
     "denied": "你已无法访问此日程来源。",
     "retry": "重试",
     "interviewAttention": "这些面试仍有待处理事项，包括尚未安排时间的面试。",
-    "interviewHelp": "已分配的面试时间显示在日程中。主考官工作区仍保留在概览页。",
-    "meetingHelp": "即将举行的会议显示在日程中。打开会议事项可办理请假、查看其他待举行的会议和个人历史。",
+    "interviewHelp": "已分配的面试时间显示在日程中。面试组长工作区仍保留在主页。",
+    "meetingHelp": "即将举行的会议显示在日程中。打开会议可办理缺席请假并查看个人历史。",
     "calendarScope": "日历订阅目前仅包含辅导课。面试和会议可在此门户日程中查看。",
     "task": {
-      "unscheduled": "等待安排面试时间",
-      "pastOpen": "面试仍待决定",
+      "unscheduled": "待安排时间",
+      "pastOpen": "待作出决定",
       "completionNeeded": "仍需补充完成记录"
-    }
+    },
+    "sessions": "辅导安排",
+    "addExtra": "添加额外辅导",
+    "sessionsHelp": "选择配对及已发布的辅导，以安排一次额外的45分钟辅导。",
+    "openPairings": "查看配对",
+    "noExtraSource": "添加额外辅导需要有效配对，且该配对须有已发布的未来辅导。",
+    "upcoming": "近期事项",
+    "upcomingHelp": "显示三项未完成事项：需处理的事项优先，其次是即将开始的活动。已结束的辅导会保留至出勤记录完成。",
+    "nothingUpcoming": "暂无待处理事项。",
+    "viewEvent": "查看事项",
+    "eventFilters": "事项筛选",
+    "filterHelp": "近期事项包括本周和下周的学校日程，以及已结束但尚未记录出勤的辅导。",
+    "filter": {
+      "all": "全部",
+      "upcoming": "近期（两周）",
+      "history": "历史"
+    },
+    "loadingHistory": "正在加载辅导历史…",
+    "historyFailed": "无法刷新辅导历史。",
+    "moreSessions": "加载更多辅导",
+    "moreInterviews": "加载更多面试",
+    "moreMeetings": "加载更多会议",
+    "historyScope": "辅导历史包括已发布的辅导安排。更早的出勤记录仍保留在你的个人历史中。",
+    "chooseExtraHelp": "请选择配对和辅导，额外辅导提议将发送给该次辅导的参与者。",
+    "chooseSession": "选择辅导",
+    "action": {
+      "vote": "待你投票",
+      "schedule": "待安排时间",
+      "decision": "待作出决定",
+      "completion": "需要完成记录",
+      "reviewMeeting": "即将举行的会议"
+    },
+    "moreAttendance": "还有更多尚未记录出勤的辅导。记录当前已加载辅导的出勤后，更早的辅导会出现在近期事项中；也可在历史中查看。"
   }
 }

@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { createCallerFactory, createTRPCRouter } from "../trpc";
 import { personalScheduleRouter } from "./personal-schedule";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
+import type { PersonalScheduleCursor } from "~/lib/personal-schedule";
 
 const createCaller = createCallerFactory(
   createTRPCRouter({ personalSchedule: personalScheduleRouter }),
@@ -85,11 +86,13 @@ async function application(
     invalid?: boolean;
     completed?: boolean;
     other?: boolean;
+    isHead?: boolean;
   } = {},
 ) {
   return db.tutorApplication.create({
     data: {
       id,
+      createdAt: now,
       name: `Synthetic ${id}`,
       email: `private-${id}@example.test`,
       preferredContact: "Private contact",
@@ -114,14 +117,18 @@ async function application(
         create: { subjectId: "subject", grade: "Private grade" },
       },
       interviewers: {
-        create: { tutorId: options.other ? "other" : "mine", isHead: true },
+        create: {
+          tutorId: options.other ? "other" : "mine",
+          isHead: options.isHead ?? true,
+        },
       },
     },
   });
 }
 
 it("projects only assigned valid appointments in current+next school weeks, with no duration or private evidence", async () => {
-  await application("start", "2026-10-25T16:00:00Z");
+  await application("start", "2026-10-28T08:00:00Z");
+  await application("past-in-window", "2026-10-25T16:00:00Z");
   await application("last", "2026-11-08T15:59:59Z");
   await application("outside", "2026-11-08T16:00:00Z");
   await application("other", "2026-10-29T08:00:00Z", { other: true });
@@ -146,11 +153,14 @@ it("projects only assigned valid appointments in current+next school weeks, with
     id: "start",
     name: "Synthetic start",
     subjects: ["Synthetic subject"],
-    interviewAt: new Date("2026-10-25T16:00:00Z"),
+    interviewAt: now,
     isHead: true,
     canChair: true,
     status: "INTERVIEW",
     completionState: "pending",
+    ownVoteRecorded: true,
+    startsAt: now,
+    sortAt: now,
   });
   expect(JSON.stringify(result)).not.toMatch(
     /private|Private|email|votes|qualificationReason|decisionComment|duration|endsAt/,
@@ -280,12 +290,7 @@ it("keeps meeting eligibility identical to personal source history and never pro
     ],
   });
   const result = await caller().meetings();
-  expect(result.appointments.map((row) => row.id)).toEqual([
-    "current-history",
-    "own-history",
-    "late",
-    "cutoff",
-  ]);
+  expect(result.appointments.map((row) => row.id)).toEqual(["late", "cutoff"]);
   expect(result.appointments.find((row) => row.id === "cutoff")).toMatchObject({
     excused: true,
     canExcuse: true,
@@ -294,6 +299,11 @@ it("keeps meeting eligibility identical to personal source history and never pro
     false,
   );
   expect(JSON.stringify(result)).not.toMatch(/reason|Private|endsAt|duration/);
+  expect(
+    (await caller().meetings({ view: "history" })).appointments.map(
+      (row) => row.id,
+    ),
+  ).toEqual(["own-history", "current-history"]);
   expect(
     (await caller().meetingDetail({ meetingId: "own-history" })).reason,
   ).toBe("Private own reason");
@@ -349,4 +359,393 @@ it("rechecks active linkage, suspension and effective source flags independently
   await expect(caller().interviews()).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
+});
+
+it("pages dated interview views in a deterministic total order and keeps undated work separate", async () => {
+  await application("a", "2026-10-29T08:00:00Z");
+  await application("b", "2026-10-29T08:00:00Z");
+  await application("c", "2026-10-30T08:00:00Z");
+  await application("past", "2026-10-15T08:00:00Z");
+  await application("terminal", "2026-11-02T08:00:00Z", {
+    status: "ACCEPTED",
+    completed: true,
+  });
+  await application("undated", null, { status: "ACCEPTED" });
+  await application("other", "2026-10-29T08:00:00Z", { other: true });
+  const first = await caller().interviews({ limit: 1 });
+  expect(first.appointments.map((row) => row.id)).toEqual(["a"]);
+  expect(first.pageInfo).toEqual({
+    hasMore: true,
+    nextCursor: { at: new Date("2026-10-29T08:00:00Z"), id: "a" },
+  });
+  // Keyset continuation is an immutable tuple, not a lookup of a retained row.
+  await db.interviewAssignment.delete({
+    where: { applicationId_tutorId: { applicationId: "a", tutorId: "mine" } },
+  });
+  const second = await caller().interviews({
+    limit: 1,
+    cursor: first.pageInfo.nextCursor!,
+  });
+  expect(second.appointments.map((row) => row.id)).toEqual(["b"]);
+  const third = await caller().interviews({
+    limit: 1,
+    cursor: second.pageInfo.nextCursor!,
+  });
+  expect(third.appointments.map((row) => row.id)).toEqual(["c"]);
+  expect(third.pageInfo).toEqual({ hasMore: false, nextCursor: null });
+  expect(
+    (await caller().interviews({ view: "history" })).appointments.map(
+      (row) => row.id,
+    ),
+  ).toEqual(["terminal", "past"]);
+  const all: string[] = [];
+  let cursor: PersonalScheduleCursor | undefined;
+  for (let page = 0; page < 5; page++) {
+    const result = await caller().interviews({ view: "all", limit: 2, cursor });
+    all.push(...result.appointments.map((row) => row.id));
+    if (!result.pageInfo.hasMore) break;
+    cursor = result.pageInfo.nextCursor!;
+  }
+  expect(all).toEqual(["terminal", "c", "b", "past"]);
+  expect(
+    (await caller().interviews()).tasks.some((row) => row.id === "undated"),
+  ).toBe(true);
+  await expect(caller().interviews({ limit: 51 })).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+});
+
+it("pages unresolved context independently and computes the top three actions before either page limit", async () => {
+  for (const id of ["task-a", "task-b", "task-c", "task-d", "task-e"]) {
+    await application(id, null, { status: "PENDING" });
+  }
+  const first = await caller().interviews({ limit: 2 });
+  expect(first.appointments).toEqual([]);
+  expect(first.tasks.map((row) => row.id)).toEqual(["task-e", "task-d"]);
+  expect(first.taskPageInfo.hasMore).toBe(true);
+  expect(
+    first.actionableTasks.map(({ id, action }) => ({ id, action })),
+  ).toEqual([
+    { id: "task-e", action: "schedule" },
+    { id: "task-d", action: "schedule" },
+    { id: "task-c", action: "schedule" },
+  ]);
+  expect(first.hasMoreActionableTasks).toBe(true);
+  const second = await caller().interviews({
+    view: "history",
+    limit: 2,
+    taskCursor: first.taskPageInfo.nextCursor!,
+  });
+  expect(second.tasks.map((row) => row.id)).toEqual(["task-c", "task-b"]);
+  expect(second.actionableTasks).toEqual(first.actionableTasks);
+  const last = await caller().interviews({
+    limit: 2,
+    taskCursor: second.taskPageInfo.nextCursor!,
+  });
+  expect(last.tasks.map((row) => row.id)).toEqual(["task-a"]);
+  expect(last.taskPageInfo).toEqual({ hasMore: false, nextCursor: null });
+});
+
+it("only requests an assigned tutor's missing vote or an authorized chair's unscheduled time", async () => {
+  await application("needs-vote", "2026-10-29T08:00:00Z", { isHead: false });
+  await application("already-voted", "2026-10-29T08:00:00Z", { isHead: false });
+  await application("awaiting-chair", "2026-10-15T08:00:00Z", {
+    isHead: false,
+    completed: true,
+  });
+  await application("schedule-chair", null, { status: "PENDING" });
+  await application("schedule-panelist", null, {
+    status: "PENDING",
+    isHead: false,
+  });
+  await application("completion-panelist", "2026-10-15T08:00:00Z", {
+    status: "ACCEPTED",
+    isHead: false,
+  });
+  await application("invalid", "2026-10-29T08:00:00Z", {
+    invalid: true,
+    isHead: false,
+  });
+  await application("other-private", "2026-10-29T08:00:00Z", { other: true });
+  await db.interviewVote.createMany({
+    data: [
+      {
+        applicationId: "already-voted",
+        tutorId: "mine",
+        accept: true,
+        comment: "Private own comment",
+      },
+      { applicationId: "awaiting-chair", tutorId: "mine", accept: false },
+    ],
+  });
+  const result = await caller().interviews();
+  expect(
+    result.actionableTasks.map(({ id, action }) => ({ id, action })),
+  ).toEqual([
+    { id: "schedule-chair", action: "schedule" },
+    { id: "needs-vote", action: "vote" },
+  ]);
+  expect(
+    result.appointments.find((row) => row.id === "already-voted")
+      ?.ownVoteRecorded,
+  ).toBe(true);
+  expect(JSON.stringify(result)).not.toMatch(
+    /Private|private-|comment|accept"|email|qualificationReason/,
+  );
+  await db.user.update({ where: { id: "owner" }, data: { role: "TUTOR" } });
+  expect(
+    (await caller().interviews()).actionableTasks.map((row) => row.id),
+  ).toEqual(["needs-vote"]);
+});
+
+async function completePanel(applicationId: string, ownIsHead = true) {
+  await db.interviewAssignment.createMany({
+    data: [
+      { applicationId, tutorId: "other", isHead: !ownIsHead },
+      { applicationId, tutorId: "third" },
+    ],
+  });
+}
+
+it("only offers decision/completion review with live source permissions, panel evidence and feature availability", async () => {
+  await db.tutor.create({
+    data: { id: "third", englishName: "Third panelist" },
+  });
+  await db.user.create({
+    data: {
+      id: "third",
+      email: "third@example.test",
+      role: "TUTOR",
+      tutorId: "third",
+    },
+  });
+  await db.user.update({ where: { id: "other" }, data: { role: "ADMIN" } });
+  await db.tutorQualification.create({
+    data: { tutorId: "mine", subjectId: "subject", approvedById: "owner" },
+  });
+  await db.qualificationGrant.create({
+    data: { tutorId: "mine", sourceSubjectId: "subject", subjectId: "subject" },
+  });
+  await application("decision", "2026-10-15T08:00:00Z", { completed: true });
+  await completePanel("decision");
+  await db.interviewVote.createMany({
+    data: ["mine", "other", "third"].map((tutorId) => ({
+      applicationId: "decision",
+      tutorId,
+      accept: true,
+    })),
+  });
+  await application("completion", "2026-10-15T08:00:00Z", {
+    status: "ACCEPTED",
+    isHead: false,
+  });
+  await completePanel("completion", false);
+  await application("bad-panel", "2026-10-15T08:00:00Z", {
+    status: "ACCEPTED",
+  });
+  expect(
+    (await caller().interviews()).actionableTasks.map(({ id, action }) => ({
+      id,
+      action,
+    })),
+  ).toEqual([
+    { id: "decision", action: "decision" },
+    { id: "completion", action: "completion" },
+  ]);
+  await db.interviewVote.delete({
+    where: {
+      applicationId_tutorId: { applicationId: "decision", tutorId: "third" },
+    },
+  });
+  expect(
+    (await caller().interviews()).actionableTasks.map((row) => row.id),
+  ).toEqual(["completion"]);
+  await db.interviewVote.create({
+    data: { applicationId: "decision", tutorId: "third", accept: true },
+  });
+  await db.tutorQualification.update({
+    where: { tutorId_subjectId: { tutorId: "mine", subjectId: "subject" } },
+    data: { status: "PENDING" },
+  });
+  expect((await caller().interviews()).actionableTasks).toEqual([]);
+  await db.tutorQualification.update({
+    where: { tutorId_subjectId: { tutorId: "mine", subjectId: "subject" } },
+    data: { status: "APPROVED" },
+  });
+  await db.programFeature.create({
+    data: { key: "SERVICE_HOURS", enabled: false },
+  });
+  expect(
+    (await caller().interviews()).actionableTasks.map((row) => row.id),
+  ).toEqual(["decision"]);
+  await db.programFeature.deleteMany();
+  await db.approvalRequest.create({
+    data: {
+      requesterId: "owner",
+      requesterName: "Synthetic owner",
+      operation: "tutor.decideInterview",
+      payload: { json: { applicationId: "decision" } },
+      fingerprint: "synthetic-decision",
+      targets: [],
+    },
+  });
+  expect(
+    (await caller().interviews()).actionableTasks.map((row) => row.id),
+  ).toEqual(["completion"]);
+  await db.user.update({ where: { id: "owner" }, data: { role: "TUTOR" } });
+  expect((await caller().interviews()).actionableTasks).toEqual([]);
+  await db.user.update({ where: { id: "owner" }, data: { role: "ADMIN" } });
+  await db.tutor.update({
+    where: { id: "third" },
+    data: { status: "PENDING" },
+  });
+  expect((await caller().interviews()).actionableTasks).toEqual([]);
+});
+
+it("pages all personal meeting records while future review tasks exclude recorded, out-of-window and cutoff states", async () => {
+  await db.tutorMeeting.createMany({
+    data: [
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `future-${i}`,
+        title: `Synthetic meeting ${i}`,
+        date: new Date("2026-10-29T08:00:00Z"),
+      })),
+      {
+        id: "far-future",
+        title: "Later source meeting",
+        date: new Date("2026-11-15T08:00:00Z"),
+      },
+      {
+        id: "too-late",
+        title: "Cutoff passed",
+        date: new Date("2026-10-28T08:59:59Z"),
+      },
+      {
+        id: "own-past",
+        title: "Own historical evidence",
+        date: new Date("2026-10-01T08:00:00Z"),
+        termId: "old",
+      },
+      {
+        id: "other-past",
+        title: "Private other evidence",
+        date: new Date("2026-10-01T08:00:00Z"),
+        termId: "old",
+      },
+    ],
+  });
+  await db.meetingAttendance.createMany({
+    data: [
+      { meetingId: "future-1", tutorId: "mine", status: "EXEMPT" },
+      { meetingId: "future-2", tutorId: "mine", status: "PRESENT" },
+      {
+        meetingId: "future-4",
+        tutorId: "mine",
+        status: "EXCUSED_ABSENT",
+        excusedAt: now,
+      },
+      {
+        meetingId: "own-past",
+        tutorId: "mine",
+        status: "PRESENT",
+        reason: "Private own reason",
+      },
+      {
+        meetingId: "other-past",
+        tutorId: "other",
+        status: "PRESENT",
+        reason: "Private other reason",
+      },
+    ],
+  });
+  const first = await caller().meetings({ limit: 2 });
+  expect(first.appointments.map((row) => row.id)).toEqual([
+    "too-late",
+    "future-0",
+  ]);
+  expect(first.pageInfo.hasMore).toBe(true);
+  expect(
+    first.actionableTasks.map(({ id, action }) => ({ id, action })),
+  ).toEqual([
+    { id: "future-0", action: "reviewMeeting" },
+    { id: "future-3", action: "reviewMeeting" },
+    { id: "future-5", action: "reviewMeeting" },
+  ]);
+  expect(first.hasMoreActionableTasks).toBe(true);
+  expect(
+    (await caller().meetings({ view: "history" })).appointments.map(
+      (row) => row.id,
+    ),
+  ).toEqual(["own-past"]);
+  const all: string[] = [];
+  let cursor: PersonalScheduleCursor | undefined;
+  for (let page = 0; page < 8; page++) {
+    const result = await caller().meetings({ view: "all", limit: 2, cursor });
+    all.push(...result.appointments.map((row) => row.id));
+    expect(result.actionableTasks).toEqual(first.actionableTasks);
+    if (!result.pageInfo.hasMore) break;
+    cursor = result.pageInfo.nextCursor!;
+  }
+  expect(all).toEqual([
+    "far-future",
+    "future-6",
+    "future-5",
+    "future-4",
+    "future-3",
+    "future-2",
+    "future-1",
+    "future-0",
+    "too-late",
+    "own-past",
+  ]);
+  expect(JSON.stringify(await caller().meetings({ view: "all" }))).not.toMatch(
+    /Private|reason|duration|endsAt/,
+  );
+  await expect(caller().meetings({ limit: 0 })).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+});
+
+it("skips unresolved-work, readiness SQL and extra feature reads on event-only pages", async () => {
+  await application("event", "2026-10-29T08:00:00Z");
+  await application("task", null, { status: "PENDING" });
+  await db.tutorMeeting.create({
+    data: {
+      id: "event-meeting",
+      title: "Event meeting",
+      date: new Date("2026-10-29T08:00:00Z"),
+    },
+  });
+  const assignmentReads = vi.spyOn(db.interviewAssignment, "findMany");
+  const readinessReads = vi.spyOn(db, "$queryRaw");
+  const featureReads = vi.spyOn(db.programFeature, "findMany");
+  const meetingReads = vi.spyOn(db.tutorMeeting, "findMany");
+  try {
+    const events = await caller().interviews({ includeSummary: false });
+    expect(events.appointments.map((row) => row.id)).toEqual(["event"]);
+    expect(events.tasks).toEqual([]);
+    expect(events.actionableTasks).toEqual([]);
+    expect(events.hasMoreActionableTasks).toBe(false);
+    expect(events.taskPageInfo).toEqual({ hasMore: false, nextCursor: null });
+    expect(assignmentReads).toHaveBeenCalledOnce();
+    expect(readinessReads).not.toHaveBeenCalled();
+    expect(featureReads).toHaveBeenCalledOnce();
+    const meetings = await caller().meetings({ includeSummary: false });
+    expect(meetings.appointments.map((row) => row.id)).toEqual([
+      "event-meeting",
+    ]);
+    expect(meetings.actionableTasks).toEqual([]);
+    expect(meetingReads).toHaveBeenCalledOnce();
+    const overview = await caller().interviews();
+    expect(overview.tasks.map((row) => row.id)).toEqual(["task"]);
+    expect(
+      overview.actionableTasks.some((row) => row.action === "schedule"),
+    ).toBe(true);
+    expect(readinessReads).toHaveBeenCalledOnce();
+  } finally {
+    assignmentReads.mockRestore();
+    readinessReads.mockRestore();
+    featureReads.mockRestore();
+    meetingReads.mockRestore();
+  }
 });

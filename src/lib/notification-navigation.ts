@@ -16,9 +16,8 @@ export function schoolCalendarHashDate(hash: string): string | null {
 /** Only server-issued, relative record destinations delegate scroll to their
  * authorized page adapter. Ordinary and external links keep Next's defaults. */
 export function isNotificationRecordDestination(href: string) {
-  const calendar = /^\/(?:dashboard|student)(#school-calendar\/[^#?]+)$/.exec(
-    href,
-  );
+  const calendar =
+    /^\/(?:dashboard|schedule|student)(#school-calendar\/[^#?]+)$/.exec(href);
   return (
     !!(calendar && schoolCalendarHashDate(calendar[1]!)) ||
     /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-|tutor-requests#request-|crew#(?:request|application)-|pairings#)[a-zA-Z0-9_-]{1,128}$/.test(

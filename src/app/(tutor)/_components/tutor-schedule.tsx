@@ -6,12 +6,14 @@ import { api } from "~/trpc/react";
 import {
   SessionAgenda,
   type SupplementalScheduleEvent,
+  type SessionOverview,
 } from "~/app/_components/session-agenda";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { Button } from "~/app/_components/ui/button";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { ScheduleInterviewDetails } from "./schedule-interview-details";
 import { ScheduleMeetingDetails } from "./schedule-meeting-details";
+import { upcomingPreview, type ScheduleView } from "~/lib/schedule-overview";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
 
 /** The agenda shares dates, not write authority. Each private detail keeps its own
@@ -29,6 +31,23 @@ export function TutorSchedule({
 }) {
   const t = useTranslations("unifiedSchedule");
   const format = useFormatter();
+  const [view, setView] = useState<ScheduleView>("upcoming");
+  const interviewEvents = api.personalSchedule.interviews.useInfiniteQuery(
+    { view, includeSummary: false },
+    {
+      enabled: active && interviewsEnabled,
+      refetchInterval: active && interviewsEnabled ? 30_000 : false,
+      getNextPageParam: (page) => page.pageInfo.nextCursor ?? undefined,
+    },
+  );
+  const meetingEvents = api.personalSchedule.meetings.useInfiniteQuery(
+    { view, includeSummary: false },
+    {
+      enabled: active && meetingsEnabled,
+      refetchInterval: active && meetingsEnabled ? 30_000 : false,
+      getNextPageParam: (page) => page.pageInfo.nextCursor ?? undefined,
+    },
+  );
   const interviews = api.personalSchedule.interviews.useQuery(undefined, {
     enabled: active && interviewsEnabled,
     refetchInterval: active && interviewsEnabled ? 30_000 : false,
@@ -37,8 +56,12 @@ export function TutorSchedule({
     enabled: active && meetingsEnabled,
     refetchInterval: active && meetingsEnabled ? 30_000 : false,
   });
-  const interviewsDenied = useSessionAccessDenied(interviews);
-  const meetingsDenied = useSessionAccessDenied(meetings);
+  const interviewSummaryDenied = useSessionAccessDenied(interviews);
+  const interviewEventsDenied = useSessionAccessDenied(interviewEvents);
+  const meetingSummaryDenied = useSessionAccessDenied(meetings);
+  const meetingEventsDenied = useSessionAccessDenied(meetingEvents);
+  const interviewsDenied = interviewSummaryDenied || interviewEventsDenied;
+  const meetingsDenied = meetingSummaryDenied || meetingEventsDenied;
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [allInterviews, setAllInterviews] = useState(false);
   const [meetingId, setMeetingId] = useState<string | null>(null);
@@ -64,6 +87,14 @@ export function TutorSchedule({
       : undefined;
   const meetingRows =
     active && meetingsEnabled && !meetingsDenied ? meetings.data : undefined;
+  const datedInterviews =
+    active && interviewsEnabled && !interviewsDenied
+      ? (interviewEvents.data?.pages.flatMap((page) => page.appointments) ?? [])
+      : [];
+  const datedMeetings =
+    active && meetingsEnabled && !meetingsDenied
+      ? (meetingEvents.data?.pages.flatMap((page) => page.appointments) ?? [])
+      : [];
   const arrivedHash = useRef<string | null>(null);
   useEffect(() => {
     let frame: number | undefined;
@@ -113,7 +144,7 @@ export function TutorSchedule({
       minute: "2-digit",
     });
   const events: SupplementalScheduleEvent[] = [
-    ...(interviewRows?.appointments ?? []).map((row) => ({
+    ...datedInterviews.map((row) => ({
       id: `interview:${row.id}`,
       startsAt: row.interviewAt,
       content: (
@@ -161,7 +192,7 @@ export function TutorSchedule({
         </article>
       ),
     })),
-    ...(meetingRows?.appointments ?? []).map((row) => ({
+    ...datedMeetings.map((row) => ({
       id: `meeting:${row.id}`,
       startsAt: row.date,
       content: (
@@ -199,8 +230,90 @@ export function TutorSchedule({
     })),
   ];
 
-  return (
-    <div className="space-y-6">
+  function renderOverview(overview: SessionOverview) {
+    const previewItems = upcomingPreview([
+      ...overview.items,
+      ...(interviewRows?.appointments ?? []).map((row) => ({
+        id: `interview:${row.id}`,
+        startsAt: row.interviewAt,
+        sortAt: row.interviewAt,
+        needsAction: false,
+        title: row.name,
+        detail: t("interview"),
+        action: row.isHead ? (
+          <a
+            className="link inline-flex min-h-11 items-center lg:min-h-8"
+            href="/dashboard#tutor-interviews"
+          >
+            {t("openChair")}
+          </a>
+        ) : (
+          <Button
+            size="compact"
+            onClick={() => {
+              setAllInterviews(false);
+              setInterviewId(row.id);
+            }}
+          >
+            {t("openInterview")}
+          </Button>
+        ),
+      })),
+      ...(interviewRows?.actionableTasks ?? []).map((row) => ({
+        id: `interview:${row.id}`,
+        startsAt: row.startsAt,
+        sortAt: row.sortAt,
+        needsAction: true,
+        title: row.name,
+        detail: t(`action.${row.action}`),
+        action:
+          row.action === "completion" ? (
+            <a
+              href="/admin/applications#interview-records"
+              className="link inline-flex min-h-11 items-center lg:min-h-8"
+            >
+              {t("viewEvent")}
+            </a>
+          ) : row.isHead ? (
+            <a
+              href="/dashboard#tutor-interviews"
+              className="link inline-flex min-h-11 items-center lg:min-h-8"
+            >
+              {t("openChair")}
+            </a>
+          ) : (
+            <Button
+              size="compact"
+              onClick={() => {
+                setAllInterviews(false);
+                setInterviewId(row.id);
+              }}
+            >
+              {t("openInterview")}
+            </Button>
+          ),
+      })),
+      ...(meetingRows?.actionableTasks ?? []).map((row) => ({
+        id: `meeting:${row.id}`,
+        startsAt: row.startsAt,
+        sortAt: row.sortAt,
+        needsAction: false,
+        title: row.title,
+        detail: t("action.reviewMeeting"),
+        action: (
+          <Button
+            size="compact"
+            onClick={() => {
+              setAllMeetings(false);
+              setMeetingId(row.id);
+            }}
+          >
+            {t("openMeeting")}
+          </Button>
+        ),
+      })),
+    ]);
+    return (
       <div className="grid gap-4 md:grid-cols-2">
         {active && interviewsEnabled && (
           <section
@@ -240,16 +353,18 @@ export function TutorSchedule({
                 )}
               </p>
             )}
-            {interviewRows?.tasks.map((row) => (
+            {interviewRows?.tasks.slice(0, 3).map((row) => (
               <div
                 key={row.id}
-                className="space-y-1 border-t border-slate-200 pt-3"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3"
               >
-                <h3 className="font-semibold">{row.name}</h3>
-                <p className="text-sm">{t(`task.${row.reason}`)}</p>
-                {row.interviewAt && (
-                  <p className="muted text-sm">{timeText(row.interviewAt)}</p>
-                )}
+                <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
+                  <h3 className="font-semibold">{row.name}</h3>
+                  <p className="text-sm">{t(`task.${row.reason}`)}</p>
+                  {row.interviewAt && (
+                    <p className="muted text-sm">{timeText(row.interviewAt)}</p>
+                  )}
+                </div>
                 {row.isHead ? (
                   <a
                     className="link inline-flex min-h-11 items-center lg:min-h-8"
@@ -304,12 +419,126 @@ export function TutorSchedule({
             />
           </section>
         )}
+        <section
+          className="card space-y-3 p-4 sm:p-5"
+          aria-labelledby="sessions-overview-title"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="sessions-overview-title" className="section-title">
+              {t("sessions")}
+            </h2>
+            <Button
+              size="compact"
+              onClick={overview.openExtra}
+              disabled={!overview.canAddExtra}
+            >
+              {t("addExtra")}
+            </Button>
+          </div>
+          <p className="muted text-sm">{t("sessionsHelp")}</p>
+          {overview.extraSourceUnavailable && (
+            <p className="muted text-sm">{t("noExtraSource")}</p>
+          )}
+          <a
+            href="/dashboard#tutor-pairings"
+            className="link inline-flex min-h-11 items-center lg:min-h-8"
+          >
+            {t("openPairings")}
+          </a>
+        </section>
+        <section
+          className="card space-y-3 p-4 sm:p-5"
+          aria-labelledby="upcoming-overview-title"
+        >
+          <h2 id="upcoming-overview-title" className="section-title">
+            {t("upcoming")}
+          </h2>
+          <p className="muted text-sm">{t("upcomingHelp")}</p>
+          {!previewItems.length && (
+            <p className="muted text-sm">{t("nothingUpcoming")}</p>
+          )}
+          {previewItems.map((item) => (
+            <div
+              key={item.id}
+              className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3"
+            >
+              <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
+                <h3 className="font-semibold">{item.title}</h3>
+                <p className="text-sm">{item.detail}</p>
+                {item.startsAt && (
+                  <p className="muted text-sm">{timeText(item.startsAt)}</p>
+                )}
+              </div>
+              {item.action}
+            </div>
+          ))}
+        </section>
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
       <div id="attendance" tabIndex={-1} className="scroll-mt-6">
         <SessionAgenda
           role="tutor"
           heading={t("agenda")}
           supplementalEvents={events}
+          view={view}
+          onViewChange={setView}
+          renderOverview={renderOverview}
+          pagination={
+            <div className="space-y-2">
+              {active && interviewsEnabled && (
+                <>
+                  <QueryFeedback
+                    hasData={!!interviewEvents.data && !interviewsDenied}
+                    loading={interviewEvents.isLoading}
+                    error={!!interviewEvents.error || interviewsDenied}
+                    retrying={interviewEvents.isFetching}
+                    loadingTitle={t("loadingInterviews")}
+                    errorTitle={t(
+                      interviewsDenied ? "denied" : "interviewsFailed",
+                    )}
+                    retryLabel={t("retry")}
+                    onRetry={() => void interviewEvents.refetch()}
+                  />
+                  {interviewEvents.hasNextPage && !interviewsDenied && (
+                    <Button
+                      size="compact"
+                      disabled={interviewEvents.isFetching}
+                      onClick={() => void interviewEvents.fetchNextPage()}
+                    >
+                      {t("moreInterviews")}
+                    </Button>
+                  )}
+                </>
+              )}
+              {active && meetingsEnabled && (
+                <>
+                  <QueryFeedback
+                    hasData={!!meetingEvents.data && !meetingsDenied}
+                    loading={meetingEvents.isLoading}
+                    error={!!meetingEvents.error || meetingsDenied}
+                    retrying={meetingEvents.isFetching}
+                    loadingTitle={t("loadingMeetings")}
+                    errorTitle={t(meetingsDenied ? "denied" : "meetingsFailed")}
+                    retryLabel={t("retry")}
+                    onRetry={() => void meetingEvents.refetch()}
+                  />
+                  {meetingEvents.hasNextPage && !meetingsDenied && (
+                    <Button
+                      size="compact"
+                      disabled={meetingEvents.isFetching}
+                      onClick={() => void meetingEvents.fetchNextPage()}
+                    >
+                      {t("moreMeetings")}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          }
         />
       </div>
       <p className="muted text-sm">{t("calendarScope")}</p>

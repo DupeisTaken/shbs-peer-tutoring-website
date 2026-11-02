@@ -7244,7 +7244,7 @@
   "unifiedSchedule": {
     "agenda": "My agenda",
     "interview": "Interview",
-    "interviews": "Interview work",
+    "interviews": "Συνεντεύξεις",
     "meeting": "Meeting",
     "meetings": "Meetings",
     "chair": "Chair",
@@ -7254,8 +7254,8 @@
     "openInterview": "View interview and own vote",
     "openMeeting": "View meeting",
     "excused": "Absence excuse submitted",
-    "interviewWork": "Interview work & history",
-    "meetingWork": "Meeting work & history",
+    "interviewWork": "Συνεντεύξεις και ιστορικό",
+    "meetingWork": "Συναντήσεις και ιστορικό",
     "loadingInterviews": "Loading assigned interviews…",
     "loadingMeetings": "Loading personal meetings…",
     "interviewsFailed": "Interviews could not be refreshed.",
@@ -7264,12 +7264,44 @@
     "retry": "Retry",
     "interviewAttention": "These interviews still need attention, even when they have no upcoming date.",
     "interviewHelp": "Assigned interview dates appear in your agenda. Your chair workspace remains on the dashboard.",
-    "meetingHelp": "Upcoming dates appear in your agenda. Open meeting work for absence excuses, other upcoming dates and personal history.",
+    "meetingHelp": "Οι προσεχείς ημερομηνίες εμφανίζονται στην ατζέντα σας. Ανοίξτε τις συναντήσεις για δικαιολόγηση απουσιών και προσωπικό ιστορικό.",
     "calendarScope": "Calendar subscriptions currently include tutoring sessions only. Interviews and meetings appear here in the portal.",
     "task": {
-      "unscheduled": "Awaiting an interview time",
-      "pastOpen": "Interview still awaiting a decision",
+      "unscheduled": "Αναμονή ώρας",
+      "pastOpen": "Αναμονή απόφασης",
       "completionNeeded": "Completion evidence still needed"
-    }
+    },
+    "sessions": "Μαθήματα",
+    "addExtra": "Προσθήκη επιπλέον μαθήματος",
+    "sessionsHelp": "Επιλέξτε μια αντιστοίχιση και ένα δημοσιευμένο μάθημα για να κανονίσετε ένα επιπλέον μάθημα 45 λεπτών.",
+    "openPairings": "Προβολή αντιστοιχίσεων",
+    "noExtraSource": "Για να προσθέσετε επιπλέον μάθημα, απαιτείται ενεργή αντιστοίχιση με δημοσιευμένο μελλοντικό μάθημα.",
+    "upcoming": "Προσεχώς",
+    "upcomingHelp": "Τρεις εκκρεμότητες: πρώτα όσες απαιτούν ενέργεια και μετά τα πλησιέστερα προσεχή συμβάντα. Τα μαθήματα που τελείωσαν παραμένουν εδώ μέχρι να καταγραφούν οι παρουσίες.",
+    "nothingUpcoming": "Δεν υπάρχουν εκκρεμότητες.",
+    "viewEvent": "Προβολή συμβάντος",
+    "eventFilters": "Φίλτρα συμβάντων",
+    "filterHelp": "Τα προσεχή καλύπτουν την τρέχουσα και την επόμενη σχολική εβδομάδα, καθώς και μαθήματα που τελείωσαν χωρίς καταγραφή παρουσιών.",
+    "filter": {
+      "all": "Όλα",
+      "upcoming": "Προσεχώς (2 εβδομάδες)",
+      "history": "Ιστορικό"
+    },
+    "loadingHistory": "Φόρτωση ιστορικού μαθημάτων…",
+    "historyFailed": "Δεν ήταν δυνατή η ανανέωση του ιστορικού μαθημάτων.",
+    "moreSessions": "Φόρτωση περισσότερων μαθημάτων",
+    "moreInterviews": "Φόρτωση περισσότερων συνεντεύξεων",
+    "moreMeetings": "Φόρτωση περισσότερων συναντήσεων",
+    "historyScope": "Το ιστορικό μαθημάτων περιλαμβάνει δημοσιευμένα μαθήματα. Οι παλαιότερες καταγραφές παρουσιών παραμένουν στο προσωπικό σας ιστορικό.",
+    "chooseExtraHelp": "Επιλέξτε την αντιστοίχιση και το μάθημα στους συμμετέχοντες του οποίου θα σταλεί η πρόταση για επιπλέον μάθημα.",
+    "chooseSession": "Επιλογή μαθήματος",
+    "action": {
+      "vote": "Αναμονή της ψήφου σας",
+      "schedule": "Αναμονή ώρας",
+      "decision": "Αναμονή απόφασης",
+      "completion": "Απαιτείται καταγραφή ολοκλήρωσης",
+      "reviewMeeting": "Προσεχής συνάντηση"
+    },
+    "moreAttendance": "Υπάρχουν και άλλα εκκρεμή μαθήματα. Καταγράψτε τις παρουσίες των φορτωμένων μαθημάτων για να εμφανιστούν παλαιότερα στην προβολή Προσεχώς ή αναζητήστε τα στο Ιστορικό."
   }
 }
