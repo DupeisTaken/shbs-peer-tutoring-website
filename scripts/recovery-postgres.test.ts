@@ -9,7 +9,10 @@ import { join } from "node:path";
 import { createGzip } from "node:zlib";
 import { pipeline } from "node:stream/promises";
 import { Client } from "pg";
-import { databaseIdentity } from "../src/server/recovery/operator-plan";
+import {
+  databaseIdentity,
+  postgresClientUrl,
+} from "../src/server/recovery/operator-plan";
 import {
   createSitePlan,
   executeRecoveryTool,
@@ -44,8 +47,12 @@ void test(
     const targetName = `shbs_recovery_stage_${suffix}_test`;
     const password = randomBytes(24).toString("hex");
     const dir = await mkdtemp(join(tmpdir(), "shbs-recovery-pg-"));
-    const sourceAdmin = new Client({ connectionString: sourceAdminUrl });
-    const stageAdmin = new Client({ connectionString: stagingAdminUrl });
+    const sourceAdmin = new Client({
+      connectionString: postgresClientUrl(sourceAdminUrl),
+    });
+    const stageAdmin = new Client({
+      connectionString: postgresClientUrl(stagingAdminUrl),
+    });
     await sourceAdmin.connect();
     try {
       await stageAdmin.connect();
@@ -110,7 +117,9 @@ void test(
     sourceUrl.pathname = `/${sourceName}`;
     sourceUrl.username = role;
     sourceUrl.password = password;
-    const app = new Client({ connectionString: sourceUrl.toString() });
+    const app = new Client({
+      connectionString: postgresClientUrl(sourceUrl.toString()),
+    });
     clients.push(app);
     await app.connect();
     await app.query(
@@ -128,7 +137,7 @@ void test(
         NODE_ENV: "test",
         PATH: process.env.PATH,
         SystemRoot: process.env.SystemRoot,
-        PGHOST: sourceIdentity.host,
+        PGHOST: sourceIdentity.host.replace(/^\[(.*)\]$/, "$1"),
         PGPORT: sourceIdentity.port,
         PGDATABASE: sourceName,
         PGUSER: role,
@@ -153,7 +162,7 @@ void test(
       execute: executeRecoveryTool,
       async connect(connectionString) {
         const client = new Client({
-          connectionString,
+          connectionString: postgresClientUrl(connectionString),
           connectionTimeoutMillis: 10_000,
         });
         await client.connect();
