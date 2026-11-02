@@ -32,6 +32,14 @@ until the report is saved. Month changes require another preview, and revoked
 staff access conceals retained content. The existing version/content-hash review
 still governs **Generate report** on Service Hours.
 
+The retained editor adopts its versioned configuration and initial month once;
+background settings reads do not replace a draft or selected month. Explicit
+Reload replaces the configuration only after a successful read. Authoritative
+denial discards private drafts, reviews and requested previews. Recovery requires
+a fresh successful Retry, followed by a new preview request; late reads overtaken
+by newer denial cannot restore private evidence. Saved report and CSV denial
+likewise remain concealed until explicit successful read recovery.
+
 ## Accounting and immutable evidence
 
 The [shared aggregation](../../src/server/service-hours-summary.ts) reads stored

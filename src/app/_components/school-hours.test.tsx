@@ -353,7 +353,15 @@ async function loadPreview(month = "2026-10") {
 }
 async function confirm(label: string) {
   const dialog = await screen.findByRole("dialog");
-  fireEvent.click(within(dialog).getByRole("button", { name: label }));
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: label }));
+  });
+  // Wait for accepted-write synchronization, not merely the mock invocation.
+  await waitFor(() => {
+    expect(client.isFetching()).toBe(0);
+    if (dialog.isConnected)
+      expect(dialog.getAttribute("aria-busy")).not.toBe("true");
+  });
 }
 async function refreshSettings() {
   await act(async () => {
@@ -703,7 +711,7 @@ it("isolates exact escaped email HTML, supports manual tabs, and performs no wri
   const reportTab = screen.getByRole("tab", {
     name: en.schoolHours.schoolReport,
   });
-  reportTab.focus();
+  act(() => reportTab.focus());
   fireEvent.keyDown(reportTab, { key: "ArrowRight" });
   expect(document.activeElement).toBe(
     screen.getByRole("tab", { name: en.schoolHours.emailHtml }),
@@ -1446,9 +1454,15 @@ it("reissues a guarded link and allows deliberate delivery retry after refreshed
     const button = within(dialog).getByRole("button", {
       name: en.schoolHours.retryDelivery,
     });
-    fireEvent.click(button);
-    fireEvent.click(button);
-    await waitFor(() => expect(remote.retry).toHaveBeenCalledTimes(count));
+    await act(async () => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    await waitFor(() => {
+      expect(remote.retry).toHaveBeenCalledTimes(count);
+      expect(dialog.getAttribute("aria-busy")).toBe("false");
+      expect(client.isFetching()).toBe(0);
+    });
     await screen.findByText(en.schoolHours.retryQueued);
     fireEvent.click(
       within(dialog).getByRole("button", { name: en.actionReview.close }),
@@ -1495,4 +1509,155 @@ it("hides saved data and drops a late CSV after a staff permission denial", asyn
   expect(
     screen.queryByRole("button", { name: en.schoolHours.revokeLink }),
   ).toBeNull();
+});
+
+
+it("preserves the adopted settings version and month until explicit Reload", async () => {
+  render(show());
+  await openPanel();
+  fireEvent.change(screen.getByLabelText(en.schoolHours.recipients), {
+    target: { value: "draft@example.test" },
+  });
+  fireEvent.change(screen.getByLabelText(en.schoolHours.reportMonth), {
+    target: { value: "2026-09" },
+  });
+  remote.settings.mockResolvedValue({
+    ...settings(),
+    config: {
+      ...config,
+      version: 2,
+      timeZone: "Pacific/Kiritimati",
+      recipientEmails: ["fresh@example.test"],
+    },
+  });
+  await refreshSettings();
+  await screen.findByText(en.schoolHours.stale);
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>(en.schoolHours.recipients).value,
+  ).toBe("draft@example.test");
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.schoolHours.reportMonth).value,
+  ).toBe("2026-09");
+  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.reload }));
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText<HTMLTextAreaElement>(en.schoolHours.recipients).value,
+    ).toBe("fresh@example.test"),
+  );
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.schoolHours.reportMonth).value,
+  ).toBe("2026-09");
+  expect(remote.save).not.toHaveBeenCalled();
+});
+
+it("discards a denied private settings draft and review before a fresh read restores editing", async () => {
+  render(show());
+  await openPanel();
+  fireEvent.change(screen.getByLabelText(en.schoolHours.recipients), {
+    target: { value: "private-draft@example.test" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.save }));
+  await screen.findByRole("dialog");
+  remote.settings.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  await refreshSettings();
+  await screen.findByText(en.schoolHours.denied);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByLabelText(en.schoolHours.recipients)).toBeNull();
+  remote.settings.mockResolvedValue({
+    ...settings(),
+    config: { ...config, version: 2, recipientEmails: ["restored@example.test"] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.retryRead }));
+  const recipients = await screen.findByLabelText<HTMLTextAreaElement>(
+    en.schoolHours.recipients,
+  );
+  expect(recipients.value).toBe("restored@example.test");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(remote.save).not.toHaveBeenCalled();
+  expect(remote.generate).not.toHaveBeenCalled();
+});
+
+
+it.each(["panel", "communication"] as const)(
+  "recovers a preview-origin denial through settings Retry without restoring the old preview (%s)",
+  async (place) => {
+    render(
+      show(
+        place === "panel" ? (
+          <SchoolHoursPanel />
+        ) : (
+          <ProgramSchoolHoursPreview />
+        ),
+      ),
+    );
+    if (place === "panel") await openPanel();
+    else {
+      await openDisclosure(en.schoolHours.emailPreview);
+      await waitFor(() =>
+        expect(
+          screen.getByRole<HTMLButtonElement>("button", {
+            name: en.schoolHours.preview,
+          }).disabled,
+        ).toBe(false),
+      );
+    }
+    await loadPreview();
+    remote.preview.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+    fireEvent.click(screen.getByRole("button", { name: en.schoolHours.preview }));
+    await screen.findByText(en.schoolHours.denied);
+    expect(remote.settings).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: en.schoolHours.retryRead }));
+    await screen.findByLabelText(en.schoolHours.reportMonth);
+    // This fixture deliberately uses staleTime: 0. The successful manual Retry
+    // re-enables the settings observer, which performs its normal stale read.
+    // Both reads must settle without re-enabling the discarded preview request.
+    await waitFor(() => {
+      expect(client.isFetching()).toBe(0);
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: en.schoolHours.preview,
+        }).disabled,
+      ).toBe(false);
+    });
+    expect(remote.settings).toHaveBeenCalledTimes(3);
+    expect(remote.preview).toHaveBeenCalledTimes(2);
+    expect(
+      screen.queryByRole("table", { name: en.schoolHours.individualAmounts }),
+    ).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(remote.generate).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps an accepted issue blocked after its refresh is denied and explicit Retry restores access", async () => {
+  render(show());
+  await openPanel();
+  await loadPreview();
+  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.issue }));
+  remote.settings.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  await confirm(en.schoolHours.confirmIssue);
+  await screen.findByText(en.schoolHours.denied);
+  expect(remote.generate).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  remote.settings.mockResolvedValue(settings());
+  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.retryRead }));
+  await screen.findByLabelText(en.schoolHours.reportMonth);
+  expect(
+    screen.queryByRole("table", { name: en.schoolHours.individualAmounts }),
+  ).toBeNull();
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.schoolHours.preview,
+      }).disabled,
+    ).toBe(false),
+  );
+  await loadPreview();
+  const issue = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.schoolHours.issue,
+  });
+  expect(issue.disabled).toBe(true);
+  fireEvent.click(issue);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(remote.generate).toHaveBeenCalledTimes(1);
 });

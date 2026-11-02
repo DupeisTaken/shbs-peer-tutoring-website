@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -78,31 +78,45 @@ function MonthlyHoursSettings() {
   const accessDenied =
     deniedError(settings.error) || deniedError(preview.error);
   const hidden = denied || accessDenied;
+  const readGeneration = useRef(0);
+  // A retry cannot restore access after a newer denial from another read.
+  useLayoutEffect(() => {
+    if (accessDenied) readGeneration.current += 1;
+  }, [accessDenied, settings.error, preview.error]);
+  useLayoutEffect(
+    () => () => {
+      readGeneration.current += 1;
+    },
+    [],
+  );
+  // Denial ends the private draft session before children can see cached data.
+  if (accessDenied && !denied) {
+    setDenied(true);
+    setDraft(null);
+    setRequestedMonth("");
+    setReason("");
+  }
+  const { revoke } = review;
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
-      setDraft(null);
-      setRequestedMonth("");
-      setReason("");
-      review.revoke();
+    if (hidden) {
+      revoke();
       queryClient.removeQueries({ queryKey: getQueryKey(api.monthlyHours) });
-    } else if (settings.isSuccess && !settings.isFetching) setDenied(false);
-  }, [
-    accessDenied,
-    settings.isSuccess,
-    settings.isFetching,
-    queryClient,
-    review.revoke,
-  ]);
-  useEffect(() => {
-    // Background refreshes never replace a versioned editor draft.
-    if (!hidden && settings.data && !draft)
-      setDraft(draftFrom(settings.data.config));
-    if (!hidden && settings.data && !monthInitialized) {
-      setMonth(closedMonth(settings.data.config.timeZone));
-      setMonthInitialized(true);
     }
-  }, [hidden, settings.data, draft, monthInitialized]);
+  }, [hidden, queryClient, revoke]);
+  // Adopt each editor snapshot once. Background reads only mark it stale;
+  // explicit Reload below is the only read that replaces an existing draft.
+  if (!hidden && settings.data && !draft)
+    setDraft(draftFrom(settings.data.config));
+  if (!hidden && settings.data && !monthInitialized) {
+    setMonth(closedMonth(settings.data.config.timeZone));
+    setMonthInitialized(true);
+  }
+  const retryRead = async () => {
+    const started = readGeneration.current;
+    const result = await settings.refetch();
+    if (started === readGeneration.current && result.isSuccess && result.data)
+      setDenied(false);
+  };
   const data = hidden ? undefined : settings.data;
   const dirty =
     !!data &&
@@ -127,8 +141,9 @@ function MonthlyHoursSettings() {
     setRequestedMonth("");
   };
   const refresh = async () => {
+    const started = readGeneration.current;
     const result = await settings.refetch();
-    if (!result.isSuccess || !result.data)
+    if (started !== readGeneration.current || !result.isSuccess || !result.data)
       throw new Error("Monthly report settings refresh failed");
     setDraft(draftFrom(result.data.config));
     setRequestedMonth("");
@@ -249,7 +264,7 @@ function MonthlyHoursSettings() {
             <Button
               size="compact"
               disabled={settings.isFetching}
-              onClick={() => void settings.refetch()}
+              onClick={() => void retryRead()}
             >
               {t("retryRead")}
             </Button>
@@ -265,7 +280,7 @@ function MonthlyHoursSettings() {
             loadingTitle={t("loading")}
             errorTitle={t(data ? "refreshFailed" : "loadFailed")}
             retryLabel={t("retryRead")}
-            onRetry={() => void settings.refetch()}
+            onRetry={() => void retryRead()}
           />
           {data && draft && (
             <div className="space-y-5">
@@ -582,7 +597,7 @@ function MonthlyHoursSettings() {
                   <Button
                     size="compact"
                     disabled={settings.isFetching || review.busy}
-                    onClick={() => void settings.refetch()}
+                    onClick={() => void retryRead()}
                   >
                     {t("refreshStatus")}
                   </Button>

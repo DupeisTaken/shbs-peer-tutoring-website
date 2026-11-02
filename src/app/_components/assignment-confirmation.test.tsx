@@ -310,6 +310,41 @@ it("prepares only one acknowledgement under Strict Mode effect replay", async ()
   expect(mocks.prepare).toHaveBeenCalledTimes(1);
   expect(mocks.cancel).not.toHaveBeenCalled();
 });
+it("retains the ticket deadline across equivalent payloads and uses the latest committed confirmation", async () => {
+  const view = render(dialog());
+  await flush();
+  await act(() => vi.advanceTimersByTime(1000));
+  const latestConfirm = vi.fn();
+  view.rerender(dialog("a", { onConfirm: latestConfirm }));
+  await flush();
+  expect(mocks.prepare).toHaveBeenCalledTimes(1);
+  expect(mocks.cancel).not.toHaveBeenCalled();
+  await act(() => vi.advanceTimersByTime(1000));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm unqualified assignment" }),
+  );
+  expect(latestConfirm).toHaveBeenCalledExactlyOnceWith("ticket");
+  expect(mocks.confirm).not.toHaveBeenCalled();
+});
+it("uses the latest callback when a qualified assignment finishes its workload read", async () => {
+  mocks.prepare.mockResolvedValue({ ticket: null, mismatches: [] });
+  const view = render(
+    dialog("a", { workloadReview: { pending: true, warning: null } }),
+  );
+  await flush();
+  expect(mocks.confirm).not.toHaveBeenCalled();
+  const latestConfirm = vi.fn();
+  view.rerender(
+    dialog("a", {
+      onConfirm: latestConfirm,
+      workloadReview: { pending: false, warning: null },
+    }),
+  );
+  await flush();
+  expect(mocks.prepare).toHaveBeenCalledTimes(1);
+  expect(latestConfirm).toHaveBeenCalledExactlyOnceWith();
+  expect(mocks.confirm).not.toHaveBeenCalled();
+});
 it("preserves submitted evidence for a pending write or dialog handoff", async () => {
   const view = render(dialog());
   await flush();
