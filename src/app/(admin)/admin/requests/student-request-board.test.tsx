@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   legacy: vi.fn(),
   ready: true,
+  accountId: "head",
 }));
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
@@ -68,7 +69,7 @@ vi.mock("~/trpc/react", () => ({
         pairings: { invalidate: mocks.refresh },
       },
     }),
-    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
+    account: { me: { useQuery: () => ({ data: { id: mocks.accountId, role: "HEAD" } }) } },
     studentWorkflow: {
       headUnassign: { useMutation: () => ({ mutateAsync: mocks.unassign }) },
       resolveSignupAppeal: {
@@ -91,6 +92,7 @@ beforeEach(() => {
   mocks.appeal.mockResolvedValue({ ok: true });
   mocks.refresh.mockResolvedValue(undefined);
   mocks.ready = true;
+  mocks.accountId = "head";
   mocks.legacy.mockReturnValue({ data: [] });
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/");
@@ -329,7 +331,7 @@ it("moves focus with arrows and Home/End without changing the selected request p
   render(<StudentRequestBoard />);
   const matching = screen.getByRole("tab", { name: "matching 0" });
   const assigned = screen.getByRole("tab", { name: "assigned 0" });
-  matching.focus();
+  act(() => matching.focus());
   fireEvent.keyDown(matching, { key: "ArrowRight" });
   expect(document.activeElement).toBe(assigned);
   expect(matching.getAttribute("aria-selected")).toBe("true");
@@ -509,6 +511,7 @@ it("honors an early Assigned click through delayed queue reads and restores only
   expect(screen.getByText("loading")).toBeTruthy();
   expect(sessionStorage.getItem(key)).toBe(JSON.stringify("assigned"));
   mocks.ready = true;
+  mocks.accountId = "head";
   mocks.legacy.mockReturnValue({ data: [] });
   view.rerender(page(true));
   expect(
@@ -530,4 +533,77 @@ it("honors an early Assigned click through delayed queue reads and restores only
       .getByRole("tab", { name: "matching 0" })
       .getAttribute("aria-selected"),
   ).toBe("true");
+});
+
+it("does not carry a resolved notification view into another account or period scope", () => {
+  window.history.replaceState(null, "", "/admin/requests#request-signup-source");
+  const entries = [{
+    id: "source", group: "assigned" as const, invalid: true,
+    submittedAt: new Date(), content: <p>Private notification target</p>,
+  }];
+  const page = (scope: string) => (
+    <SessionViewProvider identity={mocks.accountId} pathname="/admin/requests" verified>
+      <StudentRequestBoard additionalEntries={entries} viewScope={scope} />
+    </SessionViewProvider>
+  );
+  const view = render(page("term-1"));
+  expect(screen.getByText("Private notification target")).toBeTruthy();
+  view.rerender(page("term-2"));
+  expect(screen.queryByText("Private notification target")).toBeNull();
+  expect(screen.getByRole("tab", { name: "matching 0" }).getAttribute("aria-selected")).toBe("true");
+  window.history.replaceState(null, "", "/admin/requests");
+  mocks.accountId = "other-head";
+  view.rerender(page("term-2"));
+  expect(screen.queryByText("Private notification target")).toBeNull();
+  expect(screen.getByRole("tab", { name: "matching 0" }).getAttribute("aria-selected")).toBe("true");
+});
+
+it("lets an explicit filter choice replace a notification view and persist the resolved tab", () => {
+  window.history.replaceState(null, "", "/admin/requests#request-signup-source");
+  render(
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard additionalEntries={[{
+        id: "source", group: "assigned", invalid: true,
+        submittedAt: new Date(), content: <p>Invalid notification target</p>,
+      }]} />
+    </SessionViewProvider>,
+  );
+  expect(screen.getByText("Invalid notification target")).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "processed 0" }));
+  expect(screen.queryByText("Invalid notification target")).toBeNull();
+  expect(sessionStorage.getItem(viewStateKey("head", "/admin/requests", "requests.tab.v1", ""))).toBe(JSON.stringify("processed"));
+  expect(sessionStorage.getItem(viewStateKey("head", "/admin/requests", "requests.invalidity.v1", ""))).toBe(JSON.stringify("all"));
+});
+
+it("restores a delayed notification's committed view on a bare return without a filter click", async () => {
+  const identity = "head";
+  const pathname = "/admin/requests";
+  const scope = "term-1";
+  const tabKey = viewStateKey(identity, pathname, "requests.tab.v1", scope);
+  const filterKey = viewStateKey(identity, pathname, "requests.invalidity.v1", scope);
+  writeViewState(sessionStorage, tabKey, "processed");
+  writeViewState(sessionStorage, filterKey, "valid");
+  window.history.replaceState(null, "", `${pathname}#request-signup-source`);
+  mocks.legacy.mockReturnValue({ data: undefined });
+  const page = () => (
+    <SessionViewProvider identity={identity} pathname={pathname} verified>
+      <StudentRequestBoard viewScope={scope} additionalEntries={[{
+        id: "source", group: "assigned", invalid: true,
+        submittedAt: new Date(), content: <p>Delayed notification record</p>,
+      }]} />
+    </SessionViewProvider>
+  );
+  const view = render(page());
+  expect(screen.queryByText("Delayed notification record")).toBeNull();
+  expect(sessionStorage.getItem(tabKey)).toBe(JSON.stringify("processed"));
+  mocks.legacy.mockReturnValue({ data: [] });
+  view.rerender(page());
+  await waitFor(() => expect(screen.getByText("Delayed notification record")).toBeTruthy());
+  expect(sessionStorage.getItem(tabKey)).toBe(JSON.stringify("assigned"));
+  expect(sessionStorage.getItem(filterKey)).toBe(JSON.stringify("all"));
+  view.unmount();
+  window.history.replaceState(null, "", pathname);
+  render(page());
+  expect(screen.getByText("Delayed notification record")).toBeTruthy();
+  expect(screen.getByRole("tab", { name: "assigned 1" }).getAttribute("aria-selected")).toBe("true");
 });

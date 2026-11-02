@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import type { StudentAction } from "~/server/student-workflow";
@@ -50,22 +50,29 @@ function TimedActionInstance({
   const [attempt, setAttempt] = useState(0);
   const clock = useConfirmationClock(anchor);
   const submission = useConfirmationSubmission(busy, error);
-  const ticketRef = useRef<string | null>(null);
   const { submitted } = submission;
+  const prepareTicket = useEffectEvent(() => mutateAsync({ action, target }));
+  const cancelPreparedTicket = useEffectEvent((ticket: string) =>
+    cancelTicket({ ticket }),
+  );
+  const releaseUnusedTicket = useEffectEvent((ticket: string) => {
+    if (!submitted.current) cancelTicket({ ticket });
+  });
   useEffect(() => {
     let live = true;
+    let ownedTicket: string | null = null;
     // Strict Mode's throwaway effect creates no competing proof. Each mounted
     // action/target owns its response, including any late response after cancellation.
     void Promise.resolve()
       .then(async () => {
         if (!live) return;
         const requestStartedAt = performance.now();
-        const ticket = await mutateAsync({ action, target });
+        const ticket = await prepareTicket();
         if (!live) {
-          cancelTicket({ ticket: ticket.id });
+          cancelPreparedTicket(ticket.id);
           return;
         }
-        ticketRef.current = ticket.id;
+        ownedTicket = ticket.id;
         setAnchor({ ticket, requestStartedAt, receivedAt: performance.now() });
       })
       .catch(() => {
@@ -74,10 +81,9 @@ function TimedActionInstance({
     return () => {
       live = false;
       // Submitted proof may be handed to a qualification warning before the write.
-      if (ticketRef.current && !submitted.current)
-        cancelTicket({ ticket: ticketRef.current });
+      if (ownedTicket) releaseUnusedTicket(ownedTicket);
     };
-  }, [action, target, mutateAsync, cancelTicket, submitted, attempt]);
+  }, [action, target, attempt]);
   useEffect(() => {
     // The proposal consumed this ticket. Close its modal so the queued-review notice is reachable.
     const queued = () => {

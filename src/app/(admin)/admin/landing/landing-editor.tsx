@@ -50,9 +50,10 @@ const LandingViewContext = createContext<((tab: Tab, scene: LandingScene) => voi
  * trigger viewport restoration before the selected editor is mounted. */
 function useLandingScene(tab: Tab, scene: LandingScene, active = true) {
   const report = useContext(LandingViewContext);
+  const { ready, denied, scope } = scene;
   useEffect(() => {
-    if (active) report?.(tab, scene);
-  }, [report, tab, scene.ready, scene.denied, scene.scope, active]);
+    if (active) report?.(tab, { ready, denied, scope });
+  }, [report, tab, ready, denied, scope, active]);
 }
 
 // The route owns destructive reviews, independently of a card or selected tab.
@@ -1493,6 +1494,14 @@ function SectionsManager({
           section={section}
           images={images}
           readOnly={readOnly}
+          readSlug={async (id) => {
+            const result = await sections.refetch({ throwOnError: true });
+            const slug = result.data?.find((record) => record.id === id)?.slug;
+            if (result.error || typeof slug !== "string") {
+              throw new Error("The saved page address could not be read.");
+            }
+            return slug;
+          }}
           onChanged={refresh}
           onMove={move}
           canUp={i > 0}
@@ -1508,6 +1517,7 @@ function SectionCard({
   section,
   images,
   readOnly,
+  readSlug,
   onChanged,
   onMove,
   canUp,
@@ -1517,6 +1527,7 @@ function SectionCard({
   section: SectionRow;
   images: ImageInfo[];
   readOnly: boolean;
+  readSlug: (id: string) => Promise<string>;
   onChanged: () => void;
   onMove: (id: string, dir: "up" | "down") => void;
   canUp: boolean;
@@ -1645,7 +1656,7 @@ function SectionCard({
             </select>
           </label>
           {section.mode === "PAGE" && (
-            <SlugField section={section} update={update} />
+            <SlugField key={section.id} section={section} readSlug={readSlug} />
           )}
           {update.error?.data?.approvalId && (
             <InlineNotice tone="warning" announcement="status">
@@ -1679,41 +1690,98 @@ function SectionCard({
   );
 }
 
+/** An accepted slug can be collision-suffixed by the server. Only its owned fresh
+ * read acknowledges that submission; an intervening edit keeps its own revision. */
+function useSlugDraft(
+  saved: string,
+  write: (slug: string) => Promise<unknown>,
+  read: () => Promise<string>,
+) {
+  const [draft, setDraft] = useState<{ value: string; revision: number; acknowledged?: boolean } | null>(null);
+  const revision = useRef(0);
+  const acknowledged = useRef<number | null>(null);
+  const admitted = useRef(false);
+  const accepted = useRef<{ revision: number } | null>(null);
+  const reading = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+  if (draft?.acknowledged && draft.value === saved) setDraft(null);
+  const value = draft?.value ?? saved;
+  const change = (next: string) => {
+    const nextRevision = ++revision.current;
+    setDraft({ value: next, revision: nextRevision });
+  };
+  const refresh = async () => {
+    const receipt = accepted.current;
+    if (!receipt || reading.current) return;
+    reading.current = true;
+    setBusy(true);
+    try {
+      const canonical = await read();
+      if (revision.current === receipt.revision) acknowledged.current = receipt.revision;
+      setDraft((current) => current?.revision === receipt.revision
+        ? { value: canonical, revision: receipt.revision, acknowledged: true }
+        : current);
+      accepted.current = null;
+      admitted.current = false;
+      setNeedsRefresh(false);
+    } catch {
+      // The write already succeeded. Reblur and Retry may only recover its read.
+    } finally {
+      reading.current = false;
+      setBusy(false);
+    }
+  };
+  const commit = async () => {
+    if (admitted.current || acknowledged.current === revision.current) return;
+    const clean = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const submittedRevision = ++revision.current;
+    setDraft({ value: clean, revision: submittedRevision });
+    if (clean === saved) {
+      setDraft(null);
+      return;
+    }
+    if (!clean) return;
+    admitted.current = true;
+    setBusy(true);
+    try {
+      await write(clean);
+    } catch {
+      admitted.current = false;
+      setBusy(false);
+      return;
+    }
+    accepted.current = { revision: submittedRevision };
+    setNeedsRefresh(true);
+    await refresh();
+  };
+  return { value, change, commit, refresh, busy, needsRefresh };
+}
+
 /** Slug editor for a PAGE-mode section (sanitizes on blur; links to the live detail page). */
 function SlugField({
   section,
-  update,
+  readSlug,
 }: {
   section: SectionRow;
-  update: ReturnType<typeof api.home.updateSection.useMutation>;
+  readSlug: (id: string) => Promise<string>;
 }) {
   const t = useTranslations();
-  const [slug, setSlug] = useState(section.slug ?? "");
-  useEffect(() => {
-    setSlug(section.slug ?? "");
-  }, [section.slug]);
-
-  const commit = () => {
-    const clean = slug
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    if (clean !== slug) setSlug(clean);
-    if (clean && clean !== (section.slug ?? ""))
-      update.mutate({ id: section.id, slug: clean });
-  };
+  const guidanceId = useId();
+  const update = api.home.updateSection.useMutation();
+  const slug = useSlugDraft(section.slug ?? "", (value) => update.mutateAsync({ id: section.id, slug: value }), () => readSlug(section.id));
 
   return (
     <span className="flex items-center gap-1.5">
       <span className="muted">/p/</span>
-      <span className="muted text-xs">{t("saveBoundary.blur")}</span>
+      <span id={guidanceId} className="muted text-xs">{t("saveBoundary.blur")}</span>
       <input
         className="input field-auto min-w-32"
-        value={slug}
+        value={slug.value}
         placeholder={t("admin.landing.sections.slug.placeholder")}
-        onChange={(e) => setSlug(e.target.value)}
-        aria-description={t("saveBoundary.blur")}
-        onBlur={commit}
+        onChange={(e) => slug.change(e.target.value)}
+        aria-describedby={guidanceId}
+        onBlur={() => void slug.commit()}
       />
       {section.slug && (
         <a
@@ -1724,6 +1792,20 @@ function SlugField({
         >
           {t("admin.landing.sections.viewPage")} ↗
         </a>
+      )}
+      {slug.needsRefresh && !slug.busy && (
+        <span role="alert" className="text-xs">
+          {t("uiPatterns.loadFailed")} {" "}
+          <button type="button" className="link control-compact" onClick={() => void slug.refresh()}>
+            {t("uiPatterns.retry")}
+          </button>
+        </span>
+      )}
+      {update.error?.data?.approvalId && (
+        <span role="status" className="text-amber-700">{t("approvals.queuedBody")}</span>
+      )}
+      {update.error && !update.error.data?.approvalId && (
+        <span className="text-red-600">{update.error.message}</span>
       )}
     </span>
   );
@@ -1825,19 +1907,26 @@ function makePreset(name: string): Block[] {
   return [];
 }
 
-export function LayoutEditor({
-  images,
-  readOnly,
-  owner = "landing",
-  contentOnly = false,
-}: {
+type LayoutEditorProps = {
   images: ImageInfo[];
   readOnly: boolean;
   /** Block container: "landing" or "page:<id>". */
   owner?: string;
-  /** Hide the system blocks (Hero/Features/Sections/News) — true for custom pages. */
+  /** Hide the system blocks for custom pages. */
   contentOnly?: boolean;
-}) {
+};
+
+export function LayoutEditor(props: LayoutEditorProps) {
+  // A different document cannot inherit an old draft or late save callback.
+  return <LayoutEditorSession key={props.owner ?? "landing"} {...props} />;
+}
+
+function LayoutEditorSession({
+  images,
+  readOnly,
+  owner = "landing",
+  contentOnly = false,
+}: LayoutEditorProps) {
   const t = useTranslations();
   const languages = api.i18n.languages.useQuery();
   const layout = api.home.layout.useQuery({ owner });
@@ -1849,16 +1938,12 @@ export function LayoutEditor({
   const saveLock = useRef(false);
   const [locale, setLocale] = useSessionViewState({ id: "landing.layout.locale.v1", scope: owner, initialState: "en", parse: viewEnum((languages.data ?? []).map((language) => language.code)), enabled: !denied, restoreReady: !!languages.data });
   useLandingScene("layout", { ready: !!layout.data && !!languages.data, denied, scope: locale }, owner === "landing");
-  const [blocks, setBlocks] = useState<Block[] | null>(null);
-  const [baseline, setBaseline] = useState<string | null>(null);
-
-  // Seed local state from the server once.
-  useEffect(() => {
-    if (layout.data && blocks === null) {
-      setBlocks(layout.data);
-      setBaseline(JSON.stringify(layout.data));
-    }
-  }, [layout.data, blocks]);
+  // Untouched content follows the read. The first edit captures its own baseline;
+  // background refreshes cannot replace that draft or redefine dirty state.
+  const [draft, setDraft] = useState<{ blocks: Block[]; baseline: string } | null>(null);
+  const blocks = draft?.blocks ?? layout.data;
+  const baseline = draft?.baseline ?? JSON.stringify(layout.data ?? []);
+  const setBlocks = (next: Block[]) => setDraft({ blocks: next, baseline });
 
   if (layout.error) {
     return (
@@ -1879,7 +1964,7 @@ export function LayoutEditor({
       </StatePanel>
     );
   }
-  if (layout.isLoading || blocks === null) {
+  if (layout.isLoading || blocks === undefined) {
     return <p className="muted text-sm">{t("admin.landing.loading")}</p>;
   }
 
@@ -1892,7 +1977,7 @@ export function LayoutEditor({
     save.mutate(
       { owner, blocks },
       {
-        onSuccess: () => setBaseline(submitted),
+        onSuccess: () => setDraft((current) => current ? { ...current, baseline: submitted } : current),
         onSettled: () => {
           saveLock.current = false;
         },
@@ -2684,6 +2769,14 @@ function PagesManager({
           page={{ ...p, title: (p.title ?? {}) as Record<string, string> }}
           images={images}
           readOnly={readOnly}
+          readSlug={async (id) => {
+            const result = await pages.refetch({ throwOnError: true });
+            const slug = result.data?.find((record) => record.id === id)?.slug;
+            if (result.error || typeof slug !== "string") {
+              throw new Error("The saved page address could not be read.");
+            }
+            return slug;
+          }}
           onChanged={refresh}
           onMove={move}
           canUp={i > 0}
@@ -2699,6 +2792,7 @@ function PageCard({
   page,
   images,
   readOnly,
+  readSlug,
   onChanged,
   onMove,
   canUp,
@@ -2708,6 +2802,7 @@ function PageCard({
   page: PageRow;
   images: ImageInfo[];
   readOnly: boolean;
+  readSlug: (id: string) => Promise<string>;
   onChanged: () => void;
   onMove: (id: string, dir: "up" | "down") => void;
   canUp: boolean;
@@ -2827,7 +2922,7 @@ function PageCard({
             </select>
           </label>
           <PageTitleField page={page} locale={locale} setTitle={setTitle} />
-          <PageSlugField page={page} update={update} />
+          <PageSlugField key={page.id} page={page} readSlug={readSlug} />
           <label className="flex min-h-11 items-center gap-1.5 lg:min-h-10">
             <input
               type="checkbox"
@@ -2920,35 +3015,41 @@ function PageTitleField({
 
 function PageSlugField({
   page,
-  update,
+  readSlug,
 }: {
   page: PageRow;
-  update: ReturnType<typeof api.home.updatePage.useMutation>;
+  readSlug: (id: string) => Promise<string>;
 }) {
   const t = useTranslations();
-  const [slug, setSlug] = useState(page.slug);
-  useEffect(() => {
-    setSlug(page.slug);
-  }, [page.slug]);
-  const commit = () => {
-    const clean = slug
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    if (clean !== slug) setSlug(clean);
-    if (clean && clean !== page.slug)
-      update.mutate({ id: page.id, slug: clean });
-  };
+  const guidanceId = useId();
+  const update = api.home.updatePage.useMutation();
+  const slug = useSlugDraft(page.slug, (value) => update.mutateAsync({ id: page.id, slug: value }), () => readSlug(page.id));
+
   return (
     <span className="flex items-center gap-1.5">
       <span className="muted">/p/</span>
       <input
         className="input field-auto min-w-28"
-        value={slug}
-        onChange={(e) => setSlug(e.target.value)}
-        aria-description={t("saveBoundary.blur")}
-        onBlur={commit}
+        value={slug.value}
+        onChange={(e) => slug.change(e.target.value)}
+        aria-describedby={guidanceId}
+        onBlur={() => void slug.commit()}
       />
+      <span id={guidanceId} className="sr-only">{t("saveBoundary.blur")}</span>
+      {slug.needsRefresh && !slug.busy && (
+        <span role="alert" className="text-xs">
+          {t("uiPatterns.loadFailed")} {" "}
+          <button type="button" className="link control-compact" onClick={() => void slug.refresh()}>
+            {t("uiPatterns.retry")}
+          </button>
+        </span>
+      )}
+      {update.error?.data?.approvalId && (
+        <span role="status" className="text-amber-700">{t("approvals.queuedBody")}</span>
+      )}
+      {update.error && !update.error.data?.approvalId && (
+        <span className="text-red-600">{update.error.message}</span>
+      )}
     </span>
   );
 }

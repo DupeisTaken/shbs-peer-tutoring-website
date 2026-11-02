@@ -74,14 +74,18 @@ export function StudentPortal({
   useEffect(() => {
     if (!authorizationDenied) return;
     // Revoke every cached page of this private feed, not unrelated participant reads.
-    setDenied(true);
     queryClient.removeQueries({
       queryKey: getQueryKey(api.student.me, undefined, "query"),
     });
   }, [authorizationDenied, queryClient]);
-  useEffect(() => {
-    if (data.isSuccess && !data.isFetching) setDenied(false);
-  }, [data.isSuccess, data.isFetching]);
+  // Reconcile authority before rendering children; removing cached queries must
+  // not release the latch before a fresh successful read.
+  const nextDenied = authorizationDenied
+    ? true
+    : data.isSuccess && !data.isFetching && !data.error
+      ? false
+      : denied;
+  if (nextDenied !== denied) setDenied(nextDenied);
   const shared = api.student.feedbackSettings.useQuery(undefined, {
     enabled: view === "all" || view === "attendance",
   });
