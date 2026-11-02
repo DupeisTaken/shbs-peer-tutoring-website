@@ -538,6 +538,44 @@ it("keeps historical records readable while completion is disabled", () => {
   ).toBeNull();
 });
 
+it("keeps an initial query denial latched across background success until explicit recovery", async () => {
+  const denied = Object.assign(new Error("Management access revoked"), {
+    data: { code: "FORBIDDEN" },
+  });
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    error: denied,
+    isSuccess: false,
+    isFetching: false,
+    refetch: mocks.refetch,
+  });
+  const tree = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <InterviewManagement />
+    </NextIntlClientProvider>
+  );
+  const view = render(tree());
+  expect(screen.queryByText("Candidate One")).toBeNull();
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    error: null,
+    isSuccess: true,
+    isFetching: false,
+    refetch: mocks.refetch,
+  });
+  view.rerender(tree());
+  expect(screen.queryByText("Candidate One")).toBeNull();
+  expect(screen.getByRole("alert").textContent).toBe(
+    en.interviewReview.accessDenied,
+  );
+  mocks.refetch.mockResolvedValueOnce({ data: fixture(), error: null });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+  );
+  await waitFor(() => expect(screen.getByText("Candidate One")).toBeTruthy());
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
 it.each(["save", "reload"])(
   "conceals a cached-success host after %s denial and recovers only through a successful fresh read",
   async (source) => {

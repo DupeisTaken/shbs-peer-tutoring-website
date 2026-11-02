@@ -15,6 +15,8 @@ import PoliciesPage from "../(admin)/admin/policies/page";
 
 const state = vi.hoisted(() => ({
   role: "HEAD",
+  accountId: "head",
+  identityRefetch: vi.fn(),
   data: undefined as
     | undefined
     | Array<{
@@ -63,7 +65,8 @@ vi.mock("~/trpc/react", () => ({
     account: {
       me: {
         useQuery: () => ({
-          data: { role: state.role },
+          data: { id: state.accountId, role: state.role },
+          refetch: state.identityRefetch,
           error: state.identityError,
         }),
       },
@@ -141,11 +144,13 @@ beforeEach(() => {
     defaultOptions: { queries: { retry: false } },
   });
   state.role = "HEAD";
+  state.accountId = "head";
+  state.identityRefetch.mockReset().mockImplementation(async () => ({ data: { id: state.accountId, role: state.role }, error: state.identityError }));
   state.identityError = null;
   state.data = [];
   state.readOnly = false;
   state.save.mockClear();
-  state.refetch.mockClear();
+  state.refetch.mockReset().mockImplementation(async () => ({ data: state.data, error: state.error }));
   state.refresh.mockReset().mockResolvedValue(undefined);
   state.error = null;
   state.saveError = null;
@@ -490,4 +495,76 @@ it("locks an accepted save after failed synchronization and recovers without ano
     { target: { value: "Second deliberate draft" } },
   );
   expect(save.matches(":disabled")).toBe(false);
+});
+
+it("retains read-only recovery when denial removes an accepted policy editor", async () => {
+  state.data = [policy("en", "English policy")];
+  state.refresh.mockRejectedValue(new Error("Synthetic refresh failure"));
+  const page = render(<PoliciesPage />, { wrapper });
+  fireEvent.change(screen.getAllByRole("textbox", { name: "Document title" })[0]!, {
+    target: { value: "Accepted revised title" },
+  });
+  fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+  await act(async () => { await state.completion?.(); });
+  state.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  page.rerender(<PoliciesPage />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(screen.getByRole("button", { name: "Retry refresh" })).toBeTruthy();
+  state.error = { message: "Network failure" };
+  page.rerender(<PoliciesPage />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  state.error = null;
+  page.rerender(<PoliciesPage />);
+  expect(screen.getAllByRole("textbox", { name: "Document title" })[0]!.matches(":disabled")).toBe(true);
+  state.refresh.mockResolvedValue(undefined);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
+  });
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(state.save).toHaveBeenCalledOnce();
+  expect(screen.getAllByRole("textbox", { name: "Document title" })[0]!.matches(":disabled")).toBe(false);
+});
+
+
+it("does not release a late accepted save after denial until explicit owned reads succeed", async () => {
+  state.data = [policy("en", "English policy")];
+  const page = render(<PoliciesPage />, { wrapper });
+  fireEvent.change(screen.getAllByRole("textbox", { name: "Document title" })[0]!, {
+    target: { value: "Accepted after denial" },
+  });
+  fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+  state.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  page.rerender(<PoliciesPage />);
+  // A disabled/removed query can report successful invalidation without fetching.
+  await act(async () => { await state.completion?.(); });
+  expect(state.refresh).toHaveBeenCalledTimes(2);
+  expect(state.refetch).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Retry refresh" })).toBeTruthy();
+  state.error = null;
+  page.rerender(<PoliciesPage />);
+  expect(screen.getAllByRole("textbox", { name: "Document title" })[0]!.matches(":disabled")).toBe(true);
+  state.refetch.mockResolvedValue({ data: undefined, error: null });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry refresh" })); });
+  expect(screen.getByRole("button", { name: "Retry refresh" })).toBeTruthy();
+  expect(state.identityRefetch).toHaveBeenCalledExactlyOnceWith({ throwOnError: true });
+  expect(state.refetch).toHaveBeenCalledTimes(2);
+  expect(state.refetch).toHaveBeenCalledWith({ throwOnError: true });
+  state.refetch.mockResolvedValue({ data: state.data, error: null });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry refresh" })); });
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(state.refresh).toHaveBeenCalledTimes(2);
+  expect(state.save).toHaveBeenCalledOnce();
+});
+
+it("does not carry an existing policy draft into a changed account identity", () => {
+  state.data = [policy("en", "English policy")];
+  const page = render(<PoliciesPage />, { wrapper });
+  fireEvent.change(screen.getAllByRole("textbox", { name: "Document title" })[0]!, {
+    target: { value: "First account draft" },
+  });
+  state.accountId = "other-head";
+  page.rerender(<PoliciesPage />);
+  expect(screen.queryByDisplayValue("First account draft")).toBeNull();
+  expect(screen.getByDisplayValue("English policy")).toBeTruthy();
+  expect(state.save).not.toHaveBeenCalled();
 });

@@ -87,7 +87,6 @@ export function LegacyContinuation() {
     setRevoked(true);
     setReview(null);
     setSelected([]);
-    setReceipt(null);
     setAgreedRevision(null);
     setSignature("");
     cache.removeQueries({
@@ -101,24 +100,48 @@ export function LegacyContinuation() {
       queryKey: getQueryKey(api.studentWorkflow.continuationReceipt),
     });
   }, [cache, locale]);
-  useEffect(() => {
+  const recovered = !!query.isSuccess && !query.isFetching && !query.error;
+  const [authority, setAuthority] = useState({ denied: false, recovered: false });
+  if (authority.denied !== denied || authority.recovered !== recovered) {
+    setAuthority({ denied, recovered });
     if (denied) {
-      conceal();
-    } else if (query.isSuccess && !query.isFetching && !query.error) {
-      setRevoked(false);
-    }
-  }, [denied, query.isSuccess, query.isFetching, query.error, conceal]);
+      setRevoked(true);
+      setReview(null);
+      setSelected([]);
+      setAgreedRevision(null);
+      setSignature("");
+    } else if (recovered) setRevoked(false);
+  }
+  useEffect(() => {
+    if (!denied) return;
+    // Invalidate callbacks from reads/writes admitted before access was revoked.
+    // Retain the attempt and receipt: after recovery they permit reads only.
+    generation.current += 1;
+    cache.removeQueries({
+      queryKey: getQueryKey(
+        api.studentWorkflow.continuationStatus,
+        { locale },
+        "query",
+      ),
+    });
+    cache.removeQueries({
+      queryKey: getQueryKey(api.studentWorkflow.continuationReceipt),
+    });
+  }, [denied, cache, locale]);
 
   const data = query.data;
-  useEffect(() => {
-    if (!data?.hasFreshRequest) return;
-    // Mailbox-confirmed ordinary intake supersedes this shortcut. Keep a held
-    // attempt's key and accepted receipt so recovery remains read-only.
-    setReview(null);
-    setSelected([]);
-    setSignature("");
-    setAgreedRevision(null);
-  }, [data?.hasFreshRequest]);
+  const freshRequest = !!data?.hasFreshRequest;
+  const [previousFreshRequest, setPreviousFreshRequest] = useState(freshRequest);
+  if (previousFreshRequest !== freshRequest) {
+    setPreviousFreshRequest(freshRequest);
+    if (freshRequest) {
+      // Ordinary intake supersedes the shortcut, not an accepted or held write.
+      setReview(null);
+      setSelected([]);
+      setSignature("");
+      setAgreedRevision(null);
+    }
+  }
   const showContinuation = !data?.hasFreshRequest;
   const now =
     (serverAnchor ?? 0) + (clock.anchor === serverAnchor ? clock.elapsed : 0);

@@ -214,14 +214,17 @@ export default function CardsPage() {
   const accessDenied =
     cards.error?.data?.code === "FORBIDDEN" ||
     cards.error?.data?.code === "UNAUTHORIZED";
+  // Latch denial before committing any cached private content. Effects only evict.
+  if (accessDenied && !denied) setDenied(true);
+  else if (denied && !accessDenied && cards.isSuccess && !cards.isFetching)
+    setDenied(false);
   useEffect(() => {
     if (accessDenied) {
-      setDenied(true);
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.disciplinaryCards, undefined, "query"),
       });
-    } else if (cards.isSuccess && !cards.isFetching) setDenied(false);
-  }, [accessDenied, cards.isSuccess, cards.isFetching, queryClient]);
+    }
+  }, [accessDenied, queryClient]);
   const section = t("admin.cards.title");
   useSessionPageScroll({
     id: "discipline-v1",

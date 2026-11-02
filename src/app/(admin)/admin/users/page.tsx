@@ -182,24 +182,19 @@ export default function UsersPage() {
     appeals.error?.data?.code,
     accounts.error?.data?.code,
   ].some((code) => code === "FORBIDDEN" || code === "UNAUTHORIZED");
-  const appealDenied = appealAccessDenied || appealDenial;
+  const appealDenied =
+    appealAccessDenied ||
+    (appealDenial &&
+      !(appeals.isSuccess && !appeals.isFetching && !accounts.error));
+  if (appealDenial !== appealDenied) setAppealDenial(appealDenied);
   useEffect(() => {
     if (appealAccessDenied) {
-      setAppealDenial(true);
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.appeals, undefined, "query"),
         exact: true,
       });
-    } else if (appeals.isSuccess && !appeals.isFetching && !accounts.error) {
-      setAppealDenial(false);
     }
-  }, [
-    appealAccessDenied,
-    appeals.isSuccess,
-    appeals.isFetching,
-    accounts.error,
-    queryClient,
-  ]);
+  }, [appealAccessDenied, queryClient]);
   const [appealReview, setAppealReview] = useState<
     NonNullable<typeof appeals.data>[number] | null
   >(null);
@@ -228,9 +223,10 @@ export default function UsersPage() {
       setAppealRefreshing(false);
     }
   };
-  useEffect(() => {
-    if (!canReadAppeals || appealDenied) setAppealReview(null);
-  }, [canReadAppeals, appealDenied]);
+  // Losing authority permanently releases this review; later recovery must
+  // start a fresh explicit selection rather than resurrect private evidence.
+  if (appealReview !== null && (!canReadAppeals || appealDenied))
+    setAppealReview(null);
   const refreshUsers = () =>
     Promise.all([invalidate(), utils.admin.appeals.invalidate()]);
   const suspendUser = api.admin.suspendUser.useMutation({

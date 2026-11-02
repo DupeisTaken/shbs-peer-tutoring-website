@@ -296,6 +296,22 @@ it("retains the detail owner while revoked summaries conceal its private UI", ()
   expect(screen.getByRole("dialog").textContent).toContain("Interview panel");
   expect(state.interviewMounted).toHaveBeenCalledOnce();
 });
+it("admits an initially disabled owner once and retains it across feature toggles", () => {
+  const view = render(ui(true, false, false));
+  expect(state.interviewMounted).not.toHaveBeenCalled();
+  view.rerender(ui(true, true, false));
+  fireEvent.click(
+    screen.getAllByRole("button", {
+      name: en.unifiedSchedule.openInterview,
+    })[1]!,
+  );
+  expect(screen.getByRole("dialog").textContent).toContain("Interview panel");
+  view.rerender(ui(true, false, false));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  view.rerender(ui(true, true, false));
+  expect(screen.getByRole("dialog").textContent).toContain("Interview panel");
+  expect(state.interviewMounted).toHaveBeenCalledOnce();
+});
 it("retains independent cached meetings beside a source-specific read retry", () => {
   state.meetingError = { data: { code: "INTERNAL_SERVER_ERROR" } };
   render(ui());

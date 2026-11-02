@@ -977,22 +977,22 @@ export function ScheduleInterviewDetails({
       return next;
     });
   }, []);
-  useLayoutEffect(() => {
-    if (requested) setActivated(true);
-    // A changed route/list selection waits for the existing write to settle.
-    // Its owner remains mounted throughout, including an external Close request.
-    if (!pending && selection.request !== applicationId)
-      setSelection({ request: applicationId, id: applicationId });
-  }, [requested, applicationId, pending, selection.request]);
+  if (requested && !activated) setActivated(true);
+  // A changed route/list selection waits for the existing write to settle.
+  // Reconcile before committing children so old evidence cannot flash under a
+  // new selection; retained vote owners still survive an external Close.
+  if (!pending && selection.request !== applicationId)
+    setSelection({ request: applicationId, id: applicationId });
   const rows = orderInterviews(interviews.data ?? []);
   const current = rows.find((row) => row.id === selection.id);
-  useEffect(() => {
-    if (!enabled || !current || current.isHead || accessDenied) return;
-    setRetained((previous) => {
-      if (previous.has(current.id)) return previous;
-      return new Map(previous).set(current.id, current);
-    });
-  }, [current, accessDenied, enabled]);
+  if (
+    enabled &&
+    current &&
+    !current.isHead &&
+    !accessDenied &&
+    !retained.has(current.id)
+  )
+    setRetained(new Map(retained).set(current.id, current));
   const close = () => {
     if (pending) return;
     setSelection({ request: applicationId, id: null });

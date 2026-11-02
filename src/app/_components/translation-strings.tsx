@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -177,7 +177,7 @@ export function TranslationStrings() {
   const displayLocale = useLocale();
   const utils = api.useUtils();
   const languages = api.i18n.managedLanguages.useQuery();
-  const [locale, setLocale] = useState<string>(displayLocale);
+  const [selectedLocale, setLocale] = useState<string>(displayLocale);
   const [refLocales, setRefLocales] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -191,12 +191,14 @@ export function TranslationStrings() {
   const langOptions = useMemo(() => languages.data ?? [], [languages.data]);
   const labelFor = (code: string) =>
     langOptions.find((l) => l.code === code)?.label ?? code;
-  // If the chosen language disappears (removed), fall back to the display locale.
-  useEffect(() => {
-    if (langOptions.length > 0 && !langOptions.some((l) => l.code === locale)) {
-      setLocale(displayLocale);
-    }
-  }, [langOptions, locale, displayLocale]);
+  // A removed language must not reach a query or reappear as a stale selection.
+  // Row drafts remain separately owned by their language/key.
+  const locale =
+    langOptions.length > 0 &&
+    !langOptions.some((language) => language.code === selectedLocale)
+      ? displayLocale
+      : selectedLocale;
+  if (selectedLocale !== locale) setLocale(locale);
 
   const strings = api.localization.strings.useQuery({ locale, refLocales });
   const all = useMemo(() => strings.data ?? [], [strings.data]);

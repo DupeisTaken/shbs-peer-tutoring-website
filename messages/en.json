@@ -2014,6 +2014,7 @@
       "refreshFailed": "The decision was saved. Refresh the records to see the latest review state."
     },
     "landing": {
+      "pageAddress": "Page address",
       "title": "Landing Page",
       "subtitle": "Edit public website text, news and images. Coordinator changes and translator text edits require review. Authorized Admin/Head changes apply directly; draft news stays private until published.",
       "loading": "Loading…",
