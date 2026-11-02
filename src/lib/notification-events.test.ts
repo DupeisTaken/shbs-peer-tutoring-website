@@ -19,6 +19,21 @@ const translators = {
     namespace: "notificationEvents",
   }),
 };
+it("only admits selected message sender and announcement title fields", () => {
+  const privateText = "PRIVATE_BODY_AND_RECIPIENTS";
+  expect(notificationEvent("message_received", {
+    actorName: "  Alex   Synthetic ", body: privateText, recipients: [privateText],
+    announcementTitle: privateText,
+  }).context).toEqual({ actorName: "Alex Synthetic" });
+  expect(notificationEvent("announcement_published", {
+    announcementTitle: " Autumn tutoring ", announcementAction: "updated",
+    body: privateText, actorName: privateText,
+  }).context).toEqual({ announcementTitle: "Autumn tutoring", announcementAction: "updated" });
+  expect(notificationEvent("announcement_published", {
+    announcementTitle: "Autumn tutoring", announcementAction: privateText,
+  }).context).toEqual({});
+  expect(notificationEvent("message_received", { actorName: "x".repeat(161) }).context).toEqual({});
+});
 describe.each(["en", "zh"] as const)("%s event copy", (locale) => {
   it.each(notificationEvents)(
     "has a specific title, description and next step for %s",

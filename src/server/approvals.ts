@@ -1,4 +1,6 @@
 import { enforceAssignmentQualification } from "./assignment-qualification";
+import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { discretionarySignupChange } from "./student-signup-management";
 import { createHash } from "node:crypto";
 import { TRPCError, type AnyTRPCProcedure } from "@trpc/server";
@@ -1386,13 +1388,16 @@ export async function queueProposal(
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
-        title: headOnly
-          ? "Management change awaiting Head approval"
-          : "Management change awaiting approval",
-        ...notificationEvent(
+        title:
+          headOnly
+            ? "Management change awaiting Head approval"
+            : "Management change awaiting approval",
+        ...notificationInAppEvent(
           headOnly
             ? "management_head_review_pending"
             : "management_review_pending",
+          {},
+          approvalNotificationDetail(operation, value, targets, "pending"),
         ),
         body: `${requesterName}: ${humanizeOperation(operation)}`,
         link: `/admin/approvals?request=${request.id}`,
@@ -1401,4 +1406,3 @@ export async function queueProposal(
     return request;
   });
 }
-import { notificationEvent } from "~/lib/notification-events";

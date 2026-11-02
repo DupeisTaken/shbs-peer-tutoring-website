@@ -25,6 +25,15 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The [notification preference recipe](../../src/app/ui-gallery/notification-preferences-recipe.tsx)
+uses `SettingRow` with `stackOnMobile` so multiple controls sit below full-width
+descriptions on narrow screens; existing inline settings retain their layout. It
+uses the same category controls as account settings. Verify independent badge/email
+choices, staged Save/Cancel, retained badge editing with program email off, and the
+email-only reminder row in English and Chinese at desktop and mobile widths. The
+gallery stores synthetic local state only; production settings own persistence,
+reviewer eligibility, queued-mail cancellation and accepted-save read recovery.
+
 The [management review evidence recipe](../../src/app/ui-gallery/management-review-recipe.tsx)
 uses the production `ApprovalReviewDetails`, `ReviewDisclosure` and
 `AuditChangeSummary` readers with local captured fixtures. Its selector covers one

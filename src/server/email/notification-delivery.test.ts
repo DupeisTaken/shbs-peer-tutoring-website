@@ -195,6 +195,50 @@ it("rolls back notification destinations with the originating transaction", asyn
   expect(await db.emailDelivery.count({ where: { userId: uid } })).toBe(0);
 });
 
+it.each(["head-to-admin", "admin-to-student", "admin-suspended"] as const)(
+  "rechecks queued crew and tutor review authority without changing their topic (%s)",
+  async (scenario) => {
+    await db.user.update({
+      where: { id: uid },
+      data: { role: scenario === "head-to-admin" ? "HEAD" : "ADMIN", emailInfo: false },
+    });
+    // Exercise the explicit topic opt-in while the legacy review switch stays off.
+    await db.notificationPreference.create({
+      data: { userId: uid, category: "reviews", emailEnabled: true },
+    });
+    for (const event of ["crew_application_pending", "tutor_optout_requested"] as const)
+      await db.notification.create({
+        data: {
+          userId: uid, event, title: "Synthetic review request",
+          link: event === "crew_application_pending" ? "/admin/crew#application-synthetic" : "/admin/tutor-requests#request-synthetic",
+          context: { inAppDetail: { en: "Morgan's request awaits review.", zh: "Morgan 的申请待审核。" } },
+        },
+      });
+    const queued = await db.emailDelivery.findMany({ where: { userId: uid } });
+    expect(queued).toHaveLength(4);
+    expect(queued.every((row) => row.category === "review" && row.preferenceTopic === "reviews" && row.status === "PENDING")).toBe(true);
+
+    await db.user.update({
+      where: { id: uid },
+      data: scenario === "admin-suspended"
+        ? { suspendedAt: new Date() }
+        : { role: scenario === "head-to-admin" ? "ADMIN" : "STUDENT" },
+    });
+    await deliverNotifications(20);
+    const allowed = scenario === "head-to-admin";
+    expect(mail.send).toHaveBeenCalledTimes(allowed ? 4 : 0);
+    const completed = await db.emailDelivery.findMany({ where: { id: { in: queued.map((row) => row.id) } } });
+    expect(completed).toHaveLength(4);
+    for (const row of completed)
+      expect(row).toMatchObject({ category: "review", preferenceTopic: "reviews", status: allowed ? "SENT" : "SKIPPED", leaseUntil: null });
+    if (allowed) {
+      expect(new Set(mail.send.mock.calls.map(([message]) => message.messageId)))
+        .toEqual(new Set(queued.map((row) => `<account-notice-${row.id}@shbs-notifications>`)));
+      expect(mail.send.mock.calls.every(([message]) => message.text.includes("Morgan's request awaits review."))).toBe(true);
+    }
+  },
+);
+
 it("releases the lease and retries safely when the public origin is invalid", async () => {
   await db.notification.create({
     data: { userId: uid, title: "Program", link: "/messages" },

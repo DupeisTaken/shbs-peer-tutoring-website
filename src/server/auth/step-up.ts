@@ -18,6 +18,7 @@ import { db } from "~/server/db";
 import { lockAccountProfile } from "~/server/account-profile";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
+import { verificationPurposeLabels } from "~/server/email/required-notice-details";
 import { hashCode, freshEmailCode } from "./registration";
 
 /** How long an emailed step-up code stays valid. */
@@ -71,10 +72,11 @@ export async function issueStepUpCode(
     return current;
   });
 
+  const action = verificationPurposeLabels[purpose];
   await emailSender.send({
     category: "SECURITY",
     to: user.email,
-    subject: `${APP_TITLE}: your verification code`,
+    subject: `${APP_TITLE}: verify to ${action.en} / ${action.zh}验证`,
     presentation: {
       code,
       codePurpose: "verification",
@@ -82,8 +84,10 @@ export async function issueStepUpCode(
     },
     text:
       `Hi ${user.name ?? "there"},\n\n` +
+      `You requested to ${action.en}. This code verifies only that operation.\n您申请${action.zh}，此验证码仅用于确认该操作。\n\n` +
       `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes.\n\n` +
-      `If you didn't request this, you can ignore this email — your password hasn't changed.`,
+      `验证码 ${code} 将在 ${STEP_UP_CODE_TTL_MINUTES} 分钟后失效。\n\n` +
+      `If you didn't request this, ignore this email. Issuing this code does not complete the requested action.\n如非本人申请，请忽略此邮件。发送验证码不代表该操作已完成。`,
   });
 
   return { email: user.email };

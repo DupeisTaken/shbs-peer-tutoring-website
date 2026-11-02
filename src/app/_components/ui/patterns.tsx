@@ -105,15 +105,24 @@ export function SettingRow({
   description,
   control,
   feedback,
+  stackOnMobile = false,
 }: {
   label: string;
   description?: ReactNode;
   control: ReactNode;
   feedback?: ReactNode;
+  /** Multiple controls need the full narrow row without squeezing its description. */
+  stackOnMobile?: boolean;
 }) {
   return (
     <div className="min-w-0 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div
+        className={
+          stackOnMobile
+            ? "flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center sm:gap-4"
+            : "flex flex-wrap items-center justify-between gap-4"
+        }
+      >
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">{label}</p>
           {description && (

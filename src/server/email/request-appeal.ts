@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { currentStudentSignupPayload } from "~/server/student-signup-answers";
 import { z } from "zod";
 import { db } from "~/server/db";
 import {
@@ -96,10 +98,20 @@ export async function submitRequestAppeal(
       data: { noticeId: notice.id, body },
     });
     // Existing management recipients/destination; free text never enters the event.
+    const survey = source.kind === "survey" ? await tx.studentSurvey.findUnique({ where: { id: source.id } }) : null;
+    const surveyName = survey ? currentStudentSignupPayload(survey).englishName : undefined;
+    const applicant = source.kind === "application"
+      ? (await tx.tutorApplication.findUnique({ where: { id: source.id }, select: { name: true } }))?.name
+      : source.kind === "signup"
+        ? (await tx.tutee.findUnique({ where: { id: source.id }, select: { englishName: true } }))?.englishName
+        : typeof surveyName === "string" ? surveyName : undefined;
     await notifyAdmins(
       {
         title: "Invalid request appeal awaiting review",
-        event: "request_invalidity_appeal_pending",
+        ...notificationInAppEvent("request_invalidity_appeal_pending", undefined, {
+          en: `${applicant ?? "A participant"} appealed an invalid ${source.kind === "application" ? "tutor application" : "tutee request"}. The invalidity flag remains in place pending review.`,
+          zh: `${applicant ?? "一位参与者"}对无效${source.kind === "application" ? "辅导伙伴申请" : "学习伙伴申请"}提交了申诉。无效标记保留，等待审核。`,
+        }),
         link: requestStaffDestination(source),
       },
       undefined,

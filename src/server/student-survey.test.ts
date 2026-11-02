@@ -987,6 +987,25 @@ describe("student request lifecycle", () => {
   });
   it("assigns unverified students, preserves priority, and does not extend the deadline on resend", async () => {
     const { row } = await assigned();
+    const assignmentNotices = await db.notification.findMany({
+      where: { event: "student_assignment_updated" },
+    });
+    expect(assignmentNotices.length).toBeGreaterThan(0);
+    for (const notice of assignmentNotices) {
+      expect(notice.context).toMatchObject({
+        inAppDetail: {
+          en: expect.stringContaining(
+            "Tutee Student One is assigned to Tutor One",
+          ) as unknown,
+          zh: expect.stringContaining(
+            "学习伙伴 Student One 已分配给辅导伙伴 Tutor One",
+          ) as unknown,
+        },
+      });
+      expect(JSON.stringify(notice.context)).toContain("awaiting confirmation");
+      expect(JSON.stringify(notice.context)).not.toContain("15:30");
+      expect(JSON.stringify(notice.context)).not.toContain(email);
+    }
     expect(+row.verificationDueAt! - +row.firstAssignedAt!).toBe(
       VERIFICATION_WEEK_MS,
     );
@@ -1552,8 +1571,14 @@ it("preserves all four name fields when staff materialize an intake before accou
   const profile = await db.$transaction((tx) => materializeStudent(tx, row));
   // Current profiles use the preferred-name default; submitted evidence retains its original names.
   expect(profile.personId).toBeTruthy();
-  expect(await db.person.findUniqueOrThrow({ where: { id: profile.personId! } })).toMatchObject({ primaryUserId: null });
-  expect(await db.studentProfileOwnership.findUnique({ where: { tuteeId: profile.id } })).toBeNull();
+  expect(
+    await db.person.findUniqueOrThrow({ where: { id: profile.personId! } }),
+  ).toMatchObject({ primaryUserId: null });
+  expect(
+    await db.studentProfileOwnership.findUnique({
+      where: { tuteeId: profile.id },
+    }),
+  ).toBeNull();
   expect(profile).toMatchObject({
     firstName: "Alexander",
     lastName: "Chen",

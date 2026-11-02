@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { recordDomainAudit } from "~/server/audit/evidence";
@@ -64,7 +64,10 @@ async function finalizeRemoval(
       l.pairing.tutor.user ? [l.pairing.tutor.user.id] : [],
     ),
     {
-      ...notificationEvent("tutee_removed"),
+      ...notificationInAppEvent("tutee_removed", undefined, {
+        en: `Tutee ${tutee.englishName} was removed from the current roster.`,
+        zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
+      }),
       title: "Tutee removed",
       body: `${tutee.englishName} was removed from the current roster.`,
       link: "/dashboard",
@@ -73,7 +76,10 @@ async function finalizeRemoval(
   );
   await notifyAdmins(
     {
-      ...notificationEvent("tutee_removed"),
+      ...notificationInAppEvent("tutee_removed", undefined, {
+        en: `Tutee ${tutee.englishName} was removed from the current roster.`,
+        zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
+      }),
       title: "Tutee removed",
       body: `${tutee.englishName} was removed from the current roster.`,
       link: "/admin/tutee-requests",
