@@ -10,6 +10,12 @@ Stale clients cannot issue, preview, retry or reconfigure the retired workflow,
 and pending legacy configuration proposals cannot reactivate it. Legacy delivery
 admission retires unsent receipts even if an old configuration is still enabled.
 
+Management previews and saved reports use a sortable table on wider screens and
+individual cards on narrow screens. Each card keeps the person's name, account
+reference and exact amount together, with tutoring/Crew breakdowns and the same
+details dialog. Both layouts share correction instructions; printed output uses
+only the table.
+
 ## Source accounting and opening review
 
 The [school reporting domain](../../src/server/school-hours.ts) owns a serialized
