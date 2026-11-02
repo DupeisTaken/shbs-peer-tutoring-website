@@ -347,7 +347,7 @@ function StudentRequestBoardView({
     (NotificationRecordArrival & { group?: RequestTab }) | null
   >(null);
   const [targetMissing, setTargetMissing] = useState(false);
-  const [tab, setTab] = useSessionViewState({
+  const [tab, setTab, reconcileTab] = useSessionViewState({
     id: "requests.tab.v1",
     initialState: "matching",
     parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
@@ -356,7 +356,7 @@ function StudentRequestBoardView({
     // Static tab choices stay usable during reads; explicit notice reveal and
     // page-scroll restoration still wait for their complete authorized content.
   });
-  const [invalidity, setInvalidity] =
+  const [invalidity, setInvalidity, reconcileInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
       id: "requests.invalidity.v1",
       initialState: "valid",
@@ -390,26 +390,24 @@ function StudentRequestBoardView({
     setArrival(null);
     setTargetMissing(false);
   }
-  useEffect(() => {
-    if (
-      noticeScope !== viewScope ||
-      denied ||
-      !arrival ||
-      arrival.group ||
-      additionalLoading ||
-      !rows.data ||
-      !legacyReviews.data ||
-      rows.isFetching
-    )
-      return;
+  if (
+    noticeScope === viewScope &&
+    verified &&
+    !denied &&
+    arrival &&
+    !arrival.group &&
+    !additionalLoading &&
+    rows.data &&
+    legacyReviews.data &&
+    !rows.isFetching
+  ) {
     const target = requestBoardTarget(arrival.hash);
-    if (!target) return;
     const row =
-      target.kind === "survey"
+      target?.kind === "survey"
         ? rows.data.find((entry) => entry.id === target.id)
         : null;
     const legacy =
-      target.kind === "signup"
+      target?.kind === "signup"
         ? additionalEntries.find(
             (entry) => (entry.sourceId ?? entry.id) === target.id,
           )
@@ -423,25 +421,15 @@ function StudentRequestBoardView({
       : legacy?.group;
     setTargetMissing(!group);
     if (group) {
-      // Commit authorized presentation choices so a later bare return restores
-      // this view. Record IDs remain transient and no draft is rebased.
-      setTab(group);
-      setInvalidity("all");
+      // Reconcile authorized presentation before committing children. The shared
+      // hook persists after commit, so bare returns retain these choices without
+      // storage writes during render. Consume this arrival once; later manual
+      // choices and background reads must not replay its filter selection.
+      reconcileTab(group);
+      reconcileInvalidity("all");
       setArrival({ ...arrival, group });
     } else setArrival(null);
-  }, [
-    noticeScope,
-    viewScope,
-    denied,
-    arrival,
-    additionalLoading,
-    rows.data,
-    rows.isFetching,
-    legacyReviews.data,
-    additionalEntries,
-    setTab,
-    setInvalidity,
-  ]);
+  }
   useNotificationRecordReveal(
     arrival,
     !denied &&

@@ -607,3 +607,23 @@ it("restores a delayed notification's committed view on a bare return without a 
   expect(screen.getByText("Delayed notification record")).toBeTruthy();
   expect(screen.getByRole("tab", { name: "assigned 1" }).getAttribute("aria-selected")).toBe("true");
 });
+
+it("does not replay a resolved notification's filters after a manual tab choice and background read", () => {
+  window.history.replaceState(null, "", "/admin/requests#request-signup-source");
+  const page = () => (
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard additionalEntries={[{
+        id: "source", group: "assigned", invalid: true,
+        submittedAt: new Date(), content: <p>Resolved notification target</p>,
+      }]} />
+    </SessionViewProvider>
+  );
+  const view = render(page());
+  expect(screen.getByText("Resolved notification target")).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "processed 0" }));
+  mocks.legacy.mockReturnValue({ data: [] });
+  view.rerender(page());
+  expect(screen.queryByText("Resolved notification target")).toBeNull();
+  expect(screen.getByRole("tab", { name: "processed 0" }).getAttribute("aria-selected")).toBe("true");
+  expect(sessionStorage.getItem(viewStateKey("head", "/admin/requests", "requests.tab.v1", ""))).toBe(JSON.stringify("processed"));
+});
