@@ -11,11 +11,19 @@ import {
 import { portalAccess } from "~/lib/portal-access";
 import { effectiveNotificationPreference } from "~/lib/notification-categories";
 import { getFeatures } from "~/server/program/features";
+import { resolveSchoolCalendarDay } from "~/lib/school-calendar";
+import { readCurrentSessionReminderCohort } from "~/server/session-planning";
 
 export const REMINDER_LEADS = [1440, 60] as const;
 export const REMINDER_LATE_MS = 10 * 60_000;
 const PAGE_SIZE = 100;
-const kinds = ["interview", "meeting", "tutoring", "tutoring_group"] as const;
+const kinds = [
+  "interview",
+  "meeting",
+  "tutoring",
+  "tutoring_group",
+  "tutoring_cohort",
+] as const;
 type Kind = (typeof kinds)[number];
 const contextSchema = z.object({
   kind: z.enum(kinds),
@@ -24,6 +32,12 @@ const contextSchema = z.object({
   timeZone: z.string(),
   leadMinutes: z.union([z.literal(1440), z.literal(60)]),
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  recurrence: z
+    .object({
+      kind: z.enum(["tutoring", "tutoring_group"]),
+      sourceId: z.string().min(1),
+    })
+    .optional(),
   emailDetail: z.object({
     en: z.string().min(1).max(1000),
     zh: z.string().min(1).max(1000),
@@ -54,15 +68,15 @@ export function reminderIsDue(startsAt: Date, leadMinutes: number, now: Date) {
 export function reminderKey(
   context: Pick<
     ReminderContext,
-    "kind" | "sourceId" | "startsAt" | "leadMinutes"
+    "kind" | "sourceId" | "startsAt" | "leadMinutes" | "recurrence"
   >,
   userId: string,
   recipient: string,
 ) {
   // The same occurrence remains one reminder even if unrelated metadata changes.
   return hash([
-    context.kind,
-    context.sourceId,
+    context.recurrence?.kind ?? context.kind,
+    context.recurrence?.sourceId ?? context.sourceId,
     context.startsAt,
     context.leadMinutes,
     userId,
@@ -78,10 +92,21 @@ const accountInclude = {
 } satisfies Prisma.UserInclude;
 type Account = Prisma.UserGetPayload<{ include: typeof accountInclude }>;
 const accountWhere = {
-  AND: [{ OR: [
-    { notificationPreferences: { some: { category: "reminders", emailEnabled: true } } },
-    { emailEventReminders: true, notificationPreferences: { none: { category: "reminders" } } },
-  ] }],
+  AND: [
+    {
+      OR: [
+        {
+          notificationPreferences: {
+            some: { category: "reminders", emailEnabled: true },
+          },
+        },
+        {
+          emailEventReminders: true,
+          notificationPreferences: { none: { category: "reminders" } },
+        },
+      ],
+    },
+  ],
   suspendedAt: null,
   mergedIntoId: null,
   role: { not: "VIEWER" },
@@ -93,7 +118,14 @@ const activeTutor = {
 } satisfies Prisma.UserWhereInput;
 
 function addresses(user: Account) {
-  if (!effectiveNotificationPreference(user, "reminders", user.notificationPreferences).emailEnabled || !portalAccess(user).canParticipate)
+  if (
+    !effectiveNotificationPreference(
+      user,
+      "reminders",
+      user.notificationPreferences,
+    ).emailEnabled ||
+    !portalAccess(user).canParticipate
+  )
     return [];
   return user.emails
     .filter(
@@ -111,7 +143,18 @@ type Occurrence = {
   labelZh?: string;
   tutorId?: string;
   tutorDetail?: { en: string; zh: string };
+  recurrence?: ReminderContext["recurrence"];
 };
+
+async function schoolDay(client: DomainDb, date: string) {
+  const override = await client.schoolCalendarDay.findUnique({
+    where: { date },
+  });
+  return resolveSchoolCalendarDay(
+    date,
+    override ? [{ ...override, date }] : [],
+  );
+}
 
 async function tutoringAllowed(
   client: DomainDb,
@@ -119,15 +162,180 @@ async function tutoringAllowed(
   timeZone: string,
 ) {
   const date = programDateKey(startsAt, timeZone);
-  const day = await client.schoolCalendarDay.findUnique({
-    where: { date },
-    select: { isSchoolDay: true },
-  });
-  if (day?.isSchoolDay === false) return false;
+  if (!(await schoolDay(client, date)).isSchoolDay) return false;
   // These notices suppress reminder email only; attendance/appeal policy is unchanged.
   return !(await client.programCalendarDay.count({
     where: { active: true, date: { lte: date }, endDate: { gte: date } },
   }));
+}
+
+async function datedOccurrence(
+  client: DomainDb,
+  sourceId: string,
+  startsAt: Date,
+  timeZone: string,
+): Promise<Occurrence | null> {
+  const cohort = await readCurrentSessionReminderCohort(client, sourceId);
+  if (
+    !cohort ||
+    cohort.startsAt.getTime() !== startsAt.getTime() ||
+    cohort.plan.timeZone !== timeZone
+  )
+    return null;
+  const participants = cohort.plan.participants
+    .filter(
+      (person) =>
+        person.cohortId === cohort.id &&
+        person.status === "SCHEDULED" &&
+        !person.calendarSuppressed &&
+        person.tutee.status === "ACTIVE",
+    )
+    .sort((a, b) => a.tuteeId.localeCompare(b.tuteeId));
+  if (!participants.length) return null;
+  const students = participants.map((person) => person.tuteeId);
+  const assignments = cohort.plan.assignments.filter((row) => {
+    const original = Array.isArray(row.tuteeIds) ? row.tuteeIds : [];
+    const continued = cohort.plan.continuationMembers
+      .filter(
+        (member) => member.pairingId === row.pairingId && !member.releasedAt,
+      )
+      .map((member) => member.tuteeId);
+    return [...original, ...continued].some(
+      (id) => typeof id === "string" && students.includes(id),
+    );
+  });
+  if (!assignments.length) return null;
+  const pairingIds = assignments.map((row) => row.pairingId);
+  const dayStart = new Date(`${cohort.date}T00:00:00Z`);
+  if (
+    await client.session.count({
+      where: {
+        tutorId: cohort.plan.tutorId,
+        date: { gte: dayStart, lt: new Date(dayStart.getTime() + 86_400_000) },
+        startMin: { lt: cohort.endMin },
+        endMin: { gt: cohort.startMin },
+        AND: [
+          {
+            OR: [
+              { planningCohortId: cohort.id },
+              { pairingId: { in: pairingIds } },
+            ],
+          },
+          {
+            OR: [
+              { tutorStatus: { in: ["TUTOR_ABSENT", "RESCHEDULED"] } },
+              {
+                tutees: {
+                  some: {
+                    tuteeId: { in: students },
+                    status: { in: ["EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    })
+  )
+    return null;
+  const owners = await client.studentProfileOwnership.findMany({
+    where: { tuteeId: { in: students } },
+    select: { userId: true },
+  });
+  const room = cohort.roomId
+    ? await client.room.findUnique({
+        where: { id: cohort.roomId },
+        select: { name: true },
+      })
+    : null;
+  const subjects = [
+    ...new Set(assignments.map((row) => safeLabel(row.subject).slice(0, 80))),
+  ];
+  const subjectLabel =
+    subjects.slice(0, 3).join(" / ") +
+    (subjects.length > 3 ? ` (+${subjects.length - 3})` : "");
+  const tutorName = safeLabel(cohort.plan.tutor.englishName).slice(0, 80);
+  const location = cohort.online
+    ? { en: "; Online", zh: "；线上" }
+    : room
+      ? {
+          en: `; Room ${safeLabel(room.name).slice(0, 80)}`,
+          zh: `；教室 ${safeLabel(room.name).slice(0, 80)}`,
+        }
+      : { en: "", zh: "" };
+  const label = `Tutor ${tutorName}; ${subjectLabel}${location.en}`;
+  const labelZh = `辅导伙伴 ${tutorName}；${subjectLabel}${location.zh}`;
+  const studentLabel =
+    participants
+      .slice(0, 3)
+      .map((person) => safeLabel(person.tutee.englishName).slice(0, 80))
+      .join(", ") +
+    (participants.length > 3 ? ` (+${participants.length - 3})` : "");
+  const tutorDetail = {
+    en: `${label}; Tutees: ${studentLabel}`,
+    zh: `${labelZh}；学习伙伴：${studentLabel}`,
+  };
+  // A publication at the same weekly instant inherits its receipt identity. It
+  // cannot resend already accepted mail, or race the last legacy source sweep.
+  let recurrence: ReminderContext["recurrence"];
+  if (
+    cohort.plan.kind === "REGULAR" &&
+    cohort.plan.originalDate === cohort.date
+  ) {
+    const sources = await client.pairing.findMany({
+      where: { id: { in: pairingIds } },
+      orderBy: { id: "asc" },
+    });
+    const first = sources[0];
+    if (
+      first &&
+      sources.every(
+        (row) =>
+          row.startMin === cohort.startMin && row.groupId === first.groupId,
+      ) &&
+      (sources.length === 1 || first.groupId)
+    ) {
+      recurrence = {
+        kind: first.groupId ? "tutoring_group" : "tutoring",
+        sourceId: first.groupId ?? first.id,
+      };
+    }
+  }
+  return {
+    label,
+    labelZh,
+    tutorDetail,
+    tutorId: cohort.plan.tutorId,
+    recurrence,
+    fingerprint: hash([
+      "tutoring_cohort",
+      sourceId,
+      startsAt.toISOString(),
+      timeZone,
+      cohort.version,
+      cohort.endsAt.toISOString(),
+      cohort.roomId,
+      cohort.online,
+      students,
+      label,
+      labelZh,
+      tutorDetail,
+      recurrence,
+    ]),
+    userWhere: {
+      OR: [
+        { ...activeTutor, tutorId: cohort.plan.tutorId },
+        {
+          tuteeMember: true,
+          OR: [
+            { studentId: { in: students } },
+            { id: { in: owners.map((owner) => owner.userId) } },
+          ],
+        },
+      ],
+    },
+  };
 }
 
 /** Derive a future occurrence from current authoritative records, never Session
@@ -211,6 +419,8 @@ async function occurrence(
     };
   }
   if (!(await tutoringAllowed(client, startsAt, timeZone))) return null;
+  if (kind === "tutoring_cohort")
+    return datedOccurrence(client, sourceId, startsAt, timeZone);
   const pairings = await client.pairing.findMany({
     where:
       kind === "tutoring_group"
@@ -238,10 +448,23 @@ async function occurrence(
   if (!pairings.length) return null;
   const wall = programDateTimeInput(startsAt, timeZone);
   const date = wall.slice(0, 10);
-  const calendarDay = new Date(`${date}T12:00:00Z`).getUTCDay();
-  const weekday = calendarDay === 0 ? 7 : calendarDay;
+  const weekday = (await schoolDay(client, date)).effectiveTimetableWeekday;
   const minute = Number(wall.slice(11, 13)) * 60 + Number(wall.slice(14, 16));
   const first = pairings[0]!;
+  // Any regular publication owns the original occurrence, even after cancellation
+  // or a move. Never resurrect its superseded weekly time or original roster.
+  if (
+    await client.sessionPlan.count({
+      where: {
+        originalDate: date,
+        kind: "REGULAR",
+        assignments: {
+          some: { pairingId: { in: pairings.map((row) => row.id) } },
+        },
+      },
+    })
+  )
+    return null;
   // A malformed/partly edited group is not an authoritative shared occurrence.
   if (
     pairings.some(
@@ -441,6 +664,7 @@ async function enqueueOccurrence(
           timeZone,
           leadMinutes,
           fingerprint: current.fingerprint,
+          ...(current.recurrence ? { recurrence: current.recurrence } : {}),
           emailDetail: detail(kind, recipientLabel(current, user), leadMinutes),
         };
         return addresses(user).map((recipient) => ({
@@ -458,8 +682,12 @@ async function enqueueOccurrence(
               !user.tutorAccessRevoked &&
               user.tutor?.status === "ACTIVE"
             )
-              ? "/student"
-              : "/dashboard",
+              ? "/student?view=schedule#sessions"
+              : kind.startsWith("tutoring")
+                ? "/schedule#sessions"
+                : kind === "interview"
+                  ? "/schedule#tutor-interviews"
+                  : "/schedule#tutor-meetings",
           availableAt: now,
         }));
       });
@@ -559,6 +787,35 @@ export async function queueEventReminders(
       cursor = rows.length === PAGE_SIZE ? rows.at(-1)!.id : undefined;
     } while (cursor);
   }
+  let cohortCursor: string | undefined;
+  do {
+    const cohorts = await client.sessionPlanCohort.findMany({
+      where: {
+        status: "SCHEDULED",
+        sourceInvalidated: false,
+        OR: windows.map((range) => ({ startsAt: range })),
+      },
+      select: {
+        id: true,
+        startsAt: true,
+        plan: { select: { timeZone: true } },
+      },
+      orderBy: { id: "asc" },
+      take: PAGE_SIZE,
+      ...(cohortCursor ? { cursor: { id: cohortCursor }, skip: 1 } : {}),
+    });
+    for (const cohort of cohorts)
+      queued += await enqueueOccurrence(
+        client,
+        "tutoring_cohort",
+        cohort.id,
+        cohort.startsAt,
+        cohort.plan.timeZone,
+        now,
+      );
+    cohortCursor =
+      cohorts.length === PAGE_SIZE ? cohorts.at(-1)!.id : undefined;
+  } while (cohortCursor);
   // Enumerate only local dates touching either due window, including midnight/DST.
   const dates = new Set<string>();
   for (const range of windows) {
@@ -567,8 +824,8 @@ export async function queueEventReminders(
   }
   const seen = new Set<string>();
   for (const date of dates) {
-    const calendarDay = new Date(`${date}T12:00:00Z`).getUTCDay();
-    const weekday = calendarDay === 0 ? 7 : calendarDay;
+    const weekday = (await schoolDay(client, date)).effectiveTimetableWeekday;
+    if (weekday === null) continue;
     let cursor: string | undefined;
     do {
       const rows = await client.pairing.findMany({
@@ -643,7 +900,8 @@ export async function validateEventReminder(
   });
   if (
     !settings?.emailNotificationsEnabled ||
-    settings.timeZone !== context.timeZone
+    (context.kind !== "tutoring_cohort" &&
+      settings.timeZone !== context.timeZone)
   )
     return false;
   const current = await occurrence(
@@ -654,6 +912,8 @@ export async function validateEventReminder(
     context.timeZone,
   );
   if (current?.fingerprint !== context.fingerprint) return false;
+  if (JSON.stringify(current.recurrence) !== JSON.stringify(context.recurrence))
+    return false;
   const user = await client.user.findFirst({
     where: { AND: [{ id: row.userId }, accountWhere, current.userWhere] },
     include: accountInclude,

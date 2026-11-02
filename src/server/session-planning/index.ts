@@ -268,6 +268,26 @@ async function loadCohort(tx: TransactionDb, id: string) {
   return cohort;
 }
 
+/** Optional reminders read published commitments through the same source and
+ * ownership fences as scheduling. This never publishes, consents or records attendance. */
+export async function readCurrentSessionReminderCohort(db: DomainDb, id: string) {
+  return inTransaction(db, async (tx) => {
+    await lockPlanningEntry(tx);
+    const cohort = await tx.sessionPlanCohort.findUnique({
+      where: { id },
+      include: { plan: { include: planInclude } },
+    });
+    if (
+      !cohort ||
+      cohort.status !== "SCHEDULED" ||
+      cohort.sourceInvalidated ||
+      !(await sourceIsCurrent(tx, cohort.plan))
+    )
+      return null;
+    return cohort;
+  });
+}
+
 /** One source snapshot per invalidation pass, read only after every source fence.
  * Planning, period and source locks remain held until the caller commits; cohort
  * state is deliberately not reused here. Isolated mutation checks stay fresh.

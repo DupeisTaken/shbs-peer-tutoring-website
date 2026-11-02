@@ -120,6 +120,7 @@ export const notificationEventCategories = {
   tutee_card_appeal: "attendance",
   tutee_appeal_reviewed: "attendance",
   student_assignment_updated: "tutoring",
+  student_continuation_released: "tutoring",
   student_availability_updated: "tutoring",
   student_request_recalled: "tutoring",
   student_signup_rejected: "tutoring",
@@ -136,6 +137,11 @@ export const notificationEventCategories = {
   school_departure_updated: "membership",
   request_invalidity_appeal_pending: "tutoring",
   room_assignment_needed: "tutoring",
+  school_calendar_changed: "program",
+  school_calendar_reset: "program",
+  school_calendar_upcoming: "program",
+  scheduled_refresh_completed: "program",
+  scheduled_refresh_blocked: "program",
 } satisfies Record<NotificationEvent, NotificationCategory>;
 
 export function notificationCategory(

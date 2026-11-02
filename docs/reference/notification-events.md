@@ -109,11 +109,17 @@ The migration retains old delivery evidence and skips pending reviewer mail rath
 than replaying a backlog under the new opt-in. Existing notices without captured facts
 retain readable fallback copy; no migration invents details from current records.
 
-Reminders cover scheduled interviews, meetings and confirmed recurring tutoring
-arrangements at 24 hours and 1 hour before the actual occurrence, in program time.
+Reminders cover scheduled interviews, meetings and confirmed tutoring at 24 hours
+and 1 hour before the actual occurrence. Published tutoring uses the current dated
+cohort, its captured timezone and its participating roster, including agreed extras
+and reschedules. A published original date never falls back to its superseded weekly
+time after a move or cancellation. Unpublished recurring assignments use the school
+date's effective timetable weekday, including mapped school days.
 Each threshold has a ten-minute lateness allowance; prolonged downtime does not send
 both notices together or reminders after the event starts. A unique durable delivery
 key prevents ordinary repeated/concurrent sweeps from creating duplicate mail.
+Publishing a regular session at the same instant retains its weekly reminder receipt:
+unsent snapshots may be refreshed, while an accepted message is not sent again.
 Dispatch revalidates the source and audience, so deleted/rescheduled events or newly
 ineligible participants do not receive stale reminders. SMTP acceptance still cannot
 provide an exactly-once guarantee after a process crash.
@@ -127,6 +133,8 @@ non-school days suppress occurrences. Recorded tutor or assigned-tutee absence
 suppresses the whole tutoring occurrence, including queued reminders. Missing
 attendance is not absence; future absence cannot be inferred from an unrecorded plan.
 These rules affect reminders only, never attendance or appeal-school-day calculations.
+They also leave essential proposal, outcome and publication notices independent of
+optional reminder preferences; suppressing a reminder does not cancel an agreed session.
 Ambiguous/nonexistent local times during daylight-saving transitions are skipped.
 Interview applicants without an eligible account are not enrolled in optional mail.
 

@@ -134,6 +134,8 @@ function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
       count: vi.fn(async () => (state.noTutoring ? 1 : 0)),
     },
     session: { count: vi.fn(async () => (state.absent ? 1 : 0)) },
+    sessionPlan: { count: vi.fn(async () => 0) },
+    sessionPlanCohort: { findMany: vi.fn(async () => []) },
     studentProfileOwnership: {
       findMany: vi.fn(async () => [{ userId: "retained-owner" }]),
     },
@@ -214,7 +216,7 @@ describe("upcoming event reminders", () => {
     f.user.tutorId = "unrelated-tutor";
     await queueEventReminders(f.db, hourBefore);
     const row = [...f.rows.values()][0]!;
-    expect(row.destination).toBe("/student");
+    expect(row.destination).toBe("/student?view=schedule#sessions");
     expect(JSON.stringify(row.context.emailDetail)).not.toContain("Emma Tutee");
     expect(await validateEventReminder(f.db, row, hourBefore)).toBe(true);
   });
