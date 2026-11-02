@@ -25,7 +25,6 @@ export function LegacyParticipation() {
   useEffect(() => {
     if (!authorizationDenied) return;
     // A transport failure preserves drafts; an authoritative denial revokes this private cache.
-    setDenied(true);
     queryClient.removeQueries({
       queryKey: getQueryKey(
         api.studentWorkflow.legacyParticipation,
@@ -34,9 +33,14 @@ export function LegacyParticipation() {
       ),
     });
   }, [authorizationDenied, queryClient]);
-  useEffect(() => {
-    if (query.isSuccess && !query.isFetching) setDenied(false);
-  }, [query.isSuccess, query.isFetching]);
+  // Reconcile authority before rendering children; removing cached queries must
+  // not release the latch before a fresh successful read.
+  const nextDenied = authorizationDenied
+    ? true
+    : query.isSuccess && !query.isFetching && !query.error
+      ? false
+      : denied;
+  if (nextDenied !== denied) setDenied(nextDenied);
   const retry = () => {
     void query.refetch();
   };

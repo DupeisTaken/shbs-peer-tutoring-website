@@ -72,66 +72,68 @@ export default function PatrolPage() {
     config.data !== undefined &&
     !configHidden &&
     !config.error;
-  useEffect(() => {
-    const sources = [
-      {
-        name: "status" as const,
-        revoked: statusDenied,
-        query: myStatus,
-        key: getQueryKey(api.crew.myStatus, undefined, "query"),
-      },
-      {
-        name: "config" as const,
-        revoked: configDenied || statusDenied,
-        query: config,
-        key: getQueryKey(api.crew.patrolConfig, undefined, "query"),
-      },
-      {
-        name: "history" as const,
-        revoked: historyDenied || statusDenied,
-        query: history,
-        key: getQueryKey(api.crew.myPatrols, undefined, "query"),
-      },
-    ];
-    const next = { ...denied };
-    for (const source of sources) {
-      if (source.revoked) {
-        next[source.name] = true;
-        if (!denied[source.name])
-          queryClient.removeQueries({ queryKey: source.key, exact: true });
-      } else if (
-        source.query.isSuccess &&
-        !source.query.isFetching &&
-        !statusHidden
-      )
-        next[source.name] = false;
-      // An explicit status Retry is the only way to establish authority after revocation.
-      if (
-        source.name === "status" &&
-        myStatus.isSuccess &&
-        !myStatus.isFetching &&
-        !statusDenied
-      )
-        next.status = false;
-    }
-    if (
-      Object.keys(next).some(
-        (key) =>
-          next[key as keyof typeof next] !== denied[key as keyof typeof denied],
-      )
+  // Each reader keeps its denial until a completed authorized read. Resolve
+  // these local transitions before rendering; evict external caches separately.
+  const sources = [
+    {
+      name: "status" as const,
+      revoked: statusDenied,
+      query: myStatus,
+    },
+    {
+      name: "config" as const,
+      revoked: configDenied || statusDenied,
+      query: config,
+    },
+    {
+      name: "history" as const,
+      revoked: historyDenied || statusDenied,
+      query: history,
+    },
+  ];
+  const next = { ...denied };
+  for (const source of sources) {
+    if (source.revoked) {
+      next[source.name] = true;
+    } else if (
+      source.query.isSuccess &&
+      !source.query.isFetching &&
+      !statusHidden
     )
-      setDenied(next);
-  }, [
-    myStatus,
-    config,
-    history,
-    statusDenied,
-    configDenied,
-    historyDenied,
-    statusHidden,
-    denied,
-    queryClient,
-  ]);
+      next[source.name] = false;
+    // An explicit status Retry is the only way to establish authority after revocation.
+    if (
+      source.name === "status" &&
+      myStatus.isSuccess &&
+      !myStatus.isFetching &&
+      !statusDenied
+    )
+      next.status = false;
+  }
+  if (
+    Object.keys(next).some(
+      (key) =>
+        next[key as keyof typeof next] !== denied[key as keyof typeof denied],
+    )
+  )
+    setDenied(next);
+  useEffect(() => {
+    if (statusDenied)
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.crew.myStatus, undefined, "query"),
+        exact: true,
+      });
+    if (configDenied || statusDenied)
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.crew.patrolConfig, undefined, "query"),
+        exact: true,
+      });
+    if (historyDenied || statusDenied)
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.crew.myPatrols, undefined, "query"),
+        exact: true,
+      });
+  }, [statusDenied, configDenied, historyDenied, queryClient]);
   // Keep a submitted intent intact across uncertain network outcomes. A changed payload gets
   // a new key; an unchanged retry reuses the original observations, timestamps and request.
   const lastSubmission = useRef<{
@@ -149,15 +151,21 @@ export default function PatrolPage() {
   const [note, setNote] = useState("");
   const [optOutReason, setOptOutReason] = useState("");
   const [showOptOut, setShowOptOut] = useState(false);
-  useEffect(() => {
-    if (!statusDenied && !configDenied) return;
-    // Authoritative revocation releases local evidence; transport failures retain retry intent.
+  const draftRevoked = statusDenied || configDenied;
+  const [wasDraftRevoked, setWasDraftRevoked] = useState(draftRevoked);
+  if (draftRevoked !== wasDraftRevoked) {
+    setWasDraftRevoked(draftRevoked);
+  }
+  if (draftRevoked && !wasDraftRevoked) {
+    // Revocation releases private drafts before descendants can observe them.
     setCounts({});
     setNote("");
     setOptOutReason("");
     setShowOptOut(false);
-    lastSubmission.current = null;
-  }, [statusDenied, configDenied]);
+  }
+  useEffect(() => {
+    if (draftRevoked) lastSubmission.current = null;
+  }, [draftRevoked]);
 
   const refetchStatus = () => utils.crew.myStatus.invalidate();
   const optOut = api.crew.requestOptOut.useMutation({

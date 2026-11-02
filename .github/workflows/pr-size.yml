@@ -79,8 +79,19 @@ jobs:
             });
             const headRef = `refs/remotes/pr-size/${issue_number}`;
             git("fetch", "--no-tags", "origin", pr.base.sha);
-            git("fetch", "--no-tags", "origin", `+refs/pull/${issue_number}/head:${headRef}`);
+            let usedExactHead = false;
+            try {
+              git("fetch", "--no-tags", "origin", `+refs/pull/${issue_number}/head:${headRef}`);
+            } catch {
+              // An open PR can lack its synthetic ref while its commit is fetchable.
+              // Fetch only the API's immutable commit from the trusted origin;
+              // never substitute a branch tip, merge ref, or PR-controlled remote.
+              core.info("PR ref fetch failed; fetching the exact API head SHA from origin.");
+              git("fetch", "--no-tags", "origin", `+${pr.head.sha}:${headRef}`);
+              usedExactHead = true;
+            }
             if (git("rev-parse", headRef).trim() !== pr.head.sha) {
+              if (usedExactHead) throw new Error("Fetched commit does not match the API head SHA.");
               core.info("PR changed during fetch; the newer event will label it.");
               return;
             }

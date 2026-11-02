@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   writeError: null as Error | null,
   success: false,
   canExcuse: true,
+  responseMeetingId: null as string | null,
   close: vi.fn(),
   mutate: vi.fn(),
   cancel: vi.fn(),
@@ -52,8 +53,8 @@ vi.mock("~/trpc/react", () => ({
           return {
             data: options.enabled
               ? {
-                  id: input.meetingId,
-                  title: `Synthetic ${input.meetingId}`,
+                  id: state.responseMeetingId ?? input.meetingId,
+                  title: `Synthetic ${state.responseMeetingId ?? input.meetingId}`,
                   date: new Date("2026-10-29T08:00:00Z"),
                   status: null,
                   reason: "Private own reason",
@@ -153,6 +154,7 @@ afterEach(() => {
   state.writeError = null;
   state.success = false;
   state.canExcuse = true;
+  state.responseMeetingId = null;
 });
 
 const element = (
@@ -180,6 +182,29 @@ function edit(value = "Exam conflict draft") {
   );
   fireEvent.change(screen.getByRole("textbox"), { target: { value } });
 }
+
+it("does not adopt a previous meeting response after changing the selected target", () => {
+  const view = render(element("one"));
+  edit("First meeting draft");
+  state.responseMeetingId = "one";
+  view.rerender(element("two"));
+  expect(screen.queryByText("Synthetic one")).toBeNull();
+  expect(screen.queryByText("Private own reason")).toBeNull();
+  expect(screen.queryByRole("textbox")).toBeNull();
+  state.responseMeetingId = "two";
+  view.rerender(element("two"));
+  expect(screen.getByText("Synthetic two")).toBeTruthy();
+  edit("Second meeting draft");
+  state.responseMeetingId = "one";
+  view.rerender(element("one"));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.meetings.excuseBtn }),
+  );
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+    "First meeting draft",
+  );
+  expect(state.mutate).not.toHaveBeenCalled();
+});
 
 it("mounts no detail read until selection and retains separate drafts through Close/reopen", () => {
   const view = render(element(null));

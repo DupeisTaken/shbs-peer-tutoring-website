@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { ProfileDialog } from "~/app/_components/profile-dialog";
@@ -39,27 +39,21 @@ export function ScheduleMeetingDetails({
   const missing = detail.error?.data?.code === "NOT_FOUND";
   // Removal/ineligibility is authoritative for this record only. Later network
   // errors cannot revive its cached reason; another meeting has its own latch.
-  useEffect(() => {
-    if (!enabled || !meetingId || showAll) return;
-    const recovered =
-      detail.isSuccess && !detail.isFetching && detail.data?.id === meetingId;
-    if (!missing && !recovered) return;
-    setRemovedIds((previous) => {
-      if (previous.has(meetingId) === missing) return previous;
-      const next = new Set(previous);
-      if (missing) next.add(meetingId);
-      else next.delete(meetingId);
-      return next;
-    });
-  }, [
-    meetingId,
-    enabled,
-    showAll,
-    missing,
-    detail.isSuccess,
-    detail.isFetching,
-    detail.data?.id,
-  ]);
+  const selectedDetail = detail.data?.id === meetingId ? detail.data : undefined;
+  const recovered =
+    detail.isSuccess && !detail.isFetching && selectedDetail !== undefined;
+  if (
+    enabled &&
+    meetingId &&
+    !showAll &&
+    (missing || recovered) &&
+    removedIds.has(meetingId) !== missing
+  ) {
+    const next = new Set(removedIds);
+    if (missing) next.add(meetingId);
+    else next.delete(meetingId);
+    setRemovedIds(next);
+  }
   const removed = !!meetingId && (missing || removedIds.has(meetingId));
   const hideDetail = denied || removed;
   // Existing source-period reads also serve inactive tutors' history elsewhere.
@@ -106,7 +100,7 @@ export function ScheduleMeetingDetails({
       {meetingId && !showAll && (
         <div className="space-y-4">
           <QueryFeedback
-            hasData={!hideDetail && detail.data !== undefined}
+            hasData={!hideDetail && selectedDetail !== undefined}
             loading={detail.isLoading}
             error={!!detail.error || hideDetail}
             retrying={detail.isFetching}
@@ -118,9 +112,9 @@ export function ScheduleMeetingDetails({
             onRetry={() => void detail.refetch()}
           />
           {!hideDetail &&
-            detail.data &&
+            selectedDetail &&
             controller.render(
-              [detail.data],
+              [selectedDetail],
               false,
               !detail.error && !detail.isLoading,
             )}

@@ -49,24 +49,34 @@ export function isViewState(value: unknown): value is ViewState {
   );
 }
 
-/** Storage is optional: restrictive browsers and a full quota must not break navigation. */
-export function readViewState(storage: Storage, key: string): unknown {
+/** Pure, stable browser-store snapshot: null is absent/unavailable, undefined
+ * is rejected data. Callers may remove rejected entries only after committing. */
+export function readViewStateSnapshot(
+  storage: Storage,
+  key: string,
+): string | null | undefined {
   try {
-    if (!withinStorageBudget(key)) {
-      removeViewState(storage, key);
-      return undefined;
-    }
+    if (!withinStorageBudget(key)) return undefined;
     const raw = storage.getItem(key);
-    if (!raw) return undefined;
-    if (!withinStorageBudget(key, raw)) {
-      removeViewState(storage, key);
+    if (raw === null) return null;
+    if (!withinStorageBudget(key, raw)) return undefined;
+    try {
+      const value: unknown = JSON.parse(raw);
+      return isViewState(value) ? raw : undefined;
+    } catch {
       return undefined;
     }
-    const value: unknown = JSON.parse(raw);
-    return isViewState(value) ? value : undefined;
   } catch {
-    return undefined;
+    return null;
   }
+}
+
+/** Storage is optional: restrictive browsers and a full quota must not break navigation.
+ * This imperative reader also cleans rejected entries; do not call it during render. */
+export function readViewState(storage: Storage, key: string): unknown {
+  const snapshot = readViewStateSnapshot(storage, key);
+  if (snapshot === undefined) removeViewState(storage, key);
+  return typeof snapshot === "string" ? JSON.parse(snapshot) : undefined;
 }
 export function writeViewState(
   storage: Storage,
