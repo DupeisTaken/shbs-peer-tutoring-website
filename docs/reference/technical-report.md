@@ -2399,8 +2399,22 @@ The audit boundary composes database writes and safe before/after evidence in on
 including helpers that import the shared database. Database-owned workflows retain their
 existing isolation and retry boundaries. Bulk writes retain every captured affected record
 and safe submitted relationship rather than sampling the first fifty rows, so storage and
-transaction work grow with the batch. Safe snapshots use an explicit field allowlist;
-established account/roster contact edits are retained for authorized staff, while observer
+transaction work grow with the batch. Bulk after-state reads use the captured
+primary-key tuples, including compound keys,
+from the shared [schema-validated identity catalog](../../src/server/recovery/record-catalog.ts).
+Prisma's reduced runtime metadata is not a source of primary-key definitions.
+These rereads assume primary-key values remain unchanged; they do not reconstruct
+key-changing bulk writes or introduce a new concurrency/isolation guarantee.
+Identity columns are selected for internal lookups independently of the snapshot
+allowlist: private retry keys and credential hashes never become audit JSON.
+Tutor subject willingness includes the recorded boolean alongside its tutor/subject
+identity. [Identity drift coverage](../../src/server/audit/identity-evidence.test.ts)
+checks every schema model through the audit interceptor; the
+[database regressions](../../src/server/audit/compound-evidence.integration.test.ts)
+cover compound updates, exact affected-row scope, privacy and rollback.
+
+Safe snapshots use an explicit field allowlist; established account/roster contact
+edits are retained for authorized staff, while observer
 projections mask the details. Management review notes and correction/discipline reasons
 are retained only for explicitly allowed domain models; attendance self-excuses and
 participant appeal bodies remain private. Passwords, invitation/proof codes, credential
