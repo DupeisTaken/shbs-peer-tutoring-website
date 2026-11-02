@@ -120,7 +120,13 @@ passwords, private record text or authorization results in navigation storage.
 
 Use `useSessionViewState({ id, initialState, parse, scope, enabled })` from
 `src/app/_components/session-view-state.tsx` for explicit presentation choices.
-It returns the usual state/setter pair. Give each feature/schema a stable `id`,
+The first two tuple entries are the usual state/event-setter pair. The optional
+third entry, `reconcileValue(next)`, uses the current render's parser for guarded
+same-component reconciliation (for example, consuming an authorized notification
+arrival). It accepts a concrete value, preserves explicit choices before identity
+verification, and leaves storage writes to committed effects. Keep the ordinary
+setter for events/effects; its stable identity does not depend on inline parsers.
+Give each feature/schema a stable `id`,
 include its period and validated query context in `scope`, and supply a parser
 that allowlists the currently available choices. `viewEnum`, `viewPage` and
 `viewSearch` are small helpers; record parsers must select only named filter
