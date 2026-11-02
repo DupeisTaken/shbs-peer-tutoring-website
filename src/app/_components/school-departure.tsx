@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -47,6 +47,10 @@ export function DepartureBanner() {
 /** One editor serves self-service proposals and management decisions. A confirmation shows
  * assignment consequences; the API rechecks the revision rather than trusting this preview. */
 export function SchoolDeparturePanel({ userId }: { userId?: string }) {
+  return <SchoolDepartureEditor key={userId ?? "self"} userId={userId} />;
+}
+
+function SchoolDepartureEditor({ userId }: { userId?: string }) {
   const t = useTranslations("schoolDeparture");
   const state = api.departure.state.useQuery({ userId });
   const [action, setAction] = useState<
@@ -98,8 +102,9 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
   const busy = useDialogPending(ownPending);
   // Keep the nested review mounted through callbacks/refresh and any registered sibling write.
   // Never register the inherited aggregate back into the parent context.
-  useEffect(() => {
-    if (!completion || busy) return;
+  // Consume the settled completion before rendering the next editor state. Its
+  // review remains mounted while any registered sibling write is still pending.
+  if (completion && !busy) {
     setConfirming(false);
     if (completion.clearDraft) {
       setExplanation("");
@@ -107,7 +112,7 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
     }
     setOutcome(t(completion.requested ? "requested" : "saved"));
     setCompletion(null);
-  }, [completion, busy, t]);
+  }
   const departed = !!state.data?.departure?.reason;
   const submit = () => {
     if (

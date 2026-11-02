@@ -290,16 +290,18 @@ function CombinedPersonDetails({
   const needsReview = hadReview || group.resolutionState === "REVIEW_REQUIRED";
   const invitationEligible = group.resolutionState === "GROUPED" && (group.tutors.length > 0 || group.tutees.length > 1);
   const [hadInvitation, setHadInvitation] = useState(invitationEligible);
-  useEffect(() => {
-    if (canEdit) setWasEditable(true);
-    if (group.resolutionState === "REVIEW_REQUIRED") setHadReview(true);
-    if (invitationEligible) setHadInvitation(true);
-  }, [canEdit, group.resolutionState, invitationEligible]);
-  useEffect(() => {
-    if (directoryDenied) setDirectoryAccessLost(true);
-    else if (directory.isSuccess && !directory.isFetching && !directory.error) setDirectoryAccessLost(false);
-  }, [directoryDenied, directory.isSuccess, directory.isFetching, directory.error]);
-  const denied = accessDenied || directoryDenied || directoryAccessLost;
+  // Retain each controller after its first eligible read: accepted operations
+  // may still need read recovery after the directory changes eligibility.
+  if (canEdit && !wasEditable) setWasEditable(true);
+  if (group.resolutionState === "REVIEW_REQUIRED" && !hadReview) setHadReview(true);
+  if (invitationEligible && !hadInvitation) setHadInvitation(true);
+  const nextDirectoryAccessLost =
+    directoryDenied ||
+    (directoryAccessLost &&
+      !(directory.isSuccess && !directory.isFetching && !directory.error));
+  if (directoryAccessLost !== nextDirectoryAccessLost)
+    setDirectoryAccessLost(nextDirectoryAccessLost);
+  const denied = accessDenied || nextDirectoryAccessLost;
   const editorDenied = denied || (!!directory.data && !canEdit);
   const controlsUnavailable = unavailable || !!directory.error || directory.isFetching;
   const login = group.users.find((user) => user.id === editing);

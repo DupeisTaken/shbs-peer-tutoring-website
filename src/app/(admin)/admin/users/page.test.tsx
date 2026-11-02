@@ -12,6 +12,10 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps } from "react";
+import type * as UserDetailsModule from "./user-details";
+import type * as TutorDetailsModule from "~/app/_components/tutor-details";
+import type * as AccountProfileModule from "~/app/_components/account-profile-editor";
+import type * as AcademicProfileModule from "~/app/_components/academic-profile";
 import messages from "../../../../../messages/en.json";
 import zhMessages from "../../../../../messages/zh.json";
 import { emptyUserFilters, type UserFilters } from "~/lib/user-filters";
@@ -395,7 +399,7 @@ vi.mock("~/trpc/react", async () => {
   };
 });
 vi.mock("./user-details", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./user-details")>();
+  const actual = await importOriginal<typeof UserDetailsModule>();
   return {
     UserDetails: (props: ComponentProps<typeof actual.UserDetails>) =>
       fixture.realDetails ? (
@@ -410,7 +414,7 @@ vi.mock("~/app/_components/acceptance-records", () => ({
 }));
 vi.mock("~/app/_components/tutor-details", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("~/app/_components/tutor-details")>();
+    await importOriginal<typeof TutorDetailsModule>();
   return {
     TutorDetailsButton: (
       props: ComponentProps<typeof actual.TutorDetailsButton>,
@@ -427,7 +431,7 @@ vi.mock("~/app/_components/tutor-details", async (importOriginal) => {
 vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
   const actual =
     await importOriginal<
-      typeof import("~/app/_components/account-profile-editor")
+      typeof AccountProfileModule
     >();
   return {
     AccountProfileEditor: (
@@ -439,7 +443,7 @@ vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
 // Independent profile sections are outside this name-draft/navigation contract.
 vi.mock("~/app/_components/academic-profile", async (importOriginal) => ({
   ...(await importOriginal<
-    typeof import("~/app/_components/academic-profile")
+    typeof AcademicProfileModule
   >()),
   AcademicPanel: () => null,
 }));
@@ -1282,6 +1286,12 @@ it("evicts denied appeals and does not reveal stale evidence after a network fai
   fixture.appealError = null;
   view.rerender(<UsersPage />);
   expect(screen.getByRole("button", { name: "Review appeal" })).toBeTruthy();
+  // Restored authority permits a new selection; it must not resurrect the
+  // private review that was open before denial.
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText(/Original appeal first paragraph/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
 });
 
 it("keeps full academic details out of the compact account table", () => {

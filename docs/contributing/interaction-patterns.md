@@ -78,6 +78,16 @@ approval rules, immutable evidence, query access or profile/policy version owner
 - A successful write followed by failed synchronization is distinct from a failed
   write. Use the feature's read-only refresh recovery instead of resubmitting it;
   tutor availability is the existing example.
+- Give each target and dialog opening its own password, draft and adopted review
+  snapshot; late reads from a closed opening cannot populate its replacement.
+  Keep pending-write admission and accepted receipts in the list or route owner,
+  so replacing a target or removing its row cannot admit another write or discard
+  recovery. A settling operation may release only its own admission lease.
+- Conceal private evidence immediately on authoritative denial and retain that
+  denial through transport failures and query-key changes. A cached success at a
+  reset/default key is not fresh authority. Recovery must freshly authorize the
+  affected reads and their prerequisites; drive cache eviction from the retained
+  denial episode, including prerequisites newly denied during recovery.
 - Nested review owns Escape and keyboard focus. Restore the exact opener when it
   remains usable; otherwise focus the remaining parent dialog. Pending writes block
   parent dismissal until they settle. Keep long editors' Close header reachable.

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { HistoryError } from "~/app/_components/tutee-history";
@@ -52,6 +52,7 @@ function HistoryClaimController({ token, invitationId }: HistoryClaimProps) {
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [revoked, setRevoked] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
   const admitted = useRef(false);
   const refreshAdmission = useRef(false);
   const inspectionAdmission = useRef(false);
@@ -106,17 +107,21 @@ function HistoryClaimController({ token, invitationId }: HistoryClaimProps) {
   });
   const accessRevoked =
     claimAccessRevoked(query.error) || claimAccessRevoked(claim.error);
-  useEffect(() => {
-    if (accessRevoked) {
-      setRevoked(true);
-      setConfirmed(false);
-    } else if (
-      query.isSuccess &&
-      !query.error &&
-      !query.isFetching &&
-      !inspectionAdmission.current
-    ) setRevoked(false);
-  }, [accessRevoked, query.isSuccess, query.error, query.isFetching]);
+  // Reconcile consent with the authoritative read before rendering its children.
+  // The explicit inspection owns recovery while it is in flight, so resetting a
+  // rejected mutation cannot briefly reveal the previous successful query data.
+  if (accessRevoked) {
+    if (!revoked) setRevoked(true);
+    if (confirmed) setConfirmed(false);
+  } else if (
+    revoked &&
+    query.isSuccess &&
+    !query.error &&
+    !query.isFetching &&
+    !inspecting
+  ) {
+    setRevoked(false);
+  }
   // Keep denial latched across transport failures. Clearing a rejected mutation
   // before Retry must not expose its old cached source while inspection is pending.
   const concealed = !validToken || accessRevoked || revoked;
@@ -127,6 +132,7 @@ function HistoryClaimController({ token, invitationId }: HistoryClaimProps) {
   const recover = async () => {
     if (query.isFetching || claim.isPending || refreshAdmission.current || inspectionAdmission.current) return;
     inspectionAdmission.current = true;
+    setInspecting(true);
     if (claimAccessRevoked(claim.error)) claim.reset();
     try {
       const result = await query.refetch();
@@ -147,6 +153,7 @@ function HistoryClaimController({ token, invitationId }: HistoryClaimProps) {
       }
     } finally {
       inspectionAdmission.current = false;
+      setInspecting(false);
     }
   };
   if (accepted || data?.claimed)
