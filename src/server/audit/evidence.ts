@@ -2,6 +2,7 @@ import { Prisma, type PrismaClient } from "../../../generated/prisma";
 import { humanizeOperation, actionKind } from "~/lib/approval-policy";
 import { SIGNUP_FIELDS } from "~/lib/signup-fields";
 import { nameFieldPolicies } from "~/lib/name-field-policy";
+import { RECORD_PRIMARY_KEYS } from "~/server/recovery/record-catalog";
 import {
   approvalScope,
   auditActorScope,
@@ -44,6 +45,7 @@ const safeFields = new Set([
   "color",
   "reviewStatus",
   "active",
+  "willing",
   "enabled",
   "name",
   "username",
@@ -236,13 +238,14 @@ const modelEvidence = new Map(
     model.name.charAt(0).toLowerCase() + model.name.slice(1),
     {
       name: model.name,
-      identityFields:
-        model.primaryKey?.fields ??
-        model.fields.filter((field) => field.isId).map((field) => field.name),
+      // Prisma 7 strips primaryKey/isId from runtime DMMF. Share the explicit
+      // schema-drift-tested catalog; identities are lookup data, not disclosure policy.
+      identityFields: RECORD_PRIMARY_KEYS[model.name] ?? [],
       select: Object.fromEntries(
         model.fields
           .filter(
             (field) =>
+              (RECORD_PRIMARY_KEYS[model.name]?.includes(field.name) ?? false) ||
               (safeFields.has(field.name) &&
                 (field.kind === "scalar" || field.kind === "enum") &&
                 field.type !== "Json" &&

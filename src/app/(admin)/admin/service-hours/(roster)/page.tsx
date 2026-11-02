@@ -36,6 +36,7 @@ export default function SummaryPage() {
   // Empty selects the active period's semester; a month ("YYYY-MM") narrows it.
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
+  const [deniedAt, setDeniedAt] = useState(0);
   const [month, setMonth] = useSessionViewState({
     id: "service-hours-month-v1",
     initialState: "",
@@ -49,15 +50,26 @@ export default function SummaryPage() {
   const accessDenied =
     summary.error?.data?.code === "FORBIDDEN" ||
     summary.error?.data?.code === "UNAUTHORIZED";
+  // Latch denial before committing any cached private content. Effects only evict.
+  if (accessDenied && !denied) {
+    setDenied(true);
+    setDeniedAt(summary.errorUpdatedAt ?? 0);
+  } else if (
+    denied &&
+    !accessDenied &&
+    summary.isSuccess &&
+    !summary.isFetching &&
+    (summary.dataUpdatedAt === undefined || summary.dataUpdatedAt > deniedAt)
+  )
+    setDenied(false);
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
+    if (denied) {
       // Period totals are private in every cached month, not just the selected filter.
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.periodSummary, undefined, "query"),
       });
-    } else if (summary.isSuccess && !summary.isFetching) setDenied(false);
-  }, [accessDenied, summary.isSuccess, summary.isFetching, queryClient]);
+    }
+  }, [denied, queryClient]);
   const hidden = denied || accessDenied;
   const [view, setView] = useSessionViewState({
     id: "service-hours-roster-v1",

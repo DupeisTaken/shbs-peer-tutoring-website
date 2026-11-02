@@ -39,14 +39,18 @@ export default function TutorRequestsPage() {
   const accessDenied =
     requests.error?.data?.code === "FORBIDDEN" ||
     requests.error?.data?.code === "UNAUTHORIZED";
+  // Retain denial across cache eviction and transport failures; only a settled
+  // authorized read releases it, before private children can render again.
+  const recovered = requests.isSuccess && !requests.isFetching && !requests.error;
+  if (accessDenied && !denied) setDenied(true);
+  else if (!accessDenied && recovered && denied) setDenied(false);
   useEffect(() => {
     if (accessDenied) {
-      setDenied(true);
       queryClient.removeQueries({
         queryKey: getQueryKey(api.admin.tutorRequests, undefined, "query"),
       });
-    } else if (requests.isSuccess && !requests.isFetching) setDenied(false);
-  }, [accessDenied, requests.isSuccess, requests.isFetching, queryClient]);
+    }
+  }, [accessDenied, queryClient]);
   const readBlocked = requests.data === undefined || !!requests.error;
   const [arrival, setArrival] = useState<NotificationRecordArrival | null>(null);
   const arrivalSequence = useRef(0);

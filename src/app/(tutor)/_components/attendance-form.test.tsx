@@ -154,6 +154,24 @@ afterEach(() => {
 const tree = (open = true, occurrence: AgendaCohort = attendanceOccurrence) => (
   <AttendanceForm occurrence={occurrence} open={open} onClose={vi.fn()} />
 );
+it("subscribes to held status and preserves notes when conditional attendance fields change", () => {
+  render(tree());
+  const status = screen.getByLabelText("tutor.attendance.tutorStatus");
+  fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
+    target: { value: "Retained absence explanation" },
+  });
+  fireEvent.change(status, { target: { value: "TUTOR_ABSENT" } });
+  expect(screen.queryByLabelText("tutor.attendance.roomUsed")).toBeNull();
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
+  fireEvent.change(status, { target: { value: "PRESENT" } });
+  expect(screen.getByLabelText("tutor.attendance.roomUsed")).toBeTruthy();
+  expect(screen.getAllByRole("radio")).toHaveLength(25);
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
+      .value,
+  ).toBe("Retained absence explanation");
+});
+
 it("binds attendance to the exact occurrence and shows only actual tutor states", () => {
   render(tree());
   expect(screen.queryByLabelText("tutor.attendance.pairing")).toBeNull();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -151,19 +151,37 @@ function ProgramPreviewLoader({ parentDenied }: { parentDenied: boolean }) {
         error?.data?.code === "UNAUTHORIZED",
     );
   const hidden = denied || accessDenied;
+  const readGeneration = useRef(0);
+  // A retry cannot restore access after a newer denial from another read.
+  useLayoutEffect(() => {
+    if (accessDenied) readGeneration.current += 1;
+  }, [accessDenied, settings.error, preview.error]);
+  useLayoutEffect(
+    () => () => {
+      readGeneration.current += 1;
+    },
+    [],
+  );
+  // Keep denial latched until an explicit successful read; cached/late data
+  // cannot restore the previous private preview request.
+  if (accessDenied && !denied) {
+    setDenied(true);
+    setRequestedMonth("");
+  }
   useEffect(() => {
-    if (accessDenied) {
-      setDenied(true);
-      setRequestedMonth("");
+    if (hidden)
       queryClient.removeQueries({ queryKey: getQueryKey(api.monthlyHours) });
-    } else if (settings.isSuccess && !settings.isFetching) setDenied(false);
-  }, [accessDenied, settings.isSuccess, settings.isFetching, queryClient]);
-  useEffect(() => {
-    if (!hidden && settings.data && !monthInitialized) {
-      setMonth(closedMonthlyHoursMonth(settings.data.config.timeZone));
-      setMonthInitialized(true);
-    }
-  }, [hidden, settings.data, monthInitialized]);
+  }, [hidden, queryClient]);
+  if (!hidden && settings.data && !monthInitialized) {
+    setMonth(closedMonthlyHoursMonth(settings.data.config.timeZone));
+    setMonthInitialized(true);
+  }
+  const retryRead = async () => {
+    const started = readGeneration.current;
+    const result = await settings.refetch();
+    if (started === readGeneration.current && result.isSuccess && result.data)
+      setDenied(false);
+  };
   const data = hidden ? undefined : settings.data;
   const snapshot =
     data &&
@@ -181,7 +199,7 @@ function ProgramPreviewLoader({ parentDenied }: { parentDenied: boolean }) {
             <Button
               size="compact"
               disabled={settings.isFetching || parentDenied}
-              onClick={() => void settings.refetch()}
+              onClick={() => void retryRead()}
             >
               {t("retryRead")}
             </Button>
@@ -198,7 +216,7 @@ function ProgramPreviewLoader({ parentDenied }: { parentDenied: boolean }) {
             loadingTitle={t("loading")}
             errorTitle={t(data ? "refreshFailed" : "loadFailed")}
             retryLabel={t("retryRead")}
-            onRetry={() => void settings.refetch()}
+            onRetry={() => void retryRead()}
           />
           {data && (
             <>

@@ -66,12 +66,15 @@ export function HistoricalRecordInvitation({
   const concealed = accessDenied || accessLost || denied(status.error);
   const cancellation = useActionReview();
   const revoke = cancellation.revoke;
+  const statusDenied = accessDenied || denied(status.error);
+  const [observedStatusDenial, setObservedStatusDenial] = useState(false);
+  if (statusDenied !== observedStatusDenial) {
+    setObservedStatusDenial(statusDenied);
+    if (statusDenied) setAccessLost(true);
+  }
   useEffect(() => {
-    if (accessDenied || denied(status.error)) {
-      setAccessLost(true);
-      revoke();
-    }
-  }, [accessDenied, status.error, revoke]);
+    if (statusDenied) revoke();
+  }, [statusDenied, revoke]);
 
   const refresh = async (knownReceipt = receipt) => {
     const result = await status.refetch({ throwOnError: true });
@@ -150,6 +153,12 @@ export function HistoricalRecordInvitation({
     onSettled: () => { admitted.current = false; },
   });
   const cancel = api.tuteeHistory.cancelExactInvitation.useMutation();
+  const cancelDenied = denied(cancel.error);
+  const [observedCancelDenial, setObservedCancelDenial] = useState(false);
+  if (cancelDenied !== observedCancelDenial) {
+    setObservedCancelDenial(cancelDenied);
+    if (cancelDenied) setAccessLost(true);
+  }
   // Unknown delivery keeps its receipt reader mounted. A confirmed durable
   // attempt instead permits a nested cancellation review; keeping that fence
   // registered would disable the child modal through its inherited busy state.
@@ -163,8 +172,8 @@ export function HistoricalRecordInvitation({
     return () => onPendingChange?.(false);
   }, [dismissalPending, onPendingChange]);
   useEffect(() => {
-    if (denied(cancel.error)) { setAccessLost(true); revoke(); }
-  }, [cancel.error, revoke]);
+    if (cancelDenied) revoke();
+  }, [cancelDenied, revoke]);
   const unavailableForAction = busy || cancellation.busy || reading || unavailable || concealed;
   const disabled = unavailableForAction || uncertain;
   const ready = status.data !== undefined && !status.error && !status.isFetching && !refreshRequired;

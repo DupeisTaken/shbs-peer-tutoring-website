@@ -756,6 +756,86 @@ describe("whole-group agreement and split", () => {
 });
 
 describe("publication and scoped attendance", () => {
+  it.each([0, 1, 2])(
+    "preserves grouped publication keys and concurrent retries with %i continuation members",
+    async (continuingPairings) => {
+      await db.$executeRawUnsafe('TRUNCATE "SessionPlan" CASCADE');
+      const pairingIds = ["planning-pairing", "planning-second-pairing"];
+      const group = await db.pairingGroup.create({
+        data: {
+          tutorId: tutor.tutorId,
+          termId: "planning-term",
+          primaryPairingId: pairingIds[0]!,
+        },
+      });
+      await db.pairing.update({
+        where: { id: pairingIds[0]! },
+        data: { groupId: group.id },
+      });
+      await db.pairing.create({
+        data: {
+          id: pairingIds[1]!,
+          groupId: group.id,
+          tutorId: tutor.tutorId,
+          termId: "planning-term",
+          subject: "Science",
+          dayOfWeek: 1,
+          startMin: 900,
+          endMin: 945,
+          scheduleConfirmed: true,
+          roomMode: "NONE",
+          tutees: {
+            create: [{ tuteeId: "planning-one" }, { tuteeId: "planning-two" }],
+          },
+        },
+      });
+      if (continuingPairings)
+        await db.studentContinuationPairing.createMany({
+          data: pairingIds.slice(0, continuingPairings).map((pairingId) => ({
+            sourcePairingId: `source-${pairingId}`,
+            targetTermId: "planning-term",
+            pairingId,
+          })),
+        });
+      expect((await ensureSessionPlanningWindow(db, now)).unavailable).toBe(0);
+      const plans = await db.sessionPlan.findMany({
+        include: { assignments: true, participants: true },
+        orderBy: { generationKey: "asc" },
+      });
+      expect(plans).toHaveLength(2);
+      for (const plan of plans) {
+        expect(
+          plan.generationKey.startsWith(`regular:planning-term:${group.id}:`),
+        ).toBe(true);
+        expect(plan.generationKey.endsWith(":continuation:0")).toBe(
+          continuingPairings === 2,
+        );
+        expect(plan.assignments.map((row) => row.pairingId).sort()).toEqual(
+          [...pairingIds].sort(),
+        );
+        expect(plan.participants.map((row) => row.tuteeId).sort()).toEqual([
+          "planning-one",
+          "planning-two",
+        ]);
+        expect(
+          plan.participants.every((row) => row.status === "SCHEDULED"),
+        ).toBe(true);
+      }
+      const notices = await db.sessionNotice.count();
+      await Promise.all([
+        ensureSessionPlanningWindow(db, now),
+        ensureSessionPlanningWindow(db, now),
+      ]);
+      expect(
+        await db.sessionPlan.findMany({
+          include: { assignments: true, participants: true },
+          orderBy: { generationKey: "asc" },
+        }),
+      ).toEqual(plans);
+      expect(await db.sessionNotice.count()).toBe(notices);
+    },
+  );
+
   it("atomically suppresses a pre-start closure even when no agenda is read until after start", async () => {
     const original = await source();
     vi.setSystemTime(new Date(original.startsAt.getTime() - 60_000));

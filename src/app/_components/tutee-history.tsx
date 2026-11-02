@@ -286,7 +286,8 @@ export function TuteeHistoryLinkForm({
   const [expectedUpdatedAt] = useState(row.updatedAt);
   const submitting = useRef(false);
   const reviewPending = useRef(false);
-  const [linked, setLinked] = useState(false);
+  const [linkSynchronized, setLinkSynchronized] = useState(false);
+  const linkNotified = useRef(false);
   const linkCommitted = useRef(false);
   const [linkAccepted, setLinkAccepted] = useState(false);
   const linkRefreshInFlight = useRef(false);
@@ -373,9 +374,12 @@ export function TuteeHistoryLinkForm({
     { enabled: query.length >= 2 && !accessDenied },
   );
   const privateDenied = accessDenied || historyAccessDenied(candidates.error);
-  useEffect(() => {
-    if (historyAccessDenied(candidates.error)) setPermissionLost(true);
-  }, [candidates.error]);
+  const candidateDenied = historyAccessDenied(candidates.error);
+  const [observedCandidateDenial, setObservedCandidateDenial] = useState(false);
+  if (candidateDenied !== observedCandidateDenial) {
+    setObservedCandidateDenial(candidateDenied);
+    if (candidateDenied) setPermissionLost(true);
+  }
   // Accepted ownership is never submitted again to recover a failed read.
   // Keep the receipt until every affected read settles; independent drafts survive.
   const refreshLink = async () => {
@@ -391,7 +395,7 @@ export function TuteeHistoryLinkForm({
         () => invalidateAndReport(utils.student),
       ]);
       setLinkRefreshFailed(false);
-      setLinked(true);
+      setLinkSynchronized(true);
     } catch {
       setLinkRefreshFailed(true);
     } finally {
@@ -458,6 +462,7 @@ export function TuteeHistoryLinkForm({
   const ownPending =
     link.isPending || invite.isPending || cancelInvitation.isPending;
   const busy = useDialogPending(ownPending);
+  const linked = linkSynchronized && (busy || parentPending || linkSyncing);
   const pending =
     busy ||
     parentPending ||
@@ -471,10 +476,12 @@ export function TuteeHistoryLinkForm({
     return () => onPendingChange?.(false);
   }, [ownPending, onPendingChange]);
   useEffect(() => {
-    if (!linked || busy || parentPending || linkSyncing) return;
-    setLinked(false);
+    // Notify the host only after every pending owner settles. Keep completion
+    // durable so callback identity changes cannot replay an accepted link.
+    if (!linkSynchronized || busy || parentPending || linkSyncing || linkNotified.current) return;
+    linkNotified.current = true;
     onLinked();
-  }, [linked, busy, parentPending, linkSyncing, onLinked]);
+  }, [linkSynchronized, busy, parentPending, linkSyncing, onLinked]);
   return (
     <fieldset
       disabled={busy || parentPending || reviewing || linked}

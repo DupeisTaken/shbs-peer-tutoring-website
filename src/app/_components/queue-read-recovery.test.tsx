@@ -32,7 +32,7 @@ const remote = vi.hoisted(() => ({
   write: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
-  const { useQuery } = await import("@tanstack/react-query");
+  const { useQuery, useQueryClient } = await import("@tanstack/react-query");
   const read = (path: string[], load: typeof remote.cards) => ({
     _def: () => ({ path }),
     useQuery(input?: unknown, options?: { enabled?: boolean }) {
@@ -56,13 +56,24 @@ vi.mock("~/trpc/react", async () => {
   const refresh = { invalidate: vi.fn(), fetch: vi.fn() };
   return {
     api: {
-      useUtils: () => ({
-        admin: {
-          disciplinaryCards: refresh,
-          tutorRequests: refresh,
-          tuteeRemovalRequests: refresh,
-        },
-      }),
+      useUtils: () => {
+        const queryClient = useQueryClient();
+        return {
+          admin: {
+            disciplinaryCards: refresh,
+            tutorRequests: refresh,
+            tuteeRemovalRequests: refresh,
+            periodReport: {
+              fetch: (input: unknown, options: { staleTime: number }) =>
+                queryClient.fetchQuery({
+                  queryKey: [["admin", "periodReport"], { input, type: "query" }],
+                  queryFn: (): unknown => remote.report(input),
+                  ...options,
+                }),
+            },
+          },
+        };
+      },
       account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
       program: { features: read(["program", "features"], remote.features) },
       admin: {

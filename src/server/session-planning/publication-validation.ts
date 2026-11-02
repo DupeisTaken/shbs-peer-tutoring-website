@@ -60,6 +60,8 @@ const stringIds = (value: Prisma.JsonValue): string[] =>
  * fences and still decides and writes each candidate serially. Each statement
  * sees coherent live facts and the transaction's earlier writes; nothing is
  * reused for a later candidate. A new cohort has no source roster or request.
+ * Recurrence uses the same normalized 45-minute strict overlap as validateTarget;
+ * exclude earlier/adjacent bookings before loading their roster/ownership facts.
  */
 export async function readPublicationValidationSnapshot(
   tx: TransactionDb,
@@ -101,6 +103,7 @@ export async function readPublicationValidationSnapshot(
       ) AS "participantIds"
       FROM "Pairing" p CROSS JOIN parameters a
       WHERE p."termId"=a."termId" AND p."scheduleConfirmed"=true AND p."startMin"<a."endMin"
+        AND p."startMin">a."startMin"-45
         AND (a."weekdayHint" IS NULL OR (a."weekdayHint" BETWEEN 1 AND 7 AND p."dayOfWeek"=a."weekdayHint"))
     ), tutor_ids AS (
       SELECT "tutorId" AS id FROM parameters

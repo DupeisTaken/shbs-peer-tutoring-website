@@ -70,17 +70,17 @@ export function TutorSchedule({
     interviews: active && interviewsEnabled,
     meetings: active && meetingsEnabled,
   });
-  useEffect(() => {
-    if (
-      (active && interviewsEnabled && !mountedOwners.interviews) ||
-      (active && meetingsEnabled && !mountedOwners.meetings)
-    ) {
-      setMountedOwners((previous) => ({
-        interviews: previous.interviews || (active && interviewsEnabled),
-        meetings: previous.meetings || (active && meetingsEnabled),
-      }));
-    }
-  }, [active, interviewsEnabled, meetingsEnabled, mountedOwners]);
+  // Retain each owner once admitted, including through feature revocation, so
+  // in-flight writes and drafts survive while its private DOM is concealed.
+  if (
+    (active && interviewsEnabled && !mountedOwners.interviews) ||
+    (active && meetingsEnabled && !mountedOwners.meetings)
+  ) {
+    setMountedOwners({
+      interviews: mountedOwners.interviews || (active && interviewsEnabled),
+      meetings: mountedOwners.meetings || (active && meetingsEnabled),
+    });
+  }
   const interviewRows =
     active && interviewsEnabled && !interviewsDenied
       ? interviews.data

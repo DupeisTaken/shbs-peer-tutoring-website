@@ -25,6 +25,8 @@ const state = vi.hoisted(() => ({
   refetch: vi.fn(),
   input: ((): unknown => undefined)(),
   tutorsLoaded: true,
+  dataUpdatedAt: undefined as number | undefined,
+  errorUpdatedAt: undefined as number | undefined,
   tutorIds: ["tutor"],
 }));
 vi.mock("@trpc/react-query", () => ({
@@ -53,6 +55,8 @@ vi.mock("~/trpc/react", () => ({
           return {
             data: state.data,
             error: state.error,
+            dataUpdatedAt: state.dataUpdatedAt,
+            errorUpdatedAt: state.errorUpdatedAt,
             isSuccess: state.data !== undefined && !state.error,
             isFetching: false,
             refetch: state.refetch,
@@ -91,6 +95,8 @@ beforeEach(() => {
   state.tutorIds = ["tutor"];
   state.data = undefined;
   state.error = null;
+  state.dataUpdatedAt = undefined;
+  state.errorUpdatedAt = undefined;
   state.refetch.mockReset();
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
@@ -233,4 +239,31 @@ it("clears saved filters and every cached month when attendance access is revoke
   state.error = { message: "Transport error" };
   view.rerender(<AttendancePage />);
   expect(screen.queryByRole("table")).toBeNull();
+});
+
+it("does not release a denied month for an older cached success after filters reset", () => {
+  state.data = [row];
+  state.dataUpdatedAt = 10;
+  const view = render(<AttendancePage />, { wrapper });
+  fireEvent.change(screen.getByLabelText("Month"), {
+    target: { value: "2026-08" },
+  });
+  state.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  state.errorUpdatedAt = 30;
+  view.rerender(<AttendancePage />);
+  expect(screen.queryByRole("table")).toBeNull();
+
+  // The reset query key may already have a successful cache entry from before denial.
+  state.error = null;
+  state.dataUpdatedAt = 20;
+  view.rerender(<AttendancePage />);
+  expect(screen.queryByRole("table")).toBeNull();
+  state.error = { message: "Transport failure" };
+  view.rerender(<AttendancePage />);
+  expect(screen.queryByRole("table")).toBeNull();
+
+  state.error = null;
+  state.dataUpdatedAt = 40;
+  view.rerender(<AttendancePage />);
+  expect(screen.getByRole("table")).toBeTruthy();
 });

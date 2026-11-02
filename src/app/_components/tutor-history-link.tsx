@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
@@ -40,21 +40,23 @@ export function TutorHistorySection({
   const denied =
     permissions.data?.canLink === false ||
     ["FORBIDDEN", "UNAUTHORIZED"].includes(permissions.error?.data?.code ?? "");
-  useEffect(() => {
-    if (permissions.data?.canLink) setHadAccess(true);
-    if (permissions.data?.canLink && permissions.data.canCorrectOwnership)
-      setHadCorrectionAccess(true);
-    if (denied) setDenialLatched(true);
-    else if (
-      permissions.data?.canLink &&
-      !permissions.error &&
-      !permissions.isFetching
-    )
-      setDenialLatched(false);
-  }, [denied, permissions.data, permissions.error, permissions.isFetching]);
+  // Once mounted, controllers retain drafts and accepted receipts while their
+  // current permission still controls whether private evidence is visible.
+  if (permissions.data?.canLink && !hadAccess) setHadAccess(true);
+  if (
+    permissions.data?.canLink &&
+    permissions.data.canCorrectOwnership &&
+    !hadCorrectionAccess
+  )
+    setHadCorrectionAccess(true);
+  const nextDenial =
+    denied ||
+    (denialLatched &&
+      !(permissions.data?.canLink && !permissions.error && !permissions.isFetching));
+  if (denialLatched !== nextDenial) setDenialLatched(nextDenial);
   // Keep accepted/uncertain operations and correction drafts alive when the
   // permission reader refreshes. Denial conceals evidence without losing receipts.
-  const concealed = denied || denialLatched;
+  const concealed = nextDenial;
   return (
     <section className="mt-5 border-t border-slate-200 pt-4">
       {permissions.error && (

@@ -3,7 +3,7 @@ import { FilterToolbar, InlineNotice, SettingRow } from "./ui/patterns";
 import { Button, ChoiceButton } from "./ui/button";
 import { SectionTabs } from "./ui/section-tabs";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "./confirm-dialog";
@@ -14,11 +14,37 @@ import {
 } from "./session-view-state";
 import { viewEnum, viewPage } from "~/lib/session-view-state";
 
+/** A reset page/filter can have older successful cached data. Only a completed
+ * read newer than the denial episode may restore that feed's private content. */
+function supportReadFence(
+  fence: number | null,
+  denied: boolean,
+  query: {
+    error: unknown;
+    isSuccess: boolean;
+    isFetching: boolean;
+    dataUpdatedAt: number;
+    errorUpdatedAt: number;
+  },
+): number | null {
+  if (denied)
+    return Math.max(fence ?? 0, query.errorUpdatedAt, query.dataUpdatedAt);
+  if (
+    fence !== null &&
+    query.isSuccess &&
+    !query.isFetching &&
+    !query.error &&
+    query.dataUpdatedAt > fence
+  )
+    return null;
+  return fence;
+}
+
 export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
-  const [deniedViews, setDeniedViews] = useState({
-    feedback: false,
-    appeals: false,
-  });
+  const [deniedViews, setDeniedViews] = useState<{
+    feedback: number | null;
+    appeals: number | null;
+  }>({ feedback: null, appeals: null });
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const recovery = useTranslations("participantRecovery");
@@ -37,7 +63,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     scope: viewScope,
     initialState: "feedback",
     parse: viewEnum(me.data && !staff ? ["feedback"] : ["feedback", "appeals"]),
-    enabled: !accountDenied && !deniedViews.appeals,
+    enabled: !accountDenied && deniedViews.appeals === null,
   });
   const [feedbackPage, setFeedbackPage] = useSessionViewState({
     id: "support-feedback-page-v1",
@@ -46,7 +72,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     parse: viewPage,
     enabled:
       !accountDenied &&
-      !deniedViews.feedback &&
+      deniedViews.feedback === null &&
       !(!staff && setting.data === false),
   });
   const [appealPage, setAppealPage] = useSessionViewState({
@@ -54,7 +80,8 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     scope: viewScope,
     initialState: 0,
     parse: viewPage,
-    enabled: !accountDenied && !deniedViews.appeals && !(me.data && !staff),
+    enabled:
+      !accountDenied && deniedViews.appeals === null && !(me.data && !staff),
   });
   const [appealState, setAppealState] = useSessionViewState<
     "PENDING" | "RESOLVED"
@@ -63,7 +90,8 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     scope: viewScope,
     initialState: "PENDING",
     parse: viewEnum(["PENDING", "RESOLVED"]),
-    enabled: !accountDenied && !deniedViews.appeals && !(me.data && !staff),
+    enabled:
+      !accountDenied && deniedViews.appeals === null && !(me.data && !staff),
   });
   const feedback = api.student.feedbackList.useQuery(
     { page: feedbackPage },
@@ -79,16 +107,28 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
   const appealsDenied =
     appeals.error?.data?.code === "FORBIDDEN" ||
     appeals.error?.data?.code === "UNAUTHORIZED";
-  useEffect(() => {
-    setDeniedViews((current) =>
-      current.feedback === feedbackDenied && current.appeals === appealsDenied
-        ? current
-        : { feedback: feedbackDenied, appeals: appealsDenied },
-    );
-  }, [feedbackDenied, appealsDenied]);
+  // Keep the denial timestamp across navigation resets and transport failures.
+  // Cached success on a different query key cannot release this episode's fence.
+  const feedbackFence = supportReadFence(
+    deniedViews.feedback,
+    feedbackDenied,
+    feedback,
+  );
+  const appealsFence = supportReadFence(
+    deniedViews.appeals,
+    appealsDenied,
+    appeals,
+  );
+  if (
+    deniedViews.feedback !== feedbackFence ||
+    deniedViews.appeals !== appealsFence
+  )
+    setDeniedViews({ feedback: feedbackFence, appeals: appealsFence });
+  const nextFeedbackDenied = feedbackFence !== null;
+  const nextAppealsDenied = appealsFence !== null;
   const canReadFeedback =
     !accountDenied &&
-    !feedbackDenied &&
+    !nextFeedbackDenied &&
     (!!staff || (!setting.error && setting.data === true));
   useSessionPageScroll({
     id: "student-support-v1",
@@ -96,7 +136,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     ready: staff && panel === "appeals" ? !!appeals.data : !!feedback.data,
     enabled:
       !accountDenied &&
-      (staff && panel === "appeals" ? !appealsDenied : canReadFeedback),
+      (staff && panel === "appeals" ? !nextAppealsDenied : canReadFeedback),
   });
   const save = api.student.setFeedbackSettings.useMutation({
     onSuccess: () => setting.refetch(),
@@ -111,6 +151,29 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
   return (
     <div className="space-y-6">
       {dialog}
+      {/* Denial resets navigation, so recovery must remain outside hidden panels. */}
+      {[
+        { denied: nextFeedbackDenied, label: t("feedback"), query: feedback },
+        { denied: nextAppealsDenied, label: t("staffAppeals"), query: appeals },
+      ].filter((read) => read.denied).map(({ label, query }) => (
+        <InlineNotice
+          key={label}
+          tone="warning"
+          announcement="status"
+          action={
+            <Button
+              size="compact"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {label} · {recovery("retry")}
+            </Button>
+          }
+        >
+          <p className="font-semibold">{label} · {recovery("accessDenied")}</p>
+          <p>{recovery("accessDeniedHelp")}</p>
+        </InlineNotice>
+      ))}
       <SupportPanels
         staff={!!staff}
         label={t("support")}
@@ -265,10 +328,10 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
                   ))}
                 </FilterToolbar>
               </div>
-              {!appealsDenied && appeals.data?.rows.length === 0 && (
+              {!nextAppealsDenied && appeals.data?.rows.length === 0 && (
                 <p className="muted">{t("empty")}</p>
               )}
-              {!appealsDenied &&
+              {!nextAppealsDenied &&
                 appeals.data?.rows.map((a) => (
                   <article
                     key={a.id}

@@ -632,6 +632,36 @@ it("conceals cached settings, preview and review after authoritative denial, inc
   expect(screen.queryByText("Synthetic Head")).toBeNull();
 });
 
+it("requires an explicit successful read after CSV denial despite cached report success", async () => {
+  remote.csv.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  render(show(<MonthlyHoursReport id="report-one" />));
+  await screen.findByRole("table");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.downloadCsv }),
+  );
+  await screen.findByText(en.monthlyHours.denied);
+  expect(screen.queryByRole("table")).toBeNull();
+  remote.report.mockRejectedValue(new Error("Offline"));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.retryRead }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.monthlyHours.retryRead,
+      }).disabled,
+    ).toBe(false),
+  );
+  expect(remote.report).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("table")).toBeNull();
+  remote.report.mockResolvedValue(report());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.retryRead }),
+  );
+  await screen.findByRole("table");
+  expect(remote.csv).toHaveBeenCalledTimes(1);
+});
+
 it.each(["en", "zh"] as const)(
   "reads a protected immutable report with translated retry status and exports its stored CSV (%s)",
   async (locale) => {
@@ -696,4 +726,58 @@ it("does not download a late CSV after report access is revoked", async () => {
   });
   expect(createCsvUrl).not.toHaveBeenCalled();
   expect(screen.queryByRole("table")).toBeNull();
+});
+
+
+it("restores settings after preview denial without restoring the old requested preview", async () => {
+  render(show());
+  await openPanel();
+  await previewReport();
+  remote.preview.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.preview }),
+  );
+  await screen.findByText(en.monthlyHours.denied);
+  expect(remote.settings).toHaveBeenCalledTimes(1);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.retryRead }),
+  );
+  await screen.findByLabelText(en.monthlyHours.day);
+  expect(remote.settings).toHaveBeenCalledTimes(2);
+  expect(remote.preview).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(remote.generate).not.toHaveBeenCalled();
+});
+
+it("keeps accepted generation blocked when its refresh is denied and access is later restored", async () => {
+  render(show());
+  await openPanel();
+  await previewReport();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.generate }),
+  );
+  remote.settings.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: en.monthlyHours.confirmGenerate,
+    }),
+  );
+  await screen.findByText(en.monthlyHours.denied);
+  expect(remote.generate).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  remote.settings.mockResolvedValue(settings());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.monthlyHours.retryRead }),
+  );
+  await screen.findByLabelText(en.monthlyHours.day);
+  expect(screen.queryByRole("table")).toBeNull();
+  await previewReport();
+  const generate = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.monthlyHours.generate,
+  });
+  expect(generate.disabled).toBe(true);
+  fireEvent.click(generate);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(remote.generate).toHaveBeenCalledTimes(1);
 });

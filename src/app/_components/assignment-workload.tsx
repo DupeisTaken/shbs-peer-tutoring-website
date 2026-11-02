@@ -24,9 +24,14 @@ export function useAssignmentWorkloads(enabled = true) {
   const deniedNow =
     query.error?.data?.code === "FORBIDDEN" ||
     query.error?.data?.code === "UNAUTHORIZED";
+  // Latch query evidence before committing a render; cache eviction is a
+  // separate external effect and cannot briefly restore private content.
+  if (deniedNow && !denied) setDenied(true);
+  else if (denied && query.isSuccess && query.data !== undefined && !deniedNow)
+    // A sibling's explicit retry releases every reader of this shared key.
+    setDenied(false);
   useEffect(() => {
-    if (deniedNow && !denied) {
-      setDenied(true);
+    if (deniedNow) {
       client.removeQueries({
         queryKey: getQueryKey(
           api.admin.assignmentWorkloads,
@@ -34,17 +39,8 @@ export function useAssignmentWorkloads(enabled = true) {
           "query",
         ),
       });
-    } else if (
-      denied &&
-      query.isSuccess &&
-      query.data !== undefined &&
-      !deniedNow
-    ) {
-      // A sibling's explicit retry refreshes this same evicted query key. Release
-      // every reader's latch only after that fresh authorized response succeeds.
-      setDenied(false);
     }
-  }, [client, denied, deniedNow, query.isSuccess, query.data]);
+  }, [client, deniedNow]);
   const retry = async () => {
     const result = await query.refetch();
     if (result.isSuccess) setDenied(false);
