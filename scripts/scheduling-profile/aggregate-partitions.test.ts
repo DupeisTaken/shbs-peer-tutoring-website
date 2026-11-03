@@ -226,6 +226,52 @@ void test("a reviewed baseline file must pin the externally expected SHA and ret
   assert.throws(() => aggregatePartitions(rows, options), /explicit reviewed schema manifest/);
 });
 
+void test("PR-scoped receipt binds baseline pin and reviewed manifest to the same PR", () => {
+  const rows = fixture(true);
+  const manifest = rows[0]!.comparison;
+  manifest.mode = "reviewed";
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-569-baseline.txt";
+  manifest.baselineSelectionFileSha256 = sha(`${baseline}\n`);
+  manifest.baselineSelectionSource = "reviewed-pr-baseline-file";
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-569.json";
+  manifest.reviewedManifest = { version: 1, complete: "synthetic exact reviewed scoped manifest" };
+  manifest.reviewedManifestSha256 = sha(JSON.stringify(manifest.reviewedManifest));
+  manifest.reviewedManifestFileSha256 = sha("synthetic scoped manifest file bytes");
+  assert.equal(aggregatePartitions(rows, options).status, "PASS");
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-570.json";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped matching reviewed manifest path/);
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/current.json";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped matching reviewed manifest path/);
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-569.json";
+  manifest.baselineSelectionSource = "reviewed-baseline-file";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped baseline selection source/);
+  manifest.baselineSelectionSource = "reviewed-pr-baseline-file";
+  manifest.baselineSelectionFileSha256 = sha("other immutable baseline");
+  assert.throws(() => aggregatePartitions(rows, options), /does not pin/);
+  manifest.baselineSelectionFileSha256 = sha(`${baseline}\n`);
+  manifest.reviewedManifestSha256 = sha("different reviewed contents");
+  assert.throws(() => aggregatePartitions(rows, options), /reviewed schema manifest digest/);
+  manifest.reviewedManifestSha256 = sha(JSON.stringify(manifest.reviewedManifest));
+  manifest.reviewedManifestFileSha256 = null;
+  assert.throws(() => aggregatePartitions(rows, options), /Reviewed manifest file hash/);
+  manifest.reviewedManifestFileSha256 = sha("synthetic scoped manifest file bytes");
+  rows[1]!.comparison = { ...manifest, reviewedManifestFileSha256: sha("different file on another runner") };
+  assert.throws(() => aggregatePartitions(rows, options), /cross-partition/);
+});
+
+void test("PR-scoped receipt rejects malformed scope numbers and non-reviewed schema claims", () => {
+  const rows = fixture(true);
+  const manifest = rows[0]!.comparison;
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-0569-baseline.txt";
+  assert.throws(() => aggregatePartitions(rows, options), /reviewed baseline selection path/);
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-9007199254740992-baseline.txt";
+  assert.throws(() => aggregatePartitions(rows, options), /Invalid PR-scoped baseline number/);
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-569-baseline.txt";
+  manifest.baselineSelectionSource = "reviewed-pr-baseline-file";
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-569.json";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped reviewed schema comparison mode/);
+});
+
 void test("zero-duration baselines retain raw pairs without inventing a ratio", () => {
   const rows = fixture();
   rows[0]!.baseline.metrics.samples[0]!.elapsedMs = 0;

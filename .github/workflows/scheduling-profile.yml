@@ -66,6 +66,7 @@ jobs:
         id: selection
         env:
           DEFAULT_BASELINE_SHA: ${{ github.event.pull_request.base.sha || inputs.baseline }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           MANUAL_BASELINE_SHA: ${{ inputs.baseline || '' }}
           MANUAL_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
         run: node scripts/scheduling-profile/select-comparison.mjs . >> "$GITHUB_OUTPUT"

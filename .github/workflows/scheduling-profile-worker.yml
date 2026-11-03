@@ -154,4 +154,3 @@ jobs:
           path: profile-head/outputs/scheduling-profile/
           retention-days: 7
           if-no-files-found: warn
-

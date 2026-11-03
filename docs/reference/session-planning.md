@@ -435,6 +435,22 @@ requires an exact schema manifest for that override. Manual baseline input takes
 precedence. Receipts retain the selected SHA, selection path and file hash; a
 moving branch name or an unbound schema delta is never accepted. This supports
 comparison to the original pre-integration source even when a PR is stacked.
+A single pull request can use a named control without pinning future pull
+requests. Commit a matching pair in that directory: `pr-<number>-baseline.txt`
+and `pr-<number>.json`. Only the corresponding PR selects the pair; both files
+are required. Manual selection takes precedence and the existing integration
+fallback still applies when there is no matching pair.
+
+PR #569 uses the **original-plus-roster-order** control
+(`223a1b213a7a5167187b057d08a349d30f0087ad`). Its only parent is the
+frozen original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`.
+Only the new proposal roster capture in `src/server/session-planning/index.ts`
+differs. The control has no scheduling optimizations or schema, test or
+dependency changes. Its native-schema cold measurements still use the
+roster-corrected source. Historical measurements and failed comparisons of
+the unmodified original remain separate and must not be pooled with this
+control. This choice does not change ordered audit or recovery comparisons.
+
 Artifacts retain source hashes, overlay paths, migration checksums, runtime,
 individual samples, errors and normalized output comparisons.
 
