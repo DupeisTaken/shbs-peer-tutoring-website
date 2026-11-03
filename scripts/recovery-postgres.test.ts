@@ -22,6 +22,7 @@ import {
 } from "../src/server/database-url";
 import {
   databaseIdentity,
+  planHash,
   postgresClientUrl,
 } from "../src/server/recovery/operator-plan";
 import {
@@ -29,6 +30,7 @@ import {
   executeRecoveryTool,
   stageSitePlan,
   withSealedSiteTarget,
+  type OperatorSql,
   type SiteDependencies,
 } from "../src/server/recovery/operator-site";
 import {
@@ -43,6 +45,7 @@ import {
   createIsolatedCutoverPlan,
   createIsolatedRollbackPlan,
   createSiteAcceptancePlan,
+  setIsolatedAcceptancePassword,
 } from "../src/server/recovery/operator-cutover";
 import { hashPassword } from "../src/server/auth/password";
 import {
@@ -1066,6 +1069,99 @@ void test(
       },
     );
     assert.deepEqual(await rowFingerprints(app), sourceBeforeReconciliation);
+    const beforeAcceptanceMail = await withSealedSiteTarget(
+      plan,
+      stagingAdminUrl,
+      dependencies,
+      async (target) => {
+        const mail = async () =>
+          (
+            await target.query(
+              'SELECT to_jsonb(d) AS row FROM public."EmailDelivery" d ORDER BY id',
+            )
+          ).rows.map((entry) => entry.row as Record<string, unknown>);
+        const userFingerprint = async () =>
+          planHash(
+            (
+              await target.query(
+                "SELECT to_jsonb(u) AS row FROM public.\"User\" u WHERE id='independent'",
+              )
+            ).rows,
+          );
+        const before = await mail();
+        const beforeHash = planHash(before);
+        const beforeUser = await userFingerprint();
+        const oldIds = new Set(before.map((row) => String(row.id)));
+        await target.query("BEGIN");
+        try {
+          assert.equal(
+            (
+              await setIsolatedAcceptancePassword(
+                target,
+                "independent",
+                "Synthetic-credential-notice-trial-493!",
+              )
+            ).noticesQuarantined,
+            1,
+          );
+          const after = await mail();
+          assert.equal(
+            planHash(after.filter((row) => oldIds.has(String(row.id)))),
+            beforeHash,
+            "Exact credential containment must preserve every preexisting delivery field.",
+          );
+          const created = after.filter((row) => !oldIds.has(String(row.id)));
+          assert.equal(created.length, 1);
+          assert.equal(created[0]?.status, "CANCELLED_RECOVERY");
+          assert.equal(
+            (
+              await target.query(
+                `SELECT count(*)::text AS count FROM public."EmailDelivery" WHERE NOT(id=ANY($1::text[]))
+              AND "userId"='independent' AND category='security' AND event='security_changed'
+              AND context IS NOT DISTINCT FROM public.notification_email_context('security_changed',
+                jsonb_build_object('changedFields',ARRAY['password']::text[]))`,
+                [[...oldIds]],
+              )
+            ).rows[0]?.count,
+            "1",
+          );
+        } finally {
+          await target.query("ROLLBACK");
+        }
+        assert.equal(planHash(await mail()), beforeHash);
+        assert.equal(await userFingerprint(), beforeUser);
+        // Inject a failure only after the real password UPDATE and its actual
+        // PostgreSQL notification trigger have both executed. Caller rollback
+        // must undo password/generation changes and newly queued mail together.
+        const failAfterPassword: OperatorSql = {
+          async query(sql, values) {
+            const result = await target.query(sql, values);
+            if (sql.startsWith('UPDATE public."User" SET "passwordHash"='))
+              throw new Error("SYNTHETIC_AFTER_CREDENTIAL_WRITE_FAILURE");
+            return result;
+          },
+          async close() {
+            throw new Error("Trial must not close the owned target");
+          },
+        };
+        await target.query("BEGIN");
+        try {
+          await assert.rejects(
+            setIsolatedAcceptancePassword(
+              failAfterPassword,
+              "independent",
+              "Synthetic-credential-failure-trial-493!",
+            ),
+            /SYNTHETIC_AFTER_CREDENTIAL_WRITE_FAILURE/,
+          );
+        } finally {
+          await target.query("ROLLBACK");
+        }
+        assert.equal(planHash(await mail()), beforeHash);
+        assert.equal(await userFingerprint(), beforeUser);
+        return before;
+      },
+    );
     const applicationUrl = new URL(stagingAdminUrl);
     applicationUrl.pathname = `/${targetName}`;
     applicationUrl.username = stageApplicationRole;
@@ -1097,6 +1193,28 @@ void test(
       dependencies,
     );
     assert.equal(acceptanceReceipt.state, "ACCEPTED_ISOLATED_READ_ONLY_SEALED");
+    await withSealedSiteTarget(
+      plan,
+      stagingAdminUrl,
+      dependencies,
+      async (target) => {
+        const after = (
+          await target.query(
+            'SELECT to_jsonb(d) AS row FROM public."EmailDelivery" d ORDER BY id',
+          )
+        ).rows.map((entry) => entry.row as Record<string, unknown>);
+        const oldIds = new Set(
+          beforeAcceptanceMail.map((row) => String(row.id)),
+        );
+        assert.equal(
+          planHash(after.filter((row) => oldIds.has(String(row.id)))),
+          planHash(beforeAcceptanceMail),
+        );
+        const created = after.filter((row) => !oldIds.has(String(row.id)));
+        assert.equal(created.length, 1);
+        assert.equal(created[0]?.status, "CANCELLED_RECOVERY");
+      },
+    );
     assert.ok(checkpointAuthSecret !== signing.previousAuthSecret);
     assert.ok(
       acceptanceReceipt.checks.includes("OLD_CHECKPOINT_SIGNING_KEY_REJECTED"),
@@ -1316,6 +1434,16 @@ void test(
       rollbackApplicationUrl.toString(),
     );
     try {
+      assert.equal(
+        (
+          await rolledBack.query(
+            `SELECT count(*)::text AS count FROM public."EmailDelivery" WHERE "userId"='independent'
+          AND category='security' AND event='security_changed' AND status IN ('PENDING','SENDING')`,
+          )
+        ).rows[0]?.count,
+        "0",
+        "Rollback's fresh credential notices must remain quarantined.",
+      );
       assert.equal(
         (
           await rolledBack.query(

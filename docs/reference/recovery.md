@@ -334,6 +334,14 @@ check succeeds. The [Next clone harness](../../src/server/recovery/operator-next
 copies the sealed idle target into a random disposable database and starts the
 trusted standalone build with an ordinary writable role, rotated signing secret
 and allowlisted environment. SMTP points only to an owned loopback rejection sink.
+Fresh acceptance and rollback password writes run inside the sealed transaction.
+Their essential security-email trigger still records its notices. The operator
+compares delivery identities immediately before/after that exact write, verifies
+the owning verified-recipient predicate, safe-context renderer, expected count
+and never-admitted state, then quarantines only those exact new delivery rows.
+Every other field and every preexisting delivery remain intact; uncertain
+attribution aborts the transaction. These notices remain in the clone's complete
+baseline inventory rather than being excluded from the worker preservation check.
 The build manifest must match an independently supplied checkout SHA
 (`GITHUB_SHA` in the hosted job or `RECOVERY_REHEARSAL_CHECKOUT_SHA` locally), build
 ID and server hash. Successful fresh login determines the real cookie/salt; a
@@ -349,6 +357,12 @@ server-owned history and credential epoch boundary. The Auth.js callback refresh
 history revision, so this is not evidence of isolated stale-history JWT denial.
 The notification worker has a new synthetic due
 control while every restored queue row must remain unchanged for 65 seconds.
+On mismatch, sanitized per-table counts distinguish startup, authentication/probe
+and worker-observation windows without claiming which concurrent task caused a
+change. Diagnostics expose only reviewed operational field names; other columns
+share a fixed placeholder, and no row identity or value is logged. The original
+pre-launch full-row comparison remains authoritative, excluding only the exact
+new synthetic worker-control delivery.
 This proves notification delivery liveness and restored queue preservation;
 it does not independently prove liveness of every other worker. The clone and
 role are removed, and the original target remains sealed and unchanged.

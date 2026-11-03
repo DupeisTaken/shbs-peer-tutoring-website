@@ -77,6 +77,131 @@ export async function connectSourceMaintenance(
   }
 }
 
+/** Caller owns the sealed, quiescent transaction. The password trigger's new
+ * essential mail is retained but cannot become SMTP work in this rehearsal. */
+export async function setIsolatedAcceptancePassword(
+  db: OperatorSql,
+  userId: string,
+  password: string,
+) {
+  const existing = await db.query(
+    'SELECT id FROM public."EmailDelivery" ORDER BY id LIMIT 10001',
+  );
+  operatorAssert(
+    existing.rows.length <= 10000,
+    "ACCEPTANCE_MAIL_INVENTORY_TOO_LARGE",
+  );
+  const existingIds = existing.rows.map((row) => {
+    operatorAssert(
+      typeof row.id === "string",
+      "ACCEPTANCE_MAIL_IDENTITY_INVALID",
+    );
+    return row.id;
+  });
+  // Match queue_account_email's current verified-recipient predicate and its
+  // owning safe-context renderer, rather than guessing localized JSON details.
+  const recipients = await db.query(
+    `
+    SELECT e.email,public.notification_email_context('security_changed',
+      jsonb_build_object('changedFields',ARRAY['password']::text[])) AS context
+    FROM public."AccountEmail" e JOIN public."User" u ON u.id=e."userId"
+    WHERE u.id=$1 AND u."mergedIntoId" IS NULL AND e."verifiedAt" IS NOT NULL
+      AND (e.email=u.email OR u."emailSecondaryRecipients")
+    ORDER BY e.email LIMIT 10001`,
+    [userId],
+  );
+  operatorAssert(
+    existingIds.length + recipients.rows.length <= 10000,
+    "ACCEPTANCE_MAIL_INVENTORY_TOO_LARGE",
+  );
+  const expected = new Map<string, unknown>();
+  for (const row of recipients.rows) {
+    operatorAssert(
+      typeof row.email === "string" && !expected.has(row.email),
+      "ACCEPTANCE_MAIL_RECIPIENT_INVALID",
+    );
+    expected.set(row.email, row.context);
+  }
+  const changed = await db.query(
+    'UPDATE public."User" SET "passwordHash"=$1,"mustChangePassword"=false WHERE id=$2 AND "mergedIntoId" IS NULL AND "recoveryVoidedAt" IS NULL AND "suspendedAt" IS NULL RETURNING id',
+    [hashPassword(password), userId],
+  );
+  operatorAssert(
+    changed.rows.length === 1 && changed.rows[0]?.id === userId,
+    "ACCEPTANCE_PASSWORD_ACCOUNT_CHANGED",
+  );
+  const created = await db.query(
+    'SELECT to_jsonb(d) AS row FROM public."EmailDelivery" d WHERE NOT(id=ANY($1::text[])) ORDER BY id LIMIT 10001',
+    [existingIds],
+  );
+  operatorAssert(
+    created.rows.length === expected.size,
+    "ACCEPTANCE_PASSWORD_MAIL_NOT_ATTRIBUTABLE",
+  );
+  const notices = new Map<string, Record<string, unknown>>();
+  const seenRecipients = new Set<string>();
+  for (const entry of created.rows) {
+    const row = entry.row as Record<string, unknown> | null;
+    operatorAssert(
+      row !== null &&
+        typeof row === "object" &&
+        !Array.isArray(row) &&
+        typeof row.id === "string" &&
+        !notices.has(row.id) &&
+        row.userId === userId &&
+        row.category === "security" &&
+        row.event === "security_changed" &&
+        typeof row.recipient === "string" &&
+        expected.has(row.recipient) &&
+        !seenRecipients.has(row.recipient) &&
+        row.status === "PENDING" &&
+        row.attempts === 0 &&
+        row.attemptId === null &&
+        row.attemptStartedAt === null &&
+        row.leaseUntil === null &&
+        row.completedAt === null &&
+        row.previousPrimary === false &&
+        row.preferenceTopic === null &&
+        row.destination === null &&
+        row.sourceNotificationId === null &&
+        row.requestKind === null &&
+        row.monthlyHoursReportId === null &&
+        row.schoolHoursReportId === null &&
+        planHash({ context: row.context }) ===
+          planHash({ context: expected.get(row.recipient) }),
+      "ACCEPTANCE_PASSWORD_MAIL_NOT_ATTRIBUTABLE",
+    );
+    notices.set(row.id, row);
+    seenRecipients.add(row.recipient);
+  }
+  if (notices.size > 0) {
+    const quarantined = await db.query(
+      'UPDATE public."EmailDelivery" d SET status=\'CANCELLED_RECOVERY\' WHERE id=ANY($1::text[]) AND status=\'PENDING\' AND attempts=0 AND "attemptId" IS NULL AND "attemptStartedAt" IS NULL AND "leaseUntil" IS NULL RETURNING to_jsonb(d) AS row',
+      [[...notices.keys()]],
+    );
+    operatorAssert(
+      quarantined.rows.length === notices.size,
+      "ACCEPTANCE_PASSWORD_MAIL_QUARANTINE_FAILED",
+    );
+    const verified = new Set<string>();
+    for (const entry of quarantined.rows) {
+      const row = entry.row as Record<string, unknown> | null;
+      operatorAssert(
+        row !== null &&
+          typeof row === "object" &&
+          typeof row.id === "string" &&
+          notices.has(row.id) &&
+          !verified.has(row.id) &&
+          planHash(row) ===
+            planHash({ ...notices.get(row.id), status: "CANCELLED_RECOVERY" }),
+        "ACCEPTANCE_PASSWORD_MAIL_QUARANTINE_FAILED",
+      );
+      verified.add(row.id);
+    }
+  }
+  return { noticesQuarantined: notices.size };
+}
+
 /** Database connection fences must be changed from the maintenance database. */
 export async function withReadOnlyAcceptanceApplication<T>(
   maintenance: OperatorSql,
@@ -712,9 +837,10 @@ export async function applySiteAcceptance(
         if (!resumed) {
           await target.query("BEGIN");
           try {
-            await target.query(
-              'UPDATE public."User" SET "passwordHash"=$1,"mustChangePassword"=false WHERE id=$2 AND "mergedIntoId" IS NULL AND "recoveryVoidedAt" IS NULL AND "suspendedAt" IS NULL',
-              [hashPassword(input.freshPassword), plan.acceptanceUserId],
+            await setIsolatedAcceptancePassword(
+              target,
+              plan.acceptanceUserId,
+              input.freshPassword,
             );
             await saveDatabaseMarker(target, plan.application.database, {
               kind: "site-acceptance-pending",
@@ -1762,9 +1888,10 @@ export async function applyIsolatedRollback(
           acceptanceAccountAllowed(await acceptanceAccount(rollback, userId)),
           "ROLLBACK_ACCEPTANCE_ACCOUNT_NOT_AUTHORIZED",
         );
-        await rollback.query(
-          'UPDATE public."User" SET "passwordHash"=$1,"mustChangePassword"=false WHERE id=$2',
-          [hashPassword(input.freshPassword), userId],
+        await setIsolatedAcceptancePassword(
+          rollback,
+          userId,
+          input.freshPassword,
         );
         await rollback.query(
           `ALTER ROLE ${quote(reconcile.stagePlan.source.user)} NOLOGIN`,

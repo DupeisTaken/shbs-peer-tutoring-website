@@ -6,6 +6,7 @@ import {
 import { databaseIdentity } from "./operator-plan";
 import {
   connectSourceMaintenance,
+  setIsolatedAcceptancePassword,
   withReadOnlyAcceptanceApplication,
 } from "./operator-cutover";
 import type { OperatorSql } from "./operator-site";
@@ -27,6 +28,112 @@ describe("isolated operator cutover endpoint gate", () => {
       expect(() =>
         assertIsolatedRehearsalIdentity(databaseIdentity(url)),
       ).toThrow("CUTOVER_REQUIRES_ISOLATED_TEST_DATABASE");
+  });
+});
+
+describe("exact synthetic credential notice containment", () => {
+  it.each([
+    "valid",
+    "wrong-context",
+    "wrong-recipient",
+    "admitted",
+    "extra-notice",
+  ])("quarantines only positively attributed new mail: %s", async (mode) => {
+    const context = {
+      emailDetail: { en: "Password changed", zh: "密码已更改" },
+    };
+    const created: Record<string, unknown> = {
+      id: "new-password-notice",
+      userId: "actor",
+      category: "security",
+      event: "security_changed",
+      recipient: "actor@example.test",
+      context,
+      status: "PENDING",
+      attempts: 0,
+      attemptId: null,
+      attemptStartedAt: null,
+      leaseUntil: null,
+      completedAt: null,
+      previousPrimary: false,
+      preferenceTopic: null,
+      destination: null,
+      sourceNotificationId: null,
+      requestKind: null,
+      monthlyHoursReportId: null,
+      schoolHoursReportId: null,
+      createdAt: "2026-11-03T00:00:00",
+      availableAt: "2026-11-03T00:00:00",
+    };
+    if (mode === "wrong-context")
+      created.context = { changedFields: ["password"] };
+    if (mode === "wrong-recipient")
+      created.recipient = "unattributed@example.test";
+    if (mode === "admitted") created.attemptStartedAt = "2026-11-03T00:00:01";
+    let quarantinedIds: unknown;
+    const db: OperatorSql = {
+      async query(sql, values) {
+        if (
+          sql ===
+          'SELECT id FROM public."EmailDelivery" ORDER BY id LIMIT 10001'
+        )
+          return { rows: [{ id: "restored-security-notice" }] };
+        if (sql.includes('FROM public."AccountEmail"')) {
+          expect(values).toEqual(["actor"]);
+          expect(sql).toContain(
+            "notification_email_context('security_changed'",
+          );
+          return { rows: [{ email: "actor@example.test", context }] };
+        }
+        if (sql.startsWith('UPDATE public."User"')) {
+          expect(values?.[1]).toBe("actor");
+          return { rows: [{ id: "actor" }] };
+        }
+        if (sql.startsWith("SELECT to_jsonb(d) AS row")) {
+          expect(values).toEqual([["restored-security-notice"]]);
+          return {
+            rows:
+              mode === "extra-notice"
+                ? [
+                    { row: created },
+                    { row: { ...created, id: "other-notice" } },
+                  ]
+                : [{ row: created }],
+          };
+        }
+        if (sql.startsWith('UPDATE public."EmailDelivery" d')) {
+          quarantinedIds = values?.[0];
+          return {
+            rows: [{ row: { ...created, status: "CANCELLED_RECOVERY" } }],
+          };
+        }
+        throw new Error("Unexpected credential containment SQL");
+      },
+      async close() {
+        throw new Error(
+          "Credential helper must not close its borrowed transaction",
+        );
+      },
+    };
+    if (mode === "valid") {
+      expect(
+        await setIsolatedAcceptancePassword(
+          db,
+          "actor",
+          "Synthetic-password-trial-493!",
+        ),
+      ).toEqual({ noticesQuarantined: 1 });
+      expect(quarantinedIds).toEqual(["new-password-notice"]);
+    } else {
+      await expect(
+        setIsolatedAcceptancePassword(
+          db,
+          "actor",
+          "Synthetic-password-trial-493!",
+        ),
+      ).rejects.toThrow("ACCEPTANCE_PASSWORD_MAIL_NOT_ATTRIBUTABLE");
+      expect(quarantinedIds).toBeUndefined();
+    }
   });
 });
 

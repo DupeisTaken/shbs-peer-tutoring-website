@@ -110,16 +110,111 @@ async function availablePort() {
   );
   return port;
 }
-async function queueState(db: OperatorSql, excludedDeliveryId?: string) {
-  const result: Record<string, unknown>[] = [];
-  for (const table of [
-    "EmailDelivery",
-    "SessionNotice",
-    "StudentSignupNotice",
-    "ScheduledProgramRefresh",
-    "MonthlyHoursSchedule",
-    "SchoolHoursSchedule",
-  ]) {
+const QUEUE_TABLES = [
+  "EmailDelivery",
+  "SessionNotice",
+  "StudentSignupNotice",
+  "ScheduledProgramRefresh",
+  "MonthlyHoursSchedule",
+  "SchoolHoursSchedule",
+] as const;
+type QueueTable = (typeof QUEUE_TABLES)[number];
+const QUEUE_DIAGNOSTIC_FIELDS = new Set([
+  "status",
+  "state",
+  "attempts",
+  "attemptId",
+  "attemptStartedAt",
+  "leaseUntil",
+  "availableAt",
+  "completedAt",
+  "createdAt",
+  "updatedAt",
+  "sentAt",
+  "lastAttemptAt",
+  "lastError",
+  "version",
+  "enabled",
+  "nextDueAt",
+  "nextMonth",
+  "lastGenerationError",
+  "blockedReason",
+  "executedAt",
+]);
+export type NextQueueSnapshot = {
+  table: QueueTable;
+  rows: Record<string, unknown>[];
+}[];
+
+/** Row identities stay internal; diagnostics expose counts and column names only. */
+export function nextQueueDifferences(
+  before: NextQueueSnapshot,
+  after: NextQueueSnapshot,
+) {
+  const tableRows = (snapshot: NextQueueSnapshot, table: QueueTable) => {
+    const entries = snapshot.filter((entry) => entry.table === table);
+    operatorAssert(
+      entries.length === 1,
+      "NEXT_ACCEPTANCE_QUEUE_SNAPSHOT_INVALID",
+    );
+    const rows = new Map<string, Record<string, unknown>>();
+    for (const row of entries[0]!.rows) {
+      operatorAssert(
+        typeof row.id === "string" && !rows.has(row.id),
+        "NEXT_ACCEPTANCE_QUEUE_IDENTITY_INVALID",
+      );
+      rows.set(row.id, row);
+    }
+    return rows;
+  };
+  return QUEUE_TABLES.map((table) => {
+    const old = tableRows(before, table);
+    const current = tableRows(after, table);
+    let added = 0,
+      removed = 0,
+      changed = 0;
+    const changedFields = new Set<string>();
+    for (const id of old.keys()) if (!current.has(id)) removed++;
+    for (const [id, row] of current) {
+      const previous = old.get(id);
+      if (!previous) {
+        added++;
+        continue;
+      }
+      if (planHash(previous) === planHash(row)) continue;
+      changed++;
+      for (const field of new Set([
+        ...Object.keys(previous),
+        ...Object.keys(row),
+      ])) {
+        const value = (record: Record<string, unknown>) =>
+          Object.hasOwn(record, field)
+            ? { value: record[field] }
+            : { absent: true };
+        if (planHash(value(previous)) !== planHash(value(row)))
+          changedFields.add(
+            QUEUE_DIAGNOSTIC_FIELDS.has(field) ? field : "[other column]",
+          );
+      }
+    }
+    return {
+      table,
+      before: old.size,
+      after: current.size,
+      added,
+      removed,
+      changed,
+      changedFields: [...changedFields].sort(),
+    };
+  });
+}
+
+async function queueState(
+  db: OperatorSql,
+  excludedDeliveryId?: string,
+): Promise<NextQueueSnapshot> {
+  const result: NextQueueSnapshot = [];
+  for (const table of QUEUE_TABLES) {
     const rows = await db.query(
       `SELECT to_jsonb(t) AS row FROM public.${quote(table)} t ${table === "EmailDelivery" && excludedDeliveryId ? "WHERE id<>$1" : ""} ORDER BY to_jsonb(t)::text LIMIT 10001`,
       table === "EmailDelivery" && excludedDeliveryId
@@ -130,7 +225,18 @@ async function queueState(db: OperatorSql, excludedDeliveryId?: string) {
       rows.rows.length <= 10000,
       "NEXT_ACCEPTANCE_QUEUE_TOO_LARGE",
     );
-    result.push({ table, rows: rows.rows.map((row) => row.row) });
+    result.push({
+      table,
+      rows: rows.rows.map((row) => {
+        operatorAssert(
+          row.row !== null &&
+            typeof row.row === "object" &&
+            !Array.isArray(row.row),
+          "NEXT_ACCEPTANCE_QUEUE_SNAPSHOT_INVALID",
+        );
+        return row.row as Record<string, unknown>;
+      }),
+    });
   }
   return result;
 }
@@ -682,6 +788,8 @@ export async function runIsolatedNextClone(
       await delay(250);
     }
     operatorAssert(ready, "NEXT_ACCEPTANCE_SERVER_START_FAILED");
+    const afterStartup =
+      request.mode === "after-recovery" ? await queueState(clone) : undefined;
     const login = await signin(origin, {
       identifier: request.identifier,
       password: request.password,
@@ -833,6 +941,8 @@ export async function runIsolatedNextClone(
       "NEXT_RENEWED_HISTORY_READ_FAILED",
     );
     checks.push("NEXT_COMBINED_HISTORY_AND_SESSION_EPOCH_PROTECTED_READ");
+    const afterProbes =
+      request.mode === "after-recovery" ? await queueState(clone) : undefined;
     const controlId = `next-control-${suffix}`;
     if (request.mode === "after-recovery")
       await clone.query(
@@ -854,6 +964,31 @@ export async function runIsolatedNextClone(
       request.mode === "after-recovery" ? controlId : undefined,
     );
     if (request.mode === "after-recovery") {
+      if (planHash(before) !== planHash(after)) {
+        // These are observation windows, not claims about which concurrent
+        // worker or request caused a change. Keep the pre-launch baseline and
+        // complete inventory assertion authoritative; never log row values/IDs.
+        console.error(
+          JSON.stringify({
+            kind: "recovery-next-queue-difference",
+            windows: [
+              {
+                phase: "SERVER_STARTUP",
+                tables: nextQueueDifferences(before, afterStartup!),
+              },
+              {
+                phase: "AUTHENTICATION_AND_CAPABILITY_PROBES",
+                tables: nextQueueDifferences(afterStartup!, afterProbes!),
+              },
+              {
+                phase: "WORKER_OBSERVATION",
+                tables: nextQueueDifferences(afterProbes!, after),
+              },
+              { phase: "OVERALL", tables: nextQueueDifferences(before, after) },
+            ],
+          }),
+        );
+      }
       operatorAssert(
         planHash(before) === planHash(after),
         "NEXT_RESTORED_WORK_WAS_REPLAYED",
