@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { CiShardSequencer } from "./scripts/ci-shard-sequencer";
 
 export default defineConfig({
   // Keep runner caches local when sibling worktrees share read-only dependencies.
@@ -16,5 +17,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     // Integration tests touch a real database serially; keep them in one process.
     fileParallelism: false,
+    // The sequencer changes only --shard assignment and inherits Vitest's sorting.
+    sequence: { sequencer: CiShardSequencer },
   },
 });

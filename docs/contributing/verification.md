@@ -40,9 +40,10 @@ slots, leaving four for PR sizing, main-branch work and other account activity.
 This is a planning budget, not an account-wide reservation: unrelated workflows
 and older PR revisions can still consume capacity.
 
-- Keep the number of active chats/agent workers low. Add another only when needed
-  for independent work with clear ownership; do not fill every available worker
-  slot by default. Serialize local builds, tests and browser verification.
+- Use subagents extensively for independent investigation, implementation and
+  review. Give each agent a distinct scope and acceptance criteria. The lead
+  reviews and integrates their work, runs heavy checks serially, and coordinates
+  the push that triggers hosted CI.
 - Inspect queued and running workflows before opening another PR, pushing an
   update or requesting a rerun. When capacity is occupied, continue useful local
   work and defer another CI-producing stream. Keep at most four such runs active.
@@ -55,7 +56,7 @@ and older PR revisions can still consume capacity.
 
 The [workflow](../../.github/workflows/docker-build.yml) starts `checks`, `image`
 and `image-storage` independently. Tests wait for successful `checks` and
-`image-storage`, then run **16 shards with `max-parallel: 3`**. The image job may
+`image-storage`, then run **nine shards with `max-parallel: 3`**. The image job may
 still be running, so the peak is four jobs. This staging avoids paying test setup
 costs after a failed prerequisite and bounds capacity even for packaging changes.
 It trades single-PR latency for predictable throughput across concurrent PRs.
@@ -64,9 +65,9 @@ The matrix cap belongs to each run; it cannot guarantee GitHub queue fairness.
 Each job has a nine-minute whole-job timeout; the short `verify` gate uses two
 minutes. Target no more than **95% of the timeout (513 seconds for a nine-minute
 job)** when sizing work, including setup, imports, tests, reporting and cleanup.
-Use the smallest shard count meeting that target with measured timing variation;
-do not pad short jobs or lengthen timeouts to manufacture utilization. The
-remaining 27 seconds is small, so remeasure after slow-fixture or dependency changes.
+Choose the smallest shard count whose slowest projected job fits that target
+under the selected grouping and timing allowance. Remeasure after fixture or
+dependency changes because the target leaves 27 seconds of margin.
 Runner queue time is additional to this execution budget.
 
 Each shard owns its `shbs_shipping_test` PostgreSQL service and keeps files serial
@@ -85,47 +86,59 @@ diagnostics and timing evidence; inspect both before claiming a warning-free run
 
 ### Shard sizing and timing evidence
 
-The November 3, 2026 sizing uses successful runs
-[41562105114](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41562105114),
+CI assigns the longest expected files first, placing each on the shard with the
+least assigned work. For ties, the sequencer uses the file path and then the
+lowest shard index. File discovery comes from Vitest. Each discovered path gets
+a weight, including new and renamed files. Sharding uses the same grouping
+locally and on hosted runners. [Shard sequencer](../../scripts/ci-shard-sequencer.ts).
+
+The [timing file](../../scripts/ci-shard-timings.json) stores durations in whole
+milliseconds under repository-relative paths with forward slashes. Each duration
+is the largest JSON reporter `endTime - startTime` for the file across the source
+runs, rounded up. An unseen path gets 11 seconds until a successful run measures it.
+That estimate rounds up the observed 90th percentile of 10.36 seconds. For grouping,
+allow 20% on file execution time and add 1.2 seconds per file for imports and
+runner overhead. For whole-job projections, add another 68 seconds per shard for
+setup, reporting and cleanup. These overheads round up the largest observed residuals.
+
+The November 3, 2026 timing set covers all 622 files at revision `c113b8ef`.
+The three source PRs ran 30 shards and used 4,028–4,269 test runner-seconds each.
+Container initialization, installation, migrations and schema checks accounted
+for 1,213–1,219 runner-seconds per matrix.
+[Source run 41562105114](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41562105114),
 [41560062381](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41560062381)
 and [41559699239](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41559699239).
-All 622 files at source revision `c113b8ef` have timing evidence in those reports;
-files unique to the source PRs are excluded. The observed 30-shard test jobs used
-4,028–4,269 runner-seconds per run. Container startup, dependency installation,
-migrations and schema checks alone consumed 1,213–1,219 seconds across each matrix.
-These successful workflows took 12–16 minutes from creation to completion while
-sharing runners; job execution time alone does not explain that latency.
 
-For each current file, take its largest JSON `endTime - startTime` across the
-three runs. Replay Vitest's SHA-1 ordering of slash-prefixed repository-relative
-paths and its even contiguous partitions (remainder files go to the first shards).
-Add 1.2 seconds per file for imports/runner overhead and 68 seconds per shard for
-setup, reporting and cleanup, rounded up from the largest observed residuals.
-Increase file execution times by 20% for the sensitivity case; this is an explicit
-planning allowance, not a confidence interval or a guarantee against cold installs.
+| File grouping | Shards | Projected slowest whole job | With 20% slower file execution | Projected test runner-seconds |
+| --- | ---: | ---: | ---: | ---: |
+| Default Vitest path order | 15 | 493 s | 568 s | 4,179 |
+| Default Vitest path order | 16 | 428 s | 491 s | 4,247 |
+| Default Vitest path order | 30 | 373 s | 429 s | 5,199 |
+| Duration-balanced | 8 | 464 s | 524 s | 3,703 |
+| **Duration-balanced** | **9** | **420 s** | **473 s** | **3,771** |
 
-| Shards | Projected slowest whole job | With 20% slower file execution | Projected test runner-seconds |
-| --- | ---: | ---: | ---: |
-| 14 | 538 s | 621 s | 4,111 |
-| 15 | 493 s | 568 s | 4,179 |
-| **16** | **428 s** | **491 s** | **4,247** |
-| 17 | 455 s | 523 s | 4,315 |
-| 30 | 373 s | 429 s | 5,199 |
+Nine balanced shards cut seven setup jobs and about 476 projected runner-seconds
+from the 16-shard plan. Nine also fits in three waves of three, for a projected
+21 minutes from first shard start to last shard completion with immediate runner
+availability. Prerequisite and queue times add to workflow elapsed time. The
+20% allowance puts nine below the 513-second sizing target and eight above it.
 
-Counts 1–15 do not meet the 513-second sensitivity target. Sixteen removes 14
-repeated setup jobs (47%) and about 952 modeled runner-seconds (18%) versus thirty.
-Hash partitions are not monotonic: adding a shard can regroup slow files.
-With three slots and numeric shard launch order, the model projects about 26
-minutes for the test phase versus 30 minutes for thirty shards under the same cap,
-plus prerequisite and queue time. This is a capacity compromise for four concurrent
-PRs, not a claim that one isolated PR completes faster than thirty unconstrained
-runners. Actual GitHub launch order and cache behavior can differ.
+Sixteen was the smallest count under that target with the default Vitest path
+ordering. Its hosted run passed the required `verify` gate on revision `46e75aa9`
+in 25m 32s including queue time. The test phase took 19m 01s, and individual
+shards took 130–323 seconds including setup. This workflow peaked at three
+simultaneous jobs. The four-job ceiling follows from the dependency graph and
+matrix cap. [Hosted 16-shard run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41565256314).
 
-These are projections from different PR revisions, not hosted validation of this
-configuration. Inspect every job at the new head, record queue-inclusive latency,
-cache hit/miss setup costs and peak account usage, and remeasure before increasing
-parallelism. Preserve coverage, timeouts, failure reporting and database isolation;
-optimize measured slow fixtures or repeated setup before adding more worker slots.
+As a separate check, keep the new balanced assignments fixed and include this
+fourth run when taking each file's maximum measured time. With the 20% allowance,
+the slowest projected job takes 481 seconds on nine shards and 533 on eight.
+
+When fixtures or dependencies change, collect file durations from recent
+successful shard reports and refresh the timing file. Use the current test
+inventory, preserve the unknown-file fallback, and run `npm run test:ci` to
+verify exact coverage. Compare the projected and hosted whole-job maxima,
+shard balance, setup and queue times before changing the matrix size or cap.
 
 For a dependency-audit failure, inspect the reported advisory and dependency path,
 then update the affected lockfile entries within the supported version range.

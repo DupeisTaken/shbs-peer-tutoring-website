@@ -36,10 +36,9 @@ source revision the task owns; preserve unrelated changes and running previews.
   resetting the same fixtures. Do not run `check`/build concurrently with dev in
   the same checkout: they share generated Next output. `SHBS_BUILD_CPUS=1` limits
   local build workers; `--maxWorkers=1` bounds Vitest workers.
-- **Shared CI capacity:** local agent/chat workers, hosted runner jobs and Vitest
-  workers are separate limits. Do not spawn more parallel chats unless necessary.
-  Coordinate CI-producing work using the [capacity and queue rules](verification.md#ci-capacity-and-queue-discipline);
-  an idle local machine does not imply free hosted runners.
+- **Parallel local work.** Assign independent investigations, edits and reviews
+  to subagents. The lead schedules heavy checks one at a time and coordinates
+  pushes under the [CI capacity budget](verification.md#ci-capacity-and-queue-discipline).
 - **Cleanup and handoff:** record the processes, ports and temporary databases you
   start. Stop only those owned resources after verification, or document an explicit
   handoff for a retained preview. Never stop Codex/ChatGPT or unrelated browser/Node
@@ -337,14 +336,12 @@ npm test            # one-shot
 npm run test:watch  # watch mode
 ```
 
-CI divides the complete suite across eight independent runners, with a nine-minute
-limit per whole job including setup. To reproduce one partition locally after
-configuring the isolated database below, run
-`npm test -- --shard=1/8 --maxWorkers=1` (replace `1` with `2` through `8`). Run
-these partitions serially on a shared local database; the CI matrix's separate
-PostgreSQL services are what make parallel execution safe. `npm test` continues
-to run the complete suite. See [CI checks and timing evidence](verification.md#required-checks)
-for the sizing baseline and hosted verification requirements.
+CI splits the complete suite into nine shards and runs up to three at a time per
+workflow. To reproduce a shard after configuring the isolated database below,
+run `npm test -- --shard=1/9 --maxWorkers=1`, replacing `1` with its shard
+number (1–9). Run shards serially when they share a local database. Each hosted
+shard has its own PostgreSQL service. For the complete local suite, run `npm test`.
+See the [CI capacity budget](verification.md#ci-capacity-and-queue-discipline).
 
 Application tests live under `src/**/*.test.{ts,tsx}`:
 

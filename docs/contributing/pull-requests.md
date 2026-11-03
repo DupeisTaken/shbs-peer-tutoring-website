@@ -5,9 +5,10 @@ with the concrete problem and resulting behavior; list the checks, source revisi
 and any unverified scope. Close delivered issues through the PR, while leaving
 broader trackers open until their full scope is complete.
 
-Before pushing or rerunning CI, follow the [shared capacity budget](verification.md#ci-capacity-and-queue-discipline).
-Batch locally verified changes into one push and coordinate up to four active PR
-runs; adding more parallel chats must not create a burst of redundant runs.
+For delegated work, the lead integrates the changes, verifies them locally and
+batches them into one push. Check queued and active runs before opening a PR,
+pushing or requesting a rerun. Coordinate up to four active PR runs under the
+[shared capacity budget](verification.md#ci-capacity-and-queue-discipline).
 
 ## Pull request size labels
 
