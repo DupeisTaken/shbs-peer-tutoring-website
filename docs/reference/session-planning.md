@@ -266,6 +266,10 @@ whose rejection is spent may request a separate reschedule. This immediately
 freezes the group request and its timers. The tutor formalizes individual child
 requests; the recurring pairing group remains intact. Exact mutual agreement may
 carry forward only after the individual conflict checks pass.
+New proposals capture their scheduled audience in stable participant-ID order,
+so an unordered database relation cannot change later split-child, recipient,
+audit or recovery write order. Existing requests retain their captured audience
+order; reading or splitting an older request does not rewrite that evidence.
 
 Every response clock begins at essential-mail SMTP acceptance, not creation or
 queueing. A resend never restarts it. Twenty-four hours of silence accepts only
@@ -448,6 +452,24 @@ requires an exact schema manifest for that override. Manual baseline input takes
 precedence. Receipts retain the selected SHA, selection path and file hash; a
 moving branch name or an unbound schema delta is never accepted. This supports
 comparison to the original pre-integration source even when a PR is stacked.
+A single pull request can use a named control without pinning future pull
+requests. Commit a matching pair in that directory: `pr-<number>-baseline.txt`
+and `pr-<number>.json`. Only the corresponding PR selects the pair; both files
+are required. Manual selection takes precedence and the existing integration
+fallback still applies when there is no matching pair.
+
+PR #569 uses the **original-plus-roster-order** control
+(`223a1b213a7a5167187b057d08a349d30f0087ad`). Its only parent is the
+frozen original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`.
+Only the new proposal roster capture in `src/server/session-planning/index.ts`
+differs. The control has no scheduling optimizations or schema, test or
+dependency changes. Its native-schema cold measurements still use the
+roster-corrected source. Historical measurements and failed comparisons of
+the unmodified original remain separate and must not be pooled with this
+control. This choice does not change ordered audit or recovery comparisons.
+
+PR #568 selects the same roster-corrected baseline through `pr-568-baseline.txt` and its own `pr-568.json` with eight identity and scheduling migration additions. PR #569 uses its separate one-addition pair. With no generic selection files, unrelated pull requests use their own base. The combined identity/recovery v3 and native-original contract is verified in PR #570.
+
 Artifacts retain source hashes, overlay paths, migration checksums, runtime,
 individual samples, errors and normalized output comparisons.
 
@@ -473,10 +495,17 @@ discarded warmup: 20 rounds for cold/Sunday and 40 for other workflow scenarios.
 The hosted workflow divides this complete population into contiguous four-round
 partitions, each with its own discarded process warmup. One fixed anchor and
 immutable Node image cover the run. Each baseline/candidate pair stays serial on
-one runner; three independent jobs may run concurrently. Native-schema cold
+one runner; up to six independent hosted jobs may run concurrently. This changes
+queueing capacity, not sample populations, per-runner limits or paired measurement
+order; available repository capacity may still queue jobs. Native-schema cold
 controls use the same four-round ranges and aggregate separately to 20 samples.
 Pure helper tests gate matrix preparation in the same two-CPU, 4 GB Node
-container before measurement runners start.
+container before measurement runners start. The existing three-round negotiation
+and allocation diagnostics then run as a two-job preflight. Both must pass before
+the remaining 60 latency partitions and six diagnostics start. Both phases call
+one shared worker with identical measurement settings; the total remains 68 jobs.
+Final acceptance requires both phases, so a preflight pass alone is not evidence
+of complete latency coverage.
 The 90-second native, 150-second ordinary command and whole-job budgets remain
 fatal; partitioning never accepts a partial population or reduces sample counts.
 
@@ -490,6 +519,11 @@ they are neither one host's repeated experiment nor production p95. Hardware and
 cloud variance between partitions remain explicit. All diagnostic jobs must also
 pass the workflow gate. Rerun the complete workflow attempt when collecting a new
 partition population; earlier attempts' failure artifacts remain separate.
+A repeated-state failure in the immutable baseline remains failed evidence even
+when a candidate fixes its cause. Do not sort away stored arrays, audit writes
+or recovery ordinals, or silently patch baseline application files. Any separately
+named correctness control requires explicit comparison-scope review and an exact
+immutable source revision; it cannot retroactively certify the original run.
 
 Cold means empty planning tables, not a restarted OS or database. Diagnostic
 runs are separate and report query counts/time, advisory acquisition elapsed and
@@ -521,15 +555,23 @@ and measured benefit. Final room conflict checks remain live.
 
 Parity checks cover business records, receipts, notices, ordered recovery changes
 and fences. Generated identifiers require unambiguous witnesses, and receipt
-hashes must match their exact inputs before canonical comparison. The
-normalization format is version 2: compact references point to a retained
+hashes must match their exact inputs before canonical comparison. Synthetic
+setup rows, including the allocation scenario's room unavailability, use stable
+fixture IDs; all their fields remain in parity. API-created records retain their
+generated IDs and require explicit semantic witnesses. The normalization format is version 2: compact references point to a retained
 dictionary of full semantic identities, with compact edges to parent identities.
 This lossless graph encoding of normalized identities prevents repeated escaping
 of nested parent strings from exhausting the artifact size. It retains all
 selected rows, stored JSON and ordering witnesses; cycles, ambiguous identities
 and unresolved generated references fail the run. Full graph comparisons emit
 bounded failure messages; they do not expand entire snapshots into assertion
-diffs. Raw snapshots remain available in the paired artifacts. The sequential
+diffs. Before a repeated-fixture or paired digest mismatch throws, the harness
+writes the actual failed snapshot, operation inputs/windows and digests to a
+separate `.parity-failure.json` artifact. Its bounded first-difference summary
+uses deterministic JSON-pointer paths and explicitly marks diagnostic truncation;
+it never decides equality. The failed round is not a completed receipt. Aggregation
+rejects retained failure snapshots even if another report claims PASS. Raw
+snapshots remain available in the paired artifacts. The sequential
 late-root witness preserves two participant journal changes and fence revision
 two; combining cohort and participant writes into one SQL statement remains
 unsupported. Under-one-second first publication is a target to verify from a

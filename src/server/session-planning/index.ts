@@ -2237,7 +2237,10 @@ export async function proposeSession(
         .filter(
           (row) => row.cohortId === cohort.id && row.status === "SCHEDULED",
         )
-        .map((row) => row.tuteeId);
+        // Relation reads have no implicit order. Capture a stable new audience
+        // so later split children and their audit/recovery writes keep its order.
+        .map((row) => row.tuteeId)
+        .sort();
       const requestedSources = input.tuteeId ? await operationalStudentSources(tx, cohort.plan, [input.tuteeId]) : [];
       const requestedId = input.tuteeId && roster.includes(input.tuteeId) ? input.tuteeId : requestedSources.find((id) => roster.includes(id));
       const people =

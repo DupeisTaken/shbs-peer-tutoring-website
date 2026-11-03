@@ -1,25 +1,5 @@
 # Reviewed scheduling comparison inputs
 
-`baseline.txt` selects immutable baseline
-`c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`. `current.json` binds its schema,
-dependency lockfile and all 112 historical SQL migrations to the scheduling and
-identity schema at `d56d0344e1ded9d04917cc7507dfe80f88aa4220`.
+PR #568 uses `pr-568-baseline.txt` and `pr-568.json` for the standalone identity comparison. The baseline is the reviewed original-plus-roster-order control `223a1b213a7a5167187b057d08a349d30f0087ad`. Its parent is the frozen original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`. The manifest binds 112 historical migrations and eight reviewed additions to the exact candidate schema and dependency lockfile. Hashes use Git blob bytes.
 
-The eight reviewed additions implement maintenance metadata, directory partition,
-private-history correction, participation transfer, typed identity journaling,
-identity scheduling invalidation, exact notification provenance, and the narrowed
-student metadata guard. Historical SQL and dependency bytes remain unchanged.
-Hashes use immutable Git blob bytes, matching Linux CI rather than Windows newline
-conversion. The repaired comparison helper at `de0f612f` accepted the complete
-manifest against those immutable Git blob exports, including the historical
-`0_init` migration. This validates the measurement inputs, not workload parity.
-
-This manifest authorizes a controlled measurement setup; it does not establish
-feature correctness or passing latency results. The baseline application runs under
-the candidate schema, with a separately labelled native-schema cold control. New
-identity-only scenarios require separate candidate evidence. The harness must retain
-all semantic comparisons and disclose cross-partition variation.
-
-Update these inputs only after reviewing every additional migration and schema
-change. Missing, changed or unlisted inputs fail comparison. Manual workflow inputs
-take precedence; a baseline override requires an explicit selected manifest.
+The separate `pr-569` pair belongs to scheduling. Unrelated pull requests use their own default base unless a scoped pair or explicit manual selection applies. The standalone identity profile covers its harness projections. Combined PR #570 supplies the full identity and recovery v3 projections and native-original contract. Independent identity database and browser tests exercise authorization and ownership.

@@ -15,7 +15,7 @@ const immutable = (value) => {
 /** Select only explicit reviewed paths; this does not authorize their schema delta.
  * The comparison helper still validates every schema, lockfile and migration byte.
  * @param {string} root
- * @param {{defaultBaseline:string, manualBaseline?:string, manualManifest?:string}} options
+ * @param {{defaultBaseline:string, manualBaseline?:string, manualManifest?:string, prNumber?:string}} options
  */
 export function selectComparison(root, options) {
   const defaultBaseline = immutable(options.defaultBaseline);
@@ -24,21 +24,41 @@ export function selectComparison(root, options) {
   let selectedHash = null;
   let source = "default-baseline";
   let manifest = options.manualManifest || null;
+  const prNumber = options.prNumber ?? "";
+  assert.ok(typeof prNumber === "string" && (prNumber === "" ||
+    /^[1-9][0-9]*$/.test(prNumber) && Number.isSafeInteger(Number(prNumber))),
+  "PR_NUMBER must be a positive decimal safe integer without leading zeroes");
+  // Explicit manual authority bypasses scoped discovery as one selection. This
+  // prevents a different manual manifest being labelled as a matched PR pair.
+  if (prNumber && !options.manualBaseline && !options.manualManifest) {
+    const scopedBaseline = `.github/scheduling-profile-manifests/pr-${prNumber}-baseline.txt`;
+    const scopedManifest = `.github/scheduling-profile-manifests/pr-${prNumber}.json`;
+    const hasBaseline = existsSync(resolve(root, scopedBaseline));
+    const hasManifest = existsSync(resolve(root, scopedManifest));
+    assert.equal(hasBaseline, hasManifest, "PR-scoped baseline and reviewed manifest must both exist");
+    if (hasBaseline) {
+      selectedPath = scopedBaseline;
+      manifest = scopedManifest;
+      source = "reviewed-pr-baseline-file";
+    }
+  }
   if (manifest) assert.match(manifest, manifestPattern, "Reviewed manifest path is outside the fixed directory");
   else if (existsSync(resolve(root, defaultManifest))) manifest = defaultManifest;
   if (manifest) assert.ok(lstatSync(resolve(root, manifest)).isFile(), "Reviewed manifest must be a regular file");
   if (options.manualBaseline) {
     baseline = immutable(options.manualBaseline);
     source = "manual-baseline";
-  } else if (existsSync(resolve(root, baselinePath))) {
-    assert.ok(lstatSync(resolve(root, baselinePath)).isFile(), "Reviewed baseline must be a regular file");
-    const bytes = readFileSync(resolve(root, baselinePath));
+  } else if (selectedPath || existsSync(resolve(root, baselinePath))) {
+    if (!selectedPath) {
+      selectedPath = baselinePath;
+      source = "reviewed-baseline-file";
+    }
+    assert.ok(lstatSync(resolve(root, selectedPath)).isFile(), "Reviewed baseline must be a regular file");
+    const bytes = readFileSync(resolve(root, selectedPath));
     const contents = bytes.toString("utf8");
     assert.ok((contents.length === 40 || contents.length === 41) && /^[0-9a-f]{40}\n?$/.test(contents), "Reviewed baseline requires exactly one immutable SHA, optionally followed by LF");
     baseline = immutable(contents.replace(/\n$/, ""));
-    selectedPath = baselinePath;
     selectedHash = createHash("sha256").update(bytes).digest("hex");
-    source = "reviewed-baseline-file";
   }
   if (selectedPath || baseline !== defaultBaseline)
     assert.ok(manifest, "Overriding the default baseline requires an exact reviewed schema manifest");
@@ -54,6 +74,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     defaultBaseline: process.env.DEFAULT_BASELINE_SHA ?? "",
     manualBaseline: process.env.MANUAL_BASELINE_SHA,
     manualManifest: process.env.MANUAL_SCHEMA_MANIFEST,
+    prNumber: process.env.PR_NUMBER,
   });
   for (const [key, value] of Object.entries(selected)) process.stdout.write(`${key}=${value ?? ""}\n`);
 }

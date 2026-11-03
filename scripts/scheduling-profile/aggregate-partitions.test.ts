@@ -98,6 +98,24 @@ void test("one matrix spec retains all68 jobs and unchanged20/40/3/1 populations
   assert.ok(matrix.filter((row) => row.mode === "diagnostic" && row.scenario !== "backlog").every((row) => row.samples === 3));
 });
 
+void test("two diagnostic preflights and66 remaining jobs form the exact unchanged68-job population", () => {
+  const all = profileMatrix().include;
+  assert.deepEqual(profileMatrix("all").include, all);
+  const preflight = profileMatrix("preflight").include;
+  const remaining = profileMatrix("remaining").include;
+  assert.deepEqual(preflight, ["negotiation", "allocation"].map((scenario) => ({
+    scenario, mode: "diagnostic", partition: 0, partitionCount: 1, samples: 3,
+  })));
+  assert.equal(remaining.length, 66);
+  assert.equal(remaining.filter((row) => row.mode === "latency").length, 60);
+  assert.equal(remaining.filter((row) => row.mode === "diagnostic").length, 6);
+  const before = all.map((row) => JSON.stringify(row)).sort();
+  const after = [...preflight, ...remaining].map((row) => JSON.stringify(row)).sort();
+  assert.equal(new Set(after).size, 68, "Phases overlap or duplicate a job");
+  assert.deepEqual(after, before, "Phasing changed a job's scenario, sample count or partition contract");
+  assert.throws(() => profileMatrix("unknown"), /Unknown matrix phase/);
+});
+
 void test("pools all hosted observations and same-runner paired ratios without dropping intentional errors", () => {
   const result = aggregatePartitions(fixture(), options);
   assert.equal(result.status, "PASS");
@@ -144,6 +162,7 @@ const invalid: { name: string; change: (rows: Entries) => void; pattern: RegExp 
   { name: "over-budget PASS", change: (rows) => { rows[0]!.candidate.elapsedMs = 150_001; }, pattern: /over-budget/ },
   { name: "raised watchdog cap", change: (rows) => { rows[0]!.baseline.timeoutMs = 300_000; }, pattern: /over-budget/ },
   { name: "incomplete partition", change: (rows) => { rows[0]!.baseline.partitionComplete = false; }, pattern: /partition completion/ },
+  { name: "retained parity failure hidden behind PASS", change: (rows) => { Object.assign(rows[0]!.baseline, { parityFailure: { path: "failed-snapshot.json" } }); }, pattern: /failure\/cleanup error/ },
   { name: "missing completed receipt", change: (rows) => { rows[0]!.baseline.receipts.pop(); }, pattern: /four completed/ },
   { name: "missing local full parity", change: (rows) => { delete rows[0]!.baseline.receipts[0]!.parity; }, pattern: /first LOCAL|First LOCAL/ },
   { name: "missing full parity on a nonzero partition", change: (rows) => { delete rows[1]!.baseline.receipts[0]!.parity; }, pattern: /first LOCAL|First LOCAL/ },
@@ -207,6 +226,52 @@ void test("a reviewed baseline file must pin the externally expected SHA and ret
   assert.throws(() => aggregatePartitions(rows, options), /explicit reviewed schema manifest/);
 });
 
+void test("PR-scoped receipt binds baseline pin and reviewed manifest to the same PR", () => {
+  const rows = fixture(true);
+  const manifest = rows[0]!.comparison;
+  manifest.mode = "reviewed";
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-569-baseline.txt";
+  manifest.baselineSelectionFileSha256 = sha(`${baseline}\n`);
+  manifest.baselineSelectionSource = "reviewed-pr-baseline-file";
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-569.json";
+  manifest.reviewedManifest = { version: 1, complete: "synthetic exact reviewed scoped manifest" };
+  manifest.reviewedManifestSha256 = sha(JSON.stringify(manifest.reviewedManifest));
+  manifest.reviewedManifestFileSha256 = sha("synthetic scoped manifest file bytes");
+  assert.equal(aggregatePartitions(rows, options).status, "PASS");
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-570.json";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped matching reviewed manifest path/);
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/current.json";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped matching reviewed manifest path/);
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-569.json";
+  manifest.baselineSelectionSource = "reviewed-baseline-file";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped baseline selection source/);
+  manifest.baselineSelectionSource = "reviewed-pr-baseline-file";
+  manifest.baselineSelectionFileSha256 = sha("other immutable baseline");
+  assert.throws(() => aggregatePartitions(rows, options), /does not pin/);
+  manifest.baselineSelectionFileSha256 = sha(`${baseline}\n`);
+  manifest.reviewedManifestSha256 = sha("different reviewed contents");
+  assert.throws(() => aggregatePartitions(rows, options), /reviewed schema manifest digest/);
+  manifest.reviewedManifestSha256 = sha(JSON.stringify(manifest.reviewedManifest));
+  manifest.reviewedManifestFileSha256 = null;
+  assert.throws(() => aggregatePartitions(rows, options), /Reviewed manifest file hash/);
+  manifest.reviewedManifestFileSha256 = sha("synthetic scoped manifest file bytes");
+  rows[1]!.comparison = { ...manifest, reviewedManifestFileSha256: sha("different file on another runner") };
+  assert.throws(() => aggregatePartitions(rows, options), /cross-partition/);
+});
+
+void test("PR-scoped receipt rejects malformed scope numbers and non-reviewed schema claims", () => {
+  const rows = fixture(true);
+  const manifest = rows[0]!.comparison;
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-0569-baseline.txt";
+  assert.throws(() => aggregatePartitions(rows, options), /reviewed baseline selection path/);
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-9007199254740992-baseline.txt";
+  assert.throws(() => aggregatePartitions(rows, options), /Invalid PR-scoped baseline number/);
+  manifest.baselineSelectionPath = ".github/scheduling-profile-manifests/pr-569-baseline.txt";
+  manifest.baselineSelectionSource = "reviewed-pr-baseline-file";
+  manifest.reviewedManifestPath = ".github/scheduling-profile-manifests/pr-569.json";
+  assert.throws(() => aggregatePartitions(rows, options), /PR-scoped reviewed schema comparison mode/);
+});
+
 void test("zero-duration baselines retain raw pairs without inventing a ratio", () => {
   const rows = fixture();
   rows[0]!.baseline.metrics.samples[0]!.elapsedMs = 0;
@@ -233,6 +298,13 @@ void test("filesystem discovery retains raw references, excludes diagnostics, an
     writeFileSync(join(path, "head-budget.json"), JSON.stringify({ status: "TIMEOUT" }));
     assert.throws(() => loadPartitionInputs(root), /Failure\/timeout receipt/);
     rmSync(join(path, "head-budget.json"));
+    const failedParity = join(path, "head-latency.json.parity-failure.json");
+    writeFileSync(failedParity, JSON.stringify({ status: "FAIL", eligible: false, actualParity: {} }));
+    assert.throws(() => loadPartitionInputs(root), /Failed parity evidence retained/);
+    rmSync(failedParity);
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "PASS", mode: "diagnostic", parityFailure: { path: "missing-sidecar.json" } }));
+    assert.throws(() => loadPartitionInputs(root), /Diagnostic retains failed parity evidence/);
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "PASS", mode: "diagnostic" }));
     rmSync(join(path, "head-latency.json"));
     assert.throws(() => loadPartitionInputs(root), /Missing head-latency/);
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -244,6 +316,15 @@ void test("CLI matrix shares the spec and failed aggregation writes FAIL rather 
   assert.equal(matrix.status, 0, matrix.stderr);
   const parsed: unknown = JSON.parse(matrix.stdout);
   assert.deepEqual(parsed, profileMatrix());
+  for (const phase of ["all", "preflight", "remaining"]) {
+    const phased = spawnSync(process.execPath, [script, "--matrix", phase], { encoding: "utf8" });
+    assert.equal(phased.status, 0, phased.stderr);
+    const included: unknown = JSON.parse(phased.stdout);
+    assert.deepEqual(included, profileMatrix(phase));
+  }
+  const unknown = spawnSync(process.execPath, [script, "--matrix", "unknown"], { encoding: "utf8" });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /Unknown matrix phase/);
   const root = mkdtempSync(join(tmpdir(), "scheduling-aggregate-cli-test-"));
   const output = join(root, "aggregate.json");
   try {

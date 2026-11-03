@@ -21,7 +21,7 @@ import type { PoolClient } from "pg";
 import { createProfiler, type ProfileMode } from "./scheduling-profile/metrics";
 import { addLateRootWitness, assertRecoveryWitnesses, fixtureId, resetFixture, seedFixture } from "./scheduling-profile/fixtures";
 import { runScenario, scenarioNames, type ReceiptInput, type ScenarioName } from "./scheduling-profile/scenarios";
-import { captureParity, compareParity, type ParityOptions, type ParitySnapshot } from "./scheduling-profile/parity";
+import { boundedParityDifference, captureParity, compareParity, type ParityOptions, type ParitySnapshot } from "./scheduling-profile/parity";
 import type { HttpHarness } from "./scheduling-profile/http";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -342,9 +342,26 @@ try {
       // digest/raw response receipts; never substitute counts for journal parity.
       const first = report.receipts.find((row) => row.scenario === scenario);
       const receipt: ScenarioReceipt = { scenario, round, digest, ...(!first ? { parity } : {}), output, receiptInputs, pairingCreations, operationWindows, parityWindow };
+      const retainMismatch = (kind: string, expected: ScenarioReceipt | undefined, expectedParity = expected?.parity) => {
+        // Keep the failing snapshot separately: it is not a completed round.
+        // A digest alone cannot diagnose clock, ordering or domain-state drift.
+        const path = `${destination}.parity-failure.json`;
+        const evidence = { status: "FAIL", eligible: false, kind, scenario, round, actualDigest: digest,
+          expectedDigest: expected?.digest ?? null, expectedRound: expected?.round ?? null,
+          firstDifference: expectedParity ? boundedParityDifference(parity, expectedParity) : null,
+          actualParity: parity, output, receiptInputs, pairingCreations, operationWindows, parityWindow };
+        // Persist before throwing; finally's report keeps only a bounded index.
+        writeFileSync(path, `${JSON.stringify(evidence, null, 2)}\n`);
+        report.parityFailure = { path, kind, scenario, round, actualDigest: digest,
+          expectedDigest: evidence.expectedDigest, expectedRound: evidence.expectedRound,
+          firstDifference: evidence.firstDifference };
+      };
+      if (first && digest !== first.digest) retainMismatch("repeated-fixture", first);
       if (first) assert.equal(digest, first.digest, "Repeated fixture semantic parity changed.");
       if (previous) {
         const baseline = previous.receipts.find((row) => row.scenario === scenario && row.round === round);
+        if (digest !== baseline?.digest) retainMismatch("before-after", baseline,
+          baseline?.parity ?? previous.receipts.find((row) => row.scenario === scenario && row.parity)?.parity);
         assert.ok(baseline, "Missing baseline round.");
         assert.equal(digest, baseline.digest, "Before/after complete semantic digest differs.");
         if (!first) { assert.ok(baseline.parity); compareParity(parity, baseline.parity); }
