@@ -1,7 +1,7 @@
 {
   "version": 1,
   "baselineSchemaSha256": "e847c59e855f7c2942b7ac8654686eb7f48b5450fcd629584d49ae50f60b6b82",
-  "candidateSchemaSha256": "69fe8cc6186c8557eb18933f3e72f5dd0106992129acd2ae28b3a1a6247f8450",
+  "candidateSchemaSha256": "465e586bb0894deaf816d69a40514d27d1779d0f4f626a598ea0d16bc509014e",
   "dependencyLockSha256": "fb4d57ab759a1401ca61ca1b397c7c64a6d21324acfb31129cf4a59113607d0e",
   "addedMigrations": [
     {
@@ -35,6 +35,46 @@
     {
       "path": "prisma/migrations/20261103046000_student_metadata_roster_guard/migration.sql",
       "sha256": "d145a1d640c151b9cd1b06c21653f80eda5a041381e97c46baa3f163e563c4db"
+    },
+    {
+      "path": "prisma/migrations/20261103050000_recovery_scoped_compensation/migration.sql",
+      "sha256": "6b3759a5e5afa930b1a1731bb792976030d562e83d01f952a25c33ea1efefee5"
+    },
+    {
+      "path": "prisma/migrations/20261103051000_recovery_checkpoints/migration.sql",
+      "sha256": "0d67c4efa6139856c76f2b3c3d8c8b5d225fba7656ee58a7c1fff91f1916f0e9"
+    },
+    {
+      "path": "prisma/migrations/20261103052000_recovery_delivery_effects/migration.sql",
+      "sha256": "80f3478deb6cd3292f6abbf9aab4e21d4e8e970436bf78668072b76a68c4c950"
+    },
+    {
+      "path": "prisma/migrations/20261103053000_recovery_workflow_draft/migration.sql",
+      "sha256": "b86c7a72962b829f69de12500b66a65fa4b593f8dfb3ebf9113694d893778ef7"
+    },
+    {
+      "path": "prisma/migrations/20261103054000_recovery_delivery_batch_origins/migration.sql",
+      "sha256": "f4ad35f990292a9e90aa850341edae2a9f1994bf88b2192c0d517f5ae2449dcd"
+    },
+    {
+      "path": "prisma/migrations/20261103055000_recovery_delivery_no_replay/migration.sql",
+      "sha256": "8a227435f84c85479075724b2e718678c08516a1f322c6dae2bc1fb1fbd6707e"
+    },
+    {
+      "path": "prisma/migrations/20261103056000_recovery_shared_delivery_roots/migration.sql",
+      "sha256": "5ef7df1a972be0460e6c1839205af4b6c3d34be5a752da076cd2397d29fcbb98"
+    },
+    {
+      "path": "prisma/migrations/20261103057000_recovery_continuation_source_composition/migration.sql",
+      "sha256": "acea49c385409ccfede00325d732c56b6eef57e331c2a86b907bd5e90e4e7ff4"
+    },
+    {
+      "path": "prisma/migrations/20261103058000_recovery_history_revision_monotonicity/migration.sql",
+      "sha256": "7d37936f6067a7783449d6393997e492d1f81db428048bd99eb693e2824c8743"
+    },
+    {
+      "path": "prisma/migrations/20261103059000_recovery_late_cancelled_acceptance/migration.sql",
+      "sha256": "30de81905b24fe8b8f97a401e8f82dc88b3517e81e33e74a1620670635beb822"
     }
   ],
   "historicalMigrations": {
