@@ -64,11 +64,11 @@ void test("fixed-room transfer journals one later transaction per root and refus
     const password = "Synthetic-fixed-room-journal-460!";
     const passwordHash = hashPassword(password);
 
-    async function seed() {
+    async function seed(quarter: "Q1" | "Q2") {
       const prefix = `room-journal-${randomUUID()}`;
       return database.$transaction(async (tx) => {
         await tx.term.updateMany({ where: { active: true }, data: { active: false } });
-        const term = await tx.term.create({ data: { name: prefix, schoolYear: "26-27", quarter: "Q1", active: true } });
+        const term = await tx.term.create({ data: { name: prefix, schoolYear: "26-27", quarter, active: true } });
         const person = await tx.person.create({ data: {} });
         const actor = await tx.user.create({ data: { email: `${prefix}-admin@example.test`, role: "ADMIN", passwordHash } });
         const tutors = await Promise.all(["source", "target"].map((suffix) =>
@@ -142,7 +142,7 @@ void test("fixed-room transfer journals one later transaction per root and refus
     }
 
     await t.test("separate committed capture and transfer preserve per-root grouping while both channels fail closed", async () => {
-      const f = await seed();
+      const f = await seed("Q1");
       const roots = await checkpoints(f);
       const input = await intent(f);
       const result = await transferPersonParticipation(database, f.actor.id, input);
@@ -197,7 +197,7 @@ void test("fixed-room transfer journals one later transaction per root and refus
     });
 
     await t.test("failed roster validation rolls provisional bookings and their journal/fence changes back atomically", async () => {
-      const f = await seed();
+      const f = await seed("Q2");
       const roots = await checkpoints(f);
       // This existing roster guard rejects only after successor preparation.
       // Its original closed request is evidence, not consent to assign again.

@@ -164,4 +164,3 @@ export async function historicalAcademicSnapshot(
     correction: latest ?? null,
   };
 }
-
