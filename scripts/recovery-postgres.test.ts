@@ -17,6 +17,10 @@ import { createGzip } from "node:zlib";
 import { pipeline } from "node:stream/promises";
 import { Client } from "pg";
 import {
+  configureUtcPgTimestamps,
+  utcDatabaseUrl,
+} from "../src/server/database-url";
+import {
   databaseIdentity,
   postgresClientUrl,
 } from "../src/server/recovery/operator-plan";
@@ -387,7 +391,9 @@ void test(
     await app.query(
       `UPDATE "User" SET "personId"='reader-person',username='later',"emailVerifiedAt"='2026-01-01' WHERE id='later'`,
     );
-    await app.query("DELETE FROM \"User\" WHERE id IN ('backup-only','backup-only-crew')");
+    await app.query(
+      "DELETE FROM \"User\" WHERE id IN ('backup-only','backup-only-crew')",
+    );
     await app.query(
       'UPDATE "User" SET "passwordHash"=NULL WHERE id=\'independent\'',
     );
@@ -418,9 +424,10 @@ void test(
       execute: executeRecoveryTool,
       async connect(connectionString) {
         const client = new Client({
-          connectionString: postgresClientUrl(connectionString),
+          connectionString: utcDatabaseUrl(postgresClientUrl(connectionString)),
           connectionTimeoutMillis: 10_000,
         });
+        configureUtcPgTimestamps(client);
         try {
           await client.connect();
         } catch (error) {
@@ -734,13 +741,21 @@ void test(
     assert.equal(reconciliationReceipt.accountsQuarantined, 2);
     // Database comments are shared cluster metadata. Prove the committed marker
     // is visible from maintenance while a database-local lookup cannot read it.
-    const storedMarker = (await stageAdmin.query<{marker:string|null;localMarker:string|null}>(
-      "SELECT pg_catalog.shobj_description(oid,'pg_database') AS marker,pg_catalog.obj_description(oid,'pg_database') AS \"localMarker\" FROM pg_catalog.pg_database WHERE datname=$1",
-      [targetName],
-    )).rows[0];
+    const storedMarker = (
+      await stageAdmin.query<{
+        marker: string | null;
+        localMarker: string | null;
+      }>(
+        "SELECT pg_catalog.shobj_description(oid,'pg_database') AS marker,pg_catalog.obj_description(oid,'pg_database') AS \"localMarker\" FROM pg_catalog.pg_database WHERE datname=$1",
+        [targetName],
+      )
+    ).rows[0];
     assert.ok(typeof storedMarker?.marker === "string");
     assert.equal(storedMarker.localMarker, null);
-    assert.deepEqual(JSON.parse(storedMarker.marker) as unknown, reconciliationReceipt);
+    assert.deepEqual(
+      JSON.parse(storedMarker.marker) as unknown,
+      reconciliationReceipt,
+    );
     assert.deepEqual(
       await applySiteReconciliation(
         reconciliationPlan,

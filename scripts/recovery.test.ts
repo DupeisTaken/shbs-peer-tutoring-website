@@ -404,7 +404,7 @@ void test("node-pg receives the IPv6 address without losing credentials, SSL or 
       assert.equal(databaseIdentity(original).host, expectedIdentity);
       assert.equal(planHash(databaseIdentity(original)), reviewedHash);
       if (!host.startsWith("[")) assert.equal(normalized, original);
-      // Record/admission clients add UTC options after the same normalization.
+      // Both raw operator and record/admission clients add runtime UTC options.
       const utc = new Client({ connectionString: utcDatabaseUrl(normalized) });
       assert.equal(utc.host, client.host);
       assert.deepEqual(utc.ssl, client.ssl);
@@ -423,6 +423,44 @@ void test("node-pg receives the IPv6 address without losing credentials, SSL or 
       () => postgresClientUrl(`postgresql://synthetic@[::1]/test?${option}`),
       /UNSUPPORTED_DATABASE_URL_OPTIONS/,
     );
+});
+
+void test("operator runtime UTC startup options override a non-UTC driver fallback without changing reviewed inputs", () => {
+  const original =
+    "postgresql://synthetic:disposable@localhost:5544/recovery_test?sslmode=disable";
+  const reviewedIdentity = databaseIdentity(original);
+  const reviewedHash = planHash(reviewedIdentity);
+  const fallbackOptions = "-c timezone=Asia/Shanghai";
+  const baseline = new Client({
+    connectionString: original,
+    options: fallbackOptions,
+  });
+  const runtimeUrl = utcDatabaseUrl(postgresClientUrl(original));
+  const client = new Client({
+    connectionString: runtimeUrl,
+    options: fallbackOptions,
+  });
+  // Inspect the real driver's parsed startup parameters without opening a socket.
+  const baselineParameters = Reflect.get(baseline, "connectionParameters") as {
+    options: unknown;
+  };
+  const runtimeParameters = Reflect.get(client, "connectionParameters") as {
+    options: unknown;
+  };
+  assert.equal(baselineParameters.options, fallbackOptions);
+  assert.equal(runtimeParameters.options, "-c timezone=UTC");
+  assert.equal(client.host, baseline.host);
+  assert.equal(client.database, baseline.database);
+  assert.equal(client.user, baseline.user);
+  assert.deepEqual(client.ssl, baseline.ssl);
+  assert.deepEqual(databaseIdentity(original), reviewedIdentity);
+  assert.equal(planHash(databaseIdentity(original)), reviewedHash);
+  // Caller-supplied startup options remain forbidden, even though the runtime
+  // adds its own fixed option after input validation.
+  assert.throws(
+    () => postgresClientUrl(`${original}&options=-c%20timezone%3DUTC`),
+    /UNSUPPORTED_DATABASE_URL_OPTIONS/,
+  );
 });
 
 function fixture(

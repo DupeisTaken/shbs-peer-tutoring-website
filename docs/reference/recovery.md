@@ -208,6 +208,14 @@ content hash. No WAL/PITR service, storage restore, schema migration, security
 reconciliation or live cutover is performed by `site stage`. Later phases have
 separate reviewed plans and immutable external receipts.
 
+Raw operator and Prisma connections apply the shared UTC startup policy before
+their first query, including database-generated recovery journal timestamps.
+The fixed runtime setting overrides a non-UTC database/role default without
+changing reviewed endpoint identities or permitting caller-supplied startup options.
+Raw operator clients also decode timestamp-without-time-zone values as UTC using
+a per-client parser; a non-UTC Node host cannot shift security snapshots or their
+fingerprints, and shared driver parsers remain unchanged.
+
 The reviewed plan binds the backup path/hash, source and maintenance identities,
 fresh `shbs_recovery_*` database name, evidence directory and table-count
 checkpoint. Staging requires a loopback maintenance connection, a different port

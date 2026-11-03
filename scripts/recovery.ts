@@ -2,6 +2,10 @@
 import "dotenv/config";
 import { z } from "zod";
 import {
+  configureUtcPgTimestamps,
+  utcDatabaseUrl,
+} from "../src/server/database-url";
+import {
   parseRecoveryCommand,
   OperatorError,
   operatorAssert,
@@ -234,11 +238,14 @@ async function siteDependencies(): Promise<SiteDependencies> {
     execute: executeRecoveryTool,
     async connect(connectionString) {
       const client = new Client({
-        connectionString: postgresClientUrl(connectionString),
+        // Enforce the shared timestamp policy before the first trigger/default;
+        // runtime-only options never enter the reviewed database identity.
+        connectionString: utcDatabaseUrl(postgresClientUrl(connectionString)),
         connectionTimeoutMillis: 10_000,
         statement_timeout: 60_000,
         application_name: "shbs-recovery-operator",
       });
+      configureUtcPgTimestamps(client);
       try {
         await client.connect();
       } catch (error) {
@@ -311,12 +318,10 @@ async function main() {
     }
     return;
   }
-  const [{ PrismaClient }, { PrismaPg }, { utcDatabaseUrl }] =
-    await Promise.all([
-      import("../generated/prisma"),
-      import("@prisma/adapter-pg"),
-      import("../src/server/database-url"),
-    ]);
+  const [{ PrismaClient }, { PrismaPg }] = await Promise.all([
+    import("../generated/prisma"),
+    import("@prisma/adapter-pg"),
+  ]);
   const db = new PrismaClient({
     adapter: new PrismaPg({
       connectionString: utcDatabaseUrl(postgresClientUrl(sourceUrl)),

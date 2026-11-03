@@ -562,7 +562,7 @@ export async function validateStagedSite(
 /** Open only long enough to acquire an operator session, then fence immediately. */
 export async function withSealedSiteTarget<T>(
   plan: SitePlan, maintenanceUrl: string, dependencies: SiteDependencies,
-  inspect: (target: OperatorSql) => Promise<T>,
+  inspect: (target: OperatorSql, maintenance: OperatorSql) => Promise<T>,
 ): Promise<T> {
   operatorAssert(planHash(databaseIdentity(maintenanceUrl))===planHash(plan.maintenance), "WRONG_DATABASE");
   assertIsolatedEndpoint(plan.source,plan.maintenance);
@@ -589,7 +589,7 @@ export async function withSealedSiteTarget<T>(
     await maintenance.query(`ALTER DATABASE "${plan.targetName}" ALLOW_CONNECTIONS false`);
     const identity=await target.query("SELECT current_database() AS database, current_user AS username");
     operatorAssert(identity.rows[0]?.database===plan.targetName && identity.rows[0]?.username===plan.maintenance.user,"WRONG_DATABASE");
-    return await inspect(target);
+    return await inspect(target, maintenance);
   } finally {
     try {
       await target?.close();

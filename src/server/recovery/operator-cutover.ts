@@ -50,6 +50,44 @@ const identity = z
   })
   .strict();
 const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+
+/** Database connection fences must be changed from the maintenance database. */
+export async function withReadOnlyAcceptanceApplication<T>(
+  maintenance: OperatorSql,
+  application: { database: string; user: string },
+  applicationUrl: string,
+  dependencies: Pick<SiteDependencies, "connect">,
+  inspect: (app: OperatorSql) => Promise<T>,
+): Promise<T> {
+  let app: OperatorSql | undefined;
+  try {
+    await maintenance.query(
+      `GRANT CONNECT ON DATABASE ${quote(application.database)} TO ${quote(application.user)}`,
+    );
+    await maintenance.query(
+      `ALTER DATABASE ${quote(application.database)} ALLOW_CONNECTIONS true`,
+    );
+    app = await dependencies.connect(applicationUrl);
+    await maintenance.query(
+      `ALTER DATABASE ${quote(application.database)} ALLOW_CONNECTIONS false`,
+    );
+    return await inspect(app);
+  } finally {
+    try {
+      await app?.close();
+    } finally {
+      try {
+        await maintenance.query(
+          `ALTER DATABASE ${quote(application.database)} ALLOW_CONNECTIONS false`,
+        );
+      } finally {
+        await maintenance.query(
+          `REVOKE CONNECT ON DATABASE ${quote(application.database)} FROM ${quote(application.user)}`,
+        );
+      }
+    }
+  }
+}
 const SALT = "authjs.session-token";
 export function acceptanceAccountAllowed(
   account: Record<string, unknown> | undefined,
@@ -594,7 +632,7 @@ export async function applySiteAcceptance(
       reconciliation.stagePlan,
       maintenanceUrl,
       dependencies,
-      async (target) => {
+      async (target, maintenance) => {
         operatorAssert(
           planHash(await snapshot(source)) ===
             plan.reconciliationReceipt.sourceFingerprint,
@@ -666,69 +704,57 @@ export async function applySiteAcceptance(
             throw error;
           }
         }
-        await target.query(
-          `GRANT CONNECT ON DATABASE ${quote(plan.application.database)} TO ${quote(plan.application.user)}`,
+        return await withReadOnlyAcceptanceApplication(
+          maintenance,
+          plan.application,
+          input.applicationUrl,
+          dependencies,
+          async (app) => {
+            const checks = await runAcceptanceApplication(
+              app,
+              plan.acceptanceUserId,
+              input.freshPassword,
+              input,
+              input.rejectedPasswords,
+              {
+                checkpointAuthSecret: input.checkpointAuthSecret,
+                checkpointSessionVersion: plan.checkpointSessionVersion,
+                currentSessionVersion: plan.currentSessionVersion,
+              },
+            );
+            const after = await snapshot(target);
+            const acceptedReceipt = siteAcceptanceReceiptSchema.parse({
+              version: 1,
+              kind: "site-acceptance-receipt",
+              planId: plan.id,
+              planHash: planHash(plan),
+              reconciliationReceiptHash: planHash(plan.reconciliationReceipt),
+              state: "ACCEPTED_ISOLATED_READ_ONLY_SEALED",
+              targetFingerprint: planHash(after),
+              sourceFingerprint: plan.reconciliationReceipt.sourceFingerprint,
+              signingKeyFingerprint:
+                reconciliation.rotatedSigningKeyFingerprint,
+              retiredSigningKeyFingerprints: [
+                ...new Set([
+                  reconciliation.previousSigningKeyFingerprint,
+                  ...(input.checkpointAuthSecret
+                    ? [signingKeyFingerprint(input.checkpointAuthSecret)]
+                    : []),
+                ]),
+              ],
+              application: plan.application,
+              createdAt: new Date().toISOString(),
+              checks,
+              nextAcceptance: null,
+            });
+            await saveDatabaseMarker(
+              target,
+              plan.application.database,
+              acceptedReceipt,
+            );
+            return acceptedReceipt;
+          },
         );
-        let app: OperatorSql | undefined;
-        try {
-          await target.query(
-            `ALTER DATABASE ${quote(plan.application.database)} ALLOW_CONNECTIONS true`,
-          );
-          app = await dependencies.connect(input.applicationUrl);
-          await target.query(
-            `ALTER DATABASE ${quote(plan.application.database)} ALLOW_CONNECTIONS false`,
-          );
-          const checks = await runAcceptanceApplication(
-            app,
-            plan.acceptanceUserId,
-            input.freshPassword,
-            input,
-            input.rejectedPasswords,
-            {
-              checkpointAuthSecret: input.checkpointAuthSecret,
-              checkpointSessionVersion: plan.checkpointSessionVersion,
-              currentSessionVersion: plan.currentSessionVersion,
-            },
-          );
-          const after = await snapshot(target);
-          const acceptedReceipt = siteAcceptanceReceiptSchema.parse({
-            version: 1,
-            kind: "site-acceptance-receipt",
-            planId: plan.id,
-            planHash: planHash(plan),
-            reconciliationReceiptHash: planHash(plan.reconciliationReceipt),
-            state: "ACCEPTED_ISOLATED_READ_ONLY_SEALED",
-            targetFingerprint: planHash(after),
-            sourceFingerprint: plan.reconciliationReceipt.sourceFingerprint,
-            signingKeyFingerprint: reconciliation.rotatedSigningKeyFingerprint,
-            retiredSigningKeyFingerprints: [
-              ...new Set([
-                reconciliation.previousSigningKeyFingerprint,
-                ...(input.checkpointAuthSecret
-                  ? [signingKeyFingerprint(input.checkpointAuthSecret)]
-                  : []),
-              ]),
-            ],
-            application: plan.application,
-            createdAt: new Date().toISOString(),
-            checks,
-            nextAcceptance: null,
-          });
-          await saveDatabaseMarker(
-            target,
-            plan.application.database,
-            acceptedReceipt,
-          );
-          return acceptedReceipt;
-        } finally {
-          await app?.close();
-          await target.query(
-            `ALTER DATABASE ${quote(plan.application.database)} ALLOW_CONNECTIONS false`,
-          );
-          await target.query(
-            `REVOKE CONNECT ON DATABASE ${quote(plan.application.database)} FROM ${quote(plan.application.user)}`,
-          );
-        }
       },
     );
     if (!receipt.nextAcceptance) {
@@ -1505,7 +1531,10 @@ export async function applyIsolatedRollback(
   );
   try {
     originalAdmin = await dependencies.connect(input.rollbackMaintenanceUrl);
-    const marker = await databaseMarker(originalAdmin, reconcile.stagePlan.source.database);
+    const marker = await databaseMarker(
+      originalAdmin,
+      reconcile.stagePlan.source.database,
+    );
     const prepared = siteRollbackReceiptSchema.safeParse(marker),
       pending = rollbackPendingSchema.safeParse(marker);
     const resumed =
