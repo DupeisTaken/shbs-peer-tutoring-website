@@ -1275,6 +1275,9 @@ real QueryClient regressions cover the denial/retry/reopen sequence.
 
 ## Student lifecycle and ownership
 
+Signup Requests derives its display queue through `signupRequestGroup`: actionable pending review wins, then invalid/non-open requests enter **Closed**, then subject coverage selects Assigned or Needs matching. The internal `processed` key remains stable for saved views. Counts and notification arrivals use the same grouping, and review targets retain their source anchors. Survey appeals require an open, still-invalid request, so clearing a flag or closing its source cannot resurrect an obsolete pending appeal. Current-generation legacy invalidity appeals contribute a staff-only pending flag; stale generations and observers do not. Grouping writes no lifecycle or assignment state.
+
+
 ### Prior-quarter continuation
 
 [Continuation intake](../../src/server/student-continuation.ts) provides

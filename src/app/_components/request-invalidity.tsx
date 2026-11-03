@@ -50,9 +50,11 @@ export function InvalidityNotice() {
 export function InvalidityFilter({
   value,
   onChange,
+  validLabel,
 }: {
   value: InvalidityFilterValue;
   onChange: (value: InvalidityFilterValue) => void;
+  validLabel?: string;
 }) {
   const t = useTranslations("requestInvalidity");
   return (
@@ -63,7 +65,9 @@ export function InvalidityFilter({
           selected={value === choice}
           onClick={() => onChange(choice)}
         >
-          {t(`filter.${choice}`)}
+          {choice === "valid" && validLabel
+            ? validLabel
+            : t(`filter.${choice}`)}
         </ChoiceButton>
       ))}
     </FilterToolbar>
@@ -436,6 +440,9 @@ function RequestInvalidityReview({
                 refreshSignal={accepted && !approvalId}
                 session={emailSession}
                 setSession={setEmailSession}
+                onDecisionRefresh={
+                  emailSource.kind === "signup" ? onRefresh : undefined
+                }
               />
             )}
           </div>

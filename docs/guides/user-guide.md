@@ -335,7 +335,7 @@ actions. Each list keeps its own page and navigation state.
 | Change an assigned subject   | Ask Admin/Head to review the assignment        | Owners cannot drop assigned choices; Admin/Head review assignment release and request edits together, retaining recorded sessions |
 | Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
 | Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
-| See the result               | **Current Request** and **Processed**     | Review state and assignment are shown separately                                                                         |
+| See the result               | **Current Request** and **Closed**     | Review state and assignment are shown separately                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
@@ -1237,7 +1237,9 @@ Coordinator approval proposals. Submitting or reviewing an appeal never clears t
 flag automatically. A clear or later reflag retires the old appeal link and retains
 the original request, appeal and review history.
 
-Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
+Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes valid empty or partially assigned requests; Assigned contains valid requests whose requested subjects all have tutors. Sources keep their original submission order. Pending decisions, including invalidity appeals, take precedence in Needs review. Closed groups closed or declined requests, invalid entries and completed review history. This is a general queue status, not a permanent-closure action: clearing an invalid flag returns an open request to matching or assigned without changing assignments, original priority or verification deadlines. Requests move automatically when refreshed; staff keep their selected tab. The validity filter initially shows all entries, so Closed includes invalid requests immediately. Its **Not flagged invalid** choice describes validity, not whether a request is still open.
+
+The older legacy **Decline** action still deletes eligible intake records, so those deleted entries cannot appear in Closed. Retaining that decision history is tracked separately in [#567](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/567).
 
 Self-service cards keep **Edit signup answers** last in the header action group,
 after the available invalidity and resend actions. Each **Release assignment**

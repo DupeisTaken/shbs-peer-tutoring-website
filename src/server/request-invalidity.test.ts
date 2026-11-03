@@ -770,3 +770,42 @@ it("rejects a stale Serializable interview snapshot before writing a child vote"
   expect(await outcome).toMatchObject({ code: "CONFLICT" });
   expect(await db.interviewVote.count()).toBe(0);
 });
+
+it.each(["resolved", "stale"])("projects only current pending legacy invalidity appeals to staff queues (%s)", async (scenario) => {
+  const legacy = await db.tutee.create({
+    data: {
+      englishName: "Synthetic appeal",
+      status: "PENDING",
+      signupSource: "SELF_SERVICE",
+      intakeTermId: "invalid-term",
+      email: "appeal@example.test",
+    },
+  });
+  await caller().admin.setSignupInvalidity(flag(legacy.id));
+  const notice = await db.emailDelivery.findFirstOrThrow({
+    where: { requestKind: "signup", requestId: legacy.id, requestVersion: 1 },
+  });
+  const appeal = await db.requestInvalidityAppeal.create({
+    data: { noticeId: notice.id, body: "Synthetic correction" },
+  });
+  const read = async () =>
+    (await caller().admin.tutees()).find((row) => row.id === legacy.id);
+  expect(await read()).toMatchObject({ hasPendingInvalidityAppeal: true });
+  const observer = (await caller("VIEWER").admin.tutees()).find(
+    (row) => row.id === legacy.id,
+  );
+  expect(observer).not.toHaveProperty("hasPendingInvalidityAppeal");
+  if (scenario === "resolved") {
+    await db.requestInvalidityAppeal.update({
+      where: { id: appeal.id },
+      data: { status: "DECLINED" },
+    });
+  } else {
+    // A stale pending receipt must not override a newer flag generation.
+    await db.tuteeRequestInvalidity.update({
+      where: { tuteeId: legacy.id },
+      data: { invalidityVersion: 2 },
+    });
+  }
+  expect(await read()).toMatchObject({ hasPendingInvalidityAppeal: false });
+});

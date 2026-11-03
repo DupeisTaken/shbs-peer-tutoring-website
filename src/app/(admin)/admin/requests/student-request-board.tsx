@@ -256,7 +256,10 @@ export function SignupAppealReview({ row }: { row: Row }) {
     !!account &&
     ["HEAD", "ADMIN", "COORDINATOR"].includes(account.role);
   return (
-    <article className="card space-y-4 p-5">
+    <article
+      id={`request-survey-${row.id}`}
+      className="card scroll-mt-6 space-y-4 p-5"
+    >
       <h3 className="font-semibold">
         <ParticipantName name={row.name} username={row.username} /> ·{" "}
         {t("staffTitle")}
@@ -305,7 +308,7 @@ export type AdditionalRequestEntry = {
   /** Original source identity can differ from the list's presentation key. */
   sourceId?: string;
   submittedAt: Date;
-  group: Exclude<RequestTab, "reviews">;
+  group: RequestTab;
   content: ReactNode;
   invalid?: boolean;
 };
@@ -318,7 +321,9 @@ type StudentRequestBoardProps = {
 export function StudentRequestBoard(props: StudentRequestBoardProps) {
   const account = api.account.me.useQuery().data;
   // Private child drafts cannot cross accounts; a scope change only resets views.
-  return <StudentRequestBoardView key={account?.id ?? "unverified"} {...props} />;
+  return (
+    <StudentRequestBoardView key={account?.id ?? "unverified"} {...props} />
+  );
 }
 function StudentRequestBoardView({
   additionalEntries = [],
@@ -332,15 +337,46 @@ function StudentRequestBoardView({
     refetchInterval: 60_000,
   });
   const tutors = api.admin.tutors.useQuery();
-  const legacyReviews = api.studentWorkflow.legacyReviews.useQuery();
+  const legacyReviews = api.studentWorkflow.legacyReviews.useQuery(undefined, {
+    refetchInterval: 60_000,
+  });
   const legacyProcessed = (legacyReviews.data ?? []).filter(
     (r) => r.state !== "PENDING",
   );
+  const pendingLegacy = (legacyReviews.data ?? []).filter(
+    (r) => r.state === "PENDING",
+  );
+  const pendingLegacyIds = new Set(pendingLegacy.map((r) => r.legacyTuteeId));
+  const groupedAdditional = additionalEntries.map((entry) => ({
+    ...entry,
+    ownReview: entry.group === "reviews",
+    group: pendingLegacyIds.has(entry.sourceId ?? entry.id)
+      ? ("reviews" as const)
+      : entry.group === "reviews"
+        ? entry.group
+        : entry.invalid
+          ? ("processed" as const)
+          : entry.group,
+  }));
+  // Clearing a flag or closing the request can leave an old PENDING appeal in
+  // history. Only an open, still-invalid request has an actionable appeal.
+  const needsAppealReview = (row: Row) =>
+    row.state === "OPEN" && row.isInvalid && row.appeal?.state === "PENDING";
+  const rowGroup = (row: Row) =>
+    signupRequestGroup(
+      row.state,
+      row.subjects.map((subject) => subject.name),
+      row.pairings.map((pairing) => pairing.subject),
+      {
+        invalid: row.isInvalid,
+        needsReview:
+          needsAppealReview(row) ||
+          row.reviews.some((review) => review.state === "PENDING"),
+      },
+    );
   const queryDenied = useSessionAccessDenied(rows, tutors, legacyReviews);
   const denied = viewDenied || queryDenied;
-  const pendingAppeals = (rows.data ?? []).filter(
-    (row) => row.appeal?.state === "PENDING",
-  );
+  const pendingAppeals = (rows.data ?? []).filter(needsAppealReview);
   const verified = useSessionViewVerified();
   const arrivalSequence = useRef(0);
   const [arrival, setArrival] = useState<
@@ -359,7 +395,7 @@ function StudentRequestBoardView({
   const [invalidity, setInvalidity, reconcileInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
       id: "requests.invalidity.v1",
-      initialState: "valid",
+      initialState: "all",
       parse: viewEnum(["valid", "invalid", "all"]),
       scope: viewScope,
       enabled: !denied,
@@ -408,17 +444,16 @@ function StudentRequestBoardView({
         : null;
     const legacy =
       target?.kind === "signup"
-        ? additionalEntries.find(
+        ? groupedAdditional.find(
             (entry) => (entry.sourceId ?? entry.id) === target.id,
           )
         : null;
     const group = row
-      ? signupRequestGroup(
-          row.state,
-          row.subjects.map((subject) => subject.name),
-          row.pairings.map((pairing) => pairing.subject),
-        )
-      : legacy?.group;
+      ? rowGroup(row)
+      : (legacy?.group ??
+        (target?.kind === "signup" && pendingLegacyIds.has(target.id)
+          ? "reviews"
+          : undefined));
     setTargetMissing(!group);
     if (group) {
       // Reconcile authorized presentation before committing children. The shared
@@ -456,37 +491,64 @@ function StudentRequestBoardView({
   const visibleRows = (rows.data ?? []).filter((row) =>
     matchingValidity(row.isInvalid),
   );
-  const visibleAdditional = additionalEntries.filter((entry) =>
-    matchingValidity(!!entry.invalid),
+  const visibleAdditional = groupedAdditional.filter(
+    (entry) =>
+      // Pending decisions must remain reachable regardless of the validity filter.
+      entry.group === "reviews" || matchingValidity(!!entry.invalid),
   );
   const groups = {
-    matching: visibleRows.filter(
-      (r) =>
-        signupRequestGroup(
-          r.state,
-          r.subjects.map((s) => s.name),
-          r.pairings.map((p) => p.subject),
-        ) === "matching",
-    ),
-    assigned: visibleRows.filter(
-      (r) =>
-        signupRequestGroup(
-          r.state,
-          r.subjects.map((s) => s.name),
-          r.pairings.map((p) => p.subject),
-        ) === "assigned",
-    ),
+    matching: visibleRows.filter((r) => rowGroup(r) === "matching"),
+    assigned: visibleRows.filter((r) => rowGroup(r) === "assigned"),
     reviews: [
       ...(rows.data ?? []).flatMap((row) =>
         row.reviews
           .filter((review) => review.state === "PENDING")
-          .map((review) => ({ row, review })),
+          .map((review, index) => ({
+            row,
+            review,
+            targetId:
+              index === 0 && !needsAppealReview(row)
+                ? `request-survey-${row.id}`
+                : undefined,
+          })),
       ),
-      ...(legacyReviews.data ?? [])
-        .filter((r) => r.state === "PENDING")
-        .map((review) => ({ row: { name: review.name }, review })),
+      ...pendingLegacy.map((review, index) => ({
+        row: { name: review.name },
+        review,
+        targetId:
+          !groupedAdditional.some(
+            (entry) =>
+              entry.ownReview &&
+              (entry.sourceId ?? entry.id) === review.legacyTuteeId,
+          ) &&
+          review.legacyTuteeId &&
+          pendingLegacy.findIndex(
+            (entry) => entry.legacyTuteeId === review.legacyTuteeId,
+          ) === index
+            ? `request-signup-${review.legacyTuteeId}`
+            : undefined,
+      })),
     ],
-    processed: visibleRows.filter((r) => r.state !== "OPEN"),
+    processed: visibleRows.filter((r) => rowGroup(r) === "processed"),
+  };
+  const additionalReviews = visibleAdditional.filter(
+    (entry) =>
+      entry.group === "reviews" &&
+      (entry.ownReview || !pendingLegacyIds.has(entry.sourceId ?? entry.id)),
+  );
+  const counts = {
+    matching:
+      groups.matching.length +
+      visibleAdditional.filter((entry) => entry.group === "matching").length,
+    assigned:
+      groups.assigned.length +
+      visibleAdditional.filter((entry) => entry.group === "assigned").length,
+    reviews:
+      groups.reviews.length + pendingAppeals.length + additionalReviews.length,
+    processed:
+      groups.processed.length +
+      visibleAdditional.filter((entry) => entry.group === "processed").length +
+      (invalidity !== "invalid" ? legacyProcessed.length : 0),
   };
   if (denied)
     return (
@@ -523,7 +585,7 @@ function StudentRequestBoardView({
             ["matching", "assigned", "reviews", "processed"] as const
           ).map((value) => ({
             value,
-            label: `${t(value)} ${groups[value].length + visibleAdditional.filter((entry) => entry.group === value).length + (value === "reviews" ? pendingAppeals.length : 0) + (value === "processed" && invalidity !== "invalid" ? legacyProcessed.length : 0)}`,
+            label: `${t(value)} ${counts[value]}`,
           }))}
           value={tab}
           onChange={setTab}
@@ -531,7 +593,11 @@ function StudentRequestBoardView({
           {/* The queue owns spacing between its filters and every results state. */}
           <div className="space-y-4">
             {tab !== "reviews" && (
-              <InvalidityFilter value={invalidity} onChange={setInvalidity} />
+              <InvalidityFilter
+                value={invalidity}
+                onChange={setInvalidity}
+                validLabel={t("notFlaggedInvalid")}
+              />
             )}
             <div className="space-y-3">
               {tab === "reviews" &&
@@ -541,9 +607,16 @@ function StudentRequestBoardView({
               {rows.isLoading || additionalLoading ? (
                 <p>{t("loading")}</p>
               ) : tab === "reviews" ? (
-                groups.reviews.map(({ row, review }) => (
-                  <ReviewCard key={review.id} row={row} review={review} />
-                ))
+                <>
+                  {groups.reviews.map(({ row, review, targetId }) => (
+                    <div key={review.id} id={targetId} className="scroll-mt-6">
+                      <ReviewCard row={row} review={review} />
+                    </div>
+                  ))}
+                  {bySignupPriority(additionalReviews).map((entry) => (
+                    <div key={entry.id}>{entry.content}</div>
+                  ))}
+                </>
               ) : (
                 bySignupPriority([
                   ...groups[tab].map((row) => ({

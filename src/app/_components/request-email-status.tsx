@@ -54,8 +54,11 @@ export function RequestEmailStatus({
   refreshSignal,
   session,
   setSession,
+  onDecisionRefresh,
 }: {
   source: Source;
+  /** Refresh the owning queue after a decision, without adopting its form draft. */
+  onDecisionRefresh?: () => Promise<unknown>;
   canApply: boolean;
   refreshSignal: boolean;
   session?: RequestEmailSession;
@@ -119,11 +122,12 @@ export function RequestEmailStatus({
     lastSignal.current = refreshSignal;
     if (refreshSignal) void status.refetch();
   }, [refreshSignal, status]);
-  async function refresh() {
+  async function refresh(refreshDecision = outcome === "declined") {
     setReading(true);
     try {
       const result = await status.refetch();
       if (result.error) throw new Error("Status read failed");
+      if (refreshDecision) await onDecisionRefresh?.();
       setNeedsRead(false);
       return true;
     } catch {
@@ -170,7 +174,7 @@ export function RequestEmailStatus({
       // read permits a later distinct action; it never repeats the accepted write.
       setNeedsRead(true);
       setOutcome(nextOutcome);
-      await refresh();
+      await refresh(kind === "decline");
     } catch {
       setWriteFailed(kind);
     } finally {

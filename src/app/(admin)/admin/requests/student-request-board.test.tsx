@@ -69,8 +69,11 @@ vi.mock("~/trpc/react", () => ({
         pairings: { invalidate: mocks.refresh },
       },
     }),
-    account: { me: { useQuery: () => ({ data: { id: mocks.accountId, role: "HEAD" } }) } },
+    account: {
+      me: { useQuery: () => ({ data: { id: mocks.accountId, role: "HEAD" } }) },
+    },
     studentWorkflow: {
+      resolveReview: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       headUnassign: { useMutation: () => ({ mutateAsync: mocks.unassign }) },
       resolveSignupAppeal: {
         useMutation: () => ({ mutateAsync: mocks.appeal }),
@@ -454,7 +457,7 @@ it("defers an explicit notice reveal until the delayed authorized legacy read co
   await waitFor(() =>
     expect(
       screen
-        .getByRole("tab", { name: "assigned 1" })
+        .getByRole("tab", { name: "processed 1" })
         .getAttribute("aria-selected"),
     ).toBe("true"),
   );
@@ -536,11 +539,20 @@ it("honors an early Assigned click through delayed queue reads and restores only
 });
 
 it("does not carry a resolved notification view into another account or period scope", () => {
-  window.history.replaceState(null, "", "/admin/requests#request-signup-source");
-  const entries = [{
-    id: "source", group: "assigned" as const, invalid: true,
-    submittedAt: new Date(), content: <p>Private notification target</p>,
-  }];
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/requests#request-signup-source",
+  );
+  const entries = [
+    {
+      id: "source",
+      group: "assigned" as const,
+      invalid: true,
+      submittedAt: new Date(),
+      content: <p>Private notification target</p>,
+    },
+  ];
   const page = (scope: string) => (
     <SessionViewProvider identity={mocks.accountId} pathname="/admin/requests" verified>
       <StudentRequestBoard additionalEntries={entries} viewScope={scope} />
@@ -550,29 +562,56 @@ it("does not carry a resolved notification view into another account or period s
   expect(screen.getByText("Private notification target")).toBeTruthy();
   view.rerender(page("term-2"));
   expect(screen.queryByText("Private notification target")).toBeNull();
-  expect(screen.getByRole("tab", { name: "matching 0" }).getAttribute("aria-selected")).toBe("true");
+  expect(
+    screen
+      .getByRole("tab", { name: "matching 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
   window.history.replaceState(null, "", "/admin/requests");
   mocks.accountId = "other-head";
   view.rerender(page("term-2"));
   expect(screen.queryByText("Private notification target")).toBeNull();
-  expect(screen.getByRole("tab", { name: "matching 0" }).getAttribute("aria-selected")).toBe("true");
+  expect(
+    screen
+      .getByRole("tab", { name: "matching 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
 });
 
 it("lets an explicit filter choice replace a notification view and persist the resolved tab", () => {
-  window.history.replaceState(null, "", "/admin/requests#request-signup-source");
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/requests#request-signup-source",
+  );
   render(
     <SessionViewProvider identity="head" pathname="/admin/requests" verified>
-      <StudentRequestBoard additionalEntries={[{
-        id: "source", group: "assigned", invalid: true,
-        submittedAt: new Date(), content: <p>Invalid notification target</p>,
-      }]} />
+      <StudentRequestBoard
+        additionalEntries={[
+          {
+            id: "source",
+            group: "assigned",
+            invalid: true,
+            submittedAt: new Date(),
+            content: <p>Invalid notification target</p>,
+          },
+        ]}
+      />
     </SessionViewProvider>,
   );
   expect(screen.getByText("Invalid notification target")).toBeTruthy();
-  fireEvent.click(screen.getByRole("tab", { name: "processed 0" }));
+  fireEvent.click(screen.getByRole("tab", { name: "assigned 0" }));
   expect(screen.queryByText("Invalid notification target")).toBeNull();
-  expect(sessionStorage.getItem(viewStateKey("head", "/admin/requests", "requests.tab.v1", ""))).toBe(JSON.stringify("processed"));
-  expect(sessionStorage.getItem(viewStateKey("head", "/admin/requests", "requests.invalidity.v1", ""))).toBe(JSON.stringify("all"));
+  expect(
+    sessionStorage.getItem(
+      viewStateKey("head", "/admin/requests", "requests.tab.v1", ""),
+    ),
+  ).toBe(JSON.stringify("assigned"));
+  expect(
+    sessionStorage.getItem(
+      viewStateKey("head", "/admin/requests", "requests.invalidity.v1", ""),
+    ),
+  ).toBe(JSON.stringify("all"));
 });
 
 it("restores a delayed notification's committed view on a bare return without a filter click", async () => {
@@ -580,17 +619,30 @@ it("restores a delayed notification's committed view on a bare return without a 
   const pathname = "/admin/requests";
   const scope = "term-1";
   const tabKey = viewStateKey(identity, pathname, "requests.tab.v1", scope);
-  const filterKey = viewStateKey(identity, pathname, "requests.invalidity.v1", scope);
+  const filterKey = viewStateKey(
+    identity,
+    pathname,
+    "requests.invalidity.v1",
+    scope,
+  );
   writeViewState(sessionStorage, tabKey, "processed");
   writeViewState(sessionStorage, filterKey, "valid");
   window.history.replaceState(null, "", `${pathname}#request-signup-source`);
   mocks.legacy.mockReturnValue({ data: undefined });
   const page = () => (
     <SessionViewProvider identity={identity} pathname={pathname} verified>
-      <StudentRequestBoard viewScope={scope} additionalEntries={[{
-        id: "source", group: "assigned", invalid: true,
-        submittedAt: new Date(), content: <p>Delayed notification record</p>,
-      }]} />
+      <StudentRequestBoard
+        viewScope={scope}
+        additionalEntries={[
+          {
+            id: "source",
+            group: "assigned",
+            invalid: true,
+            submittedAt: new Date(),
+            content: <p>Delayed notification record</p>,
+          },
+        ]}
+      />
     </SessionViewProvider>
   );
   const view = render(page());
@@ -598,32 +650,77 @@ it("restores a delayed notification's committed view on a bare return without a 
   expect(sessionStorage.getItem(tabKey)).toBe(JSON.stringify("processed"));
   mocks.legacy.mockReturnValue({ data: [] });
   view.rerender(page());
-  await waitFor(() => expect(screen.getByText("Delayed notification record")).toBeTruthy());
-  expect(sessionStorage.getItem(tabKey)).toBe(JSON.stringify("assigned"));
+  await waitFor(() =>
+    expect(screen.getByText("Delayed notification record")).toBeTruthy(),
+  );
+  expect(sessionStorage.getItem(tabKey)).toBe(JSON.stringify("processed"));
   expect(sessionStorage.getItem(filterKey)).toBe(JSON.stringify("all"));
   view.unmount();
   window.history.replaceState(null, "", pathname);
   render(page());
   expect(screen.getByText("Delayed notification record")).toBeTruthy();
-  expect(screen.getByRole("tab", { name: "assigned 1" }).getAttribute("aria-selected")).toBe("true");
+  expect(
+    screen
+      .getByRole("tab", { name: "processed 1" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
 });
 
 it("does not replay a resolved notification's filters after a manual tab choice and background read", () => {
-  window.history.replaceState(null, "", "/admin/requests#request-signup-source");
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/requests#request-signup-source",
+  );
   const page = () => (
     <SessionViewProvider identity="head" pathname="/admin/requests" verified>
-      <StudentRequestBoard additionalEntries={[{
-        id: "source", group: "assigned", invalid: true,
-        submittedAt: new Date(), content: <p>Resolved notification target</p>,
-      }]} />
+      <StudentRequestBoard
+        additionalEntries={[
+          {
+            id: "source",
+            group: "assigned",
+            invalid: true,
+            submittedAt: new Date(),
+            content: <p>Resolved notification target</p>,
+          },
+        ]}
+      />
     </SessionViewProvider>
   );
   const view = render(page());
   expect(screen.getByText("Resolved notification target")).toBeTruthy();
-  fireEvent.click(screen.getByRole("tab", { name: "processed 0" }));
+  fireEvent.click(screen.getByRole("tab", { name: "assigned 0" }));
   mocks.legacy.mockReturnValue({ data: [] });
   view.rerender(page());
   expect(screen.queryByText("Resolved notification target")).toBeNull();
-  expect(screen.getByRole("tab", { name: "processed 0" }).getAttribute("aria-selected")).toBe("true");
-  expect(sessionStorage.getItem(viewStateKey("head", "/admin/requests", "requests.tab.v1", ""))).toBe(JSON.stringify("processed"));
+  expect(
+    screen
+      .getByRole("tab", { name: "assigned 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(
+    sessionStorage.getItem(
+      viewStateKey("head", "/admin/requests", "requests.tab.v1", ""),
+    ),
+  ).toBe(JSON.stringify("assigned"));
+});
+
+
+it("routes a legacy workflow review to its source anchor without duplicating assigned counts", () => {
+  window.history.replaceState(null, "", "/admin/requests#request-signup-legacy-source");
+  const review = { id: "legacy-review", legacyTuteeId: "legacy-source", name: "Synthetic legacy", kind: "STUDENT_ABORT", state: "PENDING", reason: "Synthetic withdrawal" };
+  mocks.legacy.mockReturnValue({ data: [review] });
+  const page = () => <SessionViewProvider identity="head" pathname="/admin/requests" verified><StudentRequestBoard additionalEntries={[{ id: "manual-legacy-source", sourceId: "legacy-source", group: "assigned", submittedAt: new Date(), content: <p>Assigned legacy intake</p> }]} /></SessionViewProvider>;
+  const view = render(page());
+  expect(screen.getByRole("tab", { name: "reviews 1" }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("tab", { name: "assigned 0" })).toBeTruthy();
+  expect(document.getElementById("request-signup-legacy-source")).toBeTruthy();
+  expect(screen.getByText("Synthetic withdrawal")).toBeTruthy();
+  mocks.legacy.mockReturnValue({ data: [{ ...review, state: "DENIED" }] });
+  view.rerender(page());
+  expect(screen.getByRole("tab", { name: "reviews 0" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "assigned 1" }));
+  expect(screen.getByText("Assigned legacy intake")).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "processed 1" }));
+  expect(screen.getByText("reviewState.DENIED")).toBeTruthy();
 });
