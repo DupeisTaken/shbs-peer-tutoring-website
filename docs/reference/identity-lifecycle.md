@@ -105,6 +105,11 @@ and retry therefore produce at most one separation. Accepted writes only retry
 directory reads when synchronization fails; changing displayed groups does not
 discard the retained controller's receipt.
 
+While an identity write or its outcome recovery is pending, User details disables
+sibling profile/record openers and parent read retries as well as dismissal.
+Receipt recovery stays available in the original controller; opening a nested
+reader must not hide those controls behind another busy dialog.
+
 The dedicated `recovery_capture_person_partition()` journal matches typed affected
 Person/User/Tutor/Tutee references, never the reviewer's ID as a generic edge. It
 records only safe references and changed field names; private drafts, operation
@@ -128,6 +133,9 @@ The directory correction inventory shows every potentially affected exact profil
 notification and withdrawal restriction. Old combines sometimes rewrote recipients
 without per-row provenance; matching names, addresses or timestamps cannot repair
 that missing evidence. Staff choose Retain, Assign or Quarantine for every row.
+The Admin/Head-only inventory labels notifications with their original title and
+exact record ID, retaining an event/type fallback for blank titles. It does not
+project notification bodies or private event payloads into that review.
 Retain freezes the actual previous reader even when its raw owner is a selected
 retired source. Current operational profiles require the participation transfer
 review rather than a historical-only owner change. New combines freeze exact

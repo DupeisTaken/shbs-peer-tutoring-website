@@ -217,7 +217,8 @@ export async function transferPersonParticipation(db: DomainDb, actorId: string,
     for (const userId of [...new Set([actorId, ...initial.users.map((row) => row.id), ...initial.previousReaders.map((row) => row.id), ...initial.sourceRestrictions.flatMap((row) => row.sourceUserIds)])].sort()) await lockEntity(tx, `account-profile:${userId}`);
     await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "Person", "StudentProfileOwnership", "TutorProfileOwnership", "Pairing", "PairingTutee", "PairingGroup", "TutorQualification", "QualificationGrant", "StudentSurvey", "TutorStatusRequest", "TuteeRemovalRequest", "StudentQuarterBlock", "ParticipantConsolidation", "PairingExecutionSuccessor", "SessionPlanExecution", "SessionParticipantExecution", "SessionResponseExecution", "HistoryRowOwnership", "StudentRequestExecutionAssignment" IN SHARE ROW EXCLUSIVE MODE`;
     const actor = await reviewer(tx, actorId);
-    if (!verifyPasswordConfirmation(actorId, confirmPassword, actor.passwordHash)) throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
+    // A failed confirmation rejects this input; it does not revoke reviewer access.
+    if (!verifyPasswordConfirmation(actorId, confirmPassword, actor.passwordHash)) throw new TRPCError({ code: "BAD_REQUEST", message: "Password is incorrect." });
     const current = await plan(tx, input);
     if (current.preview.fingerprint !== input.fingerprint) conflict("Participation changed. Reload and review the exact transfer again.");
     if (!current.preview.canTransfer) conflict("Resolve the displayed participation decisions before transferring work.");

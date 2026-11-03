@@ -15,18 +15,27 @@ import type { RouterOutputs } from "~/trpc/react";
 import { UserDetails } from "./user-details";
 import { LoginSetup, MembershipBadges } from "./presentation";
 
-const fixture = vi.hoisted(() => ({ query: vi.fn(), refetch: vi.fn(), directory: vi.fn(), combine: vi.fn(), invitation: vi.fn() }));
+const fixture = vi.hoisted(() => ({ query: vi.fn(), refetch: vi.fn(), directory: vi.fn(), combine: vi.fn(), invitation: vi.fn(), openTutor: vi.fn() }));
 vi.mock("~/trpc/react", () => ({
   api: { admin: { accountDetails: { useQuery: fixture.query }, accounts: { useQuery: fixture.directory } } },
 }));
 vi.mock("~/app/_components/combine-records", async () => {
   const { useState } = await import("react");
+  const { useDialogPending } = await import("~/app/_components/ui/modal");
   return { CombineRecords: (props: { reviewPersonId: string; accessDenied?: boolean }) => {
     fixture.combine(props);
     const [accepted, setAccepted] = useState(false);
-    return <section>{accepted ? <p>Accepted finalization receipt</p> : <button onClick={() => setAccepted(true)}>Finalize reviewed group</button>}</section>;
+    const [pending, setPending] = useState(false);
+    const busy = useDialogPending(pending);
+    return <section>{accepted ? <p>Accepted finalization receipt</p> : <button disabled={busy} onClick={() => setAccepted(true)}>Finalize reviewed group</button>}
+      <button disabled={busy} onClick={() => setPending(true)}>Simulate interrupted identity response</button>
+      {pending && <button onClick={() => setPending(false)}>Check recorded outcome</button>}
+    </section>;
   } };
 });
+vi.mock("~/app/_components/account-profile-editor", () => ({
+  AccountProfileEditor: () => <div role="dialog">Synthetic profile editor</div>,
+}));
 vi.mock("~/app/_components/historical-record-invitation", () => ({
   HistoricalRecordInvitation: (props: unknown) => { fixture.invitation(props); return <p>Exact history invitation editor</p>; },
 }));
@@ -39,7 +48,7 @@ vi.mock("~/app/_components/acceptance-records", () => ({
   ),
 }));
 vi.mock("~/app/_components/tutor-details", () => ({
-  TutorDetailsButton: () => <button>Tutor details</button>,
+  TutorDetailsButton: () => <button onClick={fixture.openTutor}>Tutor details</button>,
 }));
 vi.mock("~/app/_components/tutee-history", () => ({
   TuteeHistoryDialog: () => <div role="dialog">Tutee evidence</div>,
@@ -130,6 +139,7 @@ beforeEach(() => {
   fixture.directory.mockReset().mockReturnValue({ data: { caller: { role: "HEAD" } }, isFetching: false, isSuccess: true });
   fixture.combine.mockClear();
   fixture.invitation.mockClear();
+  fixture.openTutor.mockClear();
 });
 afterEach(cleanup);
 it("uses the current projected handle in the opener without changing its account query", () => {
@@ -353,6 +363,44 @@ it("keeps private detail denial latched through later transport errors and dialo
 });
 
 const groupLogin = { id: "one", name: "Original login", email: "original@example.test", tutor: null };
+it("freezes sibling profile and record openers until an interrupted identity outcome is recovered", () => {
+  const group = {
+    id: "person", resolutionState: "REVIEW_REQUIRED", users: [groupLogin],
+    tutors: [{ id: "group-tutor", englishName: "Group Tutor", status: "ARCHIVED" }],
+    tutees: [{ id: "group-learner", englishName: "Group Learner", status: "INACTIVE" }],
+  };
+  fixture.query.mockReturnValue({ data: { ...data, group }, isFetching: false, isSuccess: true });
+  mount();
+  open();
+  const dialog = screen.getByRole("dialog");
+  const tables = [
+    screen.getByRole("table", { name: messages.usersDirectory.groupLogins }),
+    screen.getByRole("table", { name: messages.usersDirectory.groupRecords }),
+    ...screen.getAllByRole("table", { name: messages.usersDirectory.profileRecords }),
+  ];
+  const openers = tables.flatMap((table) => within(table).getAllByRole<HTMLButtonElement>("button"));
+  const edit = screen.getByRole<HTMLButtonElement>("button", { name: messages.accountProfile.editProfile });
+  expect(edit.matches(":disabled")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Simulate interrupted identity response" }));
+  for (const button of openers) {
+    expect(button.matches(":disabled")).toBe(true);
+    // Native activation respects a disabled fieldset, including descendant openers.
+    button.click();
+  }
+  expect(fixture.openTutor).not.toHaveBeenCalled();
+  expect(screen.queryByText("Synthetic profile editor")).toBeNull();
+  expect(screen.getAllByRole("dialog")).toEqual([dialog]);
+  expect(within(dialog).getByRole("button", { name: messages.accountProfile.close }).matches(":disabled")).toBe(true);
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  const recover = screen.getByRole("button", { name: "Check recorded outcome" });
+  expect(recover.matches(":disabled")).toBe(false);
+  fireEvent.click(recover);
+  expect(edit.matches(":disabled")).toBe(false);
+  fireEvent.click(edit);
+  expect(screen.getByText("Synthetic profile editor")).toBeTruthy();
+});
+
 it("keeps an accepted group review mounted when retirement leaves one live source", () => {
   const group = { id: "person", resolutionState: "REVIEW_REQUIRED", users: [groupLogin, { ...groupLogin, id: "two" }], tutors: [], tutees: [] };
   fixture.query.mockReturnValue({ data: { ...data, group }, isFetching: false, isSuccess: true });

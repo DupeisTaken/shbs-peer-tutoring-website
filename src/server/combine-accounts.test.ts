@@ -474,7 +474,14 @@ it("combines historical read and delivery ownership, preserves immutable evidenc
     (await caller(headId).messaging.inbox()).find(
       (row) => row.id === outgoing.id,
     ),
-  ).toMatchObject({ senderId: survivorId, canReply: true });
+  ).toMatchObject({
+    // Attribution stays with the original actor; replies use the reviewed reader.
+    senderId: duplicateId,
+    recipientId: headId,
+    replyRecipientId: survivorId,
+    replyRecipient: { id: survivorId },
+    canReply: true,
+  });
   await expect(
     caller(duplicateId, "STUDENT").messaging.inbox(),
   ).rejects.toMatchObject({ code: "UNAUTHORIZED" });

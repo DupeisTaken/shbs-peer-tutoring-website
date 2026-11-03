@@ -397,13 +397,16 @@ it.each(["coord", "viewer", "missing-manager"])("denies %s without changing sour
 
 it("requires the current password and rechecks management authority on receipts and retries", async () => {
   const input = await reviewed();
-  await expect(partitionPersonRecords(db, "admin", { ...input, confirmPassword: "incorrect" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  const initial = await identitySnapshot();
+  await expect(partitionPersonRecords(db, "admin", { ...input, confirmPassword: "incorrect" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Password is incorrect." });
+  expect(await identitySnapshot()).toEqual(initial);
   expect(await db.personPartitionReceipt.count()).toBe(0);
-  const result = await partitionPersonRecords(db, "admin", input);
+  const fresh = { ...await reviewed(), reason: input.reason };
+  const result = await partitionPersonRecords(db, "admin", fresh);
   await db.user.update({ where: { id: "admin" }, data: { role: "VIEWER" } });
   const before = await identitySnapshot();
   await expect(personPartitionReceipt(db, "admin", result.receiptId)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(partitionPersonRecords(db, "admin", input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(partitionPersonRecords(db, "admin", fresh)).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await identitySnapshot()).toEqual(before);
 });
 
