@@ -26,6 +26,20 @@ agenda item shows the executing tutor and learner names. A pending response
 shows its current responder. Recorded sessions and completed responses retain
 their original attribution.
 
+Dated calendar-change notices use the executing tutor and learners for the
+affected future cohort or current offer. Announcement assignment counts and
+subjects use current pairings. When a prior lesson has a chain of successors,
+the learner sees its final assignment as one new continuation option. A choice
+already accepted or released stays attached to its original source and prevents
+the successor from creating duplicate demand. Independent subjects can still
+be requested.
+
+Room reservations and blackouts exclude a retained predecessor only when its
+reviewed edge points to an existing successor in the same term. Transfer creates
+all targets without reservations, records their exact edges, then finalizes
+their reviewed group and room bookings inside one transaction. Independent
+bookings and room blackouts still block overlaps.
+
 Admin and Head can directly perform authorized identity management operations,
 including account combination, exact historical ownership correction and guarded
 account deletion. The current Head alone can transfer leadership; combination

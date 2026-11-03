@@ -13,7 +13,7 @@ schema at `1301ae4a4951994bcab43c7a5f24edf9bd9d6f22`. The pair is scoped to
 this pull request; unrelated pull requests retain their own base revision.
 
 PR #569 uses a separate manifest with the scheduling migration only. PR #568
-uses an eight-addition identity manifest. Its standalone harness covers the
+uses a nine-addition identity manifest. Its standalone harness covers the
 projections it declares; the full identity/recovery v3 projections and the
 native-original capture contract are verified separately in PR #570. Each pair
 uses the same named application control and its own reviewed schema overlay.
@@ -25,7 +25,10 @@ student metadata guard. Ten further additions implement scoped compensation,
 prospective checkpoints, delivery effects and shared causal roots, workflow drafts,
 notification provenance, immutable cancellation, continuation composition,
 monotonic history authority and exact late transport acceptance. Historical SQL
-and dependency bytes remain unchanged.
+and dependency bytes remain unchanged. A nineteenth migration (`20261103060000`)
+updates the room booking and blackout guards so only real same-term successors
+release a retained source booking. It changes neither the Prisma schema nor the
+first eighteen additions.
 Hashes use immutable Git blob bytes, matching Linux CI rather than Windows newline
 conversion. The comparison helper at `1beb7ea6` accepted the complete
 manifest against those immutable Git blob exports, including the historical

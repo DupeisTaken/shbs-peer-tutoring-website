@@ -265,18 +265,34 @@ export async function transferPersonParticipation(db: DomainDb, actorId: string,
       const group = pairings.find((row) => row.groupId === sourceId)!.group!;
       await tx.pairingGroup.create({ data: { id: targetId, tutorId: tutor(group.tutorId), termId: group.termId, primaryPairingId: pairingIds.get(group.primaryPairingId)! } });
     }
+    // Create every target without a reservation before recording the reviewed
+    // edges. The room guard requires a real target witness, including siblings
+    // of a grouped lesson. Finalize all bookings under the existing room locks.
+    for (const { tutees: members, group, ...fields } of pairings) {
+      void members;
+      void group;
+      await tx.pairing.create({ data: {
+        ...fields, id: pairingIds.get(fields.id)!, tutorId: tutor(fields.tutorId),
+        groupId: null, scheduleConfirmed: false, roomId: null, roomMode: "NONE",
+        roomNeedsAssignment: false, roomShortageKey: null,
+      } });
+    }
+    if (pairings.length) await tx.pairingExecutionSuccessor.createMany({ data: pairings.map((row) => ({
+      sourcePairingId: row.id, targetPairingId: pairingIds.get(row.id)!, receiptId: input.operationId, effectiveAt: now,
+    })) });
     for (const row of pairings) {
-      const { id: sourceId, tutees: roster, group: _group, ...fields } = row;
-      void _group;
+      const { id: sourceId, tutees: roster } = row;
       const successorId = pairingIds.get(sourceId)!;
-      await tx.pairing.create({ data: { ...fields, ...allocationData(allocations.get(sourceId)!), id: successorId, tutorId: tutor(row.tutorId), groupId: row.groupId ? groupIds.get(row.groupId)! : null } });
+      await tx.pairing.update({ where: { id: successorId }, data: {
+        ...allocationData(allocations.get(sourceId)!), scheduleConfirmed: row.scheduleConfirmed,
+        groupId: row.groupId ? groupIds.get(row.groupId)! : null,
+      } });
       // Reviewed source bindings are persisted before physical membership so a
       // canonical profile's closed own request never bypasses the DB guard.
       for (const binding of current.requestAssignments.filter((assignment) => assignment.pairingId === sourceId)) {
         await tx.studentRequestExecutionAssignment.create({ data: { surveyId: binding.surveyId, pairingId: successorId, tuteeId: tutee(binding.tuteeId), sourceTuteeId: binding.sourceTuteeId, receiptId: input.operationId } });
       }
       await tx.pairingTutee.createMany({ data: [...new Set(roster.map((person) => tutee(person.tuteeId)))].map((tuteeId) => ({ pairingId: successorId, tuteeId })) });
-      await tx.pairingExecutionSuccessor.create({ data: { sourcePairingId: sourceId, targetPairingId: successorId, receiptId: input.operationId, effectiveAt: now } });
       await tx.studentRequestExecutionAssignment.updateMany({ where: { pairingId: sourceId, releasedAt: null }, data: { releasedAt: now, revision: { increment: 1 } } });
     }
     for (const published of plans) {

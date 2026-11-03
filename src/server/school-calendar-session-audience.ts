@@ -123,7 +123,7 @@ export async function getSchoolCalendarDatedSessionUserIds(
   const learnerByPlan = new Map<string, Map<string, string>>();
   for (const person of byId.values()) {
     let roster = learnerByPlan.get(person.planId);
-    if (!roster) learnerByPlan.set(person.planId, (roster = new Map()));
+    if (!roster) learnerByPlan.set(person.planId, (roster = new Map<string, string>()));
     roster.set(
       person.tuteeId,
       learnerByParticipant.get(person.id) ?? person.tuteeId,

@@ -478,7 +478,7 @@ roster-corrected source. Historical measurements and failed comparisons of
 the unmodified original remain separate and must not be pooled with this
 control. This choice does not change ordered audit or recovery comparisons.
 
-PR #568 selects the same roster-corrected baseline through `pr-568-baseline.txt` and its own `pr-568.json` with eight identity and scheduling migration additions. PR #569 uses its separate one-addition pair. With no generic selection files, unrelated pull requests use their own base. The combined identity/recovery v3 and native-original contract is verified in PR #570.
+PR #568 selects the same roster-corrected baseline through `pr-568-baseline.txt` and its own `pr-568.json` with nine identity and scheduling migration additions. PR #569 uses its separate one-addition pair. With no generic selection files, unrelated pull requests use their own base. The combined identity/recovery v3 and native-original contract is verified in PR #570.
 
 Artifacts retain source hashes, overlay paths, migration checksums, runtime,
 individual samples, errors and normalized output comparisons.

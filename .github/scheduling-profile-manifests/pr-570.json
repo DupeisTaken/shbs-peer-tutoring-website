@@ -75,6 +75,10 @@
     {
       "path": "prisma/migrations/20261103059000_recovery_late_cancelled_acceptance/migration.sql",
       "sha256": "30de81905b24fe8b8f97a401e8f82dc88b3517e81e33e74a1620670635beb822"
+    },
+    {
+      "path": "prisma/migrations/20261103060000_effective_room_occupancy/migration.sql",
+      "sha256": "318ec5738301911fc148ea69e5b3aa32347cd76ce9f8c5d3452b5037abd466b2"
     }
   ],
   "historicalMigrations": {
