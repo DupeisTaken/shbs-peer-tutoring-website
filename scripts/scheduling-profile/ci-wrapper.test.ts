@@ -200,13 +200,20 @@ void test("base control, overlay and both harness calls have explicit phases wit
   assert.equal(result.trace.filter((label) => label === "npm-migrate").length, 2);
 });
 
-void test("the local POSIX timeout utility returns its actual nonzero status for a short owned command", options, () => {
-  const started = Date.now();
-  const result = spawnSync(shell, ["-c", 'PATH=/usr/bin:/bin; export PATH; timeout 1 /bin/sh -c "sleep 2"'],
-    { encoding: "utf8", timeout: 4_000, maxBuffer: 4096 });
+void test("a supervised POSIX timeout reports the shell status retained by the wrapper", options, () => {
+  // The wrapper waits for timeout and reads $?. Keep this shell alive too:
+  // ash can exec its last command, exposing a signal directly to Node instead.
+  const probe = [
+    "PATH=/usr/bin:/bin; export PATH",
+    'timeout 1 /bin/sh -c "echo child-started; exec sleep 3"',
+    "status=$?",
+    'printf "shell-status=%s\\n" "$status"',
+    'exit "$status"',
+  ].join("; ");
+  const result = spawnSync(shell, ["-c", probe], { encoding: "utf8", timeout: 4_000, maxBuffer: 4096 });
   assert.ifError(result.error);
-  // GNU timeout (Git for Windows) uses 124; Alpine BusyBox may report SIGTERM
-  // as 143. The wrapper retains the actual status and retries neither elsewhere.
-  assert.ok(result.status === 124 || result.status === 143, result.stderr);
-  assert.ok(Date.now() - started < 4_000, "The timeout must return without waiting for an unbounded child.");
+  const details = JSON.stringify({ status: result.status, signal: result.signal, stdout: result.stdout, stderr: result.stderr });
+  assert.equal(result.signal, null, details);
+  assert.ok(result.status === 124 || result.status === 143, details);
+  assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["child-started", `shell-status=${result.status}`], details);
 });
