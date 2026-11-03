@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { isDeepStrictEqual } from "node:util";
 import type { PrismaClient } from "../../generated/prisma";
 import type { createCaller } from "../../src/server/api/root";
 import { addDays, fixtureId, fixtureKey, inspectPublicationAcknowledgements, installBacklogWitness, readMaintenanceReadiness, readPendingPublicationEventIds, seedRequestBacklog, type Fixture } from "./fixtures";
@@ -134,7 +135,7 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       assert.equal(readiness.openRequests, 0);
     }
     const after = await ctx.captureDomain();
-    assert.deepEqual(after, domain, "Clean warm preparation changed domain/audit/recovery evidence.");
+    assert.ok(isDeepStrictEqual(after, domain), "Clean warm preparation changed domain/audit/recovery evidence.");
     ctx.recordPreparationEvidence(`${phase}:domain-unchanged`, { identical: true });
     await certify(`${phase}:certified`, clock);
     return domain;
@@ -158,7 +159,7 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
     const domain = await prepareClean("sunday-clean", 0, sunday);
     results.push(await measure("domain:sunday-steady-clean-agenda", () => planning.readSessionAgenda(db, { id: f.pairs[0]!.tutorUserId, tutorId: f.pairs[0]!.tutorId }, "tutor", sunday)));
     await certify("sunday-clean:after-measurement", sunday);
-    assert.deepEqual(await ctx.captureDomain(), domain, "Steady Sunday agenda changed domain/audit/recovery evidence.");
+    assert.ok(isDeepStrictEqual(await ctx.captureDomain(), domain), "Steady Sunday agenda changed domain/audit/recovery evidence.");
   } else if (name === "backlog") {
     const sunday = new Date(`${addDays(f.monday, -1)}T04:00:00Z`);
     results.push(await measure("setup:backlog-materialization", () => planning.ensureSessionPlanningWindow(db, sunday)));
@@ -291,7 +292,7 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       results.push(await measure("procedure:steady-clean-tutor-agenda", () => tutor(8).sessionPlanning.agenda({ role: "tutor" })));
       results.push(await measure("procedure:steady-clean-tutee-agenda", () => student(8).sessionPlanning.agenda({ role: "tutee" })));
       await certify("ordinary-clean:after-measurement", f.anchor);
-      assert.deepEqual(await ctx.captureDomain(), domain, "Steady agendas changed domain/audit/recovery evidence.");
+      assert.ok(isDeepStrictEqual(await ctx.captureDomain(), domain), "Steady agendas changed domain/audit/recovery evidence.");
       await propose(8, "ALL", "warm-pending-offer");
       results.push(await measure("procedure:post-proposal-first-agenda", () => tutor(8).sessionPlanning.agenda({ role: "tutor" })));
       results.push(await measure("procedure:post-proposal-second-agenda", () => student(8).sessionPlanning.agenda({ role: "tutee" })));
