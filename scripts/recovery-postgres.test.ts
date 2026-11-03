@@ -555,9 +555,11 @@ void test(
             true,
           );
         }
+        // Both backup-only accounts retain old credentials in this checkpoint;
+        // checkpoint, independent and retired make five. otp-login has none.
         assert.equal(
           securityInspection.restoredCredentials.passwordBearingAccounts,
-          "4",
+          "5",
         );
         assert.notEqual(
           securityInspection.currentFingerprint,
