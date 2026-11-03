@@ -2400,7 +2400,14 @@ export async function respondSession(
           "Your response is already recorded or is not required.",
           "CONFLICT",
         );
-      await tx.sessionResponseExecution.updateMany({ where: { responseId: response.id }, data: { respondedByUserId: actor.id, revision: { increment: 1 } } });
+      // Only transferred responses have execution evidence to advance. Issuing
+      // an empty update for an ordinary response creates a spurious audit entry.
+      if (responseOwners.has(response.id)) {
+        await tx.sessionResponseExecution.updateMany({
+          where: { responseId: response.id },
+          data: { respondedByUserId: actor.id, revision: { increment: 1 } },
+        });
+      }
       if (input.decision === "ACCEPT") {
         await tx.sessionPlanningResponse.update({
           where: { id: response.id },
