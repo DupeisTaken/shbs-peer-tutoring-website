@@ -6,6 +6,10 @@ on:
     paths:
       - .github/workflows/recovery-rehearsal.yml
       - scripts/recovery-postgres.test.ts
+      - scripts/recovery-transfer-journal-postgres.test.ts
+      - src/server/person-participation.ts
+      - src/server/recovery/checkpoint.ts
+      - src/server/recovery/adapters/participant.ts
       - src/server/recovery/operator-*.ts
       - prisma/migrations/**
       - prisma/schema.prisma
@@ -74,6 +78,8 @@ jobs:
           echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
       - name: Install locked dependencies
         run: npm ci
+      - name: Verify fixed-room transfer journal grouping and blocked compensation
+        run: node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs --test --test-concurrency=1 scripts/recovery-transfer-journal-postgres.test.ts
       - name: Build matching genuine Next runtime against job-owned synthetic database
         run: |
           npm run db:migrate
