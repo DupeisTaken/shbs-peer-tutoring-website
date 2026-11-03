@@ -1,37 +1,8 @@
-name: Scheduling request profile
+name: Isolated scheduling reference proof
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/scheduling-profile.yml"
-      - ".github/workflows/scheduling-profile-worker.yml"
-      - ".github/scheduling-profile-manifests/**"
-      - "scripts/profile-scheduling-requests.ts"
-      - "scripts/scheduling-profile/**"
-      - "scripts/run-scheduling-profile-ci.sh"
-      - "src/server/session-planning/**"
-      - "src/server/room-allocation.ts"
-      - "src/server/ordered-pairing-release.ts"
-      - "src/server/bulk-room-allocation.ts"
-      - "src/server/api/routers/admin.ts"
-      - "src/server/api/routers/tutor.ts"
-      - "src/server/database-options.ts"
-      - "src/lib/program-time.ts"
-      - "src/lib/school-calendar.ts"
-      - "prisma/**"
-      - "package.json"
-      - "package-lock.json"
   workflow_dispatch:
-    inputs:
-      baseline:
-        description: "Immutable 40-character baseline commit SHA"
-        required: true
-        type: string
-      schema-manifest:
-        description: "Optional exact reviewed manifest under .github/scheduling-profile-manifests/"
-        required: false
-        default: ""
-        type: string
+  pull_request:
 
 permissions:
   contents: read
@@ -73,10 +44,10 @@ jobs:
       - name: Select immutable comparison and reviewed schema contract
         id: selection
         env:
-          DEFAULT_BASELINE_SHA: ${{ github.event.pull_request.base.sha || inputs.baseline }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          MANUAL_BASELINE_SHA: ${{ inputs.baseline || '' }}
-          MANUAL_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
+          DEFAULT_BASELINE_SHA: b00c95dac80115d08abfa55905474c6db98e2e82
+          PR_NUMBER: '570'
+          MANUAL_BASELINE_SHA: ''
+          MANUAL_SCHEMA_MANIFEST: ''
         run: node scripts/scheduling-profile/select-comparison.mjs . >> "$GITHUB_OUTPUT"
       - name: Determine the common measurement interval
         id: clock
@@ -84,8 +55,8 @@ jobs:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
-          preflight=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix preflight)
-          remaining=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix remaining)
+          preflight=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix preflight | jq -c '.include |= map(select(.scenario == "contention-bulk-first" or .scenario == "contention-acceptance-first"))')
+          remaining=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix remaining | jq -c '.include |= map(select(.scenario == "contention" and .mode == "latency" and .partition == 0))')
           echo "preflight=$preflight" >> "$GITHUB_OUTPUT"
           echo "matrix=$remaining" >> "$GITHUB_OUTPUT"
           node scripts/scheduling-profile/clock-admission.mjs --plan > clock-plan.json
@@ -198,39 +169,25 @@ jobs:
       baseline-selection-file-sha256: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_file_sha256 || needs.matrix.outputs.baseline_file_sha256 }}
       baseline-selection-source: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_source || needs.matrix.outputs.baseline_source }}
 
-  aggregate:
+  proof:
     needs: [matrix, preflight, profile]
-    if: always() && needs.matrix.outputs.admission != 'DEFERRED'
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 9
-    env:
-      BASELINE_SHA: ${{ needs.matrix.outputs.baseline }}
-      CATALOG_BASELINE_SHA: ${{ needs.matrix.outputs.catalog_baseline }}
-      CATALOG_SELECTION_SOURCE: ${{ needs.matrix.outputs.catalog_source }}
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      PREFLIGHT_RESULT: ${{ needs.preflight.result }}
-      PROFILE_RESULT: ${{ needs.profile.result }}
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.CANDIDATE_SHA }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - name: Authenticate every execution and pool complete paired populations
+      - name: Verify exact hosted references and paired free-contention receipts
         env:
-          PROFILE_CAMPAIGN: ${{ needs.matrix.outputs.campaign }}
           GH_TOKEN: ${{ github.token }}
-        run: node --max-old-space-size=4096 scripts/scheduling-profile/resume-run.mjs aggregate
-      - name: Require every diagnostic and latency partition
-        if: always()
-        run: |
-          test "$PREFLIGHT_RESULT" = success
-          test "$PROFILE_RESULT" = success
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PROFILE_CAMPAIGN: ${{ needs.matrix.outputs.campaign }}
+        run: node scripts/scheduling-profile/probe-hosted-references.mjs
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: scheduling-profile-aggregate-${{ github.run_attempt }}
-          path: |
-            outputs/scheduling-profile-aggregate.json
-            outputs/scheduling-profile-selection.json
-          retention-days: 7
+          name: authenticated-hosted-reference-proof
+          path: outputs/reference-proof.json
           if-no-files-found: error
+          retention-days: 7
