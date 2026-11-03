@@ -12,6 +12,8 @@ import { requirePolicy } from "../src/server/policy-acceptance";
 import { z } from "zod";
 import { surveyInput } from "../src/server/student-survey";
 import { DEMO_REPORT_GENERATION_KEY } from "./demo-reporting";
+import { verifyDemoAcademicCoverage } from "./demo-academics-verification";
+import { verifyDemoScenarios } from "./demo-scenarios-verification";
 import {
   getSchoolHoursReport,
   schoolHoursCsv,
@@ -23,6 +25,8 @@ const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: utcDatabaseUrl(connectionString) }),
 });
 try {
+  console.log("Academic coverage:", await verifyDemoAcademicCoverage(db));
+  console.log("Scenario coverage:", await verifyDemoScenarios(db));
   // Use actual workflow validators, not merely row counts: visible records must be actionable.
   for (const key of ["fiona", "george", "hana"]) {
     const id = seedId(`app-${key}`);

@@ -239,6 +239,76 @@ reporting stays off. Reseeding preserves this immutable report rather than addin
 editions or changing its snapshot. Create a fresh demo database to start its report
 chain again; an unrelated existing report chain is never replaced.
 
+The current scenario manifest covers **60 role records: 42 ordinary (70%) and
+18 edge cases (30%)**. Historical cohorts, inactive archives and auxiliary review
+rows are retained outside that denominator. Ordinary records have defined academics,
+known signup provenance and no special discipline, withdrawal or review state.
+Routine waiting for matching, excused absences and normal scheduling are ordinary
+cases; the pending queue remains a synthetic rehearsal, not a copy of live volume.
+
+Current tutee sources are **30 Self-service, 10 Staff-entered and 2 Earlier signup**.
+Self-service examples include confirmed synthetic surveys, account ownership and
+exact policy acceptance evidence. The extra student accounts use
+`demo-<fixture-key>@example.test` and the shared demo password above. The two
+unknown-source examples are Mia and pending Zoe. **Earlier signup means unknown
+entry provenance, not an earlier submission date.** Its badge is intentionally
+retained for those examples rather than applied to the whole seed by default.
+Three redundant current cards are omitted; the invalid-card example remains in
+historical reporting. Edge scenarios are concentrated on nine tutors and nine
+tutees, including appeals, membership requests, discipline, incomplete academics
+and username collisions. The verifier checks their actual states as well as counts.
+
+Academic details are complete for 46 of the 49 tutor/tutee demo accounts: a
+confirmed grade and reference school year, or Pia's explicit graduated status.
+The website derives the class/graduation year from that grade and reference year;
+there is no separate class-name field. Alice and Emma have confirmed profiles.
+Most current tutee roster entries also include their enrollment year, so
+accountless participants show their grade and class-of without invented logins.
+The two Alex/Andrea Kim roster fixtures have dated provisional tutor grades.
+Evan, Oscar and Kate retain account confirmation examples; Madonna retains an
+undated roster grade. Pending Zoe retains a missing enrollment-year example.
+Existing historical originals and accepted survey/policy
+snapshots are not rewritten.
+
+For an existing disposable demo, add the missing scenario evidence and academics
+without resetting exploration data:
+
+```bash
+npx tsx --conditions=react-server prisma/seed-scenarios.ts
+```
+
+Use the existing `DATABASE_URL` and `SHBS_DEMO_SEED=1`. This creates credentials
+only for missing, unchanged synthetic self-service fixtures; it never resets an
+existing password or rewrites an accepted survey. Changed or deleted fixtures are
+reported as deviations, so an explored database may differ from the fresh 70/30
+target. The three redundant cards are removed only when their complete fixture
+values and timestamps still match and no appeal, audit or approval references them.
+Existing signup priority and signature dates are preserved, even when an older
+rehearsal has artificial attendance chronology. Fresh ordinary intake and pairing
+creation dates precede their attendance examples.
+
+To add only these missing academic details to an existing disposable demo, keep
+its `DATABASE_URL` and set `SHBS_DEMO_SEED=1`, then run:
+
+```bash
+npx tsx --conditions=react-server prisma/seed-academics.ts
+```
+
+This helper skips existing academic confirmations and populated enrollment metadata.
+It preserves historical academic originals before initializing a linked account's
+current profile; only current roster-only fixtures receive missing year metadata.
+It does not reseed credentials, schedules, reports
+or review queues, and does nothing after the active demo term has been refreshed.
+For the edit-preservation regression, seed a separate `shbs_*_test` database twice
+and run `npx tsx --conditions=react-server prisma/verify-demo-academics.ts`. That
+test deliberately changes Alice's grade in the test database, verifies a selective
+repeat preserves it, and compares academic, report, policy, survey and historical
+evidence. It refuses the exploration demo database.
+Also run `npx tsx --conditions=react-server prisma/verify-demo-scenarios.ts` on that
+disposable test database to verify evidence-backed provenance, exact scenario
+coverage, no-op repeats and preservation of edited intake/card records. It leaves
+its deliberate edits in the test database and refuses a demo database.
+
 Opening a tutor or tutee agenda publishes ordinary upcoming sessions from the
 confirmed assignments. Rescheduling negotiations, extra sessions and shared pairing
 groups remain interactive rehearsals: use the tutor and student accounts to create

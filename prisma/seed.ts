@@ -10,6 +10,8 @@ import "dotenv/config";
 import { assertDemoDatabase, seedId } from "./demo-support";
 import { seedModernWorkflows } from "./demo-workflows";
 import { seedSchoolHoursReport } from "./demo-reporting";
+import { seedDemoAcademics } from "./demo-academics";
+import { seedDemoScenarios } from "./demo-scenarios";
 import { DEFAULT_SUBJECT_LEVELS as LEVELS } from "./default-subject-levels";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -316,11 +318,8 @@ const CARDS: CardSpec[] = [
   // threshold would be auto-removed, so the active roster never sits AT removal.
   { id: seedId("card-noah-r1"), tuteeId: seedId("tutee-noah"), color: "RED", source: "TUTOR", reason: "Disruptive behaviour during session.", reviewStatus: "VALID", issuedByTutorId: seedId("tutor-gina"), reviewedById: seedId("user-admin"), reviewed: true },
   { id: seedId("card-noah-y1"), tuteeId: seedId("tutee-noah"), color: "YELLOW", source: "TUTOR", reason: "Arrived without the assigned problem set.", reviewStatus: "PENDING", issuedByTutorId: seedId("tutor-gina"), reviewed: false },
-  { id: seedId("card-umar-inv"), tuteeId: seedId("tutee-umar"), color: "YELLOW", source: "TUTOR", reason: "Late — but tutee had notified; flagged invalid.", reviewStatus: "INVALID", issuedByTutorId: seedId("tutor-karen"), reviewedById: seedId("user-admin"), reviewed: true },
   { id: seedId("card-eli-auto"), tuteeId: seedId("tutee-eli"), color: "RED", source: "AUTO", reason: "Unexcused absence (auto-issued).", reviewStatus: "VALID", sessionId: seedId("sess-nora-2"), reviewed: false },
   { id: seedId("card-cory-y1"), tuteeId: seedId("tutee-cory"), color: "YELLOW", source: "TUTOR", reason: "Forgot materials.", reviewStatus: "PENDING", issuedByTutorId: seedId("tutor-mona"), reviewed: false },
-  { id: seedId("card-bella-y1"), tuteeId: seedId("tutee-bella"), color: "YELLOW", source: "TUTOR", reason: "Late submission of practice set.", reviewStatus: "VALID", issuedByTutorId: seedId("tutor-nora"), reviewedById: seedId("user-admin"), reviewed: true },
-  { id: seedId("card-gabe-y1"), tuteeId: seedId("tutee-gabe"), color: "YELLOW", source: "TUTOR", reason: "Phone use during session.", reviewStatus: "VALID", issuedByTutorId: seedId("tutor-nora"), reviewedById: seedId("user-admin"), reviewed: true },
   // Zoe: 2 valid reds → at the removal threshold (full 6-slot meter). She was auto-removed
   // (INACTIVE) — see TUTEE_REMOVALS (PUNISHMENT). Shows the meter maxed + a discipline removal.
   { id: seedId("card-zoe-r1"), tuteeId: seedId("tutee-zoe"), color: "RED", source: "TUTOR", reason: "Repeated disruption despite warnings.", reviewStatus: "VALID", issuedByTutorId: seedId("tutor-nora"), reviewedById: seedId("user-admin"), reviewed: true },
@@ -646,7 +645,12 @@ async function main() {
 
   // --- Tutors ----------------------------------------------------------------
   for (const t of TUTORS) {
-    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, status: t.status, gradeLevel: t.gradeLevel };
+    // A repeat seed must not put a provisional grade back over a confirmed
+    // account mirror (especially the graduated fixture's intentional null grade).
+    const existing = await db.tutor.findUnique({ where: { id: t.id }, select: { user: { select: { academicProfile: true } } } });
+    const academic = existing?.user?.academicProfile;
+    const academicMirror = academic?.confirmedAt ? { gradeLevel: academic.gradeLevel, academicallyGraduated: academic.status === "GRADUATED", gradeSchoolYear: academic.schoolYear, gradeConfirmedAt: academic.confirmedAt } : { gradeLevel: t.gradeLevel };
+    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, status: t.status, ...academicMirror };
     await db.tutor.upsert({ where: { id: t.id }, update: data, create: { id: t.id, ...data } });
   }
 
@@ -673,8 +677,9 @@ async function main() {
 
   // --- Tutees (active) -------------------------------------------------------
   for (const tutee of TUTEES) {
+    const acceptedIntake = await db.studentSurvey.findFirst({ where: { tuteeId: tutee.id, confirmedAt: { not: null } }, select: { id: true } });
     const data = { englishName: tutee.englishName, gradeLevel: tutee.gradeLevel, status: "ACTIVE" as const, firstChoiceId: tutee.firstChoiceId };
-    await db.tutee.upsert({ where: { id: tutee.id }, update: data, create: { id: tutee.id, ...data } });
+    await db.tutee.upsert({ where: { id: tutee.id }, update: acceptedIntake ? {} : data, create: { id: tutee.id, ...data, createdAt: daysAgo(45) } });
   }
 
   // --- Removed/opted-out tutees (INACTIVE, no pairings) ----------------------
@@ -688,13 +693,14 @@ async function main() {
 
   // --- Pending public signups (with availability), earliest-first ------------
   for (const p of PENDING_SIGNUPS) {
+    const acceptedIntake = await db.studentSurvey.findFirst({ where: { tuteeId: p.id, confirmedAt: { not: null } }, select: { id: true } });
     const data = {
       englishName: p.englishName, gradeLevel: p.gradeLevel, email: p.email, preferredContact: p.preferredContact,
       status: "PENDING" as const, firstChoiceId: p.firstChoiceId, secondChoiceId: p.secondChoiceId ?? null,
       signedRulebook: true, signatureName: p.englishName, signedAt: daysAgo(p.daysAgo), createdAt: daysAgo(p.daysAgo),
     };
-    await db.tutee.upsert({ where: { id: p.id }, update: data, create: { id: p.id, ...data } });
-    for (const slotId of p.slotIds) {
+    await db.tutee.upsert({ where: { id: p.id }, update: acceptedIntake ? {} : data, create: { id: p.id, ...data } });
+    for (const slotId of acceptedIntake ? [] : p.slotIds) {
       await db.tuteeAvailability.upsert({ where: { tuteeId_slotId: { tuteeId: p.id, slotId } }, update: {}, create: { tuteeId: p.id, slotId } });
     }
   }
@@ -717,7 +723,7 @@ async function main() {
     const source = SUBJECTS.find((subject) => subject.name === p.subject);
     const displaySubject = source ? (await db.subject.findUniqueOrThrow({ where: { id: source.id } })).name : p.subject;
     const data = { scheduleConfirmed: true, subject: displaySubject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId, roomMode: p.id === seedId("pairing-david-chem") ? "LEGACY" as const : "FIXED" as const, roomNeedsAssignment: false, roomShortageKey: null };
-    await db.pairing.upsert({ where: { id: p.id }, update: data, create: { id: p.id, ...data } });
+    await db.pairing.upsert({ where: { id: p.id }, update: data, create: { id: p.id, ...data, createdAt: daysAgo(44) } });
     for (const tuteeId of p.tuteeIds) {
       await db.pairingTutee.upsert({ where: { pairingId_tuteeId: { pairingId: p.id, tuteeId } }, update: {}, create: { pairingId: p.id, tuteeId } });
     }
@@ -1181,6 +1187,8 @@ async function main() {
   });
 
   await seedModernWorkflows(db, passwordHash);
+  console.log("Demo scenario enrichment:", await seedDemoScenarios(db));
+  await seedDemoAcademics(db);
   await seedSchoolHoursReport(db);
 
   console.log(
@@ -1190,7 +1198,7 @@ async function main() {
       `${PAIRINGS.length} pairings, ${SESSIONS.length} sessions, ${CARDS.length} cards, ` +
       `${APPLICATIONS.length} applications, ${meetings.length} meetings, ` +
       `${TUTOR_STATUS_REQUESTS.length} tutor requests, ${TUTEE_REMOVALS.length} tutee opt-outs/removals, ` +
-      `${SUBPAGES.length} custom subpages, ${REGISTRATION_CODES.length} registration codes, ${users.length} login users ` +
+      `${SUBPAGES.length} custom subpages, ${REGISTRATION_CODES.length} registration codes, ${await db.user.count()} login users ` +
       `(password "${DEV_PASSWORD}"); history for 25-26 Q1–Q4 (S1 + S2) + active 26-27 Q1; ` +
       `edge cases: single-name + colliding-handle tutors, opted-out/inactive crew, accepted crew ` +
       `application + outstanding code, suspended viewers (pending + denied appeals), staged toggle.`,
