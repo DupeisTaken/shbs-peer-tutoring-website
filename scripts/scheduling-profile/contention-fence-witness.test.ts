@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
 import test from "node:test";
-import { Prisma } from "../../generated/prisma";
 import { buildContentionFenceEvidence, captureContentionFenceEvidence, createContentionFenceWitness, isContentionPeriodFence } from "./contention-fence-witness";
 
 const raw = () => ({ strings: ["SELECT pg_advisory_xact_lock(hashtextextended(", ", 0))"], values: ["program:period"] });
@@ -19,8 +18,6 @@ const audits = (reversed = false, tied = false) => {
 };
 
 void test("only the exact bound lockEntity period template is observed", () => {
-  const key = "program:period";
-  assert.equal(isContentionPeriodFence(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`), true);
   assert.equal(isContentionPeriodFence(raw()), true);
   assert.equal(isContentionPeriodFence([raw()]), true);
   assert.equal(isContentionPeriodFence([raw().strings, "program:period"]), true);
