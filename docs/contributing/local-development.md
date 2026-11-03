@@ -229,8 +229,18 @@ All example accounts use `Password123!`. The identifiers below work at `/signin`
 
 The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has Admin tutor Alex Interview Chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Carol remains a Coordinator for approval workflows. Bundled policy text still needs school review before publication.
 
+Current lessons contain **26 one-student subject assignments in 12 teaching
+blocks**: ten saved groups and two independent assignments. This is the shape
+created by **Select tutor**, followed by the tutor's **Combine / split pairings**
+workflow. A list of students inside one Pairing row is not a saved group and cannot
+be split by that editor. Alice's three Mathematics assignments are already combined;
+splitting them returns each assignment to Awaiting schedule, preserving completed
+attendance. Choosing the same subject for multiple students does not require a
+multi-subject group.
+
 Room examples include Alice's fixed room, Bob's automatically allocated room,
-Carol's explicit roomless assignment and David's retained legacy room. A synthetic
+Carol's explicit roomless assignment and David's fixed room. The group writer
+normalizes old legacy room intent when forming a current group. A synthetic
 first **School Month Report** includes reviewed zero opening balances, tutoring and
 crew credits, deductions, statistics and a CSV export. It uses the configured
 `AUTH_SECRET` to create its local report capability. Report generation and schedule
@@ -309,9 +319,29 @@ disposable test database to verify evidence-backed provenance, exact scenario
 coverage, no-op repeats and preservation of edited intake/card records. It leaves
 its deliberate edits in the test database and refuses a demo database.
 
+To upgrade untouched assignments in an existing demo without a full reseed, run
+`npx tsx --conditions=react-server prisma/seed-pairings.ts`. Keep the same loopback
+database guard and `SHBS_DEMO_SEED=1`. It preserves original primary pairing IDs,
+completed attendance and immutable report evidence, and reports edited or missing
+fixtures rather than replacing them. The original assignment rows remain the
+historical anchors; current rosters use one assignment per student and subject.
+
+On a separate migrated `shbs_*_test` database, run
+`npm test -- src/test/demo-seed.test.ts --maxWorkers=1`. It verifies every current
+assignment against the real Select tutor procedures, plus saved-group split/rejoin
+and selective-upgrade preservation. These probes must never target the explored
+demo. A passing row-count check alone does not establish that the UI can create an
+assignment.
+
+The regular integration suite includes this test: it empties
+only a guarded disposable test database, runs the documented seed entry point
+twice, then checks the workflow, pairing and edit-preservation verifiers. CI
+supplies a fresh PostgreSQL service and the committed migration chain. This guards
+against a seed that works only after manual changes in one developer's database.
+
 Opening a tutor or tutee agenda publishes ordinary upcoming sessions from the
-confirmed assignments. Rescheduling negotiations, extra sessions and shared pairing
-groups remain interactive rehearsals: use the tutor and student accounts to create
+confirmed assignments. Rescheduling negotiations and extra sessions remain
+interactive rehearsals: use the tutor and student accounts to create
 the corresponding proposals and agreements. The seed does not fabricate participant
 responses or reusable calendar-access tokens.
 

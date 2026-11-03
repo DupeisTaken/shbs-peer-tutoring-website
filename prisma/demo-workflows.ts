@@ -3,6 +3,7 @@ import type { PrismaClient } from "../generated/prisma";
 import { currentPolicy } from "../src/server/policy-acceptance";
 import { monthKey } from "../src/lib/service-hours";
 import { seedId } from "./demo-support";
+import { demoAssignmentId } from "./demo-pairings";
 import { allocateRoom, allocationData } from "../src/server/room-allocation";
 
 /** Examples of modern workflows supplement the historical reporting fixtures. All data
@@ -333,6 +334,9 @@ export async function seedModernWorkflows(
     ["frank", "STUDENT_ABORT", "pairing-alice-math"],
     ["grace", "SCHEDULE_CONFLICT", "pairing-bob-physics"],
   ] as const) {
+    const assignmentId = demoAssignmentId(seedId(pairing), seedId(`tutee-${key}`));
+    const pairingId = await db.pairing.findUnique({ where: { id: assignmentId } })
+      ? assignmentId : seedId(pairing);
     await db.studentRequestReview.upsert({
       where: { id: seedId(`review-${key}`) },
       update: {},
@@ -342,7 +346,7 @@ export async function seedModernWorkflows(
         kind,
         requestedByUserId:
           key === "frank" ? seedId("student-user-frank") : seedId("user-bob"),
-        pairingId: seedId(pairing),
+        pairingId,
         reason:
           "A new required class conflicts with this tutoring schedule. Please review the next step.",
       },
@@ -486,7 +490,7 @@ export async function seedModernWorkflows(
     },
   });
 
-  // Keep authored fixed rooms plus one intentional legacy row. These two examples
+  // Keep authored fixed rooms. These two examples
   // exercise automatic allocation and an explicit roomless choice through the writer.
   for (const [key, roomMode] of [
     ["pairing-bob-physics", "AUTO"],
@@ -497,6 +501,7 @@ export async function seedModernWorkflows(
         where: { id: seedId(key) },
         include: { tutees: { select: { tuteeId: true } } },
       });
+      if (pairing.groupId) return;
       const allocation = await allocateRoom(tx, {
         ...pairing,
         tuteeIds: pairing.tutees.map((row) => row.tuteeId),

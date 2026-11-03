@@ -14,6 +14,7 @@ import { surveyInput } from "../src/server/student-survey";
 import { DEMO_REPORT_GENERATION_KEY } from "./demo-reporting";
 import { verifyDemoAcademicCoverage } from "./demo-academics-verification";
 import { verifyDemoScenarios } from "./demo-scenarios-verification";
+import { verifyDemoPairingCoverage } from "./demo-pairings-verification";
 import {
   getSchoolHoursReport,
   schoolHoursCsv,
@@ -27,6 +28,7 @@ const db = new PrismaClient({
 try {
   console.log("Academic coverage:", await verifyDemoAcademicCoverage(db));
   console.log("Scenario coverage:", await verifyDemoScenarios(db));
+  console.log("Pairing coverage:", await verifyDemoPairingCoverage(db));
   // Use actual workflow validators, not merely row counts: visible records must be actionable.
   for (const key of ["fiona", "george", "hana"]) {
     const id = seedId(`app-${key}`);
@@ -113,7 +115,7 @@ try {
     ["pairing-alice-math", "FIXED"],
     ["pairing-bob-physics", "AUTO"],
     ["pairing-carol-english", "NONE"],
-    ["pairing-david-chem", "LEGACY"],
+    ["pairing-david-chem", "FIXED"],
   ] as const) {
     const pairing = await db.pairing.findUniqueOrThrow({
       where: { id: seedId(key) },

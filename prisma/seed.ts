@@ -12,6 +12,7 @@ import { seedModernWorkflows } from "./demo-workflows";
 import { seedSchoolHoursReport } from "./demo-reporting";
 import { seedDemoAcademics } from "./demo-academics";
 import { seedDemoScenarios } from "./demo-scenarios";
+import { DEMO_LESSONS as PAIRINGS, demoAssignmentId, seedDemoPairings } from "./demo-pairings";
 import { DEFAULT_SUBJECT_LEVELS as LEVELS } from "./default-subject-levels";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -226,20 +227,7 @@ const REMOVED_TUTEES = [
 // Pairings + attendance
 // ---------------------------------------------------------------------------
 
-const PAIRINGS = [
-  { id: seedId("pairing-alice-math"), tutorId: seedId("tutor-alice"), subjectId: seedId("course-math"), subject: "Mathematics", day: 1, start: "15:30", end: "16:30", roomId: seedId("room-a101"), slotId: seedId("slot-mon-a"), tuteeIds: [seedId("tutee-emma"), seedId("tutee-frank"), seedId("tutee-liam")] },
-  { id: seedId("pairing-bob-physics"), tutorId: seedId("tutor-bob"), subjectId: seedId("course-physics"), subject: "Physics", day: 3, start: "16:00", end: "17:00", roomId: seedId("room-b201"), slotId: seedId("slot-wed-a"), tuteeIds: [seedId("tutee-grace"), seedId("tutee-peter")] },
-  { id: seedId("pairing-carol-english"), tutorId: seedId("tutor-carol"), subjectId: seedId("course-english"), subject: "English", day: 5, start: "15:00", end: "16:15", roomId: seedId("room-library"), slotId: seedId("slot-fri-a"), tuteeIds: [seedId("tutee-henry"), seedId("tutee-ivy"), seedId("tutee-jack")] },
-  { id: seedId("pairing-david-chem"), tutorId: seedId("tutor-david"), subjectId: seedId("course-chemistry"), subject: "Chemistry", day: 2, start: "15:30", end: "16:30", roomId: seedId("room-lab1"), slotId: seedId("slot-tue-a"), tuteeIds: [seedId("tutee-mia"), seedId("tutee-olivia")] },
-  { id: seedId("pairing-gina-apcalc"), tutorId: seedId("tutor-gina"), subjectId: seedId("course-apcalc"), subject: "AP Calculus BC", day: 4, start: "16:45", end: "17:45", roomId: seedId("room-a102"), slotId: seedId("slot-thu-b"), tuteeIds: [seedId("tutee-noah"), seedId("tutee-tina")] },
-  { id: seedId("pairing-harold-apenglit"), tutorId: seedId("tutor-harold"), subjectId: seedId("course-apenglit"), subject: "AP English Literature", day: 1, start: "16:45", end: "17:45", roomId: seedId("room-a103"), slotId: seedId("slot-mon-b"), tuteeIds: [seedId("tutee-rachel")] },
-  { id: seedId("pairing-iris-spanish"), tutorId: seedId("tutor-iris"), subjectId: seedId("course-spanish"), subject: "Spanish", day: 2, start: "16:45", end: "17:45", roomId: seedId("room-b202"), slotId: seedId("slot-tue-b"), tuteeIds: [seedId("tutee-quinn"), seedId("tutee-will")] },
-  { id: seedId("pairing-jason-apcs"), tutorId: seedId("tutor-jason"), subjectId: seedId("course-apcs"), subject: "AP Computer Science A", day: 3, start: "17:15", end: "18:15", roomId: seedId("room-a101"), slotId: seedId("slot-wed-b"), tuteeIds: [seedId("tutee-vera"), seedId("tutee-yuki")] },
-  { id: seedId("pairing-karen-econ"), tutorId: seedId("tutor-karen"), subjectId: seedId("course-economics"), subject: "Economics", day: 4, start: "16:45", end: "17:45", roomId: seedId("room-a103"), slotId: seedId("slot-thu-b"), tuteeIds: [seedId("tutee-umar")] },
-  { id: seedId("pairing-leo-apush"), tutorId: seedId("tutor-leo"), subjectId: seedId("course-apush"), subject: "AP US History", day: 5, start: "16:30", end: "17:30", roomId: seedId("room-b201"), slotId: seedId("slot-fri-b"), tuteeIds: [seedId("tutee-xena"), seedId("tutee-sam")] },
-  { id: seedId("pairing-mona-precalc"), tutorId: seedId("tutor-mona"), subjectId: seedId("course-precalc"), subject: "Precalculus", day: 2, start: "15:30", end: "16:30", roomId: seedId("room-a102"), slotId: seedId("slot-tue-a"), tuteeIds: [seedId("tutee-faye"), seedId("tutee-cory"), seedId("tutee-hana")] },
-  { id: seedId("pairing-nora-apbio"), tutorId: seedId("tutor-nora"), subjectId: seedId("course-apbio"), subject: "AP Biology", day: 4, start: "16:45", end: "17:45", roomId: seedId("room-lab1"), slotId: seedId("slot-thu-b"), tuteeIds: [seedId("tutee-bella"), seedId("tutee-eli"), seedId("tutee-gabe")] },
-];
+
 
 type SessionSpec = {
   id: string;
@@ -720,6 +708,11 @@ async function main() {
 
   // --- Pairings (with rostered tutees) ---------------------------------------
   for (const p of PAIRINGS) {
+    // Converted assignments are current user-owned plans; never restore the old compressed roster.
+    if (await db.pairing.findFirst({ where: { OR: [
+      { id: p.id, groupId: { not: null } },
+      { id: { in: p.tuteeIds.slice(1).map(id => demoAssignmentId(p.id, id)) } },
+    ] } })) continue;
     const source = SUBJECTS.find((subject) => subject.name === p.subject);
     const displaySubject = source ? (await db.subject.findUniqueOrThrow({ where: { id: source.id } })).name : p.subject;
     const data = { scheduleConfirmed: true, subject: displaySubject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId, roomMode: p.id === seedId("pairing-david-chem") ? "LEGACY" as const : "FIXED" as const, roomNeedsAssignment: false, roomShortageKey: null };
@@ -1106,8 +1099,11 @@ async function main() {
   const periodKey = `${term.schoolYear} ${term.quarter}`;
   for (const r of TUTEE_REMOVALS) {
     const finalized = r.state === "APPROVED";
+    const assignmentId = r.pairingId ? demoAssignmentId(r.pairingId, r.tuteeId) : null;
+    const pairingId = assignmentId && await db.pairing.findUnique({ where: { id: assignmentId } })
+      ? assignmentId : r.pairingId;
     const data = {
-      tuteeId: r.tuteeId, kind: r.kind, state: r.state, pairingId: r.pairingId,
+      tuteeId: r.tuteeId, kind: r.kind, state: r.state, pairingId,
       requestedByTutorId: r.tutorId, reason: r.reason,
       eligibleAt: r.eligibleInDays != null ? new Date(Date.now() + r.eligibleInDays * 86_400_000) : null,
       removedPeriodKey: finalized ? periodKey : null,
@@ -1189,13 +1185,14 @@ async function main() {
   await seedModernWorkflows(db, passwordHash);
   console.log("Demo scenario enrichment:", await seedDemoScenarios(db));
   await seedDemoAcademics(db);
+  console.log("Demo assignment groups:", await seedDemoPairings(db));
   await seedSchoolHoursReport(db);
 
   console.log(
     `Seeded: 1 term, ${ROOMS.length} rooms, ${LEVELS.length} levels, ${SUBJECTS.length} subjects, ` +
       `${TIME_SLOTS.length} time slots, ${TUTORS.length} tutors (active + pending/opted-out/graduated/archived), ` +
       `${TUTEES.length} active tutees + ${PENDING_SIGNUPS.length} pending signups + ${REMOVED_TUTEES.length} removed, ` +
-      `${PAIRINGS.length} pairings, ${SESSIONS.length} sessions, ${CARDS.length} cards, ` +
+      `${await db.pairing.count({ where: { termId: term.id } })} current assignments in ${PAIRINGS.length} teaching blocks, ${SESSIONS.length} sessions, ${CARDS.length} cards, ` +
       `${APPLICATIONS.length} applications, ${meetings.length} meetings, ` +
       `${TUTOR_STATUS_REQUESTS.length} tutor requests, ${TUTEE_REMOVALS.length} tutee opt-outs/removals, ` +
       `${SUBPAGES.length} custom subpages, ${REGISTRATION_CODES.length} registration codes, ${await db.user.count()} login users ` +
