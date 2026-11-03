@@ -45,12 +45,13 @@ function fixture(native = false) {
           }
         }
       }
-      const parity = { normalization: { version: 2 }, tables: { Lesson: [{ scenario: matrix.scenario, originalSchemaOnly: original }] }, continuationProvenance: [], clockEvidence: [], semanticAliases: { lesson: "complete synthetic identity" } };
+      const captureSchema = original ? "native-original" : "shared";
+      const parity = { captureSchema, normalization: { version: 2 }, tables: { Lesson: [{ scenario: matrix.scenario, originalSchemaOnly: original }] }, continuationProvenance: [], clockEvidence: [], semanticAliases: { lesson: "complete synthetic identity" } };
       const digest = sha(JSON.stringify(parity));
       const migrationMap = original ? historicalMigrations : candidateMigrationHashes;
       const migrationFiles = Object.entries(migrationMap).map(([path, digest]) => ({ name: path.split("/")[2]!, sha256: digest, lfSha256: digest, crlfSha256: digest }));
       return {
-        status: "PASS", schemaVersion: 3, partitionProtocolVersion: 1, mode: "latency", transport: "http",
+        status: "PASS", schemaVersion: 3, partitionProtocolVersion: 1, mode: "latency", transport: "http", captureSchema,
         revision: head ? candidate : baseline,
         partition: { index: matrix.partition, count: matrix.partitionCount, start: matrix.partition * 4, end: matrix.partition * 4 + 4, totalSamples: matrix.samples, warmupRounds: 1 },
         samplingComplete: false, partitionComplete: true, latencyComparisonEligible: false,
@@ -125,6 +126,7 @@ void test("requires original-schema native20 coverage only for manifests that ca
   assert.equal(result.nativeControl.reported, true);
   assert.equal(result.nativeControl.rounds, 20);
   assert.equal(result.nativeControl.semanticComparisonToSharedSchema, false);
+  assert.equal(result.nativeControl.captureSchema, "native-original");
   assert.equal(result.nativeControl.operations?.["http:cold-tutor-agenda"]?.p95Ms, 38);
   assert.equal(aggregatePartitions(fixture(), options).nativeControl.required, false);
   const missing = fixture(true);
@@ -139,6 +141,9 @@ const invalid: { name: string; change: (rows: Entries) => void; pattern: RegExp 
   { name: "lowered total sample count", change: (rows) => { rows[0]!.baseline.fixture.samples = 4; }, pattern: /total sample count/ },
   { name: "foreign immutable baseline", change: (rows) => { rows[0]!.baseline.revision = "c".repeat(40); }, pattern: /immutable revision/ },
   { name: "diagnostic timing", change: (rows) => { rows[0]!.baseline.mode = "diagnostic"; }, pattern: /measurement mode/ },
+  { name: "reduced native capture in a paired baseline", change: (rows) => { rows[0]!.baseline.captureSchema = "native-original"; }, pattern: /declared capture schema/ },
+  { name: "reduced native capture in a paired candidate", change: (rows) => { rows[0]!.candidate.captureSchema = "native-original"; }, pattern: /declared capture schema/ },
+  { name: "snapshot silently reduced under a shared label", change: (rows) => { rows[0]!.baseline.receipts[0]!.parity!.captureSchema = "native-original"; }, pattern: /snapshot capture schema/ },
   { name: "failed report", change: (rows) => { rows[0]!.candidate.status = "FAIL"; }, pattern: /report status/ },
   { name: "timeout receipt", change: (rows) => { rows[0]!.candidate.status = "TIMEOUT"; }, pattern: /report status/ },
   { name: "over-budget PASS", change: (rows) => { rows[0]!.candidate.elapsedMs = 150_001; }, pattern: /over-budget/ },
@@ -186,6 +191,12 @@ void test("native PASS above its original90-second cap is rejected", () => {
   const rows = fixture(true);
   rows[0]!.native!.elapsedMs = 90_001;
   assert.throws(() => aggregatePartitions(rows, options), /over-budget/);
+});
+
+void test("original-schema native evidence must declare its reduced capture contract", () => {
+  const rows = fixture(true);
+  rows[0]!.native!.captureSchema = "shared";
+  assert.throws(() => aggregatePartitions(rows, options), /declared capture schema/);
 });
 
 void test("a reviewed baseline file must pin the externally expected SHA and retain its explicit manifest", () => {

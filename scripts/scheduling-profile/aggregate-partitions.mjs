@@ -15,7 +15,7 @@ import { isDeepStrictEqual } from "node:util";
  * @typedef {{reference:string,baseline:unknown,candidate:unknown,comparison:unknown,nodeImage:string,native?:unknown,files?:unknown}} PartitionInput
  * @typedef {{report:Evidence,rows:Observation[],parity:Evidence,digest:string}} Validated
  * @typedef {{entry:PartitionInput,before:Validated,after:Validated,native?:Validated,index:number}} Part
- * @typedef {{required:boolean,reported:boolean,semanticComparisonToSharedSchema:boolean,scenario?:string,rounds?:number,schemaSha256?:string,operations?:Record<string,Summary>,evidence?:unknown[]}} NativeControl
+ * @typedef {{required:boolean,reported:boolean,semanticComparisonToSharedSchema:boolean,captureSchema?:string,scenario?:string,rounds?:number,schemaSha256?:string,operations?:Record<string,Summary>,evidence?:unknown[]}} NativeControl
  * @typedef {{schemaVersion:number,partitionProtocolVersion:number,status:string,samplingComplete:boolean,latencyComparisonEligible:boolean,baselineRevision:string,candidateRevision:string,anchor:string,sharedInputs:unknown,scenarios:{scenario:string,rounds:number,partitions:number,semanticDigest:string,operations:Record<string,Operation>,evidence:unknown[]}[],nativeControl:NativeControl,interpretation:Record<string,string>}} AggregateReport
  */
 
@@ -97,6 +97,8 @@ function validateReport(value, scenario, revision, index, manifest, native = fal
   same(report.partitionProtocolVersion, 1, "partition protocol");
   same(report.mode, "latency", "measurement mode; diagnostics cannot enter latency pooling");
   same(report.transport, "http", "HTTP transport");
+  const captureSchema = native ? "native-original" : "shared";
+  same(report.captureSchema, captureSchema, "declared capture schema (native control cannot enter paired comparison)");
   same(report.samplingComplete, false, "partition samplingComplete");
   same(report.partitionComplete, true, "partition completion");
   same(report.latencyComparisonEligible, false, "partition latency eligibility");
@@ -153,6 +155,7 @@ function validateReport(value, scenario, revision, index, manifest, native = fal
   same(receipts.map((receipt) => receipt.round).sort((a, b) => a - b), [index * 4, index * 4 + 1, index * 4 + 2, index * 4 + 3], "global receipt rounds");
   const first = receipts.find((receipt) => receipt.round === index * 4);
   record(first.parity, "First LOCAL full parity");
+  same(first.parity.captureSchema, captureSchema, "snapshot capture schema matches its report");
   sha(first.digest, 64, "Semantic digest");
   same(hash(JSON.stringify(first.parity)), first.digest, "full parity digest");
   for (const receipt of receipts) {
@@ -289,7 +292,7 @@ export function aggregatePartitions(inputs, options) {
     runners.add(before.report.profileRunner.id);
     const shared = {
       anchor: before.report.fixture.anchor, protocol: before.report.partitionProtocolVersion,
-      schemaVersion: before.report.schemaVersion, mode: before.report.mode, transport: before.report.transport,
+      schemaVersion: before.report.schemaVersion, mode: before.report.mode, transport: before.report.transport, captureSchema: before.report.captureSchema,
       harnessHashes: before.report.harnessHashes, migrations: before.report.migrations,
       migrationFiles: before.report.migrationFiles, postgresVersion: before.report.postgresVersion,
       database: before.report.database, nodeImage: image, comparison: manifest,
@@ -389,7 +392,7 @@ export function aggregatePartitions(inputs, options) {
       same(part.native.digest, template.digest, "within-native semantic digests");
       same(part.native.report.sourceHashes, template.report.sourceHashes, "immutable native baseline source bytes across runners");
     }
-    nativeControl = { ...nativeControl, reported: true, scenario: "cold", rounds: 20,
+    nativeControl = { ...nativeControl, reported: true, captureSchema: "native-original", scenario: "cold", rounds: 20,
       schemaSha256: common.comparison.originalSchemaSha256,
       operations: Object.fromEntries(Object.keys(expectedOperationPopulation("cold")).map((label) => [label, summary(nativeParts.flatMap((part) => part.native.rows.filter((row) => row.label === label)))])),
       evidence: nativeParts.map((part) => ({ partition: part.index, reference: part.entry.reference, files: part.entry.files ?? null, profileRunner: part.native.report.profileRunner, runtime: part.native.report.runtime })),
@@ -403,7 +406,7 @@ export function aggregatePartitions(inputs, options) {
       percentiles: "Pooled nearest-rank empirical p50/p95 of all completed hosted observations, including completed expected operation errors. These are not production latency percentiles.",
       pairing: "Each candidate/baseline ratio pairs the same global round, operation label and occurrence on the same runner. Runners and hardware can vary between partitions; raw runner/runtime references are retained. Contention winners may differ; both operation outcomes are retained.",
       population: "All seven scenarios, unchanged 20/40-round populations, exact four-round partitions and one discarded warmup per partition are required. No failures, unfinished/censored samples, missing or duplicate partitions are omitted.",
-      native: "Original-schema cold observations form an independent 20-round baseline when required. No native-versus-shared-schema semantic parity or paired gain is claimed.",
+      native: "Original-schema cold observations form an independent 20-round baseline when required. Their explicit native-original capture uses the fixed original-schema field/delegate projection, excluding later identity/recovery fields and sidecars. No native-versus-shared-schema semantic parity or paired gain is claimed.",
       diagnostic: "Diagnostic observations never enter latency pooling. The workflow separately requires every diagnostic/backlog matrix job to succeed.",
     },
   };
