@@ -4,6 +4,8 @@ set -eu
 case "${PROFILE_REVISION:-}" in base|head) ;; *) exit 2 ;; esac
 case "${PROFILE_SCENARIO:-}" in cold|warm|sunday|negotiation|allocation|catalog|contention|backlog) ;; *) exit 2 ;; esac
 case "${PROFILE_MODE:-}" in latency|diagnostic) ;; *) exit 2 ;; esac
+case "${PROFILE_PARTITION_INDEX:-}" in ''|*[!0-9]*) exit 2 ;; esac
+case "${PROFILE_PARTITION_COUNT:-}" in ''|*[!0-9]*) exit 2 ;; esac
 if [ "$PROFILE_SCENARIO" = backlog ] && [ "$PROFILE_MODE" != diagnostic ]; then exit 2; fi
 test -d /evidence
 case "${PROFILE_DEADLINE:-}" in ''|*[!0-9]*) exit 2 ;; esac
@@ -41,8 +43,9 @@ if [ "$PROFILE_REVISION" = base ]; then
     # Preserve an original-schema control before adding the metadata triggers.
     # This result is separately labelled, never passed to exact shared-schema parity.
     native_budget=$(profile_budget_ms 90) || exit 124
-    node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts \
+    bounded 90 node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts \
       --scenario cold --samples 20 --anchor "$PROFILE_ANCHOR" --transport http \
+      --partition-index "$PROFILE_PARTITION_INDEX" --partition-count "$PROFILE_PARTITION_COUNT" \
       --mode latency --timeout-ms "$native_budget" --output /evidence/base-native-latency.json
   fi
   set -- /work /overlay /evidence/applied-overlay.json apply
@@ -60,7 +63,10 @@ measurement_budget=$(profile_budget_ms 150) || exit 124
 set -- --scenario "$PROFILE_SCENARIO" --samples "$PROFILE_SAMPLES" \
   --anchor "$PROFILE_ANCHOR" --transport http --mode "$PROFILE_MODE" \
   --timeout-ms "$measurement_budget" --output "/evidence/$PROFILE_REVISION-$PROFILE_MODE.json"
+if [ "$PROFILE_MODE" = latency ]; then
+  set -- "$@" --partition-index "$PROFILE_PARTITION_INDEX" --partition-count "$PROFILE_PARTITION_COUNT"
+fi
 if [ "$PROFILE_REVISION" = head ]; then
   set -- "$@" --compare "/evidence/base-$PROFILE_MODE.json"
 fi
-node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts "$@"
+bounded 150 node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts "$@"

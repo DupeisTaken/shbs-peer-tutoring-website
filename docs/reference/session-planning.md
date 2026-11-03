@@ -410,13 +410,27 @@ separately labelled native-schema cold baseline records the original schema too.
 Later comparisons with byte-identical schemas and migration chains require no
 overlay or native-schema control. Unrelated schema changes still fail closed.
 For a combined-feature run, manual dispatch may select an explicitly reviewed
-manifest under `.github/scheduling-profile-manifests/`. It must bind the exact
+manifest under `.github/scheduling-profile-manifests/`. Without that input, the
+workflow selects the integration owner's reviewed `current.json` in that folder
+when it exists, allowing combined proof on a pull request before the workflow
+reaches the default branch. This convention does not authorize broader schema
+changes: the committed file still requires review and must bind the exact
 baseline/candidate schema hashes, dependency lockfile, complete historical
 migration inventory and added migration paths/hashes. Every unlisted difference
-is rejected; the manifest and its hash accompany the evidence. Such a control
+is rejected; the selected path, manifest and its hash accompany the evidence. Such a control
 is labelled as running the baseline application under the candidate schema.
+The historical inventory accepts the repository's exact `0_init` bootstrap;
+new overlay migrations still require timestamped paths.
 Scenarios unavailable in the baseline need separate candidate evidence, without
 a baseline parity or speedup claim.
+An integration branch may also commit a reviewed
+`.github/scheduling-profile-manifests/baseline.txt` containing exactly one
+40-character lowercase commit SHA, optionally followed by LF. The workflow reads
+it from the immutable candidate checkout before checking out the baseline, and
+requires an exact schema manifest for that override. Manual baseline input takes
+precedence. Receipts retain the selected SHA, selection path and file hash; a
+moving branch name or an unbound schema delta is never accepted. This supports
+comparison to the original pre-integration source even when a PR is stacked.
 Artifacts retain source hashes, overlay paths, migration checksums, runtime,
 individual samples, errors and normalized output comparisons.
 
@@ -439,6 +453,26 @@ loads dotenv configuration or sends mail. Do not run it against a shared databas
 
 Latency mode reports raw samples and nearest-rank empirical p50/p95 after a
 discarded warmup: 20 rounds for cold/Sunday and 40 for other workflow scenarios.
+The hosted workflow divides this complete population into contiguous four-round
+partitions, each with its own discarded process warmup. One fixed anchor and
+immutable Node image cover the run. Each baseline/candidate pair stays serial on
+one runner; three independent jobs may run concurrently. Native-schema cold
+controls use the same four-round ranges and aggregate separately to 20 samples.
+Pure helper tests gate matrix preparation before measurement runners start.
+The 90-second native, 150-second ordinary command and whole-job budgets remain
+fatal; partitioning never accepts a partial population or reduces sample counts.
+
+Partition receipts contain raw observations and complete canonicalization for
+every round, but do not report eligible latency percentiles. The aggregation
+helper requires all seven scenarios, exact disjoint round coverage, matching
+source/harness/schema contracts, paired runtime identity, uncensored completed
+samples and successful paired semantic checks. It retains runner identities and
+paired comparisons. Pooled percentiles describe these hosted-runner observations;
+they are neither one host's repeated experiment nor production p95. Hardware and
+cloud variance between partitions remain explicit. All diagnostic jobs must also
+pass the workflow gate. Rerun the complete workflow attempt when collecting a new
+partition population; earlier attempts' failure artifacts remain separate.
+
 Cold means empty planning tables, not a restarted OS or database. Diagnostic
 runs are separate and report query counts/time, advisory acquisition elapsed and
 observed transaction-held intervals through commit. These intervals include driver
@@ -469,7 +503,13 @@ and measured benefit. Final room conflict checks remain live.
 
 Parity checks cover business records, receipts, notices, ordered recovery changes
 and fences. Generated identifiers require unambiguous witnesses, and receipt
-hashes must match their exact inputs before canonical comparison. The sequential
+hashes must match their exact inputs before canonical comparison. The
+normalization format is version 2: compact references point to a retained
+dictionary of full semantic identities, with compact edges to parent identities.
+This lossless graph encoding of normalized identities prevents repeated escaping
+of nested parent strings from exhausting the artifact size. It retains all
+selected rows, stored JSON and ordering witnesses; cycles, ambiguous identities
+and unresolved generated references fail the run. The sequential
 late-root witness preserves two participant journal changes and fence revision
 two; combining cohort and participant writes into one SQL statement remains
 unsupported. Under-one-second first publication is a target to verify from a

@@ -343,7 +343,7 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       results.push(await measure("procedure:tutor-schedule-save", () => tutor(10).tutor.setPairingSlot({ pairingId: save.id, slotId: f.alternateSlotId, expectedRoomVersion: before.roomVersion })));
       await expectCode("stale-schedule-save", "CONFLICT", () => tutor(10).tutor.setPairingSlot({ pairingId: save.id, slotId: f.slotId, expectedRoomVersion: before.roomVersion }));
       const bulkIds = f.pairs.slice(20, 30).map((pair) => pair.id);
-      await db.pairing.updateMany({ where: { id: { in: bulkIds } }, data: { roomId: null, roomMode: "AUTO", roomNeedsAssignment: true } });
+      await db.pairing.updateMany({ where: { id: { in: bulkIds } }, data: { roomId: null, roomMode: "AUTO", roomNeedsAssignment: true, roomShortageKey: "synthetic-bulk-shortage" } });
       const targets = (await db.pairing.findMany({ where: { id: { in: bulkIds } }, orderBy: { id: "asc" } })).map((row) => ({ id: row.id, expectedRoomVersion: row.roomVersion }));
       const untouched = await db.pairing.findMany({ where: { id: { in: bulkIds } }, orderBy: { id: "asc" } });
       await expectCode("bulk-stale-rejection", "CONFLICT", () => admin.admin.autoAssignUnassignedRooms({ targets: targets.map((target, index) => index === targets.length - 1 ? { ...target, expectedRoomVersion: target.expectedRoomVersion + 1 } : target) }));
@@ -393,7 +393,7 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       // first may vary; the durable tuple and one-success/one-conflict contract do not.
       results.push({ competing: competing.map((result) => result.status === "fulfilled" ? { status: result.status, value: result.value } : { status: result.status, code: errorCode(result.reason) }).sort((a, b) => a.status.localeCompare(b.status)) });
       const target = f.pairs[40]!;
-      await db.pairing.update({ where: { id: target.id }, data: { roomId: null, roomNeedsAssignment: true, timeSlotId: null, dayOfWeek: 2, startMin: 1080, endMin: 1125 } });
+      await db.pairing.update({ where: { id: target.id }, data: { roomId: null, roomNeedsAssignment: true, roomShortageKey: "synthetic-contended-shortage", timeSlotId: null, dayOfWeek: 2, startMin: 1080, endMin: 1125 } });
       const shortage = await db.pairing.findUniqueOrThrow({ where: { id: target.id } });
       const heldRoom = fixtureId("room", 0);
       const offers = await propose(41, "ONE", "contention-pending-room", "RESCHEDULE", heldRoom);
