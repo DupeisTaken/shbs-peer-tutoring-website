@@ -2942,27 +2942,62 @@ export async function readSessionAgenda(
       select: { id: true, name: true },
     });
     const calendar = await tx.schoolCalendarDay.findMany();
+    // Read execution only for the bounded agenda results. Published actors and
+    // roster keys remain the evidence used to match consent and personal access.
+    const liveRows = rows.filter((row) => !row.sessions.length);
+    const planIds = [...new Set(liveRows.map((row) => row.planId))];
+    const relevantPlans = role === "tutee"
+      ? [...rows.map((row) => row.plan), ...requests.map((request) => request.plan)]
+      : liveRows.map((row) => row.plan);
+    const participantIds = [...new Set(relevantPlans.flatMap((plan) => plan.participants.map((person) => person.id)))];
+    const currentResponses = requests.flatMap((request) =>
+      request.offers.find((offer) => offer.id === request.currentOfferId)?.responses ?? []);
+    const [planExecutions, participantExecutions, responseExecutions] = await Promise.all([
+      planIds.length ? tx.sessionPlanExecution.findMany({ where: { planId: { in: planIds } } }) : [],
+      participantIds.length ? tx.sessionParticipantExecution.findMany({ where: { participantId: { in: participantIds } }, select: { participantId: true, tuteeId: true } }) : [],
+      currentResponses.length ? tx.sessionResponseExecution.findMany({ where: { responseId: { in: currentResponses.map((response) => response.id) } }, select: { responseId: true, userId: true, profileKind: true, profileId: true } }) : [],
+    ]);
+    const executionByPlan = new Map(planExecutions.map((row) => [row.planId, row]));
+    const executingStudent = new Map(participantExecutions.map((row) => [row.participantId, row.tuteeId]));
+    const executionByResponse = new Map(responseExecutions.map((row) => [row.responseId, row]));
+    const pendingIds = new Set(currentResponses.filter((response) => response.state === "PENDING").map((response) => response.id));
+    const pendingExecutions = responseExecutions.filter((row) => pendingIds.has(row.responseId));
+    const tutorIds = [...new Set([...planExecutions.map((row) => row.tutorId), ...pendingExecutions.filter((row) => row.profileKind === "TUTOR").map((row) => row.profileId)])];
+    const studentIds = [...new Set([...executingStudent.values(), ...pendingExecutions.filter((row) => row.profileKind === "TUTEE").map((row) => row.profileId)])];
+    const [tutorProfiles, studentProfiles] = await Promise.all([
+      tutorIds.length ? tx.tutor.findMany({ where: { id: { in: tutorIds } }, select: { id: true, englishName: true } }) : [],
+      studentIds.length ? tx.tutee.findMany({ where: { id: { in: studentIds } }, select: { id: true, englishName: true } }) : [],
+    ]);
+    const tutorNames = new Map(tutorProfiles.map((row) => [row.id, row.englishName]));
+    const studentNames = new Map(studentProfiles.map((row) => [row.id, row.englishName]));
+    const currentStudents = new Set(context.currentStudentIds);
+    const ownedSources = (plan: Pick<Plan, "participants">) => plan.participants
+      .filter((person) => currentStudents.has(executingStudent.get(person.id) ?? person.tuteeId))
+      .map((person) => person.tuteeId);
     const cohorts = [];
     for (const row of rows) {
-      const rowContext = role === "tutee" ? { ...context, owned: await operationalStudentSources(tx, row.plan, context.currentStudentIds) } : context;
+      const rowContext = role === "tutee" ? { ...context, owned: ownedSources(row.plan) } : context;
       const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now);
-      const execution = await tx.sessionPlanExecution.findUnique({ where: { planId: row.planId } });
+      const execution = executionByPlan.get(row.planId);
       if (execution && !row.sessions.length) {
         const assignmentMap = new Map(executionAssignments.parse(execution.assignments).map((mapping) => [mapping.sourcePairingId, mapping.targetPairingId]));
-        const students = await tx.sessionParticipantExecution.findMany({ where: { participantId: { in: row.participants.map((person) => person.id) } } });
-        const studentMap = new Map(row.participants.map((person) => [person.tuteeId, students.find((mapping) => mapping.participantId === person.id)?.tuteeId ?? person.tuteeId]));
+        const studentMap = new Map(row.participants.map((person) => [person.tuteeId, executingStudent.get(person.id)]));
         for (const projected of projectedRows) {
           projected.tutorId = execution.tutorId;
+          projected.tutorName = tutorNames.get(execution.tutorId) ?? fail("The executing tutor profile is unavailable.", "CONFLICT");
           projected.pairingIds = projected.pairingIds.map((pairingId) => assignmentMap.get(pairingId) ?? pairingId);
           projected.primaryPairingId = projected.primaryPairingId ? assignmentMap.get(projected.primaryPairingId) ?? projected.primaryPairingId : null;
-          projected.tutees = projected.tutees.map((person) => ({ ...person, id: studentMap.get(person.id) ?? person.id }));
+          projected.tutees = projected.tutees.map((person) => {
+            const id = studentMap.get(person.id);
+            return id ? { id, name: studentNames.get(id) ?? fail("The executing learner profile is unavailable.", "CONFLICT") } : person;
+          });
         }
       }
       cohorts.push(...projectedRows);
     }
     const projected = [];
     for (const request of requests) {
-      const requestOwned = role === "tutee" ? await operationalStudentSources(tx, request.plan, context.currentStudentIds) : owned;
+      const requestOwned = role === "tutee" ? ownedSources(request.plan) : owned;
       if (
         role === "tutee" &&
         !ids(request.participantIds).some((id) => requestOwned.includes(id))
@@ -2971,28 +3006,32 @@ export async function readSessionAgenda(
       const offer = request.offers.find(
         (row) => row.id === request.currentOfferId,
       );
-      const responseOwners = await executionResponseOwnerIds(tx, offer?.responses.map((row) => row.id) ?? []);
+      const responseName = (response: Request["offers"][number]["responses"][number]) => {
+        const pin = response.state === "PENDING" ? executionByResponse.get(response.id) : undefined;
+        if (pin) {
+          const names = pin.profileKind === "TUTOR" ? tutorNames : studentNames;
+          return names.get(pin.profileId) ?? fail("The executing response profile is unavailable.", "CONFLICT");
+        }
+        return response.actorKey.startsWith("tutor:") ? request.plan.tutor.englishName
+          : request.plan.participants.find((person) => `tutee:${person.tuteeId}` === response.actorKey)?.tutee.englishName ?? "Tutee";
+      };
       const responses =
         offer?.responses
           .filter(
             (response) =>
               role === "tutor" ||
-              (responseOwners.get(response.id) ?? response.actorUserId) === actor.id ||
+              (executionByResponse.get(response.id)?.userId ?? response.actorUserId) === actor.id ||
               response.actorKey.startsWith("tutor:"),
           )
           .map((response) => ({
             id: response.id,
             actorKey: response.actorKey,
-            name: response.actorKey.startsWith("tutor:")
-              ? request.plan.tutor.englishName
-              : (request.plan.participants.find(
-                  (person) => `tutee:${person.tuteeId}` === response.actorKey,
-                )?.tutee.englishName ?? "Tutee"),
+            name: responseName(response),
             state: response.state,
             deadline: response.deadline,
             deliveredAt: response.deliveredAt,
             acceptedBy: response.acceptedBy,
-            isMe: (responseOwners.get(response.id) ?? response.actorUserId) === actor.id,
+            isMe: (executionByResponse.get(response.id)?.userId ?? response.actorUserId) === actor.id,
           })) ?? [];
       const myResponse =
         responses.find(
@@ -3063,7 +3102,7 @@ export async function readSessionAgenda(
     const visibleSuggestions = [];
     for (const suggestion of suggestions) {
       const sourcePlan = rows.find((row) => row.planId === suggestion.planId)?.plan;
-      if (role === "tutor" || sourcePlan && (await operationalStudentSources(tx, sourcePlan, context.currentStudentIds)).includes(suggestion.tuteeId)) visibleSuggestions.push(suggestion);
+      if (role === "tutor" || sourcePlan && ownedSources(sourcePlan).includes(suggestion.tuteeId)) visibleSuggestions.push(suggestion);
     }
     const backlogPage: { attendanceBacklogHasMore?: boolean } = {
       attendanceBacklogHasMore: backlogRows.length > 300,

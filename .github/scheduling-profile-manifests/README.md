@@ -12,6 +12,12 @@ native-schema cold control uses the corrected application on this comparison.
 schema at `1301ae4a4951994bcab43c7a5f24edf9bd9d6f22`. The pair is scoped to
 this pull request; unrelated pull requests retain their own base revision.
 
+PR #569 uses a separate manifest with the scheduling migration only. PR #568
+uses an eight-addition identity manifest. Its standalone harness covers the
+projections it declares; the full identity/recovery v3 projections and the
+native-original capture contract are verified separately in PR #570. Each pair
+uses the same named application control and its own reviewed schema overlay.
+
 The first eight reviewed additions implement maintenance metadata, directory partition,
 private-history correction, participation transfer, typed identity journaling,
 identity scheduling invalidation, exact notification provenance, and the narrowed

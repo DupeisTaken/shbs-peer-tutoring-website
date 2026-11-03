@@ -19,11 +19,11 @@ import { requestEmailChange, confirmEmailChange } from "./auth/email-change";
 import { resolveTutorLink } from "./auth/tutor-link";
 
 // These tests exercise the merged routers against PostgreSQL, not parallel branch mocks.
-const actor = (id: string, role: Session["role"] = "STUDENT") =>
+const actor = (id: string, role: Session["role"] = "STUDENT", tutorId: string | null = null) =>
   createCaller({
     db,
     headers: new Headers(),
-    session: { user: { id }, role, tutorId: null, expires: "2099-01-01" },
+    session: { user: { id }, role, tutorId, expires: "2099-01-01" },
   });
 const admin = () => actor("shipping-admin", "ADMIN");
 const head = () => actor("shipping-head", "HEAD");
@@ -681,9 +681,11 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
   await db.pairingTutee.create({
     data: { pairingId: "schedule-a", tuteeId: "owned-b" },
   });
-  expect(
-    (await admin().student.me({ page: 0 })).schedule.map((row) => row.id),
-  ).toEqual(["schedule-a", "schedule-b"]);
+  await db.pairing.create({ data: { id: "original-a", tutorId: "shipping-tutor", termId: "shipping-term", subject: "retained-original", scheduleConfirmed: true, dayOfWeek: 1, startMin: 600, endMin: 630, tutees: { create: { tuteeId: "owned-a" } } } });
+  await db.pairingExecutionSuccessor.create({ data: { sourcePairingId: "original-a", targetPairingId: "schedule-a", receiptId: "synthetic-transfer", effectiveAt: new Date() } });
+  const current = await admin().student.me({ page: 0 });
+  expect(current.schedule.map((row) => row.id)).toEqual(["schedule-a", "schedule-b"]);
+  expect(current.student?.pairings.map((row) => row.pairing.subject)).toEqual(["schedule-a"]);
   await db.user.update({
     where: { id: "shipping-admin" },
     data: { role: "TUTOR", tutorId: "shipping-tutor" },
@@ -705,4 +707,7 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
   await expect(coordinator().student.me({ page: 0 })).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
+  const grid = await actor("shipping-admin", "TUTOR", "shipping-tutor").tutor.schedule();
+  expect(grid.pairings.map((row) => row.id)).toContain("schedule-a");
+  expect(grid.pairings.map((row) => row.id)).not.toContain("original-a");
 });
