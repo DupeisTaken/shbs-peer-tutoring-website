@@ -1,0 +1,18 @@
+import {describe,expect,it} from "vitest";
+import {assertReviewedRecoverySchema,reviewedRecoverySchemaMetadata} from "./operator-schema";
+
+describe("static operator recovery schema review",()=>{
+  it("accepts the reviewed catalog and refuses a matching-but-unreviewed bearer table or column",()=>{
+    const {columns,enums}=reviewedRecoverySchemaMetadata;
+    expect(()=>assertReviewedRecoverySchema(columns,enums)).not.toThrow();
+    expect(assertReviewedRecoverySchema(reviewedRecoverySchemaMetadata.identityColumns,enums).identityVersion).toBe(1);
+    expect(()=>assertReviewedRecoverySchema([...columns,{table_name:"NewBearerCapability",column_name:"tokenHash",udt_name:"text"}],enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    expect(()=>assertReviewedRecoverySchema([...columns,{table_name:"StudentSurvey",column_name:"replacementGrant",udt_name:"text"}],enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
+  it("refuses changed credential storage type, missing columns and new authority enum labels",()=>{
+    const {columns,enums}=reviewedRecoverySchemaMetadata;
+    expect(()=>assertReviewedRecoverySchema(columns.map(row=>row.table_name==="User"&&row.column_name==="passwordHash"?{...row,udt_name:"jsonb"}:row),enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    expect(()=>assertReviewedRecoverySchema(columns.slice(1),enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    expect(()=>assertReviewedRecoverySchema(columns,[...enums,{type_name:"Role",enum_label:"UNREVIEWED_AUTHORITY"}])).toThrow("UNREVIEWED_RECOVERY_ENUM_SCHEMA");
+  });
+});

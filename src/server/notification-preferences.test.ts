@@ -46,6 +46,35 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
+it("conceals recovery-withdrawn notices from lists and badges without rewriting original read evidence", async () => {
+  const visible = await db.notification.create({
+    data: { userId, title: "Synthetic current notice" },
+  });
+  const withdrawn = await db.notification.create({
+    data: {
+      userId,
+      title: "Synthetic withdrawn notice",
+      recoveryWithdrawnAt: new Date(),
+    },
+  });
+  expect((await caller().notification.list()).map((row) => row.id)).toEqual([
+    visible.id,
+  ]);
+  expect(await caller().notification.unreadCount({ includeMuted: true })).toBe(
+    1,
+  );
+  await caller().notification.markRead({ id: withdrawn.id });
+  await caller().notification.markAllRead();
+  expect(
+    (await db.notification.findUniqueOrThrow({ where: { id: withdrawn.id } }))
+      .readAt,
+  ).toBeNull();
+  expect(
+    (await db.notification.findUniqueOrThrow({ where: { id: visible.id } }))
+      .readAt,
+  ).not.toBeNull();
+});
+
 it("mutes the unread badge without hiding rows or changing their read state", async () => {
   const one = await db.notification.create({
     data: { userId, title: "Assignment", event: "student_assignment_updated" },
@@ -73,17 +102,39 @@ it("mutes the unread badge without hiding rows or changing their read state", as
 });
 
 it("counts older muted unread notices separately and marks them read beyond the latest thirty", async () => {
-  await db.notification.create({ data: { userId, title: "Older muted assignment", event: "student_assignment_updated", createdAt: new Date("2020-01-01") } });
-  await db.notification.createMany({ data: Array.from({ length: 30 }, (_, index) => ({ userId, title: `Read ${index}`, event: "student_assignment_updated", readAt: new Date() })) });
-  await caller().account.setNotificationPreferences({ categories: [{ category: "tutoring", badgeEnabled: false, emailEnabled: false }] });
+  await db.notification.create({
+    data: {
+      userId,
+      title: "Older muted assignment",
+      event: "student_assignment_updated",
+      createdAt: new Date("2020-01-01"),
+    },
+  });
+  await db.notification.createMany({
+    data: Array.from({ length: 30 }, (_, index) => ({
+      userId,
+      title: `Read ${index}`,
+      event: "student_assignment_updated",
+      readAt: new Date(),
+    })),
+  });
+  await caller().account.setNotificationPreferences({
+    categories: [
+      { category: "tutoring", badgeEnabled: false, emailEnabled: false },
+    ],
+  });
   const visible = await caller().notification.list();
   expect(visible).toHaveLength(30);
   expect(visible.every((row) => row.readAt !== null)).toBe(true);
   expect(await caller().notification.unreadCount()).toBe(0);
-  expect(await caller().notification.unreadCount({ includeMuted: true })).toBe(1);
+  expect(await caller().notification.unreadCount({ includeMuted: true })).toBe(
+    1,
+  );
   await caller().notification.markAllRead();
   expect(await caller().notification.unreadCount()).toBe(0);
-  expect(await caller().notification.unreadCount({ includeMuted: true })).toBe(0);
+  expect(await caller().notification.unreadCount({ includeMuted: true })).toBe(
+    0,
+  );
 });
 
 it("allows badge-only changes with email disabled or after reviewer role loss", async () => {

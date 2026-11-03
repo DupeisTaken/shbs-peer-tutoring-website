@@ -21,13 +21,28 @@ import { SignupForm } from "./signup-form";
 import type { PublicSignupTransition } from "~/lib/public-signup-transition";
 import type { RouterOutputs } from "~/trpc/react";
 
-type OptionsMockResult = { data?: Partial<RouterOutputs["tutee"]["signupOptions"]>; [key: string]: unknown };
+type OptionsMockResult = {
+  data?: Partial<RouterOutputs["tutee"]["signupOptions"]>;
+  [key: string]: unknown;
+};
 
 function transitionFixture(termId = "q1"): PublicSignupTransition {
-  return { serverNow: new Date().toISOString(), timeZone: "Asia/Shanghai", current: {
-    termId, label: termId === "q1" ? "2026–27 Q1" : "2026–27 Q2", kind: "quarter",
-    window: { enabled: true, opensAt: null, closesAt: null, previewUrl: null },
-  }, next: null };
+  return {
+    serverNow: new Date().toISOString(),
+    timeZone: "Asia/Shanghai",
+    current: {
+      termId,
+      label: termId === "q1" ? "2026–27 Q1" : "2026–27 Q2",
+      kind: "quarter",
+      window: {
+        enabled: true,
+        opensAt: null,
+        closesAt: null,
+        previewUrl: null,
+      },
+    },
+    next: null,
+  };
 }
 const mocks = vi.hoisted(() => ({
   locale: "en",
@@ -63,10 +78,20 @@ vi.mock("~/trpc/react", async () => ({
     },
     tutee: {
       signupReceipt: { useMutation: () => ({ mutateAsync: mocks.receipt }) },
-      signupOptions: { useQuery: (...args: unknown[]) => {
-        const result = mocks.options(...args) as OptionsMockResult;
-        return { ...result, data: result.data ? { ...result.data, transition: result.data.transition ?? transitionFixture() } : undefined };
-      } },
+      signupOptions: {
+        useQuery: (...args: unknown[]) => {
+          const result = mocks.options(...args) as OptionsMockResult;
+          return {
+            ...result,
+            data: result.data
+              ? {
+                  ...result.data,
+                  transition: result.data.transition ?? transitionFixture(),
+                }
+              : undefined,
+          };
+        },
+      },
       surveyPolicy: { useQuery: mocks.policy },
       submitSurvey: {
         useMutation: () => ({
@@ -99,7 +124,9 @@ vi.mock("~/app/_components/policy-agreement", () => ({
 vi.mock("./signin-access", () => ({ SigninAccess: () => null }));
 // Countdown/period rendering has dedicated real-provider tests; these cases own form draft/retry behavior.
 vi.mock("./signup-transition-notice", async () => ({
-  ...await vi.importActual<typeof SignupTransitionNoticeModule>("./signup-transition-notice"),
+  ...(await vi.importActual<typeof SignupTransitionNoticeModule>(
+    "./signup-transition-notice",
+  )),
   SignupTransitionNotice: () => null,
 }));
 vi.mock("./survey-verification", () => ({
@@ -144,6 +171,66 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+it("prefills only recovery answers and requires fresh mailbox and policy input before adoption", async () => {
+  mocks.options.mockReturnValue({
+    isFetchedAfterMount: true,
+    data: {
+      subjects: [{ id: "math", name: "Math" }],
+      slots: [],
+      fields: signupSettings({
+        tutee: {
+          preferredContact: "hidden",
+          availability: "hidden",
+          signatureName: "hidden",
+          phone: "hidden",
+          secondSubject: "hidden",
+        },
+      }).tutee,
+    },
+    refetch: mocks.retry,
+  });
+  render(
+    <SignupForm
+      recoveryDraft={{
+        draftId: "recovery-draft",
+        version: 1,
+        answers: {
+          firstName: "Recovered",
+          lastName: "Student",
+          englishName: "Recovered Student",
+          firstChoiceId: "math",
+          slotIds: [],
+          preferredContact: "",
+        },
+      }}
+    />,
+  );
+  expect(
+    screen.getByLabelText<HTMLInputElement>("firstName signupFields.required")
+      .value,
+  ).toBe("Recovered");
+  expect(
+    screen.getByLabelText<HTMLInputElement>(/survey.emailLabel/).value,
+  ).toBe("");
+  expect(screen.getByLabelText<HTMLInputElement>("Accept policy").checked).toBe(
+    false,
+  );
+  expect(screen.getByText("recoveryWorkflow.review")).toBeTruthy();
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(/survey.emailLabel/), {
+    target: { value: "owned@example.test" },
+  });
+  fireEvent.click(screen.getByLabelText("Accept policy"));
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(1));
+  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({
+    email: "owned@example.test",
+    agreed: true,
+    policyRevision: "r1",
+    recoveryDraft: { draftId: "recovery-draft", expectedVersion: 1 },
+  });
 });
 
 /** Minimal configured intake makes retry/receipt behavior independent of unrelated fields. */
@@ -831,8 +918,12 @@ it("does not unlock cached fields after a failed entry check, then recovers with
 
 it("keeps a draft bound to its original term until explicit successful review of the new period", async () => {
   const view = completeMinimalSubmission();
-  const name = screen.getByLabelText<HTMLInputElement>("firstName signupFields.required");
-  expect(screen.getByLabelText<HTMLInputElement>("Accept policy").checked).toBe(true);
+  const name = screen.getByLabelText<HTMLInputElement>(
+    "firstName signupFields.required",
+  );
+  expect(screen.getByLabelText<HTMLInputElement>("Accept policy").checked).toBe(
+    true,
+  );
   const current = mocks.options() as OptionsMockResult;
   const latest = { ...current.data, transition: transitionFixture("q2") };
   mocks.options.mockReturnValue({ ...current, data: latest });
@@ -845,22 +936,32 @@ it("keeps a draft bound to its original term until explicit successful review of
   fireEvent.click(screen.getByRole("button", { name: "reviewPeriod" }));
   await waitFor(() => expect(name.matches(":disabled")).toBe(false));
   expect(name.value).toBe("Student");
-  expect(screen.getByLabelText<HTMLInputElement>("Accept policy").checked).toBe(false);
+  expect(screen.getByLabelText<HTMLInputElement>("Accept policy").checked).toBe(
+    false,
+  );
   fireEvent.click(screen.getByLabelText("Accept policy"));
   fireEvent.submit(view.container.querySelector("form")!);
   await waitFor(() => expect(mocks.mutate).toHaveBeenCalledOnce());
-  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({ expectedTermId: "q2" });
+  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({
+    expectedTermId: "q2",
+  });
 });
 
 it("retains the original period and draft when the explicit new-period read fails", async () => {
   const view = completeMinimalSubmission();
   const current = mocks.options() as OptionsMockResult;
-  mocks.options.mockReturnValue({ ...current, data: { ...current.data, transition: transitionFixture("q2") } });
+  mocks.options.mockReturnValue({
+    ...current,
+    data: { ...current.data, transition: transitionFixture("q2") },
+  });
   mocks.retry.mockRejectedValue(new Error("Offline"));
   view.rerender(<SignupForm />);
   fireEvent.click(screen.getByRole("button", { name: "reviewPeriod" }));
   await screen.findByText("reviewFailed");
-  expect(screen.getByLabelText<HTMLInputElement>("firstName signupFields.required").value).toBe("Student");
+  expect(
+    screen.getByLabelText<HTMLInputElement>("firstName signupFields.required")
+      .value,
+  ).toBe("Student");
   fireEvent.submit(view.container.querySelector("form")!);
   expect(mocks.mutate).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "reviewPeriod" })).toBeTruthy();
@@ -872,12 +973,20 @@ it("does not repeat the opening card's date/link while retaining the closing dea
   transition.current!.window.opensAt = "2090-11-01T00:00:00Z";
   transition.current!.window.closesAt = "2090-11-03T00:00:00Z";
   transition.current!.window.previewUrl = "https://example.test/preview";
-  mocks.options.mockReturnValue({ ...current, data: { ...current.data, transition, recruitment: {
-    ...transition.current!.window, serverNow: transition.serverNow,
-  } } });
+  mocks.options.mockReturnValue({
+    ...current,
+    data: {
+      ...current.data,
+      transition,
+      recruitment: {
+        ...transition.current!.window,
+        serverNow: transition.serverNow,
+      },
+    },
+  });
   render(<SignupForm />);
   expect(screen.queryByText(/^opens:/)).toBeNull();
-  expect(screen.queryByRole("link", {name: "sheet"})).toBeNull();
+  expect(screen.queryByRole("link", { name: "sheet" })).toBeNull();
   expect(screen.getByText(/^closes:/)).toBeTruthy();
   expect(screen.getByText("preview")).toBeTruthy();
   expect(screen.getByText("readOnly")).toBeTruthy();

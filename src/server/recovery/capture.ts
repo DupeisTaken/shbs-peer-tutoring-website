@@ -4,6 +4,7 @@ import type { TransactionDb } from "~/server/transactions";
 
 export const recoveryAccountSelect = {
   id: true,
+  personId: true,
   role: true,
   tutorId: true,
   studentId: true,
@@ -60,6 +61,7 @@ export async function beginAdmissionRecoveryCapture(
     where: { email },
     select: {
       id: true,
+      personId: true,
       status: true,
       preferredAssignedBlocks: true,
       workloadPreferenceVersion: true,
@@ -101,6 +103,8 @@ export async function finishAdmissionRecoveryCapture(
   const action = await tx.recoveryAction.findUniqueOrThrow({
     where: { id: actionId },
   });
+  if (action.kind !== "INITIAL_ADMISSION" || !action.applicationId)
+    throw new Error("Only an admission capture can be finalized here.");
   const application = await tx.tutorApplication.findUniqueOrThrow({
     where: { id: action.applicationId },
   });

@@ -4,9 +4,16 @@ import {
   markSessionCohortRecorded,
   lockSessionPlanning,
 } from "~/server/session-planning";
-import { lockTutorContinuationRequests, reconcileTutorContinuations } from "~/server/student-continuation-assignment";
+import {
+  lockTutorContinuationRequests,
+  reconcileTutorContinuations,
+} from "~/server/student-continuation-assignment";
 import { lockCatalogue } from "~/server/qualifications";
-import { notificationList, notificationCard, notificationInstant } from "~/lib/notification-facts";
+import {
+  notificationList,
+  notificationCard,
+  notificationInstant,
+} from "~/lib/notification-facts";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { isInterviewChairRole } from "~/lib/interview-chair";
 import {
@@ -77,6 +84,7 @@ import {
   finishAdmissionRecoveryCapture,
 } from "~/server/recovery/capture";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
+import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
 import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
@@ -993,15 +1001,22 @@ export const tutorRouter = createTRPCRouter({
 
           // Tutor-requested cards need a team review — surface them for admins.
           if (features.DISCIPLINE && cardRequests.length > 0) {
-            const cardPeople = await tx.tutee.findMany({ where: { id: { in: cardRequests.map((card) => card.tuteeId) } }, select: { id: true, englishName: true } });
+            const cardPeople = await tx.tutee.findMany({
+              where: { id: { in: cardRequests.map((card) => card.tuteeId) } },
+              select: { id: true, englishName: true },
+            });
             await notifyAdmins(
               {
-                ...notificationInAppEvent("attendance_cards_pending", {
-                  count: cardRequests.length,
-                }, {
-                  en: `${ctx.session.user.name ?? "Tutor"} requested ${cardRequests.length} discipline card(s) for ${primary.subject}, ${input.date.toISOString().slice(0, 10)}: ${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "Tutee"} (${notificationCard(card.color, "en")})`))}. Awaiting review.`,
-                  zh: `${ctx.session.user.name ?? "辅导伙伴"} 为 ${input.date.toISOString().slice(0, 10)} 的 ${primary.subject} 辅导申请 ${cardRequests.length} 张纪律卡：${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "学习伙伴"}（${notificationCard(card.color, "zh")}）`))}。待审核。`,
-                }),
+                ...notificationInAppEvent(
+                  "attendance_cards_pending",
+                  {
+                    count: cardRequests.length,
+                  },
+                  {
+                    en: `${ctx.session.user.name ?? "Tutor"} requested ${cardRequests.length} discipline card(s) for ${primary.subject}, ${input.date.toISOString().slice(0, 10)}: ${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "Tutee"} (${notificationCard(card.color, "en")})`))}. Awaiting review.`,
+                    zh: `${ctx.session.user.name ?? "辅导伙伴"} 为 ${input.date.toISOString().slice(0, 10)} 的 ${primary.subject} 辅导申请 ${cardRequests.length} 张纪律卡：${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "学习伙伴"}（${notificationCard(card.color, "zh")}）`))}。待审核。`,
+                  },
+                ),
                 title: "Discipline cards to review",
                 body: `${cardRequests.length} card(s) submitted with an attendance survey.`,
                 link: "/admin/discipline",
@@ -1051,7 +1066,10 @@ export const tutorRouter = createTRPCRouter({
               },
             });
             if (conflict || blocked) {
-              const reportedRoom = await tx.room.findUnique({ where: { id: actualRoomId }, select: { name: true } });
+              const reportedRoom = await tx.room.findUnique({
+                where: { id: actualRoomId },
+                select: { name: true },
+              });
               await tx.auditLog.create({
                 data: {
                   userId: ctx.session.user.id,
@@ -2091,19 +2109,52 @@ export const tutorRouter = createTRPCRouter({
           // Legacy rows may contain blank plaintext, which cannot be shared for setup.
           const usableCode = codes.some(({ code }) => !!code?.trim());
           if (!linked && !usableCode)
-            throw new TRPCError({ code: "CONFLICT", message: "Tutor registration could not be prepared. Review the application's existing account or invitation before approving." });
-          const grants = tutorId ? await tx.qualificationGrant.findMany({ where: { tutorId }, select: { subjectId: true } }) : [];
-          const grantedSubjects = grants.length ? await tx.subject.findMany({ where: { id: { in: grants.map((grant) => grant.subjectId) } }, select: { name: true, level: { select: { name: true } } }, orderBy: { name: "asc" } }) : [];
-          const awarded = notificationList(grantedSubjects.map((subject) => `${subject.name}${subject.level ? ` (${subject.level.name})` : ""}`));
-          await notifyAdmins({
-            title: "Interview approved",
-            ...notificationInAppEvent("interview_approved", undefined, {
-              en: `${before.name}'s interview was approved and the tutor admission was applied.${awarded ? ` Granted subjects/levels: ${awarded}.` : ""}`,
-              zh: `${before.name} 的面试已获批准，辅导伙伴录取已生效。${awarded ? `授予的科目及等级：${awarded}。` : ""}`,
-            }),
-            link: `/admin/applications#application-${input.applicationId}`,
-            inAppOnly: true,
-          }, undefined, tx);
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "Tutor registration could not be prepared. Review the application's existing account or invitation before approving.",
+            });
+          const grants = tutorId
+            ? await tx.qualificationGrant.findMany({
+                where: { tutorId },
+                select: { subjectId: true },
+              })
+            : [];
+          const grantedSubjects = grants.length
+            ? await tx.subject.findMany({
+                where: { id: { in: grants.map((grant) => grant.subjectId) } },
+                select: { name: true, level: { select: { name: true } } },
+                orderBy: { name: "asc" },
+              })
+            : [];
+          const awarded = notificationList(
+            grantedSubjects.map(
+              (subject) =>
+                `${subject.name}${subject.level ? ` (${subject.level.name})` : ""}`,
+            ),
+          );
+          await withRecoveryDeliverySource(
+            tx,
+            {
+              entity: "TutorApplication",
+              recordId: input.applicationId,
+              ...(recoveryActionId ? { actionId: recoveryActionId } : {}),
+            },
+            () =>
+              notifyAdmins(
+                {
+                  title: "Interview approved",
+                  ...notificationInAppEvent("interview_approved", undefined, {
+                    en: `${before.name}'s interview was approved and the tutor admission was applied.${awarded ? ` Granted subjects/levels: ${awarded}.` : ""}`,
+                    zh: `${before.name} 的面试已获批准，辅导伙伴录取已生效。${awarded ? `授予的科目及等级：${awarded}。` : ""}`,
+                  }),
+                  link: `/admin/applications#application-${input.applicationId}`,
+                  inAppOnly: true,
+                },
+                undefined,
+                tx,
+              ),
+          );
         }
         return { ok: true };
       }),

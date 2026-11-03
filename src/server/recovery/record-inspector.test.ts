@@ -1,10 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DomainDb } from "../transactions";
-import { inspectRecords, listRecordTables } from "./record-inspector";
-import type { InspectRecordsInput } from "./record-inspector";
+import {
+  inspectRecords,
+  inspectRecoveryEvidence,
+  listRecordTables,
+} from "./record-inspector";
+import type {
+  InspectRecordsInput,
+  InspectRecoveryEvidenceInput,
+  RecordKey,
+} from "./record-inspector";
 
 const operator = { operator: true } as const;
 const web = { userId: "current-admin" };
+const identityMetadataCases = [
+  ["PersonPartitionReceipt", { id: "partition" }],
+  ["RetiredHistoryOwnership", { sourceUserId: "retired" }],
+  ["HistoryRowOwnership", { entity: "Tutor", recordId: "original" }],
+  ["PersonHistoryCorrectionReceipt", { id: "history-correction" }],
+  ["ParticipantConsolidation", { kind: "TUTOR", sourceId: "original" }],
+  ["PairingExecutionSuccessor", { sourcePairingId: "original" }],
+  ["SessionPlanExecution", { planId: "plan" }],
+  ["SessionParticipantExecution", { participantId: "participant" }],
+  ["SessionResponseExecution", { responseId: "response" }],
+  [
+    "QualificationTransferGrant",
+    {
+      targetTutorId: "target",
+      sourceTutorId: "original",
+      sourceSubjectId: "source-subject",
+      subjectId: "subject",
+    },
+  ],
+  ["PersonParticipationTransferReceipt", { id: "transfer" }],
+  [
+    "StudentRequestExecutionAssignment",
+    { surveyId: "request", pairingId: "pairing" },
+  ],
+] as const;
 function fixture() {
   const db = {
     user: {
@@ -36,21 +69,108 @@ function fixture() {
 
 describe("read-only database inspector", () => {
   beforeEach(() => vi.clearAllMocks());
+  it.each(identityMetadataCases)(
+    "exposes only reviewed %s metadata identically to website and operator",
+    async (table, key) => {
+      const { db, client } = fixture();
+      const privateFields = {
+        inputHash: "PRIVATE-SENTINEL",
+        before: { secret: "PRIVATE-SENTINEL" },
+        after: { secret: "PRIVATE-SENTINEL" },
+        sources: ["PRIVATE-SENTINEL"],
+        subjects: ["PRIVATE-SENTINEL"],
+        sourceUserIds: ["PRIVATE-SENTINEL"],
+        quarantineUserIds: ["PRIVATE-SENTINEL"],
+        assignments: { secret: "PRIVATE-SENTINEL" },
+        selection: { secret: "PRIVATE-SENTINEL" },
+        result: { secret: "PRIVATE-SENTINEL" },
+      };
+      const findMany = vi
+        .fn()
+        .mockResolvedValue([{ ...key, revision: 2, ...privateFields }]);
+      Object.assign(db, {
+        [table[0]!.toLowerCase() + table.slice(1)]: { findMany },
+      });
+      const website = await inspectRecords(client, web, { table, key });
+      const host = await inspectRecords(client, operator, { table, key });
+      expect(website).toEqual(host);
+      expect(website.table).toMatchObject({
+        available: true,
+        keyFields: Object.keys(key),
+      });
+      expect(website.rows[0]?.reference).toEqual({ table, key });
+      expect(JSON.stringify(website.rows)).not.toContain("PRIVATE-SENTINEL");
+      for (const call of findMany.mock.calls) {
+        const args = call[0] as {
+          where: unknown;
+          select: Record<string, boolean>;
+        };
+        expect(args.where).toEqual(key);
+        for (const field of Object.keys(privateFields))
+          expect(args.select[field], `${table}.${field}`).toBeUndefined();
+      }
+    },
+  );
+  it("requires every reviewed compound identity component and refuses extra key fields", async () => {
+    const { db, client } = fixture();
+    const findMany = vi.fn();
+    Object.assign(db, { qualificationTransferGrant: { findMany } });
+    const invalidKeys: RecordKey[] = [
+      {
+        targetTutorId: "target",
+        sourceTutorId: "source",
+        subjectId: "subject",
+      },
+      {
+        targetTutorId: "target",
+        sourceTutorId: "source",
+        sourceSubjectId: "source-subject",
+        subjectId: "subject",
+        receiptId: "receipt",
+      },
+    ];
+    for (const key of invalidKeys)
+      await expect(
+        inspectRecords(client, operator, {
+          table: "QualificationTransferGrant",
+          key,
+        }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(findMany).not.toHaveBeenCalled();
+  });
   it("inspects safe schedule status without selecting private authorization evidence", async () => {
     const { db, client } = fixture();
-    db.scheduledProgramRefresh.findMany.mockResolvedValue([{
-      id: "schedule", sourceTermId: "source", state: "SCHEDULED", version: 1,
-      executeAt: new Date("2030-01-01T00:00:00Z"),
-      expectedPreparation: { private: "must-not-escape" }, authorizedById: "private-head",
-      authorizedByName: "Private approver", authorityRevision: 4,
-    }]);
-    const result = await inspectRecords(client, web, { table: "ScheduledProgramRefresh" });
+    db.scheduledProgramRefresh.findMany.mockResolvedValue([
+      {
+        id: "schedule",
+        sourceTermId: "source",
+        state: "SCHEDULED",
+        version: 1,
+        executeAt: new Date("2030-01-01T00:00:00Z"),
+        expectedPreparation: { private: "must-not-escape" },
+        authorizedById: "private-head",
+        authorizedByName: "Private approver",
+        authorityRevision: 4,
+      },
+    ]);
+    const result = await inspectRecords(client, web, {
+      table: "ScheduledProgramRefresh",
+    });
     expect(result.table).toMatchObject({ available: true, keyFields: ["id"] });
-    expect(result.rows[0]?.fields).toMatchObject({ state: "SCHEDULED", executeAt: "2030-01-01T00:00:00.000Z" });
-    const args = db.scheduledProgramRefresh.findMany.mock.calls[0]?.[0] as unknown as {
+    expect(result.rows[0]?.fields).toMatchObject({
+      state: "SCHEDULED",
+      executeAt: "2030-01-01T00:00:00.000Z",
+    });
+    const args = db.scheduledProgramRefresh.findMany.mock
+      .calls[0]?.[0] as unknown as {
       select: Record<string, boolean>;
     };
-    for (const name of ["expectedPreparation", "authorizedById", "authorizedByName", "authorityRevision"])
+    for (const name of [
+      "expectedPreparation",
+      "authorizedById",
+      "authorizedByName",
+      "authorityRevision",
+    ])
       expect(args.select[name]).toBeUndefined();
     expect(JSON.stringify(result.rows)).not.toContain("must-not-escape");
     expect(result.rows[0]?.fields).not.toHaveProperty("authorizedById");
@@ -410,5 +530,316 @@ describe("read-only database inspector", () => {
       table: "RecoveryFence",
       key: { actionId: "admission-root" },
     });
+  });
+});
+
+describe("safe recovery journal evidence", () => {
+  function change(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 1n,
+      actionId: "admission",
+      eventId: "registration",
+      entity: "User",
+      operation: "UPDATE",
+      recordKey: { id: "account", personId: "person" },
+      changedFields: ["name", "passwordHash"],
+      before: { passwordHash: "private-before" },
+      after: { passwordHash: "private-after" },
+      ...overrides,
+    };
+  }
+
+  it("projects only the approved target identity and column names identically on both transports", async () => {
+    const { db, client } = fixture();
+    db.recoveryChange.findMany.mockResolvedValue([change()]);
+    const website = await inspectRecords(client, web, {
+      table: "RecoveryChange",
+    });
+    const cli = await inspectRecords(client, operator, {
+      table: "RecoveryChange",
+    });
+    expect(website).toEqual(cli);
+    expect(website.rows[0]?.fields).toMatchObject({
+      recordKey: { id: "account" },
+      changedFields: ["name", "passwordHash"],
+    });
+    expect(website.rows[0]?.evidence).toEqual({
+      kind: "RECOVERY_JOURNAL",
+      interpretation: "RECORDED_RELATION_ONLY",
+      affectedRecord: { table: "User", key: { id: "account" } },
+      relatedRecords: [
+        { table: "RecoveryAction", key: { id: "admission" } },
+        { table: "RecoveryEvent", key: { id: "registration" } },
+      ],
+    });
+    for (const args of db.recoveryChange.findMany.mock.calls.map(
+      ([arg]) => arg as unknown as { select: Record<string, boolean> },
+    )) {
+      expect(args.select.recordKey).toBe(true);
+      expect(args.select.changedFields).toBe(true);
+      expect(args.select.before).toBeUndefined();
+      expect(args.select.after).toBeUndefined();
+    }
+    expect(JSON.stringify(website)).not.toContain("private-before");
+    expect(JSON.stringify(website)).not.toContain("private-after");
+    expect(website.rows[0]?.fields.recordKey).not.toHaveProperty("personId");
+  });
+
+  it("retains the complete persisted three-column qualification identity", async () => {
+    const { db, client } = fixture();
+    db.recoveryChange.findMany.mockResolvedValue([
+      change({
+        entity: "QualificationGrant",
+        recordKey: {
+          tutorId: "t",
+          sourceSubjectId: "source",
+          subjectId: "subject",
+        },
+        changedFields: ["grantedAt"],
+      }),
+    ]);
+    const result = await inspectRecords(client, web, {
+      table: "RecoveryChange",
+    });
+    const key = {
+      tutorId: "t",
+      sourceSubjectId: "source",
+      subjectId: "subject",
+    };
+    expect(result.rows[0]?.fields.recordKey).toEqual(key);
+    expect(result.rows[0]?.evidence?.affectedRecord).toEqual({
+      table: "QualificationGrant",
+      key,
+    });
+  });
+
+  it.each([
+    "UnknownFutureTable",
+    "DirectMessage",
+    "PasswordResetToken",
+    "HistoricalRecordClaimReceipt",
+    "SessionCalendarToken",
+    "MonthlyHoursReport",
+  ])(
+    "does not expose protected target keys or their JSON evidence for %s",
+    async (entity) => {
+      const { db, client } = fixture();
+      db.recoveryChange.findMany.mockResolvedValue([
+        change({
+          entity,
+          recordKey: { id: "private-capability", tokenHash: "private-token" },
+          changedFields: ["tokenHash"],
+        }),
+      ]);
+      const result = await inspectRecords(client, operator, {
+        table: "RecoveryChange",
+      });
+      expect(result.rows[0]?.evidence?.affectedRecord).toBeNull();
+      expect(result.rows[0]?.fields).not.toHaveProperty("recordKey");
+      expect(result.rows[0]?.fields).not.toHaveProperty("changedFields");
+      expect(JSON.stringify(result)).not.toContain("private-capability");
+      expect(JSON.stringify(result)).not.toContain("private-token");
+    },
+  );
+
+  it.each([
+    null,
+    [],
+    "private-json",
+    { id: { secret: "private-json" } },
+    { id: "account", arbitrary: "private-json" },
+    { personId: "person" },
+    { id: "x".repeat(1025) },
+    { id: 12 },
+  ])(
+    "omits malformed journal keys without echoing arbitrary JSON (%j)",
+    async (recordKey) => {
+      const { db, client } = fixture();
+      db.recoveryChange.findMany.mockResolvedValue([change({ recordKey })]);
+      const result = await inspectRecords(client, web, {
+        table: "RecoveryChange",
+      });
+      expect(result.rows[0]?.fields).not.toHaveProperty("recordKey");
+      expect(result.rows[0]?.evidence?.affectedRecord).toBeNull();
+      expect(result.rows[0]?.omitted).toContainEqual({
+        field: "recordKey",
+        reason: "restricted",
+      });
+      expect(JSON.stringify(result)).not.toContain("private-json");
+    },
+  );
+
+  it.each([
+    null,
+    "name",
+    {},
+    ["name", "name"],
+    ["missingField"],
+    ["name;SQL"],
+    ["name", { secret: "private-json" }],
+    ["n".repeat(101)],
+    Array.from({ length: 201 }, () => "name"),
+    ["emailVerificationCodes"],
+  ])(
+    "omits malformed, unknown or unbounded changed column names (%j)",
+    async (changedFields) => {
+      const { db, client } = fixture();
+      db.recoveryChange.findMany.mockResolvedValue([change({ changedFields })]);
+      const result = await inspectRecords(client, web, {
+        table: "RecoveryChange",
+      });
+      expect(result.rows[0]?.fields).not.toHaveProperty("changedFields");
+      expect(result.rows[0]?.omitted).toContainEqual({
+        field: "changedFields",
+        reason: "restricted",
+      });
+      expect(JSON.stringify(result)).not.toContain("private-json");
+    },
+  );
+
+  it("never exposes other JSON snapshots after enabling the two reviewed journal projections", async () => {
+    const { client } = fixture();
+    const tables = await listRecordTables(client, web);
+    const readableJson = tables.flatMap((table) =>
+      table.fields
+        .filter((field) => field.type === "Json" && field.readable)
+        .map((field) => `${table.name}.${field.name}`),
+    );
+    expect(readableJson.sort()).toEqual([
+      "RecoveryChange.changedFields",
+      "RecoveryChange.recordKey",
+    ]);
+  });
+
+  it("uses bounded exact compound-key journal filters and source-bound pagination", async () => {
+    const { db, client } = fixture();
+    const source = {
+      table: "PairingTutee",
+      key: { pairingId: "p'$(untrusted)", tuteeId: "t" },
+    };
+    db.recoveryChange.findMany.mockResolvedValueOnce([
+      change({
+        id: 9007199254740993n,
+        entity: source.table,
+        recordKey: source.key,
+        changedFields: ["tuteeId"],
+      }),
+      change({
+        id: 9007199254740994n,
+        entity: source.table,
+        recordKey: source.key,
+        changedFields: [],
+      }),
+    ]);
+    const first = await inspectRecoveryEvidence(client, web, {
+      ...source,
+      limit: 1,
+    });
+    expect(first).toMatchObject({
+      version: 1,
+      interpretation: "RECORDED_RELATION_ONLY",
+      source,
+    });
+    expect(first.changes).toHaveLength(1);
+    expect(db.recoveryChange.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            {
+              entity: source.table,
+              AND: [
+                {
+                  recordKey: {
+                    path: ["pairingId"],
+                    equals: source.key.pairingId,
+                  },
+                },
+                { recordKey: { path: ["tuteeId"], equals: "t" } },
+              ],
+            },
+          ],
+        },
+        orderBy: { id: "asc" },
+        take: 2,
+      }),
+    );
+    db.recoveryChange.findMany.mockResolvedValue([]);
+    await inspectRecoveryEvidence(client, web, {
+      ...source,
+      cursor: first.nextCursor!,
+      limit: 1,
+    });
+    expect(db.recoveryChange.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { AND: [expect.any(Object), { id: { gt: 9007199254740993n } }] },
+      }),
+    );
+    await expect(
+      inspectRecoveryEvidence(client, web, {
+        table: "User",
+        key: { id: "another-source" },
+        cursor: first.nextCursor!,
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it.each([
+    ["RecoveryAction", { id: "a" }, { actionId: "a" }],
+    ["RecoveryEvent", { id: "e" }, { eventId: "e" }],
+    ["RecoveryChange", { id: "9007199254740993" }, { id: 9007199254740993n }],
+  ] as const)(
+    "navigates %s using a fixed journal identity filter",
+    async (table, key, where) => {
+      const { db, client } = fixture();
+      await inspectRecoveryEvidence(client, web, { table, key });
+      expect(db.recoveryChange.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { AND: [where] },
+          take: 26,
+        }),
+      );
+    },
+  );
+
+  it("shares evidence output and page limits across website and CLI", async () => {
+    const { db, client } = fixture();
+    db.recoveryChange.findMany.mockResolvedValue([change()]);
+    const input = { table: "User", key: { id: "account" } };
+    expect(await inspectRecoveryEvidence(client, web, input)).toEqual(
+      await inspectRecoveryEvidence(client, operator, input),
+    );
+    for (const authority of [web, operator]) {
+      for (const limit of [0, 51, 1.5])
+        await expect(
+          inspectRecoveryEvidence(client, authority, { ...input, limit }),
+        ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    }
+  });
+
+  it("refuses protected source existence, invalid keys/cursors and revoked current authority before querying evidence", async () => {
+    const { db, client } = fixture();
+    await expect(
+      inspectRecoveryEvidence(client, operator, {
+        table: "HistoricalRecordClaimReceipt",
+        key: { tokenHash: "private-token" },
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const invalidInputs: InspectRecoveryEvidenceInput[] = [
+      { table: "PairingTutee", key: { pairingId: "missing-student" } },
+      { table: "User", key: { id: "account" }, cursor: "malformed" },
+      { table: "User", key: { id: "account" }, cursor: "x".repeat(8193) },
+    ];
+    for (const input of invalidInputs)
+      await expect(
+        inspectRecoveryEvidence(client, web, input),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    db.user.findUnique.mockResolvedValue({ role: "VIEWER" });
+    await expect(
+      inspectRecoveryEvidence(client, web, {
+        table: "User",
+        key: { id: "account" },
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.recoveryChange.findMany).not.toHaveBeenCalled();
   });
 });

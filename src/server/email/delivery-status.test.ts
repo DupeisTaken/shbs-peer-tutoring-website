@@ -35,7 +35,7 @@ it("reports category outages independently and reads only safe queue aggregates"
   const { getEmailDeliveryStatus } = await import("./delivery-status");
   const { database, count } = fixture();
   mocks.verify.mockImplementation(async (category) => category === "SECURITY");
-  count.mockResolvedValueOnce(3).mockResolvedValueOnce(2);
+  count.mockResolvedValueOnce(3).mockResolvedValueOnce(2).mockResolvedValueOnce(4);
   const result = await getEmailDeliveryStatus(database);
   expect(result).toEqual({
     channels: [
@@ -44,10 +44,15 @@ it("reports category outages independently and reads only safe queue aggregates"
     ],
     retrying: 3,
     failed: 2,
+    uncertain: 4,
   });
   expect(count.mock.calls).toEqual([
-    [{ where: { status: "PENDING", attempts: { gt: 0 } } }],
-    [{ where: { status: "FAILED" } }],
+    [{ where: { status: "PENDING", attempts: { gt: 0 }, OR: [{ attemptStartedAt: null }, { category: { in: ["security", "request_service", "monthly_hours", "school_hours"] } }] } }],
+    [{ where: { status: "FAILED", OR: [{ attemptStartedAt: null }, { category: { in: ["security", "request_service", "monthly_hours", "school_hours"] } }] } }],
+    [{ where: { OR: [
+      { status: { in: ["UNCERTAIN", "UNCERTAIN_RECOVERY"] } },
+      { status: { in: ["PENDING", "FAILED"] }, category: { notIn: ["security", "request_service", "monthly_hours", "school_hours"] }, attemptStartedAt: { not: null } },
+    ] } }],
   ]);
 });
 
@@ -85,7 +90,7 @@ it("shares in-flight checks and caches results for a minute while refreshing que
     initial.channels,
   );
   expect(mocks.verify).toHaveBeenCalledTimes(2);
-  expect(count).toHaveBeenCalledTimes(6);
+  expect(count).toHaveBeenCalledTimes(9);
   mocks.verify.mockResolvedValue(true);
   await vi.advanceTimersByTimeAsync(1);
   const recovered = await getEmailDeliveryStatus(database);

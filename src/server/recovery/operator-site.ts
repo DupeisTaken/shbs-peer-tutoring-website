@@ -13,6 +13,7 @@ import {
   assertRegularFile,
   databaseIdentity,
   planHash,
+  readOperatorPlan,
   writeOperatorJson,
 } from "./operator-plan";
 
@@ -61,6 +62,17 @@ export const sitePlanSchema = z
   })
   .strict();
 export type SitePlan = z.infer<typeof sitePlanSchema>;
+export const siteStageReceiptSchema = z.object({
+  version: z.literal(1), kind: z.literal("site-stage-receipt"),
+  planId: z.uuid(), planHash: z.string().regex(/^[a-f0-9]{64}$/),
+  targetName: sitePlanSchema.shape.targetName,
+  state: z.literal("SEALED_STAGING_ONLY"), cutover: sitePlanSchema.shape.cutover,
+  createdAt: z.iso.datetime(), before: checkpointSchema, restored: checkpointSchema,
+  comparison: z.array(z.object({table: z.string(), before: z.string().nullable(), restored: z.string().nullable(), changed: z.boolean()}).strict()).max(500),
+  currentEvidence: z.object({path: z.string(), bytes: z.number().int().positive(), sha256: z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
+  evidenceDirectory: z.string(),
+}).strict();
+export type SiteStageReceipt = z.infer<typeof siteStageReceiptSchema>;
 export interface OperatorSql {
   query(
     sql: string,
@@ -79,7 +91,7 @@ export interface SiteDependencies {
   connect(url: string): Promise<OperatorSql>;
   execute(request: ToolRequest): Promise<void>;
 }
-function assertIsolatedEndpoint(
+export function assertIsolatedEndpoint(
   source: SitePlan["source"],
   maintenance: SitePlan["maintenance"],
 ) {
@@ -98,7 +110,7 @@ function assertIsolatedEndpoint(
     "RECOVERY_REQUIRES_SEPARATE_OPERATOR_ROLE",
   );
 }
-function credentials(urlText: string, database?: string): NodeJS.ProcessEnv {
+export function credentials(urlText: string, database?: string): NodeJS.ProcessEnv {
   const url = new URL(urlText);
   const identity = databaseIdentity(urlText);
   // Do not inherit PGOPTIONS, service files, shell hooks, or site credentials accidentally.
@@ -214,7 +226,7 @@ export async function inspectLogicalBackup(
   );
   return { path: absolute, sha256: hash.digest("hex"), bytes, sqlBytes };
 }
-async function inspectCurrentEvidence(path: string) {
+export async function inspectCurrentEvidence(path: string) {
   await assertRegularFile(path, MAX_SQL_BYTES);
   const handle = await open(path, "r+");
   try {
@@ -282,7 +294,7 @@ async function assertTargetAbsent(connection: OperatorSql, name: string) {
   );
   operatorAssert(existing.rows.length === 0, "TARGET_DATABASE_ALREADY_EXISTS");
 }
-async function assertStagingSourceRole(
+export async function assertStagingSourceRole(
   connection: OperatorSql,
   sourceUser: string,
 ) {
@@ -385,6 +397,22 @@ export async function stageSitePlan(
   let created = false;
   let sealed = false;
   try {
+    // Resume a completed same-plan stage without replaying pg_dump or restore.
+    // An altered/missing target never inherits a historical success receipt.
+    try {
+      const file=await open(join(evidence,"receipt.json"),"r");
+      let saved:unknown;
+      try {
+        const size=await file.stat();operatorAssert(size.isFile()&&size.size<=8*1024*1024,"INVALID_SITE_STAGE_RECEIPT");
+        saved=JSON.parse(await file.readFile("utf8"));
+      }finally{await file.close();}
+      const prior=siteStageReceiptSchema.safeParse(saved);
+      operatorAssert(prior.success&&prior.data.planHash===planHash(plan)&&prior.data.planId===plan.id&&prior.data.targetName===plan.targetName,"INVALID_SITE_STAGE_RECEIPT");
+      await assertStagingSourceRole(maintenance,plan.source.user);
+      const fence=await maintenance.query("SELECT datallowconn FROM pg_database WHERE datname=$1",[plan.targetName]);
+      operatorAssert(fence.rows[0]?.datallowconn===false,"STAGING_FENCE_OR_OWNERSHIP_CHANGED");
+      return prior.data;
+    }catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
     await assertTargetAbsent(maintenance, plan.targetName);
     await assertStagingSourceRole(maintenance, plan.source.user);
     // A fresh evidence directory is the durable replay lock, outside either database.
@@ -511,4 +539,69 @@ export function compareCheckpoints(
       restored: right.get(table) ?? null,
       changed: left.get(table) !== right.get(table),
     }));
+}
+
+/** Bind a real on-disk staging receipt, reviewed plan and configured endpoints. */
+export async function validateStagedSite(
+  data: unknown, receiptData: unknown, sourceUrl: string, maintenanceUrl: string,
+) {
+  const parsed = sitePlanSchema.safeParse(data);
+  const receipt = siteStageReceiptSchema.safeParse(receiptData);
+  operatorAssert(parsed.success && receipt.success, "INVALID_STAGED_SITE_EVIDENCE");
+  const plan = parsed.data;
+  assertIsolatedEndpoint(plan.source, plan.maintenance);
+  operatorAssert(planHash(databaseIdentity(sourceUrl)) === planHash(plan.source) &&
+    planHash(databaseIdentity(maintenanceUrl)) === planHash(plan.maintenance), "WRONG_DATABASE");
+  operatorAssert(receipt.data.planId===plan.id && receipt.data.planHash===planHash(plan) &&
+    receipt.data.targetName===plan.targetName &&
+    resolve(receipt.data.evidenceDirectory)===join(plan.evidenceDir,plan.id), "STAGE_RECEIPT_MISMATCH");
+  await readOperatorPlan(join(plan.evidenceDir,plan.id,"receipt.json"), planHash(receipt.data));
+  return {plan, receipt: receipt.data};
+}
+
+/** Open only long enough to acquire an operator session, then fence immediately. */
+export async function withSealedSiteTarget<T>(
+  plan: SitePlan, maintenanceUrl: string, dependencies: SiteDependencies,
+  inspect: (target: OperatorSql) => Promise<T>,
+): Promise<T> {
+  operatorAssert(planHash(databaseIdentity(maintenanceUrl))===planHash(plan.maintenance), "WRONG_DATABASE");
+  assertIsolatedEndpoint(plan.source,plan.maintenance);
+  const maintenance = await dependencies.connect(maintenanceUrl);
+  let target: OperatorSql | undefined;
+  let locked = false;
+  let opened = false;
+  try {
+    const lock = await maintenance.query("SELECT pg_try_advisory_lock(hashtext($1)) AS locked", [`shbs-recovery:${plan.targetName}`]);
+    operatorAssert(lock.rows[0]?.locked===true, "RECOVERY_TARGET_BUSY");
+    locked=true;
+    await assertStagingSourceRole(maintenance,plan.source.user);
+    const state = await maintenance.query(`SELECT d.datallowconn, pg_get_userbyid(d.datdba) AS owner,
+      (SELECT count(*)::text FROM pg_stat_activity a WHERE a.datname=d.datname) AS sessions,
+      EXISTS(SELECT 1 FROM aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) x WHERE x.grantee=0 AND x.privilege_type='CONNECT') AS public_connect
+      FROM pg_database d WHERE d.datname=$1`, [plan.targetName]);
+    operatorAssert(state.rows[0]?.datallowconn===false && state.rows[0]?.owner===plan.maintenance.user &&
+      state.rows[0]?.sessions==="0" && state.rows[0]?.public_connect===false, "STAGING_FENCE_OR_OWNERSHIP_CHANGED");
+    await maintenance.query(`ALTER DATABASE "${plan.targetName}" ALLOW_CONNECTIONS true`);
+    opened=true;
+    const targetUrl = new URL(maintenanceUrl);
+    targetUrl.pathname=`/${plan.targetName}`;
+    target=await dependencies.connect(targetUrl.toString());
+    await maintenance.query(`ALTER DATABASE "${plan.targetName}" ALLOW_CONNECTIONS false`);
+    const identity=await target.query("SELECT current_database() AS database, current_user AS username");
+    operatorAssert(identity.rows[0]?.database===plan.targetName && identity.rows[0]?.username===plan.maintenance.user,"WRONG_DATABASE");
+    return await inspect(target);
+  } finally {
+    try {
+      await target?.close();
+    } finally {
+      try {
+        if(opened) await maintenance.query(`ALTER DATABASE "${plan.targetName}" ALLOW_CONNECTIONS false`);
+      } catch {
+        throw new OperatorError("STAGE_FAILED_FENCE_REQUIRES_MANUAL_INTERVENTION");
+      } finally {
+        if(locked) await maintenance.query("SELECT pg_advisory_unlock(hashtext($1))",[`shbs-recovery:${plan.targetName}`]).catch(()=>undefined);
+        await maintenance.close();
+      }
+    }
+  }
 }

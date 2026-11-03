@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
   inspectRecords,
+  inspectRecoveryEvidence,
   listRecordTables,
   RecordInspectorError,
 } from "~/server/recovery/record-inspector";
@@ -23,6 +24,25 @@ export const recordInspectorRouter = createTRPCRouter({
       listRecordTables(ctx.db, { userId: ctx.session.user.id }),
     ),
   ),
+  dependencies: protectedProcedure
+    .input(
+      z
+        .object({
+          table: z.string().min(1).max(100),
+          key: z.record(
+            z.string().max(100),
+            z.union([z.string().max(1024), z.number().finite(), z.boolean()]),
+          ),
+          cursor: z.string().max(8192).optional(),
+          limit: z.number().int().min(1).max(50).default(25),
+        })
+        .strict(),
+    )
+    .query(({ ctx, input }) =>
+      inspectorRead(() =>
+        inspectRecoveryEvidence(ctx.db, { userId: ctx.session.user.id }, input),
+      ),
+    ),
   records: protectedProcedure
     .input(
       z

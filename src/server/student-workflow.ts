@@ -1,5 +1,8 @@
 import { confirmationDelayMs } from "~/lib/confirmation-timing";
-import { notificationList, notificationSchedule } from "~/lib/notification-facts";
+import {
+  notificationList,
+  notificationSchedule,
+} from "~/lib/notification-facts";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { requireStudentSchoolParticipation } from "./school-departure";
 import { executionParticipantId, executionPairingId, supersededPairingIds } from "./participant-execution";
@@ -7,6 +10,7 @@ import { admitStudentRequestExecution, releaseStudentRequestExecution, studentRe
 import { currentStudentSignupPayload } from "./student-signup-answers";
 import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
 import { lockCatalogue } from "./qualifications";
+import { withRecoveryDeliverySource, type RecoveryDeliverySource } from "./recovery/delivery-effects";
 import {
   assertRequestProcessable,
   lockStudentRequestReview,
@@ -321,6 +325,8 @@ export async function assignStudentRequest(
         en: `Tutee ${student.englishName} is assigned to ${tutor.englishName} for ${subject.name}. The weekly schedule is awaiting confirmation.`,
         zh: `学习伙伴 ${student.englishName} 已分配给辅导伙伴 ${tutor.englishName}，科目为 ${subject.name}。每周辅导时间待确认。`,
       },
+      undefined,
+      { entity: "Tutee", recordId: student.id },
     );
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
@@ -375,10 +381,21 @@ export async function editStudentAvailability(
       data: { editedAt: new Date() },
     });
     await synchronizeStudentSignupAnswers(tx, row, userId, { slotIds: ids });
-    const slots = await tx.timeSlot.findMany({ where: { id: { in: [...new Set([...ids, ...old.map((slot) => slot.slotId)])] } } });
-    const added = slots.filter((slot) => ids.includes(slot.id) && !old.some((previous) => previous.slotId === slot.id));
+    const slots = await tx.timeSlot.findMany({
+      where: {
+        id: { in: [...new Set([...ids, ...old.map((slot) => slot.slotId)])] },
+      },
+    });
+    const added = slots.filter(
+      (slot) =>
+        ids.includes(slot.id) &&
+        !old.some((previous) => previous.slotId === slot.id),
+    );
     const removed = slots.filter((slot) => !ids.includes(slot.id));
-    const student = await tx.tutee.findUnique({ where: { id: row.tuteeId! }, select: { englishName: true } });
+    const student = await tx.tutee.findUnique({
+      where: { id: row.tuteeId! },
+      select: { englishName: true },
+    });
     await notifyRequest(tx, row, "student_availability_updated", {
       en: `${student?.englishName ?? "Tutee"} updated availability. Added: ${notificationList(added.map((slot) => notificationSchedule(slot, "en"))) || "none"}. Removed: ${notificationList(removed.map((slot) => notificationSchedule(slot, "en"))) || "none"}.`,
       zh: `${student?.englishName ?? "学习伙伴"}更新了可用时间。新增：${notificationList(added.map((slot) => notificationSchedule(slot, "zh"))) || "无"}。移除：${notificationList(removed.map((slot) => notificationSchedule(slot, "zh"))) || "无"}。`,
@@ -395,13 +412,23 @@ export async function recallStudentRequest(
 ) {
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
-    await lockEntity(tx, "program:period");
-    const row = await ownedRequest(tx, userId, id);
-    await consumeStudentAction(tx, ticket, userId, "RECALL", id);
-    if ((await studentRequestExecutionAssignments(tx, row)).length)
-      fail("You have a tutor assignment. Apply to leave this quarter instead.");
-    await closeStudentRequest(tx, row, "RECALLED");
-    return { ok: true };
+    const { withAutomaticRecoveryCheckpoint } =
+      await import("~/server/recovery/checkpoint");
+    return withAutomaticRecoveryCheckpoint(
+      tx,
+      { adapter: "STUDENT_WORKFLOW", sourceId: id },
+      { id: userId },
+      async () => {
+        const row = await ownedRequest(tx, userId, id);
+        await consumeStudentAction(tx, ticket, userId, "RECALL", id);
+        if ((await studentRequestExecutionAssignments(tx, row)).length)
+          fail(
+            "You have a tutor assignment. Apply to leave this quarter instead.",
+          );
+        await closeStudentRequest(tx, row, "RECALLED");
+        return { ok: true };
+      },
+    );
   });
 }
 
@@ -425,7 +452,7 @@ export async function applyStudentAbort(
       })
     )
       fail("Your application is already awaiting review.");
-    await tx.studentRequestReview.create({
+    const review = await tx.studentRequestReview.create({
       data: {
         surveyId: id,
         kind: "STUDENT_ABORT",
@@ -433,7 +460,8 @@ export async function applyStudentAbort(
         reason,
       },
     });
-    await notifyRequest(tx, row, "student_withdrawal_pending");
+    await notifyRequest(tx, row, "student_withdrawal_pending", undefined, undefined,
+      { entity: "StudentRequestReview", recordId: review.id });
     return { ok: true };
   });
 }
@@ -508,7 +536,7 @@ export async function applyScheduleRejection(
         })
       )
         fail("A schedule review is already pending.");
-      await tx.studentRequestReview.create({
+      const review = await tx.studentRequestReview.create({
         data: {
           legacyTuteeId: tuteeId,
           legacyIntakeTermId: link.pairing.termId,
@@ -524,6 +552,8 @@ export async function applyScheduleRejection(
         userId,
         "student_schedule_review_pending",
         pairingId,
+        undefined,
+        { entity: "StudentRequestReview", recordId: review.id },
       );
       return { ok: true };
     }
@@ -548,7 +578,7 @@ export async function applyScheduleRejection(
       })
     )
       fail("A schedule review is already pending.");
-    await tx.studentRequestReview.create({
+    const review = await tx.studentRequestReview.create({
       data: {
         surveyId: row.id,
         kind: "SCHEDULE_CONFLICT",
@@ -557,7 +587,14 @@ export async function applyScheduleRejection(
         reason,
       },
     });
-    await notifyRequest(tx, row, "student_schedule_review_pending", undefined, pairingId);
+    await notifyRequest(
+      tx,
+      row,
+      "student_schedule_review_pending",
+      undefined,
+      pairingId,
+      { entity: "StudentRequestReview", recordId: review.id },
+    );
     return { ok: true };
   });
 }
@@ -575,166 +612,191 @@ export async function resolveStudentReview(
     const initial = await tx.studentRequestReview.findUniqueOrThrow({
       where: { id },
     });
-    if (!initial.surveyId) {
-      await lockEntity(tx, `legacy-student:${initial.legacyTuteeId!}`);
-      const review = await tx.studentRequestReview.findUniqueOrThrow({
-        where: { id },
-      });
-      if (review.state !== "PENDING")
-        fail("This application has already been processed.");
-      await consumeStudentAction(
-        tx,
-        ticket,
-        userId,
-        approve ? "APPROVE" : "DENY",
-        id,
-      );
-      if (approve && review.kind === "STUDENT_ABORT") {
-        await approveLegacyStudentWithdrawal(tx, review);
-      } else if (approve) {
-        if (!review.pairingId || (await supersededPairingIds(tx)).includes(review.pairingId) ||
-          await tx.studentRequestExecutionAssignment.count({ where: { pairingId: review.pairingId, tuteeId: review.legacyTuteeId!, releasedAt: null } }))
-          fail("This assignment now has exact request ownership. Decline this outdated review and review its current original request.");
-        const requester = await tx.user.findUnique({
-          where: { id: review.requestedByUserId },
-          select: { tutorId: true },
-        });
-        if (!requester?.tutorId)
-          fail(
-            "The tutor assignment changed. Decline this outdated application.",
-          );
-        await preserveHistoricalAcademics(tx, "TUTEE", review.legacyTuteeId!);
-        const detached = await tx.pairingTutee.deleteMany({
-          where: {
-            pairingId: review.pairingId,
-            tuteeId: review.legacyTuteeId!,
-            pairing: {
-              tutorId: requester.tutorId,
-              termId: review.legacyIntakeTermId!,
-              term: { active: true },
-            },
-          },
-        });
-        if (!detached.count)
-          fail(
-            "The tutor assignment changed. Decline this outdated application.",
-          );
-        if (!(await tx.pairingTutee.count({ where: { tuteeId: review.legacyTuteeId!, pairingId: { notIn: await supersededPairingIds(tx) }, pairing: { term: { active: true } } } })))
-          await tx.tutee.update({ where: { id: review.legacyTuteeId! }, data: { status: "PENDING" } });
-      }
-      await tx.studentRequestReview.update({
-        where: { id },
-        data: {
-          state: approve ? "APPROVED" : "DENIED",
-          resolvedAt: new Date(),
-          resolvedByUserId: userId,
-        },
-      });
-      await notifyLegacySchedule(
-        tx,
-        review.legacyTuteeId!,
-        review.requestedByUserId,
-        review.kind === "STUDENT_ABORT"
-          ? approve
-            ? "student_withdrawal_approved"
-            : "student_withdrawal_declined"
-          : approve
-            ? "student_schedule_review_approved"
-            : "student_schedule_review_declined",
-        review.kind === "SCHEDULE_CONFLICT" ? review.pairingId : undefined,
-        review.legacyIntakeTermId,
-      );
-      return { ok: true };
-    }
-    const row = await lockedRequest(tx, initial.surveyId);
-    const review = await tx.studentRequestReview.findUniqueOrThrow({
-      where: { id },
-    });
-    if (review.state !== "PENDING")
-      fail("This application has already been processed.");
-    await consumeStudentAction(
+    const { withAutomaticRecoveryCheckpoint } =
+      await import("~/server/recovery/checkpoint");
+    return withAutomaticRecoveryCheckpoint(
       tx,
-      ticket,
-      userId,
-      approve ? "APPROVE" : "DENY",
-      id,
-    );
-    if (approve && review.kind === "STUDENT_ABORT") {
-      const owner = row.tuteeId
-        ? await tx.studentProfileOwnership.findUnique({
-            where: { tuteeId: row.tuteeId },
-          })
-        : null;
-      const linked = row.tuteeId
-        ? await tx.user.findUnique({
-            where: { studentId: row.tuteeId },
-            select: { id: true },
-          })
-        : null;
-      await tx.studentQuarterBlock.upsert({
-        where: {
-          email_intakeTermId: {
-            email: row.email,
-            intakeTermId: row.intakeTermId,
-          },
-        },
-        update: {},
-        create: {
-          email: row.email,
-          intakeTermId: row.intakeTermId,
-          surveyId: row.id,
-          userId: owner?.userId ?? linked?.id,
-        },
-      });
-      await closeStudentRequest(tx, row, "ABORTED");
-    } else if (approve) {
-      const requester = await tx.user.findUnique({
-        where: { id: review.requestedByUserId },
-        select: { tutorId: true },
-      });
-      const currentPairingId = review.pairingId ? await executionPairingId(tx, review.pairingId) : null;
-      const member = (await studentRequestExecutionAssignments(tx, row)).find((assignment) => assignment.pairingId === currentPairingId);
-      // A reviewed successor preserves the original pairing's tutor as evidence
-      // even when the original requester's login no longer has a live pointer.
-      // Without a successor retain the ordinary live-assignment stale guard.
-      const sourceTutorId = currentPairingId && currentPairingId !== review.pairingId
-        ? (await tx.pairing.findUnique({ where: { id: review.pairingId! }, select: { tutorId: true } }))?.tutorId
-        : requester?.tutorId;
-      if (
-        !sourceTutorId || !member ||
-        !(await tx.pairingTutee.count({
-          where: {
-            pairingId: member.pairingId,
-            tuteeId: member.tuteeId,
-            pairing: { tutorId: await executionParticipantId(tx, "TUTOR", sourceTutorId), term: { active: true } },
-          },
-        }))
-      )
-        fail(
-          "This tutor assignment changed after the application was submitted. Decline this outdated application and review the current assignment.",
+      initial.surveyId
+        ? { adapter: "STUDENT_WORKFLOW", sourceId: initial.surveyId }
+        : { adapter: "PARTICIPANT_TUTEE", sourceId: initial.legacyTuteeId! },
+      { id: userId },
+      async () => {
+        if (!initial.surveyId) {
+          await lockEntity(tx, `legacy-student:${initial.legacyTuteeId!}`);
+          const review = await tx.studentRequestReview.findUniqueOrThrow({
+            where: { id },
+          });
+          if (review.state !== "PENDING")
+            fail("This application has already been processed.");
+          await consumeStudentAction(
+            tx,
+            ticket,
+            userId,
+            approve ? "APPROVE" : "DENY",
+            id,
+          );
+          if (approve && review.kind === "STUDENT_ABORT") {
+            await approveLegacyStudentWithdrawal(tx, review);
+          } else if (approve) {
+            if (!review.pairingId || (await supersededPairingIds(tx)).includes(review.pairingId) ||
+              await tx.studentRequestExecutionAssignment.count({ where: { pairingId: review.pairingId, tuteeId: review.legacyTuteeId!, releasedAt: null } }))
+              fail("This assignment now has exact request ownership. Decline this outdated review and review its current original request.");
+            const requester = await tx.user.findUnique({
+              where: { id: review.requestedByUserId },
+              select: { tutorId: true },
+            });
+            if (!requester?.tutorId)
+              fail(
+                "The tutor assignment changed. Decline this outdated application.",
+              );
+            await preserveHistoricalAcademics(
+              tx,
+              "TUTEE",
+              review.legacyTuteeId!,
+            );
+            const detached = await tx.pairingTutee.deleteMany({
+              where: {
+                pairingId: review.pairingId,
+                tuteeId: review.legacyTuteeId!,
+                pairing: {
+                  tutorId: requester.tutorId,
+                  termId: review.legacyIntakeTermId!,
+                  term: { active: true },
+                },
+              },
+            });
+            if (!detached.count)
+              fail(
+                "The tutor assignment changed. Decline this outdated application.",
+              );
+            if (!(await tx.pairingTutee.count({ where: { tuteeId: review.legacyTuteeId!, pairingId: { notIn: await supersededPairingIds(tx) }, pairing: { term: { active: true } } } })))
+              await tx.tutee.update({ where: { id: review.legacyTuteeId! }, data: { status: "PENDING" } });
+          }
+          await tx.studentRequestReview.update({
+            where: { id },
+            data: {
+              state: approve ? "APPROVED" : "DENIED",
+              resolvedAt: new Date(),
+              resolvedByUserId: userId,
+            },
+          });
+          await notifyLegacySchedule(
+            tx,
+            review.legacyTuteeId!,
+            review.requestedByUserId,
+            review.kind === "STUDENT_ABORT"
+              ? approve
+                ? "student_withdrawal_approved"
+                : "student_withdrawal_declined"
+              : approve
+                ? "student_schedule_review_approved"
+                : "student_schedule_review_declined",
+            review.kind === "SCHEDULE_CONFLICT" ? review.pairingId : undefined,
+            review.legacyIntakeTermId,
+            { entity: "StudentRequestReview", recordId: id },
+          );
+          return { ok: true };
+        }
+        const row = await lockedRequest(tx, initial.surveyId);
+        const review = await tx.studentRequestReview.findUniqueOrThrow({
+          where: { id },
+        });
+        if (review.state !== "PENDING")
+          fail("This application has already been processed.");
+        await consumeStudentAction(
+          tx,
+          ticket,
+          userId,
+          approve ? "APPROVE" : "DENY",
+          id,
         );
-      await notifyRequest(tx, row, "student_schedule_review_approved", undefined, member.pairingId);
-      await preserveHistoricalAcademics(tx, "TUTEE", member.tuteeId);
-      await releaseStudentRequestExecution(tx, row, { pairingId: member.pairingId, unassignedStatus: "PENDING" });
-    } else
-      await notifyRequest(
-        tx,
-        row,
-        review.kind === "STUDENT_ABORT"
-          ? "student_withdrawal_declined"
-          : "student_schedule_review_declined",
-        undefined,
-        review.kind === "SCHEDULE_CONFLICT" ? review.pairingId : undefined,
-      );
-    await tx.studentRequestReview.update({
-      where: { id },
-      data: {
-        state: approve ? "APPROVED" : "DENIED",
-        resolvedAt: new Date(),
-        resolvedByUserId: userId,
+        // Every decision, including a denial, is the exact source of its notices.
+        // Journal it first; subsequent domain validation rolls back this transaction.
+        await tx.studentRequestReview.update({
+          where: { id },
+          data: {
+            state: approve ? "APPROVED" : "DENIED",
+            resolvedAt: new Date(),
+            resolvedByUserId: userId,
+          },
+        });
+        if (approve && review.kind === "STUDENT_ABORT") {
+          const owner = row.tuteeId
+            ? await tx.studentProfileOwnership.findUnique({
+                where: { tuteeId: row.tuteeId },
+              })
+            : null;
+          const linked = row.tuteeId
+            ? await tx.user.findUnique({
+                where: { studentId: row.tuteeId },
+                select: { id: true },
+              })
+            : null;
+          await tx.studentQuarterBlock.upsert({
+            where: {
+              email_intakeTermId: {
+                email: row.email,
+                intakeTermId: row.intakeTermId,
+              },
+            },
+            update: {},
+            create: {
+              email: row.email,
+              intakeTermId: row.intakeTermId,
+              surveyId: row.id,
+              userId: owner?.userId ?? linked?.id,
+            },
+          });
+          await closeStudentRequest(tx, row, "ABORTED");
+        } else if (approve) {
+          const requester = await tx.user.findUnique({
+            where: { id: review.requestedByUserId },
+            select: { tutorId: true },
+          });
+          const currentPairingId = review.pairingId ? await executionPairingId(tx, review.pairingId) : null;
+          const member = (await studentRequestExecutionAssignments(tx, row)).find((assignment) => assignment.pairingId === currentPairingId);
+          // A successor retains the original tutor as evidence after the original
+          // login loses its live pointer; unrelated request assignments survive.
+          const sourceTutorId = currentPairingId && currentPairingId !== review.pairingId
+            ? (await tx.pairing.findUnique({ where: { id: review.pairingId! }, select: { tutorId: true } }))?.tutorId
+            : requester?.tutorId;
+          if (
+            !sourceTutorId || !member ||
+            !(await tx.pairingTutee.count({
+              where: {
+                pairingId: member.pairingId,
+                tuteeId: member.tuteeId,
+                pairing: { tutorId: await executionParticipantId(tx, "TUTOR", sourceTutorId), term: { active: true } },
+              },
+            }))
+          )
+            fail(
+              "This tutor assignment changed after the application was submitted. Decline this outdated application and review the current assignment.",
+            );
+          await notifyRequest(
+            tx,
+            row,
+            "student_schedule_review_approved",
+            undefined,
+            member.pairingId,
+            { entity: "StudentRequestReview", recordId: id },
+          );
+          await preserveHistoricalAcademics(tx, "TUTEE", member.tuteeId);
+          await releaseStudentRequestExecution(tx, row, { pairingId: member.pairingId, unassignedStatus: "PENDING" });
+        } else
+          await notifyRequest(
+            tx,
+            row,
+            review.kind === "STUDENT_ABORT"
+              ? "student_withdrawal_declined"
+              : "student_schedule_review_declined",
+            undefined,
+            review.kind === "SCHEDULE_CONFLICT" ? review.pairingId : undefined,
+            { entity: "StudentRequestReview", recordId: id },
+          );
+        return { ok: true };
       },
-    });
-    return { ok: true };
+    );
   });
 }
 
@@ -745,12 +807,14 @@ async function notifyLegacySchedule(
   event: NotificationEvent,
   pairingId?: string | null,
   termId?: string | null,
+  recoverySource?: RecoveryDeliverySource,
 ) {
   const student = await tx.tutee.findUnique({
     where: { id: tuteeId },
     select: { englishName: true },
   });
-  const { managementNotificationRecipients } = await import("./notifications/create");
+  const { managementNotificationRecipients } =
+    await import("./notifications/create");
   const managers = await managementNotificationRecipients(tx, event);
   const users = await tx.user.findMany({
     where: {
@@ -764,25 +828,47 @@ async function notifyLegacySchedule(
     },
     select: { id: true, role: true, tutorId: true },
   });
-  const detail = pairingId ? await studentScheduleDetail(tx, pairingId, student?.englishName ?? "—", event) : undefined;
-  const period = event.startsWith("student_withdrawal_") && termId ? await tx.term.findUnique({ where: { id: termId }, select: { name: true } }) : null;
-  await tx.notification.createMany({
-    data: users.map((user) => ({
-      userId: user.id,
-      ...notificationData(
+  const detail = pairingId
+    ? await studentScheduleDetail(
+        tx,
+        pairingId,
+        student?.englishName ?? "—",
         event,
-        undefined,
-        detail ?? (student
-          ? namedNotificationDetail(event, `${student.englishName}${period ? ` (${period.name})` : ""}`)
-          : undefined),
-      ),
-      link: ["HEAD", "ADMIN"].includes(user.role)
-        ? "/admin/requests"
-        : user.tutorId
-          ? "/dashboard"
-          : "/student",
-    })),
-  });
+      )
+    : undefined;
+  const period =
+    event.startsWith("student_withdrawal_") && termId
+      ? await tx.term.findUnique({
+          where: { id: termId },
+          select: { name: true },
+        })
+      : null;
+  await withRecoveryDeliverySource(
+    tx,
+    recoverySource ?? { entity: "Tutee", recordId: tuteeId },
+    () =>
+      tx.notification.createMany({
+        data: users.map((user) => ({
+          userId: user.id,
+          ...notificationData(
+            event,
+            undefined,
+            detail ??
+              (student
+                ? namedNotificationDetail(
+                    event,
+                    `${student.englishName}${period ? ` (${period.name})` : ""}`,
+                  )
+                : undefined),
+          ),
+          link: ["HEAD", "ADMIN"].includes(user.role)
+            ? "/admin/requests"
+            : user.tutorId
+              ? "/dashboard"
+              : "/student",
+        })),
+      }),
+  );
 }
 
 /** Whitelist workflow data; token hashes and policy snapshots never enter management/client lists. */

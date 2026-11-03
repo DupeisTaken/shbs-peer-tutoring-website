@@ -9,8 +9,13 @@ import {
   type DomainDb,
   type TransactionDb,
 } from "./transactions";
-import { managementReviewSourceLink, notifyAdmins, notifyUsers } from "./notifications/create";
+import {
+  managementReviewSourceLink,
+  notifyAdmins,
+  notifyUsers,
+} from "./notifications/create";
 import { recordAudit } from "./audit/log";
+import { withRecoveryDeliverySource } from "./recovery/delivery-effects";
 
 type Member = { kind: "tutor" | "crew"; id: string };
 type RequestKind = "OPT_OUT" | "REENTRY";
@@ -78,28 +83,42 @@ export async function requestMembership(
         : await tx.crewStatusRequest.create({
             data: { userId: member.id, ...data },
           });
-    await notifyAdmins(
-      {
-        title: `${member.kind === "tutor" ? "Tutor" : "Crew"} ${kind === "OPT_OUT" ? "opt-out" : "reentry"} request`,
-        ...notificationInAppEvent(
-          member.kind === "tutor"
-            ? kind === "OPT_OUT"
-              ? "tutor_optout_requested"
-              : "tutor_reentry_requested"
-            : kind === "OPT_OUT"
-              ? "crew_optout_requested"
-              : "crew_reentry_requested",
-          undefined,
-          {
-            en: `${current.name} requested ${kind === "OPT_OUT" ? "to opt out" : "to rejoin"} as ${member.kind === "tutor" ? "a tutor" : "a crew member"}.`,
-            zh: `${current.name} 申请${kind === "OPT_OUT" ? "退出" : "重新加入"}${member.kind === "tutor" ? "辅导伙伴" : "工作组"}。`,
-          },
-        ),
-        body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
-        link: managementReviewSourceLink(member.kind === "tutor" ? "TutorStatusRequest" : "CrewStatusRequest", request.id),
-      },
-      undefined,
+    await withRecoveryDeliverySource(
       tx,
+      {
+        entity:
+          member.kind === "tutor" ? "TutorStatusRequest" : "CrewStatusRequest",
+        recordId: request.id,
+      },
+      () =>
+        notifyAdmins(
+          {
+            title: `${member.kind === "tutor" ? "Tutor" : "Crew"} ${kind === "OPT_OUT" ? "opt-out" : "reentry"} request`,
+            ...notificationInAppEvent(
+              member.kind === "tutor"
+                ? kind === "OPT_OUT"
+                  ? "tutor_optout_requested"
+                  : "tutor_reentry_requested"
+                : kind === "OPT_OUT"
+                  ? "crew_optout_requested"
+                  : "crew_reentry_requested",
+              undefined,
+              {
+                en: `${current.name} requested ${kind === "OPT_OUT" ? "to opt out" : "to rejoin"} as ${member.kind === "tutor" ? "a tutor" : "a crew member"}.`,
+                zh: `${current.name} 申请${kind === "OPT_OUT" ? "退出" : "重新加入"}${member.kind === "tutor" ? "辅导伙伴" : "工作组"}。`,
+              },
+            ),
+            body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
+            link: managementReviewSourceLink(
+              member.kind === "tutor"
+                ? "TutorStatusRequest"
+                : "CrewStatusRequest",
+              request.id,
+            ),
+          },
+          undefined,
+          tx,
+        ),
     );
     return { ok: true, id: request.id, eligibleAt };
   });
@@ -176,149 +195,171 @@ export async function decideMembership(
       kind,
       id: "tutorId" in initial ? initial.tutorId : initial.userId,
     };
-    // Reentry checks and the membership transition share rollover/account lock ordering.
-    await lockEntity(tx, "program:period");
-    const ownerId =
-      member.kind === "crew"
-        ? member.id
-        : (
-            await tx.user.findUnique({
-              where: { tutorId: member.id },
-              select: { id: true },
+    const work = async () => {
+      // Reentry checks and the membership transition share rollover/account lock ordering.
+      await lockEntity(tx, "program:period");
+      const ownerId =
+        member.kind === "crew"
+          ? member.id
+          : (
+              await tx.user.findUnique({
+                where: { tutorId: member.id },
+                select: { id: true },
+              })
+            )?.id;
+      if (ownerId) await lockAccountProfile(tx, ownerId);
+      const current = await lockMember(tx, member);
+      const request =
+        kind === "tutor"
+          ? await tx.tutorStatusRequest.findUniqueOrThrow({
+              where: { id: requestId },
             })
-          )?.id;
-    if (ownerId) await lockAccountProfile(tx, ownerId);
-    const current = await lockMember(tx, member);
-    const request =
-      kind === "tutor"
-        ? await tx.tutorStatusRequest.findUniqueOrThrow({
-            where: { id: requestId },
-          })
-        : await tx.crewStatusRequest.findUniqueOrThrow({
-            where: { id: requestId },
-          });
-    if (request.state !== "PENDING")
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "This request is already resolved.",
-      });
-    if (
-      approve &&
-      request.kind === "OPT_OUT" &&
-      ((kind === "tutor" && !request.eligibleAt) ||
-        (request.eligibleAt && request.eligibleAt > new Date()))
-    ) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "The one-week cooldown hasn't elapsed yet.",
-      });
-    }
-    // A historical pending request cannot reverse a later manual archive or membership change.
-    if (
-      approve &&
-      current.status !== (request.kind === "OPT_OUT" ? "ACTIVE" : "OPTED_OUT")
-    ) {
-      throw new TRPCError({
-        code: "CONFLICT",
-        message:
-          "Membership changed since this request. Decline it and review the current roster.",
-      });
-    }
-    const state = approve ? "APPROVED" : "DENIED";
-    const changed =
-      kind === "tutor"
-        ? await tx.tutorStatusRequest.updateMany({
-            where: { id: request.id, state: "PENDING" },
-            data: {
-              state,
-              resolvedAt: new Date(),
-              resolvedById: actor.id,
-              resolvedByName: actor.name,
-            },
-          })
-        : await tx.crewStatusRequest.updateMany({
-            where: { id: request.id, state: "PENDING" },
-            data: { state, decidedAt: new Date(), decidedByName: actor.name },
-          });
-    if (!changed.count)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "This request is already resolved.",
-      });
-    if (approve) {
-      if (request.kind === "REENTRY") {
-        const owner =
-          kind === "crew"
-            ? member.id
-            : (
-                await tx.user.findUnique({
-                  where: { tutorId: member.id },
-                  select: { id: true },
-                })
-              )?.id;
-        if (owner) {
-          if (kind === "tutor") await requireSchoolParticipation(tx, owner);
-          await requireAcademicConfirmation(tx, owner);
-        }
-      }
-      const status = request.kind === "OPT_OUT" ? "OPTED_OUT" : "ACTIVE";
-      if (kind === "tutor")
-        await tx.tutor.update({ where: { id: member.id }, data: { status } });
-      else
-        await tx.user.update({
-          where: { id: member.id },
-          data: { crewStatus: status },
+          : await tx.crewStatusRequest.findUniqueOrThrow({
+              where: { id: requestId },
+            });
+      if (request.state !== "PENDING")
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This request is already resolved.",
         });
-    }
-    const userId =
-      kind === "crew"
-        ? member.id
-        : (
-            await tx.user.findUnique({
-              where: { tutorId: member.id },
-              select: { id: true },
+      if (
+        approve &&
+        request.kind === "OPT_OUT" &&
+        ((kind === "tutor" && !request.eligibleAt) ||
+          (request.eligibleAt && request.eligibleAt > new Date()))
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The one-week cooldown hasn't elapsed yet.",
+        });
+      }
+      // A historical pending request cannot reverse a later manual archive or membership change.
+      if (
+        approve &&
+        current.status !== (request.kind === "OPT_OUT" ? "ACTIVE" : "OPTED_OUT")
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Membership changed since this request. Decline it and review the current roster.",
+        });
+      }
+      const state = approve ? "APPROVED" : "DENIED";
+      const changed =
+        kind === "tutor"
+          ? await tx.tutorStatusRequest.updateMany({
+              where: { id: request.id, state: "PENDING" },
+              data: {
+                state,
+                resolvedAt: new Date(),
+                resolvedById: actor.id,
+                resolvedByName: actor.name,
+              },
             })
-          )?.id;
-    if (userId)
-      await notifyUsers(
-        [userId],
+          : await tx.crewStatusRequest.updateMany({
+              where: { id: request.id, state: "PENDING" },
+              data: { state, decidedAt: new Date(), decidedByName: actor.name },
+            });
+      if (!changed.count)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This request is already resolved.",
+        });
+      if (approve) {
+        if (request.kind === "REENTRY") {
+          const owner =
+            kind === "crew"
+              ? member.id
+              : (
+                  await tx.user.findUnique({
+                    where: { tutorId: member.id },
+                    select: { id: true },
+                  })
+                )?.id;
+          if (owner) {
+            if (kind === "tutor") await requireSchoolParticipation(tx, owner);
+            await requireAcademicConfirmation(tx, owner);
+          }
+        }
+        const status = request.kind === "OPT_OUT" ? "OPTED_OUT" : "ACTIVE";
+        if (kind === "tutor")
+          await tx.tutor.update({ where: { id: member.id }, data: { status } });
+        else
+          await tx.user.update({
+            where: { id: member.id },
+            data: { crewStatus: status },
+          });
+      }
+      const userId =
+        kind === "crew"
+          ? member.id
+          : (
+              await tx.user.findUnique({
+                where: { tutorId: member.id },
+                select: { id: true },
+              })
+            )?.id;
+      if (userId)
+        await withRecoveryDeliverySource(
+          tx,
+          {
+            entity:
+              kind === "tutor" ? "TutorStatusRequest" : "CrewStatusRequest",
+            recordId: request.id,
+          },
+          () =>
+            notifyUsers(
+              [userId],
+              {
+                title: approve
+                  ? request.kind === "OPT_OUT"
+                    ? "Opt-out approved"
+                    : "Reentry approved"
+                  : "Request declined",
+                ...notificationInAppEvent(
+                  approve
+                    ? request.kind === "OPT_OUT"
+                      ? "membership_optout_approved"
+                      : "membership_reentry_approved"
+                    : "membership_declined",
+                  undefined,
+                  {
+                    en: `${current.name}: ${kind === "tutor" ? "Tutor" : "Crew"} ${request.kind === "OPT_OUT" ? "opt-out" : "reentry"} request ${approve ? "approved" : "declined"}${approve ? `; membership is now ${request.kind === "OPT_OUT" ? "opted out" : "active"}` : "; membership was not changed"}.`,
+                    zh: `${current.name}：${kind === "tutor" ? "辅导伙伴" : "工作人员"}${request.kind === "OPT_OUT" ? "退出" : "重新加入"}申请${approve ? "已批准" : "未批准"}${approve ? `，参与状态现为${request.kind === "OPT_OUT" ? "已退出" : "参与中"}` : "，参与状态未改变"}。`,
+                  },
+                ),
+                body: approve
+                  ? request.kind === "OPT_OUT"
+                    ? "Your opt-out was approved."
+                    : "Welcome back — your membership is active again."
+                  : "An admin declined your request.",
+                link: kind === "tutor" ? "/dashboard" : "/patrol",
+              },
+              tx,
+            ),
+        );
+      await recordAudit(
         {
-          title: approve
-            ? request.kind === "OPT_OUT"
-              ? "Opt-out approved"
-              : "Reentry approved"
-            : "Request declined",
-          ...notificationInAppEvent(
-            approve
-              ? request.kind === "OPT_OUT"
-                ? "membership_optout_approved"
-                : "membership_reentry_approved"
-              : "membership_declined",
-            undefined,
-            {
-              en: `${current.name}: ${kind === "tutor" ? "Tutor" : "Crew"} ${request.kind === "OPT_OUT" ? "opt-out" : "reentry"} request ${approve ? "approved" : "declined"}${approve ? `; membership is now ${request.kind === "OPT_OUT" ? "opted out" : "active"}` : "; membership was not changed"}.`,
-              zh: `${current.name}：${kind === "tutor" ? "辅导伙伴" : "工作人员"}${request.kind === "OPT_OUT" ? "退出" : "重新加入"}申请${approve ? "已批准" : "未批准"}${approve ? `，参与状态现为${request.kind === "OPT_OUT" ? "已退出" : "参与中"}` : "，参与状态未改变"}。`,
-            },
-          ),
-          body: approve
-            ? request.kind === "OPT_OUT"
-              ? "Your opt-out was approved."
-              : "Welcome back — your membership is active again."
-            : "An admin declined your request.",
-          link: kind === "tutor" ? "/dashboard" : "/patrol",
+          userId: actor.id,
+          userName: actor.name,
+          action: `${approve ? "Approved" : "Denied"} ${kind} ${request.kind} request for ${current.name}`,
+          entity: kind === "tutor" ? "TutorStatusRequest" : "CrewStatusRequest",
+          entityId: request.id,
         },
         tx,
       );
-    await recordAudit(
-      {
-        userId: actor.id,
-        userName: actor.name,
-        action: `${approve ? "Approved" : "Denied"} ${kind} ${request.kind} request for ${current.name}`,
-        entity: kind === "tutor" ? "TutorStatusRequest" : "CrewStatusRequest",
-        entityId: request.id,
-      },
-      tx,
-    );
-    return { ok: true };
+      return { ok: true };
+    };
+    if (kind === "tutor") {
+      const { withAutomaticRecoveryCheckpoint } =
+        await import("~/server/recovery/checkpoint");
+      return withAutomaticRecoveryCheckpoint(
+        tx,
+        { adapter: "PARTICIPANT_TUTOR", sourceId: member.id },
+        actor,
+        work,
+      );
+    }
+    return work();
   });
 }

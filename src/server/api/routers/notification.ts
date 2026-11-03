@@ -33,9 +33,19 @@ export const notificationRouter = createTRPCRouter({
   reconcileManagementReviews: adminOnlyProcedure.mutation(({ ctx }) =>
     inTransaction(ctx.db, async (tx) => {
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${ctx.session.user.id} FOR SHARE`;
-      const actor = await tx.user.findUnique({ where: { id: ctx.session.user.id } });
-      if (!actor || actor.suspendedAt || actor.mergedIntoId || !["ADMIN", "HEAD"].includes(actor.role))
-        throw new TRPCError({ code: "FORBIDDEN", message: "Administrator access required." });
+      const actor = await tx.user.findUnique({
+        where: { id: ctx.session.user.id },
+      });
+      if (
+        !actor ||
+        actor.suspendedAt ||
+        actor.mergedIntoId ||
+        !["ADMIN", "HEAD"].includes(actor.role)
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Administrator access required.",
+        });
       return reconcileManagementReviewNotifications(tx);
     }),
   ),
@@ -54,7 +64,7 @@ export const notificationRouter = createTRPCRouter({
     ),
   list: protectedProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db.notification.findMany({
-      where: await notificationOwnershipWhere(ctx.db, ctx.session.user.id),
+      where: { AND: [await notificationOwnershipWhere(ctx.db, ctx.session.user.id)], recoveryWithdrawnAt: null },
       orderBy: { createdAt: "desc" },
       take: 30,
     });
@@ -81,7 +91,7 @@ export const notificationRouter = createTRPCRouter({
       where: { userId: ctx.session.user.id, badgeEnabled: false }, select: { category: true },
     });
     return ctx.db.notification.count({
-      where: { AND: [await notificationOwnershipWhere(ctx.db, ctx.session.user.id)], readAt: null,
+      where: { AND: [await notificationOwnershipWhere(ctx.db, ctx.session.user.id)], readAt: null, recoveryWithdrawnAt: null,
         ...(muted.length ? { category: { notIn: muted.map((row) => row.category) } } : {}),
       },
     });
@@ -91,14 +101,14 @@ export const notificationRouter = createTRPCRouter({
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => withHistoryReadMutation(ctx.db, { userId: ctx.session.user.id, historyAccessRevision: ctx.session.historyAccessRevision ?? 0 }, async (tx) =>
       tx.notification.updateMany({
-        where: { id: input.id, AND: [await notificationOwnershipWhere(tx, ctx.session.user.id)], readAt: null },
+        where: { id: input.id, AND: [await notificationOwnershipWhere(tx, ctx.session.user.id)], readAt: null, recoveryWithdrawnAt: null },
         data: { readAt: new Date() },
       }),
     )),
 
   markAllRead: protectedProcedure.mutation(async ({ ctx }) => withHistoryReadMutation(ctx.db, { userId: ctx.session.user.id, historyAccessRevision: ctx.session.historyAccessRevision ?? 0 }, async (tx) =>
     tx.notification.updateMany({
-      where: { AND: [await notificationOwnershipWhere(tx, ctx.session.user.id)], readAt: null },
+      where: { AND: [await notificationOwnershipWhere(tx, ctx.session.user.id)], readAt: null, recoveryWithdrawnAt: null },
       data: { readAt: new Date() },
     }),
   )),

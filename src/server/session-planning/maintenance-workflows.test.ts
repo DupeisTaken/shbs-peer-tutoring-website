@@ -211,9 +211,11 @@ describe("durable publication maintenance", () => {
 
   it("marks direct supported writes and compensation dirty in their own transaction", async () => {
     await cleanPublication();
+    const action = await db.recoveryAction.create({ data: { kind: "DOMAIN_CHECKPOINT", before: {}, after: {} } });
+    await db.recoveryTrackedEntity.create({ data: { actionId: action.id, entity: "User", recordId: tuteeUserId } });
     const rollback = new Error("Roll back synthetic source write.");
     await expect(db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating','1',true)`;
+      await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating',${action.id},true)`;
       await tx.user.update({ where: { id: tuteeUserId }, data: { tuteeMember: false } });
       const rows = await tx.$queryRaw<{ sourceTable: string }[]>`
         SELECT "sourceTable" FROM "SchedulingDirtyEvent" WHERE "publicationPending"`;
@@ -222,10 +224,11 @@ describe("durable publication maintenance", () => {
     })).rejects.toBe(rollback);
     expect((await planningTransaction((tx) => readSchedulingMaintenance(tx, window))).current).toBe(true);
     await db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating','1',true)`;
+      await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating',${action.id},true)`;
       await tx.user.update({ where: { id: tuteeUserId }, data: { tuteeMember: false } });
     });
     expect((await planningTransaction((tx) => readSchedulingMaintenance(tx, window))).current).toBe(false);
+    expect(await db.recoveryChange.count({ where: { actionId: action.id } })).toBe(0);
   });
 
   it("rebuilds after pending events are deleted or truncated while the state row remains", async () => {

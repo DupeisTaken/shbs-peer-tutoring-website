@@ -48,12 +48,18 @@ function checkChannel(category: EmailCategory): Promise<ChannelStatus> {
 export async function getEmailDeliveryStatus(
   database: Pick<typeof db, "emailDelivery">,
 ) {
-  const [status, retrying, failed] = await Promise.all([
+  const owningCategories = ["security", "request_service", "monthly_hours", "school_hours"];
+  const retryable = { OR: [{ attemptStartedAt: null }, { category: { in: owningCategories } }] };
+  const [status, retrying, failed, uncertain] = await Promise.all([
     Promise.all(channels.map(checkChannel)),
     database.emailDelivery.count({
-      where: { status: "PENDING", attempts: { gt: 0 } },
+      where: { status: "PENDING", attempts: { gt: 0 }, ...retryable },
     }),
-    database.emailDelivery.count({ where: { status: "FAILED" } }),
+    database.emailDelivery.count({ where: { status: "FAILED", ...retryable } }),
+    database.emailDelivery.count({ where: { OR: [
+      { status: { in: ["UNCERTAIN", "UNCERTAIN_RECOVERY"] } },
+      { status: { in: ["PENDING", "FAILED"] }, category: { notIn: owningCategories }, attemptStartedAt: { not: null } },
+    ] } }),
   ]);
-  return { channels: status, retrying, failed };
+  return { channels: status, retrying, failed, uncertain };
 }

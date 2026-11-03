@@ -15,7 +15,11 @@ import type { Prisma } from "../../../generated/prisma";
 import { z } from "zod";
 
 import { db } from "~/server/db";
-import { inTransaction, type TransactionDb } from "~/server/transactions";
+import {
+  inTransaction,
+  lockEntity,
+  type TransactionDb,
+} from "~/server/transactions";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 
@@ -109,10 +113,22 @@ export async function recordAudit(
       approvalId: approvalScope.getStore(),
       operation: args.operation,
       details: {
-        evidenceVersion: 1, actorRole: args.userId ? args.role ?? actor?.role ?? "UNKNOWN_LEGACY" : "SYSTEM",
-        outcome: "APPLIED", before: safeAuditSnapshot(args.before, args.entity), after: safeAuditSnapshot(args.after, args.entity),
-        ...(args.before === undefined && args.after === undefined ? { detailAvailability: "Before/after details were not captured by this writer" } : {}),
-        ...(args.originalActionId ? { originalActionId: args.originalActionId } : {}),
+        evidenceVersion: 1,
+        actorRole: args.userId
+          ? (args.role ?? actor?.role ?? "UNKNOWN_LEGACY")
+          : "SYSTEM",
+        outcome: "APPLIED",
+        before: safeAuditSnapshot(args.before, args.entity),
+        after: safeAuditSnapshot(args.after, args.entity),
+        ...(args.before === undefined && args.after === undefined
+          ? {
+              detailAvailability:
+                "Before/after details were not captured by this writer",
+            }
+          : {}),
+        ...(args.originalActionId
+          ? { originalActionId: args.originalActionId }
+          : {}),
         ...(args.reason ? { reason: args.reason } : {}),
         ...(args.effects ? { effects: args.effects } : {}),
       },
@@ -154,6 +170,14 @@ export async function applyUndo(
         });
         return true;
       case "card.review": {
+        // Match card recovery: acquire the global consequence fence and exact
+        // participant fence before any card row lock or journaled mutation.
+        await lockEntity(tx, "program:period");
+        const source = await tx.disciplinaryCard.findUniqueOrThrow({
+          where: { id: undo.payload.id },
+          select: { tuteeId: true },
+        });
+        await lockEntity(tx, `tutee:${source.tuteeId}`);
         if (undo.payload.expectedUpdatedAt) {
           const current = await tx.disciplinaryCard.findUniqueOrThrow({
             where: { id: undo.payload.id },

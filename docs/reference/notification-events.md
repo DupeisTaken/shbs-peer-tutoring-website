@@ -12,6 +12,16 @@ review aid, not the source of authority.
 
 ## Delivery and access boundaries
 
+`recovery_workflow_draft` is an in-app-only Tutoring notice to the exact recorded
+owner of a compensating signup draft. Its heading is **Review a Fresh Signup
+Draft** / **请审核新的报名草稿**. It explains that the original request remains
+closed and requires a new submission, current policy agreement and mailbox
+verification. The action opens the authenticated draft through
+`/signup?recoveryDraft=...`; the reader rechecks exact source ownership and current
+account access. No answers, contact details, signature, code or review reason
+enter notification context. The draft notification is causally bound to the
+reviewed recovery transaction and never replays an earlier delivery.
+
 Typed in-app notifications retain localized event headings and show their captured
 change details. [In-app detail formatting](../../src/lib/notification-details.ts)
 selects a bounded English/Chinese snapshot (English for other interface languages),

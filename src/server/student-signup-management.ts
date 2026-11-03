@@ -134,7 +134,11 @@ export async function assertHeadDiscretionarySignupChange(
     where: { id: userId },
     select: { role: true, suspendedAt: true, mergedIntoId: true },
   });
-  if (!["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
+  if (
+    !["ADMIN", "HEAD"].includes(actor.role) ||
+    actor.suspendedAt ||
+    actor.mergedIntoId
+  )
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
@@ -239,140 +243,162 @@ export async function unassignStudentSignup(
   input: z.infer<typeof headSignupUnassignInput>,
 ) {
   return inTransaction(db, async (tx) => {
-    await lockEntity(tx, "program:period");
-    await lockUsernameNamespace(tx);
-    await lockCatalogue(tx);
-    const source = await tx.studentSurvey.findUniqueOrThrow({
-      where: { id: input.id },
-    });
-    await lockStudentRequestReview(tx, source);
-    const row = await tx.studentSurvey.findUniqueOrThrow({
-      where: { id: input.id },
-    });
-    await lockAccountProfile(tx, userId);
-    const actor = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
-      throw new TRPCError({ code: "FORBIDDEN" });
-    const inputHash = studentSignupIntentDigest({
-      operation: "headUnassign",
-      id: input.id,
-      pairingId: input.pairingId,
-      expectedVersion: input.expectedVersion,
-    });
-    const prior = await tx.studentSignupRevision.findUnique({
-      where: {
-        surveyId_actorUserId_clientKey: {
-          surveyId: row.id,
-          actorUserId: userId,
-          clientKey: input.clientKey,
-        },
-      },
-    });
-    if (prior) {
-      if (prior.inputHash !== inputHash)
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "SIGNUP_RETRY_CHANGED",
-        });
-      return { ok: true, version: prior.version };
-    }
-    await assertSignupEditPeriod(tx, row);
-    if (row.currentVersion !== input.expectedVersion)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "This changed since you loaded it — refresh and try again.",
-      });
-    const pairing = await tx.pairing.findUnique({
-      where: { id: input.pairingId },
-      select: { termId: true },
-    });
-    if (
-      !row.tuteeId ||
-      pairing?.termId !== row.intakeTermId ||
-      !(await tx.pairingTutee.findUnique({
-        where: {
-          pairingId_tuteeId: {
-            pairingId: input.pairingId,
-            tuteeId: row.tuteeId,
-          },
-        },
-      }))
-    )
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "The assignment changed. Reload the request.",
-      });
-    await consumeStudentAction(
+    const { withAutomaticRecoveryCheckpoint } =
+      await import("~/server/recovery/checkpoint");
+    return withAutomaticRecoveryCheckpoint(
       tx,
-      input.signedTicket,
-      userId,
-      "SIGNUP_UNASSIGN",
-      `${row.id}:${input.pairingId}`,
+      { adapter: "STUDENT_WORKFLOW", sourceId: input.id },
+      { id: userId },
+      async () => {
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        const source = await tx.studentSurvey.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        await lockStudentRequestReview(tx, source);
+        const row = await tx.studentSurvey.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        await lockAccountProfile(tx, userId);
+        const actor = await tx.user.findUniqueOrThrow({
+          where: { id: userId },
+        });
+        if (
+          !["ADMIN", "HEAD"].includes(actor.role) ||
+          actor.suspendedAt ||
+          actor.mergedIntoId
+        )
+          throw new TRPCError({ code: "FORBIDDEN" });
+        const inputHash = studentSignupIntentDigest({
+          operation: "headUnassign",
+          id: input.id,
+          pairingId: input.pairingId,
+          expectedVersion: input.expectedVersion,
+        });
+        const prior = await tx.studentSignupRevision.findUnique({
+          where: {
+            surveyId_actorUserId_clientKey: {
+              surveyId: row.id,
+              actorUserId: userId,
+              clientKey: input.clientKey,
+            },
+          },
+        });
+        if (prior) {
+          if (prior.inputHash !== inputHash)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "SIGNUP_RETRY_CHANGED",
+            });
+          return { ok: true, version: prior.version };
+        }
+        await assertSignupEditPeriod(tx, row);
+        if (row.currentVersion !== input.expectedVersion)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This changed since you loaded it — refresh and try again.",
+          });
+        const pairing = await tx.pairing.findUnique({
+          where: { id: input.pairingId },
+          select: { termId: true },
+        });
+        if (
+          !row.tuteeId ||
+          pairing?.termId !== row.intakeTermId ||
+          !(await tx.pairingTutee.findUnique({
+            where: {
+              pairingId_tuteeId: {
+                pairingId: input.pairingId,
+                tuteeId: row.tuteeId,
+              },
+            },
+          }))
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The assignment changed. Reload the request.",
+          });
+        await consumeStudentAction(
+          tx,
+          input.signedTicket,
+          userId,
+          "SIGNUP_UNASSIGN",
+          `${row.id}:${input.pairingId}`,
+        );
+        await tx.pairingTutee.delete({
+          where: {
+            pairingId_tuteeId: {
+              pairingId: input.pairingId,
+              tuteeId: row.tuteeId,
+            },
+          },
+        });
+        if (
+          !(await tx.pairingTutee.count({
+            where: {
+              tuteeId: row.tuteeId,
+              pairing: { termId: row.intakeTermId },
+            },
+          }))
+        )
+          await tx.tutee.update({
+            where: { id: row.tuteeId },
+            data: { status: "PENDING" },
+          });
+        await tx.studentRequestReview.updateMany({
+          where: {
+            surveyId: row.id,
+            pairingId: input.pairingId,
+            kind: "SCHEDULE_CONFLICT",
+            state: "PENDING",
+          },
+          data: {
+            state: "DENIED",
+            resolvedAt: new Date(),
+            resolvedByUserId: userId,
+          },
+        });
+        const version = row.currentVersion + 1;
+        const answers = studentSignupLocalAnswers(
+          currentStudentSignupPayload(row),
+        ) as Prisma.InputJsonObject;
+        await tx.studentSignupRevision.create({
+          data: {
+            surveyId: row.id,
+            expectedVersion: row.currentVersion,
+            version,
+            actorUserId: userId,
+            actorUserName: actor.name,
+            clientKey: input.clientKey,
+            inputHash,
+            answers,
+          },
+        });
+        await tx.studentSurvey.update({
+          where: { id: row.id },
+          data: {
+            currentPayload: answers,
+            currentVersion: version,
+            editedAt: new Date(),
+          },
+        });
+        await recordDomainAudit(tx, {
+          operation: "studentWorkflow.headUnassign",
+          entity: "StudentSurvey",
+          entityId: row.id,
+          action: "Management released current signup assignment",
+          before: { currentVersion: row.currentVersion },
+          after: { currentVersion: version },
+          effects: {
+            removedPairingId: input.pairingId,
+            sessionsPreserved: true,
+            priorityPreserved: true,
+          },
+        });
+        return { ok: true, version };
+      },
     );
-    await tx.pairingTutee.delete({
-      where: {
-        pairingId_tuteeId: { pairingId: input.pairingId, tuteeId: row.tuteeId },
-      },
-    });
-    if (
-      !(await tx.pairingTutee.count({
-        where: { tuteeId: row.tuteeId, pairing: { termId: row.intakeTermId } },
-      }))
-    )
-      await tx.tutee.update({
-        where: { id: row.tuteeId },
-        data: { status: "PENDING" },
-      });
-    await tx.studentRequestReview.updateMany({
-      where: {
-        surveyId: row.id,
-        pairingId: input.pairingId,
-        kind: "SCHEDULE_CONFLICT",
-        state: "PENDING",
-      },
-      data: {
-        state: "DENIED",
-        resolvedAt: new Date(),
-        resolvedByUserId: userId,
-      },
-    });
-    const version = row.currentVersion + 1;
-    const answers = studentSignupLocalAnswers(
-      currentStudentSignupPayload(row),
-    ) as Prisma.InputJsonObject;
-    await tx.studentSignupRevision.create({
-      data: {
-        surveyId: row.id,
-        expectedVersion: row.currentVersion,
-        version,
-        actorUserId: userId,
-        actorUserName: actor.name,
-        clientKey: input.clientKey,
-        inputHash,
-        answers,
-      },
-    });
-    await tx.studentSurvey.update({
-      where: { id: row.id },
-      data: {
-        currentPayload: answers,
-        currentVersion: version,
-        editedAt: new Date(),
-      },
-    });
-    await recordDomainAudit(tx, {
-      operation: "studentWorkflow.headUnassign",
-      entity: "StudentSurvey",
-      entityId: row.id,
-      action: "Management released current signup assignment",
-      before: { currentVersion: row.currentVersion },
-      after: { currentVersion: version },
-      effects: {
-        removedPairingId: input.pairingId,
-        sessionsPreserved: true,
-        priorityPreserved: true,
-      },
-    });
-    return { ok: true, version };
   });
 }
