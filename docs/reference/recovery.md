@@ -254,6 +254,16 @@ Equal table counts do not establish equal rows, credential safety or semantic
 equivalence. A completed same-plan stage can return its saved receipt after
 checking the target remains fenced, without replaying the restore.
 
+Before inspecting a sealed database, cloning it, cutting over or rolling back,
+the operator checks PostgreSQL's active sessions while holding the operation
+lock. PostgreSQL autovacuum workers can enter a sealed database. When only those
+workers are present, the operator keeps the fence in place and allows up to
+twenty 250 ms waits between database checks. Admission requires a fresh snapshot with
+zero unowned sessions and the required seal, ownership and access controls.
+A client connection, unknown backend or changed fence blocks the operation
+immediately. PostgreSQL workers are allowed to finish naturally. An exhausted
+wait retains the failure and reports only configuration checks and session counts.
+
 Transactional resume receipts stored with `COMMENT ON DATABASE` use PostgreSQL's
 cluster-shared description catalog. All reconciliation, acceptance and rollback
 readers use `pg_catalog.shobj_description`, including maintenance connections

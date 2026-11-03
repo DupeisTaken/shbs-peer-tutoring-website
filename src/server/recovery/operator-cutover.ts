@@ -19,6 +19,7 @@ import {
 import {
   credentials,
   inspectCurrentEvidence,
+  requireIdleRecoveryDatabase,
   withSealedSiteTarget,
   validateStagedSite,
   type OperatorSql,
@@ -1271,15 +1272,9 @@ export async function applyIsolatedCutover(
     await sourceControl.query(
       `ALTER DATABASE ${quote(reconcile.stagePlan.source.database)} ALLOW_CONNECTIONS false`,
     );
-    operatorAssert(
-      (
-        await sourceControl.query(
-          "SELECT count(*)::text AS count FROM pg_stat_activity WHERE datname=$1 AND NOT(pid=ANY($2::int[]))",
-          [reconcile.stagePlan.source.database, ownPids],
-        )
-      ).rows[0]?.count === "0",
-      "CUTOVER_REQUIRES_QUIESCENT_SOURCE",
-    );
+    await requireIdleRecoveryDatabase(sourceControl, reconcile.stagePlan.source.database, "CUTOVER_REQUIRES_QUIESCENT_SOURCE", {
+      sealed: true, exceptPids: ownPids,
+    });
     await source.query("BEGIN ISOLATION LEVEL READ COMMITTED");
     sourceTransaction = true;
     await source.query("SET LOCAL lock_timeout='5s'");
@@ -1747,14 +1742,7 @@ export async function applyIsolatedRollback(
       [stageAdmin, reconcile.stagePlan.targetName],
       [originalAdmin, reconcile.stagePlan.source.database],
     ] as const) {
-      const active = await admin.query(
-        "SELECT count(*)::text AS count FROM pg_stat_activity WHERE datname=$1",
-        [name],
-      );
-      operatorAssert(
-        active.rows[0]?.count === "0",
-        "ROLLBACK_REQUIRES_QUIESCENT_DATABASES",
-      );
+      await requireIdleRecoveryDatabase(admin, name, "ROLLBACK_REQUIRES_QUIESCENT_DATABASES");
     }
     const role = await originalAdmin.query(
       "SELECT r.rolsuper,r.rolcreatedb,r.rolcreaterole,r.rolreplication,r.rolbypassrls,(SELECT count(*)::text FROM pg_database WHERE datdba=r.oid) AS owned_databases FROM pg_roles r WHERE rolname=$1",
@@ -1962,16 +1950,7 @@ export async function applyIsolatedRollback(
     );
     operatorAssert(returnLock.rows[0]?.locked === true, "RECOVERY_TARGET_BUSY");
     originalLocked = true;
-    const returnState = (
-      await originalAdmin.query(
-        "SELECT datallowconn,(SELECT count(*)::text FROM pg_stat_activity WHERE datname=$1) AS sessions FROM pg_database WHERE datname=$1",
-        [plan.rollbackApplication.database],
-      )
-    ).rows[0];
-    operatorAssert(
-      returnState?.datallowconn === false && returnState.sessions === "0",
-      "ROLLBACK_TARGET_WAS_REOPENED",
-    );
+    await requireIdleRecoveryDatabase(originalAdmin, plan.rollbackApplication.database, "ROLLBACK_TARGET_WAS_REOPENED", { sealed: true });
     await originalAdmin.query(
       `ALTER DATABASE ${quote(plan.rollbackApplication.database)} ALLOW_CONNECTIONS true`,
     );

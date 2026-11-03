@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   acceptanceAccountAllowed,
   assertIsolatedRehearsalIdentity,
@@ -9,7 +9,126 @@ import {
   setIsolatedAcceptancePassword,
   withReadOnlyAcceptanceApplication,
 } from "./operator-cutover";
-import type { OperatorSql } from "./operator-site";
+import { requireIdleRecoveryDatabase, type OperatorSql } from "./operator-site";
+
+describe("sealed recovery database quiescence", () => {
+  const database = "shbs_recovery_idle_test";
+  const errorCode = "SYNTHETIC_IDLE_FENCE_CHANGED";
+  const options = { sealed: true, owner: "synthetic_operator" };
+  const idle = {
+    datallowconn: false, owner: options.owner, public_connect: false,
+    sessions: 0, autovacuum_sessions: 0,
+  };
+  const autovacuum = { ...idle, sessions: 2, autovacuum_sessions: 2 };
+  function fixture(states: (Record<string, unknown> | undefined)[]) {
+    let index = 0;
+    const query = vi.fn<OperatorSql["query"]>().mockImplementation(async () => {
+      const state = states[Math.min(index++, states.length - 1)];
+      return { rows: state ? [state] : [] };
+    });
+    const close = vi.fn<OperatorSql["close"]>().mockImplementation(async () => {
+      throw new Error("Idle check must not close the borrowed operator session");
+    });
+    return { admin: { query, close }, query, close };
+  }
+
+  it("admits only exact zero sessions and preserves supplied PID exclusions verbatim", async () => {
+    vi.useFakeTimers();
+    try {
+      const { admin, query, close } = fixture([idle]);
+      const exceptPids = [81, 18];
+      await requireIdleRecoveryDatabase(admin, database, errorCode, { ...options, exceptPids });
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query.mock.calls[0]?.[1]).toEqual([database, exceptPids]);
+      expect(query.mock.calls[0]?.[1]?.[1]).toBe(exceptPids);
+      expect(query.mock.calls[0]?.[0]).toContain("pg_stat_activity");
+      expect(query.mock.calls[0]?.[0]).toContain("autovacuum worker");
+      expect(exceptPids).toEqual([81, 18]);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(close).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("waits in 250ms steps for exclusively verified autovacuum and still requires zero", async () => {
+    vi.useFakeTimers();
+    try {
+      const { admin, query } = fixture([autovacuum, { ...idle, sessions: 1, autovacuum_sessions: 1 }, idle]);
+      let admitted = false;
+      const result = requireIdleRecoveryDatabase(admin, database, errorCode, options).then(
+        () => { admitted = true; return "admitted"; },
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(249);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(admitted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(query).toHaveBeenCalledTimes(2);
+      expect(admitted).toBe(false);
+      await vi.advanceTimersByTimeAsync(250);
+      expect(await result).toBe("admitted");
+      expect(query).toHaveBeenCalledTimes(3);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("fails after at most twenty waits if verified maintenance never drains", async () => {
+    vi.useFakeTimers();
+    try {
+      const { admin, query } = fixture([autovacuum]);
+      const rejected = expect(requireIdleRecoveryDatabase(admin, database, errorCode, options)).rejects.toThrow(errorCode);
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(query).toHaveBeenCalledTimes(20);
+      await vi.advanceTimersByTimeAsync(1);
+      await rejected;
+      expect(query).toHaveBeenCalledTimes(21);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each([
+    { ...idle, sessions: 1, autovacuum_sessions: 0 },
+    { ...idle, sessions: 2, autovacuum_sessions: 1 },
+    { ...idle, sessions: "0", autovacuum_sessions: "0" },
+    { ...idle, sessions: -1 },
+    { ...idle, sessions: 0.5 },
+    { ...idle, autovacuum_sessions: 1 },
+    { ...idle, autovacuum_sessions: -1 },
+    { ...idle, sessions: Number.NaN },
+    { ...idle, autovacuum_sessions: undefined },
+    { ...idle, datallowconn: true },
+    { ...idle, datallowconn: undefined },
+    { ...idle, owner: "changed_operator" },
+    { ...idle, owner: undefined },
+    { ...idle, public_connect: true },
+    { ...idle, public_connect: undefined },
+    undefined,
+  ].map((state) => ({ state })))("rejects unknown/client sessions or invalid fence state without waiting: %j", async ({ state }) => {
+    vi.useFakeTimers();
+    try {
+      const { admin, query } = fixture([state]);
+      await expect(requireIdleRecoveryDatabase(admin, database, errorCode, options)).rejects.toThrow(errorCode);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each([
+    { ...autovacuum, datallowconn: true },
+    { ...autovacuum, owner: "changed_operator" },
+    { ...autovacuum, public_connect: true },
+    { ...autovacuum, sessions: 3 },
+  ])("rechecks every fence invariant during the maintenance drain: %j", async (changed) => {
+    vi.useFakeTimers();
+    try {
+      const { admin, query } = fixture([autovacuum, changed]);
+      const rejected = expect(requireIdleRecoveryDatabase(admin, database, errorCode, options)).rejects.toThrow(errorCode);
+      await vi.advanceTimersByTimeAsync(250);
+      await rejected;
+      expect(query).toHaveBeenCalledTimes(2);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { vi.useRealTimers(); }
+  });
+});
 
 describe("isolated operator cutover endpoint gate", () => {
   it("accepts only explicitly synthetic loopback databases", () => {

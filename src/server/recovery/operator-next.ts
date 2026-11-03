@@ -10,7 +10,7 @@ import { z } from "zod";
 import { sessionIdentity } from "../../lib/session-identity";
 import { operatorAssert, OperatorError } from "./operator-cli";
 import { databaseIdentity, planHash } from "./operator-plan";
-import type { OperatorSql, SiteDependencies } from "./operator-site";
+import { requireIdleRecoveryDatabase, type OperatorSql, type SiteDependencies } from "./operator-site";
 
 export interface NextCapabilityProofs {
   registrationCode?: string;
@@ -694,16 +694,7 @@ export async function runIsolatedNextClone(
     );
     operatorAssert(lock.rows[0]?.locked === true, "RECOVERY_TARGET_BUSY");
     locked = true;
-    const state = (
-      await admin.query(
-        "SELECT datallowconn,(SELECT count(*)::text FROM pg_stat_activity WHERE datname=$1) AS sessions FROM pg_database WHERE datname=$1",
-        [request.templateDatabase],
-      )
-    ).rows[0];
-    operatorAssert(
-      state?.datallowconn === false && state.sessions === "0",
-      "NEXT_CLONE_REQUIRES_SEALED_IDLE_TEMPLATE",
-    );
+    await requireIdleRecoveryDatabase(admin, request.templateDatabase, "NEXT_CLONE_REQUIRES_SEALED_IDLE_TEMPLATE", { sealed: true });
     await admin.query(
       `CREATE ROLE ${quote(role)} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '${password}'`,
     );

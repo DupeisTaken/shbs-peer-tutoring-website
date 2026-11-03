@@ -559,6 +559,52 @@ export async function validateStagedSite(
   return {plan, receipt: receipt.data};
 }
 
+/** PostgreSQL autovacuum can enter a database with ALLOW_CONNECTIONS false.
+ * Keep the operator lock and fence while that worker drains. Every admission
+ * still requires zero unowned sessions in the same snapshot as the fence. */
+export async function requireIdleRecoveryDatabase(
+  admin: OperatorSql,
+  database: string,
+  errorCode: string,
+  options: { sealed?: boolean; owner?: string; exceptPids?: number[] } = {},
+) {
+  for (let attempt = 0; ; attempt++) {
+    const { rows: [state] } = await admin.query(
+      `SELECT d.datallowconn, pg_get_userbyid(d.datdba) AS owner,
+        EXISTS(SELECT 1 FROM aclexplode(COALESCE(d.datacl, acldefault('d',d.datdba))) x
+          WHERE x.grantee=0 AND x.privilege_type='CONNECT') AS public_connect,
+        activity.sessions, activity.autovacuum_sessions
+       FROM pg_catalog.pg_database d CROSS JOIN LATERAL (
+         SELECT count(*)::int AS sessions,
+           count(*) FILTER (WHERE a.backend_type='autovacuum worker')::int AS autovacuum_sessions
+         FROM pg_catalog.pg_stat_activity a WHERE a.datid=d.oid AND NOT(a.pid=ANY($2::int[]))
+       ) activity WHERE d.datname=$1`,
+      [database, options.exceptPids ?? []],
+    );
+    const sessions = state?.sessions, autovacuum = state?.autovacuum_sessions;
+    const countsKnown = typeof sessions === "number" && Number.isSafeInteger(sessions) && sessions >= 0 &&
+      typeof autovacuum === "number" && Number.isSafeInteger(autovacuum) && autovacuum >= 0 && autovacuum <= sessions;
+    const sealed = !options.sealed || state?.datallowconn === false;
+    const owned = options.owner === undefined || state?.owner === options.owner;
+    const restricted = options.owner === undefined || state?.public_connect === false;
+    if (state && sealed && owned && restricted && countsKnown) {
+      if (sessions === 0) return;
+      if (sessions === autovacuum && attempt < 20) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+    }
+    // Native diagnostics retain the failing invariant without names, SQL or credentials.
+    const error = new OperatorError(errorCode);
+    error.message += " " + JSON.stringify({
+      databasePresent: Boolean(state), sealMatches: sealed, ownerMatches: owned,
+      publicConnectMatches: restricted, sessions: countsKnown ? sessions : null,
+      autovacuumSessions: countsKnown ? autovacuum : null,
+    });
+    throw error;
+  }
+}
+
 /** Open only long enough to acquire an operator session, then fence immediately. */
 export async function withSealedSiteTarget<T>(
   plan: SitePlan, maintenanceUrl: string, dependencies: SiteDependencies,
@@ -575,12 +621,9 @@ export async function withSealedSiteTarget<T>(
     operatorAssert(lock.rows[0]?.locked===true, "RECOVERY_TARGET_BUSY");
     locked=true;
     await assertStagingSourceRole(maintenance,plan.source.user);
-    const state = await maintenance.query(`SELECT d.datallowconn, pg_get_userbyid(d.datdba) AS owner,
-      (SELECT count(*)::text FROM pg_stat_activity a WHERE a.datname=d.datname) AS sessions,
-      EXISTS(SELECT 1 FROM aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) x WHERE x.grantee=0 AND x.privilege_type='CONNECT') AS public_connect
-      FROM pg_database d WHERE d.datname=$1`, [plan.targetName]);
-    operatorAssert(state.rows[0]?.datallowconn===false && state.rows[0]?.owner===plan.maintenance.user &&
-      state.rows[0]?.sessions==="0" && state.rows[0]?.public_connect===false, "STAGING_FENCE_OR_OWNERSHIP_CHANGED");
+    await requireIdleRecoveryDatabase(maintenance, plan.targetName, "STAGING_FENCE_OR_OWNERSHIP_CHANGED", {
+      sealed: true, owner: plan.maintenance.user,
+    });
     await maintenance.query(`ALTER DATABASE "${plan.targetName}" ALLOW_CONNECTIONS true`);
     opened=true;
     const targetUrl = new URL(maintenanceUrl);
