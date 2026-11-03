@@ -21,7 +21,15 @@ const mocks = vi.hoisted(() => ({
   inspect: vi.fn(),
   receipt: vi.fn(),
   capture: vi.fn(),
-  restore: vi.fn(),
+  restore:
+    vi.fn<
+      (input: {
+        checkpointId: string;
+        expectedFingerprint: string;
+        clientKey: string;
+        reason: string;
+      }) => Promise<{ receiptId: string }>
+    >(),
   refetch: vi.fn(),
   restoreMutation: vi.fn(),
 }));
@@ -77,6 +85,7 @@ const query = (data: unknown) => ({
 function mount(
   locale = "en",
   role: "ADMIN" | "HEAD" | "COORDINATOR" = "ADMIN",
+  initialReceipt = "",
 ) {
   return render(
     <NextIntlClientProvider
@@ -84,7 +93,11 @@ function mount(
       timeZone="Asia/Shanghai"
       messages={locale === "zh" ? zh : en}
     >
-      <CheckpointRecovery role={role} initialCheckpoint="checkpoint" />
+      <CheckpointRecovery
+        role={role}
+        initialCheckpoint="checkpoint"
+        initialReceipt={initialReceipt}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -188,6 +201,156 @@ it("retains a draft across changed previews and requires explicit review before 
     screen.getByRole("button", { name: "Review restoration" }),
   ).toHaveProperty("disabled", false);
 });
+
+it("refreshes a rejected stale preview without adopting it or replaying the write", async () => {
+  mocks.restore.mockRejectedValueOnce({ data: { code: "CONFLICT" } });
+  const view = mount();
+  enterReason();
+  confirm();
+  await screen.findByText(
+    "Restoration was not confirmed. Your reason and retry intent are retained.",
+  );
+  expect(mocks.refetch).toHaveBeenCalledTimes(1);
+  expect(mocks.restore).toHaveBeenCalledTimes(1);
+
+  const updated = {
+    ...initial,
+    fingerprint: "b".repeat(64),
+    effects: ["New synthetic consequence"],
+  };
+  mocks.inspect.mockReturnValue(query(updated));
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <CheckpointRecovery role="ADMIN" initialCheckpoint="checkpoint" />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.queryByText("New synthetic consequence")).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Review restoration" }),
+  ).toHaveProperty("disabled", true);
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>("Restoration reason").value,
+  ).toBe("Synthetic reviewed restoration");
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Review updated consequences" }),
+  );
+  expect(screen.getByText("New synthetic consequence")).toBeTruthy();
+  confirm();
+  await waitFor(() => expect(mocks.restore).toHaveBeenCalledTimes(2));
+  expect(mocks.restore.mock.calls[1]?.[0]).toMatchObject({
+    checkpointId: initial.checkpointId,
+    expectedFingerprint: updated.fingerprint,
+    reason: "Synthetic reviewed restoration",
+  });
+  expect(mocks.restore.mock.calls[1]?.[0].clientKey).not.toBe(
+    mocks.restore.mock.calls[0]?.[0].clientKey,
+  );
+  await screen.findByText(
+    "Restoration saved. Use the receipt below to recover its result without repeating the write.",
+  );
+});
+
+it("explicitly re-inspects the current checkpoint without issuing a write", () => {
+  mount();
+  enterReason();
+  fireEvent.click(screen.getByRole("button", { name: "Inspect checkpoint" }));
+  expect(mocks.refetch).toHaveBeenCalledTimes(1);
+  expect(mocks.restore).not.toHaveBeenCalled();
+  expect(mocks.capture).not.toHaveBeenCalled();
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>("Restoration reason").value,
+  ).toBe("Synthetic reviewed restoration");
+});
+
+it.each(["capture", "restore"] as const)(
+  "conceals all cached evidence after %s denial until every private scope passes a fresh read",
+  async (operation) => {
+    mocks[operation].mockRejectedValueOnce({ data: { code: "FORBIDDEN" } });
+    mocks.list.mockReturnValue(
+      query({
+        items: [
+          {
+            ...initial,
+            id: "saved-checkpoint",
+            sourceId: "Private saved source",
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    mocks.receipt.mockReturnValue(
+      query({
+        reason: "Private accepted receipt",
+        createdAt: initial.createdAt,
+        result: null,
+        deliveries: null,
+      }),
+    );
+    mount("en", "ADMIN", "accepted-receipt");
+    enterReason();
+    expect(screen.getByText("Private accepted receipt")).toBeTruthy();
+    if (operation === "restore") confirm();
+    else {
+      fireEvent.change(screen.getByLabelText("Source record ID"), {
+        target: { value: "capture-source" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save checkpoint" }));
+    }
+    const denial =
+      "Recovery access is no longer available. Private records have been hidden.";
+    await screen.findByText(denial);
+    for (const text of [
+      "Synthetic status correction",
+      "Synthetic original evidence",
+      "Tutor: Private saved source",
+      "Private accepted receipt",
+    ])
+      expect(screen.queryByText(text)).toBeNull();
+    expect(screen.queryByLabelText("Restoration reason")).toBeNull();
+
+    // Existing successful query objects cannot release the mutation denial,
+    // and success on the list/preview cannot substitute for the receipt read.
+    mocks.refetch
+      .mockResolvedValueOnce({ isSuccess: true })
+      .mockResolvedValueOnce({ isSuccess: true })
+      .mockResolvedValueOnce({ isSuccess: false });
+    fireEvent.click(screen.getByRole("button", { name: "Retry read" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Retry read" })).toHaveProperty(
+        "disabled",
+        false,
+      ),
+    );
+    expect(mocks.refetch).toHaveBeenCalledTimes(3);
+    expect(screen.getByText(denial)).toBeTruthy();
+    expect(screen.queryByText("Private accepted receipt")).toBeNull();
+    expect(mocks[operation]).toHaveBeenCalledTimes(1);
+
+    mocks.refetch.mockResolvedValue({ isSuccess: true });
+    fireEvent.click(screen.getByRole("button", { name: "Retry read" }));
+    await screen.findByText("Synthetic status correction");
+    expect(screen.getByText("Private accepted receipt")).toBeTruthy();
+    expect(mocks.refetch).toHaveBeenCalledTimes(6);
+    expect(mocks[operation]).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByLabelText<HTMLTextAreaElement>("Restoration reason").value,
+    ).toBe("Synthetic reviewed restoration");
+    if (operation === "restore") {
+      confirm();
+      await waitFor(() => expect(mocks.restore).toHaveBeenCalledTimes(2));
+      expect(mocks.restore.mock.calls[1]?.[0]).toEqual(
+        mocks.restore.mock.calls[0]?.[0],
+      );
+      await screen.findByText(
+        "Restoration saved. Use the receipt below to recover its result without repeating the write.",
+      );
+    } else
+      expect(
+        screen.getByLabelText<HTMLInputElement>("Source record ID").value,
+      ).toBe("capture-source");
+  },
+);
 
 it("enforces the website event bound in the UI while retaining CLI-only inspection", () => {
   mocks.inspect.mockReturnValue(

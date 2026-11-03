@@ -32,6 +32,14 @@ type RestoreIntent = {
   reason: string;
 };
 
+function recoveryErrorCode(error: unknown) {
+  const data =
+    error && typeof error === "object" && "data" in error ? error.data : null;
+  return data && typeof data === "object" && "code" in data
+    ? data.code
+    : undefined;
+}
+
 /** The wording keeps already-observed and already-sent effects distinct from
  * pending cancellation. The original outcome remains visible in receipts. */
 const deliveryDispositions = [
@@ -174,6 +182,7 @@ function CheckpointConfirmation({
 
 function CheckpointReview({
   incoming,
+  denied,
   role,
   fetching,
   failedRead,
@@ -182,6 +191,7 @@ function CheckpointReview({
   onApplied,
 }: {
   incoming: CheckpointPlan;
+  denied: boolean;
   role: Role;
   fetching: boolean;
   failedRead: boolean;
@@ -224,7 +234,7 @@ function CheckpointReview({
     !accepted &&
     !queued &&
     requesterAllowed;
-  const blocked = changed || fetching || failedRead || pending;
+  const blocked = denied || changed || fetching || failedRead || pending;
   const apply = async () => {
     if (!eligible || blocked || admitted.current || reason.trim().length < 5)
       return;
@@ -257,6 +267,9 @@ function CheckpointReview({
       admitted.current = false;
     }
   };
+  // Keep the reason, accepted outcome and exact retry intent in memory while
+  // authority is rechecked, but remove all private evidence from the DOM.
+  if (denied) return null;
   return (
     <section className="card space-y-5 p-4 sm:p-5" aria-label={t("preview")}>
       <div>
@@ -454,6 +467,10 @@ export function CheckpointRecovery({
   const [lookup, setLookup] = useState(initialCheckpoint);
   const [receiptId, setReceiptId] = useState(initialReceipt);
   const [cursors, setCursors] = useState<string[]>([]);
+  const [mutationDenied, setMutationDenied] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(false);
+  const denialRevision = useRef(0);
+  const accessCheck = useRef(false);
   const list = api.recovery.checkpoints.useQuery(
     { cursor: cursors.at(-1) },
     { retry: false },
@@ -468,18 +485,49 @@ export function CheckpointRecovery({
   );
   const capture = api.recovery.captureCheckpoint.useMutation();
   const restore = api.recovery.restoreCheckpoint.useMutation();
-  const denied = useSessionAccessDenied(
+  const readDenied = useSessionAccessDenied(
     list,
     ...(checkpointId ? [inspect] : []),
     ...(receiptId ? [receipt] : []),
   );
+  const denied = readDenied || mutationDenied;
+  const recordMutationDenial = (error: unknown) => {
+    const code = recoveryErrorCode(error);
+    if (code !== "FORBIDDEN" && code !== "UNAUTHORIZED") return;
+    denialRevision.current++;
+    setMutationDenied(true);
+  };
+  const retryAccess = async () => {
+    if (accessCheck.current) return;
+    accessCheck.current = true;
+    setCheckingAccess(true);
+    const revision = denialRevision.current;
+    try {
+      // Previously successful caches cannot release a mutation denial. Re-read
+      // every visible private scope, including an accepted write's receipt.
+      const results = await Promise.all([
+        list.refetch(),
+        ...(checkpointId ? [inspect.refetch()] : []),
+        ...(receiptId ? [receipt.refetch()] : []),
+      ]);
+      if (
+        revision === denialRevision.current &&
+        results.every((result) => result.isSuccess)
+      )
+        setMutationDenied(false);
+    } catch {
+      // Failed authority reads keep the private surface concealed.
+    } finally {
+      accessCheck.current = false;
+      setCheckingAccess(false);
+    }
+  };
   const busy = capture.isPending || restore.isPending;
   const feedback = {
     loadingTitle: t("loading"),
     errorTitle: t("loadFailed"),
     retryLabel: t("retry"),
   };
-  if (denied) return <p role="alert">{t("denied")}</p>;
   return (
     <section
       className="min-w-0 space-y-5 border-t border-slate-200 pt-8"
@@ -491,241 +539,278 @@ export function CheckpointRecovery({
         </h2>
         <p className="muted mt-2 max-w-3xl">{t("intro")}</p>
       </div>
-      <form
-        className="card space-y-4 p-4 sm:p-5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (
-            busy ||
-            captureAccepted ||
-            captureLock.current ||
-            !sourceId.trim()
-          )
-            return;
-          captureLock.current = true;
-          setCaptureFailed(false);
-          void capture
-            .mutateAsync({ adapter, sourceId: sourceId.trim() })
-            .then(
-              (saved) => {
-                setCaptureAccepted(true);
-                setCheckpointId(saved.checkpointId);
-                setLookup(saved.checkpointId);
-                void list.refetch();
-              },
-              () => setCaptureFailed(true),
-            )
-            .finally(() => {
-              captureLock.current = false;
-            });
-        }}
-      >
-        <h3 className="section-title">{t("captureTitle")}</h3>
-        <fieldset
-          disabled={busy || captureAccepted}
-          className="grid gap-4 sm:grid-cols-2"
-        >
-          <div>
-            <label
-              className="mb-1 block font-medium"
-              htmlFor={`${formId}-domain`}
+      {denied ? (
+        <div className="space-y-3">
+          <p role="alert">{t("denied")}</p>
+          <Button
+            disabled={busy || checkingAccess}
+            onClick={() => void retryAccess()}
+          >
+            {t("retry")}
+          </Button>
+        </div>
+      ) : (
+        <>
+          <form
+            className="card space-y-4 p-4 sm:p-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (
+                busy ||
+                captureAccepted ||
+                captureLock.current ||
+                !sourceId.trim()
+              )
+                return;
+              captureLock.current = true;
+              setCaptureFailed(false);
+              void capture
+                .mutateAsync({ adapter, sourceId: sourceId.trim() })
+                .then(
+                  (saved) => {
+                    setCaptureAccepted(true);
+                    setCheckpointId(saved.checkpointId);
+                    setLookup(saved.checkpointId);
+                    void list.refetch();
+                  },
+                  (error) => {
+                    recordMutationDenial(error);
+                    setCaptureFailed(true);
+                  },
+                )
+                .finally(() => {
+                  captureLock.current = false;
+                });
+            }}
+          >
+            <h3 className="section-title">{t("captureTitle")}</h3>
+            <fieldset
+              disabled={busy || captureAccepted}
+              className="grid gap-4 sm:grid-cols-2"
             >
-              {t("domain")}
-            </label>
-            <select
-              id={`${formId}-domain`}
-              className="input w-full"
-              value={adapter}
-              onChange={(event) =>
-                setAdapter(event.target.value as CheckpointAdapterId)
-              }
-            >
-              {adapters.map((value) => (
-                <option
-                  key={value}
-                  value={value}
-                  disabled={
-                    value === "PROGRAM_REFRESH" && role === "COORDINATOR"
+              <div>
+                <label
+                  className="mb-1 block font-medium"
+                  htmlFor={`${formId}-domain`}
+                >
+                  {t("domain")}
+                </label>
+                <select
+                  id={`${formId}-domain`}
+                  className="input w-full"
+                  value={adapter}
+                  onChange={(event) =>
+                    setAdapter(event.target.value as CheckpointAdapterId)
                   }
                 >
-                  {t(`domains.${value}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              className="mb-1 block font-medium"
-              htmlFor={`${formId}-source`}
-            >
-              {t("source")}
-            </label>
-            <input
-              id={`${formId}-source`}
-              className="input w-full"
-              value={sourceId}
-              maxLength={200}
-              aria-describedby={`${formId}-help`}
-              onChange={(event) => setSourceId(event.target.value)}
-            />
-          </div>
-        </fieldset>
-        <p id={`${formId}-help`} className="muted">
-          {t("sourceHelp")}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={busy || captureAccepted || !sourceId.trim()}
-          >
-            {t(capture.isPending ? "pending" : "capture")}
-          </Button>
-          {captureAccepted && (
-            <Button
-              disabled={busy}
-              onClick={() => {
-                setCaptureAccepted(false);
-                setCaptureFailed(false);
-              }}
-            >
-              {t("captureAgain")}
-            </Button>
-          )}
-        </div>
-        {captureAccepted && <p role="status">{t("captured")}</p>}
-        {captureFailed && <p role="alert">{t("captureFailed")}</p>}
-      </form>
-      <section className="card space-y-4 p-4 sm:p-5">
-        <h3 className="section-title">{t("saved")}</h3>
-        <QueryFeedback
-          {...feedback}
-          hasData={!!list.data}
-          loading={list.isLoading}
-          error={list.isError}
-          retrying={list.isFetching}
-          onRetry={() => {
-            void list.refetch();
-          }}
-        />
-        {list.data && (
-          <>
-            <SummaryTable label={t("saved")}>
-              <thead>
-                <tr>
-                  <th>{t("domain")}</th>
-                  <th>{t("source")}</th>
-                  <th>{t("capturedAt")}</th>
-                  <th>{t("actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.data.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      {adapters.includes(item.adapter as CheckpointAdapterId)
-                        ? t(`domains.${item.adapter as CheckpointAdapterId}`)
-                        : item.adapter}
-                    </td>
-                    <td className="font-mono text-xs [overflow-wrap:anywhere]">
-                      {item.sourceEntity}: {item.sourceId}
-                    </td>
-                    <td>
-                      {format.dateTime(new Date(item.createdAt), {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                    <TableActions>
-                      <TableAction
-                        disabled={busy}
-                        onClick={() => {
-                          setCheckpointId(item.id);
-                          setLookup(item.id);
-                        }}
-                      >
-                        {t("compare")}
-                      </TableAction>
-                    </TableActions>
-                  </tr>
-                ))}
-              </tbody>
-            </SummaryTable>
-            {!list.data.items.length && <p>{t("empty")}</p>}
+                  {adapters.map((value) => (
+                    <option
+                      key={value}
+                      value={value}
+                      disabled={
+                        value === "PROGRAM_REFRESH" && role === "COORDINATOR"
+                      }
+                    >
+                      {t(`domains.${value}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label
+                  className="mb-1 block font-medium"
+                  htmlFor={`${formId}-source`}
+                >
+                  {t("source")}
+                </label>
+                <input
+                  id={`${formId}-source`}
+                  className="input w-full"
+                  value={sourceId}
+                  maxLength={200}
+                  aria-describedby={`${formId}-help`}
+                  onChange={(event) => setSourceId(event.target.value)}
+                />
+              </div>
+            </fieldset>
+            <p id={`${formId}-help`} className="muted">
+              {t("sourceHelp")}
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button
-                size="compact"
-                disabled={busy || !cursors.length}
-                onClick={() => setCursors((values) => values.slice(0, -1))}
+                type="submit"
+                variant="primary"
+                disabled={busy || captureAccepted || !sourceId.trim()}
               >
-                {t("previous")}
+                {t(capture.isPending ? "pending" : "capture")}
               </Button>
-              <Button
-                size="compact"
-                disabled={busy || !list.data.nextCursor}
-                onClick={() => {
-                  const nextCursor = list.data?.nextCursor;
-                  if (nextCursor) setCursors((values) => [...values, nextCursor]);
-                }}
-              >
-                {t("next")}
-              </Button>
+              {captureAccepted && (
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    setCaptureAccepted(false);
+                    setCaptureFailed(false);
+                  }}
+                >
+                  {t("captureAgain")}
+                </Button>
+              )}
             </div>
-          </>
-        )}
-      </section>
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!busy && lookup.trim()) setCheckpointId(lookup.trim());
-        }}
-      >
-        <div className="min-w-0 flex-1">
-          <label
-            className="mb-1 block font-medium"
-            htmlFor={`${formId}-lookup`}
+            {captureAccepted && <p role="status">{t("captured")}</p>}
+            {captureFailed && <p role="alert">{t("captureFailed")}</p>}
+          </form>
+          <section className="card space-y-4 p-4 sm:p-5">
+            <h3 className="section-title">{t("saved")}</h3>
+            <QueryFeedback
+              {...feedback}
+              hasData={!!list.data}
+              loading={list.isLoading}
+              error={list.isError}
+              retrying={list.isFetching}
+              onRetry={() => {
+                void list.refetch();
+              }}
+            />
+            {list.data && (
+              <>
+                <SummaryTable label={t("saved")}>
+                  <thead>
+                    <tr>
+                      <th>{t("domain")}</th>
+                      <th>{t("source")}</th>
+                      <th>{t("capturedAt")}</th>
+                      <th>{t("actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {list.data.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          {adapters.includes(
+                            item.adapter as CheckpointAdapterId,
+                          )
+                            ? t(
+                                `domains.${item.adapter as CheckpointAdapterId}`,
+                              )
+                            : item.adapter}
+                        </td>
+                        <td className="font-mono text-xs [overflow-wrap:anywhere]">
+                          {item.sourceEntity}: {item.sourceId}
+                        </td>
+                        <td>
+                          {format.dateTime(new Date(item.createdAt), {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </td>
+                        <TableActions>
+                          <TableAction
+                            disabled={busy}
+                            onClick={() => {
+                              setCheckpointId(item.id);
+                              setLookup(item.id);
+                            }}
+                          >
+                            {t("compare")}
+                          </TableAction>
+                        </TableActions>
+                      </tr>
+                    ))}
+                  </tbody>
+                </SummaryTable>
+                {!list.data.items.length && <p>{t("empty")}</p>}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="compact"
+                    disabled={busy || !cursors.length}
+                    onClick={() => setCursors((values) => values.slice(0, -1))}
+                  >
+                    {t("previous")}
+                  </Button>
+                  <Button
+                    size="compact"
+                    disabled={busy || !list.data.nextCursor}
+                    onClick={() => {
+                      const nextCursor = list.data?.nextCursor;
+                      if (nextCursor)
+                        setCursors((values) => [...values, nextCursor]);
+                    }}
+                  >
+                    {t("next")}
+                  </Button>
+                </div>
+              </>
+            )}
+          </section>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!busy && lookup.trim()) {
+                if (lookup.trim() === checkpointId) void inspect.refetch();
+                else setCheckpointId(lookup.trim());
+              }
+            }}
           >
-            {t("lookup")}
-          </label>
-          <input
-            id={`${formId}-lookup`}
-            className="input w-full"
-            value={lookup}
-            maxLength={200}
-            disabled={busy}
-            onChange={(event) => setLookup(event.target.value)}
-          />
-        </div>
-        <Button type="submit" disabled={busy || !lookup.trim()}>
-          {t("inspect")}
-        </Button>
-      </form>
-      {checkpointId && (
-        <QueryFeedback
-          {...feedback}
-          hasData={!!inspect.data}
-          loading={inspect.isLoading}
-          error={inspect.isError}
-          retrying={inspect.isFetching}
-          onRetry={() => {
-            void inspect.refetch();
-          }}
-        />
+            <div className="min-w-0 flex-1">
+              <label
+                className="mb-1 block font-medium"
+                htmlFor={`${formId}-lookup`}
+              >
+                {t("lookup")}
+              </label>
+              <input
+                id={`${formId}-lookup`}
+                className="input w-full"
+                value={lookup}
+                maxLength={200}
+                disabled={busy}
+                onChange={(event) => setLookup(event.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={busy || !lookup.trim()}>
+              {t("inspect")}
+            </Button>
+          </form>
+          {checkpointId && (
+            <QueryFeedback
+              {...feedback}
+              hasData={!!inspect.data}
+              loading={inspect.isLoading}
+              error={inspect.isError}
+              retrying={inspect.isFetching}
+              onRetry={() => {
+                void inspect.refetch();
+              }}
+            />
+          )}
+        </>
       )}
       {inspect.data && (
         <CheckpointReview
           key={checkpointId}
           incoming={inspect.data}
+          denied={denied}
           role={role}
           fetching={inspect.isFetching}
           failedRead={inspect.isError}
           pending={restore.isPending}
-          onApply={(input) => restore.mutateAsync(input)}
+          onApply={async (input) => {
+            try {
+              return await restore.mutateAsync(input);
+            } catch (error) {
+              recordMutationDenial(error);
+              // Fetch new evidence after a stale preview without adopting it or
+              // changing the reason/retry key. Adoption remains explicit below.
+              if (recoveryErrorCode(error) === "CONFLICT")
+                void inspect.refetch();
+              throw error;
+            }
+          }}
           onApplied={setReceiptId}
         />
       )}
-      {receiptId && (
+      {!denied && receiptId && (
         <section
           className="card space-y-3 p-4 sm:p-5"
           aria-label={t("receipt")}
