@@ -116,6 +116,139 @@ Calendar-change notices include current live proposal recipients on the target
 date, even when no confirmed lesson or recurring assignment exists there yet.
 Superseded offers, elapsed cutoffs and terminal requests do not expand that audience.
 
+### Durable maintenance and source invalidation
+
+[The maintenance adapter](../../src/server/session-planning/maintenance.ts) uses
+`SchedulingMaintenanceState` and `SchedulingDirtyEvent` only as rebuildable
+accelerators. They contain the implementation version, published window and
+timezone, repeated-publication counters, exact event IDs and a bounded queue of
+current requests awaiting fresh checks. They contain no permission, participant
+consent or historical assignment authority. The original source tables remain
+authoritative, including when ownership or eligibility changes A → B → A before
+the next reader. Such changes still schedule a new current-source check; they do
+not create a new reason to reject a currently valid request.
+
+Every maintained source INSERT/DELETE and semantic UPDATE appends an event in the
+same transaction through `scheduling_source_dirty` and
+`scheduling_mark_dirty()`. Each source also has the unconditional statement
+trigger `scheduling_source_truncated`, so source TRUNCATE schedules rediscovery.
+The source triggers never take the planning lock or update a
+shared revision row while holding source locks. It ignores `updatedAt` and
+ordinary `version`-only updates, calendar note-only edits and unrelated program
+settings. It does not honor recovery recapture suppression: a compensating source
+write must invalidate current scheduling even when its recovery journal is
+deliberately suppressed. The complete dependency closure is:
+
+| Source tables | Scheduling dependency |
+| --- | --- |
+| `Pairing`, `PairingGroup`, `PairingTutee` | Assignment clocks, room, tutor, subject, combined-group primary and active roster |
+| `Tutor`, `Tutee`, `User` | Membership/status, direct profile links, identity grouping, role, suspension, tutor revocation, retired-login/voided state and recipient mailbox changes |
+| `TutorProfileOwnership`, `StudentProfileOwnership` | Explicit current/retained profile ownership and reviewed transfer revisions |
+| `Term`, `ProgramSettings` | Active period, inclusive date bounds and program timezone |
+| `SchoolCalendarDay` | School-day/timetable meaning, semantic revision, reset and inactive tombstone |
+| `SchoolDeparture`, `PolicyAcceptance` | Current participation and the policy evidence consumed by dual-role learner admission |
+| `StudentContinuationPairing`, `StudentContinuationAssignment` | Continuation identity, current status, target pairing and assignment/release instants |
+| `SessionPlanContinuationMember`, `SessionPlanAssignment` | Supplemental enrollment/release and original published assignment/roster evidence |
+| `SessionPlan`, `SessionPlanCohort`, `SessionPlanParticipant` | Dated source, clock, room, cancellation/override/suppression and participant changes |
+| `SessionPlanningRequest`, `SessionPlanningOffer`, `SessionPlanningResponse` | Current offers, holds, request state, responses and delivered response deadlines |
+| `Room`, `RoomUnavailability` | Room existence and recurring blocked clocks |
+| `ParticipantConsolidation`, `PairingExecutionSuccessor` | Current participant and recurring assignment successors |
+| `SessionPlanExecution`, `SessionParticipantExecution`, `SessionResponseExecution` | Current execution tutor, learner, assignment and response authority, retaining original evidence actors |
+| `RetiredHistoryOwnership`, `HistoryRowOwnership`, `PersonCombineReceipt` | Reviewed inherited consent ownership and original-account restriction provenance |
+| `StudentRequestExecutionAssignment`, `StudentSurvey` | Exact original request ownership, current learner, open state and released membership |
+
+The identity integration migration installs the additional dependencies and the
+same strict verifier atomically. It invalidates existing publication and settlement
+versions without deleting pending source events or request retries. Updating the
+state row changes its database generation (`xmin`), preventing an acknowledgement
+that read the old state from certifying it after installation. Missing state still
+starts with obsolete defaults and requires a later current-source pass. Identity
+mapping revisions remain semantic changes even though ordinary timestamps and
+the unrelated generic `version` field are excluded from dirty-event comparison.
+
+Conflict checks reuse the proposed party's current execution identities within
+one operation. The original published actors remain historical evidence; they do
+not replace the current tutor or learner when checking other commitments.
+
+An unchanged warm publication checks the durable window and at most 1,000 visible
+dirty event IDs, then returns without enumerating global pairings or published
+assignments. A missing state row, implementation-version mismatch, timezone
+change, Monday window change, Sunday preparation extension or any pending event
+requires the existing source reconciliation and publication pass. The pass keeps
+the period → room → planning and source-row fences, current source validation,
+45-minute calculation, continuation handling, synchronous calendar reconciliation
+and transactional notice effects. Original `normalized` and `unavailable` counter
+semantics remain: a newly inserted conflict cancellation is counted on that call;
+invalid groups and clocks still count on repeated calls.
+
+Only the exact event IDs visible before a successful pass are acknowledged after
+its notices succeed. A sequence's allocation order is not transaction commit
+order; neither consumer acknowledges through `MAX(id)`. Publication's own dated
+writes and a backlog exceeding the bounded ID batch can require further
+no-change passes before the watermark is clean.
+Concurrent or late-committing events remain pending. An event is removed only
+after both publication and request-settlement consumers finish it.
+
+The deadline sweep preserves the original due-first, `updatedAt`, then ID order,
+200-request cap and visited-count return. Every visitor retains its independent
+period/room/planning transaction, fresh source and recipient checks, timestamp
+rotation and recovery journal effects. Pending requests therefore still incur
+the full sweep cost; the principal warm-read saving is publication. A clean
+metadata watermark never skips request validation or its original journal write.
+
+Settlement metadata tracks completed checks without selecting or reordering
+visitors. One invalidation batch captures at most 1,000 event IDs and pages current
+open requests by stable ID, retaining at most 200 IDs. Successful checks remove
+only that request from the queue in the same transaction. A failed notice rolls
+back its complete decision and moves its bookkeeping to one deduplicated retry
+event while retaining the original failure rotation. A permanently broken request
+cannot pin the metadata page. Source events are acknowledged only when all pages
+are exhausted; independent retry events remain until their current checks succeed.
+Changes behind the cursor append separate events for a later batch. Missing or
+obsolete settlement state discovers every current open request, even with an
+empty event table. Terminal/deleted queue entries are pruned from their current
+state. A sweep without bookkeeping avoids extra metadata acknowledgements but
+still performs the original request work.
+
+Deferred calendar/ordinary restoration remains discoverable: clearing a hold,
+changing a response/request, removing a room block or changing a dated conflict
+appends another publication event. Reconciliation still rechecks conflicts before
+restoring a suppressed commitment. Mutations, attendance and reminders retain
+their original fresh authorization and source checks; a clean watermark grants
+no write authority and history-only readers do not start maintenance.
+
+`scheduling_verify_maintenance_triggers()` checks the full dependency set before
+either consumer trusts metadata. Missing, disabled, column-restricted,
+conditional, deferred or wrong-function triggers fail closed, as does a connection
+whose `session_replication_role` is not `origin`. It verifies the metadata repair
+guards too. Apply the committed migration instead of bypassing that error.
+`scheduling_metadata_deleted` observes deleted pending events through its transition
+table; `scheduling_metadata_truncated` observes an event-table TRUNCATE. Both call
+`scheduling_invalidate_deleted_metadata()` to obsolete the publication and
+settlement versions, forcing rediscovery even when the state row remains. Normal
+cleanup only deletes fully consumed events and does not invalidate the watermark.
+Readers acquire `ACCESS SHARE` on both metadata relations before taking one
+state/event snapshot, so a concurrent TRUNCATE cannot pair an old state with a
+newly empty event table. Publication acknowledgement compares the captured
+committed row's `xmin`; reset, deletion or recreation prevents that earlier pass
+from certifying the replacement state. A missing state is inserted obsolete and
+needs a later committed pass. Settlement bootstrap and page writes likewise
+check the captured generation, and obsolete state forces rediscovery. Source
+inserts remain compatible with these relation locks; no trigger acquires a
+planning fence after holding metadata locks.
+Opposite metadata row/table orders can still produce a PostgreSQL deadlock.
+Database-only maintenance entrypoints retry a known aborted transaction at most
+twice, always in a fresh whole transaction. They never retry a callback inside a
+caller-owned transaction. Other failures propagate, and an external reset caller
+must retry its own complete aborted transaction. Publication notices and recovery
+changes roll back with the failed attempt; no mail is sent by these callbacks.
+Clearing both exact metadata tables together also rebuilds both consumers on the
+next read. Disabled-trigger imports and whole-database restoration require
+clearing both metadata tables before returning the site to service.
+Causal-recovery policy excludes only these exact
+rebuildable tables, while source writes and recovery evidence retain their
+original contracts.
+
 ## Agreements
 
 Tutees suggest; active tutors formalize. A matching suggestion supplies agreement
@@ -274,6 +407,98 @@ illustrative medians/ranges and query counts, not production p95. Locks and
 recovery triggers execute normally, but the fixture has no competing requests,
 negotiations, HTTP, rendering or SMTP. Recovery journal semantics and concurrent
 publication require the domain tests in addition to benchmark output parity.
+
+### Request profiling and comparison contract
+
+The dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
+runs `scripts/profile-scheduling-requests.ts` on Node 22 Linux against its own
+PostgreSQL service. Cold publication, warm agendas, Sunday catch-up, negotiation,
+allocation, catalog reads and competing requests each have separate latency and
+diagnostic jobs. Baseline and candidate run serially on the same runner with the
+same synthetic fixture, harness, anchor, dependency lockfile and database schema.
+The job reserves time for evidence upload and fails on exhausted budgets; partial
+samples do not count as passing evidence.
+
+The comparison helper rejects changed historical migrations or domain models.
+It permits only the exact appended maintenance models and their additive migration
+to be overlaid on the baseline. The baseline application source stays unchanged.
+This shared-schema control includes the new triggers' cost on both revisions; a
+separately labelled native-schema cold baseline records the original schema too.
+Later comparisons with byte-identical schemas and migration chains require no
+overlay or native-schema control. Unrelated schema changes still fail closed.
+For a combined-feature run, manual dispatch may select an explicitly reviewed
+manifest under `.github/scheduling-profile-manifests/`. It must bind the exact
+baseline/candidate schema hashes, dependency lockfile, complete historical
+migration inventory and added migration paths/hashes. Every unlisted difference
+is rejected; the manifest and its hash accompany the evidence. Such a control
+is labelled as running the baseline application under the candidate schema.
+Scenarios unavailable in the baseline need separate candidate evidence, without
+a baseline parity or speedup claim.
+Artifacts retain source hashes, overlay paths, migration checksums, runtime,
+individual samples, errors and normalized output comparisons.
+
+HTTP mode uses the production tRPC router through the standalone HTTP adapter,
+the real client serializer and current authorization middleware. Synthetic opaque
+cookie capabilities replace the login exchange. It measures actual loopback HTTP,
+database queries and transactions, but excludes Next ingress/proxy, Auth.js login,
+TLS, browser rendering and SMTP. The harness selects the official `server-only`
+server entry with an exact-specifier module hook; React and Auth.js keep their
+normal resolution. Invoke it with both preloads:
+
+```sh
+node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts --scenario warm --transport http --mode latency --samples 40 --anchor <shared-ISO-instant> --output outputs/scheduling-profile/warm.json
+```
+
+The database guard requires the explicitly owned loopback port 55439 and database
+`shbs_performance_test`, without URL overrides. The harness truncates its public
+fixture tables without CASCADE and rejects cross-schema dependencies. It never
+loads dotenv configuration or sends mail. Do not run it against a shared database.
+
+Latency mode reports raw samples and nearest-rank empirical p50/p95 after a
+discarded warmup: 20 rounds for cold/Sunday and 40 for other workflow scenarios.
+Cold means empty planning tables, not a restarted OS or database. Diagnostic
+runs are separate and report query counts/time, advisory acquisition elapsed and
+observed transaction-held intervals through commit. These intervals include driver
+and transport overhead; CPU and event-loop figures are process-wide and overlap
+under contention. They are not exact PostgreSQL wait accounting. Explicit domain
+clocks used for Sunday and deadline cases are labelled separately.
+
+Unfinished operations remain in timeout receipts as censored elapsed lower bounds,
+with explicit unfinished/error counts. They are excluded from completed p50/p95;
+partial or timed-out runs cannot establish latency gains. Completed failures remain
+in completed elapsed samples and are counted separately.
+
+The explicit `backlog` scenario is diagnostic-only, runs one to three rounds with
+no warmup, and is excluded from `--scenario all`. It exercises 205 open requests,
+the original ordered 200-request cap, 60 scoped notice failures followed by
+recovery, and 1,200 genuine room updates. An isolated SQL observer retains raw
+ordered timestamp writes and checks the exact open-request rotation clock plus
+terminal timestamps against the operation window. Instrumentation is removed in
+`finally`. These stress observations report no request latency percentiles and
+do not represent production traffic.
+
+Room creation and deletion take the catalog lock before the planned-room lock.
+An allocator holding the latter therefore sees stable catalog membership through
+its serial decisions. The per-room booking index stays operation-local. Bulk-wide
+canonical ownership reuse is deliberately deferred: the planned-room lock does
+not freeze all ownership writers, so such reuse needs a separate freshness proof
+and measured benefit. Final room conflict checks remain live.
+
+Parity checks cover business records, receipts, notices, ordered recovery changes
+and fences. Generated identifiers require unambiguous witnesses, and receipt
+hashes must match their exact inputs before canonical comparison. The sequential
+late-root witness preserves two participant journal changes and fence revision
+two; combining cohort and participant writes into one SQL statement remains
+unsupported. Under-one-second first publication is a target to verify from a
+passing supported-runtime result, not a property established by this harness's
+presence or by earlier Windows measurements.
+Persistence `createdAt`/`updatedAt` values are omitted recursively, including in
+journal snapshots and procedure results. Continuation creation boundaries and
+sweep selection/rotation therefore need separate semantic witnesses. This is
+normalized output parity, not byte-identical full journal content. The native
+original-schema control currently covers cold publication only; other shared-schema
+comparisons isolate application changes and do not establish whole-rollout gains
+including new trigger overhead.
 
 [Workflow tests](../../src/server/session-planning/workflows.test.ts) exercise
 the real transaction/state model against the guarded isolated test database.

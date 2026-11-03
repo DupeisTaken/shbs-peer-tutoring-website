@@ -1,0 +1,151 @@
+name: Scheduling request profile
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/scheduling-profile.yml"
+      - "scripts/profile-scheduling-requests.ts"
+      - "scripts/scheduling-profile/**"
+      - "scripts/run-scheduling-profile-ci.sh"
+      - "src/server/session-planning/**"
+      - "src/server/room-allocation.ts"
+      - "src/server/bulk-room-allocation.ts"
+      - "src/server/api/routers/admin.ts"
+      - "src/server/api/routers/tutor.ts"
+      - "src/server/database-options.ts"
+      - "src/lib/program-time.ts"
+      - "src/lib/school-calendar.ts"
+      - "prisma/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: "Immutable 40-character baseline commit SHA"
+        required: true
+        type: string
+      schema-manifest:
+        description: "Optional exact reviewed manifest under .github/scheduling-profile-manifests/"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduling-profile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      # Independent hosted runners own separate databases. Each before/after
+      # pair remains serial on its same runner with fixed resource limits.
+      max-parallel: 3
+      matrix:
+        scenario: [cold, warm, sunday, negotiation, allocation, catalog, contention]
+        mode: [latency, diagnostic]
+        include:
+          - scenario: backlog
+            mode: diagnostic
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shbs_performance_test
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shbs_performance_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BASELINE_SHA: ${{ github.event.pull_request.base.sha || inputs.baseline }}
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PROFILE_SCENARIO: ${{ matrix.scenario }}
+      PROFILE_MODE: ${{ matrix.mode }}
+      PROFILE_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
+    steps:
+      - name: Validate immutable source selection
+        shell: bash
+        run: |
+          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
+            [[ "$PROFILE_SCHEMA_MANIFEST" =~ ^\.github/scheduling-profile-manifests/[a-zA-Z0-9_-]+\.json$ ]]
+          fi
+          # Leave room for failure receipts/artifact upload before the job's 9m cap.
+          echo "PROFILE_DEADLINE=$(( $(date +%s) + 420 ))" >> "$GITHUB_ENV"
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: profile-head
+          persist-credentials: false
+      - name: Checkout baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          path: profile-base
+          persist-credentials: false
+      - name: Freeze comparison inputs
+        shell: bash
+        run: |
+          mkdir -p profile-head/outputs/scheduling-profile profile-base/scripts/scheduling-profile
+          # Inspect before copying: default allows only the initial additive
+          # metadata. Combined-feature runs require an explicit exact hash manifest;
+          # every historical migration and baseline application file stays intact.
+          manifest_args=()
+          if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
+            manifest_args=(inspect "$PWD/profile-head/$PROFILE_SCHEMA_MANIFEST")
+          fi
+          node profile-head/scripts/scheduling-profile/comparison-inputs.mjs \
+            profile-base profile-head profile-head/outputs/scheduling-profile/comparison-inputs.json "${manifest_args[@]}"
+          cp profile-head/scripts/profile-scheduling-requests.ts profile-base/scripts/
+          cp profile-head/scripts/run-scheduling-profile-ci.sh profile-base/scripts/
+          cp profile-head/scripts/scheduling-profile/* profile-base/scripts/scheduling-profile/
+          date -u +%Y-%m-%dT%H:%M:%S.000Z > profile-head/outputs/scheduling-profile/anchor.txt
+          timeout 60 docker pull node:22-alpine
+          docker image inspect node:22-alpine --format '{{.Id}}' > profile-head/outputs/scheduling-profile/node-image.txt
+      - name: Measure baseline then candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          anchor="$(cat profile-head/outputs/scheduling-profile/anchor.txt)"
+          node_image="$(cat profile-head/outputs/scheduling-profile/node-image.txt)"
+          samples=40
+          if [[ "$PROFILE_SCENARIO" == cold || "$PROFILE_SCENARIO" == sunday ]]; then samples=20; fi
+          if [[ "$PROFILE_MODE" == diagnostic ]]; then samples=3; fi
+          # One complete multi-batch stress probe, not a latency percentile run.
+          if [[ "$PROFILE_SCENARIO" == backlog ]]; then samples=1; fi
+          for revision in base head; do
+            docker run --rm --cpus=2 --memory=4g --network=host \
+              -v "$PWD/profile-$revision:/work" \
+              -v "$PWD/profile-head/outputs/scheduling-profile:/evidence" \
+              -v "$PWD/profile-head:/overlay:ro" \
+              -w /work \
+              -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55439/shbs_performance_test \
+              -e AUTH_SECRET=synthetic-scheduling-profile-secret-only \
+              -e NEXT_TELEMETRY_DISABLED=1 \
+              -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
+              -e PROFILE_REVISION="$revision" -e PROFILE_SCENARIO -e PROFILE_MODE -e PROFILE_DEADLINE \
+              -e PROFILE_SCHEMA_MANIFEST \
+              -e PROFILE_ANCHOR="$anchor" -e PROFILE_SAMPLES="$samples" \
+              "$node_image" sh -eu scripts/run-scheduling-profile-ci.sh \
+              2>&1 | tee "profile-head/outputs/scheduling-profile/$revision.log"
+          done
+      - name: Retain raw samples and failure receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduling-profile-${{ matrix.scenario }}-${{ matrix.mode }}-${{ github.run_attempt }}
+          path: profile-head/outputs/scheduling-profile/
+          retention-days: 7
+          if-no-files-found: warn

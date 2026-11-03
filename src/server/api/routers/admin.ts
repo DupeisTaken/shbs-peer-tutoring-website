@@ -3493,6 +3493,9 @@ export const adminRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockProgramRooms(tx);
+        // Keep catalog membership stable for the complete allocation transaction,
+        // using the same catalog-before-schedule order as room deletion.
+        await lockPlannedRoomSchedule(tx);
         const last = await tx.room.aggregate({ _max: { programOrder: true } });
         return tx.room.create({
           data: { ...input, programOrder: (last._max.programOrder ?? -1) + 1 },

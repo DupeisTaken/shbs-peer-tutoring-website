@@ -43,6 +43,23 @@ export async function participantKeys(
   return { tutor, tutee };
 }
 
+/** One immutable proposed party can be compared with many freshly read
+ * commitments. This captures only the caller's operation-local identity map;
+ * it never caches ownership across transactions or requests. */
+export function createParticipantOverlapChecker(
+  keys: Awaited<ReturnType<typeof participantKeys>>,
+  tutorId: string,
+  tuteeIds: readonly string[],
+) {
+  const own = new Set([
+    keys.tutor.get(tutorId) ?? `tutor:${tutorId}`,
+    ...tuteeIds.map((id) => keys.tutee.get(id) ?? `tutee:${id}`),
+  ]);
+  return (otherTutorId: string, otherTuteeIds: readonly string[]) =>
+    own.has(keys.tutor.get(otherTutorId) ?? `tutor:${otherTutorId}`) ||
+    otherTuteeIds.some((id) => own.has(keys.tutee.get(id) ?? `tutee:${id}`));
+}
+
 export function participantsOverlap(
   keys: Awaited<ReturnType<typeof participantKeys>>,
   tutorId: string,
@@ -50,12 +67,8 @@ export function participantsOverlap(
   otherTutorId: string,
   otherTuteeIds: readonly string[],
 ) {
-  const own = new Set([
-    keys.tutor.get(tutorId) ?? `tutor:${tutorId}`,
-    ...tuteeIds.map((id) => keys.tutee.get(id) ?? `tutee:${id}`),
-  ]);
-  return [
-    keys.tutor.get(otherTutorId) ?? `tutor:${otherTutorId}`,
-    ...otherTuteeIds.map((id) => keys.tutee.get(id) ?? `tutee:${id}`),
-  ].some((key) => own.has(key));
+  return createParticipantOverlapChecker(keys, tutorId, tuteeIds)(
+    otherTutorId,
+    otherTuteeIds,
+  );
 }
