@@ -10,7 +10,8 @@ private-history correction, participation transfer, typed identity journaling,
 identity scheduling invalidation, exact notification provenance, and the narrowed
 student metadata guard. Historical SQL and dependency bytes remain unchanged.
 Hashes use immutable Git blob bytes, matching Linux CI rather than Windows newline
-conversion. The pure comparison validator accepted this exact inventory locally.
+conversion. Local validation exposed a historical-path compatibility failure in
+the comparison helper; the manifest is pending revalidation after that repair.
 
 This manifest authorizes a controlled measurement setup; it does not establish
 feature correctness or passing latency results. The baseline application runs under
