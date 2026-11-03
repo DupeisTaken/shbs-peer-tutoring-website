@@ -143,6 +143,137 @@ void test("driver diagnostics attribute queries, errors and lock lifetime to the
   assert.equal(pool.listenerCount("connect"), 0);
 });
 
+const trySql = "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS locked";
+const tryResult = (locked: unknown, array = false) => ({ command: "SELECT", rowCount: 1,
+  fields: [{ name: "locked", dataTypeID: 16 }], rows: [array ? [locked] : { locked }] });
+
+void test("canonical object and Prisma array-mode true results create separate try-held intervals", async () => {
+  for (const array of [false, true]) {
+    const pool = new EventEmitter() as Pool;
+    const result = tryResult(true, array);
+    const client = { query: (query: string | { text: string }) =>
+      Promise.resolve((typeof query === "string" ? query : query.text) === trySql ? result : { rows: [] }) } as unknown as PoolClient;
+    const profiler = createProfiler("diagnostic");
+    profiler.attachPool(pool); pool.emit("connect", client);
+    try {
+      await profiler.measure("try", async () => {
+        await client.query("BEGIN");
+        assert.equal(await client.query({ text: trySql, values: ["program:period"], ...(array ? { rowMode: "array" } : {}) }), result);
+        await client.query("COMMIT");
+      });
+      const d = profiler.summary().samples[0]!.diagnostics!;
+      assert.equal(d.driverQueries.count, 3);
+      assert.deepEqual(d.acquisitionStatementMs, []);
+      assert.deepEqual(d.lockHeldTransactionMs, []);
+      assert.equal(d.advisoryTryLock?.attemptMs.length, 1);
+      assert.deepEqual(d.advisoryTryLock?.outcomes, ["granted"]);
+      assert.equal(d.advisoryTryLock?.granted, 1);
+      assert.equal(d.advisoryTryLock?.lockHeldTransactionMs.length, 1);
+      assert.equal(d.advisoryTryLock?.implicitTransactionAcquisitions, 0);
+    } finally { profiler.close(); }
+  }
+});
+
+void test("denied, malformed and failed try probes never imply lock acquisition", async () => {
+  const pool = new EventEmitter() as Pool;
+  const failure = new Error("synthetic try failure");
+  const values = [tryResult(false), tryResult("true"), { rows: [{ locked: true }] },
+    { ...tryResult(true), rows: [{ locked: true }, { locked: true }] },
+    { ...tryResult(true), fields: [{ name: "locked", dataTypeID: 25 }] },
+    { ...tryResult(true), rows: [{ locked: true, extra: true }] }, failure];
+  const client = { query: (sql: string) => {
+    if (sql !== trySql) return Promise.resolve({ rows: [] });
+    const next = values.shift();
+    return next === failure ? Promise.reject(failure) : Promise.resolve(next);
+  } } as unknown as PoolClient;
+  const profiler = createProfiler("diagnostic"); profiler.attachPool(pool); pool.emit("connect", client);
+  try {
+    await profiler.measure("denied", async () => {
+      await client.query("BEGIN");
+      for (let i = 0; i < 6; i++) await client.query(trySql, ["session-planning"]);
+      await assert.rejects(client.query(trySql, ["session-planning"]), (error) => error === failure);
+      await client.query("ROLLBACK");
+    });
+    const d = profiler.summary().samples[0]!.diagnostics!;
+    assert.equal(d.driverQueries.errors, 1);
+    assert.equal(d.advisoryTryLock?.attemptMs.length, 7);
+    assert.deepEqual(d.advisoryTryLock?.outcomes, ["denied", ...Array.from({ length: 5 }, () => "unrecognized"), "error"]);
+    assert.equal(d.advisoryTryLock?.granted, 0);
+    assert.equal(d.advisoryTryLock?.denied, 1);
+    assert.equal(d.advisoryTryLock?.errors, 1);
+    assert.equal(d.advisoryTryLock?.unrecognized, 5);
+    assert.deepEqual(d.advisoryTryLock?.lockHeldTransactionMs, []);
+    assert.deepEqual(d.lockHeldTransactionMs, []);
+  } finally { profiler.close(); }
+});
+
+void test("only the exact bound planning probe is attributed as a try-lock attempt", async () => {
+  const pool = new EventEmitter() as Pool;
+  const client = { query: () => Promise.resolve(tryResult(true)) } as unknown as PoolClient;
+  const profiler = createProfiler("diagnostic"); profiler.attachPool(pool); pool.emit("connect", client);
+  try {
+    await profiler.measure("unrelated", async () => {
+      for (const sql of ["SELECT 'pg_try_advisory_xact_lock($1)'", `-- unrelated\n${trySql}`,
+        `${trySql}; SELECT true`, "SELECT pg_try_advisory_xact_lock($1) AS locked"]) {
+        await client.query(sql, ["program:period"]);
+      }
+      await client.query(trySql, ["another-key"]);
+      await client.query(trySql, ["program:period", "extra"]);
+      await client.query(trySql);
+    });
+    assert.deepEqual(profiler.summary().samples[0]!.diagnostics!.advisoryTryLock?.attemptMs, []);
+  } finally { profiler.close(); }
+});
+
+void test("try probes retain callback receiver, result identity and array-mode Boolean evidence", async () => {
+  const pool = new EventEmitter() as Pool;
+  const receiver = { kind: "callback" }, sentinel = {}, result = tryResult(true, true);
+  const client = { query: (_sql: unknown, _values: unknown, callback: (this: unknown, error: unknown, value: unknown) => void) => {
+    queueMicrotask(() => callback.call(receiver, null, result)); return sentinel;
+  } } as unknown as PoolClient;
+  const profiler = createProfiler("diagnostic"); profiler.attachPool(pool); pool.emit("connect", client);
+  try {
+    await profiler.measure("callback-try", () => new Promise<void>((resolve) => {
+      const returned = client.query(trySql, ["planned-room-schedule"], function (this: unknown, error, value) {
+        assert.equal(this, receiver); assert.equal(error, null); assert.equal(value, result); resolve();
+      });
+      assert.equal(returned, sentinel);
+    }));
+    const d = profiler.summary().samples[0]!.diagnostics!.advisoryTryLock!;
+    assert.equal(d.granted, 1); assert.equal(d.implicitTransactionAcquisitions, 1);
+    assert.deepEqual(d.lockHeldTransactionMs, []);
+  } finally { profiler.close(); }
+});
+
+void test("mixed blocking and partial try-prefix holds stay independent; uncertain try spans are not complete holds", async () => {
+  const pool = new EventEmitter() as Pool;
+  const results = [tryResult(true), tryResult(false), tryResult(true), tryResult(true)];
+  const client = { query: (sql: string) => Promise.resolve(sql === trySql ? results.shift() : { rows: [] }) } as unknown as PoolClient;
+  const profiler = createProfiler("diagnostic"); profiler.attachPool(pool); pool.emit("connect", client);
+  try {
+    await profiler.measure("mixed", async () => {
+      await client.query("BEGIN"); await client.query("SELECT pg_advisory_xact_lock($1)", [42]);
+      await client.query(trySql, ["program:period"]); await client.query(trySql, ["planned-room-schedule"]);
+      await client.query("COMMIT");
+    });
+    await profiler.measure("savepoint-try", async () => {
+      await client.query("BEGIN"); await client.query(trySql, ["program:period"]);
+      await client.query("ROLLBACK TO SAVEPOINT fixture"); await client.query("ROLLBACK");
+    });
+    await profiler.measure("released-try", async () => {
+      await client.query("BEGIN"); await client.query(trySql, ["program:period"]); pool.emit("release", undefined, client);
+    });
+    const [mixed, savepoint, released] = profiler.summary().samples.map((sample) => sample.diagnostics!);
+    assert.equal(mixed!.acquisitionStatementMs.length, 1); assert.equal(mixed!.lockHeldTransactionMs.length, 1);
+    assert.deepEqual(mixed!.advisoryTryLock?.outcomes, ["granted", "denied"]);
+    assert.equal(mixed!.advisoryTryLock?.lockHeldTransactionMs.length, 1);
+    assert.deepEqual(savepoint!.advisoryTryLock?.lockHeldTransactionMs, []);
+    assert.deepEqual(savepoint!.advisoryTryLock?.uncertainLockIntervals.map((row) => row.reason), ["savepoint-rollback"]);
+    assert.deepEqual(released!.advisoryTryLock?.lockHeldTransactionMs, []);
+    assert.deepEqual(released!.advisoryTryLock?.uncertainLockIntervals.map((row) => row.reason), ["client-release-without-observed-end"]);
+  } finally { profiler.close(); }
+});
+
 void test("callback-style queries preserve return values and callback errors", async () => {
   const pool = new EventEmitter() as Pool;
   const failure = new Error("callback failure");
