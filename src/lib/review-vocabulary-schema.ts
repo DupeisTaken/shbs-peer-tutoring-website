@@ -2221,6 +2221,33 @@ export const reviewSchema = {
     enums: {},
     fields: ["id", "kind", "applicationId", "before", "after", "createdAt"],
   },
+  RecoveryCheckpoint: {
+    // Source IDs are adapter-specific, not a foreign key or a display route.
+    references: {},
+    enums: {},
+    fields: ["id", "actionId", "schemaVersion", "adapter", "adapterVersion", "sourceEntity", "sourceId", "capturedById", "captureTransactionId", "scope", "createdAt"],
+  },
+  RecoveryDeliveryEffect: {
+    references: {},
+    enums: {},
+    fields: ["id", "actionId", "eventId", "notificationId", "deliveryId", "createdAt"],
+  },
+  RecoveryDeliveryCancellation: {
+    references: {},
+    enums: {},
+    fields: ["effectId", "recoveryKey", "disposition", "createdAt"],
+  },
+  RecoveryDeliveryCoverage: {
+    references: {},
+    enums: {},
+    fields: ["eventId", "actionId", "version", "createdAt"],
+  },
+  RecoveryWorkflowDraft: {
+    // Exact owner/source bindings are read only by the authorized draft workflow.
+    references: {},
+    enums: {},
+    fields: ["id", "actionId", "sourceSurveyId", "sourceTuteeId", "ownerUserId", "ownerBindingHash", "answers", "state", "version", "submittedSurveyId", "consumedAt", "createdAt"],
+  },
   RecoveryEvent: {
     references: {},
     enums: {},

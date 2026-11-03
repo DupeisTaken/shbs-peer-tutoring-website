@@ -142,6 +142,43 @@ it("labels recovery evidence only within its known schema owners", () => {
   expect(auditFieldLabelKey("UnknownRecord", "changedFields")).toBeNull();
 });
 
+it("registers all five scoped recovery models with exact current scalar fields", () => {
+  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
+  for (const entity of ["RecoveryCheckpoint", "RecoveryDeliveryEffect", "RecoveryDeliveryCancellation",
+    "RecoveryDeliveryCoverage", "RecoveryWorkflowDraft"] as const) {
+    const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)]
+      .find((match) => match[1] === entity);
+    expect(model, entity).toBeDefined();
+    const scalarFields = [...model![2]!.matchAll(
+      /^\s*(\w+)\s+(?:String|Int|BigInt|Float|Boolean|DateTime|Json)(?:[?\[\]\s])/gm,
+    )].map((match) => match[1]);
+    expect(reviewSchema[entity].fields, entity).toEqual(scalarFields);
+    expect(reviewSchema[entity].enums, entity).toEqual({});
+    expect(reviewSchema[entity].references, entity).toEqual({});
+    expect(auditEntityLabelKey(entity)).toBe(`auditEventDetails.presentation.entities.${entity}`);
+  }
+});
+
+it("withholds checkpoint scope and exact draft identity/answers without narrowing unrelated field owners", () => {
+  const withheld = {
+    RecoveryCheckpoint: ["sourceId", "capturedById", "captureTransactionId", "scope"],
+    RecoveryWorkflowDraft: ["sourceSurveyId", "sourceTuteeId", "ownerUserId", "ownerBindingHash", "answers", "submittedSurveyId"],
+  };
+  for (const [entity, fields] of Object.entries(withheld)) for (const field of fields) {
+    expect(auditFieldLabelKey(entity, field), `${entity}.${field}`).toBeNull();
+    expect(auditEnumLabelKey(entity, field, "PENDING_OWNER_REVIEW"), `${entity}.${field}`).toBeNull();
+    expect(auditReferenceEntity(entity, field), `${entity}.${field}`).toBeUndefined();
+  }
+  expect(auditFieldLabelKey("RecoveryCheckpoint", "actionId")).toBe("auditEventDetails.presentation.fields.actionId");
+  expect(auditFieldLabelKey("RecoveryWorkflowDraft", "state")).toBe("auditEventDetails.presentation.fields.state");
+  expect(auditFieldLabelKey("SessionPlanningRequest", "scope")).toBe("auditEventDetails.presentation.fields.scope");
+  expect(auditReferenceEntity("RecoveryCheckpoint", "sourceId")).toBeUndefined();
+  // String state names remain literal until their owning workflow registers a
+  // deliberate translation. Neither a polymorphic ID nor a token creates a route.
+  expect(auditEnumLabelKey("RecoveryWorkflowDraft", "state", "PENDING_OWNER_REVIEW")).toBeNull();
+  expect(auditEnumLabelKey("RecoveryCheckpoint", "state", "PENDING_OWNER_REVIEW")).toBeNull();
+});
+
 it("labels continuation evidence and retained-request outcomes only on their owning records", () => {
   for (const entity of [
     "StudentContinuationReceipt",
