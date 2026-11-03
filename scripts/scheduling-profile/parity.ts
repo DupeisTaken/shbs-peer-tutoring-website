@@ -1026,3 +1026,138 @@ export function compareParity(actual: ParitySnapshot, expected: ParitySnapshot):
   // multi-megabyte snapshots. Its diagnostic must retain only this boolean.
   assert.ok(isDeepStrictEqual(actual, expected), "Scheduling persisted semantic state differs");
 }
+
+/** Diagnostic only: equality remains compareParity's independent responsibility.
+ * Canonical JSON is traversed without serializing containers or unbounded strings.
+ * Exhausted budgets are explicitly inconclusive, even for identical inputs.
+ */
+export function boundedParityDifference(
+  actual: unknown,
+  expected: unknown,
+  options: Readonly<{
+    maxDepth?: number;
+    maxVisitedNodes?: number;
+    maxPathLength?: number;
+    maxPreviewLength?: number;
+  }> = {},
+): {
+  path: string;
+  kind: "type" | "scalar" | "array-length" | "missing-key" | "extra-key" | "truncated";
+  actualPreview: string;
+  expectedPreview: string;
+  truncated: boolean;
+  reason?: "depth" | "visited-nodes" | "path-length" | "non-json-value";
+  visitedNodes: number;
+} | null {
+  const limit = (requested: number | undefined, ceiling: number, minimum = 0) =>
+    requested !== undefined && Number.isSafeInteger(requested) && requested >= minimum
+      ? Math.min(requested, ceiling) : ceiling;
+  const maxDepth = limit(options.maxDepth, 64);
+  const maxVisitedNodes = limit(options.maxVisitedNodes, 200_000, 1);
+  const maxPathLength = limit(options.maxPathLength, 512);
+  const maxPreviewLength = limit(options.maxPreviewLength, 160, 8);
+  let visitedNodes = 0;
+  type Difference = NonNullable<ReturnType<typeof boundedParityDifference>>;
+  const clip = (value: string) => value.length <= maxPreviewLength
+    ? value : `${value.slice(0, maxPreviewLength - 1)}…`;
+  const kind = (value: unknown) => value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+  const preview = (value: unknown): string => {
+    if (typeof value === "string") {
+      const prefix = value.slice(0, maxPreviewLength);
+      return clip(`${JSON.stringify(prefix)}${prefix.length < value.length ? "…" : ""}`);
+    }
+    if (value === null) return "null";
+    if (Array.isArray(value)) return clip(`[array length=${value.length}]`);
+    if (typeof value === "object") return "[object]";
+    if (typeof value === "number" || typeof value === "boolean") return clip(String(value));
+    // Do not stringify opaque symbols/functions/bigints supplied outside JSON.
+    return clip(`[${typeof value}]`);
+  };
+  const difference = (path: string, category: Difference["kind"], left: unknown, right: unknown): Difference => ({
+    path, kind: category, actualPreview: preview(left), expectedPreview: preview(right),
+    truncated: false, visitedNodes,
+  });
+  const truncated = (path: string, reason: NonNullable<Difference["reason"]>, left: unknown, right: unknown): Difference => ({
+    ...difference(path, "truncated", left, right), truncated: true, reason,
+  });
+  const spend = () => {
+    if (visitedNodes >= maxVisitedNodes) return false;
+    visitedNodes++;
+    return true;
+  };
+  // Escape incrementally: a single enormous key must not allocate an enormous
+  // escaped path before discovering that the path budget was exceeded.
+  const pointer = (parent: string, key: string): string | null => {
+    let path = `${parent}/`;
+    if (path.length > maxPathLength) return null;
+    for (let index = 0; index < key.length; index++) {
+      const character = key[index]!;
+      const escaped = character === "~" ? "~0" : character === "/" ? "~1" : character;
+      if (path.length + escaped.length > maxPathLength) return null;
+      path += escaped;
+    }
+    return path;
+  };
+  const visit = (left: unknown, right: unknown, path: string, depth: number): Difference | null => {
+    if (!spend()) return truncated(path, "visited-nodes", left, right);
+    if (depth > maxDepth) return truncated(path, "depth", left, right);
+    const leftKind = kind(left);
+    const rightKind = kind(right);
+    if (leftKind !== rightKind) return difference(path, "type", left, right);
+    if (left === null || typeof left === "string" || typeof left === "boolean" || typeof left === "number")
+      return Object.is(left, right) ? null : difference(path, "scalar", left, right);
+    if (Array.isArray(left) && Array.isArray(right)) {
+      const leftRows: readonly unknown[] = left;
+      const rightRows: readonly unknown[] = right;
+      if (leftRows.length !== rightRows.length) return difference(path, "array-length", leftRows.length, rightRows.length);
+      for (let index = 0; index < leftRows.length; index++) {
+        const next = pointer(path, String(index));
+        if (next === null) return truncated(path, "path-length", left, right);
+        const found = visit(leftRows[index], rightRows[index], next, depth + 1);
+        if (found) return found;
+      }
+      return null;
+    }
+    if (typeof left !== "object" || left === null || typeof right !== "object" || right === null)
+      return truncated(path, "non-json-value", left, right);
+    const leftRows = left as Readonly<Record<string, unknown>>;
+    const rightRows = right as Readonly<Record<string, unknown>>;
+    const keys: string[][] = [[], []];
+    // Bound key enumeration too, before allocating/sorting a wide object's full
+    // key set. Returning truncation preserves deterministic diagnostics safely.
+    for (const [index, object] of [leftRows, rightRows].entries()) {
+      for (const key in object) {
+        if (!Object.prototype.hasOwnProperty.call(object, key)) continue;
+        if (!spend()) return truncated(path, "visited-nodes", left, right);
+        if (key.length + path.length + 1 > maxPathLength)
+          return truncated(path, "path-length", left, right);
+        keys[index]!.push(key);
+      }
+      keys[index]!.sort();
+    }
+    const leftKeys = keys[0]!;
+    const rightKeys = keys[1]!;
+    let leftIndex = 0;
+    let rightIndex = 0;
+    while (leftIndex < leftKeys.length || rightIndex < rightKeys.length) {
+      const leftKey = leftKeys[leftIndex];
+      const rightKey = rightKeys[rightIndex];
+      const key = rightKey === undefined || (leftKey !== undefined && leftKey < rightKey) ? leftKey! : rightKey;
+      const next = pointer(path, key);
+      if (next === null) return truncated(path, "path-length", left, right);
+      if (leftKey !== rightKey) {
+        const missing = leftKey === undefined || (rightKey !== undefined && rightKey < leftKey);
+        const found = difference(next, missing ? "missing-key" : "extra-key", leftRows[key], rightRows[key]);
+        if (missing) found.actualPreview = "[missing]";
+        else found.expectedPreview = "[missing]";
+        return found;
+      }
+      const found = visit(leftRows[key], rightRows[key], next, depth + 1);
+      if (found) return found;
+      leftIndex++;
+      rightIndex++;
+    }
+    return null;
+  };
+  return visit(actual, expected, "", 0);
+}

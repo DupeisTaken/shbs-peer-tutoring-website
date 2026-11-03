@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/scheduling-profile.yml"
+      - ".github/workflows/scheduling-profile-worker.yml"
       - ".github/scheduling-profile-manifests/**"
       - "scripts/profile-scheduling-requests.ts"
       - "scripts/scheduling-profile/**"
@@ -44,6 +45,7 @@ jobs:
     timeout-minutes: 6
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      preflight: ${{ steps.plan.outputs.preflight }}
       anchor: ${{ steps.plan.outputs.anchor }}
       node_image: ${{ steps.plan.outputs.node_image }}
       baseline: ${{ steps.selection.outputs.baseline }}
@@ -71,7 +73,8 @@ jobs:
         id: plan
         shell: bash
         run: |
-          echo "matrix=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix)" >> "$GITHUB_OUTPUT"
+          echo "preflight=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix preflight)" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix remaining)" >> "$GITHUB_OUTPUT"
           echo "anchor=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$GITHUB_OUTPUT"
           timeout 60 docker pull node:22-alpine
           echo "node_image=$(docker image inspect node:22-alpine --format '{{index .RepoDigests 0}}')" >> "$GITHUB_OUTPUT"
@@ -81,129 +84,60 @@ jobs:
         run: |
           docker run --rm --cpus=2 --memory=4g -v "$PWD:/work" -w /work \
             "$PROFILE_NODE_IMAGE" sh -ec 'npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts'
-  profile:
+  preflight:
     needs: matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.matrix.outputs.preflight) }}
+    uses: ./.github/workflows/scheduling-profile-worker.yml
+    with:
+      baseline: ${{ needs.matrix.outputs.baseline }}
+      candidate: ${{ github.event.pull_request.head.sha || github.sha }}
+      scenario: ${{ matrix.scenario }}
+      mode: ${{ matrix.mode }}
+      partition: ${{ matrix.partition }}
+      partition-count: ${{ matrix.partitionCount }}
+      samples: ${{ matrix.samples }}
+      anchor: ${{ needs.matrix.outputs.anchor }}
+      node-image: ${{ needs.matrix.outputs.node_image }}
+      schema-manifest: ${{ needs.matrix.outputs.manifest }}
+      baseline-selection-path: ${{ needs.matrix.outputs.baseline_path }}
+      baseline-selection-file-sha256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
+      baseline-selection-source: ${{ needs.matrix.outputs.baseline_source }}
+  profile:
+    needs: [matrix, preflight]
     strategy:
       fail-fast: false
       # Independent hosted runners own separate databases. Each before/after
       # pair remains serial on its same runner with fixed resource limits.
       max-parallel: 6
       matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: shbs_performance_test
-        ports:
-          - 55439:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d shbs_performance_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      BASELINE_SHA: ${{ needs.matrix.outputs.baseline }}
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      PROFILE_SCENARIO: ${{ matrix.scenario }}
-      PROFILE_MODE: ${{ matrix.mode }}
-      PROFILE_SCHEMA_MANIFEST: ${{ needs.matrix.outputs.manifest }}
-      PROFILE_BASELINE_SELECTION_PATH: ${{ needs.matrix.outputs.baseline_path }}
-      PROFILE_BASELINE_SELECTION_FILE_SHA256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
-      PROFILE_BASELINE_SELECTION_SOURCE: ${{ needs.matrix.outputs.baseline_source }}
-      PROFILE_PARTITION_INDEX: ${{ matrix.partition }}
-      PROFILE_PARTITION_COUNT: ${{ matrix.partitionCount }}
-      PROFILE_SAMPLES: ${{ matrix.samples }}
-      PROFILE_ANCHOR: ${{ needs.matrix.outputs.anchor }}
-      PROFILE_NODE_IMAGE: ${{ needs.matrix.outputs.node_image }}
-      PROFILE_PARTITION_RUNNER_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.scenario }}-${{ matrix.mode }}-${{ matrix.partition }}
-    steps:
-      - name: Validate immutable source selection
-        shell: bash
-        run: |
-          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
-            [[ "$PROFILE_SCHEMA_MANIFEST" =~ ^\.github/scheduling-profile-manifests/[a-zA-Z0-9_-]+\.json$ ]]
-          fi
-          # Leave room for failure receipts/artifact upload before the job's 9m cap.
-          echo "PROFILE_DEADLINE=$(( $(date +%s) + 420 ))" >> "$GITHUB_ENV"
-      - name: Checkout candidate
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.CANDIDATE_SHA }}
-          path: profile-head
-          persist-credentials: false
-      - name: Checkout baseline
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.BASELINE_SHA }}
-          path: profile-base
-          persist-credentials: false
-      - name: Freeze comparison inputs
-        shell: bash
-        run: |
-          mkdir -p profile-head/outputs/scheduling-profile profile-base/scripts/scheduling-profile
-          # Inspect before copying: default allows only the initial additive
-          # metadata. Combined-feature runs require an explicit exact hash manifest;
-          # every historical migration and baseline application file stays intact.
-          manifest_args=()
-          if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
-            manifest_args=(inspect "$PWD/profile-head/$PROFILE_SCHEMA_MANIFEST")
-          fi
-          node profile-head/scripts/scheduling-profile/comparison-inputs.mjs \
-            profile-base profile-head profile-head/outputs/scheduling-profile/comparison-inputs.json "${manifest_args[@]}"
-          cp profile-head/scripts/profile-scheduling-requests.ts profile-base/scripts/
-          cp profile-head/scripts/run-scheduling-profile-ci.sh profile-base/scripts/
-          cp profile-head/scripts/scheduling-profile/* profile-base/scripts/scheduling-profile/
-          printf '%s\n' "$PROFILE_ANCHOR" > profile-head/outputs/scheduling-profile/anchor.txt
-          timeout 60 docker pull "$PROFILE_NODE_IMAGE"
-          docker image inspect "$PROFILE_NODE_IMAGE" --format '{{.Id}}' > profile-head/outputs/scheduling-profile/node-image.txt
-      - name: Measure baseline then candidate
-        shell: bash
-        run: |
-          set -o pipefail
-          anchor="$(cat profile-head/outputs/scheduling-profile/anchor.txt)"
-          node_image="$(cat profile-head/outputs/scheduling-profile/node-image.txt)"
-          for revision in base head; do
-            docker run --rm --cpus=2 --memory=4g --network=host \
-              -v "$PWD/profile-$revision:/work" \
-              -v "$PWD/profile-head/outputs/scheduling-profile:/evidence" \
-              -v "$PWD/profile-head:/overlay:ro" \
-              -w /work \
-              -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55439/shbs_performance_test \
-              -e AUTH_SECRET=synthetic-scheduling-profile-secret-only \
-              -e NEXT_TELEMETRY_DISABLED=1 \
-              -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
-              -e PROFILE_REVISION="$revision" -e PROFILE_SCENARIO -e PROFILE_MODE -e PROFILE_DEADLINE \
-              -e PROFILE_SCHEMA_MANIFEST \
-              -e PROFILE_BASELINE_SELECTION_PATH -e PROFILE_BASELINE_SELECTION_FILE_SHA256 -e PROFILE_BASELINE_SELECTION_SOURCE \
-              -e PROFILE_ANCHOR="$anchor" -e PROFILE_SAMPLES \
-              -e PROFILE_PARTITION_INDEX -e PROFILE_PARTITION_COUNT -e PROFILE_PARTITION_RUNNER_ID \
-              -e PROFILE_RUNNER_NAME="$RUNNER_NAME" -e PROFILE_RUNNER_OS="$RUNNER_OS" -e PROFILE_RUNNER_ARCH="$RUNNER_ARCH" \
-              "$node_image" sh -eu scripts/run-scheduling-profile-ci.sh \
-              2>&1 | tee "profile-head/outputs/scheduling-profile/$revision.log"
-          done
-      - name: Retain raw samples and failure receipts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: scheduling-profile-${{ matrix.scenario }}-${{ matrix.mode }}-part-${{ matrix.partition }}-${{ github.run_attempt }}
-          path: profile-head/outputs/scheduling-profile/
-          retention-days: 7
-          if-no-files-found: warn
+    uses: ./.github/workflows/scheduling-profile-worker.yml
+    with:
+      baseline: ${{ needs.matrix.outputs.baseline }}
+      candidate: ${{ github.event.pull_request.head.sha || github.sha }}
+      scenario: ${{ matrix.scenario }}
+      mode: ${{ matrix.mode }}
+      partition: ${{ matrix.partition }}
+      partition-count: ${{ matrix.partitionCount }}
+      samples: ${{ matrix.samples }}
+      anchor: ${{ needs.matrix.outputs.anchor }}
+      node-image: ${{ needs.matrix.outputs.node_image }}
+      schema-manifest: ${{ needs.matrix.outputs.manifest }}
+      baseline-selection-path: ${{ needs.matrix.outputs.baseline_path }}
+      baseline-selection-file-sha256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
+      baseline-selection-source: ${{ needs.matrix.outputs.baseline_source }}
 
   aggregate:
-    needs: [matrix, profile]
+    needs: [matrix, preflight, profile]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 9
     env:
       BASELINE_SHA: ${{ needs.matrix.outputs.baseline }}
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PREFLIGHT_RESULT: ${{ needs.preflight.result }}
       PROFILE_RESULT: ${{ needs.profile.result }}
     steps:
       - uses: actions/checkout@v4
@@ -222,7 +156,9 @@ jobs:
           --output outputs/scheduling-profile-aggregate.json
       - name: Require every diagnostic and latency partition
         if: always()
-        run: test "$PROFILE_RESULT" = success
+        run: |
+          test "$PREFLIGHT_RESULT" = success
+          test "$PROFILE_RESULT" = success
       - uses: actions/upload-artifact@v4
         if: always()
         with:

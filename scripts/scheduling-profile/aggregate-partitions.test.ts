@@ -99,6 +99,24 @@ void test("one matrix spec retains all68 jobs and unchanged20/40/3/1 populations
   assert.ok(matrix.filter((row) => row.mode === "diagnostic" && row.scenario !== "backlog").every((row) => row.samples === 3));
 });
 
+void test("two diagnostic preflights and66 remaining jobs form the exact unchanged68-job population", () => {
+  const all = profileMatrix().include;
+  assert.deepEqual(profileMatrix("all").include, all);
+  const preflight = profileMatrix("preflight").include;
+  const remaining = profileMatrix("remaining").include;
+  assert.deepEqual(preflight, ["negotiation", "allocation"].map((scenario) => ({
+    scenario, mode: "diagnostic", partition: 0, partitionCount: 1, samples: 3,
+  })));
+  assert.equal(remaining.length, 66);
+  assert.equal(remaining.filter((row) => row.mode === "latency").length, 60);
+  assert.equal(remaining.filter((row) => row.mode === "diagnostic").length, 6);
+  const before = all.map((row) => JSON.stringify(row)).sort();
+  const after = [...preflight, ...remaining].map((row) => JSON.stringify(row)).sort();
+  assert.equal(new Set(after).size, 68, "Phases overlap or duplicate a job");
+  assert.deepEqual(after, before, "Phasing changed a job's scenario, sample count or partition contract");
+  assert.throws(() => profileMatrix("unknown"), /Unknown matrix phase/);
+});
+
 void test("pools all hosted observations and same-runner paired ratios without dropping intentional errors", () => {
   const result = aggregatePartitions(fixture(), options);
   assert.equal(result.status, "PASS");
@@ -149,6 +167,7 @@ const invalid: { name: string; change: (rows: Entries) => void; pattern: RegExp 
   { name: "over-budget PASS", change: (rows) => { rows[0]!.candidate.elapsedMs = 150_001; }, pattern: /over-budget/ },
   { name: "raised watchdog cap", change: (rows) => { rows[0]!.baseline.timeoutMs = 300_000; }, pattern: /over-budget/ },
   { name: "incomplete partition", change: (rows) => { rows[0]!.baseline.partitionComplete = false; }, pattern: /partition completion/ },
+  { name: "retained parity failure hidden behind PASS", change: (rows) => { Object.assign(rows[0]!.baseline, { parityFailure: { path: "failed-snapshot.json" } }); }, pattern: /failure\/cleanup error/ },
   { name: "missing completed receipt", change: (rows) => { rows[0]!.baseline.receipts.pop(); }, pattern: /four completed/ },
   { name: "missing local full parity", change: (rows) => { delete rows[0]!.baseline.receipts[0]!.parity; }, pattern: /first LOCAL|First LOCAL/ },
   { name: "missing full parity on a nonzero partition", change: (rows) => { delete rows[1]!.baseline.receipts[0]!.parity; }, pattern: /first LOCAL|First LOCAL/ },
@@ -244,6 +263,13 @@ void test("filesystem discovery retains raw references, excludes diagnostics, an
     writeFileSync(join(path, "head-budget.json"), JSON.stringify({ status: "TIMEOUT" }));
     assert.throws(() => loadPartitionInputs(root), /Failure\/timeout receipt/);
     rmSync(join(path, "head-budget.json"));
+    const failedParity = join(path, "head-latency.json.parity-failure.json");
+    writeFileSync(failedParity, JSON.stringify({ status: "FAIL", eligible: false, actualParity: {} }));
+    assert.throws(() => loadPartitionInputs(root), /Failed parity evidence retained/);
+    rmSync(failedParity);
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "PASS", mode: "diagnostic", parityFailure: { path: "missing-sidecar.json" } }));
+    assert.throws(() => loadPartitionInputs(root), /Diagnostic retains failed parity evidence/);
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "PASS", mode: "diagnostic" }));
     rmSync(join(path, "head-latency.json"));
     assert.throws(() => loadPartitionInputs(root), /Missing head-latency/);
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -255,6 +281,15 @@ void test("CLI matrix shares the spec and failed aggregation writes FAIL rather 
   assert.equal(matrix.status, 0, matrix.stderr);
   const parsed: unknown = JSON.parse(matrix.stdout);
   assert.deepEqual(parsed, profileMatrix());
+  for (const phase of ["all", "preflight", "remaining"]) {
+    const phased = spawnSync(process.execPath, [script, "--matrix", phase], { encoding: "utf8" });
+    assert.equal(phased.status, 0, phased.stderr);
+    const included: unknown = JSON.parse(phased.stdout);
+    assert.deepEqual(included, profileMatrix(phase));
+  }
+  const unknown = spawnSync(process.execPath, [script, "--matrix", "unknown"], { encoding: "utf8" });
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /Unknown matrix phase/);
   const root = mkdtempSync(join(tmpdir(), "scheduling-aggregate-cli-test-"));
   const output = join(root, "aggregate.json");
   try {
