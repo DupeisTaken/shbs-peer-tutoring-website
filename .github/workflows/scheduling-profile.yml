@@ -45,8 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
-      preflight: ${{ steps.plan.outputs.preflight }}
+      admission: ${{ steps.clock.outputs.status }}
+      matrix: ${{ steps.clock.outputs.matrix }}
+      preflight: ${{ steps.clock.outputs.preflight }}
       anchor: ${{ steps.plan.outputs.anchor }}
       node_image: ${{ steps.plan.outputs.node_image }}
       baseline: ${{ steps.selection.outputs.baseline }}
@@ -75,16 +76,45 @@ jobs:
           MANUAL_BASELINE_SHA: ${{ inputs.baseline || '' }}
           MANUAL_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
         run: node scripts/scheduling-profile/select-comparison.mjs . >> "$GITHUB_OUTPUT"
+      - name: Determine the common measurement interval
+        id: clock
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          preflight=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix preflight)
+          remaining=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix remaining)
+          echo "preflight=$preflight" >> "$GITHUB_OUTPUT"
+          echo "matrix=$remaining" >> "$GITHUB_OUTPUT"
+          node scripts/scheduling-profile/clock-admission.mjs --plan > clock-plan.json
+          jq --arg revision "$CANDIDATE_SHA" --arg run "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            '. + {revision: $revision, run: $run, attempt: $attempt}' clock-plan.json > clock-admission.json
+          status=$(jq -er '.status | select(. == "ADMITTED" or . == "DEFERRED")' clock-admission.json)
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [[ "$status" == DEFERRED ]]; then
+            next=$(jq -er .nextEligibleAt clock-admission.json)
+            printf '### Scheduling profile deferred\n\nNo benchmark ran. Next eligible UTC instant: %s. Check capacity and the PR head before resuming this exact run with `gh run rerun %s --repo %s`. Acceptance requires a complete PASS aggregate.\n' \
+              "$next" "$GITHUB_RUN_ID" "$GITHUB_REPOSITORY" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Preserve the deferred decision
+        if: steps.clock.outputs.status == 'DEFERRED'
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduling-profile-deferred-${{ github.run_attempt }}
+          retention-days: 7
+          path: clock-admission.json
+          if-no-files-found: error
       - name: Fix the sample population and shared clock
+        if: steps.clock.outputs.status == 'ADMITTED'
         id: plan
         shell: bash
         run: |
-          echo "preflight=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix preflight)" >> "$GITHUB_OUTPUT"
-          echo "matrix=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix remaining)" >> "$GITHUB_OUTPUT"
-          echo "anchor=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$GITHUB_OUTPUT"
+          anchor=$(jq -er .anchor clock-admission.json)
+          echo "anchor=$anchor" >> "$GITHUB_OUTPUT"
           timeout 60 docker pull node:22-alpine
           echo "node_image=$(docker image inspect node:22-alpine --format '{{index .RepoDigests 0}}')" >> "$GITHUB_OUTPUT"
       - name: Validate helpers under the measurement resource limits
+        if: steps.clock.outputs.status == 'ADMITTED'
         env:
           PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
         run: |
@@ -92,6 +122,7 @@ jobs:
             "$PROFILE_NODE_IMAGE" sh -ec 'npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts'
   preflight:
     needs: matrix
+    if: needs.matrix.outputs.admission == 'ADMITTED'
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -113,11 +144,12 @@ jobs:
       baseline-selection-source: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_source || needs.matrix.outputs.baseline_source }}
   profile:
     needs: [matrix, preflight]
+    if: needs.matrix.outputs.admission == 'ADMITTED'
     strategy:
       fail-fast: false
       # Independent hosted runners own separate databases. Each before/after
       # pair remains serial on its same runner with fixed resource limits.
-      max-parallel: 6
+      max-parallel: 4
       matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
     uses: ./.github/workflows/scheduling-profile-worker.yml
     with:
@@ -137,7 +169,7 @@ jobs:
 
   aggregate:
     needs: [matrix, preflight, profile]
-    if: always()
+    if: always() && needs.matrix.outputs.admission != 'DEFERRED'
     runs-on: ubuntu-latest
     timeout-minutes: 9
     env:
@@ -163,7 +195,7 @@ jobs:
           if [[ "$CATALOG_SELECTION_SOURCE" == "reviewed-pr-catalog-baseline-file" ]]; then
             catalog_args=(--catalog-baseline "$CATALOG_BASELINE_SHA")
           fi
-          node scripts/scheduling-profile/aggregate-partitions.mjs \
+          node --max-old-space-size=4096 scripts/scheduling-profile/aggregate-partitions.mjs \
             --input outputs/scheduling-profile-parts \
             --baseline "$BASELINE_SHA" --candidate "$CANDIDATE_SHA" "${catalog_args[@]}" \
             --output outputs/scheduling-profile-aggregate.json

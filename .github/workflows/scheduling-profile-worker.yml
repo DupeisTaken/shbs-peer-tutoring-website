@@ -96,6 +96,18 @@ jobs:
           ref: ${{ env.CANDIDATE_SHA }}
           path: profile-head
           persist-credentials: false
+      - name: Check remaining wall-clock budget before preparing the databases
+        shell: bash
+        working-directory: profile-head
+        run: |
+          node --input-type=module -e '
+            import { validateClockAdmissionBudget } from "./scripts/scheduling-profile/clock-admission.mjs";
+            const start = new Date();
+            validateClockAdmissionBudget({
+              anchor: process.env.PROFILE_ANCHOR,
+              startedAt: start,
+              timeoutMs: Number(process.env.PROFILE_DEADLINE) * 1000 - start.getTime(),
+            });'
       - name: Checkout baseline
         uses: actions/checkout@v4
         with:

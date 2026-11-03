@@ -1,9 +1,13 @@
+import { validateReportClocks } from "./clock-admission.mjs";
 import assert from "node:assert/strict";
+import { constants as bufferConstants } from "node:buffer";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
+import { performance } from "node:perf_hooks";
 import { CONTENTION_ORDERS, CONTENTION_SCENARIOS, assertContentionReferenceCompatibility, loadContentionReferences, validateFreeContentionReceipt } from "./contention-references.mjs";
 
 /** Parsed receipt fields are checked at runtime before use. The public result
@@ -22,7 +26,7 @@ import { CONTENTION_ORDERS, CONTENTION_SCENARIOS, assertContentionReferenceCompa
  */
 
 export const latencyScenarios = Object.freeze(["cold", "warm", "sunday", "negotiation", "allocation", "catalog", "contention"]);
-const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
+const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/clock-admission.mjs", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
 /** @param {string} scenario */
 const totalSamples = (scenario) => scenario === "cold" || scenario === "sunday" ? 20 : 40;
 /** @param {string | Buffer} value */
@@ -115,7 +119,7 @@ function validateReport(value, scenario, revision, index, manifest, native = fal
   same(fixture.scenarios, [scenario], "scenario population");
   same(fixture.samples, totalSamples(scenario), "total sample count (cannot lower caps/population)");
   same(fixture.transport, "http", "fixture transport");
-  assert.ok(Number.isFinite(Date.parse(fixture.anchor)), "Invalid shared anchor");
+  validateReportClocks(report);
   const runner = record(report.profileRunner, "Runner evidence");
   for (const key of ["id", "name", "os", "arch"]) text(runner[key], `Runner ${key}`);
   const runtime = record(report.runtime, "Runtime");
@@ -556,12 +560,91 @@ export function aggregatePartitions(inputs, options) {
   };
 }
 
+const DIAGNOSTIC_ISOLATION_BYTES = 32 * 1024 * 1024;
+// A UTF-8 byte can contribute at most one decoded UTF-16 code unit. This byte
+// bound is conservative even for non-ASCII files, and leaves string headroom.
+const MAX_DIAGNOSTIC_BYTES = Math.min(bufferConstants.MAX_STRING_LENGTH, 512 * 1024 * 1024) - 1024;
+const DIAGNOSTIC_CHILD_TIMEOUT_MS = 45_000;
+const DIAGNOSTIC_STAGE_TIMEOUT_MS = 120_000;
+
+/** Identical proof for small files and isolated large-file readers. Never
+ * stringify or include a report graph in assertion/error diagnostics.
+ * @param {unknown} value */
+function validateDiagnostic(value) {
+  const diagnostic = record(value, "Diagnostic receipt");
+  same(diagnostic.status, "PASS", "retained diagnostic report status");
+  assert.ok(!Object.hasOwn(diagnostic, "parityFailure"), "Diagnostic retains failed parity evidence");
+  same(diagnostic.mode, "diagnostic", "separate diagnostic evidence mode");
+  const fixture = record(diagnostic.fixture, "Diagnostic fixture");
+  validateReportClocks(diagnostic);
+  return text(fixture.anchor, "Diagnostic anchor");
+}
+
+/** @param {string} path */
+function diagnosticFileStat(path) {
+  const stat = statSync(path);
+  assert.ok(stat.isFile() && stat.size > 0 && stat.size <= MAX_DIAGNOSTIC_BYTES,
+    "Diagnostic report is empty, not a file, or exceeds the safe JSON string byte bound");
+  return stat;
+}
+
+/** @param {string} path */
+function readDiagnosticInProcess(path) {
+  diagnosticFileStat(path);
+  /** @type {unknown} */ let value;
+  try {
+    value = JSON.parse(readFileSync(path, "utf8"));
+  } catch (error) {
+    // JSON.parse can quote raw input near a syntax error. Keep private content
+    // and enormous malformed values out of both parent and child diagnostics.
+    if (error instanceof SyntaxError) throw new Error("Invalid diagnostic JSON");
+    throw error;
+  }
+  return validateDiagnostic(value);
+}
+
+/** Large diagnostic graphs are decoded completely in a serial disposable Node
+ * reader. Only its validated anchor reaches the aggregate parent's heap.
+ * forceIsolated exercises this exact path with tiny fixtures in pure tests;
+ * callers cannot disable automatic isolation for an oversized file.
+ * @param {string} path
+ * @param {{forceIsolated?:boolean,timeoutMs?:number}} [options] */
+export function validateDiagnosticFile(path, options = {}) {
+  const absolute = resolve(path);
+  const stat = diagnosticFileStat(absolute);
+  if (!options.forceIsolated && stat.size <= DIAGNOSTIC_ISOLATION_BYTES)
+    return readDiagnosticInProcess(absolute);
+  const timeout = options.timeoutMs ?? DIAGNOSTIC_CHILD_TIMEOUT_MS;
+  assert.ok(Number.isInteger(timeout) && timeout > 0 && timeout <= DIAGNOSTIC_CHILD_TIMEOUT_MS,
+    "Invalid isolated diagnostic timeout");
+  const env = { ...process.env };
+  delete env.NODE_OPTIONS;
+  delete env.NODE_V8_COVERAGE;
+  const result = spawnSync(process.execPath, ["--max-old-space-size=3072", fileURLToPath(import.meta.url),
+    "--validate-diagnostic", absolute], {
+    shell: false, windowsHide: true, encoding: "utf8", env,
+    timeout, killSignal: "SIGKILL", maxBuffer: 4096,
+  });
+  assert.ok(!result.error, "Isolated diagnostic reader failed, exceeded output bounds, or timed out");
+  assert.ok(result.status === 0 && result.signal === null,
+    `Isolated diagnostic validation failed: ${result.stderr.slice(0, 512)}`);
+  const receipt = record(JSON.parse(result.stdout), "Isolated diagnostic receipt");
+  same(Object.keys(receipt), ["anchor"], "bounded isolated diagnostic response");
+  const anchor = text(receipt.anchor, "Isolated diagnostic anchor");
+  assert.ok(Number.isFinite(Date.parse(anchor)) && new Date(anchor).toISOString() === anchor,
+    "Invalid isolated diagnostic anchor");
+  return anchor;
+}
+
 /** Read downloaded artifacts without executing the harness or touching a DB.
  * @param {string} directory @returns {PartitionInput[]} */
 export function loadPartitionInputs(directory) {
   const root = resolve(directory);
   /** @type {PartitionInput[]} */
   const entries = [];
+  const diagnosticAnchors = new Set();
+  /** @type {string[]} */ const diagnostics = [];
+  /** @type {{current:string,names:Set<string>}[]} */ const partitions = [];
   /** @param {string} path @returns {unknown} */
   const json = (path) => JSON.parse(readFileSync(path, "utf8"));
   /** @param {string} current */
@@ -571,15 +654,25 @@ export function loadPartitionInputs(directory) {
     for (const name of names) {
       if (/^(?:base|head)-(?:command-exit|budget)\.json$/.test(name)) assert.fail(`Failure/timeout receipt retained at ${relative(root, join(current, name))}`);
       if (/^(?:base|head)-(?:native-)?(?:latency|diagnostic)\.json\.parity-failure\.json$/.test(name)) assert.fail(`Failed parity evidence retained at ${relative(root, join(current, name))}`);
-      if (/^(?:base|head)-diagnostic\.json$/.test(name)) {
-        const diagnostic = record(json(join(current, name)), "Diagnostic receipt");
-        same(diagnostic.status, "PASS", "retained diagnostic report status");
-        assert.ok(!Object.hasOwn(diagnostic, "parityFailure"), "Diagnostic retains failed parity evidence");
-        same(diagnostic.mode, "diagnostic", "separate diagnostic evidence mode");
-      }
+      if (/^(?:base|head)-diagnostic\.json$/.test(name)) diagnostics.push(join(current, name));
     }
     if (names.has("base-latency.json") || names.has("head-latency.json") || names.has("base-native-latency.json")) {
       for (const required of ["base-latency.json", "head-latency.json", "comparison-inputs.json", "node-image.txt"]) assert.ok(names.has(required), `Missing ${required} in ${relative(root, current)}`);
+      partitions.push({ current, names });
+    }
+    for (const child of children) if (child.isDirectory()) visit(join(current, child.name));
+  }
+  visit(root);
+  // No latency graph has been retained when a 473 MB backlog diagnostic is
+  // parsed. The two large arms run serially with bounded child output/lifetime.
+  const diagnosticDeadline = performance.now() + DIAGNOSTIC_STAGE_TIMEOUT_MS;
+  for (const path of diagnostics) {
+    const remaining = Math.floor(diagnosticDeadline - performance.now());
+    assert.ok(remaining > 0, "Diagnostic validation stage exceeded its bounded budget");
+    diagnosticAnchors.add(validateDiagnosticFile(path, { timeoutMs: Math.min(remaining, DIAGNOSTIC_CHILD_TIMEOUT_MS) }));
+    assert.ok(performance.now() <= diagnosticDeadline, "Diagnostic validation stage exceeded its bounded budget");
+  }
+  for (const { current, names } of partitions) {
       const paths = ["base-latency.json", "head-latency.json", "comparison-inputs.json", "node-image.txt", ...(names.has("base-native-latency.json") ? ["base-native-latency.json"] : [])];
       entries.push({
         reference: relative(root, current).replaceAll("\\", "/") || ".",
@@ -588,10 +681,11 @@ export function loadPartitionInputs(directory) {
         ...(names.has("base-native-latency.json") ? { native: json(join(current, "base-native-latency.json")) } : {}),
         files: Object.fromEntries(paths.map((name) => [name, { path: relative(root, join(current, name)).replaceAll("\\", "/"), sha256: hash(readFileSync(join(current, name))) }])),
       });
-    }
-    for (const child of children) if (child.isDirectory()) visit(join(current, child.name));
   }
-  visit(root);
+  for (const entry of entries) {
+    const fixture = record(record(entry.baseline, "Baseline report").fixture, "Baseline fixture");
+    for (const anchor of diagnosticAnchors) same(anchor, fixture.anchor, "shared diagnostic and latency anchor");
+  }
   return entries;
 }
 
@@ -624,7 +718,16 @@ export function loadControlledReferencePaths(directory) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (process.argv[2] === "--matrix") {
+  if (process.argv[2] === "--validate-diagnostic") {
+    try {
+      assert.ok(process.argv.length === 4 && process.argv[3], "Require one diagnostic data file");
+      const anchor = readDiagnosticInProcess(process.argv[3]);
+      process.stdout.write(`${JSON.stringify({ anchor })}\n`);
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message.slice(0, 512) : "Invalid diagnostic evidence"}\n`);
+      process.exitCode = 1;
+    }
+  } else if (process.argv[2] === "--matrix") {
     assert.ok(process.argv.length === 3 || process.argv.length === 4, "Usage: aggregate-partitions.mjs --matrix [all|preflight|remaining]");
     process.stdout.write(`${JSON.stringify(profileMatrix(process.argv[3] ?? "all"))}\n`);
   } else {
