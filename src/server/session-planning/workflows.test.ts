@@ -601,7 +601,7 @@ describe("whole-group agreement and split", () => {
     // not depend on a particular PostgreSQL plan or generated participant IDs.
     const reordered = db.$extends({ query: { sessionPlanCohort: { async findUnique({ args, query }) {
       const row = await query(args);
-      if (!row || row.id !== original.id || !("plan" in row) || !row.plan || typeof row.plan !== "object" ||
+      if (row?.id !== original.id || !("plan" in row) || !row.plan || typeof row.plan !== "object" ||
         !("participants" in row.plan) || !Array.isArray(row.plan.participants)) return row;
       const plan = row.plan as Record<string, unknown> & { participants: { tuteeId: string }[] };
       const participants = [...plan.participants].sort((left, right) =>
