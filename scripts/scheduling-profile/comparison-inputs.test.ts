@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { inspectComparisonInputs } from "./comparison-inputs.mjs";
 
 void test("comparison overlay accepts only appended metadata and unchanged historical migrations", () => {
@@ -215,7 +216,7 @@ void test("reviewed mode rejects mismatched schema, dependency and SQL hashes", 
 });
 
 void test("reviewed paths cannot traverse directories, duplicate entries or replace history", () => {
-  for (const path of ["../migration.sql", "/tmp/migration.sql", "prisma/migrations/../../migration.sql", "prisma\\migrations\\20261201010000_reviewed_delta\\migration.sql"]) {
+  for (const path of ["../migration.sql", "/tmp/migration.sql", "prisma/migrations/../../migration.sql", "prisma\\migrations\\20261201010000_reviewed_delta\\migration.sql", "prisma/migrations/0_init/migration.sql"]) {
     withReviewedInputs(({ baseline, candidate, manifest }) => {
       manifest.addedMigrations[0]!.path = path;
       assert.throws(() => inspectComparisonInputs(baseline, candidate, manifest), /exact normalized/);
@@ -229,6 +230,29 @@ void test("reviewed paths cannot traverse directories, duplicate entries or repl
     manifest.addedMigrations[0]!.path = originalPath;
     assert.throws(() => inspectComparisonInputs(baseline, candidate, manifest), /replace a historical migration/);
   });
+});
+
+void test("reviewed inventories preserve the real historical bootstrap without permitting new legacy paths", () => {
+  withReviewedInputs(({ baseline, candidate, manifest, write }) => {
+    const migrations = fileURLToPath(new URL("../../prisma/migrations/", import.meta.url));
+    const directories = readdirSync(migrations, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+    assert.ok(directories.some((entry) => entry.name === "0_init"), "Exercise the repository's actual legacy migration");
+    for (const entry of directories) {
+      const path = `prisma/migrations/${entry.name}/migration.sql`;
+      const sql = readFileSync(join(migrations, entry.name, "migration.sql"), "utf8");
+      for (const directory of [baseline, candidate]) write(directory, path, sql);
+      manifest.historicalMigrations[path] = hash(sql);
+    }
+    assert.equal(inspectComparisonInputs(baseline, candidate, manifest).mode, "reviewed");
+    write(candidate, "prisma/migrations/0_init/migration.sql", "-- changed bootstrap\n");
+    assert.throws(() => inspectComparisonInputs(baseline, candidate, manifest), /historical candidate hash differs/);
+  });
+  for (const path of ["prisma/migrations/0_other/migration.sql", "prisma/migrations/init/migration.sql", "prisma/migrations/0_init/../migration.sql"]) {
+    withReviewedInputs(({ baseline, candidate, manifest }) => {
+      manifest.historicalMigrations[path] = "0".repeat(64);
+      assert.throws(() => inspectComparisonInputs(baseline, candidate, manifest), /Historical migration path must be an exact normalized/);
+    });
+  }
 });
 
 void test("reviewed mode requires complete inventories and unchanged migration configuration", () => {

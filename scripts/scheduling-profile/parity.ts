@@ -38,7 +38,7 @@ export type ParityOptions = {
 };
 
 export const PARITY_NORMALIZATION = {
-  version: 1,
+  version: 2,
   omitted: [
     "createdAt/updatedAt persistence metadata (including journal snapshots)",
     "RecoveryChange numeric sequence gaps; per-root change order remains",
@@ -51,6 +51,7 @@ export const PARITY_NORMALIZATION = {
     "Recovery event/change order, changedFields, parent references and fences",
     "Opaque hashes unless the complete original receipt input is verified",
     "Seeded pairing IDs stay exact; created pairing aliases require verified input, actor/client receipt and returned identity",
+    "Compact SHA256 alias references retain their complete semantic definitions in semanticAliases, including all parent references",
   ],
   operationClocks:
     "Only allowlisted event instants inside an explicitly recorded operation window normalize; their ordering/equality and relation to every fixed domain boundary remain.",
@@ -60,6 +61,7 @@ export const PARITY_NORMALIZATION = {
 
 export type ParitySnapshot = {
   normalization: typeof PARITY_NORMALIZATION;
+  semanticAliases: Record<string, string>;
   tables: Record<string, Json[]>;
   continuationProvenance: Json[];
   clockEvidence: Json[];
@@ -100,8 +102,88 @@ const instant = (value: unknown): number | undefined => {
   const time = Date.parse(value);
   return Number.isFinite(time) ? time : undefined;
 };
-const byJson = (left: Json, right: Json) =>
-  JSON.stringify(left).localeCompare(JSON.stringify(right));
+/** Serialize each sort key once. Native stable sorting retains the original
+ * order of equal keys, exactly as the previous JSON comparator did. */
+const sortByJson = <T extends Json>(rows: T[]): T[] => rows
+  .map((value) => ({ value, key: JSON.stringify(value) }))
+  .sort((left, right) => left.key.localeCompare(right.key))
+  .map(({ value }) => value);
+
+type AliasTrieNode = {
+  children: Map<string, AliasTrieNode>;
+  rawId?: string;
+};
+
+/** Incremental literal matcher for the existing escaped, longest-first /g
+ * replacement. UTF-16 positions and deepest terminals reproduce its leftmost,
+ * longest matching without rebuilding a growing regular expression. Replacement
+ * text is appended once and never rescanned. Short IDs remain exact-only.
+ * Exported so pure tests can compare every insertion with the original oracle.
+ */
+export function createParityAliasRewriter() {
+  const aliases = new Map<string, string>();
+  const root: AliasTrieNode = { children: new Map() };
+  return {
+    get: (rawId: string) => aliases.get(rawId),
+    add: (rawId: string, alias: string) => {
+      const existed = aliases.has(rawId);
+      aliases.set(rawId, alias);
+      if (existed || rawId.length < 8) return;
+      let node = root;
+      for (let index = 0; index < rawId.length; index++) {
+        const character = rawId.charAt(index);
+        let child = node.children.get(character);
+        if (!child) {
+          child = { children: new Map() };
+          node.children.set(character, child);
+        }
+        node = child;
+      }
+      node.rawId = rawId;
+    },
+    replace: (value: string) => {
+      const exact = aliases.get(value);
+      if (exact) return exact;
+      let output = "";
+      let copiedThrough = 0;
+      let position = 0;
+      while (position < value.length) {
+        let node = root;
+        let cursor = position;
+        let matchedId: string | undefined;
+        let matchedEnd = position;
+        while (cursor < value.length) {
+          const child = node.children.get(value.charAt(cursor));
+          if (!child) break;
+          node = child;
+          cursor++;
+          if (node.rawId !== undefined) {
+            matchedId = node.rawId;
+            matchedEnd = cursor;
+          }
+        }
+        if (matchedId !== undefined) {
+          output += value.slice(copiedThrough, position) + aliases.get(matchedId)!;
+          position = matchedEnd;
+          copiedThrough = position;
+        } else position++;
+      }
+      return copiedThrough ? output + value.slice(copiedThrough) : value;
+    },
+  };
+}
+
+/** Index source rows without deduplicating or reordering their evidence. */
+function rowsByField(rows: readonly Row[], field: string) {
+  const index = new Map<unknown, Row[]>();
+  for (const row of rows) {
+    const key = row[field];
+    const group = index.get(key);
+    if (group) group.push(row);
+    else index.set(key, [row]);
+  }
+  return index;
+}
 const orderedId = (value: unknown): string => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
@@ -129,37 +211,31 @@ export function canonicalizeParity(
     source.ProcedureResult = options.procedureResults.map(({ label, result }) => ({ id: label, result }));
   }
   const rows = (table: string) => source[table] ?? [];
-  const aliases = new Map<string, string>();
+  const rewriter = createParityAliasRewriter();
   const semanticIds = new Map<string, string>();
-  let replacementPattern: RegExp | undefined;
-  let replacementVersion = -1;
+  const semanticDefinitions = new Map<string, string>();
+  const rawAliases = new Map<string, string>();
   const addAlias = (raw: unknown, key: string) => {
     const id = text(raw);
-    const previous = aliases.get(id);
-    assert.ok(!previous || previous === key, `Conflicting alias for ${id}`);
+    // Internal references keep identity construction bounded even for a long
+    // chain of parent requests. They never enter the returned snapshot.
+    const reference = `@pending:${createHash("sha256").update(key).digest("hex")}`;
+    const previous = rewriter.get(id);
+    assert.ok(!previous || previous === reference, `Conflicting alias for ${id}`);
     const owner = semanticIds.get(key);
     assert.ok(!owner || owner === id, `Ambiguous semantic identity: ${key}`);
-    aliases.set(id, key);
+    const definition = semanticDefinitions.get(reference);
+    assert.ok(definition === undefined || definition === key, "Compact alias SHA256 collision");
+    rewriter.add(id, reference);
     semanticIds.set(key, id);
+    semanticDefinitions.set(reference, key);
+    rawAliases.set(id, reference);
   };
   // Source fixture IDs remain exact. Only identities generated by the exercised
   // domain operations receive aliases; changing a source target cannot disappear.
-  const replaceString = (value: string) => {
-    const exact = aliases.get(value);
-    if (exact) return exact;
-    if (replacementVersion !== aliases.size) {
-      const keys = [...aliases.keys()].filter((key) => key.length >= 8);
-      const escaped = keys
-        .sort((a, b) => b.length - a.length)
-        .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      replacementPattern = escaped.length ? new RegExp(escaped.join("|"), "g") : undefined;
-      replacementVersion = aliases.size;
-    }
-    if (!replacementPattern) return value;
-    return value.replace(replacementPattern, (id) =>
-      aliases.get(id)!,
-    );
-  };
+  const replaceString = (value: string) => rewriter.replace(value);
+  const participantsByCohort = rowsByField(rows("SessionPlanParticipant"), "cohortId");
+  const assignmentsByPlan = rowsByField(rows("SessionPlanAssignment"), "planId");
   const windows = (options.operationWindows ?? []).map((window) => {
     const before = instant(window.before);
     const after = instant(window.after);
@@ -249,8 +325,7 @@ export function canonicalizeParity(
   register("SessionPlanCohort", (row) => key(
     row.planId, row.date, row.startMin, row.endMin, row.roomId, row.online,
     row.rescheduled, row.status,
-    rows("SessionPlanParticipant")
-      .filter((person) => person.cohortId === row.id)
+    (participantsByCohort.get(row.id) ?? [])
       .map((person) => text(person.tuteeId)).sort(),
   ));
   register("SessionPlanParticipant", (row) => key(row.planId, row.tuteeId));
@@ -338,6 +413,59 @@ export function canonicalizeParity(
   registerOccurrences("EmailDelivery", (row) => key(row.userId, row.recipient, row.event, row.context, row.reminderKey));
   registerOccurrences("AuditLog", (row) => key(row.entity, row.entityId, row.operation, row.action, row.userId));
 
+  // Resolve the semantic dependency graph once. Dictionary values contain full
+  // identity definitions with compact parent edges, rather than recursively
+  // JSON-escaping entire ancestor identities. Late references (for example an
+  // extra plan's originating request) resolve without retaining generated IDs.
+  const semanticAliases = new Map<string, string>();
+  const resolvedReferences = new Map<string, string>();
+  const resolving = new Set<string>();
+  const resolvedOwners = new Map<string, string>();
+  const ownerByReference = new Map([...rawAliases].map(([raw, reference]) => [reference, raw]));
+  const pendingPattern = () => /@pending:[a-f0-9]{64}/g;
+  const resolveRawSegment = (value: string): string => rewriter.replace(value).replace(
+    pendingPattern(), (reference) => semanticDefinitions.has(reference) ? resolveReference(reference) : reference,
+  );
+  const resolveDefinition = (value: string): string => {
+    let result = "";
+    let copiedThrough = 0;
+    // Protect existing internal references from raw-ID substring replacement;
+    // then resolve any late raw references in the remaining literal segments.
+    for (const match of value.matchAll(pendingPattern())) {
+      if (!semanticDefinitions.has(match[0])) continue;
+      result += resolveRawSegment(value.slice(copiedThrough, match.index)) + resolveReference(match[0]);
+      copiedThrough = match.index + match[0].length;
+    }
+    return result + resolveRawSegment(value.slice(copiedThrough));
+  };
+  function resolveReference(reference: string): string {
+    const existing = resolvedReferences.get(reference);
+    if (existing) return existing;
+    assert.ok(!resolving.has(reference), "Cyclic generated-alias semantic identity");
+    const definition = semanticDefinitions.get(reference);
+    assert.ok(definition !== undefined, "Missing generated-alias semantic definition");
+    resolving.add(reference);
+    const semantic = resolveDefinition(definition);
+    const compact = `@alias:${createHash("sha256").update(semantic).digest("hex")}`;
+    const previous = semanticAliases.get(compact);
+    assert.ok(previous === undefined || previous === semantic, "Resolved alias SHA256 collision");
+    const raw = ownerByReference.get(reference);
+    assert.ok(raw !== undefined);
+    const owner = resolvedOwners.get(semantic);
+    assert.ok(owner === undefined || owner === raw, `Ambiguous resolved semantic identity: ${semantic}`);
+    resolvedOwners.set(semantic, raw);
+    semanticAliases.set(compact, semantic);
+    resolvedReferences.set(reference, compact);
+    resolving.delete(reference);
+    return compact;
+  }
+  for (const reference of semanticDefinitions.keys()) resolveReference(reference);
+  // Update only after the complete graph resolves, so every raw lookup during
+  // resolution observes the same internal dictionary rather than mixed phases.
+  for (const [raw, reference] of rawAliases) rewriter.add(raw, resolvedReferences.get(reference)!);
+  for (const semantic of semanticAliases.values())
+    assert.equal(rewriter.replace(semantic), semantic, "Unresolved generated ID in semantic alias dictionary");
+
   const receiptInputs = new Map(
     (options.receiptInputs ?? []).map((witness) => [
       `${witness.actorId}\0${witness.clientKey}`, witness,
@@ -363,14 +491,14 @@ export function canonicalizeParity(
     // changes carry each root's explicit ordinal, preserving away-and-back edits.
     tables[table] = table === "AuditLog"
       ? [...values].sort(chronological).map((row) => normalize(row))
-      : mapped.sort(byJson);
+      : sortByJson(mapped);
   }
 
   const continuationProvenance: Json[] = [];
   for (const plan of rows("SessionPlan")) {
     const createdAt = instant(plan.createdAt);
     assert.ok(createdAt !== undefined, "Plan creation is required for provenance");
-    const assignments = rows("SessionPlanAssignment").filter((row) => row.planId === plan.id);
+    const assignments = assignmentsByPlan.get(plan.id) ?? [];
     const pairingIds = new Set(assignments.map((row) => row.pairingId));
     for (const assignment of rows("StudentContinuationAssignment")) {
       if (!pairingIds.has(assignment.targetPairingId)) continue;
@@ -430,8 +558,9 @@ export function canonicalizeParity(
   }));
   return {
     normalization: PARITY_NORMALIZATION,
+    semanticAliases: Object.fromEntries([...semanticAliases].sort(([left], [right]) => left.localeCompare(right))),
     tables,
-    continuationProvenance: continuationProvenance.sort(byJson),
+    continuationProvenance: sortByJson(continuationProvenance),
     clockEvidence,
   };
 }
@@ -445,7 +574,7 @@ export async function captureParity(
   db: PrismaClient,
   options: ParityOptions = {},
 ): Promise<ParitySnapshot> {
-  return db.$transaction(async (tx) => {
+  const tables = await db.$transaction(async (tx) => {
     const tables: Record<string, Row[]> = {};
     // Explicit delegates make schema additions reviewable; no broad raw-table
     // export and no secrets from User/TutorApplication credential storage.
@@ -502,8 +631,11 @@ export async function captureParity(
     tables.RecoveryTrackedEntity = await tx.recoveryTrackedEntity.findMany();
     tables.RecoveryFence = await tx.recoveryFence.findMany();
     tables.RecoveryReceipt = await tx.recoveryReceipt.findMany();
-    return canonicalizeParity(tables, options);
+    return tables;
   }, { isolationLevel: "RepeatableRead", timeout: 120_000 });
+  // The rows retain the coherent read snapshot after commit. Pure normalization
+  // is evidence processing and need not hold a database transaction open.
+  return canonicalizeParity(tables, options);
 }
 
 export function compareParity(actual: ParitySnapshot, expected: ParitySnapshot): void {
