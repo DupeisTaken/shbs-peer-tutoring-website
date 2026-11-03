@@ -1289,7 +1289,7 @@ describe("student request lifecycle", () => {
         db,
         tutorUser.id,
         "wrong-tutor",
-        row.tuteeId,
+        row.tuteeId!,
         pairing.id,
         "No common time",
         await ready("SCHEDULE", target, tutorUser.id),
@@ -1420,7 +1420,7 @@ describe("student request lifecycle", () => {
     const tutor = await db.tutor.create({ data: { englishName: "Legacy Tutor", status: "ACTIVE" } });
     const tutorUser = await db.user.create({ data: { email: "legacy-tutor@example.test", role: "TUTOR", tutorId: tutor.id } });
     const student = await db.tutee.create({ data: { englishName: "Legacy Student", status: "ACTIVE" } });
-    const pairing = await db.pairing.create({ data: { tutorId: tutor.id, termId: "survey-term", subject: "Mathematics", tutees: { create: { tuteeId: student.id } } } });
+    const pairing = await db.pairing.create({ data: { tutorId: tutor.id, termId: "survey-term", subject: "Mathematics", dayOfWeek: 1, startMin: 960, endMin: 1020, tutees: { create: { tuteeId: student.id } } } });
     const row = { tuteeId: student.id, intakeTermId: "survey-term" };
     const target = `${pairing.id}:${row.tuteeId}`;
     const apply = async () =>
