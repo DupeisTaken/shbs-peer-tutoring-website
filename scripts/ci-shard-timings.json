@@ -8,7 +8,6 @@
   "fallbackMs": 11000,
   "perFileOverheadMs": 1200,
   "executionMultiplier": 1.2,
-  "fixedJobOverheadMs": 68000,
   "durationsMs": {
     "src/app/(admin)/admin/academic-corrections/page.test.tsx": 11,
     "src/app/(admin)/admin/activity/page.test.tsx": 302,

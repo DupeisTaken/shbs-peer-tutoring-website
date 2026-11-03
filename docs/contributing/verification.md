@@ -33,106 +33,75 @@ The [CI workflow](../../.github/workflows/docker-build.yml) also checks dependen
 
 ## CI capacity and queue discipline
 
-Budget for the owner's GitHub Free account: [20 concurrent standard hosted jobs](https://docs.github.com/en/actions/reference/limits#job-concurrency-limits-for-github-hosted-runners).
-A public repository does not remove the concurrency limit. Support three to four
-simultaneous PR CI runs, each using at most four jobs; four runs use at most 16
-slots, leaving four for PR sizing, main-branch work and other account activity.
-This is a planning budget, not an account-wide reservation: unrelated workflows
-and older PR revisions can still consume capacity.
+Plan for three to four simultaneous PR reviews within the account's 20 standard
+hosted runner slots. Each PR can use four jobs in the build workflow plus one in
+the separate PR Size workflow. Three PRs can occupy 15 slots and four can occupy
+all 20. Main-branch runs, other repositories and earlier workflow revisions share
+the same pool. Actual jobs can queue when that other work overlaps.
+[GitHub Actions limits](https://docs.github.com/en/actions/reference/limits#job-concurrency-limits-for-github-hosted-runners).
 
 - Use subagents extensively for independent investigation, implementation and
   review. Give each agent a distinct scope and acceptance criteria. The lead
-  reviews and integrates their work, runs heavy checks serially, and coordinates
-  the push that triggers hosted CI.
-- Inspect queued and running workflows before opening another PR, pushing an
-  update or requesting a rerun. When capacity is occupied, continue useful local
-  work and defer another CI-producing stream. Keep at most four such runs active.
-- Batch locally verified changes into one push. Avoid speculative pushes,
-  duplicate manual dispatches and reruns of unchanged failures. Diagnose first;
-  rerun failed jobs when sufficient rather than rerunning successful jobs too.
-- Per-PR concurrency cancels superseded runs of the same PR; it does not throttle
-  different PRs. Do not replace it with a shared cancellation group that discards
-  other PRs' required checks. Cancel only superseded runs owned by the task.
+  integrates their work, runs heavy local checks serially and batches verified
+  changes into a single push.
+- Check queued and running jobs before starting another CI-producing stream.
+  Count both build and PR Size workflows. When occupancy is high, continue local
+  work and defer additional PR runs.
+- Per-PR concurrency cancels superseded revisions of the same PR. For a failing
+  review, inspect the failed step and shard report. Push a verified code fix
+  or rerun the failed jobs after a transient runner failure. Cancel
+  only superseded runs owned by the task.
 
-The [workflow](../../.github/workflows/docker-build.yml) starts `checks`, `image`
-and `image-storage` independently. Tests wait for successful `checks` and
-`image-storage`, then run **nine shards with `max-parallel: 3`**. The image job may
-still be running, so the peak is four jobs. This staging avoids paying test setup
-costs after a failed prerequisite and bounds capacity even for packaging changes.
-It trades single-PR latency for predictable throughput across concurrent PRs.
-The matrix cap belongs to each run; it cannot guarantee GitHub queue fairness.
+Three duration-balanced test shards can start immediately and remain active in
+parallel (`max-parallel: 3`). Each has its own `shbs_shipping_test` PostgreSQL
+service and runs files serially with `--maxWorkers=1`. The jobs `checks`, `image`
+and `image-storage` run in sequence, so together they occupy at most one more slot.
+This lets tests start while static checks run and saves six installations,
+PostgreSQL startups and migration sequences compared with nine shards. One PR
+Size job can overlap these four build jobs.
+[Build workflow](../../.github/workflows/docker-build.yml) · [PR Size workflow](../../.github/workflows/pr-size.yml).
 
-Each job has a nine-minute whole-job timeout; the short `verify` gate uses two
-minutes. Target no more than **95% of the timeout (513 seconds for a nine-minute
-job)** when sizing work, including setup, imports, tests, reporting and cleanup.
-Choose the smallest shard count whose slowest projected job fits that target
-under the selected grouping and timing allowance. Remeasure after fixture or
-dependency changes because the target leaves 27 seconds of margin.
-Runner queue time is additional to this execution budget.
+Heavy jobs have a 30-minute timeout to stop a stuck runner. The required
+`verify` gate has a two-minute timeout and requires success from every shard,
+`checks`, `image` and `image-storage`. Failed, cancelled, skipped or missing
+prerequisites fail the gate. Queue time adds to the time contributors wait for
+the result. Diagnose slow runs using the actual runner queue, test durations,
+dependency installation and image/cache steps.
 
-Each shard owns its `shbs_shipping_test` PostgreSQL service and keeps files serial
-with `--maxWorkers=1`. Never parallelize fixtures against the same database.
-`verify` still requires successful `checks`, `tests`, `image` and `image-storage`,
-including every shard. Failed, cancelled, skipped or missing prerequisites fail
-the gate. Keep `verify` as the branch-protection check when changing job names.
-
-Run `npm run test:ci` for capacity, dependency, verification and image-promotion
-regressions. It also uses the installed Vitest sequencer to prove every discovered
-file belongs to exactly one shard without running database fixtures. Each hosted
-shard uploads a seven-day JSON timing/failure report. Local `npm test` still runs
-the complete suite serially. Keep Vitest's default reporter alongside JSON output:
-`--reporter=default --reporter=json --outputFile.json=<path>` retains both visible
-diagnostics and timing evidence; inspect both before claiming a warning-free run.
+Run `npm run test:ci` for concurrency, dependency, gate and image-promotion
+regressions. It also checks that the installed sequencer assigns every discovered
+test file to exactly one shard. Hosted shards upload seven-day JSON reports.
+Keep the default Vitest reporter alongside JSON output so test failures and
+console diagnostics remain visible. Local `npm test` runs the full suite serially.
 
 ### Shard sizing and timing evidence
 
-CI assigns the longest expected files first, placing each on the shard with the
-least assigned work. For ties, the sequencer uses the file path and then the
-lowest shard index. File discovery comes from Vitest. Each discovered path gets
-a weight, including new and renamed files. Sharding uses the same grouping
-locally and on hosted runners. [Shard sequencer](../../scripts/ci-shard-sequencer.ts).
+CI assigns the longest expected file first, placing each file on the shard with
+the least assigned work. Ties use the file path and then the lowest shard
+index. The versioned timing data uses the largest measured duration per file
+from the listed source runs, in whole milliseconds. The sequencer gives an
+unmeasured path 11 seconds and weights execution and import costs to balance
+files across the three runners. Update the timings after fixture or dependency
+changes and use `npm run test:ci` to confirm full coverage.
+[Shard sequencer](../../scripts/ci-shard-sequencer.ts) · [Timing data and source runs](../../scripts/ci-shard-timings.json).
 
-The [timing file](../../scripts/ci-shard-timings.json) stores durations in whole
-milliseconds under repository-relative paths with forward slashes. Each duration
-is the largest JSON reporter `endTime - startTime` for the file across the source
-runs, rounded up. An unseen path gets 11 seconds until a successful run measures it.
-That estimate rounds up the observed 90th percentile of 10.36 seconds. For grouping,
-allow 20% on file execution time and add 1.2 seconds per file for imports and
-runner overhead. For whole-job projections, add another 68 seconds per shard for
-setup, reporting and cleanup. These overheads round up the largest observed residuals.
+The previous nine-shard PR workflow passed at `8abaa270` in **21m 59s** from
+creation to completion. Static checks and storage comparison preceded the tests.
+The test phase lasted **16m 12s** from the first shard starting to the last one
+finishing. Individual shards took 3m 44s to 5m 46s. The packaging comparison
+ran in full on this revision.
+[Hosted nine-shard baseline](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41585144405).
 
-The November 3, 2026 timing set covers all 622 files at revision `c113b8ef`.
-The three source PRs ran 30 shards and used 4,028–4,269 test runner-seconds each.
-Container initialization, installation, migrations and schema checks accounted
-for 1,213–1,219 runner-seconds per matrix.
-[Source run 41562105114](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41562105114),
-[41560062381](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41560062381)
-and [41559699239](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41559699239).
-
-| File grouping | Shards | Projected slowest whole job | With 20% slower file execution | Projected test runner-seconds |
-| --- | ---: | ---: | ---: | ---: |
-| Default Vitest path order | 15 | 493 s | 568 s | 4,179 |
-| Default Vitest path order | 16 | 428 s | 491 s | 4,247 |
-| Default Vitest path order | 30 | 373 s | 429 s | 5,199 |
-| Duration-balanced | 8 | 464 s | 524 s | 3,703 |
-| **Duration-balanced** | **9** | **420 s** | **473 s** | **3,771** |
-
-Nine balanced shards cut seven setup jobs and about 476 projected runner-seconds
-from the 16-shard plan. Nine also fits in three waves of three, for a projected
-21 minutes from first shard start to last shard completion with immediate runner
-availability. Prerequisite and queue times add to workflow elapsed time. The
-20% allowance puts nine below the 513-second sizing target and eight above it.
-
-Sixteen was the smallest count under that target with the default Vitest path
-ordering. Its hosted run passed the required `verify` gate on revision `46e75aa9`
-in 25m 32s including queue time. The test phase took 19m 01s, and individual
-shards took 130–323 seconds including setup. This workflow peaked at three
-simultaneous jobs. The four-job ceiling follows from the dependency graph and
-matrix cap. [Hosted 16-shard run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41565256314).
-
-As a separate check, keep the new balanced assignments fixed and include this
-fourth run when taking each file's maximum measured time. With the 20% allowance,
-the slowest projected job takes 481 seconds on nine shards and 533 on eight.
+Replaying those timings with three long test shards and one sequential lane
+projects **15m 16s** for a packaging change and **13m 30s** for an ordinary PR
+where storage comparison finishes after scope detection. The replay includes
+about 52.4 seconds of fixed cost per test shard and 0.72 seconds of overhead per
+file, yielding a test phase of about 13m 26s. In the packaging case, the three
+serial jobs account for 15m 12s and the final gate adds four seconds. With the
+ordinary 11-second scope check, the tests finish last. The estimates assume
+available runners. Peak four-PR slot demand follows from the job graph. The
+baseline measured one workflow. Compare hosted elapsed time and queue delays
+before revising this allocation.
 
 The combined identity, scheduling and recovery suite has 674 files. For the 52
 files missing from the original inventory, the timing map takes the maximum
@@ -147,16 +116,10 @@ All constraints, triggers, test cases and tested transaction boundaries remain
 active. Three serial Ubuntu samples on the required PostgreSQL 16 and Node 22
 configuration each passed all 162 cases. Maximum reporter durations were 47,391
 ms for history correction, 38,476 ms for partition and 81,670 ms for room
-allocation. These replace the older weights for those files. With the original
-allowances and concurrency cap, the longest of nine projected jobs is 512.550
-seconds against the 513-second target.
+allocation. These replace the older weights for those files. Under the previous nine-shard policy, the longest projected job was 512.550
+seconds and the longest observed shard job took 450 seconds. The three-shard policy above now governs scheduling.
 [Calibration run and JSON artifacts](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41600315274).
 
-When fixtures or dependencies change, collect file durations from recent
-successful shard reports and refresh the timing file. Use the current test
-inventory, preserve the unknown-file fallback, and run `npm run test:ci` to
-verify exact coverage. Compare the projected and hosted whole-job maxima,
-shard balance, setup and queue times before changing the matrix size or cap.
 
 For a dependency-audit failure, inspect the reported advisory and dependency path,
 then update the affected lockfile entries within the supported version range.
@@ -176,8 +139,7 @@ type=gha` but does not export cache. In [main run 41499237387](https://github.co
 at `b5ece262d35a3edb91c47de81f1d933ad664c20f`, the image loaded about 255 seconds
 after job start; optional `mode=max` cache preparation then took 83.6 seconds and
 uploading continued until cancellation, before smoke checks could start. Removing
-that export reserves the remaining budget for verification and image transfer;
-the nine-minute job limit and fatal build/smoke/archive failures remain unchanged.
+that export leaves runner time for verification and image transfer.
 There is no second cache-only build or image rebuild during promotion.
 
 [Docker's GHA cache options](https://docs.docker.com/build/cache/backends/gha/)
@@ -228,8 +190,8 @@ both pair proxies must not grow. Seven-day JSON artifacts retain file-equivalenc
 layer-accounting and comparison evidence. These metrics are neither compressed
 registry transfer bytes nor actual production filesystem recovery; the controlled
 probe is not a forecast of every release. The existing exact-image smoke and
-publish path remains the production-image gate; measurement has its own
-nine-minute whole-job budget and does not replace it.
+publish path verifies the production image. Storage measurement follows a
+successful image job and must also pass before publication.
 
 Operator CLIs run outside Next's bundled server. When changing their imports,
 keep the runtime stage's explicit source copies complete. `npm run test:deployment`
