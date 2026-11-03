@@ -359,11 +359,13 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       // Reuse the already-issued context/client after a live demotion. The
       // production middleware must refresh authority for this exact request.
       const cached = tutor(11);
-      await db.user.update({ where: { id: f.pairs[11]!.tutorUserId }, data: { role: "VIEWER" } });
+      // A Viewer may retain its historical tutor identity only when tutor
+      // access is explicitly revoked; preserve that legal membership boundary.
+      await db.user.update({ where: { id: f.pairs[11]!.tutorUserId }, data: { role: "VIEWER", tutorAccessRevoked: true } });
       try {
         await expectCode("permission-refresh-after-demotion", "FORBIDDEN", () => cached.tutor.setPairingSlot({ pairingId: f.pairs[11]!.id, slotId: f.slotId }));
       } finally {
-        await db.user.update({ where: { id: f.pairs[11]!.tutorUserId }, data: { role: "TUTOR" } });
+        await db.user.update({ where: { id: f.pairs[11]!.tutorUserId }, data: { role: "TUTOR", tutorAccessRevoked: false } });
       }
     } else if (name === "catalog") {
       const pair = f.pairs[2]!;

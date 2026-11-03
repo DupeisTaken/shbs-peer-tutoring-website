@@ -487,7 +487,12 @@ queueing capacity, not sample populations, per-runner limits or paired measureme
 order; available repository capacity may still queue jobs. Native-schema cold
 controls use the same four-round ranges and aggregate separately to 20 samples.
 Pure helper tests gate matrix preparation in the same two-CPU, 4 GB Node
-container before measurement runners start.
+container before measurement runners start. The existing three-round negotiation
+and allocation diagnostics then run as a two-job preflight. Both must pass before
+the remaining 60 latency partitions and six diagnostics start. Both phases call
+one shared worker with identical measurement settings; the total remains 68 jobs.
+Final acceptance requires both phases, so a preflight pass alone is not evidence
+of complete latency coverage.
 The 90-second native, 150-second ordinary command and whole-job budgets remain
 fatal; partitioning never accepts a partial population or reduces sample counts.
 
@@ -540,7 +545,13 @@ of nested parent strings from exhausting the artifact size. It retains all
 selected rows, stored JSON and ordering witnesses; cycles, ambiguous identities
 and unresolved generated references fail the run. Full graph comparisons emit
 bounded failure messages; they do not expand entire snapshots into assertion
-diffs. Raw snapshots remain available in the paired artifacts. The sequential
+diffs. Before a repeated-fixture or paired digest mismatch throws, the harness
+writes the actual failed snapshot, operation inputs/windows and digests to a
+separate `.parity-failure.json` artifact. Its bounded first-difference summary
+uses deterministic JSON-pointer paths and explicitly marks diagnostic truncation;
+it never decides equality. The failed round is not a completed receipt. Aggregation
+rejects retained failure snapshots even if another report claims PASS. Raw
+snapshots remain available in the paired artifacts. The sequential
 late-root witness preserves two participant journal changes and fence revision
 two; combining cohort and participant writes into one SQL statement remains
 unsupported. Under-one-second first publication is a target to verify from a

@@ -50,16 +50,23 @@ const percentile = (values, fraction) => {
   return sorted[Math.ceil(sorted.length * fraction) - 1] ?? null;
 };
 
-/** One source of truth for the hosted matrix; samples are TOTAL rounds, never four. */
-export function profileMatrix() {
-  return { include: [
+/** One source of truth for the hosted matrix; samples are TOTAL rounds, never four.
+ * @param {string} phase */
+export function profileMatrix(phase = "all") {
+  assert.ok(["all", "preflight", "remaining"].includes(phase), "Unknown matrix phase; use all, preflight or remaining");
+  const include = [
     ...latencyScenarios.flatMap((scenario) => Array.from({ length: totalSamples(scenario) / 4 }, (_, partition) => ({
       scenario, mode: "latency", partition, partitionCount: totalSamples(scenario) / 4, samples: totalSamples(scenario),
     }))),
     ...[...latencyScenarios, "backlog"].map((scenario) => ({
       scenario, mode: "diagnostic", partition: 0, partitionCount: 1, samples: scenario === "backlog" ? 1 : 3,
     })),
-  ] };
+  ];
+  if (phase === "all") return { include };
+  return { include: include.filter((row) => {
+    const preflight = row.mode === "diagnostic" && ["negotiation", "allocation"].includes(row.scenario);
+    return phase === "preflight" ? preflight : !preflight;
+  }) };
 }
 
 /** Version-one scenario population, checked independently of reported summaries.
@@ -90,7 +97,7 @@ function failureAllowed(scenario, label) {
 function validateReport(value, scenario, revision, index, manifest, native = false) {
   const report = record(value, "Report");
   same(report.status, "PASS", "report status (partial/failing runs are not evidence)");
-  assert.ok(!Object.hasOwn(report, "failure") && !Object.hasOwn(report, "error") &&
+  assert.ok(!Object.hasOwn(report, "failure") && !Object.hasOwn(report, "error") && !Object.hasOwn(report, "parityFailure") &&
     (!Object.hasOwn(report, "cleanupErrors") || (Array.isArray(report.cleanupErrors) && report.cleanupErrors.length === 0)), "Report retains a failure/cleanup error");
   same(report.revision, revision, "immutable revision");
   same(report.schemaVersion, 3, "report schema version");
@@ -407,7 +414,7 @@ export function aggregatePartitions(inputs, options) {
       pairing: "Each candidate/baseline ratio pairs the same global round, operation label and occurrence on the same runner. Runners and hardware can vary between partitions; raw runner/runtime references are retained. Contention winners may differ; both operation outcomes are retained.",
       population: "All seven scenarios, unchanged 20/40-round populations, exact four-round partitions and one discarded warmup per partition are required. No failures, unfinished/censored samples, missing or duplicate partitions are omitted.",
       native: "Original-schema cold observations form an independent 20-round baseline when required. Their explicit native-original capture uses the fixed original-schema field/delegate projection, excluding later identity/recovery fields and sidecars. No native-versus-shared-schema semantic parity or paired gain is claimed.",
-      diagnostic: "Diagnostic observations never enter latency pooling. The workflow separately requires every diagnostic/backlog matrix job to succeed.",
+      diagnostic: "Diagnostic observations never enter latency pooling. The workflow separately requires both negotiation/allocation preflight diagnostics and every remaining diagnostic/backlog matrix job to succeed.",
     },
   };
 }
@@ -426,9 +433,11 @@ export function loadPartitionInputs(directory) {
     const names = new Set(children.filter((entry) => entry.isFile()).map((entry) => entry.name));
     for (const name of names) {
       if (/^(?:base|head)-(?:command-exit|budget)\.json$/.test(name)) assert.fail(`Failure/timeout receipt retained at ${relative(root, join(current, name))}`);
+      if (/^(?:base|head)-(?:native-)?(?:latency|diagnostic)\.json\.parity-failure\.json$/.test(name)) assert.fail(`Failed parity evidence retained at ${relative(root, join(current, name))}`);
       if (/^(?:base|head)-diagnostic\.json$/.test(name)) {
         const diagnostic = record(json(join(current, name)), "Diagnostic receipt");
         same(diagnostic.status, "PASS", "retained diagnostic report status");
+        assert.ok(!Object.hasOwn(diagnostic, "parityFailure"), "Diagnostic retains failed parity evidence");
         same(diagnostic.mode, "diagnostic", "separate diagnostic evidence mode");
       }
     }
@@ -450,8 +459,9 @@ export function loadPartitionInputs(directory) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (process.argv.length === 3 && process.argv[2] === "--matrix") {
-    process.stdout.write(`${JSON.stringify(profileMatrix())}\n`);
+  if (process.argv[2] === "--matrix") {
+    assert.ok(process.argv.length === 3 || process.argv.length === 4, "Usage: aggregate-partitions.mjs --matrix [all|preflight|remaining]");
+    process.stdout.write(`${JSON.stringify(profileMatrix(process.argv[3] ?? "all"))}\n`);
   } else {
     /** @type {Map<string,string>} */
     const flags = new Map();
