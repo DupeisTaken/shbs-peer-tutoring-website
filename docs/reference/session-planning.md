@@ -266,6 +266,10 @@ whose rejection is spent may request a separate reschedule. This immediately
 freezes the group request and its timers. The tutor formalizes individual child
 requests; the recurring pairing group remains intact. Exact mutual agreement may
 carry forward only after the individual conflict checks pass.
+New proposals capture their scheduled audience in stable participant-ID order,
+so an unordered database relation cannot change later split-child, recipient,
+audit or recovery write order. Existing requests retain their captured audience
+order; reading or splitting an older request does not rewrite that evidence.
 
 Every response clock begins at essential-mail SMTP acceptance, not creation or
 queueing. A resend never restarts it. Twenty-four hours of silence accepts only
@@ -506,6 +510,11 @@ they are neither one host's repeated experiment nor production p95. Hardware and
 cloud variance between partitions remain explicit. All diagnostic jobs must also
 pass the workflow gate. Rerun the complete workflow attempt when collecting a new
 partition population; earlier attempts' failure artifacts remain separate.
+A repeated-state failure in the immutable baseline remains failed evidence even
+when a candidate fixes its cause. Do not sort away stored arrays, audit writes
+or recovery ordinals, or silently patch baseline application files. Any separately
+named correctness control requires explicit comparison-scope review and an exact
+immutable source revision; it cannot retroactively certify the original run.
 
 Cold means empty planning tables, not a restarted OS or database. Diagnostic
 runs are separate and report query counts/time, advisory acquisition elapsed and
@@ -537,8 +546,10 @@ and measured benefit. Final room conflict checks remain live.
 
 Parity checks cover business records, receipts, notices, ordered recovery changes
 and fences. Generated identifiers require unambiguous witnesses, and receipt
-hashes must match their exact inputs before canonical comparison. The
-normalization format is version 3: compact references point to a retained
+hashes must match their exact inputs before canonical comparison. Synthetic
+setup rows, including the allocation scenario's room unavailability, use stable
+fixture IDs; all their fields remain in parity. API-created records retain their
+generated IDs and require explicit semantic witnesses. The normalization format is version 3: compact references point to a retained
 dictionary of full semantic identities, with compact edges to parent identities.
 This lossless graph encoding of normalized identities prevents repeated escaping
 of nested parent strings from exhausting the artifact size. It retains all
