@@ -34,6 +34,12 @@ new field-name evidence cannot be assumed harmless.
 If the records change while you review, your reason remains typed, but recovery is
 disabled. Use **Review updated consequences**, inspect the new effects, then confirm
 again. A failed refresh preserves your reason and offers a read-only retry.
+If applying a checkpoint reports a conflict, the page fetches a fresh preview;
+you must explicitly review the changed consequences before trying again. Selecting
+**Inspect** for the same checkpoint also refreshes its evidence. If an action
+reports that you no longer have permission, private lists, previews and receipts
+are concealed. **Retry** must successfully recheck every open private view before
+showing them again; it does not repeat the write or discard your reason.
 
 The website permits a supported action only when its entire tracked causal chain
 has zero or one later logical action. Two later actions anywhere in that chain
