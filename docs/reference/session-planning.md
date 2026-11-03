@@ -522,7 +522,7 @@ and measured benefit. Final room conflict checks remain live.
 Parity checks cover business records, receipts, notices, ordered recovery changes
 and fences. Generated identifiers require unambiguous witnesses, and receipt
 hashes must match their exact inputs before canonical comparison. The
-normalization format is version 2: compact references point to a retained
+normalization format is version 3: compact references point to a retained
 dictionary of full semantic identities, with compact edges to parent identities.
 This lossless graph encoding of normalized identities prevents repeated escaping
 of nested parent strings from exhausting the artifact size. It retains all
@@ -535,8 +535,16 @@ two; combining cohort and participant writes into one SQL statement remains
 unsupported. Under-one-second first publication is a target to verify from a
 passing supported-runtime result, not a property established by this harness's
 presence or by earlier Windows measurements.
+The combined schema capture also retains identity ownership and execution sidecars,
+qualification provenance, source requests, checkpoint scopes and transaction
+membership, shared delivery effects and cancellations, and workflow owner bindings.
+Every added domain table has an explicit scalar/JSON projection. New feature
+evidence remains a real difference when the historical baseline cannot produce it;
+such scenarios require separate candidate proof and cannot claim baseline parity.
 Persistence `createdAt`/`updatedAt` values are omitted recursively, including in
-journal snapshots and procedure results. Continuation creation boundaries and
+journal snapshots and procedure results, except native qualification approval
+time, retained as `qualificationApprovedAt`. Qualification fixture approval and
+grant dates use the shared synthetic anchor. Continuation creation boundaries and
 sweep selection/rotation therefore need separate semantic witnesses. This is
 normalized output parity, not byte-identical full journal content. The native
 original-schema control currently covers cold publication only; other shared-schema
