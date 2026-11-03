@@ -76,12 +76,14 @@ export async function seedDemoPairings(db: DomainDb) {
       const mode = lesson.id === seedId("pairing-bob-physics") ? "AUTO"
         : lesson.id === seedId("pairing-carol-english") ? "NONE"
         : "FIXED";
-      const expectedMode = !converted && lesson.id === seedId("pairing-david-chem") ? "LEGACY" : mode;
       const correctSchedule = (row: (typeof rows)[number]) =>
         row.subject === subject.name && row.scheduleConfirmed &&
         row.dayOfWeek === lesson.day && row.startMin === minutes(lesson.start) &&
         row.endMin === minutes(lesson.end) && row.timeSlotId === lesson.slotId &&
-        row.roomMode === expectedMode && !row.roomNeedsAssignment && row.roomShortageKey === null &&
+        // Old seed updates could retain LEGACY, while its first INSERT was normalized
+        // to FIXED by pairing_room_legacy_intent. Both authored David states migrate.
+        (row.roomMode === mode || (!converted && lesson.id === seedId("pairing-david-chem") && row.roomMode === "LEGACY")) &&
+        !row.roomNeedsAssignment && row.roomShortageKey === null &&
         (mode === "AUTO" ? row.roomId !== null : row.roomId === (mode === "NONE" ? null : lesson.roomId));
       if (slot.dayOfWeek !== lesson.day || slot.startMin !== minutes(lesson.start) || slot.endMin !== minutes(lesson.end) ||
           !correctSchedule(primary) || rows.some((row) => !ids.includes(row.id))) {
@@ -95,7 +97,9 @@ export async function seedDemoPairings(db: DomainDb) {
         if (!intact) skip("saved group or singleton roster changed; retained without repair");
         return;
       }
-      if (primary.roomVersion !== 0 || rows.length !== 1 ||
+      // pairing_roster_room_version increments once for each initial roster INSERT.
+      // No-op seed upserts do not increment it; later roster/schedule edits still skip.
+      if (primary.roomVersion !== lesson.tuteeIds.length || rows.length !== 1 ||
           primary.tutees.length !== lesson.tuteeIds.length ||
           primary.tutees.some(({ tuteeId, tutee }) => !lesson.tuteeIds.includes(tuteeId) ||
             tutee.status !== "ACTIVE" || tutee.firstChoiceId !== lesson.subjectId)) {

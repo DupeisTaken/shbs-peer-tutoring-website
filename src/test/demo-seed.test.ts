@@ -8,7 +8,7 @@ import { db } from "~/server/db";
 import { assertIsolatedTestDatabase } from "./database-guard";
 import { assertDemoDatabase } from "../../prisma/demo-support";
 
-const environment = { ...process.env, SHBS_DEMO_SEED: "1" };
+const environment: NodeJS.ProcessEnv = { ...process.env, SHBS_DEMO_SEED: "1" };
 assertIsolatedTestDatabase(environment.DATABASE_URL);
 assertDemoDatabase(environment.DATABASE_URL ?? "", environment);
 const execute = promisify(execFile);
@@ -41,8 +41,12 @@ it("creates a repeatable demo from an empty migrated database and replays its as
   await db.$executeRawUnsafe("TRUNCATE " + tables.map(({ tablename }) =>
     '"' + tablename.replaceAll('"', '""') + '"',
   ).join(",") + " CASCADE");
-  await runFixtureScript("prisma/seed.ts");
-  await runFixtureScript("prisma/seed.ts");
+  for (let pass = 1; pass <= 2; pass++) {
+    const seeded = await runFixtureScript("prisma/seed.ts");
+    // Keep the selective guard's deviation receipt visible when a new fixture
+    // no longer matches its authored state; counts alone hide the root cause.
+    console.log(`Demo seed pass ${pass}:\n${seeded.stdout}`);
+  }
   const coverage = await runFixtureScript("prisma/verify-demo.ts");
   expect(coverage.stdout).toContain("Demo verified:");
   // Run the real router caller under the same Vite/Next import resolution as

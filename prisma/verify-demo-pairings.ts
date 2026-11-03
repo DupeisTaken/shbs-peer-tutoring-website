@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import type { PrismaClient } from "../generated/prisma";
+import type { PrismaClient, StudentSurvey } from "../generated/prisma";
 import { policyActionTarget } from "../src/lib/policy-evidence";
 import { createCaller } from "../src/server/api/root";
 import { databaseScope, scopedDatabase } from "../src/server/db-scope";
@@ -107,7 +107,13 @@ export async function verifyDemoPairingWorkflows(db: PrismaClient) {
     const adminId = seedId("user-admin");
     const admin = await actor(db, adminId);
     const policy = await currentPolicy(tx, "tutee-policy");
-    const pending = [];
+    const pending: {
+      assignment: (typeof assignments)[number];
+      survey: StudentSurvey;
+      userId: string;
+      assignTicket: Awaited<ReturnType<typeof prepareStudentAction>>;
+      policyTicket: Awaited<ReturnType<typeof prepareStudentAction>>;
+    }[] = [];
     for (const assignment of assignments) {
       const student = await tx.tutee.findUniqueOrThrow({
         where: { id: assignment.tuteeId }, include: { user: true },
