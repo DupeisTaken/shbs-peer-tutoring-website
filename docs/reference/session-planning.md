@@ -193,6 +193,21 @@ empty event table. Terminal/deleted queue entries are pruned from their current
 state. A sweep without bookkeeping avoids extra metadata acknowledgements but
 still performs the original request work.
 
+Agenda reads try the period → room → planning fence without waiting when they
+prepare settlement bookkeeping. If another publisher owns any part of that set,
+the short transaction releases its acquired prefix and leaves all dirty events,
+batch state and retries intact. The reader still runs the same fresh due-first
+candidate query and every selected request's blocking, independent authoritative
+decision; only bookkeeping is deferred. Admitted metadata work still verifies
+trigger integrity and propagates errors. Publication has already committed, so
+a bookkeeping failure cannot roll its business rows or recovery journal back.
+An uncontended agenda resumes the pending batch. The persistent Node delivery
+worker also runs the blocking public sweep immediately and every 30 seconds,
+including after publication catch-up failure, so sustained reader contention does
+not turn cleanup or deadlines into opportunistic-only work. A running sweep is
+not overlapped by another worker tick; this interval is not an exact completion
+deadline under long work or database failure.
+
 Deferred calendar/ordinary restoration remains discoverable: clearing a hold,
 changing a response/request, removing a room block or changing a dated conflict
 appends another publication event. Reconciliation still rechecks conflicts before
@@ -396,6 +411,12 @@ negotiations, HTTP, rendering or SMTP. Recovery journal semantics and concurrent
 publication require the domain tests in addition to benchmark output parity.
 
 ### Request profiling and comparison contract
+
+The [supplementary concurrency protocol](../../scripts/scheduling-concurrency/README.md)
+covers cold and Sunday publication, proposal/split, acceptance and deadline
+settlement under overlapping calls. It also reproduces the original two-reader
+agenda phase to evaluate a proposed change. Its reports identify the frozen
+application and the proposed revision separately from the original campaign.
 
 The dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
 runs `scripts/profile-scheduling-requests.ts` on Node 22 Linux against its own
