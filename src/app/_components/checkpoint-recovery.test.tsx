@@ -139,7 +139,7 @@ it.each(["en", "zh"])(
         name:
           locale === "zh"
             ? "参与状态与工作流程检查点"
-            : "Participant and workflow checkpoints",
+            : "Participant and Workflow Checkpoints",
       }),
     ).toBeTruthy();
     expect(

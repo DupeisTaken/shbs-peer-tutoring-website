@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   settings: vi.fn(),
   rows: vi.fn(),
-  leases: vi.fn(),
+  leases: vi.fn<() => Promise<Array<{ id: string; leaseUntil: Date; attemptId: string | null }>>>(),
   row: vi.fn(),
   account: vi.fn(),
   update: vi.fn(),

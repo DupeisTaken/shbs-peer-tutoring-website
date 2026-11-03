@@ -2,7 +2,6 @@ import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { assertStudentRequestAssignable } from "~/server/student-request-state";
 import { lockApplicationReview } from "~/server/request-invalidity";
 import { lockUsernameNamespace } from "~/server/auth/username";
-import { approvalScope } from "~/server/db-scope";
 /**
  * Audit log + typed undo. Every admin mutation that's hard to reverse by hand records an
  * AuditLog entry carrying a typed `undo` describing its inverse, so it can be reverted from

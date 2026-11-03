@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { z } from "zod";
+import type { z } from "zod";
 import { recordAudit } from "~/server/audit/log";
 import { staleConflict } from "~/server/concurrency";
 import { lockUsernameNamespace } from "~/server/auth/username";
@@ -16,7 +16,7 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 
-import { requestInvalidityInput, lockApplicationReview, lockStudentRequestReview, lockLegacySignupReview, type Invalidity } from "./request-review";
+import { emptyRequestInvalidity, type requestInvalidityInput, lockApplicationReview, lockStudentRequestReview, lockLegacySignupReview, type Invalidity } from "./request-review";
 export { requestInvalidityInput, emptyRequestInvalidity, requestInvalidity, assertRequestProcessable, lockApplicationReview, lockStudentRequestReview, lockLegacySignupReview, assertTuteeInvalidityCleared } from "./request-review";
 
 type Input = z.infer<typeof requestInvalidityInput>;

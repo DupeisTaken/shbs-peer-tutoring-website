@@ -8,7 +8,7 @@ import {
   editStudentSignupAnswers,
   lockedOwnedSignup,
   studentSignupAnswersInput,
-  studentSignupEditInput,
+  type studentSignupEditInput,
 } from "./student-signup-state";
 export {
   assertSignupEditPeriod,

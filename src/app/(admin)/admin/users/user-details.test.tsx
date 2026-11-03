@@ -375,7 +375,7 @@ it("freezes sibling profile and record openers until an interrupted identity out
   const dialog = screen.getByRole("dialog");
   const tables = [
     screen.getByRole("table", { name: messages.usersDirectory.groupLogins }),
-    screen.getByRole("table", { name: messages.usersDirectory.groupRecords }),
+    ...screen.getAllByRole("table", { name: messages.usersDirectory.groupRecords }),
     ...screen.getAllByRole("table", { name: messages.usersDirectory.profileRecords }),
   ];
   const openers = tables.flatMap((table) => within(table).getAllByRole<HTMLButtonElement>("button"));
