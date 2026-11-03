@@ -162,7 +162,16 @@ it("does not erase current or prior response evidence when rebinding execution",
   expect(await executionPlanTutorId(tx, planId, f.tutorA)).toBe(f.tutorB);
   const plan = await tx.sessionPlan.findUniqueOrThrow({ where: { id: planId }, include: { term: true, assignments: true, participants: true, continuationMembers: true } });
   expect(await transferredPlanIsCurrent(tx, plan, false)).toBe(true);
-  await readSessionAgenda(tx, { id: f.userB, tutorId: f.tutorB }, "tutor");
+  for (const [viewer, role] of [[{ id: f.userB, tutorId: f.tutorB }, "tutor"], [{ id: f.id("student-user") }, "tutee"]] as const) {
+    const agenda = await readSessionAgenda(tx, viewer, role);
+    expect(agenda.cohorts.find((row) => row.id === cohortId)).toMatchObject({ tutorId: f.tutorB, tutorName: f.tutorB });
+    const offer = agenda.requests.find((row) => row.id === requestId)?.currentOffer;
+    expect(offer?.responses.find((row) => row.id === responseId)).toMatchObject({
+      actorKey: `tutor:${f.tutorA}`, name: f.tutorB, state: "PENDING", isMe: role === "tutor",
+      deliveredAt: before.deliveredAt, deadline: before.deadline,
+    });
+  }
+  expect((await tx.sessionPlan.findUniqueOrThrow({ where: { id: planId } })).tutorId).toBe(f.tutorA);
   await sweepSessionPlanning(tx);
   const pending = await tx.sessionPlanningRequest.findUniqueOrThrow({ where: { id: requestId } });
   expect(pending.status).toBe("PENDING");
@@ -292,6 +301,15 @@ it.each([false, true])("preserves original request authority through real Aâ†’Bâ
   const pinBefore = await tx.sessionParticipantExecution.findUniqueOrThrow({ where: { participantId: originalParticipant.id } });
   expect(pinBefore).toMatchObject({ tuteeId: learnerC });
   expect([...pinBefore.sourceSurveyIds].sort()).toEqual(requests.map((row) => row.id).sort());
+
+  for (const [viewer, role] of [[{ id: f.userA, tutorId: f.tutorA }, "tutor"], [{ id: learnerUser }, "tutee"]] as const) {
+    const agenda = await readSessionAgenda(tx, viewer, role, now);
+    const cohort = agenda.cohorts.find((row) => row.id === originalParticipant.cohortId);
+    expect(cohort?.tutees).toContainEqual({ id: learnerC, name: "Chosen learner C" });
+    expect(cohort?.tutees.some((row) => row.id === learnerB || row.name === "Intermediate learner B")).toBe(false);
+    if (role === "tutee") expect(cohort?.tutees).toHaveLength(1);
+    else expect(cohort?.tutees).toContainEqual({ id: peerId, name: "Unrelated peer" });
+  }
 
   const assertPeerAndPublicationSurvive = async (learnerScheduled: boolean) => {
     // Exercise ordinary invalidation/publication after the real request release;

@@ -32,8 +32,13 @@ export async function executionSourceIds(db: DomainDb, kind: ParticipantKind, ta
 
 /** Original recurring assignments are retained for history but cease to reserve
  * current work once an exact successor commits. Keep this out of history queries. */
-export async function supersededPairingIds(db: DomainDb) {
-  return (await db.pairingExecutionSuccessor.findMany({ select: { sourcePairingId: true } })).map((row) => row.sourcePairingId);
+export async function supersededPairingIds(db: DomainDb, candidates?: string[]) {
+  if (candidates?.length === 0) return [];
+  const rows = await db.pairingExecutionSuccessor.findMany({
+    ...(candidates ? { where: { sourcePairingId: { in: candidates } } } : {}),
+    select: { sourcePairingId: true },
+  });
+  return rows.map((row) => row.sourcePairingId);
 }
 
 export async function assertOperationalPairing(db: DomainDb, id: string) {

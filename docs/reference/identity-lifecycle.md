@@ -20,6 +20,12 @@ successor. Declining that optional link still permits the original login to sign
 in; it does not follow the successor to claim a different profile. Explicit
 direct links and eligible same-owner legacy linking retain their existing rules.
 
+The current learner schedule, tutor room grid and attendance form exclude an
+original recurring pairing once its successor exists. A live unrecorded dated
+agenda item shows the executing tutor and learner names. A pending response
+shows its current responder. Recorded sessions and completed responses retain
+their original attribution.
+
 Admin and Head can directly perform authorized identity management operations,
 including account combination, exact historical ownership correction and guarded
 account deletion. The current Head alone can transfer leadership; combination

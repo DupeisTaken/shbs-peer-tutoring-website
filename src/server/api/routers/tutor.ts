@@ -1614,7 +1614,9 @@ export const tutorRouter = createTRPCRouter({
         },
       }),
     ]);
-    return { rooms, slots, pairings, blocks, myTutorId: ctx.session.tutorId };
+    // Retained predecessors are attendance evidence, not additional occupied slots.
+    const superseded = new Set(await supersededPairingIds(ctx.db, pairings.map((row) => row.id)));
+    return { rooms, slots, pairings: pairings.filter((row) => !superseded.has(row.id)), blocks, myTutorId: ctx.session.tutorId };
   }),
 
   // --------------------------------------------------------------------------
