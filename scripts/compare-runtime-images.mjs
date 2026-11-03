@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { regularRuntimeSource, requiredOperatorFiles } from "./runtime-cli-graph.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const run = (command, args, options = {}) =>
@@ -32,6 +33,8 @@ export function needsStorageComparison(files) {
         ".dockerignore",
         ".github/workflows/docker-build.yml",
         "scripts/test_image_storage_metrics.py",
+        "scripts/runtime-cli-graph.mjs",
+        "scripts/runtime-cli-graph.test.mjs",
       ].includes(file) ||
       /^scripts\/(assemble-runtime|runtime-file-inventory|compare-runtime-images|image_storage_metrics)(\.|_)/.test(
         file,
@@ -74,7 +77,8 @@ export function withAppProbe(source) {
 // A historical Dockerfile can omit newly required operator files. Compare its
 // layout with the current explicit payload, without masking runtime differences
 // or charging a duplicate final-layer COPY as required application growth.
-export function withCommonOperatorPayload(baseline, candidate) {
+export function withCommonOperatorPayload(baseline, candidate, requiredFiles) {
+  assert.ok(requiredFiles instanceof Set, "The current required operator graph must be supplied");
   baseline = baseline.replaceAll("\r\n", "\n");
   candidate = candidate.replaceAll("\r\n", "\n");
   const prepared = (source) => {
@@ -87,8 +91,10 @@ export function withCommonOperatorPayload(baseline, candidate) {
     assert.match(source.slice(end), /^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m,
       "Prepared operator payload must reach the final application layer");
     const files = new Set();
-    for (const line of source.slice(start, end).split("\n")) {
-      if (!/^COPY\s+--from=build\b/.test(line)) continue;
+    for (const raw of source.slice(start, end).split("\n")) {
+      const line = raw.trim();
+      if (!/^COPY\b/i.test(line)) continue;
+      if (line === "COPY --from=runtime-deps /app/node_modules /runtime-production/node_modules") continue;
       const match = /^COPY --from=build \/app\/(\S+) \/runtime-output\/app\/(\S+)\s*$/.exec(line);
       assert.ok(match, "Operator payload copies must name one exact file and destination");
       const [file, target] = match.slice(1);
@@ -103,20 +109,38 @@ export function withCommonOperatorPayload(baseline, candidate) {
   const before = prepared(baseline);
   const after = prepared(candidate);
   const runner = baseline.slice(before.end).replace(/\\\n\s*/g, " ");
-  const direct = runner.split("\n").flatMap((line) => {
-    if (!/^COPY\s+--from=build\s/.test(line)) return [];
-    const args = line.split(/\s+/).slice(1).filter((arg) => arg && !arg.startsWith("--"));
+  const direct = runner.split("\n").flatMap((raw) => {
+    const line = raw.trim();
+    if (!/^COPY\b/i.test(line)) return [];
+    if (/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/(?:app \.\/|dependencies\/node_modules \.\/node_modules)$/.test(line) ||
+      line === "COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh") return [];
+    // Never silently ignore JSON, wildcard, quoted or alternative-stage copies:
+    // they may already ship the source and would inflate a normalized baseline.
+    assert.ok(/^COPY --from=build(?: --chown=nextjs:nodejs)? \/app\//.test(line), "Unsupported baseline runner COPY");
+    const args = line.split(/\s+/).slice(line.includes("--chown=") ? 3 : 2);
+    assert.ok(args.length >= 2, "Baseline COPY requires sources and a destination");
     const destination = args.pop();
-    return args.map((source) => ({
-      source: source.replace(/^\/app\//, ""),
-      target: path.posix.normalize(destination.endsWith("/") ? path.posix.join(destination, path.posix.basename(source)) : destination).replace(/^\/app\//, ""),
-    }));
+    const canonical = /^(?:\/app\/|\.\/)(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*\/?$/;
+    assert.ok(canonical.test(destination) && !destination.split("/").includes(".."), "Unsupported baseline COPY destination");
+    assert.ok(args.length === 1 || destination.endsWith("/"), "Multiple COPY sources require an exact directory destination");
+    return args.map((source) => {
+      assert.ok(/^\/app\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\/?$/.test(source) &&
+        !source.split("/").some((part) => part === "." || part === ".."), "Unsupported baseline COPY source");
+      return {
+        source: source.replace(/^\/app\//, "").replace(/\/$/, ""),
+        target: path.posix.normalize(destination.endsWith("/") ? path.posix.join(destination, path.posix.basename(source)) : destination).replace(/^\/app\//, ""),
+        directoryTarget: path.posix.normalize(destination).replace(/^\/app\//, "").replace(/\/$/, ""),
+      };
+    });
   });
   // A source already shipped by the old runner is not a new payload addition.
   // Adding it to the prepared layer would manufacture baseline duplication.
   const addedFiles = [...after.files].filter((file) => !before.files.has(file) &&
-    !direct.some(({ source, target }) => source === target && (file === source || file.startsWith(`${source}/`))),
+    !direct.some(({ source, target, directoryTarget }) =>
+      (file === source && file === target) || (file.startsWith(`${source}/`) && source === directoryTarget)),
   ).sort();
+  for (const file of addedFiles)
+    assert.ok(requiredFiles.has(file), `Prepared addition is outside the required operator graph: ${file}`);
   if (!addedFiles.length) return { source: baseline, addedFiles };
   const copies = addedFiles.map((file) => `COPY --from=build /app/${file} /runtime-output/app/${file}`).join("\n");
   return {
@@ -313,7 +337,7 @@ function compare(output) {
   assert.ok(base, "Expected the Linux amd64 Node base manifest");
   const baselineDockerfile = run("git", ["show", `${revision}:Dockerfile`]);
   const candidateDockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
-  const commonPayload = withCommonOperatorPayload(baselineDockerfile, candidateDockerfile);
+  const commonPayload = withCommonOperatorPayload(baselineDockerfile, candidateDockerfile, requiredOperatorFiles(root));
   const payloadNormalization = {
     scope: "Historical layout with current explicit operator source additions; not the historical released image. Final runtime file/configuration equality and storage gates remain mandatory.",
     baselineDockerfileRevision: revision,
@@ -321,7 +345,7 @@ function compare(output) {
     candidateDockerfileSha256: createHash("sha256").update(candidateDockerfile).digest("hex"),
     addedFiles: commonPayload.addedFiles.map((file) => ({
       path: file,
-      sha256: createHash("sha256").update(readFileSync(path.join(root, file))).digest("hex"),
+      sha256: createHash("sha256").update(readFileSync(regularRuntimeSource(root, file))).digest("hex"),
     })),
   };
   // Save normalization before builds, so failed comparisons remain reviewable.

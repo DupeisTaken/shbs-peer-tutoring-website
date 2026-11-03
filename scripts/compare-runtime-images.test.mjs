@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { regularRuntimeSource, requiredOperatorFiles } from "./runtime-cli-graph.mjs";
 import {
   assertMeasuredIdentity,
   baselineRevision,
@@ -25,26 +29,27 @@ COPY --from=runtime-files --chown=nextjs:nodejs /runtime-output/app ./
 ENV NODE_ENV=production
 `;
 const sourceCopy = (file) => `COPY --from=build /app/${file} /runtime-output/app/${file}`;
+const requiredFiles = new Set(["src/server/program/continuation-opening.ts", "src/server/history-row-ownership.ts", "messages/en.json"]);
 
 test("common operator payload adds exact current files to the historical prepared layer only", () => {
   const oldFile = "src/server/program/continuation-opening.ts";
   const newFile = "src/server/history-row-ownership.ts";
   const baseline = operatorLayout(sourceCopy(oldFile));
   const candidate = operatorLayout([sourceCopy(oldFile), sourceCopy(newFile), sourceCopy("messages/en.json")].join("\n"));
-  const result = withCommonOperatorPayload(baseline, candidate);
+  const result = withCommonOperatorPayload(baseline, candidate, requiredFiles);
   assert.deepEqual(result.addedFiles, ["messages/en.json", newFile]);
   const [prepared, runner] = result.source.split("FROM node:22-alpine AS runner");
   assert.ok(prepared.includes(sourceCopy(newFile)));
   assert.ok(prepared.includes(sourceCopy("messages/en.json")));
   assert.equal(runner, baseline.split("FROM node:22-alpine AS runner")[1]);
   assert.equal(result.source.match(new RegExp(sourceCopy(oldFile), "g")).length, 1);
-  assert.deepEqual(withCommonOperatorPayload(result.source, candidate).addedFiles, []);
+  assert.deepEqual(withCommonOperatorPayload(result.source, candidate, requiredFiles).addedFiles, []);
 });
 
 test("equal and removed operator payloads do not rewrite the baseline or conceal removals", () => {
   const baseline = operatorLayout(sourceCopy("src/server/history-row-ownership.ts"));
   for (const candidate of [baseline, operatorLayout()])
-    assert.deepEqual(withCommonOperatorPayload(baseline, candidate), { source: baseline, addedFiles: [] });
+    assert.deepEqual(withCommonOperatorPayload(baseline, candidate, requiredFiles), { source: baseline, addedFiles: [] });
 });
 
 test("existing runner files are not duplicated to inflate the historical baseline", () => {
@@ -54,9 +59,10 @@ test("existing runner files are not duplicated to inflate the historical baselin
     `COPY --from=build --chown=nextjs:nodejs /app/${file} ./${file}`,
     `COPY --from=build --chown=nextjs:nodejs /app/src/server/other.ts \\\n      /app/${file} ./src/server/`,
     "COPY --from=build --chown=nextjs:nodejs /app/src ./src",
+    "COPY --from=build --chown=nextjs:nodejs /app/src/server/ ./src/server/",
   ]) {
     const baseline = operatorLayout() + copy + "\n";
-    assert.deepEqual(withCommonOperatorPayload(baseline, candidate), { source: baseline, addedFiles: [] });
+    assert.deepEqual(withCommonOperatorPayload(baseline, candidate, requiredFiles), { source: baseline, addedFiles: [] });
   }
 });
 
@@ -70,9 +76,84 @@ test("operator payload normalization rejects broad, redirected, duplicate and un
     exact.replace("/runtime-output/app/", "/elsewhere/"),
     exact + "\n" + exact,
     "COPY --from=build /app/src/a.ts /app/src/b.ts /runtime-output/app/src/",
-  ]) assert.throws(() => withCommonOperatorPayload(operatorLayout(), operatorLayout(invalid)));
-  assert.throws(() => withCommonOperatorPayload(operatorLayout(), operatorLayout(exact).replace("COPY --from=runtime-files", "# omitted COPY --from=runtime-files")));
-  assert.throws(() => withCommonOperatorPayload(dockerfile, operatorLayout(exact)));
+  ]) assert.throws(() => withCommonOperatorPayload(operatorLayout(), operatorLayout(invalid), requiredFiles));
+  assert.throws(() => withCommonOperatorPayload(operatorLayout(), operatorLayout(exact).replace("COPY --from=runtime-files", "# omitted COPY --from=runtime-files"), requiredFiles));
+  assert.throws(() => withCommonOperatorPayload(dockerfile, operatorLayout(exact), requiredFiles));
+});
+
+test("unsupported baseline COPY forms cannot manufacture missing operator payload", () => {
+  const candidate = operatorLayout(sourceCopy("src/server/history-row-ownership.ts"));
+  for (const copy of [
+    'COPY --from=build --chown=nextjs:nodejs ["/app/src/server/history-row-ownership.ts", "./src/server/history-row-ownership.ts"]',
+    "COPY --from=build --chown=nextjs:nodejs /app/src/server/*.ts ./src/server/",
+    "COPY --from=other --chown=nextjs:nodejs /app/src/server/history-row-ownership.ts ./src/server/",
+    "COPY --chown=nextjs:nodejs . ./",
+    "COPY --from=build --link /app/src/server/history-row-ownership.ts ./src/server/",
+    "COPY --from=build --chown=someone:else /app/src/server/history-row-ownership.ts ./src/server/",
+    'COPY --from=build "/app/src/server/history-row-ownership.ts" ./src/server/',
+  ]) assert.throws(() => withCommonOperatorPayload(operatorLayout() + copy + "\n", candidate, requiredFiles));
+});
+
+test("only the required operator import graph authorizes payload additions", () => {
+  const candidate = operatorLayout(sourceCopy("src/server/unrelated-private-data.json"));
+  assert.throws(() => withCommonOperatorPayload(operatorLayout(), candidate, requiredFiles), /outside the required operator graph/);
+  assert.throws(() => withCommonOperatorPayload(operatorLayout(), candidate), /required operator graph/);
+});
+
+function sourceFixture(t) {
+  const parent = mkdtempSync(path.join(tmpdir(), "shbs-operator-source-"));
+  const root = path.join(parent, "repository");
+  mkdirSync(root);
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  const write = (file, text) => {
+    const target = path.join(root, file);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, text);
+  };
+  return { parent, root, write };
+}
+
+test("normalization authority follows actual runtime imports, not unrelated candidate declarations", (t) => {
+  const { root, write } = sourceFixture(t);
+  write("package.json", JSON.stringify({ scripts: { "admin:create": "tsx scripts/cli.ts", "identity:reconcile": "tsx scripts/cli.ts", recovery: "tsx scripts/cli.ts" }, dependencies: { tsx: "1" } }));
+  write("tsconfig.json", "{}");
+  write("scripts/cli.ts", 'import "~/server/required"; import "../messages/en.json"; import type { Unused } from "./unshipped-type"; export const load = () => import("../src/server/deferred");');
+  write("src/server/required.ts", "export const required = true;");
+  write("src/server/deferred.ts", "export const deferred = true;");
+  write("src/server/unrelated.ts", "export const unrelated = true;");
+  write("messages/en.json", "{}");
+  const graph = requiredOperatorFiles(root);
+  assert.deepEqual([...graph].sort(), ["messages/en.json", "package.json", "scripts/cli.ts", "src/server/deferred.ts", "src/server/required.ts", "tsconfig.json"]);
+  const candidate = operatorLayout(sourceCopy("src/server/unrelated.ts"));
+  assert.throws(() => withCommonOperatorPayload(operatorLayout(), candidate, graph), /outside the required operator graph/);
+  assert.equal(readFileSync(regularRuntimeSource(root, "src/server/required.ts"), "utf8"), "export const required = true;");
+  for (const invalid of ["../outside.ts", "/absolute.ts", "src/../outside.ts", "src\\server\\required.ts", "src/server"])
+    assert.throws(() => regularRuntimeSource(root, invalid));
+});
+
+test("regular operator source validation refuses file symlinks before hashing", (t) => {
+  const { parent, root, write } = sourceFixture(t);
+  write("src/server/ordinary.ts", "export const ordinary = true;");
+  const outside = path.join(parent, "outside.ts");
+  writeFileSync(outside, "private synthetic sentinel");
+  try { symlinkSync(outside, path.join(root, "src/server/linked.ts"), "file"); }
+  catch (error) { if (["EPERM", "EACCES"].includes(error.code)) { t.skip("File symlinks unavailable on this host; Linux CI requires this case"); return; } throw error; }
+  assert.throws(() => regularRuntimeSource(root, "src/server/linked.ts"), /symbolic links/);
+  assert.equal(readFileSync(outside, "utf8"), "private synthetic sentinel");
+});
+
+test("regular operator source validation refuses linked parent directories and linked repository ancestors", (t) => {
+  const { parent, root } = sourceFixture(t);
+  const outside = path.join(parent, "outside");
+  mkdirSync(outside);
+  writeFileSync(path.join(outside, "required.ts"), "private synthetic sentinel");
+  symlinkSync(outside, path.join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
+  assert.throws(() => regularRuntimeSource(root, "linked/required.ts"), /symbolic links/);
+  const linkedRoot = path.join(parent, "linked-repository");
+  symlinkSync(root, linkedRoot, process.platform === "win32" ? "junction" : "dir");
+  mkdirSync(path.join(root, "nested"));
+  writeFileSync(path.join(root, "nested/source.ts"), "export {};");
+  assert.throws(() => regularRuntimeSource(path.join(linkedRoot, "nested"), "source.ts"), /ancestors/);
 });
 
 const configDigest = `sha256:${"a".repeat(64)}`;
