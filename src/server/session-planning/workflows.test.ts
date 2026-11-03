@@ -678,6 +678,10 @@ describe("whole-group agreement and split", () => {
     expect((await db.recoveryFence.findUniqueOrThrow({ where: { actionId: rootId } })).revision).toBe(journal.length);
 
     const audit = await db.auditLog.findFirstOrThrow({ where: { operation: "sessionPlanning.formalizeSplit" } });
+    const ordinaryAudit = await db.auditLog.findFirstOrThrow({ where: { operation: "sessionPlanning.respond", userId: one.id } });
+    const ordinaryEntities = array(record(ordinaryAudit.details).changes).map((change) => record(change).entity);
+    expect(ordinaryEntities).toContain("SessionPlanningResponse");
+    expect(ordinaryEntities).not.toContain("SessionResponseExecution");
     const auditChildren = array(record(audit.details).changes).map(record)
       .filter((change) => change.entity === "SessionPlanningRequest" && change.write === "create")
       .flatMap((change) => array(change.after).map(record))
@@ -2326,7 +2330,7 @@ describe("planned agenda history", () => {
     expect(await db.session.count()).toBe(0);
   });
 
-  it("preserves personal cohort eligibility and the agenda's live account denial", async () => {
+  it("preserves exact personal history independently of revoked live participation", async () => {
     const row = await ended("peer-only");
     await db.sessionPlanParticipant.update({
       where: {
@@ -2346,9 +2350,22 @@ describe("planned agenda history", () => {
       where: { id: tutor.id },
       data: { tutorAccessRevoked: true },
     });
-    await expect(
-      readSessionAgendaHistory(db, tutor, { role: "tutor" }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const retained = await readSessionAgendaHistory(db, tutor, { role: "tutor" });
+    expect(retained.cohorts.map((item) => item.id)).toEqual([row.id]);
+    expect(retained.cohorts.every((item) => !item.canRecordAttendance)).toBe(true);
+    await expect(readSessionAgenda(db, tutor, "tutor")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(propose()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // An unrelated account receives no tutor history merely by selecting that
+    // history role; explicit retained ownership survives clearing the live link.
+    expect((await readSessionAgendaHistory(db, one, { role: "tutor" })).cohorts).toEqual([]);
+    await db.tutorProfileOwnership.create({ data: { tutorId: tutor.tutorId, userId: tutor.id } });
+    await db.user.update({ where: { id: tutor.id }, data: { tutorId: null } });
+    expect((await readSessionAgendaHistory(db, tutor, { role: "tutor" })).cohorts.map((item) => item.id)).toEqual([row.id]);
+    await db.user.update({ where: { id: two.id }, data: { tuteeMember: false } });
+    expect((await readSessionAgendaHistory(db, two, { role: "tutee" })).cohorts.map((item) => item.id)).toEqual([row.id]);
+    await expect(readSessionAgenda(db, two, "tutee")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await db.user.update({ where: { id: tutor.id }, data: { suspendedAt: now } });
+    await expect(readSessionAgendaHistory(db, tutor, { role: "tutor" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("keeps current-window sessions visible beyond a full overdue attendance backlog", async () => {

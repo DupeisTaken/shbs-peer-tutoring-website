@@ -14,6 +14,7 @@ import {
   continuationReceipt,
 } from "./student-continuation";
 import { currentPolicy } from "./policy-acceptance";
+import { reconcileTutorContinuations } from "./student-continuation-assignment";
 import { inTransaction } from "./transactions";
 import { lockStudentRequestReview } from "./request-invalidity";
 import {
@@ -228,6 +229,280 @@ async function input(pairings = ["old-math"]) {
     signatureName: "Test Learner",
   };
 }
+
+/** Seed the durable execution projection; original prior-quarter rows stay intact. */
+async function priorLessonSuccessors(kind: "tutor" | "learner") {
+  const original = await db.pairing.findUniqueOrThrow({
+    where: { id: "old-math" },
+  });
+  const learners = ["prior", "prior", "prior"];
+  const tutors = ["tutor", "tutor", "tutor"];
+  for (const index of [1, 2]) {
+    if (kind === "tutor") {
+      const id = `successor-tutor-${index}`;
+      tutors[index] = id;
+      await db.tutor.create({
+        data: {
+          id,
+          englishName: `Successor Tutor ${index}`,
+          status: index === 2 ? "ACTIVE" : "ARCHIVED",
+        },
+      });
+      await db.user.create({
+        data: {
+          id: `${id}-user`,
+          email: `${id}@example.test`,
+          name: `Successor Tutor ${index}`,
+          role: "TUTOR",
+          tutorId: id,
+          emailVerifiedAt: now,
+        },
+      });
+      await db.tutorAvailability.createMany({
+        data: ["slot", "slot2"].map((slotId) => ({ tutorId: id, slotId })),
+      });
+      for (const subjectId of ["math", "science"]) {
+        await db.tutorSubjectWillingness.create({
+          data: { tutorId: id, subjectId, willing: true },
+        });
+        await db.tutorQualification.create({
+          data: { tutorId: id, subjectId, approvedById: "staff" },
+        });
+        await db.qualificationGrant.create({
+          data: { tutorId: id, subjectId, sourceSubjectId: subjectId },
+        });
+      }
+    } else {
+      const id = `successor-learner-${index}`;
+      learners[index] = id;
+      await db.tutee.create({
+        data: {
+          id,
+          englishName: `Successor Learner ${index}`,
+          // This case reviews pairing authority with a fully supplied learner
+          // intake. Missing contact or availability has its own earlier guard.
+          firstChoiceId: "math",
+          secondChoiceId: "science",
+          preferredContact: "In-app messages",
+          availabilities: { create: [{ slotId: "slot" }, { slotId: "slot2" }] },
+          intakeTermId: "old",
+          status: "INACTIVE",
+        },
+      });
+      await db.studentProfileOwnership.create({
+        data: { tuteeId: id, userId: "owner" },
+      });
+    }
+    await db.participantConsolidation.create({
+      data: {
+        kind: kind === "tutor" ? "TUTOR" : "TUTEE",
+        sourceId: (kind === "tutor" ? tutors : learners)[index - 1]!,
+        targetId: (kind === "tutor" ? tutors : learners)[index]!,
+        receiptId: `synthetic-prior-transfer-${index}`,
+        effectiveAt: now,
+      },
+    });
+    const id = `old-math-successor-${index}`;
+    await inTransaction(db, async (tx) => {
+      // Match the production transfer: stage a real target, record its edge,
+      // then reserve the reviewed room and add its roster in the same transaction.
+      await tx.pairing.create({
+        data: {
+          id,
+          tutorId: tutors[index]!,
+          termId: original.termId,
+          subject: original.subject,
+          dayOfWeek: original.dayOfWeek,
+          startMin: original.startMin,
+          endMin: original.endMin,
+          timeSlotId: original.timeSlotId,
+          groupId: null,
+          scheduleConfirmed: false,
+          roomId: null,
+          roomMode: "NONE",
+        },
+      });
+      await tx.pairingExecutionSuccessor.create({
+        data: {
+          sourcePairingId: index === 1 ? original.id : "old-math-successor-1",
+          targetPairingId: id,
+          receiptId: `synthetic-prior-transfer-${index}`,
+          effectiveAt: now,
+        },
+      });
+      await tx.pairing.update({
+        where: { id },
+        data: {
+          groupId: original.groupId,
+          scheduleConfirmed: original.scheduleConfirmed,
+          roomId: original.roomId,
+          roomMode: original.roomMode,
+          roomNeedsAssignment: original.roomNeedsAssignment,
+          roomShortageKey: original.roomShortageKey,
+        },
+      });
+      await tx.pairingTutee.create({
+        data: { pairingId: id, tuteeId: learners[index]! },
+      });
+      expect(
+        await tx.pairing.findUniqueOrThrow({ where: { id } }),
+      ).toMatchObject({
+        scheduleConfirmed: true,
+        roomId: "room",
+        roomMode: original.roomMode,
+      });
+    });
+  }
+  if (kind === "tutor")
+    await db.tutor.update({
+      where: { id: "tutor" },
+      data: { status: "ARCHIVED" },
+    });
+  return "old-math-successor-2";
+}
+
+it.each(["tutor", "learner"] as const)(
+  "offers one terminal prior lesson after a multi-hop %s transfer and preserves the independent subject",
+  async (kind) => {
+    const oldReview = await input();
+    const before = await db.pairing.findUniqueOrThrow({
+      where: { id: "old-math" },
+      include: { tutees: true },
+    });
+    const terminal = await priorLessonSuccessors(kind);
+    const status = await continuationStatus(db, "owner");
+    expect(status.status).toBe("eligible");
+    expect(
+      status.candidates.map((row) => ({
+        id: row.sourcePairingId,
+        subject: row.subject,
+        requested: row.requested,
+        state: row.state,
+      })),
+    ).toEqual([
+      {
+        id: terminal,
+        subject: "Mathematics",
+        requested: false,
+        state: "available",
+      },
+      {
+        id: "old-science",
+        subject: "Science",
+        requested: false,
+        state: "available",
+      },
+    ]);
+    expect(status.candidates[0]?.tutorName).toBe(
+      kind === "tutor" ? "Successor Tutor 2" : "Test Tutor",
+    );
+    await expect(
+      joinContinuation(db, "owner", oldReview),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      joinContinuation(db, "owner", {
+        ...oldReview,
+        sourcePairingIds: [terminal],
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await db.studentContinuationReceipt.count()).toBe(0);
+    expect(await db.studentContinuationAssignment.count()).toBe(0);
+    await expect(
+      joinContinuation(db, "owner", await input()),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(
+      (await joinContinuation(db, "owner", await input([terminal]))).results,
+    ).toMatchObject([{ sourcePairingId: terminal, state: "assigned" }]);
+    expect(
+      await db.pairing.findUniqueOrThrow({
+        where: { id: "old-math" },
+        include: { tutees: true },
+      }),
+    ).toEqual(before);
+  },
+);
+
+it.each(["ASSIGNED", "UNASSIGNED", "RELEASED"] as const)(
+  "retains the original %s continuation choice after transfer without offering its successor as new consent",
+  async (state) => {
+    if (state === "UNASSIGNED")
+      await db.tutorAvailability.deleteMany({ where: { tutorId: "tutor" } });
+    const posted = await input();
+    const accepted = await joinContinuation(db, "owner", posted);
+    if (state === "RELEASED") {
+      await db.tutorAvailability.deleteMany({ where: { tutorId: "tutor" } });
+      await inTransaction(db, (tx) =>
+        reconcileTutorContinuations(tx, "tutor", now),
+      );
+    }
+    const originalChoice =
+      await db.studentContinuationAssignment.findUniqueOrThrow({
+        where: {
+          surveyId_sourcePairingId: {
+            surveyId: accepted.requestId,
+            sourcePairingId: "old-math",
+          },
+        },
+      });
+    expect(originalChoice.status).toBe(state);
+    const originalReceipt =
+      await db.studentContinuationReceipt.findUniqueOrThrow({
+        where: {
+          userId_clientKey: { userId: "owner", clientKey: posted.clientKey },
+        },
+      });
+    const terminal = await priorLessonSuccessors("tutor");
+    const status = await continuationStatus(db, "owner");
+    expect(
+      status.candidates.map((row) => ({
+        id: row.sourcePairingId,
+        requested: row.requested,
+        state: row.state,
+      })),
+    ).toEqual([
+      {
+        id: "old-math",
+        requested: true,
+        state:
+          state === "ASSIGNED"
+            ? "joined"
+            : state === "RELEASED"
+              ? "released"
+              : "queued",
+      },
+      { id: "old-science", requested: false, state: "available" },
+    ]);
+    expect(status.candidates[0]?.tutorName).toBe("Test Tutor");
+    expect(status.prerequisites.fieldsRequired).not.toContain("requestReview");
+    await expect(
+      joinContinuation(db, "owner", await input([terminal])),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await continuationReceipt(db, "owner", posted.clientKey)).toEqual(
+      accepted,
+    );
+    expect(
+      (await joinContinuation(db, "owner", await input(["old-science"])))
+        .results,
+    ).toMatchObject([{ sourcePairingId: "old-science", state: "assigned" }]);
+    expect(
+      await db.studentContinuationAssignment.findUniqueOrThrow({
+        where: { id: originalChoice.id },
+      }),
+    ).toEqual(originalChoice);
+    expect(
+      await db.studentContinuationReceipt.findUniqueOrThrow({
+        where: {
+          userId_clientKey: { userId: "owner", clientKey: posted.clientKey },
+        },
+      }),
+    ).toEqual(originalReceipt);
+    expect(
+      await db.studentContinuationAssignment.count({
+        where: { sourcePairingId: terminal },
+      }),
+    ).toBe(0);
+  },
+);
 
 async function publicAnswers(email = "learner@example.test") {
   return surveyInput.parse({

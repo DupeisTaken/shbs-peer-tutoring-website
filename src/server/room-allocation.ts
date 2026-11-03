@@ -1,3 +1,4 @@
+import { supersededPairingIds } from "./participant-execution";
 import { TRPCError } from "@trpc/server";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { notificationSchedule } from "~/lib/notification-facts";
@@ -24,6 +25,8 @@ import { participantKeys } from "~/server/session-planning/participants";
 import { datedUnavailableRooms } from "~/server/session-planning/room-occupancy";
 
 export type AllocationSchedule = {
+  /** Only reviewed identity transfer may retain these exact published commitments. */
+  preservedPlanIds?: readonly string[];
   id?: string;
   /** Only an explicit teaching group shares a reservation; coincident schedules never do. */
   excludePairingIds?: string[];
@@ -176,6 +179,7 @@ export async function allocateRoom(
     db.room.findMany({ select: { id: true }, orderBy: { id: "asc" } }),
     db.pairing.findMany({
       where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }],
         termId: schedule.termId,
         scheduleConfirmed: true,
         roomId: { not: null },
@@ -314,6 +318,7 @@ export async function roomUnitMembers(
   const members = pairing.groupId
     ? await db.pairing.findMany({
         where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }],
           groupId: pairing.groupId,
           tutorId: pairing.tutorId,
           termId: pairing.termId,
@@ -462,7 +467,8 @@ export async function allocateSlotCohort(
   const linked = await db.pairing.findMany({
     // A catalog correction never promotes a legacy awaiting placeholder into a
     // confirmed lesson. Only existing confirmed reservations follow its clocks.
-    where: { timeSlotId: slot.id, scheduleConfirmed: true },
+    where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }], timeSlotId: slot.id, scheduleConfirmed: true },
     include: roomUnitInclude,
     orderBy: { id: "asc" },
   });

@@ -20,6 +20,12 @@ const password = "Patrol-test-password!";
 const caller = (id = crewId, role: Session["role"] = "CREW") => createCaller({
   db, headers: new Headers(), session: { user: { id }, role, tutorId: null, expires: "2099-01-01" },
 });
+/** Explicit fresh sign-in after a reviewed identity change; existing callers
+ * retain their old epoch so the stale-session denial stays observable. */
+async function reauthenticatedCaller(id: string) {
+  const account = await db.user.findUniqueOrThrow({ where: { id }, select: { role: true, tutorId: true, sessionVersion: true, historyAccessRevision: true } });
+  return createCaller({ db, headers: new Headers(), session: { user: { id }, ...account, expires: "2099-01-01" } });
+}
 const input = (time: Date | undefined = new Date()) => ({
   submissionKey: randomUUID(), observations: [{ roomId, headcount: "ONE" as const, observedAt: time }],
 });
@@ -136,15 +142,18 @@ it("checks combined account history without rewriting original authors or reopen
   const combineInput = await reviewedLoginRetirement(db, pair, password);
   const preview = await previewPersonCombine(db, combineInput);
   expect(preview.conflicts).toEqual([]);
+  const staleSurvivor = caller();
   await caller(headId, "HEAD").personCombine.combine(combineInput);
-  expect((await caller().crew.submitPatrol(input())).hours).toBe(0);
-  expect(await caller().crew.patrolConfig()).toMatchObject({ myHours: 0.5, myPatrols: 2 });
+  await expect(staleSurvivor.crew.submitPatrol(input())).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  const survivor = await reauthenticatedCaller(crewId);
+  expect((await survivor.crew.submitPatrol(input())).hours).toBe(0);
+  expect(await survivor.crew.patrolConfig()).toMatchObject({ myHours: 0.5, myPatrols: 2 });
   expect(await db.patrolCreditWindow.findFirst()).toMatchObject({ crewUserId: otherId });
   await expect(caller(otherId).crew.submitPatrol(input())).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   expect(await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true, creditWindows: true } })).toEqual(snapshot);
   vi.setSystemTime(new Date("2026-09-01T08:40:00Z"));
-  expect((await caller().crew.submitPatrol({ ...original, submissionKey: randomUUID() })).hours).toBe(0);
-  expect((await caller().crew.submitPatrol(input())).hours).toBe(0.5);
+  expect((await survivor.crew.submitPatrol({ ...original, submissionKey: randomUUID() })).hours).toBe(0);
+  expect((await survivor.crew.submitPatrol(input())).hours).toBe(0.5);
 });
 
 it("rolls back award time, reservations and observations together when later work fails", async () => {
@@ -321,8 +330,10 @@ it("fences a correction waiting behind account combination, then permits retry w
     await combining;
     expect(await correction).toMatchObject({ error: { code: "CONFLICT" } });
     await caller(headId, "HEAD").corrections.correctPatrol(correctionInput);
-    expect((await caller().crew.submitPatrol(input())).hours).toBe(0);
-    expect((await caller().crew.patrolConfig()).myHours).toBe(0.5);
+    await expect(caller().crew.patrolConfig()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    const survivor = await reauthenticatedCaller(crewId);
+    expect((await survivor.crew.submitPatrol(input())).hours).toBe(0);
+    expect((await survivor.crew.patrolConfig()).myHours).toBe(0.5);
     expect(await db.patrol.findUnique({ where: { id: first.id } })).toMatchObject({ crewUserId: otherId });
   } finally {
     release.resolve(); await Promise.allSettled([combining, ...(correction ? [correction] : [])]); spy.mockRestore();

@@ -19,6 +19,9 @@ const state = vi.hoisted(() => ({
   cancelTicket: vi.fn(),
   pending: false,
   error: "",
+  sources: [] as { surveyId: string; sourceTuteeId: string; name: string; termName: string; submittedAt: Date; pending: boolean }[],
+  sourceError: false,
+  sourceLoading: false,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -26,6 +29,7 @@ vi.mock("~/trpc/react", () => ({
       studentWorkflow: { tutorRoster: { invalidate: vi.fn() } },
     }),
     studentWorkflow: {
+      scheduleRequestSources: { useQuery: () => ({ data: { sources: state.sources, legacy: state.sources.length === 0 }, isSuccess: !state.sourceError, isFetching: state.sourceLoading, error: state.sourceError ? new Error("Denied") : null, refetch: vi.fn() }) },
       cancelAction: { useMutation: () => ({ mutate: state.cancelTicket }) },
       prepareAction: {
         useMutation: () => ({
@@ -83,6 +87,9 @@ afterEach(() => {
   vi.clearAllMocks();
   state.pending = false;
   state.error = "";
+  state.sources = [];
+  state.sourceError = false;
+  state.sourceLoading = false;
 });
 
 it.each([
@@ -273,3 +280,41 @@ it.each([
     });
   },
 );
+
+const originalSources = () => ["first", "second"].map((id) => ({ surveyId: id, sourceTuteeId: `original-${id}`, name: `Source ${id}`, termName: "Original term", submittedAt: new Date("2026-09-01T00:00:00Z"), pending: false }));
+it.each(["en", "zh"])("requires exact original request selection and binds its ticket in %s", async (locale) => {
+  state.sources = originalSources();
+  const catalog = locale === "zh" ? zh : messages;
+  render(element(true, locale));
+  fireEvent.click(screen.getByRole("button", { name: catalog.workflow.scheduleReject }));
+  await act(async () => undefined);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Independent request conflict" } });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: catalog.workflow.confirm }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("radio", { name: /Source second/ }));
+  await act(async () => undefined);
+  expect(state.prepare).toHaveBeenLastCalledWith({ action: "SCHEDULE", target: "pairing:tutee:second" });
+  fireEvent.click(screen.getByRole("button", { name: catalog.workflow.confirm }));
+  expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({ surveyId: "second", pairingId: "pairing", tuteeId: "tutee" }));
+});
+it("blocks stale ownership on a failed/refetching read while retaining the reason", async () => {
+  state.sources = originalSources();
+  const view = render(element());
+  fireEvent.click(screen.getByRole("button", { name: messages.workflow.scheduleReject }));
+  fireEvent.click(screen.getByRole("radio", { name: /Source first/ }));
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Retained source reason" } });
+  await act(async () => undefined);
+  for (const loading of [true, false]) {
+    state.sourceLoading = loading; state.sourceError = !loading;
+    view.rerender(element());
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.workflow.confirm }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("Retained source reason");
+  }
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+it("keeps a second request selectable when the first already has a pending review", async () => {
+  state.sources = originalSources(); state.sources[0]!.pending = true;
+  render(element());
+  fireEvent.click(screen.getByRole("button", { name: messages.workflow.scheduleReject }));
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: /Source first/ }).disabled).toBe(true);
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: /Source second/ }).disabled).toBe(false);
+});

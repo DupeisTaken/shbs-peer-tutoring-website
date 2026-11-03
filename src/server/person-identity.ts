@@ -1,5 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { accountHistoryIds, accountHistoryReaderId } from "./account-history";
+import { assertHistoryProfileOwner } from "./history-row-ownership";
 import { lockUsernameNamespace } from "./auth/username-namespace";
 import {
   inTransaction,
@@ -54,6 +56,12 @@ export async function personGraph(db: DomainDb, sources: PersonSource[]) {
   // Expand explicit source links and existing groups to a fixed point. New rows
   // created by legacy provisioning can have null personId until their next write.
   const read = async () => {
+    // Directory closure follows explicit effective ownership. Credential ancestry
+    // stays immutable, but cannot rejoin a corrected or quarantined source.
+    const readers = await Promise.all([...userIds].map((id) => accountHistoryReaderId(db, id)));
+    for (const id of readers) if (id) userIds.add(id);
+    const families = await Promise.all([...userIds].map((id) => accountHistoryIds(db, id)));
+    for (const family of families) for (const id of family) userIds.add(id);
     const ownership = await db.studentProfileOwnership.findMany({
       where: {
         OR: [
@@ -73,7 +81,6 @@ export async function personGraph(db: DomainDb, sources: PersonSource[]) {
           OR: [
             { id: { in: [...userIds] } },
             { personId: { in: [...personIds] } },
-            { mergedIntoId: { in: [...userIds] } },
           ],
         },
         include: {
@@ -111,7 +118,10 @@ export async function personGraph(db: DomainDb, sources: PersonSource[]) {
         orderBy: { id: "asc" },
       }),
     ]);
-    return { users, tutors, tutees, persons, ownership };
+    const historyOwnership = await db.retiredHistoryOwnership.findMany({
+      where: { sourceUserId: { in: users.map((row) => row.id) } }, orderBy: { sourceUserId: "asc" },
+    });
+    return { users, tutors, tutees, persons, ownership, historyOwnership };
   };
   for (;;) {
     const size = userIds.size + tutorIds.size + tuteeIds.size + personIds.size;
@@ -119,7 +129,6 @@ export async function personGraph(db: DomainDb, sources: PersonSource[]) {
     for (const row of graph.users) {
       userIds.add(row.id);
       if (row.personId) personIds.add(row.personId);
-      if (row.mergedIntoId) userIds.add(row.mergedIntoId);
       if (row.tutorId) tutorIds.add(row.tutorId);
       if (row.studentId) tuteeIds.add(row.studentId);
     }
@@ -189,6 +198,10 @@ export async function historyIdentitySnapshot(
       userId: r.user?.id ?? null,
     })),
     ownership: graph.ownership,
+    historyOwnership: graph.historyOwnership,
+    rowOwnership: await db.historyRowOwnership.findMany({
+      where: { entity: source.kind === "TUTOR" ? "Tutor" : source.kind === "TUTEE" ? "Tutee" : "User", recordId: source.id },
+    }),
   };
 }
 
@@ -272,13 +285,18 @@ export async function syncAccountPerson(
     await lockUsernameNamespace(tx);
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.mergedIntoId) {
-      const parentId = await syncAccountPerson(tx, user.mergedIntoId);
+      const reader = await accountHistoryReaderId(tx, user.id);
+      const parentId = reader
+        ? await syncAccountPerson(tx, reader)
+        : user.personId ?? (await tx.person.create({ data: { resolutionState: "REVIEW_REQUIRED" } })).id;
       await tx.user.update({
         where: { id: userId },
         data: { personId: parentId },
       });
       return parentId;
     }
+    if (user.tutorId) await assertHistoryProfileOwner(tx, "TUTOR", user.tutorId, user.id);
+    if (user.studentId) await assertHistoryProfileOwner(tx, "TUTEE", user.studentId, user.id);
     const [tutor, student] = await Promise.all([
       user.tutorId
         ? tx.tutor.findUnique({
@@ -335,6 +353,7 @@ export async function syncParticipantPerson(
   return inTransaction(db, async (tx) => {
     await lockUsernameNamespace(tx);
     const personId = await syncAccountPerson(tx, userId);
+    await assertHistoryProfileOwner(tx, kind, id, userId);
     const row =
       kind === "TUTOR"
         ? await tx.tutor.findUniqueOrThrow({ where: { id } })

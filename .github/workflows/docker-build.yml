@@ -209,6 +209,9 @@ jobs:
       - name: Select packaging comparison scope
         id: scope
         run: node scripts/compare-runtime-images.mjs scope
+      - name: Install locked source-graph inspection tools
+        if: steps.scope.outputs.compare == 'true'
+        run: npm ci --ignore-scripts
       - name: Set up isolated storage comparison builder
         if: steps.scope.outputs.compare == 'true'
         uses: docker/setup-buildx-action@v3

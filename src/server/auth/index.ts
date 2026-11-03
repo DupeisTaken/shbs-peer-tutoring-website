@@ -186,7 +186,6 @@ const {
           identity.sessionVersion !== user.sessionVersion
         )
           return null;
-        const tutorId = await resolveTutorLink(db, userId, email);
 
         // Bootstrap roles. The FIRST email in AUTH_BOOTSTRAP_ADMIN_EMAILS is the designated HEAD
         // (singleton leader); the rest are ADMIN. Grants only ever ELEVATE — never demote — so a
@@ -213,6 +212,9 @@ const {
             credentialState.sessionVersion !== user.sessionVersion
           )
             return null;
+          // Resolve the optional legacy link under the same account locks as
+          // issuance so a reviewed transfer cannot leave an obsolete email claim.
+          const tutorId = await resolveTutorLink(tx, userId, email);
           let roleBump: "HEAD" | "ADMIN" | undefined;
           if (isBootstrapAdmin && identity?.emailVerifiedAt) {
             const [current, headCount] = await Promise.all([
@@ -248,6 +250,7 @@ const {
               tutorId: true,
               tutorAccessRevoked: true,
               sessionVersion: true,
+              historyAccessRevision: true,
               mergedIntoId: true,
             },
           });
@@ -267,6 +270,7 @@ const {
 
         token.sub = dbUser.id;
         token.sessionVersion = user.sessionVersion;
+        token.historyAccessRevision = dbUser.historyAccessRevision;
         token.role = dbUser.role;
         token.name = dbUser.name;
         token.tutorId =
@@ -285,6 +289,7 @@ const {
             tutorAccessRevoked: true,
             role: true,
             sessionVersion: true,
+            historyAccessRevision: true,
             mergedIntoId: true,
             recoveryVoidedAt: true,
           },
@@ -303,6 +308,7 @@ const {
             ? null
             : dbUser.tutorId;
         token.role = dbUser.role;
+        token.historyAccessRevision = dbUser.historyAccessRevision;
         token.name = dbUser.name;
       }
       return token;

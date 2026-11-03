@@ -10,11 +10,13 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
+import zhMessages from "../../../messages/zh.json";
 import { DepartureBanner, SchoolDeparturePanel } from "./school-departure";
 import { ProfileDialog } from "./profile-dialog";
 
 const fixture = vi.hoisted(() => ({
   data: {
+    retired: false,
     departure: { reason: "TRANSFERRED", revision: 2, observerRevoked: false },
     access: { canReadManagement: true },
     role: "STUDENT",
@@ -63,6 +65,10 @@ beforeEach(() => {
   fixture.pending = false;
   fixture.data.access.canReadManagement = true;
   fixture.data.departure.revision = 2;
+  fixture.data.retired = false;
+  fixture.data.role = "STUDENT";
+  fixture.data.departure.reason = "TRANSFERRED";
+  fixture.data.departure.observerRevoked = false;
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -77,6 +83,41 @@ beforeEach(() => {
       },
     },
   });
+});
+
+it.each(["en", "zh"] as const)("offers only factual RETURN for a retired original to staff in %s", (locale) => {
+  fixture.data.retired = true;
+  fixture.data.role = "HEAD";
+  fixture.data.departure.observerRevoked = true;
+  const copy = locale === "en" ? messages : zhMessages;
+  render(<NextIntlClientProvider locale={locale} messages={copy}><SchoolDeparturePanel userId="retired-original" /></NextIntlClientProvider>);
+  const select = screen.getByRole<HTMLSelectElement>("combobox");
+  expect(Array.from(select.options, (option) => option.value)).toEqual(["RETURN"]);
+  expect(select.value).toBe("RETURN");
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Verified factual return; keep login retired" } });
+  fireEvent.click(screen.getByRole("button", { name: copy.schoolDeparture.review }));
+  fireEvent.click(screen.getByRole("button", { name: copy.schoolDeparture.confirm }));
+  expect(fixture.save).toHaveBeenCalledWith({ userId: "retired-original", action: "RETURN", expectedRevision: 2, explanation: "Verified factual return; keep login retired" });
+  expect(fixture.request).not.toHaveBeenCalled();
+});
+
+it.each(["COORDINATOR", "STUDENT"])("does not let %s submit a retired-source return", (role) => {
+  fixture.data.retired = true;
+  fixture.data.role = role;
+  show(<SchoolDeparturePanel userId="retired-original" />);
+  expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(true);
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").disabled).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.schoolDeparture.request }).disabled).toBe(true);
+  expect(fixture.save).not.toHaveBeenCalled();
+});
+
+it("keeps a returned retired source read-only instead of offering another capability change", () => {
+  fixture.data.retired = true;
+  fixture.data.role = "ADMIN";
+  fixture.data.departure.reason = "";
+  show(<SchoolDeparturePanel userId="retired-original" />);
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.schoolDeparture.review }).disabled).toBe(true);
+  expect(Array.from(screen.getByRole<HTMLSelectElement>("combobox").options, (option) => option.value)).toEqual(["RETURN"]);
 });
 
 it("keeps the parent editor and reason when cancelling the nested departure review", () => {

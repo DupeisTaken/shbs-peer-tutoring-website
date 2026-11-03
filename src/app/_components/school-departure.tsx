@@ -53,7 +53,7 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
 function SchoolDepartureEditor({ userId }: { userId?: string }) {
   const t = useTranslations("schoolDeparture");
   const state = api.departure.state.useQuery({ userId });
-  const [action, setAction] = useState<
+  const [selectedAction, setAction] = useState<
     "GRADUATED" | "TRANSFERRED" | "RETURN" | "REVOKE" | "RESTORE"
   >("TRANSFERRED");
   const [explanation, setExplanation] = useState("");
@@ -114,8 +114,12 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
     setCompletion(null);
   }
   const departed = !!state.data?.departure?.reason;
+  const retired = !!state.data?.retired;
+  const action = retired ? "RETURN" : selectedAction;
+  const canReview = !retired || (!!userId && departed && ["HEAD", "ADMIN"].includes(state.data?.role ?? ""));
   const submit = () => {
     if (
+      !canReview ||
       busy ||
       submitting.current ||
       completion ||
@@ -157,13 +161,13 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
           <select
             className="select min-h-11 w-full lg:min-h-10"
             value={action}
-            disabled={busy}
-            onChange={(e) => setAction(e.target.value as typeof action)}
+            disabled={busy || !canReview}
+            onChange={(e) => setAction(e.target.value as typeof selectedAction)}
           >
-            <option value="TRANSFERRED">{t("transferred")}</option>
-            <option value="GRADUATED">{t("graduated")}</option>
-            {departed && <option value="RETURN">{t("return")}</option>}
-            {departed && userId && (
+            {!retired && <option value="TRANSFERRED">{t("transferred")}</option>}
+            {!retired && <option value="GRADUATED">{t("graduated")}</option>}
+            {(departed || retired) && <option value="RETURN">{t("return")}</option>}
+            {departed && userId && !retired && (
               <>
                 <option value="REVOKE">{t("revoke")}</option>
                 <option value="RESTORE">{t("restore")}</option>
@@ -178,16 +182,17 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
             rows={2}
             maxLength={1000}
             value={explanation}
-            disabled={busy}
+            disabled={busy || !canReview}
             onChange={(e) => setExplanation(e.target.value)}
           />
         </label>
       </div>
       <Button
-        disabled={!state.data || !explanation.trim() || busy}
+        disabled={!state.data || !explanation.trim() || busy || !canReview}
         onClick={() => {
           if (
             !busy &&
+            canReview &&
             !submitting.current &&
             !completion &&
             state.data &&
@@ -232,7 +237,7 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
                 <p className="text-sm">
                   {t(
                     action === "RETURN"
-                      ? "returnHelp"
+                      ? retired ? "retiredReturnHelp" : "returnHelp"
                       : action === "REVOKE" || action === "RESTORE"
                         ? "accessHelp"
                         : "consequences",
@@ -244,7 +249,7 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
               </>
             }
             actions={
-              <Button variant="primary" disabled={busy} onClick={submit}>
+              <Button variant="primary" disabled={busy || !canReview} onClick={submit}>
                 {t("confirm")}
               </Button>
             }

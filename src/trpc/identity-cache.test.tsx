@@ -16,7 +16,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { TRPCClientError } from "@trpc/client";
 import messages from "../../messages/en.json";
-import { TRPCReactProvider } from "./react";
+import { IDENTITY_CHECK_INTERVAL_MS, TRPCReactProvider } from "./react";
 import { retryQuery } from "./query-client";
 import { sessionIdentity } from "~/lib/session-identity";
 
@@ -53,6 +53,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 function Probe() {
@@ -301,4 +302,144 @@ it("aborts unmounted identity checks and ignores late responses", async () => {
   );
   await act(async () => pending.resolve(response("other-account")));
   expect(contentVisible()).toBe(true);
+});
+
+it("checks an idle visible tab quietly and retains its draft without refetching data", async () => {
+  vi.useFakeTimers();
+  const pending = deferred<Response>();
+  const fetcher = vi.fn().mockReturnValue(pending.promise);
+  vi.stubGlobal("fetch", fetcher);
+  const query = vi.fn().mockResolvedValue("New rows");
+  render(backgroundView(query, () => undefined, Infinity));
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Unsaved edit" } });
+  await act(async () => vi.advanceTimersByTimeAsync(IDENTITY_CHECK_INTERVAL_MS));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(contentVisible()).toBe(true);
+  expect(screen.queryByRole("status")).toBeNull();
+  await act(async () => pending.resolve(response()));
+  expect(contentVisible()).toBe(true);
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("Unsaved edit");
+  expect(query).not.toHaveBeenCalled();
+});
+
+it("shares a quiet pending check with focus and detects a same-account access generation change", async () => {
+  vi.useFakeTimers();
+  const pending = deferred<Response>();
+  const fetcher = vi.fn().mockReturnValue(pending.promise);
+  vi.stubGlobal("fetch", fetcher);
+  let client!: QueryClient;
+  render(backgroundView(async () => "Rows", (value) => { client = value; }, Infinity));
+  await act(async () => vi.advanceTimersByTimeAsync(IDENTITY_CHECK_INTERVAL_MS));
+  fireEvent(window, new Event("focus"));
+  expect(contentVisible()).toBe(false);
+  await act(async () => vi.advanceTimersByTimeAsync(5_000));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  await act(async () => pending.resolve(response("same-account-new-history-revision")));
+  expect(client.getQueryData(["background"])).toBeUndefined();
+  expect(contentVisible()).toBe(false);
+  await act(async () => vi.advanceTimersByTimeAsync(IDENTITY_CHECK_INTERVAL_MS * 2));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("does not start identity polling while hidden, and resumes with a checked focus", async () => {
+  vi.useFakeTimers();
+  const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  const fetcher = vi.fn().mockResolvedValue(response());
+  vi.stubGlobal("fetch", fetcher);
+  render(backgroundView(async () => "Rows", () => undefined, Infinity));
+  await act(async () => vi.advanceTimersByTimeAsync(IDENTITY_CHECK_INTERVAL_MS * 3));
+  expect(fetcher).not.toHaveBeenCalled();
+  visibility.mockReturnValue("visible");
+  await act(async () => fireEvent(document, new Event("visibilitychange")));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  visibility.mockReturnValue("hidden");
+  fireEvent(document, new Event("visibilitychange"));
+  await act(async () => vi.advanceTimersByTimeAsync(IDENTITY_CHECK_INTERVAL_MS * 3));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("conceals the cache when a quiet identity check fails", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Offline")));
+  let client!: QueryClient;
+  render(backgroundView(async () => "Rows", (value) => { client = value; }, Infinity));
+  await act(async () => vi.advanceTimersByTimeAsync(IDENTITY_CHECK_INTERVAL_MS));
+  expect(client.getQueryData(["background"])).toBeUndefined();
+  expect(contentVisible()).toBe(false);
+});
+
+it.each(["query", "mutation"])(
+  "conceals private data on an unauthorized %s and rejects a late identity success",
+  async (kind) => {
+    const pending = deferred<Response>();
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(pending.promise));
+    let client!: QueryClient;
+    render(backgroundView(async () => "Rows", (value) => { client = value; }, Infinity));
+    fireEvent(window, new Event("focus"));
+    const error = TRPCClientError.from({
+      error: { message: "Session expired", code: -32001, data: { code: "UNAUTHORIZED" } },
+    });
+    await act(async () => {
+      if (kind === "query")
+        await client.fetchQuery({
+          queryKey: ["rejected"], queryFn: async () => { throw error; }, retry: false,
+        }).catch(() => undefined);
+      else
+        await client.getMutationCache().build(client, {
+          mutationFn: async () => { throw error; },
+        }).execute(undefined).catch(() => undefined);
+    });
+    expect(client.getQueryData(["background"])).toBeUndefined();
+    expect(contentVisible()).toBe(false);
+    // A check started before the rejected request cannot restore stale data.
+    await act(async () => pending.resolve(response()));
+    expect(contentVisible()).toBe(false);
+  },
+);
+
+it("conceals an unauthorized read while the tab stays focused on the same route", async () => {
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  let client!: QueryClient;
+  render(backgroundView(async () => "Rows", (value) => { client = value; }, Infinity));
+  const error = TRPCClientError.from({
+    error: { message: "Session expired", code: -32001, data: { code: "UNAUTHORIZED" } },
+  });
+  await act(async () => {
+    await client.fetchQuery({
+      queryKey: ["revoked"], queryFn: async () => { throw error; }, retry: false,
+    }).catch(() => undefined);
+  });
+  expect(client.getQueryData(["background"])).toBeUndefined();
+  expect(contentVisible()).toBe(false);
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("conceals a quiet identity check that never responds", async () => {
+  vi.useFakeTimers();
+  const pending = deferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(pending.promise));
+  render(backgroundView(async () => "Rows", () => undefined, Infinity));
+  await act(async () => vi.advanceTimersByTimeAsync(IDENTITY_CHECK_INTERVAL_MS));
+  expect(contentVisible()).toBe(true);
+  await act(async () => vi.advanceTimersByTimeAsync(10_000));
+  expect(contentVisible()).toBe(false);
+  await act(async () => pending.resolve(response()));
+  expect(contentVisible()).toBe(false);
+});
+
+it("replaces cached data after reauthentication to the same account with a new generation", async () => {
+  const account = { user: { id: "same" }, role: "TUTOR", tutorId: "same-tutor" };
+  const renderGeneration = (revision: number) => (
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <TRPCReactProvider identity={sessionIdentity({
+        ...account, sessionVersion: revision, historyAccessRevision: revision,
+      })}><Probe /></TRPCReactProvider>
+    </NextIntlClientProvider>
+  );
+  const ui = render(renderGeneration(1));
+  fireEvent.click(screen.getByRole("button", { name: "Cache" }));
+  await screen.findByText("Previous account private rows");
+  ui.rerender(renderGeneration(2));
+  expect(screen.getByText("No previous data")).toBeTruthy();
 });

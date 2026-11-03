@@ -16,6 +16,7 @@ export async function announcementCandidates(
         pairings: {
           where: { term: { active: true } },
           select: {
+            id: true,
             subject: true,
             tutees: {
               where: { tutee: { status: "ACTIVE" } },
@@ -31,6 +32,21 @@ export async function announcementCandidates(
     }),
     db.subject.findMany({ select: { id: true, name: true } }),
   ]);
+  const pairingIds = tutors.flatMap((tutor) =>
+    tutor.pairings.map((pairing) => pairing.id),
+  );
+  // Retained sources are historical evidence, not another current assignment.
+  // Checking these exact candidates also excludes every source in a transfer chain.
+  const superseded = new Set(
+    pairingIds.length
+      ? (
+          await db.pairingExecutionSuccessor.findMany({
+            where: { sourcePairingId: { in: pairingIds } },
+            select: { sourcePairingId: true },
+          })
+        ).map((row) => row.sourcePairingId)
+      : [],
+  );
   const subjectNames = new Map(
     subjects.map((subject) => [subject.id, subject.name]),
   );
@@ -43,21 +59,26 @@ export async function announcementCandidates(
         name,
       ]);
   }
-  return tutors.map((tutor) => ({
-    id: tutor.id,
-    name: tutor.englishName,
-    gradeLevel: tutor.gradeLevel,
-    status: tutor.status,
-    subjects: [
-      ...new Set([
-        ...(qualified.get(tutor.id) ?? []),
-        ...tutor.pairings.map((pairing) => pairing.subject),
-      ]),
-    ].sort(),
-    activeTutees: new Set(
-      tutor.pairings.flatMap((pairing) =>
-        pairing.tutees.map((entry) => entry.tuteeId),
-      ),
-    ).size,
-  }));
+  return tutors.map((tutor) => {
+    const pairings = tutor.pairings.filter(
+      (pairing) => !superseded.has(pairing.id),
+    );
+    return {
+      id: tutor.id,
+      name: tutor.englishName,
+      gradeLevel: tutor.gradeLevel,
+      status: tutor.status,
+      subjects: [
+        ...new Set([
+          ...(qualified.get(tutor.id) ?? []),
+          ...pairings.map((pairing) => pairing.subject),
+        ]),
+      ].sort(),
+      activeTutees: new Set(
+        pairings.flatMap((pairing) =>
+          pairing.tutees.map((entry) => entry.tuteeId),
+        ),
+      ).size,
+    };
+  });
 }

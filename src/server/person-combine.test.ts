@@ -53,6 +53,14 @@ const caller = (id = "head", role: Session["role"] = "HEAD") =>
     session: { user: { id }, role, tutorId: null, expires: "2099-01-01" },
   });
 
+async function reauthenticatedCaller(id: string) {
+  // A new login reads the server-owned access epoch; existing sessions stay stale.
+  const { role, tutorId, sessionVersion, historyAccessRevision } = await db.user.findUniqueOrThrow({ where: { id } });
+  return createCaller({ db, headers: new Headers(), session: {
+    user: { id }, role, tutorId, sessionVersion, historyAccessRevision, expires: "2099-01-01",
+  } });
+}
+
 /** New identity tables participate in the same disposable fixture as source rows.
  * Dynamic truncation handles restrictive FKs without production deletion bypasses. */
 async function clearFixture() {
@@ -286,6 +294,7 @@ const credentials = (id: string) =>
       email: true,
       username: true,
       sessionVersion: true,
+      historyAccessRevision: true,
       tutorId: true,
       studentId: true,
       tutorAccessRevoked: true,
@@ -944,7 +953,12 @@ it.each([
     expect(await combine(selection)).toMatchObject({
       retiredUserIds: ["other"],
     });
-    expect(await credentials("owner")).toEqual(survivor);
+    expect(await credentials("owner")).toEqual({
+      ...survivor, sessionVersion: survivor.sessionVersion + 1,
+      historyAccessRevision: survivor.historyAccessRevision + 1,
+    });
+    await expect(caller("owner", "STUDENT").tuteeHistory.myTutorRecords()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    const survivorCaller = await reauthenticatedCaller("owner");
     expect(await credentials("other")).toMatchObject({
       tutorId: null,
       studentId: null,
@@ -964,7 +978,7 @@ it.each([
         }),
       ).toMatchObject({ userId: "owner" });
       expect(
-        (await caller("owner", "STUDENT").tuteeHistory.myTutorRecords()).map(
+        (await survivorCaller.tuteeHistory.myTutorRecords()).map(
           (row) => row.id,
         ),
       ).toContain("archive");
@@ -975,7 +989,7 @@ it.each([
         }),
       ).toMatchObject({ userId: "owner" });
       expect(
-        (await caller("owner", "STUDENT").tuteeHistory.myRecords()).map(
+        (await survivorCaller.tuteeHistory.myRecords()).map(
           (row) => row.id,
         ),
       ).toContain("past");
@@ -1034,7 +1048,12 @@ it.each([false, true])(
       outcome: retireDuplicateLogins ? "GROUPED" : "REVIEW_REQUIRED",
       retiredUserIds: retireDuplicateLogins ? ["other"] : [],
     });
-    expect(await credentials("owner")).toEqual(survivor);
+    expect(await credentials("owner")).toEqual({
+      ...survivor, sessionVersion: survivor.sessionVersion + Number(retireDuplicateLogins),
+      historyAccessRevision: survivor.historyAccessRevision + Number(retireDuplicateLogins),
+    });
+    if (retireDuplicateLogins) await expect(caller("owner", "STUDENT").tuteeHistory.myTutorRecords()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    const survivorCaller = await reauthenticatedCaller("owner");
     expect(await originals()).toEqual(before);
     const tutorOwner = await db.tutorProfileOwnership.findUnique({
       where: { tutorId: "archive" },
@@ -1046,12 +1065,12 @@ it.each([false, true])(
       expect(tutorOwner).toMatchObject({ userId: "owner" });
       expect(tuteeOwner).toMatchObject({ userId: "owner" });
       expect(
-        (await caller("owner", "STUDENT").tuteeHistory.myTutorRecords()).map(
+        (await survivorCaller.tuteeHistory.myTutorRecords()).map(
           (row) => row.id,
         ),
       ).toContain("archive");
       expect(
-        (await caller("owner", "STUDENT").tuteeHistory.myRecords()).map(
+        (await survivorCaller.tuteeHistory.myRecords()).map(
           (row) => row.id,
         ),
       ).toContain("past");

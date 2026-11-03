@@ -10,6 +10,7 @@ import { ownedStudentIds } from "~/server/student-ownership";
 import { portalAccess } from "~/lib/portal-access";
 import { ensureSessionPlanningWindow, lockSessionPlanning, markSessionResponseDelivered, sweepSessionPlanning } from "~/server/session-planning";
 import { sessionNoticeContext, sessionPlanningNoticeCopy } from "./session-planning-notice-copy";
+import { executionParticipantId, executionResponseActor } from "./participant-execution";
 
 const failure = "Essential session email failed. Check PROGRAM delivery and retry this notice.";
 const missingOwner = "The recipient no longer owns a verified delivery address. Staff action is required.";
@@ -18,9 +19,11 @@ const maxAttempts = 5;
 
 async function actionableState(tx: TransactionDb, row: SessionNotice) {
   if (!row.responseId) return { current: false, response: null };
-  const response = await tx.sessionPlanningResponse.findUnique({
+  const original = await tx.sessionPlanningResponse.findUnique({
     where: { id: row.responseId }, include: { offer: { include: { request: true } } },
   });
+  const authority = original ? await executionResponseActor(tx, original) : null;
+  const response = original && authority ? { ...original, actorUserId: authority.userId, actorKey: authority.actorKey } : null;
   return {
     current: !!response && response.state === "PENDING" && response.actorUserId === row.recipientUserId &&
       response.offerId === row.offerId && response.offer.requestId === row.requestId &&
@@ -43,9 +46,9 @@ async function recipientState(tx: TransactionDb, row: SessionNotice, actorKey?: 
   if (actorKey) {
     if (!portalAccess(user).canParticipate) return null;
     if (actorKey.startsWith("tutor:")) {
-      if (user.tutorId !== actorKey.slice(6) || user.tutor?.status !== "ACTIVE" || user.tutorAccessRevoked) return null;
+      if (user.tutorId !== await executionParticipantId(tx, "TUTOR", actorKey.slice(6)) || user.tutor?.status !== "ACTIVE" || user.tutorAccessRevoked) return null;
     } else if (actorKey.startsWith("tutee:")) {
-      const tuteeId = actorKey.slice(6);
+      const tuteeId = await executionParticipantId(tx, "TUTEE", actorKey.slice(6));
       if (!user.tuteeMember || !(await ownedStudentIds(tx, user.id)).includes(tuteeId)) return null;
       const tutee = await tx.tutee.findUnique({ where: { id: tuteeId }, select: { status: true } });
       if (tutee?.status !== "ACTIVE") return null;

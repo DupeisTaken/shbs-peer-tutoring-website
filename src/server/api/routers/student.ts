@@ -18,6 +18,7 @@ import {
 } from "~/lib/policy-evidence";
 import { consumeStudentAction } from "~/server/student-workflow";
 import { ownedStudentIds } from "~/server/student-ownership";
+import { supersededPairingIds } from "~/server/participant-execution";
 import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { assertFeatureEnabled } from "~/server/program/features";
@@ -230,6 +231,7 @@ export const studentRouter = createTRPCRouter({
             pairings: {
               where: { pairing: { term: { active: true } } },
               select: {
+                pairingId: true,
                 pairing: {
                   select: {
                     subject: true,
@@ -352,10 +354,22 @@ export const studentRouter = createTRPCRouter({
           },
         })
       : [];
+    // A transfer retains the original assignment for attendance. Both current
+    // schedule views omit those originals, including independently owned profiles.
+    const candidates = [...new Set([
+      ...schedule.map((row) => row.id),
+      ...(student?.pairings.map((row) => row.pairingId) ?? []),
+    ])];
+    const superseded = new Set(await supersededPairingIds(ctx.db, candidates));
     return {
       user,
-      student,
-      schedule,
+      student: student && {
+        ...student,
+        pairings: student.pairings
+          .filter((row) => !superseded.has(row.pairingId))
+          .map(({ pairing }) => ({ pairing })),
+      },
+      schedule: schedule.filter((row) => !superseded.has(row.id)),
       sessions: sessions.map((s) => ({
         ...s,
         feedback: feedback.find((f) => f.sessionId === s.session.id) ?? null,

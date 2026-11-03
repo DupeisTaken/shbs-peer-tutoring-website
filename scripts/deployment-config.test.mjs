@@ -3,70 +3,22 @@ import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
-  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import yaml from "js-yaml";
-import ts from "typescript";
+import { runtimeImports, runtimeCliGraph as inspectRuntimeCliGraph } from "./runtime-cli-graph.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const bash = process.env.SHBS_TEST_BASH ?? "bash";
 
-// Inspect emitted imports without evaluating any application module or opening a
-// database. Type-only edges disappear just as they do under the production tsx CLI.
-function runtimeImports(source, fileName) {
-  const emitted = ts.transpileModule(source, {
-    fileName,
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ES2022,
-      verbatimModuleSyntax: true,
-    },
-  }).outputText;
-  return ts.preProcessFile(emitted, true, true).importedFiles.map((entry) => entry.fileName);
-}
-
-function runtimeCliGraph(entry) {
-  const files = new Set(["package.json", "tsconfig.json"]);
-  const packages = new Set(["tsx"]);
-  const visit = (file) => {
-    if (files.has(file)) return;
-    files.add(file);
-    // prisma generate supplies this whole artifact; the image smoke executes it.
-    if (file.startsWith("generated/")) return;
-    const source = readFileSync(path.join(root, file), "utf8");
-    for (const specifier of runtimeImports(source, file)) {
-      if (isBuiltin(specifier)) continue;
-      if (!specifier.startsWith(".") && !specifier.startsWith("~/")) {
-        packages.add(specifier.split("/").slice(0, specifier.startsWith("@") ? 2 : 1).join("/"));
-        continue;
-      }
-      const base = specifier.startsWith("~/")
-        ? `src/${specifier.slice(2)}`
-        : path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
-      assert.ok(!base.startsWith("../"), `CLI import escapes the repository: ${file} -> ${specifier}`);
-      if (base.startsWith("generated/")) {
-        visit(base);
-        continue;
-      }
-      const resolved = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.mjs`, `${base}/index.ts`, `${base}/index.js`]
-        .find((candidate) => existsSync(path.join(root, candidate)) && statSync(path.join(root, candidate)).isFile());
-      assert.ok(resolved, `Cannot resolve CLI import: ${file} -> ${specifier}`);
-      visit(resolved);
-    }
-  };
-  visit(entry);
-  return { files, packages };
-}
+const runtimeCliGraph = (entry, projectRoot = root) => inspectRuntimeCliGraph(projectRoot, entry);
 
 function runtimeSourceCopies(dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8")) {
   const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
@@ -117,6 +69,7 @@ test("CLI packaging guard catches omitted entry points and transitive identity d
   const copies = runtimeSourceCopies();
   for (const [entry, omitted] of [
     ["scripts/create-admin.ts", "src/server/person-source-initialization.ts"],
+    ["scripts/create-admin.ts", "src/server/history-row-ownership.ts"],
     ["scripts/create-admin.ts", "src/server/auth/username-snapshot.ts"],
     ["scripts/create-admin.ts", "src/server/program/continuation-opening.ts"],
     ["scripts/reconcile-person-sources.ts", "scripts/reconcile-person-sources.ts"],
@@ -136,6 +89,32 @@ test("prepared operator sources require their exact destination and final app co
     dockerfile.replace("/runtime-output/app/src/server/program/continuation-opening.ts", "/elsewhere/continuation-opening.ts"),
     dockerfile.replace(/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m, ""),
   ]) assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(changed)).includes(missing));
+});
+
+test("CLI import discovery validates JSON assets and requires their runtime copy", (t) => {
+  const fixture = mkdtempSync(path.join(tmpdir(), "shbs-cli-json-"));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  writeFileSync(path.join(fixture, "entry.ts"), 'import data from "./data.json" with { type: "json" }; export { data };');
+  writeFileSync(path.join(fixture, "data.json"), JSON.stringify({ text: 'import "./not-code.ts"', label: "Synthetic 合成" }));
+  const graph = runtimeCliGraph("entry.ts", fixture);
+  assert.deepEqual([...graph.files], ["package.json", "tsconfig.json", "entry.ts", "data.json"]);
+  assert.deepEqual([...graph.packages], ["tsx"]);
+  const copies = [...graph.files].map((file) => ({ source: file, target: file }));
+  assert.deepEqual(missingRuntimeFiles(graph, copies), []);
+  assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== "data.json")), ["data.json"]);
+  writeFileSync(path.join(fixture, "data.json"), '{"broken":');
+  assert.throws(() => runtimeCliGraph("entry.ts", fixture), SyntaxError);
+});
+
+test("history ownership source is explicit in the prepared app without a duplicate runner layer", () => {
+  const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+  const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
+  assert.match(dockerfile, /^COPY --from=build \/app\/src\/server\/history-row-ownership\.ts \/runtime-output\/app\/src\/server\/history-row-ownership\.ts\s*$/m);
+  assert.ok(!runner.includes("/app/src/server/history-row-ownership.ts"));
+  const graph = runtimeCliGraph("scripts/create-admin.ts");
+  const missing = "src/server/history-row-ownership.ts";
+  const redirected = dockerfile.replace("/runtime-output/app/src/server/history-row-ownership.ts", "/elsewhere/history-row-ownership.ts");
+  assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(redirected)).includes(missing));
 });
 
 test("CLI import discovery includes deferred, side-effect and re-export edges but excludes types", () => {

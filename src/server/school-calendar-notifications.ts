@@ -1,3 +1,4 @@
+import { supersededPairingIds } from "./participant-execution";
 import { createHash } from "node:crypto";
 import {
   isSchoolCalendarNotification,
@@ -111,6 +112,7 @@ export async function schoolCalendarAudience(
 ) {
   const pairings = await tx.pairing.findMany({
     where: {
+        AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
       term: { active: true },
       scheduleConfirmed: true,
       dayOfWeek: { in: affectedWeekdays },

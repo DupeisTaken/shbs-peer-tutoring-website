@@ -65,6 +65,11 @@ test("packaging comparison follows image verification and runs only for relevant
   );
   assert.equal(comparison.if, "steps.scope.outputs.compare == 'true'");
   assert.match(comparison.run, /\$RUNNER_TEMP\/runtime-storage-comparison/);
+  const graphTools = storage.steps.find((step) => step.name === "Install locked source-graph inspection tools");
+  assert.equal(graphTools.if, "steps.scope.outputs.compare == 'true'");
+  assert.equal(graphTools.run, "npm ci --ignore-scripts");
+  assert.ok(storage.steps.indexOf(graphTools) > storage.steps.indexOf(scope));
+  assert.ok(storage.steps.indexOf(graphTools) < storage.steps.indexOf(comparison));
   const evidence = storage.steps.find(
     (step) => step.uses === "actions/upload-artifact@v4",
   );

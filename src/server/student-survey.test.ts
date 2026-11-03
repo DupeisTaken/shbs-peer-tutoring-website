@@ -1415,15 +1415,20 @@ describe("student request lifecycle", () => {
     ).toBe("DENIED");
   });
   it("supports schedule review for existing students without a survey and rejects duplicate or stale approvals", async () => {
-    const { row, tutor, tutorUser, pairing } = await assigned(true);
-    await db.studentSurvey.delete({ where: { id: row.id } });
+    // Legacy means no original intake or execution map ever existed. Deleting a
+    // modern intake cannot erase its durable authority tombstone.
+    const tutor = await db.tutor.create({ data: { englishName: "Legacy Tutor", status: "ACTIVE" } });
+    const tutorUser = await db.user.create({ data: { email: "legacy-tutor@example.test", role: "TUTOR", tutorId: tutor.id } });
+    const student = await db.tutee.create({ data: { englishName: "Legacy Student", status: "ACTIVE" } });
+    const pairing = await db.pairing.create({ data: { tutorId: tutor.id, termId: "survey-term", subject: "Mathematics", dayOfWeek: 1, startMin: 960, endMin: 1020, tutees: { create: { tuteeId: student.id } } } });
+    const row = { tuteeId: student.id, intakeTermId: "survey-term" };
     const target = `${pairing.id}:${row.tuteeId}`;
     const apply = async () =>
       applyScheduleRejection(
         db,
         tutorUser.id,
         tutor.id,
-        row.tuteeId!,
+        row.tuteeId,
         pairing.id,
         "No common time",
         await ready("SCHEDULE", target, tutorUser.id),
@@ -1453,6 +1458,16 @@ describe("student request lifecycle", () => {
         await ready("APPROVE", review.id),
       ),
     ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
+  it("does not revive legacy schedule authority when a mapped original intake is deleted", async () => {
+    const { row, tutor, tutorUser, pairing } = await assigned(true);
+    await db.studentSurvey.delete({ where: { id: row.id } });
+    await expect(applyScheduleRejection(db, tutorUser.id, tutor.id, row.tuteeId!, pairing.id,
+      "No common time", await ready("SCHEDULE", `${pairing.id}:${row.tuteeId}`, tutorUser.id)))
+      .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(await db.studentRequestReview.count()).toBe(0);
+    expect(await db.pairingTutee.count()).toBe(1);
+    expect(await db.studentRequestExecutionAssignment.count({ where: { surveyId: row.id } })).toBe(1);
   });
   it("requires the latest policy on login without changing priority or assignments", async () => {
     const { row } = await assigned(true);

@@ -1,10 +1,8 @@
 import type { DomainDb } from "./transactions";
 
-/** Only credential retirement extends login history ownership. A Person group may
- * contain several still-live logins awaiting review and is deliberately not used here.
- * Walk immutable retirement edges so adding a previously combined family preserves
- * every original actor without rewriting protected historical User rows. */
-export async function accountHistoryIds(db: DomainDb, userId: string) {
+/** Permanent credential family, used for anti-replay budgets rather than private
+ * read authority. Correcting history must never refund a consumed patrol window. */
+export async function accountRetirementFamilyIds(db: DomainDb, userId: string) {
   const ids = new Set([userId]);
   let frontier = [userId];
   while (frontier.length) {
@@ -17,6 +15,40 @@ export async function accountHistoryIds(db: DomainDb, userId: string) {
     for (const id of frontier) ids.add(id);
   }
   return [...ids];
+}
+
+/** Resolve exact original-source ownership without changing attribution. Retirement
+ * writes atomically retarget incoming mappings to the surviving live reader.
+ * Never traverse another source's correction: correcting A must not also move B. */
+export async function accountHistoryReaderId(db: DomainDb, sourceUserId: string): Promise<string | null> {
+  const user = await db.user.findUnique({
+    where: { id: sourceUserId }, select: { mergedIntoId: true, recoveryVoidedAt: true },
+  });
+  if (!user || user.recoveryVoidedAt) return null;
+  if (!user.mergedIntoId) return sourceUserId;
+  const ownership = await db.retiredHistoryOwnership.findUnique({ where: { sourceUserId } });
+  if (ownership?.state !== "ASSIGNED" || !ownership.readerUserId) return null;
+  const reader = await db.user.findUnique({
+    where: { id: ownership.readerUserId }, select: { mergedIntoId: true, recoveryVoidedAt: true },
+  });
+  return reader && !reader.mergedIntoId && !reader.recoveryVoidedAt ? ownership.readerUserId : null;
+}
+
+/** Missing and quarantined mappings fail closed after the authoritative backfill.
+ * A Person group or immutable retirement edge is never a private-read grant. */
+export async function accountHistoryIds(db: DomainDb, userId: string) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { mergedIntoId: true, recoveryVoidedAt: true } });
+  if (!user || user.mergedIntoId || user.recoveryVoidedAt) return [];
+  const ownerships = await db.retiredHistoryOwnership.findMany({
+    where: { readerUserId: userId, state: "ASSIGNED" }, select: { sourceUserId: true },
+  });
+  if (!ownerships.length) return [userId];
+  // Validate originals as well as readers; malformed rows cannot grant live data.
+  const originals = await db.user.findMany({
+    where: { id: { in: ownerships.map((row) => row.sourceUserId) }, mergedIntoId: { not: null }, recoveryVoidedAt: null },
+    select: { id: true }, orderBy: { id: "asc" },
+  });
+  return [userId, ...originals.map((row) => row.id)];
 }
 
 /** Resolve only the permanent credential-retirement chain, never display grouping. */

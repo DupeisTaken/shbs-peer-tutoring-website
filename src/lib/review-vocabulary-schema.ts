@@ -16,6 +16,67 @@ export const reviewSchema = {
     enums: {},
     fields: ["id", "sourceTable", "requestId", "publicationPending", "settlementPending", "createdAt"],
   },
+  PersonPartitionReceipt: {
+    references: { personId: "Person", newPersonId: "Person" },
+    enums: {},
+    fields: ["id", "actorId", "inputHash", "personId", "newPersonId", "sources", "subjects", "createdAt"],
+  },
+  RetiredHistoryOwnership: {
+    references: {},
+    enums: {},
+    fields: ["sourceUserId", "readerUserId", "state", "revision", "receiptId", "updatedAt"],
+  },
+  HistoryRowOwnership: {
+    references: {},
+    enums: {},
+    fields: ["entity", "recordId", "readerUserId", "quarantineUserIds", "sourceUserIds", "revision", "receiptId", "updatedAt"],
+  },
+  PersonHistoryCorrectionReceipt: {
+    references: { personId: "Person", destinationPersonId: "Person" },
+    enums: {},
+    fields: ["id", "actorId", "inputHash", "personId", "destinationPersonId", "sourceUserIds", "before", "after", "subjects", "createdAt"],
+  },
+  ParticipantConsolidation: {
+    // Source/target IDs are polymorphic; a label must not guess their entity.
+    references: {},
+    enums: {},
+    fields: ["kind", "sourceId", "targetId", "active", "revision", "receiptId", "effectiveAt"],
+  },
+  PairingExecutionSuccessor: {
+    references: { sourcePairingId: "Pairing", targetPairingId: "Pairing" },
+    enums: {},
+    fields: ["sourcePairingId", "targetPairingId", "receiptId", "effectiveAt", "revision"],
+  },
+  SessionPlanExecution: {
+    references: { planId: "SessionPlan", tutorId: "Tutor" },
+    enums: {},
+    fields: ["planId", "tutorId", "revision", "receiptId", "assignments"],
+  },
+  SessionParticipantExecution: {
+    references: { participantId: "SessionPlanParticipant", tuteeId: "Tutee" },
+    enums: {},
+    fields: ["participantId", "sourceSurveyIds", "tuteeId", "revision", "receiptId"],
+  },
+  SessionResponseExecution: {
+    references: { responseId: "SessionPlanningResponse", userId: "User", respondedByUserId: "User" },
+    enums: {},
+    fields: ["responseId", "userId", "profileKind", "profileId", "respondedByUserId", "revision", "receiptId"],
+  },
+  QualificationTransferGrant: {
+    references: { targetTutorId: "Tutor", sourceTutorId: "Tutor", sourceSubjectId: "Subject", subjectId: "Subject", approvedById: "User" },
+    enums: {},
+    fields: ["targetTutorId", "sourceTutorId", "sourceSubjectId", "subjectId", "approvedById", "approvedAt", "grantedAt", "receiptId", "active", "revision"],
+  },
+  PersonParticipationTransferReceipt: {
+    references: { personId: "Person" },
+    enums: {},
+    fields: ["id", "actorId", "inputHash", "personId", "retainedUserId", "selection", "result", "subjects", "createdAt"],
+  },
+  StudentRequestExecutionAssignment: {
+    references: { surveyId: "StudentSurvey", pairingId: "Pairing", tuteeId: "Tutee", sourceTuteeId: "Tutee" },
+    enums: {},
+    fields: ["surveyId", "pairingId", "tuteeId", "sourceTuteeId", "revision", "receiptId", "createdAt", "releasedAt"],
+  },
   SchoolHoursSchedule: {
     references: {},
     enums: {},
@@ -153,6 +214,7 @@ export const reviewSchema = {
       "username",
       "passwordHash",
       "sessionVersion",
+      "historyAccessRevision",
       "recoveryVoidedAt",
       "mergedIntoId",
       "mergedInto",
@@ -1692,6 +1754,7 @@ export const reviewSchema = {
       "person",
       "outcome",
       "retiredUserIds",
+      "ownershipTransfers",
       "createdAt",
     ],
   },
@@ -2009,6 +2072,7 @@ export const reviewSchema = {
     enums: {},
     fields: [
       "id",
+      "sourceNotificationId",
       "userId",
       "user",
       "category",

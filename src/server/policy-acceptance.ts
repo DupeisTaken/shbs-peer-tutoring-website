@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { accountHistoryIds } from "./account-history";
+import { accountHistoryIds, accountRetirementChain } from "./account-history";
 import { TRPCError } from "@trpc/server";
 import type { TransactionDb } from "~/server/transactions";
 
@@ -42,9 +42,22 @@ export async function requirePolicy(
     });
 }
 
-/** Resolve the evidence through explicit merge ownership without rewriting its author/signature. */
+/** Historical display is not consent. Only signatures still owned by this reader
+ * and originating in its credential-retirement chain can authorize participation.
+ * A corrected outside source requires fresh acceptance by its new reader. */
+export async function accountPolicyIds(tx: TransactionDb, userId: string) {
+  const sources = await accountHistoryIds(tx, userId);
+  const eligible: string[] = [];
+  for (const source of sources) {
+    const chain = await accountRetirementChain(tx, source);
+    if (chain[chain.length - 1] === userId) eligible.push(source);
+  }
+  return eligible;
+}
+
+/** Resolve valid consent without rewriting its original author or signature. */
 export async function findAccountPolicy(tx: TransactionDb, userId: string, slug: string, revision?: string) {
-  return tx.policyAcceptance.findFirst({ where: { userId: { in: await accountHistoryIds(tx, userId) }, slug, ...(revision ? { revision } : {}) }, orderBy: { acceptedAt: "desc" } });
+  return tx.policyAcceptance.findFirst({ where: { userId: { in: await accountPolicyIds(tx, userId) }, slug, ...(revision ? { revision } : {}) }, orderBy: { acceptedAt: "desc" } });
 }
 
 /** A missing publication is expected during initial setup, not a failed network read. */

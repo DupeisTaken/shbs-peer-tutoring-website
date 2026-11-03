@@ -33,13 +33,15 @@ export async function readOverlappingCohorts(
     }[]
   >`
     SELECT c.id, c."planId", c."startsAt", c."endsAt", c."roomId", c.online,
-      p."tutorId",
+      COALESCE(executor."tutorId", p."tutorId") AS "tutorId",
       ARRAY(
-        SELECT participant."tuteeId" FROM "SessionPlanParticipant" participant
+        SELECT COALESCE(member_executor."tuteeId", participant."tuteeId") FROM "SessionPlanParticipant" participant
+        LEFT JOIN "SessionParticipantExecution" member_executor ON member_executor."participantId"=participant.id
         WHERE participant."cohortId"=c.id AND participant.status='SCHEDULED'
       ) AS "participantIds"
     FROM "SessionPlanCohort" c
     JOIN "SessionPlan" p ON p.id=c."planId"
+    LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
     WHERE c.status='SCHEDULED'
       AND c."startsAt"<${endsAt} AND c."endsAt">${startsAt}
   `;
@@ -92,10 +94,14 @@ export async function readOverlappingHolds(
       online: boolean;
     }[]
   >`
-    SELECT r.id, r."currentOfferId", r.kind, r."parentRequestId", r."participantIds",
-      p."tutorId", o.id AS "offerId", o."startsAt", o."endsAt", o."roomId", o.online
+    SELECT r.id, r."currentOfferId", r.kind, r."parentRequestId", (SELECT COALESCE(jsonb_agg(COALESCE(e."tuteeId", original.value #>> '{}')), '[]'::jsonb)
+        FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r."participantIds")='array' THEN r."participantIds" ELSE '[]'::jsonb END) original(value)
+        LEFT JOIN "SessionPlanParticipant" member ON member."planId"=r."planId" AND member."tuteeId"=(original.value #>> '{}')
+        LEFT JOIN "SessionParticipantExecution" e ON e."participantId"=member.id) AS "participantIds",
+      COALESCE(executor."tutorId", p."tutorId") AS "tutorId", o.id AS "offerId", o."startsAt", o."endsAt", o."roomId", o.online
     FROM "SessionPlanningRequest" r
     JOIN "SessionPlan" p ON p.id=r."planId"
+    LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
     JOIN "SessionPlanningOffer" o ON o.id=r."currentOfferId" AND o."requestId"=r.id
     WHERE r.status='PENDING'
       AND o."startsAt"<${endsAt} AND o."endsAt">${startsAt}

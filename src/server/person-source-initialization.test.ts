@@ -79,8 +79,10 @@ it.each([false, true])("initializes a retired account through a valid retirement
     id: "owner", email: "owner@example.test", personId: initialized ? "canonical" : null,
     role: "STUDENT", tuteeMember: false, tutorAccessRevoked: true,
   } });
-  await db.user.create({ data: { id: "intermediate", email: "intermediate@example.test", mergedIntoId: "owner" } });
+  await db.user.create({ data: { id: "intermediate", email: "intermediate@example.test" } });
   const retired = await db.user.create({ data: { id: "retired", email: "retired@example.test", mergedIntoId: "intermediate" } });
+  // Each retirement targets a live login at that moment; later retirement preserves the chain.
+  await db.user.update({ where: { id: "intermediate" }, data: { mergedIntoId: "owner" } });
   const before = await db.user.findMany({ orderBy: { id: "asc" } });
   const originalPerson = initialized
     ? await db.person.findUniqueOrThrow({ where: { id: "canonical" } })

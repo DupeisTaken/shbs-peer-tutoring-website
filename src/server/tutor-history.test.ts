@@ -26,6 +26,13 @@ const caller = (id = "head", role: Session["role"] = "HEAD") =>
       expires: new Date(Date.now() + 60000).toISOString(),
     },
   });
+async function reauthenticatedCaller(id: string) {
+  // A new login reads the server-owned access epoch; existing sessions stay stale.
+  const { role, tutorId, sessionVersion, historyAccessRevision } = await db.user.findUniqueOrThrow({ where: { id } });
+  return createCaller({ db, headers: new Headers(), session: {
+    user: { id }, role, tutorId, sessionVersion, historyAccessRevision, expires: "2099-01-01",
+  } });
+}
 const input = async (userId = "owner", tutorId = "archive") => ({
   userId,
   tutorId,
@@ -463,8 +470,9 @@ it("reviewed login retirement preserves retained archives without adding current
       where: { tutorId: "archive" },
     }),
   ).toMatchObject({ userId: "other", revision: 2 });
+  await expect(caller("other", "STUDENT").tuteeHistory.myTutorRecords()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   expect(
-    (await caller("other", "STUDENT").tuteeHistory.myTutorRecords()).map(
+    (await (await reauthenticatedCaller("other")).tuteeHistory.myTutorRecords()).map(
       (r) => r.id,
     ),
   ).toEqual(["archive"]);

@@ -25,10 +25,13 @@ function fixture(tutor = false) {
   type Token = { id: string; userId: string; tokenHash: string; revokedAt: Date | null; createdAt: Date };
   const tokens: Token[] = [{ id: "token-1", userId: user.id, tokenHash: digest(token), revokedAt: null, createdAt: now }];
   const cohort = {
+    planId: "plan-1", plan: { id: "plan-1", tutorId: "owned-tutor" },
     id: "cohort-1", roomId: "room-1", online: false, status: "SCHEDULED", version: 1,
     startsAt: new Date("2026-11-02T04:00:00Z"), endsAt: new Date("2026-11-02T04:45:00Z"), updatedAt: now,
   };
   const participant = { id: "participant-1", tuteeId: "owned-student", status: "SCHEDULED", version: 1, updatedAt: now, cohort };
+  const planExecutions: { planId: string; tutorId: string }[] = [];
+  const participantExecutions: { participantId: string; tuteeId: string }[] = [];
   const database = {
     $executeRaw: vi.fn(async () => 1),
     user: { findUnique: vi.fn(async () => user) },
@@ -48,11 +51,17 @@ function fixture(tutor = false) {
         return created;
       }),
     },
-    sessionPlanCohort: { findMany: vi.fn(async () => [cohort]) },
-    sessionPlanParticipant: { findMany: vi.fn(async () => [participant]) },
+    sessionPlanExecution: { findMany: vi.fn(async ({ where }: { where: { tutorId?: string; planId?: { in: string[] } } }) =>
+      planExecutions.filter(row => where.planId ? where.planId.in.includes(row.planId) : row.tutorId === where.tutorId)) },
+    sessionParticipantExecution: { findMany: vi.fn(async ({ where }: { where: { tuteeId?: { in: string[] }; participantId?: { in: string[] } } }) =>
+      participantExecutions.filter(row => where.participantId ? where.participantId.in.includes(row.participantId) : where.tuteeId?.in.includes(row.tuteeId))) },
+    sessionPlanCohort: { findMany: vi.fn(async ({ where }: { where: { plan: { OR: [{ tutorId: string }, { id: { in: string[] } }] } } }) =>
+      cohort.plan.tutorId === where.plan.OR[0].tutorId || where.plan.OR[1].id.in.includes(cohort.plan.id) ? [cohort] : []) },
+    sessionPlanParticipant: { findMany: vi.fn(async ({ where }: { where: { OR: [{ tuteeId: { in: string[] } }, { id: { in: string[] } }] } }) =>
+      where.OR[0].tuteeId.in.includes(participant.tuteeId) || where.OR[1].id.in.includes(participant.id) ? [participant] : []) },
     room: { findMany: vi.fn(async () => [{ id: "room-1", name: "Room 101" }]) },
   };
-  return { user, tokens, cohort, participant, raw: database, database: database as unknown as DomainDb };
+  return { user, tokens, cohort, participant, planExecutions, participantExecutions, raw: database, database: database as unknown as DomainDb };
 }
 
 it("stores only a token digest, rotates the previous URL and exposes no recoverable secret in status/audit", async () => {
@@ -87,7 +96,7 @@ it("uses ownership-scoped commitment UIDs and preserves identity when moved or c
   const f = fixture();
   const before = await sessionCalendarFeed(f.database, token, now);
   expect(f.raw.sessionPlanParticipant.findMany).toHaveBeenCalledWith(expect.objectContaining({
-    where: expect.objectContaining({ tuteeId: { in: ["owned-student"] } }) as unknown,
+    where: expect.objectContaining({ OR: [{ tuteeId: { in: ["owned-student"] } }, { id: { in: [] } }] }) as unknown,
   }));
   expect(before).not.toContain("owned-student");
   expect(before).not.toContain("ATTENDEE");
@@ -108,13 +117,36 @@ it("exports separate stable tutor cohort identities and no peer roster data", as
   const f = fixture(true);
   const calendar = await sessionCalendarFeed(f.database, token, now);
   expect(f.raw.sessionPlanCohort.findMany).toHaveBeenCalledWith(expect.objectContaining({
-    where: expect.objectContaining({ plan: { tutorId: "owned-tutor" } }) as unknown,
+    where: expect.objectContaining({ plan: { OR: [{ tutorId: "owned-tutor" }, { id: { in: [] } }] } }) as unknown,
   }));
   expect(calendar).toContain("UID:cohort-cohort-1@shbs-session");
   expect(calendar).not.toContain("commitment-participant");
   expect(f.raw.sessionPlanParticipant.findMany).not.toHaveBeenCalled();
   expect(calendar).toContain("LOCATION:Room 101");
   expect(calendar).not.toContain("owned-tutor");
+});
+
+it.each([false, true])("retains transferred event UIDs only for the exact execution owner (tutor: %s)", async (tutor) => {
+  const f = fixture(tutor);
+  const before = await sessionCalendarFeed(f.database, token, now);
+  f.cohort.plan.tutorId = "original-tutor";
+  f.participant.tuteeId = "original-student";
+  f.planExecutions.push({ planId: "plan-1", tutorId: "unrelated-tutor" });
+  f.participantExecutions.push({ participantId: "participant-1", tuteeId: "unrelated-student" });
+  expect(await sessionCalendarFeed(f.database, token, now)).not.toContain("BEGIN:VEVENT");
+
+  f.planExecutions[0]!.tutorId = "owned-tutor";
+  f.participantExecutions[0]!.tuteeId = "owned-student";
+  expect(await sessionCalendarFeed(f.database, token, now)).toBe(before);
+  if (tutor) {
+    expect(f.raw.sessionPlanCohort.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ plan: { OR: [{ tutorId: "owned-tutor" }, { id: { in: ["plan-1"] } }] } }) as unknown,
+    }));
+  } else {
+    expect(f.raw.sessionPlanParticipant.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ OR: [{ tuteeId: { in: ["owned-student"] } }, { id: { in: ["participant-1"] } }] }) as unknown,
+    }));
+  }
 });
 
 it("keeps original tutor identity for remaining students when another confirmed cohort splits off", async () => {
@@ -141,4 +173,24 @@ it("excludes pending extra cohorts from the feed instead of presenting proposed 
   const f = fixture();
   f.cohort.status = "PENDING";
   expect(await sessionCalendarFeed(f.database, token, now)).not.toContain("BEGIN:VEVENT");
+});
+
+
+it.each([false, true])("does not let restored original profile access override a different execution owner (tutor: %s)", async (tutor) => {
+  const f = fixture(tutor);
+  const before = await sessionCalendarFeed(f.database, token, now);
+  // Keep original profile ownership and ACTIVE audience intact: it is the
+  // conflicting execution authority, not an inactive source, that must deny.
+  const planAuthority = { planId: f.cohort.planId, tutorId: "other-active-tutor" };
+  const participantAuthority = { participantId: f.participant.id, tuteeId: "other-active-student" };
+  f.planExecutions.push(planAuthority);
+  f.participantExecutions.push(participantAuthority);
+  const elsewhere = await sessionCalendarFeed(f.database, token, now);
+  expect(elsewhere).toContain("BEGIN:VCALENDAR");
+  expect(elsewhere).not.toContain("BEGIN:VEVENT");
+  if (tutor) expect(f.raw.sessionPlanExecution.findMany).toHaveBeenLastCalledWith({ where: { planId: { in: [f.cohort.planId] } }, select: { planId: true, tutorId: true } });
+  else expect(f.raw.sessionParticipantExecution.findMany).toHaveBeenLastCalledWith({ where: { participantId: { in: [f.participant.id] } }, select: { participantId: true, tuteeId: true } });
+  planAuthority.tutorId = "owned-tutor";
+  participantAuthority.tuteeId = "owned-student";
+  expect(await sessionCalendarFeed(f.database, token, now)).toBe(before);
 });

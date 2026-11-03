@@ -82,8 +82,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const text = readFileSync(process.argv[2], 'utf8');
 const report = JSON.parse(text);
-assert.equal(report.schemaVersion, 1);
-assert.deepEqual(report.counts, { persons: 1, users: 1, tutors: 0, tutees: 0, tutorOwners: 0, studentOwners: 0, findings: 0 });
+assert.equal(report.schemaVersion, 2);
+assert.deepEqual(report.counts, { persons: 1, users: 1, tutors: 0, tutees: 0, tutorOwners: 0, studentOwners: 0, retiredHistoryOwnership: 0, findings: 0 });
 assert.deepEqual(report.findings, []);
 assert.doesNotMatch(text, /smoke@example\.test|DisposableSmokePassword/);
 JS
@@ -126,7 +126,7 @@ node --input-type=module - "$reconciliation_file" <<'JS'
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const report = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-assert.deepEqual(report.counts, { persons: 1, users: 1, tutors: 1, tutees: 1, tutorOwners: 0, studentOwners: 0, findings: 2 });
+assert.deepEqual(report.counts, { persons: 1, users: 1, tutors: 1, tutees: 1, tutorOwners: 0, studentOwners: 0, retiredHistoryOwnership: 0, findings: 2 });
 assert.deepEqual(report.findings.map(({ code, source }) => [code, source.kind, source.id]).sort(), [
   ['MISSING_PERSON', 'TUTEE', 'smoke-tutee'],
   ['MISSING_PERSON', 'TUTOR', 'smoke-tutor'],

@@ -24,6 +24,7 @@ export const departureRouter = createTRPCRouter({
         },
       });
       return {
+        retired: !!user.mergedIntoId,
         departure: user.schoolDeparture,
         events: user.departureEvents,
         access: portalAccess(user),
