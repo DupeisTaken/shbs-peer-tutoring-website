@@ -3,6 +3,7 @@ import { afterAll, expect, it, vi } from "vitest";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import type { TransactionDb } from "./transactions";
 import { hashPassword } from "./auth/password";
+import { resolveTutorLink } from "./auth/tutor-link";
 import { db } from "./db";
 import { closeStudentRequest } from "./student-request-state";
 import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
@@ -56,6 +57,18 @@ it("merges live recurring work while preserving original assignment and complete
   expect(await tx.user.findUniqueOrThrow({ where: { id: f.userA } })).toMatchObject({ tutorId: null });
   expect(await executionParticipantId(tx, "TUTOR", f.tutorA)).toBe(f.tutorB);
   expect(await supersededPairingIds(tx)).toContain(f.pairingId);
+}));
+
+it("does not reclaim a transferred tutor by email and preserves independent tutee participation", async () => fixture(async (tx, f) => {
+  const email = `${f.userA}@example.test`;
+  await tx.tutor.update({ where: { id: f.tutorA }, data: { email } });
+  const independent = await tx.tutee.create({ data: { englishName: "Independent tutee", personId: f.personId, status: "ACTIVE", intakeTermId: f.termId } });
+  await tx.user.update({ where: { id: f.userA }, data: { studentId: independent.id, tuteeMember: true } });
+  await transferPersonParticipation(tx, f.reviewerId, await reviewed(tx, f));
+  expect(await tx.user.findUniqueOrThrow({ where: { id: f.userA } })).toMatchObject({ role: "TUTOR", tutorId: null, studentId: independent.id, tuteeMember: true });
+  expect(await tx.tutorProfileOwnership.findUniqueOrThrow({ where: { tutorId: f.tutorA } })).toMatchObject({ userId: f.userB });
+  expect(await resolveTutorLink(tx, f.userA, email)).toBeNull();
+  expect(await resolveTutorLink(tx, f.userB, `${f.userB}@example.test`)).toBe(f.tutorB);
 }));
 
 it("recovers an accepted response by immutable receipt without repeating the transfer", async () => fixture(async (tx, f) => {

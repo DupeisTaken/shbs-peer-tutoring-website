@@ -446,6 +446,21 @@ runtime-configuration comparisons; archive fixtures exercise layer-content and
 snapshot-chain accounting. See [CI runtime packaging verification](verification.md#required-checks)
 for the actual controlled-image measurement and its limits.
 
+Explicit operator sources belong in `runtime-files` before the final application
+copy. Copying an already traced source again in the runner stores duplicate bytes
+even when the final file inventory is unchanged. The controlled comparison adds
+new exact operator sources to the historical prepared layer from the same current
+build, recording each path and hash in `payload-normalization.json`. This compares
+layouts with a common current payload, not historical release sizes. It never
+removes baseline files, ignores inventory differences, changes runtime settings or
+relaxes the content-union and snapshot-chain no-growth gates. Source-graph checks
+and image boot/recreate checks still verify the actual candidate packaging.
+Additions must be reachable through the actual `admin:create`, `identity:reconcile`
+or `recovery` runtime import graph. The comparison reuses deployment import
+inspection, refuses source symlinks and linked parents, and fails on unsupported
+baseline COPY syntax instead of guessing which files it ships. Locked inspection
+tools are installed with scripts disabled only after the packaging scope gate.
+
 The full image comparison is restricted to an isolated CI job. Do not set `CI`
 locally just to bypass that guard or run four image layouts against a shared
 daemon. Use the current workflow's JSON evidence; coordinate any necessary local

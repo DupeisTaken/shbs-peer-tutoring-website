@@ -464,8 +464,13 @@ describe("durable publication maintenance", () => {
   it("retries settlement preparation without losing an independent request retry after DELETE deadlock", async () => {
     const pending = await request();
     await drainSweep();
+    expect((await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: pending.id } })).status).toBe("PENDING");
     await db.user.update({ where: { id: tuteeUserId }, data: { tuteeMember: false } });
     await planningTransaction((tx) => retrySchedulingInvalidation(tx, pending.id));
+    const retries = await db.$queryRaw<{ requestId: string; settlementPending: boolean }[]>`
+      SELECT "requestId","settlementPending" FROM public."SchedulingDirtyEvent"
+      WHERE "requestId"=${pending.id}`;
+    expect(retries).toEqual([{ requestId: pending.id, settlementPending: true }]);
     const writer = new Client({ connectionString: utcDatabaseUrl(process.env.DATABASE_URL!), connectionTimeoutMillis: 3000, query_timeout: 5000, statement_timeout: 4000 });
     await writer.connect();
     let resetting: Promise<unknown> | undefined;
@@ -475,9 +480,21 @@ describe("durable publication maintenance", () => {
       const backend = await writer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
       await inSchedulingMaintenanceTransaction(db, async (tx) => {
         attempts++;
+        if (attempts > 1) {
+          // This case asserts reconstruction after a committed reset. Without
+          // this barrier, a valid retry can read the old xmin before COMMIT,
+          // fail CAS after waiting, and leave version 0 for the next sweep.
+          expect(resetting).toBeDefined();
+          await resetting;
+        }
         await tx.$executeRawUnsafe("SET LOCAL deadlock_timeout='25ms'");
         await lockEntity(tx, "program:period");
         await lockSessionPlanning(tx);
+        if (attempts > 1) {
+          const [committed] = await tx.$queryRaw<{ settlementVersion: number }[]>`
+            SELECT "settlementVersion" FROM public."SchedulingMaintenanceState" WHERE id='program'`;
+          expect(committed?.settlementVersion).toBe(0);
+        }
         const [own] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
         const decision = attempts === 1
           ? afterFirstMaintenanceStateWrite(tx, '"settlementBatchActive"=true', async () => {

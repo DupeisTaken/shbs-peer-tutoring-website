@@ -3,76 +3,22 @@ import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
-  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import yaml from "js-yaml";
-import ts from "typescript";
+import { runtimeImports, runtimeCliGraph as inspectRuntimeCliGraph } from "./runtime-cli-graph.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const bash = process.env.SHBS_TEST_BASH ?? "bash";
 
-// Inspect emitted imports without evaluating any application module or opening a
-// database. Type-only edges disappear just as they do under the production tsx CLI.
-function runtimeImports(source, fileName) {
-  // JSON is runtime data: validate its bytes and retain it in the graph, but
-  // never send it through TypeScript or interpret strings as import edges.
-  if (fileName.endsWith(".json")) {
-    JSON.parse(source);
-    return [];
-  }
-  const emitted = ts.transpileModule(source, {
-    fileName,
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ES2022,
-      verbatimModuleSyntax: true,
-    },
-  }).outputText;
-  return ts.preProcessFile(emitted, true, true).importedFiles.map((entry) => entry.fileName);
-}
-
-function runtimeCliGraph(entry, projectRoot = root) {
-  const files = new Set(["package.json", "tsconfig.json"]);
-  const packages = new Set(["tsx"]);
-  const visit = (file) => {
-    if (files.has(file)) return;
-    files.add(file);
-    // prisma generate supplies this whole artifact; the image smoke executes it.
-    if (file.startsWith("generated/")) return;
-    const source = readFileSync(path.join(projectRoot, file), "utf8");
-    for (const specifier of runtimeImports(source, file)) {
-      if (isBuiltin(specifier)) continue;
-      if (!specifier.startsWith(".") && !specifier.startsWith("~/")) {
-        packages.add(specifier.split("/").slice(0, specifier.startsWith("@") ? 2 : 1).join("/"));
-        continue;
-      }
-      const base = specifier.startsWith("~/")
-        ? `src/${specifier.slice(2)}`
-        : path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
-      assert.ok(!base.startsWith("../"), `CLI import escapes the repository: ${file} -> ${specifier}`);
-      if (base.startsWith("generated/")) {
-        visit(base);
-        continue;
-      }
-      const resolved = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.mjs`, `${base}/index.ts`, `${base}/index.js`]
-        .find((candidate) => existsSync(path.join(projectRoot, candidate)) && statSync(path.join(projectRoot, candidate)).isFile());
-      assert.ok(resolved, `Cannot resolve CLI import: ${file} -> ${specifier}`);
-      visit(resolved);
-    }
-  };
-  visit(entry);
-  return { files, packages };
-}
+const runtimeCliGraph = (entry, projectRoot = root) => inspectRuntimeCliGraph(projectRoot, entry);
 
 function runtimeSourceCopies(dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8")) {
   const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
