@@ -263,8 +263,17 @@ export function aggregatePartitions(inputs, options) {
     same(manifest.baselineRevision, baseline, "comparison baseline revision");
     const selection = manifest.baselineSelectionPath;
     if (selection !== null) {
-      same(selection, ".github/scheduling-profile-manifests/baseline.txt", "reviewed baseline selection path");
-      same(manifest.baselineSelectionSource, "reviewed-baseline-file", "reviewed baseline selection source");
+      const scoped = typeof selection === "string"
+        ? /^\.github\/scheduling-profile-manifests\/pr-([1-9][0-9]*)-baseline\.txt$/.exec(selection) : null;
+      if (scoped) {
+        assert.ok(Number.isSafeInteger(Number(scoped[1])), "Invalid PR-scoped baseline number");
+        same(manifest.baselineSelectionSource, "reviewed-pr-baseline-file", "PR-scoped baseline selection source");
+        same(manifest.reviewedManifestPath, `.github/scheduling-profile-manifests/pr-${scoped[1]}.json`, "PR-scoped matching reviewed manifest path");
+        same(manifest.mode, "reviewed", "PR-scoped reviewed schema comparison mode");
+      } else {
+        same(selection, ".github/scheduling-profile-manifests/baseline.txt", "reviewed baseline selection path");
+        same(manifest.baselineSelectionSource, "reviewed-baseline-file", "reviewed baseline selection source");
+      }
       assert.ok([hash(baseline), hash(`${baseline}\n`)].includes(sha(manifest.baselineSelectionFileSha256, 64, "Reviewed baseline file hash")), "Reviewed baseline file does not pin the expected immutable SHA");
       assert.ok(typeof manifest.reviewedManifestPath === "string" && /^\.github\/scheduling-profile-manifests\/[A-Za-z0-9_-]+\.json$/.test(manifest.reviewedManifestPath), "Reviewed baseline requires an explicit reviewed schema manifest");
       record(manifest.reviewedManifest, "Reviewed schema manifest");
