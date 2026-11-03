@@ -26,7 +26,8 @@ export default async function Home() {
       session.role === "COORDINATOR" ||
       session.role === "VIEWER";
     // A transferred tutor can retain the TUTOR role while its execution link is
-    // revoked. Route that login to history, avoiding a tutor-layout redirect loop.
+    // revoked. Preserve independent tutee participation, otherwise use history
+    // instead of sending the login into a tutor-layout redirect loop.
     redirect(
       adminArea
         ? "/admin"
@@ -34,7 +35,9 @@ export default async function Home() {
           ? "/patrol"
           : session.tutorId
             ? "/dashboard"
-            : "/history",
+            : account?.studentId || account?.tuteeMember
+              ? "/student"
+              : "/history",
     );
   }
 

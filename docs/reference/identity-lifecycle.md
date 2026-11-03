@@ -8,9 +8,17 @@ proposal to replace them with a `personId` authorization check.
 
 After participation transfer, a former tutor login can retain its `TUTOR` role
 while its effective tutor link is revoked. The signed-in landing route sends that
-login to `/history`, preventing a loop through the tutor layout. Management and
-crew destinations, current tutee membership, and suspension precedence remain
-independent of that fallback.
+login to its independent tutee workspace when it still has a student pointer or
+tutee membership, otherwise to `/history`, preventing a loop through the tutor
+layout. Management, crew and effective tutor destinations and suspension
+precedence remain independent of that fallback.
+
+Fresh sign-in resolves an optional legacy email-based tutor link under the account
+issuance locks. A matching email cannot reclaim a profile with another current or
+retained owner, an exact foreign/quarantined history owner, or an active operational
+successor. Declining that optional link still permits the original login to sign
+in; it does not follow the successor to claim a different profile. Explicit
+direct links and eligible same-owner legacy linking retain their existing rules.
 
 Admin and Head can directly perform authorized identity management operations,
 including account combination, exact historical ownership correction and guarded

@@ -60,3 +60,24 @@ it("prioritizes suspension over the former tutor history destination", async () 
   });
   await expect(Home()).rejects.toThrow("redirect:/suspended");
 });
+
+it.each([
+  ["independent-tutee", false],
+  [null, true],
+  ["independent-tutee", true],
+])(
+  "preserves former tutor's independent tutee participation (%s, %s)",
+  async (studentId, tuteeMember) => {
+    mocks.auth.mockResolvedValue({
+      user: { id: "synthetic" },
+      role: "TUTOR",
+      tutorId: null,
+    });
+    mocks.account.mockResolvedValue({
+      suspendedAt: null,
+      studentId,
+      tuteeMember,
+    });
+    await expect(Home()).rejects.toThrow("redirect:/student");
+  },
+);
