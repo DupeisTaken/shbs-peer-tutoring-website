@@ -43,6 +43,7 @@ RUN node scripts/assemble-runtime.mjs .next/standalone /runtime-production/node_
 # Complete the operator graph before its single app-layer copy. A later runner
 # COPY would store a duplicate layer when Next already traced this source.
 COPY --from=build /app/src/server/program/continuation-opening.ts /runtime-output/app/src/server/program/continuation-opening.ts
+COPY --from=build /app/src/server/history-row-ownership.ts /runtime-output/app/src/server/history-row-ownership.ts
 
 ############################
 # 3. Runtime (slim, non-root)
@@ -97,7 +98,6 @@ COPY --from=build --chown=nextjs:nodejs \
     /app/src/server/person-identity.ts \
     /app/src/server/person-reconciliation.ts \
     /app/src/server/account-history.ts \
-    /app/src/server/history-row-ownership.ts \
     /app/src/server/transactions.ts \
     /app/src/server/db-scope.ts ./src/server/
 COPY --from=build --chown=nextjs:nodejs \

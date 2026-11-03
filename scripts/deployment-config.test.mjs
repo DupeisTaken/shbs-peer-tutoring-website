@@ -139,6 +139,17 @@ test("prepared operator sources require their exact destination and final app co
   ]) assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(changed)).includes(missing));
 });
 
+test("history ownership source is explicit in the prepared app without a duplicate runner layer", () => {
+  const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+  const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
+  assert.match(dockerfile, /^COPY --from=build \/app\/src\/server\/history-row-ownership\.ts \/runtime-output\/app\/src\/server\/history-row-ownership\.ts\s*$/m);
+  assert.ok(!runner.includes("/app/src/server/history-row-ownership.ts"));
+  const graph = runtimeCliGraph("scripts/create-admin.ts");
+  const missing = "src/server/history-row-ownership.ts";
+  const redirected = dockerfile.replace("/runtime-output/app/src/server/history-row-ownership.ts", "/elsewhere/history-row-ownership.ts");
+  assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(redirected)).includes(missing));
+});
+
 test("CLI import discovery includes deferred, side-effect and re-export edges but excludes types", () => {
   assert.deepEqual(runtimeImports(`
     import type { Model } from "./type-only";
