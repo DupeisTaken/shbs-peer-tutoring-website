@@ -11,6 +11,7 @@ on:
       - "scripts/run-scheduling-profile-ci.sh"
       - "src/server/session-planning/**"
       - "src/server/room-allocation.ts"
+      - "src/server/ordered-pairing-release.ts"
       - "src/server/bulk-room-allocation.ts"
       - "src/server/api/routers/admin.ts"
       - "src/server/api/routers/tutor.ts"
@@ -53,6 +54,10 @@ jobs:
       baseline_path: ${{ steps.selection.outputs.baselineSelectionPath }}
       baseline_file_sha256: ${{ steps.selection.outputs.baselineSelectionFileSha256 }}
       baseline_source: ${{ steps.selection.outputs.baselineSelectionSource }}
+      catalog_baseline: ${{ steps.selection.outputs.catalogBaseline }}
+      catalog_path: ${{ steps.selection.outputs.catalogBaselineSelectionPath }}
+      catalog_file_sha256: ${{ steps.selection.outputs.catalogBaselineSelectionFileSha256 }}
+      catalog_source: ${{ steps.selection.outputs.catalogBaselineSelectionSource }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,7 +98,7 @@ jobs:
       matrix: ${{ fromJSON(needs.matrix.outputs.preflight) }}
     uses: ./.github/workflows/scheduling-profile-worker.yml
     with:
-      baseline: ${{ needs.matrix.outputs.baseline }}
+      baseline: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_baseline || needs.matrix.outputs.baseline }}
       candidate: ${{ github.event.pull_request.head.sha || github.sha }}
       scenario: ${{ matrix.scenario }}
       mode: ${{ matrix.mode }}
@@ -103,9 +108,9 @@ jobs:
       anchor: ${{ needs.matrix.outputs.anchor }}
       node-image: ${{ needs.matrix.outputs.node_image }}
       schema-manifest: ${{ needs.matrix.outputs.manifest }}
-      baseline-selection-path: ${{ needs.matrix.outputs.baseline_path }}
-      baseline-selection-file-sha256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
-      baseline-selection-source: ${{ needs.matrix.outputs.baseline_source }}
+      baseline-selection-path: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_path || needs.matrix.outputs.baseline_path }}
+      baseline-selection-file-sha256: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_file_sha256 || needs.matrix.outputs.baseline_file_sha256 }}
+      baseline-selection-source: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_source || needs.matrix.outputs.baseline_source }}
   profile:
     needs: [matrix, preflight]
     strategy:
@@ -116,7 +121,7 @@ jobs:
       matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
     uses: ./.github/workflows/scheduling-profile-worker.yml
     with:
-      baseline: ${{ needs.matrix.outputs.baseline }}
+      baseline: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_baseline || needs.matrix.outputs.baseline }}
       candidate: ${{ github.event.pull_request.head.sha || github.sha }}
       scenario: ${{ matrix.scenario }}
       mode: ${{ matrix.mode }}
@@ -126,9 +131,9 @@ jobs:
       anchor: ${{ needs.matrix.outputs.anchor }}
       node-image: ${{ needs.matrix.outputs.node_image }}
       schema-manifest: ${{ needs.matrix.outputs.manifest }}
-      baseline-selection-path: ${{ needs.matrix.outputs.baseline_path }}
-      baseline-selection-file-sha256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
-      baseline-selection-source: ${{ needs.matrix.outputs.baseline_source }}
+      baseline-selection-path: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_path || needs.matrix.outputs.baseline_path }}
+      baseline-selection-file-sha256: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_file_sha256 || needs.matrix.outputs.baseline_file_sha256 }}
+      baseline-selection-source: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_source || needs.matrix.outputs.baseline_source }}
 
   aggregate:
     needs: [matrix, preflight, profile]
@@ -137,6 +142,8 @@ jobs:
     timeout-minutes: 9
     env:
       BASELINE_SHA: ${{ needs.matrix.outputs.baseline }}
+      CATALOG_BASELINE_SHA: ${{ needs.matrix.outputs.catalog_baseline }}
+      CATALOG_SELECTION_SOURCE: ${{ needs.matrix.outputs.catalog_source }}
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PREFLIGHT_RESULT: ${{ needs.preflight.result }}
       PROFILE_RESULT: ${{ needs.profile.result }}
@@ -150,11 +157,16 @@ jobs:
           pattern: scheduling-profile-*-part-*-${{ github.run_attempt }}
           path: outputs/scheduling-profile-parts
       - name: Require complete paired populations before pooling
-        run: >-
-          node scripts/scheduling-profile/aggregate-partitions.mjs
-          --input outputs/scheduling-profile-parts
-          --baseline "$BASELINE_SHA" --candidate "$CANDIDATE_SHA"
-          --output outputs/scheduling-profile-aggregate.json
+        shell: bash
+        run: |
+          catalog_args=()
+          if [[ "$CATALOG_SELECTION_SOURCE" == "reviewed-pr-catalog-baseline-file" ]]; then
+            catalog_args=(--catalog-baseline "$CATALOG_BASELINE_SHA")
+          fi
+          node scripts/scheduling-profile/aggregate-partitions.mjs \
+            --input outputs/scheduling-profile-parts \
+            --baseline "$BASELINE_SHA" --candidate "$CANDIDATE_SHA" "${catalog_args[@]}" \
+            --output outputs/scheduling-profile-aggregate.json
       - name: Require every diagnostic and latency partition
         if: always()
         run: |

@@ -1,22 +1,10 @@
 # Reviewed scheduling comparison inputs
 
-PR #570 selects the **original-plus-roster-order** control at
-`223a1b213a7a5167187b057d08a349d30f0087ad` using `pr-570-baseline.txt`.
-Its only parent is the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`;
-the sole source difference sorts newly captured proposal rosters. The original
-failed comparison and original-schema measurements stay separate. Even the
-native-schema cold control uses the corrected application on this comparison.
+Each pull request selects an immutable source control and a reviewed migration manifest. PR #569 binds 112 historical migrations plus two scheduling additions. PR #568 has ten additions with identity, and PR #570 has twenty with identity and recovery. Unrelated pull requests use their own base unless a scoped manifest or explicit manual selection applies.
 
-`pr-570.json` binds the unchanged control schema, dependency lockfile and all
-112 historical SQL migrations to the combined scheduling, identity and recovery
-schema at `1301ae4a4951994bcab43c7a5f24edf9bd9d6f22`. The pair is scoped to
-this pull request; unrelated pull requests retain their own base revision.
+The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
-PR #569 uses a separate manifest with the scheduling migration only. PR #568
-uses a nine-addition identity manifest. Its standalone harness covers the
-projections it declares; the full identity/recovery v3 projections and the
-native-original capture contract are verified separately in PR #570. Each pair
-uses the same named application control and its own reviewed schema overlay.
+Each `pr-N-baseline.txt` and `pr-N-catalog-baseline.txt` contains a full SHA followed by LF. Combined PR #570 compares shared captures with the complete identity and recovery projections. Its original-schema cold control captures only the fixed historical projection. Controlled contention diagnostics retain both complete ordered histories. Uncontrolled rounds preserve their independent observed fence order and raw audit chronology.
 
 The first eight reviewed additions implement maintenance metadata, directory partition,
 private-history correction, participation transfer, typed identity journaling,
@@ -29,8 +17,9 @@ and dependency bytes remain unchanged. A nineteenth migration (`20261103060000`)
 updates the room booking and blackout guards so only real same-term successors
 release a retained source booking. It changes neither the Prisma schema nor the
 first eighteen additions.
+The twentieth migration (`20261103031000`) keeps the sibling version increments and orders their journal writes.
 Hashes use immutable Git blob bytes, matching Linux CI rather than Windows newline
-conversion. The comparison helper at `1beb7ea6` accepted the complete
+conversion. The comparison helper checks the complete
 manifest against those immutable Git blob exports, including the historical
 `0_init` migration. This validates the measurement inputs, not workload parity.
 

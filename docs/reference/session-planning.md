@@ -478,7 +478,24 @@ roster-corrected source. Historical measurements and failed comparisons of
 the unmodified original remain separate and must not be pooled with this
 control. This choice does not change ordered audit or recovery comparisons.
 
-PR #568 selects the same roster-corrected baseline through `pr-568-baseline.txt` and its own `pr-568.json` with nine identity and scheduling migration additions. PR #569 uses its separate one-addition pair. With no generic selection files, unrelated pull requests use their own base. The combined identity/recovery v3 and native-original contract is verified in PR #570.
+The scoped pair may also include `pr-<number>-catalog-baseline.txt`, with a
+distinct immutable commit and a trailing LF. Only the catalog diagnostic and
+its ten latency partitions use that pin. Other scenarios continue to use
+the primary baseline, including the cold original-schema observations. Both
+controls use the same reviewed schema manifest. The aggregate records the
+baseline by scenario and validates source preservation separately for each.
+
+For PR #569 the catalog source control is
+`c3947f096a1cf1eb33c02948d0385d46d6838d77`, directly descended from
+`223a1b213a7a5167187b057d08a349d30f0087ad`. Its only changed paths are
+`src/server/room-allocation.ts` and `src/server/ordered-pairing-release.ts`.
+The candidate schema overlay supplies
+`20261103031000_order_group_room_version_journal` to both revisions in
+shared-schema measurements. The original-schema cold control still measures
+the roster-corrected source on its historical database. Preserve separate
+pre-repair measurements when discussing the cost of the catalog correction.
+
+PR #568 uses the same two source controls with its own ten-addition reviewed manifest. Its catalog-specific pin is `pr-568-catalog-baseline.txt`. Non-catalog workloads keep `pr-568-baseline.txt`. PR #569 uses its separate two-addition manifest. Unrelated pull requests without a scoped pair use their own base. The combined identity/recovery v3 projections and native-original contract are verified separately in PR #570.
 
 Artifacts retain source hashes, overlay paths, migration checksums, runtime,
 individual samples, errors and normalized output comparisons.
@@ -510,14 +527,34 @@ queueing capacity, not sample populations, per-runner limits or paired measureme
 order; available repository capacity may still queue jobs. Native-schema cold
 controls use the same four-round ranges and aggregate separately to 20 samples.
 Pure helper tests gate matrix preparation in the same two-CPU, 4 GB Node
-container before measurement runners start. The existing three-round negotiation
-and allocation diagnostics then run as a two-job preflight. Both must pass before
-the remaining 60 latency partitions and six diagnostics start. Both phases call
-one shared worker with identical measurement settings; the total remains 68 jobs.
+container before measurement runners start. Five diagnostic preflights each run three rounds per revision: negotiation,
+allocation, catalog, and the two controlled contention orders. They gate
+the 60 original latency partitions and five other diagnostics. A shared
+worker runs all 70 measurement jobs. Two controlled preflight jobs are
+additional to the original 68; the original latency population is unchanged.
 Final acceptance requires both phases, so a preflight pass alone is not evidence
 of complete latency coverage.
 The 90-second native, 150-second ordinary command and whole-job budgets remain
 fatal; partitioning never accepts a partial population or reduces sample counts.
+
+Both contention controls execute the entire ordinary contention fixture. After
+the shared prelude, a controller holds the planned-room fence while the first
+request owns the period fence. PostgreSQL must show the other request blocked
+on that first backend before the controller releases its hold. Each successful
+schedule supplies a complete reference graph for the same shared anchor and
+source revisions. The two diagnostic scenarios retain their controller setup and wait observations separately.
+
+The 40 free-running rounds continue to start both requests together. A narrow
+witness records the completion of their actual period-fence acquisitions inside
+their transactions. Raw audit IDs, persisted creation timestamps and ties are
+recorded separately. Each full observed history must equal one validated
+reference graph. When persisted audit chronology differs from acquisition order,
+the alternate history also requires proof that the two references differ only
+in the position of the intact allocator audit entry relative to the intact
+three-row response block. The aggregate records counts and durations by
+observed acquisition order, including empty strata and differing paired orders.
+Unknown business, clock, audit or recovery data fails comparison and retains
+the full snapshot. Historical failed runs keep their original result.
 
 Partition receipts contain raw observations and complete canonicalization for
 every round, but do not report eligible latency percentiles. The aggregation

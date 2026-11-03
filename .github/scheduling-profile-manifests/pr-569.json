@@ -7,6 +7,10 @@
     {
       "path": "prisma/migrations/20261103030000_scheduling_maintenance/migration.sql",
       "sha256": "0936f279987f880094ca4a18a1e7bead2d3c4dfc972d5d280f683ac2f770adec"
+    },
+    {
+      "path": "prisma/migrations/20261103031000_order_group_room_version_journal/migration.sql",
+      "sha256": "0d43519807786f8561053ac15007bd8f108a6a7936c40982a571216c6deebe9d"
     }
   ],
   "historicalMigrations": {
