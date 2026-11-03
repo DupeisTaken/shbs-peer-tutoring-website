@@ -78,7 +78,7 @@ export async function verifyDemoScenarios(db: PrismaClient) {
       counts.edge++;
       const special =
         row.signupSource === "UNKNOWN" ||
-        (row.user &&
+        (row.user !== null &&
           academicSummary(row.user.academicProfile, "26-27")
             .needsConfirmation) ||
         (await db.disciplinaryCard.count({ where: { tuteeId: id } })) ||
@@ -185,7 +185,7 @@ export async function verifyDemoScenarios(db: PrismaClient) {
           : !row.gradeSchoolYear) ||
         (key.startsWith("clash-") &&
           row.lastName === "Kim" &&
-          row.username?.startsWith("akim27")) ||
+          row.username?.startsWith("akim27") === true) ||
         (await db.tutorStatusRequest.count({
           where: { tutorId: id, state: "PENDING" },
         })) ||
