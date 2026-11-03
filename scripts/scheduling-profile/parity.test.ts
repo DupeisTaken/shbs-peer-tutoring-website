@@ -217,6 +217,36 @@ void test("compact alias dictionaries bound 205-parent/615-notice serialization 
   assert.throws(() => compareParity(changedDictionary, before));
 });
 
+void test("large nested mismatches compare complete evidence with a bounded error instead of an expanded diff", () => {
+  const base = canonicalizeParity(fixture("large-mismatch"));
+  const payload = "synthetic-evidence:" + "x".repeat(2 * 1024 * 1024);
+  const snapshot = (decision: string) => ({
+    ...base,
+    tables: {
+      ...base.tables,
+      LargeEvidence: [{ payload, nested: { reviewed: { decision } } }],
+    },
+  });
+  const expected = snapshot("accepted");
+  compareParity(snapshot("accepted"), expected);
+  const actual = snapshot("rejected");
+  assert.equal(actual.tables.LargeEvidence.length, expected.tables.LargeEvidence.length);
+  assert.equal(actual.tables.LargeEvidence[0]!.payload.length, expected.tables.LargeEvidence[0]!.payload.length);
+  assert.throws(() => compareParity(actual, expected), (error: unknown) => {
+    assert.ok(error instanceof Error);
+    assert.equal(error.message, "Scheduling persisted semantic state differs");
+    assert.ok(error.message.length < 256);
+    const diagnostic = error as Error & { actual?: unknown; expected?: unknown };
+    assert.equal(diagnostic.actual, false);
+    assert.equal(diagnostic.expected, true);
+    assert.ok(JSON.stringify(error).length < 1024,
+      "The failure must not retain the source graphs as diagnostic actual/expected fields");
+    return true;
+  });
+  assert.equal(actual.tables.LargeEvidence[0]!.nested.reviewed.decision, "rejected");
+  assert.equal(expected.tables.LargeEvidence[0]!.nested.reviewed.decision, "accepted");
+});
+
 void test("late extra-plan dependencies resolve without retaining generated request IDs", () => {
   const snapshot = (prefix: string) => {
     const tables = fixture(prefix);

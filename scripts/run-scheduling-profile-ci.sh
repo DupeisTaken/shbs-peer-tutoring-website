@@ -34,7 +34,7 @@ profile_budget_ms() {
 }
 bounded 30 apk add --no-cache git openssl libc6-compat
 bounded 90 npm ci
-bounded 30 node --import tsx --test scripts/scheduling-profile/*.test.ts
+bounded 30 node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts
 bounded 30 npm run db:migrate
 
 if [ "$PROFILE_REVISION" = base ]; then

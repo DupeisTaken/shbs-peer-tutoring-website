@@ -48,7 +48,9 @@ export function selectComparison(root, options) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   assert.equal(process.argv.length, 3, "Usage: select-comparison.mjs <candidate-checkout>");
-  const selected = selectComparison(process.argv[2], {
+  const candidateRoot = process.argv[2];
+  assert.ok(candidateRoot, "Require a candidate checkout path");
+  const selected = selectComparison(candidateRoot, {
     defaultBaseline: process.env.DEFAULT_BASELINE_SHA ?? "",
     manualBaseline: process.env.MANUAL_BASELINE_SHA,
     manualManifest: process.env.MANUAL_SCHEMA_MANIFEST,

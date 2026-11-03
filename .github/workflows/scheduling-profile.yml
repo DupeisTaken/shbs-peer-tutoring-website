@@ -60,10 +60,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Validate profile helpers before allocating measurement runners
-        run: |
-          npm ci --ignore-scripts
-          node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts
       - name: Select immutable comparison and reviewed schema contract
         id: selection
         env:
@@ -79,6 +75,12 @@ jobs:
           echo "anchor=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$GITHUB_OUTPUT"
           timeout 60 docker pull node:22-alpine
           echo "node_image=$(docker image inspect node:22-alpine --format '{{index .RepoDigests 0}}')" >> "$GITHUB_OUTPUT"
+      - name: Validate helpers under the measurement resource limits
+        env:
+          PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
+        run: |
+          docker run --rm --cpus=2 --memory=4g -v "$PWD:/work" -w /work \
+            "$PROFILE_NODE_IMAGE" sh -ec 'npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts'
   profile:
     needs: matrix
     runs-on: ubuntu-latest

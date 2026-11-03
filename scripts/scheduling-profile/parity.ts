@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import type { PrismaClient } from "../../generated/prisma";
 
 type Row = Record<string, unknown>;
@@ -639,5 +640,7 @@ export async function captureParity(
 }
 
 export function compareParity(actual: ParitySnapshot, expected: ParitySnapshot): void {
-  assert.deepStrictEqual(actual, expected, "Scheduling persisted semantic state differs");
+  // Compare the complete graphs, but never ask AssertionError to inspect/diff
+  // multi-megabyte snapshots. Its diagnostic must retain only this boolean.
+  assert.ok(isDeepStrictEqual(actual, expected), "Scheduling persisted semantic state differs");
 }

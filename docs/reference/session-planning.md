@@ -475,7 +475,8 @@ partitions, each with its own discarded process warmup. One fixed anchor and
 immutable Node image cover the run. Each baseline/candidate pair stays serial on
 one runner; three independent jobs may run concurrently. Native-schema cold
 controls use the same four-round ranges and aggregate separately to 20 samples.
-Pure helper tests gate matrix preparation before measurement runners start.
+Pure helper tests gate matrix preparation in the same two-CPU, 4 GB Node
+container before measurement runners start.
 The 90-second native, 150-second ordinary command and whole-job budgets remain
 fatal; partitioning never accepts a partial population or reduces sample counts.
 
@@ -526,7 +527,9 @@ dictionary of full semantic identities, with compact edges to parent identities.
 This lossless graph encoding of normalized identities prevents repeated escaping
 of nested parent strings from exhausting the artifact size. It retains all
 selected rows, stored JSON and ordering witnesses; cycles, ambiguous identities
-and unresolved generated references fail the run. The sequential
+and unresolved generated references fail the run. Full graph comparisons emit
+bounded failure messages; they do not expand entire snapshots into assertion
+diffs. Raw snapshots remain available in the paired artifacts. The sequential
 late-root witness preserves two participant journal changes and fence revision
 two; combining cohort and participant writes into one SQL statement remains
 unsupported. Under-one-second first publication is a target to verify from a
