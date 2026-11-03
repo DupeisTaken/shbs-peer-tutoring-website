@@ -56,7 +56,7 @@ const pendingIntake: Record<
   },
   "pending-victor": {
     contact: "Text 555-0199 evenings",
-    slots: ["mon-b", "tue-a"],
+    slots: ["mon-b"],
     second: "physics",
   },
   "pending-wendy": { contact: "Email preferred", slots: ["tue-a"] },
