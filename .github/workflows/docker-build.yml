@@ -22,7 +22,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 30
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_shipping_test
       AUTH_SECRET: ci-only-secret-that-is-at-least-thirty-two-characters
@@ -57,19 +57,17 @@ jobs:
 
   tests:
     name: tests (${{ matrix.shard }}/${{ strategy.job-total }})
-    # Finish prerequisites before reserving three test slots. With image still
-    # running, this caps the workflow at four jobs (four PRs use at most 16/20).
-    needs: [checks, image-storage]
+    # Start one wave of three isolated shards immediately. Checks, image and
+    # storage run in sequence on the fourth slot.
     runs-on: ubuntu-latest
-    # Whole-job budget includes container startup, installation and migrations.
-    # Duration-balanced shards share three runners and pay setup once per shard.
-    timeout-minutes: 9
+    # The whole-job timeout bounds stalled setup, tests and artifact cleanup.
+    timeout-minutes: 30
     strategy:
       # Let every shard finish so a failure still leaves complete diagnostics.
       fail-fast: false
       max-parallel: 3
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        shard: [1, 2, 3]
     # Each runner owns its database. Files stay serial within each shard because
     # integration fixtures truncate shared tables; local test defaults are unchanged.
     services:
@@ -116,8 +114,9 @@ jobs:
           if-no-files-found: warn
 
   image:
+    needs: checks
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 30
     outputs:
       image-id: ${{ steps.build.outputs.imageid }}
       artifact-id: ${{ steps.archive.outputs.artifact-id }}
@@ -192,10 +191,10 @@ jobs:
           if-no-files-found: error
 
   image-storage:
-    # A separate bounded job protects the production image/smoke budget. Most PRs
-    # finish after scope detection; packaging edits compare four cached layouts.
+    # Packaging comparisons reuse the fourth slot after image verification.
+    needs: image
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 30
     env:
       STORAGE_BASE_REF: ${{ inputs.storage-baseline || github.event.pull_request.base.sha || github.event.before }}
     steps:
@@ -262,7 +261,7 @@ jobs:
     needs: [verify, image]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
