@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
+import { createHash, randomUUID } from "node:crypto";
 import type { EmailMessage } from "./sender";
 const mail = vi.hoisted(() => ({
   send: vi.fn<(message: EmailMessage) => Promise<void>>(),
@@ -18,8 +19,24 @@ import { resendStuckEmails } from "./resend-stuck";
 import { renderEmail } from "./template";
 import { verifyUnsubscribeToken } from "./unsubscribe-token";
 import { unsubscribeFromEmail } from "./unsubscribe";
+import { finishRecoveryGenericDelivery, withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
 
 const uid = "email192-synthetic";
+async function causalNotice() {
+  await db.user.update({ where: { id: uid }, data: { emailSecondaryRecipients: false } });
+  await db.$transaction(async (tx) => {
+    const action = await tx.recoveryAction.create({ data: { kind: "INITIAL_ADMISSION", applicationId: `synthetic-${randomUUID()}`, before: {}, after: {} } });
+    await tx.recoveryTrackedEntity.create({ data: { actionId: action.id, entity: "User", recordId: uid } });
+    const [clock] = await tx.$queryRaw<Array<{ transactionId: string }>>`SELECT txid_current()::text AS "transactionId"`;
+    await tx.recoveryEvent.create({ data: { id: createHash("md5").update(`${action.id}:${clock!.transactionId}`).digest("hex"), actionId: action.id, transactionId: clock!.transactionId, kind: "ADMISSION" } });
+    await tx.user.update({ where: { id: uid }, data: { name: "Synthetic causal dispatcher source" } });
+    await withRecoveryDeliverySource(tx, { entity: "User", recordId: uid, actionId: action.id }, () =>
+      tx.notification.create({ data: { userId: uid, title: "Synthetic causal notice", link: "/messages" } }));
+  });
+  const rows = await db.emailDelivery.findMany({ where: { userId: uid } });
+  expect(rows).toHaveLength(1);
+  return rows[0]!;
+}
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
   // The worker leases the entire queue, so isolate it from other integration suites.
@@ -53,6 +70,52 @@ beforeEach(async () => {
 afterAll(async () => {
   await db.user.deleteMany({ where: { id: uid } });
   await db.$disconnect();
+});
+
+it("does not replay a failed admitted causal SMTP attempt", async () => {
+  const delivery = await causalNotice();
+  mail.send.mockRejectedValue(new Error("Synthetic admitted SMTP failure"));
+  await deliverNotifications();
+  const uncertain = await db.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
+  expect(uncertain).toMatchObject({ status: "UNCERTAIN", attempts: 1 });
+  expect(uncertain.attemptStartedAt).not.toBeNull();
+  expect(uncertain.attemptId).not.toBeNull();
+  await db.emailDelivery.update({ where: { id: delivery.id }, data: { availableAt: new Date(0), leaseUntil: new Date(0) } });
+  await deliverNotifications();
+  expect(mail.send).toHaveBeenCalledTimes(1);
+});
+
+it.each(["PENDING", "SENDING"])("freezes legacy admitted %s rows without another SMTP call", async (status) => {
+  const delivery = await causalNotice();
+  await db.emailDelivery.update({ where: { id: delivery.id }, data: { status, attempts: 1,
+    attemptId: "legacy-admitted-attempt", attemptStartedAt: new Date(Date.now() - 600_000), leaseUntil: new Date(0) } });
+  await deliverNotifications();
+  const retained = await db.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
+  expect(retained).toMatchObject({ status: "UNCERTAIN", attempts: 1, attemptId: "legacy-admitted-attempt", leaseUntil: null });
+  expect(retained.attemptStartedAt).not.toBeNull();
+  expect(mail.send).not.toHaveBeenCalled();
+});
+
+it("retains known SMTP acceptance when database completion fails, without sending again", async () => {
+  const delivery = await causalNotice();
+  await db.$executeRawUnsafe(`CREATE FUNCTION test_recovery_finish_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic completion database failure'; END $$`);
+  try {
+    await db.$executeRawUnsafe(`CREATE TRIGGER test_recovery_finish_failure BEFORE UPDATE ON "EmailDelivery" FOR EACH ROW WHEN (NEW.status='SENT' AND OLD."userId"='email192-synthetic') EXECUTE FUNCTION test_recovery_finish_failure()`);
+    await expect(deliverNotifications()).rejects.toThrow("Causal email completion failed");
+  } finally {
+    await db.$executeRawUnsafe('DROP TRIGGER IF EXISTS test_recovery_finish_failure ON "EmailDelivery"');
+    await db.$executeRawUnsafe('DROP FUNCTION test_recovery_finish_failure()');
+  }
+  const admitted = await db.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id } });
+  expect(admitted).toMatchObject({ status: "SENDING", attempts: 1 });
+  expect(admitted.attemptId).not.toBeNull();
+  expect(mail.send).toHaveBeenCalledTimes(1);
+  await db.emailDelivery.update({ where: { id: delivery.id }, data: { leaseUntil: new Date(0) } });
+  await deliverNotifications();
+  expect((await db.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id } })).status).toBe("UNCERTAIN");
+  expect(mail.send).toHaveBeenCalledTimes(1);
+  await finishRecoveryGenericDelivery(db, delivery.id, admitted.attemptId!, true);
+  expect((await db.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id } })).status).toBe("SENT");
 });
 
 it.each([false, true])(

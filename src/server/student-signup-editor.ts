@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { surveyInput } from "~/lib/student-signup";
-import { validateChoices } from "./student-signup-validation";
+import { validateChoices, type ChoiceValidationMode } from "./student-signup-validation";
 import {
   currentStudentSignupPayload,
   studentSignupIntentDigest,
@@ -147,8 +148,9 @@ export async function normalizeStudentSignupAnswers(
   posted: z.infer<typeof studentSignupAnswersInput>,
   retainedSubjectIds: string[] = [],
   previous?: z.infer<typeof studentSignupAnswersInput>,
+  mode: ChoiceValidationMode = "WRITE",
 ) {
-  await lockEntity(tx, "signup-fields");
+  if (mode === "WRITE") await lockEntity(tx, "signup-fields");
   const fields = (await getSignupSettings(tx)).tutee;
   // The shared normalizer needs a signature shape, then the editor schema strips it
   // before any current-answer/revision write. This placeholder is never consent.
@@ -242,7 +244,7 @@ export async function normalizeStudentSignupAnswers(
     agreed: true as const,
     policyRevision: "validation",
   };
-  if (!(await validateChoices(tx, choices, retainedSubjectIds)))
+  if (!(await validateChoices(tx, choices, retainedSubjectIds, mode)))
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Choose distinct active subjects and available time slots.",
@@ -350,9 +352,11 @@ export async function editOwnedStudentSignup(
   db: DomainDb,
   userId: string,
   input: z.infer<typeof studentSignupEditInput>,
-  management?: { signedTicket: string; releaseChangedAssignments: true },
+  management?: { signedTicket: string; releaseChangedAssignments: true; recoveryActionId?: string },
 ) {
   return inTransaction(db, async (tx) => {
+    const { withAutomaticRecoveryCheckpoint } = await import("~/server/recovery/checkpoint");
+    return withAutomaticRecoveryCheckpoint(tx, { adapter: "STUDENT_WORKFLOW", sourceId: input.id }, { id: userId }, async () => {
     const { row, user } = await lockedOwnedSignup(
       tx,
       userId,
@@ -364,6 +368,16 @@ export async function editOwnedStudentSignup(
         code: "FORBIDDEN",
         message: "Only Admin or Head can change assigned signup subjects.",
       });
+    if (management?.recoveryActionId) {
+      // Only the reviewed checkpoint transaction may substitute its management
+      // authorization for a participant action ticket. HTTP callers never select
+      // this internal option, and a bare checkpoint ID provides no authority.
+      const trusted = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "RecoveryCheckpoint" WHERE "actionId"=${management.recoveryActionId}
+        AND adapter='STUDENT_WORKFLOW' AND "sourceId"=${input.id}
+        AND "actionId"=NULLIF(current_setting('shbs.recovery_compensating',true),'')`;
+      if (trusted.length !== 1) throw new TRPCError({ code: "FORBIDDEN", message: "Reviewed recovery transaction required." });
+    }
     const inputHash = studentSignupIntentDigest(
       JSON.parse(
         JSON.stringify({
@@ -436,7 +450,7 @@ export async function editOwnedStudentSignup(
       });
     const removedPairingIds: string[] = [];
     if (management) {
-      await consumeStudentAction(
+      if (!management.recoveryActionId) await consumeStudentAction(
         tx,
         management.signedTicket,
         userId,
@@ -553,5 +567,15 @@ export async function editOwnedStudentSignup(
       },
     });
     return { ok: true, version };
+    });
+  });
+}
+
+/** A compensation appends an ordinary answer revision; original signatures,
+ * priority, proof/deadline state and previous decisions remain immutable. */
+export function restoreStudentSignupAnswers(db: DomainDb, userId: string,
+  input: Omit<z.infer<typeof studentSignupEditInput>, "clientKey">, recoveryActionId: string) {
+  return editOwnedStudentSignup(db, userId, { ...input, clientKey: randomUUID() }, {
+    signedTicket: "", releaseChangedAssignments: true, recoveryActionId,
   });
 }

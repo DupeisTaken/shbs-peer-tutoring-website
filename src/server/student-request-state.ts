@@ -13,6 +13,7 @@ import {
   lockStudentRequestReview,
 } from "./request-invalidity";
 import { recordDomainAudit } from "./audit/evidence";
+import { withRecoveryDeliverySource, type RecoveryDeliverySource } from "./recovery/delivery-effects";
 import { TRPCError } from "@trpc/server";
 import type { StudentSurvey } from "../../generated/prisma";
 import {
@@ -30,6 +31,7 @@ export async function notifyRequest(
   event: NotificationEvent,
   detail?: { en: string; zh: string },
   pairingId?: string | null,
+  recoverySource?: RecoveryDeliverySource,
 ) {
   const answers = currentStudentSignupPayload(row);
   const name =
@@ -62,36 +64,77 @@ export async function notifyRequest(
     },
     select: { id: true, role: true, email: true },
   });
-  const scheduleDetail = pairingId ? await studentScheduleDetail(tx, pairingId, name ?? "—", event) : undefined;
-  const period = event.startsWith("student_withdrawal_") && row.intakeTermId
-    ? await tx.term.findUnique({ where: { id: row.intakeTermId }, select: { name: true } }) : null;
-  const withdrawal = period ? namedNotificationDetail(event, `${name ?? "—"} (${period.name})`) : undefined;
-  await tx.notification.createMany({
-    data: users.map((user) => ({
-      userId: user.id,
-      ...notificationData(
-        event,
-        undefined,
-        detail ?? scheduleDetail ?? withdrawal ?? (name ? namedNotificationDetail(event, name) : undefined),
-      ),
-      link: ["HEAD", "ADMIN"].includes(user.role)
-        ? "/admin/requests"
-        : user.id === owner?.userId || user.email === row.email
-          ? "/student"
-          : "/dashboard",
-    })),
-  });
+  const scheduleDetail = pairingId
+    ? await studentScheduleDetail(tx, pairingId, name ?? "—", event)
+    : undefined;
+  const period =
+    event.startsWith("student_withdrawal_") && row.intakeTermId
+      ? await tx.term.findUnique({
+          where: { id: row.intakeTermId },
+          select: { name: true },
+        })
+      : null;
+  const withdrawal = period
+    ? namedNotificationDetail(event, `${name ?? "—"} (${period.name})`)
+    : undefined;
+  await withRecoveryDeliverySource(
+    tx,
+    recoverySource ?? { entity: "StudentSurvey", recordId: row.id },
+    () =>
+      tx.notification.createMany({
+        data: users.map((user) => ({
+          userId: user.id,
+          ...notificationData(
+            event,
+            undefined,
+            detail ??
+              scheduleDetail ??
+              withdrawal ??
+              (name ? namedNotificationDetail(event, name) : undefined),
+          ),
+          link: ["HEAD", "ADMIN"].includes(user.role)
+            ? "/admin/requests"
+            : user.id === owner?.userId || user.email === row.email
+              ? "/student"
+              : "/dashboard",
+        })),
+      }),
+  );
 }
 
 /** Capture the affected assignment before detaching it; never include conflict reasons. */
-export async function studentScheduleDetail(tx: TransactionDb, pairingId: string, name: string, event: NotificationEvent) {
-  const pairing = await tx.pairing.findUnique({ where: { id: pairingId }, select: { subject: true, dayOfWeek: true, startMin: true, endMin: true, tutor: { select: { englishName: true } } } });
+export async function studentScheduleDetail(
+  tx: TransactionDb,
+  pairingId: string,
+  name: string,
+  event: NotificationEvent,
+) {
+  const pairing = await tx.pairing.findUnique({
+    where: { id: pairingId },
+    select: {
+      subject: true,
+      dayOfWeek: true,
+      startMin: true,
+      endMin: true,
+      tutor: { select: { englishName: true } },
+    },
+  });
   if (!pairing) return namedNotificationDetail(event, name);
-  const result = event === "student_schedule_review_approved"
-    ? { en: "Schedule conflict approved; this assignment is removed and the tutee returns to the assignment queue.", zh: "时间冲突已获批准；此分配已移除，学习伙伴返回待分配队列。" }
-    : event === "student_schedule_review_declined"
-      ? { en: "Schedule conflict declined; the assignment remains unchanged.", zh: "时间冲突申请未获批准；分配保持不变。" }
-      : { en: "Schedule conflict awaits review; the assignment remains unchanged.", zh: "时间冲突申请待审核；分配暂不变更。" };
+  const result =
+    event === "student_schedule_review_approved"
+      ? {
+          en: "Schedule conflict approved; this assignment is removed and the tutee returns to the assignment queue.",
+          zh: "时间冲突已获批准；此分配已移除，学习伙伴返回待分配队列。",
+        }
+      : event === "student_schedule_review_declined"
+        ? {
+            en: "Schedule conflict declined; the assignment remains unchanged.",
+            zh: "时间冲突申请未获批准；分配保持不变。",
+          }
+        : {
+            en: "Schedule conflict awaits review; the assignment remains unchanged.",
+            zh: "时间冲突申请待审核；分配暂不变更。",
+          };
   return {
     en: `${name} / Tutor ${pairing.tutor.englishName} / ${pairing.subject}, ${notificationSchedule(pairing, "en")}: ${result.en}`,
     zh: `${name} / 辅导伙伴 ${pairing.tutor.englishName} / ${pairing.subject}，${notificationSchedule(pairing, "zh")}：${result.zh}`,
@@ -116,11 +159,12 @@ export async function closeStudentRequest(
     ABORTED: "student_withdrawal_approved",
     INVALID_REJECTED: "student_signup_rejected",
   } as const;
-  await notifyRequest(tx, row, events[state]);
   await tx.studentSurvey.update({
     where: { id: row.id },
     data: { state, resolvedAt: now },
   });
+  // Journal the decision before its notice, retaining the pre-detach recipients.
+  await notifyRequest(tx, row, events[state]);
   if (row.tuteeId) {
     await tx.pairingTutee.deleteMany({
       where: { tuteeId: row.tuteeId, pairing: { termId: row.intakeTermId } },
@@ -149,48 +193,57 @@ export async function expireStudentRequests(db: DomainDb, now = new Date()) {
   let count = 0;
   for (const item of due) {
     count += await inTransaction(db, async (tx) => {
-      await lockEntity(tx, `student-survey:${item.email}`);
-      const row = await tx.studentSurvey.findUniqueOrThrow({
-        where: { id: item.id },
-      });
-      if (
-        row.state !== "OPEN" ||
-        row.confirmedAt ||
-        !row.verificationDueAt ||
-        row.verificationDueAt > now
-      )
-        return 0;
-      const links = row.tuteeId
-        ? await tx.pairingTutee.findMany({
-            where: { tuteeId: row.tuteeId },
-            select: { pairingId: true },
-          })
-        : [];
-      const tutee = row.tuteeId
-        ? await tx.tutee.findUnique({
-            where: { id: row.tuteeId },
-            select: { status: true },
-          })
-        : null;
-      await closeStudentRequest(tx, row, "DISQUALIFIED", now);
-      await recordDomainAudit(tx, {
-        operation: "system.expireStudentRequest",
-        entity: "StudentSurvey",
-        entityId: row.id,
-        action: "Expired unverified student request",
-        system: true,
-        before: row,
-        after: { id: row.id, state: "DISQUALIFIED", resolvedAt: now },
-        reason: "Verification deadline passed without confirmation",
-        effects: {
-          tuteeId: row.tuteeId,
-          beforeStatus: tutee?.status ?? null,
-          afterStatus: row.tuteeId ? "INACTIVE" : null,
-          removedPairingIds: links.map((link) => link.pairingId),
-          pendingReviews: "DENIED",
+      const { withAutomaticRecoveryCheckpoint } =
+        await import("~/server/recovery/checkpoint");
+      return withAutomaticRecoveryCheckpoint(
+        tx,
+        { adapter: "STUDENT_WORKFLOW", sourceId: item.id },
+        null,
+        async () => {
+          await lockEntity(tx, `student-survey:${item.email}`);
+          const row = await tx.studentSurvey.findUniqueOrThrow({
+            where: { id: item.id },
+          });
+          if (
+            row.state !== "OPEN" ||
+            row.confirmedAt ||
+            !row.verificationDueAt ||
+            row.verificationDueAt > now
+          )
+            return 0;
+          const links = row.tuteeId
+            ? await tx.pairingTutee.findMany({
+                where: { tuteeId: row.tuteeId },
+                select: { pairingId: true },
+              })
+            : [];
+          const tutee = row.tuteeId
+            ? await tx.tutee.findUnique({
+                where: { id: row.tuteeId },
+                select: { status: true },
+              })
+            : null;
+          await closeStudentRequest(tx, row, "DISQUALIFIED", now);
+          await recordDomainAudit(tx, {
+            operation: "system.expireStudentRequest",
+            entity: "StudentSurvey",
+            entityId: row.id,
+            action: "Expired unverified student request",
+            system: true,
+            before: row,
+            after: { id: row.id, state: "DISQUALIFIED", resolvedAt: now },
+            reason: "Verification deadline passed without confirmation",
+            effects: {
+              tuteeId: row.tuteeId,
+              beforeStatus: tutee?.status ?? null,
+              afterStatus: row.tuteeId ? "INACTIVE" : null,
+              removedPairingIds: links.map((link) => link.pairingId),
+              pendingReviews: "DENIED",
+            },
+          });
+          return 1;
         },
-      });
-      return 1;
+      );
     });
   }
   return count;

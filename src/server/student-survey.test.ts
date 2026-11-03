@@ -51,6 +51,7 @@ import {
   VERIFICATION_WEEK_MS,
 } from "./student-request-state";
 import { studentWorkflowRouter } from "./api/routers/student-workflow";
+import { captureRecoveryCheckpoint, inspectRecoveryCheckpoint } from "./recovery/checkpoint";
 
 async function ready(
   action: Parameters<typeof prepareStudentAction>[2],
@@ -1254,6 +1255,9 @@ describe("student request lifecycle", () => {
       await ready("ABORT", row.id, user.id),
     );
     const review = await db.studentRequestReview.findFirstOrThrow();
+    const manual = await captureRecoveryCheckpoint(db,
+      { adapter: "STUDENT_WORKFLOW", sourceId: row.id }, { id: "manager" });
+    const beforeDecision = await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } });
     await resolveStudentReview(
       db,
       "manager",
@@ -1261,6 +1265,19 @@ describe("student request lifecycle", () => {
       false,
       await ready("DENY", review.id),
     );
+    // Denial changes the review, not StudentSurvey. Both roots must capture its
+    // notices from that exact decision rather than reporting an empty inventory.
+    expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).toEqual(beforeDecision);
+    const automatic = await db.recoveryCheckpoint.findFirstOrThrow({ where: {
+      adapter: "STUDENT_WORKFLOW", sourceId: row.id, id: { not: manual.checkpointId },
+    }, orderBy: { createdAt: "desc" } });
+    const manualPlan = await inspectRecoveryCheckpoint(db, manual);
+    const automaticPlan = await inspectRecoveryCheckpoint(db, { checkpointId: automatic.id });
+    expect(manualPlan.delivery.coverage).toBe("COMPLETE");
+    expect(manualPlan.delivery.effects.length).toBeGreaterThan(0);
+    const physical = (plan: typeof manualPlan) => plan.delivery.effects.map((effect) =>
+      `${effect.notificationId ?? ""}:${effect.deliveryId ?? ""}`).sort();
+    expect(physical(manualPlan)).toEqual(physical(automaticPlan));
     expect(await db.pairingTutee.count()).toBe(1);
     expect(await db.studentQuarterBlock.count()).toBe(0);
     expect(

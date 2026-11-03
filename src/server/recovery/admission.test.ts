@@ -63,19 +63,55 @@ afterAll(() => db.$disconnect());
 it("journals and preserves independent notification preferences through admission recovery", async () => {
   const source = await admission({ existingStudent: true });
   const user = await db.user.findUniqueOrThrow({ where: { id: "prior-user" } });
-  await db.notificationPreference.create({ data: { userId: user.id, category: "tutoring", badgeEnabled: true, emailEnabled: false } });
-  await db.notificationPreference.update({ where: { userId_category: { userId: user.id, category: "tutoring" } }, data: { badgeEnabled: false, emailEnabled: true } });
-  await db.notificationPreference.create({ data: { userId: user.id, category: "messages" } });
-  await db.notificationPreference.delete({ where: { userId_category: { userId: user.id, category: "messages" } } });
-  await db.user.update({ where: { id: user.id }, data: { emailReviewRequests: true, emailEventReminders: true } });
-  const journal = await db.recoveryChange.findMany({ where: { actionId: source.actionId, entity: "NotificationPreference" } });
-  expect(journal.map((row) => row.operation)).toEqual(expect.arrayContaining(["INSERT", "UPDATE", "DELETE"]));
-  expect(journal.some((row) => JSON.stringify(row.recordKey).includes('"category":"tutoring"'))).toBe(true);
+  await db.notificationPreference.create({
+    data: {
+      userId: user.id,
+      category: "tutoring",
+      badgeEnabled: true,
+      emailEnabled: false,
+    },
+  });
+  await db.notificationPreference.update({
+    where: { userId_category: { userId: user.id, category: "tutoring" } },
+    data: { badgeEnabled: false, emailEnabled: true },
+  });
+  await db.notificationPreference.create({
+    data: { userId: user.id, category: "messages" },
+  });
+  await db.notificationPreference.delete({
+    where: { userId_category: { userId: user.id, category: "messages" } },
+  });
+  await db.user.update({
+    where: { id: user.id },
+    data: { emailReviewRequests: true, emailEventReminders: true },
+  });
+  const journal = await db.recoveryChange.findMany({
+    where: { actionId: source.actionId, entity: "NotificationPreference" },
+  });
+  expect(journal.map((row) => row.operation)).toEqual(
+    expect.arrayContaining(["INSERT", "UPDATE", "DELETE"]),
+  );
+  expect(
+    journal.some((row) =>
+      JSON.stringify(row.recordKey).includes('"category":"tutoring"'),
+    ),
+  ).toBe(true);
   const plan = await inspectAdmissionRecovery(db, source);
   expect(plan.coverage).toBe("COMPLETE");
   await applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" });
-  expect(await db.notificationPreference.findMany({ where: { userId: user.id } })).toEqual([{ userId: user.id, category: "tutoring", badgeEnabled: false, emailEnabled: true }]);
-  expect(await db.user.findUniqueOrThrow({ where: { id: user.id } })).toMatchObject({ emailReviewRequests: true, emailEventReminders: true });
+  expect(
+    await db.notificationPreference.findMany({ where: { userId: user.id } }),
+  ).toEqual([
+    {
+      userId: user.id,
+      category: "tutoring",
+      badgeEnabled: false,
+      emailEnabled: true,
+    },
+  ]);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: user.id } }),
+  ).toMatchObject({ emailReviewRequests: true, emailEventReminders: true });
 });
 
 async function admission(
@@ -83,6 +119,7 @@ async function admission(
     existingStudent?: boolean;
     planningDuringAdmission?: boolean;
     reportingDuringAdmission?: boolean;
+    unrelatedAccountDuringAdmission?: boolean;
   } = {},
 ) {
   if (options.existingStudent) {
@@ -147,6 +184,12 @@ async function admission(
     if (options.reportingDuringAdmission) {
       await tx.monthlyHoursSchedule.create({ data: { id: "program" } });
       await tx.monthlyHoursReport.create({ data: monthlyReportData("admin") });
+    }
+    if (options.unrelatedAccountDuringAdmission) {
+      await tx.user.update({
+        where: { id: "head" },
+        data: { canTranslate: true },
+      });
     }
     await finishAdmissionRecoveryCapture(tx, action);
     return action!;
@@ -278,6 +321,18 @@ it.each([
   "MonthlyHoursReport",
   "SchoolHoursSchedule",
   "SchoolHoursReport",
+  "PersonPartitionReceipt",
+  "RetiredHistoryOwnership",
+  "HistoryRowOwnership",
+  "PersonHistoryCorrectionReceipt",
+  "ParticipantConsolidation",
+  "PairingExecutionSuccessor",
+  "SessionPlanExecution",
+  "SessionParticipantExecution",
+  "SessionResponseExecution",
+  "QualificationTransferGrant",
+  "PersonParticipationTransferReceipt",
+  "StudentRequestExecutionAssignment",
 ])(
   "requires %s recovery coverage even while the table is empty",
   async (table) => {
@@ -303,6 +358,88 @@ it.each([
         `ALTER TABLE "${table}" ENABLE TRIGGER recovery_change_journal`,
       );
     }
+  },
+);
+
+it.each([
+  ["HistoryRowOwnership", "recovery_capture_identity_authority"],
+  ["StudentRequestExecutionAssignment", "recovery_capture_identity_authority"],
+  ["PersonPartitionReceipt", "recovery_capture_person_partition"],
+])(
+  "rejects generic journal substitution for typed %s coverage",
+  async (table, expectedFunction) => {
+    const source = await admission();
+    const [trigger] = await db.$queryRaw<
+      Array<{ definition: string; functionName: string }>
+    >`
+    SELECT pg_get_triggerdef(t.oid) AS definition, p.proname AS "functionName"
+    FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid
+    WHERE t.tgrelid=format('%I',${table}::text)::regclass AND t.tgname='recovery_change_journal'`;
+    expect(trigger?.functionName).toBe(expectedFunction);
+    await db.$executeRawUnsafe(
+      `DROP TRIGGER recovery_change_journal ON "${table}"`,
+    );
+    try {
+      await db.$executeRawUnsafe(
+        `CREATE TRIGGER recovery_change_journal AFTER INSERT OR UPDATE OR DELETE ON "${table}" FOR EACH ROW EXECUTE FUNCTION recovery_capture_change()`,
+      );
+      const plan = await inspectAdmissionRecovery(db, source);
+      expect(plan).toMatchObject({
+        coverage: "UNKNOWN",
+        websiteEligible: false,
+      });
+      expect(plan.blockers.join(" ")).toContain(table);
+      for (const apply of [
+        applyAdmissionRecovery,
+        applyAdmissionRecoveryFromOperator,
+      ])
+        await expect(
+          apply(db, intent(plan), { id: "admin" }),
+        ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      expect(await db.recoveryReceipt.count()).toBe(0);
+    } finally {
+      await db.$executeRawUnsafe(
+        `DROP TRIGGER IF EXISTS recovery_change_journal ON "${table}"`,
+      );
+      await db.$executeRawUnsafe(trigger!.definition);
+    }
+    expect((await inspectAdmissionRecovery(db, source)).coverage).toBe(
+      "COMPLETE",
+    );
+  },
+);
+
+it.each([
+  "recovery_capture_identity_authority",
+  "recovery_capture_person_partition",
+])(
+  "reports missing named %s coverage without throwing a regprocedure lookup error",
+  async (functionName) => {
+    const source = await admission();
+    // Renaming preserves attached trigger OIDs, proving that coverage requires
+    // the registered function identity rather than any still-working trigger.
+    await db.$executeRawUnsafe(
+      `ALTER FUNCTION ${functionName}() RENAME TO ${functionName}_unregistered_test`,
+    );
+    try {
+      const plan = await inspectAdmissionRecovery(db, source);
+      expect(plan).toMatchObject({
+        coverage: "UNKNOWN",
+        websiteEligible: false,
+      });
+      expect(plan.blockers.join(" ")).toContain(
+        functionName === "recovery_capture_person_partition"
+          ? "PersonPartitionReceipt"
+          : "HistoryRowOwnership",
+      );
+    } finally {
+      await db.$executeRawUnsafe(
+        `ALTER FUNCTION ${functionName}_unregistered_test() RENAME TO ${functionName}`,
+      );
+    }
+    expect((await inspectAdmissionRecovery(db, source)).coverage).toBe(
+      "COMPLETE",
+    );
   },
 );
 
@@ -718,7 +855,7 @@ it("follows a tutor admission's retained tutee alias and then journals subsequen
 it("baselines pre-trigger related plans idempotently without inventing historical event order", async () => {
   const source = await admission();
   const plan = await db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating','1',true)`;
+    await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating',${source.actionId},true)`;
     return tx.sessionPlan.create({
       data: {
         ...planData(source.tutorId, "legacy"),
@@ -858,11 +995,19 @@ it("preserves independent staff access, security changes and suspension after re
       twoFactorEnabled: true,
     },
   });
-  const independentEpoch = (await db.user.findUniqueOrThrow({ where: { id: user.id } })).refreshAuthorityRevision;
+  const independentEpoch = (
+    await db.user.findUniqueOrThrow({ where: { id: user.id } })
+  ).refreshAuthorityRevision;
   expect(independentEpoch).toBeGreaterThan(user.refreshAuthorityRevision);
-  expect(await db.recoveryChange.findFirst({ where: {
-    actionId: source.actionId, entity: "User", changedFields: { array_contains: ["refreshAuthorityRevision"] },
-  } })).not.toBeNull();
+  expect(
+    await db.recoveryChange.findFirst({
+      where: {
+        actionId: source.actionId,
+        entity: "User",
+        changedFields: { array_contains: ["refreshAuthorityRevision"] },
+      },
+    }),
+  ).not.toBeNull();
   const plan = await inspectAdmissionRecovery(db, source);
   expect(plan).toMatchObject({
     coverage: "COMPLETE",
@@ -889,14 +1034,21 @@ it("preserves independent staff access, security changes and suspension after re
 
 it("requires the schedule table journal even when no schedule rows exist", async () => {
   const source = await admission();
-  expect(await inspectAdmissionRecovery(db, source)).toMatchObject({ coverage: "COMPLETE", websiteEligible: true });
-  await db.$executeRawUnsafe('ALTER TABLE "ScheduledProgramRefresh" DISABLE TRIGGER recovery_change_journal');
+  expect(await inspectAdmissionRecovery(db, source)).toMatchObject({
+    coverage: "COMPLETE",
+    websiteEligible: true,
+  });
+  await db.$executeRawUnsafe(
+    'ALTER TABLE "ScheduledProgramRefresh" DISABLE TRIGGER recovery_change_journal',
+  );
   try {
     const plan = await inspectAdmissionRecovery(db, source);
     expect(plan).toMatchObject({ coverage: "UNKNOWN", websiteEligible: false });
     expect(plan.blockers.join(" ")).toContain("ScheduledProgramRefresh");
   } finally {
-    await db.$executeRawUnsafe('ALTER TABLE "ScheduledProgramRefresh" ENABLE TRIGGER recovery_change_journal');
+    await db.$executeRawUnsafe(
+      'ALTER TABLE "ScheduledProgramRefresh" ENABLE TRIGGER recovery_change_journal',
+    );
   }
 });
 
@@ -904,24 +1056,48 @@ it("journals a related approved schedule as unsupported work instead of compensa
   const source = await admission({ existingStudent: true });
   await db.$transaction(async (tx) => {
     await tx.user.update({ where: { id: "head" }, data: { role: "ADMIN" } });
-    await tx.user.update({ where: { id: "prior-user" }, data: { role: "HEAD" } });
+    await tx.user.update({
+      where: { id: "prior-user" },
+      data: { role: "HEAD" },
+    });
   });
   const snapshot = await readNextRecruitment(db);
-  const scheduled = await scheduleProgramRefresh(db, {
-    confirm: "REFRESH", expectedTermId: "term", expectedPreparation: snapshot.refreshEvidence,
-    expectedScheduleVersion: 0, executeAt: new Date(Date.now() + 3_600_000),
-  }, { id: "prior-user" });
-  const change = await db.recoveryChange.findFirstOrThrow({ where: {
-    actionId: source.actionId, entity: "ScheduledProgramRefresh", operation: "INSERT",
-  } });
-  expect(change.recordKey).toMatchObject({ id: scheduled.id, authorizedById: "prior-user" });
+  const scheduled = await scheduleProgramRefresh(
+    db,
+    {
+      confirm: "REFRESH",
+      expectedTermId: "term",
+      expectedPreparation: snapshot.refreshEvidence,
+      expectedScheduleVersion: 0,
+      executeAt: new Date(Date.now() + 3_600_000),
+    },
+    { id: "prior-user" },
+  );
+  const change = await db.recoveryChange.findFirstOrThrow({
+    where: {
+      actionId: source.actionId,
+      entity: "ScheduledProgramRefresh",
+      operation: "INSERT",
+    },
+  });
+  expect(change.recordKey).toMatchObject({
+    id: scheduled.id,
+    authorizedById: "prior-user",
+  });
   expect(change.after).not.toHaveProperty("expectedPreparation");
   expect(change.after).not.toHaveProperty("authorizedByName");
   const plan = await inspectAdmissionRecovery(db, source);
   expect(plan).toMatchObject({ coverage: "UNKNOWN", websiteEligible: false });
-  await expect(applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" }))
-    .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect((await db.scheduledProgramRefresh.findUniqueOrThrow({ where: { id: scheduled.id } })).state).toBe("SCHEDULED");
+  await expect(
+    applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    (
+      await db.scheduledProgramRefresh.findUniqueOrThrow({
+        where: { id: scheduled.id },
+      })
+    ).state,
+  ).toBe("SCHEDULED");
 });
 
 it("voids admission-only credentials even after an independent password change", async () => {
@@ -1641,6 +1817,52 @@ it("does not invent committed events for composite inserts skipped by ON CONFLIC
   expect(after.fingerprint).toBe(before.fingerprint);
 });
 
+it("does not let the admission transaction label authorize an unrelated account write", async () => {
+  const source = await admission({ unrelatedAccountDuringAdmission: true });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan.coverage).toBe("UNKNOWN");
+  expect(plan.websiteEligible).toBe(false);
+  for (const apply of [
+    applyAdmissionRecovery,
+    applyAdmissionRecoveryFromOperator,
+  ])
+    await expect(
+      apply(db, intent(plan), { id: "admin" }),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.recoveryReceipt.count()).toBe(0);
+  expect(
+    (await db.user.findUniqueOrThrow({ where: { id: "head" } })).canTranslate,
+  ).toBe(true);
+});
+
+it.each(["UnreviewedRecoveryDomain", "RecoveryUnknownDomain"])(
+  "fails closed for an unknown table even when its name looks like engine metadata: %s",
+  async (table) => {
+    const source = await admission();
+    // Both identifiers are fixed test literals. DDL and any attempted compensation
+    // share this transaction, so no disposable table survives the assertion.
+    await expect(
+      db.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(
+          `CREATE TABLE "${table}" (id text PRIMARY KEY)`,
+        );
+        const plan = await inspectAdmissionRecovery(tx, source);
+        expect(plan.coverage).toBe("UNKNOWN");
+        expect(plan.blockers.join(" ")).toContain(table);
+        for (const apply of [
+          applyAdmissionRecovery,
+          applyAdmissionRecoveryFromOperator,
+        ])
+          await expect(
+            apply(tx, intent(plan), { id: "admin" }),
+          ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+        expect(await tx.recoveryReceipt.count()).toBe(0);
+        throw new Error("rollback unknown table fixture");
+      }),
+    ).rejects.toThrow("rollback unknown table fixture");
+  },
+);
+
 it("fails closed when an origin journal trigger is changed to replica-only", async () => {
   const source = await admission();
   await db.$executeRawUnsafe(
@@ -1666,6 +1888,63 @@ it("fails closed for a replica session even when every trigger is present", asyn
     expect(plan.blockers.join(" ")).toContain("origin database session");
   });
 });
+
+it.each([
+  'AFTER INSERT OR UPDATE OR DELETE ON "Tutor" FOR EACH ROW WHEN (false)',
+  'AFTER INSERT OR UPDATE OF "status" OR DELETE ON "Tutor" FOR EACH ROW',
+  'AFTER INSERT OR UPDATE OR DELETE ON "Tutor" DEFERRABLE INITIALLY DEFERRED FOR EACH ROW',
+])(
+  "refuses incomplete journal coverage with a filtered trigger: %s",
+  async (definition) => {
+    const source = await admission();
+    const original = await inspectAdmissionRecovery(db, source);
+    expect(original.coverage).toBe("COMPLETE");
+    const [trigger] = await db.$queryRaw<Array<{ definition: string }>>`
+    SELECT pg_get_triggerdef(oid) AS definition FROM pg_trigger
+    WHERE tgrelid='"Tutor"'::regclass AND tgname='recovery_change_journal'`;
+    expect(trigger).toBeDefined();
+    await db.$executeRawUnsafe(
+      'DROP TRIGGER recovery_change_journal ON "Tutor"',
+    );
+    try {
+      await db.$executeRawUnsafe(
+        `CREATE ${definition.includes("DEFERRABLE") ? "CONSTRAINT " : ""}TRIGGER recovery_change_journal ${definition} EXECUTE FUNCTION recovery_capture_change()`,
+      );
+      const plan = await db.$transaction((tx) =>
+        inspectAdmissionRecovery(tx, source),
+      );
+      expect(plan.coverage).toBe("UNKNOWN");
+      expect(plan.websiteEligible).toBe(false);
+      expect(plan.blockers.join(" ")).toContain("Tutor");
+      for (const apply of [
+        applyAdmissionRecovery,
+        applyAdmissionRecoveryFromOperator,
+      ]) {
+        await expect(
+          apply(db, intent(plan), { id: "admin" }),
+        ).rejects.toMatchObject({
+          code: "PRECONDITION_FAILED",
+        });
+      }
+      expect(await db.recoveryReceipt.count()).toBe(0);
+      expect(
+        (
+          await db.tutorApplication.findUniqueOrThrow({
+            where: { id: source.applicationId },
+          })
+        ).status,
+      ).toBe("ACCEPTED");
+    } finally {
+      await db.$executeRawUnsafe(
+        'DROP TRIGGER IF EXISTS recovery_change_journal ON "Tutor"',
+      );
+      await db.$executeRawUnsafe(trigger!.definition);
+    }
+    expect((await inspectAdmissionRecovery(db, source)).coverage).toBe(
+      "COMPLETE",
+    );
+  },
+);
 
 it("rejects a stale Serializable snapshot after a separately committed descendant", async () => {
   const source = await admission();

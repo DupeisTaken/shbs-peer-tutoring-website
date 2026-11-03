@@ -12,7 +12,11 @@
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 /** Policy version belongs to authorization, independently of immutable evidence shapes. */
 export const APPROVAL_POLICY_VERSION = 2;
-export const HEAD_APPROVAL_OPERATIONS = new Set(["admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"]);
+export const HEAD_APPROVAL_OPERATIONS = new Set([
+  "admin.refresh",
+  "admin.scheduleRefresh",
+  "admin.cancelRefresh",
+]);
 
 const accountAccessOperations = new Set([
   "studentWorkflow.headEditSignup",
@@ -68,6 +72,7 @@ const accountAccessOperations = new Set([
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
   "recovery.voidAdmission": "RecoveryAction",
+  "recovery.restoreCheckpoint": "RecoveryCheckpoint",
   "studentWorkflow.headEditSignup": "StudentSurvey",
   "studentWorkflow.headUnassign": "StudentSurvey",
   "studentWorkflow.resolveSignupAppeal": "StudentSignupAppeal",
@@ -207,6 +212,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
 };
 
 export const COORDINATOR_DIRECT_OPERATIONS = new Set([
+  "recovery.captureCheckpoint",
   "studentWorkflow.resendSignupNotice",
   // Read-only preview uses POST so academic CSV contents never enter a query URL.
   "historicalAcademics.preview",
@@ -300,17 +306,32 @@ export function classifyApproval(
     currentAccountRole?: string;
     restoresArchivedRecord?: boolean;
     discretionarySignupChange?: boolean;
+    checkpointRequiresHead?: boolean;
   } = {},
 ): ApprovalAuthority | null {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation)) return null;
   // Causal admission recovery uses ordinary management review. The domain
   // service still enforces complete evidence and the website's 0/1 event cap.
-  if (operation === "recovery.voidAdmission") return {
-    category: "REVERSAL",
-    directRoles: ["ADMIN", "HEAD"],
-    requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"],
-    reviewerRoles: ["ADMIN", "HEAD"],
-  };
+  if (operation === "recovery.voidAdmission")
+    return {
+      category: "REVERSAL",
+      directRoles: ["ADMIN", "HEAD"],
+      requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
+    };
+  if (operation === "recovery.restoreCheckpoint")
+    return {
+      category: "REVERSAL",
+      directRoles: context.checkpointRequiresHead
+        ? ["HEAD"]
+        : ["ADMIN", "HEAD"],
+      requesterRoles: context.checkpointRequiresHead
+        ? ["ADMIN", "HEAD"]
+        : ["COORDINATOR", "ADMIN", "HEAD"],
+      reviewerRoles: context.checkpointRequiresHead
+        ? ["HEAD"]
+        : ["ADMIN", "HEAD"],
+    };
   const value =
     input && typeof input === "object"
       ? (input as Record<string, unknown>)

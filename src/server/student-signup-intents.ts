@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import type { Prisma, StudentSignupIntent } from "../../generated/prisma";
 import { surveyInput } from "~/lib/student-signup";
 import type { z } from "zod";
+import type { recoveryDraftReference } from "~/lib/recovery-workflow";
 import {
   studentSignupIntentDigest,
   studentSignupLocalAnswers,
@@ -110,6 +111,7 @@ export async function stageStudentSignupIntent(
   posted: Input,
   clientKey: string,
   submittedByUserId?: string,
+  recoveryDraft?: z.infer<typeof recoveryDraftReference>,
 ) {
   if (!isEmailDeliveryAvailable("PROGRAM"))
     throw new TRPCError({
@@ -136,7 +138,10 @@ export async function stageStudentSignupIntent(
     // Recover an accepted intent above first. A new draft must never be silently
     // enrolled into a different quarter after a manual or scheduled refresh.
     if (term && posted.expectedTermId && term.id !== posted.expectedTermId)
-      throw new TRPCError({ code: "CONFLICT", message: "SIGNUP_PERIOD_CHANGED" });
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "SIGNUP_PERIOD_CHANGED",
+      });
     if (!term || recruitmentStatus(recruitmentWindow(term, "tutee")) !== "open")
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
@@ -252,6 +257,18 @@ export async function stageStudentSignupIntent(
         receivedAt,
       },
     });
+    // Draft adoption is part of the newly admitted signup transaction. A failed
+    // owner/source/version check cannot leave a committed request or sent mail.
+    if (recoveryDraft) {
+      if (!submittedByUserId) throw new TRPCError({ code: "UNAUTHORIZED" });
+      const { consumeRecoveryWorkflowDraft } =
+        await import("./recovery/workflow-draft");
+      await consumeRecoveryWorkflowDraft(
+        tx,
+        { ...recoveryDraft, surveyId: row.id },
+        { id: submittedByUserId },
+      );
+    }
     return { intent, prior: null };
   });
   if (result.prior) return result.prior;

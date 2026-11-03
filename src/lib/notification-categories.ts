@@ -45,9 +45,7 @@ export const reviewNotificationEvents = [
   "student_schedule_review_pending",
   "request_invalidity_appeal_pending",
 ] as const;
-const headOnly = new Set<string>([
-  "management_head_review_pending",
-]);
+const headOnly = new Set<string>(["management_head_review_pending"]);
 export function eligibleReviewRecipient(
   user: {
     role: string;
@@ -121,6 +119,7 @@ export const notificationEventCategories = {
   tutee_appeal_reviewed: "attendance",
   student_assignment_updated: "tutoring",
   student_continuation_released: "tutoring",
+  recovery_workflow_draft: "tutoring",
   student_availability_updated: "tutoring",
   student_request_recalled: "tutoring",
   student_signup_rejected: "tutoring",

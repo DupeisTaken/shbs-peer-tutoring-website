@@ -27,6 +27,14 @@ export interface AdmissionRecoveryPlan {
     summary?: "CODE_RESTRICTION" | "WORKLOAD_PREFERENCE" | "INDEPENDENT_UPDATE";
   }>;
   alreadyVoided: boolean;
+  deliveryEffects?: Array<{
+    id: string;
+    eventId: string;
+    deliveryId: string | null;
+    notificationId: string | null;
+    disposition: string;
+    cancellation: string | null;
+  }>;
 }
 
 export interface AdmissionRecoveryInput {

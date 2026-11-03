@@ -5,7 +5,10 @@ import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
 import { notificationEmailCopy } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
-import { effectiveNotificationPreference, isNotificationCategory } from "~/lib/notification-categories";
+import {
+  effectiveNotificationPreference,
+  isNotificationCategory,
+} from "~/lib/notification-categories";
 import {
   eligibleReviewRecipient,
   notificationEmailDetail,
@@ -32,6 +35,10 @@ import {
   finishRequestDelivery,
   requestServiceCategory,
 } from "./request-notice";
+import {
+  admitRecoveryGenericDelivery,
+  finishRecoveryGenericDelivery,
+} from "~/server/recovery/delivery-effects";
 
 /** Leased batches survive restarts and SKIP LOCKED keeps concurrent application workers independent.
  * SMTP has no exactly-once guarantee: a crash after acceptance may retry, but ordinary concurrent
@@ -45,6 +52,19 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     })
   )
     return 0;
+  // An admitted optional send is never fresh SMTP work, even when an older
+  // worker returned it to PENDING after transport or abandoned its lease.
+  await db.emailDelivery.updateMany({
+    where: {
+      category: { notIn: ["security", requestServiceCategory, monthlyHoursCategory, schoolHoursCategory] },
+      attemptStartedAt: { not: null },
+      OR: [
+        { status: "PENDING" },
+        { status: "SENDING", OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }] },
+      ],
+    },
+    data: { status: "UNCERTAIN", leaseUntil: null, lastError: "Transport admission ended without a recorded delivery outcome." },
+  });
   const settings = await db.programSettings.findUnique({
     where: { id: "program" },
   });
@@ -71,6 +91,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
   >`
     WITH candidates AS MATERIALIZED (SELECT id FROM "EmailDelivery" WHERE (status = 'PENDING'
       OR (status = 'SENDING' AND category IN ('request_service', 'monthly_hours', 'school_hours'))) AND "availableAt" <= NOW()
+      AND NOT EXISTS(SELECT 1 FROM "RecoveryDeliveryEffect" e JOIN "RecoveryDeliveryCancellation" c ON c."effectId"=e.id WHERE e."deliveryId"="EmailDelivery".id)
       AND ("leaseUntil" IS NULL OR "leaseUntil" < NOW()) ORDER BY "createdAt" LIMIT ${limit} FOR UPDATE SKIP LOCKED)
     UPDATE "EmailDelivery" delivery SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
     FROM candidates WHERE delivery.id = candidates.id
@@ -82,13 +103,11 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       await db.emailDelivery.updateMany({
         where: {
           status: { in: ["PENDING", "SENDING"] },
-          OR: rows
-            .slice(index)
-            .map((row) => ({
-              id: row.id,
-              leaseUntil: row.leaseUntil,
-              attemptId: row.attemptId,
-            })),
+          OR: rows.slice(index).map((row) => ({
+            id: row.id,
+            leaseUntil: row.leaseUntil,
+            attemptId: row.attemptId,
+          })),
         },
         data: { leaseUntil: null },
       });
@@ -96,19 +115,11 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     }
     const row = await db.emailDelivery.findUniqueOrThrow({
       where: { id },
-      include: { user: { include: { emails: true, notificationPreferences: true } } },
+      include: {
+        user: { include: { emails: true, notificationPreferences: true } },
+      },
     });
-    if (
-      row.status !== "PENDING" &&
-      !(
-        [
-          requestServiceCategory,
-          monthlyHoursCategory,
-          schoolHoursCategory,
-        ].includes(row.category) && row.status === "SENDING"
-      )
-    )
-      continue;
+    if (!["PENDING", "SENDING"].includes(row.status)) continue;
     // Account security notices are essential; other notifications are program mail.
     const category = row.category === "security" ? "SECURITY" : "PROGRAM";
     if (!isEmailDeliveryAvailable(category)) {
@@ -208,6 +219,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       await finishRequestDelivery(db, id, admitted.row.attemptId, accepted);
       continue;
     }
+    let causalAttempt: string | null = null;
     try {
       // Security notices are essential, including legacy emailSecurity=false. An
       // ordinary row with no account fails closed rather than taking a request path.
@@ -218,14 +230,18 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       const preference = essential
         ? true
         : user && isNotificationCategory(row.preferenceTopic)
-          ? effectiveNotificationPreference(user, row.preferenceTopic, user.notificationPreferences).emailEnabled
-        : review
-          ? user?.emailReviewRequests
-          : reminder
-            ? user?.emailEventReminders
-            : row.category === "messages"
-              ? user?.emailMessages
-              : user?.emailInfo;
+          ? effectiveNotificationPreference(
+              user,
+              row.preferenceTopic,
+              user.notificationPreferences,
+            ).emailEnabled
+          : review
+            ? user?.emailReviewRequests
+            : reminder
+              ? user?.emailEventReminders
+              : row.category === "messages"
+                ? user?.emailMessages
+                : user?.emailInfo;
       const owned = user?.emails.some(
         (address) =>
           address.email === row.recipient &&
@@ -250,7 +266,12 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         !(await schoolCalendarEmailEligible(db, row))
       ) {
         await db.emailDelivery.updateMany({
-          where: { id, status: "PENDING" },
+          where: {
+            id,
+            leaseUntil,
+            attemptId,
+            status: { in: ["PENDING", "SENDING"] },
+          },
           data: {
             status: "SKIPPED",
             completedAt: new Date(),
@@ -288,33 +309,57 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       ].includes(row.category)
         ? notificationUnsubscribeUrl(id)
         : undefined;
-      await emailSender.send({
-        category,
-        to: row.recipient,
-        subject: copy.subject,
-        messageId: `<account-notice-${id}@shbs-notifications>`,
-        text: `${copy.description}\n\nNotice issued: ${time} (${timeZone}) / 通知发出时间\n\n${footer}\n\n${link}${unsubscribeUrl ? `\n\nUnsubscribe / 取消订阅: ${unsubscribeUrl}` : ""}`,
-        presentation: {
-          ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
-          eyebrow: essential
-            ? "ACCOUNT SECURITY"
-            : row.category === "messages"
-              ? "PRIVATE MESSAGES"
-              : review
-                ? "REVIEW REQUEST"
-                : reminder
-                  ? "UPCOMING EVENT"
-                  : "PROGRAM UPDATE",
-          action: {
-            label: copy.action,
-            url: link,
+      const admitted = await admitRecoveryGenericDelivery(
+        db,
+        id,
+        leaseUntil,
+        attemptId,
+      );
+      if (!admitted || (admitted.independent && row.status !== "PENDING"))
+        continue;
+      if (!admitted.independent) causalAttempt = admitted.attemptId;
+      const send = () =>
+        emailSender.send({
+          category,
+          to: row.recipient,
+          subject: copy.subject,
+          messageId: `<account-notice-${id}@shbs-notifications>`,
+          text: `${copy.description}\n\nNotice issued: ${time} (${timeZone}) / 通知发出时间\n\n${footer}\n\n${link}${unsubscribeUrl ? `\n\nUnsubscribe / 取消订阅: ${unsubscribeUrl}` : ""}`,
+          presentation: {
+            ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
+            eyebrow: essential
+              ? "ACCOUNT SECURITY"
+              : row.category === "messages"
+                ? "PRIVATE MESSAGES"
+                : review
+                  ? "REVIEW REQUEST"
+                  : reminder
+                    ? "UPCOMING EVENT"
+                    : "PROGRAM UPDATE",
+            action: {
+              label: copy.action,
+              url: link,
+            },
           },
-        },
-      });
+        });
+      if (causalAttempt) {
+        // Record provider acceptance separately from completion failure. A failed
+        // database finish retains SENDING evidence and never becomes a false retry.
+        let accepted = false;
+        try {
+          await send();
+          accepted = true;
+        } catch {
+          /* Safe transport outcome only. */
+        }
+        await finishRecoveryGenericDelivery(db, id, causalAttempt, accepted);
+        continue;
+      }
+      await send();
       // Opt-out can cancel a leased row while SMTP is in flight. Do not resurrect
       // that cancellation when this attempt eventually completes or fails.
       await db.emailDelivery.updateMany({
-        where: { id, status: "PENDING" },
+        where: { id, leaseUntil, attemptId, status: "PENDING" },
         data: {
           status: "SENT",
           completedAt: new Date(),
@@ -324,10 +369,16 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         },
       });
     } catch {
+      // Completion may fail after provider acceptance. Never finish that exact
+      // admitted attempt again as a transport failure or put it back in PENDING.
+      if (causalAttempt)
+        throw new Error(
+          "Causal email completion failed; retained admitted delivery evidence.",
+        );
       // Store a safe diagnostic, never provider exceptions containing addresses or credentials.
       const attempts = row.attempts + 1;
       await db.emailDelivery.updateMany({
-        where: { id, status: "PENDING" },
+        where: { id, leaseUntil, attemptId, status: "PENDING" },
         data: {
           status: attempts >= 5 ? "FAILED" : "PENDING",
           attempts,

@@ -11,15 +11,82 @@ const change = {
   after: {},
   changedFields: ["name", "profileVersion"],
 };
+it("preserves live history invalidation epochs without adopting ownership or execution changes", () => {
+  const epoch = {
+    ...change,
+    changedFields: ["historyAccessRevision", "sessionVersion"],
+  };
+  expect(preservedRecoveryChange(epoch)).toBe(true);
+  for (const field of [
+    "mergedIntoId",
+    "personId",
+    "studentId",
+    "tutorId",
+    "recoveryVoidedAt",
+  ])
+    expect(
+      preservedRecoveryChange({
+        ...epoch,
+        changedFields: [...epoch.changedFields, field],
+      }),
+    ).toBe(false);
+  for (const entity of [
+    "RetiredHistoryOwnership",
+    "HistoryRowOwnership",
+    "PersonHistoryCorrectionReceipt",
+    "ParticipantConsolidation",
+    "PairingExecutionSuccessor",
+    "SessionPlanExecution",
+    "SessionParticipantExecution",
+    "SessionResponseExecution",
+    "QualificationTransferGrant",
+    "PersonParticipationTransferReceipt",
+    "StudentRequestExecutionAssignment",
+    "PersonPartitionReceipt",
+  ]) {
+    const authority = { ...change, entity, changedFields: ["revision"] };
+    expect(preservedRecoveryChange(authority), entity).toBe(false);
+    expect(preservedRecoveryEvent([epoch, authority]), entity).toBe(false);
+  }
+});
 it("preserves journaled notification settings but rejects ownership rewrites and unknown coverage", () => {
   for (const operation of ["INSERT", "DELETE"]) {
-    expect(preservedRecoveryChange({ ...change, entity: "NotificationPreference", operation,
-      changedFields: ["userId", "category", "badgeEnabled", "emailEnabled"] })).toBe(true);
+    expect(
+      preservedRecoveryChange({
+        ...change,
+        entity: "NotificationPreference",
+        operation,
+        changedFields: ["userId", "category", "badgeEnabled", "emailEnabled"],
+      }),
+    ).toBe(true);
   }
-  expect(preservedRecoveryChange({ ...change, entity: "NotificationPreference", changedFields: ["badgeEnabled", "emailEnabled"] })).toBe(true);
-  for (const changedFields of [null, [], ["userId"], ["category"], ["futureField"]])
-    expect(preservedRecoveryChange({ ...change, entity: "NotificationPreference", changedFields })).toBe(false);
-  expect(preservedRecoveryChange({ ...change, changedFields: ["emailReviewRequests", "emailEventReminders"] })).toBe(true);
+  expect(
+    preservedRecoveryChange({
+      ...change,
+      entity: "NotificationPreference",
+      changedFields: ["badgeEnabled", "emailEnabled"],
+    }),
+  ).toBe(true);
+  for (const changedFields of [
+    null,
+    [],
+    ["userId"],
+    ["category"],
+    ["futureField"],
+  ])
+    expect(
+      preservedRecoveryChange({
+        ...change,
+        entity: "NotificationPreference",
+        changedFields,
+      }),
+    ).toBe(false);
+  expect(
+    preservedRecoveryChange({
+      ...change,
+      changedFields: ["emailReviewRequests", "emailEventReminders"],
+    }),
+  ).toBe(true);
 });
 it("requires complete field-name evidence rather than equal redacted snapshots", () => {
   expect(preservedRecoveryChange(change)).toBe(true);
@@ -65,22 +132,38 @@ it("preserves generated scheduling epochs only with supported independent author
     ["suspendedAt", "suspendedReason", "refreshAuthorityRevision"],
     ["role", "refreshAuthorityRevision"],
   ])
-    expect(preservedRecoveryChange({
-      ...change, changedFields, after: { role: "COORDINATOR" },
-    })).toBe(true);
+    expect(
+      preservedRecoveryChange({
+        ...change,
+        changedFields,
+        after: { role: "COORDINATOR" },
+      }),
+    ).toBe(true);
   for (const changedFields of [
     ["refreshAuthorityRevision"],
     ["name", "refreshAuthorityRevision"],
     ["mergedIntoId", "refreshAuthorityRevision"],
     ["role", "mergedIntoId", "refreshAuthorityRevision"],
   ])
-    expect(preservedRecoveryChange({
-      ...change, changedFields, after: { role: "COORDINATOR" },
-    })).toBe(false);
-  expect(preservedRecoveryChange({
-    ...change, changedFields: ["role", "refreshAuthorityRevision"], after: { role: "TUTOR" },
-  })).toBe(false);
-  expect(preservedRecoveryChange({
-    ...change, entity: "ScheduledProgramRefresh", changedFields: ["state", "version"],
-  })).toBe(false);
+    expect(
+      preservedRecoveryChange({
+        ...change,
+        changedFields,
+        after: { role: "COORDINATOR" },
+      }),
+    ).toBe(false);
+  expect(
+    preservedRecoveryChange({
+      ...change,
+      changedFields: ["role", "refreshAuthorityRevision"],
+      after: { role: "TUTOR" },
+    }),
+  ).toBe(false);
+  expect(
+    preservedRecoveryChange({
+      ...change,
+      entity: "ScheduledProgramRefresh",
+      changedFields: ["state", "version"],
+    }),
+  ).toBe(false);
 });

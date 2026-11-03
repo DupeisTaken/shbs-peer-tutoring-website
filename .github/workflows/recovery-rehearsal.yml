@@ -1,0 +1,85 @@
+name: Isolated PostgreSQL recovery rehearsal
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/recovery-rehearsal.yml
+      - scripts/recovery-postgres.test.ts
+      - src/server/recovery/operator-*.ts
+      - prisma/migrations/**
+      - prisma/schema.prisma
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-rehearsal-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # These are separate job-owned instances, never a production endpoint or a
+    # database used by the ordinary required checks. No application is started.
+    services:
+      source:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-source-only
+          POSTGRES_DB: shbs_recovery_source_admin_test
+        ports:
+          - 127.0.0.1:55431:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shbs_recovery_source_admin_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      staging:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-staging-only
+          POSTGRES_DB: shbs_recovery_staging_admin_test
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shbs_recovery_staging_admin_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:synthetic-source-only@127.0.0.1:55431/shbs_recovery_source_admin_test
+      SHBS_RECOVERY_TEST_SOURCE_ADMIN_URL: postgresql://postgres:synthetic-source-only@127.0.0.1:55431/shbs_recovery_source_admin_test
+      SHBS_RECOVERY_TEST_STAGING_ADMIN_URL: postgresql://postgres:synthetic-staging-only@127.0.0.1:55432/shbs_recovery_staging_admin_test
+      SHBS_RECOVERY_TEST_ARTIFACT_DIR: .validation/recovery-rehearsal
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install native PostgreSQL 16 client tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y postgresql-client-16
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Restore committed-schema synthetic checkpoint and inspect exact values
+        run: node --import tsx --test --test-concurrency=1 scripts/recovery-postgres.test.ts
+      - name: Upload sanitized restoration receipt and report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-rehearsal-${{ github.run_attempt }}
+          path: |
+            .validation/recovery-rehearsal/receipt.json
+            .validation/recovery-rehearsal/report.html
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7

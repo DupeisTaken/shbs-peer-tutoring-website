@@ -18,6 +18,7 @@ import { DatabaseInspector } from "./database-inspector";
 const mocks = vi.hoisted(() => ({
   tables: vi.fn(),
   records: vi.fn(),
+  dependencies: vi.fn(),
   refetch: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
@@ -25,6 +26,7 @@ vi.mock("~/trpc/react", () => ({
     recordInspector: {
       tables: { useQuery: mocks.tables },
       records: { useQuery: mocks.records },
+      dependencies: { useQuery: mocks.dependencies },
     },
   },
 }));
@@ -84,8 +86,18 @@ function mount() {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.refetch.mockResolvedValue({ isSuccess: true });
   mocks.tables.mockReturnValue(query([table, unsupported]));
   mocks.records.mockReturnValue(query(data));
+  mocks.dependencies.mockReturnValue(
+    query({
+      version: 1,
+      interpretation: "RECORDED_RELATION_ONLY",
+      source: data.rows[0]!.reference,
+      changes: [],
+      nextCursor: null,
+    }),
+  );
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -134,6 +146,59 @@ it("keeps rows brief, exposes permitted raw fields and explicit omissions in a l
       "npm run recovery -- records inspect --table MODEL --key '<JSON>'",
     ),
   ).toBeTruthy();
+});
+it("loads only the selected record's bounded relationships and never claims complete causality", () => {
+  mount();
+  fireEvent.change(screen.getByLabelText("Database table"), {
+    target: { value: "User" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Inspect record: User/ }));
+  expect(mocks.dependencies).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Recorded recovery relationships" }),
+  );
+  expect(mocks.dependencies).toHaveBeenCalledWith(
+    {
+      table: "User",
+      key: { id: "persisted-user" },
+      cursor: undefined,
+      limit: 25,
+    },
+    { retry: false },
+  );
+  expect(screen.getByText(/not a complete causal chain/)).toBeTruthy();
+  expect(
+    screen.getByText(/does not establish that the record has no other effects/),
+  ).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: /User.*persisted-user/ })
+      .getAttribute("href"),
+  ).toContain("/admin/database?table=User&key=");
+});
+it("hides cached evidence and original private fields after a denied relationship read", () => {
+  mocks.dependencies.mockReturnValue({
+    ...query({
+      source: data.rows[0]!.reference,
+      changes: [],
+      nextCursor: null,
+    }),
+    isError: true,
+    error: { data: { code: "FORBIDDEN" } },
+  });
+  mount();
+  fireEvent.change(screen.getByLabelText("Database table"), {
+    target: { value: "User" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Inspect record: User/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Recorded recovery relationships" }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText(/Stored name/)).toBeNull();
+  expect(screen.queryByText(/persisted-user/)).toBeNull();
+  expect(screen.queryByLabelText("Exact primary key (JSON)")).toBeNull();
+  expect(screen.queryByLabelText("Database table")).toBeNull();
 });
 it("removes stale identities and their open reader after a denied record refresh", () => {
   const view = mount();

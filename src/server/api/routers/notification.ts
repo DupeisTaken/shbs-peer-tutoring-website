@@ -31,9 +31,19 @@ export const notificationRouter = createTRPCRouter({
   reconcileManagementReviews: adminOnlyProcedure.mutation(({ ctx }) =>
     inTransaction(ctx.db, async (tx) => {
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${ctx.session.user.id} FOR SHARE`;
-      const actor = await tx.user.findUnique({ where: { id: ctx.session.user.id } });
-      if (!actor || actor.suspendedAt || actor.mergedIntoId || !["ADMIN", "HEAD"].includes(actor.role))
-        throw new TRPCError({ code: "FORBIDDEN", message: "Administrator access required." });
+      const actor = await tx.user.findUnique({
+        where: { id: ctx.session.user.id },
+      });
+      if (
+        !actor ||
+        actor.suspendedAt ||
+        actor.mergedIntoId ||
+        !["ADMIN", "HEAD"].includes(actor.role)
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Administrator access required.",
+        });
       return reconcileManagementReviewNotifications(tx);
     }),
   ),
@@ -52,7 +62,7 @@ export const notificationRouter = createTRPCRouter({
     ),
   list: protectedProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db.notification.findMany({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.session.user.id, recoveryWithdrawnAt: null },
       orderBy: { createdAt: "desc" },
       take: 30,
     });
@@ -74,29 +84,48 @@ export const notificationRouter = createTRPCRouter({
     }));
   }),
 
-  unreadCount: protectedProcedure.input(z.object({ includeMuted: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
-    const muted = input?.includeMuted ? [] : await ctx.db.notificationPreference.findMany({
-      where: { userId: ctx.session.user.id, badgeEnabled: false }, select: { category: true },
-    });
-    return ctx.db.notification.count({
-      where: { userId: ctx.session.user.id, readAt: null,
-        ...(muted.length ? { category: { notIn: muted.map((row) => row.category) } } : {}),
-      },
-    });
-  }),
+  unreadCount: protectedProcedure
+    .input(z.object({ includeMuted: z.boolean().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const muted = input?.includeMuted
+        ? []
+        : await ctx.db.notificationPreference.findMany({
+            where: { userId: ctx.session.user.id, badgeEnabled: false },
+            select: { category: true },
+          });
+      return ctx.db.notification.count({
+        where: {
+          userId: ctx.session.user.id,
+          readAt: null,
+          recoveryWithdrawnAt: null,
+          ...(muted.length
+            ? { category: { notIn: muted.map((row) => row.category) } }
+            : {}),
+        },
+      });
+    }),
 
   markRead: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(({ ctx, input }) =>
       ctx.db.notification.updateMany({
-        where: { id: input.id, userId: ctx.session.user.id, readAt: null },
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+          readAt: null,
+          recoveryWithdrawnAt: null,
+        },
         data: { readAt: new Date() },
       }),
     ),
 
   markAllRead: protectedProcedure.mutation(({ ctx }) =>
     ctx.db.notification.updateMany({
-      where: { userId: ctx.session.user.id, readAt: null },
+      where: {
+        userId: ctx.session.user.id,
+        readAt: null,
+        recoveryWithdrawnAt: null,
+      },
       data: { readAt: new Date() },
     }),
   ),

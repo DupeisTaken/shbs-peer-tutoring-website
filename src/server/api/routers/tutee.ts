@@ -10,6 +10,9 @@ import { getSignupSettings } from "~/server/program/signup-fields";
 import { courseChoices } from "~/server/course-choices";
 import { issueSurveyAccountInvitation } from "~/server/auth/account-invitations";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { recoveryDraftReference } from "~/lib/recovery-workflow";
+import { readRecoveryWorkflowDraft } from "~/server/recovery/workflow-draft";
 import type { PrismaClient } from "../../../../generated/prisma";
 import {
   stageStudentSignupIntent,
@@ -45,7 +48,44 @@ const publicSubmission = surveyInput.extend({
   expectedTermId: z.string().min(1),
   captchaGrant: captchaGrantInput,
   clientKey: z.string().uuid(),
+  recoveryDraft: recoveryDraftReference.optional(),
 });
+/** Completion must disclose an already committed signup even if a later change
+ * makes its optional recovery draft unavailable. It never performs adoption. */
+async function recoveryDraftAcknowledgement<T extends { intentId: string }>(
+  db: PrismaClient,
+  receipt: T,
+  reference: z.infer<typeof recoveryDraftReference> | undefined,
+  userId: string | undefined,
+) {
+  if (!reference) return receipt;
+  let recoveryDraftState: "CONSUMED" | "PENDING_REVIEW" | "UNAVAILABLE" =
+    "UNAVAILABLE";
+  if (userId) {
+    const intent = await db.studentSignupIntent.findUnique({
+      where: { id: receipt.intentId },
+      select: { surveyId: true, submittedByUserId: true },
+    });
+    if (intent?.submittedByUserId === userId) {
+      try {
+        const draft = await readRecoveryWorkflowDraft(
+          db,
+          { draftId: reference.draftId },
+          { id: userId },
+        );
+        recoveryDraftState =
+          draft.state === "CONSUMED" &&
+          draft.submittedSurveyId === intent.surveyId &&
+          draft.version === reference.expectedVersion + 1
+            ? "CONSUMED"
+            : "PENDING_REVIEW";
+      } catch (error) {
+        if (!(error instanceof TRPCError)) throw error;
+      }
+    }
+  }
+  return { ...receipt, recoveryDraftState };
+}
 async function submitTuteeSignup(
   db: PrismaClient,
   headers: Headers,
@@ -62,9 +102,32 @@ async function submitTuteeSignup(
     input.clientKey,
     () => recoverStudentSignupIntent(db, answers, input.clientKey, userId),
   );
-  if (accepted) return accepted;
+  if (accepted)
+    return recoveryDraftAcknowledgement(
+      db,
+      accepted,
+      input.recoveryDraft,
+      userId,
+    );
+  if (input.recoveryDraft) {
+    if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
+    const draft = await readRecoveryWorkflowDraft(
+      db,
+      { draftId: input.recoveryDraft.draftId },
+      { id: userId },
+    );
+    if (
+      draft.state !== "PENDING_OWNER_REVIEW" ||
+      draft.version !== input.recoveryDraft.expectedVersion
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "Review the current recovery draft before making a new submission.",
+      });
+  }
   // Cover the pre-stage admission window without unbounded waits or a reusable CAPTCHA.
-  return withSignupLease(
+  const saved = await withSignupLease(
     db,
     studentSignupAdmissionLane(input.clientKey),
     async () => {
@@ -83,11 +146,18 @@ async function submitTuteeSignup(
         input.email,
         input.captchaGrant,
         async () =>
-          stageStudentSignupIntent(db, answers, input.clientKey, userId),
+          stageStudentSignupIntent(
+            db,
+            answers,
+            input.clientKey,
+            userId,
+            input.recoveryDraft,
+          ),
       );
     },
     1,
   );
+  return recoveryDraftAcknowledgement(db, saved, input.recoveryDraft, userId);
 }
 export const tuteeRouter = createTRPCRouter({
   // Keep the previous endpoint name without retaining its unverified-account bypass.
@@ -120,7 +190,14 @@ export const tuteeRouter = createTRPCRouter({
     }),
   signupReceipt: publicProcedure
     .input(
-      z.object({ clientKey: z.string().uuid(), answers: surveyInput }).strict(),
+      z
+        .object({
+          clientKey: z.string().uuid(),
+          answers: surveyInput.extend({
+            recoveryDraft: recoveryDraftReference.optional(),
+          }),
+        })
+        .strict(),
     )
     .mutation(({ ctx, input }) =>
       withSignupAdmission(
@@ -128,13 +205,22 @@ export const tuteeRouter = createTRPCRouter({
         ctx.headers,
         "complete",
         input.clientKey,
-        () =>
-          recoverStudentSignupIntent(
+        async () => {
+          const receipt = await recoverStudentSignupIntent(
             ctx.db,
-            input.answers,
+            surveyInput.parse(input.answers),
             input.clientKey,
             ctx.session?.user.id,
-          ),
+          );
+          return receipt
+            ? recoveryDraftAcknowledgement(
+                ctx.db,
+                receipt,
+                input.answers.recoveryDraft,
+                ctx.session?.user.id,
+              )
+            : null;
+        },
       ),
     ),
   resendSurvey: publicProcedure

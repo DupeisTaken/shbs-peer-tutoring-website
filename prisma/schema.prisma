@@ -331,6 +331,8 @@ model ApprovalRequest {
 
 /// A lightweight in-app notification for any user (tutor / coordinator / admin).
 model Notification {
+  /// Recovery retains the original notice as evidence while marking its outcome withdrawn.
+  recoveryWithdrawnAt DateTime?
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2758,11 +2760,78 @@ model UsernameNamespaceGuard {
 model RecoveryAction {
   id String @id @default(cuid())
   kind String
-  applicationId String
+  applicationId String?
+  checkpoint RecoveryCheckpoint?
   before Json
   after Json?
   createdAt DateTime @default(now())
   @@index([applicationId, createdAt])
+}
+
+/// A prospective domain checkpoint names exact sources; directory grouping and
+/// historical audit undo payloads never expand its restoration authority.
+model RecoveryCheckpoint {
+  id String @id @default(cuid())
+  actionId String @unique
+  action RecoveryAction @relation(fields: [actionId], references: [id], onDelete: Restrict)
+  schemaVersion Int @default(1)
+  adapter String
+  adapterVersion Int
+  sourceEntity String
+  sourceId String
+  capturedById String
+  captureTransactionId String
+  scope Json
+  createdAt DateTime @default(now())
+  @@index([adapter, sourceId, createdAt])
+}
+
+/// Safe causal delivery identities; bodies and transport capabilities stay in their owning tables.
+model RecoveryDeliveryEffect {
+  id String @id
+  actionId String
+  eventId String
+  notificationId String?
+  deliveryId String?
+  createdAt DateTime @default(now())
+  @@index([actionId, eventId])
+  @@index([notificationId])
+  @@index([deliveryId])
+}
+
+model RecoveryDeliveryCancellation {
+  effectId String @id
+  recoveryKey String
+  disposition String
+  createdAt DateTime @default(now())
+  @@index([recoveryKey])
+}
+
+model RecoveryDeliveryCoverage {
+  eventId String @id
+  actionId String
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  @@index([actionId])
+}
+
+/// Owner review is a new prospective request draft, never revived mailbox proof,
+/// an old signature or authority to reopen its finalized source request.
+model RecoveryWorkflowDraft {
+  id String @id @default(cuid())
+  actionId String
+  sourceSurveyId String
+  sourceTuteeId String
+  ownerUserId String
+  ownerBindingHash String
+  answers Json
+  state String @default("PENDING_OWNER_REVIEW")
+  version Int @default(1)
+  submittedSurveyId String? @unique
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([ownerUserId, state])
+  @@unique([actionId, sourceSurveyId])
 }
 
 /// One logical committed transaction, regardless of the number of changed rows.
