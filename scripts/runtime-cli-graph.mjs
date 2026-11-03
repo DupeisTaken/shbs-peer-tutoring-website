@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire, isBuiltin } from "node:module";
 import path from "node:path";
 
@@ -66,7 +66,15 @@ export function runtimeCliGraph(root, entry) {
       assert.ok(!base.startsWith("../"), `CLI import escapes the repository: ${file} -> ${specifier}`);
       if (base.startsWith("generated/")) { visit(base); continue; }
       const resolved = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.mjs`, `${base}/index.ts`, `${base}/index.js`]
-        .find((candidate) => existsSync(path.join(root, candidate)) && lstatSync(path.join(root, candidate)).isFile());
+        .find((candidate) => {
+          let metadata;
+          try { metadata = lstatSync(path.join(root, candidate)); }
+          catch (error) { if (error.code === "ENOENT" || error.code === "ENOTDIR") return false; throw error; }
+          // Runtime resolution would choose this entry before a later extension.
+          // A symlink must reject the graph, never authorize a different file.
+          assert.ok(!metadata.isSymbolicLink(), "Operator import resolution must not follow or skip symbolic links");
+          return metadata.isFile();
+        });
       assert.ok(resolved, `Cannot resolve CLI import: ${file} -> ${specifier}`);
       visit(resolved);
     }

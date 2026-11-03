@@ -138,7 +138,7 @@ test("JSON operator dependencies are validated terminal data, not TypeScript pro
   assert.throws(() => runtimeImports('{"malformed":', "messages/zh.json"), SyntaxError);
 });
 
-test("regular operator source validation refuses file symlinks before hashing", (t) => {
+test("operator graphs refuse a symlink before a competing extension and before hashing", (t) => {
   const { parent, root, write } = sourceFixture(t);
   write("src/server/ordinary.ts", "export const ordinary = true;");
   const outside = path.join(parent, "outside.ts");
@@ -146,6 +146,10 @@ test("regular operator source validation refuses file symlinks before hashing", 
   try { symlinkSync(outside, path.join(root, "src/server/linked.ts"), "file"); }
   catch (error) { if (["EPERM", "EACCES"].includes(error.code)) { t.skip("File symlinks unavailable on this host; Linux CI requires this case"); return; } throw error; }
   assert.throws(() => regularRuntimeSource(root, "src/server/linked.ts"), /symbolic links/);
+  write("src/server/linked.tsx", "export const competing = true;");
+  write("scripts/cli.ts", 'import "../src/server/linked";');
+  write("package.json", JSON.stringify({ scripts: { "admin:create": "tsx scripts/cli.ts", "identity:reconcile": "tsx scripts/cli.ts", recovery: "tsx scripts/cli.ts" }, dependencies: { tsx: "1" } }));
+  assert.throws(() => requiredOperatorFiles(root), /must not follow or skip symbolic links/);
   assert.equal(readFileSync(outside, "utf8"), "private synthetic sentinel");
 });
 
