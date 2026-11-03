@@ -3916,6 +3916,8 @@
         "QUARANTINED": "隔离待审核"
       },
       "entities": {
+        "SchedulingMaintenanceState": "排期维护状态",
+        "SchedulingDirtyEvent": "排期失效事件",
         "PersonPartitionReceipt": "身份分离回执",
         "RetiredHistoryOwnership": "停用账户历史归属",
         "HistoryRowOwnership": "历史记录归属",

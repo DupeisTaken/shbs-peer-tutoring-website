@@ -1,6 +1,21 @@
 // This explicit schema vocabulary is derived from prisma/schema.prisma; update it with schema changes.
 // It labels recorded evidence only and never fetches or changes a record.
 export const reviewSchema = {
+  SchedulingMaintenanceState: {
+    references: {},
+    enums: {},
+    fields: [
+      "id", "publicationVersion", "settlementVersion", "windowStart", "prepareEnd",
+      "timeZone", "unavailable", "normalized", "settlementBatchActive",
+      "settlementBatchExhausted", "settlementCursor", "settlementEventIds",
+      "settlementRequestIds", "updatedAt",
+    ],
+  },
+  SchedulingDirtyEvent: {
+    references: {},
+    enums: {},
+    fields: ["id", "sourceTable", "requestId", "publicationPending", "settlementPending", "createdAt"],
+  },
   PersonPartitionReceipt: {
     references: { personId: "Person", newPersonId: "Person" },
     enums: {},

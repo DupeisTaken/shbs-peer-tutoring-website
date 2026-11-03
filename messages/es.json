@@ -3916,6 +3916,8 @@
         "QUARANTINED": "Aislado para revisión"
       },
       "entities": {
+        "SchedulingMaintenanceState": "Estado de mantenimiento de horarios",
+        "SchedulingDirtyEvent": "Evento de invalidación de horarios",
         "PersonPartitionReceipt": "Comprobante de separación de identidad",
         "RetiredHistoryOwnership": "Titularidad del historial de cuenta retirada",
         "HistoryRowOwnership": "Titularidad de un registro histórico",

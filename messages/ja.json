@@ -3916,6 +3916,8 @@
         "QUARANTINED": "確認のため隔離中"
       },
       "entities": {
+        "SchedulingMaintenanceState": "スケジュール保守状態",
+        "SchedulingDirtyEvent": "スケジュール無効化イベント",
         "PersonPartitionReceipt": "本人情報の分離記録",
         "RetiredHistoryOwnership": "廃止済みアカウントの履歴帰属",
         "HistoryRowOwnership": "履歴記録の帰属",

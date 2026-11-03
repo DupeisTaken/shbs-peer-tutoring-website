@@ -131,6 +131,13 @@ const schemaFor = (entity: string | undefined) =>
 // Several names (before/after/result/recordId) are public on unrelated models;
 // exclude them by owner instead of widening or shrinking the global vocabulary.
 const privateIdentityFields: Readonly<Record<string, readonly string[]>> = {
+  // Derived maintenance queues are not scheduling decisions or participant evidence.
+  SchedulingMaintenanceState: [
+    "publicationVersion", "settlementVersion", "windowStart", "prepareEnd", "timeZone",
+    "unavailable", "normalized", "settlementBatchActive", "settlementBatchExhausted",
+    "settlementCursor", "settlementEventIds", "settlementRequestIds",
+  ],
+  SchedulingDirtyEvent: ["id", "sourceTable", "requestId", "publicationPending", "settlementPending"],
   User: ["historyAccessRevision"],
   Tutor: ["historyIdentityRevision"],
   Tutee: ["historyIdentityRevision"],

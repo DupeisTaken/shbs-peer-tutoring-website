@@ -3916,6 +3916,8 @@
         "QUARANTINED": "Isolé pour examen"
       },
       "entities": {
+        "SchedulingMaintenanceState": "État de maintenance de la planification",
+        "SchedulingDirtyEvent": "Événement d’invalidation de la planification",
         "PersonPartitionReceipt": "Reçu de séparation d’identité",
         "RetiredHistoryOwnership": "Attribution de l’historique d’un compte retiré",
         "HistoryRowOwnership": "Attribution d’un enregistrement historique",

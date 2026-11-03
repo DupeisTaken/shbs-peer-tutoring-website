@@ -3916,6 +3916,8 @@
         "QUARANTINED": "Zur Prüfung gesperrt"
       },
       "entities": {
+        "SchedulingMaintenanceState": "Wartungsstatus der Terminplanung",
+        "SchedulingDirtyEvent": "Invalidierungsereignis der Terminplanung",
         "PersonPartitionReceipt": "Beleg zur Identitätstrennung",
         "RetiredHistoryOwnership": "Verlaufszuordnung eines stillgelegten Kontos",
         "HistoryRowOwnership": "Zuordnung eines Verlaufseintrags",

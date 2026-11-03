@@ -3916,6 +3916,8 @@
         "QUARANTINED": "Quarantined for review"
       },
       "entities": {
+        "SchedulingMaintenanceState": "Scheduling maintenance state",
+        "SchedulingDirtyEvent": "Scheduling invalidation event",
         "PersonPartitionReceipt": "Identity separation receipt",
         "RetiredHistoryOwnership": "Retired account history ownership",
         "HistoryRowOwnership": "Exact history record ownership",

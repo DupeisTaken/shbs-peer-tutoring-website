@@ -3916,6 +3916,8 @@
         "QUARANTINED": "검토를 위해 격리됨"
       },
       "entities": {
+        "SchedulingMaintenanceState": "일정 유지 관리 상태",
+        "SchedulingDirtyEvent": "일정 무효화 이벤트",
         "PersonPartitionReceipt": "신원 분리 처리 기록",
         "RetiredHistoryOwnership": "폐기된 계정의 이력 소유권",
         "HistoryRowOwnership": "개별 이력 기록 소유권",

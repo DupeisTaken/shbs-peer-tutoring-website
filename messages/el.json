@@ -3916,6 +3916,8 @@
         "QUARANTINED": "Σε απομόνωση για έλεγχο"
       },
       "entities": {
+        "SchedulingMaintenanceState": "Κατάσταση συντήρησης προγραμματισμού",
+        "SchedulingDirtyEvent": "Συμβάν ακύρωσης δεδομένων προγραμματισμού",
         "PersonPartitionReceipt": "Απόδειξη διαχωρισμού ταυτότητας",
         "RetiredHistoryOwnership": "Κυριότητα ιστορικού ανενεργού λογαριασμού",
         "HistoryRowOwnership": "Κυριότητα εγγραφής ιστορικού",
