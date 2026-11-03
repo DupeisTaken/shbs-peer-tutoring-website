@@ -51,6 +51,32 @@ const identity = z
   .strict();
 const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
+/** Use the same reviewed source endpoint/role, outside the database we fence. */
+export async function connectSourceMaintenance(
+  sourceUrl: string,
+  dependencies: Pick<SiteDependencies, "connect">,
+): Promise<OperatorSql> {
+  const source = databaseIdentity(sourceUrl);
+  const url = new URL(sourceUrl);
+  url.pathname = "/postgres";
+  const control = await dependencies.connect(url.toString());
+  try {
+    const identity = (
+      await control.query(
+        "SELECT current_database() AS database,current_user AS username",
+      )
+    ).rows[0];
+    operatorAssert(
+      identity?.database === "postgres" && identity.username === source.user,
+      "CUTOVER_SOURCE_MAINTENANCE_ENDPOINT_MISMATCH",
+    );
+    return control;
+  } catch (error) {
+    await control.close().catch(() => undefined);
+    throw error;
+  }
+}
+
 /** Database connection fences must be changed from the maintenance database. */
 export async function withReadOnlyAcceptanceApplication<T>(
   maintenance: OperatorSql,
@@ -1084,7 +1110,7 @@ export async function applyIsolatedCutover(
     sourceTransaction = false;
   try {
     maintenance = await dependencies.connect(maintenanceUrl);
-    sourceControl = await dependencies.connect(sourceUrl);
+    sourceControl = await connectSourceMaintenance(sourceUrl, dependencies);
     await mkdir(dirname(evidence), { recursive: true, mode: 0o700 });
     await mkdir(evidence, { recursive: true, mode: 0o700 });
     await writeReceiptOnce(join(evidence, "intent.json"), {
@@ -1102,7 +1128,8 @@ export async function applyIsolatedCutover(
     ];
     const sourceState = (
       await sourceControl.query(
-        "SELECT datallowconn,datconnlimit,pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=current_database()",
+        "SELECT datallowconn,datconnlimit,pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=$1",
+        [reconcile.stagePlan.source.database],
       )
     ).rows[0];
     operatorAssert(
@@ -1121,8 +1148,8 @@ export async function applyIsolatedCutover(
     operatorAssert(
       (
         await sourceControl.query(
-          "SELECT count(*)::text AS count FROM pg_stat_activity WHERE datname=current_database() AND NOT(pid=ANY($1::int[]))",
-          [ownPids],
+          "SELECT count(*)::text AS count FROM pg_stat_activity WHERE datname=$1 AND NOT(pid=ANY($2::int[]))",
+          [reconcile.stagePlan.source.database, ownPids],
         )
       ).rows[0]?.count === "0",
       "CUTOVER_REQUIRES_QUIESCENT_SOURCE",

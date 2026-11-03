@@ -215,6 +215,11 @@ changing reviewed endpoint identities or permitting caller-supplied startup opti
 Raw operator clients also decode timestamp-without-time-zone values as UTC using
 a per-client parser; a non-UTC Node host cannot shift security snapshots or their
 fingerprints, and shared driver parsers remain unchanged.
+Cutover derives its source control connection by changing only the validated
+source URL's database to `postgres`, then verifies that database and the reviewed
+source role. Database fences run from this separate maintenance database; source
+state and session checks bind the reviewed source name explicitly. The source
+role must be able to connect to `postgres`; failure does not bypass the fence.
 
 The reviewed plan binds the backup path/hash, source and maintenance identities,
 fresh `shbs_recovery_*` database name, evidence directory and table-count

@@ -4,7 +4,10 @@ import {
   assertIsolatedRehearsalIdentity,
 } from "./operator-cutover";
 import { databaseIdentity } from "./operator-plan";
-import { withReadOnlyAcceptanceApplication } from "./operator-cutover";
+import {
+  connectSourceMaintenance,
+  withReadOnlyAcceptanceApplication,
+} from "./operator-cutover";
 import type { OperatorSql } from "./operator-site";
 
 describe("isolated operator cutover endpoint gate", () => {
@@ -112,6 +115,90 @@ describe("acceptance database connection fence", () => {
       );
     },
   );
+});
+
+describe("cutover source maintenance connection", () => {
+  it("changes only the database on the validated source endpoint and verifies its identity before use", async () => {
+    const source =
+      "postgresql://synthetic%2Bowner:p%40ss%3Aword@[::1]:55432/shbs_recovery_source_test?sslmode=verify-full&schema=public";
+    const calls: string[] = [];
+    const control: OperatorSql = {
+      async query(sql) {
+        calls.push(sql);
+        return {
+          rows: [{ database: "postgres", username: "synthetic+owner" }],
+        };
+      },
+      async close() {
+        calls.push("close");
+      },
+    };
+    const result = await connectSourceMaintenance(source, {
+      async connect(url) {
+        const expected = new URL(source);
+        expected.pathname = "/postgres";
+        expect(url).toBe(expected.toString());
+        expect(databaseIdentity(source).database).toBe(
+          "shbs_recovery_source_test",
+        );
+        return control;
+      },
+    });
+    expect(result).toBe(control);
+    expect(calls).toEqual([
+      "SELECT current_database() AS database,current_user AS username",
+    ]);
+  });
+
+  it.each([
+    { database: "shbs_recovery_source_test", username: "synthetic_owner" },
+    { database: "postgres", username: "unexpected_owner" },
+  ])(
+    "closes a mismatched control connection without any database mutation: %j",
+    async (identity) => {
+      const calls: string[] = [];
+      const control: OperatorSql = {
+        async query(sql) {
+          calls.push(sql);
+          return { rows: [identity] };
+        },
+        async close() {
+          calls.push("close");
+        },
+      };
+      await expect(
+        connectSourceMaintenance(
+          "postgresql://synthetic_owner:disposable@localhost:55432/shbs_recovery_source_test",
+          {
+            async connect() {
+              return control;
+            },
+          },
+        ),
+      ).rejects.toThrow("CUTOVER_SOURCE_MAINTENANCE_ENDPOINT_MISMATCH");
+      expect(calls).toEqual([
+        "SELECT current_database() AS database,current_user AS username",
+        "close",
+      ]);
+    },
+  );
+
+  it("does not retry a failed maintenance connection against the source database", async () => {
+    const urls: string[] = [];
+    await expect(
+      connectSourceMaintenance(
+        "postgresql://synthetic_owner:disposable@localhost:55432/shbs_recovery_source_test",
+        {
+          async connect(url) {
+            urls.push(url);
+            throw new Error("maintenance unavailable");
+          },
+        },
+      ),
+    ).rejects.toThrow("maintenance unavailable");
+    expect(urls).toHaveLength(1);
+    expect(new URL(urls[0]!).pathname).toBe("/postgres");
+  });
 });
 
 describe("live isolated acceptance restrictions", () => {
