@@ -97,6 +97,7 @@ COPY --from=build --chown=nextjs:nodejs \
     /app/src/server/person-identity.ts \
     /app/src/server/person-reconciliation.ts \
     /app/src/server/account-history.ts \
+    /app/src/server/history-row-ownership.ts \
     /app/src/server/transactions.ts \
     /app/src/server/db-scope.ts ./src/server/
 COPY --from=build --chown=nextjs:nodejs \

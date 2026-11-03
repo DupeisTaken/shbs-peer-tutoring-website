@@ -117,6 +117,7 @@ test("CLI packaging guard catches omitted entry points and transitive identity d
   const copies = runtimeSourceCopies();
   for (const [entry, omitted] of [
     ["scripts/create-admin.ts", "src/server/person-source-initialization.ts"],
+    ["scripts/create-admin.ts", "src/server/history-row-ownership.ts"],
     ["scripts/create-admin.ts", "src/server/auth/username-snapshot.ts"],
     ["scripts/create-admin.ts", "src/server/program/continuation-opening.ts"],
     ["scripts/reconcile-person-sources.ts", "scripts/reconcile-person-sources.ts"],
