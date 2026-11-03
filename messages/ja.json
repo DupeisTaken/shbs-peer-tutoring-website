@@ -46,7 +46,7 @@
     "date": "日付",
     "start": "開始",
     "end": "終了",
-    "durationHelp": "予定時間は45分です。一方の時刻を変えると、もう一方も連動します。実際の実施時間は別に記録します。",
+    "durationHelp": "予定は45分です。開始と終了は連動し、実際の出席時間は別途記録します。",
     "zone": "学校のタイムゾーン：{timeZone}",
     "extra": "追加セッション",
     "rescheduled": "日時変更済み",
@@ -134,7 +134,14 @@
       "B": "学習者の代替案",
       "C": "最終提案",
       "GROUP": "グループでの合意"
-    }
+    },
+    "includeAll": "このセッションの全受講者を含める",
+    "allScopeHelp": "全員が最新の提案に同意する必要があります。",
+    "oneScopeHelp": "選択した受講者のみに適用されます。",
+    "automaticRoom": "対面 — 教室を自動割り当て",
+    "checkingLocation": "日時と場所を確認中…",
+    "allocationFailed": "日時と場所を確認できませんでした。現在のセッションを確認し、別の時間またはオンラインを選んで再確認してください。",
+    "roomReviewHelp": "送信時に教室を再確認します。利用できない場合は、新しい割り当てを確認してください。"
   },
   "nextRecruitment": {
     "savedForTarget": "{name} の開始時刻を保存しました。",
@@ -2285,7 +2292,8 @@
       "rosterCount": "受講者名簿の確認事項（{count}）",
       "interviewSection": "面接",
       "meetingSection": "ミーティング",
-      "qualificationSection": "資格"
+      "qualificationSection": "資格",
+      "compactHelp": "ここで未完了の作業を確認できます。各申請は個別に確認・保存されます。"
     },
     "activate": {
       "title": "参加状況の確認",
@@ -2549,6 +2557,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "チューターのワークスペース",
+      "schedule": "予定",
+      "pairings": "担当ペア",
+      "preferences": "設定",
+      "history": "履歴と時間"
     }
   },
   "public": {

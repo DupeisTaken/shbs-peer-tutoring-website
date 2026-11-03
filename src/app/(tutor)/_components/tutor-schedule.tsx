@@ -23,11 +23,13 @@ export function TutorSchedule({
   active,
   interviewsEnabled,
   meetingsEnabled,
+  compact = false,
 }: {
   active: boolean;
   interviewsEnabled: boolean;
   meetingsEnabled: boolean;
   now: Date;
+  compact?: boolean;
 }) {
   const t = useTranslations("unifiedSchedule");
   const format = useFormatter();
@@ -66,6 +68,37 @@ export function TutorSchedule({
   const [allInterviews, setAllInterviews] = useState(false);
   const [meetingId, setMeetingId] = useState<string | null>(null);
   const [allMeetings, setAllMeetings] = useState(false);
+  useEffect(() => {
+    if (!compact || !active) return;
+    const arrive = () => {
+      if (document.querySelector("dialog[open]")) return;
+      const hash = window.location.hash;
+      if (
+        interviewsEnabled &&
+        !interviewsDenied &&
+        (hash === "#tutor-appointments" ||
+          (window.location.pathname === "/schedule" &&
+            hash === "#tutor-interviews"))
+      ) {
+        setInterviewId(null);
+        setAllInterviews(true);
+      }
+      if (meetingsEnabled && !meetingsDenied && hash === "#tutor-meetings") {
+        setMeetingId(null);
+        setAllMeetings(true);
+      }
+    };
+    arrive();
+    window.addEventListener("hashchange", arrive);
+    return () => window.removeEventListener("hashchange", arrive);
+  }, [
+    compact,
+    active,
+    interviewsEnabled,
+    meetingsEnabled,
+    interviewsDenied,
+    meetingsDenied,
+  ]);
   const [mountedOwners, setMountedOwners] = useState({
     interviews: active && interviewsEnabled,
     meetings: active && meetingsEnabled,
@@ -174,7 +207,9 @@ export function TutorSchedule({
           {row.isHead ? (
             <a
               className="link inline-flex min-h-11 items-center lg:min-h-8"
-              href="/dashboard#tutor-interviews"
+              href={
+                compact ? "#chair-interviews" : "/dashboard#tutor-interviews"
+              }
             >
               {t("openChair")}
             </a>
@@ -243,7 +278,7 @@ export function TutorSchedule({
         action: row.isHead ? (
           <a
             className="link inline-flex min-h-11 items-center lg:min-h-8"
-            href="/dashboard#tutor-interviews"
+            href={compact ? "#chair-interviews" : "/dashboard#tutor-interviews"}
           >
             {t("openChair")}
           </a>
@@ -276,7 +311,9 @@ export function TutorSchedule({
             </a>
           ) : row.isHead ? (
             <a
-              href="/dashboard#tutor-interviews"
+              href={
+                compact ? "#chair-interviews" : "/dashboard#tutor-interviews"
+              }
               className="link inline-flex min-h-11 items-center lg:min-h-8"
             >
               {t("openChair")}
@@ -313,6 +350,91 @@ export function TutorSchedule({
         ),
       })),
     ]);
+    if (compact)
+      return (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="compact"
+              onClick={overview.openExtra}
+              disabled={!overview.canAddExtra}
+            >
+              {t("addExtra")}
+            </Button>
+            {active && interviewsEnabled && (
+              <Button
+                size="compact"
+                disabled={interviewsDenied}
+                onClick={() => {
+                  setInterviewId(null);
+                  setAllInterviews(true);
+                }}
+              >
+                {t("interviewWork")}
+              </Button>
+            )}
+            {active && meetingsEnabled && (
+              <Button
+                size="compact"
+                disabled={meetingsDenied}
+                onClick={() => {
+                  setMeetingId(null);
+                  setAllMeetings(true);
+                }}
+              >
+                {t("meetingWork")}
+              </Button>
+            )}
+          </div>
+          {overview.extraSourceUnavailable && (
+            <p className="muted text-sm">{t("noExtraSource")}</p>
+          )}
+          <QueryFeedback
+            hasData={!interviewsEnabled || !!interviewRows}
+            loading={active && interviewsEnabled && interviews.isLoading}
+            error={
+              active &&
+              interviewsEnabled &&
+              (!!interviews.error || interviewsDenied)
+            }
+            retrying={interviews.isFetching}
+            loadingTitle={t("loadingInterviews")}
+            errorTitle={t(interviewsDenied ? "denied" : "interviewsFailed")}
+            retryLabel={t("retry")}
+            onRetry={() => void interviews.refetch()}
+          />
+          <QueryFeedback
+            hasData={!meetingsEnabled || !!meetingRows}
+            loading={active && meetingsEnabled && meetings.isLoading}
+            error={
+              active && meetingsEnabled && (!!meetings.error || meetingsDenied)
+            }
+            retrying={meetings.isFetching}
+            loadingTitle={t("loadingMeetings")}
+            errorTitle={t(meetingsDenied ? "denied" : "meetingsFailed")}
+            retryLabel={t("retry")}
+            onRetry={() => void meetings.refetch()}
+          />
+          {previewItems.some((item) => item.needsAction) && (
+            <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 px-3">
+              {previewItems
+                .filter((item) => item.needsAction)
+                .map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
+                    <div>
+                      <p className="font-medium">{item.title}</p>
+                      <p className="muted text-sm">{item.detail}</p>
+                    </div>
+                    {item.action}
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+      );
     return (
       <div className="grid gap-4 md:grid-cols-2">
         {active && interviewsEnabled && (
@@ -368,7 +490,11 @@ export function TutorSchedule({
                 {row.isHead ? (
                   <a
                     className="link inline-flex min-h-11 items-center lg:min-h-8"
-                    href="/dashboard#tutor-interviews"
+                    href={
+                      compact
+                        ? "#tutor-interviews"
+                        : "/dashboard#tutor-interviews"
+                    }
                   >
                     {t("openChair")}
                   </a>
@@ -440,7 +566,7 @@ export function TutorSchedule({
             <p className="muted text-sm">{t("noExtraSource")}</p>
           )}
           <a
-            href="/dashboard#tutor-pairings"
+            href={compact ? "#tutor-pairings" : "/dashboard#tutor-pairings"}
             className="link inline-flex min-h-11 items-center lg:min-h-8"
           >
             {t("openPairings")}

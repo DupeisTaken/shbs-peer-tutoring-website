@@ -8,30 +8,35 @@ in `Session` and may have a different duration. The implementation lives in
 [the planning service](../../src/server/session-planning/index.ts) and
 [router](../../src/server/api/routers/session-planning.ts).
 
-Tutors open dated tutoring and its attendance workflow in `/schedule#sessions`,
-alongside their independently authorized interview and meeting appointments.
-Recurring pairing setup remains on the dashboard. The tutee agenda remains at
-`/student?view=schedule#sessions`; sharing the tutor's presentation does not change
-the tutee route, planning permissions or source-owned writes.
+Tutors use one workspace at `/dashboard` and the compatible `/schedule` entry.
+Schedule, Pairings, Preferences and History & hours are local panels. Each panel
+mounts on first access and stays mounted while hidden, retaining independent drafts
+and read recovery. Existing fragments select the owning panel; local links between
+these two routes do not discard live editors. An open native dialog retains focus.
+The tutee agenda remains at `/student?view=schedule#sessions` with its existing
+permissions and source-owned writes.
 
 ## Tutor Schedule workspace
 
-[Schedule](<../../src/app/(tutor)/_components/tutor-schedule.tsx>) starts with
-Interviews, Meetings, Sessions and Upcoming summaries. Feature-disabled interviews
-and meetings are neither queried nor shown. Pairings remains expanded on the
-dashboard, alongside the chair's interview workspace; an assigned chair's personal
-appointment still appears in Schedule and links back to that workspace. Ordinary
-panelists deliberately open their own interview reader and voting workflow.
+[The workspace](<../../src/app/(tutor)/_components/tutor-workspace.tsx>) places
+compact outstanding tasks above local panels. [Schedule](<../../src/app/(tutor)/_components/tutor-schedule.tsx>)
+uses a compact action row for extra sessions, interviews and meetings instead of
+four repeated overview cards. Feature-disabled appointment sources are not queried
+or shown. Chair work remains independently owned beside the agenda; ordinary
+panelists open their own reader and voting workflow. Preferences groups availability,
+workload, willingness and qualifications without combining their saves. History
+reuses the authorized personal tutor-history reader; existing historical access at
+`/history` remains available independently of current participation policy.
 
 **Sessions → Add Extra Session** selects an existing pairing's published future
 session and participants before opening the existing extra-session proposal
 editor. It requires active tutoring access and a usable published source. Selecting
 the source neither submits a proposal nor changes a recurring assignment; the
 existing 45-minute, agreement, version and conflict rules still govern submission.
-An unavailable source leaves the action disabled and provides a Pairings link.
+An unavailable source leaves the action disabled; Pairings remains directly available in the workspace tabs.
 
-**Upcoming** previews up to three distinct unresolved items across the personal
-sources. Items requiring action come first, most recent first; other commitments
+The compact agenda previews actionable items from up to three distinct unresolved
+items across the personal sources. Items requiring action come first, most recent first; other commitments
 follow by nearest start. Ended tutoring stays outstanding until attendance is
 recorded. Interview action labels distinguish an unrecorded own vote, an eligible
 chair's scheduling or decision work, and permitted completion follow-up. A saved
@@ -48,9 +53,8 @@ using each source's authorized scope. Interviews and meetings keep their origina
 workflow and personal-history readers. The room grid and both calendar notices
 appear below the personal agenda at `/schedule#room-schedule`. New tutor calendar
 notices use `/schedule#school-calendar/YYYY-MM-DD`; tutee notices retain
-`/student#school-calendar/YYYY-MM-DD`. Old dashboard room/calendar fragments offer
-an explicit continuation retaining the validated date; they never automatically
-unmount a live dashboard editor.
+`/student#school-calendar/YYYY-MM-DD`. Old dashboard room/calendar fragments now open the same retained Schedule panel.
+The room grid is an optional retained disclosure; calendar notices remain visible.
 
 The live agenda loads up to 300 recent unfinished sessions independently of the
 current two-week window. Its overdue-attendance query reads 301 source rows,
@@ -86,6 +90,28 @@ interviews, meetings or tutoring cannot erase the independently authorized sibli
 sources. Authoritative access denial conceals that source's private records and
 disables its retained readers until fresh access succeeds. Opening a history or
 appointment reader performs no generic event write.
+
+## Automatic room review
+
+The dated-session editor uses one **Include all tutees in this session** checkbox;
+unchecked selects exactly one current cohort participant. A one-person source shows
+the participant directly. This introduces no arbitrary-subset agreement model.
+
+In-person proposals, suggestions and counteroffers call `previewLocation` when
+Review is selected. This authorized read takes the normal period/planning fences,
+checks current cohort/request versions and applicable participant ownership, then
+uses the existing dated conflict validator. It prefers a usable existing room,
+then program order, name and ID. Blackouts, published cohorts, pending offers,
+calendar-mapped recurrence and shared participant conflicts remain authoritative.
+Online is an explicit alternative; unavailable rooms never silently become Online.
+
+The preview creates no reservation, request, response, receipt or notification.
+Review shows the concrete room. Submission passes that exact room through the
+existing locked write validator; a newly occupied/deleted room rejects the write
+without substituting another location. Edit and Review again to obtain a new room.
+Existing explicit-room and no-room historical evidence is unchanged. A formalized
+suggestion carries agreement forward only if date, time, room and Online status
+still match; changed automatic allocation requires fresh agreement.
 
 ## Publication and existing data
 

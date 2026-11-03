@@ -46,7 +46,7 @@
     "date": "날짜",
     "start": "시작",
     "end": "종료",
-    "durationHelp": "계획 시간은 45분입니다. 한 시간을 변경하면 다른 시간도 조정됩니다. 실제 출석 시간은 별도로 기록합니다.",
+    "durationHelp": "예정 시간은 45분입니다. 시작과 종료는 연동되며 실제 출석 시간은 별도로 기록됩니다.",
     "zone": "학교 시간대: {timeZone}",
     "extra": "추가 지도",
     "rescheduled": "일정 변경됨",
@@ -134,7 +134,14 @@
       "B": "학습 파트너의 대안",
       "C": "최종 제안",
       "GROUP": "그룹 합의"
-    }
+    },
+    "includeAll": "이 수업의 모든 튜티 포함",
+    "allScopeHelp": "모두 최신 제안에 동의해야 합니다.",
+    "oneScopeHelp": "선택한 튜티에게만 적용됩니다.",
+    "automaticRoom": "대면 — 강의실 자동 배정",
+    "checkingLocation": "시간과 장소 확인 중…",
+    "allocationFailed": "시간과 장소를 확인할 수 없습니다. 현재 수업을 확인하고 다른 시간이나 온라인을 선택한 후 다시 검토하세요.",
+    "roomReviewHelp": "전송할 때 강의실을 다시 확인합니다. 사용할 수 없으면 새 배정을 검토하세요."
   },
   "nextRecruitment": {
     "savedForTarget": "{name}의 시작 시간을 저장했습니다.",
@@ -2285,7 +2292,8 @@
       "rosterCount": "학생 명단 후속 조치 ({count})",
       "interviewSection": "면접",
       "meetingSection": "회의",
-      "qualificationSection": "자격"
+      "qualificationSection": "자격",
+      "compactHelp": "여기에서 미완료 작업을 확인하세요. 각 요청은 개별적으로 검토하고 저장합니다."
     },
     "activate": {
       "title": "참여 여부 확인",
@@ -2549,6 +2557,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "튜터 작업 공간",
+      "schedule": "일정",
+      "pairings": "매칭",
+      "preferences": "환경설정",
+      "history": "기록 및 시간"
     }
   },
   "public": {

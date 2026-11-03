@@ -632,14 +632,21 @@ Combined pairings retain their subjects in the dated lesson: shared time and eac
 
 ### Plan and reschedule a dated session
 
-**My Pairings** keeps your recurring assignments visible. **My agenda** shows the
+The tutor workspace opens on **Schedule**. Switch locally to **Pairings**,
+**Preferences**, or **History & hours**; unfinished editors stay available when you
+return. **Pairings** holds recurring assignments. **My agenda** shows the
 current and next Monday–Sunday week in the school timezone; Sunday prepares the
 following window. Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept
 a schedule change.
 
 Tutees can suggest a time from their schedule. Tutors use **Reschedule Session**
-or **Add Extra Session**, choosing one tutee or all tutees. Editing start or end
+or **Add Extra Session**. Check **Include all tutees in this session**, or uncheck
+it and choose one tutee. For a single-person session, the person is shown directly.
+Choose **In person — room assigned automatically** or **Online**. Review checks
+availability and shows the assigned room before sending. Review does not reserve
+the room; if it becomes unavailable, edit and review again. The system never
+silently switches to Online or changes the reviewed room. Editing start or end
 keeps the planned duration at 45 minutes. A matching current tutee suggestion can
 be formalized directly; otherwise the affected party receives an email to respond.
 

@@ -36,11 +36,13 @@ export function DashboardTasks({
   interviewsEnabled,
   meetingsEnabled,
   now: initialNow,
+  compact = false,
 }: {
   status: string;
   interviewsEnabled: boolean;
   meetingsEnabled: boolean;
   now: Date;
+  compact?: boolean;
 }) {
   const t = useTranslations("tutor.tasks");
   const groupText = useTranslations("pairingGroups");
@@ -201,7 +203,7 @@ export function DashboardTasks({
   ];
   // Native anchors keep history/modifier behavior; actionable tasks retain measured-header reveal.
   const anchor = (id: string, label: string) =>
-    scheduleTargets.has(id) ? (
+    scheduleTargets.has(id) && !compact ? (
       <Link
         className="link inline-flex min-h-11 items-center lg:min-h-8"
         href={`/schedule#${id}`}
@@ -211,7 +213,7 @@ export function DashboardTasks({
     ) : (
       <a
         className="link inline-flex min-h-11 items-center lg:min-h-8"
-        href={`#${id}`}
+        href={`#${compact && id === "tutor-interviews" ? "tutor-appointments" : id}`}
         onClick={(event) => {
           if (
             event.defaultPrevented ||
@@ -239,7 +241,7 @@ export function DashboardTasks({
         {t("attention")}
       </h2>
       <p className="muted text-sm">
-        {t(active ? "activeHelp" : "readonlyHelp")}
+        {t(active ? (compact ? "compactHelp" : "activeHelp") : "readonlyHelp")}
       </p>
       {queries.some((query) => query.data === undefined && !query.error) && (
         <InlineNotice announcement="status">{t("loading")}</InlineNotice>
@@ -288,7 +290,7 @@ export function DashboardTasks({
             (query) => query.data !== undefined && !query.error,
           ) && <p className="muted text-sm">{t("emptyTasks")}</p>}
       </nav>
-      {active && (
+      {active && !compact && (
         <div className="border-t border-slate-100 pt-3">
           <h3 className="font-semibold">
             {t("today", {

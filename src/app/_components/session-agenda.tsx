@@ -1,6 +1,13 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
@@ -1136,7 +1143,6 @@ export function SessionAgenda({
           <SessionPlanningEditor
             key={`${editorGeneration}:${editor.mode}:${editor.cohort.id}:${editor.cohort.version}:${editor.request?.version ?? editor.suggestion?.id ?? ""}`}
             editor={editor}
-            rooms={data.rooms}
             schoolCalendarDays={data.schoolCalendarDays}
             timeZone={data.timeZone}
             blocked={blocked}
@@ -1183,7 +1189,15 @@ export function SessionAgenda({
                   scope: value.scope,
                   tuteeId: value.scope === "ONE" ? value.tuteeId : undefined,
                   kind: editor.kind ?? "RESCHEDULE",
-                  suggestionId: editor.suggestion?.id,
+                  // Agreement carries forward only when the reviewed allocation
+                  // still exactly matches the learner's original suggestion.
+                  suggestionId:
+                    editor.suggestion?.date === value.date &&
+                    editor.suggestion.startMin === value.startMin &&
+                    editor.suggestion.online === value.online &&
+                    editor.suggestion.roomId === value.roomId
+                      ? editor.suggestion.id
+                      : undefined,
                 });
               })
             }
@@ -1341,7 +1355,6 @@ type EditorValue = SessionPlanTime & {
 };
 function SessionPlanningEditor({
   editor,
-  rooms,
   schoolCalendarDays,
   timeZone,
   blocked,
@@ -1354,7 +1367,6 @@ function SessionPlanningEditor({
   onCommit,
 }: {
   editor: Editor;
-  rooms: { id: string; name: string }[];
   schoolCalendarDays: Agenda["schoolCalendarDays"];
   timeZone: string;
   blocked: boolean;
@@ -1367,6 +1379,8 @@ function SessionPlanningEditor({
   onCommit: (value: EditorValue) => Promise<boolean>;
 }) {
   const t = useTranslations("sessionPlanning");
+  const utils = api.useUtils();
+  const scopeHelpId = useId();
   const [value, setValue] = useState<EditorValue>(() => ({
     date:
       editor.suggestion?.date ??
@@ -1388,11 +1402,67 @@ function SessionPlanningEditor({
       (editor.request?.scope === "ONE"
         ? editor.request.participantIds[0]
         : editor.cohort.tutees[0]?.id),
-    roomId: editor.suggestion?.roomId ?? editor.cohort.roomId,
-    online: editor.suggestion?.online ?? editor.cohort.online,
+    roomId:
+      editor.suggestion?.roomId ??
+      editor.request?.currentOffer?.roomId ??
+      editor.cohort.roomId,
+    online:
+      editor.suggestion?.online ??
+      editor.request?.currentOffer?.online ??
+      editor.cohort.online,
     clientKey: crypto.randomUUID(),
   }));
   const [review, setReview] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [roomName, setRoomName] = useState<string | null>(null);
+  const previewGuard = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  async function reviewProposal() {
+    if (blocked || !valid || previewGuard.current) return;
+    previewGuard.current = true;
+    setPreviewing(true);
+    setPreviewError(null);
+    try {
+      const allocation = await utils.sessionPlanning.previewLocation.fetch(
+        {
+          ...value,
+          mode: editor.mode,
+          cohortId: editor.cohort.id,
+          expectedVersion: editor.cohort.version,
+          kind:
+            editor.kind ??
+            (editor.request?.kind === "EXTRA" ? "EXTRA" : "RESCHEDULE"),
+          requestId: editor.request?.id,
+          requestVersion: editor.request?.version,
+          offerId: editor.request?.currentOffer?.id,
+        },
+        { staleTime: 0 },
+      );
+      if (!mounted.current) return;
+      setValue({
+        ...value,
+        roomId: allocation.roomId,
+        clientKey:
+          allocation.roomId === value.roomId
+            ? value.clientKey
+            : crypto.randomUUID(),
+      });
+      setRoomName(allocation.roomName);
+      setReview(true);
+    } catch {
+      if (mounted.current) setPreviewError(t("allocationFailed"));
+    } finally {
+      previewGuard.current = false;
+      if (mounted.current) setPreviewing(false);
+    }
+  }
   const title = t(
     editor.mode === "suggest"
       ? "suggest"
@@ -1408,10 +1478,9 @@ function SessionPlanningEditor({
   );
   return (
     <ProfileDialog
-      size="wide"
       title={title}
       onClose={onClose}
-      pending={working}
+      pending={working || previewing}
     >
       {error && (
         <InlineNotice
@@ -1434,10 +1503,18 @@ function SessionPlanningEditor({
           {t("refreshFailed")}
         </InlineNotice>
       )}
-      <p className="mb-4 font-medium">
-        {cohortLabel(editor.cohort, t("scheduleUnavailable"))}
+      {previewError && (
+        <InlineNotice tone="error" announcement="alert">
+          {previewError}
+        </InlineNotice>
+      )}
+      <p className="mb-3 text-sm">
+        <span className="font-medium">
+          {cohortLabel(editor.cohort, t("scheduleUnavailable"))}
+        </span>
+        {" · "}
+        <span className="muted">{timeZone}</span>
       </p>
-      <p className="muted mb-4 text-sm">{t("zone", { timeZone })}</p>
       {closedDate && (
         <InlineNotice tone="warning">{t("schoolClosedProposal")}</InlineNotice>
       )}
@@ -1462,12 +1539,22 @@ function SessionPlanningEditor({
                 {String(value.startMin % 60).padStart(2, "0")} · 45 min
               </p>
               <p>
+                {t("location")}: {value.online ? t("online") : roomName}
+              </p>
+              {!value.online && (
+                <p className="muted text-sm">{t("roomReviewHelp")}</p>
+              )}
+              <p>
                 {t(value.scope === "ALL" ? "all" : "one")}:{" "}
-                {(value.scope === "ALL"
-                  ? editor.cohort.tutees
-                  : editor.cohort.tutees.filter(
-                      (item) => item.id === value.tuteeId,
+                {(editor.request
+                  ? editor.cohort.tutees.filter((item) =>
+                      editor.request!.participantIds.includes(item.id),
                     )
+                  : value.scope === "ALL"
+                    ? editor.cohort.tutees
+                    : editor.cohort.tutees.filter(
+                        (item) => item.id === value.tuteeId,
+                      )
                 )
                   .map((item) => item.name)
                   .join(", ")}
@@ -1507,69 +1594,69 @@ function SessionPlanningEditor({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (!blocked && valid) setReview(true);
+            void reviewProposal();
           }}
-          className="space-y-5"
+          className="space-y-3"
         >
           {editor.mode === "propose" && (
             <fieldset
-              disabled={working || !!editor.suggestion}
-              className="space-y-3"
+              disabled={working || previewing || !!editor.suggestion}
+              className="space-y-2"
+              aria-describedby={scopeHelpId}
             >
               <legend className="label">{t("scope")}</legend>
-              <div className="flex flex-wrap gap-3">
-                {(["ONE", "ALL"] as const).map((scope) => (
-                  <label
-                    key={scope}
-                    className="flex min-h-11 items-center gap-2"
-                  >
-                    <input
-                      type="radio"
-                      name="session-scope"
-                      value={scope}
-                      checked={value.scope === scope}
-                      onChange={() =>
-                        setValue({
-                          ...value,
-                          scope,
-                          clientKey: crypto.randomUUID(),
-                        })
-                      }
-                    />
-                    {t(scope === "ONE" ? "one" : "all")}
-                  </label>
-                ))}
-              </div>
-              {value.scope === "ONE" && (
-                <label className="block space-y-1">
-                  <span className="label">{t("learner")}</span>
-                  <select
-                    className="select"
-                    value={value.tuteeId ?? ""}
-                    required
+              {editor.cohort.tutees.length > 1 && (
+                <label className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={value.scope === "ALL"}
                     onChange={(event) =>
                       setValue({
                         ...value,
-                        tuteeId: event.target.value,
+                        scope: event.target.checked ? "ALL" : "ONE",
                         clientKey: crypto.randomUUID(),
                       })
                     }
-                  >
-                    <option value="">{t("chooseLearner")}</option>
-                    {editor.cohort.tutees.map((learner) => (
-                      <option key={learner.id} value={learner.id}>
-                        {learner.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  {t("includeAll")}
                 </label>
               )}
-              <p className="muted text-sm">{t("scopeHelp")}</p>
+              {editor.cohort.tutees.length === 1 ? (
+                <p className="text-sm">{editor.cohort.tutees[0]?.name}</p>
+              ) : (
+                value.scope === "ONE" && (
+                  <label className="block space-y-1">
+                    <span className="label">{t("learner")}</span>
+                    <select
+                      className="select"
+                      value={value.tuteeId ?? ""}
+                      required
+                      onChange={(event) =>
+                        setValue({
+                          ...value,
+                          tuteeId: event.target.value,
+                          clientKey: crypto.randomUUID(),
+                        })
+                      }
+                    >
+                      <option value="">{t("chooseLearner")}</option>
+                      {editor.cohort.tutees.map((learner) => (
+                        <option key={learner.id} value={learner.id}>
+                          {learner.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )
+              )}
+              <p id={scopeHelpId} className="muted text-sm">
+                {t(value.scope === "ALL" ? "allScopeHelp" : "oneScopeHelp")}
+              </p>
             </fieldset>
           )}
           <SessionPlanTimeFields
             value={value}
-            disabled={working}
+            disabled={working || previewing}
             onChange={(time) =>
               setValue({ ...value, ...time, clientKey: crypto.randomUUID() })
             }
@@ -1578,38 +1665,31 @@ function SessionPlanningEditor({
             <span className="label">{t("location")}</span>
             <select
               className="select"
-              disabled={working}
-              value={value.online ? "online" : (value.roomId ?? "none")}
+              disabled={working || previewing}
+              value={value.online ? "online" : "inPerson"}
               onChange={(event) =>
                 setValue({
                   ...value,
                   online: event.target.value === "online",
-                  roomId: ["online", "none"].includes(event.target.value)
-                    ? null
-                    : event.target.value,
+                  roomId: null,
                   clientKey: crypto.randomUUID(),
                 })
               }
             >
-              {rooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
-                </option>
-              ))}
-              <option value="none">{t("noRoom")}</option>
+              <option value="inPerson">{t("automaticRoom")}</option>
               <option value="online">{t("online")}</option>
             </select>
           </label>
           <FormActions>
-            <Button disabled={working} onClick={onClose}>
+            <Button disabled={working || previewing} onClick={onClose}>
               {t("cancel")}
             </Button>
             <Button
               type="submit"
               variant="primary"
-              disabled={blocked || !valid}
+              disabled={blocked || !valid || previewing}
             >
-              {t("review")}
+              {t(previewing ? "checkingLocation" : "review")}
             </Button>
           </FormActions>
         </form>

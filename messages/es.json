@@ -46,7 +46,7 @@
     "date": "Fecha",
     "start": "Inicio",
     "end": "Fin",
-    "durationHelp": "Duración prevista: 45 minutos. Al cambiar una hora se ajusta la otra. La duración real se registra por separado.",
+    "durationHelp": "45 minutos previstos. Inicio y fin están vinculados; la asistencia real se registra por separado.",
     "zone": "Zona horaria de la escuela: {timeZone}",
     "extra": "Sesión adicional",
     "rescheduled": "Reprogramada",
@@ -134,7 +134,14 @@
       "B": "Alternativa del participante",
       "C": "Propuesta final",
       "GROUP": "Acuerdo del grupo"
-    }
+    },
+    "includeAll": "Incluir a todos los estudiantes de esta sesión",
+    "allScopeHelp": "Todos deben aceptar la propuesta más reciente.",
+    "oneScopeHelp": "Se aplica solo al estudiante seleccionado.",
+    "automaticRoom": "Presencial — aula asignada automáticamente",
+    "checkingLocation": "Comprobando hora y lugar…",
+    "allocationFailed": "No se pudieron confirmar la hora y el lugar. Revisa la sesión actual, prueba otra hora o En línea y vuelve a revisar.",
+    "roomReviewHelp": "El aula se comprueba de nuevo al enviar. Si no está disponible, revisa una nueva asignación."
   },
   "nextRecruitment": {
     "savedForTarget": "Apertura guardada para {name}.",
@@ -2285,7 +2292,8 @@
       "rosterCount": "Seguimiento de la lista de estudiantes ({count})",
       "interviewSection": "Entrevistas",
       "meetingSection": "Reuniones",
-      "qualificationSection": "Cualificaciones"
+      "qualificationSection": "Cualificaciones",
+      "compactHelp": "Revisa aquí las tareas pendientes. Cada solicitud conserva su propia revisión y guardado."
     },
     "activate": {
       "title": "Confirma tu disponibilidad",
@@ -2549,6 +2557,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "Espacio del tutor",
+      "schedule": "Horario",
+      "pairings": "Asignaciones",
+      "preferences": "Preferencias",
+      "history": "Historial y horas"
     }
   },
   "public": {

@@ -46,7 +46,7 @@
     "date": "日期",
     "start": "开始时间",
     "end": "结束时间",
-    "durationHelp": "计划时长为 45 分钟。修改任一时间会同步调整另一时间。实际出勤时长另行记录。",
+    "durationHelp": "计划时长45分钟。开始和结束时间联动；实际出勤时长单独记录。",
     "zone": "学校时区：{timeZone}",
     "extra": "额外辅导",
     "rescheduled": "已改期",
@@ -134,7 +134,14 @@
       "B": "学习伙伴的替代时间",
       "C": "最终提议",
       "GROUP": "全体协商"
-    }
+    },
+    "includeAll": "包含本次课的所有学员",
+    "allScopeHelp": "所有人都须同意最新方案。",
+    "oneScopeHelp": "仅适用于所选学员。",
+    "automaticRoom": "线下 — 自动分配教室",
+    "checkingLocation": "正在检查时间和地点…",
+    "allocationFailed": "无法确认该时间和地点。请检查当前课程，尝试其他时间或线上授课，然后重新预览。",
+    "roomReviewHelp": "发送时会再次检查教室。如不可用，请重新预览分配结果。"
   },
   "nextRecruitment": {
     "savedForTarget": "已为 {name} 保存开放时间。",
@@ -2285,7 +2292,8 @@
       "rosterCount": "学生名单跟进（{count}）",
       "interviewSection": "面试",
       "meetingSection": "会议",
-      "qualificationSection": "资格申请"
+      "qualificationSection": "资格申请",
+      "compactHelp": "在此查看待办事项。各项申请独立审核和保存。"
     },
     "activate": {
       "title": "确认你的参与",
@@ -2549,6 +2557,13 @@
       "openSchedule": "查看日程",
       "interviews": "我的面试安排",
       "legacyHelp": "此日程部分已移至新页面。请打开日程继续；在你选择链接前，主页将保持当前状态。"
+    },
+    "workspace": {
+      "label": "导师工作区",
+      "schedule": "日程",
+      "pairings": "配对",
+      "preferences": "偏好设置",
+      "history": "历史与工时"
     }
   },
   "public": {

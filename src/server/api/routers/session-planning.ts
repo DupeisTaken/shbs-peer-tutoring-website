@@ -13,6 +13,7 @@ import {
   respondSession,
   requestSeparateSession,
   formalizeSeparateSessions,
+  previewSessionLocation,
 } from "~/server/session-planning";
 import {
   sessionCalendarStatus,
@@ -31,6 +32,27 @@ const timeInput = planningTimeInput.extend({
   ...versioned.shape,
 });
 export const sessionPlanningRouter = createTRPCRouter({
+  previewLocation: protectedProcedure
+    .input(
+      planningTimeInput.extend({
+        mode: z.enum(["propose", "suggest", "alternative"]),
+        cohortId: z.string().min(1),
+        expectedVersion: z.number().int().positive(),
+        scope: z.enum(["ONE", "ALL"]),
+        tuteeId: z.string().optional(),
+        kind: z.enum(["RESCHEDULE", "EXTRA"]),
+        requestId: z.string().optional(),
+        requestVersion: z.number().int().positive().optional(),
+        offerId: z.string().optional(),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      previewSessionLocation(
+        ctx.db,
+        { id: ctx.session.user.id, tutorId: ctx.session.tutorId },
+        input,
+      ),
+    ),
   history: protectedProcedure
     .input(
       z.object({

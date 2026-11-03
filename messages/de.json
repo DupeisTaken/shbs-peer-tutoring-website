@@ -46,7 +46,7 @@
     "date": "Datum",
     "start": "Beginn",
     "end": "Ende",
-    "durationHelp": "Geplante Dauer: 45 Minuten. Eine Zeitänderung passt die andere Zeit an. Die tatsächliche Dauer wird getrennt erfasst.",
+    "durationHelp": "45 Minuten geplant. Beginn und Ende bleiben gekoppelt; die tatsächliche Anwesenheit wird separat erfasst.",
     "zone": "Schulzeitzone: {timeZone}",
     "extra": "Zusätzliche Sitzung",
     "rescheduled": "Verschoben",
@@ -134,7 +134,14 @@
       "B": "Alternative der lernenden Person",
       "C": "Letzter Vorschlag",
       "GROUP": "Gruppenvereinbarung"
-    }
+    },
+    "includeAll": "Alle Lernenden dieser Sitzung einbeziehen",
+    "allScopeHelp": "Alle müssen dem neuesten Vorschlag zustimmen.",
+    "oneScopeHelp": "Gilt nur für die ausgewählte lernende Person.",
+    "automaticRoom": "Vor Ort — Raum automatisch zugewiesen",
+    "checkingLocation": "Zeit und Ort werden geprüft…",
+    "allocationFailed": "Zeit und Ort konnten nicht bestätigt werden. Prüfe die aktuelle Sitzung, wähle eine andere Zeit oder Online und prüfe den Vorschlag erneut.",
+    "roomReviewHelp": "Der Raum wird beim Senden erneut geprüft. Ist er nicht verfügbar, prüfe eine neue Zuweisung."
   },
   "nextRecruitment": {
     "savedForTarget": "Öffnung für {name} gespeichert.",
@@ -2285,7 +2292,8 @@
       "rosterCount": "Offene Punkte zur Teilnahmeliste ({count})",
       "interviewSection": "Interviews",
       "meetingSection": "Besprechungen",
-      "qualificationSection": "Qualifikationen"
+      "qualificationSection": "Qualifikationen",
+      "compactHelp": "Prüfe hier offene Aufgaben. Jede Anfrage wird separat geprüft und gespeichert."
     },
     "activate": {
       "title": "Bestätige deine Verfügbarkeit",
@@ -2549,6 +2557,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "Tutor-Arbeitsbereich",
+      "schedule": "Zeitplan",
+      "pairings": "Zuordnungen",
+      "preferences": "Einstellungen",
+      "history": "Verlauf & Stunden"
     }
   },
   "public": {

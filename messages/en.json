@@ -46,7 +46,7 @@
     "date": "Date",
     "start": "Start",
     "end": "End",
-    "durationHelp": "Planned duration: 45 minutes. Changing either time updates the other. Actual attendance duration is recorded separately.",
+    "durationHelp": "45 minutes planned. Start and end stay linked; actual attendance is recorded separately.",
     "zone": "School time zone: {timeZone}",
     "extra": "Extra session",
     "rescheduled": "Rescheduled",
@@ -134,7 +134,14 @@
       "B": "Tutee’s alternative",
       "C": "Final offer",
       "GROUP": "Group agreement"
-    }
+    },
+    "includeAll": "Include all tutees in this session",
+    "allScopeHelp": "Everyone must agree to the latest proposal.",
+    "oneScopeHelp": "Applies only to the selected tutee.",
+    "automaticRoom": "In person — room assigned automatically",
+    "checkingLocation": "Checking time and location…",
+    "allocationFailed": "Could not confirm this time and location. Check the current session, try another time or Online, then review again.",
+    "roomReviewHelp": "This room is checked again when you send. If unavailable, review a new assignment."
   },
   "nextRecruitment": {
     "savedForTarget": "Opening saved for {name}.",
@@ -2285,7 +2292,8 @@
       "rosterCount": "Roster follow-ups ({count})",
       "interviewSection": "Interviews",
       "meetingSection": "Meetings",
-      "qualificationSection": "Qualifications"
+      "qualificationSection": "Qualifications",
+      "compactHelp": "Review outstanding work here. Each request keeps its own review and save."
     },
     "activate": {
       "title": "Confirm Your Availability",
@@ -2549,6 +2557,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "Tutor workspace",
+      "schedule": "Schedule",
+      "pairings": "Pairings",
+      "preferences": "Preferences",
+      "history": "History & hours"
     }
   },
   "public": {
