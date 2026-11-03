@@ -7,6 +7,10 @@ import { standingFromCounts } from "~/lib/discipline";
 import type { TransactionDb } from "~/server/transactions";
 import { requireAcademicConfirmation } from "~/server/academics";
 import {
+  executionParticipantId,
+  executionSourceIds,
+} from "~/server/participant-execution";
+import {
   findAccountPolicy,
   publishedPolicy,
   requirePolicy,
@@ -119,11 +123,29 @@ export async function inspectRecoveryParticipantEligibility(
       acceptanceId: accepted?.id ?? null,
     });
   }
+  const executionTargetId =
+    input.kind === "TUTEE"
+      ? await executionParticipantId(tx, "TUTEE", input.sourceId)
+      : null;
+  const disciplineSourceIds = executionTargetId
+    ? (await executionSourceIds(tx, "TUTEE", executionTargetId)).sort()
+    : [];
+  if (executionTargetId && executionTargetId !== input.sourceId)
+    blockers.push(
+      "Transferred participation must be restored through its current execution source.",
+    );
+  if (input.disciplineAfterCorrection && disciplineSourceIds.length > 1)
+    blockers.push(
+      "Consolidated disciplinary consequences require their owning participation workflow before restoration.",
+    );
   const cards =
     input.kind === "TUTEE"
       ? await tx.disciplinaryCard.groupBy({
           by: ["color"],
-          where: { tuteeId: input.sourceId, reviewStatus: "VALID" },
+          where: {
+            tuteeId: { in: disciplineSourceIds },
+            reviewStatus: "VALID",
+          },
           _count: { _all: true },
         })
       : [];
@@ -158,6 +180,8 @@ export async function inspectRecoveryParticipantEligibility(
       identity,
       policyEvidence,
       cards,
+      executionTargetId,
+      disciplineSourceIds,
       disciplineAfterCorrection: input.disciplineAfterCorrection,
     }),
   };

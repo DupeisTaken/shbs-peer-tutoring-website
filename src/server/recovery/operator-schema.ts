@@ -1,7 +1,7 @@
 /** Reviewed PostgreSQL recovery metadata contract. New schema needs explicit review.
  * This static catalog is intentionally not read from Prisma at runtime: matching
  * two unreviewed databases must never authorize an unknown bearer/grant surface. */
-import {operatorAssert} from "./operator-cli";
+import { operatorAssert } from "./operator-cli";
 
 const REVIEWED_COLUMNS = `
 AcademicConfirmation|actorId:text,confirmedAt:timestamp,gradeLevel:int4,id:text,rawGrade:text,reason:text,schoolYear:text,source:text,status:AcademicStatus,userId:text
@@ -102,7 +102,9 @@ SessionNotice|acceptedAt:timestamp,attemptId:text,attempts:int4,attemptStartedAt
 SessionPlan|createdAt:timestamp,generationKey:text,id:text,kind:text,originalDate:text,sourceFingerprint:text,sourceScheduleFingerprint:text,termId:text,timeZone:text,tutorId:text,updatedAt:timestamp
 SessionPlanAssignment|pairingId:text,planId:text,primary:bool,subject:text,tuteeIds:jsonb
 SessionPlanCohort|createdAt:timestamp,date:text,endMin:int4,endsAt:timestamp,id:text,online:bool,planId:text,rescheduled:bool,roomId:text,sourceInvalidated:bool,startMin:int4,startsAt:timestamp,status:text,updatedAt:timestamp,version:int4
-SessionPlanContinuationMember|assignmentId:text,joinedAt:timestamp,pairingId:text,planId:text,releasedAt:timestamp,tuteeId:text
+SchedulingDirtyEvent|createdAt:timestamp,id:int8,publicationPending:bool,requestId:text,settlementPending:bool,sourceTable:text
+SchedulingMaintenanceState|id:text,normalized:int4,prepareEnd:text,publicationVersion:int4,settlementBatchActive:bool,settlementBatchExhausted:bool,settlementCursor:text,settlementEventIds:_int8,settlementRequestIds:_text,settlementVersion:int4,timeZone:text,unavailable:int4,updatedAt:timestamp,windowStart:text
+SessionPlanContinuationMember|assignmentId:text,joinedAt:timestamp,pairingId:text,planId:text,releasedAt:timestamp,sourceSurveyId:text,tuteeId:text
 SessionPlanningOffer|authorKey:text,createdAt:timestamp,cutoffAt:timestamp,date:text,endMin:int4,endsAt:timestamp,id:text,online:bool,requestId:text,roomId:text,sequence:int4,startMin:int4,startsAt:timestamp
 SessionPlanningReceipt|actorId:text,clientKey:text,createdAt:timestamp,payloadHash:text,result:jsonb
 SessionPlanningRequest|cohortId:text,createdAt:timestamp,currentOfferId:text,id:text,kind:text,parentRequestId:text,participantIds:jsonb,planId:text,rejectionKeys:jsonb,scope:text,stage:int4,status:text,updatedAt:timestamp,version:int4
@@ -150,10 +152,16 @@ TutorSubjectWillingness|subjectId:text,tutorId:text,updatedAt:timestamp,willing:
 User|affiliation:text,alternativeNames:text,canTranslate:bool,createdAt:timestamp,crewStatus:CrewStatus,email:text,emailEventReminders:bool,emailInfo:bool,emailMessages:bool,emailReviewRequests:bool,emailSecondaryRecipients:bool,emailSecurity:bool,emailVerifiedAt:timestamp,firstName:text,gradeLevel:int4,id:text,lastName:text,legacyName:text,mergedIntoId:text,mustChangePassword:bool,name:text,passwordHash:text,personId:text,preferredName:text,profileVersion:int4,recoveryVoidedAt:timestamp,refreshAuthorityRevision:int4,role:Role,sessionVersion:int4,studentId:text,suspendedAt:timestamp,suspendedReason:text,tuteeMember:bool,tutorAccessRevoked:bool,tutorId:text,twoFactorEnabled:bool,username:text
 UsernameNamespaceGuard|id:int4,revision:int8
 ViewerSignup|affiliation:text,alternativeNames:text,attempts:int4,codeExpiresAt:timestamp,codeHash:text,createdAt:timestamp,email:text,firstName:text,id:text,lastName:text,name:text,preferredName:text,usedAt:timestamp,verifiedAt:timestamp
-`.trim().split("\n").flatMap(line=>{
-  const [table,fields]=line.split("|");
-  return (fields??"").split(",").map(field=>`${table}|${field.replace(":","|")}`);
-}).sort();
+`
+  .trim()
+  .split("\n")
+  .flatMap((line) => {
+    const [table, fields] = line.split("|");
+    return (fields ?? "")
+      .split(",")
+      .map((field) => `${table}|${field.replace(":", "|")}`);
+  })
+  .sort();
 const REVIEWED_ENUMS = `
 AcademicStatus|GRADUATED
 AcademicStatus|NOT_APPLICABLE
@@ -305,7 +313,10 @@ VerificationPurpose|LOGIN_2FA
 VerificationPurpose|PASSWORD_CHANGE
 VerificationPurpose|PASSWORD_RESET
 VerificationPurpose|SECONDARY_EMAIL
-`.trim().split("\n").sort();
+`
+  .trim()
+  .split("\n")
+  .sort();
 const IDENTITY_ADDITIONS = `
 EmailDelivery|sourceNotificationId:text
 HistoryRowOwnership|entity:text,quarantineUserIds:_text,readerUserId:text,receiptId:text,recordId:text,revision:int4,sourceUserIds:_text,updatedAt:timestamp
@@ -322,23 +333,79 @@ SessionPlanExecution|assignments:jsonb,planId:text,receiptId:text,revision:int4,
 SessionResponseExecution|profileId:text,profileKind:text,receiptId:text,respondedByUserId:text,responseId:text,revision:int4,userId:text
 StudentRequestExecutionAssignment|createdAt:timestamp,pairingId:text,receiptId:text,releasedAt:timestamp,revision:int4,sourceTuteeId:text,surveyId:text,tuteeId:text
 User|historyAccessRevision:int4
-`.trim().split("\n").flatMap(line=>{const [table,fields]=line.split("|");return (fields??"").split(",").map(field=>`${table}|${field.replace(":","|")}`);}).sort();
-const REVIEWED_IDENTITY_COLUMNS=[...REVIEWED_COLUMNS,...IDENTITY_ADDITIONS].sort();
-const PRISMA_METADATA = ["applied_steps_count|int4","checksum|varchar","finished_at|timestamptz","id|varchar","logs|text","migration_name|varchar","rolled_back_at|timestamptz","started_at|timestamptz"].sort();
+`
+  .trim()
+  .split("\n")
+  .flatMap((line) => {
+    const [table, fields] = line.split("|");
+    return (fields ?? "")
+      .split(",")
+      .map((field) => `${table}|${field.replace(":", "|")}`);
+  })
+  .sort();
+const REVIEWED_IDENTITY_COLUMNS = [
+  ...REVIEWED_COLUMNS,
+  ...IDENTITY_ADDITIONS,
+].sort();
+const PRISMA_METADATA = [
+  "applied_steps_count|int4",
+  "checksum|varchar",
+  "finished_at|timestamptz",
+  "id|varchar",
+  "logs|text",
+  "migration_name|varchar",
+  "rolled_back_at|timestamptz",
+  "started_at|timestamptz",
+].sort();
 
-export const reviewedRecoverySchemaMetadata={
-  identityColumns:REVIEWED_IDENTITY_COLUMNS.map(line=>{const [table_name,column_name,udt_name]=line.split("|");return {table_name,column_name,udt_name};}),
-  columns:REVIEWED_COLUMNS.map(line=>{const [table_name,column_name,udt_name]=line.split("|");return {table_name,column_name,udt_name};}),
-  enums:REVIEWED_ENUMS.map(line=>{const [type_name,enum_label]=line.split("|");return {type_name,enum_label};}),
+export const reviewedRecoverySchemaMetadata = {
+  identityColumns: REVIEWED_IDENTITY_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
+  columns: REVIEWED_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
+  enums: REVIEWED_ENUMS.map((line) => {
+    const [type_name, enum_label] = line.split("|");
+    return { type_name, enum_label };
+  }),
 };
 
-export function assertReviewedRecoverySchema(columns:Record<string,unknown>[],enums:Record<string,unknown>[]) {
-  const domain=columns.filter(row=>row.table_name!=="_prisma_migrations").map(row=>`${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`).sort();
-  const migration=columns.filter(row=>row.table_name==="_prisma_migrations").map(row=>`${String(row.column_name)}|${String(row.udt_name)}`).sort();
-  const identityVersion:0|1|null=domain.join("\n")===REVIEWED_COLUMNS.join("\n")?0:domain.join("\n")===REVIEWED_IDENTITY_COLUMNS.join("\n")?1:null;
-  operatorAssert(identityVersion!==null,"UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
-  operatorAssert(migration.length===0||migration.join("\n")===PRISMA_METADATA.join("\n"),"UNREVIEWED_MIGRATION_METADATA_SCHEMA");
-  const labels=enums.map(row=>`${String(row.type_name)}|${String(row.enum_label)}`).sort();
-  operatorAssert(labels.join("\n")===REVIEWED_ENUMS.join("\n"),"UNREVIEWED_RECOVERY_ENUM_SCHEMA");
-  return {identityVersion};
+export function assertReviewedRecoverySchema(
+  columns: Record<string, unknown>[],
+  enums: Record<string, unknown>[],
+) {
+  const domain = columns
+    .filter((row) => row.table_name !== "_prisma_migrations")
+    .map(
+      (row) =>
+        `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
+    )
+    .sort();
+  const migration = columns
+    .filter((row) => row.table_name === "_prisma_migrations")
+    .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
+    .sort();
+  const identityVersion: 0 | 1 | null =
+    domain.join("\n") === REVIEWED_COLUMNS.join("\n")
+      ? 0
+      : domain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n")
+        ? 1
+        : null;
+  operatorAssert(identityVersion !== null, "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  operatorAssert(
+    migration.length === 0 ||
+      migration.join("\n") === PRISMA_METADATA.join("\n"),
+    "UNREVIEWED_MIGRATION_METADATA_SCHEMA",
+  );
+  const labels = enums
+    .map((row) => `${String(row.type_name)}|${String(row.enum_label)}`)
+    .sort();
+  operatorAssert(
+    labels.join("\n") === REVIEWED_ENUMS.join("\n"),
+    "UNREVIEWED_RECOVERY_ENUM_SCHEMA",
+  );
+  return { identityVersion };
 }

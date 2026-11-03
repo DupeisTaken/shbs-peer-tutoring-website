@@ -4927,6 +4927,7 @@
     "emailEventRemindersHelp": "Rappels 24 heures et 1 heure avant vos entretiens, réunions et séances de tutorat confirmées. Aucun rappel pour les événements non planifiés ou annulés."
   },
   "programEmail": {
+    "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "Notifications e-mail",
     "help": "Activer les emails facultatifs de messages, informations, demandes à examiner et rappels. Chaque personne choisit ses catégories dans les paramètres du compte.",
     "on": "Activées",

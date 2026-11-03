@@ -4927,6 +4927,7 @@
     "emailEventRemindersHelp": "Υπενθυμίσεις 24 ώρες και 1 ώρα πριν από συνεντεύξεις, συναντήσεις και επιβεβαιωμένα μαθήματά σας. Δεν αποστέλλονται για μη προγραμματισμένες ή ακυρωμένες εκδηλώσεις."
   },
   "programEmail": {
+    "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "Ειδοποιήσεις email",
     "help": "Ενεργοποίηση προαιρετικών μηνυμάτων, ενημερώσεων προγράμματος, αιτημάτων ελέγχου και υπενθυμίσεων. Κάθε άτομο επιλέγει κατηγορίες στις ρυθμίσεις λογαριασμού.",
     "on": "Ενεργές",

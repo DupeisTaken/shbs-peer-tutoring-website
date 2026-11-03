@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assertRotatedSigningSecrets, inspectSiteSecurityReconciliation, validateSecurityIdentityClosure, type OverlaySnapshot } from "./operator-reconcile";
+import {
+  assertRotatedSigningSecrets,
+  inspectSiteSecurityReconciliation,
+  validateSecurityIdentityClosure,
+  type OverlaySnapshot,
+} from "./operator-reconcile";
 import type { OperatorSql } from "./operator-site";
 
 function fixture(
@@ -65,7 +70,7 @@ describe("operator security reconciliation evidence", () => {
       expect(queries.every((sql) => /^(BEGIN|SELECT|COMMIT)/.test(sql))).toBe(
         true,
       );
-      expect(queries.some((sql) => /SELECT \*/.test(sql))).toBe(false);
+      expect(queries.some((sql) => sql.includes("SELECT *"))).toBe(false);
       expect(
         queries.some(
           (sql) =>
@@ -104,27 +109,106 @@ describe("operator security reconciliation evidence", () => {
   });
 });
 
-function identitySnapshot(accounts:Record<string,unknown>[]):OverlaySnapshot {
-  return {identityVersion:0,accounts:accounts.map(row=>({email:`${row.id as string}@example.test`,sessionVersion:0,refreshAuthorityRevision:0,tutorId:null,studentId:null,personId:null,mergedIntoId:null,recoveryVoidedAt:null,...row})),tables:{Tutor:[],Tutee:[],Person:[],AccountEmail:[],TutorProfileOwnership:[],StudentProfileOwnership:[]},schema:[],trigger:{definition:"synthetic-reviewed-trigger",tgenabled:"O"},capabilityFingerprints:[],referenceIdentities:{},authorityFingerprints:[]};
+function identitySnapshot(
+  accounts: Record<string, unknown>[],
+): OverlaySnapshot {
+  return {
+    identityVersion: 0,
+    accounts: accounts.map((row) => ({
+      email: `${row.id as string}@example.test`,
+      sessionVersion: 0,
+      refreshAuthorityRevision: 0,
+      tutorId: null,
+      studentId: null,
+      personId: null,
+      mergedIntoId: null,
+      recoveryVoidedAt: null,
+      ...row,
+    })),
+    tables: {
+      Tutor: [],
+      Tutee: [],
+      Person: [],
+      AccountEmail: [],
+      TutorProfileOwnership: [],
+      StudentProfileOwnership: [],
+    },
+    schema: [],
+    trigger: { definition: "synthetic-reviewed-trigger", tgenabled: "O" },
+    capabilityFingerprints: [],
+    referenceIdentities: {},
+    authorityFingerprints: [],
+  };
 }
-describe("reviewed security overlay contracts",()=>{
-  it("supports current-only account closure and backup-only quarantine without inventing profiles",()=>{
-    expect(()=>validateSecurityIdentityClosure(identitySnapshot([{id:"current"}]),identitySnapshot([{id:"backup"}]))).not.toThrow();
-    expect(()=>validateSecurityIdentityClosure(identitySnapshot([{id:"current",tutorId:"missing"}]),identitySnapshot([]))).toThrow("SECURITY_IDENTITY_CLOSURE_MISSING");
+describe("reviewed security overlay contracts", () => {
+  it("supports current-only account closure and backup-only quarantine without inventing profiles", () => {
+    expect(() =>
+      validateSecurityIdentityClosure(
+        identitySnapshot([{ id: "current" }]),
+        identitySnapshot([{ id: "backup" }]),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      validateSecurityIdentityClosure(
+        identitySnapshot([{ id: "current", tutorId: "missing" }]),
+        identitySnapshot([]),
+      ),
+    ).toThrow("SECURITY_IDENTITY_CLOSURE_MISSING");
   });
-  it("blocks contradictory retirement, identifier takeover, missing profile closure and epoch overflow",()=>{
-    expect(()=>validateSecurityIdentityClosure(identitySnapshot([{id:"same",mergedIntoId:null}]),identitySnapshot([{id:"same",mergedIntoId:"survivor"}]))).toThrow("CONTRADICTORY_RETIRED_IDENTITY");
-    expect(()=>validateSecurityIdentityClosure(identitySnapshot([{id:"one",email:"taken@example.test"}]),identitySnapshot([{id:"two",email:"taken@example.test"}]))).toThrow("CONTRADICTORY_ACCOUNT_IDENTIFIER");
-    const missing=identitySnapshot([]);missing.tables.Tutor=[{id:"missing-profile"}];
-    expect(()=>validateSecurityIdentityClosure(missing,identitySnapshot([]))).toThrow("CURRENT_SECURITY_IDENTITY_NOT_IN_CHECKPOINT");
-    expect(()=>validateSecurityIdentityClosure(identitySnapshot([{id:"epoch",sessionVersion:2147483647}]),identitySnapshot([{id:"epoch"}]))).toThrow("RECOVERY_SECURITY_EPOCH_EXHAUSTED");
-    expect(()=>validateSecurityIdentityClosure(identitySnapshot([{id:"epoch",sessionVersion:2000000000}]),identitySnapshot([{id:"epoch",sessionVersion:1000000000}]))).not.toThrow();
+  it("blocks contradictory retirement, identifier takeover, missing profile closure and epoch overflow", () => {
+    expect(() =>
+      validateSecurityIdentityClosure(
+        identitySnapshot([{ id: "same", mergedIntoId: null }]),
+        identitySnapshot([{ id: "same", mergedIntoId: "survivor" }]),
+      ),
+    ).toThrow("CONTRADICTORY_RETIRED_IDENTITY");
+    expect(() =>
+      validateSecurityIdentityClosure(
+        identitySnapshot([{ id: "one", email: "taken@example.test" }]),
+        identitySnapshot([{ id: "two", email: "taken@example.test" }]),
+      ),
+    ).toThrow("CONTRADICTORY_ACCOUNT_IDENTIFIER");
+    const missing = identitySnapshot([]);
+    missing.tables.Tutor = [{ id: "missing-profile" }];
+    expect(() =>
+      validateSecurityIdentityClosure(missing, identitySnapshot([])),
+    ).toThrow("CURRENT_SECURITY_IDENTITY_NOT_IN_CHECKPOINT");
+    expect(() =>
+      validateSecurityIdentityClosure(
+        identitySnapshot([{ id: "epoch", sessionVersion: 2147483647 }]),
+        identitySnapshot([{ id: "epoch" }]),
+      ),
+    ).toThrow("RECOVERY_SECURITY_EPOCH_EXHAUSTED");
+    expect(() =>
+      validateSecurityIdentityClosure(
+        identitySnapshot([{ id: "epoch", sessionVersion: 2000000000 }]),
+        identitySnapshot([{ id: "epoch", sessionVersion: 1000000000 }]),
+      ),
+    ).not.toThrow();
   });
-  it("requires a different bounded signing secret and persists only reviewed fingerprints",()=>{
-    const previous="synthetic-previous-signing-secret-493",rotated="synthetic-rotated-signing-secret-493";
-    expect(()=>assertRotatedSigningSecrets({previousAuthSecret:previous,rotatedAuthSecret:previous})).toThrow("RECOVERY_SIGNING_SECRET_MUST_ROTATE");
-    const keys=assertRotatedSigningSecrets({previousAuthSecret:previous,rotatedAuthSecret:rotated});
-    expect(JSON.stringify(keys)).not.toContain(previous);expect(JSON.stringify(keys)).not.toContain(rotated);
-    expect(()=>assertRotatedSigningSecrets({previousAuthSecret:previous,rotatedAuthSecret:"different-but-still-long-signing-secret"},keys)).toThrow("RECOVERY_SIGNING_SECRET_MISMATCH");
+  it("requires a different bounded signing secret and persists only reviewed fingerprints", () => {
+    const previous = "synthetic-previous-signing-secret-493",
+      rotated = "synthetic-rotated-signing-secret-493";
+    expect(() =>
+      assertRotatedSigningSecrets({
+        previousAuthSecret: previous,
+        rotatedAuthSecret: previous,
+      }),
+    ).toThrow("RECOVERY_SIGNING_SECRET_MUST_ROTATE");
+    const keys = assertRotatedSigningSecrets({
+      previousAuthSecret: previous,
+      rotatedAuthSecret: rotated,
+    });
+    expect(JSON.stringify(keys)).not.toContain(previous);
+    expect(JSON.stringify(keys)).not.toContain(rotated);
+    expect(() =>
+      assertRotatedSigningSecrets(
+        {
+          previousAuthSecret: previous,
+          rotatedAuthSecret: "different-but-still-long-signing-secret",
+        },
+        keys,
+      ),
+    ).toThrow("RECOVERY_SIGNING_SECRET_MISMATCH");
   });
 });

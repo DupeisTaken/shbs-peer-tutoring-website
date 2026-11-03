@@ -4950,6 +4950,7 @@
     "statusStale": "Status refresh failed. The results below are from the last check; current delivery health is unknown.",
     "checkedAt": "Last checked: {time}",
     "retrying": "Emails waiting to retry after a delivery error: {count}. Check the email service even if its connection check passes.",
+    "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "channel": {
       "SECURITY": "Security emails",
       "PROGRAM": "Program emails"

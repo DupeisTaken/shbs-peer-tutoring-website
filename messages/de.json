@@ -4927,6 +4927,7 @@
     "emailEventRemindersHelp": "Erinnerungen 24 Stunden und 1 Stunde vor Ihren Interviews, Treffen und bestätigten Nachhilfestunden. Keine Erinnerungen für unbestimmte oder abgesagte Termine."
   },
   "programEmail": {
+    "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "E-Mail-Benachrichtigungen",
     "help": "Optionale Nachrichten, Programmmitteilungen, Prüfanfragen und Terminerinnerungen aktivieren. Jede Person wählt ihre Kategorien in den Kontoeinstellungen.",
     "on": "Aktiviert",

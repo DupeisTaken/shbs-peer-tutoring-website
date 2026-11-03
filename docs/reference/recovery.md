@@ -269,8 +269,13 @@ Deferred notices are terminally quarantined, leases and attempt ownership are
 invalidated, and refresh/report schedules are cancelled or disabled. Sent and
 accepted records stay terminal; an in-flight `SENDING` record becomes
 `UNCERTAIN_RECOVERY`, never pending. A partial scheduling-maintenance schema
-blocks reconciliation; an installed maintenance pair requires its reviewed
-serialized reset primitive before promotion. The resulting receipt is
+blocks reconciliation. The [supported invalidator](../../src/server/recovery/operator-maintenance.ts)
+takes period → room → planning fences before the first reconciliation write,
+verifies the exact source-trigger inventory and marks both publication and
+settlement watermarks obsolete. It preserves all source/retry events and inserts
+a pending global reconciliation marker. Ordinary maintenance then rebuilds from
+current sources; recovery never copies a stale clean watermark or clears the log.
+The resulting receipt is
 `SECURITY_RECONCILED_SEALED`.
 
 [Acceptance and cutover](../../src/server/recovery/operator-cutover.ts) are
@@ -284,8 +289,23 @@ two-factor account cannot use this password-only harness. The owned loopback HTT
 server uses the shared scrypt verifier, Auth.js encrypted JWT and current-session
 generation check; it verifies fresh authentication, retired signing-key and stale
 generation rejection, and denied worker/deferred writes. The receipt is
-`ACCEPTED_ISOLATED_READ_ONLY_SEALED`. This harness does not start Next, outbound
-transports or production workers.
+`ACCEPTED_ISOLATED_READ_ONLY_SEALED` only after the additional genuine application
+check succeeds. The [Next clone harness](../../src/server/recovery/operator-next.ts)
+copies the sealed idle target into a random disposable database and starts the
+trusted standalone build with an ordinary writable role, rotated signing secret
+and allowlisted environment. SMTP points only to an owned loopback rejection sink.
+The build manifest must match an independently supplied checkout SHA
+(`GITHUB_SHA` in the hosted job or `RECOVERY_REHEARSAL_CHECKOUT_SHA` locally), build
+ID and server hash. Successful fresh login determines the real cookie/salt; a
+current signed-token control precedes negatives changing only secret or epoch.
+Protected history reads and actual session cache identities exercise the combined
+server-owned history and credential epoch boundary. The Auth.js callback refreshes
+history revision, so this is not evidence of isolated stale-history JWT denial.
+The notification worker has a new synthetic due
+control while every restored queue row must remain unchanged for 65 seconds.
+This proves notification delivery liveness and restored queue preservation;
+it does not independently prove liveness of every other worker. The clone and
+role are removed, and the original target remains sealed and unchanged.
 
 Cutover validates the accepted target and current source fingerprints, verifies
 the exact read-only application endpoint, opens only that isolated target and
@@ -298,7 +318,8 @@ Rollback fences both fixtures and takes the newest cutover-site security snapsho
 and matching dump. It overlays that state onto the original retained-business
 fixture, advances generations and invalidates credentials/capabilities again,
 requires another signing-key rotation without reusing a known retired key, and
-tests fresh read-only authentication before publishing the rollback pointer. It
+tests fresh read-only authentication and a genuine writable Next clone before
+publishing the rollback pointer. It
 retires only the exact generated source database role after verifying exclusive
 ownership and no elevated privileges. The former target stays fenced. Thus
 `ROLLED_BACK_WITH_NEWEST_SECURITY_READ_ONLY` cannot silently restore an earlier
@@ -340,6 +361,17 @@ block, recomputes service credit, reconciles automatic cards and requests fresh
 patrol discrepancy review. Card recovery records a new attributed review and
 recomputes standing from current cards. Punishment-related roster restoration
 requires the exact captured assignment and current participant eligibility.
+
+Current learner eligibility counts valid disciplinary cards from every exact
+source contributing to the canonical execution participant, matching the ordinary
+removal writer. This execution scope does not extend account ownership, consent
+or private-history access. A superseded learner source cannot be reactivated by
+checkpoint restoration. Attendance/card checkpoint compensation is currently
+blocked for active consolidated participation, including a canonical learner with
+multiple execution sources: those snapshots do not capture and lock the complete
+canonical and sibling consequence scope. Use the owning correction and participation
+review workflows; the operator CLI cannot bypass this limitation. Original-source
+suspension and departure restrictions remain live independently.
 
 Closed student workflows create an immutable `RecoveryWorkflowDraft` containing
 only local answers and exact owner/source binding. The owner reviews it at
@@ -463,6 +495,15 @@ backup-only accounts, null-password/high credential generations, each known bear
 family, immutable proof receipts, sent/deferred effects, stale source state,
 transactional failure fencing and same-intent phase resumption. It then exercises
 real HTTP authentication, isolated pointer cutover and newest-security rollback.
+Its trusted matching standalone build is required in `.next/standalone`, including
+the externally bound `.recovery-checkout.json` manifest. The hosted workflow builds
+this runtime serially using only its job-owned synthetic database. Correctly
+minted registration, survey, calendar, school report, history, viewer/crew/login
+OTP and reset proofs must first succeed on a checkpoint clone and then fail after
+reconciliation through the real application routes. SQL inventory quarantine
+evidence for other proof families is reported separately. Both acceptance and
+rollback clone checks run ordinary Auth.js and the production worker startup path;
+the real pointer endpoints remain read-only.
 The helper cleans up only generated fixture databases/roles, never resets a
 supplied maintenance database and skips when either URL is absent.
 
@@ -470,5 +511,5 @@ supplied maintenance database and skips when either URL is absent.
 The workflow uploads only those report files, never dumps, raw rows, connection
 URLs or credentials. A skipped local run or authored workflow is not a successful
 native rehearsal: use the result and artifacts for the exact reviewed revision.
-Neither mocked tools nor this isolated read-only acceptance establishes production
-restoration, external-storage recovery or a writable Next startup.
+Neither mocked tools nor a successful disposable clone establishes production
+restoration, external-storage recovery or activation of a writable live site.

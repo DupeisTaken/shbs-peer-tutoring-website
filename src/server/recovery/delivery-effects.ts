@@ -86,7 +86,14 @@ const validId = (value: string) => value.length > 0 && value.length <= 200;
  * before causal-root locks and never performing another admission. */
 export type RecoveryGenericDeliveryGuard = {
   lock: (tx: TransactionDb) => Promise<void>;
-  withheld: (tx: TransactionDb, row: { id: string; userId: string | null; sourceNotificationId?: string | null }) => Promise<boolean>;
+  withheld: (
+    tx: TransactionDb,
+    row: {
+      id: string;
+      userId: string | null;
+      sourceNotificationId?: string | null;
+    },
+  ) => Promise<boolean>;
 };
 
 /** Trusted writers opt in around only the exact derived notification/enqueue.
@@ -178,12 +185,21 @@ export function recoveryDeliveryDisposition(
 ): RecoveryDeliveryDisposition {
   if (effect.deliveryId) {
     if (effect.status === "SENT") return "SENT";
-    if (["SENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"].includes(effect.status ?? "") || effect.attemptStartedAt)
+    if (
+      ["SENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"].includes(
+        effect.status ?? "",
+      ) ||
+      effect.attemptStartedAt
+    )
       return "IN_FLIGHT_OR_UNKNOWN";
     if (
-      ["CANCELLED", "SKIPPED", "SUPERSEDED", "BLOCKED"].includes(
-        effect.status ?? "",
-      )
+      [
+        "CANCELLED",
+        "CANCELLED_RECOVERY",
+        "SKIPPED",
+        "SUPERSEDED",
+        "BLOCKED",
+      ].includes(effect.status ?? "")
     )
       return effect.attempts ? "PRIOR_ATTEMPT_UNKNOWN" : "STOPPED";
     if (effect.status === "PENDING" || effect.status === "FAILED") {
@@ -273,7 +289,10 @@ export async function inspectRecoveryDeliveryEffects(
 
 /** Read before acquiring any individual root. Exact physical references only
  * expand the lock set; causal attribution remains the immutable source journal. */
-export async function recoveryDeliveryRootIds(tx: TransactionDb, actionId: string) {
+export async function recoveryDeliveryRootIds(
+  tx: TransactionDb,
+  actionId: string,
+) {
   if (!validId(actionId)) throw new Error("INVALID_RECOVERY_DELIVERY_SCOPE");
   const rows = await tx.$queryRaw<Array<{ actionId: string }>>`
     WITH shared_physical AS (
@@ -288,7 +307,10 @@ export async function recoveryDeliveryRootIds(tx: TransactionDb, actionId: strin
   if (rows.length > 100) throw new Error("RECOVERY_DELIVERY_ROOT_LIMIT");
   return rows.map((row) => row.actionId).sort();
 }
-export async function lockRecoveryDeliveryRoots(tx: TransactionDb, actionId: string) {
+export async function lockRecoveryDeliveryRoots(
+  tx: TransactionDb,
+  actionId: string,
+) {
   const roots = await recoveryDeliveryRootIds(tx, actionId);
   for (const root of roots) await lockEntity(tx, `recovery:${root}`);
 }
@@ -297,7 +319,8 @@ async function lockDeliveryOrigins(tx: TransactionDb, deliveryId: string) {
     SELECT DISTINCT "actionId" FROM "RecoveryDeliveryEffect" WHERE "deliveryId"=${deliveryId}
     ORDER BY "actionId" LIMIT 101`;
   if (origins.length > 100) throw new Error("RECOVERY_DELIVERY_ROOT_LIMIT");
-  for (const root of origins.map((row) => row.actionId).sort()) await lockEntity(tx, `recovery:${root}`);
+  for (const root of origins.map((row) => row.actionId).sort())
+    await lockEntity(tx, `recovery:${root}`);
   return origins.length > 0;
 }
 
@@ -314,8 +337,11 @@ export async function cancelRecoveryDeliveryEffects(
   if (inventory.coverage !== "COMPLETE")
     throw new Error("RECOVERY_DELIVERY_COVERAGE_UNKNOWN");
   const rows = await effectRows(tx, scope);
-  const deliveryIds = [...new Set(rows
-    .flatMap((effect) => (effect.deliveryId ? [effect.deliveryId] : [])))].sort();
+  const deliveryIds = [
+    ...new Set(
+      rows.flatMap((effect) => (effect.deliveryId ? [effect.deliveryId] : [])),
+    ),
+  ].sort();
   // Acquiring each exact row serially gives the worker and recovery one order.
   for (const deliveryId of deliveryIds)
     await tx.$queryRaw`SELECT id FROM "EmailDelivery" WHERE id=${deliveryId} FOR UPDATE`;
@@ -334,7 +360,11 @@ export async function cancelRecoveryDeliveryEffects(
     ) {
       stoppedDeliveries.add(effect.deliveryId);
       await tx.emailDelivery.updateMany({
-        where: { id: effect.deliveryId, status: { in: ["PENDING", "FAILED"] }, attemptStartedAt: null },
+        where: {
+          id: effect.deliveryId,
+          status: { in: ["PENDING", "FAILED"] },
+          attemptStartedAt: null,
+        },
         data: {
           status: "CANCELLED",
           leaseUntil: null,
@@ -344,7 +374,11 @@ export async function cancelRecoveryDeliveryEffects(
         },
       });
     }
-    if (!effect.deliveryId && effect.notificationId && !withdrawnNotifications.has(effect.notificationId)) {
+    if (
+      !effect.deliveryId &&
+      effect.notificationId &&
+      !withdrawnNotifications.has(effect.notificationId)
+    ) {
       withdrawnNotifications.add(effect.notificationId);
       await tx.$executeRaw`UPDATE "Notification" SET "recoveryWithdrawnAt"=COALESCE("recoveryWithdrawnAt",CURRENT_TIMESTAMP)
         WHERE id=${effect.notificationId}`;
@@ -390,10 +424,20 @@ export async function admitRecoveryGenericDelivery(
       !!row.attemptStartedAt
     )
       return null;
-    if (guard && await guard.withheld(tx, row)) {
+    if (guard && (await guard.withheld(tx, row))) {
       await tx.emailDelivery.updateMany({
-        where: { id: deliveryId, status: "PENDING", leaseUntil, attemptId: expectedAttemptId, attemptStartedAt: null },
-        data: { status: "CANCELLED", completedAt: new Date(), leaseUntil: null },
+        where: {
+          id: deliveryId,
+          status: "PENDING",
+          leaseUntil,
+          attemptId: expectedAttemptId,
+          attemptStartedAt: null,
+        },
+        data: {
+          status: "CANCELLED",
+          completedAt: new Date(),
+          leaseUntil: null,
+        },
       });
       return null;
     }
@@ -414,7 +458,8 @@ export async function admitRecoveryGenericDelivery(
         attempts: { increment: 1 },
       },
     });
-    if (changed.status !== "SENDING" || changed.attemptId !== attemptId) return null;
+    if (changed.status !== "SENDING" || changed.attemptId !== attemptId)
+      return null;
     return { independent: false as const, attemptId };
   });
 }
@@ -433,18 +478,32 @@ export async function finishRecoveryGenericDelivery(
     const row = await tx.emailDelivery.findUnique({
       where: { id: deliveryId },
     });
-    if (!row || specialized.has(row.category) || row.category === "security" || !["SENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"].includes(row.status) || row.attemptId !== attemptId || !row.attemptStartedAt) return;
+    if (
+      !row ||
+      specialized.has(row.category) ||
+      row.category === "security" ||
+      row.attemptId !== attemptId ||
+      !row.attemptStartedAt
+    )
+      return;
+    const cancelledAttempt = ["CANCELLED", "CANCELLED_RECOVERY"].includes(
+      row.status,
+    );
+    // Cancellation stops another send; it cannot erase a later known provider
+    // acceptance for the exact already-started attempt. A failure leaves that
+    // cancellation intact and never creates a new admission.
+    if (!(
+      ["SENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"].includes(row.status) ||
+      (accepted && cancelledAttempt)
+    ))
+      return;
     const [cancelled] = await tx.$queryRaw<Array<{ found: boolean }>>`
       SELECT true AS found FROM "RecoveryDeliveryCancellation" c JOIN "RecoveryDeliveryEffect" e ON e.id=c."effectId"
       WHERE e."deliveryId"=${deliveryId} LIMIT 1`;
     await tx.emailDelivery.updateMany({
       where: { id: deliveryId, status: row.status, attemptId },
       data: {
-        status: accepted
-          ? "SENT"
-          : cancelled
-            ? "CANCELLED"
-            : "UNCERTAIN",
+        status: accepted ? "SENT" : cancelled ? "CANCELLED" : "UNCERTAIN",
         leaseUntil: null,
         completedAt: new Date(),
         lastError:

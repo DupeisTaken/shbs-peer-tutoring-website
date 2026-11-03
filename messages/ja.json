@@ -4927,6 +4927,7 @@
     "emailEventRemindersHelp": "参加する面接、会議、確定済みの指導セッションの24時間前と1時間前に通知します。未定またはキャンセル済みの予定には通知しません。"
   },
   "programEmail": {
+    "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "メール通知",
     "help": "メッセージ、プログラム更新、審査依頼、予定のリマインダーの任意メールを有効にします。各自がアカウント設定で受信する種類を選びます。",
     "on": "有効",

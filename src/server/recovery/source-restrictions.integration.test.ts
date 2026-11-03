@@ -36,7 +36,10 @@ async function fixture(
 
 async function setup(tx: TransactionDb, provenance: Provenance) {
   const prefix = `recovery-original-${randomUUID()}`;
-  await tx.term.updateMany({ where: { active: true }, data: { active: false } });
+  await tx.term.updateMany({
+    where: { active: true },
+    data: { active: false },
+  });
   await tx.term.create({
     data: {
       id: `${prefix}-term`,
@@ -47,7 +50,11 @@ async function setup(tx: TransactionDb, provenance: Provenance) {
     },
   });
   const actor = await tx.user.create({
-    data: { id: `${prefix}-reviewer`, role: "ADMIN" },
+    data: {
+      id: `${prefix}-reviewer`,
+      role: "ADMIN",
+      email: `${prefix}-reviewer@example.test`,
+    },
   });
   const tutor = await tx.tutor.create({
     data: {
@@ -59,6 +66,7 @@ async function setup(tx: TransactionDb, provenance: Provenance) {
   const owner = await tx.user.create({
     data: {
       id: `${prefix}-current`,
+      email: `${prefix}-current@example.test`,
       role: "TUTOR",
       tutorId: tutor.id,
       academicProfile: {
@@ -80,6 +88,7 @@ async function setup(tx: TransactionDb, provenance: Provenance) {
   const original = await tx.user.create({
     data: {
       id: `${prefix}-original`,
+      email: `${prefix}-original@example.test`,
       personId: person.id,
       mergedIntoId: owner.id,
     },
@@ -87,6 +96,7 @@ async function setup(tx: TransactionDb, provenance: Provenance) {
   const unrelated = await tx.user.create({
     data: {
       id: `${prefix}-unrelated`,
+      email: `${prefix}-unrelated@example.test`,
       personId: person.id,
       suspendedAt: new Date("2026-10-01T00:00:00Z"),
     },
@@ -180,8 +190,12 @@ it.each(["COMBINE", "HISTORY_OVERRIDE"] as const)(
       expect(before.coverage).toBe("COMPLETE");
       const identity = await participantIdentity(tx, "TUTOR", data.tutor.id);
       expect(identity.ownerIds).toEqual([data.owner.id]);
-      expect(identity.sourceRestrictions.sourceUserIds).toContain(data.original.id);
-      expect(identity.sourceRestrictions.sourceUserIds).not.toContain(data.unrelated.id);
+      expect(identity.sourceRestrictions.sourceUserIds).toContain(
+        data.original.id,
+      );
+      expect(identity.sourceRestrictions.sourceUserIds).not.toContain(
+        data.unrelated.id,
+      );
       const suspendedAt = new Date("2026-11-01T00:00:00Z");
       await tx.user.update({
         where: { id: data.original.id },
@@ -204,15 +218,21 @@ it.each(["COMBINE", "HISTORY_OVERRIDE"] as const)(
           data.actor,
         ),
       ).rejects.toMatchObject({ code: "CONFLICT" });
-      expect(await tx.recoveryReceipt.count({
-        where: { actionId: data.checkpoint.actionId },
-      })).toBe(0);
-      expect(await tx.tutor.findUniqueOrThrow({
-        where: { id: data.tutor.id },
-      })).toMatchObject({ status: "OPTED_OUT" });
-      expect(await tx.user.findUniqueOrThrow({
-        where: { id: data.original.id },
-      })).toMatchObject({ suspendedAt, mergedIntoId: data.owner.id });
+      expect(
+        await tx.recoveryReceipt.count({
+          where: { actionId: data.checkpoint.actionId },
+        }),
+      ).toBe(0);
+      expect(
+        await tx.tutor.findUniqueOrThrow({
+          where: { id: data.tutor.id },
+        }),
+      ).toMatchObject({ status: "OPTED_OUT" });
+      expect(
+        await tx.user.findUniqueOrThrow({
+          where: { id: data.original.id },
+        }),
+      ).toMatchObject({ suspendedAt, mergedIntoId: data.owner.id });
     });
   },
 );
@@ -237,9 +257,11 @@ it("retains an original retired source's school departure despite an eligible cu
     expect(after.fingerprint).not.toBe(before.fingerprint);
     expect(after.blockers.join(" ")).toContain("original account");
     const identity = await participantIdentity(tx, "TUTOR", data.tutor.id);
-    expect(identity.sourceRestrictions.accounts.find(
-      (account) => account.id === data.original.id,
-    )?.schoolDeparture).toMatchObject({ reason: "TRANSFERRED", revision: 7 });
+    expect(
+      identity.sourceRestrictions.accounts.find(
+        (account) => account.id === data.original.id,
+      )?.schoolDeparture,
+    ).toMatchObject({ reason: "TRANSFERRED", revision: 7 });
     expect(identity.owners.map((owner) => owner.id)).toEqual([data.owner.id]);
   });
 });

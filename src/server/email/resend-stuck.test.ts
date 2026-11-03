@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import type { TransactionDb } from "~/server/transactions";
 
 const available = vi.hoisted(() => vi.fn());
@@ -131,19 +132,106 @@ it("limits each request to the oldest 100 and gives concurrent requests disjoint
 
 it("never clears an admitted ordinary attempt while preserving special-category retry ownership", async () => {
   const startedAt = new Date(Date.now() - 600_000);
-  const retainedIds = ["legacy-failed", "legacy-pending", "uncertain", "uncertain-recovery"];
-  await db.emailDelivery.createMany({ data: [
-    ...retainedIds.map((id) => row(id, { status: id === "legacy-failed" ? "FAILED" : id === "legacy-pending" ? "PENDING" : id === "uncertain" ? "UNCERTAIN" : "UNCERTAIN_RECOVERY",
-      attemptId: `attempt-${id}`, attemptStartedAt: startedAt })),
-    ...["security", "request_service", "monthly_hours", "school_hours"].map((category) => row(`special-${category}`, { category, attemptId: `attempt-${category}`, attemptStartedAt: startedAt })),
-  ] });
+  const retainedIds = [
+    "legacy-failed",
+    "legacy-pending",
+    "uncertain",
+    "uncertain-recovery",
+  ];
+  const scope = `synthetic-resend-${randomUUID()}`;
+  await db.schoolHoursSchedule.create({ data: { id: scope } });
+  const school = await db.schoolHoursReport.create({
+    data: {
+      scheduleId: scope,
+      month: "2026-10",
+      revision: 1,
+      configVersion: 0,
+      baselineVersion: 0,
+      timeZone: "Asia/Shanghai",
+      snapshot: {},
+      sourceBaseline: {},
+      intendedRecipients: [],
+      contentHash: "synthetic-school-content",
+      generationKey: `${scope}-school`,
+      generationHash: "synthetic-school-generation",
+      linkTokenHash: "synthetic-school-link",
+    },
+  });
+  await db.monthlyHoursSchedule.create({ data: { id: scope } });
+  const monthly = await db.monthlyHoursReport.create({
+    data: {
+      scheduleId: scope,
+      month: "2026-10",
+      revision: 1,
+      configVersion: 0,
+      timeZone: "Asia/Shanghai",
+      snapshot: {},
+      intendedRecipients: [],
+      contentHash: "synthetic-monthly-content",
+      generationKey: `${scope}-monthly`,
+      generationHash: "synthetic-monthly-generation",
+    },
+  });
+  await db.emailDelivery.createMany({
+    data: [
+      ...retainedIds.map((id) =>
+        row(id, {
+          status:
+            id === "legacy-failed"
+              ? "FAILED"
+              : id === "legacy-pending"
+                ? "PENDING"
+                : id === "uncertain"
+                  ? "UNCERTAIN"
+                  : "UNCERTAIN_RECOVERY",
+          attemptId: `attempt-${id}`,
+          attemptStartedAt: startedAt,
+        }),
+      ),
+      ...["security", "request_service", "monthly_hours", "school_hours"].map(
+        (category) =>
+          row(`special-${category}`, {
+            category,
+            attemptId: `attempt-${category}`,
+            attemptStartedAt: startedAt,
+            ...(category === "request_service"
+              ? {
+                  userId: null,
+                  requestKind: "survey",
+                  requestId: `${scope}-survey`,
+                  requestVersion: 1,
+                  requestInvalid: false,
+                  requestReason: "Synthetic request decision",
+                  requestTimeZone: "Asia/Shanghai",
+                }
+              : {}),
+            ...(category === "school_hours"
+              ? { userId: null, schoolHoursReportId: school.id }
+              : {}),
+            ...(category === "monthly_hours"
+              ? { monthlyHoursReportId: monthly.id }
+              : {}),
+          }),
+      ),
+    ],
+  });
   expect(await resendStuckEmails(db, actor)).toEqual({ queued: 4 });
-  for (const retained of await db.emailDelivery.findMany({ where: { id: { in: retainedIds } } })) {
+  for (const retained of await db.emailDelivery.findMany({
+    where: { id: { in: retainedIds } },
+  })) {
     expect(retained.attemptId).toBe(`attempt-${retained.id}`);
     expect(retained.attemptStartedAt).toEqual(startedAt);
     expect(retained.attempts).toBe(5);
   }
-  expect(await db.emailDelivery.count({ where: { id: { startsWith: "special-" }, status: "PENDING", attemptStartedAt: null } })).toBe(4);
+  expect(
+    await db.emailDelivery.count({
+      where: {
+        id: { startsWith: "special-" },
+        status: "PENDING",
+        attemptStartedAt: null,
+      },
+    }),
+  ).toBe(4);
 });
 
 it("leaves disabled optional mail stuck while allowing mandatory security retries", async () => {

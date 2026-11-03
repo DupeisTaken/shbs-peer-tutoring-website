@@ -4927,6 +4927,7 @@
     "emailEventRemindersHelp": "Recordatorios 24 horas y 1 hora antes de tus entrevistas, reuniones y sesiones de tutoría confirmadas. No se envían para eventos sin programar o cancelados."
   },
   "programEmail": {
+    "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "Notificaciones por correo",
     "help": "Activa correos opcionales de mensajes, novedades, solicitudes de revisión y recordatorios. Cada persona elige sus categorías en los ajustes de cuenta.",
     "on": "Activadas",

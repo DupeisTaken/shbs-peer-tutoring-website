@@ -15,6 +15,23 @@ import {
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 afterAll(() => db.$disconnect());
+it("does not invent a causal origin for an independent account-profile email", async () => {
+  await fixture(async (tx, ids) => {
+    // The real account_update_notice trigger queues this before source journaling.
+    await tx.user.update({
+      where: { id: ids.userId },
+      data: { name: "Synthetic independent profile change" },
+    });
+    expect(
+      await tx.emailDelivery.count({
+        where: { userId: ids.userId, event: "information_changed" },
+      }),
+    ).toBeGreaterThan(0);
+    expect(
+      await inspectRecoveryDeliveryEffects(tx, { actionId: ids.actionId }),
+    ).toMatchObject({ coverage: "UNKNOWN", effects: [] });
+  });
+});
 const rollback = "rollback synthetic recovery delivery fixture";
 async function fixture(
   work: (
@@ -58,7 +75,9 @@ async function fixture(
         >`SELECT txid_current()::text AS "transactionId"`;
         const event = await tx.recoveryEvent.create({
           data: {
-            id: createHash("md5").update(`${action.id}:${clock!.transactionId}`).digest("hex"),
+            id: createHash("md5")
+              .update(`${action.id}:${clock!.transactionId}`)
+              .digest("hex"),
             actionId: action.id,
             transactionId: clock!.transactionId,
             kind: "ADMISSION",
@@ -66,7 +85,12 @@ async function fixture(
         });
         // Typed origin proof is an actual source mutation in this transaction,
         // not the current recipient or a capture-only event.
-        await tx.user.update({ where: { id: user.id }, data: { name: "Synthetic delivery source mutation" } });
+        await tx.user.update({
+          where: { id: user.id },
+          // Unlike name/role edits, this genuine source mutation does not emit
+          // a separate unwrapped account-information email before journaling.
+          data: { emailMessages: false },
+        });
         await work(tx, {
           userId: user.id,
           actionId: action.id,
@@ -164,15 +188,13 @@ it("binds each real bulk notification to its own nested mail and leaves no origi
       `${ids.actionId}-third`,
     ];
     await tx.user.createMany({
-      data: userIds
-        .slice(1)
-        .map((id) => ({
-          id,
-          email: `${id}@example.test`,
-          role: "ADMIN" as const,
-          emailVerifiedAt: new Date(),
-          emailInfo: true,
-        })),
+      data: userIds.slice(1).map((id) => ({
+        id,
+        email: `${id}@example.test`,
+        role: "ADMIN" as const,
+        emailVerifiedAt: new Date(),
+        emailInfo: true,
+      })),
     });
     await withRecoveryDeliverySource(
       tx,
@@ -342,34 +364,213 @@ it.each([false, true])(
   },
 );
 
-it.each(["UNCERTAIN", "UNCERTAIN_RECOVERY"])("retains %s evidence through cancellation and permits only its exact late acceptance", async (status) => {
-  await fixture(async (tx, ids) => {
-    await notice(tx, ids);
-    const inventory = await inspectRecoveryDeliveryEffects(tx, { actionId: ids.actionId });
-    const deliveryId = inventory.effects.find((effect) => effect.deliveryId)!.deliveryId!;
-    const lease = new Date(Date.now() + 300_000);
-    const admitted = await admitRecoveryGenericDelivery(tx, deliveryId, lease, null);
-    // The worker's lease must be the exact lease stored on the original row.
-    expect(admitted).toBeNull();
-    await tx.emailDelivery.update({ where: { id: deliveryId }, data: { leaseUntil: lease } });
-    const first = await admitRecoveryGenericDelivery(tx, deliveryId, lease, null);
-    if (!first || first.independent) throw new Error("Expected exact captured admission");
-    await finishRecoveryGenericDelivery(tx, deliveryId, first.attemptId, false);
-    expect((await tx.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } })).status).toBe("UNCERTAIN");
-    await tx.emailDelivery.update({ where: { id: deliveryId }, data: { status, leaseUntil: lease } });
-    expect(await admitRecoveryGenericDelivery(tx, deliveryId, lease, first.attemptId)).toBeNull();
-    const stopped = await cancelRecoveryDeliveryEffects(tx, { actionId: ids.actionId }, "stop-uncertain-attempt");
-    expect(stopped.effects.find((effect) => effect.deliveryId === deliveryId)?.disposition).toBe("IN_FLIGHT_OR_UNKNOWN");
-    const retained = await tx.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } });
-    expect(retained).toMatchObject({ status, attemptId: first.attemptId, attempts: 1 });
-    expect(retained.attemptStartedAt).not.toBeNull();
-    await finishRecoveryGenericDelivery(tx, deliveryId, "stale-attempt", true);
-    expect((await tx.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } })).status).toBe(status);
-    await finishRecoveryGenericDelivery(tx, deliveryId, first.attemptId, true);
-    expect((await tx.emailDelivery.findUniqueOrThrow({ where: { id: deliveryId } })).status).toBe("SENT");
-    expect(await tx.recoveryDeliveryCancellation.count({ where: { recoveryKey: "stop-uncertain-attempt" } })).toBeGreaterThan(0);
-  });
-});
+it.each(["CANCELLED", "CANCELLED_RECOVERY"])(
+  "settles exact late acceptance after failed stopped transport (%s), preserving the immutable stop",
+  async (status) => {
+    await fixture(async (tx, ids) => {
+      await notice(tx, ids);
+      const inventory = await inspectRecoveryDeliveryEffects(tx, {
+        actionId: ids.actionId,
+      });
+      const deliveryId = inventory.effects.find(
+        (effect) => effect.deliveryId,
+      )!.deliveryId!;
+      const lease = new Date(Date.now() + 300_000);
+      await tx.emailDelivery.update({
+        where: { id: deliveryId },
+        data: { leaseUntil: lease },
+      });
+      const admitted = await admitRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        lease,
+        null,
+      );
+      if (!admitted || admitted.independent)
+        throw new Error("Expected exact captured admission");
+      await cancelRecoveryDeliveryEffects(
+        tx,
+        { actionId: ids.actionId },
+        "stop-before-failed-completion",
+      );
+      await finishRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        admitted.attemptId,
+        false,
+      );
+      expect(
+        (
+          await tx.emailDelivery.findUniqueOrThrow({
+            where: { id: deliveryId },
+          })
+        ).status,
+      ).toBe("CANCELLED");
+      if (status !== "CANCELLED")
+        await tx.emailDelivery.update({
+          where: { id: deliveryId },
+          data: { status },
+        });
+      await finishRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        admitted.attemptId,
+        false,
+      );
+      await finishRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        "stale-attempt",
+        true,
+      );
+      expect(
+        (
+          await tx.emailDelivery.findUniqueOrThrow({
+            where: { id: deliveryId },
+          })
+        ).status,
+      ).toBe(status);
+      expect(
+        await admitRecoveryGenericDelivery(
+          tx,
+          deliveryId,
+          lease,
+          admitted.attemptId,
+        ),
+      ).toBeNull();
+      await finishRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        admitted.attemptId,
+        true,
+      );
+      const settled = await tx.emailDelivery.findUniqueOrThrow({
+        where: { id: deliveryId },
+      });
+      expect(settled).toMatchObject({
+        status: "SENT",
+        attempts: 1,
+        attemptId: admitted.attemptId,
+      });
+      expect(settled.attemptStartedAt).not.toBeNull();
+      expect(
+        await tx.recoveryDeliveryCancellation.count({
+          where: { recoveryKey: "stop-before-failed-completion" },
+        }),
+      ).toBeGreaterThan(0);
+    });
+  },
+);
+
+it.each(["UNCERTAIN", "UNCERTAIN_RECOVERY"])(
+  "retains %s evidence through cancellation and permits only its exact late acceptance",
+  async (status) => {
+    await fixture(async (tx, ids) => {
+      await notice(tx, ids);
+      const inventory = await inspectRecoveryDeliveryEffects(tx, {
+        actionId: ids.actionId,
+      });
+      const deliveryId = inventory.effects.find(
+        (effect) => effect.deliveryId,
+      )!.deliveryId!;
+      const lease = new Date(Date.now() + 300_000);
+      const admitted = await admitRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        lease,
+        null,
+      );
+      // The worker's lease must be the exact lease stored on the original row.
+      expect(admitted).toBeNull();
+      await tx.emailDelivery.update({
+        where: { id: deliveryId },
+        data: { leaseUntil: lease },
+      });
+      const first = await admitRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        lease,
+        null,
+      );
+      if (!first || first.independent)
+        throw new Error("Expected exact captured admission");
+      await finishRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        first.attemptId,
+        false,
+      );
+      expect(
+        (
+          await tx.emailDelivery.findUniqueOrThrow({
+            where: { id: deliveryId },
+          })
+        ).status,
+      ).toBe("UNCERTAIN");
+      await tx.emailDelivery.update({
+        where: { id: deliveryId },
+        data: { status, leaseUntil: lease },
+      });
+      expect(
+        await admitRecoveryGenericDelivery(
+          tx,
+          deliveryId,
+          lease,
+          first.attemptId,
+        ),
+      ).toBeNull();
+      const stopped = await cancelRecoveryDeliveryEffects(
+        tx,
+        { actionId: ids.actionId },
+        "stop-uncertain-attempt",
+      );
+      expect(
+        stopped.effects.find((effect) => effect.deliveryId === deliveryId)
+          ?.disposition,
+      ).toBe("IN_FLIGHT_OR_UNKNOWN");
+      const retained = await tx.emailDelivery.findUniqueOrThrow({
+        where: { id: deliveryId },
+      });
+      expect(retained).toMatchObject({
+        status,
+        attemptId: first.attemptId,
+        attempts: 1,
+      });
+      expect(retained.attemptStartedAt).not.toBeNull();
+      await finishRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        "stale-attempt",
+        true,
+      );
+      expect(
+        (
+          await tx.emailDelivery.findUniqueOrThrow({
+            where: { id: deliveryId },
+          })
+        ).status,
+      ).toBe(status);
+      await finishRecoveryGenericDelivery(
+        tx,
+        deliveryId,
+        first.attemptId,
+        true,
+      );
+      expect(
+        (
+          await tx.emailDelivery.findUniqueOrThrow({
+            where: { id: deliveryId },
+          })
+        ).status,
+      ).toBe("SENT");
+      expect(
+        await tx.recoveryDeliveryCancellation.count({
+          where: { recoveryKey: "stop-uncertain-attempt" },
+        }),
+      ).toBeGreaterThan(0);
+    });
+  },
+);
 
 it("does not adopt independent security mail sent to the same recipient during a captured action", async () => {
   await fixture(async (tx, ids) => {
@@ -454,33 +655,109 @@ it("marks unbound ordinary notices and ambiguous multi-root sources unknown inst
 
 it("refuses a selected root without its own exact source mutation", async () => {
   await fixture(async (tx, ids) => {
-    const selected = await tx.recoveryAction.create({ data: { kind: "DOMAIN_CHECKPOINT", before: {}, after: {} } });
-    await tx.recoveryTrackedEntity.create({ data: { actionId: selected.id, entity: "User", recordId: ids.userId } });
-    const [clock] = await tx.$queryRaw<Array<{ transactionId: string }>>`SELECT txid_current()::text AS "transactionId"`;
-    await tx.recoveryEvent.create({ data: { id: createHash("md5").update(`${selected.id}:${clock!.transactionId}`).digest("hex"),
-      actionId: selected.id, transactionId: clock!.transactionId, kind: "CHECKPOINT_CAPTURE" } });
-    await withRecoveryDeliverySource(tx, { entity: "User", recordId: ids.userId, actionId: selected.id },
-      () => notifyUsers([ids.userId], { title: "Synthetic notice before its declared source mutation" }, tx));
+    const selected = await tx.recoveryAction.create({
+      data: { kind: "DOMAIN_CHECKPOINT", before: {}, after: {} },
+    });
+    await tx.recoveryTrackedEntity.create({
+      data: { actionId: selected.id, entity: "User", recordId: ids.userId },
+    });
+    const [clock] = await tx.$queryRaw<
+      Array<{ transactionId: string }>
+    >`SELECT txid_current()::text AS "transactionId"`;
+    await tx.recoveryEvent.create({
+      data: {
+        id: createHash("md5")
+          .update(`${selected.id}:${clock!.transactionId}`)
+          .digest("hex"),
+        actionId: selected.id,
+        transactionId: clock!.transactionId,
+        kind: "CHECKPOINT_CAPTURE",
+      },
+    });
+    await withRecoveryDeliverySource(
+      tx,
+      { entity: "User", recordId: ids.userId, actionId: selected.id },
+      () =>
+        notifyUsers(
+          [ids.userId],
+          { title: "Synthetic notice before its declared source mutation" },
+          tx,
+        ),
+    );
     for (const actionId of [ids.actionId, selected.id])
-      expect(await inspectRecoveryDeliveryEffects(tx, { actionId })).toMatchObject({ coverage: "UNKNOWN", effects: [] });
+      expect(
+        await inspectRecoveryDeliveryEffects(tx, { actionId }),
+      ).toMatchObject({ coverage: "UNKNOWN", effects: [] });
   });
 });
 
 it("fails closed when exact same-transaction attribution exceeds one hundred roots", async () => {
   await fixture(async (tx, ids) => {
-    const extra = Array.from({ length: 100 }, (_, index) => ({ actionId: `${ids.actionId}-fanout-${index}`, eventId: `fanout-${randomUUID()}` }));
-    const [clock] = await tx.$queryRaw<Array<{ transactionId: string }>>`SELECT txid_current()::text AS "transactionId"`;
-    await tx.recoveryAction.createMany({ data: extra.map(({ actionId }) => ({ id: actionId, kind: "DOMAIN_CHECKPOINT", before: {}, after: {} })) });
-    await tx.recoveryEvent.createMany({ data: extra.map(({ actionId, eventId }) => ({ id: eventId, actionId, transactionId: clock!.transactionId, kind: "CHECKPOINT_CAPTURE" })) });
+    const extra = Array.from({ length: 100 }, (_, index) => ({
+      actionId: `${ids.actionId}-fanout-${index}`,
+      eventId: `fanout-${randomUUID()}`,
+    }));
+    const [clock] = await tx.$queryRaw<
+      Array<{ transactionId: string }>
+    >`SELECT txid_current()::text AS "transactionId"`;
+    await tx.recoveryAction.createMany({
+      data: extra.map(({ actionId }) => ({
+        id: actionId,
+        kind: "DOMAIN_CHECKPOINT",
+        before: {},
+        after: {},
+      })),
+    });
+    await tx.recoveryEvent.createMany({
+      data: extra.map(({ actionId, eventId }) => ({
+        id: eventId,
+        actionId,
+        transactionId: clock!.transactionId,
+        kind: "CHECKPOINT_CAPTURE",
+      })),
+    });
     // These synthetic journal rows exercise the observer's bounded fanout without
     // running a hundred unrelated domain writers in a single test transaction.
-    await tx.recoveryChange.createMany({ data: extra.map(({ actionId, eventId }) => ({ actionId, eventId, entity: "User", operation: "UPDATE",
-      recordKey: { id: ids.userId }, before: { id: ids.userId }, after: { id: ids.userId }, changedFields: ["profileVersion"] })) });
-    await withRecoveryDeliverySource(tx, { entity: "User", recordId: ids.userId, actionId: ids.actionId },
-      () => notifyUsers([ids.userId], { title: "Synthetic excessive shared-root notice" }, tx));
-    expect(await inspectRecoveryDeliveryEffects(tx, { actionId: ids.actionId })).toMatchObject({ coverage: "UNKNOWN", effects: [] });
-    expect(await tx.recoveryDeliveryEffect.count({ where: { actionId: { in: [ids.actionId, ...extra.map((row) => row.actionId)] } } })).toBe(0);
-    expect(await tx.recoveryDeliveryCoverage.count({ where: { eventId: { in: [ids.eventId, ...extra.map((row) => row.eventId)] }, version: 0 } })).toBe(101);
+    await tx.recoveryChange.createMany({
+      data: extra.map(({ actionId, eventId }) => ({
+        actionId,
+        eventId,
+        entity: "User",
+        operation: "UPDATE",
+        recordKey: { id: ids.userId },
+        before: { id: ids.userId },
+        after: { id: ids.userId },
+        changedFields: ["profileVersion"],
+      })),
+    });
+    await withRecoveryDeliverySource(
+      tx,
+      { entity: "User", recordId: ids.userId, actionId: ids.actionId },
+      () =>
+        notifyUsers(
+          [ids.userId],
+          { title: "Synthetic excessive shared-root notice" },
+          tx,
+        ),
+    );
+    expect(
+      await inspectRecoveryDeliveryEffects(tx, { actionId: ids.actionId }),
+    ).toMatchObject({ coverage: "UNKNOWN", effects: [] });
+    expect(
+      await tx.recoveryDeliveryEffect.count({
+        where: {
+          actionId: { in: [ids.actionId, ...extra.map((row) => row.actionId)] },
+        },
+      }),
+    ).toBe(0);
+    expect(
+      await tx.recoveryDeliveryCoverage.count({
+        where: {
+          eventId: { in: [ids.eventId, ...extra.map((row) => row.eventId)] },
+          version: 0,
+        },
+      }),
+    ).toBe(101);
   });
 });
 
@@ -497,14 +774,19 @@ it("shares exact source-change effects with older roots while keeping unrelated 
     >`SELECT txid_current()::text AS "transactionId"`;
     await tx.recoveryEvent.create({
       data: {
-        id: createHash("md5").update(`${active.id}:${clock!.transactionId}`).digest("hex"),
+        id: createHash("md5")
+          .update(`${active.id}:${clock!.transactionId}`)
+          .digest("hex"),
         actionId: active.id,
         transactionId: clock!.transactionId,
         kind: "DOMAIN_CHECKPOINT",
       },
     });
     await tx.$queryRaw`SELECT set_config('shbs.recovery_action',${active.id},true)`;
-    await tx.user.update({ where: { id: ids.userId }, data: { name: "Synthetic shared source mutation" } });
+    await tx.user.update({
+      where: { id: ids.userId },
+      data: { emailMessages: true },
+    });
     await withRecoveryDeliverySource(
       tx,
       { entity: "User", recordId: ids.userId },
@@ -515,7 +797,9 @@ it("shares exact source-change effects with older roots while keeping unrelated 
           tx,
         ),
     );
-    const older = await inspectRecoveryDeliveryEffects(tx, { actionId: ids.actionId });
+    const older = await inspectRecoveryDeliveryEffects(tx, {
+      actionId: ids.actionId,
+    });
     expect(older.coverage).toBe("COMPLETE");
     expect(older.effects.some((effect) => effect.deliveryId)).toBe(true);
     const selected = await inspectRecoveryDeliveryEffects(tx, {
@@ -523,14 +807,35 @@ it("shares exact source-change effects with older roots while keeping unrelated 
     });
     expect(selected.coverage).toBe("COMPLETE");
     expect(selected.effects.some((effect) => effect.notificationId)).toBe(true);
-    expect(older.effects.map((effect) => effect.deliveryId).sort()).toEqual(selected.effects.map((effect) => effect.deliveryId).sort());
-    await cancelRecoveryDeliveryEffects(tx, { actionId: ids.actionId }, "stop-shared-older-root");
-    const selectedAfterStop = await inspectRecoveryDeliveryEffects(tx, { actionId: active.id });
-    expect(selectedAfterStop.effects.every((effect) => effect.cancellation !== null)).toBe(true);
-    const mailId = selected.effects.find((effect) => effect.deliveryId)!.deliveryId!;
-    const stopped = await tx.emailDelivery.findUniqueOrThrow({ where: { id: mailId } });
+    expect(older.effects.map((effect) => effect.deliveryId).sort()).toEqual(
+      selected.effects.map((effect) => effect.deliveryId).sort(),
+    );
+    await cancelRecoveryDeliveryEffects(
+      tx,
+      { actionId: ids.actionId },
+      "stop-shared-older-root",
+    );
+    const selectedAfterStop = await inspectRecoveryDeliveryEffects(tx, {
+      actionId: active.id,
+    });
+    expect(
+      selectedAfterStop.effects.every((effect) => effect.cancellation !== null),
+    ).toBe(true);
+    const mailId = selected.effects.find(
+      (effect) => effect.deliveryId,
+    )!.deliveryId!;
+    const stopped = await tx.emailDelivery.findUniqueOrThrow({
+      where: { id: mailId },
+    });
     expect(stopped.status).toBe("CANCELLED");
-    expect(await admitRecoveryGenericDelivery(tx, mailId, new Date(Date.now() + 300_000), stopped.attemptId)).toBeNull();
+    expect(
+      await admitRecoveryGenericDelivery(
+        tx,
+        mailId,
+        new Date(Date.now() + 300_000),
+        stopped.attemptId,
+      ),
+    ).toBeNull();
   });
   await fixture(async (tx, ids) => {
     const unrelated = await tx.recoveryAction.create({

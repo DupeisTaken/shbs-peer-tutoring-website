@@ -51,7 +51,10 @@ import {
   VERIFICATION_WEEK_MS,
 } from "./student-request-state";
 import { studentWorkflowRouter } from "./api/routers/student-workflow";
-import { captureRecoveryCheckpoint, inspectRecoveryCheckpoint } from "./recovery/checkpoint";
+import {
+  captureRecoveryCheckpoint,
+  inspectRecoveryCheckpoint,
+} from "./recovery/checkpoint";
 
 async function ready(
   action: Parameters<typeof prepareStudentAction>[2],
@@ -547,7 +550,11 @@ describe("survey-first enrollment", () => {
     });
     send.mockClear();
     await expect(
-      api.submitSurvey({ ...input(), expectedTermId: "survey-term", clientKey: randomUUID() }),
+      api.submitSurvey({
+        ...input(),
+        expectedTermId: "survey-term",
+        clientKey: randomUUID(),
+      }),
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
@@ -787,6 +794,16 @@ describe("survey-first enrollment", () => {
 });
 
 describe("student request lifecycle", () => {
+  beforeEach(async () => {
+    // Review writers revalidate the real management actor during automatic capture.
+    await db.user.create({
+      data: {
+        id: "manager",
+        email: "manager-fixture@example.test",
+        role: "ADMIN",
+      },
+    });
+  });
   it("admits one concurrent consumer of the same confirmation proof", async () => {
     const ticket = await ready("RECALL", "review-target");
     const attempts = await Promise.allSettled([
@@ -1111,13 +1128,6 @@ describe("student request lifecycle", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
   it("starts the same fixed deadline in the generic admin roster editor and preserves it on edits", async () => {
-    await db.user.create({
-      data: {
-        id: "manager",
-        email: "manager-fixture@example.test",
-        role: "ADMIN",
-      },
-    });
     await submitSurvey(db, input());
     const row = await db.studentSurvey.findFirstOrThrow();
     const { materializeStudent } = await import("./student-survey");
@@ -1255,9 +1265,14 @@ describe("student request lifecycle", () => {
       await ready("ABORT", row.id, user.id),
     );
     const review = await db.studentRequestReview.findFirstOrThrow();
-    const manual = await captureRecoveryCheckpoint(db,
-      { adapter: "STUDENT_WORKFLOW", sourceId: row.id }, { id: "manager" });
-    const beforeDecision = await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } });
+    const manual = await captureRecoveryCheckpoint(
+      db,
+      { adapter: "STUDENT_WORKFLOW", sourceId: row.id },
+      { id: "manager" },
+    );
+    const beforeDecision = await db.studentSurvey.findUniqueOrThrow({
+      where: { id: row.id },
+    });
     await resolveStudentReview(
       db,
       "manager",
@@ -1267,16 +1282,30 @@ describe("student request lifecycle", () => {
     );
     // Denial changes the review, not StudentSurvey. Both roots must capture its
     // notices from that exact decision rather than reporting an empty inventory.
-    expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).toEqual(beforeDecision);
-    const automatic = await db.recoveryCheckpoint.findFirstOrThrow({ where: {
-      adapter: "STUDENT_WORKFLOW", sourceId: row.id, id: { not: manual.checkpointId },
-    }, orderBy: { createdAt: "desc" } });
+    expect(
+      await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }),
+    ).toEqual(beforeDecision);
+    const automatic = await db.recoveryCheckpoint.findFirstOrThrow({
+      where: {
+        adapter: "STUDENT_WORKFLOW",
+        sourceId: row.id,
+        id: { not: manual.checkpointId },
+      },
+      orderBy: { createdAt: "desc" },
+    });
     const manualPlan = await inspectRecoveryCheckpoint(db, manual);
-    const automaticPlan = await inspectRecoveryCheckpoint(db, { checkpointId: automatic.id });
+    const automaticPlan = await inspectRecoveryCheckpoint(db, {
+      checkpointId: automatic.id,
+    });
     expect(manualPlan.delivery.coverage).toBe("COMPLETE");
     expect(manualPlan.delivery.effects.length).toBeGreaterThan(0);
-    const physical = (plan: typeof manualPlan) => plan.delivery.effects.map((effect) =>
-      `${effect.notificationId ?? ""}:${effect.deliveryId ?? ""}`).sort();
+    const physical = (plan: typeof manualPlan) =>
+      plan.delivery.effects
+        .map(
+          (effect) =>
+            `${effect.notificationId ?? ""}:${effect.deliveryId ?? ""}`,
+        )
+        .sort();
     expect(physical(manualPlan)).toEqual(physical(automaticPlan));
     expect(await db.pairingTutee.count()).toBe(1);
     expect(await db.studentQuarterBlock.count()).toBe(0);
@@ -1306,7 +1335,7 @@ describe("student request lifecycle", () => {
         db,
         tutorUser.id,
         "wrong-tutor",
-        row.tuteeId,
+        row.tuteeId!,
         pairing.id,
         "No common time",
         await ready("SCHEDULE", target, tutorUser.id),
@@ -1434,10 +1463,30 @@ describe("student request lifecycle", () => {
   it("supports schedule review for existing students without a survey and rejects duplicate or stale approvals", async () => {
     // Legacy means no original intake or execution map ever existed. Deleting a
     // modern intake cannot erase its durable authority tombstone.
-    const tutor = await db.tutor.create({ data: { englishName: "Legacy Tutor", status: "ACTIVE" } });
-    const tutorUser = await db.user.create({ data: { email: "legacy-tutor@example.test", role: "TUTOR", tutorId: tutor.id } });
-    const student = await db.tutee.create({ data: { englishName: "Legacy Student", status: "ACTIVE" } });
-    const pairing = await db.pairing.create({ data: { tutorId: tutor.id, termId: "survey-term", subject: "Mathematics", tutees: { create: { tuteeId: student.id } } } });
+    const tutor = await db.tutor.create({
+      data: { englishName: "Legacy Tutor", status: "ACTIVE" },
+    });
+    const tutorUser = await db.user.create({
+      data: {
+        email: "legacy-tutor@example.test",
+        role: "TUTOR",
+        tutorId: tutor.id,
+      },
+    });
+    const student = await db.tutee.create({
+      data: { englishName: "Legacy Student", status: "ACTIVE" },
+    });
+    const pairing = await db.pairing.create({
+      data: {
+        tutorId: tutor.id,
+        termId: "survey-term",
+        subject: "Mathematics",
+        dayOfWeek: 1,
+        startMin: 900,
+        endMin: 960,
+        tutees: { create: { tuteeId: student.id } },
+      },
+    });
     const row = { tuteeId: student.id, intakeTermId: "survey-term" };
     const target = `${pairing.id}:${row.tuteeId}`;
     const apply = async () =>
@@ -1479,12 +1528,24 @@ describe("student request lifecycle", () => {
   it("does not revive legacy schedule authority when a mapped original intake is deleted", async () => {
     const { row, tutor, tutorUser, pairing } = await assigned(true);
     await db.studentSurvey.delete({ where: { id: row.id } });
-    await expect(applyScheduleRejection(db, tutorUser.id, tutor.id, row.tuteeId!, pairing.id,
-      "No common time", await ready("SCHEDULE", `${pairing.id}:${row.tuteeId}`, tutorUser.id)))
-      .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(
+      applyScheduleRejection(
+        db,
+        tutorUser.id,
+        tutor.id,
+        row.tuteeId!,
+        pairing.id,
+        "No common time",
+        await ready("SCHEDULE", `${pairing.id}:${row.tuteeId}`, tutorUser.id),
+      ),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     expect(await db.studentRequestReview.count()).toBe(0);
     expect(await db.pairingTutee.count()).toBe(1);
-    expect(await db.studentRequestExecutionAssignment.count({ where: { surveyId: row.id } })).toBe(1);
+    expect(
+      await db.studentRequestExecutionAssignment.count({
+        where: { surveyId: row.id },
+      }),
+    ).toBe(1);
   });
   it("requires the latest policy on login without changing priority or assignments", async () => {
     const { row } = await assigned(true);

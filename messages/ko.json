@@ -4927,6 +4927,7 @@
     "emailEventRemindersHelp": "참여할 면접, 회의 및 확정된 튜터링 수업의 24시간 전과 1시간 전에 알립니다. 일정이 미정이거나 취소된 경우에는 알리지 않습니다."
   },
   "programEmail": {
+    "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "이메일 알림",
     "help": "메시지, 프로그램 소식, 검토 요청 및 일정 알림의 선택적 이메일을 활성화합니다. 각 사용자는 계정 설정에서 수신할 범주를 선택합니다.",
     "on": "켜짐",

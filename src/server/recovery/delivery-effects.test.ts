@@ -97,7 +97,10 @@ describe("causal delivery consequence policy", () => {
       await inspectRecoveryDeliveryEffects(db, { actionId: "action" }),
     ).toMatchObject({ coverage: "UNKNOWN", effects: [] });
     state.coverage = [{ eventId: "event", version: 1 }];
-    expect((await inspectRecoveryDeliveryEffects(db, { actionId: "action" })).coverage).toBe("UNKNOWN");
+    expect(
+      (await inspectRecoveryDeliveryEffects(db, { actionId: "action" }))
+        .coverage,
+    ).toBe("UNKNOWN");
     state.coverage = [{ eventId: "event", version: 2 }];
     state.installed = false;
     expect(
@@ -146,7 +149,11 @@ describe("causal delivery consequence policy", () => {
       disposition: "LEASED",
     });
     expect(tx.emailDelivery.updateMany).toHaveBeenCalledWith({
-      where: { id: "delivery", status: { in: ["PENDING", "FAILED"] }, attemptStartedAt: null },
+      where: {
+        id: "delivery",
+        status: { in: ["PENDING", "FAILED"] },
+        attemptStartedAt: null,
+      },
       data: {
         status: "CANCELLED",
         leaseUntil: null,
@@ -270,57 +277,150 @@ describe("causal delivery consequence policy", () => {
     const { db, tx, state, lease } = fixture();
     state.origins = [{ actionId: "root-z" }, { actionId: "root-a" }];
     vi.mocked(lockEntity).mockClear();
-    const admitted = await admitRecoveryGenericDelivery(db, "delivery", lease, null);
+    const admitted = await admitRecoveryGenericDelivery(
+      db,
+      "delivery",
+      lease,
+      null,
+    );
     expect(admitted).toMatchObject({ independent: false });
-    expect(vi.mocked(lockEntity).mock.calls.map((call) => call[1])).toEqual(["recovery:root-a", "recovery:root-z"]);
+    expect(vi.mocked(lockEntity).mock.calls.map((call) => call[1])).toEqual([
+      "recovery:root-a",
+      "recovery:root-z",
+    ]);
     expect(tx.emailDelivery.update).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed before admission when a shared delivery exceeds the root bound", async () => {
     const { db, tx, state, lease } = fixture();
-    state.origins = Array.from({ length: 101 }, (_, index) => ({ actionId: `root-${index}` }));
-    await expect(admitRecoveryGenericDelivery(db, "delivery", lease, null)).rejects.toThrow("RECOVERY_DELIVERY_ROOT_LIMIT");
+    state.origins = Array.from({ length: 101 }, (_, index) => ({
+      actionId: `root-${index}`,
+    }));
+    await expect(
+      admitRecoveryGenericDelivery(db, "delivery", lease, null),
+    ).rejects.toThrow("RECOVERY_DELIVERY_ROOT_LIMIT");
     expect(tx.emailDelivery.update).not.toHaveBeenCalled();
   });
 
-  it.each(["SENDING", "PENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"])("never re-admits previously started %s transport", async (status) => {
-    const { db, tx, mail, lease } = fixture();
-    Object.assign(mail, { status, attemptId: "admitted-attempt", attemptStartedAt: new Date(), attempts: 1 });
-    expect(await admitRecoveryGenericDelivery(db, "delivery", lease, "admitted-attempt")).toBeNull();
-    expect(tx.emailDelivery.update).not.toHaveBeenCalled();
-    expect(mail.attempts).toBe(1);
-  });
+  it.each(["SENDING", "PENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"])(
+    "never re-admits previously started %s transport",
+    async (status) => {
+      const { db, tx, mail, lease } = fixture();
+      Object.assign(mail, {
+        status,
+        attemptId: "admitted-attempt",
+        attemptStartedAt: new Date(),
+        attempts: 1,
+      });
+      expect(
+        await admitRecoveryGenericDelivery(
+          db,
+          "delivery",
+          lease,
+          "admitted-attempt",
+        ),
+      ).toBeNull();
+      expect(tx.emailDelivery.update).not.toHaveBeenCalled();
+      expect(mail.attempts).toBe(1);
+    },
+  );
 
   it("retains failed admitted transport as uncertainty without scheduling another attempt", async () => {
     const { db, tx, mail } = fixture();
-    Object.assign(mail, { status: "SENDING", attemptId: "admitted-attempt", attemptStartedAt: new Date(), attempts: 1 });
-    await finishRecoveryGenericDelivery(db, "delivery", "admitted-attempt", false);
+    Object.assign(mail, {
+      status: "SENDING",
+      attemptId: "admitted-attempt",
+      attemptStartedAt: new Date(),
+      attempts: 1,
+    });
+    await finishRecoveryGenericDelivery(
+      db,
+      "delivery",
+      "admitted-attempt",
+      false,
+    );
     expect(tx.emailDelivery.updateMany).toHaveBeenCalledWith({
-      where: { id: "delivery", status: "SENDING", attemptId: "admitted-attempt" },
-      data: { status: "UNCERTAIN", leaseUntil: null, completedAt: expect.any(Date) as Date,
-        lastError: "Transport was admitted; delivery outcome needs review before any retry." },
+      where: {
+        id: "delivery",
+        status: "SENDING",
+        attemptId: "admitted-attempt",
+      },
+      data: {
+        status: "UNCERTAIN",
+        leaseUntil: null,
+        completedAt: expect.any(Date) as Date,
+        lastError:
+          "Transport was admitted; delivery outcome needs review before any retry.",
+      },
     });
   });
 
-  it.each(["UNCERTAIN", "UNCERTAIN_RECOVERY"])("records only an exact late accepted completion from %s", async (status) => {
-    const { db, tx, mail } = fixture();
-    Object.assign(mail, { status, attemptId: "admitted-attempt", attemptStartedAt: new Date(), attempts: 1 });
-    await finishRecoveryGenericDelivery(db, "delivery", "stale-attempt", true);
-    expect(tx.emailDelivery.updateMany).not.toHaveBeenCalled();
-    await finishRecoveryGenericDelivery(db, "delivery", "admitted-attempt", true);
-    expect(tx.emailDelivery.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "delivery", status, attemptId: "admitted-attempt" },
-      data: expect.objectContaining({ status: "SENT" }),
-    }));
-  });
+  it.each(["UNCERTAIN", "UNCERTAIN_RECOVERY"])(
+    "records only an exact late accepted completion from %s",
+    async (status) => {
+      const { db, tx, mail } = fixture();
+      Object.assign(mail, {
+        status,
+        attemptId: "admitted-attempt",
+        attemptStartedAt: new Date(),
+        attempts: 1,
+      });
+      await finishRecoveryGenericDelivery(
+        db,
+        "delivery",
+        "stale-attempt",
+        true,
+      );
+      expect(tx.emailDelivery.updateMany).not.toHaveBeenCalled();
+      await finishRecoveryGenericDelivery(
+        db,
+        "delivery",
+        "admitted-attempt",
+        true,
+      );
+      expect(tx.emailDelivery.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "delivery", status, attemptId: "admitted-attempt" },
+          data: expect.objectContaining({ status: "SENT" }) as {
+            status: string;
+          },
+        }),
+      );
+    },
+  );
 
   it("preserves a legacy started-PENDING attempt when cancellation records its uncertainty", async () => {
     const { db, tx, effect } = fixture();
     effect.attemptStartedAt = new Date();
-    const inventory = await cancelRecoveryDeliveryEffects(db, { actionId: "action" }, "stop-legacy-started");
+    const inventory = await cancelRecoveryDeliveryEffects(
+      db,
+      { actionId: "action" },
+      "stop-legacy-started",
+    );
     expect(inventory.effects[0]?.disposition).toBe("IN_FLIGHT_OR_UNKNOWN");
     expect(tx.emailDelivery.updateMany).not.toHaveBeenCalled();
   });
+
+  it.each(["CANCELLED", "CANCELLED_RECOVERY"])(
+    "never invents transport acceptance for an unstarted %s row",
+    async (status) => {
+      const { db, tx, mail, state } = fixture();
+      state.cancelled = true;
+      Object.assign(mail, {
+        status,
+        attemptId: "unadmitted-token",
+        attemptStartedAt: null,
+      });
+      await finishRecoveryGenericDelivery(
+        db,
+        "delivery",
+        "unadmitted-token",
+        true,
+      );
+      expect(tx.emailDelivery.updateMany).not.toHaveBeenCalled();
+      expect(mail.status).toBe(status);
+    },
+  );
 
   it("restores exact source context after a failing notification callback", async () => {
     const { db, tx } = fixture();

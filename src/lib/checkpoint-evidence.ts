@@ -6,6 +6,12 @@ const chinese: Readonly<Record<string, string>> = {
     "恢复参与前，请先通过所属流程处理此参与记录原始账号的停用或离校限制。",
   "A current participant account restriction prevents restoration.":
     "参与者账号的当前限制阻止恢复参与。",
+  "Transferred participation must be restored through its current execution source.":
+    "参与记录已转移，请通过当前生效的参与流程恢复。",
+  "Consolidated disciplinary consequences require their owning participation workflow before restoration.":
+    "恢复前，必须通过所属参与流程处理合并参与记录的纪律影响。",
+  "Consolidated disciplinary consequences require their owning participation workflow before checkpoint restoration.":
+    "通过检查点恢复前，必须先通过所属参与流程处理合并参与记录的纪律影响。",
   "The discipline module must be enabled before reviewing a card.":
     "必须先启用纪律模块，才能审核纪律卡。",
   "Recovery delivery event scope is incomplete.": "恢复通知的事件范围不完整。",

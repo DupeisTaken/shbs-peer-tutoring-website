@@ -10,6 +10,10 @@ import { lockCatalogue } from "~/server/qualifications";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
 import { lockSessionPlanning } from "~/server/session-planning";
 import { standingFromCounts } from "~/lib/discipline";
+import {
+  executionParticipantId,
+  executionSourceIds,
+} from "~/server/participant-execution";
 
 export const correctionMembership = z.object({
   pairingId: z.string(),
@@ -33,6 +37,11 @@ export async function correctionParticipantState(
   tx: TransactionDb,
   id: string,
 ) {
+  const targetId = await executionParticipantId(tx, "TUTEE", id);
+  const execution = {
+    targetId,
+    sourceIds: (await executionSourceIds(tx, "TUTEE", targetId)).sort(),
+  };
   const identity = await participantIdentity(tx, "TUTEE", id);
   const record = await tx.tutee.findUniqueOrThrow({
     where: { id },
@@ -47,7 +56,7 @@ export async function correctionParticipantState(
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
   const cards = await tx.disciplinaryCard.findMany({
-    where: { tuteeId: id },
+    where: { tuteeId: { in: execution.sourceIds } },
     orderBy: { id: "asc" },
   });
   const latest = removals
@@ -99,6 +108,7 @@ export async function correctionParticipantState(
         }
       : null;
   return {
+    execution,
     identity,
     record,
     links,
@@ -115,6 +125,7 @@ export async function correctionParticipantState(
       groupPairingIds: groupPairings.map((row) => row.id),
     },
     fingerprint: recoveryJson({
+      execution,
       identity,
       record,
       links,
@@ -133,6 +144,16 @@ export function correctionParticipantBlockers(
   restoreMemberships = true,
 ) {
   const blockers: string[] = [];
+  // Card/attendance snapshots and their locks describe the original learner,
+  // while the ordinary writer can mutate a different canonical learner. Never
+  // replay only part of a consolidated consequence without a typed full scope.
+  if (
+    current.execution.targetId !== saved.id ||
+    current.execution.sourceIds.length > 1
+  )
+    blockers.push(
+      "Consolidated disciplinary consequences require their owning participation workflow before checkpoint restoration.",
+    );
   if (
     saved.id !== current.record.id ||
     saved.bindingHash !== recoveryHash(current.identity.binding)

@@ -248,11 +248,19 @@ Signing-key rotation uses `RECOVERY_PREVIOUS_AUTH_SECRET` and
 Acceptance, cutover and rollback are restricted to synthetic loopback
 `shbs_*_test` environments. `RECOVERY_APPLICATION_URL` identifies a separately
 provisioned read-only application role; `RECOVERY_FRESH_TEST_PASSWORD` is a fresh
-synthetic credential. The owned HTTP acceptance harness exercises password login,
-encrypted sessions and stale-key/generation rejection without starting Next or
-outbound workers. Cutover atomically changes an exact reviewed deployment pointer
-and permits only that verified read-only target. It is not a production deployment
-switch or a writable application startup.
+synthetic credential. Acceptance and rollback also require a trusted matching
+Next standalone build at `.next/standalone`, with `.recovery-checkout.json` binding
+its checkout SHA. Set `RECOVERY_REHEARSAL_CHECKOUT_SHA` to that exact revision
+(the hosted workflow uses `GITHUB_SHA`). The genuine Next/Auth.js probe runs only
+on an owned disposable writable clone with a loopback SMTP sink. It proves a
+fresh login before independently rejecting old keys and session generations;
+the receipt distinguishes observed notification-worker delivery from unchanged
+restored queues. Synthetic capability fixtures additionally prove valid access
+before restoration and rejection afterward.
+
+Cutover atomically changes an exact reviewed deployment pointer and permits only
+that verified read-only target (`READ_ONLY_NO_OUTBOUND`). Clone acceptance does
+not activate a writable production application.
 The password-only synthetic harness refuses accounts requiring two-factor
 authentication. An optional `RECOVERY_CHECKPOINT_AUTH_SECRET` supplies the distinct
 old backup signing key for the rejection proof; it is never saved in receipts.
