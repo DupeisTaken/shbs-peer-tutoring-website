@@ -456,7 +456,9 @@ discarded warmup: 20 rounds for cold/Sunday and 40 for other workflow scenarios.
 The hosted workflow divides this complete population into contiguous four-round
 partitions, each with its own discarded process warmup. One fixed anchor and
 immutable Node image cover the run. Each baseline/candidate pair stays serial on
-one runner; three independent jobs may run concurrently. Native-schema cold
+one runner; up to six independent hosted jobs may run concurrently. This changes
+queueing capacity, not sample populations, per-runner limits or paired measurement
+order; available repository capacity may still queue jobs. Native-schema cold
 controls use the same four-round ranges and aggregate separately to 20 samples.
 Pure helper tests gate matrix preparation in the same two-CPU, 4 GB Node
 container before measurement runners start. The existing three-round negotiation
