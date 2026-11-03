@@ -108,7 +108,8 @@ test("inline comparison builds receive masked runtime cache authentication", () 
 });
 
 test("parallel jobs retain checks, isolated databases, bounded workers and failure reports", () => {
-  for (const job of [checks, tests, image]) assert.equal(job.needs, undefined);
+  for (const job of [checks, image]) assert.equal(job.needs, undefined);
+  assert.deepEqual(tests.needs, ["checks", "image-storage"]);
   for (const job of Object.values(workflow.jobs)) {
     assert.ok(job["timeout-minutes"] > 0 && job["timeout-minutes"] <= 9);
     for (const step of job.steps) assert.ok(step.name);
@@ -133,7 +134,7 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   // actual installed Vitest sequencer for every matrix entry, without fixtures.
   assert.deepEqual(
     tests.strategy.matrix.shard,
-    Array.from({ length: 30 }, (_, index) => index + 1),
+    Array.from({ length: 9 }, (_, index) => index + 1),
   );
   assert.equal(
     tests.name,
@@ -171,11 +172,46 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   assert.equal(report.with.path, ".validation/test-results.json");
 });
 
+test("four overlapping workflows leave four of twenty runner slots available", () => {
+  const jobs = Object.entries(workflow.jobs);
+  const ancestors = (id) => {
+    const needs = workflow.jobs[id].needs ?? [];
+    return new Set(
+      [needs].flat().flatMap((parent) => [parent, ...ancestors(parent)]),
+    );
+  };
+  const dependencies = new Map(jobs.map(([id]) => [id, ancestors(id)]));
+  let peak = 0;
+  // Any concurrently running jobs form an antichain in the dependency graph.
+  // Count matrix slots, not just job definitions; include verify and publish.
+  for (let mask = 1; mask < 2 ** jobs.length; mask++) {
+    const simultaneous = jobs.filter((_, index) => mask & (1 << index));
+    if (
+      simultaneous.some(([id]) =>
+        simultaneous.some(([other]) => dependencies.get(id).has(other)),
+      )
+    )
+      continue;
+    const slots = simultaneous.reduce((total, [, job]) => {
+      const matrix = job.strategy?.matrix;
+      if (!matrix) return total + 1;
+      assert.deepEqual(Object.keys(matrix), ["shard"]);
+      return (
+        total +
+        Math.min(matrix.shard.length, job.strategy["max-parallel"] ?? Infinity)
+      );
+    }, 0);
+    peak = Math.max(peak, slots);
+  }
+  assert.equal(peak, 4);
+  assert.ok(4 * peak + 4 <= 20, "four PR runs must leave four shared slots");
+});
+
 test("the test budget covers setup and execution without retries or dropped coverage", () => {
   // A step-only timeout would exclude the install/migration costs from the budget.
   assert.equal(tests["timeout-minutes"], 9);
   assert.equal(tests["continue-on-error"], undefined);
-  assert.equal(tests.strategy["max-parallel"], undefined);
+  assert.equal(tests.strategy["max-parallel"], 3);
   const runIndex = tests.steps.findIndex(
     (step) => step.name === "Run test shard",
   );
@@ -199,6 +235,10 @@ test("Vitest shards cover every discovered test file exactly once without runnin
   // filesOnly listing does not apply sharding in Vitest 4. Use its resolved
   // sequencer with discovered specifications; never collect/import DB fixtures.
   const { createVitest } = await import("vitest/node");
+  const timing = JSON.parse(
+    readFileSync(path.join(root, "scripts/ci-shard-timings.json"), "utf8"),
+  );
+  const targetMs = tests["timeout-minutes"] * 60_000 * 0.95;
   const shards = [];
   let all;
   for (const index of tests.strategy.matrix.shard) {
@@ -216,7 +256,23 @@ test("Vitest shards cover every discovered test file exactly once without runnin
       if (all) assert.deepEqual(discovered, all);
       else all = discovered;
       const sequencer = new ctx.config.sequence.sequencer(ctx);
-      shards.push((await sequencer.shard(specs)).map((spec) => spec.moduleId));
+      const files = (await sequencer.shard(specs)).map((spec) => spec.moduleId);
+      // Enforce the whole-job budget on actual discovery so a growing suite or
+      // an accidental return to hash partitions is visible before fixtures run.
+      const projectedMs = files.reduce((total, file) => {
+        const key = path.relative(root, file).split(path.sep).join("/");
+        const duration = timing.durationsMs[key] ?? timing.fallbackMs;
+        return (
+          total +
+          Math.ceil(duration * timing.executionMultiplier) +
+          timing.perFileOverheadMs
+        );
+      }, timing.fixedJobOverheadMs);
+      assert.ok(
+        projectedMs <= targetMs,
+        `shard ${index} projects ${projectedMs} ms against ${targetMs} ms`,
+      );
+      shards.push(files);
     } finally {
       await ctx.close();
     }
@@ -230,6 +286,39 @@ test("Vitest shards cover every discovered test file exactly once without runnin
     "no file may appear in multiple shards",
   );
   assert.deepEqual(combined.sort(), all, "no file may be dropped");
+});
+
+test("unmeasured specs are distributed reproducibly when discovery order changes", async () => {
+  const { createVitest } = await import("vitest/node");
+  const ctx = await createVitest("test", { root, watch: false });
+  try {
+    const specs = Array.from({ length: 12 }, (_, index) =>
+      ctx.projects[0].createSpecification(
+        path.join(root, "ci-fixture", `new-${index}.test.ts`),
+      ),
+    );
+    const assigned = [];
+    for (let index = 1; index <= 3; index++) {
+      ctx.config.shard = { index, count: 3 };
+      const sequencer = new ctx.config.sequence.sequencer(ctx);
+      const ids = async (input) =>
+        (await sequencer.shard(input)).map((spec) => spec.moduleId).sort();
+      const files = await ids(specs);
+      assert.equal(
+        files.length,
+        4,
+        "equal fallback weights should fill all three shards",
+      );
+      assert.deepEqual(await ids([...specs].reverse()), files);
+      assigned.push(...files);
+    }
+    assert.deepEqual(
+      assigned.sort(),
+      specs.map((spec) => spec.moduleId).sort(),
+    );
+  } finally {
+    await ctx.close();
+  }
 });
 
 test("the required image build reads cache without optional export or ignored verification failures", () => {
