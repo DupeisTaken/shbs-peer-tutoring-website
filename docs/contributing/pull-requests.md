@@ -5,6 +5,11 @@ with the concrete problem and resulting behavior; list the checks, source revisi
 and any unverified scope. Close delivered issues through the PR, while leaving
 broader trackers open until their full scope is complete.
 
+For delegated work, the lead integrates the changes, verifies them locally and
+batches them into one push. Check queued and active runs before opening a PR,
+pushing or requesting a rerun. Coordinate up to four active PR runs under the
+[shared capacity budget](verification.md#ci-capacity-and-queue-discipline).
+
 ## Pull request size labels
 
 The [PR Size workflow](../../.github/workflows/pr-size.yml) automatically maintains one

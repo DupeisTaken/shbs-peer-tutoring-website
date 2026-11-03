@@ -1,3 +1,4 @@
+import { createClockAdmission } from "./clock-admission.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -6,7 +7,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { aggregatePartitions as aggregateWithReferences, expectedOperationPopulation, loadControlledReferencePaths, loadPartitionInputs, profileMatrix } from "./aggregate-partitions.mjs";
+import { aggregatePartitions as aggregateWithReferences, expectedOperationPopulation, loadControlledReferencePaths, loadPartitionInputs, profileMatrix, validateDiagnosticFile } from "./aggregate-partitions.mjs";
 import { CONTENTION_ORDERS, CONTENTION_SCENARIOS, buildContentionReferences } from "./contention-references.mjs";
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -14,7 +15,7 @@ const baseline = "a".repeat(40), candidate = "b".repeat(40);
 const options = { baseline, candidate };
 const catalogBaseline = "c".repeat(40);
 const mixedOptions = { ...options, catalogBaseline };
-const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
+const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/clock-admission.mjs", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
 type Sample = { label: string; elapsedMs: number; succeeded: boolean; status: string; censored: boolean; elapsedIsLowerBound: boolean; error?: string };
 
 function fixture(native = false) {
@@ -60,8 +61,8 @@ function fixture(native = false) {
         partition: { index: matrix.partition, count: matrix.partitionCount, start: matrix.partition * 4, end: matrix.partition * 4 + 4, totalSamples: matrix.samples, warmupRounds: 1 },
         samplingComplete: false, partitionComplete: true, latencyComparisonEligible: false,
         beforeAfterSemanticEquality: head ? true : null,
-        startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:10.000Z", elapsedMs: 10_000, timeoutMs: original ? 90_000 : 150_000,
-        fixture: { anchor: "2026-11-02T23:00:00.000Z", scenarios: [matrix.scenario], samples: matrix.samples, transport: "http", currentPairings: 100 },
+        databaseClock: { startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:03.000Z" }, startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:10.000Z", elapsedMs: 10_000, timeoutMs: original ? 90_000 : 150_000,
+        fixture: { anchor: "2026-11-02T23:00:00.000Z", clockAdmission: createClockAdmission("2026-11-02T23:00:00.000Z", "2026-11-02T23:00:00.000Z"), scenarios: [matrix.scenario], samples: matrix.samples, transport: "http", currentPairings: 100 },
         profileRunner: { id: `${matrix.scenario}-${matrix.partition}`, name: `runner-${matrix.partition}`, os: "Linux", arch: "X64" },
         runtime: { node: "v22.20.0", platform: "linux", arch: "x64", cpu: matrix.partition % 2 ? "Hosted CPU A" : "Hosted CPU B", logicalCpus: 4 },
         postgresVersion: [{ server_version: "16.6" }], database: { host: "127.0.0.1", port: 55439, name: "shbs_performance_test", poolMax: 6 },
@@ -567,7 +568,16 @@ const invalid: { name: string; change: (rows: Entries) => void; pattern: RegExp 
   { name: "unexpected operation failure", change: (rows) => { const sample = rows[0]!.baseline.metrics.samples[0]!; sample.succeeded = false; sample.status = "failed"; sample.error = "OPERATION_FAILED"; }, pattern: /operation-error contract/ },
   { name: "forged operation summary", change: (rows) => { rows[0]!.baseline.metrics.operations["http:cold-tutor-agenda"]!.samples = 99; }, pattern: /summary agrees/ },
   { name: "paired runtime mismatch", change: (rows) => { rows[0]!.candidate.runtime.cpu = "different paired host"; }, pattern: /paired runtime/ },
-  { name: "missing shared anchor", change: (rows) => { rows[1]!.baseline.fixture.anchor = rows[1]!.candidate.fixture.anchor = "2026-11-02T22:00:00Z"; }, pattern: /cross-partition/ },
+  { name: "different valid campaign anchor", change: (rows) => {
+    const anchor = "2026-11-02T22:00:00.000Z";
+    for (const arm of [rows[1]!.baseline, rows[1]!.candidate]) {
+      arm.fixture.anchor = anchor;
+      arm.fixture.clockAdmission = createClockAdmission(anchor, anchor);
+    }
+  }, pattern: /cross-partition/ },
+  { name: "PostgreSQL crossing the lesson window", change: (rows) => {
+    rows[0]!.baseline.databaseClock.finishedAt = "2026-11-03T07:00:00.000Z";
+  }, pattern: /campaign deadline/ },
   { name: "changed shared harness", change: (rows) => { rows[1]!.baseline.harnessHashes[harnessPaths[0]!] = rows[1]!.candidate.harnessHashes[harnessPaths[0]!] = sha("other harness"); }, pattern: /cross-partition/ },
   { name: "changed schema bytes", change: (rows) => { rows[0]!.baseline.sourceHashes["prisma/schema.prisma"] = sha("wrong schema"); }, pattern: /source schema/ },
   { name: "missing migration", change: (rows) => { rows[0]!.baseline.migrationFiles.pop(); rows[0]!.baseline.migrations.pop(); }, pattern: /migration file inventory/ },
@@ -678,11 +688,20 @@ void test("filesystem discovery retains raw references, excludes diagnostics, an
     for (const [name, value] of Object.entries({ "base-latency.json": entry.baseline, "head-latency.json": entry.candidate, "comparison-inputs.json": entry.comparison })) writeFileSync(join(path, name), JSON.stringify(value));
     writeFileSync(join(path, "node-image.txt"), entry.nodeImage);
     const diagnostic = join(root, "diagnostic"); mkdirSync(diagnostic);
-    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "PASS", mode: "diagnostic", metrics: { samples: [{ elapsedMs: 999999 }] } }));
+    const diagnosticClock = { databaseClock: entry.baseline.databaseClock, fixture: entry.baseline.fixture, startedAt: entry.baseline.startedAt, finishedAt: entry.baseline.finishedAt };
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ ...diagnosticClock, status: "PASS", mode: "diagnostic", metrics: { samples: [{ elapsedMs: 999999 }] } }));
     const loaded = loadPartitionInputs(root);
     assert.equal(loaded.length, 1);
     assert.equal(loaded[0]!.reference, "cold-partition-0");
     assert.ok(loaded[0]!.files);
+    // A locally valid diagnostic from another campaign must not ride along
+    // with the accepted latency population.
+    const otherAnchor = "2026-11-02T22:00:00.000Z";
+    const otherClock = { ...diagnosticClock, fixture: { ...entry.baseline.fixture, anchor: otherAnchor,
+      clockAdmission: createClockAdmission(otherAnchor, otherAnchor) } };
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ ...otherClock, status: "PASS", mode: "diagnostic" }));
+    assert.throws(() => loadPartitionInputs(root), /shared diagnostic and latency anchor/);
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ ...diagnosticClock, status: "PASS", mode: "diagnostic" }));
     writeFileSync(join(path, "head-budget.json"), JSON.stringify({ status: "TIMEOUT" }));
     assert.throws(() => loadPartitionInputs(root), /Failure\/timeout receipt/);
     rmSync(join(path, "head-budget.json"));
@@ -692,9 +711,75 @@ void test("filesystem discovery retains raw references, excludes diagnostics, an
     rmSync(failedParity);
     writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "PASS", mode: "diagnostic", parityFailure: { path: "missing-sidecar.json" } }));
     assert.throws(() => loadPartitionInputs(root), /Diagnostic retains failed parity evidence/);
-    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "PASS", mode: "diagnostic" }));
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ ...diagnosticClock, status: "PASS", mode: "diagnostic" }));
     rmSync(join(path, "head-latency.json"));
     assert.throws(() => loadPartitionInputs(root), /Missing head-latency/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+void test("isolated diagnostic reader fully decodes tiny data with the same proof and bounded output", () => {
+  const root = mkdtempSync(join(tmpdir(), "scheduling-isolated-diagnostic-"));
+  const path = join(root, "data with spaces.json");
+  const anchor = "2026-11-02T23:00:00.000Z";
+  const diagnostic = {
+    status: "PASS", mode: "diagnostic",
+    fixture: { anchor, clockAdmission: createClockAdmission(anchor, anchor) },
+    startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:10.000Z",
+    databaseClock: { startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:03.000Z" },
+    graph: { preserved: ["synthetic", { deeply: [1, 2, 3] }] },
+  };
+  try {
+    writeFileSync(path, JSON.stringify(diagnostic));
+    assert.equal(validateDiagnosticFile(path), anchor);
+    // This invokes the actual trusted Node child without constructing 32 MB.
+    assert.equal(validateDiagnosticFile(path, { forceIsolated: true }), anchor);
+    const script = fileURLToPath(new URL("./aggregate-partitions.mjs", import.meta.url));
+    const child = spawnSync(process.execPath, [script, "--validate-diagnostic", path], {
+      encoding: "utf8", timeout: 10_000, maxBuffer: 4096,
+    });
+    assert.equal(child.status, 0, child.stderr);
+    const result: unknown = JSON.parse(child.stdout);
+    assert.deepEqual(result, { anchor });
+    assert.ok(Buffer.byteLength(child.stdout) < 128);
+    for (const [change, pattern] of [
+      [{ status: "FAIL" }, /retained diagnostic report status/],
+      [{ mode: "latency" }, /separate diagnostic evidence mode/],
+      [{ parityFailure: { actualParity: { sensitive: "unprinted" } } }, /Diagnostic retains failed parity evidence/],
+      [{ databaseClock: { ...diagnostic.databaseClock, finishedAt: "2026-11-03T07:00:00.000Z" } }, /campaign deadline/],
+      [{ databaseClock: null }, /missing PostgreSQL/],
+      [{ fixture: { ...diagnostic.fixture, clockAdmission: { ...diagnostic.fixture.clockAdmission, window: "tampered" } } }, /certificate differs/],
+    ] as const) {
+      writeFileSync(path, JSON.stringify({ ...diagnostic, ...change }));
+      assert.throws(() => validateDiagnosticFile(path), pattern);
+      assert.throws(() => validateDiagnosticFile(path, { forceIsolated: true }), pattern);
+    }
+    // A valid prefix followed by garbage must fail full JSON decoding, not pass
+    // a status/anchor regex or leak raw input through JSON.parse's diagnostics.
+    writeFileSync(path, JSON.stringify(diagnostic) + " PRIVATE_SENTINEL".repeat(1000));
+    assert.throws(() => validateDiagnosticFile(path), /Invalid diagnostic JSON/);
+    assert.throws(() => validateDiagnosticFile(path, { forceIsolated: true }), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Invalid diagnostic JSON/);
+      assert.ok(error.message.length < 1024);
+      assert.doesNotMatch(error.message, /PRIVATE_SENTINEL/);
+      return true;
+    });
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+void test("diagnostic proofs and retained failure sidecars precede all latency JSON parsing", () => {
+  const root = mkdtempSync(join(tmpdir(), "scheduling-diagnostic-first-"));
+  try {
+    const latency = join(root, "a-latency"); mkdirSync(latency);
+    for (const name of ["base-latency.json", "head-latency.json", "comparison-inputs.json"])
+      writeFileSync(join(latency, name), "not JSON; should not be read yet");
+    writeFileSync(join(latency, "node-image.txt"), "synthetic");
+    const diagnostic = join(root, "z-diagnostic"); mkdirSync(diagnostic);
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), JSON.stringify({ status: "FAIL", mode: "diagnostic" }));
+    assert.throws(() => loadPartitionInputs(root), /retained diagnostic report status/);
+    writeFileSync(join(diagnostic, "base-diagnostic.json"), "malformed diagnostic");
+    writeFileSync(join(latency, "head-budget.json"), "not JSON either");
+    assert.throws(() => loadPartitionInputs(root), /Failure\/timeout receipt retained/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

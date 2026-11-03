@@ -18,6 +18,7 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import type { Session } from "next-auth";
 import type { PoolClient } from "pg";
+import { validateClockAdmissionBudget, validateClockAdmission, validateReportClocks } from "./scheduling-profile/clock-admission.mjs";
 import { createProfiler, type ProfileMode } from "./scheduling-profile/metrics";
 import { addLateRootWitness, assertRecoveryWitnesses, fixtureId, resetFixture, seedFixture } from "./scheduling-profile/fixtures";
 import { runScenario, scenarioNames, type ReceiptInput, type ScenarioName } from "./scheduling-profile/scenarios";
@@ -66,10 +67,11 @@ const scenarios = requested === "all"
 assert.equal(flags.has("--contention-references"), scenarios.includes("contention"),
   "Free-running contention requires the two frozen reference artifact pairs.");
 if (requested === "backlog") assert.equal(mode, "diagnostic", "Backlog is diagnostic-only; it cannot establish latency percentiles.");
-const anchor = new Date(flags.get("--anchor")!);
-assert.ok(Number.isFinite(anchor.getTime()), "Invalid anchor.");
-// No fake clock: the shared anchor must remain close to actual handlers' clock.
-assert.ok(anchor.getTime() <= Date.now() && Date.now() - anchor.getTime() < 12 * 3_600_000, "Use the same fresh past anchor for both revisions (within 12 hours).");
+const anchorInput = flags.get("--anchor")!;
+const commandClock = new Date();
+const anchor = new Date(anchorInput);
+// Reserve the full command budget before opening a database or timing a request.
+const clockAdmission = validateClockAdmissionBudget({ anchor: anchorInput, startedAt: commandClock, timeoutMs });
 const samples = flags.has("--samples") ? Number(flags.get("--samples")) : requested === "backlog" ? 1 : requested === "cold" || requested === "sunday" ? 20 : 40;
 assert.ok(Number.isInteger(samples) && (requested === "backlog" ? samples >= 1 && samples <= 3 : mode === "diagnostic" ? samples >= 1 && samples <= 10 : samples >= 20 && samples <= 100), "Latency uses 20–100 samples, ordinary diagnostics 1–10, and explicit backlog diagnostics 1–3.");
 type Partition = { index: number; count: number; start: number; end: number; totalSamples: number; warmupRounds: 1 };
@@ -101,7 +103,7 @@ for (const name of Object.keys(process.env)) if (/^(?:SMTP_|EMAIL_FROM(?:_|$)|EM
 
 const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
 const hash = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
-const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-fence-witness.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs"];
+const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/clock-admission.mjs", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-fence-witness.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs"];
 const harnessHashes = Object.fromEntries(harnessPaths.map((path) => [path, hash(readFileSync(resolve(root, path)))]));
 const sourcePaths = git("ls-files", "src", "prisma", "package.json", "package-lock.json", "Dockerfile").trim().split(/\r?\n/).filter(Boolean);
 const sourceHashes = Object.fromEntries(sourcePaths.map((path) => [path, hash(readFileSync(resolve(root, path)))]));
@@ -136,7 +138,7 @@ const report: Report = {
   revision: git("rev-parse", "HEAD").trim(), workingTree: git("status", "--short"), trackedDiffSha256: hash(git("diff", "--binary", "HEAD")),
   harnessHashes, sourceHashes, migrationFiles: migrations,
   runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model, logicalCpus: os.cpus().length },
-  fixture: { anchor: anchor.toISOString(), scenarios, transport, samples, currentPairings: 100, rooms: 100, explicitSubjectGroups: 1, calendarOverrides: 2, continuationAssignments: 2, continuationReceipts: 2, ordinaryRecoveryRoots: 5, lateRootWitness: true, ...(requested === "backlog" ? { backlogRequests: 205, failingNotices: 60, hotSourceUpdates: 1200, warmupRounds: 0 } : {}) },
+  fixture: { anchor: anchor.toISOString(), clockAdmission, scenarios, transport, samples, currentPairings: 100, rooms: 100, explicitSubjectGroups: 1, calendarOverrides: 2, continuationAssignments: 2, continuationReceipts: 2, ordinaryRecoveryRoots: 5, lateRootWitness: true, ...(requested === "backlog" ? { backlogRequests: 205, failingNotices: 60, hotSourceUpdates: 1200, warmupRounds: 0 } : {}) },
   database: { host: target.hostname, port: 55439, name: "shbs_performance_test", poolMax: 6 },
   methodology: {
     captureSchema: captureSchema === "shared"
@@ -205,6 +207,16 @@ function save() {
   } : metrics;
   report.elapsedMs = performance.now() - started;
   report.finishedAt = new Date().toISOString();
+  if (report.status === "PASS") {
+    try {
+      validateReportClocks(report);
+    } catch (error) {
+      report.status = "FAIL";
+      report.failure = "Command left the admitted clock interval; partial observations are ineligible.";
+      report.error = sanitizedFailure(error);
+      process.exitCode = 1;
+    }
+  }
   report.steadyWarmEvidenceEligible = report.status === "PASS" && preparationEvidence.some((row) => row.stage.endsWith(":certified"));
   report.samplingComplete = report.status === "PASS" && partition === null;
   report.partitionComplete = report.status === "PASS" && partition !== null;
@@ -274,6 +286,10 @@ const client = (scenarios.some((scenario) => scenario === "contention" || isCont
 // Pool.connect has callback and promise overloads; ReturnType selects the final
 // callback overload (void), so name its actual promised client type explicitly.
 let runLock: PoolClient | undefined;
+async function postgresClock(connection: PoolClient) {
+  const { rows } = await connection.query<{ now: Date }>("SELECT clock_timestamp() AS now");
+  return rows[0]!.now.toISOString();
+}
 let previous: Report | undefined;
 let contentionReferences: ReturnType<typeof loadContentionReferences> | undefined;
 let pairedHistoriesIdentical = true;
@@ -283,6 +299,9 @@ try {
   runLock = await pool.connect();
   const admission = await runLock.query<{ acquired: boolean }>("SELECT pg_try_advisory_lock(hashtextextended('shbs-scheduling-performance-benchmark',0)) AS acquired");
   assert.equal(admission.rows[0]?.acquired, true, "Another benchmark owns this database.");
+  const databaseStartedAt = await postgresClock(runLock);
+  validateClockAdmission({ anchor: anchorInput, startedAt: databaseStartedAt, finishedAt: databaseStartedAt }, clockAdmission);
+  report.databaseClock = { startedAt: databaseStartedAt };
   report.postgresVersion = (await runLock.query<{ server_version: string }>("SHOW server_version")).rows;
   const applied = await client.$queryRaw<{ migration_name: string; checksum: string; finished_at: Date | null; rolled_back_at: Date | null }[]>`
     SELECT migration_name, checksum, finished_at, rolled_back_at FROM "_prisma_migrations" ORDER BY migration_name
@@ -324,6 +343,7 @@ try {
     // their instrumented elapsed times never establish a latency improvement.
     previous = JSON.parse(readFileSync(resolve(root, flags.get("--compare")!), "utf8")) as Report;
     assert.equal(previous.status, "PASS");
+    validateReportClocks(previous);
     for (const key of ["schemaVersion", "partitionProtocolVersion", "partition", "profileRunner", "mode", "captureSchema", "fixture", "harnessHashes", "runtime", "migrations", "postgresVersion"] as const) assert.deepEqual(report[key], previous[key], `Incomparable ${key}`);
     assertOwnReceiptRange(previous.receipts);
   }
@@ -487,6 +507,7 @@ try {
     WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name
   `;
   assert.deepEqual(finalMigrations.map((row) => ({ name: row.migration_name, checksum: row.checksum })), report.migrations, "Applied migrations changed during profiling.");
+  report.databaseClock = { startedAt: databaseStartedAt, finishedAt: await postgresClock(runLock) };
   report.beforeAfterSemanticEquality = previous ? pairedHistoriesIdentical : null;
   if (scenarios.includes("contention")) report.contentionOutcomeParity = true;
   report.latencyComparisonEligible = !!previous && mode === "latency" && partition === null && !scenarios.includes("contention");

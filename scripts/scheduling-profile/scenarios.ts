@@ -5,6 +5,7 @@ import type { createCaller } from "../../src/server/api/root";
 import { addDays, fixtureId, fixtureKey, inspectPublicationAcknowledgements, installBacklogWitness, readMaintenanceReadiness, readPendingPublicationEventIds, seedRequestBacklog, type Fixture } from "./fixtures";
 import type { ParityOptions } from "./parity";
 import { runControlledContention, type ControlEvidence, type ControlledOrder } from "./controlled-contention";
+import { plannedWindow, RESPONSE_WINDOW_MS, type PlanningTime } from "../../src/lib/session-planning";
 
 export const scenarioNames = ["cold", "warm", "sunday", "negotiation", "allocation", "catalog", "contention", "backlog", "contention-bulk-first", "contention-acceptance-first"] as const;
 export type ScenarioName = (typeof scenarioNames)[number];
@@ -22,6 +23,17 @@ export type ScenarioContext = {
   recordPreparationEvidence: (stage: string, evidence: unknown) => void;
   controlledConnection?: { connectionString: string; applicationName: string };
 };
+
+/** The silence-deadline case needs a complete response window, including when
+ * the earliest Monday lesson is today or less than 24 hours away on Sunday. */
+export function proposalSourceAfter(label: string, anchor: Date, target: PlanningTime, wallNow = new Date()) {
+  if (label !== "propose-deadline") return wallNow;
+  const after = new Date(anchor.getTime() + RESPONSE_WINDOW_MS);
+  assert.ok(Number.isFinite(after.getTime()), "Deadline fixture needs a valid shared anchor.");
+  assert.ok(plannedWindow(target, "Asia/Shanghai").startsAt > after,
+    "Deadline fixture target must leave a complete response window.");
+  return after;
+}
 
 export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
   const { db, fixture: f, caller, measure } = ctx;
@@ -57,8 +69,8 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
     ctx.receiptInputs.push({ actorId, clientKey: input.clientKey, input: [tag, parsed] });
     return input;
   };
-  const cohort = (index: number) => db.sessionPlanCohort.findFirstOrThrow({
-    where: { status: "SCHEDULED", startsAt: { gt: new Date() }, plan: { tutorId: f.pairs[index]!.tutorId }, rescheduled: false },
+  const cohort = (index: number, after: Date) => db.sessionPlanCohort.findFirstOrThrow({
+    where: { status: "SCHEDULED", startsAt: { gt: after }, plan: { tutorId: f.pairs[index]!.tutorId }, rescheduled: false },
     orderBy: [{ startsAt: "asc" }, { id: "asc" }],
   });
   const current = async (requestId: string) => {
@@ -68,11 +80,12 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
     return { request, offer };
   };
   const propose = async (index: number, scope: "ONE" | "ALL", label: string, kind: "RESCHEDULE" | "EXTRA" = "RESCHEDULE", roomId?: string) => {
-    const source = await cohort(index);
+    const target = { date: addDays(f.monday, 1), startMin: 1080, online: !roomId, ...(roomId ? { roomId } : {}) };
+    const source = await cohort(index, proposalSourceAfter(label, f.anchor, target));
     const input = {
       cohortId: source.id, expectedVersion: source.version, clientKey: fixtureKey(label),
       scope, kind, ...(scope === "ONE" ? { tuteeId: f.pairs[index]!.tuteeIds[0]! } : {}),
-      date: addDays(f.monday, 1), startMin: 1080, online: !roomId, ...(roomId ? { roomId } : {}),
+      ...target,
     };
     remember(f.pairs[index]!.tutorUserId, "propose", input);
     const result = await measure(`procedure:${label}`, () => tutor(index).sessionPlanning.propose(input));
@@ -324,6 +337,8 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       await db.$transaction((tx) => planning.markSessionResponseDelivered(tx, pending.id, f.anchor));
       const saved = await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: pending.id } });
       assert.ok(saved.deadline, "Fixture needs at least a 24-hour response window.");
+      assert.equal(saved.deadline.getTime(), f.anchor.getTime() + RESPONSE_WINDOW_MS,
+        "Deadline fixture must retain the complete response window.");
       results.push(await measure("domain:deadline-before", () => planning.sweepSessionPlanning(db, new Date(saved.deadline!.getTime() - 1))));
       assert.equal((await current(due.id)).request.status, "PENDING");
       results.push(await measure("domain:deadline-at", () => planning.sweepSessionPlanning(db, saved.deadline!)));
