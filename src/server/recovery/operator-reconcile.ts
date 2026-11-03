@@ -1117,10 +1117,12 @@ export async function reconcileSecuritySnapshot(
     );
   }
   const sourceUsers = byId(current.accounts);
+  // Viewer requires a null Crew lifecycle. Retain nonnull Crew evidence as an
+  // inactive Crew representation while voiding credentials and suspending access.
   for (const account of restored.accounts)
     if (!sourceUsers.has(String(account.id))) {
       await target.query(
-        `UPDATE public."User" SET "passwordHash"=NULL,role=CASE WHEN "mergedIntoId" IS NULL THEN 'VIEWER'::"Role" ELSE role END,"recoveryVoidedAt"=COALESCE("recoveryVoidedAt",NOW()),"suspendedAt"=COALESCE("suspendedAt",NOW()),"tutorAccessRevoked"=true,"tuteeMember"=false,"canTranslate"=false,"crewStatus"=CASE WHEN "crewStatus" IS NULL THEN NULL ELSE 'INACTIVE' END,"sessionVersion"=$1,"refreshAuthorityRevision"=$2 WHERE id=$3`,
+        `UPDATE public."User" SET "passwordHash"=NULL,role=CASE WHEN "mergedIntoId" IS NOT NULL THEN role WHEN "crewStatus" IS NOT NULL THEN 'CREW'::public."Role" ELSE 'VIEWER'::public."Role" END,"recoveryVoidedAt"=COALESCE("recoveryVoidedAt",NOW()),"suspendedAt"=COALESCE("suspendedAt",NOW()),"tutorAccessRevoked"=true,"tuteeMember"=false,"canTranslate"=false,"crewStatus"=CASE WHEN "crewStatus" IS NULL THEN NULL ELSE 'INACTIVE'::public."CrewStatus" END,"sessionVersion"=$1,"refreshAuthorityRevision"=$2 WHERE id=$3`,
         [
           Number(account.sessionVersion) + 1,
           Number(account.refreshAuthorityRevision) + 1,

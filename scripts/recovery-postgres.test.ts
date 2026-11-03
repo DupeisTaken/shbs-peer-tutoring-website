@@ -237,7 +237,8 @@ void test(
       ('checkpoint', 'Synthetic checkpoint 检查点', 'checkpoint@example.test', 'TUTOR', 'synthetic-old-password-hash', 'checkpoint-tutor', 'ACTIVE', false),
       ('independent', 'Independent account', 'independent@example.test', 'VIEWER', $1, NULL, NULL, false),
       ('retired', 'Retired account evidence', 'retired@example.test', 'VIEWER', 'synthetic-retired-password-hash', NULL, NULL, false),
-      ('backup-only', 'Deleted after checkpoint', 'backup-only@example.test', 'ADMIN', 'synthetic-backup-only-password-hash', NULL, NULL, true)`,
+      ('backup-only', 'Deleted after checkpoint', 'backup-only@example.test', 'ADMIN', 'synthetic-backup-only-password-hash', NULL, NULL, true),
+      ('backup-only-crew', 'Crew deleted after checkpoint', 'backup-only-crew@example.test', 'ADMIN', 'synthetic-backup-only-crew-password-hash', NULL, 'ACTIVE', false)`,
       [hashPassword(oldIndependentPassword)],
     );
     await app.query(
@@ -386,7 +387,7 @@ void test(
     await app.query(
       `UPDATE "User" SET "personId"='reader-person',username='later',"emailVerifiedAt"='2026-01-01' WHERE id='later'`,
     );
-    await app.query("DELETE FROM \"User\" WHERE id='backup-only'");
+    await app.query("DELETE FROM \"User\" WHERE id IN ('backup-only','backup-only-crew')");
     await app.query(
       'UPDATE "User" SET "passwordHash"=NULL WHERE id=\'independent\'',
     );
@@ -466,7 +467,7 @@ void test(
     );
     assert.deepEqual(
       receipt.comparison.find((entry) => entry.table === "User"),
-      { table: "User", before: "5", restored: "5", changed: false },
+      { table: "User", before: "5", restored: "6", changed: true },
     );
     assert.deepEqual(
       await rowFingerprints(app),
@@ -728,7 +729,7 @@ void test(
       dependencies,
     );
     assert.equal(reconciliationReceipt.state, "SECURITY_RECONCILED_SEALED");
-    assert.equal(reconciliationReceipt.accountsQuarantined, 1);
+    assert.equal(reconciliationReceipt.accountsQuarantined, 2);
     assert.deepEqual(
       await applySiteReconciliation(
         reconciliationPlan,
@@ -763,7 +764,7 @@ void test(
         assert.equal(retired?.passwordHash, null);
         const quarantined = (
           await target.query(
-            'SELECT "recoveryVoidedAt","suspendedAt","passwordHash","tutorAccessRevoked","canTranslate" FROM "User" WHERE id=\'backup-only\'',
+            'SELECT role,"recoveryVoidedAt","suspendedAt","passwordHash","tutorAccessRevoked","canTranslate","crewStatus" FROM "User" WHERE id=\'backup-only\'',
           )
         ).rows[0];
         assert.ok(quarantined?.recoveryVoidedAt);
@@ -771,6 +772,22 @@ void test(
         assert.equal(quarantined?.passwordHash, null);
         assert.equal(quarantined?.tutorAccessRevoked, true);
         assert.equal(quarantined?.canTranslate, false);
+        assert.equal(quarantined?.role, "VIEWER");
+        assert.equal(quarantined?.crewStatus, null);
+        const quarantinedCrew = (
+          await target.query(
+            'SELECT role,"recoveryVoidedAt","suspendedAt","passwordHash","tutorAccessRevoked","tuteeMember","canTranslate","crewStatus","sessionVersion" FROM "User" WHERE id=\'backup-only-crew\'',
+          )
+        ).rows[0];
+        assert.equal(quarantinedCrew?.role, "CREW");
+        assert.equal(quarantinedCrew?.crewStatus, "INACTIVE");
+        assert.ok(quarantinedCrew?.recoveryVoidedAt);
+        assert.ok(quarantinedCrew?.suspendedAt);
+        assert.equal(quarantinedCrew?.passwordHash, null);
+        assert.equal(quarantinedCrew?.tutorAccessRevoked, true);
+        assert.equal(quarantinedCrew?.tuteeMember, false);
+        assert.equal(quarantinedCrew?.canTranslate, false);
+        assert.ok(Number(quarantinedCrew?.sessionVersion) > 0);
         const later = (
           await target.query(
             'SELECT name,"passwordHash" FROM "User" WHERE id=\'later\'',

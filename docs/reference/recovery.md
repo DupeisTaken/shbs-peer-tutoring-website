@@ -251,7 +251,11 @@ persisted identities. A current-only account is imported only when its reference
 profile/person/account closure exists; missing domain profiles and contradictory
 retirement or identifier ownership block the complete transaction. Backup-only
 accounts retain evidence but lose credentials and participation and are suspended
-and credential-voided. The [static schema contract](../../src/server/recovery/operator-schema.ts)
+and credential-voided. A nonretired backup-only account with Crew lifecycle evidence
+uses role `CREW` with `INACTIVE` status; an account without it uses `VIEWER` with
+null Crew status. This preserves the existing Viewer exclusivity constraint and
+Crew evidence while granting no active access. Already retired accounts retain
+their role and permanent retirement. The [static schema contract](../../src/server/recovery/operator-schema.ts)
 lists every reviewed public model/column/PostgreSQL type and authority enum label;
 the optional Prisma migration table has its own exact metadata policy. A matching
 source/backup pair cannot certify a new table, bearer column, changed type or enum
