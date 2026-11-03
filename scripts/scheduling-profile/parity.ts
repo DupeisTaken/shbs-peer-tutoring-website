@@ -708,8 +708,7 @@ export function boundedParityDifference(
   const pointer = (parent: string, key: string): string | null => {
     let path = `${parent}/`;
     if (path.length > maxPathLength) return null;
-    for (let index = 0; index < key.length; index++) {
-      const character = key[index]!;
+    for (const character of key) {
       const escaped = character === "~" ? "~0" : character === "/" ? "~1" : character;
       if (path.length + escaped.length > maxPathLength) return null;
       path += escaped;
