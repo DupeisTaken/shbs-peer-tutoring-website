@@ -105,6 +105,11 @@ and retry therefore produce at most one separation. Accepted writes only retry
 directory reads when synchronization fails; changing displayed groups does not
 discard the retained controller's receipt.
 
+While an identity write or its outcome recovery is pending, User details disables
+sibling profile/record openers and parent read retries as well as dismissal.
+Receipt recovery stays available in the original controller; opening a nested
+reader must not hide those controls behind another busy dialog.
+
 The dedicated `recovery_capture_person_partition()` journal matches typed affected
 Person/User/Tutor/Tutee references, never the reviewer's ID as a generic edge. It
 records only safe references and changed field names; private drafts, operation
