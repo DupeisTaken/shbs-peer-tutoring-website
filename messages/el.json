@@ -3917,7 +3917,25 @@
     "fullEvidence": "Πλήρη καταγεγραμμένα στοιχεία",
     "recordedPosition": "Καταγεγραμμένη θέση {number}",
     "presentation": {
+      "historyOwnershipStates": {
+        "ASSIGNED": "Ανατέθηκε",
+        "QUARANTINED": "Σε απομόνωση για έλεγχο"
+      },
       "entities": {
+        "SchedulingMaintenanceState": "Κατάσταση συντήρησης προγραμματισμού",
+        "SchedulingDirtyEvent": "Συμβάν ακύρωσης δεδομένων προγραμματισμού",
+        "PersonPartitionReceipt": "Απόδειξη διαχωρισμού ταυτότητας",
+        "RetiredHistoryOwnership": "Κυριότητα ιστορικού ανενεργού λογαριασμού",
+        "HistoryRowOwnership": "Κυριότητα εγγραφής ιστορικού",
+        "PersonHistoryCorrectionReceipt": "Απόδειξη διόρθωσης ιστορικού",
+        "ParticipantConsolidation": "Ενοποίηση συμμετοχής",
+        "PairingExecutionSuccessor": "Διάδοχη ανάθεση εκτέλεσης",
+        "SessionPlanExecution": "Εκτέλεση προγράμματος συνεδρίας",
+        "SessionParticipantExecution": "Εκτέλεση συμμετοχής σε συνεδρία",
+        "SessionResponseExecution": "Δικαίωμα απάντησης συνεδρίας",
+        "QualificationTransferGrant": "Μεταφερθείσα έγκριση προσόντων",
+        "PersonParticipationTransferReceipt": "Απόδειξη μεταφοράς συμμετοχής",
+        "StudentRequestExecutionAssignment": "Ανάθεση εκτέλεσης εγγραφής",
         "StudentContinuationAssignment": "Επιλογή συνέχισης",
         "StudentContinuationPairing": "Σύνδεση αντιστοίχισης συνέχισης",
         "StudentContinuationReceipt": "Απόδειξη υποβολής συνέχισης",

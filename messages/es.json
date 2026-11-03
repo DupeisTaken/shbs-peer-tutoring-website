@@ -3917,7 +3917,25 @@
     "fullEvidence": "Evidencia registrada completa",
     "recordedPosition": "Posición registrada {number}",
     "presentation": {
+      "historyOwnershipStates": {
+        "ASSIGNED": "Asignado",
+        "QUARANTINED": "Aislado para revisión"
+      },
       "entities": {
+        "SchedulingMaintenanceState": "Estado de mantenimiento de horarios",
+        "SchedulingDirtyEvent": "Evento de invalidación de horarios",
+        "PersonPartitionReceipt": "Comprobante de separación de identidad",
+        "RetiredHistoryOwnership": "Titularidad del historial de cuenta retirada",
+        "HistoryRowOwnership": "Titularidad de un registro histórico",
+        "PersonHistoryCorrectionReceipt": "Comprobante de corrección del historial",
+        "ParticipantConsolidation": "Consolidación de participación",
+        "PairingExecutionSuccessor": "Asignación sucesora de ejecución",
+        "SessionPlanExecution": "Ejecución del plan de sesión",
+        "SessionParticipantExecution": "Ejecución de participación en sesión",
+        "SessionResponseExecution": "Permiso de respuesta a la sesión",
+        "QualificationTransferGrant": "Autorización de cualificación transferida",
+        "PersonParticipationTransferReceipt": "Comprobante de transferencia de participación",
+        "StudentRequestExecutionAssignment": "Asignación de ejecución de inscripción",
         "StudentContinuationAssignment": "Selección de continuidad",
         "StudentContinuationPairing": "Vínculo de asignación continuada",
         "StudentContinuationReceipt": "Comprobante de solicitud de continuidad",

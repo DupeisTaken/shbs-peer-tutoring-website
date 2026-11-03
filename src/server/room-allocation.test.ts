@@ -83,6 +83,10 @@ function fixture(
       userId,
     })),
   ];
+  const successorRows: { sourcePairingId: string; targetPairingId: string }[] = [];
+  const planExecutions: { planId: string; tutorId: string }[] = [];
+  const originalParticipants: { id: string; planId: string; tuteeId: string }[] = [];
+  const participantExecutions: { participantId: string; tuteeId: string }[] = [];
   const db = {
     $executeRaw: vi.fn().mockResolvedValue(1),
     $queryRaw: vi.fn().mockResolvedValue(canonicalRows),
@@ -94,6 +98,22 @@ function fixture(
       findUniqueOrThrow: vi
         .fn()
         .mockResolvedValue({ startDate: null, endDate: null }),
+    },
+    pairingExecutionSuccessor: {
+      findMany: vi.fn(async ({ where }: { where?: { targetPairingId: { in: string[] } } }) =>
+        successorRows.filter((row) => !where || where.targetPairingId.in.includes(row.targetPairingId))),
+    },
+    sessionPlanExecution: {
+      findMany: vi.fn(async ({ where }: { where: { planId: { in: string[] } } }) =>
+        planExecutions.filter((row) => where.planId.in.includes(row.planId))),
+    },
+    sessionPlanParticipant: {
+      findMany: vi.fn(async ({ where }: { where: { planId: { in: string[] } } }) =>
+        originalParticipants.filter((row) => where.planId.in.includes(row.planId))),
+    },
+    sessionParticipantExecution: {
+      findMany: vi.fn(async ({ where }: { where: { participantId: { in: string[] } } }) =>
+        participantExecutions.filter((row) => where.participantId.in.includes(row.participantId))),
     },
     sessionPlanCohort: { findMany: vi.fn().mockResolvedValue([]) },
     sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue([]) },
@@ -128,15 +148,33 @@ function fixture(
     },
     notification: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
   };
-  return { raw: db, db: db as unknown as TransactionDb };
+  return { raw: db, db: db as unknown as TransactionDb, successorRows, planExecutions, originalParticipants, participantExecutions };
 }
 
 describe("automatic room ranking", () => {
+  it("retains its original dated reservation through a successor without excluding another session", async () => {
+    const { db, raw, successorRows } = fixture();
+    successorRows.push({ sourcePairingId: "retained-original", targetPairingId: schedule.id });
+    const own = {
+      id: "dated-own", planId: "own-plan", date: "2026-11-02",
+      startMin: 600, endMin: 660, roomId: "a",
+      plan: { tutorId: "other", originalDate: "2026-11-02", assignments: [{ pairingId: "retained-original" }] },
+      participants: [{ id: "member", tuteeId: "other-student" }],
+    };
+    raw.sessionPlanCohort.findMany.mockResolvedValue([own]);
+    await expect(allocateRoom(db, schedule, { roomMode: "FIXED", roomId: "a" }, current)).resolves.toMatchObject({ roomId: "a" });
+    raw.sessionPlanCohort.findMany.mockResolvedValue([own, {
+      ...own, id: "dated-independent", planId: "independent-plan",
+      plan: { ...own.plan, assignments: [{ pairingId: "independent" }] },
+    }]);
+    await expect(allocateRoom(db, schedule, { roomMode: "FIXED", roomId: "a" }, current)).rejects.toMatchObject({ code: "CONFLICT" });
+  });
   it("excludes an otherwise preferred room occupied by another tutor's dated exception", async () => {
     const { db, raw } = fixture();
     raw.sessionPlanCohort.findMany.mockResolvedValue([
       {
         id: "dated",
+        planId: "dated-plan",
         date: "2026-11-02",
         startMin: 610,
         endMin: 655,

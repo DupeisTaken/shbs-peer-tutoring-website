@@ -47,6 +47,9 @@ function fixture() {
       findUnique: vi.fn().mockResolvedValue(source),
       findMany: vi.fn().mockResolvedValue([source]),
     },
+    pairingExecutionSuccessor: {
+      findMany: vi.fn<() => Promise<{ sourcePairingId: string }[]>>().mockResolvedValue([]),
+    },
     pairing: {
       findMany: vi
         .fn<
@@ -413,4 +416,14 @@ describe("calendar mail admission", () => {
       }),
     ).toBe(true);
   });
+});
+
+
+it("excludes retained original recurring sources after an exact execution transfer", async () => {
+  const { tx, mock } = fixture();
+  mock.pairingExecutionSuccessor.findMany.mockResolvedValue([{ sourcePairingId: "retained-original-pairing" }]);
+  await notifySchoolCalendarChange(tx, { before: { ...source, scheduleRevision: 1 }, after: source }, new Date("2026-11-01T00:00:00Z"));
+  expect(mock.pairingExecutionSuccessor.findMany).toHaveBeenCalledWith({ select: { sourcePairingId: true } });
+  expect(mock.pairing.findMany.mock.calls[0]?.[0]).toMatchObject({ where: { AND: [{ id: { notIn: ["retained-original-pairing"] } }], term: { active: true } } });
+  expect(mock.notification.createMany.mock.calls[0]?.[0]).toMatchObject({ data: [{ userId: "tutor" }, { userId: "student" }] });
 });

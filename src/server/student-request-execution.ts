@@ -64,7 +64,7 @@ export async function recordStudentRequestExecution(
   if (!row.tuteeId) throw new TRPCError({ code: "CONFLICT", message: "Materialize the original request before assigning execution." });
   await lockStudentRequestExecution(tx, [row.tuteeId, tuteeId]);
   const current = await tx.studentSurvey.findUnique({ where: { id: row.id }, select: { tuteeId: true, intakeTermId: true, state: true } });
-  if (!current || current.state !== "OPEN" || current.tuteeId !== row.tuteeId || current.intakeTermId !== row.intakeTermId)
+  if (current?.state !== "OPEN" || current.tuteeId !== row.tuteeId || current.intakeTermId !== row.intakeTermId)
     throw new TRPCError({ code: "CONFLICT", message: "The original request changed before assignment." });
   const link = await tx.pairingTutee.findFirst({
     where: { pairingId, tuteeId, pairing: { termId: row.intakeTermId, term: { active: true } } }, select: { pairingId: true },
@@ -81,7 +81,7 @@ export async function admitStudentRequestExecution(tx: TransactionDb, row: Reque
   if (!row.tuteeId) throw new TRPCError({ code: "CONFLICT", message: "Materialize the original request first." });
   await lockStudentRequestExecution(tx, [row.tuteeId, tuteeId]);
   const current = await tx.studentSurvey.findUnique({ where: { id: row.id } });
-  if (!current || current.tuteeId !== row.tuteeId || current.intakeTermId !== row.intakeTermId || current.state !== "OPEN" || current.invalidatedAt ||
+  if (current?.tuteeId !== row.tuteeId || current.intakeTermId !== row.intakeTermId || current.state !== "OPEN" || current.invalidatedAt ||
     (!current.confirmedAt && current.verificationDueAt && current.verificationDueAt <= new Date()))
     throw new TRPCError({ code: "CONFLICT", message: "The exact original request is no longer assignable." });
   if (await executionParticipantId(tx, "TUTEE", row.tuteeId) !== tuteeId)

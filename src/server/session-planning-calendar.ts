@@ -184,11 +184,25 @@ export async function sessionCalendarFeed(
       : [];
     if (cohorts.length > 5000 || participants.length > 5000)
       throw new Error("Calendar feed exceeds the bounded publication limit.");
+    // An exact execution row overrides original-profile ownership. A restored
+    // source capability must not regain a commitment now executed elsewhere.
+    const [planAuthorities, participantAuthorities] = await Promise.all([
+      cohorts.length ? tx.sessionPlanExecution.findMany({ where: { planId: { in: [...new Set(cohorts.map((row) => row.planId))] } }, select: { planId: true, tutorId: true } }) : Promise.resolve([]),
+      participants.length ? tx.sessionParticipantExecution.findMany({ where: { participantId: { in: participants.map((row) => row.id) } }, select: { participantId: true, tuteeId: true } }) : Promise.resolve([]),
+    ]);
+    const visibleCohorts = cohorts.filter((row) => {
+      const authority = planAuthorities.find((mapping) => mapping.planId === row.planId);
+      return !authority || authority.tutorId === audience.tutorId;
+    });
+    const visibleParticipants = participants.filter((row) => {
+      const authority = participantAuthorities.find((mapping) => mapping.participantId === row.id);
+      return !authority || audience.tuteeIds.includes(authority.tuteeId);
+    });
     const roomIds = [
       ...new Set(
         [
-          ...cohorts.map((cohort) => cohort.roomId),
-          ...participants.map((participant) => participant.cohort?.roomId),
+          ...visibleCohorts.map((cohort) => cohort.roomId),
+          ...visibleParticipants.map((participant) => participant.cohort?.roomId),
         ].filter((id): id is string => !!id),
       ),
     ];
@@ -199,7 +213,7 @@ export async function sessionCalendarFeed(
         })
       : [];
     const locations = new Map(rooms.map((room) => [room.id, room.name]));
-    const events: SessionCalendarEvent[] = cohorts.map((cohort) => ({
+    const events: SessionCalendarEvent[] = visibleCohorts.map((cohort) => ({
       uid: `cohort-${cohort.id}@shbs-session`,
       revision: cohort.version,
       startsAt: cohort.startsAt,
@@ -210,7 +224,7 @@ export async function sessionCalendarFeed(
         ? "Online / 线上"
         : locations.get(cohort.roomId ?? ""),
     }));
-    for (const participant of participants) {
+    for (const participant of visibleParticipants) {
       const cohort = participant.cohort;
       if (
         !cohort ||

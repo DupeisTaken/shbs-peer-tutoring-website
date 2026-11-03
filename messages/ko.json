@@ -3917,7 +3917,25 @@
     "fullEvidence": "전체 기록 증거",
     "recordedPosition": "기록 위치 {number}",
     "presentation": {
+      "historyOwnershipStates": {
+        "ASSIGNED": "소유자 지정됨",
+        "QUARANTINED": "검토를 위해 격리됨"
+      },
       "entities": {
+        "SchedulingMaintenanceState": "일정 유지 관리 상태",
+        "SchedulingDirtyEvent": "일정 무효화 이벤트",
+        "PersonPartitionReceipt": "신원 분리 처리 기록",
+        "RetiredHistoryOwnership": "폐기된 계정의 이력 소유권",
+        "HistoryRowOwnership": "개별 이력 기록 소유권",
+        "PersonHistoryCorrectionReceipt": "이력 소유권 정정 기록",
+        "ParticipantConsolidation": "참여 기록 통합",
+        "PairingExecutionSuccessor": "배정 실행 승계",
+        "SessionPlanExecution": "수업 계획 실행",
+        "SessionParticipantExecution": "수업 참여 실행",
+        "SessionResponseExecution": "수업 응답 권한",
+        "QualificationTransferGrant": "이전된 자격 승인",
+        "PersonParticipationTransferReceipt": "참여 이전 처리 기록",
+        "StudentRequestExecutionAssignment": "신청 실행 배정",
         "StudentContinuationAssignment": "계속 수강 선택",
         "StudentContinuationPairing": "계속 수강 배정 연결",
         "StudentContinuationReceipt": "계속 수강 신청 접수 기록",

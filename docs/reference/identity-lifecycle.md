@@ -314,6 +314,17 @@ blocked. This grants no queue authority to the closed original intake: after its
 last actual assignment ends, the canonical profile becomes inactive rather than
 pending merely because another original request is still open.
 
+The roster guard applies to actual status transitions and membership writes.
+Unchanged-status contact edits and history ownership revision updates remain
+permitted, even when an original request is flagged. They do not authorize new
+assignment or reactivation. The follow-up migration preserves the checksum of
+the original participation migration.
+
+Calendar subscriptions resolve exact execution ownership before rendering each
+candidate event. Restoring an original profile does not restore calendar access
+to a future commitment now assigned elsewhere; event identifiers stay stable for
+the current execution owner.
+
 Historical planning reads follow the exact retained/direct private profile owner,
 including readers without a current tutor or learner capability. Live agenda and
 session actions continue to use the pinned execution authority and current source

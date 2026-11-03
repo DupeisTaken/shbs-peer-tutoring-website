@@ -3917,7 +3917,25 @@
     "fullEvidence": "記録された証拠の全体",
     "recordedPosition": "記録位置 {number}",
     "presentation": {
+      "historyOwnershipStates": {
+        "ASSIGNED": "帰属先を指定済み",
+        "QUARANTINED": "確認のため隔離中"
+      },
       "entities": {
+        "SchedulingMaintenanceState": "スケジュール保守状態",
+        "SchedulingDirtyEvent": "スケジュール無効化イベント",
+        "PersonPartitionReceipt": "本人情報の分離記録",
+        "RetiredHistoryOwnership": "廃止済みアカウントの履歴帰属",
+        "HistoryRowOwnership": "履歴記録の帰属",
+        "PersonHistoryCorrectionReceipt": "履歴帰属の訂正記録",
+        "ParticipantConsolidation": "参加記録の統合",
+        "PairingExecutionSuccessor": "実行担当の引継ぎ",
+        "SessionPlanExecution": "授業計画の実行担当",
+        "SessionParticipantExecution": "授業参加の実行担当",
+        "SessionResponseExecution": "授業への回答権限",
+        "QualificationTransferGrant": "移管された資格認定",
+        "PersonParticipationTransferReceipt": "参加移管の記録",
+        "StudentRequestExecutionAssignment": "申込の実行割当",
         "StudentContinuationAssignment": "継続の選択",
         "StudentContinuationPairing": "継続ペアリングの関連付け",
         "StudentContinuationReceipt": "継続申込の受付記録",

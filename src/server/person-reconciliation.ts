@@ -146,7 +146,7 @@ export function reconcilePersonSources(snapshot: PersonReconciliationSnapshot) {
   const effectiveReaders = new Map<string, string | null>();
   for (const mapping of historyMappings.values()) {
     const original = users.get(mapping.sourceUserId);
-    if (!original || !original.mergedIntoId || original.recoveryVoidedAt)
+    if (!original?.mergedIntoId || original.recoveryVoidedAt)
       add("HISTORY_MAPPING_INVALID", "USER", mapping.sourceUserId, mapping.readerUserId ? [mapping.readerUserId] : []);
   }
   for (const user of snapshot.users) {

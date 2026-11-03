@@ -3917,7 +3917,25 @@
     "fullEvidence": "完整记录证据",
     "recordedPosition": "记录位置 {number}",
     "presentation": {
+      "historyOwnershipStates": {
+        "ASSIGNED": "已指定归属",
+        "QUARANTINED": "隔离待审核"
+      },
       "entities": {
+        "SchedulingMaintenanceState": "排期维护状态",
+        "SchedulingDirtyEvent": "排期失效事件",
+        "PersonPartitionReceipt": "身份分离回执",
+        "RetiredHistoryOwnership": "停用账户历史归属",
+        "HistoryRowOwnership": "历史记录归属",
+        "PersonHistoryCorrectionReceipt": "历史归属更正回执",
+        "ParticipantConsolidation": "参与记录合并",
+        "PairingExecutionSuccessor": "辅导分配执行承接",
+        "SessionPlanExecution": "课程计划执行归属",
+        "SessionParticipantExecution": "课程参与执行归属",
+        "SessionResponseExecution": "课程回复权限",
+        "QualificationTransferGrant": "转移的资格授权",
+        "PersonParticipationTransferReceipt": "参与转移回执",
+        "StudentRequestExecutionAssignment": "报名执行分配",
         "StudentContinuationAssignment": "续课选择",
         "StudentContinuationPairing": "续课配对关联",
         "StudentContinuationReceipt": "续课提交回执",

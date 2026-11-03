@@ -164,7 +164,7 @@ it.each([false, true])(
       expect(message.presentation?.unsubscribeUrl).toBeDefined();
       expect(message.text).toContain("Unsubscribe / 取消订阅:");
     }
-    // Admitted SMTP failure is durable uncertainty, not an audit write failure.
+    // An admitted transport failure remains uncertain; it is not an audit failure or permission to retry.
     expect(queue.onFailure).not.toHaveBeenCalled();
   },
 );
@@ -188,7 +188,12 @@ it("persists distinct notification destinations for all verified recipients and 
   for (const path of paths)
     expect(rows.filter((row) => row.destination === path)).toHaveLength(2);
   await deliverNotifications();
-  expect(mail.send).toHaveBeenCalledTimes(4);
+  expect(mail.send).toHaveBeenCalledTimes(2);
+  const after = await db.emailDelivery.findMany({ where: { userId: uid } });
+  for (const row of after) {
+    const before = uncertain.find((item) => item.id === row.id)!;
+    expect(row).toMatchObject({ status: "UNCERTAIN", attemptId: before.attemptId, attemptStartedAt: before.attemptStartedAt, attempts: before.attempts, completedAt: before.completedAt });
+  }
   for (const [message] of mail.send.mock.calls) {
     expect(message.category).toBe("PROGRAM");
     const url = new URL(message.presentation!.action!.url);
@@ -332,6 +337,9 @@ it("reports admitted SMTP uncertainty without presenting it as a retryable trans
   await deliverNotifications();
   const failedAttempt = await getEmailDeliveryStatus(db);
   expect(failedAttempt).toMatchObject({ retrying: 0, failed: 0, uncertain: 2 });
+  const uncertain = await db.emailDelivery.findMany({ where: { userId: uid } });
+  expect(uncertain).toHaveLength(2);
+  expect(uncertain.every((row) => row.status === "UNCERTAIN" && row.attemptId && row.attemptStartedAt)).toBe(true);
   expect(mail.send).toHaveBeenCalledTimes(2);
   expect(JSON.stringify(failedAttempt)).not.toContain(
     "Private provider diagnostic",
@@ -350,6 +358,11 @@ it("reports admitted SMTP uncertainty without presenting it as a retryable trans
     uncertain: 2,
   });
   expect(mail.send).toHaveBeenCalledTimes(2);
+  const after = await db.emailDelivery.findMany({ where: { userId: uid } });
+  for (const row of after) {
+    const before = uncertain.find((item) => item.id === row.id)!;
+    expect(row).toMatchObject({ status: "UNCERTAIN", attemptId: before.attemptId, attemptStartedAt: before.attemptStartedAt, attempts: before.attempts, completedAt: before.completedAt });
+  }
 });
 
 it.each(["unchanged", "opted-out", "secondary-removed"])(
@@ -426,7 +439,7 @@ it.each(["unchanged", "opted-out", "secondary-removed"])(
 );
 
 it.each([false, true])(
-  "preserves cancellation when an in-flight SMTP attempt settles (failure=%s)",
+  "preserves opt-out for pending copies and truthful evidence for the admitted attempt (failure=%s)",
   async (fails) => {
     await db.notification.create({
       data: { userId: uid, title: "Program", link: "/messages" },
@@ -447,6 +460,9 @@ it.each([false, true])(
     expect(rows.filter((row) => !row.attemptStartedAt).every((row) => row.status === "SKIPPED")).toBe(true);
     expect(rows.filter((row) => !!row.attemptStartedAt)).toHaveLength(1);
     expect(rows.find((row) => !!row.attemptStartedAt)?.status).toBe(fails ? "UNCERTAIN" : "SENT");
+    expect(rows.filter((row) => row.status === "SKIPPED")).toHaveLength(1);
+    const admitted = rows.find((row) => row.attemptId !== null);
+    expect(admitted).toMatchObject({ status: fails ? "UNCERTAIN" : "SENT", leaseUntil: null, attempts: 1 });
     expect(rows.every((row) => row.leaseUntil === null)).toBe(true);
   },
 );

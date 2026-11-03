@@ -656,7 +656,7 @@ export async function resolveStudentReview(
             );
             const detached = await tx.pairingTutee.deleteMany({
               where: {
-                pairingId: review.pairingId!,
+                pairingId: review.pairingId,
                 tuteeId: review.legacyTuteeId!,
                 pairing: {
                   tutorId: requester.tutorId,

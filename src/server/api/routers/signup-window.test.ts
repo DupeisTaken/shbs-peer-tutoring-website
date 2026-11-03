@@ -53,6 +53,7 @@ const headSession: Session = {
   },
   role: "HEAD",
   tutorId: null,
+  historyAccessRevision: 7,
   expires: "2099-01-01T00:00:00.000Z",
 };
 
@@ -69,11 +70,13 @@ function context(db: unknown, session: Session | null) {
         tutorId: session.tutorId,
         suspendedAt: null,
         mergedIntoId: null,
+        recoveryVoidedAt: null,
+        historyAccessRevision: 7,
         name: session.user.name,
         username: null,
       }
     : null;
-  const findUser = vi.fn().mockResolvedValue(actor);
+  const findUser = vi.fn().mockImplementation(() => Promise.resolve(actor ? { ...actor } : null));
   const lockActor = vi.fn().mockResolvedValue(actor ? [{ id: actor.id }] : []);
   return {
     db: {
@@ -196,7 +199,9 @@ describe("tutee signup window procedures", () => {
         },
       });
       expect(ctx.fixtures.lockActor.mock.invocationCallOrder[0]).toBeLessThan(
-        ctx.fixtures.findUser.mock.invocationCallOrder[1]!,
+        // Preauthorization and the mutation generation gate precede the lock;
+        // the third read is the authoritative post-lock business-role check.
+        ctx.fixtures.findUser.mock.invocationCallOrder[2]!,
       );
     },
   );
@@ -257,7 +262,7 @@ describe("tutee signup window procedures", () => {
                   ? { mergedIntoId: "surviving-login" }
                   : {}),
               };
-        ctx.fixtures.findUser.mockResolvedValue(current);
+        ctx.fixtures.findUser.mockImplementation(() => Promise.resolve(current ? { ...current } : null));
         return Promise.resolve(current ? [{ id: headSession.user.id }] : []);
       });
       await expect(

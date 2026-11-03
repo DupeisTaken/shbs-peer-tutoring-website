@@ -3494,7 +3494,7 @@ export async function releaseSessionRequestParticipation(
   now = new Date(),
 ) {
   const source = await tx.studentSurvey.findUnique({ where: { id: input.surveyId }, select: { tuteeId: true, submittedAt: true } });
-  if (!source || source.tuteeId !== input.sourceTuteeId) fail("The original request membership changed.");
+  if (source?.tuteeId !== input.sourceTuteeId) fail("The original request membership changed.");
   for (const assignment of input.assignments) await syncContinuationPlanMembership(tx, {
     sourceSurveyId: input.surveyId, sourceTuteeId: input.sourceTuteeId,
     pairingId: assignment.pairingId, tuteeId: assignment.tuteeId,

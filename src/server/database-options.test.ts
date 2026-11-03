@@ -11,9 +11,10 @@ const taggedSql =
   "WITH /* shbs:publication-validation */ parameters AS (SELECT $1::text AS id) SELECT id FROM parameters";
 
 describe("publication statement preparation", () => {
-  it("names only the tagged statement, hashing all SQL and ignoring bound values", () => {
-    const first = { sql: taggedSql, args: ["synthetic-first-participant"] };
-    const second = { sql: taggedSql, args: ["synthetic-second-participant"] };
+  it.each(["WITH", "WITH RECURSIVE"])("names only the tagged %s statement, hashing all SQL and ignoring bound values", (keyword) => {
+    const statement = taggedSql.replace(/^WITH/, keyword);
+    const first = { sql: statement, args: ["synthetic-first-participant"] };
+    const second = { sql: statement, args: ["synthetic-second-participant"] };
     const name = schedulingPgOptions.statementNameGenerator(first);
     expect(name).toMatch(/^shbs_pub_[a-f0-9]{40}$/);
     expect(name.length).toBeLessThanOrEqual(63);
@@ -21,11 +22,11 @@ describe("publication statement preparation", () => {
     expect(schedulingPgOptions.statementNameGenerator(second)).toBe(name);
     expect(name).not.toContain(first.args[0]);
     expect(
-      schedulingPgOptions.statementNameGenerator({ sql: `${taggedSql}\n` }),
+      schedulingPgOptions.statementNameGenerator({ sql: `${statement}\n` }),
     ).not.toBe(name);
     for (const sql of [
       "SELECT $1::text",
-      taggedSql.replace("/* shbs:publication-validation */ ", ""),
+      statement.replace("/* shbs:publication-validation */ ", ""),
       "SELECT 'WITH /* shbs:publication-validation */ parameters AS'",
       "WITH /* another-statement */ parameters AS (SELECT 1) SELECT * FROM parameters",
     ])
@@ -110,6 +111,7 @@ describe("publication statement preparation", () => {
           FROM pg_prepared_statements WHERE name LIKE 'shbs_pub_%'
         `;
           expect(prepared).toHaveLength(1);
+          expect(prepared[0]!.statement).toMatch(/^\s*WITH\s+RECURSIVE\s+\/\* shbs:publication-validation \*\//i);
           expect(prepared[0]!.name).toBe(
             schedulingPgOptions.statementNameGenerator({
               sql: prepared[0]!.statement,

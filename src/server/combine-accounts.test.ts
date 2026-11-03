@@ -18,6 +18,7 @@ import { reviewedLoginRetirement } from "~/test/person-combine-fixture";
 import { hashPassword } from "./auth/password";
 import { isSessionCurrent } from "./auth/session-version";
 import { verifySigninPassword } from "./auth/credentials";
+import { notificationOwnershipWhere, quarterBlockAccountWhere } from "./history-row-ownership";
 import { findAccountPolicy } from "./policy-acceptance";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { lockAccountProfile } from "./account-profile";
@@ -44,6 +45,13 @@ function caller(id: string, role: Session["role"] = "HEAD") {
       expires: new Date(Date.now() + 60000).toISOString(),
     },
   });
+}
+async function reauthenticatedCaller(id: string) {
+  // A new login reads the server-owned access epoch; existing sessions stay stale.
+  const { role, tutorId, sessionVersion, historyAccessRevision } = await db.user.findUniqueOrThrow({ where: { id } });
+  return createCaller({ db, headers: new Headers(), session: {
+    user: { id }, role, tutorId, sessionVersion, historyAccessRevision, expires: "2099-01-01",
+  } });
 }
 const pair = () => ({ survivorId, duplicateId });
 async function combine() {
@@ -317,7 +325,7 @@ it("combines historical read and delivery ownership, preserves immutable evidenc
   await db.studentProfileOwnership.create({
     data: { userId: duplicateId, tuteeId: student.id },
   });
-  await db.studentQuarterBlock.create({
+  const quarterBlock = await db.studentQuarterBlock.create({
     data: {
       userId: duplicateId,
       email: "retire190@example.test",
@@ -429,10 +437,12 @@ it("combines historical read and delivery ownership, preserves immutable evidenc
   ).toEqual(outgoing);
   expect(
     await db.notification.findUnique({ where: { id: notification.id } }),
-  ).toMatchObject({ userId: survivorId });
-  expect(await db.studentQuarterBlock.findFirst()).toMatchObject({
-    userId: survivorId,
-  });
+  ).toEqual(notification);
+  expect(await db.studentQuarterBlock.findUnique({ where: { id: quarterBlock.id } })).toEqual(quarterBlock);
+  // Original recipients remain evidence; reviewed history access carries both
+  // private notices and restrictions to the retained login without rewriting it.
+  expect(await db.notification.count({ where: { id: notification.id, AND: [await notificationOwnershipWhere(db, survivorId)] } })).toBe(1);
+  expect(await db.studentQuarterBlock.count({ where: { id: quarterBlock.id, AND: [await quarterBlockAccountWhere(db, survivorId)] } })).toBe(1);
   expect(
     await db.passwordResetToken.count({ where: { userId: duplicateId } }),
   ).toBe(0);
@@ -449,11 +459,13 @@ it("combines historical read and delivery ownership, preserves immutable evidenc
       "combine-test",
     ),
   ).toEqual({ ok: false, reason: "invalid" });
-  const inbox = await caller(survivorId, "STUDENT").messaging.inbox();
+  await expect(caller(survivorId, "STUDENT").messaging.inbox()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  const survivorCaller = await reauthenticatedCaller(survivorId);
+  const inbox = await survivorCaller.messaging.inbox();
   expect(inbox.map((row) => row.id)).toEqual(
     expect.arrayContaining([message.id, outgoing.id]),
   );
-  await caller(survivorId, "STUDENT").messaging.markRead({ id: message.id });
+  await survivorCaller.messaging.markRead({ id: message.id });
   expect(
     (await db.directMessage.findUniqueOrThrow({ where: { id: message.id } }))
       .readAt,
@@ -765,7 +777,8 @@ it("retains academic evidence and exposes only the verified merge family's priva
   expect(
     await db.academicConfirmation.findUnique({ where: { id: evidence.id } }),
   ).toEqual(evidence);
-  expect(await caller(survivorId, "STUDENT").account.academicHistory()).toEqual(
+  await expect(caller(survivorId, "STUDENT").account.academicHistory()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  expect(await (await reauthenticatedCaller(survivorId)).account.academicHistory()).toEqual(
     expect.arrayContaining([expect.objectContaining({ id: evidence.id })]),
   );
   expect(await caller(outsider.id, "STUDENT").messaging.inbox()).toEqual([]);

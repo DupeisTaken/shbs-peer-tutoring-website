@@ -153,7 +153,7 @@ export function PersonHistoryCorrection({ personId, unavailable = false, accessD
     decisions.some((decision) => rowKey(decision) === rowKey(row) &&
       (decision.action === "RETAIN" || (row.assignable && (decision.action !== "ASSIGN" || !!inventory.recipient)))));
   async function commit() {
-    if (disabled || !inventory || inventory.personId !== personId || !complete || !acknowledged || reason.trim().length < 10 || !password || admission.current) return;
+    if (disabled || inventory?.personId !== personId || !complete || !acknowledged || reason.trim().length < 10 || !password || admission.current) return;
     const intent: Intent = {
       personId: inventory.personId, sourceUserIds: inventory.sourceUsers.map((source) => source.id),
       recipientUserId: inventory.recipient?.id ?? null, decisions,

@@ -19,6 +19,12 @@ const notificationCategoryLabels = Object.fromEntries(notificationCategories.map
  * rather than Prisma enums. Keep each mapping scoped to its exact entity/field;
  * an identical token in a name, explanation or unknown object remains text. */
 export const reviewStringDomains = {
+  RetiredHistoryOwnership: {
+    state: {
+      ASSIGNED: `${prefix}.historyOwnershipStates.ASSIGNED`,
+      QUARANTINED: `${prefix}.historyOwnershipStates.QUARANTINED`,
+    },
+  },
   StudentContinuationAssignment: {
     status: {
       ASSIGNED: "legacyContinuation.result.assigned",
@@ -121,6 +127,35 @@ export const reviewEntity = (entity: string | undefined) =>
 const schemaFor = (entity: string | undefined) =>
   entity && Object.hasOwn(schemas, entity) ? schemas[entity] : undefined;
 
+// Schema coverage is not permission to display private ownership or retry data.
+// Several names (before/after/result/recordId) are public on unrelated models;
+// exclude them by owner instead of widening or shrinking the global vocabulary.
+const privateIdentityFields: Readonly<Record<string, readonly string[]>> = {
+  // Derived maintenance queues are not scheduling decisions or participant evidence.
+  SchedulingMaintenanceState: [
+    "publicationVersion", "settlementVersion", "windowStart", "prepareEnd", "timeZone",
+    "unavailable", "normalized", "settlementBatchActive", "settlementBatchExhausted",
+    "settlementCursor", "settlementEventIds", "settlementRequestIds",
+  ],
+  SchedulingDirtyEvent: ["id", "sourceTable", "requestId", "publicationPending", "settlementPending"],
+  User: ["historyAccessRevision"],
+  Tutor: ["historyIdentityRevision"],
+  Tutee: ["historyIdentityRevision"],
+  EmailDelivery: ["sourceNotificationId"],
+  PersonCombineReceipt: ["inputHash", "retiredUserIds", "ownershipTransfers"],
+  PersonPartitionReceipt: ["inputHash", "sources", "subjects"],
+  PersonHistoryCorrectionReceipt: ["inputHash", "sourceUserIds", "before", "after", "subjects"],
+  PersonParticipationTransferReceipt: ["inputHash", "retainedUserId", "selection", "result", "subjects"],
+  RetiredHistoryOwnership: ["sourceUserId", "readerUserId", "receiptId"],
+  HistoryRowOwnership: ["recordId", "readerUserId", "quarantineUserIds", "sourceUserIds", "receiptId"],
+  ParticipantConsolidation: ["sourceId", "targetId"],
+  SessionPlanExecution: ["assignments"],
+  SessionParticipantExecution: ["sourceSurveyIds"],
+  SessionResponseExecution: ["profileId"],
+};
+const privateIdentityField = (entity: string | undefined, field: string) =>
+  !!entity && Object.hasOwn(privateIdentityFields, entity) && privateIdentityFields[entity]!.includes(field);
+
 /** Fully-qualified message keys are shared by audit and approval readers. Only
  * explicit schema fields/enums receive meaning; user-authored text stays literal. */
 export function auditEntityLabelKey(entity: string | undefined): string | null {
@@ -134,7 +169,7 @@ export function auditFieldLabelKey(
   field: string,
 ): string | null {
   const name = reviewEntity(entity);
-  if (!name || !schemaFor(name)?.fields.includes(field) || !fields.has(field))
+  if (!name || privateIdentityField(name, field) || !schemaFor(name)?.fields.includes(field) || !fields.has(field))
     return null;
   if (
     field === "action" &&
@@ -151,6 +186,7 @@ export function auditEnumLabelKey(
   value: unknown,
 ): string | null {
   const name = reviewEntity(entity);
+  if (privateIdentityField(name, field)) return null;
   const owner =
     name && Object.hasOwn(stringDomains, name)
       ? stringDomains[name]
@@ -177,6 +213,7 @@ export function auditReferenceEntity(
   field: string,
 ): string | undefined {
   const name = reviewEntity(entity);
+  if (privateIdentityField(name, field)) return undefined;
   const references = schemaFor(name)?.references;
   return references && Object.hasOwn(references, field)
     ? references[field]

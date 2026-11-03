@@ -49,11 +49,13 @@ function fixture({
   calendar = [],
   cohorts = [],
   requests = [],
+  successors = [],
   term = { startDate: null, endDate: null },
 }: {
   calendar?: SchoolCalendarOverride[];
   cohorts?: ReturnType<typeof booking>[];
   requests?: Request[];
+  successors?: { sourcePairingId: string; targetPairingId: string }[];
   term?: { startDate: Date | null; endDate: Date | null };
 } = {}) {
   const raw = {
@@ -62,6 +64,8 @@ function fixture({
     term: { findUniqueOrThrow: vi.fn().mockResolvedValue(term) },
     sessionPlanCohort: { findMany: vi.fn().mockResolvedValue(cohorts) },
     sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue(requests) },
+    pairingExecutionSuccessor: { findMany: vi.fn(async ({ where }: { where: { targetPairingId: { in: string[] } } }) =>
+      successors.filter(row => where.targetPairingId.in.includes(row.targetPairingId))) },
   };
   return { raw, db: raw as unknown as TransactionDb };
 }
@@ -154,6 +158,26 @@ describe("dated recurring room availability", () => {
     expect(await datedUnavailableRooms(held, schedule, ["room"], now)).toEqual(
       new Set(["room"]),
     );
+  });
+
+  it("excludes transitive transfer predecessors while retaining unrelated and moved reservations", async () => {
+    const original = booking("original-room");
+    original.plan.assignments = [{ pairingId: "original" }];
+    const moved = booking("moved-room");
+    moved.plan.originalDate = "2026-10-26";
+    moved.plan.assignments = [{ pairingId: "original" }];
+    const unrelated = booking("unrelated-room");
+    unrelated.plan.assignments = [{ pairingId: "unrelated" }];
+    const { db } = fixture({
+      cohorts: [original, moved, unrelated],
+      successors: [
+        { sourcePairingId: "original", targetPairingId: "intermediate" },
+        { sourcePairingId: "intermediate", targetPairingId: "current" },
+        { sourcePairingId: "unrelated", targetPairingId: "another-current" },
+      ],
+    });
+    expect(await datedUnavailableRooms(db, { ...schedule, excludePairingId: "current" },
+      ["original-room", "moved-room", "unrelated-room"], now)).toEqual(new Set(["moved-room", "unrelated-room"]));
   });
 
   it("retains lazy term-boundary errors when no reservation reaches that comparison", async () => {

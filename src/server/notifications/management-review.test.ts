@@ -21,6 +21,10 @@ const session = (id: string, role: Session["role"]): Session => ({
 });
 const caller = (id = head, role: Session["role"] = "HEAD") =>
   createCaller({ db, headers: new Headers(), session: session(id, role) });
+async function reauthenticatedCaller(id: string) {
+  const account = await db.user.findUniqueOrThrow({ where: { id }, select: { role: true, tutorId: true, sessionVersion: true, historyAccessRevision: true } });
+  return createCaller({ db, headers: new Headers(), session: { ...session(id, account.role), ...account } });
+}
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -172,6 +176,7 @@ it.each([
   ["archived-tutor", 2], ["unlinked-tutor", 2], ["inactive-crew", 2],
 ] as const)("does not append actionable domain notices for %s membership", async (restriction, expectedCreated) => {
   const source = await pendingDomainQueues();
+  const staleReviewer = caller();
   await db.user.update({ where: { id: admin }, data: { role: "ADMIN" } });
   if (restriction === "archived-tutor")
     await db.tutor.update({ where: { id: source.tutor.id }, data: { status: "ARCHIVED" } });
@@ -182,7 +187,13 @@ it.each([
           : restriction === "unlinked-tutor" ? { tutorId: null }
             : { crewStatus: "INACTIVE" },
   });
-  expect(await caller().notification.reconcileManagementReviews()).toMatchObject({ created: expectedCreated });
+  if (restriction === "retired") {
+    await expect(staleReviewer.notification.reconcileManagementReviews()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    expect(await sourceNotices(source.links)).toEqual([]);
+  }
+  // Retirement changes the receiving Head's history epoch as well as the source.
+  const reviewer = restriction === "retired" ? await reauthenticatedCaller(head) : caller();
+  expect(await reviewer.notification.reconcileManagementReviews()).toMatchObject({ created: expectedCreated });
   const notices = await sourceNotices(source.links);
   expect(notices).toHaveLength(expectedCreated);
   expect(notices.every((notice) => notice.userId === admin)).toBe(true);
@@ -191,7 +202,7 @@ it.each([
     expect(notices.some((notice) => notice.link === source.links[0])).toBe(false);
   if (["suspended", "retired", "inactive-crew"].includes(restriction))
     expect(notices.some((notice) => notice.link === source.links[1])).toBe(false);
-  expect(await caller().notification.reconcileManagementReviews()).toMatchObject({ created: 0 });
+  expect(await reviewer.notification.reconcileManagementReviews()).toMatchObject({ created: 0 });
   await expectDomainEvidencePreserved(source);
 });
 

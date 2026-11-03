@@ -41,13 +41,13 @@ async function mapBoth() {
 
 it("closing one independent request preserves shared execution and the other request's original clocks", async () => {
   const [a, b] = await mapBoth();
-  await db.$transaction((tx) => closeStudentRequest(tx, a!, "ABORTED"));
+  await db.$transaction((tx) => closeStudentRequest(tx, a, "ABORTED"));
   expect(await db.pairingTutee.count({ where: { pairingId: "shared", tuteeId: "canonical" } })).toBe(1);
   expect(await db.tutee.findUnique({ where: { id: "canonical" } })).toMatchObject({ status: "ACTIVE" });
   expect(await request("b")).toEqual(b);
-  expect(await studentRequestExecutionAssignments(db, a!)).toEqual([]);
-  expect(await studentRequestExecutionAssignments(db, b!)).toEqual([expect.objectContaining({ surveyId: "request-b", tuteeId: "canonical", sourceTuteeId: "original-b" })]);
-  await db.$transaction((tx) => closeStudentRequest(tx, b!, "ABORTED"));
+  expect(await studentRequestExecutionAssignments(db, a)).toEqual([]);
+  expect(await studentRequestExecutionAssignments(db, b)).toEqual([expect.objectContaining({ surveyId: "request-b", tuteeId: "canonical", sourceTuteeId: "original-b" })]);
+  await db.$transaction((tx) => closeStudentRequest(tx, b, "ABORTED"));
   expect(await db.pairingTutee.count({ where: { pairingId: "shared" } })).toBe(0);
   expect(await db.tutee.findUnique({ where: { id: "canonical" } })).toMatchObject({ status: "INACTIVE" });
 });
@@ -69,11 +69,11 @@ it("a pending original source can receive canonical execution without replacing 
 
 it("rolls back request closure, map releases, reviews, notifications and roster together", async () => {
   const [a] = await mapBoth();
-  await db.studentRequestReview.create({ data: { id: "pending", surveyId: a!.id, kind: "STUDENT_ABORT", requestedByUserId: "tutor-user", reason: "Synthetic review" } });
+  await db.studentRequestReview.create({ data: { id: "pending", surveyId: a.id, kind: "STUDENT_ABORT", requestedByUserId: "tutor-user", reason: "Synthetic review" } });
   const rollback = new Error("synthetic rollback");
-  await expect(db.$transaction(async (tx) => { await closeStudentRequest(tx, a!, "ABORTED"); throw rollback; })).rejects.toThrow(rollback);
+  await expect(db.$transaction(async (tx) => { await closeStudentRequest(tx, a, "ABORTED"); throw rollback; })).rejects.toThrow(rollback);
   expect(await request("a")).toEqual(a);
-  expect(await db.studentRequestExecutionAssignment.findUnique({ where: { surveyId_pairingId: { surveyId: a!.id, pairingId: "shared" } } })).toMatchObject({ releasedAt: null });
+  expect(await db.studentRequestExecutionAssignment.findUnique({ where: { surveyId_pairingId: { surveyId: a.id, pairingId: "shared" } } })).toMatchObject({ releasedAt: null });
   expect(await db.studentRequestReview.findUnique({ where: { id: "pending" } })).toMatchObject({ state: "PENDING" });
   expect(await db.notification.count()).toBe(0);
   expect(await db.pairingTutee.count({ where: { pairingId: "shared" } })).toBe(1);
@@ -116,7 +116,7 @@ it("lists only exact authorized original requests and requires a source-bound re
 
 it("does not substitute another source after the chosen original request is released", async () => {
   const [a] = await mapBoth();
-  await db.$transaction((tx) => releaseStudentRequestExecution(tx, a!));
+  await db.$transaction((tx) => releaseStudentRequestExecution(tx, a));
   await db.studentActionConfirmation.create({ data: { id: "stale-ticket", userId: "tutor-user", action: "SCHEDULE", target: "shared:canonical:request-a", readyAt: originalTime, expiresAt: deadline } });
   await expect(applyScheduleRejection(db, "tutor-user", "tutor", "canonical", "shared", "Stale original", "stale-ticket", "request-a")).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.studentRequestReview.count()).toBe(0);
@@ -148,9 +148,9 @@ it("serializes two independent closures and removes shared work only after its l
 
 it("a duplicate terminal claim rolls back its extra notice and cannot release another source", async () => {
   const [a, b] = await mapBoth();
-  await db.$transaction((tx) => closeStudentRequest(tx, a!, "ABORTED"));
+  await db.$transaction((tx) => closeStudentRequest(tx, a, "ABORTED"));
   const notices = await db.notification.count();
-  await expect(db.$transaction((tx) => closeStudentRequest(tx, a!, "DISQUALIFIED"))).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(db.$transaction((tx) => closeStudentRequest(tx, a, "DISQUALIFIED"))).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.notification.count()).toBe(notices);
   expect(await request("b")).toEqual(b);
   expect(await db.pairingTutee.count({ where: { pairingId: "shared" } })).toBe(1);
@@ -171,9 +171,9 @@ async function publishCurrentMember(withPeer = false) {
 it("keeps a fresh canonical publication until the last independent original request releases it", async () => {
   const [a, b] = await mapBoth();
   await publishCurrentMember();
-  await db.$transaction((tx) => closeStudentRequest(tx, a!, "ABORTED"));
+  await db.$transaction((tx) => closeStudentRequest(tx, a, "ABORTED"));
   expect(await db.sessionPlanParticipant.findUnique({ where: { id: "fresh-participant" } })).toMatchObject({ status: "SCHEDULED" });
-  await db.$transaction((tx) => closeStudentRequest(tx, b!, "ABORTED"));
+  await db.$transaction((tx) => closeStudentRequest(tx, b, "ABORTED"));
   expect(await db.sessionPlanParticipant.findUnique({ where: { id: "fresh-participant" } })).toMatchObject({ status: "CANCELLED" });
   expect(await db.sessionPlanCohort.findUnique({ where: { id: "fresh-cohort" } })).toMatchObject({ status: "CANCELLED" });
   expect(await db.sessionPlanAssignment.findUnique({ where: { planId_pairingId: { planId: "fresh-plan", pairingId: "shared" } } })).toMatchObject({ tuteeIds: ["canonical"] });
@@ -224,7 +224,7 @@ it("releases the exact transferred published source while preserving a peer's ac
   const peer = await db.sessionPlanParticipant.findUniqueOrThrow({ where: { id: "participant-b" } });
   const cohort = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: "accepted-cohort" } });
   const response = await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: "accepted-response" } });
-  await db.$transaction((tx) => closeStudentRequest(tx, a!, "ABORTED"));
+  await db.$transaction((tx) => closeStudentRequest(tx, a, "ABORTED"));
   expect(await db.sessionPlanParticipant.findUnique({ where: { id: "participant-a" } })).toMatchObject({ status: "CANCELLED" });
   expect(await db.sessionPlanParticipant.findUnique({ where: { id: "participant-b" } })).toEqual(peer);
   expect(await db.sessionPlanCohort.findUnique({ where: { id: "accepted-cohort" } })).toEqual(cohort);
@@ -232,7 +232,9 @@ it("releases the exact transferred published source while preserving a peer's ac
   expect(await db.sessionPlanningRequest.findUnique({ where: { id: "accepted-request" } })).toMatchObject({ status: "ACCEPTED", participantIds: ["original-b"] });
   expect(await db.pairingTutee.count({ where: { pairingId: "original-shared" } })).toBe(2);
   expect(await db.pairingTutee.count({ where: { pairingId: "shared" } })).toBe(1);
-  expect(await db.sessionPlanContinuationMember.findFirst({ where: { planId: "original-plan", tuteeId: "original-a" } })).toMatchObject({ sourceSurveyId: "request-a", assignmentId: null, releasedAt: expect.any(Date) });
+  const release = await db.sessionPlanContinuationMember.findFirst({ where: { planId: "original-plan", tuteeId: "original-a" } });
+  expect(release).toMatchObject({ sourceSurveyId: "request-a", assignmentId: null });
+  expect(release?.releasedAt).toBeInstanceOf(Date);
   const plan = await db.sessionPlan.findUniqueOrThrow({ where: { id: "original-plan" }, include: { term: true, assignments: true, participants: true, continuationMembers: true } });
   expect(await db.$transaction((tx) => transferredPlanIsCurrent(tx, plan, false))).toBe(true);
 });

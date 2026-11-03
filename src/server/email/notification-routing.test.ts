@@ -9,12 +9,17 @@ const mocks = vi.hoisted(() => ({
   available: vi.fn(),
   send: vi.fn(),
   reminderEligible: vi.fn(),
+  ownership: vi.fn(),
+  execute: vi.fn(),
 }));
 vi.mock("~/server/db", () => ({
   db: {
     programSettings: { findUnique: mocks.settings },
     $queryRaw: mocks.rows,
+    $executeRaw: mocks.execute,
+    historyRowOwnership: { findUnique: mocks.ownership },
     emailDelivery: {
+      findUnique: mocks.row,
       findUniqueOrThrow: mocks.row,
       update: mocks.update,
       updateMany: mocks.updateMany,
@@ -33,13 +38,17 @@ import { deliverNotifications } from "./notification-delivery";
 import { renderEmail } from "./template";
 import type { EmailMessage } from "./sender";
 import { verifyUnsubscribeToken } from "./unsubscribe-token";
+const leaseUntil = new Date("2030-01-01T00:05:00Z");
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("AUTH_URL", "https://school.example.test");
   vi.stubEnv("AUTH_SECRET", "synthetic-notification-secret");
   mocks.settings.mockResolvedValue({ emailNotificationsEnabled: true });
-  mocks.rows.mockResolvedValue([{ id: "notice-1" }]);
+  mocks.rows.mockResolvedValue([{ id: "notice-1", leaseUntil, attemptId: null }]);
+  mocks.ownership.mockResolvedValue(null);
+  mocks.updateMany.mockResolvedValue({ count: 1 });
+  mocks.execute.mockResolvedValue(0);
   mocks.available.mockReturnValue(true);
   mocks.send.mockResolvedValue(undefined);
   mocks.reminderEligible.mockResolvedValue(true);
@@ -60,6 +69,11 @@ function notice(
 ) {
   mocks.row.mockResolvedValue({
     id: "notice-1",
+    userId: "account-1",
+    sourceNotificationId: null,
+    leaseUntil,
+    attemptId: null,
+    attemptStartedAt: null,
     status: "PENDING",
     category,
     event,
@@ -122,7 +136,7 @@ it("keeps unavailable program delivery pending while security delivery is availa
   expect(mocks.updateMany).toHaveBeenCalledWith({
     where: {
       id: "notice-1",
-      leaseUntil: undefined,
+      leaseUntil,
       attemptId: null,
       status: { in: ["PENDING", "SENDING"] },
     },
@@ -340,4 +354,23 @@ it("fails optional delivery safely if a signing secret is unavailable", async ()
       }) as unknown,
     }),
   );
+});
+
+
+it("withholds a quarantined optional copy at the real admission boundary", async () => {
+  notice("info", "program_update");
+  mocks.ownership.mockResolvedValue({ readerUserId: null });
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
+  expect(mocks.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+    where: { id: "notice-1", status: "PENDING", leaseUntil, attemptId: null },
+    data: expect.objectContaining({ status: "CANCELLED" }) as unknown,
+  }));
+});
+
+it("does not send from a stale worker lease", async () => {
+  notice("info", "program_update");
+  mocks.rows.mockResolvedValue([{ id: "notice-1", leaseUntil: new Date(leaseUntil.getTime() - 1), attemptId: null }]);
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
 });

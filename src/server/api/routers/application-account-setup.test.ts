@@ -32,12 +32,15 @@ const linkedUser = (patch = {}) => ({
 });
 function fixture(role: Session["role"] = "HEAD") {
   const actor = {
+    id: "staff",
     role,
     name: "Staff",
     username: "staff",
     tutorId: null,
     suspendedAt: null,
     mergedIntoId: null,
+    recoveryVoidedAt: null,
+    historyAccessRevision: 7,
     tutorAccessRevoked: false,
     schoolDeparture: null as {
       reason: string;
@@ -59,14 +62,25 @@ function fixture(role: Session["role"] = "HEAD") {
     email: "applicant@example.test",
   };
   const mock = {
-    user: { findUnique: vi.fn().mockResolvedValue(actor) },
+    // Prisma returns a fresh snapshot. Sharing this mutable fixture object would
+    // incorrectly advance the preauthorization baseline during an in-flight read.
+    user: {
+      findUnique: vi.fn(() =>
+        Promise.resolve({
+          ...actor,
+          schoolDeparture: actor.schoolDeparture
+            ? { ...actor.schoolDeparture }
+            : null,
+        }),
+      ),
+    },
     tutorApplication: { findUnique: vi.fn().mockResolvedValue(application) },
     registrationCode: { findMany: vi.fn().mockResolvedValue([code()]) },
     tutor: {
       findUnique: vi.fn().mockResolvedValue({ status: "ACTIVE", user: null }),
     },
   };
-  const caller = createCaller({
+  const authenticate = () => createCaller({
     db: mock as unknown as typeof database,
     headers: new Headers(),
     // Deliberately stale role: the live account remains authoritative.
@@ -74,13 +88,18 @@ function fixture(role: Session["role"] = "HEAD") {
       user: { id: "staff", name: "Staff" },
       role: "HEAD",
       tutorId: null,
+      historyAccessRevision: actor.historyAccessRevision,
       expires: "2099-01-01",
     },
   });
+  let caller = authenticate();
   return {
     actor,
     application,
     mock,
+    reauthenticate: () => {
+      caller = authenticate();
+    },
     read: () =>
       caller.admin.applicationAccountSetup({
         applicationId: "exact-application",
@@ -107,9 +126,35 @@ it.each<Session["role"]>(["HEAD", "ADMIN", "COORDINATOR"])(
       expect.objectContaining({ where: { id: "exact-tutor" } }),
     );
     // The database surface deliberately provides no write operation.
-    expect(mock.user.findUnique).toHaveBeenCalledTimes(1);
+    // Successful private queries recheck the same principal before serialization.
+    expect(mock.user.findUnique).toHaveBeenLastCalledWith({
+      where: { id: "staff" },
+      select: { historyAccessRevision: true, mergedIntoId: true, recoveryVoidedAt: true },
+    });
   },
 );
+
+it("rejects a frozen stale session before reading invitation evidence and accepts fresh reauthentication", async () => {
+  const { read, actor, mock, reauthenticate } = fixture();
+  actor.historyAccessRevision += 1;
+  await expect(read()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  expect(mock.tutorApplication.findUnique).not.toHaveBeenCalled();
+  expect(mock.registrationCode.findMany).not.toHaveBeenCalled();
+  reauthenticate();
+  expect(await read()).toMatchObject({ state: "active", invitation: { code: "ABCDE" } });
+});
+
+it("withholds a resolved invitation when history access changes before the query response", async () => {
+  const { read, actor, mock, reauthenticate } = fixture();
+  mock.registrationCode.findMany.mockImplementationOnce(() => {
+    actor.historyAccessRevision += 1;
+    return Promise.resolve([code()]);
+  });
+  await expect(read()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  expect(mock.registrationCode.findMany).toHaveBeenCalledTimes(1);
+  reauthenticate();
+  expect(await read()).toMatchObject({ state: "active", invitation: { code: "ABCDE" } });
+});
 
 it.each<Session["role"]>(["VIEWER", "TUTOR", "STUDENT", "CREW"])(
   "%s cannot read invitation data despite a stale Head session",
@@ -241,7 +286,14 @@ describe("legacy and invalid invitation provenance", () => {
       code({ email: "applicant@example.test" }),
     ]);
     expect((await read()).state).toBe("active");
-    expect(mock.user.findUnique).toHaveBeenCalledTimes(1);
+    // Authorization and the final generation gate inspect only the actor by ID.
+    expect(mock.user.findUnique).toHaveBeenCalledTimes(2);
+    expect(mock.user.findUnique).toHaveBeenNthCalledWith(1,
+      expect.objectContaining({ where: { id: "staff" } }),
+    );
+    expect(mock.user.findUnique).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ where: { id: "staff" } }),
+    );
   });
   it("uses one exact code-bound tutor, including reissued codes, without email/name lookup", async () => {
     const { read, application, mock } = fixture();
@@ -255,7 +307,13 @@ describe("legacy and invalid invitation provenance", () => {
       tutorId: "exact-tutor",
     });
     expect(application.promotedTutorId).toBeNull();
-    expect(mock.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(mock.user.findUnique).toHaveBeenCalledTimes(2);
+    expect(mock.user.findUnique).toHaveBeenNthCalledWith(1,
+      expect.objectContaining({ where: { id: "staff" } }),
+    );
+    expect(mock.user.findUnique).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ where: { id: "staff" } }),
+    );
   });
   it("rejects disagreement between promoted and code-bound tutor IDs", async () => {
     const { read, mock } = fixture();
