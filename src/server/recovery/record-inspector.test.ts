@@ -56,6 +56,7 @@ function fixture() {
     registrationCode: { findMany: vi.fn().mockResolvedValue([]) },
     auditLog: { findMany: vi.fn().mockResolvedValue([]) },
     recoveryChange: { findMany: vi.fn().mockResolvedValue([]) },
+    recoveryCheckpoint: { findMany: vi.fn().mockResolvedValue([]) },
     programFeature: { findMany: vi.fn().mockResolvedValue([]) },
     recoveryFence: { findMany: vi.fn().mockResolvedValue([]) },
     scheduledProgramRefresh: { findMany: vi.fn().mockResolvedValue([]) },
@@ -548,6 +549,186 @@ describe("safe recovery journal evidence", () => {
       ...overrides,
     };
   }
+
+  it("follows a checkpoint's exact persisted action to journal events without reading its scope", async () => {
+    const { db, client } = fixture();
+    db.recoveryCheckpoint.findMany.mockResolvedValue([
+      {
+        id: "checkpoint",
+        actionId: "root",
+        sourceEntity: "PasswordResetToken",
+        sourceId: "private-token",
+        scope: { secret: "private-scope" },
+      },
+    ]);
+    db.recoveryChange.findMany.mockResolvedValue([
+      change({ actionId: "root", eventId: "event" }),
+    ]);
+    const input = { table: "RecoveryCheckpoint", key: { id: "checkpoint" } };
+    const website = await inspectRecords(client, web, input);
+    const host = await inspectRecords(client, operator, input);
+    expect(website).toEqual(host);
+    expect(website.rows[0]?.evidence).toEqual({
+      kind: "RECOVERY_METADATA",
+      interpretation: "RECORDED_RELATION_ONLY",
+      affectedRecord: null,
+      relatedRecords: [{ table: "RecoveryAction", key: { id: "root" } }],
+    });
+    expect(JSON.stringify(website)).not.toContain("private-scope");
+    db.recoveryCheckpoint.findMany.mockClear();
+    const evidence = await inspectRecoveryEvidence(client, web, input);
+    expect(evidence).toEqual(
+      await inspectRecoveryEvidence(client, operator, input),
+    );
+    expect(evidence.changes[0]?.evidence?.relatedRecords).toContainEqual({
+      table: "RecoveryEvent",
+      key: { id: "event" },
+    });
+    expect(db.recoveryCheckpoint.findMany).toHaveBeenCalledWith({
+      where: { id: "checkpoint" },
+      select: { actionId: true },
+      take: 1,
+    });
+    expect(db.recoveryChange.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { AND: [{ actionId: "root" }] },
+        take: 26,
+      }),
+    );
+    expect(JSON.stringify(evidence)).not.toContain("private-token");
+    expect(JSON.stringify(evidence)).not.toContain("private-scope");
+  });
+
+  it.each([
+    ["RecoveryReceipt", { id: "receipt" }, { actionId: "root" }],
+    ["RecoveryWorkflowDraft", { id: "draft" }, { actionId: "root" }],
+    [
+      "RecoveryDeliveryEffect",
+      { id: "effect" },
+      { actionId: "root", eventId: "event" },
+    ],
+    [
+      "RecoveryDeliveryCoverage",
+      { eventId: "event" },
+      { actionId: "root", eventId: "event" },
+    ],
+  ] as const)(
+    "anchors %s only through reviewed persisted recovery identities",
+    async (table, key, anchor) => {
+      const { db, client } = fixture();
+      const findMany = vi
+        .fn()
+        .mockResolvedValue([
+          { ...key, ...anchor, answers: { secret: "private-answers" } },
+        ]);
+      Object.assign(db, {
+        [table[0]!.toLowerCase() + table.slice(1)]: { findMany },
+      });
+      const inspected = await inspectRecords(client, web, { table, key });
+      expect(inspected.rows[0]?.evidence?.relatedRecords).toEqual(
+        Object.entries(anchor).map(([name, id]) => ({
+          table: name === "actionId" ? "RecoveryAction" : "RecoveryEvent",
+          key: { id },
+        })),
+      );
+      expect(JSON.stringify(inspected)).not.toContain("private-answers");
+      findMany.mockClear();
+      await inspectRecoveryEvidence(client, web, { table, key });
+      expect(findMany).toHaveBeenCalledWith({
+        where: key,
+        select: Object.fromEntries(
+          Object.keys(anchor).map((name) => [name, true]),
+        ),
+        take: 1,
+      });
+      expect(db.recoveryChange.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { AND: [anchor] },
+        }),
+      );
+    },
+  );
+
+  it("links delivery cancellation to its exact effect without treating its recovery key as a receipt ID", async () => {
+    const { db, client } = fixture();
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        effectId: "effect",
+        recoveryKey: "opaque-request-key",
+        disposition: "PENDING_CANCELLED",
+      },
+    ]);
+    Object.assign(db, { recoveryDeliveryCancellation: { findMany } });
+    const inspected = await inspectRecords(client, web, {
+      table: "RecoveryDeliveryCancellation",
+      key: { effectId: "effect" },
+    });
+    expect(inspected.rows[0]?.evidence?.relatedRecords).toEqual([
+      { table: "RecoveryDeliveryEffect", key: { id: "effect" } },
+    ]);
+  });
+
+  it.each([
+    { records: [] },
+    { records: [{ actionId: null }] },
+    { records: [{ actionId: { secret: "private-root" } }] },
+    { records: [{ actionId: "x".repeat(1025) }] },
+  ])(
+    "does not infer an action for absent or malformed checkpoint metadata (%j)",
+    async ({ records }) => {
+      const { db, client } = fixture();
+      db.recoveryCheckpoint.findMany.mockResolvedValue(records);
+      const result = await inspectRecoveryEvidence(client, web, {
+        table: "RecoveryCheckpoint",
+        key: { id: "checkpoint" },
+      });
+      expect(result.changes).toEqual([]);
+      expect(db.recoveryChange.findMany).not.toHaveBeenCalled();
+      expect(JSON.stringify(result)).not.toContain("private-root");
+    },
+  );
+
+  it("binds checkpoint pagination to both the source key and its persisted action", async () => {
+    const { db, client } = fixture();
+    const source = { table: "RecoveryCheckpoint", key: { id: "checkpoint" } };
+    db.recoveryCheckpoint.findMany.mockResolvedValue([{ actionId: "root" }]);
+    db.recoveryChange.findMany.mockResolvedValue([
+      change(),
+      change({ id: 2n }),
+    ]);
+    const first = await inspectRecoveryEvidence(client, web, {
+      ...source,
+      limit: 1,
+    });
+    db.recoveryChange.findMany.mockClear();
+    db.recoveryChange.findMany.mockResolvedValue([]);
+    await inspectRecoveryEvidence(client, web, {
+      ...source,
+      cursor: first.nextCursor!,
+    });
+    expect(db.recoveryChange.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { AND: [{ actionId: "root" }, { id: { gt: 1n } }] },
+      }),
+    );
+    db.recoveryChange.findMany.mockClear();
+    db.recoveryCheckpoint.findMany.mockResolvedValue([
+      { actionId: "different-root" },
+    ]);
+    await expect(
+      inspectRecoveryEvidence(client, web, {
+        ...source,
+        cursor: first.nextCursor!,
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(db.recoveryChange.findMany).not.toHaveBeenCalled();
+    db.user.findUnique.mockResolvedValue({ role: "VIEWER" });
+    db.recoveryCheckpoint.findMany.mockClear();
+    await expect(
+      inspectRecoveryEvidence(client, web, source),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.recoveryCheckpoint.findMany).not.toHaveBeenCalled();
+  });
 
   it("projects only the approved target identity and column names identically on both transports", async () => {
     const { db, client } = fixture();

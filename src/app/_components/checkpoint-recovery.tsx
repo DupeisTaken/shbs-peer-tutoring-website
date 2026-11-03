@@ -214,6 +214,12 @@ function CheckpointReview({
   const [copied, setCopied] = useState<"copied" | "copyFailed">();
   const intent = useRef<string | null>(null);
   const admitted = useRef(false);
+  // A fresh receipt is authoritative even before adopting changed consequences.
+  // It records this single-use checkpoint's result, including owner-review drafts.
+  const completed =
+    accepted ||
+    !!reviewed.receiptId ||
+    (incoming.checkpointId === reviewed.checkpointId && !!incoming.receiptId);
   const changed = incoming.fingerprint !== reviewed.fingerprint;
   const headOnly =
     reviewed.directRoles.length === 1 && reviewed.directRoles[0] === "HEAD";
@@ -230,10 +236,28 @@ function CheckpointReview({
     Number.isInteger(reviewed.dependentEventCount) &&
     reviewed.dependentEventCount >= 0 &&
     reviewed.dependentEventCount <= 1 &&
-    !reviewed.receiptId &&
-    !accepted &&
+    !completed &&
     !queued &&
     requesterAllowed;
+  // CLI apply bypasses only the event-count bound. Unknown/blocked evidence is
+  // never an invitation to repeat a committed action or bypass domain blockers.
+  const unsupported =
+    reviewed.version !== 1 ||
+    reviewed.coverage !== "COMPLETE" ||
+    reviewed.blockers.length > 0 ||
+    !Number.isInteger(reviewed.dependentEventCount) ||
+    reviewed.dependentEventCount < 0;
+  const websiteState = completed
+    ? "recorded"
+    : queued
+      ? "reviewPending"
+      : unsupported
+        ? "blockers"
+        : reviewed.dependentEventCount > 1
+          ? "cliOnly"
+          : eligible
+            ? "eligible"
+            : "blockers";
   const blocked = denied || changed || fetching || failedRead || pending;
   const apply = async () => {
     if (!eligible || blocked || admitted.current || reason.trim().length < 5)
@@ -292,9 +316,7 @@ function CheckpointReview({
         </div>
         <div>
           <dt className="muted">{t("website")}</dt>
-          <dd className="font-semibold">
-            {t(eligible ? "eligible" : "cliOnly")}
-          </dd>
+          <dd className="font-semibold">{t(websiteState)}</dd>
         </div>
       </dl>
       {headOnly && <p>{t("headOnly")}</p>}
@@ -402,7 +424,7 @@ function CheckpointReview({
           </Link>
         </p>
       )}
-      {(accepted || reviewed.receiptId) && <p role="status">{t("applied")}</p>}
+      {completed && <p role="status">{t("applied")}</p>}
       <div className="space-y-2">
         <label htmlFor={reasonId} className="block font-medium">
           {t("reason")}
@@ -412,7 +434,7 @@ function CheckpointReview({
           className="input min-h-24 w-full"
           value={reason}
           maxLength={2000}
-          disabled={pending || accepted || !!queued || !!reviewed.receiptId}
+          disabled={pending || completed || !!queued}
           onChange={(event) => {
             setReason(event.target.value);
             intent.current = null;

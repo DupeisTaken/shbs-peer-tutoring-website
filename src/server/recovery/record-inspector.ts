@@ -22,7 +22,7 @@ export type InspectedRecord = {
   fields: Record<string, unknown>;
   omitted: Array<{ field: string; reason: OmissionReason }>;
   evidence?: {
-    kind: "RECOVERY_JOURNAL";
+    kind: "RECOVERY_JOURNAL" | "RECOVERY_METADATA";
     interpretation: "RECORDED_RELATION_ONLY";
     affectedRecord: RecordReference | null;
     relatedRecords: RecordReference[];
@@ -481,6 +481,55 @@ function journalProjection(result: Record<string, unknown>) {
   };
 }
 
+/** Reviewed scalar identities only. In particular, polymorphic sources and
+ * receipt keys never become guessed references or disclose protected targets. */
+const recoveryReferenceFields: Readonly<
+  Record<string, readonly (readonly [string, string])[]>
+> = {
+  RecoveryCheckpoint: [["actionId", "RecoveryAction"]],
+  RecoveryWorkflowDraft: [["actionId", "RecoveryAction"]],
+  RecoveryDeliveryEffect: [
+    ["actionId", "RecoveryAction"],
+    ["eventId", "RecoveryEvent"],
+  ],
+  RecoveryDeliveryCancellation: [["effectId", "RecoveryDeliveryEffect"]],
+  RecoveryDeliveryCoverage: [
+    ["actionId", "RecoveryAction"],
+    ["eventId", "RecoveryEvent"],
+  ],
+  RecoveryEvent: [["actionId", "RecoveryAction"]],
+  RecoveryTrackedEntity: [["actionId", "RecoveryAction"]],
+  RecoveryFence: [["actionId", "RecoveryAction"]],
+  RecoveryChange: [
+    ["actionId", "RecoveryAction"],
+    ["eventId", "RecoveryEvent"],
+  ],
+  RecoveryReceipt: [["actionId", "RecoveryAction"]],
+};
+
+function recoveryReferences(
+  model: Model,
+  table: RecordTable,
+  result: Record<string, unknown>,
+) {
+  const references: RecordReference[] = [];
+  for (const [name, targetName] of recoveryReferenceFields[model.name] ?? []) {
+    if (!table.fields.some((field) => field.name === name && field.readable))
+      continue;
+    const target = modelFor(targetName);
+    if (!metadata(target).available) continue;
+    try {
+      references.push({
+        table: targetName,
+        key: validatedKey(target, { id: result[name] }).key,
+      });
+    } catch {
+      // Malformed legacy metadata cannot authorize navigation to another root.
+    }
+  }
+  return references;
+}
+
 function projectRecord(
   model: Model,
   table: RecordTable,
@@ -516,33 +565,20 @@ function projectRecord(
   const key = Object.fromEntries(
     table.keyFields.map((name) => [name, fields[name]]),
   ) as RecordKey;
-  const relatedRecords: RecordReference[] = [];
-  if (projection) {
-    for (const [name, relatedTable] of [
-      ["actionId", "RecoveryAction"],
-      ["eventId", "RecoveryEvent"],
-    ] as const) {
-      try {
-        relatedRecords.push({
-          table: relatedTable,
-          key: validatedKey(modelFor(relatedTable), { id: result[name] }).key,
-        });
-      } catch {
-        // Only validated identities become navigable references.
-      }
-    }
-  }
+  const relatedRecords = recoveryReferences(model, table, result);
   return {
     key,
     reference: { table: model.name, key },
     fields,
     omitted,
-    ...(projection
+    ...(projection || relatedRecords.length
       ? {
           evidence: {
-            kind: "RECOVERY_JOURNAL" as const,
+            kind: projection
+              ? ("RECOVERY_JOURNAL" as const)
+              : ("RECOVERY_METADATA" as const),
             interpretation: "RECORDED_RELATION_ONLY" as const,
-            affectedRecord: projection.affectedRecord,
+            affectedRecord: projection?.affectedRecord ?? null,
             relatedRecords,
           },
         }
@@ -680,29 +716,7 @@ export async function inspectRecoveryEvidence(
       "BAD_REQUEST",
       "Evidence page size must be between 1 and 50.",
     );
-  let after: bigint | undefined;
-  if (input.cursor) {
-    try {
-      if (input.cursor.length > 8192) throw new Error();
-      const cursor = JSON.parse(
-        Buffer.from(input.cursor, "base64url").toString("utf8"),
-      ) as {
-        version?: unknown;
-        source?: unknown;
-        after?: unknown;
-      };
-      if (
-        cursor.version !== 1 ||
-        JSON.stringify(cursor.source) !== JSON.stringify(source)
-      )
-        throw new Error();
-      after = validatedKey(modelFor("RecoveryChange"), { id: cursor.after })
-        .persisted.id as bigint;
-    } catch {
-      throw new RecordInspectorError("BAD_REQUEST", "Invalid evidence cursor.");
-    }
-  }
-  const where: Prisma.RecoveryChangeWhereInput =
+  let where: Prisma.RecoveryChangeWhereInput =
     source.table === "RecoveryAction"
       ? { actionId: source.key.id as string }
       : source.table === "RecoveryEvent"
@@ -715,6 +729,88 @@ export async function inspectRecoveryEvidence(
                 recordKey: { path: [name], equals: value },
               })),
             };
+  // Recovery metadata is not itself a domain journal target. Resolve only its
+  // exact persisted action/event identity, never scope/answers/source JSON.
+  const anchorFields =
+    source.table !== "RecoveryEvent" && source.table !== "RecoveryChange"
+      ? (recoveryReferenceFields[source.table] ?? []).filter(
+          ([, target]) =>
+            target === "RecoveryAction" || target === "RecoveryEvent",
+        )
+      : [];
+  let anchor: Record<string, string> | null | undefined;
+  if (anchorFields.length) {
+    anchor = null;
+    const delegateName =
+      sourceModel.name[0]!.toLowerCase() + sourceModel.name.slice(1);
+    const delegate = (
+      db as unknown as Record<
+        string,
+        {
+          findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
+        }
+      >
+    )[delegateName];
+    if (!delegate)
+      throw new RecordInspectorError("BAD_REQUEST", "Table is unavailable.");
+    const [record] = await delegate.findMany({
+      where: validated.persisted,
+      select: Object.fromEntries(anchorFields.map(([name]) => [name, true])),
+      take: 1,
+    });
+    if (record) {
+      const references = recoveryReferences(
+        sourceModel,
+        metadata(sourceModel),
+        record,
+      );
+      if (references.length === anchorFields.length) {
+        anchor = Object.fromEntries(
+          anchorFields.map(([name, target]) => [
+            name,
+            references.find((reference) => reference.table === target)!.key
+              .id as string,
+          ]),
+        );
+        where = {
+          actionId: anchor.actionId!,
+          ...(anchor.eventId ? { eventId: anchor.eventId } : {}),
+        };
+      }
+    }
+  }
+  let after: bigint | undefined;
+  if (input.cursor) {
+    try {
+      if (input.cursor.length > 8192) throw new Error();
+      const cursor = JSON.parse(
+        Buffer.from(input.cursor, "base64url").toString("utf8"),
+      ) as {
+        version?: unknown;
+        source?: unknown;
+        after?: unknown;
+        anchor?: unknown;
+      };
+      if (
+        cursor.version !== 1 ||
+        JSON.stringify(cursor.source) !== JSON.stringify(source) ||
+        JSON.stringify(cursor.anchor) !== JSON.stringify(anchor)
+      )
+        throw new Error();
+      after = validatedKey(modelFor("RecoveryChange"), { id: cursor.after })
+        .persisted.id as bigint;
+    } catch {
+      throw new RecordInspectorError("BAD_REQUEST", "Invalid evidence cursor.");
+    }
+  }
+  if (anchor === null)
+    return {
+      version: 1,
+      interpretation: "RECORDED_RELATION_ONLY",
+      source,
+      changes: [],
+      nextCursor: null,
+    };
   const model = modelFor("RecoveryChange");
   const table = metadata(model);
   const results = await db.recoveryChange.findMany({
@@ -741,7 +837,7 @@ export async function inspectRecoveryEvidence(
     nextCursor:
       results.length > limit && last
         ? Buffer.from(
-            JSON.stringify({ version: 1, source, after: last.key.id }),
+            JSON.stringify({ version: 1, source, anchor, after: last.key.id }),
           ).toString("base64url")
         : null,
   };

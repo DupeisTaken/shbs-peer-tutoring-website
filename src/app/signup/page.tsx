@@ -6,7 +6,8 @@ import { db } from "~/server/db";
 import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
 import { PublicFormPage } from "~/app/_components/public-form-page";
 import { auth } from "~/server/auth";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { TRPCError } from "@trpc/server";
 import { readRecoveryWorkflowDraft } from "~/server/recovery/workflow-draft";
 
 export async function generateMetadata() {
@@ -34,7 +35,17 @@ export default async function SignupPage({
       db,
       { draftId },
       { id: session.user.id },
-    );
+    ).catch((error: unknown) => {
+      // Missing/non-owned drafts, inactive accounts and changed exact ownership
+      // are all unavailable here. Keep the same 404 without disclosing existence;
+      // database, validation and other unexpected failures retain their boundary.
+      if (
+        error instanceof TRPCError &&
+        ["NOT_FOUND", "FORBIDDEN", "CONFLICT"].includes(error.code)
+      )
+        notFound();
+      throw error;
+    });
     draftConsumed = draft.state === "CONSUMED";
     if (draft.answers)
       recoveryDraft = {

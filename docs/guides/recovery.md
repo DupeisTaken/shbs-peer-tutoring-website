@@ -41,6 +41,12 @@ reports that you no longer have permission, private lists, previews and receipts
 are concealed. **Retry** must successfully recheck every open private view before
 showing them again; it does not repeat the write or discard your reason.
 
+A recorded checkpoint outcome is labelled **Restoration already recorded** and
+cannot be applied again. This also covers a pending owner-review draft; it does
+not mean participation has resumed. Blocked evidence and pending management review
+have separate labels. Only a complete supported chain with more than one later
+event directs the operator to the CLI.
+
 The website permits a supported action only when its entire tracked causal chain
 has zero or one later logical action. Two later actions anywhere in that chain
 require the host operator CLI. A transaction that changes several rows counts as
@@ -90,6 +96,12 @@ journal. Safe affected-record keys and changed-column names are available, but
 raw historical snapshots and credential values remain excluded. A shared record
 reference establishes recorded impact evidence, not permission to reverse it or
 proof that every related action was caused by the selected record.
+
+Checkpoint and other recovery metadata references link through their stored
+action/event identities. Checkpoint dependency pages follow that exact action's
+journal; they do not infer links from private scope or answer snapshots. A missing
+or inaccessible owner-review draft shows the same unavailable page through both
+signup URLs, while the recorded owner can review it through ordinary signup.
 
 ## Save and compare an admission checkpoint
 

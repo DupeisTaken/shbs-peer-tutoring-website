@@ -47,6 +47,9 @@ function RecordedEvidence({
     if (denied) onDenied();
   }, [denied, onDenied]);
   const data = denied || query.isError ? undefined : query.data;
+  const hasRecordReferences = !!(
+    record.evidence?.affectedRecord ?? record.evidence?.relatedRecords.length
+  );
   return (
     <section className="space-y-4">
       <QueryFeedback
@@ -117,9 +120,9 @@ function RecordedEvidence({
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : !hasRecordReferences ? (
             <p>{t("noRecordedEvidence")}</p>
-          )}
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <Button
               size="compact"

@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -362,7 +363,115 @@ it("enforces the website event bound in the UI while retaining CLI-only inspecti
     screen.getByRole("button", { name: "Review restoration" }),
   ).toHaveProperty("disabled", true);
   expect(screen.getByText("Synthetic status correction")).toBeTruthy();
+  expect(screen.getByText(en.checkpointRecovery.cliOnly)).toBeTruthy();
+  expect(screen.queryByText(en.checkpointRecovery.recorded)).toBeNull();
 });
+
+it.each(["en", "zh"])(
+  "shows a recorded attendance receipt without suggesting another CLI restoration (%s)",
+  (locale) => {
+    const labels =
+      locale === "zh" ? zh.checkpointRecovery : en.checkpointRecovery;
+    mocks.inspect.mockReturnValue(
+      query({
+        ...initial,
+        adapter: "ATTENDANCE",
+        sourceEntity: "Session",
+        sourceId: "synthetic-session",
+        websiteEligible: false,
+        dependentEventCount: 2,
+        receiptId: "saved-receipt",
+        blockers: ["Synthetic post-restoration evidence detail"],
+      }),
+    );
+    mount(locale, "ADMIN", "saved-receipt");
+    const website = screen.getByText(labels.website).parentElement!;
+    expect(within(website).getByText(labels.recorded)).toBeTruthy();
+    expect(screen.queryByText(labels.cliOnly)).toBeNull();
+    expect(
+      screen.getByText("Synthetic post-restoration evidence detail"),
+    ).toBeTruthy();
+    expect(screen.getByText("saved-receipt")).toBeTruthy();
+    expect(screen.getByLabelText(labels.reason)).toHaveProperty(
+      "disabled",
+      true,
+    );
+    const review = screen.getByRole("button", { name: labels.review });
+    expect(review).toHaveProperty("disabled", true);
+    fireEvent.click(review);
+    expect(mocks.restore).not.toHaveBeenCalled();
+  },
+);
+
+it("honors a newly read receipt before adopting changed consequences", () => {
+  const view = mount();
+  enterReason();
+  mocks.inspect.mockReturnValue(
+    query({
+      ...initial,
+      fingerprint: "b".repeat(64),
+      websiteEligible: false,
+      receiptId: "another-reviewer-receipt",
+      effects: ["New completed consequence"],
+    }),
+  );
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <CheckpointRecovery role="ADMIN" initialCheckpoint="checkpoint" />
+    </NextIntlClientProvider>,
+  );
+  const website = screen.getByText(
+    en.checkpointRecovery.website,
+  ).parentElement!;
+  expect(
+    within(website).getByText(en.checkpointRecovery.recorded),
+  ).toBeTruthy();
+  expect(screen.queryByText(en.checkpointRecovery.cliOnly)).toBeNull();
+  expect(screen.queryByText("New completed consequence")).toBeNull();
+  expect(screen.getByLabelText("Restoration reason")).toHaveProperty(
+    "disabled",
+    true,
+  );
+  expect(
+    screen.getByRole("button", { name: "Review restoration" }),
+  ).toHaveProperty("disabled", true);
+  expect(mocks.restore).not.toHaveBeenCalled();
+});
+
+it.each(["en", "zh"])(
+  "keeps unsupported evidence blocked instead of recommending CLI bypass (%s)",
+  (locale) => {
+    const labels =
+      locale === "zh" ? zh.checkpointRecovery : en.checkpointRecovery;
+    mocks.inspect.mockReturnValue(
+      query({
+        ...initial,
+        coverage: "UNKNOWN",
+        websiteEligible: false,
+        dependentEventCount: 2,
+        blockers: [
+          "Unsupported participant descendant changes require a separate correction.",
+        ],
+      }),
+    );
+    mount(locale);
+    const website = screen.getByText(labels.website).parentElement!;
+    expect(within(website).getByText(labels.blockers)).toBeTruthy();
+    expect(screen.queryByText(labels.cliOnly)).toBeNull();
+    expect(
+      screen.getByText(
+        locale === "zh"
+          ? "不受支持的参与者后续变更须另行修正。"
+          : "Unsupported participant descendant changes require a separate correction.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: labels.review })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(mocks.restore).not.toHaveBeenCalled();
+  },
+);
 
 it("keeps an accepted restoration blocked through receipt-read failure and retries only the read", async () => {
   mocks.receipt.mockReturnValue({
@@ -380,6 +489,8 @@ it("keeps an accepted restoration blocked through receipt-read failure and retri
   fireEvent.click(screen.getByRole("button", { name: "Retry read" }));
   expect(mocks.refetch).toHaveBeenCalled();
   expect(mocks.restore).toHaveBeenCalledTimes(1);
+  expect(screen.getByText(en.checkpointRecovery.recorded)).toBeTruthy();
+  expect(screen.queryByText(en.checkpointRecovery.cliOnly)).toBeNull();
   expect(
     screen.getByRole("button", { name: "Review restoration" }),
   ).toHaveProperty("disabled", true);
@@ -401,6 +512,8 @@ it("distinguishes Coordinator submission from applied restoration", async () => 
   await screen.findByText(
     "Submitted for approval. No restoration has been applied.",
   );
+  expect(screen.getByText(en.checkpointRecovery.reviewPending)).toBeTruthy();
+  expect(screen.queryByText(en.checkpointRecovery.cliOnly)).toBeNull();
   expect(
     screen
       .getByRole("link", { name: "View approval request" })
