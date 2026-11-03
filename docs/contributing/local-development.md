@@ -36,6 +36,10 @@ source revision the task owns; preserve unrelated changes and running previews.
   resetting the same fixtures. Do not run `check`/build concurrently with dev in
   the same checkout: they share generated Next output. `SHBS_BUILD_CPUS=1` limits
   local build workers; `--maxWorkers=1` bounds Vitest workers.
+- **Shared CI capacity:** local agent/chat workers, hosted runner jobs and Vitest
+  workers are separate limits. Do not spawn more parallel chats unless necessary.
+  Coordinate CI-producing work using the [capacity and queue rules](verification.md#ci-capacity-and-queue-discipline);
+  an idle local machine does not imply free hosted runners.
 - **Cleanup and handoff:** record the processes, ports and temporary databases you
   start. Stop only those owned resources after verification, or document an explicit
   handoff for a retained preview. Never stop Codex/ChatGPT or unrelated browser/Node

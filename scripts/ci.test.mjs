@@ -108,7 +108,8 @@ test("inline comparison builds receive masked runtime cache authentication", () 
 });
 
 test("parallel jobs retain checks, isolated databases, bounded workers and failure reports", () => {
-  for (const job of [checks, tests, image]) assert.equal(job.needs, undefined);
+  for (const job of [checks, image]) assert.equal(job.needs, undefined);
+  assert.deepEqual(tests.needs, ["checks", "image-storage"]);
   for (const job of Object.values(workflow.jobs)) {
     assert.ok(job["timeout-minutes"] > 0 && job["timeout-minutes"] <= 9);
     for (const step of job.steps) assert.ok(step.name);
@@ -133,7 +134,7 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   // actual installed Vitest sequencer for every matrix entry, without fixtures.
   assert.deepEqual(
     tests.strategy.matrix.shard,
-    Array.from({ length: 30 }, (_, index) => index + 1),
+    Array.from({ length: 16 }, (_, index) => index + 1),
   );
   assert.equal(
     tests.name,
@@ -171,11 +172,46 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   assert.equal(report.with.path, ".validation/test-results.json");
 });
 
+test("four overlapping workflows leave four of twenty runner slots available", () => {
+  const jobs = Object.entries(workflow.jobs);
+  const ancestors = (id) => {
+    const needs = workflow.jobs[id].needs ?? [];
+    return new Set(
+      [needs].flat().flatMap((parent) => [parent, ...ancestors(parent)]),
+    );
+  };
+  const dependencies = new Map(jobs.map(([id]) => [id, ancestors(id)]));
+  let peak = 0;
+  // Any concurrently running jobs form an antichain in the dependency graph.
+  // Count matrix slots, not just job definitions; include verify and publish.
+  for (let mask = 1; mask < 2 ** jobs.length; mask++) {
+    const simultaneous = jobs.filter((_, index) => mask & (1 << index));
+    if (
+      simultaneous.some(([id]) =>
+        simultaneous.some(([other]) => dependencies.get(id).has(other)),
+      )
+    )
+      continue;
+    const slots = simultaneous.reduce((total, [, job]) => {
+      const matrix = job.strategy?.matrix;
+      if (!matrix) return total + 1;
+      assert.deepEqual(Object.keys(matrix), ["shard"]);
+      return (
+        total +
+        Math.min(matrix.shard.length, job.strategy["max-parallel"] ?? Infinity)
+      );
+    }, 0);
+    peak = Math.max(peak, slots);
+  }
+  assert.equal(peak, 4);
+  assert.ok(4 * peak + 4 <= 20, "four PR runs must leave four shared slots");
+});
+
 test("the test budget covers setup and execution without retries or dropped coverage", () => {
   // A step-only timeout would exclude the install/migration costs from the budget.
   assert.equal(tests["timeout-minutes"], 9);
   assert.equal(tests["continue-on-error"], undefined);
-  assert.equal(tests.strategy["max-parallel"], undefined);
+  assert.equal(tests.strategy["max-parallel"], 3);
   const runIndex = tests.steps.findIndex(
     (step) => step.name === "Run test shard",
   );

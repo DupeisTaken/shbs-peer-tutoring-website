@@ -5,6 +5,10 @@ with the concrete problem and resulting behavior; list the checks, source revisi
 and any unverified scope. Close delivered issues through the PR, while leaving
 broader trackers open until their full scope is complete.
 
+Before pushing or rerunning CI, follow the [shared capacity budget](verification.md#ci-capacity-and-queue-discipline).
+Batch locally verified changes into one push and coordinate up to four active PR
+runs; adding more parallel chats must not create a burst of redundant runs.
+
 ## Pull request size labels
 
 The [PR Size workflow](../../.github/workflows/pr-size.yml) automatically maintains one
