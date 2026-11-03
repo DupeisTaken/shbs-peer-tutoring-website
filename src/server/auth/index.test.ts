@@ -12,10 +12,11 @@ const mocks = vi.hoisted(() => ({
   verifyCode: vi.fn(),
   credentialState: vi.fn(),
   updateUser: vi.fn(),
+  resolveTutorLink: vi.fn(),
 }));
 vi.mock("~/server/transactions", () => ({ lockEntity: vi.fn() }));
 vi.mock("~/server/account-profile", () => ({ lockAccountProfile: vi.fn(), updateAccountProfile: vi.fn() }));
-vi.mock("./tutor-link", () => ({ resolveTutorLink: async () => null }));
+vi.mock("./tutor-link", () => ({ resolveTutorLink: mocks.resolveTutorLink }));
 vi.mock("./username", () => ({ ensureUserUsername: vi.fn(), lockUsernameNamespace: vi.fn() }));
 vi.mock("./credentials", () => ({ clientIpFromRequest: () => "test-ip", verifySigninPassword: mocks.verifyPassword }));
 vi.mock("./two-factor", () => ({ verifyLoginCode: mocks.verifyCode }));
@@ -40,7 +41,7 @@ vi.mock("next-auth", () => ({
 }));
 import "./index";
 
-beforeEach(() => { mocks.findUser.mockReset(); mocks.verifyPassword.mockReset(); mocks.verifyCode.mockReset(); mocks.credentialState.mockReset(); mocks.updateUser.mockReset(); });
+beforeEach(() => { mocks.findUser.mockReset(); mocks.verifyPassword.mockReset(); mocks.verifyCode.mockReset(); mocks.credentialState.mockReset(); mocks.updateUser.mockReset(); mocks.resolveTutorLink.mockReset().mockResolvedValue(null); });
 
 it("invalidates a deleted student session instead of leaving a sign-in redirect loop", async () => {
   mocks.findUser.mockResolvedValue(null);
@@ -103,6 +104,17 @@ it("rechecks credential evidence under the user lock when rotation wins after th
   mocks.credentialState.mockResolvedValue({ sessionVersion: 1 });
   expect(await mocks.jwt!({ token: { role: "VIEWER", tutorId: null }, user: { id: "user", sessionVersion: 0 } })).toBeNull();
   expect(mocks.updateUser).not.toHaveBeenCalled();
+  expect(mocks.resolveTutorLink).not.toHaveBeenCalled();
+});
+
+it("completes fresh former-tutor sign-in when the locked resolver declines its old email claim", async () => {
+  mocks.findUser.mockResolvedValue({ emailVerifiedAt: new Date(), tutorId: null, sessionVersion: 2 });
+  mocks.credentialState.mockResolvedValue({ sessionVersion: 2 });
+  mocks.updateUser.mockResolvedValue({ id: "former", role: "TUTOR", tutorId: null, sessionVersion: 2, historyAccessRevision: 2 });
+  expect(await mocks.jwt!({ token: { role: "TUTOR", tutorId: null }, user: { id: "former", email: "former@example.test", sessionVersion: 2 } }))
+    .toMatchObject({ sub: "former", role: "TUTOR", tutorId: null, sessionVersion: 2, historyAccessRevision: 2 });
+  expect(mocks.resolveTutorLink).toHaveBeenCalledWith(expect.objectContaining({ user: { findUnique: mocks.credentialState, update: mocks.updateUser } }), "former", "former@example.test");
+  expect(mocks.updateUser).toHaveBeenCalledWith(expect.objectContaining({ data: {} }));
 });
 
 it("issues a new login at the proved generation after rotation, then rejects it on the next rotation", async () => {
