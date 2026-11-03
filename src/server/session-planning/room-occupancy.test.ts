@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SchoolCalendarOverride } from "~/lib/school-calendar";
 import * as programTime from "~/lib/program-time";
-import { getProgramTimeZone } from "~/server/program/time-zone";
+import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import type { TransactionDb } from "~/server/transactions";
 import {
   assertDatedRoomBlackoutAvailable,
   datedUnavailableRooms,
 } from "./room-occupancy";
 
-vi.mock("~/server/program/time-zone", () => ({
+vi.mock("~/server/program/time-zone-reader", () => ({
   getProgramTimeZone: vi.fn().mockResolvedValue("Asia/Shanghai"),
 }));
 

@@ -5,9 +5,9 @@ import { recordDomainAudit } from "~/server/audit/evidence";
 import { auditActorScope } from "~/server/db-scope";
 import { standingFromCounts } from "~/lib/discipline";
 import { getActivePeriodOrNull } from "~/server/period";
-import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
+import { notifyAdmins, notifyUsers } from "~/server/notifications/core";
 import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
-import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { preserveHistoricalAcademics } from "~/server/historical-academic-snapshot";
 import { executionParticipantId, executionSourceIds, supersededPairingIds } from "~/server/participant-execution";
 import {
   inTransaction,

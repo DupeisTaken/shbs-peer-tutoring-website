@@ -17,7 +17,7 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 import { lockUsernameNamespace } from "~/server/auth/username-namespace";
-import { lockAccountProfile } from "~/server/account-profile";
+import { lockAccountProfile } from "~/server/account-profile-lock";
 import { databaseScope } from "~/server/db-scope";
 import { recoveryAccountSelect, recoveryHash, recoveryJson } from "./capture";
 import { preservedRecoveryEvent } from "./independent-changes";

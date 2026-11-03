@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { lockAccountProfile } from "~/server/account-profile";
+import { lockAccountProfile } from "~/server/account-profile-lock";
 import { lockCatalogue } from "~/server/qualifications";
-import { lockStudentRequestReview } from "~/server/request-invalidity";
+import { lockStudentRequestReview } from "~/server/request-review";
 import { currentStudentSignupPayload, studentSignupLocalAnswers } from "~/server/student-signup-answers";
-import { assignedSignupSubjects, normalizeStudentSignupAnswers, restoreStudentSignupAnswers, studentSignupAnswersInput } from "~/server/student-signup-editor";
+import { assignedSignupSubjects, normalizeStudentSignupAnswers, restoreStudentSignupAnswers, studentSignupAnswersInput } from "~/server/student-signup-state";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { recoveryHash, recoveryJson } from "../capture";
 import type { CheckpointAdapter, CheckpointJournalChange } from "../checkpoint-contract";

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { lockAccountProfile } from "~/server/account-profile";
-import { studentSignupAnswersInput } from "~/server/student-signup-editor";
+import { lockAccountProfile } from "~/server/account-profile-lock";
+import { studentSignupAnswersInput } from "~/server/student-signup-state";
 import { studentSignupLocalAnswers } from "~/server/student-signup-answers";
 import {
   inTransaction,
@@ -12,7 +12,7 @@ import {
 import { recoveryHash, recoveryJson } from "./capture";
 import type { CheckpointActor } from "./checkpoint-contract";
 import { participantIdentity } from "./adapters/shared";
-import { notifyUsers, notificationData } from "~/server/notifications/create";
+import { notifyUsers, notificationData } from "~/server/notifications/core";
 import { withRecoveryDeliverySource } from "./delivery-effects";
 
 const id = z.string().min(1).max(200);

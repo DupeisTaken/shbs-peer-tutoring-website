@@ -19,7 +19,7 @@ import {
   type DomainDb,
   type TransactionDb,
 } from "~/server/transactions";
-import { getProgramTimeZone } from "~/server/program/time-zone";
+import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { programDateKey, programMinuteOfDay, programDayStart, programDayEnd } from "~/lib/program-time";
 type Db = DomainDb;
 

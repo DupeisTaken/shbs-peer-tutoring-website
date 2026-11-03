@@ -1,13 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { nextPeriod } from "~/lib/period";
-import { lockAccountProfile } from "~/server/account-profile";
+import { lockAccountProfile } from "~/server/account-profile-lock";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { requirePolicy } from "~/server/policy-acceptance";
 import { FEATURE_KEYS, getFeatures } from "~/server/program/features";
 import { updateContinuationOpening } from "~/server/program/continuation-opening";
 import { lockCatalogue } from "~/server/qualifications";
-import { lockStudentRequestReview } from "~/server/request-invalidity";
+import { lockStudentRequestReview } from "~/server/request-review";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
 import {
   changeSchoolDeparture,
@@ -17,7 +17,7 @@ import {
   currentStudentSignupPayload,
   studentSignupLocalAnswers,
 } from "~/server/student-signup-answers";
-import { studentSignupAnswersInput } from "~/server/student-signup-editor";
+import { studentSignupAnswersInput } from "~/server/student-signup-state";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { recoveryHash, recoveryJson } from "../capture";
 import type {

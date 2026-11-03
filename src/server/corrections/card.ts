@@ -7,7 +7,7 @@ import {
 import { assertFeatureEnabled } from "~/server/program/features";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
-import { recordAudit } from "~/server/audit/log";
+import { recordAudit } from "~/server/audit/record";
 
 export const cardReviewInput = z.object({
   id: z.string().min(1),

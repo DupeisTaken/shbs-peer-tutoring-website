@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { lockAccountProfile } from "~/server/account-profile";
+import { lockAccountProfile } from "~/server/account-profile-lock";
 import { requireAcademicConfirmation } from "~/server/academics";
-import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { preserveHistoricalAcademics } from "~/server/historical-academic-snapshot";
 import { requirePolicy } from "~/server/policy-acceptance";
 import { lockCatalogue } from "~/server/qualifications";
 import {
   lockLegacySignupReview,
   lockStudentRequestReview,
-} from "~/server/request-invalidity";
+} from "~/server/request-review";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
 import {
   requireSchoolParticipation,

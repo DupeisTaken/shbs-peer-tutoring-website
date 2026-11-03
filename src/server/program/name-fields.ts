@@ -14,7 +14,7 @@ import {
   lockUsernameNamespace,
   ensureUserUsername,
   ensureUniqueUsername,
-} from "~/server/auth/username";
+} from "~/server/auth/username-core";
 import {
   inTransaction,
   type DomainDb,

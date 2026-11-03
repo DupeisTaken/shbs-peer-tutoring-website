@@ -47,7 +47,7 @@ import { lockPlannedRoomSchedule } from "~/server/room-bookings";
 import { ownedStudentIds } from "~/server/student-ownership";
 import { requireParticipantSourceParticipation } from "~/server/participant-source-restrictions";
 import { requireSchoolParticipation } from "~/server/school-departure";
-import { getProgramTimeZone } from "~/server/program/time-zone";
+import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { recordDomainAudit } from "~/server/audit/evidence";
 import { findAccountPolicy, requirePolicy } from "~/server/policy-acceptance";
 import {

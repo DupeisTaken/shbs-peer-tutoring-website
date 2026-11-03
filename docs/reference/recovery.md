@@ -90,6 +90,22 @@ children. `applyAdmissionRecoveryFromOperator` permits a larger covered chain;
 it preserves the ordinary domain's live actor, fingerprint, conflict and receipt
 requirements. Only the trusted CLI imports this operator adapter. Browser input
 never chooses a trusted channel or supplies an authoritative role.
+The packaged recovery CLI follows an explicit source-import graph. Domain helpers
+for username allocation, account/attendance locks, historical snapshots, signup
+state, request review, audit writes, notifications and program time-zone reads
+require the caller's database client or transaction. Web wrappers retain their
+existing defaults; recovery never imports the shared client, application environment
+validation, API router or outbound sender. Extraction does not change current
+eligibility checks, source reads, lock order or delivery-source binding. Ordinary
+signup management edits still consume their authenticated action proof; the recovery
+path still verifies its exact action and transaction binding before changing state.
+
+The Docker runtime assembles each additional source and the two notification
+catalogues at its original path before copying the prepared application layer.
+The deployment graph guard follows emitted imports, deferred imports and re-exports,
+validates JSON assets as terminal data, and checks production packages and exact
+runtime destinations. It must fail when a required descendant is missing or a web
+runtime dependency reaches the CLI; copying the entire source tree is not a substitute.
 
 Dated scheduling has journal coverage across plans, assignment snapshots, cohorts,
 individual commitments, suggestions, requests, offers, responses, mutation receipts,
