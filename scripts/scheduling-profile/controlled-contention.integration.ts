@@ -1,3 +1,4 @@
+import { Prisma } from "../../generated/prisma/index.js";
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
@@ -9,7 +10,8 @@ import { assertIsolatedTestDatabase } from "../../src/test/database-guard";
 
 const databaseUrl = process.env.DATABASE_URL;
 assertIsolatedTestDatabase(databaseUrl);
-const periodArgs = { strings: ["SELECT pg_advisory_xact_lock(hashtextextended(", ", 0))"], values: ["program:period"] };
+const periodKey = "program:period";
+const periodArgs = Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${periodKey}, 0))`;
 
 /** Small real PG transactions exercise the same fences and a detached server
  * context; full app/HTTP/authority calls remain in the measured scenarios. No
