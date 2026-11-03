@@ -21,6 +21,7 @@ import {
   assertTutorScheduleCohortAvailable,
 } from "~/server/tutor-scheduling";
 import type { Prisma } from "../../generated/prisma";
+import { releasePairingsInOrder } from "~/server/ordered-pairing-release";
 import { participantKeys } from "~/server/session-planning/participants";
 import { datedUnavailableRooms } from "~/server/session-planning/room-occupancy";
 
@@ -379,17 +380,8 @@ export async function persistRoomUnit(
     scheduleConfirmed: boolean;
   } = members[0]!,
 ) {
-  const ids = members.map((member) => member.id);
   if (members[0]!.groupId)
-    await db.pairing.updateMany({
-      where: { id: { in: ids } },
-      data: {
-        groupId: null,
-        scheduleConfirmed: false,
-        roomNeedsAssignment: false,
-        roomShortageKey: null,
-      },
-    });
+    await releasePairingsInOrder(db, [members.map((member) => member.id)], "group");
   for (const member of members) {
     await db.pairing.update({
       where: { id: member.id },
@@ -517,12 +509,8 @@ export async function allocateSlotCohort(
     (unit) => enabled && unit[0]!.term.active && unit[0]!.roomMode === "AUTO",
   );
   const fixed = units.filter((unit) => !movable.includes(unit));
-  const movableIds = movable.flatMap((unit) => unit.map((row) => row.id));
-  if (movableIds.length)
-    await db.pairing.updateMany({
-      where: { id: { in: movableIds } },
-      data: { groupId: null, roomId: null },
-    });
+  const releases = movable.map((unit) => unit.map((row) => row.id).sort());
+  await releasePairingsInOrder(db, releases, "rooms");
   const fixedIds = fixed.flatMap((unit) => unit.map((row) => row.id));
   const occupied = new Set<string>();
   for (const unit of fixed) {
