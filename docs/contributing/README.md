@@ -33,6 +33,9 @@ operate it. Proposed designs stay in issues until reviewed and delivered.
   important implementation decisions in code comments.
 - Keep local work bounded: one server/browser or test run at a time. Prefer local
   configuration over global changes; stop only processes and resources you own.
+- Delegate independent investigation, implementation and review to subagents.
+  Give each a distinct scope and acceptance criteria. The lead reviews and
+  integrates their work before pushing under the [CI capacity budget](verification.md#ci-capacity-and-queue-discipline).
 - Test the affected behavior and record what was actually verified. A screenshot,
   mocked write and database transaction establish different things.
 
