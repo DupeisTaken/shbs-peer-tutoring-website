@@ -7,12 +7,12 @@ import {
   needsAcademicConfirmationForParticipation,
   type AcademicRecord,
 } from "~/lib/academics";
-import { lockAccountProfile } from "./account-profile";
+import { lockAccountProfile } from "./account-profile-lock";
 import { staleConflict } from "./concurrency";
 import { inTransaction, lockEntity, type DomainDb } from "./transactions";
 import { assertOfferedGrade } from "./program/profile-policy";
 import type { z } from "zod";
-import { preserveHistoricalAcademics } from "./historical-academics";
+import { preserveHistoricalAcademics } from "./historical-academic-snapshot";
 
 export async function accountAcademics(db: DomainDb, userId: string) {
   const [user, term] = await Promise.all([

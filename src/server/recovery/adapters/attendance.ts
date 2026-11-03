@@ -3,7 +3,7 @@ import {
   attendanceCorrectionInput,
   correctAttendance,
 } from "~/server/corrections/attendance";
-import { lockAttendanceSchedule } from "~/server/attendance-schedule";
+import { lockAttendanceSchedule } from "~/server/attendance-schedule-lock";
 import { reconsiderSessionFlag } from "~/server/crew/flags";
 import { getFeatures } from "~/server/program/features";
 import { lockEntity, type TransactionDb } from "~/server/transactions";

@@ -1,11 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import type { z } from "zod";
 import type { departureChange } from "~/lib/school-departure";
-import { lockAccountProfile } from "./account-profile";
+import { lockAccountProfile } from "./account-profile-lock";
 import { inTransaction, lockEntity, type DomainDb } from "./transactions";
 import { ownedStudentIds } from "./student-ownership";
-import { recordAudit } from "./audit/log";
-import { preserveHistoricalAcademics } from "./historical-academics";
+import { recordAudit } from "./audit/record";
+import { preserveHistoricalAcademics } from "./historical-academic-snapshot";
 import { withRecoveryDeliverySource } from "./recovery/delivery-effects";
 import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
 import { accountHistoryReaderId } from "./account-history";

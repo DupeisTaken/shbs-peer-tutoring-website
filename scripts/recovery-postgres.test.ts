@@ -244,7 +244,28 @@ void test(
       `UPDATE "User" SET username=id,"emailVerifiedAt"='2026-01-01'; UPDATE "User" SET "personId"='source-person' WHERE id='retired'`,
     );
     await app.query(
-      `INSERT INTO "User" (id,email,username,role,"twoFactorEnabled","emailVerifiedAt") VALUES ('otp-login','otp@example.test','otp-login','VIEWER',true,'2026-01-01'); INSERT INTO "AccountEmail" ("userId",email,"verifiedAt") VALUES ('independent','independent@example.test','2026-01-01'),('checkpoint','checkpoint@example.test','2026-01-01')`,
+      `INSERT INTO "User" (id,email,username,role,"twoFactorEnabled","emailVerifiedAt") VALUES ('otp-login','otp@example.test','otp-login','VIEWER',true,'2026-01-01')`,
+    );
+    // account_email_reserve owns primary mailbox rows and mirrors verification
+    // from User. Assert its real output rather than inserting a duplicate alias.
+    assert.deepEqual(
+      (
+        await app.query<{ email: string; userId: string; verified: boolean }>(
+          `SELECT email,"userId",("verifiedAt"=TIMESTAMP '2026-01-01') AS verified FROM "AccountEmail" WHERE email IN ('checkpoint@example.test','independent@example.test') ORDER BY email`,
+        )
+      ).rows,
+      [
+        {
+          email: "checkpoint@example.test",
+          userId: "checkpoint",
+          verified: true,
+        },
+        {
+          email: "independent@example.test",
+          userId: "independent",
+          verified: true,
+        },
+      ],
     );
     await app.query(`INSERT INTO "ServiceHourAdjustment" (id, month, "schoolYear", quarter, type, amount, reason, "tutorId") VALUES
       ('checkpoint-hours', '2026-01', '25-26', 'Q1', 'EXTRA', 1.25, 'Synthetic immutable history', 'checkpoint-tutor')`);

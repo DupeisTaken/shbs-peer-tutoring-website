@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { createSchoolCalendarSnapshot } from "~/lib/school-calendar";
 import { programDateKey } from "~/lib/program-time";
-import { getProgramTimeZone } from "~/server/program/time-zone";
+import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { pairingEvidenceIds } from "~/server/participant-execution";
 

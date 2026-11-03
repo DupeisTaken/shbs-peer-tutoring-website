@@ -4,15 +4,15 @@ import { notificationSchedule } from "~/lib/notification-facts";
 import {
   notificationData,
   namedNotificationDetail,
-} from "./notifications/create";
+} from "./notifications/core";
 import { currentStudentSignupPayload } from "./student-signup-answers";
-import { managementNotificationRecipients } from "./notifications/create";
+import { managementNotificationRecipients } from "./notifications/core";
 import type { NotificationEvent } from "~/lib/notification-events";
 import {
   assertRequestProcessable,
   lockLegacySignupReview,
   lockStudentRequestReview,
-} from "./request-invalidity";
+} from "./request-review";
 import { recordDomainAudit } from "./audit/evidence";
 import { withRecoveryDeliverySource, type RecoveryDeliverySource } from "./recovery/delivery-effects";
 import { TRPCError } from "@trpc/server";

@@ -1,15 +1,8 @@
-import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 import { db } from "~/server/db";
 import type { DomainDb } from "~/server/transactions";
+import { getProgramTimeZone as readProgramTimeZone } from "./time-zone-reader";
 
-/** Read per operation/request so a saved program change takes effect without a server restart.
- * Missing singleton means the original Shanghai behavior; timestamps are never rewritten.
- */
-export async function getProgramTimeZone(
-  client: DomainDb = db,
-): Promise<string> {
-  const settings = await client.programSettings.findUnique({
-    where: { id: "program" },
-  });
-  return settings?.timeZone ?? DEFAULT_TIME_ZONE;
+/** Web convenience wrapper; database-injected callers use time-zone-reader. */
+export function getProgramTimeZone(client: DomainDb = db): Promise<string> {
+  return readProgramTimeZone(client);
 }

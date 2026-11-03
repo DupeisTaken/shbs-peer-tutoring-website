@@ -9,7 +9,7 @@ import {
 import {
   managementNotificationRecipients,
   notifyUsers,
-} from "~/server/notifications/create";
+} from "~/server/notifications/core";
 import { computeSessionHours } from "~/lib/service-hours";
 import {
   inTransaction,
@@ -17,7 +17,7 @@ import {
   type DomainDb,
 } from "~/server/transactions";
 import { reconsiderSessionFlag } from "~/server/crew/flags";
-import { lockAttendanceSchedule } from "~/server/attendance-schedule";
+import { lockAttendanceSchedule } from "~/server/attendance-schedule-lock";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { getFeatures } from "~/server/program/features";
 import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";

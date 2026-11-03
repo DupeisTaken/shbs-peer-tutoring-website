@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { lockUsernameNamespace } from "~/server/auth/username";
-import { lockAccountProfile } from "~/server/account-profile";
-import { lockAttendanceSchedule } from "~/server/attendance-schedule";
+import { lockUsernameNamespace } from "~/server/auth/username-namespace";
+import { lockAccountProfile } from "~/server/account-profile-lock";
+import { lockAttendanceSchedule } from "~/server/attendance-schedule-lock";
 import { auditActorScope, databaseScope } from "~/server/db-scope";
 import {
   inTransaction,
