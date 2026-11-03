@@ -154,8 +154,9 @@ export async function partitionPersonRecords(db: DomainDb, actorId: string, raw:
     // exact invitations and A->B->A reviews without rewriting source evidence.
     await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "Person", "AcademicProfile", "AccountEmail", "SchoolDeparture", "StudentProfileOwnership", "TutorProfileOwnership" IN SHARE ROW EXCLUSIVE MODE`;
     const actor = await requireReviewer(tx, actorId);
+    // A failed confirmation rejects this input; it does not revoke reviewer access.
     if (!verifyPasswordConfirmation(actorId, input.confirmPassword, actor.passwordHash))
-      throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Password is incorrect." });
     const { graph, person, selected, preview } = await plan(tx, input);
     if (preview.fingerprint !== input.fingerprint)
       throw new TRPCError({ code: "CONFLICT", message: "Records changed. Reload and review the separation again." });

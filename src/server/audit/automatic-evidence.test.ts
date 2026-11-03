@@ -39,7 +39,9 @@ function expiredFixture(failAudit = false) {
     },
     participantConsolidation: { findUnique: async () => null, findMany: async () => [] },
     pairingExecutionSuccessor: { findMany: async () => [], count: async () => 0 },
-    pairingTutee: { findMany: async () => current.linked ? [{ pairingId: "pairing", tuteeId: "student", pairing: { tutorId: "tutor" } }] : [],
+    pairingTutee: { findMany: async ({ select }: { select: { pairing?: unknown } }) => current.linked
+      ? [select.pairing ? { pairing: { tutorId: "tutor" } } : { pairingId: "pairing", tuteeId: "student" }]
+      : [],
       count: async () => Number(current.linked),
       deleteMany: async () => { current.linked = false; return { count: 1 }; } },
     sessionPlan: { findMany: async () => [] },

@@ -110,6 +110,12 @@ it("inventories all ambiguous rows without private credential values or writes",
   const preview = await historyCorrectionInventory(db, { personId: "pD", sourceUserIds: ["B"], recipientUserId: "C" });
   expect(preview.sourceUsers).toEqual([{ id: "B", name: "Synthetic B", readerUserId: "D" }]);
   expect(preview.rows.map((row) => `${row.entity}:${row.recordId}`).sort()).toEqual(["Notification:nA", "Notification:nB", "StudentQuarterBlock:blockB", "Tutee:sB", "Tutor:tA", "Tutor:tB"].sort());
+  expect(preview.rows.filter((row) => row.entity === "Notification").map(({ recordId, label }) => ({ recordId, label }))).toEqual([
+    { recordId: "nA", label: "Synthetic independent notice" },
+    { recordId: "nB", label: "Synthetic ambiguous notice" },
+  ]);
+  expect(JSON.stringify(preview)).not.toContain("Independent A notice evidence");
+  expect(JSON.stringify(preview)).not.toContain("Original B notice evidence");
   expect(JSON.stringify(preview)).not.toContain(passwordHash);
   expect(await state()).toEqual(before);
 });
@@ -310,9 +316,18 @@ it.each([false, true])("binds non-selected retained-owner access changes into re
   expect(await state()).toEqual(before);
 });
 
-it.each(["wrong-password", "demoted", "suspended", "missing"] as const)("revalidates reviewer authority for %s", async (condition) => {
+it("rejects a wrong confirmation without revoking authority or changing history, then accepts a fresh review", async () => {
+  const input = await review("C", assignB);
+  const before = await state();
+  await expect(correctPersonHistory(db, "admin", { ...input, confirmPassword: "Incorrect synthetic password" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Password is incorrect." });
+  expect(await state()).toEqual(before);
+  expect(await historyCorrectionReceipt(db, "admin", input.operationId)).toBeNull();
+  const fresh = { ...await review("C", assignB), reason: input.reason };
+  expect(await correctPersonHistory(db, "admin", fresh)).toMatchObject({ ok: true, receiptId: fresh.operationId });
+});
+
+it.each(["demoted", "suspended", "missing"] as const)("revalidates reviewer authority for %s", async (condition) => {
   const input = await review();
-  if (condition === "wrong-password") input.confirmPassword = "Incorrect synthetic password";
   if (condition === "demoted") await db.user.update({ where: { id: "admin" }, data: { role: "COORDINATOR" } });
   if (condition === "suspended") await db.user.update({ where: { id: "admin" }, data: { suspendedAt: new Date() } });
   const before = await state();

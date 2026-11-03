@@ -28,6 +28,7 @@ import { PersonHistoryCorrection } from "~/app/_components/person-history-correc
 import { PersonParticipationTransfer } from "~/app/_components/person-participation-transfer";
 import { HistoricalRecordInvitation } from "~/app/_components/historical-record-invitation";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { useDialogBusy } from "~/app/_components/ui/modal";
 
 type DirectoryRow = RouterOutputs["admin"]["accounts"]["rows"][number];
 type AccountRow = { [Key in keyof DirectoryRow]: DirectoryRow[Key] };
@@ -108,6 +109,7 @@ function UserDetailContent({ row, accessLost, onAccessLostChange }: {
   onAccessLostChange: (lost: boolean) => void;
 }) {
   const t = useTranslations();
+  const busy = useDialogBusy();
   const query = api.admin.accountDetails.useQuery(
     row.userId
       ? { userId: row.userId }
@@ -134,7 +136,7 @@ function UserDetailContent({ row, accessLost, onAccessLostChange }: {
           action={
             <Button
               size="compact"
-              disabled={query.isFetching}
+              disabled={query.isFetching || busy}
               onClick={() => void query.refetch()}
             >
               {t("uiPatterns.retry")}
@@ -280,6 +282,7 @@ function CombinedPersonDetails({
   accessDenied?: boolean;
 }) {
   const t = useTranslations();
+  const busy = useDialogBusy();
   const directory = api.admin.accounts.useQuery();
   const canEdit = ["HEAD", "ADMIN"].includes(directory.data?.caller.role ?? "");
   const canEditProfiles = ["HEAD", "ADMIN", "COORDINATOR"].includes(directory.data?.caller.role ?? "");
@@ -320,7 +323,7 @@ function CombinedPersonDetails({
     <DetailSection title={t("usersDirectory.combinedPerson")}>
       <p className="muted">{t("usersDirectory.combinedPersonHelp")}</p>
       {directory.error && <StatePanel kind="error" title={t("uiPatterns.loadFailed")}
-        action={<Button disabled={directory.isFetching} onClick={() => void directory.refetch()}>{t("uiPatterns.retry")}</Button>} />}
+        action={<Button disabled={directory.isFetching || busy} onClick={() => void directory.refetch()}>{t("uiPatterns.retry")}</Button>} />}
       {!denied && group.resolutionState === "REVIEW_REQUIRED" && (
         <p role="status" className="rounded-lg bg-amber-50 p-3 text-amber-900">
           {t("usersDirectory.participationReviewRequired")}
@@ -358,6 +361,9 @@ function CombinedPersonDetails({
         </DisclosureSection>
       )}
       {!denied && <>
+      {/* Opening a nested reader while outcome recovery is pending would inherit
+          the busy state and strand its Close above the recovery controls. */}
+      <fieldset disabled={busy || controlsUnavailable} className="min-w-0 space-y-3">
       {!!group.users.length && (
         <SummaryTable label={t("usersDirectory.groupLogins")}>
           <thead>
@@ -429,6 +435,7 @@ function CombinedPersonDetails({
           ))}
         </tbody>
       </SummaryTable>
+      </fieldset>
       {canEditProfiles && login && (
         <AccountProfileEditor
           profile={{
@@ -459,6 +466,7 @@ function CombinedPersonDetails({
 
 function ProfileRecords({ profiles }: { profiles: Profile[] }) {
   const t = useTranslations();
+  const busy = useDialogBusy();
   // Historical attachment names are recorded evidence; normalize only current profile labels.
   const profileName = (profile: Profile) =>
     profile.historical
@@ -473,6 +481,7 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
     return <p className="muted">{t("usersDirectory.noProfiles")}</p>;
   return (
     <>
+      <fieldset disabled={busy} className="min-w-0">
       <SummaryTable sortable label={t("usersDirectory.profileRecords")}>
         <thead>
           <tr>
@@ -541,6 +550,7 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
           ))}
         </tbody>
       </SummaryTable>
+      </fieldset>
       {tuteeId && (
         <TuteeHistoryDialog
           tuteeId={tuteeId}

@@ -96,7 +96,9 @@ async function plan(db: DomainDb, raw: Selection) {
       const ownerId = row.user?.id ?? ownerships.find((owner) => owner.tuteeId === row.id)?.userId ?? null;
       return { entity: "Tutee", recordId: row.id, label: row.englishName, readerUserId: ownerId && readerByOwner.get(ownerId) === ownerId ? ownerId : null, provenance: "REVIEW_REQUIRED", assignable: !row.user && isHistoricalTutee(row, term?.id ?? null) && !assignments.some((assignment) => assignment.tutees.some((link) => link.tuteeId === row.id)) };
     }),
-    ...notifications.map((row): Row => ({ entity: "Notification", recordId: row.id, label: row.event ?? "Notification", readerUserId: override.has(`Notification:${row.id}`) ? override.get(`Notification:${row.id}`)!.readerUserId : readerByOwner.get(row.userId) ?? null, provenance: "REVIEW_REQUIRED", assignable: true })),
+    // Reviewer-only inventory needs the original title to distinguish exact rows;
+    // bodies and private event payloads stay out of this projection.
+    ...notifications.map((row): Row => ({ entity: "Notification", recordId: row.id, label: row.title.trim() || row.event || "Notification", readerUserId: override.has(`Notification:${row.id}`) ? override.get(`Notification:${row.id}`)!.readerUserId : readerByOwner.get(row.userId) ?? null, provenance: "REVIEW_REQUIRED", assignable: true })),
     ...blocks.map((row): Row => ({ entity: "StudentQuarterBlock", recordId: row.id, label: row.intakeTermId, readerUserId: override.has(`StudentQuarterBlock:${row.id}`) ? override.get(`StudentQuarterBlock:${row.id}`)!.readerUserId : readerByOwner.get(row.userId ?? "") ?? null, provenance: "REVIEW_REQUIRED", assignable: true })),
     ...deliveries.map((row): Row => ({ entity: "EmailDelivery", recordId: row.id, label: row.category, readerUserId: override.has(`EmailDelivery:${row.id}`) ? override.get(`EmailDelivery:${row.id}`)!.readerUserId : row.userId, provenance: "REVIEW_REQUIRED", assignable: row.status === "PENDING" && !row.attemptStartedAt, deliveryStatus: row.status, sourceNotificationId: row.sourceNotificationId })),
   ].sort((a, b) => rowKey(a).localeCompare(rowKey(b)));
@@ -139,7 +141,8 @@ export async function correctPersonHistory(db: DomainDb, actorId: string, raw: z
     for (const userId of [...new Set([actorId, ...initial.candidateUserIds, ...(input.recipientUserId ? [input.recipientUserId] : [])])].sort()) await lockEntity(tx, `account-profile:${userId}`);
     await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "Person", "AcademicProfile", "AccountEmail", "SchoolDeparture", "StudentProfileOwnership", "TutorProfileOwnership", "RetiredHistoryOwnership", "HistoryRowOwnership", "Notification", "StudentQuarterBlock", "EmailDelivery" IN SHARE ROW EXCLUSIVE MODE`;
     const actor = await reviewer(tx, actorId);
-    if (!verifyPasswordConfirmation(actorId, password, actor.passwordHash)) throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
+    // A failed confirmation rejects this input; it does not revoke reviewer access.
+    if (!verifyPasswordConfirmation(actorId, password, actor.passwordHash)) throw new TRPCError({ code: "BAD_REQUEST", message: "Password is incorrect." });
     const planned = await plan(tx, input);
     if (planned.preview.fingerprint !== input.fingerprint) throw new TRPCError({ code: "CONFLICT", message: "History or ownership changed. Reload and review the correction again." });
     const choices = new Map(input.decisions.map((row) => [rowKey(row), row]));
