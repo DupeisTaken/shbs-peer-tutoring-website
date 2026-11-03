@@ -15,7 +15,10 @@ import { assertPlannedRoomAvailable } from "~/server/room-bookings";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { assertTutorScheduleAvailable } from "~/server/tutor-scheduling";
 import { recoveryHash, recoveryJson } from "../capture";
-import { participantIdentity } from "./shared";
+import {
+  participantIdentity,
+  recoverySourceRestrictionBlockers,
+} from "./shared";
 
 export type RecoveryAssignmentIntent = {
   pairingId: string;
@@ -42,8 +45,11 @@ export async function inspectRecoveryParticipantEligibility(
   },
 ) {
   const identity = await participantIdentity(tx, input.kind, input.sourceId);
-  const blockers: string[] = [],
-    policyEvidence = [];
+  const blockers = recoverySourceRestrictionBlockers(
+    identity.sourceRestrictions,
+    input.reversedDepartureUserIds,
+  );
+  const policyEvidence = [];
   for (const owner of identity.owners) {
     if (
       owner.suspendedAt ||

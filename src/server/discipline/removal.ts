@@ -8,6 +8,7 @@ import { getActivePeriodOrNull } from "~/server/period";
 import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
 import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { executionParticipantId, executionSourceIds, supersededPairingIds } from "~/server/participant-execution";
 import {
   inTransaction,
   lockEntity,
@@ -30,7 +31,7 @@ async function finalizeRemoval(
   const period = await getActivePeriodOrNull(tx);
   const tutee = await tx.tutee.findUniqueOrThrow({ where: { id: tuteeId } });
   const links = await tx.pairingTutee.findMany({
-    where: { tuteeId, pairing: { term: { active: true } } },
+    where: { tuteeId, pairing: { id: { notIn: await supersededPairingIds(tx) }, term: { active: true } } },
     include: {
       pairing: {
         include: { tutor: { select: { user: { select: { id: true } } } } },
@@ -131,6 +132,7 @@ export async function syncPunishmentRemoval(
     // Serialize preflight even for a no-op: two concurrent card writers must
     // not both observe a below-threshold snapshot before either commits.
     await lockEntity(tx, "program:period");
+    tuteeId = await executionParticipantId(tx, "TUTEE", tuteeId);
     // Most reconciliations are reads. Avoid manufacturing a checkpoint for a
     // no-op; the mutation path below still locks and recomputes every condition.
     const candidate = await tx.tutee.findUniqueOrThrow({
@@ -139,7 +141,7 @@ export async function syncPunishmentRemoval(
     });
     const valid = await tx.disciplinaryCard.groupBy({
       by: ["color"],
-      where: { tuteeId, reviewStatus: "VALID" },
+      where: { tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) }, reviewStatus: "VALID" },
       _count: { _all: true },
     });
     const candidateStanding = standingFromCounts({
@@ -178,7 +180,7 @@ export async function syncPunishmentRemoval(
         });
         const cards = await tx.disciplinaryCard.groupBy({
           by: ["color"],
-          where: { tuteeId, reviewStatus: "VALID" },
+          where: { tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) }, reviewStatus: "VALID" },
           _count: { _all: true },
         });
         const standing = standingFromCounts({
@@ -214,6 +216,7 @@ export async function syncPunishmentRemoval(
               });
             const pairings = await tx.pairing.findMany({
               where: {
+                AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
                 id: { in: snapshot.data.pairingIds },
                 term: { active: true },
                 tutor: { status: "ACTIVE" },

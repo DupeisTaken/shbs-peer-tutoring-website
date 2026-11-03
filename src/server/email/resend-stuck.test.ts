@@ -129,6 +129,23 @@ it("limits each request to the oldest 100 and gives concurrent requests disjoint
   expect(await resendStuckEmails(db, actor)).toEqual({ queued: 0 });
 });
 
+it("never clears an admitted ordinary attempt while preserving special-category retry ownership", async () => {
+  const startedAt = new Date(Date.now() - 600_000);
+  const retainedIds = ["legacy-failed", "legacy-pending", "uncertain", "uncertain-recovery"];
+  await db.emailDelivery.createMany({ data: [
+    ...retainedIds.map((id) => row(id, { status: id === "legacy-failed" ? "FAILED" : id === "legacy-pending" ? "PENDING" : id === "uncertain" ? "UNCERTAIN" : "UNCERTAIN_RECOVERY",
+      attemptId: `attempt-${id}`, attemptStartedAt: startedAt })),
+    ...["security", "request_service", "monthly_hours", "school_hours"].map((category) => row(`special-${category}`, { category, attemptId: `attempt-${category}`, attemptStartedAt: startedAt })),
+  ] });
+  expect(await resendStuckEmails(db, actor)).toEqual({ queued: 4 });
+  for (const retained of await db.emailDelivery.findMany({ where: { id: { in: retainedIds } } })) {
+    expect(retained.attemptId).toBe(`attempt-${retained.id}`);
+    expect(retained.attemptStartedAt).toEqual(startedAt);
+    expect(retained.attempts).toBe(5);
+  }
+  expect(await db.emailDelivery.count({ where: { id: { startsWith: "special-" }, status: "PENDING", attemptStartedAt: null } })).toBe(4);
+});
+
 it("leaves disabled optional mail stuck while allowing mandatory security retries", async () => {
   await db.emailDelivery.createMany({
     data: [row("optional"), row("security", { category: "security" })],

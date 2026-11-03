@@ -7,6 +7,8 @@ import { ownedStudentIds } from "./student-ownership";
 import { recordAudit } from "./audit/log";
 import { preserveHistoricalAcademics } from "./historical-academics";
 import { withRecoveryDeliverySource } from "./recovery/delivery-effects";
+import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
+import { accountHistoryReaderId } from "./account-history";
 
 /** Shared by intake, restoration and assignment paths, including approval replay. */
 export async function requireSchoolParticipation(db: DomainDb, userId: string) {
@@ -24,19 +26,7 @@ export async function requireStudentSchoolParticipation(
   db: DomainDb,
   tuteeId: string,
 ) {
-  const ownership = await db.studentProfileOwnership.findUnique({
-    where: { tuteeId },
-  });
-  const owners = await db.user.findMany({
-    where: {
-      OR: [
-        { studentId: tuteeId },
-        ...(ownership ? [{ id: ownership.userId }] : []),
-      ],
-    },
-    select: { id: true },
-  });
-  for (const owner of owners) await requireSchoolParticipation(db, owner.id);
+  await requireParticipantSourceParticipation(db, "TUTEE", tuteeId);
 }
 
 /** One transaction changes access, live enrollment, evidence and notifications.
@@ -55,12 +45,14 @@ export async function changeSchoolDeparture(
       include: { schoolDeparture: true, tutor: true },
     });
     const previous = user.schoolDeparture;
-    if (user.mergedIntoId)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message:
-          "This login was combined into another account. Review the surviving account.",
+    if (user.mergedIntoId) {
+      const actor = actorId ? await tx.user.findUnique({ where: { id: actorId } }) : null;
+      if (!actor || !["ADMIN", "HEAD"].includes(actor.role) || actor.mergedIntoId || actor.suspendedAt || actor.recoveryVoidedAt)
+        throw new TRPCError({ code: "FORBIDDEN", message: "Admin or Head must review the original retired source's factual return." });
+      if (input.action !== "RETURN") throw new TRPCError({
+        code: "CONFLICT", message: "A retired source permits only a factual return review; its login and capabilities remain retired.",
       });
+    }
     if ((previous?.revision ?? 0) !== input.expectedRevision)
       throw new TRPCError({
         code: "CONFLICT",
@@ -166,6 +158,7 @@ export async function changeSchoolDeparture(
       });
     } else if (
       input.action === "RETURN" &&
+      !user.mergedIntoId &&
       user.tutorId &&
       !user.tutorAccessRevoked &&
       ["GRADUATED", "TRANSFERRED"].includes(user.tutor?.status ?? "")
@@ -176,6 +169,12 @@ export async function changeSchoolDeparture(
         where: { id: user.tutorId },
         data: { status: "PENDING" },
       });
+    }
+    if (user.mergedIntoId) {
+      // Invalidate the effective reader's in-flight review without restoring any
+      // credential, pointer, membership, assignment or observer capability.
+      const readerId = await accountHistoryReaderId(tx, user.id);
+      if (readerId) await tx.user.update({ where: { id: readerId }, data: { historyAccessRevision: { increment: 1 } } });
     }
     const departureEvent = await tx.schoolDepartureEvent.create({
       data: {

@@ -72,7 +72,7 @@ export async function readPublicationValidationSnapshot(
   const readRows = (weekdayHint: number | undefined) => tx.$queryRaw<
     SnapshotRow[]
   >`
-    WITH /* shbs:publication-validation */ parameters AS (
+    WITH RECURSIVE /* shbs:publication-validation */ parameters AS (
       SELECT ${input.tutorId}::text AS "tutorId", ${input.termId}::text AS "termId",
         ${input.date}::text AS date, ${[...input.participantIds]}::text[] AS "participantIds",
         ${input.startsAt}::timestamp AS "startsAt", ${input.endsAt}::timestamp AS "endsAt",
@@ -81,19 +81,25 @@ export async function readPublicationValidationSnapshot(
         ${weekdayHint ?? null}::integer AS "weekdayHint"
     ), overlapping_cohorts AS (
       SELECT c.id, c."planId", c."startsAt", c."endsAt", c."roomId", c.online,
-        p."tutorId", ARRAY(
-          SELECT participant."tuteeId" FROM "SessionPlanParticipant" participant
+        COALESCE(executor."tutorId", p."tutorId") AS "tutorId", ARRAY(
+          SELECT COALESCE(member_executor."tuteeId", participant."tuteeId") FROM "SessionPlanParticipant" participant
+        LEFT JOIN "SessionParticipantExecution" member_executor ON member_executor."participantId"=participant.id
           WHERE participant."cohortId"=c.id AND participant.status='SCHEDULED'
         ) AS "participantIds"
       FROM "SessionPlanCohort" c
       JOIN "SessionPlan" p ON p.id=c."planId"
+    LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
       CROSS JOIN parameters a
       WHERE c.status='SCHEDULED' AND c."startsAt"<a."endsAt" AND c."endsAt">a."startsAt"
     ), overlapping_holds AS (
-      SELECT r.id, r."currentOfferId", r.kind, r."parentRequestId", r."participantIds",
-        p."tutorId", o.id AS "offerId", o."startsAt", o."endsAt", o."roomId", o.online
+      SELECT r.id, r."currentOfferId", r.kind, r."parentRequestId", (SELECT COALESCE(jsonb_agg(COALESCE(e."tuteeId", original.value #>> '{}')), '[]'::jsonb)
+        FROM jsonb_array_elements(CASE WHEN jsonb_typeof(r."participantIds")='array' THEN r."participantIds" ELSE '[]'::jsonb END) original(value)
+        LEFT JOIN "SessionPlanParticipant" member ON member."planId"=r."planId" AND member."tuteeId"=(original.value #>> '{}')
+        LEFT JOIN "SessionParticipantExecution" e ON e."participantId"=member.id) AS "participantIds",
+        COALESCE(executor."tutorId", p."tutorId") AS "tutorId", o.id AS "offerId", o."startsAt", o."endsAt", o."roomId", o.online
       FROM "SessionPlanningRequest" r
       JOIN "SessionPlan" p ON p.id=r."planId"
+    LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
       JOIN "SessionPlanningOffer" o ON o.id=r."currentOfferId" AND o."requestId"=r.id
       CROSS JOIN parameters a
       WHERE r.status='PENDING' AND o."startsAt"<a."endsAt" AND o."endsAt">a."startsAt"
@@ -102,9 +108,16 @@ export async function readPublicationValidationSnapshot(
         SELECT roster."tuteeId" FROM "PairingTutee" roster WHERE roster."pairingId"=p.id
       ) AS "participantIds"
       FROM "Pairing" p CROSS JOIN parameters a
-      WHERE p."termId"=a."termId" AND p."scheduleConfirmed"=true AND p."startMin"<a."endMin"
+      WHERE NOT EXISTS (SELECT 1 FROM "PairingExecutionSuccessor" successor WHERE successor."sourcePairingId"=p.id)
+        AND p."termId"=a."termId" AND p."scheduleConfirmed"=true AND p."startMin"<a."endMin"
         AND p."startMin">a."startMin"-45
         AND (a."weekdayHint" IS NULL OR (a."weekdayHint" BETWEEN 1 AND 7 AND p."dayOfWeek"=a."weekdayHint"))
+    ), recurring_evidence("currentId", "sourceId") AS (
+      SELECT id,id FROM potential_recurring
+      UNION
+      SELECT evidence."currentId", successor."sourcePairingId"
+      FROM recurring_evidence evidence JOIN "PairingExecutionSuccessor" successor
+        ON successor."targetPairingId"=evidence."sourceId"
     ), tutor_ids AS (
       SELECT "tutorId" AS id FROM parameters
       UNION SELECT "tutorId" FROM overlapping_cohorts
@@ -160,13 +173,13 @@ export async function readPublicationValidationSnapshot(
     UNION ALL SELECT 'key', jsonb_build_object(
       'role', k.role, 'profileId', k."profileId", 'userId', k."userId"
     ), NULL::timestamp, NULL::timestamp FROM canonical_keys k
-    UNION ALL SELECT 'materialized', jsonb_build_object('pairingId', assignment."pairingId"),
+    UNION ALL SELECT 'materialized', jsonb_build_object('pairingId', evidence."currentId"),
       NULL::timestamp, NULL::timestamp
       FROM "SessionPlanAssignment" assignment
+      JOIN recurring_evidence evidence ON evidence."sourceId"=assignment."pairingId"
       JOIN "SessionPlan" plan ON plan.id=assignment."planId"
       CROSS JOIN parameters a
       WHERE plan.kind='REGULAR' AND plan."originalDate"=a.date
-        AND assignment."pairingId" IN (SELECT id FROM potential_recurring)
     UNION ALL SELECT 'room', jsonb_build_object(
       'exists', a."roomId" IS NULL OR EXISTS(SELECT 1 FROM "Room" r WHERE r.id=a."roomId"),
       'blocked', a."roomId" IS NOT NULL AND EXISTS(

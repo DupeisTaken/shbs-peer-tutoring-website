@@ -1,4 +1,5 @@
 import { db } from "~/server/db";
+import { admitIdentityNotice, finishIdentityNotice } from "./identity-notice-admission";
 import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
@@ -35,14 +36,10 @@ import {
   finishRequestDelivery,
   requestServiceCategory,
 } from "./request-notice";
-import {
-  admitRecoveryGenericDelivery,
-  finishRecoveryGenericDelivery,
-} from "~/server/recovery/delivery-effects";
 
-/** Leased batches survive restarts and SKIP LOCKED keeps concurrent application workers independent.
- * SMTP has no exactly-once guarantee: a crash after acceptance may retry, but ordinary concurrent
- * dispatches cannot send the same row. A stable Message-ID further identifies retries. */
+/** SKIP LOCKED gives concurrent workers disjoint leases. Generic transport has
+ * one admitted attempt; abandoned sends remain uncertain instead of replaying.
+ * Request/report categories retain their owning admission protocol. */
 export async function deliverNotifications(limit = 10, deadline?: number) {
   // Defer the entire lease/send/status workflow, otherwise a deferred SMTP call would
   // mark an outbox row SENT before transport actually accepted it.
@@ -219,7 +216,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       await finishRequestDelivery(db, id, admitted.row.attemptId, accepted);
       continue;
     }
-    let causalAttempt: string | null = null;
+    let transportAttempt: string | null = null;
     try {
       // Security notices are essential, including legacy emailSecurity=false. An
       // ordinary row with no account fails closed rather than taking a request path.
@@ -309,15 +306,10 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       ].includes(row.category)
         ? notificationUnsubscribeUrl(id)
         : undefined;
-      const admitted = await admitRecoveryGenericDelivery(
-        db,
-        id,
-        leaseUntil,
-        attemptId,
-      );
-      if (!admitted || (admitted.independent && row.status !== "PENDING"))
-        continue;
-      if (!admitted.independent) causalAttempt = admitted.attemptId;
+      if (!essential) {
+        transportAttempt = await admitIdentityNotice(db, id, leaseUntil, attemptId);
+        if (!transportAttempt) continue;
+      }
       const send = () =>
         emailSender.send({
           category,
@@ -342,7 +334,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
             },
           },
         });
-      if (causalAttempt) {
+      if (transportAttempt) {
         // Record provider acceptance separately from completion failure. A failed
         // database finish retains SENDING evidence and never becomes a false retry.
         let accepted = false;
@@ -352,7 +344,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         } catch {
           /* Safe transport outcome only. */
         }
-        await finishRecoveryGenericDelivery(db, id, causalAttempt, accepted);
+        await finishIdentityNotice(db, id, transportAttempt, accepted);
         continue;
       }
       await send();
@@ -371,9 +363,9 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     } catch {
       // Completion may fail after provider acceptance. Never finish that exact
       // admitted attempt again as a transport failure or put it back in PENDING.
-      if (causalAttempt)
+      if (transportAttempt)
         throw new Error(
-          "Causal email completion failed; retained admitted delivery evidence.",
+          "Email completion failed; retained admitted delivery evidence.",
         );
       // Store a safe diagnostic, never provider exceptions containing addresses or credentials.
       const attempts = row.attempts + 1;

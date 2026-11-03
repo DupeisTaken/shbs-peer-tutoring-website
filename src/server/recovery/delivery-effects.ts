@@ -82,6 +82,13 @@ const specialized = new Set([
 ]);
 const validId = (value: string) => value.length > 0 && value.length <= 200;
 
+/** Identity policy joins this engine's transaction, taking its table fence
+ * before causal-root locks and never performing another admission. */
+export type RecoveryGenericDeliveryGuard = {
+  lock: (tx: TransactionDb) => Promise<void>;
+  withheld: (tx: TransactionDb, row: { id: string; userId: string | null; sourceNotificationId?: string | null }) => Promise<boolean>;
+};
+
 /** Trusted writers opt in around only the exact derived notification/enqueue.
  * The source is not an HTTP option and never authorizes matching by recipient. */
 export async function withRecoveryDeliverySource<T>(
@@ -355,9 +362,14 @@ export async function admitRecoveryGenericDelivery(
   deliveryId: string,
   leaseUntil: Date | null,
   expectedAttemptId: string | null,
+  guard?: RecoveryGenericDeliveryGuard,
 ) {
   return inTransaction(db, async (tx) => {
-    if (!(await lockDeliveryOrigins(tx, deliveryId))) return { independent: true as const };
+    await guard?.lock(tx);
+    const captured = await lockDeliveryOrigins(tx, deliveryId);
+    // Root-only compatibility callers cannot admit independent rows. The
+    // ordinary dispatcher supplies identity policy for every generic notice.
+    if (!captured && !guard) return { independent: true as const };
     await tx.$queryRaw`SELECT id FROM "EmailDelivery" WHERE id=${deliveryId} FOR UPDATE`;
     const row = await tx.emailDelivery.findUnique({
       where: { id: deliveryId },
@@ -368,6 +380,7 @@ export async function admitRecoveryGenericDelivery(
     if (
       !row ||
       cancelled ||
+      row.category === "security" ||
       specialized.has(row.category) ||
       !leaseUntil ||
       leaseUntil.getTime() <= Date.now() ||
@@ -377,6 +390,13 @@ export async function admitRecoveryGenericDelivery(
       !!row.attemptStartedAt
     )
       return null;
+    if (guard && await guard.withheld(tx, row)) {
+      await tx.emailDelivery.updateMany({
+        where: { id: deliveryId, status: "PENDING", leaseUntil, attemptId: expectedAttemptId, attemptStartedAt: null },
+        data: { status: "CANCELLED", completedAt: new Date(), leaseUntil: null },
+      });
+      return null;
+    }
     if (row.attempts >= 5) {
       await tx.emailDelivery.update({
         where: { id: deliveryId },
@@ -385,7 +405,7 @@ export async function admitRecoveryGenericDelivery(
       return null;
     }
     const attemptId = randomUUID();
-    await tx.emailDelivery.update({
+    const changed = await tx.emailDelivery.update({
       where: { id: deliveryId },
       data: {
         status: "SENDING",
@@ -394,6 +414,7 @@ export async function admitRecoveryGenericDelivery(
         attempts: { increment: 1 },
       },
     });
+    if (changed.status !== "SENDING" || changed.attemptId !== attemptId) return null;
     return { independent: false as const, attemptId };
   });
 }
@@ -402,14 +423,17 @@ export async function finishRecoveryGenericDelivery(
   deliveryId: string,
   attemptId: string,
   accepted: boolean,
+  guard?: RecoveryGenericDeliveryGuard,
 ) {
   return inTransaction(db, async (tx) => {
-    if (!(await lockDeliveryOrigins(tx, deliveryId))) return;
+    await guard?.lock(tx);
+    const captured = await lockDeliveryOrigins(tx, deliveryId);
+    if (!captured && !guard) return;
     await tx.$queryRaw`SELECT id FROM "EmailDelivery" WHERE id=${deliveryId} FOR UPDATE`;
     const row = await tx.emailDelivery.findUnique({
       where: { id: deliveryId },
     });
-    if (!row || !["SENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"].includes(row.status) || row.attemptId !== attemptId || !row.attemptStartedAt) return;
+    if (!row || specialized.has(row.category) || row.category === "security" || !["SENDING", "UNCERTAIN", "UNCERTAIN_RECOVERY"].includes(row.status) || row.attemptId !== attemptId || !row.attemptStartedAt) return;
     const [cancelled] = await tx.$queryRaw<Array<{ found: boolean }>>`
       SELECT true AS found FROM "RecoveryDeliveryCancellation" c JOIN "RecoveryDeliveryEffect" e ON e.id=c."effectId"
       WHERE e."deliveryId"=${deliveryId} LIMIT 1`;

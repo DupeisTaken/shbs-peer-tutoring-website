@@ -1,5 +1,11 @@
 import { cardReviewInput, reviewCard } from "~/server/corrections/card";
 import {
+  assertOperationalPairing,
+  executionParticipantId,
+  supersededPairingIds,
+} from "~/server/participant-execution";
+import { requireParticipantSourceParticipation } from "~/server/participant-source-restrictions";
+import {
   applyProgramRefresh,
   refreshProgramInput,
 } from "~/server/program/refresh";
@@ -612,8 +618,13 @@ export const adminRouter = createTRPCRouter({
       else if (g.status === "EXCUSED_ABSENT") e.excused += n;
       else e.unexcused += n;
     }
+    const cardExecution = new Map(await Promise.all([...new Set(cardGroups.map((row) => row.tuteeId))].map(async (sourceId) => [sourceId, await executionParticipantId(ctx.db, "TUTEE", sourceId)] as const)));
     for (const g of cardGroups) {
-      const e = get(g.tuteeId);
+      // Attendance stays with its original evidence actor. Current discipline
+      // aggregates exact execution sources and retains the source's own display.
+      const currentId = cardExecution.get(g.tuteeId)!;
+      const recipients = currentId === g.tuteeId ? [get(g.tuteeId)] : [get(g.tuteeId), get(currentId)];
+      for (const e of recipients) {
       const n = g._count._all;
       if (g.reviewStatus === "VALID") {
         if (g.color === "YELLOW") e.validYellow += n;
@@ -623,6 +634,7 @@ export const adminRouter = createTRPCRouter({
         else e.pendingRed += n;
       }
       // INVALID cards are ignored (don't count toward standing).
+      }
     }
 
     const result: Record<
@@ -993,7 +1005,7 @@ export const adminRouter = createTRPCRouter({
   pairings: viewerProcedure.query(async ({ ctx }) => {
     const isViewer = ctx.portalAccess.maskManagementData;
     const pairings = await ctx.db.pairing.findMany({
-      where: { term: { active: true } },
+      where: { id: { notIn: await supersededPairingIds(ctx.db) }, term: { active: true } },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
         tutor: true,
@@ -1128,6 +1140,7 @@ export const adminRouter = createTRPCRouter({
       // Replace roster atomically; day/start/end follow the chosen slot.
       return inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:period");
+        await assertOperationalPairing(tx, input.id);
         await enforceAssignmentQualification(
           tx,
           ctx.session.user.id,
@@ -1247,7 +1260,7 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, "program:period");
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.id, term: { active: true } },
+          where: { id: input.id, AND: [{ id: { notIn: await supersededPairingIds(tx) } }], term: { active: true } },
           include: roomUnitInclude,
         });
         if (!pairing)
@@ -1272,7 +1285,7 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, "program:period");
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.id, term: { active: true } },
+          where: { id: input.id, AND: [{ id: { notIn: await supersededPairingIds(tx) } }], term: { active: true } },
           include: roomUnitInclude,
         });
         if (!pairing)
@@ -1302,6 +1315,7 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       return inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:period");
+        await assertOperationalPairing(tx, input.id);
         await lockCatalogue(tx);
         await assertHeadDiscretionarySignupChange(
           tx,
@@ -2417,6 +2431,11 @@ export const adminRouter = createTRPCRouter({
               before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()
             )
               staleConflict();
+            if (
+              before.status !== input.status &&
+              ["ACTIVE", "PENDING"].includes(input.status)
+            )
+              await requireParticipantSourceParticipation(tx, "TUTOR", input.id);
             if (account && before.status !== input.status) {
               if (["ACTIVE", "PENDING"].includes(input.status))
                 await requireSchoolParticipation(tx, account.id);
@@ -3551,6 +3570,9 @@ export const adminRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockProgramRooms(tx);
+        // Keep catalog membership stable for the complete allocation transaction,
+        // using the same catalog-before-schedule order as room deletion.
+        await lockPlannedRoomSchedule(tx);
         const last = await tx.room.aggregate({ _max: { programOrder: true } });
         return tx.room.create({
           data: { ...input, programOrder: (last._max.programOrder ?? -1) + 1 },
@@ -6139,6 +6161,7 @@ export const adminRouter = createTRPCRouter({
 
         let tutorId: string;
         if (existing) {
+          await requireParticipantSourceParticipation(tx, "TUTOR", existing.id);
           await preserveHistoricalAcademics(tx, "TUTOR", existing.id);
           await tx.tutor.update({
             where: { id: existing.id },

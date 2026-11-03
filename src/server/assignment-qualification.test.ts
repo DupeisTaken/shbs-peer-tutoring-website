@@ -5,9 +5,12 @@ import {
   prepareAssignmentOverride,
 } from "./assignment-qualification";
 import type { TransactionDb } from "./transactions";
+import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
+import { TRPCError } from "@trpc/server";
 
 vi.mock("~/server/qualifications", () => ({ lockCatalogue: vi.fn() }));
 vi.mock("~/server/transactions", () => ({ lockEntity: vi.fn() }));
+vi.mock("./participant-source-restrictions", () => ({ requireParticipantSourceParticipation: vi.fn() }));
 const value = {
   tutorId: "tutor",
   subjectId: "subject",
@@ -87,9 +90,16 @@ const tx = {
   },
 } as unknown as TransactionDb;
 beforeEach(() => {
+  vi.mocked(requireParticipantSourceParticipation).mockReset();
   vi.useFakeTimers();
   ticket = null;
   grants.mockResolvedValue(0);
+});
+it("rejects a retained-only tutor's original restriction before creating an assignment override", async () => {
+  vi.mocked(requireParticipantSourceParticipation).mockRejectedValueOnce(new TRPCError({ code: "FORBIDDEN" }));
+  await expect(prepareAssignmentOverride(tx, "actor", operation, value)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(requireParticipantSourceParticipation).toHaveBeenCalledWith(tx, "TUTOR", "tutor");
+  expect(ticket).toBeNull();
 });
 afterEach(() => {
   vi.useRealTimers();

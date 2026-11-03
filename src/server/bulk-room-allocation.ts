@@ -1,3 +1,4 @@
+import { supersededPairingIds } from "./participant-execution";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getFeatures } from "./program/features";
@@ -44,7 +45,8 @@ export async function autoAssignUnassignedRooms(
 
     const targets = new Map(input.targets.map((target) => [target.id, target]));
     const selected = await tx.pairing.findMany({
-      where: { id: { in: [...targets.keys()] }, term: { active: true } },
+      where: {
+        AND: [{ id: { notIn: await supersededPairingIds(tx) } }], id: { in: [...targets.keys()] }, term: { active: true } },
       include: roomUnitInclude,
       orderBy: { id: "asc" },
     });
@@ -60,7 +62,8 @@ export async function autoAssignUnassignedRooms(
     ];
     const grouped = groupIds.length
       ? await tx.pairing.findMany({
-          where: { groupId: { in: groupIds } },
+          where: {
+        AND: [{ id: { notIn: await supersededPairingIds(tx) } }], groupId: { in: groupIds } },
           include: roomUnitInclude,
         })
       : [];

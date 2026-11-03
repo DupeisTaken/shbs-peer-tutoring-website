@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { Prisma } from "../../../../generated/prisma";
 import type { TransactionDb } from "~/server/transactions";
+import { participantSourceRestrictions } from "~/server/participant-source-restrictions";
 import { preservedRecoveryChange } from "../independent-changes";
 import type { CheckpointJournalChange } from "../checkpoint-contract";
 
@@ -162,7 +163,37 @@ export async function participantIdentity(
     },
     orderBy: { id: "asc" },
   });
-  return { binding: { source, direct, retained, person }, owners, ownerIds };
+  // Retired original-source accounts restrict participation only. They never
+  // become owners, authorize consent or change captured ownership bindings.
+  const sourceRestrictions = await participantSourceRestrictions(tx, kind, sourceId);
+  return {
+    binding: { source, direct, retained, person },
+    owners,
+    ownerIds,
+    sourceRestrictions,
+  };
+}
+
+/** Refresh may reverse only its own exactly captured graduation. All other
+ * original-source restrictions still require their owning workflow. */
+export function recoverySourceRestrictionBlockers(
+  evidence: Awaited<ReturnType<typeof participantSourceRestrictions>>,
+  reversedDepartureUserIds: readonly string[] = [],
+) {
+  const unresolved = evidence.blockers.some(
+    (blocker) =>
+      !(
+        blocker.reason === "SCHOOL_DEPARTURE" &&
+        reversedDepartureUserIds.includes(blocker.userId) &&
+        evidence.accounts.find((account) => account.id === blocker.userId)
+          ?.schoolDeparture?.reason === "GRADUATED"
+      ),
+  );
+  return unresolved
+    ? [
+        "Resolve this participant source's original account suspension or school departure through its owning workflow before restoring participation.",
+      ]
+    : [];
 }
 export function snapshotObject(value: Prisma.JsonValue) {
   if (!value || typeof value !== "object" || Array.isArray(value))

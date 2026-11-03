@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
+import { quarterBlockAccountWhere } from "./history-row-ownership";
 import { z } from "zod";
 import type { Prisma } from "../../generated/prisma";
 import { surveyInput } from "~/lib/student-signup";
@@ -203,7 +204,7 @@ async function continuationContext(
     ? await tx.studentQuarterBlock.findFirst({
         where: {
           intakeTermId: term.id,
-          OR: [{ userId }, { email: { in: addresses } }],
+          OR: [await quarterBlockAccountWhere(tx, userId), { email: { in: addresses } }],
         },
       })
     : null;

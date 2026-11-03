@@ -23,6 +23,9 @@ import { participantNameLabel } from "~/app/_components/participant-name";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { accountMembership } from "~/lib/account-membership";
 import { CombineRecords } from "~/app/_components/combine-records";
+import { PersonPartition } from "~/app/_components/person-partition";
+import { PersonHistoryCorrection } from "~/app/_components/person-history-correction";
+import { PersonParticipationTransfer } from "~/app/_components/person-participation-transfer";
 import { HistoricalRecordInvitation } from "~/app/_components/historical-record-invitation";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
@@ -287,12 +290,15 @@ function CombinedPersonDetails({
   const [student, setStudent] = useState<string | null>(null);
   // Preserve the accepted review and its read recovery when the directory changes.
   const [hadReview, setHadReview] = useState(group.resolutionState === "REVIEW_REQUIRED");
+  const canPartition = group.users.length + group.tutors.length + group.tutees.length > 1;
+  const [hadPartition, setHadPartition] = useState(canPartition);
   const needsReview = hadReview || group.resolutionState === "REVIEW_REQUIRED";
   const invitationEligible = group.resolutionState === "GROUPED" && (group.tutors.length > 0 || group.tutees.length > 1);
   const [hadInvitation, setHadInvitation] = useState(invitationEligible);
   // Retain each controller after its first eligible read: accepted operations
   // may still need read recovery after the directory changes eligibility.
   if (canEdit && !wasEditable) setWasEditable(true);
+  if (canPartition && !hadPartition) setHadPartition(true);
   if (group.resolutionState === "REVIEW_REQUIRED" && !hadReview) setHadReview(true);
   if (invitationEligible && !hadInvitation) setHadInvitation(true);
   const nextDirectoryAccessLost =
@@ -307,7 +313,7 @@ function CombinedPersonDetails({
   const login = group.users.find((user) => user.id === editing);
   // The controller stays mounted when successful retirement leaves one live
   // source. Its receipt/read recovery must outlive the directory's row count.
-  const displayGroup = group.users.length + group.tutors.length + group.tutees.length > 1 || needsReview ||
+  const displayGroup = canEdit || wasEditable || canPartition || hadPartition || needsReview ||
     group.tutors.some((source) => ["ARCHIVED", "GRADUATED", "TRANSFERRED"].includes(source.status));
   if (!displayGroup) return null;
   return (
@@ -326,6 +332,19 @@ function CombinedPersonDetails({
         unavailable={controlsUnavailable}
         accessDenied={editorDenied}
       />}
+      {(canEdit || wasEditable) && hadPartition && <DisclosureSection title={t("personPartition.title")} lifetime="retained">
+        <PersonPartition personId={group.id} sources={[
+          ...group.users.map((source) => ({ ref: { kind: "USER" as const, id: source.id }, name: source.name ?? source.email })),
+          ...group.tutors.map((source) => ({ ref: { kind: "TUTOR" as const, id: source.id }, name: source.englishName })),
+          ...group.tutees.map((source) => ({ ref: { kind: "TUTEE" as const, id: source.id }, name: source.englishName })),
+        ]} unavailable={controlsUnavailable} accessDenied={editorDenied} />
+      </DisclosureSection>}
+      {(canEdit || wasEditable) && <DisclosureSection title={t("personHistoryCorrection.title")} lifetime="retained">
+        <PersonHistoryCorrection personId={group.id} unavailable={controlsUnavailable} accessDenied={editorDenied} />
+      </DisclosureSection>}
+      {(canEdit || wasEditable) && <DisclosureSection title={t("personParticipationTransfer.title")} lifetime="retained">
+        <PersonParticipationTransfer personId={group.id} unavailable={controlsUnavailable} accessDenied={editorDenied} />
+      </DisclosureSection>}
       {(canEdit || wasEditable) && (invitationEligible || hadInvitation) && (
         <DisclosureSection title={t("combineRecords.historySetup")} lifetime="retained">
           <HistoricalRecordInvitation

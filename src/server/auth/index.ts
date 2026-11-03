@@ -248,6 +248,7 @@ const {
               tutorId: true,
               tutorAccessRevoked: true,
               sessionVersion: true,
+              historyAccessRevision: true,
               mergedIntoId: true,
             },
           });
@@ -267,6 +268,7 @@ const {
 
         token.sub = dbUser.id;
         token.sessionVersion = user.sessionVersion;
+        token.historyAccessRevision = dbUser.historyAccessRevision;
         token.role = dbUser.role;
         token.name = dbUser.name;
         token.tutorId =
@@ -285,6 +287,7 @@ const {
             tutorAccessRevoked: true,
             role: true,
             sessionVersion: true,
+            historyAccessRevision: true,
             mergedIntoId: true,
             recoveryVoidedAt: true,
           },
@@ -303,6 +306,7 @@ const {
             ? null
             : dbUser.tutorId;
         token.role = dbUser.role;
+        token.historyAccessRevision = dbUser.historyAccessRevision;
         token.name = dbUser.name;
       }
       return token;

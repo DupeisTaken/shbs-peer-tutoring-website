@@ -97,6 +97,28 @@ export async function groupDirectoryRows<
   const studentOwnerById = new Map(
     studentOwners.map((row) => [row.tuteeId, row.userId]),
   );
+  // Batched inverse of effective ownership: aliases follow the exact original
+  // source even when its permanent retirement chain belongs to another group.
+  const readerIds = [...new Set(rows.flatMap((row) => row.userId ? [row.userId] : []))];
+  const historyMappings = await db.retiredHistoryOwnership.findMany({
+    where: { readerUserId: { in: readerIds }, state: "ASSIGNED" },
+    select: { sourceUserId: true, readerUserId: true },
+  });
+  const directoryAccounts = await db.user.findMany({
+    where: { id: { in: [...new Set([...readerIds, ...historyMappings.map((row) => row.sourceUserId)])] } },
+    select: { id: true, mergedIntoId: true, recoveryVoidedAt: true, name: true, email: true, username: true },
+  });
+  const accountById = new Map(directoryAccounts.map((row) => [row.id, row]));
+  const historyByReader = new Map<string, Set<string>>();
+  for (const id of readerIds) {
+    const reader = accountById.get(id);
+    historyByReader.set(id, new Set(reader && !reader.mergedIntoId && !reader.recoveryVoidedAt ? [id] : []));
+  }
+  for (const mapping of historyMappings) {
+    const original = accountById.get(mapping.sourceUserId);
+    const ids = mapping.readerUserId ? historyByReader.get(mapping.readerUserId) : null;
+    if (ids?.size && original?.mergedIntoId && !original.recoveryVoidedAt) ids.add(original.id);
+  }
   const byPerson = new Map(people.map((person) => [person.id, person]));
   const grouped = new Map<string, T[]>();
   for (const row of rows) {
@@ -108,15 +130,8 @@ export async function groupDirectoryRows<
   return [...grouped.entries()].map(([key, members]) => {
     const person = byPerson.get(key);
     const family = new Set(
-      members.flatMap((row) => (row.userId ? [row.userId] : [])),
+      members.flatMap((row) => (row.userId ? [...(historyByReader.get(row.userId) ?? [])] : [])),
     );
-    let familySize = -1;
-    while (familySize !== family.size) {
-      familySize = family.size;
-      for (const account of person?.users ?? [])
-        if (account.mergedIntoId && family.has(account.mergedIntoId))
-          family.add(account.id);
-    }
     const representative =
       members.find(
         (row) => row.userId && row.userId === person?.primaryUserId,
@@ -141,24 +156,16 @@ export async function groupDirectoryRows<
       // Preserve each member's complete filter facts. Display badges and actions
       // continue to use the representative; this array grants no capabilities.
       directoryMembers: members.map((row): UserFilterMember => {
-        const family = new Set(row.userId ? [row.userId] : []);
-        let size = -1;
-        while (size !== family.size) {
-          size = family.size;
-          for (const account of person?.users ?? [])
-            if (account.mergedIntoId && family.has(account.mergedIntoId))
-              family.add(account.id);
-        }
-        const aliases = person
-          ? [
-              ...person.users
+        const family = row.userId ? historyByReader.get(row.userId) ?? new Set<string>() : new Set<string>();
+        const aliases = [
+              ...directoryAccounts
                 .filter((account) => family.has(account.id))
                 .flatMap((account) => [
                   account.name,
                   account.email,
                   account.username,
                 ]),
-              ...person.tutors
+              ...(person?.tutors ?? [])
                 .filter(
                   (source) =>
                     source.id === row.tutorId ||
@@ -170,7 +177,7 @@ export async function groupDirectoryRows<
                   source.email,
                   source.username,
                 ]),
-              ...person.tutees
+              ...(person?.tutees ?? [])
                 .filter(
                   (source) =>
                     source.id === row.tuteeId ||
@@ -178,8 +185,7 @@ export async function groupDirectoryRows<
                     family.has(studentOwnerById.get(source.id) ?? ""),
                 )
                 .flatMap((source) => [source.englishName, source.email]),
-            ].filter((value): value is string => !!value)
-          : [];
+            ].filter((value): value is string => !!value);
         return {
           role: row.role,
           tutorStatus: row.tutorStatus,

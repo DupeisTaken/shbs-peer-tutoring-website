@@ -31,6 +31,7 @@ import {
 } from "~/server/account-profile";
 import { createHash, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
+import { quarterBlockAccountWhere } from "./history-row-ownership";
 import { z } from "zod";
 import type { Prisma } from "../../generated/prisma";
 import {
@@ -206,7 +207,7 @@ export async function assertIntakeEligibility(
       intakeTermId,
       OR: [
         { email },
-        ...(account ? [{ userId: account.id }, { email: account.email }] : []),
+        ...(account ? [await quarterBlockAccountWhere(tx, account.id), { email: account.email }] : []),
       ],
     },
   });

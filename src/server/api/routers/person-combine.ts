@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { personParticipationSelection, personParticipationInput, previewPersonParticipationTransfer, transferPersonParticipation, personParticipationTransferReceipt } from "~/server/person-participation";
+import { historyCorrectionSelection, historyCorrectionInput, historyCorrectionInventory, historyCorrectionReceipt, correctPersonHistory } from "~/server/person-history-correction";
 import { createTRPCRouter, adminOnlyProcedure } from "../trpc";
 import {
   combinePersonRecords,
@@ -11,8 +13,40 @@ import {
   personReviewSelection,
   personFinalizeInput,
 } from "~/server/person-combine";
+import {
+  partitionPersonRecords,
+  personPartitionInput,
+  personPartitionReceipt,
+  personPartitionSelection,
+  personPartitionSources,
+  previewPersonPartition,
+} from "~/server/person-partition";
 
 export const personCombineRouter = createTRPCRouter({
+  participationPreview: adminOnlyProcedure.input(personParticipationSelection)
+    .query(({ ctx, input }) => previewPersonParticipationTransfer(ctx.db, input)),
+  participationTransfer: adminOnlyProcedure.input(personParticipationInput)
+    .mutation(({ ctx, input }) => transferPersonParticipation(ctx.db, ctx.session.user.id, input)),
+  participationReceipt: adminOnlyProcedure.input(z.object({ operationId: z.string().uuid() }))
+    .query(({ ctx, input }) => personParticipationTransferReceipt(ctx.db, ctx.session.user.id, input.operationId)),
+  historyCorrectionInventory: adminOnlyProcedure.input(historyCorrectionSelection)
+    .query(({ ctx, input }) => historyCorrectionInventory(ctx.db, input)),
+  historyCorrection: adminOnlyProcedure.input(historyCorrectionInput)
+    .mutation(({ ctx, input }) => correctPersonHistory(ctx.db, ctx.session.user.id, input)),
+  historyCorrectionReceipt: adminOnlyProcedure.input(z.object({ operationId: z.string().uuid() }))
+    .query(({ ctx, input }) => historyCorrectionReceipt(ctx.db, ctx.session.user.id, input.operationId)),
+  partitionSources: adminOnlyProcedure
+    .input(z.object({ personId: z.string().min(1).max(128) }))
+    .query(({ ctx, input }) => personPartitionSources(ctx.db, input.personId)),
+  partitionPreview: adminOnlyProcedure
+    .input(personPartitionSelection)
+    .query(({ ctx, input }) => previewPersonPartition(ctx.db, input)),
+  partition: adminOnlyProcedure
+    .input(personPartitionInput)
+    .mutation(({ ctx, input }) => partitionPersonRecords(ctx.db, ctx.session.user.id, input)),
+  partitionReceipt: adminOnlyProcedure
+    .input(z.object({ operationId: z.string().uuid() }))
+    .query(({ ctx, input }) => personPartitionReceipt(ctx.db, ctx.session.user.id, input.operationId)),
   candidates: adminOnlyProcedure
     .input(z.object({ search: z.string().trim().max(100).default("") }))
     .query(async ({ ctx, input }) => {

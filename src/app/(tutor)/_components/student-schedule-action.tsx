@@ -20,11 +20,22 @@ export function StudentScheduleAction({
 }) {
   const t = useTranslations("workflow");
   const tasks = useTranslations("tutor.tasks");
+  const sourcesText = useTranslations("studentScheduleRequest");
   const format = useFormatter();
   // ISO weekdays are recurring evidence, not dates in the viewer's time zone.
   const locale = useLocale();
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
+  const [selectedSurveyId, setSelectedSurveyId] = useState("");
+  const sources = api.studentWorkflow.scheduleRequestSources.useQuery(
+    { pairingId: row.pairingId, tuteeId: row.tuteeId },
+    { enabled: open && active, retry: false, staleTime: 0, refetchOnWindowFocus: true },
+  );
+  const availableSources = sources.data?.sources ?? [];
+  const selectedSource = availableSources.find((source) => source.surveyId === selectedSurveyId) ??
+    (!selectedSurveyId && availableSources.length === 1 ? availableSources[0] : undefined);
+  const sourceReady = sources.isSuccess && !sources.isFetching && !sources.error &&
+    (selectedSource ? !selectedSource.pending : sources.data?.legacy === true);
   const [localReason, setLocalReason] = useState("");
   const reason = draft?.value ?? localReason;
   const setReason = draft?.onChange ?? setLocalReason;
@@ -73,6 +84,7 @@ export function StudentScheduleAction({
           className="link inline-flex min-h-11 items-center text-xs lg:min-h-7"
           disabled={busy}
           onClick={() => {
+            setSelectedSurveyId("");
             setOpen(true);
           }}
         >
@@ -82,26 +94,39 @@ export function StudentScheduleAction({
       {open && (
         <TimedActionDialog
           action="SCHEDULE"
-          target={`${row.pairingId}:${row.tuteeId}`}
+          target={`${row.pairingId}:${row.tuteeId}${selectedSource ? `:${selectedSource.surveyId}` : ""}`}
           title={`${t("scheduleReject")}${name ? `: ${name}` : ""}`}
-          message={t("scheduleConsequences")}
+          message={sourcesText("consequences")}
           busy={busy}
           error={request.error?.message}
-          canConfirm={eligible && !busy && !!reason.trim()}
+          canConfirm={eligible && sourceReady && !busy && !!reason.trim()}
           onCancel={() => setOpen(false)}
           onConfirm={(ticket) => {
             // A retained review must honor current read/assignment eligibility.
-            if (!eligible || busy || !reason.trim()) return;
+            if (!eligible || !sourceReady || busy || !reason.trim()) return;
             // Return the write promise so an identical rejection releases the
             // timed dialog's admission guard without discarding this draft.
             return request.mutateAsync({
               tuteeId: row.tuteeId,
               pairingId: row.pairingId,
+              ...(selectedSource ? { surveyId: selectedSource.surveyId } : {}),
               reason,
               ticket,
             });
           }}
         >
+          {sources.isFetching ? <p role="status">{sourcesText("loading")}</p> : sources.error ? (
+            <div role="alert"><p>{sourcesText("readFailed")}</p><button type="button" className="btn-secondary min-h-11" disabled={busy} onClick={() => void sources.refetch()}>{sourcesText("retry")}</button></div>
+          ) : availableSources.length ? (
+            <fieldset disabled={busy} className="space-y-2">
+              <legend className="font-medium">{sourcesText("choose")}</legend>
+              <p className="text-sm">{sourcesText("exactOnly")}</p>
+              {availableSources.map((source) => <label key={source.surveyId} className="flex min-h-11 items-start gap-2 rounded border p-2">
+                <input type="radio" name={`schedule-source-${row.pairingId}-${row.tuteeId}`} value={source.surveyId} checked={selectedSource?.surveyId === source.surveyId} disabled={busy || source.pending} onChange={() => setSelectedSurveyId(source.surveyId)} className="mt-1" />
+                <span>{source.name} · {source.termName} · {format.dateTime(source.submittedAt, { dateStyle: "medium", timeStyle: "short" })}<span className="block break-all text-xs">{sourcesText("source", { id: source.sourceTuteeId, request: source.surveyId })}</span>{source.pending && <span className="badge-amber">{t("needsReview")}</span>}</span>
+              </label>)}
+            </fieldset>
+          ) : sources.isSuccess && !sources.data?.legacy ? <p role="alert">{sourcesText("none")}</p> : null}
           <label className="block text-sm">
             {t("reason")}
             <textarea

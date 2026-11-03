@@ -84,6 +84,8 @@ model User {
   passwordHash String?
   /// Database-maintained credential generation. Password writes revoke every earlier JWT.
   sessionVersion Int @default(0)
+  /// Server-owned epoch for reviewed private-history access changes.
+  historyAccessRevision Int @default(0)
   /// Admission-only credentials were voided. Password/reset writers cannot revive this login.
   recoveryVoidedAt DateTime?
   /// Permanently retired login. Historical authorship stays on this row; explicit HEAD merge
@@ -2165,6 +2167,62 @@ model PersonCombineReceipt {
   person Person @relation(fields: [personId], references: [id], onDelete: Restrict)
   outcome PersonResolutionState
   retiredUserIds String[]
+  /// Exact original ownership before retirement, never inferred from surviving IDs.
+  ownershipTransfers Json @default("[]")
+  createdAt DateTime @default(now())
+}
+
+/// Immutable directory-correction receipt; never reverses credentials or private ownership.
+model PersonPartitionReceipt {
+  id String @id
+  actorId String
+  inputHash String
+  personId String
+  newPersonId String
+  sources Json
+  subjects Json
+  createdAt DateTime @default(now())
+}
+
+/// Effective private-history ownership is independent of permanent credential retirement.
+/// An explicit quarantine never falls back to User.mergedIntoId.
+model RetiredHistoryOwnership {
+  sourceUserId String @id
+  readerUserId String?
+  state String
+  revision Int @default(1)
+  receiptId String?
+  updatedAt DateTime @default(now()) @updatedAt
+  @@index([readerUserId])
+}
+
+/// Exact legacy rows whose recipient was rewritten before provenance was recorded.
+/// Original records remain unchanged; nullable reader means withheld private access.
+model HistoryRowOwnership {
+  entity String
+  recordId String
+  readerUserId String?
+  quarantineUserIds String[] @default([])
+  /// Exact reviewed original restriction provenance, independent of the reader.
+  sourceUserIds String[] @default([])
+  revision Int @default(1)
+  receiptId String
+  updatedAt DateTime @default(now()) @updatedAt
+  @@id([entity, recordId])
+  @@index([readerUserId, entity])
+}
+
+/// Immutable access-correction evidence, distinct from credential or participation grants.
+model PersonHistoryCorrectionReceipt {
+  id String @id
+  actorId String
+  inputHash String
+  personId String
+  destinationPersonId String
+  sourceUserIds String[]
+  before Json
+  after Json
+  subjects Json
   createdAt DateTime @default(now())
 }
 
@@ -2511,6 +2569,8 @@ model AccountEmail {
 /// A transactionally recorded notification, with one row per event/recipient and bounded retries.
 model EmailDelivery {
   id String @id @default(cuid())
+  /// Exact optional-notice provenance; legacy null is unknown, never guessed.
+  sourceNotificationId String?
   /// Occurrence/lead/recipient receipt prevents duplicate event reminders across workers.
   reminderKey String? @unique
   userId String?
@@ -2550,6 +2610,7 @@ model EmailDelivery {
   schoolHoursReportId String?
   schoolHoursReport SchoolHoursReport? @relation(fields: [schoolHoursReportId], references: [id], onDelete: Restrict)
   @@index([status, availableAt])
+  @@index([sourceNotificationId])
   @@unique([requestKind, requestId, requestVersion])
   @@unique([monthlyHoursReportId, recipient])
   @@unique([schoolHoursReportId, recipient])
@@ -2953,11 +3014,14 @@ model SessionPlanContinuationMember {
   plan SessionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
   pairingId String
   tuteeId String
-  assignmentId String
+  /// Exactly one original enrollment authority supplies a membership change.
+  assignmentId String?
+  sourceSurveyId String?
   joinedAt DateTime
   releasedAt DateTime?
   @@id([planId, pairingId, tuteeId])
   @@index([assignmentId])
+  @@index([sourceSurveyId])
 }
 
 model SessionPlanAssignment {
@@ -3190,4 +3254,133 @@ model SchoolDepartureEvent {
   revision Int
   createdAt DateTime @default(now())
   @@unique([userId, revision])
+}
+
+/// Rebuildable publication watermark and current-check work queue; never authority.
+model SchedulingMaintenanceState {
+  id String @id @default("program")
+  publicationVersion Int @default(0)
+  settlementVersion Int @default(0)
+  windowStart String @default("")
+  prepareEnd String @default("")
+  timeZone String @default("")
+  unavailable Int @default(0)
+  normalized Int @default(0)
+  settlementBatchActive Boolean @default(false)
+  settlementBatchExhausted Boolean @default(false)
+  settlementCursor String @default("")
+  settlementEventIds BigInt[] @default([])
+  settlementRequestIds String[] @default([])
+  updatedAt DateTime @default(now())
+}
+
+/// Transactional source invalidation only. Sequence allocation is not commit order.
+model SchedulingDirtyEvent {
+  id BigInt @id @default(autoincrement())
+  sourceTable String
+  requestId String? @unique
+  publicationPending Boolean @default(true)
+  settlementPending Boolean @default(true)
+  createdAt DateTime @default(now())
+  @@index([publicationPending, id])
+  @@index([settlementPending, id])
+}
+
+/// Reviewed operational aliases are independent of credential retirement and private history.
+model ParticipantConsolidation {
+  kind String
+  sourceId String
+  targetId String
+  active Boolean @default(true)
+  revision Int @default(1)
+  receiptId String
+  effectiveAt DateTime
+  @@id([kind, sourceId])
+  @@index([kind, targetId])
+}
+
+/// The original recurring source and completed attendance retain their original IDs.
+model PairingExecutionSuccessor {
+  sourcePairingId String @id
+  targetPairingId String
+  receiptId String
+  effectiveAt DateTime
+  revision Int @default(1)
+  @@index([targetPairingId])
+}
+
+/// Execution changes never rewrite the published roster or original tutor evidence.
+model SessionPlanExecution {
+  planId String @id
+  tutorId String
+  revision Int @default(1)
+  receiptId String
+  assignments Json
+  @@index([tutorId])
+}
+
+model SessionParticipantExecution {
+  participantId String @id
+  /// Exact request owners captured at the first reviewed execution transfer.
+  sourceSurveyIds String[] @default([])
+  tuteeId String
+  revision Int @default(1)
+  receiptId String
+  @@index([tuteeId])
+}
+
+/// Current pending-response authority; original response authorship and clocks remain intact.
+model SessionResponseExecution {
+  responseId String @id
+  userId String
+  profileKind String
+  profileId String
+  respondedByUserId String?
+  revision Int @default(1)
+  receiptId String
+  @@index([userId])
+}
+
+/// Concrete copied grant provenance, never recomputed from today's course inheritance.
+model QualificationTransferGrant {
+  targetTutorId String
+  sourceTutorId String
+  sourceSubjectId String
+  subjectId String
+  approvedById String
+  approvedAt DateTime
+  grantedAt DateTime
+  receiptId String
+  /// Provenance materialization only; native approved grants remain eligibility authority.
+  active Boolean @default(true)
+  revision Int @default(1)
+  @@id([targetTutorId, sourceTutorId, sourceSubjectId, subjectId])
+  @@index([targetTutorId, subjectId])
+}
+
+model PersonParticipationTransferReceipt {
+  id String @id
+  actorId String
+  inputHash String
+  personId String
+  retainedUserId String
+  selection Json
+  result Json
+  subjects Json
+  createdAt DateTime @default(now())
+}
+
+/// Exact intake ownership of future membership after participation consolidation.
+/// Multiple independent requests can require the same canonical roster membership.
+model StudentRequestExecutionAssignment {
+  surveyId String
+  pairingId String
+  tuteeId String
+  sourceTuteeId String
+  revision Int @default(1)
+  receiptId String?
+  createdAt DateTime @default(now())
+  releasedAt DateTime?
+  @@id([surveyId, pairingId])
+  @@index([pairingId, tuteeId, releasedAt], map: "StudentRequestExecutionAssignment_membership_idx")
 }

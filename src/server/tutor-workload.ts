@@ -1,3 +1,4 @@
+import { supersededPairingIds } from "./participant-execution";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -49,6 +50,7 @@ export async function tutorWorkloads(db: DomainDb, tutorId?: string) {
       const pairings = term
         ? await tx.pairing.findMany({
             where: {
+        AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
               ...(tutorId ? { tutorId } : {}),
               termId: term.id,
             },

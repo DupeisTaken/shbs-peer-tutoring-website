@@ -19,7 +19,8 @@ import { resendStuckEmails } from "./resend-stuck";
 import { renderEmail } from "./template";
 import { verifyUnsubscribeToken } from "./unsubscribe-token";
 import { unsubscribeFromEmail } from "./unsubscribe";
-import { finishRecoveryGenericDelivery, withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
+import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
+import { finishIdentityNotice } from "./identity-notice-admission";
 
 const uid = "email192-synthetic";
 async function causalNotice() {
@@ -101,7 +102,7 @@ it("retains known SMTP acceptance when database completion fails, without sendin
   await db.$executeRawUnsafe(`CREATE FUNCTION test_recovery_finish_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic completion database failure'; END $$`);
   try {
     await db.$executeRawUnsafe(`CREATE TRIGGER test_recovery_finish_failure BEFORE UPDATE ON "EmailDelivery" FOR EACH ROW WHEN (NEW.status='SENT' AND OLD."userId"='email192-synthetic') EXECUTE FUNCTION test_recovery_finish_failure()`);
-    await expect(deliverNotifications()).rejects.toThrow("Causal email completion failed");
+    await expect(deliverNotifications()).rejects.toThrow("Email completion failed");
   } finally {
     await db.$executeRawUnsafe('DROP TRIGGER IF EXISTS test_recovery_finish_failure ON "EmailDelivery"');
     await db.$executeRawUnsafe('DROP FUNCTION test_recovery_finish_failure()');
@@ -114,7 +115,7 @@ it("retains known SMTP acceptance when database completion fails, without sendin
   await deliverNotifications();
   expect((await db.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id } })).status).toBe("UNCERTAIN");
   expect(mail.send).toHaveBeenCalledTimes(1);
-  await finishRecoveryGenericDelivery(db, delivery.id, admitted.attemptId!, true);
+  await finishIdentityNotice(db, delivery.id, admitted.attemptId!, true);
   expect((await db.emailDelivery.findUniqueOrThrow({ where: { id: delivery.id } })).status).toBe("SENT");
 });
 
@@ -154,7 +155,7 @@ it.each([false, true])(
     expect(
       delivered.every(
         (row) =>
-          row.status === (fails ? "PENDING" : "SENT") &&
+          row.status === (fails ? "UNCERTAIN" : "SENT") &&
           row.leaseUntil === null &&
           row.attempts === 1,
       ),
@@ -163,7 +164,7 @@ it.each([false, true])(
       expect(message.presentation?.unsubscribeUrl).toBeDefined();
       expect(message.text).toContain("Unsubscribe / 取消订阅:");
     }
-    // SMTP failures belong to the durable worker retry, not the audit effect failure receipt.
+    // Admitted SMTP failure is durable uncertainty, not an audit write failure.
     expect(queue.onFailure).not.toHaveBeenCalled();
   },
 );
@@ -323,20 +324,20 @@ it("releases the lease and retries safely when the public origin is invalid", as
     });
 });
 
-it("reports the first SMTP failure as retrying and clears it after successful delivery", async () => {
+it("reports admitted SMTP uncertainty without presenting it as a retryable transport failure", async () => {
   await db.notification.create({
     data: { userId: uid, title: "Synthetic program update", link: "/messages" },
   });
   mail.send.mockRejectedValue(new Error("Private provider diagnostic"));
   await deliverNotifications();
   const failedAttempt = await getEmailDeliveryStatus(db);
-  expect(failedAttempt).toMatchObject({ retrying: 2, failed: 0 });
+  expect(failedAttempt).toMatchObject({ retrying: 0, failed: 0, uncertain: 2 });
   expect(mail.send).toHaveBeenCalledTimes(2);
   expect(JSON.stringify(failedAttempt)).not.toContain(
     "Private provider diagnostic",
   );
 
-  // Make the durable retry due without waiting or altering the worker's retry policy.
+  // Changing the due date does not authorize a second admitted send.
   await db.emailDelivery.updateMany({
     where: { userId: uid },
     data: { availableAt: new Date(0) },
@@ -346,8 +347,9 @@ it("reports the first SMTP failure as retrying and clears it after successful de
   expect(await getEmailDeliveryStatus(db)).toMatchObject({
     retrying: 0,
     failed: 0,
+    uncertain: 2,
   });
-  expect(mail.send).toHaveBeenCalledTimes(4);
+  expect(mail.send).toHaveBeenCalledTimes(2);
 });
 
 it.each(["unchanged", "opted-out", "secondary-removed"])(
@@ -360,11 +362,13 @@ it.each(["unchanged", "opted-out", "secondary-removed"])(
         link: "/messages",
       },
     });
-    mail.send.mockRejectedValue(new Error("Synthetic SMTP outage"));
-    await deliverNotifications();
-    const attemptedIds = mail.send.mock.calls
-      .map(([message]) => message.messageId)
-      .sort();
+    // Copy preparation can fail before transport admission and remains safe to
+    // retry. An already-admitted SMTP failure is covered by the no-replay cases.
+    vi.stubEnv("AUTH_URL", "not-a-url");
+    try { await deliverNotifications(); } finally { vi.unstubAllEnvs(); }
+    expect(mail.send).not.toHaveBeenCalled();
+    const attemptedIds = (await db.emailDelivery.findMany({ where: { userId: uid } }))
+      .map((row) => `<account-notice-${row.id}@shbs-notifications>`).sort();
     expect(attemptedIds).toHaveLength(2);
     await db.emailDelivery.updateMany({
       where: { userId: uid },
@@ -440,8 +444,9 @@ it.each([false, true])(
     expect(mail.send).toHaveBeenCalledTimes(1);
     const rows = await db.emailDelivery.findMany({ where: { userId: uid } });
     expect(rows).toHaveLength(2);
-    expect(
-      rows.every((row) => row.status === "SKIPPED" && row.leaseUntil === null),
-    ).toBe(true);
+    expect(rows.filter((row) => !row.attemptStartedAt).every((row) => row.status === "SKIPPED")).toBe(true);
+    expect(rows.filter((row) => !!row.attemptStartedAt)).toHaveLength(1);
+    expect(rows.find((row) => !!row.attemptStartedAt)?.status).toBe(fails ? "UNCERTAIN" : "SENT");
+    expect(rows.every((row) => row.leaseUntil === null)).toBe(true);
   },
 );

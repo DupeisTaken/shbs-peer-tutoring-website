@@ -6,6 +6,10 @@
 // recordTransfer.* requires ADMIN/HEAD directly. Imports/exports cannot be proposed or replayed.
 // tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction
 // additionally reauthenticates the reviewer; public history account setup grants no membership.
+// personCombine.partition uses its dedicated ADMIN/HEAD password-confirmed review;
+// directory correction does not admit Coordinator proposals or grant private access.
+// personCombine.historyCorrection and personCombine.participationTransfer likewise
+// require direct ADMIN/HEAD exact review and password; no Coordinator replay path.
 /** Effect categories remain independent from current reviewer authority.
  * classifyApproval explicitly allows Admin to issue Tutor/Crew invitations directly.
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants

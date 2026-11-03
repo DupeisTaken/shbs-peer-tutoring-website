@@ -4,6 +4,9 @@ import {
   notificationSchedule,
 } from "~/lib/notification-facts";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { requireStudentSchoolParticipation } from "./school-departure";
+import { executionParticipantId, executionPairingId, supersededPairingIds } from "./participant-execution";
+import { admitStudentRequestExecution, releaseStudentRequestExecution, studentRequestExecutionAssignments } from "./student-request-execution";
 import { currentStudentSignupPayload } from "./student-signup-answers";
 import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
 import { lockCatalogue } from "./qualifications";
@@ -265,6 +268,7 @@ export async function assignStudentRequest(
 ) {
   await expireStudentRequests(db);
   const result = await inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", {
       id,
       ticket,
@@ -282,16 +286,20 @@ export async function assignStudentRequest(
     const tutor = await tx.tutor.findUnique({ where: { id: tutorId } });
     if (!subject?.active || tutor?.status !== "ACTIVE")
       fail("Choose an active subject and tutor.");
-    const student = await materializeStudent(tx, row);
+    const source = await materializeStudent(tx, row);
+    await requireStudentSchoolParticipation(tx, source.id);
+    const student = await tx.tutee.findUniqueOrThrow({ where: { id: await executionParticipantId(tx, "TUTEE", source.id) } });
+    await requireStudentSchoolParticipation(tx, student.id);
     await preserveHistoricalAcademics(tx, "TUTEE", student.id);
     const existing = await tx.pairingTutee.findFirst({
       where: {
         tuteeId: student.id,
+        pairingId: { notIn: await supersededPairingIds(tx) },
         pairing: { termId: row.intakeTermId, subject: subject.name },
       },
     });
     if (existing) fail("This subject is already assigned. Refresh the page.");
-    await tx.pairing.create({
+    const pairing = await tx.pairing.create({
       data: {
         tutorId,
         termId: row.intakeTermId,
@@ -300,17 +308,18 @@ export async function assignStudentRequest(
         dayOfWeek: 1,
         startMin: 930,
         endMin: 990,
-        tutees: { create: { tuteeId: student.id } },
       },
     });
+    await admitStudentRequestExecution(tx, { ...row, tuteeId: source.id }, pairing.id, student.id);
+    await tx.pairingTutee.create({ data: { pairingId: pairing.id, tuteeId: student.id } });
     await tx.tutee.update({
       where: { id: student.id },
       data: { status: "ACTIVE" },
     });
-    await stampStudentAssignment(tx, student.id);
+    await stampStudentAssignment(tx, source.id);
     await notifyRequest(
       tx,
-      { ...row, tuteeId: student.id },
+      { ...row, tuteeId: source.id },
       "student_assignment_updated",
       {
         en: `Tutee ${student.englishName} is assigned to ${tutor.englishName} for ${subject.name}. The weekly schedule is awaiting confirmation.`,
@@ -340,6 +349,7 @@ export async function editStudentAvailability(
 ) {
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockCatalogue(tx);
     const row = await ownedRequest(tx, userId, id);
     const ids = [...new Set(slotIds)];
@@ -411,14 +421,7 @@ export async function recallStudentRequest(
       async () => {
         const row = await ownedRequest(tx, userId, id);
         await consumeStudentAction(tx, ticket, userId, "RECALL", id);
-        if (
-          await tx.pairingTutee.count({
-            where: {
-              tuteeId: row.tuteeId!,
-              pairing: { termId: row.intakeTermId },
-            },
-          })
-        )
+        if ((await studentRequestExecutionAssignments(tx, row)).length)
           fail(
             "You have a tutor assignment. Apply to leave this quarter instead.",
           );
@@ -438,13 +441,10 @@ export async function applyStudentAbort(
 ) {
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     const row = await ownedRequest(tx, userId, id);
     await consumeStudentAction(tx, ticket, userId, "ABORT", id);
-    if (
-      !(await tx.pairingTutee.count({
-        where: { tuteeId: row.tuteeId!, pairing: { termId: row.intakeTermId } },
-      }))
-    )
+    if (!(await studentRequestExecutionAssignments(tx, row)).length)
       fail("This request is unassigned. Use recall instead.");
     if (
       await tx.studentRequestReview.count({
@@ -466,6 +466,33 @@ export async function applyStudentAbort(
   });
 }
 
+/** The tutor may inspect only original requests owning this exact current member.
+ * Survey signatures, contact details and policy evidence never leave this read. */
+export async function studentScheduleRequestSources(db: DomainDb, tutorId: string, tuteeId: string, pairingId: string) {
+  const member = await db.pairingTutee.findFirst({ where: {
+    pairingId, tuteeId, pairing: { tutorId, term: { active: true } },
+    tutee: { status: { not: "INACTIVE" } },
+  }, select: { pairing: { select: { termId: true } } } });
+  if (!member || (await supersededPairingIds(db)).includes(pairingId)) throw new TRPCError({ code: "FORBIDDEN" });
+  const maps = await db.studentRequestExecutionAssignment.findMany({ where: { pairingId, tuteeId } });
+  const direct = await db.studentSurvey.findUnique({ where: { tuteeId }, select: { id: true } });
+  const possible = await db.studentSurvey.findMany({ where: {
+    id: { in: [...maps.map((mapping) => mapping.surveyId), ...(direct ? [direct.id] : [])] },
+    state: "OPEN", intakeTermId: member.pairing.termId,
+  }, include: { reviews: { where: { state: "PENDING", kind: "SCHEDULE_CONFLICT" }, select: { pairingId: true } } }, orderBy: [{ submittedAt: "asc" }, { id: "asc" }] });
+  const term = await db.term.findUniqueOrThrow({ where: { id: member.pairing.termId }, select: { name: true } });
+  const sources = [];
+  for (const row of possible) {
+    if (!(await studentRequestExecutionAssignments(db, row)).some((assignment) => assignment.pairingId === pairingId && assignment.tuteeId === tuteeId)) continue;
+    const payload = currentStudentSignupPayload(row);
+    let pending = false;
+    for (const review of row.reviews) if (review.pairingId && await executionPairingId(db, review.pairingId) === pairingId) pending = true;
+    sources.push({ surveyId: row.id, sourceTuteeId: row.tuteeId!, name: typeof payload.englishName === "string" ? payload.englishName : "—", termId: row.intakeTermId, termName: term.name, submittedAt: row.submittedAt, pending, verified: !!row.confirmedAt, verificationDueAt: row.verificationDueAt, editedAt: row.editedAt });
+  }
+  // A released or closed survey never turns into a new legacy request.
+  return { sources, legacy: !maps.length && !direct };
+}
+
 export async function applyScheduleRejection(
   db: DomainDb,
   userId: string,
@@ -474,11 +501,17 @@ export async function applyScheduleRejection(
   pairingId: string,
   reason: string,
   ticket: string,
+  surveyId?: string,
 ) {
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
-    const survey = await tx.studentSurvey.findUnique({ where: { tuteeId } });
-    if (!survey) {
+    await lockEntity(tx, "program:period");
+    const choices = await studentScheduleRequestSources(tx, tutorId, tuteeId, pairingId);
+    if (!surveyId && choices.sources.length > 1) fail("Select the original request for this shared assignment.");
+    const selected = surveyId ? choices.sources.find((source) => source.surveyId === surveyId) : choices.sources[0];
+    if (surveyId && !selected) throw new TRPCError({ code: "FORBIDDEN" });
+    if (!selected && !choices.legacy) fail("No open original request owns this assignment.");
+    if (!selected) {
       await lockEntity(tx, `legacy-student:${tuteeId}`);
       await consumeStudentAction(
         tx,
@@ -524,22 +557,16 @@ export async function applyScheduleRejection(
       );
       return { ok: true };
     }
-    const row = await lockedRequest(tx, survey.id);
+    const row = await lockedRequest(tx, selected.surveyId);
     await consumeStudentAction(
       tx,
       ticket,
       userId,
       "SCHEDULE",
-      `${pairingId}:${tuteeId}`,
+      `${pairingId}:${tuteeId}${surveyId ? `:${surveyId}` : ""}`,
     );
-    const pairing = await tx.pairingTutee.findFirst({
-      where: {
-        pairingId,
-        tuteeId,
-        pairing: { tutorId, termId: row.intakeTermId },
-      },
-    });
-    if (!pairing) throw new TRPCError({ code: "FORBIDDEN" });
+    if (!(await studentRequestExecutionAssignments(tx, row)).some((assignment) => assignment.pairingId === pairingId && assignment.tuteeId === tuteeId)) throw new TRPCError({ code: "CONFLICT" });
+    if (selected.pending) fail("A schedule review is already pending.");
     if (
       await tx.studentRequestReview.count({
         where: {
@@ -581,6 +608,7 @@ export async function resolveStudentReview(
 ) {
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     const initial = await tx.studentRequestReview.findUniqueOrThrow({
       where: { id },
     });
@@ -610,6 +638,9 @@ export async function resolveStudentReview(
           if (approve && review.kind === "STUDENT_ABORT") {
             await approveLegacyStudentWithdrawal(tx, review);
           } else if (approve) {
+            if (!review.pairingId || (await supersededPairingIds(tx)).includes(review.pairingId) ||
+              await tx.studentRequestExecutionAssignment.count({ where: { pairingId: review.pairingId, tuteeId: review.legacyTuteeId!, releasedAt: null } }))
+              fail("This assignment now has exact request ownership. Decline this outdated review and review its current original request.");
             const requester = await tx.user.findUnique({
               where: { id: review.requestedByUserId },
               select: { tutorId: true },
@@ -638,10 +669,8 @@ export async function resolveStudentReview(
               fail(
                 "The tutor assignment changed. Decline this outdated application.",
               );
-            await tx.tutee.update({
-              where: { id: review.legacyTuteeId! },
-              data: { status: "PENDING" },
-            });
+            if (!(await tx.pairingTutee.count({ where: { tuteeId: review.legacyTuteeId!, pairingId: { notIn: await supersededPairingIds(tx) }, pairing: { term: { active: true } } } })))
+              await tx.tutee.update({ where: { id: review.legacyTuteeId! }, data: { status: "PENDING" } });
           }
           await tx.studentRequestReview.update({
             where: { id },
@@ -724,13 +753,20 @@ export async function resolveStudentReview(
             where: { id: review.requestedByUserId },
             select: { tutorId: true },
           });
+          const currentPairingId = review.pairingId ? await executionPairingId(tx, review.pairingId) : null;
+          const member = (await studentRequestExecutionAssignments(tx, row)).find((assignment) => assignment.pairingId === currentPairingId);
+          // A successor retains the original tutor as evidence after the original
+          // login loses its live pointer; unrelated request assignments survive.
+          const sourceTutorId = currentPairingId && currentPairingId !== review.pairingId
+            ? (await tx.pairing.findUnique({ where: { id: review.pairingId! }, select: { tutorId: true } }))?.tutorId
+            : requester?.tutorId;
           if (
-            !requester?.tutorId ||
+            !sourceTutorId || !member ||
             !(await tx.pairingTutee.count({
               where: {
-                pairingId: review.pairingId!,
-                tuteeId: row.tuteeId!,
-                pairing: { tutorId: requester.tutorId },
+                pairingId: member.pairingId,
+                tuteeId: member.tuteeId,
+                pairing: { tutorId: await executionParticipantId(tx, "TUTOR", sourceTutorId), term: { active: true } },
               },
             }))
           )
@@ -742,17 +778,11 @@ export async function resolveStudentReview(
             row,
             "student_schedule_review_approved",
             undefined,
-            review.pairingId,
+            member.pairingId,
             { entity: "StudentRequestReview", recordId: id },
           );
-          await preserveHistoricalAcademics(tx, "TUTEE", row.tuteeId!);
-          await tx.pairingTutee.deleteMany({
-            where: { pairingId: review.pairingId!, tuteeId: row.tuteeId! },
-          });
-          await tx.tutee.update({
-            where: { id: row.tuteeId! },
-            data: { status: "PENDING" },
-          });
+          await preserveHistoricalAcademics(tx, "TUTEE", member.tuteeId);
+          await releaseStudentRequestExecution(tx, row, { pairingId: member.pairingId, unassignedStatus: "PENDING" });
         } else
           await notifyRequest(
             tx,
@@ -911,6 +941,11 @@ export async function studentRequestRows(
       tutor: { select: { englishName: true } },
     },
   });
+  const execution = await Promise.all(rows.map(async (row) => ({ id: row.id, assignments: row.state === "OPEN" ? await studentRequestExecutionAssignments(db, row) : [] })));
+  const currentPairings = await db.pairing.findMany({
+    where: { id: { in: execution.flatMap((row) => row.assignments.map((assignment) => assignment.pairingId)) } },
+    include: { tutor: { select: { englishName: true, user: { select: { username: true } } } } },
+  });
   return rows.map((row) => {
     const input = surveyInput.parse(currentStudentSignupPayload(row));
     const profile = profiles.find((p) => p.id === row.tuteeId);
@@ -968,7 +1003,7 @@ export async function studentRequestRows(
       slots: profile
         ? profile.availabilities.map((a) => a.slot)
         : slots.filter((s) => input.slotIds.includes(s.id)),
-      pairings: profile?.pairings.map((p) => p.pairing) ?? [],
+      pairings: currentPairings.filter((pairing) => execution.find((source) => source.id === row.id)?.assignments.some((assignment) => assignment.pairingId === pairing.id)),
       reviews: row.reviews.map((r) => ({
         id: r.id,
         kind: r.kind,

@@ -3,8 +3,10 @@ import { createSchoolCalendarSnapshot } from "~/lib/school-calendar";
 import { programDateKey } from "~/lib/program-time";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
+import { pairingEvidenceIds } from "~/server/participant-execution";
 
 type RoomSchedule = {
+  preservedPlanIds?: readonly string[];
   termId: string;
   dayOfWeek: number;
   startMin: number;
@@ -53,10 +55,10 @@ export async function datedUnavailableRooms(
       code: "CONFLICT",
       message: "Too many dated room bookings to safely review this change.",
     });
-  const excluded = new Set([
+  const excluded = new Set(await pairingEvidenceIds(tx, [
     ...(schedule.excludePairingIds ?? []),
     ...(schedule.excludePairingId ? [schedule.excludePairingId] : []),
-  ]);
+  ]));
   const calendarSnapshot = createSchoolCalendarSnapshot(calendar);
   // Keep these facts local to the transaction. Resolve bounds only when reached,
   // preserving short-circuit validation for empty or nonapplicable reservations.
@@ -77,6 +79,7 @@ export async function datedUnavailableRooms(
   };
   const blocked = new Set<string>();
   for (const cohort of cohorts) {
+    if (schedule.preservedPlanIds?.includes(cohort.planId)) continue;
     if (
       !cohort.roomId ||
       !cohort.participants.length ||
@@ -93,6 +96,7 @@ export async function datedUnavailableRooms(
     if (!own) blocked.add(cohort.roomId);
   }
   for (const request of requests) {
+    if (schedule.preservedPlanIds?.includes(request.planId)) continue;
     const offer = request.offers.find(
       (row) => row.id === request.currentOfferId,
     );

@@ -60,6 +60,37 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
+it("keeps rebuildable scheduling metadata outside causal admission evidence without a prefix exemption", async () => {
+  const source = await admission();
+  const before = await inspectAdmissionRecovery(db, source);
+  expect(before.coverage).toBe("COMPLETE");
+  const changes = await db.recoveryChange.count({ where: { actionId: source.actionId } });
+  const fence = await db.recoveryFence.findUnique({ where: { actionId: source.actionId } });
+  await db.$executeRaw`
+    INSERT INTO "SchedulingMaintenanceState" (id,"publicationVersion") VALUES ('program',1)
+    ON CONFLICT (id) DO UPDATE SET "publicationVersion"=1`;
+  await db.$executeRaw`
+    INSERT INTO "SchedulingDirtyEvent" ("sourceTable") VALUES ('Pairing')`;
+  const after = await inspectAdmissionRecovery(db, source);
+  expect(after.coverage).toBe("COMPLETE");
+  expect(after.fingerprint).toBe(before.fingerprint);
+  expect(await db.recoveryChange.count({ where: { actionId: source.actionId } })).toBe(changes);
+  expect(await db.recoveryFence.findUnique({ where: { actionId: source.actionId } })).toEqual(fence);
+
+  // Only the two reviewed table names are exempt. A similarly named domain
+  // table still blocks recovery until its explicit coverage is implemented.
+  const rollback = new Error("Rollback synthetic coverage table");
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`CREATE TABLE "SchedulingDirtyEventUnreviewed" (id text PRIMARY KEY)`;
+    const unknown = await inspectAdmissionRecovery(tx, source);
+    expect(unknown.coverage).toBe("UNKNOWN");
+    expect(unknown.blockers.join(" ")).toContain("SchedulingDirtyEventUnreviewed");
+    throw rollback;
+  }).catch((error: unknown) => {
+    if (error !== rollback) throw error;
+  });
+});
+
 it("journals and preserves independent notification preferences through admission recovery", async () => {
   const source = await admission({ existingStudent: true });
   const user = await db.user.findUniqueOrThrow({ where: { id: "prior-user" } });

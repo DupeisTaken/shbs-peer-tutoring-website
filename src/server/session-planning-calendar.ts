@@ -149,10 +149,12 @@ export async function sessionCalendarFeed(
     // Keep recent cancellations long enough for slow subscription refresh. Do not
     // truncate a large feed silently: dropping events can erase cached commitments.
     const since = new Date(now.getTime() - 120 * 86_400_000);
+    const executedPlans = audience.tutorId ? await tx.sessionPlanExecution.findMany({ where: { tutorId: audience.tutorId }, select: { planId: true } }) : [];
+    const executedParticipants = audience.tuteeIds.length ? await tx.sessionParticipantExecution.findMany({ where: { tuteeId: { in: audience.tuteeIds } }, select: { participantId: true } }) : [];
     const cohorts = audience.tutorId
       ? await tx.sessionPlanCohort.findMany({
           where: {
-            plan: { tutorId: audience.tutorId },
+            plan: { OR: [{ tutorId: audience.tutorId }, { id: { in: executedPlans.map((row) => row.planId) } }] },
             status: { in: ["SCHEDULED", "RECORDED", "CANCELLED"] },
             OR: [
               { startsAt: { gte: since } },
@@ -166,7 +168,7 @@ export async function sessionCalendarFeed(
     const participants = audience.tuteeIds.length
       ? await tx.sessionPlanParticipant.findMany({
           where: {
-            tuteeId: { in: audience.tuteeIds },
+            OR: [{ tuteeId: { in: audience.tuteeIds } }, { id: { in: executedParticipants.map((row) => row.participantId) } }],
             status: { in: ["SCHEDULED", "CANCELLED"] },
             cohort: {
               OR: [

@@ -1,4 +1,5 @@
 import { requireStudentSchoolParticipation } from "./school-departure";
+import { releaseStudentRequestExecution, studentRequestExecutionAssignments } from "./student-request-execution";
 import { notificationSchedule } from "~/lib/notification-facts";
 import {
   notificationData,
@@ -36,9 +37,10 @@ export async function notifyRequest(
   const answers = currentStudentSignupPayload(row);
   const name =
     typeof answers.englishName === "string" ? answers.englishName : null;
-  const links = row.tuteeId
+  const assignments = await studentRequestExecutionAssignments(tx, row);
+  const links = assignments.length
     ? await tx.pairingTutee.findMany({
-        where: { tuteeId: row.tuteeId },
+        where: { OR: assignments.map(({ pairingId, tuteeId }) => ({ pairingId, tuteeId })) },
         select: { pairing: { select: { tutorId: true } } },
       })
     : [];
@@ -123,8 +125,8 @@ export async function studentScheduleDetail(
   const result =
     event === "student_schedule_review_approved"
       ? {
-          en: "Schedule conflict approved; this assignment is removed and the tutee returns to the assignment queue.",
-          zh: "时间冲突已获批准；此分配已移除，学习伙伴返回待分配队列。",
+          en: "Schedule conflict approved; this original request releases its assignment. Other independently assigned requests remain in effect.",
+          zh: "时间冲突已获批准；本原始申请解除对应分配，其他独立申请的分配继续有效。",
         }
       : event === "student_schedule_review_declined"
         ? {
@@ -159,25 +161,19 @@ export async function closeStudentRequest(
     ABORTED: "student_withdrawal_approved",
     INVALID_REJECTED: "student_signup_rejected",
   } as const;
-  await tx.studentSurvey.update({
-    where: { id: row.id },
+  const claimed = await tx.studentSurvey.updateMany({
+    where: { id: row.id, state: "OPEN" },
     data: { state, resolvedAt: now },
   });
+  if (!claimed.count) throw new TRPCError({ code: "CONFLICT", message: "This request is already processed." });
   // Journal the decision before its notice, retaining the pre-detach recipients.
   await notifyRequest(tx, row, events[state]);
-  if (row.tuteeId) {
-    await tx.pairingTutee.deleteMany({
-      where: { tuteeId: row.tuteeId, pairing: { termId: row.intakeTermId } },
-    });
-    await tx.tutee.updateMany({
-      where: { id: row.tuteeId },
-      data: { status: "INACTIVE" },
-    });
-  }
+  const released = await releaseStudentRequestExecution(tx, row, { now });
   await tx.studentRequestReview.updateMany({
     where: { surveyId: row.id, state: "PENDING" },
     data: { state: "DENIED", resolvedAt: now },
   });
+  return released;
 }
 
 /** Run both periodically and before workflow reads/writes; downtime never extends a deadline. */
@@ -211,19 +207,13 @@ export async function expireStudentRequests(db: DomainDb, now = new Date()) {
             row.verificationDueAt > now
           )
             return 0;
-          const links = row.tuteeId
-            ? await tx.pairingTutee.findMany({
-                where: { tuteeId: row.tuteeId },
-                select: { pairingId: true },
-              })
-            : [];
           const tutee = row.tuteeId
             ? await tx.tutee.findUnique({
                 where: { id: row.tuteeId },
                 select: { status: true },
               })
             : null;
-          await closeStudentRequest(tx, row, "DISQUALIFIED", now);
+          const released = await closeStudentRequest(tx, row, "DISQUALIFIED", now);
           await recordDomainAudit(tx, {
             operation: "system.expireStudentRequest",
             entity: "StudentSurvey",
@@ -236,8 +226,9 @@ export async function expireStudentRequests(db: DomainDb, now = new Date()) {
             effects: {
               tuteeId: row.tuteeId,
               beforeStatus: tutee?.status ?? null,
-              afterStatus: row.tuteeId ? "INACTIVE" : null,
-              removedPairingIds: links.map((link) => link.pairingId),
+              executionStatuses: released.statuses,
+              removedPairingIds: released.removedPairingIds,
+              retainedPairingIds: released.retainedPairingIds,
               pendingReviews: "DENIED",
             },
           });

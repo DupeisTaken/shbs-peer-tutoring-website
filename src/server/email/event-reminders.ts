@@ -12,6 +12,7 @@ import { portalAccess } from "~/lib/portal-access";
 import { effectiveNotificationPreference } from "~/lib/notification-categories";
 import { getFeatures } from "~/server/program/features";
 import { resolveSchoolCalendarDay } from "~/lib/school-calendar";
+import { pairingEvidenceIds, supersededPairingIds } from "~/server/participant-execution";
 import { readCurrentSessionReminderCohort } from "~/server/session-planning";
 
 export const REMINDER_LEADS = [1440, 60] as const;
@@ -209,7 +210,6 @@ async function datedOccurrence(
   if (
     await client.session.count({
       where: {
-        tutorId: cohort.plan.tutorId,
         date: { gte: dayStart, lt: new Date(dayStart.getTime() + 86_400_000) },
         startMin: { lt: cohort.endMin },
         endMin: { gt: cohort.startMin },
@@ -226,7 +226,7 @@ async function datedOccurrence(
               {
                 tutees: {
                   some: {
-                    tuteeId: { in: students },
+                    tuteeId: { in: [...new Set([...students, ...cohort.evidence.tuteeIds])] },
                     status: { in: ["EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] },
                   },
                 },
@@ -421,10 +421,10 @@ async function occurrence(
   if (kind === "tutoring_cohort")
     return datedOccurrence(client, sourceId, startsAt, timeZone);
   const pairings = await client.pairing.findMany({
-    where:
-      kind === "tutoring_group"
-        ? { groupId: sourceId }
-        : { id: sourceId, groupId: null },
+    where: { AND: [
+      kind === "tutoring_group" ? { groupId: sourceId } : { id: sourceId, groupId: null },
+      { id: { notIn: await supersededPairingIds(client) } },
+    ] },
     orderBy: { id: "asc" },
     include: {
       term: true,
@@ -458,7 +458,7 @@ async function occurrence(
         originalDate: date,
         kind: "REGULAR",
         assignments: {
-          some: { pairingId: { in: pairings.map((row) => row.id) } },
+          some: { pairingId: { in: await pairingEvidenceIds(client, pairings.map((row) => row.id)) } },
         },
       },
     })
@@ -829,6 +829,7 @@ export async function queueEventReminders(
     do {
       const rows = await client.pairing.findMany({
         where: {
+          id: { notIn: await supersededPairingIds(client) },
           scheduleConfirmed: true,
           term: { active: true },
           dayOfWeek: weekday,

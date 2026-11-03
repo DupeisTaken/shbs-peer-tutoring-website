@@ -634,6 +634,8 @@ export async function resolveStudentSignupAppeal(
   input: z.infer<typeof resolveSignupAppealInput>,
 ) {
   const result = await inTransaction(db, async (tx) => {
+    // Closure shares the period admission order with participation transfer.
+    await lockEntity(tx, "program:period");
     const first = await tx.studentSignupAppeal.findUniqueOrThrow({
       where: { id: input.id },
     });

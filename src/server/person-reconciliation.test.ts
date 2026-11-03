@@ -1,8 +1,10 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import {
   reconcilePersonSources,
+  readPersonReconciliationSnapshot,
   type PersonReconciliationSnapshot,
 } from "./person-reconciliation";
+import type { TransactionDb } from "./transactions";
 
 function fixture(): PersonReconciliationSnapshot {
   return {
@@ -18,10 +20,11 @@ function fixture(): PersonReconciliationSnapshot {
     tutees: [{ id: "s", personId: "p" }, { id: "unowned", personId: "standalone" }],
     tutorOwners: [{ tutorId: "t", userId: "retired" }],
     studentOwners: [{ tuteeId: "s", userId: "owner" }],
+    retiredHistoryOwnership: [{ sourceUserId: "retired", readerUserId: "owner", state: "ASSIGNED", revision: 1 }],
   };
 }
 
-it("accepts explicit retirement-family ownership and independent accountless sources", () => {
+it("accepts explicit effective ownership and independent accountless sources", () => {
   const snapshot = fixture();
   const before = JSON.stringify(snapshot);
   const result = reconcilePersonSources(snapshot);
@@ -75,7 +78,7 @@ it("reports primary, review-state and relationship projection drift", () => {
   snapshot.tutees[0]!.personId = "standalone";
   const codes = reconcilePersonSources(snapshot).findings.map((row) => row.code);
   expect(codes).toEqual(expect.arrayContaining([
-    "MISSING_PRIMARY", "GROUP_REVIEW_STATE_MISMATCH", "RETIREMENT_PROJECTION_MISMATCH", "OWNER_PROJECTION_MISMATCH",
+    "MISSING_PRIMARY", "GROUP_REVIEW_STATE_MISMATCH", "HISTORY_READER_PROJECTION_MISMATCH", "OWNER_PROJECTION_MISMATCH",
   ]));
 });
 
@@ -101,9 +104,95 @@ it("reports retired Tutee owner links that the exact private reader cannot reach
   expect(result.sources.find((row) => row.id === "s")).toMatchObject({
     canonicalOwnerIds: ["owner"], historyReaderUserIds: [],
   });
-  // Tutor history does traverse the family; this is not an automatic transfer
+  // Tutor history does follow the explicit mapping; this is not an automatic transfer
   // or a reason to grant access to every login sharing the Person.
   expect(result.sources.find((row) => row.id === "t")?.historyReaderUserIds).toEqual(["owner"]);
+});
+
+function correctedFamily(): PersonReconciliationSnapshot {
+  return {
+    persons: [
+      { id: "pD", primaryUserId: "D", mergedIntoId: null, resolutionState: "GROUPED" },
+      { id: "pC", primaryUserId: "C", mergedIntoId: null, resolutionState: "GROUPED" },
+    ],
+    users: [
+      { id: "B", personId: "pC", mergedIntoId: "A", tutorId: null, studentId: null },
+      { id: "A", personId: "pD", mergedIntoId: "D", tutorId: null, studentId: null },
+      { id: "D", personId: "pD", mergedIntoId: null, tutorId: null, studentId: null },
+      { id: "C", personId: "pC", mergedIntoId: null, tutorId: null, studentId: null },
+    ],
+    tutors: [{ id: "tB", personId: "pC" }, { id: "tA", personId: "pD" }], tutees: [],
+    tutorOwners: [{ tutorId: "tB", userId: "B" }, { tutorId: "tA", userId: "A" }], studentOwners: [],
+    retiredHistoryOwnership: [
+      { sourceUserId: "A", readerUserId: "D", state: "ASSIGNED", revision: 1 },
+      { sourceUserId: "B", readerUserId: "C", state: "ASSIGNED", revision: 2 },
+    ],
+  };
+}
+
+it("keeps B's corrected reader independent of B-to-A-to-D permanent retirement", () => {
+  const snapshot = correctedFamily();
+  const result = reconcilePersonSources(snapshot);
+  expect(result.findings).toEqual([]);
+  expect(result.sources.find((row) => row.kind === "USER" && row.id === "B")).toMatchObject({ effectiveHistoryReaderId: "C", retirementTerminalUserId: "D" });
+  expect(result.sources.find((row) => row.id === "tB")).toMatchObject({ canonicalOwnerIds: ["C"], historyReaderUserIds: ["C"] });
+  expect(result.sources.find((row) => row.id === "tA")).toMatchObject({ canonicalOwnerIds: ["D"], historyReaderUserIds: ["D"] });
+  expect(result.schemaVersion).toBe(2);
+});
+
+it("reports quarantine and missing mappings independently without inferring retirement access", () => {
+  const snapshot = correctedFamily();
+  snapshot.retiredHistoryOwnership = [{ sourceUserId: "B", readerUserId: null, state: "QUARANTINED", revision: 3 }];
+  const result = reconcilePersonSources(snapshot);
+  expect(result.findings).toEqual([
+    { code: "HISTORY_MAPPING_MISSING", source: { kind: "USER", id: "A" }, relatedIds: [] },
+    { code: "HISTORY_QUARANTINED", source: { kind: "USER", id: "B" }, relatedIds: [] },
+  ]);
+  expect(result.sources.find((row) => row.id === "tB")?.historyReaderUserIds).toEqual([]);
+  expect(result.sources.find((row) => row.id === "tA")?.historyReaderUserIds).toEqual([]);
+});
+
+it("retains genuine group drift findings against the corrected reader instead of the old family", () => {
+  const snapshot = correctedFamily();
+  snapshot.users[0]!.personId = "pD";
+  snapshot.tutors[0]!.personId = "pD";
+  const result = reconcilePersonSources(snapshot);
+  expect(result.findings).toContainEqual({ code: "HISTORY_READER_PROJECTION_MISMATCH", source: { kind: "USER", id: "B" }, relatedIds: ["C", "pC"] });
+  expect(result.findings).toContainEqual({ code: "OWNER_PROJECTION_MISMATCH", source: { kind: "TUTOR", id: "tB" }, relatedIds: ["C", "pC", "pD"] });
+});
+
+it.each(["A", "missing", null])("rejects a non-live or absent effective reader %s", (readerUserId) => {
+  const snapshot = correctedFamily();
+  snapshot.retiredHistoryOwnership![1]!.readerUserId = readerUserId;
+  const result = reconcilePersonSources(snapshot);
+  expect(result.findings).toContainEqual({ code: "HISTORY_MAPPING_INVALID", source: { kind: "USER", id: "B" }, relatedIds: readerUserId ? [readerUserId] : [] });
+  expect(result.sources.find((row) => row.id === "tB")?.historyReaderUserIds).toEqual([]);
+});
+
+it("does not silently use retirement authority when old pure fixtures omit the mapping inventory", () => {
+  const snapshot = correctedFamily();
+  delete snapshot.retiredHistoryOwnership;
+  const result = reconcilePersonSources(snapshot);
+  expect(result.findings.filter((row) => row.code === "HISTORY_MAPPING_MISSING")).toHaveLength(2);
+  expect(result.sources.find((row) => row.id === "tB")?.historyReaderUserIds).toEqual([]);
+});
+
+it("always reads authoritative history mappings in the production snapshot", async () => {
+  const snapshot = correctedFamily();
+  const mappingRead = vi.fn().mockResolvedValue(snapshot.retiredHistoryOwnership);
+  const tx = {
+    person: { findMany: vi.fn().mockResolvedValue(snapshot.persons) },
+    user: { findMany: vi.fn().mockResolvedValue(snapshot.users) },
+    tutor: { findMany: vi.fn().mockResolvedValue(snapshot.tutors) },
+    tutee: { findMany: vi.fn().mockResolvedValue(snapshot.tutees) },
+    tutorProfileOwnership: { findMany: vi.fn().mockResolvedValue(snapshot.tutorOwners) },
+    studentProfileOwnership: { findMany: vi.fn().mockResolvedValue(snapshot.studentOwners) },
+    retiredHistoryOwnership: { findMany: mappingRead },
+  } as unknown as TransactionDb;
+  expect(await readPersonReconciliationSnapshot(tx)).toEqual(snapshot);
+  expect(mappingRead).toHaveBeenCalledOnce();
+  mappingRead.mockRejectedValue(new Error("Synthetic unavailable mapping inventory"));
+  await expect(readPersonReconciliationSnapshot(tx)).rejects.toThrow("Synthetic unavailable mapping inventory");
 });
 
 it("emits identical comparisons regardless of database row order", () => {

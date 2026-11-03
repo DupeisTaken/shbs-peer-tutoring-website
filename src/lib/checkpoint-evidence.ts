@@ -2,6 +2,10 @@
  * receipts. Only website presentation translates this explicitly owned vocabulary;
  * unknown future evidence stays verbatim rather than receiving an invented meaning. */
 const chinese: Readonly<Record<string, string>> = {
+  "Resolve this participant source's original account suspension or school departure through its owning workflow before restoring participation.":
+    "恢复参与前，请先通过所属流程处理此参与记录原始账号的停用或离校限制。",
+  "A current participant account restriction prevents restoration.":
+    "参与者账号的当前限制阻止恢复参与。",
   "The discipline module must be enabled before reviewing a card.":
     "必须先启用纪律模块，才能审核纪律卡。",
   "Recovery delivery event scope is incomplete.": "恢复通知的事件范围不完整。",

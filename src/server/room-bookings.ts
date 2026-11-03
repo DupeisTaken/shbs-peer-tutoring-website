@@ -1,3 +1,4 @@
+import { supersededPairingIds } from "./participant-execution";
 import { TRPCError } from "@trpc/server";
 
 import { lockEntity, type TransactionDb } from "~/server/transactions";
@@ -7,6 +8,7 @@ import {
 } from "~/server/session-planning/room-occupancy";
 
 type PlannedRoomBooking = {
+  preservedPlanIds?: readonly string[];
   roomId: string | null | undefined;
   termId: string;
   dayOfWeek: number;
@@ -83,6 +85,7 @@ export async function assertPlannedRoomAvailable(
     }),
     db.pairing.findFirst({
       where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }],
         roomId: booking.roomId,
         termId: booking.termId,
         scheduleConfirmed: true,
@@ -155,6 +158,7 @@ export async function assertRoomBlackoutAvailable(
     });
   const pairing = await db.pairing.findFirst({
     where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }],
       roomId: blackout.roomId,
       dayOfWeek: blackout.dayOfWeek,
       startMin: { lt: blackout.endMin },
@@ -194,7 +198,8 @@ export async function assertLinkedSlotScheduleAvailable(
 ): Promise<void> {
   await lockPlannedRoomSchedule(db);
   const linked = await db.pairing.findMany({
-    where: { timeSlotId: slot.id },
+    where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }], timeSlotId: slot.id },
     select: { id: true, roomId: true, termId: true, groupId: true },
   });
   const linkedIds = linked.map((pairing) => pairing.id);

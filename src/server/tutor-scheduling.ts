@@ -1,3 +1,4 @@
+import { supersededPairingIds } from "./participant-execution";
 import { TRPCError } from "@trpc/server";
 import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
 import {
@@ -9,6 +10,7 @@ import type { TransactionDb } from "~/server/transactions";
 import { assertSessionPlanningWeeklyAvailable } from "~/server/session-planning";
 
 type PlannedTutorWrite = TutorPlannedSchedule & {
+  preservedPlanIds?: readonly string[];
   id?: string;
   excludePairingIds?: readonly string[];
 };
@@ -30,6 +32,7 @@ export async function assertTutorScheduleAvailable(
   ];
   const conflict = await db.pairing.findFirst({
     where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }],
       tutorId: schedule.tutorId,
       termId: schedule.termId,
       scheduleConfirmed: true,
@@ -113,6 +116,7 @@ export async function assertPairingGroupsRemainEligible(
   ];
   const affected = await db.pairing.findMany({
     where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }],
       groupId: { not: null },
       term: { active: true },
       OR: [
@@ -127,7 +131,8 @@ export async function assertPairingGroupsRemainEligible(
   ];
   if (!groupIds.length) return;
   const members = await db.pairing.findMany({
-    where: { groupId: { in: groupIds } },
+    where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }], groupId: { in: groupIds } },
     select: {
       id: true,
       groupId: true,

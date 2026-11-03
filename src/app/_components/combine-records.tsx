@@ -327,7 +327,6 @@ export function CombineRecords({
       setReviewing(false);
     }
   }
-  const resultRows = preview?.sources ?? selected;
   return (
     <section
       className="card min-w-0 overflow-hidden"
@@ -629,16 +628,20 @@ export function CombineRecords({
                               <th>{t("record")}</th>
                               <th>{t("type")}</th>
                               <th>{t("reference")}</th>
+                              <th>{t("sourcePeriods")}</th>
+                              <th>{t("sourceEvidence")}</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {resultRows.map((row) => (
+                            {preview.sources.map((row) => (
                               <tr key={keyOf(row.ref)}>
                                 <td>{row.name}</td>
                                 <td>{t(`kind.${row.ref.kind}`)}</td>
                                 <td className="text-xs break-all">
                                   {row.ref.id}
                                 </td>
+                                <td>{row.evidence?.periods.length ? row.evidence.periods.join(", ") : t("sourcePeriodUnknown")}</td>
+                                <td>{row.evidence && t(row.ref.kind === "USER" ? "sourceUserEvidence" : row.ref.kind === "TUTOR" ? "sourceTutorEvidence" : "sourceTuteeEvidence", { lessons: row.evidence.lessons, meetings: row.evidence.meetings, amendments: row.evidence.amendments, policyAcceptances: row.evidence.policyAcceptances, patrols: row.evidence.patrols })}</td>
                               </tr>
                             ))}
                           </tbody>

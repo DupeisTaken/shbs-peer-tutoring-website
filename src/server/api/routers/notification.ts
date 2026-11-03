@@ -21,6 +21,8 @@ import {
 import { notificationDestination } from "~/server/email/urls";
 import { isNotificationEvent } from "~/lib/notification-events";
 import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationOwnershipWhere } from "~/server/history-row-ownership";
+import { withHistoryReadMutation } from "~/server/history-access-generation";
 
 /**
  * In-app notifications for the signed-in user (any role). Always scoped to
@@ -62,7 +64,7 @@ export const notificationRouter = createTRPCRouter({
     ),
   list: protectedProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db.notification.findMany({
-      where: { userId: ctx.session.user.id, recoveryWithdrawnAt: null },
+      where: { AND: [await notificationOwnershipWhere(ctx.db, ctx.session.user.id)], recoveryWithdrawnAt: null },
       orderBy: { createdAt: "desc" },
       take: 30,
     });
@@ -84,49 +86,30 @@ export const notificationRouter = createTRPCRouter({
     }));
   }),
 
-  unreadCount: protectedProcedure
-    .input(z.object({ includeMuted: z.boolean().optional() }).optional())
-    .query(async ({ ctx, input }) => {
-      const muted = input?.includeMuted
-        ? []
-        : await ctx.db.notificationPreference.findMany({
-            where: { userId: ctx.session.user.id, badgeEnabled: false },
-            select: { category: true },
-          });
-      return ctx.db.notification.count({
-        where: {
-          userId: ctx.session.user.id,
-          readAt: null,
-          recoveryWithdrawnAt: null,
-          ...(muted.length
-            ? { category: { notIn: muted.map((row) => row.category) } }
-            : {}),
-        },
-      });
-    }),
+  unreadCount: protectedProcedure.input(z.object({ includeMuted: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
+    const muted = input?.includeMuted ? [] : await ctx.db.notificationPreference.findMany({
+      where: { userId: ctx.session.user.id, badgeEnabled: false }, select: { category: true },
+    });
+    return ctx.db.notification.count({
+      where: { AND: [await notificationOwnershipWhere(ctx.db, ctx.session.user.id)], readAt: null, recoveryWithdrawnAt: null,
+        ...(muted.length ? { category: { notIn: muted.map((row) => row.category) } } : {}),
+      },
+    });
+  }),
 
   markRead: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.notification.updateMany({
-        where: {
-          id: input.id,
-          userId: ctx.session.user.id,
-          readAt: null,
-          recoveryWithdrawnAt: null,
-        },
+    .mutation(async ({ ctx, input }) => withHistoryReadMutation(ctx.db, { userId: ctx.session.user.id, historyAccessRevision: ctx.session.historyAccessRevision ?? 0 }, async (tx) =>
+      tx.notification.updateMany({
+        where: { id: input.id, AND: [await notificationOwnershipWhere(tx, ctx.session.user.id)], readAt: null, recoveryWithdrawnAt: null },
         data: { readAt: new Date() },
       }),
-    ),
+    )),
 
-  markAllRead: protectedProcedure.mutation(({ ctx }) =>
-    ctx.db.notification.updateMany({
-      where: {
-        userId: ctx.session.user.id,
-        readAt: null,
-        recoveryWithdrawnAt: null,
-      },
+  markAllRead: protectedProcedure.mutation(async ({ ctx }) => withHistoryReadMutation(ctx.db, { userId: ctx.session.user.id, historyAccessRevision: ctx.session.historyAccessRevision ?? 0 }, async (tx) =>
+    tx.notification.updateMany({
+      where: { AND: [await notificationOwnershipWhere(tx, ctx.session.user.id)], readAt: null, recoveryWithdrawnAt: null },
       data: { readAt: new Date() },
     }),
-  ),
+  )),
 });
