@@ -9,6 +9,7 @@
 import "dotenv/config";
 import { assertDemoDatabase, seedId } from "./demo-support";
 import { seedModernWorkflows } from "./demo-workflows";
+import { seedSchoolHoursReport } from "./demo-reporting";
 import { DEFAULT_SUBJECT_LEVELS as LEVELS } from "./default-subject-levels";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -715,7 +716,7 @@ async function main() {
   for (const p of PAIRINGS) {
     const source = SUBJECTS.find((subject) => subject.name === p.subject);
     const displaySubject = source ? (await db.subject.findUniqueOrThrow({ where: { id: source.id } })).name : p.subject;
-    const data = { scheduleConfirmed: true, subject: displaySubject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId };
+    const data = { scheduleConfirmed: true, subject: displaySubject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId, roomMode: p.id === seedId("pairing-david-chem") ? "LEGACY" as const : "FIXED" as const, roomNeedsAssignment: false, roomShortageKey: null };
     await db.pairing.upsert({ where: { id: p.id }, update: data, create: { id: p.id, ...data } });
     for (const tuteeId of p.tuteeIds) {
       await db.pairingTutee.upsert({ where: { pairingId_tuteeId: { pairingId: p.id, tuteeId } }, update: {}, create: { pairingId: p.id, tuteeId } });
@@ -1180,6 +1181,7 @@ async function main() {
   });
 
   await seedModernWorkflows(db, passwordHash);
+  await seedSchoolHoursReport(db);
 
   console.log(
     `Seeded: 1 term, ${ROOMS.length} rooms, ${LEVELS.length} levels, ${SUBJECTS.length} subjects, ` +

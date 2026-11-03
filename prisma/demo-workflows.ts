@@ -3,6 +3,7 @@ import type { PrismaClient } from "../generated/prisma";
 import { currentPolicy } from "../src/server/policy-acceptance";
 import { monthKey } from "../src/lib/service-hours";
 import { seedId } from "./demo-support";
+import { allocateRoom, allocationData } from "../src/server/room-allocation";
 
 /** Examples of modern workflows supplement the historical reporting fixtures. All data
  * is synthetic. Upserts use stable keys so a second seed does not create duplicate queues. */
@@ -484,4 +485,26 @@ export async function seedModernWorkflows(
       termId,
     },
   });
+
+  // Keep authored fixed rooms plus one intentional legacy row. These two examples
+  // exercise automatic allocation and an explicit roomless choice through the writer.
+  for (const [key, roomMode] of [
+    ["pairing-bob-physics", "AUTO"],
+    ["pairing-carol-english", "NONE"],
+  ] as const) {
+    await db.$transaction(async (tx) => {
+      const pairing = await tx.pairing.findUniqueOrThrow({
+        where: { id: seedId(key) },
+        include: { tutees: { select: { tuteeId: true } } },
+      });
+      const allocation = await allocateRoom(tx, {
+        ...pairing,
+        tuteeIds: pairing.tutees.map((row) => row.tuteeId),
+      }, { roomMode, releaseRoomToAuto: true }, pairing);
+      await tx.pairing.update({
+        where: { id: pairing.id },
+        data: allocationData(allocation),
+      });
+    });
+  }
 }

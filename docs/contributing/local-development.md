@@ -229,6 +229,22 @@ All example accounts use `Password123!`. The identifiers below work at `/signin`
 
 The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has Admin tutor Alex Interview Chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Carol remains a Coordinator for approval workflows. Bundled policy text still needs school review before publication.
 
+Room examples include Alice's fixed room, Bob's automatically allocated room,
+Carol's explicit roomless assignment and David's retained legacy room. A synthetic
+first **School Month Report** includes reviewed zero opening balances, tutoring and
+crew credits, deductions, statistics and a CSV export. It uses the configured
+`AUTH_SECRET` to create its local report capability. Report generation and schedule
+disablement commit together; its synthetic email delivery is skipped and automatic
+reporting stays off. Reseeding preserves this immutable report rather than adding
+editions or changing its snapshot. Create a fresh demo database to start its report
+chain again; an unrelated existing report chain is never replaced.
+
+Opening a tutor or tutee agenda publishes ordinary upcoming sessions from the
+confirmed assignments. Rescheduling negotiations, extra sessions and shared pairing
+groups remain interactive rehearsals: use the tutor and student accounts to create
+the corresponding proposals and agreements. The seed does not fabricate participant
+responses or reusable calendar-access tokens.
+
 Seeded survey tokens are deliberately unusable: request a new email link through the form. Local email capture is required to rehearse verification and recovery without delivering real email. Never enable a public mail-capture endpoint on a deployed site. Create coordinator proposals through the interface so their immutable target snapshots reflect the database at submission time.
 
 ## 4. Run the app
