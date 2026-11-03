@@ -532,11 +532,11 @@ Pushing to `main` triggers `.github/workflows/docker-build.yml`, which builds an
 `ghcr.io/<owner>/shbs-peer-tutoring-website:latest`.
 
 Only a push or manual dispatch for the `main` ref can publish. Runs for the same pull request or
-ref cancel older runs. Static checks, production image build/boot checks and the
-scoped image-storage comparison start independently. Once static checks and
-the storage comparison pass, up to three of the nine isolated test shards run at
-once. Publication requires the `verify` gate to confirm success for every shard
-and all three other jobs. See the [CI capacity budget](../contributing/verification.md#ci-capacity-and-queue-discipline).
+ref cancel older runs. Three isolated test shards start alongside static checks.
+After the static checks pass, CI builds and smoke-tests the production image.
+The scoped storage comparison follows a successful image job. Publication
+requires the `verify` gate to confirm success for every shard and all three
+other jobs. [CI capacity budget](../contributing/verification.md#ci-capacity-and-queue-discipline).
 
 The image job applies OCI metadata before building and smoke-testing. On publishable runs,
 it saves that image as a one-day artifact. The publishing job downloads that exact artifact

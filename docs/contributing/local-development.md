@@ -336,10 +336,10 @@ npm test            # one-shot
 npm run test:watch  # watch mode
 ```
 
-CI splits the complete suite into nine shards and runs up to three at a time per
-workflow. To reproduce a shard after configuring the isolated database below,
-run `npm test -- --shard=1/9 --maxWorkers=1`, replacing `1` with its shard
-number (1–9). Run shards serially when they share a local database. Each hosted
+CI starts three balanced shards in parallel per workflow. To reproduce a shard
+after configuring the isolated database below, run
+`npm test -- --shard=1/3 --maxWorkers=1`, replacing `1` with its shard number
+(1–3). Run shards serially when they share a local database. Each hosted
 shard has its own PostgreSQL service. For the complete local suite, run `npm test`.
 See the [CI capacity budget](verification.md#ci-capacity-and-queue-discipline).
 
