@@ -279,6 +279,12 @@ async function priorLessonSuccessors(kind: "tutor" | "learner") {
         data: {
           id,
           englishName: `Successor Learner ${index}`,
+          // This case reviews pairing authority with a fully supplied learner
+          // intake. Missing contact or availability has its own earlier guard.
+          firstChoiceId: "math",
+          secondChoiceId: "science",
+          preferredContact: "In-app messages",
+          availabilities: { create: [{ slotId: "slot" }, { slotId: "slot2" }] },
           intakeTermId: "old",
           status: "INACTIVE",
         },
