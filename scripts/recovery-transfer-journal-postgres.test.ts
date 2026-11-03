@@ -13,7 +13,7 @@ import { assertIsolatedTestDatabase } from "../src/test/database-guard";
 
 const adminUrl = process.env.SHBS_RECOVERY_TEST_SOURCE_ADMIN_URL;
 
-function object(value: Prisma.JsonValue | null): Record<string, Prisma.JsonValue> {
+function object(value: Prisma.JsonValue) {
   assert.ok(value && typeof value === "object" && !Array.isArray(value));
   return value;
 }
