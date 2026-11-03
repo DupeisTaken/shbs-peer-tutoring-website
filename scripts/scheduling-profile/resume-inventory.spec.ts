@@ -114,6 +114,73 @@ void test("explicit skipped slots have no stage proof, and current running/queue
   assert.equal((await collectInventory(campaign, [slot], options)).executions[1]!.conclusion, "queued");
 });
 
+// Minimal exact enum/time examples from authenticated API reads, retained at
+// .validation/complete-recovery/resume-provider-RUN-attempt2.json. These are
+// observations of active jobs, not reconstructed snapshots of the failed run.
+const observedActiveJobs = [
+  {
+    capturedAt: "2026-11-03T17:37:52.4499648Z", runId: "41654909625", jobId: "126090636477",
+    headSha: "b00c95dac80115d08abfa55905474c6db98e2e82", scenario: "sunday",
+    measureStartedAt: "2026-11-03T17:35:37Z",
+  },
+  {
+    capturedAt: "2026-11-03T17:37:52.4418644Z", runId: "41654810867", jobId: "126090623585",
+    headSha: "ca93010c75fffd74475f96357dcb80d1d9fb5906", scenario: "warm",
+    measureStartedAt: "2026-11-03T17:35:33Z",
+  },
+] as const;
+for (const observed of observedActiveJobs) void test(`accepts observed pending/null future step without promoting active job ${observed.jobId}`, async () => {
+  const target = { scenario: observed.scenario, mode: "diagnostic", partition: 0, partitionCount: 1, samples: 3 };
+  const current = { ...campaign, repository: "DupeisTaken/shbs-peer-tutoring-website", runId: observed.runId,
+    campaignAttempt: 2, candidateRevision: observed.headSha, workflowSha: observed.headSha };
+  const body = {
+    id: Number(observed.jobId), run_id: Number(observed.runId), run_attempt: 2, head_sha: observed.headSha,
+    name: `profile (${observed.scenario}, diagnostic, 0, 1, 3) / measure`, status: "in_progress", conclusion: null,
+    steps: [
+      { name: "Measure baseline then candidate", number: 10, status: "in_progress", conclusion: null, started_at: observed.measureStartedAt, completed_at: null },
+      { name: "Retain raw samples and failure receipts", number: 11, status: "pending", conclusion: null, started_at: null, completed_at: null },
+    ],
+  };
+  const send: typeof fetch = async (input) => {
+    const path = new URL(input instanceof Request ? input.url : input).pathname;
+    const response = path.endsWith(`/runs/${observed.runId}`)
+      ? { id: Number(observed.runId), repository: { full_name: current.repository }, path: ".github/workflows/scheduling-profile.yml", event: "pull_request", head_sha: observed.headSha, run_attempt: 2 }
+      : path.endsWith("/jobs") ? { total_count: 1, jobs: [body] } : { total_count: 0, artifacts: [] };
+    return new Response(JSON.stringify(response), { headers: { "content-type": "application/json" } });
+  };
+  const result = await collectInventory(current, [target], { fetch: send, token });
+  assert.equal(result.executions[0]!.conclusion, "in_progress");
+  assert.equal(result.executions[0]!.measurementStarted, true);
+  assert.equal(result.executions[0]!.nonStart, undefined);
+  assert.equal(result.executions[0]!.artifactId, null);
+  assert.deepEqual(result.archives, []);
+});
+
+void test("validates every job envelope but ignores unrelated and unselected step bodies", async () => {
+  const { state, options } = fixture();
+  state.jobs.get(2)!.push(
+    { ...job(103, 2), name: "aggregate", steps: [{ status: "unrecognized-irrelevant-body" }] },
+    { ...job(104, 2, other), steps: [{ status: "unrecognized-unselected-body" }] },
+  );
+  const result = await collectInventory(campaign, [slot], options);
+  assert.equal(result.executions.length, 2);
+  state.jobs.get(2)![1]!.run_id = 999;
+  await assert.rejects(collectInventory(campaign, [slot], options), /Wrong provider job run/);
+});
+
+void test("never accepts pending/null as a completed successful measure or skipped-job non-start proof", async () => {
+  const { state, options } = fixture();
+  const pending = { name: "Retain raw samples and failure receipts", status: "pending", conclusion: null, started_at: null, completed_at: null };
+  state.jobs.set(2, [{ ...job(102, 2), steps: [{ name: "Measure baseline then candidate", status: "completed", conclusion: "success" }, pending] }]);
+  await assert.rejects(collectInventory(campaign, [slot], options), /Completed provider job retains an active step/);
+  state.jobs.set(2, [{ ...job(102, 2), status: "in_progress", conclusion: null, steps: [{ ...pending, conclusion: "success" }] }]);
+  await assert.rejects(collectInventory(campaign, [slot], options), /Invalid provider step conclusion/);
+  state.jobs.set(2, [{ ...job(102, 2), conclusion: "skipped", steps: [pending] }]);
+  await assert.rejects(collectInventory(campaign, [slot], options), /Completed provider job retains an active step/);
+  state.jobs.set(2, [{ ...job(102, 2), steps: [] }]);
+  await assert.rejects(collectInventory(campaign, [slot], options), /Successful provider job lacks completed measurement/);
+});
+
 for (const [name, change] of [
   ["wrong run", (state: ReturnType<typeof fixture>["state"]) => { state.run.id = 999; }],
   ["wrong repository", (state: ReturnType<typeof fixture>["state"]) => { state.run.repository = { full_name: "other/repository" }; }],

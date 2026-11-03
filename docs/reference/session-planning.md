@@ -645,7 +645,10 @@ original files before uploading them. Before pooling, the aggregate reads all
 job attempts in that campaign and verifies each archive against GitHub's
 digest. Every slot must have exactly one complete successful pair as its latest
 execution. Both controlled diagnostic orders and required native cold controls
-must pass. The aggregate records artifact IDs, attempts and hashes in
+must pass. A contention worker reads only the two completed ordering jobs when
+acquiring references. GitHub can report future steps of an active job as
+`pending` with no conclusion. Those steps never qualify a slot for pooling.
+The aggregate records artifact IDs, attempts and hashes in
 `scheduling-profile-selection.json` beside the canonical result.
 
 A newer missing or invalid receipt, measurement timeout, cancellation,

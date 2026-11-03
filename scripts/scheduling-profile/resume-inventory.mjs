@@ -102,6 +102,27 @@ function campaignValid(/** @type {Campaign} */ campaign) {
   assert.ok(Number.isSafeInteger(campaign.campaignAttempt) && Number.isSafeInteger(campaign.currentAttempt) && campaign.campaignAttempt >= 1 && campaign.currentAttempt >= campaign.campaignAttempt && campaign.currentAttempt <= 50, "Invalid campaign attempt interval");
 }
 
+/** Job/step bodies are only relevant after the exact selected slot is known.
+ * GitHub reports future steps as pending/null while a job is still active; this
+ * is neither a completed measure nor provider proof that the job never ran. */
+function selectedSteps(/** @type {Evidence} */ job) {
+  assert.ok(["queued", "in_progress", "completed", "waiting", "pending", "requested"].includes(job.status), "Invalid provider job status");
+  assert.ok(job.status === "completed" ? ["success", "failure", "cancelled", "skipped", "timed_out", "action_required", "neutral", "stale", "startup_failure"].includes(job.conclusion) : job.conclusion === null, "Invalid provider job conclusion");
+  assert.ok(Array.isArray(job.steps), "Missing provider job steps");
+  for (const rawStep of job.steps) {
+    const step = object(rawStep);
+    assert.ok(typeof step.name === "string" && ["queued", "pending", "in_progress", "completed"].includes(step.status), "Invalid provider step status");
+    assert.ok(step.status === "completed"
+      ? ["success", "failure", "cancelled", "skipped", "timed_out", "action_required", "neutral"].includes(step.conclusion)
+      : step.conclusion === null, "Invalid provider step conclusion");
+    assert.ok(job.status !== "completed" || step.status === "completed", "Completed provider job retains an active step");
+    if (step.status === "pending") {
+      assert.ok((!("started_at" in step) || step.started_at === null) && (!("completed_at" in step) || step.completed_at === null), "Pending provider step retains execution times");
+    }
+  }
+  return /** @type {Evidence[]} */ (job.steps);
+}
+
 /** Enumerate every execution, including failed/in-progress jobs with no archive.
  * Selection and retry authorization belong to the caller; inventory never chooses
  * an older PASS or hides the current worker. Compare a fresh complete result after
@@ -135,18 +156,12 @@ export async function collectInventory(campaign, slots, options = {}) {
       assert.equal(job.run_attempt, attempt, "Wrong provider job attempt");
       assert.equal(sha(job.head_sha), head, "Wrong provider job revision");
       assert.ok(typeof job.name === "string", "Missing provider job name");
-      assert.ok(Array.isArray(job.steps), "Missing provider job steps");
-      for (const rawStep of job.steps) {
-        const step = object(rawStep);
-        assert.ok(typeof step.name === "string" && ["queued", "in_progress", "completed"].includes(step.status), "Invalid provider step status");
-        assert.ok(step.status === "completed"
-          ? ["success", "failure", "cancelled", "skipped", "timed_out", "action_required", "neutral"].includes(step.conclusion)
-          : step.conclusion === null, "Invalid provider step conclusion");
-      }
-      const skipped = job.status === "completed" && job.conclusion === "skipped" && job.steps.length === 0;
-      if (skipped && ["profile", "preflight"].includes(job.name)) {
-        for (const slot of selected.values()) {
-          if (job.name !== stageFor(slot)) continue;
+      if (job.name === "profile" || job.name === "preflight") {
+        const relevant = [...selected.values()].filter((slot) => job.name === stageFor(slot));
+        if (!relevant.length) continue;
+        const steps = selectedSteps(job);
+        assert.ok(job.status === "completed" && job.conclusion === "skipped" && steps.length === 0, "Unrecognized provider matrix placeholder");
+        for (const slot of relevant) {
           assert.ok(!seenSlots.has(key(slot)), "Duplicate skipped matrix execution"); seenSlots.add(key(slot));
           executions.push({ repository: campaign.repository, runId: campaign.runId, workflowSha: campaign.workflowSha, attempt, jobId: id, slot, conclusion: "skipped", status: "completed", artifactId: null, measurementStarted: false, headSha: head,
             nonStart: { kind: "PROVIDER_SKIPPED_JOB", jobId: id, status: "completed", conclusion: "skipped", stepCount: 0, stage: job.name } });
@@ -165,10 +180,12 @@ export async function collectInventory(campaign, slots, options = {}) {
       if (!wanted) continue;
       assert.deepEqual(slot, wanted, "Provider job population differs");
       assert.ok(!seenSlots.has(key(slot)), "Duplicate provider slot execution"); seenSlots.add(key(slot));
-      assert.ok(["queued", "in_progress", "completed", "waiting", "pending", "requested"].includes(job.status), "Invalid provider job status");
-      assert.ok(job.status === "completed" ? ["success", "failure", "cancelled", "skipped", "timed_out", "action_required", "neutral", "stale", "startup_failure"].includes(job.conclusion) : job.conclusion === null, "Invalid provider job conclusion");
-      const measured = job.steps.filter((/** @type {Evidence} */ step) => object(step).name === "Measure baseline then candidate");
+      const steps = selectedSteps(job);
+      const skipped = job.status === "completed" && job.conclusion === "skipped" && steps.length === 0;
+      const measured = steps.filter((step) => step.name === "Measure baseline then candidate");
       assert.ok(measured.length <= 1, "Duplicate provider measurement step");
+      if (job.status === "completed" && job.conclusion === "success")
+        assert.ok(measured.length === 1 && measured[0]?.status === "completed" && measured[0]?.conclusion === "success", "Successful provider job lacks completed measurement");
       const measurementStarted = measured.some((/** @type {Evidence} */ step) => step.status === "in_progress" || (step.status === "completed" && step.conclusion !== "skipped"));
       const conclusion = job.status === "completed" ? String(job.conclusion) : String(job.status);
       executions.push({ repository: campaign.repository, runId: campaign.runId, workflowSha: campaign.workflowSha, attempt, jobId: id, slot: wanted, conclusion, status: job.status, artifactId: null, measurementStarted, headSha: head,
