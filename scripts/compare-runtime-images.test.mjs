@@ -10,10 +10,70 @@ import {
   pinBase,
   runtimeConfig,
   withAppProbe,
+  withCommonOperatorPayload,
 } from "./compare-runtime-images.mjs";
 
 const dockerfile =
   "FROM node:22-alpine AS deps\nFROM deps AS runtime-deps\nFROM node:22-alpine AS build\nRUN npm run build\nFROM node:22-alpine AS runner\n";
+
+const operatorLayout = (copies = "") => `FROM build AS runtime-files
+COPY --from=runtime-deps /app/node_modules /runtime-production/node_modules
+RUN node scripts/assemble-runtime.mjs .next/standalone /runtime-production/node_modules /runtime-output
+${copies}
+FROM node:22-alpine AS runner
+COPY --from=runtime-files --chown=nextjs:nodejs /runtime-output/app ./
+ENV NODE_ENV=production
+`;
+const sourceCopy = (file) => `COPY --from=build /app/${file} /runtime-output/app/${file}`;
+
+test("common operator payload adds exact current files to the historical prepared layer only", () => {
+  const oldFile = "src/server/program/continuation-opening.ts";
+  const newFile = "src/server/history-row-ownership.ts";
+  const baseline = operatorLayout(sourceCopy(oldFile));
+  const candidate = operatorLayout([sourceCopy(oldFile), sourceCopy(newFile), sourceCopy("messages/en.json")].join("\n"));
+  const result = withCommonOperatorPayload(baseline, candidate);
+  assert.deepEqual(result.addedFiles, ["messages/en.json", newFile]);
+  const [prepared, runner] = result.source.split("FROM node:22-alpine AS runner");
+  assert.ok(prepared.includes(sourceCopy(newFile)));
+  assert.ok(prepared.includes(sourceCopy("messages/en.json")));
+  assert.equal(runner, baseline.split("FROM node:22-alpine AS runner")[1]);
+  assert.equal(result.source.match(new RegExp(sourceCopy(oldFile), "g")).length, 1);
+  assert.deepEqual(withCommonOperatorPayload(result.source, candidate).addedFiles, []);
+});
+
+test("equal and removed operator payloads do not rewrite the baseline or conceal removals", () => {
+  const baseline = operatorLayout(sourceCopy("src/server/history-row-ownership.ts"));
+  for (const candidate of [baseline, operatorLayout()])
+    assert.deepEqual(withCommonOperatorPayload(baseline, candidate), { source: baseline, addedFiles: [] });
+});
+
+test("existing runner files are not duplicated to inflate the historical baseline", () => {
+  const file = "src/server/history-row-ownership.ts";
+  const candidate = operatorLayout(sourceCopy(file));
+  for (const copy of [
+    `COPY --from=build --chown=nextjs:nodejs /app/${file} ./${file}`,
+    `COPY --from=build --chown=nextjs:nodejs /app/src/server/other.ts \\\n      /app/${file} ./src/server/`,
+    "COPY --from=build --chown=nextjs:nodejs /app/src ./src",
+  ]) {
+    const baseline = operatorLayout() + copy + "\n";
+    assert.deepEqual(withCommonOperatorPayload(baseline, candidate), { source: baseline, addedFiles: [] });
+  }
+});
+
+test("operator payload normalization rejects broad, redirected, duplicate and unshipped copies", () => {
+  const exact = sourceCopy("src/server/history-row-ownership.ts");
+  for (const invalid of [
+    "COPY --from=build /app/src /runtime-output/app/src",
+    sourceCopy("src/server/*.ts"),
+    sourceCopy("src/../private.ts"),
+    exact.replace("/runtime-output/app/src/", "/runtime-output/app/other/"),
+    exact.replace("/runtime-output/app/", "/elsewhere/"),
+    exact + "\n" + exact,
+    "COPY --from=build /app/src/a.ts /app/src/b.ts /runtime-output/app/src/",
+  ]) assert.throws(() => withCommonOperatorPayload(operatorLayout(), operatorLayout(invalid)));
+  assert.throws(() => withCommonOperatorPayload(operatorLayout(), operatorLayout(exact).replace("COPY --from=runtime-files", "# omitted COPY --from=runtime-files")));
+  assert.throws(() => withCommonOperatorPayload(dockerfile, operatorLayout(exact)));
+});
 
 const configDigest = `sha256:${"a".repeat(64)}`;
 const manifestDigest = `sha256:${"b".repeat(64)}`;

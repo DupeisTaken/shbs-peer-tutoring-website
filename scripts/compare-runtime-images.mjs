@@ -71,6 +71,60 @@ export function withAppProbe(source) {
   );
 }
 
+// A historical Dockerfile can omit newly required operator files. Compare its
+// layout with the current explicit payload, without masking runtime differences
+// or charging a duplicate final-layer COPY as required application growth.
+export function withCommonOperatorPayload(baseline, candidate) {
+  baseline = baseline.replaceAll("\r\n", "\n");
+  candidate = candidate.replaceAll("\r\n", "\n");
+  const prepared = (source) => {
+    const stages = [...source.matchAll(/^FROM .+ AS runtime-files\s*$/gm)];
+    assert.equal(stages.length, 1, "Expected one explicit runtime-files stage");
+    const start = stages[0].index + stages[0][0].length;
+    const next = /^FROM /m.exec(source.slice(start));
+    assert.ok(next, "Expected a final stage after runtime-files");
+    const end = start + next.index;
+    assert.match(source.slice(end), /^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m,
+      "Prepared operator payload must reach the final application layer");
+    const files = new Set();
+    for (const line of source.slice(start, end).split("\n")) {
+      if (!/^COPY\s+--from=build\b/.test(line)) continue;
+      const match = /^COPY --from=build \/app\/(\S+) \/runtime-output\/app\/(\S+)\s*$/.exec(line);
+      assert.ok(match, "Operator payload copies must name one exact file and destination");
+      const [file, target] = match.slice(1);
+      assert.ok(/^(?:src|scripts|messages)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:ts|tsx|js|mjs|json)$/.test(file),
+        "Operator payload must be a canonical source file");
+      assert.equal(file, target, "Operator payload source and destination must match");
+      assert.ok(!files.has(file), "Operator payload has a duplicate explicit file");
+      files.add(file);
+    }
+    return { files, end };
+  };
+  const before = prepared(baseline);
+  const after = prepared(candidate);
+  const runner = baseline.slice(before.end).replace(/\\\n\s*/g, " ");
+  const direct = runner.split("\n").flatMap((line) => {
+    if (!/^COPY\s+--from=build\s/.test(line)) return [];
+    const args = line.split(/\s+/).slice(1).filter((arg) => arg && !arg.startsWith("--"));
+    const destination = args.pop();
+    return args.map((source) => ({
+      source: source.replace(/^\/app\//, ""),
+      target: path.posix.normalize(destination.endsWith("/") ? path.posix.join(destination, path.posix.basename(source)) : destination).replace(/^\/app\//, ""),
+    }));
+  });
+  // A source already shipped by the old runner is not a new payload addition.
+  // Adding it to the prepared layer would manufacture baseline duplication.
+  const addedFiles = [...after.files].filter((file) => !before.files.has(file) &&
+    !direct.some(({ source, target }) => source === target && (file === source || file.startsWith(`${source}/`))),
+  ).sort();
+  if (!addedFiles.length) return { source: baseline, addedFiles };
+  const copies = addedFiles.map((file) => `COPY --from=build /app/${file} /runtime-output/app/${file}`).join("\n");
+  return {
+    source: baseline.slice(0, before.end) + "# Controlled comparison: current explicit operator payload.\n" + copies + "\n\n" + baseline.slice(before.end),
+    addedFiles,
+  };
+}
+
 export function runtimeConfig(image) {
   const keys = [
     "Cmd",
@@ -257,14 +311,23 @@ function compare(output) {
       item.platform?.os === "linux" && item.platform?.architecture === "amd64",
   );
   assert.ok(base, "Expected the Linux amd64 Node base manifest");
-  const original = pinBase(
-    run("git", ["show", `${revision}:Dockerfile`]),
-    base.digest,
-  );
-  const candidate = pinBase(
-    readFileSync(path.join(root, "Dockerfile"), "utf8"),
-    base.digest,
-  );
+  const baselineDockerfile = run("git", ["show", `${revision}:Dockerfile`]);
+  const candidateDockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+  const commonPayload = withCommonOperatorPayload(baselineDockerfile, candidateDockerfile);
+  const payloadNormalization = {
+    scope: "Historical layout with current explicit operator source additions; not the historical released image. Final runtime file/configuration equality and storage gates remain mandatory.",
+    baselineDockerfileRevision: revision,
+    baselineDockerfileSha256: createHash("sha256").update(baselineDockerfile).digest("hex"),
+    candidateDockerfileSha256: createHash("sha256").update(candidateDockerfile).digest("hex"),
+    addedFiles: commonPayload.addedFiles.map((file) => ({
+      path: file,
+      sha256: createHash("sha256").update(readFileSync(path.join(root, file))).digest("hex"),
+    })),
+  };
+  // Save normalization before builds, so failed comparisons remain reviewable.
+  json(path.join(destination, "payload-normalization.json"), payloadNormalization);
+  const original = pinBase(commonPayload.source, base.digest);
+  const candidate = pinBase(candidateDockerfile, base.digest);
   const layouts = [
     { role: "baseline", tag: "shbs-storage-baseline:a", source: original },
     { role: "candidate", tag: "shbs-storage-candidate:a", source: candidate },
@@ -373,6 +436,7 @@ function compare(output) {
   json(path.join(destination, "comparison.json"), {
     sourceRevision: run("git", ["rev-parse", "HEAD"]).trim(),
     baselineDockerfileRevision: revision,
+    payloadNormalization,
     baseDigest: base.digest,
     platform: "linux/amd64",
     checks,
