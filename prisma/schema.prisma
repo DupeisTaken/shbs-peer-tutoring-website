@@ -2773,7 +2773,7 @@ model RecoveryAction {
 model RecoveryCheckpoint {
   id String @id @default(cuid())
   actionId String @unique
-  action RecoveryAction @relation(fields: [actionId], references: [id], onDelete: Restrict)
+  action RecoveryAction @relation(fields: [actionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   schemaVersion Int @default(1)
   adapter String
   adapterVersion Int

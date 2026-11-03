@@ -198,8 +198,9 @@ void test(
       ('checkpoint-code', 'ABCDE', '2099-01-01T00:00:00Z')`);
     await app.query(`INSERT INTO "SessionCalendarToken" (id, "userId", "tokenHash") VALUES
       ('checkpoint-calendar', 'checkpoint', 'synthetic-calendar-hash')`);
-    await app.query(`INSERT INTO "EmailDelivery" (id, category, event, recipient) VALUES
-      ('checkpoint-outbound', 'PROGRAM', 'synthetic.rehearsal', 'checkpoint@example.test')`);
+    await app.query(`INSERT INTO "EmailDelivery" (id,"userId",category,event,recipient) VALUES
+      ('checkpoint-outbound','independent','info','program_update','independent@example.test'),
+      ('synthetic-worker-control','independent','security','security_changed','independent@example.test')`);
     await app.query(`
       INSERT INTO "Subject" (id,name,"baseName") VALUES ('synthetic-subject','Synthetic subject','Synthetic subject');
       INSERT INTO "Subject" (id,name,"baseName") VALUES ('independent-subject','Independent approved subject','Independent approved subject');
