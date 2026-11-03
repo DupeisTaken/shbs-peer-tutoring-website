@@ -7,6 +7,8 @@ import {
 } from "~/lib/messaging";
 import { ownedStudentIds } from "./student-ownership";
 import type { DomainDb } from "./transactions";
+import { executionAssignments, supersededPairingIds } from "./participant-execution";
+import { readCurrentSessionReminderCohort } from "./session-planning";
 import { portalAccess } from "~/lib/portal-access";
 
 export async function effectiveMessagePermission(db: DomainDb, userId: string) {
@@ -50,28 +52,20 @@ export async function eligibleSessionMessageRecipients(
   });
   if (!sender || !portalAccess(sender).canParticipate || permission.restricted)
     return denied;
-  const cohort = await db.sessionPlanCohort.findUnique({
-    where: { id: cohortId },
-    include: {
-      participants: { where: { tutee: { status: "ACTIVE" } } },
-      plan: { include: { assignments: true, term: true, tutor: true } },
-    },
-  });
-  if (
-    !cohort ||
-    !cohort.plan.term.active ||
-    cohort.plan.tutor.status !== "ACTIVE"
-  )
-    return denied;
+  const cohort = await readCurrentSessionReminderCohort(db, cohortId);
+  if (!cohort) return denied;
+  const execution = await db.sessionPlanExecution.findUnique({ where: { planId: cohort.planId } });
+  const pairingIds = execution ? executionAssignments.parse(execution.assignments).map((row) => row.targetPairingId) : cohort.plan.assignments.map((row) => row.pairingId);
   const live = await db.pairing.findMany({
     where: {
-      id: { in: cohort.plan.assignments.map((a) => a.pairingId) },
+      id: { in: pairingIds },
       tutorId: cohort.plan.tutorId,
       termId: cohort.plan.termId,
     },
     include: { tutees: true },
   });
-  const students = cohort.participants
+  const students = cohort.plan.participants
+    .filter((row) => row.cohortId === cohortId && row.status === "SCHEDULED" && row.tutee.status === "ACTIVE")
     .map((p) => p.tuteeId)
     .filter((id) => live.some((p) => p.tutees.some((t) => t.tuteeId === id)));
   let edge: Prisma.UserWhereInput;
@@ -144,6 +138,7 @@ export async function eligibleMessageRecipients(
     const students = await ownedStudentIds(db, senderId);
     const current = await db.pairing.findMany({
       where: {
+        id: { notIn: await supersededPairingIds(db) },
         term: { active: true },
         tutees: { some: { tuteeId: { in: students } } },
       },

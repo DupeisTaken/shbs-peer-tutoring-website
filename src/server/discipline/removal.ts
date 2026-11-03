@@ -7,6 +7,7 @@ import { standingFromCounts } from "~/lib/discipline";
 import { getActivePeriodOrNull } from "~/server/period";
 import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { executionParticipantId, executionSourceIds, supersededPairingIds } from "~/server/participant-execution";
 import {
   inTransaction,
   lockEntity,
@@ -29,7 +30,7 @@ async function finalizeRemoval(
   const period = await getActivePeriodOrNull(tx);
   const tutee = await tx.tutee.findUniqueOrThrow({ where: { id: tuteeId } });
   const links = await tx.pairingTutee.findMany({
-    where: { tuteeId, pairing: { term: { active: true } } },
+    where: { tuteeId, pairing: { id: { notIn: await supersededPairingIds(tx) }, term: { active: true } } },
     include: {
       pairing: {
         include: { tutor: { select: { user: { select: { id: true } } } } },
@@ -117,11 +118,12 @@ export async function syncPunishmentRemoval(
   tuteeId: string,
 ): Promise<{ removed: boolean }> {
   return inTransaction(db, async (tx) => {
+    tuteeId = await executionParticipantId(tx, "TUTEE", tuteeId);
     await lockEntity(tx, `tutee:${tuteeId}`);
     const tutee = await tx.tutee.findUniqueOrThrow({ where: { id: tuteeId } });
     const cards = await tx.disciplinaryCard.groupBy({
       by: ["color"],
-      where: { tuteeId, reviewStatus: "VALID" },
+      where: { tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) }, reviewStatus: "VALID" },
       _count: { _all: true },
     });
     const standing = standingFromCounts({
@@ -152,6 +154,7 @@ export async function syncPunishmentRemoval(
           });
         const pairings = await tx.pairing.findMany({
           where: {
+            AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
             id: { in: snapshot.data.pairingIds },
             term: { active: true },
             tutor: { status: "ACTIVE" },

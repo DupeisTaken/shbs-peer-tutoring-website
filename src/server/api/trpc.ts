@@ -1,7 +1,8 @@
 import { portalAccess } from "~/lib/portal-access";
+import { assertHistoryAccessGeneration } from "~/server/history-access-generation";
 import { projectManagementRead } from "~/server/management-read-models";
 import { SignupRetry } from "~/server/signup-admission";
-import { accountHistoryIds } from "~/server/account-history";
+import { accountPolicyIds } from "~/server/policy-acceptance";
 import { ApprovalQueued, queueProposal, proposalAuthority } from "~/server/approvals";
 import { databaseScope, isTranslationPublication } from "~/server/db-scope";
 import { runAuditedMutation, recordAuditAttempt, auditAttemptRecorded } from "~/server/audit/evidence";
@@ -216,6 +217,7 @@ export const protectedProcedure = t.procedure
         role: true,
         mergedIntoId: true,
         recoveryVoidedAt: true,
+        historyAccessRevision: true,
         tutorId: true,
         tutorAccessRevoked: true,
         schoolDeparture: true,
@@ -228,6 +230,8 @@ export const protectedProcedure = t.procedure
       },
     });
     if (!account || account.mergedIntoId || account.recoveryVoidedAt) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if ((session.historyAccessRevision ?? 0) !== account.historyAccessRevision)
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "History access changed. Sign in again before continuing." });
     // Legacy undo payloads lack causal closure. Refuse before approval queuing,
     // including replay of an old queued undo; the CLI inspector retains evidence.
     if (type === "mutation" && path === "admin.undoAudit")
@@ -268,7 +272,7 @@ export const protectedProcedure = t.procedure
       if (
         account.tutorId && !access.departed &&
         !(await ctx.db.policyAcceptance.findFirst({
-          where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) }, slug: "tutee-policy" },
+          where: { userId: { in: await accountPolicyIds(ctx.db, ctx.session.user.id) }, slug: "tutee-policy" },
           select: { id: true },
         }))
       )
@@ -365,6 +369,7 @@ export const protectedProcedure = t.procedure
       });
     }
     const run = async (auditedDb: typeof ctx.db) => {
+      if (type === "mutation") await assertHistoryAccessGeneration(auditedDb, { userId: session.user.id, historyAccessRevision: account.historyAccessRevision });
       if (type === "mutation" && path === "interviewManagement.complete") {
         const raw = await getRawInput();
         if (
@@ -419,10 +424,11 @@ export const protectedProcedure = t.procedure
     };
     // Successful changes and safe before/after evidence share a transaction. Queued
     // proposals have already stopped above, so their durable submission is retained.
-    return type === "mutation"
-      ? runAuditedMutation(ctx.db, { id: ctx.session.user.id,
-          name: account.name ?? account.username ?? null, role: account.role }, path, run)
-      : run(ctx.db);
+    if (type === "mutation") return runAuditedMutation(ctx.db, { id: ctx.session.user.id,
+      name: account.name ?? account.username ?? null, role: account.role }, path, run);
+    const result = await run(ctx.db);
+    if (result.ok) await assertHistoryAccessGeneration(ctx.db, { userId: session.user.id, historyAccessRevision: account.historyAccessRevision });
+    return result;
   });
 
 /**

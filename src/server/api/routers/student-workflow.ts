@@ -33,10 +33,12 @@ import {
   applyScheduleRejection,
   resolveStudentReview,
   studentRequestRows,
+  studentScheduleRequestSources,
 } from "~/server/student-workflow";
 import { resendSurveyResult, surveyLimit } from "~/server/student-survey";
 import { expireStudentRequests } from "~/server/student-request-state";
 import { TRPCError } from "@trpc/server";
+import { supersededPairingIds } from "~/server/participant-execution";
 import {
   inspectOwnedStudentSignup,
   editOwnedStudentSignup,
@@ -418,45 +420,43 @@ export const studentWorkflowRouter = createTRPCRouter({
     await expireStudentRequests(ctx.db);
     const assigned = await ctx.db.pairingTutee.findMany({
       where: {
+        pairingId: { notIn: await supersededPairingIds(ctx.db) },
         pairing: { tutorId: ctx.session.tutorId, term: { active: true } },
       },
       include: {
         tutee: { include: { availabilities: { include: { slot: true } } } },
       },
     });
-    const surveys = await ctx.db.studentSurvey.findMany({
-      where: { tuteeId: { in: assigned.map((a) => a.tuteeId) }, state: "OPEN" },
-      include: {
-        reviews: { where: { state: "PENDING", kind: "SCHEDULE_CONFLICT" } },
-      },
-    });
+    const requestSources = await Promise.all(assigned.map((member) =>
+      member.tutee.status === "INACTIVE" ? Promise.resolve({ sources: [], legacy: false }) :
+        studentScheduleRequestSources(ctx.db, ctx.session.tutorId, member.tuteeId, member.pairingId)));
     const legacyReviews = await ctx.db.studentRequestReview.findMany({
       where: {
         legacyTuteeId: { in: assigned.map((a) => a.tuteeId) },
         state: "PENDING",
       },
     });
-    return assigned.map((a) => {
-      const s = surveys.find((r) => r.tuteeId === a.tuteeId);
+    return assigned.map((a, index) => {
+      const sources = requestSources[index]!.sources;
+      const unverified = sources.filter((source) => !source.verified);
+      const deadlines = unverified.flatMap((source) => source.verificationDueAt ? [source.verificationDueAt] : []).sort((left, right) => +left - +right);
+      const edits = sources.flatMap((source) => source.editedAt ? [source.editedAt] : []).sort((left, right) => +right - +left);
       return {
         tuteeId: a.tuteeId,
         pairingId: a.pairingId,
-        managed: !!s,
-        editedAt: s?.editedAt ?? null,
-        verified: s ? !!s.confirmedAt : true,
-        verificationDueAt: s?.verificationDueAt ?? null,
+        managed: sources.length > 0,
+        editedAt: edits[0] ?? null,
+        verified: !unverified.length,
+        verificationDueAt: deadlines[0] ?? null,
         slots: a.tutee.availabilities.map((x) => x.slot),
-        pending: s
-          ? s.reviews.some((r) => r.pairingId === a.pairingId)
-          : legacyReviews.some(
-              (r) =>
-                r.legacyTuteeId === a.tuteeId && r.pairingId === a.pairingId,
-            ),
+        // A pending review for one request cannot block selecting another source.
+        pending: sources.length ? sources.every((source) => source.pending) :
+          legacyReviews.some((review) => review.legacyTuteeId === a.tuteeId && review.pairingId === a.pairingId),
       };
     });
   }),
   rejectSchedule: activeTutorProcedure
-    .input(z.object({ tuteeId: id, pairingId: id, reason, ticket }))
+    .input(z.object({ tuteeId: id, pairingId: id, surveyId: id.optional(), reason, ticket }).strict())
     .mutation(({ ctx, input }) =>
       applyScheduleRejection(
         ctx.db,
@@ -466,6 +466,13 @@ export const studentWorkflowRouter = createTRPCRouter({
         input.pairingId,
         input.reason,
         input.ticket,
+        input.surveyId,
       ),
     ),
+  scheduleRequestSources: activeTutorProcedure
+    .input(z.object({ tuteeId: id, pairingId: id }).strict())
+    .query(async ({ ctx, input }) => {
+      await expireStudentRequests(ctx.db);
+      return studentScheduleRequestSources(ctx.db, ctx.session.tutorId, input.tuteeId, input.pairingId);
+    }),
 });

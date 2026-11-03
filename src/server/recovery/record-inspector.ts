@@ -51,6 +51,18 @@ export class RecordInspectorError extends Error {
 const fieldPolicies: Record<string, string> = {
   AuditLog:
     "id userId userName action entity entityId operation kind approvalId undone undoneAt createdAt",
+  PersonPartitionReceipt: "id personId newPersonId createdAt",
+  RetiredHistoryOwnership: "sourceUserId readerUserId state revision receiptId updatedAt",
+  HistoryRowOwnership: "entity recordId readerUserId revision receiptId updatedAt",
+  PersonHistoryCorrectionReceipt: "id personId destinationPersonId createdAt",
+  ParticipantConsolidation: "kind sourceId targetId active revision receiptId effectiveAt",
+  PairingExecutionSuccessor: "sourcePairingId targetPairingId revision receiptId effectiveAt",
+  SessionPlanExecution: "planId tutorId revision receiptId",
+  SessionParticipantExecution: "participantId tuteeId revision receiptId",
+  SessionResponseExecution: "responseId userId profileKind profileId respondedByUserId revision receiptId",
+  QualificationTransferGrant: "targetTutorId sourceTutorId sourceSubjectId subjectId approvedById approvedAt grantedAt active revision receiptId",
+  PersonParticipationTransferReceipt: "id personId retainedUserId createdAt",
+  StudentRequestExecutionAssignment: "surveyId pairingId tuteeId sourceTuteeId revision receiptId createdAt releasedAt",
   RecoveryAction: "id kind applicationId createdAt",
   RecoveryEvent: "id actionId transactionId kind createdAt",
   RecoveryTrackedEntity: "actionId entity recordId",

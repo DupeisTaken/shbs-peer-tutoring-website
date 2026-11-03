@@ -3,6 +3,7 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { db } from "./db";
 import { createCaller } from "./api/root";
 import { changeSchoolDeparture } from "./school-departure";
+import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -76,6 +77,61 @@ beforeEach(async () => {
   });
 });
 afterAll(() => db.$disconnect());
+
+async function retiredDepartedSource() {
+  await changeSchoolDeparture(db, change("TRANSFERRED"), head);
+  await changeSchoolDeparture(db, change("REVOKE", 1), head);
+  await db.user.update({ where: { id: person }, data: { mergedIntoId: viewer, tutorId: null, studentId: null } });
+  await db.historyRowOwnership.create({ data: { entity: "Tutor", recordId: tutorId, readerUserId: viewer, sourceUserIds: [person], receiptId: "synthetic-source-correction" } });
+  await db.tutorProfileOwnership.upsert({ where: { tutorId }, create: { tutorId, userId: viewer }, update: { userId: viewer } });
+  return db.user.findUniqueOrThrow({ where: { id: viewer } });
+}
+
+it("rejects roster activation of retained-only corrected Tutor and Tutee sources while B remains departed", async () => {
+  await retiredDepartedSource();
+  await db.historyRowOwnership.create({ data: { entity: "Tutee", recordId: studentId, readerUserId: viewer, sourceUserIds: [person], receiptId: "synthetic-source-correction" } });
+  await db.studentProfileOwnership.upsert({ where: { tuteeId: studentId }, create: { tuteeId: studentId, userId: viewer }, update: { userId: viewer } });
+  await expect(caller(head).admin.updateTutor({ id: tutorId, status: "ACTIVE" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  const student = await db.tutee.findUniqueOrThrow({ where: { id: studentId } });
+  await expect(caller(head).admin.setTuteeStatus({ id: studentId, status: "ACTIVE", expectedUpdatedAt: student.updatedAt })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect((await db.tutor.findUniqueOrThrow({ where: { id: tutorId } })).status).toBe("TRANSFERRED");
+  expect((await db.tutee.findUniqueOrThrow({ where: { id: studentId } })).status).toBe("INACTIVE");
+});
+
+it("records a retired source's factual return without restoring credentials, profiles or observation", async () => {
+  const reader = await retiredDepartedSource();
+  const before = await db.user.findUniqueOrThrow({ where: { id: person } });
+  await expect(requireParticipantSourceParticipation(db, "TUTOR", tutorId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect((await caller(head).departure.state({ userId: person })).retired).toBe(true);
+  await caller(head).departure.setState(change("RETURN", 2));
+  const original = await db.user.findUniqueOrThrow({ where: { id: person }, include: { schoolDeparture: true } });
+  expect(original).toMatchObject({ mergedIntoId: viewer, tutorId: null, studentId: null,
+    passwordHash: before.passwordHash, sessionVersion: before.sessionVersion,
+    schoolDeparture: { reason: null, observerRevoked: true, revision: 3 } });
+  expect((await db.tutor.findUniqueOrThrow({ where: { id: tutorId } })).status).toBe("TRANSFERRED");
+  expect((await db.tutee.findUniqueOrThrow({ where: { id: studentId } })).status).toBe("INACTIVE");
+  expect((await db.user.findUniqueOrThrow({ where: { id: viewer } })).historyAccessRevision).toBe(reader.historyAccessRevision + 1);
+  expect(await db.schoolDepartureEvent.findUnique({ where: { userId_revision: { userId: person, revision: 3 } } })).toMatchObject({ action: "RETURN", actorId: head });
+  expect((await requireParticipantSourceParticipation(db, "TUTOR", tutorId)).blockers).toEqual([]);
+  await expect(caller(head).departure.setState(change("RETURN", 2))).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+it.each(["GRADUATED", "TRANSFERRED", "REVOKE", "RESTORE"] as const)("rejects %s as a retired source capability change", async (action) => {
+  await retiredDepartedSource();
+  await expect(changeSchoolDeparture(db, change(action, 2), head)).rejects.toMatchObject({ code: "CONFLICT" });
+  expect((await db.schoolDeparture.findUniqueOrThrow({ where: { userId: person } })).revision).toBe(2);
+});
+
+it("rechecks actual staff authority for retired-source RETURN and leaves suspension independent", async () => {
+  await retiredDepartedSource();
+  await expect(changeSchoolDeparture(db, change("RETURN", 2), viewer)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.update({ where: { id: admin }, data: { suspendedAt: new Date() } });
+  await expect(changeSchoolDeparture(db, change("RETURN", 2), admin)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.update({ where: { id: person }, data: { suspendedAt: new Date() } });
+  await changeSchoolDeparture(db, change("RETURN", 2), head);
+  await expect(requireParticipantSourceParticipation(db, "TUTOR", tutorId)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect((await db.user.findUniqueOrThrow({ where: { id: person } })).suspendedAt).not.toBeNull();
+});
 
 it("requires a reviewed return before reinstating a departed learner's older removal", async () => {
   const removal = await db.tuteeRemovalRequest.create({

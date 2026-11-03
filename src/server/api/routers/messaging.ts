@@ -1,6 +1,7 @@
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { createHash } from "node:crypto";
-import { accountHistoryIds } from "~/server/account-history";
+import { accountHistoryIds, accountHistoryReaderId } from "~/server/account-history";
+import { withHistoryReadMutation } from "~/server/history-access-generation";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -113,17 +114,23 @@ export const messagingRouter = createTRPCRouter({
           )
         : eligibleMessageRecipients(ctx.db, ctx.session.user.id),
     ]);
-    const replyIds = people.map((person) => person.mergedIntoId ?? person.id);
+    const replyDestinations = new Map(await Promise.all(people.map(async (person) =>
+      [person.id, await accountHistoryReaderId(ctx.db, person.id)] as const,
+    )));
+    const replyIds = [...new Set([...replyDestinations.values()].filter((id): id is string => id !== null))];
     const replyable = await ctx.db.user.findMany({
       where: { AND: [eligible, { id: { in: replyIds } }] },
-      select: { id: true },
+      select: { id: true, name: true, username: true, role: true },
     });
     const canReply = new Set(replyable.map((p) => p.id));
+    const replyPeople = new Map(replyable.map((person) => [person.id, person]));
     const names = new Map(people.map((p) => [p.id, p]));
     // Never serialize the batch key or original hidden content into a participant response.
     return rows.map((r) => ({
       id: r.id,
-      senderId: names.get(r.senderId)?.mergedIntoId ?? r.senderId,
+      senderId: r.senderId,
+      replyRecipientId: replyDestinations.get(r.senderId) ?? null,
+      replyRecipient: replyPeople.get(replyDestinations.get(r.senderId) ?? "") ?? null,
       recipientId: r.recipientId,
       body: r.hiddenAt ? null : r.body,
       hiddenAt: r.hiddenAt,
@@ -141,7 +148,7 @@ export const messagingRouter = createTRPCRouter({
         names.get(r.recipientId)?.name ??
         names.get(r.recipientId)?.username ??
         "Deleted account",
-      canReply: canReply.has(names.get(r.senderId)?.mergedIntoId ?? r.senderId),
+      canReply: canReply.has(replyDestinations.get(r.senderId) ?? ""),
     }));
   }),
   send: protectedProcedure
@@ -304,19 +311,19 @@ export const messagingRouter = createTRPCRouter({
     }),
   markRead: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.directMessage.updateMany({
+    .mutation(async ({ ctx, input }) => withHistoryReadMutation(ctx.db, { userId: ctx.session.user.id, historyAccessRevision: ctx.session.historyAccessRevision ?? 0 }, async (tx) => {
+      await tx.directMessage.updateMany({
         where: {
           id: input.id,
           recipientId: {
-            in: await accountHistoryIds(ctx.db, ctx.session.user.id),
+            in: await accountHistoryIds(tx, ctx.session.user.id),
           },
           readAt: null,
         },
         data: { readAt: new Date() },
       });
       return { ok: true };
-    }),
+    })),
   settings: supervisorProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db.messagePermission.findMany({
       where: { scope: { startsWith: "ROLE:" } },

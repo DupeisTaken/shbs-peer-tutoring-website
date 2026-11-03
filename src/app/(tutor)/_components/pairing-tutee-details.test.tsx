@@ -45,6 +45,7 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     studentWorkflow: {
+      scheduleRequestSources: { useQuery: () => ({ data: { sources: [], legacy: true }, isSuccess: true, isFetching: false, error: null, refetch: vi.fn() }) },
       rejectSchedule: {
         useMutation: () => ({
           mutate: state.reject,

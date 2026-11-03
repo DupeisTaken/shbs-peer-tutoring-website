@@ -136,6 +136,8 @@ vi.mock("~/trpc/react", () => ({
             ? ["1", "2"].map((id) => ({
                 id: `message-${id}`,
                 senderId: id,
+                replyRecipientId: id,
+                replyRecipient: { id, name: `Sender ${id}`, username: `sender-${id}`, role: "HEAD" },
                 sender: `Sender ${id}`,
                 senderUsername: `sender-${id}`,
                 senderRole: "HEAD",
