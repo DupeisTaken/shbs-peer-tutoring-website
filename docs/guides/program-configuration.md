@@ -257,9 +257,11 @@ marks these choices **Unavailable**; remaining choices retain **Both Available**
 and **Other Time Slots** according to saved participant availability. Tutors can
 first combine eligible assignments without a time, then choose one time for the
 whole group. Every tutee must have the complete selected subject set. Management
-Pairings keeps subject-level rows with a common group reference and group Details;
-invalid retained groups are marked for repair before scheduling or combined
-attendance. See [combining and splitting](user-guide.md#combine-and-split-recurring-pairings).
+Pairings shows each saved group together, with tutee names beside each subject.
+Open a member’s **Details** to see the group reference and whether the group
+needs repair before scheduling or combined attendance. See [combining and splitting](user-guide.md#combine-and-split-recurring-pairings).
+
+Use **Active** for pairings whose schedule is confirmed and whose room is assigned or explicitly set to **No physical room**. A saved group appears in **Pending** if any member is waiting for a schedule or a room decision. **Needs room** narrows the list to reservations flagged for room assignment. **All pairings** shows every group and independent assignment.
 
 Each independent Pairings row reserves at most one room. An explicitly combined
 pairing group instead shares one reservation using its primary assignment’s room
