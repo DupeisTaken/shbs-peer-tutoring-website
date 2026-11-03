@@ -6,6 +6,18 @@ import type { Pool, PoolClient } from "pg";
 
 export type ProfileMode = "latency" | "diagnostic";
 type QueryTotals = { count: number; elapsedMs: number; errors: number };
+type TryLockOutcome = "granted" | "denied" | "error" | "unrecognized";
+type TryLockDiagnostics = {
+  attemptMs: number[];
+  outcomes: TryLockOutcome[];
+  granted: number;
+  denied: number;
+  errors: number;
+  unrecognized: number;
+  implicitTransactionAcquisitions: number;
+  lockHeldTransactionMs: number[];
+  uncertainLockIntervals: { observedMs: number; reason: string }[];
+};
 type Diagnostics = {
   driverQueries: QueryTotals;
   queryShapes: Record<string, QueryTotals>;
@@ -15,6 +27,7 @@ type Diagnostics = {
   lockHeldTransactionMs: number[];
   uncertainLockIntervals: { observedMs: number; reason: string }[];
   implicitTransactionLockAcquisitions: number;
+  advisoryTryLock?: TryLockDiagnostics;
   processCpuMs: { user: number; system: number };
   eventLoopUtilization: number;
   eventLoopDelayMs: { mean: number; max: number; p95: number } | null;
@@ -51,6 +64,29 @@ type UnknownCall = (...args: unknown[]) => unknown;
 type HeldLock = { acquiredAt: number; metrics: Diagnostics };
 type TransactionState = { uncertainScope: boolean };
 
+/** Recognize only the production planning probe, not SQL containing a function
+ * name in a comment/literal or a different advisory-lock expression. */
+function planningTryLock(sql: string, first: unknown, args: unknown[]) {
+  if (!/^\s*SELECT\s+pg_try_advisory_xact_lock\s*\(\s*hashtextextended\s*\(\s*\$1\s*,\s*0\s*\)\s*\)\s+AS\s+locked\s*;?\s*$/i.test(sql)) return false;
+  const values: unknown = first && typeof first === "object" && "values" in first ? first.values : args[1];
+  return Array.isArray(values) && values.length === 1 &&
+    ["program:period", "planned-room-schedule", "session-planning"].includes(values[0] as string);
+}
+
+function tryLockResult(value: unknown): "granted" | "denied" | "unrecognized" {
+  if (!value || typeof value !== "object" || !("rows" in value) || !("fields" in value) ||
+      !("rowCount" in value) || value.rowCount !== 1 || !("command" in value) || value.command !== "SELECT") return "unrecognized";
+  const { rows, fields } = value;
+  if (!Array.isArray(rows) || rows.length !== 1 || !Array.isArray(fields) || fields.length !== 1) return "unrecognized";
+  const field: unknown = fields[0];
+  if (!field || typeof field !== "object" || !("name" in field) || field.name !== "locked" ||
+      !("dataTypeID" in field) || field.dataTypeID !== 16) return "unrecognized";
+  const row: unknown = rows[0];
+  const locked: unknown = Array.isArray(row) && row.length === 1 ? row[0]
+    : row && typeof row === "object" && !Array.isArray(row) && Object.keys(row).length === 1 && "locked" in row ? row.locked : undefined;
+  return locked === true ? "granted" : locked === false ? "denied" : "unrecognized";
+}
+
 /** Keep the exact method for restoration while exposing only an invocation that
  * supplies its original receiver. Instrumentation never calls an unbound method. */
 function captureMethod<Owner extends object, Key extends keyof Owner>(owner: Owner, key: Key) {
@@ -74,6 +110,7 @@ export function createProfiler(mode: ProfileMode) {
   const active = new Set<Diagnostics>();
   const restorers: (() => void)[] = [];
   const heldLocks = new Map<PoolClient, HeldLock>();
+  const heldTryLocks = new Map<PoolClient, HeldLock>();
   const transactions = new WeakMap<PoolClient, TransactionState>();
   const instrumented = new WeakSet<PoolClient>();
   const pools = new WeakSet<Pool>();
@@ -96,6 +133,11 @@ export function createProfiler(mode: ProfileMode) {
       held.metrics.uncertainLockIntervals.push({ observedMs: endedAt - held.acquiredAt, reason });
       heldLocks.delete(client);
     }
+    const tried = heldTryLocks.get(client);
+    if (tried) {
+      tried.metrics.advisoryTryLock!.uncertainLockIntervals.push({ observedMs: endedAt - tried.acquiredAt, reason });
+      heldTryLocks.delete(client);
+    }
     const transaction = transactions.get(client);
     if (transaction) transaction.uncertainScope = true;
   }
@@ -113,11 +155,13 @@ export function createProfiler(mode: ProfileMode) {
           ? first.text
           : "";
       const startedAt = performance.now();
+      const isTryLock = planningTryLock(sql, first, args);
       let completed = false;
-      const finish = (failed: boolean) => {
+      const finish = (failed: boolean, value?: unknown) => {
         if (completed) return;
         completed = true;
         const endedAt = performance.now();
+        const tryOutcome = failed ? "error" : tryLockResult(value);
         if (metrics) {
           const elapsedMs = endedAt - startedAt;
           metrics.driverQueries.count++;
@@ -130,6 +174,13 @@ export function createProfiler(mode: ProfileMode) {
           totals.errors += Number(failed);
           if (/\bpg_advisory_xact_lock\s*\(/i.test(sql)) {
             metrics.acquisitionStatementMs.push(elapsedMs);
+          }
+          if (isTryLock) {
+            const tried = metrics.advisoryTryLock!;
+            tried.attemptMs.push(elapsedMs);
+            tried.outcomes.push(tryOutcome);
+            if (tryOutcome === "error") tried.errors++;
+            else tried[tryOutcome]++;
           }
         }
         if (!failed && /^\s*(?:BEGIN\b|START\s+TRANSACTION\b)/i.test(sql)) {
@@ -146,6 +197,12 @@ export function createProfiler(mode: ProfileMode) {
             heldLocks.set(client, { acquiredAt: endedAt, metrics });
           }
         }
+        if (isTryLock && tryOutcome === "granted" && metrics) {
+          const transaction = transactions.get(client);
+          if (!transaction) metrics.advisoryTryLock!.implicitTransactionAcquisitions++;
+          else if (!transaction.uncertainScope && !heldTryLocks.has(client))
+            heldTryLocks.set(client, { acquiredAt: endedAt, metrics });
+        }
         // Savepoint rollback can release locks acquired in the rolled-back
         // scope. Do not guess that scope or claim a complete held interval.
         if (!failed && /^\s*ROLLBACK\s+TO\b/i.test(sql)) {
@@ -158,6 +215,11 @@ export function createProfiler(mode: ProfileMode) {
             held.metrics.lockHeldTransactionMs.push(endedAt - held.acquiredAt);
             heldLocks.delete(client);
           }
+          const tried = heldTryLocks.get(client);
+          if (!failed && tried) {
+            tried.metrics.advisoryTryLock!.lockHeldTransactionMs.push(endedAt - tried.acquiredAt);
+            heldTryLocks.delete(client);
+          }
           if (!failed) transactions.delete(client);
         }
       };
@@ -165,7 +227,7 @@ export function createProfiler(mode: ProfileMode) {
       const callback = args[callbackIndex];
       if (typeof callback === "function") {
         args[callbackIndex] = function (this: unknown, ...callbackArgs: unknown[]) {
-          finish(callbackArgs[0] != null);
+          finish(callbackArgs[0] != null, callbackArgs[1]);
           return (callback as UnknownCall).apply(this, callbackArgs);
         };
       }
@@ -173,7 +235,7 @@ export function createProfiler(mode: ProfileMode) {
         const result = invoke.apply(client, args);
         if (isPromiseLike(result))
           return Promise.resolve(result).then(
-            (value: unknown) => { finish(false); return value; },
+            (value: unknown) => { finish(false, value); return value; },
             (error: unknown) => { finish(true); throw error; },
           );
         return result;
@@ -304,6 +366,8 @@ export function createProfiler(mode: ProfileMode) {
         lockHeldTransactionMs: [],
         uncertainLockIntervals: [],
         implicitTransactionLockAcquisitions: 0,
+        advisoryTryLock: { attemptMs: [], outcomes: [], granted: 0, denied: 0, errors: 0, unrecognized: 0,
+          implicitTransactionAcquisitions: 0, lockHeldTransactionMs: [], uncertainLockIntervals: [] },
         processCpuMs: { user: 0, system: 0 },
         eventLoopUtilization: 0,
         eventLoopDelayMs: null,
@@ -354,6 +418,7 @@ export function createProfiler(mode: ProfileMode) {
           latency: "Completed procedure/domain elapsed time includes completed failures. Unfinished operations remain raw censored elapsed lower bounds and are excluded from completed p50/p95; errors counts completed failures, while unfinished/censored counts remain explicit. A timeout receipt cannot establish latency gains. Diagnostic runs are separate.",
           lockAcquisition: "Advisory lock statement call-to-completion, including driver/database overhead; not exact server lock wait.",
           lockHold: "First acquired advisory lock in an explicitly observed BEGIN transaction through successful COMMIT/ROLLBACK completion, including commit overhead. Failed ends, savepoint rollbacks and interrupted connections are separate uncertain intervals. Autocommit acquisitions have no reported hold interval.",
+          tryLock: "Only the exact parameterized planning try-lock probe is recognized. Attempt call-to-completion and granted/denied/error/unrecognized results are separate from blocking-lock counters. A canonical Boolean true starts a separate first-confirmed-try-lock-through-transaction-end span. Denials and noncanonical results never infer acquisition. Mixed blocking/try spans can overlap and must not be summed; absent historical try fields mean unobserved, not proven zero.",
           cpuAndEventLoop: "Process-wide during each operation; overlapping samples include other requests and must not be summed. Null delay means no histogram observations.",
           queries: "Driver invocations and Prisma event durations are separate counters, never summed together. Cumulative driver elapsed can exceed request wall time when queries overlap. Query shapes are hashes, without SQL text or values.",
           unfinished: "Running diagnostic counters are partial; CPU/event-loop totals finalize only on completion. Each unfinished sample has OPERATION_UNFINISHED rather than an invented final error or duration.",
@@ -378,7 +443,7 @@ export function createProfiler(mode: ProfileMode) {
     close() {
       if (closed) return;
       if (pendingMeasures) throw new Error("Cannot close profiler with active operations");
-      for (const client of heldLocks.keys()) uncertainInterval(client, "profiler-close-before-observed-end");
+      for (const client of new Set([...heldLocks.keys(), ...heldTryLocks.keys()])) uncertainInterval(client, "profiler-close-before-observed-end");
       for (const restore of restorers.reverse()) restore();
       closed = true;
       context.disable();

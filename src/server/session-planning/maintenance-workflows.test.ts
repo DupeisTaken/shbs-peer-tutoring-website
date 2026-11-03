@@ -5,7 +5,7 @@ import { utcDatabaseUrl } from "~/server/database-url";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { plannedWindow, planningWeeks } from "~/lib/session-planning";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
-import { ensureSessionPlanningWindow, lockSessionPlanning, sweepSessionPlanning } from ".";
+import { ensureSessionPlanningWindow, lockSessionPlanning, readSessionAgenda, sweepSessionPlanning } from ".";
 import {
   acknowledgeSchedulingPublication,
   readSchedulingMaintenance,
@@ -27,6 +27,56 @@ function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });
   return { promise, resolve };
+}
+
+async function bounded<T>(work: Promise<T>, label: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Timed out: ${label}`)), 5000);
+    })]);
+  } finally { if (timer) clearTimeout(timer); }
+}
+
+/** The hook runs after the real publication COMMIT, never inside its decision.
+ * Candidate observation records the original SELECT result without changing it.
+ */
+function agendaAfterPublication(
+  after: () => Promise<void>,
+  observeCandidates?: (ids: string[]) => void,
+) {
+  let first = true;
+  return new Proxy(db, {
+    get(target, key) {
+      if (key === "$transaction")
+        return async (work: (tx: TransactionDb) => Promise<unknown>, options?: { timeout?: number; maxWait?: number }) => {
+          const result = await target.$transaction(work, options);
+          if (first) { first = false; await after(); }
+          return result;
+        };
+      if (key === "$queryRaw" && observeCandidates)
+        return async (parts: TemplateStringsArray, ...values: unknown[]) => {
+          if (parts.join("").includes('SELECT r.id FROM "SessionPlanningRequest" r')) {
+            const rows = await target.$queryRaw<{ id: string }[]>(parts, ...values);
+            observeCandidates(rows.map((row) => row.id));
+            return rows;
+          }
+          return target.$queryRaw(parts, ...values);
+        };
+      const value: unknown = Reflect.get(target, key, target);
+      return value;
+    },
+  });
+}
+
+async function publicationReady<T>(ready: Promise<void>, reader: Promise<T>) {
+  await bounded(Promise.race([ready, reader.then(() => {
+    throw new Error("Agenda finished before its publication barrier.");
+  })]), "publication committed");
+}
+
+function maintenanceClient() {
+  return new Client({ connectionString: utcDatabaseUrl(process.env.DATABASE_URL!), connectionTimeoutMillis: 3000, query_timeout: 5000, statement_timeout: 4000 });
 }
 
 /** Pause only after the first real metadata SELECT completed. On the former
@@ -187,6 +237,213 @@ beforeEach(async () => {
 });
 afterEach(() => vi.useRealTimers());
 afterAll(async () => { await db.$disconnect(); });
+
+describe("agenda metadata contention", () => {
+  it.each(["program:period", "planned-room-schedule", "session-planning"])(
+    "returns an empty-request agenda behind %s and releases its acquired lock prefix",
+    async (blockedKey) => {
+      const holder = maintenanceClient();
+      await holder.connect();
+      const published = deferred<void>(), resume = deferred<void>();
+      const reader = readSessionAgenda(agendaAfterPublication(async () => {
+        published.resolve(); await resume.promise;
+      }), { id: tutorUserId, tutorId }, "tutor", now);
+      const drained = Promise.allSettled([reader]);
+      try {
+        await publicationReady(published.promise, reader);
+        await holder.query("BEGIN");
+        await holder.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [blockedKey]);
+        // A supported direct write can commit while a different publisher owns
+        // its advisory fence. Its exact invalidation must survive deferral.
+        await db.room.create({ data: { id: "maintenance-deferred-room", name: "Synthetic deferred room" } });
+        const before = await db.schedulingMaintenanceState.findUniqueOrThrow({ where: { id: "program" } });
+        const dirty = await db.schedulingDirtyEvent.findMany({ where: { sourceTable: "Room", publicationPending: true }, select: { id: true } });
+        expect(dirty.length).toBeGreaterThan(0);
+        resume.resolve();
+        expect((await bounded(reader, "unblocked agenda projection")).cohorts.length).toBeGreaterThan(0);
+        expect(await db.schedulingMaintenanceState.findUniqueOrThrow({ where: { id: "program" } })).toEqual(before);
+        expect(await db.schedulingDirtyEvent.count({ where: { id: { in: dirty.map((row) => row.id) }, publicationPending: true, settlementPending: true } })).toBe(dirty.length);
+        const keys = ["program:period", "planned-room-schedule", "session-planning"];
+        await db.$transaction(async (tx) => {
+          for (const key of keys.slice(0, keys.indexOf(blockedKey))) {
+            const [lock] = await tx.$queryRaw<{ locked: boolean }[]>`SELECT pg_try_advisory_xact_lock(hashtextextended(${key},0)) AS locked`;
+            expect(lock?.locked).toBe(true);
+          }
+        });
+      } finally {
+        resume.resolve();
+        await holder.query("ROLLBACK");
+        await holder.end();
+        await drained;
+      }
+      await cleanPublication();
+      await drainSweep();
+    }, 15_000,
+  );
+
+  it("runs a fresh due-first scan and retains a failed request retry when bookkeeping defers", async () => {
+    const future = await request(0);
+    const due = await request(1, now);
+    await planningTransaction((tx) => prepareSchedulingInvalidationBatch(tx));
+    await planningTransaction((tx) => retrySchedulingInvalidation(tx, future.id));
+    const holder = maintenanceClient();
+    await holder.connect();
+    const holderPid = (await holder.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0]!.pid;
+    const published = deferred<void>(), resume = deferred<void>(), selected = deferred<string[]>();
+    await db.$executeRawUnsafe('CREATE FUNCTION scheduling_test_deferred_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION \'Synthetic deferred notice failure\'; END; $$');
+    await db.$executeRawUnsafe('CREATE TRIGGER scheduling_test_deferred_failure BEFORE INSERT ON "SessionNotice" FOR EACH ROW WHEN (NEW."requestId"=\'maintenance-request-0001\') EXECUTE FUNCTION scheduling_test_deferred_failure()');
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const reader = readSessionAgenda(agendaAfterPublication(async () => {
+      published.resolve(); await resume.promise;
+    }, (ids) => selected.resolve(ids)), { id: tutorUserId, tutorId }, "tutor", now);
+    const drained = Promise.allSettled([reader]);
+    try {
+      await publicationReady(published.promise, reader);
+      await holder.query("BEGIN");
+      await holder.query("SELECT pg_advisory_xact_lock(hashtextextended('program:period',0))");
+      const before = await db.schedulingMaintenanceState.findUniqueOrThrow({ where: { id: "program" } });
+      expect(before.settlementBatchActive).toBe(true);
+      resume.resolve();
+      expect(await bounded(selected.promise, "fresh candidates despite metadata contention")).toEqual([due.id, future.id]);
+      // A selected decision still waits on the authoritative blocking fence.
+      await vi.waitFor(async () => {
+        const [row] = await db.$queryRaw<{ blocked: boolean }[]>`SELECT EXISTS (
+          SELECT 1 FROM pg_stat_activity a WHERE ${holderPid}=ANY(pg_blocking_pids(a.pid))) AS blocked`;
+        expect(row?.blocked).toBe(true);
+      }, { timeout: 3000, interval: 25 });
+      await holder.query("COMMIT");
+      await bounded(reader, "independent failed and subsequent request decisions");
+      expect((await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: due.id } })).status).toBe("PENDING");
+      expect((await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: future.id } })).updatedAt).toEqual(now);
+      expect(await db.schedulingDirtyEvent.count({ where: { requestId: due.id, settlementPending: true } })).toBe(1);
+      expect(await db.schedulingDirtyEvent.count({ where: { requestId: future.id, settlementPending: true } })).toBe(1);
+      const after = await db.schedulingMaintenanceState.findUniqueOrThrow({ where: { id: "program" } });
+      expect(after.settlementBatchActive).toBe(true);
+      expect(after.settlementEventIds).toEqual(before.settlementEventIds);
+      expect(await db.schedulingDirtyEvent.count({ where: { id: { in: before.settlementEventIds }, settlementPending: true } })).toBe(before.settlementEventIds.length);
+    } finally {
+      resume.resolve();
+      await holder.query("ROLLBACK");
+      await holder.end();
+      await drained;
+      await db.$executeRawUnsafe('DROP TRIGGER scheduling_test_deferred_failure ON "SessionNotice"');
+      await db.$executeRawUnsafe('DROP FUNCTION scheduling_test_deferred_failure()');
+      errors.mockRestore();
+    }
+    expect(await sweepSessionPlanning(db, now)).toBe(2);
+    expect((await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: due.id } })).status).toBe("EXPIRED");
+    expect(await db.sessionNotice.count({ where: { requestId: due.id, event: "expired" } })).toBe(2);
+    await drainSweep();
+  }, 20_000);
+
+  it("rereads recipient authority after a deferred scan waits on its request fence", async () => {
+    const pending = await request();
+    await drainSweep();
+    const holder = maintenanceClient();
+    await holder.connect();
+    const published = deferred<void>(), resume = deferred<void>(), selected = deferred<string[]>();
+    const reader = readSessionAgenda(agendaAfterPublication(async () => {
+      published.resolve(); await resume.promise;
+    }, (ids) => selected.resolve(ids)), { id: tutorUserId, tutorId }, "tutor", now);
+    const drained = Promise.allSettled([reader]);
+    try {
+      await publicationReady(published.promise, reader);
+      await holder.query("BEGIN");
+      await holder.query("SELECT pg_advisory_xact_lock(hashtextextended('program:period',0))");
+      resume.resolve();
+      expect(await bounded(selected.promise, "fresh authority candidate")).toEqual([pending.id]);
+      // This direct supported write occurs after candidate discovery and cannot
+      // be answered by the earlier clean metadata or publication snapshot.
+      await db.user.update({ where: { id: tuteeUserId }, data: { tuteeMember: false } });
+      await holder.query("COMMIT");
+      await bounded(reader, "fresh source settlement");
+      expect((await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: pending.id } })).status).toBe("STALE");
+      expect(await db.sessionNotice.count({ where: { requestId: pending.id, event: "stale" } })).toBe(2);
+    } finally {
+      resume.resolve();
+      await holder.query("ROLLBACK");
+      await holder.end();
+      await drained;
+    }
+    await drainSweep();
+  }, 15_000);
+
+  it("makes blocking worker progress on dirty work and a due deadline while agenda traffic continues", async () => {
+    const future = await request(0);
+    const due = await request(1, now);
+    await db.room.create({ data: { id: "maintenance-worker-room", name: "Synthetic worker dirty source" } });
+    await db.schedulingMaintenanceState.update({ where: { id: "program" }, data: { settlementVersion: 0 } });
+    const dirty = await db.schedulingDirtyEvent.findMany({ where: { settlementPending: true }, select: { id: true } });
+    expect(dirty.length).toBeGreaterThan(0);
+    const holder = maintenanceClient();
+    await holder.connect();
+    const holderPid = (await holder.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0]!.pid;
+    await holder.query("BEGIN");
+    await holder.query("SELECT pg_advisory_xact_lock(hashtextextended('program:period',0))");
+    // The real delivery worker calls this exported blocking entry point. Queue
+    // it before sustaining agenda traffic; try-lock readers cannot jump it.
+    const worker = sweepSessionPlanning(db, now);
+    const drainedWorker = Promise.allSettled([worker]);
+    let traffic: Promise<void> | undefined;
+    let drainedTraffic: Promise<PromiseSettledResult<void>[]> | undefined;
+    try {
+      await vi.waitFor(async () => {
+        const [row] = await db.$queryRaw<{ blocked: boolean }[]>`SELECT EXISTS (
+          SELECT 1 FROM pg_stat_activity a WHERE ${holderPid}=ANY(pg_blocking_pids(a.pid))) AS blocked`;
+        expect(row?.blocked).toBe(true);
+      }, { timeout: 3000, interval: 25 });
+      traffic = (async () => {
+        for (let visit = 0; visit < 8; visit++)
+          await readSessionAgenda(db, { id: tutorUserId, tutorId }, "tutor", now);
+      })();
+      drainedTraffic = Promise.allSettled([traffic]);
+      await holder.query("COMMIT");
+      expect(await bounded(worker, "blocking worker deadline progress")).toBe(2);
+      await bounded(traffic, "sustained agenda traffic");
+      expect((await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: due.id } })).status).toBe("EXPIRED");
+      expect((await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: future.id } })).status).toBe("PENDING");
+      expect(await db.sessionNotice.count({ where: { requestId: due.id, event: "expired" } })).toBe(2);
+      expect(await db.schedulingDirtyEvent.count({ where: { id: { in: dirty.map((row) => row.id) }, settlementPending: true } })).toBe(0);
+      const state = await db.schedulingMaintenanceState.findUniqueOrThrow({ where: { id: "program" } });
+      expect(state.settlementVersion).toBe(SCHEDULING_MAINTENANCE_VERSION);
+      expect(state.settlementBatchActive).toBe(false);
+    } finally {
+      await holder.query("ROLLBACK");
+      await holder.end();
+      await drainedWorker;
+      if (drainedTraffic) await drainedTraffic;
+    }
+  }, 20_000);
+
+  it("fails closed on admitted trigger-integrity failure after publication without rolling publication back", async () => {
+    const actionId = "maintenance-publication-before-prepare-failure";
+    await db.recoveryAction.create({ data: { id: actionId, kind: "INITIAL_ADMISSION", applicationId: "synthetic-prepare-failure", before: {} } });
+    await db.recoveryTrackedEntity.create({ data: { actionId, entity: "Tutor", recordId: tutorId } });
+    const later = new Date("2026-11-01T04:00:00Z");
+    const journal = () => db.recoveryChange.findMany({ where: { actionId }, orderBy: { id: "asc" } });
+    let committedPlans: string[] | undefined;
+    let committedJournal: Awaited<ReturnType<typeof journal>> | undefined;
+    let committedFence: number | undefined;
+    const database = agendaAfterPublication(async () => {
+      committedPlans = (await db.sessionPlan.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((plan) => plan.id);
+      committedJournal = await journal();
+      committedFence = (await db.recoveryFence.findUniqueOrThrow({ where: { actionId } })).revision;
+      await db.$executeRawUnsafe('ALTER TABLE "Pairing" DISABLE TRIGGER scheduling_source_dirty');
+    });
+    try {
+      await expect(readSessionAgenda(database, { id: tutorUserId, tutorId }, "tutor", later)).rejects.toThrow("source triggers");
+      expect(committedPlans).toBeDefined();
+      expect(await db.sessionPlan.count({ where: { originalDate: "2026-11-09" } })).toBe(1);
+      expect((await db.sessionPlan.findMany({ select: { id: true }, orderBy: { id: "asc" } })).map((plan) => plan.id)).toEqual(committedPlans);
+      expect(committedFence).toBeGreaterThan(0);
+      expect(await journal()).toEqual(committedJournal);
+      expect((await db.recoveryFence.findUniqueOrThrow({ where: { actionId } })).revision).toBe(committedFence);
+    } finally {
+      await db.$executeRawUnsafe('ALTER TABLE "Pairing" ENABLE TRIGGER scheduling_source_dirty');
+    }
+    await drainSweep(later);
+  }, 15_000);
+});
 
 describe("durable publication maintenance", () => {
   it("converges, rebuilds missing/obsolete empty metadata, and advances Sunday/Monday windows", async () => {
@@ -529,6 +786,7 @@ describe("durable publication maintenance", () => {
     const writer = new Client({ connectionString: utcDatabaseUrl(process.env.DATABASE_URL!), connectionTimeoutMillis: 3000, query_timeout: 5000, statement_timeout: 4000 });
     await writer.connect();
     const ready = deferred<number>();
+    const readerArmed = deferred<void>();
     let reading: Promise<unknown> | undefined;
     let readDrain: Promise<unknown> | undefined;
     let resetDrain: Promise<unknown> | undefined;
@@ -547,7 +805,10 @@ describe("durable publication maintenance", () => {
         await lockEntity(tx, "program:period");
         await lockSessionPlanning(tx);
         const [own] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
-        if (attempts === 1) ready.resolve(own!.pid);
+        if (attempts === 1) {
+          ready.resolve(own!.pid);
+          await readerArmed.promise;
+        }
         const observed = await readSchedulingMaintenance(tx, window);
         await acknowledgeSchedulingPublication(tx, {
           ...window, eventIds: observed.eventIds, stateRevision: observed.stateRevision,
@@ -563,18 +824,33 @@ describe("durable publication maintenance", () => {
         }),
       ]);
       clearTimeout(readinessTimer);
-      await vi.waitFor(async () => {
-        const blocked = await writer.query<{ blocked: boolean }>(
-          "SELECT $1::int=ANY(pg_blocking_pids($2::int)) AS blocked", [backend.rows[0]!.pid, pid],
-        );
-        expect(blocked.rows[0]?.blocked).toBe(true);
-      }, { timeout: 3000, interval: 25 });
+      const writerPid = backend.rows[0]!.pid;
+      expect(Number.isSafeInteger(pid) && Number.isSafeInteger(writerPid)).toBe(true);
       const resetting = (async () => {
-        await writer.query('TRUNCATE public."SchedulingMaintenanceState"');
+        // Start the server-side observer BEFORE the reader's lock wait (and
+        // deadlock timer). Once it sees the actual edge it creates the reverse
+        // edge in the same statement, without a client polling/round-trip gap.
+        await writer.query(`DO $maintenance_reset$
+          DECLARE waiting boolean := false;
+          BEGIN
+            FOR attempt IN 1..2500 LOOP
+              IF ${writerPid}=ANY(pg_blocking_pids(${pid})) THEN waiting := true; EXIT; END IF;
+              PERFORM pg_sleep(0.001);
+            END LOOP;
+            IF NOT waiting THEN RAISE EXCEPTION 'Metadata reader did not reach its lock barrier'; END IF;
+            TRUNCATE public."SchedulingMaintenanceState";
+          END $maintenance_reset$`);
         await writer.query("COMMIT");
         open = false;
       })();
       resetDrain = Promise.allSettled([resetting]);
+      await vi.waitFor(async () => {
+        const [row] = await db.$queryRaw<{ active: boolean }[]>`
+          SELECT state='active' AND query LIKE 'DO $maintenance_reset$%' AS active
+          FROM pg_stat_activity WHERE pid=${writerPid}`;
+        expect(row?.active).toBe(true);
+      }, { timeout: 3000, interval: 10 });
+      readerArmed.resolve();
       await resetting;
       await reading;
       expect(attempts).toBe(2);
@@ -584,6 +860,7 @@ describe("durable publication maintenance", () => {
       expect((await planningTransaction((tx) => readSchedulingMaintenance(tx, window))).current).toBe(false);
       await cleanPublication();
     } finally {
+      readerArmed.resolve();
       clearTimeout(readinessTimer);
       await resetDrain;
       if (open) await writer.query("ROLLBACK");

@@ -1,0 +1,188 @@
+name: Supplementary scheduling concurrency
+on:
+  push:
+    branches: ['codex/scheduling-522-concurrent-measurement']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: scheduling-supplement-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      clock: ${{ steps.plan.outputs.clock }}
+      anchor: ${{ steps.plan.outputs.anchor }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: plan
+        name: Fix case population, clock and immutable application controls
+        shell: bash
+        run: |
+          node --input-type=module -e 'import {supplementClock} from "./scripts/scheduling-concurrency/manifest.mjs"; console.log(JSON.stringify(supplementClock()))' > supplement-clock.json
+          clock=$(jq -er .status supplement-clock.json)
+          echo "clock=$clock" >> "$GITHUB_OUTPUT"
+          matrix=$(node --input-type=module -e '
+            const cases=["cold","sunday","proposal-split","acceptance","deadline","two-readers"];
+            const parts=[{mode:"diagnostic",index:0},...Array.from({length:5},(_,index)=>({mode:"latency",index}))];
+            console.log(JSON.stringify({include:parts.flatMap(p=>cases.map(scenario=>({...p,scenario})))}))')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          if [[ "$clock" == ADMITTED ]]; then
+            anchor=$(jq -er .anchor supplement-clock.json)
+            echo "anchor=$anchor" >> "$GITHUB_OUTPUT"
+          else
+            next=$(jq -er .nextEligibleAt supplement-clock.json)
+            echo "DEFERRED. No measurements. Check capacity and rerun this same run after $next." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supplementary-clock-${{ github.run_attempt }}
+          path: supplement-clock.json
+      - name: Verify supplementary helpers on the measurement runtime
+        if: steps.plan.outputs.clock == 'ADMITTED'
+        run: |
+          docker run --rm --cpus=2 --memory=4g -v "$PWD:/work" -w /work node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 sh -eu -c 'npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-concurrency/*.test.ts'
+
+  measure:
+    needs: plan
+    if: needs.plan.outputs.clock == 'ADMITTED'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    strategy:
+      # Preserve the frozen five workloads even if an isolated repair trial fails.
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shbs_performance_test
+        ports: ['55439:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shbs_performance_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      BASELINE_SHA: ${{ matrix.scenario == 'two-readers' && '7a3c4d0e655bb4dbf0bbc08df77ecbfd88a92347' || '223a1b213a7a5167187b057d08a349d30f0087ad' }}
+      CANDIDATE_SHA: ${{ github.sha }}
+      PROFILE_ANCHOR: ${{ needs.plan.outputs.anchor }}
+      PROFILE_SCENARIO: ${{ matrix.scenario }}
+      PROFILE_MODE: ${{ matrix.mode }}
+      PROFILE_PARTITION_INDEX: ${{ matrix.index }}
+      PROFILE_PARTITION_RUNNER_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.scenario }}-${{ matrix.mode }}-${{ matrix.index }}
+      PROFILE_NODE_IMAGE: fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+    steps:
+      - run: echo "PROFILE_DEADLINE=$(( $(date +%s) + 420 ))" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: head
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          path: base
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        if: matrix.scenario != 'two-readers'
+        with:
+          ref: 7a3c4d0e655bb4dbf0bbc08df77ecbfd88a92347
+          path: frozen
+          persist-credentials: false
+      - name: Freeze and validate the shared schema and harness
+        shell: bash
+        run: |
+          mkdir -p evidence npm-cache base/scripts/scheduling-profile
+          args=()
+          if [[ "$PROFILE_SCENARIO" != two-readers ]]; then
+            test "$(cat head/.github/scheduling-profile-manifests/pr-569-baseline.txt)" = "$BASELINE_SHA"
+            args=("$PWD/head/.github/scheduling-profile-manifests/pr-569.json")
+          fi
+          node head/scripts/scheduling-profile/comparison-inputs.mjs base head evidence/comparison.json apply "${args[@]}"
+          arms=(base)
+          if [[ "$PROFILE_SCENARIO" != two-readers ]]; then
+            cmp head/prisma/schema.prisma frozen/prisma/schema.prisma
+            cmp head/package-lock.json frozen/package-lock.json
+            arms+=(frozen)
+          fi
+          for arm in "${arms[@]}"; do
+            cp -R head/scripts/scheduling-concurrency "$arm/scripts/"
+            cp head/scripts/scheduling-profile/* "$arm/scripts/scheduling-profile/"
+            cp head/scripts/profile-scheduling-requests.ts "$arm/scripts/"
+          done
+          docker pull "node@sha256:$PROFILE_NODE_IMAGE"
+          test "$(docker image inspect "node@sha256:$PROFILE_NODE_IMAGE" --format '{{index .RepoDigests 0}}')" = "node@sha256:$PROFILE_NODE_IMAGE"
+      - name: Run each application revision serially on the same host
+        shell: bash
+        run: |
+          set -o pipefail
+          arms=(base)
+          if [[ "$PROFILE_SCENARIO" != two-readers ]]; then arms+=(frozen); fi
+          arms+=(head)
+          for arm in "${arms[@]}"; do
+            case "$arm" in
+              base) sha="$BASELINE_SHA" ;;
+              frozen) sha=7a3c4d0e655bb4dbf0bbc08df77ecbfd88a92347 ;;
+              head) sha="$CANDIDATE_SHA" ;;
+            esac
+            base_report=""
+            if [[ "$arm" != base ]]; then base_report="/evidence/base-$PROFILE_MODE.json"; fi
+            docker run --rm --cpus=2 --memory=4g --network=host -w /work \
+              -v "$PWD/$arm:/work" -v "$PWD/evidence:/evidence" -v "$PWD/npm-cache:/root/.npm" \
+              -e TZ=UTC -e PROFILE_BASE_REPORT="$base_report" -e SUPPLEMENT_OWNED_DB=disposable-synthetic-only -e PROFILE_ANCHOR -e PROFILE_NODE_IMAGE \
+              -e PROFILE_SCENARIO -e PROFILE_MODE -e PROFILE_PARTITION_INDEX -e PROFILE_PARTITION_RUNNER_ID \
+              -e RUNNER_NAME -e RUNNER_ARCH -e RUNNER_OS -e PROFILE_DEADLINE -e PROFILE_APP_SHA="$sha" \
+              -e PROFILE_COMPARISON=/evidence/comparison.json -e PROFILE_OUTPUT="/evidence/$arm-$PROFILE_MODE.json" \
+              -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55439/shbs_performance_test \
+              -e AUTH_SECRET=synthetic-concurrency-profile-only -e NEXT_TELEMETRY_DISABLED=1 \
+              -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
+              "node@sha256:$PROFILE_NODE_IMAGE" sh -eu scripts/scheduling-concurrency/run-worker.sh 2>&1 | tee "evidence/$arm.log"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: supplementary-${{ matrix.scenario }}-${{ matrix.mode }}-${{ matrix.index }}-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: error
+
+  aggregate:
+    if: always() && needs.plan.outputs.clock == 'ADMITTED'
+    needs: [plan, measure]
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: supplementary-*-*-[0-4]-${{ github.run_attempt }}
+          path: parts
+      - env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          MEASURE_STATUS: ${{ needs.measure.result }}
+        run: |
+          node --max-old-space-size=4096 scripts/scheduling-concurrency/concurrent-aggregate.mjs --input parts --baseline 223a1b213a7a5167187b057d08a349d30f0087ad --regression-baseline 7a3c4d0e655bb4dbf0bbc08df77ecbfd88a92347 --candidate "$CANDIDATE_SHA" --output supplemental-results.json --frozen-candidate 7a3c4d0e655bb4dbf0bbc08df77ecbfd88a92347 --frozen-output frozen-results.json
+          test "$MEASURE_STATUS" = success
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: supplementary-aggregate-${{ github.run_attempt }}
+          path: |
+            supplemental-results.json
+            frozen-results.json
+          if-no-files-found: warn

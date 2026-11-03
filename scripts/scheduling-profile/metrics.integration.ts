@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { assertIsolatedTestDatabase } from "../../src/test/database-guard";
 import { createProfiler, queryShape } from "./metrics";
 
@@ -75,5 +75,62 @@ void test("real pg max:1 queued pool queries retain the acquiring request contex
     await Promise.allSettled(waiter ? [owner, waiter] : [owner]);
     profiler.close();
     await pool.end();
+  }
+});
+
+void test("real planning try-lock denial and Prisma-compatible array-mode grant have separate attempt and hold evidence", { timeout: 15_000 }, async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
+  const target = new URL(process.env.DATABASE_URL!);
+  assert.equal(target.hostname, "127.0.0.1");
+  assert.equal(target.port, "55439");
+  assert.equal(target.pathname, "/shbs_performance_test");
+  assert.equal(target.search, ""); assert.equal(target.hash, "");
+  const pool = new Pool({ connectionString: target.toString(), max: 2, connectionTimeoutMillis: 2_000,
+    options: "-c statement_timeout=5000 -c lock_timeout=3000" });
+  const profiler = createProfiler("diagnostic"); profiler.attachPool(pool);
+  const clients: PoolClient[] = [];
+  const sql = "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS locked";
+  try {
+    const holder = await pool.connect(); clients.push(holder);
+    const probe = await pool.connect(); clients.push(probe);
+    await holder.query("BEGIN");
+    await holder.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["program:period"]);
+    await profiler.measure("real-try-denied", async () => {
+      await probe.query("BEGIN");
+      const result = await probe.query<{ locked: boolean }>(sql, ["program:period"]);
+      assert.equal(result.rows[0]?.locked, false);
+      await probe.query("COMMIT");
+    });
+    await holder.query("COMMIT");
+    await profiler.measure("real-try-array-granted", async () => {
+      await probe.query("BEGIN");
+      // The installed PrismaPg adapter uses this exact rowMode with pg fields.
+      const result = await probe.query<[boolean]>({ text: sql, values: ["program:period"], rowMode: "array" });
+      assert.deepEqual(result.rows, [[true]]);
+      assert.equal(result.fields[0]?.name, "locked");
+      assert.equal(result.fields[0]?.dataTypeID, 16);
+      await probe.query("COMMIT");
+    });
+    const samples = profiler.summary().samples;
+    const denied = samples.find((sample) => sample.label === "real-try-denied")!.diagnostics!;
+    const granted = samples.find((sample) => sample.label === "real-try-array-granted")!.diagnostics!;
+    assert.deepEqual(denied.advisoryTryLock?.outcomes, ["denied"]);
+    assert.equal(denied.advisoryTryLock?.denied, 1);
+    assert.deepEqual(denied.advisoryTryLock?.lockHeldTransactionMs, []);
+    assert.deepEqual(granted.advisoryTryLock?.outcomes, ["granted"]);
+    assert.equal(granted.advisoryTryLock?.granted, 1);
+    assert.equal(granted.advisoryTryLock?.lockHeldTransactionMs.length, 1);
+    for (const d of [denied, granted]) {
+      assert.equal(d.driverQueries.count, 3);
+      assert.deepEqual(d.acquisitionStatementMs, []); assert.deepEqual(d.lockHeldTransactionMs, []);
+      assert.deepEqual(d.advisoryTryLock?.uncertainLockIntervals, []);
+      assert.equal(d.advisoryTryLock?.implicitTransactionAcquisitions, 0);
+    }
+    // Both transactions ended; no invisible successful probe may retain the key.
+    assert.equal((await holder.query<{ locked: boolean }>(sql, ["program:period"])).rows[0]?.locked, true);
+  } finally {
+    const endings = await Promise.allSettled(clients.map((client) => client.query("ROLLBACK")));
+    clients.forEach((client, index) => client.release(endings[index]?.status === "rejected"));
+    profiler.close(); await pool.end();
   }
 });

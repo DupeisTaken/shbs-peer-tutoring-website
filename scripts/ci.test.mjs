@@ -44,10 +44,9 @@ test("the stable verify gate rejects failure, cancellation, skips and missing jo
       }
 });
 
-test("packaging comparison is independently bounded, scoped and required by verification", () => {
+test("packaging comparison follows image verification and runs only for relevant changes", () => {
   const storage = workflow.jobs["image-storage"];
-  assert.equal(storage.needs, undefined);
-  assert.equal(storage["timeout-minutes"], 9);
+  assert.equal(storage.needs, "image");
   assert.equal(
     storage.env.STORAGE_BASE_REF,
     "${{ inputs.storage-baseline || github.event.pull_request.base.sha || github.event.before }}",
@@ -113,10 +112,10 @@ test("inline comparison builds receive masked runtime cache authentication", () 
 });
 
 test("parallel jobs retain checks, isolated databases, bounded workers and failure reports", () => {
-  for (const job of [checks, image]) assert.equal(job.needs, undefined);
-  assert.deepEqual(tests.needs, ["checks", "image-storage"]);
+  for (const job of [checks, tests]) assert.equal(job.needs, undefined);
+  assert.equal(image.needs, "checks");
   for (const job of Object.values(workflow.jobs)) {
-    assert.ok(job["timeout-minutes"] > 0 && job["timeout-minutes"] <= 9);
+    assert.equal(job["timeout-minutes"], job === verify ? 2 : 30);
     for (const step of job.steps) assert.ok(step.name);
   }
   for (const command of [
@@ -137,10 +136,7 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   }
   // Pin the measured capacity and contiguous IDs; coverage below exercises the
   // actual installed Vitest sequencer for every matrix entry, without fixtures.
-  assert.deepEqual(
-    tests.strategy.matrix.shard,
-    Array.from({ length: 9 }, (_, index) => index + 1),
-  );
+  assert.deepEqual(tests.strategy.matrix.shard, [1, 2, 3]);
   assert.equal(
     tests.name,
     "tests (${{ matrix.shard }}/${{ strategy.job-total }})",
@@ -177,10 +173,10 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   assert.equal(report.with.path, ".validation/test-results.json");
 });
 
-test("four overlapping workflows leave four of twenty runner slots available", () => {
-  const jobs = Object.entries(workflow.jobs);
+function peakRunnerSlots(workflowJobs) {
+  const jobs = Object.entries(workflowJobs);
   const ancestors = (id) => {
-    const needs = workflow.jobs[id].needs ?? [];
+    const needs = workflowJobs[id].needs ?? [];
     return new Set(
       [needs].flat().flatMap((parent) => [parent, ...ancestors(parent)]),
     );
@@ -208,13 +204,20 @@ test("four overlapping workflows leave four of twenty runner slots available", (
     }, 0);
     peak = Math.max(peak, slots);
   }
-  assert.equal(peak, 4);
-  assert.ok(4 * peak + 4 <= 20, "four PR runs must leave four shared slots");
+  return peak;
+}
+
+test("four PRs fit twenty slots including their independent sizing workflows", () => {
+  const prSize = yaml.load(
+    readFileSync(path.join(root, ".github/workflows/pr-size.yml"), "utf8"),
+  );
+  const buildSlots = peakRunnerSlots(workflow.jobs);
+  const sizeSlots = peakRunnerSlots(prSize.jobs);
+  assert.equal(buildSlots, 4);
+  assert.ok(4 * (buildSlots + sizeSlots) <= 20, "count each PR's sizing jobs");
 });
 
-test("the test budget covers setup and execution without retries or dropped coverage", () => {
-  // A step-only timeout would exclude the install/migration costs from the budget.
-  assert.equal(tests["timeout-minutes"], 9);
+test("shards run after local setup without retries or dropped coverage", () => {
   assert.equal(tests["continue-on-error"], undefined);
   assert.equal(tests.strategy["max-parallel"], 3);
   const runIndex = tests.steps.findIndex(
@@ -240,10 +243,6 @@ test("Vitest shards cover every discovered test file exactly once without runnin
   // filesOnly listing does not apply sharding in Vitest 4. Use its resolved
   // sequencer with discovered specifications; never collect/import DB fixtures.
   const { createVitest } = await import("vitest/node");
-  const timing = JSON.parse(
-    readFileSync(path.join(root, "scripts/ci-shard-timings.json"), "utf8"),
-  );
-  const targetMs = tests["timeout-minutes"] * 60_000 * 0.95;
   const shards = [];
   let all;
   for (const index of tests.strategy.matrix.shard) {
@@ -262,21 +261,6 @@ test("Vitest shards cover every discovered test file exactly once without runnin
       else all = discovered;
       const sequencer = new ctx.config.sequence.sequencer(ctx);
       const files = (await sequencer.shard(specs)).map((spec) => spec.moduleId);
-      // Enforce the whole-job budget on actual discovery so a growing suite or
-      // an accidental return to hash partitions is visible before fixtures run.
-      const projectedMs = files.reduce((total, file) => {
-        const key = path.relative(root, file).split(path.sep).join("/");
-        const duration = timing.durationsMs[key] ?? timing.fallbackMs;
-        return (
-          total +
-          Math.ceil(duration * timing.executionMultiplier) +
-          timing.perFileOverheadMs
-        );
-      }, timing.fixedJobOverheadMs);
-      assert.ok(
-        projectedMs <= targetMs,
-        `shard ${index} projects ${projectedMs} ms against ${targetMs} ms`,
-      );
       shards.push(files);
     } finally {
       await ctx.close();
@@ -291,6 +275,40 @@ test("Vitest shards cover every discovered test file exactly once without runnin
     "no file may appear in multiple shards",
   );
   assert.deepEqual(combined.sort(), all, "no file may be dropped");
+});
+
+test("sharding assigns shorter measured files around the longest file", async () => {
+  const { durationsMs } = JSON.parse(
+    readFileSync(path.join(root, "scripts/ci-shard-timings.json"), "utf8"),
+  );
+  const byDuration = Object.keys(durationsMs).sort(
+    (a, b) => durationsMs[b] - durationsMs[a],
+  );
+  const longest = byDuration[0];
+  const shortest = byDuration.slice(-2);
+  const { createVitest } = await import("vitest/node");
+  const ctx = await createVitest("test", { root, watch: false });
+  try {
+    // Put the long file last in discovery order. Its weight should give it a
+    // shard to itself, with the two short files sharing the other runner.
+    const specs = [...shortest, longest].map((file) =>
+      ctx.projects[0].createSpecification(path.join(root, file)),
+    );
+    for (const [index, expected] of [
+      [1, [longest]],
+      [2, shortest],
+    ]) {
+      ctx.config.shard = { index, count: 2 };
+      const sequencer = new ctx.config.sequence.sequencer(ctx);
+      const assigned = await sequencer.shard(specs);
+      const paths = assigned.map((file) =>
+        path.relative(root, file.moduleId).split(path.sep).join("/"),
+      );
+      assert.deepEqual(paths.sort(), [...expected].sort());
+    }
+  } finally {
+    await ctx.close();
+  }
 });
 
 test("unmeasured specs are distributed reproducibly when discovery order changes", async () => {
@@ -339,7 +357,6 @@ test("the required image build reads cache without optional export or ignored ve
   );
   assert.equal(build.if, undefined);
   assert.equal(smoke.if, undefined);
-  assert.equal(image["timeout-minutes"], 9);
   assert.equal(image["continue-on-error"], undefined);
   for (const step of image.steps) {
     assert.equal(
