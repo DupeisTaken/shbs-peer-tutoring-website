@@ -158,7 +158,13 @@ jobs:
           anchor="$(cat profile-head/outputs/scheduling-profile/anchor.txt)"
           node_image="$(cat profile-head/outputs/scheduling-profile/node-image.txt)"
           for revision in base head; do
-            docker run --rm --cpus=2 --memory=4g --network=host \
+            # Isolated proof only. Produce an authentic dependency-install failure
+            # in an empty cache before either arm can begin measuring.
+            probe_environment=()
+            if [[ "$GITHUB_RUN_ATTEMPT" == 1 && "$PROFILE_SCENARIO" == contention-bulk-first && "$revision" == base ]]; then
+              probe_environment=(-e npm_config_offline=true -e npm_config_cache=/tmp/empty-reference-proof-cache)
+            fi
+            docker run "${probe_environment[@]}" --rm --cpus=2 --memory=4g --network=host \
               -v "$PWD/profile-$revision:/work" \
               -v "$PWD/profile-head/outputs/scheduling-profile:/evidence" \
               -v "$PWD/profile-head:/overlay:ro" \
