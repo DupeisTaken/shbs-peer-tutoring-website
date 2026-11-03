@@ -2,11 +2,11 @@
 # Only the dedicated hosted job invokes this inside its disposable Node container.
 set -eu
 case "${PROFILE_REVISION:-}" in base|head) ;; *) exit 2 ;; esac
-case "${PROFILE_SCENARIO:-}" in cold|warm|sunday|negotiation|allocation|catalog|contention|backlog) ;; *) exit 2 ;; esac
+case "${PROFILE_SCENARIO:-}" in cold|warm|sunday|negotiation|allocation|catalog|contention|contention-bulk-first|contention-acceptance-first|backlog) ;; *) exit 2 ;; esac
 case "${PROFILE_MODE:-}" in latency|diagnostic) ;; *) exit 2 ;; esac
 case "${PROFILE_PARTITION_INDEX:-}" in ''|*[!0-9]*) exit 2 ;; esac
 case "${PROFILE_PARTITION_COUNT:-}" in ''|*[!0-9]*) exit 2 ;; esac
-if [ "$PROFILE_SCENARIO" = backlog ] && [ "$PROFILE_MODE" != diagnostic ]; then exit 2; fi
+case "$PROFILE_SCENARIO" in backlog|contention-bulk-first|contention-acceptance-first) test "$PROFILE_MODE" = diagnostic ;; esac
 test -d /evidence
 case "${PROFILE_DEADLINE:-}" in ''|*[!0-9]*) exit 2 ;; esac
 trap 'status=$?; if [ "$status" -ne 0 ]; then printf "{\"status\":\"FAIL\",\"exitCode\":%s,\"reason\":\"Owned CI command failed; inspect the retained command log.\"}\n" "$status" > "/evidence/$PROFILE_REVISION-command-exit.json"; fi' EXIT
@@ -58,6 +58,10 @@ if [ "$PROFILE_REVISION" = base ]; then
 fi
 bounded 30 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 bounded 30 node --import tsx --test scripts/scheduling-profile/metrics.integration.ts
+case "$PROFILE_SCENARIO" in
+  contention-bulk-first|contention-acceptance-first)
+    bounded 30 node --import tsx --test scripts/scheduling-profile/controlled-contention.integration.ts ;;
+esac
 
 measurement_budget=$(profile_budget_ms 150) || exit 124
 set -- --scenario "$PROFILE_SCENARIO" --samples "$PROFILE_SAMPLES" \
@@ -65,6 +69,9 @@ set -- --scenario "$PROFILE_SCENARIO" --samples "$PROFILE_SAMPLES" \
   --timeout-ms "$measurement_budget" --output "/evidence/$PROFILE_REVISION-$PROFILE_MODE.json"
 if [ "$PROFILE_MODE" = latency ]; then
   set -- "$@" --partition-index "$PROFILE_PARTITION_INDEX" --partition-count "$PROFILE_PARTITION_COUNT"
+fi
+if [ "$PROFILE_SCENARIO" = contention ]; then
+  set -- "$@" --contention-references /overlay/outputs/contention-references
 fi
 if [ "$PROFILE_REVISION" = head ]; then
   set -- "$@" --compare "/evidence/base-$PROFILE_MODE.json"

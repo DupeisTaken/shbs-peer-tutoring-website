@@ -22,6 +22,7 @@ export function selectComparison(root, options) {
   let baseline = defaultBaseline;
   let selectedPath = null;
   let selectedHash = null;
+  let catalogPath = null;
   let source = "default-baseline";
   let manifest = options.manualManifest || null;
   const prNumber = options.prNumber ?? "";
@@ -33,13 +34,17 @@ export function selectComparison(root, options) {
   if (prNumber && !options.manualBaseline && !options.manualManifest) {
     const scopedBaseline = `.github/scheduling-profile-manifests/pr-${prNumber}-baseline.txt`;
     const scopedManifest = `.github/scheduling-profile-manifests/pr-${prNumber}.json`;
+    const scopedCatalog = `.github/scheduling-profile-manifests/pr-${prNumber}-catalog-baseline.txt`;
     const hasBaseline = existsSync(resolve(root, scopedBaseline));
     const hasManifest = existsSync(resolve(root, scopedManifest));
+    const hasCatalog = existsSync(resolve(root, scopedCatalog));
     assert.equal(hasBaseline, hasManifest, "PR-scoped baseline and reviewed manifest must both exist");
+    assert.ok(!hasCatalog || hasBaseline && hasManifest, "PR-scoped catalog baseline requires its ordinary baseline and reviewed manifest pair");
     if (hasBaseline) {
       selectedPath = scopedBaseline;
       manifest = scopedManifest;
       source = "reviewed-pr-baseline-file";
+      if (hasCatalog) catalogPath = scopedCatalog;
     }
   }
   if (manifest) assert.match(manifest, manifestPattern, "Reviewed manifest path is outside the fixed directory");
@@ -62,8 +67,22 @@ export function selectComparison(root, options) {
   }
   if (selectedPath || baseline !== defaultBaseline)
     assert.ok(manifest, "Overriding the default baseline requires an exact reviewed schema manifest");
+  let catalogBaseline = baseline;
+  let catalogHash = selectedHash;
+  let catalogSource = source;
+  if (catalogPath) {
+    assert.ok(lstatSync(resolve(root, catalogPath)).isFile(), "Reviewed catalog baseline must be a regular file");
+    const bytes = readFileSync(resolve(root, catalogPath));
+    const contents = bytes.toString("utf8");
+    assert.ok(bytes.length === 41 && /^[0-9a-f]{40}\n$/.test(contents), "Reviewed catalog baseline requires exactly one immutable SHA followed by LF");
+    catalogBaseline = immutable(contents.slice(0, -1));
+    catalogHash = createHash("sha256").update(bytes).digest("hex");
+    catalogSource = "reviewed-pr-catalog-baseline-file";
+  }
   return { baseline, manifest, baselineSelectionSource: source,
-    baselineSelectionPath: selectedPath, baselineSelectionFileSha256: selectedHash };
+    baselineSelectionPath: selectedPath, baselineSelectionFileSha256: selectedHash,
+    catalogBaseline, catalogBaselineSelectionPath: catalogPath ?? selectedPath,
+    catalogBaselineSelectionFileSha256: catalogHash, catalogBaselineSelectionSource: catalogSource };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

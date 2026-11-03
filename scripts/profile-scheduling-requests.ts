@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import { dirname, resolve } from "node:path";
@@ -22,6 +22,8 @@ import { createProfiler, type ProfileMode } from "./scheduling-profile/metrics";
 import { addLateRootWitness, assertRecoveryWitnesses, fixtureId, resetFixture, seedFixture } from "./scheduling-profile/fixtures";
 import { runScenario, scenarioNames, type ReceiptInput, type ScenarioName } from "./scheduling-profile/scenarios";
 import { boundedParityDifference, captureParity, compareParity, type ParityOptions, type ParitySnapshot } from "./scheduling-profile/parity";
+import { createContentionFenceWitness, captureContentionFenceEvidence } from "./scheduling-profile/contention-fence-witness";
+import { loadContentionReferences, assertContentionReferenceCompatibility, validateContentionReceipt, validateFreeContentionReceipt } from "./scheduling-profile/contention-references.mjs";
 import type { HttpHarness } from "./scheduling-profile/http";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -30,7 +32,7 @@ const flags = new Map<string, string>();
 for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index]!;
   const value = process.argv[index + 1];
-  assert.ok(["--scenario", "--mode", "--transport", "--timeout-ms", "--anchor", "--samples", "--partition-index", "--partition-count", "--output", "--compare"].includes(key), `Unknown option ${key}`);
+  assert.ok(["--scenario", "--mode", "--transport", "--timeout-ms", "--anchor", "--samples", "--partition-index", "--partition-count", "--output", "--compare", "--contention-references"].includes(key), `Unknown option ${key}`);
   assert.ok(value && !value.startsWith("--") && !flags.has(key), `Missing/repeated option ${key}`);
   flags.set(key, value);
 }
@@ -50,7 +52,16 @@ assert.ok(requested === "all" || scenarioNames.includes(requested as ScenarioNam
 if (transport === "domain") assert.ok(requested === "cold" || requested === "sunday" || requested === "backlog", "Domain-only transport supports cold/Sunday agendas and explicit backlog diagnostics.");
 // The diagnostic-only stress case is an explicit separate command, preserving
 // the existing ordinary all-scenarios workload and its latency sample contract.
-const scenarios = requested === "all" ? scenarioNames.filter((name) => name !== "backlog") : [requested as ScenarioName];
+const isControlled = (name: string) => name === "contention-bulk-first" || name === "contention-acceptance-first";
+if (isControlled(requested)) {
+  assert.equal(mode, "diagnostic", "Controlled interleavings are separately timed diagnostics.");
+  assert.equal(transport, "http", "Controlled interleavings require real HTTP requests.");
+}
+const scenarios = requested === "all"
+  ? scenarioNames.filter((name) => name !== "backlog" && !isControlled(name))
+  : [requested as ScenarioName];
+assert.equal(flags.has("--contention-references"), scenarios.includes("contention"),
+  "Free-running contention requires the two frozen reference artifact pairs.");
 if (requested === "backlog") assert.equal(mode, "diagnostic", "Backlog is diagnostic-only; it cannot establish latency percentiles.");
 const anchor = new Date(flags.get("--anchor")!);
 assert.ok(Number.isFinite(anchor.getTime()), "Invalid anchor.");
@@ -87,7 +98,7 @@ for (const name of Object.keys(process.env)) if (/^(?:SMTP_|EMAIL_FROM(?:_|$)|EM
 
 const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
 const hash = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
-const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs"];
+const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-fence-witness.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs"];
 const harnessHashes = Object.fromEntries(harnessPaths.map((path) => [path, hash(readFileSync(resolve(root, path)))]));
 const sourcePaths = git("ls-files", "src", "prisma", "package.json", "package-lock.json", "Dockerfile").trim().split(/\r?\n/).filter(Boolean);
 const sourceHashes = Object.fromEntries(sourcePaths.map((path) => [path, hash(readFileSync(resolve(root, path)))]));
@@ -96,7 +107,8 @@ const migrations = readdirSync(resolve(root, "prisma/migrations"), { withFileTyp
   const lf = bytes.toString("utf8").replaceAll("\r\n", "\n");
   return { name: entry.name, sha256: hash(bytes), lfSha256: hash(lf), crlfSha256: hash(lf.replaceAll("\n", "\r\n")) };
 }).sort((a, b) => a.name.localeCompare(b.name));
-type ScenarioReceipt = { scenario: ScenarioName; round: number; digest: string; parity?: ParitySnapshot; output: unknown; receiptInputs: ReceiptInput[]; pairingCreations: NonNullable<ParityOptions["pairingCreations"]>; operationWindows: NonNullable<ParityOptions["operationWindows"]>; parityWindow: NonNullable<ParityOptions["operationWindows"]> };
+type FenceEvidence = Awaited<ReturnType<typeof captureContentionFenceEvidence>>;
+type ScenarioReceipt = { contentionOrder?: "bulk-before-acceptance" | "acceptance-before-bulk"; contentionHistoryOrder?: "bulk-before-acceptance" | "acceptance-before-bulk"; contentionFenceEvidence?: FenceEvidence; scenario: ScenarioName; round: number; digest: string; parity?: ParitySnapshot; output: unknown; receiptInputs: ReceiptInput[]; pairingCreations: NonNullable<ParityOptions["pairingCreations"]>; operationWindows: NonNullable<ParityOptions["operationWindows"]>; parityWindow: NonNullable<ParityOptions["operationWindows"]> };
 function assertOwnReceiptRange(receipts: ScenarioReceipt[]) {
   const expected = scenarios.flatMap((scenario) => Array.from({ length: rangeEnd - rangeStart }, (_, offset) => `${scenario}:${rangeStart + offset}`)).sort();
   const actual = receipts.map((receipt) => `${receipt.scenario}:${receipt.round}`).sort();
@@ -115,6 +127,7 @@ type Report = {
 };
 const report: Report = {
   schemaVersion: 3, partitionProtocolVersion: 1, partition, profileRunner,
+  ...(isControlled(requested) || scenarios.includes("contention") ? { contentionProtocolVersion: 1 } : {}),
   samplingComplete: false, partitionComplete: false, latencyComparisonEligible: false,
   status: "RUNNING", mode, transport, timeoutMs, startedAt: new Date().toISOString(),
   revision: git("rev-parse", "HEAD").trim(), workingTree: git("status", "--short"), trackedDiffSha256: hash(git("diff", "--binary", "HEAD")),
@@ -134,6 +147,7 @@ const report: Report = {
     diagnostic: "Separate run only. Driver query and lock-statement elapsed includes client/transport overhead. Acquisition-to-commit interval is a transaction-held interval. No exact PostgreSQL wait accounting is claimed.",
     witness: "Populated continuation is persisted synthetic pre-existing enrollment. Late-root sequential Prisma witness runs outside timing, never the rejected combined-write SQL.",
     cleanWarm: "Ordinary/Sunday steady-clean labels require four fixed common empty-request agenda preparations, unchanged complete domain/audit/recovery snapshots, and passively verified current candidate metadata before/after timing. Setup outputs remain in semantic parity; setup elapsed and readiness counts are separate evidence. Uncertified preparation fails the run without an adaptive drain or timeout extension. Post-proposal and second-read labels do not claim steady state.",
+    contention: "The two controlled diagnostics include deliberate wait and observation overhead. Free-running operation timing includes a narrow witness on the real period-lock statement. Actual acquisition order comes from successful statement completion inside the transaction. Audit chronology uses the persisted creation timestamp and row ID. Every observed full graph is compared with the two verified references.",
     backlog: "Explicit diagnostic-only command, 1–3 rounds without warmup, excluded from ordinary all. 205 retained split negotiations exercise original 200-row ordered selection and rotation; 60 scoped notice failures exercise more than 50 retries, then recover. 1200 real room name A→B→A updates exercise bounded invalidation acknowledgement. Actual ordered updatedAt writes and fixed-clock/persistence-clock relations are witnessed before normalization; raw rows/windows remain in separate evidence. No request latency percentiles or production-load claims. Native old-schema control remains cold-only; backlog requires the disclosed shared metadata schema.",
     absent: [...(transport === "http" ? [] : ["Actual HTTP timings"]), "Authentication exchange", "Next ingress/proxy", "SMTP/network delivery", "Production host evidence"],
   },
@@ -236,17 +250,27 @@ const { utcDatabaseUrl } = await import("../src/server/database-url");
 const schedulingPgOptions = existsSync(resolve(root, "src/server/database-options.ts"))
   ? (await import("../src/server/database-options")).schedulingPgOptions
   : undefined;
-const pool = new Pool({ connectionString: utcDatabaseUrl(target.toString()), max: 6, idleTimeoutMillis: 0, connectionTimeoutMillis: 5000 });
+const requestApp = `shbs-profile-${randomUUID()}`;
+const pool = new Pool({ ...(isControlled(requested) ? { application_name: requestApp } : {}), connectionString: utcDatabaseUrl(target.toString()), max: 6, idleTimeoutMillis: 0, connectionTimeoutMillis: 5000 });
 if (mode === "diagnostic") profiler.attachPool(pool);
 // External Pool disposal remains ours (adapter-pg defaults disposeExternalPool
 // to false). Latency mode does not enable Prisma's diagnostic query event path.
-const client = new PrismaClient({ adapter: new PrismaPg(pool, { ...schedulingPgOptions, disposeExternalPool: false }), log: mode === "diagnostic" ? [{ level: "query", emit: "event" }, { level: "warn", emit: "stdout" }] : [{ level: "warn", emit: "stdout" }, { level: "error", emit: "stdout" }] });
-if (mode === "diagnostic") client.$on("query", (event) => profiler.observeQuery(event));
+const baseClient = new PrismaClient({ adapter: new PrismaPg(pool, { ...schedulingPgOptions, disposeExternalPool: false }), log: mode === "diagnostic" ? [{ level: "query", emit: "event" }, { level: "warn", emit: "stdout" }] : [{ level: "warn", emit: "stdout" }, { level: "error", emit: "stdout" }] });
+if (mode === "diagnostic") baseClient.$on("query", (event) => profiler.observeQuery(event));
+let roundWitness: ReturnType<typeof createContentionFenceWitness> | undefined;
+// The extension observes successful resolution of the real transaction-lock
+// statement. The resolver must receive it before it can continue to commit.
+const client = (scenarios.some((scenario) => scenario === "contention" || isControlled(scenario))
+  ? baseClient.$extends({ query: { $executeRaw({ args, query }) {
+    return roundWitness ? roundWitness.observeExecuteRaw(args, () => query(args)) : query(args);
+  } } }) : baseClient) as typeof baseClient;
 (globalThis as typeof globalThis & { prisma?: typeof client }).prisma = client;
 // Pool.connect has callback and promise overloads; ReturnType selects the final
 // callback overload (void), so name its actual promised client type explicitly.
 let runLock: PoolClient | undefined;
 let previous: Report | undefined;
+let contentionReferences: ReturnType<typeof loadContentionReferences> | undefined;
+let pairedHistoriesIdentical = true;
 let http: HttpHarness | undefined;
 
 try {
@@ -265,6 +289,30 @@ try {
   assert.equal(applied.filter((row) => row.finished_at && !row.rolled_back_at).length, migrations.length);
   assert.ok(applied.every((row) => row.finished_at !== null || row.rolled_back_at !== null), "Unfinished migration requires operator review.");
   report.migrations = applied.filter((row) => row.finished_at && !row.rolled_back_at).map((row) => ({ name: row.migration_name, checksum: row.checksum }));
+  const referenceDirectory = flags.get("--contention-references");
+  if (referenceDirectory || isControlled(requested)) {
+    const artifactDir = dirname(destination);
+    const nodeImage = readFileSync(resolve(artifactDir, "node-image.txt"), "utf8").trim().replace(/^sha256:/, "");
+    const comparison: unknown = JSON.parse(readFileSync(resolve(artifactDir, "comparison-inputs.json"), "utf8"));
+    report.contentionInputs = { nodeImage, comparison };
+  }
+  if (referenceDirectory) {
+    const paths = (order: string) => ({
+      baselinePath: resolve(referenceDirectory, order, "base-diagnostic.json"),
+      candidatePath: resolve(referenceDirectory, order, "head-diagnostic.json"),
+      nodeImagePath: resolve(referenceDirectory, order, "node-image.txt"),
+      comparisonPath: resolve(referenceDirectory, order, "comparison-inputs.json"),
+    });
+    contentionReferences = loadContentionReferences({
+      "bulk-before-acceptance": paths("bulk-before-acceptance"),
+      "acceptance-before-bulk": paths("acceptance-before-bulk"),
+    }, { expectedBaseline: process.env.BASELINE_SHA ?? "", expectedCandidate: process.env.CANDIDATE_SHA ?? "" });
+    assertContentionReferenceCompatibility(report, contentionReferences);
+    report.contentionReferenceDigests = {
+      "bulk-before-acceptance": contentionReferences.byOrder["bulk-before-acceptance"].digest,
+      "acceptance-before-bulk": contentionReferences.byOrder["acceptance-before-bulk"].digest,
+    };
+  }
   if (flags.has("--compare")) {
     // Diagnostic receipts may compare semantics against diagnostic receipts;
     // their instrumented elapsed times never establish a latency improvement.
@@ -283,7 +331,10 @@ try {
   report.maintenanceCapability = maintenance;
   if (transport === "http") {
     const { startHttpHarness } = await import("./scheduling-profile/http");
-    http = await startHttpHarness({ db: client, bindCurrentContext: <Args extends unknown[], Result>(operation: (...args: Args) => Result) => profiler.bindCurrentContext(operation) });
+    http = await startHttpHarness({ db: client, bindCurrentContext: <Args extends unknown[], Result>(operation: (...args: Args) => Result) => {
+      const bound = profiler.bindCurrentContext(operation);
+      return roundWitness ? roundWitness.bindCurrentContext(bound) : bound;
+    } });
     report.httpUnauthorized = await http.verifyUnauthorized();
   }
   for (const scenario of scenarios) {
@@ -291,6 +342,7 @@ try {
     const rounds = scenario === "backlog" ? measuredRounds : [-1, ...measuredRounds];
     for (const round of rounds) {
       phaseContext = { scenario, round };
+      roundWitness = scenario === "contention" || isControlled(scenario) ? createContentionFenceWitness() : undefined;
       await timedPhase("reset", () => resetFixture(client));
       const fixture = await timedPhase("seed", () => seedFixture(client, anchor));
       const receiptInputs: ReceiptInput[] = [];
@@ -303,6 +355,7 @@ try {
         return http ? http.caller(userId, session) : createCaller({ db: client, headers: new Headers(), session });
       };
       const measure = async <T>(label: string, operation: () => Promise<T>) => {
+        const role = label === "procedure:contended-bulk" ? "bulk" : label === "procedure:contended-acceptance" ? "acceptance" : null;
         if (label.startsWith("procedure:")) label = `${transport}:${label.slice("procedure:".length)}`;
         const count = occurrence.get(label) ?? 0;
         occurrence.set(label, count + 1);
@@ -311,9 +364,11 @@ try {
         const timer = setTimeout(() => timeout(`35-second operation watchdog (${label}); no later fixture was started.`), 35_000);
         timer.unref();
         try {
-          if (round < 0 || label.startsWith("setup:")) return await operation();
+          const witness = roundWitness;
+          const instrumented = role && witness ? () => witness.run(role, operation) : operation;
+          if (round < 0 || label.startsWith("setup:")) return await instrumented();
           sampleRounds.push({ sampleIndex: sampleRounds.length, scenario, round, label });
-          return await profiler.measure(label, operation);
+          return await profiler.measure(label, instrumented);
         }
         finally {
           clearTimeout(timer);
@@ -327,21 +382,42 @@ try {
         preparationEvidence.push({ scenario, round, stage, evidence });
         save();
       };
-      const output = await runScenario(scenario, { db: client, fixture, caller, measure, receiptInputs, pairingCreations, transport, maintenance, captureDomain, recordPreparationEvidence });
+      let output: Awaited<ReturnType<typeof runScenario>>;
+      try {
+        output = await runScenario(scenario, { db: client, fixture, caller, measure, receiptInputs, pairingCreations, transport, maintenance, captureDomain, recordPreparationEvidence,
+        ...(isControlled(scenario) ? { controlledConnection: { connectionString: target.toString(), applicationName: requestApp } } : {}) });
+      } catch (failure) {
+        if (roundWitness) recordPreparationEvidence("contention-fence-failure", roundWitness.snapshot());
+        throw failure;
+      }
+      let fenceEvidence: FenceEvidence | undefined;
+      let fenceFailure: { cause: unknown } | undefined;
+      if (roundWitness) {
+        const snapshot = roundWitness.snapshot();
+        try { fenceEvidence = await captureContentionFenceEvidence(client, snapshot); }
+        catch (failure) {
+          recordPreparationEvidence("contention-fence-failure", { snapshot, error: sanitizedFailure(failure) });
+          fenceFailure = { cause: failure };
+        }
+      }
+      if (fenceEvidence) recordPreparationEvidence("contention-fence", fenceEvidence);
       await timedPhase("recovery-witness-assertions", () => assertRecoveryWitnesses(client, fixture));
       await timedPhase("late-root-witness", () => addLateRootWitness(client, fixture));
       // Use a stable explicitly bounded scenario phase rather than merging by
       // millisecond adjacency (which can vary between runs). Raw handler windows
       // remain inspectable. The normalizer retains event order and every fixed
       // domain-boundary relation; it rejects a phase exceeding 120 seconds.
-      const parityWindow = [{ label: `scenario:${scenario}`, before: scenarioBefore, after: new Date().toISOString() }];
-      const parity = await timedPhase("capture-final-parity", () => captureParity(client, { operationWindows: parityWindow, receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")], procedureResults: [{ label: scenario, result: output }] }));
-      if (round < 0) continue;
+      // All three launch policies exercise one logical contention workload. The
+      // scenario name in the report identifies the separate measurement population.
+      const domainScenario = isControlled(scenario) ? "contention" : scenario;
+      const parityWindow = [{ label: `scenario:${domainScenario}`, before: scenarioBefore, after: new Date().toISOString() }];
+      const parity = await timedPhase("capture-final-parity", () => captureParity(client, { operationWindows: parityWindow, receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")], procedureResults: [{ label: domainScenario, result: output }] }));
+      if (round < 0 && scenario !== "contention" && !fenceFailure) continue;
       const digest = await timedPhase("parity-digest", () => hash(JSON.stringify(parity)));
       // Retain one complete canonical snapshot per scenario and each round's
       // digest/raw response receipts; never substitute counts for journal parity.
       const first = report.receipts.find((row) => row.scenario === scenario);
-      const receipt: ScenarioReceipt = { scenario, round, digest, ...(!first ? { parity } : {}), output, receiptInputs, pairingCreations, operationWindows, parityWindow };
+      const receipt: ScenarioReceipt = { scenario, round, digest, ...(fenceEvidence ? { contentionFenceEvidence: fenceEvidence, contentionOrder: fenceEvidence.order } : {}), ...(!first || scenario === "contention" || isControlled(scenario) ? { parity } : {}), output, receiptInputs, pairingCreations, operationWindows, parityWindow };
       const retainMismatch = (kind: string, expected: ScenarioReceipt | undefined, expectedParity = expected?.parity) => {
         // Keep the failing snapshot separately: it is not a completed round.
         // A digest alone cannot diagnose clock, ordering or domain-state drift.
@@ -349,6 +425,7 @@ try {
         const evidence = { status: "FAIL", eligible: false, kind, scenario, round, actualDigest: digest,
           expectedDigest: expected?.digest ?? null, expectedRound: expected?.round ?? null,
           firstDifference: expectedParity ? boundedParityDifference(parity, expectedParity) : null,
+          ...(scenario === "contention" ? { legalReferenceDigests: report.contentionReferenceDigests, contentionFenceEvidence: fenceEvidence } : {}),
           actualParity: parity, output, receiptInputs, pairingCreations, operationWindows, parityWindow };
         // Persist before throwing; finally's report keeps only a bounded index.
         writeFileSync(path, `${JSON.stringify(evidence, null, 2)}\n`);
@@ -356,15 +433,41 @@ try {
           expectedDigest: evidence.expectedDigest, expectedRound: evidence.expectedRound,
           firstDifference: evidence.firstDifference };
       };
-      if (first && digest !== first.digest) retainMismatch("repeated-fixture", first);
-      if (first) assert.equal(digest, first.digest, "Repeated fixture semantic parity changed.");
-      if (previous) {
-        const baseline = previous.receipts.find((row) => row.scenario === scenario && row.round === round);
-        if (digest !== baseline?.digest) retainMismatch("before-after", baseline,
-          baseline?.parity ?? previous.receipts.find((row) => row.scenario === scenario && row.parity)?.parity);
-        assert.ok(baseline, "Missing baseline round.");
-        assert.equal(digest, baseline.digest, "Before/after complete semantic digest differs.");
-        if (!first) { assert.ok(baseline.parity); compareParity(parity, baseline.parity); }
+      if (fenceFailure) {
+        retainMismatch("invalid-period-lock-witness", undefined);
+        throw fenceFailure.cause;
+      }
+      if (scenario === "contention") {
+        assert.ok(contentionReferences);
+        try {
+          assert.ok(fenceEvidence);
+          receipt.contentionHistoryOrder = validateContentionReceipt(receipt, contentionReferences);
+          validateFreeContentionReceipt(report, receipt, contentionReferences);
+          if (round < 0) {
+            report.contentionWarmup = { digest, order: receipt.contentionOrder, historyOrder: receipt.contentionHistoryOrder };
+            continue;
+          }
+          if (previous) {
+            const baseline = previous.receipts.find((row) => row.scenario === scenario && row.round === round);
+            assert.ok(baseline?.parity, "Missing complete free-running baseline observation.");
+            validateFreeContentionReceipt(previous, baseline, contentionReferences);
+            if (baseline.digest !== digest) pairedHistoriesIdentical = false;
+          }
+        } catch (error) {
+          retainMismatch("free-contention-reference", undefined);
+          throw error;
+        }
+      } else {
+        if (first && digest !== first.digest) retainMismatch("repeated-fixture", first);
+        if (first) assert.equal(digest, first.digest, "Repeated fixture semantic parity changed.");
+        if (previous) {
+          const baseline = previous.receipts.find((row) => row.scenario === scenario && row.round === round);
+          if (digest !== baseline?.digest) retainMismatch("before-after", baseline,
+            baseline?.parity ?? previous.receipts.find((row) => row.scenario === scenario && row.parity)?.parity);
+          assert.ok(baseline, "Missing baseline round.");
+          assert.equal(digest, baseline.digest, "Before/after complete semantic digest differs.");
+          if (!first) { assert.ok(baseline.parity); compareParity(parity, baseline.parity); }
+        }
       }
       report.receipts.push(receipt);
       save();
@@ -378,8 +481,9 @@ try {
     WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name
   `;
   assert.deepEqual(finalMigrations.map((row) => ({ name: row.migration_name, checksum: row.checksum })), report.migrations, "Applied migrations changed during profiling.");
-  report.beforeAfterSemanticEquality = previous ? true : null;
-  report.latencyComparisonEligible = !!previous && mode === "latency" && partition === null;
+  report.beforeAfterSemanticEquality = previous ? pairedHistoriesIdentical : null;
+  if (scenarios.includes("contention")) report.contentionOutcomeParity = true;
+  report.latencyComparisonEligible = !!previous && mode === "latency" && partition === null && !scenarios.includes("contention");
   if (http) report.http = http.summary();
   report.status = "PASS";
 } catch (error) {
