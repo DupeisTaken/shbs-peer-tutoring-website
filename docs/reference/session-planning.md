@@ -152,6 +152,23 @@ deliberately suppressed. The complete dependency closure is:
 | `SessionPlan`, `SessionPlanCohort`, `SessionPlanParticipant` | Dated source, clock, room, cancellation/override/suppression and participant changes |
 | `SessionPlanningRequest`, `SessionPlanningOffer`, `SessionPlanningResponse` | Current offers, holds, request state, responses and delivered response deadlines |
 | `Room`, `RoomUnavailability` | Room existence and recurring blocked clocks |
+| `ParticipantConsolidation`, `PairingExecutionSuccessor` | Current participant and recurring assignment successors |
+| `SessionPlanExecution`, `SessionParticipantExecution`, `SessionResponseExecution` | Current execution tutor, learner, assignment and response authority, retaining original evidence actors |
+| `RetiredHistoryOwnership`, `HistoryRowOwnership`, `PersonCombineReceipt` | Reviewed inherited consent ownership and original-account restriction provenance |
+| `StudentRequestExecutionAssignment`, `StudentSurvey` | Exact original request ownership, current learner, open state and released membership |
+
+The identity integration migration installs the additional dependencies and the
+same strict verifier atomically. It invalidates existing publication and settlement
+versions without deleting pending source events or request retries. Updating the
+state row changes its database generation (`xmin`), preventing an acknowledgement
+that read the old state from certifying it after installation. Missing state still
+starts with obsolete defaults and requires a later current-source pass. Identity
+mapping revisions remain semantic changes even though ordinary timestamps and
+the unrelated generic `version` field are excluded from dirty-event comparison.
+
+Conflict checks reuse the proposed party's current execution identities within
+one operation. The original published actors remain historical evidence; they do
+not replace the current tutor or learner when checking other commitments.
 
 An unchanged warm publication checks the durable window and at most 1,000 visible
 dirty event IDs, then returns without enumerating global pairings or published
