@@ -179,6 +179,21 @@ async function lockPlanningEntry(tx: TransactionDb) {
   await lockSessionPlanning(tx);
 }
 
+/** Agenda bookkeeping may defer behind another publication; request decisions
+ * still take the blocking source fence below. Try the exact same period → room
+ * → planning set in order, releasing any acquired prefix with this short tx.
+ */
+async function tryLockPlanningMaintenance(tx: TransactionDb) {
+  for (const key of ["program:period", "planned-room-schedule", "session-planning"]) {
+    const [result] = await tx.$queryRaw<{ locked: boolean }[]>`
+      SELECT pg_try_advisory_xact_lock(hashtextextended(${key}, 0)) AS locked`;
+    if (typeof result?.locked !== "boolean")
+      throw new Error("Scheduling maintenance lock acquisition is unavailable.");
+    if (!result.locked) return false;
+  }
+  return true;
+}
+
 async function actorAccount(tx: TransactionDb, actor: Actor) {
   await tx.$queryRaw`SELECT id FROM "User" WHERE id=${actor.id} FOR SHARE`;
   const account = await tx.user.findUnique({ where: { id: actor.id } });
@@ -2065,8 +2080,21 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
 }
 
 export async function sweepSessionPlanning(db: DomainDb, now = new Date()) {
+  return runSessionPlanningSweep(db, now, false);
+}
+
+async function runSessionPlanningSweep(
+  db: DomainDb,
+  now: Date,
+  opportunisticMetadata: boolean,
+) {
   const maintainRequestMetadata = await inSchedulingMaintenanceTransaction(db, async (tx) => {
-    await lockPlanningEntry(tx);
+    if (opportunisticMetadata) {
+      // Publication has already committed. Do not queue this reader behind a
+      // second expensive publication merely to maintain the derived work list.
+      // A later uncontended read or blocking standalone sweep resumes it.
+      if (!(await tryLockPlanningMaintenance(tx))) return false;
+    } else await lockPlanningEntry(tx);
     return prepareSchedulingInvalidationBatch(tx);
   });
   // Due work wins over undelivered future offers. Each request has its own atomic
@@ -2873,7 +2901,7 @@ export async function readSessionAgenda(
   now = new Date(),
 ) {
   const publication = await ensureSessionPlanningWindow(db, now);
-  await sweepSessionPlanning(db, now);
+  await runSessionPlanningSweep(db, now, true);
   return inTransaction(db, async (tx) => {
     const context = await agendaActorContext(tx, actor, role);
     const { owned, account, tutor, visibility } = context;
