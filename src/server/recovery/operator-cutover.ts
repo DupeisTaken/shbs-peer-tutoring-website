@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from "../auth/password";
 import { isSessionCurrent } from "../auth/session-version";
 import type { DomainDb } from "../transactions";
 import { operatorAssert, OperatorError } from "./operator-cli";
+import { readDatabaseRecoveryMarker as databaseMarker } from "./operator-marker";
 import {
   databaseIdentity,
   planHash,
@@ -117,20 +118,6 @@ async function snapshot(db: OperatorSql) {
   } catch (error) {
     await db.query("ROLLBACK");
     throw error;
-  }
-}
-async function databaseMarker(db: OperatorSql) {
-  const row = (
-    await db.query(
-      "SELECT obj_description(oid,'pg_database') AS marker FROM pg_database WHERE datname=current_database()",
-    )
-  ).rows[0];
-  try {
-    return typeof row?.marker === "string"
-      ? (JSON.parse(row.marker) as unknown)
-      : null;
-  } catch {
-    return null;
   }
 }
 async function saveDatabaseMarker(
@@ -1518,18 +1505,7 @@ export async function applyIsolatedRollback(
   );
   try {
     originalAdmin = await dependencies.connect(input.rollbackMaintenanceUrl);
-    const comment = (
-      await originalAdmin.query(
-        "SELECT obj_description(oid,'pg_database') AS marker FROM pg_database WHERE datname=$1",
-        [reconcile.stagePlan.source.database],
-      )
-    ).rows[0]?.marker;
-    let marker: unknown;
-    try {
-      marker = typeof comment === "string" ? JSON.parse(comment) : null;
-    } catch {
-      marker = null;
-    }
+    const marker = await databaseMarker(originalAdmin, reconcile.stagePlan.source.database);
     const prepared = siteRollbackReceiptSchema.safeParse(marker),
       pending = rollbackPendingSchema.safeParse(marker);
     const resumed =

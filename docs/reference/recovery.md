@@ -241,6 +241,13 @@ Equal table counts do not establish equal rows, credential safety or semantic
 equivalence. A completed same-plan stage can return its saved receipt after
 checking the target remains fenced, without replaying the restore.
 
+Transactional resume receipts stored with `COMMENT ON DATABASE` use PostgreSQL's
+cluster-shared description catalog. All reconciliation, acceptance and rollback
+readers use `pg_catalog.shobj_description`, including maintenance connections
+reading a named target. A local `obj_description` lookup cannot recover these
+markers. Receipt schema, exact plan hash and existing external evidence checks
+still determine whether a same-intent operation can resume.
+
 [Security reconciliation](../../src/server/recovery/operator-reconcile.ts) binds
 the staging plan/receipt, current source and restored fingerprints, reviewed
 credential generations, policy revision and old/new signing-key fingerprints.

@@ -732,6 +732,15 @@ void test(
     );
     assert.equal(reconciliationReceipt.state, "SECURITY_RECONCILED_SEALED");
     assert.equal(reconciliationReceipt.accountsQuarantined, 2);
+    // Database comments are shared cluster metadata. Prove the committed marker
+    // is visible from maintenance while a database-local lookup cannot read it.
+    const storedMarker = (await stageAdmin.query<{marker:string|null;localMarker:string|null}>(
+      "SELECT pg_catalog.shobj_description(oid,'pg_database') AS marker,pg_catalog.obj_description(oid,'pg_database') AS \"localMarker\" FROM pg_catalog.pg_database WHERE datname=$1",
+      [targetName],
+    )).rows[0];
+    assert.ok(typeof storedMarker?.marker === "string");
+    assert.equal(storedMarker.localMarker, null);
+    assert.deepEqual(JSON.parse(storedMarker.marker) as unknown, reconciliationReceipt);
     assert.deepEqual(
       await applySiteReconciliation(
         reconciliationPlan,

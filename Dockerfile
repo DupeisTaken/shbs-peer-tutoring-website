@@ -115,6 +115,7 @@ COPY --from=build /app/src/server/recovery/delivery-effects.ts /runtime-output/a
 COPY --from=build /app/src/server/recovery/operator-cutover.ts /runtime-output/app/src/server/recovery/operator-cutover.ts
 COPY --from=build /app/src/server/recovery/operator-identity.ts /runtime-output/app/src/server/recovery/operator-identity.ts
 COPY --from=build /app/src/server/recovery/operator-maintenance.ts /runtime-output/app/src/server/recovery/operator-maintenance.ts
+COPY --from=build /app/src/server/recovery/operator-marker.ts /runtime-output/app/src/server/recovery/operator-marker.ts
 COPY --from=build /app/src/server/recovery/operator-next.ts /runtime-output/app/src/server/recovery/operator-next.ts
 COPY --from=build /app/src/server/recovery/operator-reconcile.ts /runtime-output/app/src/server/recovery/operator-reconcile.ts
 COPY --from=build /app/src/server/recovery/operator-schema.ts /runtime-output/app/src/server/recovery/operator-schema.ts

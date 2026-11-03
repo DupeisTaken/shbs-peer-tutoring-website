@@ -1,5 +1,6 @@
 /** Read-only security gap evidence. This module never authorizes reopening or cutover. */
 import { operatorAssert, OperatorError } from "./operator-cli";
+import { readDatabaseRecoveryMarker } from "./operator-marker";
 import {
   acquireRecoverySchedulingFences,
   invalidateReconciledSchedulingMaintenance,
@@ -877,24 +878,13 @@ export async function applySiteReconciliation(
       maintenanceUrl,
       dependencies,
       async (target) => {
-        const marker = await target.query(
-          "SELECT obj_description(oid,'pg_database') AS marker FROM pg_database WHERE datname=current_database()",
-        );
-        if (typeof marker.rows[0]?.marker === "string") {
-          let saved: unknown;
-          try {
-            saved = JSON.parse(marker.rows[0].marker);
-          } catch {
-            saved = null;
-          }
-          const prior = siteReconciliationReceiptSchema.safeParse(saved);
-          if (prior.success && prior.data.planId === plan.id) {
-            operatorAssert(
-              prior.data.planHash === planHash(plan),
-              "RECONCILIATION_RECEIPT_MISMATCH",
-            );
-            return prior.data;
-          }
+        const prior = siteReconciliationReceiptSchema.safeParse(await readDatabaseRecoveryMarker(target));
+        if (prior.success && prior.data.planId === plan.id) {
+          operatorAssert(
+            prior.data.planHash === planHash(plan),
+            "RECONCILIATION_RECEIPT_MISMATCH",
+          );
+          return prior.data;
         }
         await mkdir(evidence, { recursive: false, mode: 0o700 });
         await writeOperatorJson(join(evidence, "intent.json"), {
