@@ -329,7 +329,9 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
     } else if (name === "allocation") {
       const pair = f.pairs[9]!;
       await db.pairing.update({ where: { id: pair.id }, data: { dayOfWeek: 7, timeSlotId: null, roomId: null, roomMode: "AUTO", roomNeedsAssignment: true, roomShortageKey: "synthetic-initial-shortage" } });
-      await db.roomUnavailability.createMany({ data: Array.from({ length: 100 }, (_, index) => ({ roomId: fixtureId("room", index), dayOfWeek: 7, startMin: 900, endMin: 945 })) });
+      // These are reset/seed fixture rows, not measured API-created records.
+      // Stable IDs keep full-row parity strict across freshly seeded rounds.
+      await db.roomUnavailability.createMany({ data: Array.from({ length: 100 }, (_, index) => ({ id: fixtureId("allocation-unavailability", index), roomId: fixtureId("room", index), dayOfWeek: 7, startMin: 900, endMin: 945 })) });
       let row = await db.pairing.findUniqueOrThrow({ where: { id: pair.id } });
       results.push(await measure("procedure:retry-room-still-short", () => admin.admin.retryRoomAllocation({ id: row.id, expectedRoomVersion: row.roomVersion })));
       row = await db.pairing.findUniqueOrThrow({ where: { id: pair.id } });

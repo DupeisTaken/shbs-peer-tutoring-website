@@ -511,8 +511,10 @@ and measured benefit. Final room conflict checks remain live.
 
 Parity checks cover business records, receipts, notices, ordered recovery changes
 and fences. Generated identifiers require unambiguous witnesses, and receipt
-hashes must match their exact inputs before canonical comparison. The
-normalization format is version 2: compact references point to a retained
+hashes must match their exact inputs before canonical comparison. Synthetic
+setup rows, including the allocation scenario's room unavailability, use stable
+fixture IDs; all their fields remain in parity. API-created records retain their
+generated IDs and require explicit semantic witnesses. The normalization format is version 2: compact references point to a retained
 dictionary of full semantic identities, with compact edges to parent identities.
 This lossless graph encoding of normalized identities prevents repeated escaping
 of nested parent strings from exhausting the artifact size. It retains all
