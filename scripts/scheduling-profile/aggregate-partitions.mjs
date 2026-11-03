@@ -696,8 +696,9 @@ export function loadPartitionInputs(directory) {
 
 /** Discover only the two exact controlled diagnostic artifacts. They remain
  * outside the 60 latency inputs, but their validated graphs gate free outcomes.
- * @param {string} directory */
-export function loadControlledReferencePaths(directory) {
+ * @param {string} directory
+ * @param {ReadonlySet<string>} [verifiedNames] Exact names from the authenticated selection for this campaign. */
+export function loadControlledReferencePaths(directory, verifiedNames) {
   const root = resolve(directory);
   /** @type {Partial<Record<import("./contention-references.mjs").ContentionOrder, import("./contention-references.mjs").PathPair>>} */
   const found = {};
@@ -710,6 +711,7 @@ export function loadControlledReferencePaths(directory) {
       assert.ok(order && !found[order], "Duplicate controlled contention reference artifact");
       for (const required of ["base-diagnostic.json", "head-diagnostic.json", "comparison-inputs.json", "node-image.txt"])
         assert.ok(statSync(join(current, required)).isFile(), `Missing controlled reference ${required}`);
+      if (verifiedNames) assert.ok(verifiedNames.has(relative(root, current).replaceAll("\\", "/")), "Unselected controlled reference artifact");
       attempts.add(match[2]);
       found[order] = { baselinePath: join(current, "base-diagnostic.json"), candidatePath: join(current, "head-diagnostic.json"),
         nodeImagePath: join(current, "node-image.txt"), comparisonPath: join(current, "comparison-inputs.json"), reference: relative(root, current).replaceAll("\\", "/") };
@@ -718,7 +720,7 @@ export function loadControlledReferencePaths(directory) {
   };
   visit(root);
   same(Object.keys(found).sort(), [...CONTENTION_ORDERS].sort(), "both complete controlled reference artifacts");
-  same(attempts.size, 1, "one controlled reference run attempt");
+  if (!verifiedNames) same(attempts.size, 1, "one controlled reference run attempt");
   return /** @type {Record<import("./contention-references.mjs").ContentionOrder, import("./contention-references.mjs").PathPair>} */ (found);
 }
 

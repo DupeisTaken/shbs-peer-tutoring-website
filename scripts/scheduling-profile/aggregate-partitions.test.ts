@@ -508,6 +508,12 @@ void test("controlled artifact discovery requires two complete unique same-attem
   try {
     writeControlledFiles(mismatch, false, fixture()[0]!.comparison, 1, 2);
     assert.throws(() => loadControlledReferencePaths(mismatch), /one controlled reference run attempt/);
+    const bulk = "scheduling-profile-contention-bulk-first-diagnostic-part-0-1";
+    const acceptance = "scheduling-profile-contention-acceptance-first-diagnostic-part-0-2";
+    assert.throws(() => loadControlledReferencePaths(mismatch, new Set([bulk])), /Unselected controlled reference/);
+    const authenticated = loadControlledReferencePaths(mismatch, new Set([bulk, acceptance]));
+    assert.equal(authenticated["bulk-before-acceptance"].reference, bulk);
+    assert.equal(authenticated["acceptance-before-bulk"].reference, acceptance);
   } finally { rmSync(mismatch, { recursive: true, force: true }); }
 });
 

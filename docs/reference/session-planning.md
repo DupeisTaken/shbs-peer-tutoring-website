@@ -436,7 +436,7 @@ during an eligible window. Rerun the entire deferred workflow because it has no
 measurement jobs to resume. This preserves the original PR event and its scoped
 baseline and catalog pins. A successful deferral job cannot establish
 performance acceptance. Require the complete `PASS` aggregate for the current
-head and successfully completed measurement jobs in the admitted attempt.
+head and a successful, authenticated receipt for every declared measurement slot.
 
 The worker's phase receipts record the static command label, elapsed time, exit
 status and remaining phase budget. Only the initial disposable Alpine package
@@ -604,8 +604,37 @@ samples and successful paired semantic checks. It retains runner identities and
 paired comparisons. Pooled percentiles describe these hosted-runner observations;
 they are neither one host's repeated experiment nor production p95. Hardware and
 cloud variance between partitions remain explicit. All diagnostic jobs must also
-pass the workflow gate. Rerun the complete workflow attempt when collecting a new
-partition population; earlier attempts' failure artifacts remain separate.
+pass the workflow gate.
+
+#### Resuming a failed measurement partition
+
+For a run that contains the resume workflow, first inspect the failed job, the
+remaining clock budget and the account queue. A terminal dependency-install or
+bootstrap failure with complete phase evidence can be retried with
+`gh run rerun RUN_ID --failed --repo OWNER/REPO` while the original interval
+still admits the worker's entire budget. GitHub retains the successful matrix
+declaration. The retry measures both revisions again on the same runner.
+The aggregate keeps the first baseline and its failed partner in the provenance
+history and uses the new complete pair for that slot.
+
+The declaration pins the repository, run, workflow commit, candidate, both
+baseline selections, schema and lockfile bytes, Node and PostgreSQL image
+digests, anchor, report schema and partition protocol. Each worker seals its
+original files before uploading them. Before pooling, the aggregate reads all
+job attempts in that campaign and verifies each archive against GitHub's
+digest. Every slot must have exactly one complete successful pair as its latest
+execution. Both controlled diagnostic orders and required native cold controls
+must pass. The aggregate records artifact IDs, attempts and hashes in
+`scheduling-profile-selection.json` beside the canonical result.
+
+A newer missing or invalid receipt, measurement timeout, cancellation,
+semantic mismatch, incomplete sample or exhausted campaign interval blocks
+recovery. Keep the original artifacts for investigation. An entirely new
+campaign declares a new interval and acquires its own complete population.
+GitHub reruns use the original event revision, so a run created before this
+workflow shipped cannot acquire its verifier or worker seals retroactively.
+See [GitHub's rerun semantics](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs).
+
 A repeated-state failure in the immutable baseline remains failed evidence even
 when a candidate fixes its cause. Do not sort away stored arrays, audit writes
 or recovery ordinals, or silently patch baseline application files. Any separately
