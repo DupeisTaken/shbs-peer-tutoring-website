@@ -6,6 +6,12 @@ credentials, restrictions, consent and original evidence keep their own authorit
 This inventory is maintained alongside identity writers and readers; it is not a
 proposal to replace them with a `personId` authorization check.
 
+After participation transfer, a former tutor login can retain its `TUTOR` role
+while its effective tutor link is revoked. The signed-in landing route sends that
+login to `/history`, preventing a loop through the tutor layout. Management and
+crew destinations, current tutee membership, and suspension precedence remain
+independent of that fallback.
+
 Admin and Head can directly perform authorized identity management operations,
 including account combination, exact historical ownership correction and guarded
 account deletion. The current Head alone can transfer leadership; combination
