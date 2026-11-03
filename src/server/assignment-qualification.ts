@@ -1,4 +1,4 @@
-import { requireSchoolParticipation } from "./school-departure";
+import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
 import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
@@ -113,7 +113,7 @@ export async function assignmentMismatches(
       where: { id: selection.tutorId },
       include: { user: { select: { id: true, tutorAccessRevoked: true } } },
     });
-    if (tutor?.user) await requireSchoolParticipation(tx, tutor.user.id);
+    if (tutor) await requireParticipantSourceParticipation(tx, "TUTOR", tutor.id);
     if (
       !subject?.active ||
       subject.level?.active === false ||

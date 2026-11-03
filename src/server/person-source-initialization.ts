@@ -1,11 +1,12 @@
 import { TRPCError } from "@trpc/server";
-import { accountHistoryIds, accountRetirementChain } from "./account-history";
+import { accountHistoryIds, accountHistoryReaderId } from "./account-history";
 import { lockUsernameNamespace } from "./auth/username-namespace";
 import {
   assignParticipantPerson,
   type PersonSource,
 } from "./person-identity";
 import type { TransactionDb } from "./transactions";
+import { assertHistoryProfileOwner } from "./history-row-ownership";
 
 /** Initialize only missing directory metadata in the source writer's transaction.
  * Existing groups are preserved, even when reconciliation would flag them. Only
@@ -21,9 +22,15 @@ export async function initializePersonSource(
       where: { id: source.id },
       select: { personId: true, tutorId: true, studentId: true },
     });
+    if (user.tutorId) await assertHistoryProfileOwner(tx, "TUTOR", user.tutorId, source.id);
+    if (user.studentId) await assertHistoryProfileOwner(tx, "TUTEE", user.studentId, source.id);
     if (user.personId) return user.personId;
-    const chain = await accountRetirementChain(tx, source.id);
-    const survivorId = chain[chain.length - 1]!;
+    const survivorId = await accountHistoryReaderId(tx, source.id);
+    if (!survivorId) {
+      const person = await tx.person.create({ data: { resolutionState: "REVIEW_REQUIRED" } });
+      await tx.user.update({ where: { id: source.id }, data: { personId: person.id } });
+      return person.id;
+    }
     if (survivorId !== source.id) {
       const personId = await initializePersonSource(tx, { kind: "USER", id: survivorId });
       // Existing survivor metadata is preserved for reconciliation, but must not
@@ -58,8 +65,7 @@ export async function initializePersonSource(
         : await tx.studentProfileOwnership.findUnique({ where: { tuteeId: linked.id }, select: { userId: true } });
       for (const ownerId of [participant.user?.id, retained?.userId]) {
         if (!ownerId) continue;
-        const ownerChain = await accountRetirementChain(tx, ownerId);
-        if (ownerChain[ownerChain.length - 1] !== source.id)
+        if (await accountHistoryReaderId(tx, ownerId) !== source.id)
           throw conflictingOwners();
       }
       if (participant.personId) existingGroups.add(participant.personId);
@@ -111,8 +117,8 @@ export async function initializePersonSource(
   const ownerIds = new Set<string>();
   for (const id of [participant.user?.id, retained?.userId]) {
     if (!id) continue;
-    const chain = await accountRetirementChain(tx, id);
-    ownerIds.add(chain[chain.length - 1]!);
+    const reader = await accountHistoryReaderId(tx, id);
+    if (reader) ownerIds.add(reader);
   }
   if (ownerIds.size > 1)
     throw conflictingOwners();

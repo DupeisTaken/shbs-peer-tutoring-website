@@ -24,6 +24,9 @@ declare module "next-auth" {
     } & DefaultSession["user"];
     role: Role;
     tutorId: string | null;
+    /** Server-owned generations; client input never updates these values. */
+    sessionVersion?: number;
+    historyAccessRevision?: number;
   }
 }
 
@@ -31,6 +34,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     /** Missing on pre-migration sessions, which must sign in again. */
     sessionVersion?: number;
+    historyAccessRevision?: number;
     role: Role;
     tutorId: string | null;
   }
@@ -98,6 +102,8 @@ export const authConfig = {
       session.user.id = token.sub ?? session.user.id;
       session.role = token.role;
       session.tutorId = token.tutorId;
+      session.sessionVersion = token.sessionVersion;
+      session.historyAccessRevision = token.historyAccessRevision ?? 0;
       return session;
     },
   },

@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import {
-  accountHistoryIds,
+  accountRetirementFamilyIds,
   accountRetirementChain,
 } from "~/server/account-history";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
@@ -64,7 +64,7 @@ export async function lockPatrolCreditOwner(
       code: "FORBIDDEN",
       message: "This login has been retired.",
     });
-  return accountHistoryIds(tx, ownerId);
+  return accountRetirementFamilyIds(tx, ownerId);
 }
 
 /** Caller holds the owner lock until commit. Both the rolling server-time cooldown and

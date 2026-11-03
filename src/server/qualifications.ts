@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { inheritedSubjectIds } from "~/lib/course-catalogue";
+import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
 import {
   lockEntity,
   type TransactionDb,
@@ -72,6 +73,7 @@ export async function assertQualified(
   subjectId: string,
 ) {
   await lockCatalogue(tx);
+  await requireParticipantSourceParticipation(tx, "TUTOR", tutorId);
   if (!(await tx.tutor.count({ where: { id: tutorId, status: "ACTIVE" } })))
     throw new TRPCError({
       code: "BAD_REQUEST",

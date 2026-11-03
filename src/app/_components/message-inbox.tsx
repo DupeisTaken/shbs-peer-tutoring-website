@@ -533,16 +533,12 @@ export function MessageInbox({
                   <Button
                     size="compact"
                     disabled={
-                      !msg.canReply || send.isPending || !permissionReady
+                      !msg.canReply || !msg.replyRecipient || send.isPending || !permissionReady
                     }
                     onClick={(event) => {
+                      if (!msg.replyRecipient) return;
                       beginReply(
-                        {
-                          id: msg.senderId,
-                          name: msg.sender,
-                          username: msg.senderUsername,
-                          role: msg.senderRole ?? "STUDENT",
-                        },
+                        msg.replyRecipient,
                         event.currentTarget,
                       );
                     }}

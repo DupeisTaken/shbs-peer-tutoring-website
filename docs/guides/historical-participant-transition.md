@@ -83,6 +83,28 @@ History-only Tutor invitations use the separate **Set up historical access**
 disclosure in the editor. They do not change the existing-account correction or
 combination authority described above.
 
+## Separate mistakenly grouped directory records
+
+An Admin or Head can open **Users & Roles → User details → Combined records →
+Separate mistakenly grouped records**. Select the exact records to move, then
+review the records that will remain and those that will form a new identity.
+Matching names do not select any additional records.
+
+Keep each login with its current Tutor/Tutee links, retained history and complete
+retired-login family. The review identifies any ownership edge your selection
+would cut. Changing the owner of historical evidence requires the separate
+reviewed ownership/access correction; a directory split cannot do that silently.
+
+Record the identity evidence, enter your current password and acknowledge both
+resulting groups before confirming. Credentials, restrictions, consent, original
+records and current assignments remain unchanged. Both identities need a fresh
+current-participation review; separation does not certify operational completion.
+
+If the result is uncertain, check the saved operation status. An empty result
+allows an explicit retry with a fresh password and the same frozen operation
+reference. Do not start another separation to recover a response. Once saved,
+failed directory refreshes offer read-only retry and retain the original receipt.
+
 ## Invite an alumnus without a login
 
 After checking identity, an Admin or Head sends an invitation from the specific accountless historical tutee row. Record the reviewed identity evidence and use an email address the person can still access. The invited person can either sign in to an eligible account with that primary or secondary email verified, or choose **Create history-only account** on the invitation page.
@@ -163,6 +185,47 @@ All supported operational actions below have website controls; staff do not need
 Current participation remains a separate, explicit application and consent workflow. Do not use tutor/crew/management registration codes merely to grant historical access.
 
 ## Boundaries and deployment
+
+### Correct retired-account history
+
+In **Users & Roles → User details → Combined records → Correct history access**,
+choose the original retired login records and the verified account that should
+read their history. Choose quarantine if recipient setup or ownership evidence is
+not ready. The retired login remains disabled in either case.
+
+Review every listed profile, notification and withdrawal restriction. **Retain**
+keeps the actual previous reader, **Assign** selects the reviewed recipient, and
+**Quarantine** withholds private access. A quarantined withdrawal restriction
+continues to protect the original account/address and unresolved reviewed
+claimants; it is not a way to clear a withdrawal. Historical ambiguity requires
+an exact decision, not a guess based on matching names or email addresses.
+
+Confirm the reason, acknowledgment and current password. The receipt records the
+exact before/after access and directory groups. Original message authors,
+signatures, completed attendance and credit stay unchanged. Affected sessions
+must sign in again. If the response is uncertain, check the saved operation first;
+an explicit retry uses the same reviewed intent and operation reference.
+
+### Merge active participation
+
+Use the **Merge active participation** section in the same details panel. Select
+the retained login, the source profiles and one active Tutor and/or Tutee. Review
+the exact future assignments and published work, pending response deadlines,
+concrete qualifications, willingness/availability, original intake priority,
+history-access changes and disciplinary consequences before confirming.
+
+Original profiles and completed work remain available as evidence. Current
+recurring assignments receive exact successors; published work keeps its original
+snapshots with a reviewed execution mapping. Transfer does not invent consent,
+clear a current restriction, reset a deadline or recalculate qualifications from
+today's expanded catalogue. Follow any specific remaining request/restriction
+decision, then refresh the review. Final duplicate-login retirement remains a
+separate password-confirmed participation review after its prerequisites are clear.
+
+Apply the complete migration chain through the history/participation authority
+and typed-journal migrations before deploying these controls. Follow the
+[identity authority reference](../reference/identity-lifecycle.md) for the exact
+reader, backfill, session and scheduling contracts and required verification.
 
 Apply the complete migration chain, including `20261002080000_history_account_setup` and `20261019010000_history_invitation_delivery`, before deploying. The additive delivery-attempt table preserves outstanding invitations, participant identities and every archive row. Candidates contain token hashes only and remain outside Program Records exports/imports. Normal backups and migration procedures still apply.
 

@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import { executionParticipantId, executionPairingId, executionSourceIds, supersededPairingIds } from "./participant-execution";
+import { recordStudentRequestExecution, releaseStudentRequestExecution } from "./student-request-execution";
 import type { StudentContinuationAssignment } from "../../generated/prisma";
 import {
   inTransaction,
@@ -80,6 +82,7 @@ async function availabilityReason(
   tx: TransactionDb,
   snapshot: Snapshot,
 ): Promise<ContinuationAssignmentReason | null> {
+  snapshot = { ...snapshot, tutorId: await executionParticipantId(tx, "TUTOR", snapshot.tutorId) };
   const tutor = await tx.tutor.findUnique({
     where: { id: snapshot.tutorId },
     include: { user: { include: { schoolDeparture: true } } },
@@ -118,6 +121,7 @@ export async function getContinuationAssignmentReason(
     where: { id: sourcePairing.id },
   });
   if (!source) return "SOURCE_CHANGED";
+  const executorTutorId = await executionParticipantId(tx, "TUTOR", source.tutorId);
   if (
     !source.scheduleConfirmed ||
     source.endMin <= source.startMin ||
@@ -138,7 +142,7 @@ export async function getContinuationAssignmentReason(
   if (
     !(await tx.qualificationGrant.count({
       where: {
-        tutorId: source.tutorId,
+        tutorId: executorTutorId,
         subjectId: subject.id,
         qualification: { status: "APPROVED" },
       },
@@ -147,11 +151,12 @@ export async function getContinuationAssignmentReason(
     return "QUALIFICATION_MISSING";
   if (
     !(await tx.tutorSubjectWillingness.count({
-      where: { tutorId: source.tutorId, subjectId: subject.id, willing: true },
+      where: { tutorId: executorTutorId, subjectId: subject.id, willing: true },
     }))
   )
     return "WILLINGNESS_MISSING";
   if (tuteeId) {
+    tuteeId = await executionParticipantId(tx, "TUTEE", tuteeId);
     const student = await tx.tutee.findUnique({ where: { id: tuteeId } });
     if (!student || student.status === "INACTIVE")
       return "PARTICIPATION_UNAVAILABLE";
@@ -244,6 +249,10 @@ export async function attemptContinuationAssignment(
     !source.tutees.some((person) => person.tuteeId === input.sourceTuteeId)
   )
     return unassigned("SOURCE_CHANGED");
+  // The original request and continuation selection remain immutable provenance;
+  // only the admitted future assignment executes through the chosen active rows.
+  input = { ...input, tuteeId: await executionParticipantId(tx, "TUTEE", input.tuteeId) };
+  snapshot.tutorId = await executionParticipantId(tx, "TUTOR", snapshot.tutorId);
   const reason = await getContinuationAssignmentReason(
     tx,
     source,
@@ -253,7 +262,7 @@ export async function attemptContinuationAssignment(
   const duplicate = await tx.pairingTutee.findFirst({
     where: {
       tuteeId: input.tuteeId,
-      pairing: { termId: input.targetTermId, subject: source.subject },
+      pairing: { id: { notIn: await supersededPairingIds(tx) }, termId: input.targetTermId, subject: source.subject },
     },
   });
   if (duplicate) return unassigned("ALREADY_JOINED");
@@ -271,7 +280,7 @@ export async function attemptContinuationAssignment(
     });
     const current = mapped
       ? await tx.pairing.findUnique({
-          where: { id: mapped.pairingId },
+          where: { id: await executionPairingId(tx, mapped.pairingId) },
           include: { tutees: true },
         })
       : null;
@@ -308,7 +317,7 @@ export async function attemptContinuationAssignment(
     const siblings = siblingMappings.length
       ? await tx.pairing.findMany({
           where: {
-            id: { in: siblingMappings.map((mapping) => mapping.pairingId) },
+            id: { in: await Promise.all(siblingMappings.map((mapping) => executionPairingId(tx, mapping.pairingId))) },
           },
           include: { tutees: true },
         })
@@ -360,6 +369,7 @@ export async function attemptContinuationAssignment(
     // checked here as well as the allocator's existing tutor/room checks.
     const overlapping = await tx.pairing.findMany({
       where: {
+        AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
         termId: target.id,
         scheduleConfirmed: true,
         dayOfWeek: snapshot.dayOfWeek,
@@ -431,7 +441,7 @@ export async function attemptContinuationAssignment(
         ? await tx.pairingGroup.findUniqueOrThrow({ where: { id: groupId } })
         : await tx.pairingGroup.create({
             data: {
-              tutorId: source.tutorId,
+              tutorId: snapshot.tutorId,
               termId: target.id,
               primaryPairingId: siblings[0]!.id,
             },
@@ -504,7 +514,8 @@ export async function attemptContinuationAssignment(
       where: { id: input.tuteeId },
       data: { status: "ACTIVE" },
     });
-    await stampStudentAssignment(tx, input.tuteeId);
+    await recordStudentRequestExecution(tx, request, pairing.id, input.tuteeId);
+    await stampStudentAssignment(tx, request.tuteeId!);
     const assigned = await tx.studentContinuationAssignment.update({
       where: { id: row.id },
       data: {
@@ -595,7 +606,7 @@ export async function lockTutorContinuationRequests(
   });
   if (!active) return;
   const assignments = await tx.studentContinuationAssignment.findMany({
-    where: { tutorId, targetTermId: active.id, status: "ASSIGNED" },
+    where: { tutorId: { in: await executionSourceIds(tx, "TUTOR", await executionParticipantId(tx, "TUTOR", tutorId)) }, targetTermId: active.id, status: "ASSIGNED" },
     select: { surveyId: true },
   });
   const requests = await tx.studentSurvey.findMany({
@@ -619,11 +630,13 @@ export async function reconcileTutorContinuations(
   });
   if (!active) return { released: 0 };
   const rows = await tx.studentContinuationAssignment.findMany({
-    where: { tutorId, targetTermId: active.id, status: "ASSIGNED" },
+    where: { tutorId: { in: await executionSourceIds(tx, "TUTOR", await executionParticipantId(tx, "TUTOR", tutorId)) }, targetTermId: active.id, status: "ASSIGNED" },
     orderBy: { id: "asc" },
   });
   let released = 0;
-  for (const row of rows) {
+  for (const original of rows) {
+    // Reconcile execution while retaining original intake/assignment provenance.
+    const row = { ...original, tuteeId: await executionParticipantId(tx, "TUTEE", original.tuteeId), tutorId: original.tutorId ? await executionParticipantId(tx, "TUTOR", original.tutorId) : null, targetPairingId: original.targetPairingId ? await executionPairingId(tx, original.targetPairingId) : null };
     let survey = await tx.studentSurvey.findUnique({
       where: { id: row.surveyId },
     });
@@ -633,7 +646,8 @@ export async function reconcileTutorContinuations(
         where: { id: row.surveyId },
       });
     }
-    const snapshot = row.snapshot as unknown as Snapshot;
+    const originalSnapshot = row.snapshot as unknown as Snapshot;
+    const snapshot = { ...originalSnapshot, tutorId: await executionParticipantId(tx, "TUTOR", originalSnapshot.tutorId) };
     const pairing = row.targetPairingId
       ? await tx.pairing.findUnique({
           where: { id: row.targetPairingId },
@@ -653,9 +667,8 @@ export async function reconcileTutorContinuations(
     if (sameTuple && pairing) {
       if (unchanged) {
         await preserveHistoricalAcademics(tx, "TUTEE", row.tuteeId);
-        await tx.pairingTutee.deleteMany({
-          where: { pairingId: pairing.id, tuteeId: row.tuteeId },
-        });
+        if (survey) await releaseStudentRequestExecution(tx, survey, { pairingId: pairing.id, now, unassignedStatus: "PENDING" });
+        else await tx.pairingTutee.deleteMany({ where: { pairingId: pairing.id, tuteeId: row.tuteeId } });
       }
       await syncContinuationPlanMembership(
         tx,
@@ -799,8 +812,9 @@ export async function reconcileStudentContinuations(
       orderBy: { tutorId: "asc" },
     });
     let released = 0;
-    for (const tutor of tutors)
-      released += (await reconcileTutorContinuations(tx, tutor.tutorId!, now))
+    const currentTutorIds = [...new Set(await Promise.all(tutors.map((tutor) => executionParticipantId(tx, "TUTOR", tutor.tutorId!))))];
+    for (const tutorId of currentTutorIds)
+      released += (await reconcileTutorContinuations(tx, tutorId, now))
         .released;
     return { released };
   });

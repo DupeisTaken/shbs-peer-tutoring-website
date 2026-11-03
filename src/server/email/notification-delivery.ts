@@ -1,4 +1,5 @@
 import { db } from "~/server/db";
+import { admitIdentityNotice, finishIdentityNotice } from "./identity-notice-admission";
 import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
@@ -64,6 +65,9 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     !isEmailDeliveryAvailable("PROGRAM")
   )
     return 0;
+  // An abandoned optional transport admission is observable uncertainty. Never
+  // resend its old private content merely because the worker lease expired.
+  await db.emailDelivery.updateMany({ where: { status: "SENDING", category: { in: ["messages", "info", "information", "review", "reminder"] }, attemptStartedAt: { not: null }, leaseUntil: { lte: new Date() } }, data: { status: "UNCERTAIN", leaseUntil: null, lastError: "Transport admission expired without a recorded delivery outcome." } });
   // Freeze the candidate set before updating leases so eligibility changes do
   // not expand a bounded sweep; row locks still give concurrent workers disjoint rows.
   const rows = await db.$queryRaw<
@@ -208,6 +212,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       await finishRequestDelivery(db, id, admitted.row.attemptId, accepted);
       continue;
     }
+    let identityAttemptId: string | null = null;
     try {
       // Security notices are essential, including legacy emailSecurity=false. An
       // ordinary row with no account fails closed rather than taking a request path.
@@ -288,6 +293,10 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       ].includes(row.category)
         ? notificationUnsubscribeUrl(id)
         : undefined;
+      if (!essential) {
+        identityAttemptId = await admitIdentityNotice(db, id, leaseUntil, attemptId);
+        if (!identityAttemptId) continue;
+      }
       await emailSender.send({
         category,
         to: row.recipient,
@@ -313,6 +322,10 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       });
       // Opt-out can cancel a leased row while SMTP is in flight. Do not resurrect
       // that cancellation when this attempt eventually completes or fails.
+      if (identityAttemptId) {
+        await finishIdentityNotice(db, id, identityAttemptId, true);
+        continue;
+      }
       await db.emailDelivery.updateMany({
         where: { id, status: "PENDING" },
         data: {
@@ -324,6 +337,10 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         },
       });
     } catch {
+      if (identityAttemptId) {
+        await finishIdentityNotice(db, id, identityAttemptId, false);
+        continue;
+      }
       // Store a safe diagnostic, never provider exceptions containing addresses or credentials.
       const attempts = row.attempts + 1;
       await db.emailDelivery.updateMany({

@@ -1,3 +1,4 @@
+import { supersededPairingIds } from "./participant-execution";
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -36,7 +37,8 @@ export async function readPairingGroups(db: DomainDb, tutorId: string) {
   });
   const pairings = term
     ? await db.pairing.findMany({
-        where: { tutorId, termId: term.id },
+        where: {
+        AND: [{ id: { notIn: await supersededPairingIds(db) } }], tutorId, termId: term.id },
         orderBy: { id: "asc" },
         select: {
           id: true,
@@ -137,7 +139,8 @@ export async function savePairingGroups(
     const pairings = new Map(before.pairings.map((p) => [p.id, p]));
     // Display projections omit inactive students; allocation evidence keeps the full roster.
     const fullPairings = new Map((await tx.pairing.findMany({
-      where: { tutorId, termId: before.termId }, include: roomUnitInclude,
+      where: {
+        AND: [{ id: { notIn: await supersededPairingIds(tx) } }], tutorId, termId: before.termId }, include: roomUnitInclude,
     })).map(pairing => [pairing.id, pairing]));
     const stored = await tx.pairingGroup.findMany({
       where: { tutorId, termId: before.termId },
@@ -255,6 +258,7 @@ export async function groupMembersForSchedule(
   if (!pairing.groupId) return [{ id: pairing.id, roomId: null }];
   const members = await tx.pairing.findMany({
         where: {
+        AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
           groupId: pairing.groupId,
           tutorId: pairing.tutorId,
           termId: pairing.termId,

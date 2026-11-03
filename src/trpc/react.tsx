@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchStreamLink, loggerLink } from "@trpc/client";
+import { httpBatchStreamLink, loggerLink, TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import {
@@ -34,6 +34,11 @@ export const api = createTRPCReact<AppRouter>();
 // without installing another focus listener or starting another request.
 const IdentityFocusContext = createContext(0);
 export const useIdentityFocus = () => useContext(IdentityFocusContext);
+
+// Bound revocation discovery for an otherwise idle visible tab without making
+// unchanged checks flash the privacy curtain or refetch every mounted query.
+export const IDENTITY_CHECK_INTERVAL_MS = 30_000;
+const IDENTITY_CHECK_TIMEOUT_MS = 10_000;
 
 /**
  * Inference helper for inputs.
@@ -77,11 +82,25 @@ function IdentityQueryProvider(props: {
   const controller = useRef<AbortController | null>(null);
   const focusRequested = useRef(false);
   const [focusVersion, setFocusVersion] = useState(0);
+  const invalidated = useRef(false);
+
+  const discardIdentity = useCallback(() => {
+    if (invalidated.current) return;
+    invalidated.current = true;
+    setCheckingIdentity(true);
+    controller.current?.abort();
+    void queryClient.cancelQueries();
+    queryClient.clear();
+    // Also discard cached server layouts after an access
+    // generation changes. An old in-flight success must never lift this curtain.
+    window.location.reload();
+  }, [queryClient]);
 
   const verify = useCallback(
-    (fromFocus = false) => {
-      if (document.visibilityState === "hidden") return;
+    (fromFocus = false, quiet = false) => {
+      if (document.visibilityState === "hidden" || invalidated.current) return;
       focusRequested.current ||= fromFocus;
+      if (!quiet) setCheckingIdentity(true);
       if (inFlight.current) return inFlight.current;
       const request = new AbortController();
       controller.current = request;
@@ -89,7 +108,9 @@ function IdentityQueryProvider(props: {
       // a shared-device tab, and before reusing its cache on another route. Keep the
       // DOM mounted (forms retain edits), but hide it during the identity check.
       const pending = (async () => {
-        setCheckingIdentity(true);
+        const timeout = setTimeout(() => {
+          if (!request.signal.aborted) discardIdentity();
+        }, IDENTITY_CHECK_TIMEOUT_MS);
         try {
           const response = await fetch("/api/session-identity", {
             cache: "no-store",
@@ -97,7 +118,7 @@ function IdentityQueryProvider(props: {
           });
           if (!response.ok) throw new Error("Session check failed");
           const session: unknown = await response.json();
-          if (request.signal.aborted) return;
+          if (request.signal.aborted || invalidated.current) return;
           if (
             !session ||
             typeof session !== "object" ||
@@ -106,10 +127,7 @@ function IdentityQueryProvider(props: {
           )
             throw new Error("Invalid identity response");
           if (session.identity !== props.identity) {
-            void queryClient.cancelQueries();
-            queryClient.clear();
-            // A full navigation also discards cached server layouts and history.
-            window.location.reload();
+            discardIdentity();
             return;
           }
           // Verification authorizes the existing mounted UI immediately. Background
@@ -120,19 +138,19 @@ function IdentityQueryProvider(props: {
           if (focusRequested.current) setFocusVersion((value) => value + 1);
           // Fresh data needs no repeat fetch. Reuse any request already in progress
           // instead of cancelling/restarting it on a rapid route or focus event.
-          void queryClient.invalidateQueries(
-            { refetchType: "active", predicate: (query) => query.isStale() },
-            { cancelRefetch: false },
-          );
+          if (!quiet || focusRequested.current)
+            void queryClient.invalidateQueries(
+              { refetchType: "active", predicate: (query) => query.isStale() },
+              { cancelRefetch: false },
+            );
         } catch {
           if (!request.signal.aborted) {
             // A failed identity check cannot authorize displaying an old account's
             // cache. Reload so the normal server auth/error handling takes over.
-            void queryClient.cancelQueries();
-            queryClient.clear();
-            window.location.reload();
+            discardIdentity();
           }
         } finally {
+          clearTimeout(timeout);
           if (controller.current === request) {
             inFlight.current = null;
             focusRequested.current = false;
@@ -142,22 +160,64 @@ function IdentityQueryProvider(props: {
       inFlight.current = pending;
       return pending;
     },
-    [props.identity, queryClient],
+    [props.identity, queryClient, discardIdentity],
   );
 
   useEffect(() => {
-    const onFocus = () => {
-      void verify(true);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    const schedule = () => {
+      clearTimeout(timer);
+      if (disposed || document.visibilityState === "hidden" ||
+          props.identity === "anonymous" || invalidated.current) return;
+      timer = setTimeout(() => {
+        const pending = verify(false, true);
+        if (pending) void pending.finally(schedule);
+        else schedule();
+      }, IDENTITY_CHECK_INTERVAL_MS);
     };
+    const onFocus = () => {
+      clearTimeout(timer);
+      if (document.visibilityState === "hidden") return;
+      const pending = verify(true);
+      if (pending) void pending.finally(schedule);
+      else schedule();
+    };
+    schedule();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     return () => {
+      disposed = true;
+      clearTimeout(timer);
       controller.current?.abort();
       inFlight.current = null;
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [verify]);
+  }, [verify, props.identity]);
+
+  useEffect(() => {
+    // Record-specific FORBIDDEN remains the owning feature's denial state.
+    // UNAUTHORIZED from a signed-in surface invalidates every private cache,
+    // including otherwise successful rows still mounted beside the failed call.
+    const rejected = (error: unknown) => {
+      if (props.identity !== "anonymous" && error instanceof TRPCClientError &&
+          (error as TRPCClientError<AppRouter>).data?.code === "UNAUTHORIZED")
+        discardIdentity();
+    };
+    const unsubscribeQueries = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type === "updated" && event.action.type === "error")
+        rejected(event.query.state.error);
+    });
+    const unsubscribeMutations = queryClient.getMutationCache().subscribe((event) => {
+      if (event.type === "updated" && event.action.type === "error")
+        rejected(event.mutation.state.error);
+    });
+    return () => {
+      unsubscribeQueries();
+      unsubscribeMutations();
+    };
+  }, [queryClient, props.identity, discardIdentity]);
 
   // Route changes share an in-flight verification. They do not abort the request
   // responsible for restoring visibility, which could strand rapid navigation.

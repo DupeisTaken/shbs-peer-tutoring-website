@@ -6,6 +6,7 @@ type UserSource = Source & {
   mergedIntoId: string | null;
   tutorId: string | null;
   studentId: string | null;
+  recoveryVoidedAt?: Date | null;
 };
 type Person = {
   id: string;
@@ -23,6 +24,7 @@ export type PersonReconciliationSnapshot = {
   tutees: Source[];
   tutorOwners: { tutorId: string; userId: string }[];
   studentOwners: { tuteeId: string; userId: string }[];
+  retiredHistoryOwnership?: { sourceUserId: string; readerUserId: string | null; state: string; revision: number }[];
 };
 
 export type PersonReconciliationFinding = {
@@ -40,7 +42,9 @@ export type PersonReconciliationFinding = {
     | "SOURCE_REDIRECT"
     | "OWNER_PROJECTION_MISMATCH"
     | "HISTORY_READER_PROJECTION_MISMATCH"
-    | "RETIREMENT_PROJECTION_MISMATCH"
+    | "HISTORY_MAPPING_MISSING"
+    | "HISTORY_MAPPING_INVALID"
+    | "HISTORY_QUARANTINED"
     | "GROUP_REVIEW_STATE_MISMATCH";
   source: { kind: SourceKind | "PERSON"; id: string };
   relatedIds: string[];
@@ -51,7 +55,7 @@ export type PersonReconciliationFinding = {
 export async function readPersonReconciliationSnapshot(
   tx: TransactionDb,
 ): Promise<PersonReconciliationSnapshot> {
-  const [persons, users, tutors, tutees, tutorOwners, studentOwners] =
+  const [persons, users, tutors, tutees, tutorOwners, studentOwners, retiredHistoryOwnership] =
     await Promise.all([
       tx.person.findMany({
         select: {
@@ -68,6 +72,7 @@ export async function readPersonReconciliationSnapshot(
           mergedIntoId: true,
           tutorId: true,
           studentId: true,
+          recoveryVoidedAt: true,
         },
       }),
       tx.tutor.findMany({ select: { id: true, personId: true } }),
@@ -78,8 +83,11 @@ export async function readPersonReconciliationSnapshot(
       tx.studentProfileOwnership.findMany({
         select: { tuteeId: true, userId: true },
       }),
+      tx.retiredHistoryOwnership.findMany({
+        select: { sourceUserId: true, readerUserId: true, state: true, revision: true },
+      }),
     ]);
-  return { persons, users, tutors, tutees, tutorOwners, studentOwners };
+  return { persons, users, tutors, tutees, tutorOwners, studentOwners, retiredHistoryOwnership };
 }
 
 /** Pure, deterministic inventory: finding a mismatch never changes either side.
@@ -130,9 +138,31 @@ export function reconcilePersonSources(snapshot: PersonReconciliationSnapshot) {
   const canonicalPersons = new Map(
     snapshot.persons.map((row) => [row.id, terminal("PERSON", row.id)]),
   );
-  const canonicalUsers = new Map(
+  // Immutable lineage remains independently auditable, but never supplies access.
+  const retirementTerminals = new Map(
     snapshot.users.map((row) => [row.id, terminal("USER", row.id)]),
   );
+  const historyMappings = new Map((snapshot.retiredHistoryOwnership ?? []).map((row) => [row.sourceUserId, row]));
+  const effectiveReaders = new Map<string, string | null>();
+  for (const mapping of historyMappings.values()) {
+    const original = users.get(mapping.sourceUserId);
+    if (!original || !original.mergedIntoId || original.recoveryVoidedAt)
+      add("HISTORY_MAPPING_INVALID", "USER", mapping.sourceUserId, mapping.readerUserId ? [mapping.readerUserId] : []);
+  }
+  for (const user of snapshot.users) {
+    let readerId: string | null = !user.mergedIntoId && !user.recoveryVoidedAt ? user.id : null;
+    if (user.mergedIntoId && !user.recoveryVoidedAt) {
+      const mapping = historyMappings.get(user.id);
+      const reader = mapping?.readerUserId ? users.get(mapping.readerUserId) : null;
+      if (!mapping) add("HISTORY_MAPPING_MISSING", "USER", user.id);
+      else if (mapping.state === "QUARANTINED" && mapping.readerUserId === null)
+        add("HISTORY_QUARANTINED", "USER", user.id);
+      else if (mapping.state === "ASSIGNED" && reader && !reader.mergedIntoId && !reader.recoveryVoidedAt)
+        readerId = reader.id;
+      else add("HISTORY_MAPPING_INVALID", "USER", user.id, mapping.readerUserId ? [mapping.readerUserId] : []);
+    }
+    effectiveReaders.set(user.id, readerId);
+  }
   const ownerMap = new Map<string, Set<string>>();
   const addOwner = (kind: "TUTOR" | "TUTEE", id: string, userId: string) => {
     if (!(kind === "TUTOR" ? tutors : tutees).has(id))
@@ -167,10 +197,10 @@ export function reconcilePersonSources(snapshot: PersonReconciliationSnapshot) {
       add("SOURCE_REDIRECT", row.kind, row.id, [row.personId!, canonicalPersonId]);
     const ownerUserIds = [...(ownerMap.get(`${row.kind}:${row.id}`) ?? [])].sort();
     const canonicalOwnerIds = [...new Set(ownerUserIds.flatMap((id) => {
-      const ownerId = canonicalUsers.get(id);
+      const ownerId = effectiveReaders.get(id);
       return ownerId ? [ownerId] : [];
     }))].sort();
-    // Tutor history expands retired actor families. ownedStudentIds instead
+    // Tutor history follows exact corrected originals. ownedStudentIds instead
     // reads exact current/retained User IDs; normal combination transfers those
     // links. Surface old/imported links that a live Tutee reader cannot reach.
     const historyReaderUserIds = row.kind === "TUTEE"
@@ -189,13 +219,13 @@ export function reconcilePersonSources(snapshot: PersonReconciliationSnapshot) {
         add("OWNER_PROJECTION_MISMATCH", row.kind, row.id, [ownerId, canonicalPersonId, ownerPersonId]);
     }
     if (row.kind === "USER") {
-      const terminalId = canonicalUsers.get(row.id);
-      const survivor = terminalId ? users.get(terminalId) : null;
-      const survivorPersonId = survivor?.personId
-        ? canonicalPersons.get(survivor.personId)
+      const readerId = effectiveReaders.get(row.id);
+      const reader = readerId ? users.get(readerId) : null;
+      const readerPersonId = reader?.personId
+        ? canonicalPersons.get(reader.personId)
         : null;
-      if (canonicalPersonId && survivorPersonId && canonicalPersonId !== survivorPersonId)
-        add("RETIREMENT_PROJECTION_MISMATCH", row.kind, row.id, [terminalId!, survivorPersonId]);
+      if (canonicalPersonId && readerPersonId && canonicalPersonId !== readerPersonId)
+        add("HISTORY_READER_PROJECTION_MISMATCH", row.kind, row.id, [readerId!, readerPersonId]);
     }
     return {
       kind: row.kind,
@@ -205,6 +235,10 @@ export function reconcilePersonSources(snapshot: PersonReconciliationSnapshot) {
       ownerUserIds,
       canonicalOwnerIds,
       historyReaderUserIds,
+      ...(row.kind === "USER" ? {
+        effectiveHistoryReaderId: effectiveReaders.get(row.id) ?? null,
+        retirementTerminalUserId: retirementTerminals.get(row.id) ?? null,
+      } : {}),
     };
   }).sort((a, b) => `${a.kind}:${a.id}`.localeCompare(`${b.kind}:${b.id}`));
 
@@ -238,7 +272,7 @@ export function reconcilePersonSources(snapshot: PersonReconciliationSnapshot) {
   const uniqueFindings = [...new Map(findings.map((finding) => [JSON.stringify(finding), finding])).values()]
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     counts: {
       persons: snapshot.persons.length,
       users: snapshot.users.length,
@@ -246,6 +280,7 @@ export function reconcilePersonSources(snapshot: PersonReconciliationSnapshot) {
       tutees: snapshot.tutees.length,
       tutorOwners: snapshot.tutorOwners.length,
       studentOwners: snapshot.studentOwners.length,
+      retiredHistoryOwnership: snapshot.retiredHistoryOwnership?.length ?? 0,
       findings: uniqueFindings.length,
     },
     findings: uniqueFindings,

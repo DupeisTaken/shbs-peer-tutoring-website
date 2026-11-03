@@ -15,6 +15,8 @@ import { previewCombine } from "./combine-accounts";
 import { accountSafetyReason, personReviewItem, type PersonReviewItem } from "./person-operational-review";
 import { linkTutorHistory, previewTutorHistory } from "./tutor-history";
 import { linkTuteeHistory, previewHistoryLink } from "./tutee-history";
+import { supersededPairingIds } from "./participant-execution";
+import { personSourceEvidence } from "./person-source-evidence";
 
 export const personCombineSelection = z.object({
   sources: z
@@ -86,7 +88,7 @@ async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
     graph.tutors.some((r) => !r.user && !isHistoricalTutor(r)) ||
     graph.tutees.some((r) => !r.user && !historicalTutee(r));
   const restricted = live.some(
-    (r) => r.suspendedAt !== null || r.schoolDeparture !== null,
+    (r) => r.suspendedAt !== null || !!r.schoolDeparture?.reason || !!r.schoolDeparture?.observerRevoked,
   );
   const conflicts: string[] = [];
   const blockers: PersonReviewItem[] = [];
@@ -114,6 +116,7 @@ async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
   // depends on that login. Old-period assignments remain immutable evidence.
   const currentAssignments = await db.pairing.findMany({
     where: {
+      id: { notIn: await supersededPairingIds(db) },
       term: { active: true },
       OR: [
         { tutorId: { in: graph.tutors.map((r) => r.id) } },
@@ -143,7 +146,7 @@ async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
     blockers.push(personReviewItem("ACTIVE_UNOWNED_PROFILE", [{ kind: "TUTEE", id: row.id }], "/admin/tutees"));
   for (const row of live) {
     if (row.suspendedAt) blockers.push(personReviewItem("ACCOUNT_SUSPENDED", [userSource(row.id)], "/admin/users"));
-    if (row.schoolDeparture) blockers.push(personReviewItem("SCHOOL_DEPARTURE", [userSource(row.id)], "/admin/users"));
+    if (row.schoolDeparture?.reason || row.schoolDeparture?.observerRevoked) blockers.push(personReviewItem("SCHOOL_DEPARTURE", [userSource(row.id)], "/admin/users"));
     if (!ready(row))
       blockers.push(personReviewItem("CREDENTIAL_SETUP_REQUIRED", [userSource(row.id)], "/admin/users", { blocksFinalization: row.id === retained?.id, blocksRetirement: row.id === retained?.id }));
   }
@@ -267,6 +270,11 @@ async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
         });
         retirementReviews.push(review);
         const safetyConflicts = review.conflicts.filter((text) => {
+            // A recorded return is immutable evidence, not a current departure.
+            // Continue to preserve any outstanding observer-access revocation.
+            if (text.includes("school-departure") &&
+                !retained.schoolDeparture?.reason && !retained.schoolDeparture?.observerRevoked &&
+                !duplicate.schoolDeparture?.reason && !duplicate.schoolDeparture?.observerRevoked) return false;
             if (
               text.includes("already holds combined history") ||
               legacyMirrorRewriteConflicts.has(text)
@@ -415,6 +423,7 @@ async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
       hasLogin: !!r.user || graph.ownership.some((o) => o.tuteeId === r.id),
     };
   });
+  const evidence = await personSourceEvidence(db, expandedSources);
   const personIds = new Set(sourceRows.map((r) => r.personId));
   const preview = {
     fingerprint: hash({
@@ -426,8 +435,9 @@ async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
       openIntakes,
       currentAssignments,
       blockers,
+      sourceEvidence: [...evidence],
     }),
-    sources: sourceRows,
+    sources: sourceRows.map((row) => ({ ...row, evidence: evidence.get(`${row.ref.kind}:${row.ref.id}`)! })),
     accounts: live.map((r) => ({
       id: r.id,
       name: r.name ?? r.username ?? r.email,
@@ -672,8 +682,17 @@ async function commitPersonReview(
       },
     });
     const retiredUserIds: string[] = [];
+    const ownershipTransfers: { entity: string; recordId: string; sourceUserId: string; readerUserId: string }[] = [];
     if (input.retireDuplicateLogins && retained) {
       for (const duplicate of live.filter((r) => r.id !== retained.id)) {
+        const [originalTutors, originalStudents] = await Promise.all([
+          tx.tutorProfileOwnership.findMany({ where: { userId: duplicate.id }, select: { tutorId: true } }),
+          tx.studentProfileOwnership.findMany({ where: { userId: duplicate.id }, select: { tuteeId: true } }),
+        ]);
+        for (const recordId of new Set([...originalTutors.map((row) => row.tutorId), ...(duplicate.tutorId ? [duplicate.tutorId] : [])]))
+          ownershipTransfers.push({ entity: "Tutor", recordId, sourceUserId: duplicate.id, readerUserId: retained.id });
+        for (const recordId of new Set([...originalStudents.map((row) => row.tuteeId), ...(duplicate.studentId ? [duplicate.studentId] : [])]))
+          ownershipTransfers.push({ entity: "Tutee", recordId, sourceUserId: duplicate.id, readerUserId: retained.id });
         // Release direct links before changing retained ownership. Immutable
         // historical actors and original login identifiers are left untouched.
         await tx.user.update({
@@ -707,14 +726,8 @@ async function commitPersonReview(
             create: { tuteeId: duplicate.studentId, userId: retained.id },
             update: {},
           });
-        await tx.studentQuarterBlock.updateMany({
-          where: { userId: duplicate.id },
-          data: { userId: retained.id },
-        });
-        await tx.notification.updateMany({
-          where: { userId: duplicate.id },
-          data: { userId: retained.id },
-        });
+        // Original restriction/notice recipients remain evidence. Their readers
+        // resolve the atomically initialized exact retirement mapping instead.
         await tx.passwordResetToken.deleteMany({
           where: { userId: duplicate.id },
         });
@@ -738,7 +751,7 @@ async function commitPersonReview(
       live.length - retiredUserIds.length === 1 &&
       retained &&
       ready(retained) &&
-      !retained.schoolDeparture
+      !retained.schoolDeparture?.reason && !retained.schoolDeparture?.observerRevoked
     ) {
       for (const row of graph.tutors.filter(
         (r) => !r.user && !r.retainedOwner && isHistoricalTutor(r),
@@ -801,6 +814,7 @@ async function commitPersonReview(
         personId: person.id,
         outcome: preview.outcome,
         retiredUserIds,
+        ownershipTransfers,
       },
     });
     return personCombineReceiptResult(receipt);
