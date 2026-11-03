@@ -139,7 +139,8 @@ export async function correctPersonHistory(db: DomainDb, actorId: string, raw: z
     for (const userId of [...new Set([actorId, ...initial.candidateUserIds, ...(input.recipientUserId ? [input.recipientUserId] : [])])].sort()) await lockEntity(tx, `account-profile:${userId}`);
     await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "Person", "AcademicProfile", "AccountEmail", "SchoolDeparture", "StudentProfileOwnership", "TutorProfileOwnership", "RetiredHistoryOwnership", "HistoryRowOwnership", "Notification", "StudentQuarterBlock", "EmailDelivery" IN SHARE ROW EXCLUSIVE MODE`;
     const actor = await reviewer(tx, actorId);
-    if (!verifyPasswordConfirmation(actorId, password, actor.passwordHash)) throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
+    // A failed confirmation rejects this input; it does not revoke reviewer access.
+    if (!verifyPasswordConfirmation(actorId, password, actor.passwordHash)) throw new TRPCError({ code: "BAD_REQUEST", message: "Password is incorrect." });
     const planned = await plan(tx, input);
     if (planned.preview.fingerprint !== input.fingerprint) throw new TRPCError({ code: "CONFLICT", message: "History or ownership changed. Reload and review the correction again." });
     const choices = new Map(input.decisions.map((row) => [rowKey(row), row]));

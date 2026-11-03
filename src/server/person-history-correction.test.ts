@@ -310,9 +310,18 @@ it.each([false, true])("binds non-selected retained-owner access changes into re
   expect(await state()).toEqual(before);
 });
 
-it.each(["wrong-password", "demoted", "suspended", "missing"] as const)("revalidates reviewer authority for %s", async (condition) => {
+it("rejects a wrong confirmation without revoking authority or changing history, then accepts a fresh review", async () => {
+  const input = await review("C", assignB);
+  const before = await state();
+  await expect(correctPersonHistory(db, "admin", { ...input, confirmPassword: "Incorrect synthetic password" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Password is incorrect." });
+  expect(await state()).toEqual(before);
+  expect(await historyCorrectionReceipt(db, "admin", input.operationId)).toBeNull();
+  const fresh = { ...await review("C", assignB), reason: input.reason };
+  expect(await correctPersonHistory(db, "admin", fresh)).toMatchObject({ ok: true, receiptId: fresh.operationId });
+});
+
+it.each(["demoted", "suspended", "missing"] as const)("revalidates reviewer authority for %s", async (condition) => {
   const input = await review();
-  if (condition === "wrong-password") input.confirmPassword = "Incorrect synthetic password";
   if (condition === "demoted") await db.user.update({ where: { id: "admin" }, data: { role: "COORDINATOR" } });
   if (condition === "suspended") await db.user.update({ where: { id: "admin" }, data: { suspendedAt: new Date() } });
   const before = await state();

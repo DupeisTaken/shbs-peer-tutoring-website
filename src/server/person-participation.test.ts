@@ -66,6 +66,32 @@ it("recovers an accepted response by immutable receipt without repeating the tra
   expect(await tx.pairingExecutionSuccessor.count({ where: { sourcePairingId: f.pairingId } })).toBe(1);
 }));
 
+it("rejects a wrong confirmation without changing participation, then accepts a fresh review", async () => fixture(async (tx, f) => {
+  const input = await reviewed(tx, f);
+  const snapshot = async () => ({
+    users: await tx.user.findMany({ where: { id: { in: [f.userA, f.userB] } }, orderBy: { id: "asc" } }),
+    tutors: await tx.tutor.findMany({ where: { id: { in: [f.tutorA, f.tutorB] } }, orderBy: { id: "asc" } }),
+    pairing: await tx.pairing.findUniqueOrThrow({ where: { id: f.pairingId } }),
+    successors: await tx.pairingExecutionSuccessor.findMany({ where: { sourcePairingId: f.pairingId } }),
+  });
+  const before = await snapshot();
+  await expect(transferPersonParticipation(tx, f.reviewerId, { ...input, confirmPassword: "Incorrect synthetic password" })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Password is incorrect." });
+  expect(await snapshot()).toEqual(before);
+  expect(await personParticipationTransferReceipt(tx, f.reviewerId, input.operationId)).toBeNull();
+  const fresh = { ...await reviewed(tx, f), reason: input.reason };
+  expect(await transferPersonParticipation(tx, f.reviewerId, fresh)).toMatchObject({ ok: true, receiptId: fresh.operationId });
+}));
+
+it.each(["demoted", "suspended", "missing"] as const)("keeps participation reviewer %s failures distinct from password input", async (condition) => fixture(async (tx, f) => {
+  const input = await reviewed(tx, f);
+  if (condition === "demoted") await tx.user.update({ where: { id: f.reviewerId }, data: { role: "COORDINATOR" } });
+  if (condition === "suspended") await tx.user.update({ where: { id: f.reviewerId }, data: { suspendedAt: new Date() } });
+  const actorId = condition === "missing" ? f.id("missing-reviewer") : f.reviewerId;
+  await expect(transferPersonParticipation(tx, actorId, { ...input, confirmPassword: "Incorrect synthetic password" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await tx.personParticipationTransferReceipt.findUnique({ where: { id: input.operationId } })).toBeNull();
+  expect(await tx.pairingExecutionSuccessor.count({ where: { sourcePairingId: f.pairingId } })).toBe(0);
+}));
+
 it("does not permit a nonselected tutor target in a learner-only request", async () => fixture(async (tx, f) => {
   const before = await tx.user.findMany({ where: { id: { in: [f.userA, f.userB] } } });
   await expect(previewPersonParticipationTransfer(tx, { ...f.selection, tutorIds: [], tuteeIds: [f.student], activeTuteeId: f.student })).rejects.toMatchObject({ code: "CONFLICT" });
