@@ -148,19 +148,84 @@ class Cookies {
     return [...this.values].map(([key, value]) => `${key}=${value}`).join("; ");
   }
 }
-async function jsonResponse(
+const MAX_JSON_RESPONSE_BYTES = 2 * 1024 * 1024;
+async function boundedJsonResponse(response: Response): Promise<unknown> {
+  const reader = response.body?.getReader();
+  operatorAssert(reader, "NEXT_ACCEPTANCE_INVALID_RESPONSE");
+  try {
+    const parts: Uint8Array[] = [];
+    let bytes = 0;
+    for (;;) {
+      const part = await reader.read();
+      if (part.done) break;
+      bytes += part.value.byteLength;
+      if (bytes > MAX_JSON_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new OperatorError("NEXT_ACCEPTANCE_RESPONSE_TOO_LARGE");
+      }
+      parts.push(part.value);
+    }
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.concat(parts),
+    );
+    return JSON.parse(text) as unknown;
+  } catch (error) {
+    if (error instanceof OperatorError) throw error;
+    throw new OperatorError("NEXT_ACCEPTANCE_INVALID_RESPONSE");
+  } finally {
+    reader.releaseLock();
+  }
+}
+export async function readNextJsonObject(
   response: Response,
 ): Promise<Record<string, unknown>> {
-  const text = await response.text();
+  const data = await boundedJsonResponse(response);
   operatorAssert(
-    Buffer.byteLength(text) <= 2 * 1024 * 1024,
-    "NEXT_ACCEPTANCE_RESPONSE_TOO_LARGE",
+    data !== null && typeof data === "object" && !Array.isArray(data),
+    "NEXT_ACCEPTANCE_INVALID_RESPONSE",
   );
-  try {
-    return JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    throw new OperatorError("NEXT_ACCEPTANCE_INVALID_RESPONSE");
-  }
+  return data as Record<string, unknown>;
+}
+const applicationSessionSchema = z.looseObject({
+  user: z.looseObject({
+    id: z.string().min(1).max(200),
+    name: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    image: z.string().nullable().optional(),
+  }),
+  role: z.enum([
+    "HEAD",
+    "ADMIN",
+    "COORDINATOR",
+    "TUTOR",
+    "CREW",
+    "STUDENT",
+    "VIEWER",
+  ]),
+  tutorId: z.string().min(1).max(200).nullable(),
+  sessionVersion: z.number().int().min(0).max(2147483647),
+  historyAccessRevision: z.number().int().min(0).max(2147483647),
+  expires: z.iso.datetime(),
+});
+/** Auth.js returns JSON null for no cookie, an invalid key or a revoked epoch.
+ * Every non-null response must be a genuine application session, not an error
+ * payload accidentally counted as proof that an old credential was rejected. */
+export async function readNextApplicationSession(response: Response) {
+  operatorAssert(
+    response.status === 200,
+    "NEXT_ACCEPTANCE_SESSION_ROUTE_FAILED",
+  );
+  operatorAssert(
+    /^application\/json\s*(?:;|$)/i.test(
+      response.headers.get("content-type") ?? "",
+    ),
+    "NEXT_ACCEPTANCE_INVALID_RESPONSE",
+  );
+  const data = await boundedJsonResponse(response);
+  if (data === null) return null;
+  const parsed = applicationSessionSchema.safeParse(data);
+  operatorAssert(parsed.success, "NEXT_ACCEPTANCE_INVALID_RESPONSE");
+  return parsed.data;
 }
 async function signin(origin: string, input: Record<string, string>) {
   const jar = new Cookies();
@@ -169,7 +234,7 @@ async function signin(origin: string, input: Record<string, string>) {
   });
   jar.absorb(csrf);
   operatorAssert(csrf.ok, "NEXT_ACCEPTANCE_CSRF_FAILED");
-  const value = await jsonResponse(csrf);
+  const value = await readNextJsonObject(csrf);
   operatorAssert(
     typeof value.csrfToken === "string",
     "NEXT_ACCEPTANCE_CSRF_FAILED",
@@ -197,13 +262,11 @@ async function signin(origin: string, input: Record<string, string>) {
     headers: { Cookie: jar.header() },
     signal: AbortSignal.timeout(15000),
   });
-  const data = await jsonResponse(session);
-  operatorAssert(session.ok, "NEXT_ACCEPTANCE_SESSION_ROUTE_FAILED");
-  const user = data.user as { id?: unknown } | undefined;
+  const data = await readNextApplicationSession(session);
   return {
     jar,
     session: data,
-    userId: typeof user?.id === "string" ? user.id : null,
+    userId: data?.user.id ?? null,
   };
 }
 async function rpc(
@@ -229,7 +292,7 @@ async function rpc(
     },
   );
   operatorAssert(response.status < 500, "NEXT_ACCEPTANCE_APPLICATION_ERROR");
-  const body = await jsonResponse(response),
+  const body = await readNextJsonObject(response),
     result = body.result as
       { data?: { json?: Record<string, unknown> } } | undefined;
   return (
@@ -658,12 +721,12 @@ export async function runIsolatedNextClone(
         headers: { Cookie: `${cookie}=${token}` },
         signal: AbortSignal.timeout(15000),
       });
-      operatorAssert(response.ok, "NEXT_ACCEPTANCE_SESSION_ROUTE_FAILED");
-      return jsonResponse(response);
+      return readNextApplicationSession(response);
     };
     const positive = await tokenSession(request.authSecret, payload);
     operatorAssert(
-      (positive.user as { id?: unknown } | undefined)?.id === request.userId &&
+      positive?.user.id === request.userId &&
+        positive.sessionVersion === payload.sessionVersion &&
         positive.historyAccessRevision === current.historyAccessRevision,
       "NEXT_SIGNED_CURRENT_TOKEN_CONTROL_FAILED",
     );
@@ -705,18 +768,16 @@ export async function runIsolatedNextClone(
       for (const key of keys)
         if (key.secret) {
           operatorAssert(
-            !(await tokenSession(key.secret, payload)).user,
+            (await tokenSession(key.secret, payload)) === null,
             `NEXT_OLD_${key.label}_JWT_ACCEPTED`,
           );
           checks.push(`NEXT_OLD_${key.label}_JWT_REJECTED`);
         }
       operatorAssert(
-        !(
-          await tokenSession(request.authSecret, {
-            ...payload,
-            sessionVersion: payload.sessionVersion - 1,
-          })
-        ).user,
+        (await tokenSession(request.authSecret, {
+          ...payload,
+          sessionVersion: payload.sessionVersion - 1,
+        })) === null,
         "NEXT_STALE_GENERATION_ACCEPTED",
       );
       checks.push("NEXT_STALE_GENERATION_REJECTED");
@@ -756,7 +817,7 @@ export async function runIsolatedNextClone(
     });
     operatorAssert(
       renewed.userId === request.userId &&
-        Number(renewed.session.historyAccessRevision) ===
+        Number(renewed.session?.historyAccessRevision) ===
           payload.historyAccessRevision + 1 &&
         sessionIdentity(renewed.session) !== sessionIdentity(login.session),
       "NEXT_HISTORY_SESSION_IDENTITY_DID_NOT_CHANGE",

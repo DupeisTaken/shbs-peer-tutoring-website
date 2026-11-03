@@ -74,7 +74,11 @@ describe("acceptance database connection fence", () => {
           }
           return { rows: [] };
         },
-        async close() {},
+        async close() {
+          throw new Error(
+            "Acceptance must not close its borrowed maintenance session",
+          );
+        },
       };
       const apply = () =>
         withReadOnlyAcceptanceApplication(

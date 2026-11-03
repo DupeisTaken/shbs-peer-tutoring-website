@@ -338,6 +338,12 @@ The build manifest must match an independently supplied checkout SHA
 (`GITHUB_SHA` in the hosted job or `RECOVERY_REHEARSAL_CHECKOUT_SHA` locally), build
 ID and server hash. Successful fresh login determines the real cookie/salt; a
 current signed-token control precedes negatives changing only secret or epoch.
+Session probes recognize Auth.js's explicit JSON `null` for signed-out, invalid-key
+and revoked-generation responses. Every non-null response must include a valid
+application identity, generations and expiry; unrelated additive fields are
+preserved. Invalid status, malformed JSON and unexpected shapes abort the probe
+instead of counting as denial. JSON bodies are capped while streaming, and
+diagnostics never include response bodies or credentials.
 Protected history reads and actual session cache identities exercise the combined
 server-owned history and credential epoch boundary. The Auth.js callback refreshes
 history revision, so this is not evidence of isolated stale-history JWT denial.
