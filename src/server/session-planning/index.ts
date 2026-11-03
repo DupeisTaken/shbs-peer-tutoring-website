@@ -10,7 +10,11 @@ import {
   resolvePlanningCalendarDay,
   type PlanningTime,
 } from "~/lib/session-planning";
-import { participantKeys, participantsOverlap } from "./participants";
+import {
+  participantKeys,
+  participantsOverlap,
+  createParticipantOverlapChecker,
+} from "./participants";
 import { notificationTuteeRecipients } from "./notification-recipients";
 import { insertSessionNotices } from "./notice-inserts";
 import { readContinuationPairingIds } from "./publication-continuations";
@@ -44,6 +48,15 @@ import { requireSchoolParticipation } from "~/server/school-departure";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { recordDomainAudit } from "~/server/audit/evidence";
 import { findAccountPolicy, requirePolicy } from "~/server/policy-acceptance";
+import {
+  readSchedulingMaintenance,
+  acknowledgeSchedulingPublication,
+  prepareSchedulingInvalidationBatch,
+  completeSchedulingInvalidation,
+  retrySchedulingInvalidation,
+  finishSchedulingInvalidationBatch,
+  inSchedulingMaintenanceTransaction,
+} from "./maintenance";
 
 const planInclude = {
   assignments: true,
@@ -797,6 +810,11 @@ async function validateTarget(
         ]),
       ],
     ));
+  const participantsOverlap = createParticipantOverlapChecker(
+    keys,
+    plan.tutorId,
+    participantIds,
+  );
   for (const cohort of cohorts) {
     if (
       !cohort.participants.length ||
@@ -815,9 +833,6 @@ async function validateTarget(
     if (
       (window.roomId && cohort.roomId === window.roomId) ||
       participantsOverlap(
-        keys,
-        plan.tutorId,
-        participantIds,
         cohort.plan.tutorId,
         cohort.participants.map((row) => row.tuteeId),
       )
@@ -858,9 +873,6 @@ async function validateTarget(
       offer.endsAt > window.startsAt &&
       ((window.roomId && offer.roomId === window.roomId) ||
         participantsOverlap(
-          keys,
-          plan.tutorId,
-          participantIds,
           hold.plan.tutorId,
           ids(hold.participantIds),
         ))
@@ -919,9 +931,6 @@ async function validateTarget(
     if (
       (window.roomId && pairing.roomId === window.roomId) ||
       participantsOverlap(
-        keys,
-        plan.tutorId,
-        participantIds,
         pairing.tutorId,
         pairing.tutees.map((row) => row.tuteeId),
       )
@@ -1296,10 +1305,21 @@ export async function ensureSessionPlanningWindow(
   db: DomainDb,
   now = new Date(),
 ) {
-  return inTransaction(db, async (tx) => {
+  return inSchedulingMaintenanceTransaction(db, async (tx) => {
     await lockPlanningEntry(tx);
     const timeZone = await getProgramTimeZone(tx);
     const weeks = planningWeeks(now, timeZone);
+    const maintenance = await readSchedulingMaintenance(tx, {
+      ...weeks,
+      timeZone,
+    });
+    if (maintenance.current)
+      return {
+        ...weeks,
+        timeZone,
+        unavailable: maintenance.unavailable,
+        normalized: maintenance.normalized,
+      };
     const affected = await tx.sessionPlanAssignment.findMany({
       where: {
         plan: {
@@ -1340,6 +1360,7 @@ export async function ensureSessionPlanningWindow(
       orderBy: { id: "asc" },
     });
     let unavailable = 0;
+    let warmUnavailable = 0;
     let normalized = 0;
     const overrides = await tx.schoolCalendarDay.findMany();
     // Reuse immutable calculations within publication. Keep live conflict and
@@ -1361,6 +1382,7 @@ export async function ensureSessionPlanningWindow(
         primary.startMin > 1395
       ) {
         unavailable++;
+        warmUnavailable++;
         continue;
       }
       if (primary.endMin - primary.startMin !== 45) normalized++;
@@ -1457,6 +1479,7 @@ export async function ensureSessionPlanningWindow(
           );
         } catch {
           unavailable++;
+          warmUnavailable++;
           continue;
         }
         // Launch/catch-up never fabricates past appointments or duplicate old attendance.
@@ -1583,6 +1606,18 @@ export async function ensureSessionPlanningWindow(
     // contact destinations once at finalization; delivery rechecks admission.
     // Any failure still rolls back the complete publication transaction.
     await queuePublicationNotices(tx, publicationNotices);
+    // Preserve the old next-call counters: a newly published cancellation is
+    // counted on this call only; invalid unmaterialized groups/clocks recur.
+    // Only pre-pass IDs are acknowledged. Our own dated writes remain dirty for
+    // one further pass; concurrently committed or late-ID events cannot be lost.
+    await acknowledgeSchedulingPublication(tx, {
+      eventIds: maintenance.eventIds,
+      stateRevision: maintenance.stateRevision,
+      ...weeks,
+      timeZone,
+      unavailable: warmUnavailable,
+      normalized,
+    });
     return { ...weeks, timeZone, unavailable, normalized };
   });
 }
@@ -1964,6 +1999,10 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
 }
 
 export async function sweepSessionPlanning(db: DomainDb, now = new Date()) {
+  const maintainRequestMetadata = await inSchedulingMaintenanceTransaction(db, async (tx) => {
+    await lockPlanningEntry(tx);
+    return prepareSchedulingInvalidationBatch(tx);
+  });
   // Due work wins over undelivered future offers. Each request has its own atomic
   // decision so one broken lifecycle row cannot roll back the whole deadline sweep.
   const candidates = await db.$queryRaw<{ id: string }[]>`
@@ -1978,7 +2017,7 @@ export async function sweepSessionPlanning(db: DomainDb, now = new Date()) {
       r."updatedAt",r.id LIMIT 200`;
   for (const candidate of candidates) {
     try {
-      await inTransaction(db, async (tx) => {
+      await inSchedulingMaintenanceTransaction(db, async (tx) => {
         await lockPlanningEntry(tx);
         const request = await reloadRequest(tx, candidate.id);
         await settleRequest(tx, request, now);
@@ -1993,18 +2032,22 @@ export async function sweepSessionPlanning(db: DomainDb, now = new Date()) {
             ),
           },
         });
+        // Dirty metadata tracks completed checks; it never chooses visitors or
+        // skips current-source settlement, fairness touches or recovery evidence.
+        if (maintainRequestMetadata)
+          await completeSchedulingInvalidation(tx, candidate.id);
       });
     } catch {
       console.error(
         "[session-planning] One request could not settle; remaining deadlines continue.",
       );
-      await inTransaction(db, async (tx) => {
+      await inSchedulingMaintenanceTransaction(db, async (tx) => {
         await lockPlanningEntry(tx);
         const current = await tx.sessionPlanningRequest.findUnique({
           where: { id: candidate.id },
-          select: { updatedAt: true },
+          select: { updatedAt: true, status: true },
         });
-        if (current)
+        if (current) {
           await tx.sessionPlanningRequest.updateMany({
             where: {
               id: candidate.id,
@@ -2016,9 +2059,18 @@ export async function sweepSessionPlanning(db: DomainDb, now = new Date()) {
               ),
             },
           });
+          if (["PENDING", "SPLIT_REQUESTED"].includes(current.status))
+            await retrySchedulingInvalidation(tx, candidate.id);
+          else await completeSchedulingInvalidation(tx, candidate.id);
+        } else await completeSchedulingInvalidation(tx, candidate.id);
       });
     }
   }
+  if (candidates.length && maintainRequestMetadata)
+    await inSchedulingMaintenanceTransaction(db, async (tx) => {
+      await lockPlanningEntry(tx);
+      await finishSchedulingInvalidationBatch(tx);
+    });
   return candidates.length;
 }
 

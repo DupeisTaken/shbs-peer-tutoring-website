@@ -3,7 +3,24 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { db } from "~/server/db";
 import type { TransactionDb } from "~/server/transactions";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
-import { participantKeys, participantsOverlap } from "./participants";
+import { createParticipantOverlapChecker, participantKeys, participantsOverlap } from "./participants";
+
+it("reuses the proposed party while retaining cross-role aliases and unowned role separation", () => {
+  const keys = {
+    tutor: new Map([["teacher", "user:teacher"], ["retained", "user:learner"]]),
+    tutee: new Map([["learner", "user:learner"], ["teacher-student", "user:teacher"]]),
+  };
+  const overlap = createParticipantOverlapChecker(keys, "teacher", ["learner", "learner", "unowned"]);
+  expect(overlap("stranger", [])).toBe(false);
+  expect(overlap("retained", [])).toBe(true);
+  expect(overlap("stranger", ["teacher-student"])).toBe(true);
+  expect(overlap("unowned", [])).toBe(false);
+  expect(overlap("stranger", ["unowned"])).toBe(true);
+  expect(overlap("stranger", ["another"])).toBe(false);
+  // A new operation uses new authoritative identity evidence, never a global cache.
+  const changed = { ...keys, tutee: new Map([["learner", "user:changed"]]) };
+  expect(createParticipantOverlapChecker(changed, "teacher", ["learner"])("retained", [])).toBe(false);
+});
 
 it("uses one tagged query with bound arrays and retains duplicate/empty fallback order", async () => {
   const query = vi
