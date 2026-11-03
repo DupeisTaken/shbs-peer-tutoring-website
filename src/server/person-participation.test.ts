@@ -4,6 +4,7 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import type { TransactionDb } from "./transactions";
 import { hashPassword } from "./auth/password";
 import { resolveTutorLink } from "./auth/tutor-link";
+import { runAuditedMutation } from "./audit/evidence";
 import { db } from "./db";
 import { closeStudentRequest } from "./student-request-state";
 import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
@@ -255,10 +256,20 @@ it("does not erase current or prior response evidence when rebinding execution",
   await expect(respondSession(tx, { id: f.userB, tutorId: f.tutorB }, { requestId, offerId, expectedVersion: pending.version, clientKey: randomUUID(), decision: "ACCEPT" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await tx.sessionPlanningResponse.findUniqueOrThrow({ where: { id: responseId } })).toEqual(before);
   await tx.user.update({ where: { id: f.userA }, data: { suspendedAt: null } });
-  await respondSession(tx, { id: f.userB, tutorId: f.tutorB }, { requestId, offerId, expectedVersion: pending.version, clientKey: randomUUID(), decision: "ACCEPT" });
+  const executionBefore = await tx.sessionResponseExecution.findUniqueOrThrow({ where: { responseId } });
+  await runAuditedMutation(tx, { id: f.userB, name: "Synthetic retained tutor", role: "TUTOR" }, "sessionPlanning.respond", async (audited) => ({
+    ok: true,
+    value: await respondSession(audited, { id: f.userB, tutorId: f.tutorB }, { requestId, offerId, expectedVersion: pending.version, clientKey: randomUUID(), decision: "ACCEPT" }),
+  }));
+  const responseAudit = await tx.auditLog.findFirstOrThrow({ where: { userId: f.userB, operation: "sessionPlanning.respond" } });
+  const details = responseAudit.details;
+  if (!details || typeof details !== "object" || Array.isArray(details) || !Array.isArray(details.changes)) throw new Error("Expected audited response changes");
+  const pinWrites = details.changes.filter((change) => change && typeof change === "object" && !Array.isArray(change) && change.entity === "SessionResponseExecution");
+  expect(pinWrites).toHaveLength(1);
+  expect(pinWrites[0]).toMatchObject({ write: "updateMany", affectedCount: 1 });
   expect(await tx.sessionPlanningRequest.findUniqueOrThrow({ where: { id: requestId } })).toMatchObject({ status: "ACCEPTED" });
   expect(await tx.sessionPlanningResponse.findUniqueOrThrow({ where: { id: responseId } })).toMatchObject({ actorUserId: f.userA, actorKey: before.actorKey, state: "ACCEPTED", deliveredAt: before.deliveredAt, deadline: before.deadline });
-  expect(await tx.sessionResponseExecution.findUniqueOrThrow({ where: { responseId } })).toMatchObject({ respondedByUserId: f.userB });
+  expect(await tx.sessionResponseExecution.findUniqueOrThrow({ where: { responseId } })).toMatchObject({ respondedByUserId: f.userB, revision: executionBefore.revision + 1 });
   await tx.term.update({ where: { id: f.termId }, data: { active: false } });
   await tx.tutee.update({ where: { id: f.student }, data: { status: "INACTIVE" } });
   expect(await transferredPlanIsCurrent(tx, { ...plan, term: { ...plan.term, active: false } }, true)).toBe(true);

@@ -678,6 +678,10 @@ describe("whole-group agreement and split", () => {
     expect((await db.recoveryFence.findUniqueOrThrow({ where: { actionId: rootId } })).revision).toBe(journal.length);
 
     const audit = await db.auditLog.findFirstOrThrow({ where: { operation: "sessionPlanning.formalizeSplit" } });
+    const ordinaryAudit = await db.auditLog.findFirstOrThrow({ where: { operation: "sessionPlanning.respond", userId: one.id } });
+    const ordinaryEntities = array(record(ordinaryAudit.details).changes).map((change) => record(change).entity);
+    expect(ordinaryEntities).toContain("SessionPlanningResponse");
+    expect(ordinaryEntities).not.toContain("SessionResponseExecution");
     const auditChildren = array(record(audit.details).changes).map(record)
       .filter((change) => change.entity === "SessionPlanningRequest" && change.write === "create")
       .flatMap((change) => array(change.after).map(record))
