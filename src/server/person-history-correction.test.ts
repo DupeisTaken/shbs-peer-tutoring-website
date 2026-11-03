@@ -28,47 +28,50 @@ type CorrectionInput = Parameters<typeof correctPersonHistory>[2];
 type Row = Awaited<ReturnType<typeof historyCorrectionInventory>>["rows"][number];
 type Action = CorrectionInput["decisions"][number]["action"];
 
-async function clearFixture() {
-  const tables = await db.$queryRaw<{ tablename: string }[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
-  await db.$executeRawUnsafe("TRUNCATE " + tables.map(({ tablename }) => '"' + tablename.replaceAll('"', '""') + '"').join(",") + " CASCADE");
+async function clearFixture(client: Pick<typeof db, "$queryRaw" | "$executeRawUnsafe"> = db) {
+  const tables = await client.$queryRaw<{ tablename: string }[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
+  await client.$executeRawUnsafe("TRUNCATE " + tables.map(({ tablename }) => '"' + tablename.replaceAll('"', '""') + '"').join(",") + " CASCADE");
 }
 beforeEach(async () => {
   (globalThis as { rateLimitStore?: Map<string, unknown> }).rateLimitStore?.clear();
-  await clearFixture();
-  await db.user.createMany({ data: ([
-    ["admin", "ADMIN"], ["head", "HEAD"], ["A", "STUDENT"], ["B", "STUDENT"], ["D", "STUDENT"], ["C", "VIEWER"],
-  ] as const).map(([id, role]) => ({ id, role, name: `Synthetic ${id}`, email: `${id.toLowerCase()}@example.test`, username: `synthetic-${id.toLowerCase()}`, passwordHash, emailVerifiedAt: new Date("2026-10-01T00:00:00Z") })) });
-  await db.person.createMany({ data: [{ id: "pD", primaryUserId: "D" }, { id: "pC", primaryUserId: "C" }] });
-  await db.user.updateMany({ where: { id: { in: ["A", "B", "D"] } }, data: { personId: "pD" } });
-  await db.user.update({ where: { id: "C" }, data: { personId: "pC" } });
-  // Construct the actual temporal chain; every new retirement has a live target.
-  await db.user.update({ where: { id: "B" }, data: { mergedIntoId: "A", passwordHash: null } });
-  await db.user.update({ where: { id: "A" }, data: { mergedIntoId: "D", passwordHash: null } });
-  await db.term.createMany({ data: [
-    { id: "past", name: "Synthetic old term", schoolYear: "24-25", quarter: "Q1" },
-    { id: "current", name: "Synthetic current term", schoolYear: "26-27", quarter: "Q1", active: true },
-  ] });
-  await db.tutor.createMany({ data: [
-    { id: "tB", personId: "pD", englishName: "Original synthetic B tutor", status: "ARCHIVED", gradeLevel: 9, gradeSchoolYear: "24-25" },
-    { id: "tA", personId: "pD", englishName: "Independent synthetic A tutor", status: "ARCHIVED" },
-  ] });
-  await db.tutorProfileOwnership.createMany({ data: [{ tutorId: "tB", userId: "D" }, { tutorId: "tA", userId: "D" }] });
-  await db.tutee.create({ data: { id: "sB", personId: "pD", englishName: "Original synthetic B learner", status: "INACTIVE", intakeTermId: "past", gradeLevel: "9", signatureName: "Original synthetic signature", signedAt: new Date("2024-09-01T00:00:00Z"), signedRulebook: true } });
-  await db.studentProfileOwnership.create({ data: { tuteeId: "sB", userId: "D" } });
-  await db.pairing.create({ data: { id: "past-pairing", tutorId: "tB", termId: "past", subject: "Mathematics", dayOfWeek: 2, startMin: 600, endMin: 630 } });
-  await db.session.create({ data: { id: "completed", pairingId: "past-pairing", tutorId: "tB", date: new Date("2024-10-01T00:00:00Z"), startMin: 600, endMin: 630, durationMin: 30, shCount: 2, shFactor: 2, month: "2024-10", schoolYear: "24-25", quarter: "Q1" } });
-  await db.sessionTutee.create({ data: { sessionId: "completed", tuteeId: "sB", status: "PRESENT" } });
-  await db.serviceHourAdjustment.create({ data: { id: "original-adjustment", tutorId: "tB", month: "2024-10", schoolYear: "24-25", quarter: "Q1", type: "EXTRA", amount: 0.5, reason: "Original synthetic amendment" } });
-  await db.patrol.create({ data: { id: "original-patrol", crewUserId: "B", termId: "past", hours: 0.5, creditAwardedAt: new Date("2024-10-01T08:00:00Z") } });
-  await db.patrolCreditWindow.create({ data: { crewUserId: "B", patrolId: "original-patrol", windowStart: new Date("2024-10-01T08:00:00Z") } });
-  await db.policyAcceptance.create({ data: { id: "signature", userId: "B", slug: "tutee-policy", revision: "original-revision", snapshot: { text: "Original synthetic policy" }, signature: "Original synthetic B signature" } });
-  await db.directMessage.create({ data: { id: "original-message", senderId: "B", recipientId: "head", clientKey: randomUUID(), body: "Original synthetic message", supervisable: true } });
-  await db.auditLog.create({ data: { id: "original-audit", userId: "B", action: "Original synthetic action", entity: "Tutor", entityId: "tB", operation: "synthetic.original" } });
-  await db.notification.createMany({ data: [
-    { id: "nB", userId: "D", title: "Synthetic ambiguous notice", body: "Original B notice evidence" },
-    { id: "nA", userId: "D", title: "Synthetic independent notice", body: "Independent A notice evidence" },
-  ] });
-  await db.studentQuarterBlock.create({ data: { id: "blockB", userId: "D", email: "b@example.test", intakeTermId: "current", legacyTuteeId: "sB" } });
+  // Commit the complete starting state before exercising the real client in each test.
+  await db.$transaction(async (tx) => {
+    await clearFixture(tx);
+    await tx.user.createMany({ data: ([
+      ["admin", "ADMIN"], ["head", "HEAD"], ["A", "STUDENT"], ["B", "STUDENT"], ["D", "STUDENT"], ["C", "VIEWER"],
+    ] as const).map(([id, role]) => ({ id, role, name: `Synthetic ${id}`, email: `${id.toLowerCase()}@example.test`, username: `synthetic-${id.toLowerCase()}`, passwordHash, emailVerifiedAt: new Date("2026-10-01T00:00:00Z") })) });
+    await tx.person.createMany({ data: [{ id: "pD", primaryUserId: "D" }, { id: "pC", primaryUserId: "C" }] });
+    await tx.user.updateMany({ where: { id: { in: ["A", "B", "D"] } }, data: { personId: "pD" } });
+    await tx.user.update({ where: { id: "C" }, data: { personId: "pC" } });
+    // Construct the actual temporal chain; every new retirement has a live target.
+    await tx.user.update({ where: { id: "B" }, data: { mergedIntoId: "A", passwordHash: null } });
+    await tx.user.update({ where: { id: "A" }, data: { mergedIntoId: "D", passwordHash: null } });
+    await tx.term.createMany({ data: [
+      { id: "past", name: "Synthetic old term", schoolYear: "24-25", quarter: "Q1" },
+      { id: "current", name: "Synthetic current term", schoolYear: "26-27", quarter: "Q1", active: true },
+    ] });
+    await tx.tutor.createMany({ data: [
+      { id: "tB", personId: "pD", englishName: "Original synthetic B tutor", status: "ARCHIVED", gradeLevel: 9, gradeSchoolYear: "24-25" },
+      { id: "tA", personId: "pD", englishName: "Independent synthetic A tutor", status: "ARCHIVED" },
+    ] });
+    await tx.tutorProfileOwnership.createMany({ data: [{ tutorId: "tB", userId: "D" }, { tutorId: "tA", userId: "D" }] });
+    await tx.tutee.create({ data: { id: "sB", personId: "pD", englishName: "Original synthetic B learner", status: "INACTIVE", intakeTermId: "past", gradeLevel: "9", signatureName: "Original synthetic signature", signedAt: new Date("2024-09-01T00:00:00Z"), signedRulebook: true } });
+    await tx.studentProfileOwnership.create({ data: { tuteeId: "sB", userId: "D" } });
+    await tx.pairing.create({ data: { id: "past-pairing", tutorId: "tB", termId: "past", subject: "Mathematics", dayOfWeek: 2, startMin: 600, endMin: 630 } });
+    await tx.session.create({ data: { id: "completed", pairingId: "past-pairing", tutorId: "tB", date: new Date("2024-10-01T00:00:00Z"), startMin: 600, endMin: 630, durationMin: 30, shCount: 2, shFactor: 2, month: "2024-10", schoolYear: "24-25", quarter: "Q1" } });
+    await tx.sessionTutee.create({ data: { sessionId: "completed", tuteeId: "sB", status: "PRESENT" } });
+    await tx.serviceHourAdjustment.create({ data: { id: "original-adjustment", tutorId: "tB", month: "2024-10", schoolYear: "24-25", quarter: "Q1", type: "EXTRA", amount: 0.5, reason: "Original synthetic amendment" } });
+    await tx.patrol.create({ data: { id: "original-patrol", crewUserId: "B", termId: "past", hours: 0.5, creditAwardedAt: new Date("2024-10-01T08:00:00Z") } });
+    await tx.patrolCreditWindow.create({ data: { crewUserId: "B", patrolId: "original-patrol", windowStart: new Date("2024-10-01T08:00:00Z") } });
+    await tx.policyAcceptance.create({ data: { id: "signature", userId: "B", slug: "tutee-policy", revision: "original-revision", snapshot: { text: "Original synthetic policy" }, signature: "Original synthetic B signature" } });
+    await tx.directMessage.create({ data: { id: "original-message", senderId: "B", recipientId: "head", clientKey: randomUUID(), body: "Original synthetic message", supervisable: true } });
+    await tx.auditLog.create({ data: { id: "original-audit", userId: "B", action: "Original synthetic action", entity: "Tutor", entityId: "tB", operation: "synthetic.original" } });
+    await tx.notification.createMany({ data: [
+      { id: "nB", userId: "D", title: "Synthetic ambiguous notice", body: "Original B notice evidence" },
+      { id: "nA", userId: "D", title: "Synthetic independent notice", body: "Independent A notice evidence" },
+    ] });
+    await tx.studentQuarterBlock.create({ data: { id: "blockB", userId: "D", email: "b@example.test", intakeTermId: "current", legacyTuteeId: "sB" } });
+  }, { timeout: 30_000 });
 });
 afterAll(async () => { await clearFixture(); await db.$disconnect(); });
 

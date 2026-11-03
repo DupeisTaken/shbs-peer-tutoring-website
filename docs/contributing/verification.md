@@ -134,6 +134,24 @@ As a separate check, keep the new balanced assignments fixed and include this
 fourth run when taking each file's maximum measured time. With the 20% allowance,
 the slowest projected job takes 481 seconds on nine shards and 533 on eight.
 
+The combined identity, scheduling and recovery suite has 674 files. For the 52
+files missing from the original inventory, the timing map takes the maximum
+rounded-up duration observed in three successful hosted runs.
+[First run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41576683483),
+[second run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41583957456),
+[third run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41589617797).
+
+Three suites now commit their reset and fixture writes together before invoking
+the real application client. The room suite also batches independent seed rows.
+All constraints, triggers, test cases and tested transaction boundaries remain
+active. Three serial Ubuntu samples on the required PostgreSQL 16 and Node 22
+configuration each passed all 162 cases. Maximum reporter durations were 47,391
+ms for history correction, 38,476 ms for partition and 81,670 ms for room
+allocation. These replace the older weights for those files. With the original
+allowances and concurrency cap, the longest of nine projected jobs is 512.550
+seconds against the 513-second target.
+[Calibration run and JSON artifacts](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41600315274).
+
 When fixtures or dependencies change, collect file durations from recent
 successful shard reports and refresh the timing file. Use the current test
 inventory, preserve the unknown-file fallback, and run `npm run test:ci` to
