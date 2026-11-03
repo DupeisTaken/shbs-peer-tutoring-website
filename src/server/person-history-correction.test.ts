@@ -110,6 +110,12 @@ it("inventories all ambiguous rows without private credential values or writes",
   const preview = await historyCorrectionInventory(db, { personId: "pD", sourceUserIds: ["B"], recipientUserId: "C" });
   expect(preview.sourceUsers).toEqual([{ id: "B", name: "Synthetic B", readerUserId: "D" }]);
   expect(preview.rows.map((row) => `${row.entity}:${row.recordId}`).sort()).toEqual(["Notification:nA", "Notification:nB", "StudentQuarterBlock:blockB", "Tutee:sB", "Tutor:tA", "Tutor:tB"].sort());
+  expect(preview.rows.filter((row) => row.entity === "Notification").map(({ recordId, label }) => ({ recordId, label }))).toEqual([
+    { recordId: "nA", label: "Synthetic independent notice" },
+    { recordId: "nB", label: "Synthetic ambiguous notice" },
+  ]);
+  expect(JSON.stringify(preview)).not.toContain("Independent A notice evidence");
+  expect(JSON.stringify(preview)).not.toContain("Original B notice evidence");
   expect(JSON.stringify(preview)).not.toContain(passwordHash);
   expect(await state()).toEqual(before);
 });

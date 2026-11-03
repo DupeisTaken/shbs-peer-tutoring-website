@@ -96,7 +96,9 @@ async function plan(db: DomainDb, raw: Selection) {
       const ownerId = row.user?.id ?? ownerships.find((owner) => owner.tuteeId === row.id)?.userId ?? null;
       return { entity: "Tutee", recordId: row.id, label: row.englishName, readerUserId: ownerId && readerByOwner.get(ownerId) === ownerId ? ownerId : null, provenance: "REVIEW_REQUIRED", assignable: !row.user && isHistoricalTutee(row, term?.id ?? null) && !assignments.some((assignment) => assignment.tutees.some((link) => link.tuteeId === row.id)) };
     }),
-    ...notifications.map((row): Row => ({ entity: "Notification", recordId: row.id, label: row.event ?? "Notification", readerUserId: override.has(`Notification:${row.id}`) ? override.get(`Notification:${row.id}`)!.readerUserId : readerByOwner.get(row.userId) ?? null, provenance: "REVIEW_REQUIRED", assignable: true })),
+    // Reviewer-only inventory needs the original title to distinguish exact rows;
+    // bodies and private event payloads stay out of this projection.
+    ...notifications.map((row): Row => ({ entity: "Notification", recordId: row.id, label: row.title.trim() || row.event || "Notification", readerUserId: override.has(`Notification:${row.id}`) ? override.get(`Notification:${row.id}`)!.readerUserId : readerByOwner.get(row.userId) ?? null, provenance: "REVIEW_REQUIRED", assignable: true })),
     ...blocks.map((row): Row => ({ entity: "StudentQuarterBlock", recordId: row.id, label: row.intakeTermId, readerUserId: override.has(`StudentQuarterBlock:${row.id}`) ? override.get(`StudentQuarterBlock:${row.id}`)!.readerUserId : readerByOwner.get(row.userId ?? "") ?? null, provenance: "REVIEW_REQUIRED", assignable: true })),
     ...deliveries.map((row): Row => ({ entity: "EmailDelivery", recordId: row.id, label: row.category, readerUserId: override.has(`EmailDelivery:${row.id}`) ? override.get(`EmailDelivery:${row.id}`)!.readerUserId : row.userId, provenance: "REVIEW_REQUIRED", assignable: row.status === "PENDING" && !row.attemptStartedAt, deliveryStatus: row.status, sourceNotificationId: row.sourceNotificationId })),
   ].sort((a, b) => rowKey(a).localeCompare(rowKey(b)));

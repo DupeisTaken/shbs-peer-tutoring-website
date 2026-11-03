@@ -133,6 +133,9 @@ The directory correction inventory shows every potentially affected exact profil
 notification and withdrawal restriction. Old combines sometimes rewrote recipients
 without per-row provenance; matching names, addresses or timestamps cannot repair
 that missing evidence. Staff choose Retain, Assign or Quarantine for every row.
+The Admin/Head-only inventory labels notifications with their original title and
+exact record ID, retaining an event/type fallback for blank titles. It does not
+project notification bodies or private event payloads into that review.
 Retain freezes the actual previous reader even when its raw owner is a selected
 retired source. Current operational profiles require the participation transfer
 review rather than a historical-only owner change. New combines freeze exact
