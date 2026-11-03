@@ -467,7 +467,8 @@ and `pr-<number>.json`. Only the corresponding PR selects the pair; both files
 are required. Manual selection takes precedence and the existing integration
 fallback still applies when there is no matching pair.
 
-PR #569 uses the **original-plus-roster-order** control
+PR #569 and the combined recovery PR #570 each bind their own schema manifest
+to the **original-plus-roster-order** control
 (`223a1b213a7a5167187b057d08a349d30f0087ad`). Its only parent is the
 frozen original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`.
 Only the new proposal roster capture in `src/server/session-planning/index.ts`

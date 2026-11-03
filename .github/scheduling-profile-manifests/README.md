@@ -1,10 +1,16 @@
 # Reviewed scheduling comparison inputs
 
-`baseline.txt` selects immutable baseline
-`c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`. `current.json` binds its schema,
-dependency lockfile and all 112 historical SQL migrations to the combined
-scheduling, identity and recovery schema at
-`1301ae4a4951994bcab43c7a5f24edf9bd9d6f22`.
+PR #570 selects the **original-plus-roster-order** control at
+`223a1b213a7a5167187b057d08a349d30f0087ad` using `pr-570-baseline.txt`.
+Its only parent is the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`;
+the sole source difference sorts newly captured proposal rosters. The original
+failed comparison and original-schema measurements stay separate. Even the
+native-schema cold control uses the corrected application on this comparison.
+
+`pr-570.json` binds the unchanged control schema, dependency lockfile and all
+112 historical SQL migrations to the combined scheduling, identity and recovery
+schema at `1301ae4a4951994bcab43c7a5f24edf9bd9d6f22`. The pair is scoped to
+this pull request; unrelated pull requests retain their own base revision.
 
 The first eight reviewed additions implement maintenance metadata, directory partition,
 private-history correction, participation transfer, typed identity journaling,
