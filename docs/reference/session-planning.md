@@ -739,3 +739,5 @@ Use the repository's [verification requirements](../contributing/verification.md
 for schema agreement, complete regression checks and actual-page screenshots.
 
 [Reference home](README.md).
+
+Manual dispatch of the supplementary concurrency workflow reproduces the measured scheduling revision `60be69874d08c803d0ff6b62627faded9db93e62`, including its v2 capture and PR #569 database manifest. Its aggregate identifies that revision even when dispatched from a later main. The regular combined profile uses the active PR head and its full shared capture.
