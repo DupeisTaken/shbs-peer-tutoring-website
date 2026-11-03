@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import type { PrismaClient } from "../../generated/prisma";
 
 type Row = Record<string, unknown>;
@@ -38,9 +39,9 @@ export type ParityOptions = {
 };
 
 export const PARITY_NORMALIZATION = {
-  version: 1,
+  version: 3,
   omitted: [
-    "createdAt/updatedAt persistence metadata (including journal snapshots)",
+    "createdAt/updatedAt persistence metadata (including journal snapshots), except native qualification approval time",
     "RecoveryChange numeric sequence gaps; per-root change order remains",
     "RecoveryEvent transaction numbers; cross-root transaction grouping remains",
   ],
@@ -49,17 +50,21 @@ export const PARITY_NORMALIZATION = {
     "Room/group versions, shortages, notice state, consent and exact domain clocks",
     "Continuation assignedAt/joinedAt/releasedAt and its relation to plan creation",
     "Recovery event/change order, changedFields, parent references and fences",
+    "Identity ownership/execution revisions, immutable receipts, qualification provenance (including native approval time) and exact source/release edges",
+    "Checkpoint scopes/capture transactions, shared delivery roots, cancellations, coverage and workflow owner bindings",
     "Opaque hashes unless the complete original receipt input is verified",
     "Seeded pairing IDs stay exact; created pairing aliases require verified input, actor/client receipt and returned identity",
+    "Compact SHA256 alias references retain their complete semantic definitions in semanticAliases, including all parent references",
   ],
   operationClocks:
     "Only allowlisted event instants inside an explicitly recorded operation window normalize; their ordering/equality and relation to every fixed domain boundary remain.",
   limits:
-    "Exact createdAt/updatedAt bytes are not compared, including inside journal snapshots and procedure results. Continuation creation boundaries have a separate witness; sweep selection/rotation needs explicit workload witnesses. This is normalized semantic parity, not byte-identical full journals.",
+    "Exact createdAt/updatedAt bytes are not compared, including inside journal snapshots and procedure results, except TutorQualification.createdAt retained as qualificationApprovedAt. Continuation creation boundaries have a separate witness; sweep selection/rotation needs explicit workload witnesses. Identity/recovery sidecars are never omitted to manufacture historical-baseline parity; feature-only differences require separate candidate evidence. This is normalized semantic parity, not byte-identical full journals.",
 } as const;
 
 export type ParitySnapshot = {
   normalization: typeof PARITY_NORMALIZATION;
+  semanticAliases: Record<string, string>;
   tables: Record<string, Json[]>;
   continuationProvenance: Json[];
   clockEvidence: Json[];
@@ -100,8 +105,88 @@ const instant = (value: unknown): number | undefined => {
   const time = Date.parse(value);
   return Number.isFinite(time) ? time : undefined;
 };
-const byJson = (left: Json, right: Json) =>
-  JSON.stringify(left).localeCompare(JSON.stringify(right));
+/** Serialize each sort key once. Native stable sorting retains the original
+ * order of equal keys, exactly as the previous JSON comparator did. */
+const sortByJson = <T extends Json>(rows: T[]): T[] => rows
+  .map((value) => ({ value, key: JSON.stringify(value) }))
+  .sort((left, right) => left.key.localeCompare(right.key))
+  .map(({ value }) => value);
+
+type AliasTrieNode = {
+  children: Map<string, AliasTrieNode>;
+  rawId?: string;
+};
+
+/** Incremental literal matcher for the existing escaped, longest-first /g
+ * replacement. UTF-16 positions and deepest terminals reproduce its leftmost,
+ * longest matching without rebuilding a growing regular expression. Replacement
+ * text is appended once and never rescanned. Short IDs remain exact-only.
+ * Exported so pure tests can compare every insertion with the original oracle.
+ */
+export function createParityAliasRewriter() {
+  const aliases = new Map<string, string>();
+  const root: AliasTrieNode = { children: new Map() };
+  return {
+    get: (rawId: string) => aliases.get(rawId),
+    add: (rawId: string, alias: string) => {
+      const existed = aliases.has(rawId);
+      aliases.set(rawId, alias);
+      if (existed || rawId.length < 8) return;
+      let node = root;
+      for (let index = 0; index < rawId.length; index++) {
+        const character = rawId.charAt(index);
+        let child = node.children.get(character);
+        if (!child) {
+          child = { children: new Map() };
+          node.children.set(character, child);
+        }
+        node = child;
+      }
+      node.rawId = rawId;
+    },
+    replace: (value: string) => {
+      const exact = aliases.get(value);
+      if (exact) return exact;
+      let output = "";
+      let copiedThrough = 0;
+      let position = 0;
+      while (position < value.length) {
+        let node = root;
+        let cursor = position;
+        let matchedId: string | undefined;
+        let matchedEnd = position;
+        while (cursor < value.length) {
+          const child = node.children.get(value.charAt(cursor));
+          if (!child) break;
+          node = child;
+          cursor++;
+          if (node.rawId !== undefined) {
+            matchedId = node.rawId;
+            matchedEnd = cursor;
+          }
+        }
+        if (matchedId !== undefined) {
+          output += value.slice(copiedThrough, position) + aliases.get(matchedId)!;
+          position = matchedEnd;
+          copiedThrough = position;
+        } else position++;
+      }
+      return copiedThrough ? output + value.slice(copiedThrough) : value;
+    },
+  };
+}
+
+/** Index source rows without deduplicating or reordering their evidence. */
+function rowsByField(rows: readonly Row[], field: string) {
+  const index = new Map<unknown, Row[]>();
+  for (const row of rows) {
+    const key = row[field];
+    const group = index.get(key);
+    if (group) group.push(row);
+    else index.set(key, [row]);
+  }
+  return index;
+}
 const orderedId = (value: unknown): string => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
@@ -129,37 +214,31 @@ export function canonicalizeParity(
     source.ProcedureResult = options.procedureResults.map(({ label, result }) => ({ id: label, result }));
   }
   const rows = (table: string) => source[table] ?? [];
-  const aliases = new Map<string, string>();
+  const rewriter = createParityAliasRewriter();
   const semanticIds = new Map<string, string>();
-  let replacementPattern: RegExp | undefined;
-  let replacementVersion = -1;
+  const semanticDefinitions = new Map<string, string>();
+  const rawAliases = new Map<string, string>();
   const addAlias = (raw: unknown, key: string) => {
     const id = text(raw);
-    const previous = aliases.get(id);
-    assert.ok(!previous || previous === key, `Conflicting alias for ${id}`);
+    // Internal references keep identity construction bounded even for a long
+    // chain of parent requests. They never enter the returned snapshot.
+    const reference = `@pending:${createHash("sha256").update(key).digest("hex")}`;
+    const previous = rewriter.get(id);
+    assert.ok(!previous || previous === reference, `Conflicting alias for ${id}`);
     const owner = semanticIds.get(key);
     assert.ok(!owner || owner === id, `Ambiguous semantic identity: ${key}`);
-    aliases.set(id, key);
+    const definition = semanticDefinitions.get(reference);
+    assert.ok(definition === undefined || definition === key, "Compact alias SHA256 collision");
+    rewriter.add(id, reference);
     semanticIds.set(key, id);
+    semanticDefinitions.set(reference, key);
+    rawAliases.set(id, reference);
   };
   // Source fixture IDs remain exact. Only identities generated by the exercised
   // domain operations receive aliases; changing a source target cannot disappear.
-  const replaceString = (value: string) => {
-    const exact = aliases.get(value);
-    if (exact) return exact;
-    if (replacementVersion !== aliases.size) {
-      const keys = [...aliases.keys()].filter((key) => key.length >= 8);
-      const escaped = keys
-        .sort((a, b) => b.length - a.length)
-        .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      replacementPattern = escaped.length ? new RegExp(escaped.join("|"), "g") : undefined;
-      replacementVersion = aliases.size;
-    }
-    if (!replacementPattern) return value;
-    return value.replace(replacementPattern, (id) =>
-      aliases.get(id)!,
-    );
-  };
+  const replaceString = (value: string) => rewriter.replace(value);
+  const participantsByCohort = rowsByField(rows("SessionPlanParticipant"), "cohortId");
+  const assignmentsByPlan = rowsByField(rows("SessionPlanAssignment"), "planId");
   const windows = (options.operationWindows ?? []).map((window) => {
     const before = instant(window.before);
     const after = instant(window.after);
@@ -249,8 +328,7 @@ export function canonicalizeParity(
   register("SessionPlanCohort", (row) => key(
     row.planId, row.date, row.startMin, row.endMin, row.roomId, row.online,
     row.rescheduled, row.status,
-    rows("SessionPlanParticipant")
-      .filter((person) => person.cohortId === row.id)
+    (participantsByCohort.get(row.id) ?? [])
       .map((person) => text(person.tuteeId)).sort(),
   ));
   register("SessionPlanParticipant", (row) => key(row.planId, row.tuteeId));
@@ -282,7 +360,27 @@ export function canonicalizeParity(
   registerOccurrences("ServiceHourAdjustment", (row) => key(
     row.tutorId, row.month, row.schoolYear, row.quarter, row.type, row.amount, row.reason,
   ));
-  registerOccurrences("RecoveryAction", (row) => key(row.kind, row.applicationId));
+  // Receipt IDs are operation identities. Keep the opaque input hash exact;
+  // without a verified original input, differing hashes are real incompatibility.
+  for (const table of ["PersonCombineReceipt", "PersonPartitionReceipt",
+    "PersonHistoryCorrectionReceipt", "PersonParticipationTransferReceipt"])
+    registerOccurrences(table, (row) => key(row.actorId, row.inputHash));
+  // Only partition has an immutable, explicit new-Person creation witness.
+  // Other Person/profile/survey source IDs remain exact, including empty groups.
+  for (const row of rows("PersonPartitionReceipt"))
+    addAlias(row.newPersonId, `Person:partition:${key(row.id)}`);
+  const checkpointsByAction = rowsByField(rows("RecoveryCheckpoint"), "actionId");
+  registerOccurrences("RecoveryAction", (row) => {
+    const checkpoints = checkpointsByAction.get(row.id) ?? [];
+    assert.ok(checkpoints.length <= 1, "Recovery action has multiple checkpoints");
+    const checkpoint = checkpoints[0];
+    return checkpoint
+      ? key(row.kind, row.applicationId, checkpoint.adapter, checkpoint.adapterVersion,
+        checkpoint.sourceEntity, checkpoint.sourceId, checkpoint.capturedById)
+      : key(row.kind, row.applicationId);
+  });
+  register("RecoveryCheckpoint", (row) => key(row.actionId));
+  register("RecoveryWorkflowDraft", (row) => key(row.actionId, row.sourceSurveyId));
 
   const orderedChanges = [...rows("RecoveryChange")].sort((a, b) => {
     const left = BigInt(a.id as string | number | bigint);
@@ -317,6 +415,14 @@ export function canonicalizeParity(
     members.push(replaceString(text(event.id)));
     transactions.set(transaction, members);
   }
+  // Capture and journal transactions share one namespace. Preserve whether a
+  // checkpoint was captured alongside each event, even for an empty checkpoint.
+  for (const checkpoint of rows("RecoveryCheckpoint")) {
+    const transaction = text(checkpoint.captureTransactionId);
+    const members = transactions.get(transaction) ?? [];
+    members.push(replaceString(text(checkpoint.id)));
+    transactions.set(transaction, members);
+  }
   for (const [transaction, members] of transactions)
     addAlias(transaction, `transaction:${JSON.stringify(members.sort())}`);
 
@@ -336,7 +442,63 @@ export function canonicalizeParity(
   register("SessionNotice", (row) => replaceString(text(row.dedupeKey)));
   registerOccurrences("Notification", (row) => key(row.userId, row.event, row.context, row.link, row.title, row.body));
   registerOccurrences("EmailDelivery", (row) => key(row.userId, row.recipient, row.event, row.context, row.reminderKey));
+  register("RecoveryDeliveryEffect", (row) => key(
+    row.actionId, row.eventId, row.notificationId, row.deliveryId,
+  ));
   registerOccurrences("AuditLog", (row) => key(row.entity, row.entityId, row.operation, row.action, row.userId));
+
+  // Resolve the semantic dependency graph once. Dictionary values contain full
+  // identity definitions with compact parent edges, rather than recursively
+  // JSON-escaping entire ancestor identities. Late references (for example an
+  // extra plan's originating request) resolve without retaining generated IDs.
+  const semanticAliases = new Map<string, string>();
+  const resolvedReferences = new Map<string, string>();
+  const resolving = new Set<string>();
+  const resolvedOwners = new Map<string, string>();
+  const ownerByReference = new Map([...rawAliases].map(([raw, reference]) => [reference, raw]));
+  const pendingPattern = () => /@pending:[a-f0-9]{64}/g;
+  const resolveRawSegment = (value: string): string => rewriter.replace(value).replace(
+    pendingPattern(), (reference) => semanticDefinitions.has(reference) ? resolveReference(reference) : reference,
+  );
+  const resolveDefinition = (value: string): string => {
+    let result = "";
+    let copiedThrough = 0;
+    // Protect existing internal references from raw-ID substring replacement;
+    // then resolve any late raw references in the remaining literal segments.
+    for (const match of value.matchAll(pendingPattern())) {
+      if (!semanticDefinitions.has(match[0])) continue;
+      result += resolveRawSegment(value.slice(copiedThrough, match.index)) + resolveReference(match[0]);
+      copiedThrough = match.index + match[0].length;
+    }
+    return result + resolveRawSegment(value.slice(copiedThrough));
+  };
+  function resolveReference(reference: string): string {
+    const existing = resolvedReferences.get(reference);
+    if (existing) return existing;
+    assert.ok(!resolving.has(reference), "Cyclic generated-alias semantic identity");
+    const definition = semanticDefinitions.get(reference);
+    assert.ok(definition !== undefined, "Missing generated-alias semantic definition");
+    resolving.add(reference);
+    const semantic = resolveDefinition(definition);
+    const compact = `@alias:${createHash("sha256").update(semantic).digest("hex")}`;
+    const previous = semanticAliases.get(compact);
+    assert.ok(previous === undefined || previous === semantic, "Resolved alias SHA256 collision");
+    const raw = ownerByReference.get(reference);
+    assert.ok(raw !== undefined);
+    const owner = resolvedOwners.get(semantic);
+    assert.ok(owner === undefined || owner === raw, `Ambiguous resolved semantic identity: ${semantic}`);
+    resolvedOwners.set(semantic, raw);
+    semanticAliases.set(compact, semantic);
+    resolvedReferences.set(reference, compact);
+    resolving.delete(reference);
+    return compact;
+  }
+  for (const reference of semanticDefinitions.keys()) resolveReference(reference);
+  // Update only after the complete graph resolves, so every raw lookup during
+  // resolution observes the same internal dictionary rather than mixed phases.
+  for (const [raw, reference] of rawAliases) rewriter.add(raw, resolvedReferences.get(reference)!);
+  for (const semantic of semanticAliases.values())
+    assert.equal(rewriter.replace(semantic), semantic, "Unresolved generated ID in semantic alias dictionary");
 
   const receiptInputs = new Map(
     (options.receiptInputs ?? []).map((witness) => [
@@ -352,25 +514,40 @@ export function canonicalizeParity(
     return { verifiedInput: normalize(witness.input) };
   };
   const tables: Record<string, Json[]> = {};
+  // This field is native approval evidence, not ordinary persistence metadata:
+  // a transferred grant must retain the original approval's exact instant.
+  const qualificationEvidence = (value: unknown) => {
+    const row = object(value);
+    return row && Object.hasOwn(row, "createdAt")
+      ? { ...row, qualificationApprovedAt: row.createdAt }
+      : value;
+  };
   for (const [table, values] of Object.entries(source).sort(([a], [b]) => a.localeCompare(b))) {
     const mapped = values.map((row) => {
       const copy = { ...row };
       if (table === "SessionPlanningReceipt") copy.payloadHash = normalizedHash(row);
-      if (table === "RecoveryChange") copy.id = `change:${key(row.actionId)}:${changePositions.get(row)!}`;
+      if (table === "TutorQualification") return normalize(qualificationEvidence(copy));
+      if (table === "RecoveryChange") {
+        copy.id = `change:${key(row.actionId)}:${changePositions.get(row)!}`;
+        if (row.entity === "TutorQualification") {
+          copy.before = qualificationEvidence(row.before);
+          copy.after = qualificationEvidence(row.after);
+        }
+      }
       return normalize(copy);
     });
     // Audit order is meaningful within its captured global history. Recovery
     // changes carry each root's explicit ordinal, preserving away-and-back edits.
     tables[table] = table === "AuditLog"
       ? [...values].sort(chronological).map((row) => normalize(row))
-      : mapped.sort(byJson);
+      : sortByJson(mapped);
   }
 
   const continuationProvenance: Json[] = [];
   for (const plan of rows("SessionPlan")) {
     const createdAt = instant(plan.createdAt);
     assert.ok(createdAt !== undefined, "Plan creation is required for provenance");
-    const assignments = rows("SessionPlanAssignment").filter((row) => row.planId === plan.id);
+    const assignments = assignmentsByPlan.get(plan.id) ?? [];
     const pairingIds = new Set(assignments.map((row) => row.pairingId));
     for (const assignment of rows("StudentContinuationAssignment")) {
       if (!pairingIds.has(assignment.targetPairingId)) continue;
@@ -430,8 +607,9 @@ export function canonicalizeParity(
   }));
   return {
     normalization: PARITY_NORMALIZATION,
+    semanticAliases: Object.fromEntries([...semanticAliases].sort(([left], [right]) => left.localeCompare(right))),
     tables,
-    continuationProvenance: continuationProvenance.sort(byJson),
+    continuationProvenance: sortByJson(continuationProvenance),
     clockEvidence,
   };
 }
@@ -445,7 +623,7 @@ export async function captureParity(
   db: PrismaClient,
   options: ParityOptions = {},
 ): Promise<ParitySnapshot> {
-  return db.$transaction(async (tx) => {
+  const tables = await db.$transaction(async (tx) => {
     const tables: Record<string, Row[]> = {};
     // Explicit delegates make schema additions reviewable; no broad raw-table
     // export and no secrets from User/TutorApplication credential storage.
@@ -463,11 +641,89 @@ export async function captureParity(
     tables.User = await tx.user.findMany({ select: {
       id: true, role: true, tutorId: true, studentId: true,
       suspendedAt: true, tutorAccessRevoked: true, mergedIntoId: true,
+      personId: true, historyAccessRevision: true, profileVersion: true,
+      sessionVersion: true, recoveryVoidedAt: true,
     } });
-    tables.Tutor = await tx.tutor.findMany({ select: { id: true, status: true } });
-    tables.Tutee = await tx.tutee.findMany({ select: { id: true, status: true } });
+    tables.Tutor = await tx.tutor.findMany({ select: {
+      id: true, status: true, personId: true, historyIdentityRevision: true,
+    } });
+    tables.Tutee = await tx.tutee.findMany({ select: {
+      id: true, status: true, personId: true, historyIdentityRevision: true,
+    } });
     tables.TutorProfileOwnership = await tx.tutorProfileOwnership.findMany();
     tables.StudentProfileOwnership = await tx.studentProfileOwnership.findMany();
+    // Explicit scalar/JSON selections cover the combined identity contract.
+    // These are synthetic fixture records, not the operator's privacy projection.
+    tables.Person = await tx.person.findMany({ select: {
+      id: true, revision: true, primaryUserId: true, resolutionState: true,
+      mergedIntoId: true, createdAt: true, updatedAt: true,
+    } });
+    tables.PersonCombineReceipt = await tx.personCombineReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, outcome: true,
+      retiredUserIds: true, ownershipTransfers: true, createdAt: true,
+    } });
+    tables.PersonPartitionReceipt = await tx.personPartitionReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, newPersonId: true,
+      sources: true, subjects: true, createdAt: true,
+    } });
+    tables.RetiredHistoryOwnership = await tx.retiredHistoryOwnership.findMany({ select: {
+      sourceUserId: true, readerUserId: true, state: true, revision: true,
+      receiptId: true, updatedAt: true,
+    } });
+    tables.HistoryRowOwnership = await tx.historyRowOwnership.findMany({ select: {
+      entity: true, recordId: true, readerUserId: true, quarantineUserIds: true,
+      sourceUserIds: true, revision: true, receiptId: true, updatedAt: true,
+    } });
+    tables.PersonHistoryCorrectionReceipt = await tx.personHistoryCorrectionReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, destinationPersonId: true,
+      sourceUserIds: true, before: true, after: true, subjects: true, createdAt: true,
+    } });
+    tables.PersonParticipationTransferReceipt = await tx.personParticipationTransferReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, retainedUserId: true,
+      selection: true, result: true, subjects: true, createdAt: true,
+    } });
+    tables.ParticipantConsolidation = await tx.participantConsolidation.findMany({ select: {
+      kind: true, sourceId: true, targetId: true, active: true, revision: true,
+      receiptId: true, effectiveAt: true,
+    } });
+    tables.PairingExecutionSuccessor = await tx.pairingExecutionSuccessor.findMany({ select: {
+      sourcePairingId: true, targetPairingId: true, receiptId: true, effectiveAt: true, revision: true,
+    } });
+    tables.SessionPlanExecution = await tx.sessionPlanExecution.findMany({ select: {
+      planId: true, tutorId: true, revision: true, receiptId: true, assignments: true,
+    } });
+    tables.SessionParticipantExecution = await tx.sessionParticipantExecution.findMany({ select: {
+      participantId: true, sourceSurveyIds: true, tuteeId: true, revision: true, receiptId: true,
+    } });
+    tables.SessionResponseExecution = await tx.sessionResponseExecution.findMany({ select: {
+      responseId: true, userId: true, profileKind: true, profileId: true,
+      respondedByUserId: true, revision: true, receiptId: true,
+    } });
+    tables.TutorQualification = await tx.tutorQualification.findMany({ select: {
+      tutorId: true, subjectId: true, approvedById: true, status: true, createdAt: true,
+    } });
+    tables.QualificationGrant = await tx.qualificationGrant.findMany({ select: {
+      tutorId: true, sourceSubjectId: true, subjectId: true, grantedAt: true,
+    } });
+    tables.QualificationTransferGrant = await tx.qualificationTransferGrant.findMany({ select: {
+      targetTutorId: true, sourceTutorId: true, sourceSubjectId: true, subjectId: true,
+      approvedById: true, approvedAt: true, grantedAt: true, receiptId: true, active: true, revision: true,
+    } });
+    tables.StudentRequestExecutionAssignment = await tx.studentRequestExecutionAssignment.findMany({ select: {
+      surveyId: true, pairingId: true, tuteeId: true, sourceTuteeId: true,
+      revision: true, receiptId: true, createdAt: true, releasedAt: true,
+    } });
+    // Request authority and owner-review results must not be represented by an
+    // edge alone. Exclude only the mailbox capability tokenHash, not lifecycle.
+    tables.StudentSurvey = await tx.studentSurvey.findMany({ select: {
+      id: true, email: true, intakeTermId: true, payload: true, currentPayload: true,
+      currentVersion: true, policyRevision: true, policySnapshot: true, submittedAt: true,
+      verificationAttempts: true, emailCodeVersion: true, expiresAt: true, confirmedAt: true,
+      publicSignupEmailConfirmedAt: true, state: true, tuteeId: true, firstAssignedAt: true,
+      verificationDueAt: true, editedAt: true, resolvedAt: true, lastLinkSentAt: true,
+      invalidReason: true, invalidatedAt: true, invalidatedById: true,
+      invalidatedByName: true, invalidityVersion: true,
+    } });
     tables.SchoolDeparture = await tx.schoolDeparture.findMany();
     tables.SessionPlan = await tx.sessionPlan.findMany();
     tables.SessionPlanAssignment = await tx.sessionPlanAssignment.findMany();
@@ -497,15 +753,39 @@ export async function captureParity(
     tables.Notification = await tx.notification.findMany();
     tables.EmailDelivery = await tx.emailDelivery.findMany();
     tables.RecoveryAction = await tx.recoveryAction.findMany();
+    tables.RecoveryCheckpoint = await tx.recoveryCheckpoint.findMany({ select: {
+      id: true, actionId: true, schemaVersion: true, adapter: true, adapterVersion: true,
+      sourceEntity: true, sourceId: true, capturedById: true, captureTransactionId: true,
+      scope: true, createdAt: true,
+    } });
+    tables.RecoveryDeliveryEffect = await tx.recoveryDeliveryEffect.findMany({ select: {
+      id: true, actionId: true, eventId: true, notificationId: true, deliveryId: true, createdAt: true,
+    } });
+    tables.RecoveryDeliveryCancellation = await tx.recoveryDeliveryCancellation.findMany({ select: {
+      effectId: true, recoveryKey: true, disposition: true, createdAt: true,
+    } });
+    tables.RecoveryDeliveryCoverage = await tx.recoveryDeliveryCoverage.findMany({ select: {
+      eventId: true, actionId: true, version: true, createdAt: true,
+    } });
+    tables.RecoveryWorkflowDraft = await tx.recoveryWorkflowDraft.findMany({ select: {
+      id: true, actionId: true, sourceSurveyId: true, sourceTuteeId: true, ownerUserId: true,
+      ownerBindingHash: true, answers: true, state: true, version: true,
+      submittedSurveyId: true, consumedAt: true, createdAt: true,
+    } });
     tables.RecoveryEvent = await tx.recoveryEvent.findMany();
     tables.RecoveryChange = await tx.recoveryChange.findMany({ orderBy: { id: "asc" } });
     tables.RecoveryTrackedEntity = await tx.recoveryTrackedEntity.findMany();
     tables.RecoveryFence = await tx.recoveryFence.findMany();
     tables.RecoveryReceipt = await tx.recoveryReceipt.findMany();
-    return canonicalizeParity(tables, options);
+    return tables;
   }, { isolationLevel: "RepeatableRead", timeout: 120_000 });
+  // The rows retain the coherent read snapshot after commit. Pure normalization
+  // is evidence processing and need not hold a database transaction open.
+  return canonicalizeParity(tables, options);
 }
 
 export function compareParity(actual: ParitySnapshot, expected: ParitySnapshot): void {
-  assert.deepStrictEqual(actual, expected, "Scheduling persisted semantic state differs");
+  // Compare the complete graphs, but never ask AssertionError to inspect/diff
+  // multi-megabyte snapshots. Its diagnostic must retain only this boolean.
+  assert.ok(isDeepStrictEqual(actual, expected), "Scheduling persisted semantic state differs");
 }

@@ -24,6 +24,12 @@ const bash = process.env.SHBS_TEST_BASH ?? "bash";
 // Inspect emitted imports without evaluating any application module or opening a
 // database. Type-only edges disappear just as they do under the production tsx CLI.
 function runtimeImports(source, fileName) {
+  // JSON is runtime data: validate its bytes and retain it in the graph, but
+  // never send it through TypeScript or interpret strings as import edges.
+  if (fileName.endsWith(".json")) {
+    JSON.parse(source);
+    return [];
+  }
   const emitted = ts.transpileModule(source, {
     fileName,
     compilerOptions: {
@@ -35,7 +41,7 @@ function runtimeImports(source, fileName) {
   return ts.preProcessFile(emitted, true, true).importedFiles.map((entry) => entry.fileName);
 }
 
-function runtimeCliGraph(entry) {
+function runtimeCliGraph(entry, projectRoot = root) {
   const files = new Set(["package.json", "tsconfig.json"]);
   const packages = new Set(["tsx"]);
   const visit = (file) => {
@@ -43,7 +49,7 @@ function runtimeCliGraph(entry) {
     files.add(file);
     // prisma generate supplies this whole artifact; the image smoke executes it.
     if (file.startsWith("generated/")) return;
-    const source = readFileSync(path.join(root, file), "utf8");
+    const source = readFileSync(path.join(projectRoot, file), "utf8");
     for (const specifier of runtimeImports(source, file)) {
       if (isBuiltin(specifier)) continue;
       if (!specifier.startsWith(".") && !specifier.startsWith("~/")) {
@@ -59,7 +65,7 @@ function runtimeCliGraph(entry) {
         continue;
       }
       const resolved = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.mjs`, `${base}/index.ts`, `${base}/index.js`]
-        .find((candidate) => existsSync(path.join(root, candidate)) && statSync(path.join(root, candidate)).isFile());
+        .find((candidate) => existsSync(path.join(projectRoot, candidate)) && statSync(path.join(projectRoot, candidate)).isFile());
       assert.ok(resolved, `Cannot resolve CLI import: ${file} -> ${specifier}`);
       visit(resolved);
     }
@@ -136,6 +142,34 @@ test("prepared operator sources require their exact destination and final app co
     dockerfile.replace("/runtime-output/app/src/server/program/continuation-opening.ts", "/elsewhere/continuation-opening.ts"),
     dockerfile.replace(/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m, ""),
   ]) assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(changed)).includes(missing));
+});
+
+test("CLI packaging guard catches omitted recovery acceptance descendants", () => {
+  const copies = runtimeSourceCopies();
+  const graph = runtimeCliGraph("scripts/recovery.ts");
+  for (const omitted of [
+    "src/server/recovery/operator-cutover.ts",
+    "src/server/recovery/operator-next.ts",
+    "src/lib/session-identity.ts",
+  ]) {
+    assert.ok(graph.files.has(omitted), `${omitted} must be exercised by recovery`);
+    assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== omitted)), [omitted]);
+  }
+});
+
+test("CLI import discovery validates JSON assets and requires their runtime copy", (t) => {
+  const fixture = mkdtempSync(path.join(tmpdir(), "shbs-cli-json-"));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  writeFileSync(path.join(fixture, "entry.ts"), 'import data from "./data.json" with { type: "json" }; export { data };');
+  writeFileSync(path.join(fixture, "data.json"), JSON.stringify({ text: 'import "./not-code.ts"', label: "Synthetic 合成" }));
+  const graph = runtimeCliGraph("entry.ts", fixture);
+  assert.deepEqual([...graph.files], ["package.json", "tsconfig.json", "entry.ts", "data.json"]);
+  assert.deepEqual([...graph.packages], ["tsx"]);
+  const copies = [...graph.files].map((file) => ({ source: file, target: file }));
+  assert.deepEqual(missingRuntimeFiles(graph, copies), []);
+  assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== "data.json")), ["data.json"]);
+  writeFileSync(path.join(fixture, "data.json"), '{"broken":');
+  assert.throws(() => runtimeCliGraph("entry.ts", fixture), SyntaxError);
 });
 
 test("CLI import discovery includes deferred, side-effect and re-export edges but excludes types", () => {

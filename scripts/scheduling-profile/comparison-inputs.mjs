@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const migration = "20261103030000_scheduling_maintenance";
@@ -34,10 +34,12 @@ function sha256(value, label) {
   return value;
 }
 
-/** Only normalized migration SQL paths can become overlay destinations.
- * @param {unknown} value @param {string} label */
-function migrationPath(value, label) {
+/** New overlay destinations remain timestamped. The exact legacy bootstrap is
+ * accepted only while validating historical/inventory entries, never additions.
+ * @param {unknown} value @param {string} label @param {boolean} [historical] */
+function migrationPath(value, label, historical = false) {
   if (typeof value !== "string" ||
+      !(historical && value === "prisma/migrations/0_init/migration.sql") &&
       !/^prisma\/migrations\/[0-9]{14}_[A-Za-z0-9_-]+\/migration\.sql$/.test(value))
     throw new Error(`${label} must be an exact normalized migration.sql path`);
   return value;
@@ -64,7 +66,7 @@ function reviewedDelta(value) {
     "Duplicate reviewed added migration path");
   const historical = record(input.historicalMigrations, "Reviewed historical migrations");
   const historicalMigrations = Object.fromEntries(Object.entries(historical).sort(([a], [b]) => a.localeCompare(b)).map(([path, hash]) => [
-    migrationPath(path, "Historical migration path"), sha256(hash, "Historical migration hash"),
+    migrationPath(path, "Historical migration path", true), sha256(hash, "Historical migration hash"),
   ]));
   assert.ok(addedMigrations.every((entry) => !(entry.path in historicalMigrations)),
     "An added migration cannot replace a historical migration");
@@ -93,7 +95,7 @@ function reviewedInventory(root) {
   let lock;
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const path = migrationPath(`prisma/migrations/${entry.name}/migration.sql`, "Inventory migration path");
+      const path = migrationPath(`prisma/migrations/${entry.name}/migration.sql`, "Inventory migration path", true);
       const files = readdirSync(resolve(root, "prisma/migrations", entry.name), { withFileTypes: true });
       assert.ok(files.length === 1 && files[0]?.name === "migration.sql" && files[0].isFile(),
         `Unreviewed migration directory contents: ${entry.name}`);
@@ -229,6 +231,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       assert.equal(digest(read(baseline, path)), hash, `Overlay changed runtime source: ${path}`);
   }
   mkdirSync(dirname(resolve(receipt)), { recursive: true });
-  writeFileSync(receipt, JSON.stringify({ ...manifest, reviewedManifestFileSha256: reviewedBytes ? digest(reviewedBytes) : null,
+  writeFileSync(receipt, JSON.stringify({ ...manifest,
+    baselineSelectionPath: process.env.PROFILE_BASELINE_SELECTION_PATH || null,
+    baselineSelectionFileSha256: process.env.PROFILE_BASELINE_SELECTION_FILE_SHA256 || null,
+    baselineSelectionSource: process.env.PROFILE_BASELINE_SELECTION_SOURCE || "explicit-cli",
+    reviewedManifestPath: reviewedManifestPath ? relative(resolve(candidate), resolve(reviewedManifestPath)).replaceAll("\\", "/") : null,
+    reviewedManifestFileSha256: reviewedBytes ? digest(reviewedBytes) : null,
     action, baselineRevision: git("rev-parse", "HEAD").trim(), originalSourceHashes }, null, 2) + "\n");
 }

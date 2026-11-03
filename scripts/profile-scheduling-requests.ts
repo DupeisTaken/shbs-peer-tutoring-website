@@ -30,7 +30,7 @@ const flags = new Map<string, string>();
 for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index]!;
   const value = process.argv[index + 1];
-  assert.ok(["--scenario", "--mode", "--transport", "--timeout-ms", "--anchor", "--samples", "--output", "--compare"].includes(key), `Unknown option ${key}`);
+  assert.ok(["--scenario", "--mode", "--transport", "--timeout-ms", "--anchor", "--samples", "--partition-index", "--partition-count", "--output", "--compare"].includes(key), `Unknown option ${key}`);
   assert.ok(value && !value.startsWith("--") && !flags.has(key), `Missing/repeated option ${key}`);
   flags.set(key, value);
 }
@@ -58,6 +58,27 @@ assert.ok(Number.isFinite(anchor.getTime()), "Invalid anchor.");
 assert.ok(anchor.getTime() <= Date.now() && Date.now() - anchor.getTime() < 12 * 3_600_000, "Use the same fresh past anchor for both revisions (within 12 hours).");
 const samples = flags.has("--samples") ? Number(flags.get("--samples")) : requested === "backlog" ? 1 : requested === "cold" || requested === "sunday" ? 20 : 40;
 assert.ok(Number.isInteger(samples) && (requested === "backlog" ? samples >= 1 && samples <= 3 : mode === "diagnostic" ? samples >= 1 && samples <= 10 : samples >= 20 && samples <= 100), "Latency uses 20–100 samples, ordinary diagnostics 1–10, and explicit backlog diagnostics 1–3.");
+type Partition = { index: number; count: number; start: number; end: number; totalSamples: number; warmupRounds: 1 };
+let partition: Partition | null = null;
+assert.equal(flags.has("--partition-index"), flags.has("--partition-count"), "Partition index/count must be supplied together.");
+if (flags.has("--partition-index")) {
+  assert.equal(mode, "latency", "Only ordinary latency populations use the partition protocol.");
+  assert.ok(samples === 20 || samples === 40, "Partitioned --samples remains the full total: 20 or 40.");
+  const index = Number(flags.get("--partition-index"));
+  const count = Number(flags.get("--partition-count"));
+  assert.ok(Number.isInteger(count) && count === samples / 4, "Each partition contains exactly four measured rounds.");
+  assert.ok(Number.isInteger(index) && index >= 0 && index < count, "Partition index is outside the complete population.");
+  partition = { index, count, start: index * 4, end: (index + 1) * 4, totalSamples: samples, warmupRounds: 1 };
+}
+const profileRunner = {
+  id: process.env.PROFILE_PARTITION_RUNNER_ID ?? null,
+  name: process.env.PROFILE_RUNNER_NAME ?? null,
+  os: process.env.PROFILE_RUNNER_OS ?? null,
+  arch: process.env.PROFILE_RUNNER_ARCH ?? null,
+};
+if (partition) assert.ok(profileRunner.id?.trim(), "Partition measurements require PROFILE_PARTITION_RUNNER_ID.");
+const rangeStart = partition?.start ?? 0;
+const rangeEnd = partition?.end ?? samples;
 assert.ok(process.env.DATABASE_URL, "Provide DATABASE_URL explicitly; no .env is loaded.");
 const target = new URL(process.env.DATABASE_URL);
 assert.ok(["postgres:", "postgresql:"].includes(target.protocol) && ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname) && target.port === "55439" && target.pathname === "/shbs_performance_test" && !target.search && !target.hash, "Refusing reset: require explicit loopback:55439/shbs_performance_test without query overrides.");
@@ -76,6 +97,11 @@ const migrations = readdirSync(resolve(root, "prisma/migrations"), { withFileTyp
   return { name: entry.name, sha256: hash(bytes), lfSha256: hash(lf), crlfSha256: hash(lf.replaceAll("\n", "\r\n")) };
 }).sort((a, b) => a.name.localeCompare(b.name));
 type ScenarioReceipt = { scenario: ScenarioName; round: number; digest: string; parity?: ParitySnapshot; output: unknown; receiptInputs: ReceiptInput[]; pairingCreations: NonNullable<ParityOptions["pairingCreations"]>; operationWindows: NonNullable<ParityOptions["operationWindows"]>; parityWindow: NonNullable<ParityOptions["operationWindows"]> };
+function assertOwnReceiptRange(receipts: ScenarioReceipt[]) {
+  const expected = scenarios.flatMap((scenario) => Array.from({ length: rangeEnd - rangeStart }, (_, offset) => `${scenario}:${rangeStart + offset}`)).sort();
+  const actual = receipts.map((receipt) => `${receipt.scenario}:${receipt.round}`).sort();
+  assert.deepEqual(actual, expected, "Receipt population is incomplete, duplicated or outside this command's declared range.");
+}
 type Report = {
   status: "RUNNING" | "PASS" | "FAIL" | "TIMEOUT";
   schemaVersion: number;
@@ -88,7 +114,9 @@ type Report = {
   [key: string]: unknown;
 };
 const report: Report = {
-  schemaVersion: 2, status: "RUNNING", mode, transport, timeoutMs, startedAt: new Date().toISOString(),
+  schemaVersion: 3, partitionProtocolVersion: 1, partition, profileRunner,
+  samplingComplete: false, partitionComplete: false, latencyComparisonEligible: false,
+  status: "RUNNING", mode, transport, timeoutMs, startedAt: new Date().toISOString(),
   revision: git("rev-parse", "HEAD").trim(), workingTree: git("status", "--short"), trackedDiffSha256: hash(git("diff", "--binary", "HEAD")),
   harnessHashes, sourceHashes, migrationFiles: migrations,
   runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model, logicalCpus: os.cpus().length },
@@ -101,6 +129,8 @@ const report: Report = {
     domain: "Sunday and exact deadline cases pass an explicit domain clock; production Date is never replaced. Labelled independently from procedure timings.",
     cold: "Empty planning tables and normal process/database caches, not a cold OS/PostgreSQL restart.",
     samples: "Ordinary scenarios use one discarded warmup; explicit backlog diagnostics use none. Fresh fixture each measured round. Seed/reset/snapshots/assertions excluded from timed operations. Ordinary nearest-rank empirical p50/p95 are not a production percentile guarantee; backlog request latency percentiles are not reported.",
+    partitions: "Optional protocol v1 uses four contiguous globally numbered measured rounds plus one process warmup per partition. --samples remains the complete 20/40-round population. A partition PASS covers only its own range; population coverage, pooled hosted-runner observations and hardware variance require separate aggregation. Partition receipts do not report latency percentiles or establish latency gains.",
+    phaseTimings: "Untimed harness phases record reset, seed, witness assertions, late-root writes, capture/canonicalization, digest and saves. A completed save duration appears in the next write; the final save duration is returned in the console completion record, avoiding recursive report writes.",
     diagnostic: "Separate run only. Driver query and lock-statement elapsed includes client/transport overhead. Acquisition-to-commit interval is a transaction-held interval. No exact PostgreSQL wait accounting is claimed.",
     witness: "Populated continuation is persisted synthetic pre-existing enrollment. Late-root sequential Prisma witness runs outside timing, never the rejected combined-write SQL.",
     cleanWarm: "Ordinary/Sunday steady-clean labels require four fixed common empty-request agenda preparations, unchanged complete domain/audit/recovery snapshots, and passively verified current candidate metadata before/after timing. Setup outputs remain in semantic parity; setup elapsed and readiness counts are separate evidence. Uncertified preparation fails the run without an adaptive drain or timeout extension. Post-proposal and second-read labels do not claim steady state.",
@@ -115,13 +145,39 @@ const profiler = createProfiler(mode);
 const started = performance.now();
 const preparationEvidence: { scenario: ScenarioName; round: number; stage: string; evidence: unknown }[] = [];
 const setupMeasurements: { scenario: ScenarioName; round: number; label: string; elapsedMs: number }[] = [];
+type PhaseTiming = { scenario: ScenarioName | null; round: number | null; phase: string; elapsedMs: number; status: "completed" | "failed" | "unfinished"; elapsedIsLowerBound: boolean };
+const phaseTimings: PhaseTiming[] = [];
+const activePhases = new Map<PhaseTiming, number>();
+let phaseContext: { scenario: ScenarioName | null; round: number | null } = { scenario: null, round: null };
+const sampleRounds: { sampleIndex: number; scenario: ScenarioName; round: number; label: string }[] = [];
 report.preparationEvidence = preparationEvidence;
 report.setupMeasurements = setupMeasurements;
+report.sampleRounds = sampleRounds;
+async function timedPhase<T>(phase: string, operation: () => Promise<T> | T): Promise<T> {
+  const row: PhaseTiming = { ...phaseContext, phase, elapsedMs: 0, status: "unfinished", elapsedIsLowerBound: true };
+  const before = performance.now();
+  phaseTimings.push(row);
+  activePhases.set(row, before);
+  let completed = false;
+  try {
+    const value = await operation();
+    completed = true;
+    return value;
+  } finally {
+    row.elapsedMs = performance.now() - before;
+    row.status = completed ? "completed" : "failed";
+    row.elapsedIsLowerBound = false;
+    activePhases.delete(row);
+  }
+}
 function save() {
+  const saveStarted = performance.now();
   const metrics = profiler.summary();
-  report.metrics = requested === "backlog" ? {
+  report.metrics = requested === "backlog" || partition ? {
     ...metrics,
-    interpretation: { ...metrics.interpretation, latency: "Backlog is diagnostic-only. Request latency percentiles are intentionally not reported; raw completed and censored elapsed samples remain available. These instrumented stress results do not establish latency gains or production percentiles." },
+    interpretation: { ...metrics.interpretation, latency: partition
+      ? "This receipt contains only one four-round partition. Per-partition latency percentiles and latency-gain eligibility are intentionally withheld. Raw completed/censored observations retain global round/runner identity for complete-population aggregation and hardware-variance disclosure."
+      : "Backlog is diagnostic-only. Request latency percentiles are intentionally not reported; raw completed and censored elapsed samples remain available. These instrumented stress results do not establish latency gains or production percentiles." },
     operations: Object.fromEntries(Object.entries(metrics.operations).map(([label, value]) => [label, {
       samples: value.samples, completed: value.completed, errors: value.errors,
       unfinished: value.unfinished, censored: value.censored, latencyPercentilesReported: false,
@@ -130,7 +186,21 @@ function save() {
   report.elapsedMs = performance.now() - started;
   report.finishedAt = new Date().toISOString();
   report.steadyWarmEvidenceEligible = report.status === "PASS" && preparationEvidence.some((row) => row.stage.endsWith(":certified"));
-  writeFileSync(destination, `${JSON.stringify(report, null, 2)}\n`);
+  report.samplingComplete = report.status === "PASS" && partition === null;
+  report.partitionComplete = report.status === "PASS" && partition !== null;
+  if (report.status !== "PASS" || partition) report.latencyComparisonEligible = false;
+  report.phaseTimings = phaseTimings.map((row) => ({ ...row,
+    elapsedMs: activePhases.has(row) ? performance.now() - activePhases.get(row)! : row.elapsedMs,
+  }));
+  let saved = false;
+  try {
+    writeFileSync(destination, `${JSON.stringify(report, null, 2)}\n`);
+    saved = true;
+  } finally {
+    phaseTimings.push({ ...phaseContext, phase: "save", elapsedMs: performance.now() - saveStarted,
+      status: saved ? "completed" : "failed", elapsedIsLowerBound: false });
+  }
+  return performance.now() - saveStarted;
 }
 function sanitizedFailure(error: unknown) {
   const clean = (value: string, limit: number) => {
@@ -200,7 +270,8 @@ try {
     // their instrumented elapsed times never establish a latency improvement.
     previous = JSON.parse(readFileSync(resolve(root, flags.get("--compare")!), "utf8")) as Report;
     assert.equal(previous.status, "PASS");
-    for (const key of ["schemaVersion", "mode", "fixture", "harnessHashes", "runtime", "migrations", "postgresVersion"] as const) assert.deepEqual(report[key], previous[key], `Incomparable ${key}`);
+    for (const key of ["schemaVersion", "partitionProtocolVersion", "partition", "profileRunner", "mode", "fixture", "harnessHashes", "runtime", "migrations", "postgresVersion"] as const) assert.deepEqual(report[key], previous[key], `Incomparable ${key}`);
+    assertOwnReceiptRange(previous.receipts);
   }
   const { createCaller } = await import("../src/server/api/root");
   const metadataAware = existsSync(resolve(root, "src/server/session-planning/maintenance.ts"));
@@ -216,9 +287,12 @@ try {
     report.httpUnauthorized = await http.verifyUnauthorized();
   }
   for (const scenario of scenarios) {
-    for (let round = scenario === "backlog" ? 0 : -1; round < samples; round++) {
-      await resetFixture(client);
-      const fixture = await seedFixture(client, anchor);
+    const measuredRounds = Array.from({ length: rangeEnd - rangeStart }, (_, offset) => rangeStart + offset);
+    const rounds = scenario === "backlog" ? measuredRounds : [-1, ...measuredRounds];
+    for (const round of rounds) {
+      phaseContext = { scenario, round };
+      await timedPhase("reset", () => resetFixture(client));
+      const fixture = await timedPhase("seed", () => seedFixture(client, anchor));
       const receiptInputs: ReceiptInput[] = [];
       const pairingCreations: NonNullable<ParityOptions["pairingCreations"]>[number][] = [];
       const operationWindows: { label: string; before: string; after: string }[] = [];
@@ -236,7 +310,11 @@ try {
         const beforeElapsed = performance.now();
         const timer = setTimeout(() => timeout(`35-second operation watchdog (${label}); no later fixture was started.`), 35_000);
         timer.unref();
-        try { return await (round < 0 || label.startsWith("setup:") ? operation() : profiler.measure(label, operation)); }
+        try {
+          if (round < 0 || label.startsWith("setup:")) return await operation();
+          sampleRounds.push({ sampleIndex: sampleRounds.length, scenario, round, label });
+          return await profiler.measure(label, operation);
+        }
         finally {
           clearTimeout(timer);
           operationWindows.push({ label: `${label}:${count}`, before, after: new Date().toISOString() });
@@ -244,37 +322,39 @@ try {
         }
       };
       const scenarioBefore = new Date().toISOString();
-      const captureDomain = () => captureParity(client, { receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")] });
+      const captureDomain = () => timedPhase("capture-domain", () => captureParity(client, { receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")] }));
       const recordPreparationEvidence = (stage: string, evidence: unknown) => {
         preparationEvidence.push({ scenario, round, stage, evidence });
         save();
       };
       const output = await runScenario(scenario, { db: client, fixture, caller, measure, receiptInputs, pairingCreations, transport, maintenance, captureDomain, recordPreparationEvidence });
-      await assertRecoveryWitnesses(client, fixture);
-      await addLateRootWitness(client, fixture);
+      await timedPhase("recovery-witness-assertions", () => assertRecoveryWitnesses(client, fixture));
+      await timedPhase("late-root-witness", () => addLateRootWitness(client, fixture));
       // Use a stable explicitly bounded scenario phase rather than merging by
       // millisecond adjacency (which can vary between runs). Raw handler windows
       // remain inspectable. The normalizer retains event order and every fixed
       // domain-boundary relation; it rejects a phase exceeding 120 seconds.
       const parityWindow = [{ label: `scenario:${scenario}`, before: scenarioBefore, after: new Date().toISOString() }];
-      const parity = await captureParity(client, { operationWindows: parityWindow, receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")], procedureResults: [{ label: scenario, result: output }] });
+      const parity = await timedPhase("capture-final-parity", () => captureParity(client, { operationWindows: parityWindow, receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")], procedureResults: [{ label: scenario, result: output }] }));
       if (round < 0) continue;
-      const digest = hash(JSON.stringify(parity));
-      const receipt: ScenarioReceipt = { scenario, round, digest, ...(round === 0 ? { parity } : {}), output, receiptInputs, pairingCreations, operationWindows, parityWindow };
+      const digest = await timedPhase("parity-digest", () => hash(JSON.stringify(parity)));
       // Retain one complete canonical snapshot per scenario and each round's
       // digest/raw response receipts; never substitute counts for journal parity.
       const first = report.receipts.find((row) => row.scenario === scenario);
+      const receipt: ScenarioReceipt = { scenario, round, digest, ...(!first ? { parity } : {}), output, receiptInputs, pairingCreations, operationWindows, parityWindow };
       if (first) assert.equal(digest, first.digest, "Repeated fixture semantic parity changed.");
       if (previous) {
         const baseline = previous.receipts.find((row) => row.scenario === scenario && row.round === round);
         assert.ok(baseline, "Missing baseline round.");
         assert.equal(digest, baseline.digest, "Before/after complete semantic digest differs.");
-        if (round === 0) { assert.ok(baseline.parity); compareParity(parity, baseline.parity); }
+        if (!first) { assert.ok(baseline.parity); compareParity(parity, baseline.parity); }
       }
       report.receipts.push(receipt);
       save();
     }
   }
+  assertOwnReceiptRange(report.receipts);
+  assert.equal(profiler.summary().samples.length, sampleRounds.length, "Raw samples lost their global round identities.");
   for (const [path, digest] of Object.entries({ ...sourceHashes, ...harnessHashes })) assert.equal(hash(readFileSync(resolve(root, path))), digest, `Source changed during run: ${path}`);
   const finalMigrations = await client.$queryRaw<{ migration_name: string; checksum: string }[]>`
     SELECT migration_name, checksum FROM "_prisma_migrations"
@@ -282,7 +362,7 @@ try {
   `;
   assert.deepEqual(finalMigrations.map((row) => ({ name: row.migration_name, checksum: row.checksum })), report.migrations, "Applied migrations changed during profiling.");
   report.beforeAfterSemanticEquality = previous ? true : null;
-  report.latencyComparisonEligible = !!previous && mode === "latency";
+  report.latencyComparisonEligible = !!previous && mode === "latency" && partition === null;
   if (http) report.http = http.summary();
   report.status = "PASS";
 } catch (error) {
@@ -311,7 +391,14 @@ try {
     process.exitCode = 1;
     console.error(JSON.stringify({ cleanupErrors }));
   }
-  save();
+  // A synchronous capture/serialization can delay the event-loop watchdog.
+  // Check the same deadline explicitly before certifying completed cleanup.
+  if (performance.now() - started >= timeoutMs) {
+    report.status = "TIMEOUT";
+    report.failure = "Whole-command deadline expired before final completion; partial evidence is not eligible.";
+    process.exitCode = 124;
+  }
+  const finalSaveMs = save();
   clearTimeout(watchdog);
-  console.log(JSON.stringify({ status: report.status, mode, output: destination, rounds: report.receipts.length }));
+  console.log(JSON.stringify({ status: report.status, mode, output: destination, rounds: report.receipts.length, partition, samplingComplete: report.samplingComplete, finalSaveMs }));
 }

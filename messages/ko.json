@@ -3945,6 +3945,8 @@
         "SessionPlanCohort": "Dated teaching session",
         "SessionPlanParticipant": "Tutee session commitment",
         "SessionPlanningSuggestion": "Suggested session time",
+        "SchedulingMaintenanceState": "일정 유지 관리 상태",
+        "SchedulingDirtyEvent": "일정 변경 표시",
         "SessionPlanningRequest": "Formal scheduling request",
         "SessionPlanningOffer": "Scheduling offer",
         "SessionPlanningResponse": "Scheduling response",

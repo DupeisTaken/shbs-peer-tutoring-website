@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/scheduling-profile.yml"
+      - ".github/scheduling-profile-manifests/**"
       - "scripts/profile-scheduling-requests.ts"
       - "scripts/scheduling-profile/**"
       - "scripts/run-scheduling-profile-ci.sh"
@@ -38,7 +39,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      anchor: ${{ steps.plan.outputs.anchor }}
+      node_image: ${{ steps.plan.outputs.node_image }}
+      baseline: ${{ steps.selection.outputs.baseline }}
+      manifest: ${{ steps.selection.outputs.manifest }}
+      baseline_path: ${{ steps.selection.outputs.baselineSelectionPath }}
+      baseline_file_sha256: ${{ steps.selection.outputs.baselineSelectionFileSha256 }}
+      baseline_source: ${{ steps.selection.outputs.baselineSelectionSource }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Select immutable comparison and reviewed schema contract
+        id: selection
+        env:
+          DEFAULT_BASELINE_SHA: ${{ github.event.pull_request.base.sha || inputs.baseline }}
+          MANUAL_BASELINE_SHA: ${{ inputs.baseline || '' }}
+          MANUAL_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
+        run: node scripts/scheduling-profile/select-comparison.mjs . >> "$GITHUB_OUTPUT"
+      - name: Fix the sample population and shared clock
+        id: plan
+        shell: bash
+        run: |
+          echo "matrix=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix)" >> "$GITHUB_OUTPUT"
+          echo "anchor=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$GITHUB_OUTPUT"
+          timeout 60 docker pull node:22-alpine
+          echo "node_image=$(docker image inspect node:22-alpine --format '{{index .RepoDigests 0}}')" >> "$GITHUB_OUTPUT"
+      - name: Validate helpers under the measurement resource limits
+        env:
+          PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
+        run: |
+          docker run --rm --cpus=2 --memory=4g -v "$PWD:/work" -w /work \
+            "$PROFILE_NODE_IMAGE" sh -ec 'npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts'
   profile:
+    needs: matrix
     runs-on: ubuntu-latest
     timeout-minutes: 9
     strategy:
@@ -46,12 +90,7 @@ jobs:
       # Independent hosted runners own separate databases. Each before/after
       # pair remains serial on its same runner with fixed resource limits.
       max-parallel: 3
-      matrix:
-        scenario: [cold, warm, sunday, negotiation, allocation, catalog, contention]
-        mode: [latency, diagnostic]
-        include:
-          - scenario: backlog
-            mode: diagnostic
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -67,11 +106,20 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      BASELINE_SHA: ${{ github.event.pull_request.base.sha || inputs.baseline }}
+      BASELINE_SHA: ${{ needs.matrix.outputs.baseline }}
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PROFILE_SCENARIO: ${{ matrix.scenario }}
       PROFILE_MODE: ${{ matrix.mode }}
-      PROFILE_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
+      PROFILE_SCHEMA_MANIFEST: ${{ needs.matrix.outputs.manifest }}
+      PROFILE_BASELINE_SELECTION_PATH: ${{ needs.matrix.outputs.baseline_path }}
+      PROFILE_BASELINE_SELECTION_FILE_SHA256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
+      PROFILE_BASELINE_SELECTION_SOURCE: ${{ needs.matrix.outputs.baseline_source }}
+      PROFILE_PARTITION_INDEX: ${{ matrix.partition }}
+      PROFILE_PARTITION_COUNT: ${{ matrix.partitionCount }}
+      PROFILE_SAMPLES: ${{ matrix.samples }}
+      PROFILE_ANCHOR: ${{ needs.matrix.outputs.anchor }}
+      PROFILE_NODE_IMAGE: ${{ needs.matrix.outputs.node_image }}
+      PROFILE_PARTITION_RUNNER_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.scenario }}-${{ matrix.mode }}-${{ matrix.partition }}
     steps:
       - name: Validate immutable source selection
         shell: bash
@@ -111,20 +159,15 @@ jobs:
           cp profile-head/scripts/profile-scheduling-requests.ts profile-base/scripts/
           cp profile-head/scripts/run-scheduling-profile-ci.sh profile-base/scripts/
           cp profile-head/scripts/scheduling-profile/* profile-base/scripts/scheduling-profile/
-          date -u +%Y-%m-%dT%H:%M:%S.000Z > profile-head/outputs/scheduling-profile/anchor.txt
-          timeout 60 docker pull node:22-alpine
-          docker image inspect node:22-alpine --format '{{.Id}}' > profile-head/outputs/scheduling-profile/node-image.txt
+          printf '%s\n' "$PROFILE_ANCHOR" > profile-head/outputs/scheduling-profile/anchor.txt
+          timeout 60 docker pull "$PROFILE_NODE_IMAGE"
+          docker image inspect "$PROFILE_NODE_IMAGE" --format '{{.Id}}' > profile-head/outputs/scheduling-profile/node-image.txt
       - name: Measure baseline then candidate
         shell: bash
         run: |
           set -o pipefail
           anchor="$(cat profile-head/outputs/scheduling-profile/anchor.txt)"
           node_image="$(cat profile-head/outputs/scheduling-profile/node-image.txt)"
-          samples=40
-          if [[ "$PROFILE_SCENARIO" == cold || "$PROFILE_SCENARIO" == sunday ]]; then samples=20; fi
-          if [[ "$PROFILE_MODE" == diagnostic ]]; then samples=3; fi
-          # One complete multi-batch stress probe, not a latency percentile run.
-          if [[ "$PROFILE_SCENARIO" == backlog ]]; then samples=1; fi
           for revision in base head; do
             docker run --rm --cpus=2 --memory=4g --network=host \
               -v "$PWD/profile-$revision:/work" \
@@ -137,7 +180,10 @@ jobs:
               -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
               -e PROFILE_REVISION="$revision" -e PROFILE_SCENARIO -e PROFILE_MODE -e PROFILE_DEADLINE \
               -e PROFILE_SCHEMA_MANIFEST \
-              -e PROFILE_ANCHOR="$anchor" -e PROFILE_SAMPLES="$samples" \
+              -e PROFILE_BASELINE_SELECTION_PATH -e PROFILE_BASELINE_SELECTION_FILE_SHA256 -e PROFILE_BASELINE_SELECTION_SOURCE \
+              -e PROFILE_ANCHOR="$anchor" -e PROFILE_SAMPLES \
+              -e PROFILE_PARTITION_INDEX -e PROFILE_PARTITION_COUNT -e PROFILE_PARTITION_RUNNER_ID \
+              -e PROFILE_RUNNER_NAME="$RUNNER_NAME" -e PROFILE_RUNNER_OS="$RUNNER_OS" -e PROFILE_RUNNER_ARCH="$RUNNER_ARCH" \
               "$node_image" sh -eu scripts/run-scheduling-profile-ci.sh \
               2>&1 | tee "profile-head/outputs/scheduling-profile/$revision.log"
           done
@@ -145,7 +191,42 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scheduling-profile-${{ matrix.scenario }}-${{ matrix.mode }}-${{ github.run_attempt }}
+          name: scheduling-profile-${{ matrix.scenario }}-${{ matrix.mode }}-part-${{ matrix.partition }}-${{ github.run_attempt }}
           path: profile-head/outputs/scheduling-profile/
           retention-days: 7
           if-no-files-found: warn
+
+  aggregate:
+    needs: [matrix, profile]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      BASELINE_SHA: ${{ needs.matrix.outputs.baseline }}
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PROFILE_RESULT: ${{ needs.profile.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: scheduling-profile-*-part-*-${{ github.run_attempt }}
+          path: outputs/scheduling-profile-parts
+      - name: Require complete paired populations before pooling
+        run: >-
+          node scripts/scheduling-profile/aggregate-partitions.mjs
+          --input outputs/scheduling-profile-parts
+          --baseline "$BASELINE_SHA" --candidate "$CANDIDATE_SHA"
+          --output outputs/scheduling-profile-aggregate.json
+      - name: Require every diagnostic and latency partition
+        if: always()
+        run: test "$PROFILE_RESULT" = success
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scheduling-profile-aggregate-${{ github.run_attempt }}
+          path: outputs/scheduling-profile-aggregate.json
+          retention-days: 7
+          if-no-files-found: error
