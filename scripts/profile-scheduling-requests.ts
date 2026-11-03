@@ -366,7 +366,7 @@ try {
       if (first) assert.equal(digest, first.digest, "Repeated fixture semantic parity changed.");
       if (previous) {
         const baseline = previous.receipts.find((row) => row.scenario === scenario && row.round === round);
-        if (!baseline || digest !== baseline.digest) retainMismatch("before-after", baseline,
+        if (digest !== baseline?.digest) retainMismatch("before-after", baseline,
           baseline?.parity ?? previous.receipts.find((row) => row.scenario === scenario && row.parity)?.parity);
         assert.ok(baseline, "Missing baseline round.");
         assert.equal(digest, baseline.digest, "Before/after complete semantic digest differs.");
