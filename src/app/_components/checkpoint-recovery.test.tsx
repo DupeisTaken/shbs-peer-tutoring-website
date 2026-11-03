@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -9,6 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import type { CheckpointPlan } from "~/server/recovery/checkpoint-contract";
@@ -33,9 +35,27 @@ const mocks = vi.hoisted(() => ({
     >(),
   refetch: vi.fn(),
   restoreMutation: vi.fn(),
+  invalidateList: vi.fn(),
+  invalidateInspect: vi.fn(),
+  invalidateReceipt: vi.fn(),
+  fetchInspect: vi.fn(),
+  fetchReceipt: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      recovery: {
+        checkpoints: { invalidate: mocks.invalidateList },
+        inspectCheckpoint: {
+          invalidate: mocks.invalidateInspect,
+          fetch: mocks.fetchInspect,
+        },
+        receipt: {
+          invalidate: mocks.invalidateReceipt,
+          fetch: mocks.fetchReceipt,
+        },
+      },
+    }),
     recovery: {
       checkpoints: { useQuery: mocks.list },
       inspectCheckpoint: { useQuery: mocks.inspect },
@@ -83,24 +103,37 @@ const query = (data: unknown) => ({
   error: null,
   refetch: mocks.refetch,
 });
+let queryClient: QueryClient;
+let authority = "synthetic-authority-v1";
+function recoveryTree(
+  locale = "en",
+  role: "ADMIN" | "HEAD" | "COORDINATOR" = "ADMIN",
+  initialReceipt = "",
+  initialCheckpoint = "checkpoint",
+) {
+  return (
+    <QueryClientProvider key={authority} client={queryClient}>
+      <NextIntlClientProvider
+        locale={locale}
+        timeZone="Asia/Shanghai"
+        messages={locale === "zh" ? zh : en}
+      >
+        <CheckpointRecovery
+          role={role}
+          initialCheckpoint={initialCheckpoint}
+          initialReceipt={initialReceipt}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>
+  );
+}
 function mount(
   locale = "en",
   role: "ADMIN" | "HEAD" | "COORDINATOR" = "ADMIN",
   initialReceipt = "",
+  initialCheckpoint = "checkpoint",
 ) {
-  return render(
-    <NextIntlClientProvider
-      locale={locale}
-      timeZone="Asia/Shanghai"
-      messages={locale === "zh" ? zh : en}
-    >
-      <CheckpointRecovery
-        role={role}
-        initialCheckpoint="checkpoint"
-        initialReceipt={initialReceipt}
-      />
-    </NextIntlClientProvider>,
-  );
+  return render(recoveryTree(locale, role, initialReceipt, initialCheckpoint));
 }
 function enterReason() {
   fireEvent.change(screen.getByLabelText("Restoration reason"), {
@@ -115,6 +148,18 @@ function confirm() {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  authority = "synthetic-authority-v1";
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  for (const mock of [
+    mocks.invalidateList,
+    mocks.invalidateInspect,
+    mocks.invalidateReceipt,
+    mocks.fetchInspect,
+    mocks.fetchReceipt,
+  ])
+    mock.mockResolvedValue(undefined);
   mocks.list.mockReturnValue(query({ items: [], nextCursor: null }));
   mocks.inspect.mockReturnValue(query(initial));
   mocks.receipt.mockReturnValue(query(undefined));
@@ -129,7 +174,10 @@ beforeEach(() => {
     isPending: false,
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 
 it.each(["en", "zh"])(
   "renders localized checkpoint scope, review and current evidence (%s)",
@@ -173,7 +221,7 @@ it("cancel performs no write and a failed attempt retains reason and its exact r
   );
 });
 
-it("retains a draft across changed previews and requires explicit review before using a new fingerprint", () => {
+it("retains a draft across changed previews and requires explicit review before using a new fingerprint", async () => {
   const view = mount();
   enterReason();
   mocks.inspect.mockReturnValue(
@@ -183,11 +231,7 @@ it("retains a draft across changed previews and requires explicit review before 
       effects: ["New synthetic consequence"],
     }),
   );
-  view.rerender(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <CheckpointRecovery role="ADMIN" initialCheckpoint="checkpoint" />
-    </NextIntlClientProvider>,
-  );
+  view.rerender(recoveryTree());
   expect(
     screen.getByRole("button", { name: "Review restoration" }),
   ).toHaveProperty("disabled", true);
@@ -197,7 +241,7 @@ it("retains a draft across changed previews and requires explicit review before 
   fireEvent.click(
     screen.getByRole("button", { name: "Review updated consequences" }),
   );
-  expect(screen.getByText("New synthetic consequence")).toBeTruthy();
+  expect(await screen.findByText("New synthetic consequence")).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Review restoration" }),
   ).toHaveProperty("disabled", false);
@@ -211,7 +255,9 @@ it("refreshes a rejected stale preview without adopting it or replaying the writ
   await screen.findByText(
     "Restoration was not confirmed. Your reason and retry intent are retained.",
   );
-  expect(mocks.refetch).toHaveBeenCalledTimes(1);
+  expect(mocks.invalidateInspect).toHaveBeenCalledWith({
+    checkpointId: "checkpoint",
+  });
   expect(mocks.restore).toHaveBeenCalledTimes(1);
 
   const updated = {
@@ -220,11 +266,7 @@ it("refreshes a rejected stale preview without adopting it or replaying the writ
     effects: ["New synthetic consequence"],
   };
   mocks.inspect.mockReturnValue(query(updated));
-  view.rerender(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <CheckpointRecovery role="ADMIN" initialCheckpoint="checkpoint" />
-    </NextIntlClientProvider>,
-  );
+  view.rerender(recoveryTree());
   expect(screen.queryByText("New synthetic consequence")).toBeNull();
   expect(
     screen.getByRole("button", { name: "Review restoration" }),
@@ -236,7 +278,7 @@ it("refreshes a rejected stale preview without adopting it or replaying the writ
   fireEvent.click(
     screen.getByRole("button", { name: "Review updated consequences" }),
   );
-  expect(screen.getByText("New synthetic consequence")).toBeTruthy();
+  expect(await screen.findByText("New synthetic consequence")).toBeTruthy();
   confirm();
   await waitFor(() => expect(mocks.restore).toHaveBeenCalledTimes(2));
   expect(mocks.restore.mock.calls[1]?.[0]).toMatchObject({
@@ -415,11 +457,7 @@ it("honors a newly read receipt before adopting changed consequences", () => {
       effects: ["New completed consequence"],
     }),
   );
-  view.rerender(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <CheckpointRecovery role="ADMIN" initialCheckpoint="checkpoint" />
-    </NextIntlClientProvider>,
-  );
+  view.rerender(recoveryTree());
   const website = screen.getByText(
     en.checkpointRecovery.website,
   ).parentElement!;
@@ -633,4 +671,446 @@ it("renders canonical checkpoint warnings and preserved boundaries in Chinese", 
       "已有后续出勤、同意记录或其他不受支持操作的分配不能重放。",
     ),
   ).toBeTruthy();
+});
+
+function cachedPlans() {
+  mocks.inspect.mockImplementation(
+    ({ checkpointId }: { checkpointId: string }) =>
+      query({
+        ...initial,
+        checkpointId,
+        actionId: `action-${checkpointId}`,
+        sourceId: `synthetic-${checkpointId}`,
+      }),
+  );
+}
+function selectCheckpoint(id: string) {
+  fireEvent.change(screen.getByLabelText("Checkpoint reference"), {
+    target: { value: id },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Inspect checkpoint" }));
+}
+function ledgerEntry(id = "checkpoint") {
+  return queryClient.getQueryData<{ checkpoints: Record<string, unknown> }>([
+    "checkpoint-recovery",
+    "private-intent-ledger",
+  ])?.checkpoints[id];
+}
+function requestReview() {
+  fireEvent.click(
+    screen.getByRole("button", { name: "Request management review" }),
+  );
+  fireEvent.click(
+    screen
+      .getAllByRole("button", { name: "Request management review" })
+      .at(-1)!,
+  );
+}
+
+it("latches an independently read exact receipt beside stale eligible A through selection and page remount", () => {
+  cachedPlans();
+  mocks.receipt.mockReturnValue(
+    query({
+      id: "url-receipt",
+      checkpoint: { id: "checkpoint" },
+      reason: "Synthetic committed receipt",
+      createdAt: initial.createdAt,
+      result: null,
+      deliveries: null,
+    }),
+  );
+  const view = mount("en", "ADMIN", "url-receipt");
+  expect(screen.getByText(en.checkpointRecovery.recorded)).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Review restoration" }),
+  ).toHaveProperty("disabled", true);
+  expect(ledgerEntry()).toEqual({ receiptId: "url-receipt" });
+  selectCheckpoint("checkpoint-b");
+  expect(screen.queryByText(en.checkpointRecovery.recorded)).toBeNull();
+  expect(screen.queryByText("url-receipt")).toBeNull();
+  selectCheckpoint("checkpoint");
+  enterReason();
+  expect(
+    screen.getByRole("button", { name: "Review restoration" }),
+  ).toHaveProperty("disabled", true);
+  view.unmount();
+  mocks.receipt.mockReturnValue(query(undefined));
+  mount();
+  enterReason();
+  expect(screen.getByText(en.checkpointRecovery.recorded)).toBeTruthy();
+  expect(screen.getByText("url-receipt")).toBeTruthy();
+  const review = screen.getByRole("button", { name: "Review restoration" });
+  expect(review).toHaveProperty("disabled", true);
+  fireEvent.click(review);
+  expect(ledgerEntry()).toEqual({ receiptId: "url-receipt" });
+  expect(mocks.restore).not.toHaveBeenCalled();
+});
+
+it.each(["URL only", "wrong receipt", "wrong checkpoint"] as const)(
+  "does not latch a %s receipt beside A or carry a fabricated terminal outcome across remount",
+  (kind) => {
+    cachedPlans();
+    const data =
+      kind === "URL only"
+        ? undefined
+        : {
+            id: kind === "wrong receipt" ? "different-receipt" : "url-receipt",
+            checkpoint: {
+              id: kind === "wrong checkpoint" ? "checkpoint-b" : "checkpoint",
+            },
+            reason: "Synthetic unmatched receipt",
+            createdAt: initial.createdAt,
+            result: null,
+            deliveries: null,
+          };
+    mocks.receipt.mockReturnValue(query(data));
+    const view = mount("en", "ADMIN", "url-receipt");
+    enterReason();
+    expect(screen.queryByText(en.checkpointRecovery.recorded)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Review restoration" }),
+    ).toHaveProperty("disabled", false);
+    expect(ledgerEntry()).not.toHaveProperty("receiptId");
+    view.unmount();
+    mount("en", "ADMIN", "url-receipt");
+    expect(screen.queryByText(en.checkpointRecovery.recorded)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Review restoration" }),
+    ).toHaveProperty("disabled", false);
+    expect(ledgerEntry()).not.toHaveProperty("receiptId");
+    expect(mocks.restore).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["direct", "queued"] as const)(
+  "retains a compact %s terminal latch across A→B→A and a true page remount with cached pre-write A",
+  async (outcome) => {
+    cachedPlans();
+    if (outcome === "queued")
+      mocks.restore.mockRejectedValue({ data: { approvalId: "approval-a" } });
+    const role = outcome === "queued" ? "COORDINATOR" : "ADMIN";
+    const view = mount("en", role);
+    enterReason();
+    if (outcome === "queued") requestReview();
+    else confirm();
+    await screen.findByText(
+      outcome === "queued"
+        ? en.checkpointRecovery.queued
+        : en.checkpointRecovery.recorded,
+    );
+    expect(ledgerEntry()).toEqual(
+      outcome === "queued"
+        ? { approvalId: "approval-a" }
+        : { receiptId: "receipt" },
+    );
+    expect(mocks.invalidateInspect).toHaveBeenCalledWith({
+      checkpointId: "checkpoint",
+    });
+    selectCheckpoint("checkpoint-b");
+    expect(screen.getByText("Tutor: synthetic-checkpoint-b")).toBeTruthy();
+    expect(screen.queryByText("receipt")).toBeNull();
+    selectCheckpoint("checkpoint");
+    enterReason();
+    expect(
+      screen.getByRole("button", {
+        name:
+          outcome === "queued"
+            ? "Request management review"
+            : "Review restoration",
+      }),
+    ).toHaveProperty("disabled", true);
+    view.unmount();
+    mount("en", role);
+    enterReason();
+    expect(
+      screen.getByText(
+        outcome === "queued"
+          ? en.checkpointRecovery.reviewPending
+          : en.checkpointRecovery.recorded,
+      ),
+    ).toBeTruthy();
+    const button = screen.getByRole("button", {
+      name:
+        outcome === "queued"
+          ? "Request management review"
+          : "Review restoration",
+    });
+    expect(button).toHaveProperty("disabled", true);
+    fireEvent.click(button);
+    expect(mocks.restore).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("requires explicit adoption when evidence refreshes before the first reason edit", async () => {
+  const view = mount();
+  mocks.inspect.mockReturnValue(
+    query({
+      ...initial,
+      fingerprint: "b".repeat(64),
+      effects: ["Unadopted new consequence"],
+    }),
+  );
+  view.rerender(recoveryTree());
+  expect(screen.getByText("Synthetic status correction")).toBeTruthy();
+  expect(screen.queryByText("Unadopted new consequence")).toBeNull();
+  expect(screen.getByText(en.checkpointRecovery.changed)).toBeTruthy();
+  enterReason();
+  expect(
+    screen.getByRole("button", { name: "Review restoration" }),
+  ).toHaveProperty("disabled", true);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Review updated consequences" }),
+  );
+  expect(await screen.findByText("Unadopted new consequence")).toBeTruthy();
+});
+
+it("retains consecutive typed characters before batched query-cache observer notifications", () => {
+  mount();
+  const input =
+    screen.getByLabelText<HTMLTextAreaElement>("Restoration reason");
+  const reason = "Synthetic consecutive input";
+  for (const character of reason)
+    fireEvent.change(input, { target: { value: input.value + character } });
+  expect(input.value).toBe(reason);
+  expect(ledgerEntry()).toMatchObject({ reason });
+});
+
+it("keeps an uncertain direct attempt exact across remount and reconciles it without adopting changed consequences", async () => {
+  mocks.restore.mockRejectedValueOnce(new Error("Synthetic lost response"));
+  const view = mount();
+  fireEvent.change(screen.getByLabelText("Restoration reason"), {
+    target: { value: "  Synthetic exact reason  " },
+  });
+  confirm();
+  await screen.findByText(en.checkpointRecovery.failed);
+  const firstIntent = mocks.restore.mock.calls[0]![0];
+  expect(firstIntent.reason).toBe("Synthetic exact reason");
+  view.unmount();
+  mocks.inspect.mockReturnValue(
+    query({
+      ...initial,
+      fingerprint: "b".repeat(64),
+      effects: ["Unadopted uncertain consequence"],
+    }),
+  );
+  mount();
+  expect(screen.getByLabelText("Restoration reason")).toHaveProperty(
+    "disabled",
+    true,
+  );
+  expect(
+    screen.getByRole("button", { name: "Review updated consequences" }),
+  ).toHaveProperty("disabled", true);
+  expect(screen.queryByText("Unadopted uncertain consequence")).toBeNull();
+  confirm();
+  await screen.findByText(en.checkpointRecovery.recorded);
+  expect(mocks.restore.mock.calls[1]![0]).toEqual(firstIntent);
+  expect(ledgerEntry()).toEqual({ receiptId: "receipt" });
+});
+
+it("holds an uncertain approval creation for read-only reconciliation instead of sending another proposal", async () => {
+  mocks.restore.mockRejectedValueOnce(
+    new Error("Synthetic uncertain proposal response"),
+  );
+  const view = mount("en", "COORDINATOR");
+  enterReason();
+  requestReview();
+  await screen.findByText(en.checkpointRecovery.failed);
+  expect(
+    screen
+      .getByRole("link", { name: "View approval request" })
+      .getAttribute("href"),
+  ).toBe("/admin/approvals");
+  expect(
+    screen.getByRole("button", { name: "Request management review" }),
+  ).toHaveProperty("disabled", true);
+  view.unmount();
+  mount("en", "COORDINATOR");
+  expect(
+    screen.getByRole("button", { name: "Request management review" }),
+  ).toHaveProperty("disabled", true);
+  expect(mocks.restore).toHaveBeenCalledTimes(1);
+  expect(ledgerEntry()).toMatchObject({
+    uncertain: true,
+    attempt: mocks.restore.mock.calls[0]![0],
+  });
+});
+
+it("records A's late completion only under A while a different page scope B is mounted", async () => {
+  cachedPlans();
+  let finish!: (value: { receiptId: string }) => void;
+  mocks.restore.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = mount();
+  enterReason();
+  confirm();
+  await waitFor(() => expect(mocks.restore).toHaveBeenCalledTimes(1));
+  view.unmount();
+  const other = mount("en", "ADMIN", "", "checkpoint-b");
+  await act(async () => {
+    finish({ receiptId: "receipt-a" });
+  });
+  await waitFor(() =>
+    expect(ledgerEntry()).toEqual({ receiptId: "receipt-a" }),
+  );
+  expect(screen.getByText("Tutor: synthetic-checkpoint-b")).toBeTruthy();
+  expect(screen.queryByText("receipt-a")).toBeNull();
+  expect(screen.queryByText(en.checkpointRecovery.recorded)).toBeNull();
+  expect(mocks.invalidateInspect).toHaveBeenCalledWith({
+    checkpointId: "checkpoint",
+  });
+  other.unmount();
+  mount();
+  expect(screen.getByText("receipt-a")).toBeTruthy();
+  expect(screen.getByText(en.checkpointRecovery.recorded)).toBeTruthy();
+});
+
+it("retains a fresh server receipt over a stale queued preview across remount", async () => {
+  mocks.restore.mockRejectedValueOnce({ data: { approvalId: "approval-a" } });
+  const view = mount("en", "COORDINATOR");
+  enterReason();
+  requestReview();
+  await screen.findByText(en.checkpointRecovery.queued);
+  mocks.inspect.mockReturnValue(
+    query({
+      ...initial,
+      websiteEligible: false,
+      receiptId: "reviewer-receipt",
+    }),
+  );
+  view.rerender(recoveryTree("en", "COORDINATOR"));
+  await waitFor(() =>
+    expect(ledgerEntry()).toEqual({ receiptId: "reviewer-receipt" }),
+  );
+  expect(screen.getByText(en.checkpointRecovery.recorded)).toBeTruthy();
+  expect(screen.queryByText(en.checkpointRecovery.queued)).toBeNull();
+  view.unmount();
+  mocks.inspect.mockReturnValue(query({ ...initial }));
+  mount("en", "COORDINATOR");
+  expect(screen.getByText(en.checkpointRecovery.recorded)).toBeTruthy();
+  expect(mocks.restore).toHaveBeenCalledTimes(1);
+});
+
+it.each(["approval", "error"] as const)(
+  "never replaces an observed server receipt with A's late %s response",
+  async (outcome) => {
+    let fail!: (reason: unknown) => void;
+    mocks.restore.mockImplementationOnce(
+      () =>
+        new Promise<{ receiptId: string }>((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    const view = mount();
+    enterReason();
+    confirm();
+    await waitFor(() => expect(mocks.restore).toHaveBeenCalledTimes(1));
+    mocks.inspect.mockReturnValue(
+      query({
+        ...initial,
+        fingerprint: "b".repeat(64),
+        websiteEligible: false,
+        receiptId: "observed-server-receipt",
+      }),
+    );
+    view.rerender(recoveryTree());
+    await waitFor(() =>
+      expect(ledgerEntry()).toEqual({ receiptId: "observed-server-receipt" }),
+    );
+    await act(async () => {
+      fail(
+        outcome === "approval"
+          ? { data: { approvalId: "late-approval" } }
+          : new Error("Synthetic late response failure"),
+      );
+    });
+    expect(ledgerEntry()).toEqual({ receiptId: "observed-server-receipt" });
+    expect(screen.queryByText(en.checkpointRecovery.failed)).toBeNull();
+    expect(screen.queryByText(en.checkpointRecovery.queued)).toBeNull();
+    view.unmount();
+    mocks.inspect.mockReturnValue(query({ ...initial }));
+    mount();
+    expect(screen.getByText(en.checkpointRecovery.recorded)).toBeTruthy();
+    expect(screen.getByText("observed-server-receipt")).toBeTruthy();
+    expect(screen.queryByText("late-approval")).toBeNull();
+    expect(screen.queryByText(en.checkpointRecovery.failed)).toBeNull();
+    expect(mocks.restore).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("retains read denial across route remount and rechecks the denied off-screen scope before releasing privacy", async () => {
+  mocks.inspect.mockReturnValue({
+    ...query(initial),
+    isError: true,
+    isSuccess: false,
+    error: { data: { code: "FORBIDDEN" } },
+  });
+  const view = mount();
+  expect(screen.getByText(en.checkpointRecovery.denied)).toBeTruthy();
+  view.unmount();
+  cachedPlans();
+  mount("en", "ADMIN", "", "checkpoint-b");
+  expect(screen.getByText(en.checkpointRecovery.denied)).toBeTruthy();
+  expect(screen.queryByText("Tutor: synthetic-checkpoint-b")).toBeNull();
+  mocks.refetch.mockResolvedValue({ isSuccess: true });
+  mocks.fetchInspect.mockRejectedValueOnce(
+    new Error("Synthetic still-denied A"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Retry read" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Retry read" })).toHaveProperty(
+      "disabled",
+      false,
+    ),
+  );
+  expect(mocks.fetchInspect).toHaveBeenCalledWith(
+    { checkpointId: "checkpoint" },
+    { staleTime: 0 },
+  );
+  expect(screen.getByText(en.checkpointRecovery.denied)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Retry read" }));
+  await screen.findByText("Tutor: synthetic-checkpoint-b");
+  expect(screen.queryByText(en.checkpointRecovery.denied)).toBeNull();
+});
+
+it("drops old authority intent and ignores its late completion after the provider replaces and clears its QueryClient", async () => {
+  let finish!: (value: { receiptId: string }) => void;
+  mocks.restore.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = mount();
+  enterReason();
+  confirm();
+  await waitFor(() => expect(mocks.restore).toHaveBeenCalledTimes(1));
+  const retiredClient = queryClient;
+  retiredClient.clear();
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  authority = "synthetic-other-actor-role-and-revisions";
+  view.rerender(recoveryTree());
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>("Restoration reason").value,
+  ).toBe("");
+  await act(async () => {
+    finish({ receiptId: "retired-authority-receipt" });
+  });
+  expect(screen.queryByText("retired-authority-receipt")).toBeNull();
+  expect(screen.queryByText(en.checkpointRecovery.recorded)).toBeNull();
+  expect(
+    retiredClient.getQueryData([
+      "checkpoint-recovery",
+      "private-intent-ledger",
+    ]),
+  ).toBeUndefined();
+  expect(JSON.stringify(ledgerEntry()) ?? "").not.toContain(
+    "Synthetic reviewed restoration",
+  );
 });

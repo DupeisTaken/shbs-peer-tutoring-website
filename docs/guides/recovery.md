@@ -46,6 +46,31 @@ cannot be applied again. This also covers a pending owner-review draft; it does
 not mean participation has resumed. Blocked evidence and pending management review
 have separate labels. Only a complete supported chain with more than one later
 event directs the operator to the CLI.
+A successfully read receipt also records completion when an older preview still
+looks eligible, provided both the receipt ID and its checkpoint match the active
+view. A receipt reference in the URL alone, or a receipt belonging to another
+checkpoint, does not establish that outcome.
+
+Within the same open application tab and verified sign-in, switching checkpoints
+or navigating away and back does not permit another submission of a recorded
+restoration or queued approval. The page retains their receipt or approval
+reference, and clears the submitted reason after either outcome is recorded.
+Another account, role or session-authority generation cannot inherit that intent.
+This protection follows client-side navigation; a full reload or new tab starts a
+new in-memory cache. Before resubmitting there, inspect the server's receipt and
+approval history and have management reconcile any uncertain approval submission.
+No recovery reason or retry key is saved in browser storage.
+
+An uncertain direct restoration response retains the exact checkpoint,
+fingerprint, trimmed reason and retry key. Confirming its retry reconciles that
+original operation; it does not adopt changed consequences or create a new intent.
+After an uncertain approval submission, **View approval request** opens the
+read-only approval list instead. Have management reconcile the original request
+and any recovery receipt before attempting another submission; approval creation
+does not provide the direct restoration's durable replay guarantee. Do not invent
+a new key or switch checkpoints to bypass either state. A later denial remains
+concealed across page navigation until fresh reads pass for every affected private
+checkpoint and receipt, including a view that is no longer selected.
 
 The website permits a supported action only when its entire tracked causal chain
 has zero or one later logical action. Two later actions anywhere in that chain

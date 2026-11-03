@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { api } from "~/trpc/react";
@@ -31,6 +32,39 @@ type RestoreIntent = {
   clientKey: string;
   reason: string;
 };
+
+type CheckpointReviewMemory = {
+  reviewed?: CheckpointPlan;
+  reason?: string;
+  attempt?: RestoreIntent | null;
+  pending?: boolean;
+  uncertain?: boolean;
+  error?: boolean;
+  receiptId?: string;
+  approvalId?: string;
+};
+type RecoveryLedger = {
+  generation: string;
+  denied: boolean;
+  denialRevision: number;
+  deniedScopes: Record<string, string | null>;
+  checkpoints: Record<string, CheckpointReviewMemory>;
+};
+// This disabled, client-only query survives route/selection remounts. The
+// identity-keyed TRPC provider owns and clears its QueryClient on actor, role or
+// authority-generation changes. Never put this intent/reason in browser storage.
+const recoveryLedgerKey = [
+  "checkpoint-recovery",
+  "private-intent-ledger",
+] as const;
+const newReviewMemory = (reviewed: CheckpointPlan): CheckpointReviewMemory => ({
+  reviewed,
+  reason: "",
+  attempt: null,
+  pending: false,
+  uncertain: false,
+  error: false,
+});
 
 function recoveryErrorCode(error: unknown) {
   const data =
@@ -187,8 +221,10 @@ function CheckpointReview({
   fetching,
   failedRead,
   pending,
+  confirmedReceiptId,
+  memory,
+  onMemoryChange,
   onApply,
-  onApplied,
 }: {
   incoming: CheckpointPlan;
   denied: boolean;
@@ -196,8 +232,12 @@ function CheckpointReview({
   fetching: boolean;
   failedRead: boolean;
   pending: boolean;
+  confirmedReceiptId: string | undefined;
+  memory: CheckpointReviewMemory | undefined;
+  onMemoryChange: (
+    update: (current: CheckpointReviewMemory) => CheckpointReviewMemory,
+  ) => CheckpointReviewMemory | undefined;
   onApply: (input: RestoreIntent) => Promise<{ receiptId: string }>;
-  onApplied: (receiptId: string) => void;
 }) {
   const t = useTranslations("checkpointRecovery");
   const locale = useLocale();
@@ -205,21 +245,26 @@ function CheckpointReview({
     checkpointEvidenceText(message, locale);
   const format = useFormatter();
   const reasonId = useId();
-  const [reviewed, setReviewed] = useState(incoming);
-  const [reason, setReason] = useState("");
+  const reviewed = memory?.reviewed ?? incoming;
+  // Render typing synchronously; the cache still authorizes and retains every
+  // accepted edit. Batched query notifications must not drop fast keystrokes.
+  const [reason, setReason] = useState(memory?.reason ?? "");
+  const error = memory?.error ?? false;
+  const queued = memory?.approvalId;
+  const accepted = !!memory?.receiptId;
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState(false);
-  const [queued, setQueued] = useState<string>();
-  const [accepted, setAccepted] = useState(false);
   const [copied, setCopied] = useState<"copied" | "copyFailed">();
-  const intent = useRef<string | null>(null);
   const admitted = useRef(false);
   // A fresh receipt is authoritative even before adopting changed consequences.
   // It records this single-use checkpoint's result, including owner-review drafts.
   const completed =
     accepted ||
+    !!confirmedReceiptId ||
     !!reviewed.receiptId ||
     (incoming.checkpointId === reviewed.checkpointId && !!incoming.receiptId);
+  // Discard a submitted draft as soon as its terminal outcome renders, without
+  // an effect-driven extra render or dependence on cache observer scheduling.
+  if ((completed || queued) && reason !== "") setReason("");
   const changed = incoming.fingerprint !== reviewed.fingerprint;
   const headOnly =
     reviewed.directRoles.length === 1 && reviewed.directRoles[0] === "HEAD";
@@ -228,6 +273,10 @@ function CheckpointReview({
     !requestOnly ||
     (role === "ADMIN" && headOnly) ||
     (role === "COORDINATOR" && !headOnly);
+  // Direct apply has a durable same-input receipt. Approval creation does not
+  // have that replay guarantee after a proposal is decided, so uncertainty there
+  // requires reconciliation rather than another submission.
+  const exactRetry = !!memory?.uncertain && !!memory.attempt && !requestOnly;
   const eligible =
     reviewed.version === 1 &&
     reviewed.websiteEligible &&
@@ -238,6 +287,7 @@ function CheckpointReview({
     reviewed.dependentEventCount <= 1 &&
     !completed &&
     !queued &&
+    !(memory?.uncertain && requestOnly) &&
     requesterAllowed;
   // CLI apply bypasses only the event-count bound. Unknown/blocked evidence is
   // never an invitation to repeat a committed action or bypass domain blockers.
@@ -258,34 +308,29 @@ function CheckpointReview({
           : eligible
             ? "eligible"
             : "blockers";
-  const blocked = denied || changed || fetching || failedRead || pending;
+  const blocked =
+    denied ||
+    (changed && !exactRetry) ||
+    fetching ||
+    failedRead ||
+    pending ||
+    !!memory?.pending;
   const apply = async () => {
     if (!eligible || blocked || admitted.current || reason.trim().length < 5)
       return;
     admitted.current = true;
-    intent.current ??= crypto.randomUUID();
-    setError(false);
     try {
-      const result = await onApply({
-        checkpointId: reviewed.checkpointId,
-        expectedFingerprint: reviewed.fingerprint,
-        clientKey: intent.current,
-        reason: reason.trim(),
-      });
-      setAccepted(true);
+      await onApply(
+        memory?.attempt ?? {
+          checkpointId: reviewed.checkpointId,
+          expectedFingerprint: reviewed.fingerprint,
+          clientKey: crypto.randomUUID(),
+          reason: reason.trim(),
+        },
+      );
       setConfirming(false);
-      onApplied(result.receiptId);
-    } catch (failure) {
-      const data =
-        failure && typeof failure === "object" && "data" in failure
-          ? failure.data
-          : null;
-      const approvalId =
-        data && typeof data === "object" && "approvalId" in data
-          ? data.approvalId
-          : undefined;
-      if (typeof approvalId === "string") setQueued(approvalId);
-      else setError(true);
+    } catch {
+      // The identity-scoped ledger owns the outcome even if this child unmounts.
       setConfirming(false);
     } finally {
       admitted.current = false;
@@ -365,12 +410,19 @@ function CheckpointReview({
         <div role="status" className="space-y-2">
           <p>{t("changed")}</p>
           <Button
-            disabled={fetching || failedRead || pending}
+            disabled={fetching || failedRead || pending || !!memory?.uncertain}
             onClick={() => {
-              setReviewed(incoming);
-              intent.current = null;
+              onMemoryChange((current) =>
+                current.pending || current.uncertain
+                  ? current
+                  : {
+                      ...current,
+                      reviewed: incoming,
+                      attempt: null,
+                      error: false,
+                    },
+              );
               setConfirming(false);
-              setError(false);
             }}
           >
             {t("adopt")}
@@ -413,7 +465,7 @@ function CheckpointReview({
         </Button>
         {copied && <p role="status">{t(copied)}</p>}
       </DisclosureSection>
-      {queued && (
+      {queued && !completed && (
         <p role="status">
           {t("queued")}{" "}
           <Link
@@ -434,11 +486,18 @@ function CheckpointReview({
           className="input min-h-24 w-full"
           value={reason}
           maxLength={2000}
-          disabled={pending || completed || !!queued}
+          disabled={pending || completed || !!queued || !!memory?.uncertain}
           onChange={(event) => {
-            setReason(event.target.value);
-            intent.current = null;
-            setError(false);
+            const value = event.target.value;
+            const saved = onMemoryChange((current) =>
+              current.pending ||
+              current.uncertain ||
+              current.receiptId ||
+              current.approvalId
+                ? current
+                : { ...current, reason: value, attempt: null, error: false },
+            );
+            if (saved) setReason(saved.reason ?? "");
           }}
         />
         <Button
@@ -450,7 +509,15 @@ function CheckpointReview({
         </Button>
       </div>
       {error && <p role="alert">{t("failed")}</p>}
-      {confirming && eligible && !changed && !failedRead && (
+      {memory?.uncertain && requestOnly && !completed && (
+        <Link
+          className="link inline-flex min-h-11 items-center"
+          href="/admin/approvals"
+        >
+          {t("viewApproval")}
+        </Link>
+      )}
+      {confirming && eligible && (!changed || exactRetry) && !failedRead && (
         <CheckpointConfirmation
           pending={pending}
           requestOnly={requestOnly}
@@ -479,6 +546,66 @@ export function CheckpointRecovery({
   const t = useTranslations("checkpointRecovery");
   const format = useFormatter();
   const formId = useId();
+  const queryClient = useQueryClient();
+  const utils = api.useUtils();
+  const ledger = useQuery<RecoveryLedger>({
+    queryKey: recoveryLedgerKey,
+    queryFn: skipToken,
+    initialData: () => ({
+      generation: crypto.randomUUID(),
+      denied: false,
+      denialRevision: 0,
+      deniedScopes: {},
+      checkpoints: {},
+    }),
+    staleTime: Infinity,
+    gcTime: Infinity,
+  }).data;
+  // skipToken deliberately has no fetch fallback. If the identity cache cannot
+  // provide its initialized ledger, fail closed rather than inventing a scope.
+  if (!ledger) throw new Error("Recovery intent cache is unavailable.");
+  const updateLedger = (
+    update: (current: RecoveryLedger) => RecoveryLedger,
+  ) => {
+    const result = queryClient.setQueryData<RecoveryLedger>(
+      recoveryLedgerKey,
+      (current) =>
+        current?.generation === ledger.generation ? update(current) : current,
+    );
+    return result?.generation === ledger.generation ? result : undefined;
+  };
+  const updateMemory = (
+    id: string,
+    plan: CheckpointPlan,
+    update: (current: CheckpointReviewMemory) => CheckpointReviewMemory,
+  ) => {
+    const result = updateLedger((current) => ({
+      ...current,
+      checkpoints: {
+        ...current.checkpoints,
+        [id]: update(current.checkpoints[id] ?? newReviewMemory(plan)),
+      },
+    }));
+    return result?.checkpoints[id];
+  };
+  const invalidateOutcome = (id: string, resultReceiptId?: string) => {
+    if (
+      queryClient.getQueryData<RecoveryLedger>(recoveryLedgerKey)
+        ?.generation !== ledger.generation
+    )
+      return;
+    void (async () => {
+      await Promise.all([
+        utils.recovery.checkpoints.invalidate(),
+        utils.recovery.inspectCheckpoint.invalidate({ checkpointId: id }),
+        ...(resultReceiptId
+          ? [utils.recovery.receipt.invalidate({ id: resultReceiptId })]
+          : []),
+      ]);
+    })().catch(() => {
+      // A failed read cannot erase a committed receipt or release a queued intent.
+    });
+  };
   const [adapter, setAdapter] =
     useState<CheckpointAdapterId>("PARTICIPANT_TUTOR");
   const [sourceId, setSourceId] = useState("");
@@ -487,11 +614,8 @@ export function CheckpointRecovery({
   const captureLock = useRef(false);
   const [checkpointId, setCheckpointId] = useState(initialCheckpoint);
   const [lookup, setLookup] = useState(initialCheckpoint);
-  const [receiptId, setReceiptId] = useState(initialReceipt);
   const [cursors, setCursors] = useState<string[]>([]);
-  const [mutationDenied, setMutationDenied] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(false);
-  const denialRevision = useRef(0);
   const accessCheck = useRef(false);
   const list = api.recovery.checkpoints.useQuery(
     { cursor: cursors.at(-1) },
@@ -501,10 +625,62 @@ export function CheckpointRecovery({
     { checkpointId },
     { enabled: !!checkpointId, retry: false },
   );
+  const selectedPlan =
+    inspect.data?.checkpointId === checkpointId ? inspect.data : undefined;
+  useEffect(() => {
+    if (!selectedPlan || inspect.isError) return;
+    queryClient.setQueryData<RecoveryLedger>(recoveryLedgerKey, (current) => {
+      if (
+        !current ||
+        current.generation !== ledger.generation ||
+        current.denied
+      )
+        return current;
+      const existing = current.checkpoints[selectedPlan.checkpointId];
+      // Persist the first displayed review even before a reason is typed. A
+      // fresh receipt replaces any stale preview/queue and retains only its ID.
+      if (selectedPlan.receiptId) {
+        if (existing?.receiptId === selectedPlan.receiptId) return current;
+        return {
+          ...current,
+          checkpoints: {
+            ...current.checkpoints,
+            [selectedPlan.checkpointId]: { receiptId: selectedPlan.receiptId },
+          },
+        };
+      }
+      if (existing) return current;
+      return {
+        ...current,
+        checkpoints: {
+          ...current.checkpoints,
+          [selectedPlan.checkpointId]: newReviewMemory(selectedPlan),
+        },
+      };
+    });
+  }, [
+    selectedPlan,
+    inspect.isError,
+    queryClient,
+    ledger.generation,
+    ledger.denied,
+  ]);
+  const receiptId =
+    ledger.checkpoints[checkpointId]?.receiptId ??
+    selectedPlan?.receiptId ??
+    (checkpointId === initialCheckpoint ? initialReceipt : "");
   const receipt = api.recovery.receipt.useQuery(
     { id: receiptId },
     { enabled: !!receiptId, retry: false },
   );
+  const confirmedReceiptId =
+    receiptId &&
+    receipt.isSuccess &&
+    !receipt.isError &&
+    receipt.data?.id === receiptId &&
+    receipt.data.checkpoint?.id === checkpointId
+      ? receiptId
+      : undefined;
   const capture = api.recovery.captureCheckpoint.useMutation();
   const restore = api.recovery.restoreCheckpoint.useMutation();
   const readDenied = useSessionAccessDenied(
@@ -512,18 +688,74 @@ export function CheckpointRecovery({
     ...(checkpointId ? [inspect] : []),
     ...(receiptId ? [receipt] : []),
   );
-  const denied = readDenied || mutationDenied;
+  useEffect(() => {
+    if (!readDenied) return;
+    queryClient.setQueryData<RecoveryLedger>(recoveryLedgerKey, (current) => {
+      if (!current || current.generation !== ledger.generation) return current;
+      if (
+        current.denied &&
+        Object.hasOwn(current.deniedScopes, checkpointId) &&
+        current.deniedScopes[checkpointId] === (receiptId || null)
+      )
+        return current;
+      return {
+        ...current,
+        denied: true,
+        denialRevision: current.denialRevision + 1,
+        deniedScopes: {
+          ...current.deniedScopes,
+          [checkpointId]: receiptId || null,
+        },
+      };
+    });
+  }, [readDenied, checkpointId, receiptId, queryClient, ledger.generation]);
+  const denied = readDenied || ledger.denied;
+  useLayoutEffect(() => {
+    if (!confirmedReceiptId || denied) return;
+    // A URL is not evidence. Only the successful exact receipt/checkpoint read
+    // latches completion, synchronously before selection/navigation can remount.
+    queryClient.setQueryData<RecoveryLedger>(recoveryLedgerKey, (current) => {
+      if (
+        !current ||
+        current.generation !== ledger.generation ||
+        current.denied ||
+        current.checkpoints[checkpointId]?.receiptId === confirmedReceiptId
+      )
+        return current;
+      return {
+        ...current,
+        checkpoints: {
+          ...current.checkpoints,
+          [checkpointId]: { receiptId: confirmedReceiptId },
+        },
+      };
+    });
+  }, [
+    confirmedReceiptId,
+    checkpointId,
+    denied,
+    queryClient,
+    ledger.generation,
+  ]);
   const recordMutationDenial = (error: unknown) => {
     const code = recoveryErrorCode(error);
     if (code !== "FORBIDDEN" && code !== "UNAUTHORIZED") return;
-    denialRevision.current++;
-    setMutationDenied(true);
+    updateLedger((current) => ({
+      ...current,
+      denied: true,
+      denialRevision: current.denialRevision + 1,
+      deniedScopes: {
+        ...current.deniedScopes,
+        [checkpointId]: receiptId || null,
+      },
+    }));
   };
   const retryAccess = async () => {
     if (accessCheck.current) return;
     accessCheck.current = true;
     setCheckingAccess(true);
-    const revision = denialRevision.current;
+    const current = queryClient.getQueryData<RecoveryLedger>(recoveryLedgerKey);
+    const revision = current?.denialRevision;
     try {
       // Previously successful caches cannot release a mutation denial. Re-read
       // every visible private scope, including an accepted write's receipt.
@@ -531,12 +763,31 @@ export function CheckpointRecovery({
         list.refetch(),
         ...(checkpointId ? [inspect.refetch()] : []),
         ...(receiptId ? [receipt.refetch()] : []),
+        ...Object.entries(current?.deniedScopes ?? {}).flatMap(
+          ([id, deniedReceipt]) => [
+            ...(id && id !== checkpointId
+              ? [
+                  utils.recovery.inspectCheckpoint
+                    .fetch({ checkpointId: id }, { staleTime: 0 })
+                    .then(() => ({ isSuccess: true })),
+                ]
+              : []),
+            ...(deniedReceipt && deniedReceipt !== receiptId
+              ? [
+                  utils.recovery.receipt
+                    .fetch({ id: deniedReceipt }, { staleTime: 0 })
+                    .then(() => ({ isSuccess: true })),
+                ]
+              : []),
+          ],
+        ),
       ]);
-      if (
-        revision === denialRevision.current &&
-        results.every((result) => result.isSuccess)
-      )
-        setMutationDenied(false);
+      if (results.every((result) => result.isSuccess))
+        updateLedger((current) =>
+          current.denialRevision === revision
+            ? { ...current, denied: false, deniedScopes: {} }
+            : current,
+        );
     } catch {
       // Failed authority reads keep the private surface concealed.
     } finally {
@@ -544,7 +795,10 @@ export function CheckpointRecovery({
       setCheckingAccess(false);
     }
   };
-  const busy = capture.isPending || restore.isPending;
+  const busy =
+    capture.isPending ||
+    restore.isPending ||
+    Object.values(ledger.checkpoints).some((entry) => entry.pending);
   const feedback = {
     loadingTitle: t("loading"),
     errorTitle: t("loadFailed"),
@@ -808,28 +1062,101 @@ export function CheckpointRecovery({
           )}
         </>
       )}
-      {inspect.data && (
+      {selectedPlan && (
         <CheckpointReview
           key={checkpointId}
-          incoming={inspect.data}
+          incoming={selectedPlan}
           denied={denied}
           role={role}
           fetching={inspect.isFetching}
           failedRead={inspect.isError}
-          pending={restore.isPending}
+          pending={busy}
+          confirmedReceiptId={confirmedReceiptId}
+          memory={ledger.checkpoints[checkpointId]}
+          onMemoryChange={(update) =>
+            updateMemory(checkpointId, selectedPlan, update)
+          }
           onApply={async (input) => {
+            const currentLedger =
+              queryClient.getQueryData<RecoveryLedger>(recoveryLedgerKey);
+            const prior = currentLedger?.checkpoints[input.checkpointId];
+            // Recheck the synchronous cache, not a child's possibly stale render.
+            // Generation checks also discard late completions after identity reset.
+            if (
+              currentLedger?.generation !== ledger.generation ||
+              currentLedger.denied ||
+              denied
+            )
+              throw new Error("Recovery authority must be rechecked.");
+            if (confirmedReceiptId && input.checkpointId === checkpointId) {
+              updateMemory(input.checkpointId, selectedPlan, () => ({
+                receiptId: confirmedReceiptId,
+              }));
+              return { receiptId: confirmedReceiptId };
+            }
+            if (prior?.receiptId) return { receiptId: prior.receiptId };
+            if (prior?.approvalId || prior?.pending)
+              throw new Error(
+                "This checkpoint already has a submitted intent.",
+              );
+            if (
+              prior?.uncertain &&
+              JSON.stringify(prior.attempt) !== JSON.stringify(input)
+            )
+              throw new Error(
+                "The exact uncertain recovery intent must be retained.",
+              );
+            const plan = prior?.reviewed ?? selectedPlan;
+            updateMemory(input.checkpointId, plan, (entry) => ({
+              ...entry,
+              attempt: input,
+              pending: true,
+              error: false,
+            }));
             try {
-              return await restore.mutateAsync(input);
+              const result = await restore.mutateAsync(input);
+              updateMemory(input.checkpointId, plan, (entry) =>
+                entry.receiptId ? entry : { receiptId: result.receiptId },
+              );
+              invalidateOutcome(input.checkpointId, result.receiptId);
+              return result;
             } catch (error) {
               recordMutationDenial(error);
+              const data =
+                error && typeof error === "object" && "data" in error
+                  ? error.data
+                  : null;
+              const approvalId =
+                data && typeof data === "object" && "approvalId" in data
+                  ? data.approvalId
+                  : null;
+              const code = recoveryErrorCode(error);
+              updateMemory(input.checkpointId, plan, (entry) =>
+                entry.receiptId || entry.approvalId
+                  ? entry
+                  : typeof approvalId === "string"
+                    ? { approvalId }
+                    : {
+                        ...entry,
+                        pending: false,
+                        error: true,
+                        uncertain: ![
+                          "BAD_REQUEST",
+                          "FORBIDDEN",
+                          "UNAUTHORIZED",
+                          "CONFLICT",
+                          "PRECONDITION_FAILED",
+                        ].includes(typeof code === "string" ? code : ""),
+                      },
+              );
+              if (typeof approvalId === "string")
+                invalidateOutcome(input.checkpointId);
               // Fetch new evidence after a stale preview without adopting it or
               // changing the reason/retry key. Adoption remains explicit below.
-              if (recoveryErrorCode(error) === "CONFLICT")
-                void inspect.refetch();
+              if (code === "CONFLICT") invalidateOutcome(input.checkpointId);
               throw error;
             }
           }}
-          onApplied={setReceiptId}
         />
       )}
       {!denied && receiptId && (
