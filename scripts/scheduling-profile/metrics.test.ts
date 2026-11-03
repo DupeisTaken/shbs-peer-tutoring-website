@@ -274,6 +274,23 @@ void test("mixed blocking and partial try-prefix holds stay independent; uncerta
   } finally { profiler.close(); }
 });
 
+void test("profiler shutdown preserves an unended try-only acquisition as uncertain", async () => {
+  const pool = new EventEmitter() as Pool;
+  const original = (sql: string) => Promise.resolve(sql === trySql ? tryResult(true) : { rows: [] });
+  const client = { query: original } as unknown as PoolClient;
+  const profiler = createProfiler("diagnostic"); profiler.attachPool(pool); pool.emit("connect", client);
+  await profiler.measure("try-unended", async () => {
+    await client.query("BEGIN"); await client.query(trySql, ["program:period"]);
+  });
+  profiler.close();
+  const d = profiler.summary().samples[0]!.diagnostics!;
+  assert.equal(d.advisoryTryLock?.granted, 1);
+  assert.deepEqual(d.advisoryTryLock?.lockHeldTransactionMs, []);
+  assert.deepEqual(d.advisoryTryLock?.uncertainLockIntervals.map((row) => row.reason), ["profiler-close-before-observed-end"]);
+  assert.deepEqual(d.uncertainLockIntervals, []);
+  assert.equal(client.query, original);
+});
+
 void test("callback-style queries preserve return values and callback errors", async () => {
   const pool = new EventEmitter() as Pool;
   const failure = new Error("callback failure");
