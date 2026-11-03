@@ -102,6 +102,18 @@ jobs:
           ref: ${{ env.BASELINE_SHA }}
           path: profile-base
           persist-credentials: false
+      - name: Download the bulk-before-acceptance full reference
+        if: inputs.scenario == 'contention'
+        uses: actions/download-artifact@v4
+        with:
+          name: scheduling-profile-contention-bulk-first-diagnostic-part-0-${{ github.run_attempt }}
+          path: profile-head/outputs/contention-references/bulk-before-acceptance
+      - name: Download the acceptance-before-bulk full reference
+        if: inputs.scenario == 'contention'
+        uses: actions/download-artifact@v4
+        with:
+          name: scheduling-profile-contention-acceptance-first-diagnostic-part-0-${{ github.run_attempt }}
+          path: profile-head/outputs/contention-references/acceptance-before-bulk
       - name: Freeze comparison inputs
         shell: bash
         run: |
@@ -138,7 +150,7 @@ jobs:
               -e NEXT_TELEMETRY_DISABLED=1 \
               -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
               -e PROFILE_REVISION="$revision" -e PROFILE_SCENARIO -e PROFILE_MODE -e PROFILE_DEADLINE \
-              -e PROFILE_SCHEMA_MANIFEST \
+              -e PROFILE_SCHEMA_MANIFEST -e BASELINE_SHA -e CANDIDATE_SHA \
               -e PROFILE_BASELINE_SELECTION_PATH -e PROFILE_BASELINE_SELECTION_FILE_SHA256 -e PROFILE_BASELINE_SELECTION_SOURCE \
               -e PROFILE_ANCHOR="$anchor" -e PROFILE_SAMPLES \
               -e PROFILE_PARTITION_INDEX -e PROFILE_PARTITION_COUNT -e PROFILE_PARTITION_RUNNER_ID \

@@ -22,6 +22,8 @@ void test("default comparison has no implicit schema authorization", () => {
   try { assert.deepEqual(selectComparison(f.root, { defaultBaseline: base }), {
     baseline: base, manifest: null, baselineSelectionSource: "default-baseline",
     baselineSelectionPath: null, baselineSelectionFileSha256: null,
+    catalogBaseline: base, catalogBaselineSelectionSource: "default-baseline",
+    catalogBaselineSelectionPath: null, catalogBaselineSelectionFileSha256: null,
   }); } finally { f.close(); }
 });
 void test("reviewed conventional files bind the selected immutable baseline and exact bytes", () => {
@@ -33,6 +35,10 @@ void test("reviewed conventional files bind the selected immutable baseline and 
     assert.equal(result.manifest, `${directory}/current.json`);
     assert.equal(result.baselineSelectionPath, `${directory}/baseline.txt`);
     assert.equal(result.baselineSelectionFileSha256, createHash("sha256").update(`${reviewed}\n`).digest("hex"));
+    assert.equal(result.catalogBaseline, result.baseline);
+    assert.equal(result.catalogBaselineSelectionPath, result.baselineSelectionPath);
+    assert.equal(result.catalogBaselineSelectionFileSha256, result.baselineSelectionFileSha256);
+    assert.equal(result.catalogBaselineSelectionSource, result.baselineSelectionSource);
   } finally { f.close(); }
 });
 void test("manual inputs take precedence over reviewed conventional files", () => {
@@ -43,6 +49,9 @@ void test("manual inputs take precedence over reviewed conventional files", () =
     assert.equal(result.baseline, manual); assert.equal(result.manifest, `${directory}/manual.json`);
     assert.equal(result.baselineSelectionSource, "manual-baseline");
     assert.equal(result.baselineSelectionPath, null); assert.equal(result.baselineSelectionFileSha256, null);
+    assert.equal(result.catalogBaseline, manual);
+    assert.equal(result.catalogBaselineSelectionSource, "manual-baseline");
+    assert.equal(result.catalogBaselineSelectionPath, null); assert.equal(result.catalogBaselineSelectionFileSha256, null);
   } finally { f.close(); }
 });
 void test("PR-scoped pairs override global defaults only for their exact PR number", () => {
@@ -82,6 +91,67 @@ void test("manual authority bypasses even an incomplete scoped pair", () => {
     assert.equal(manifestOnly.baselineSelectionPath, null);
   } finally { f.close(); }
 });
+void test("optional PR catalog pin selects an independently identified immutable baseline", () => {
+  const f = fixture();
+  try {
+    f.write("pr-569.json", "{}"); f.write("pr-569-baseline.txt", `${reviewed}\n`);
+    const fallback = selectComparison(f.root, { defaultBaseline: base, prNumber: "569" });
+    assert.equal(fallback.catalogBaseline, reviewed);
+    assert.equal(fallback.catalogBaselineSelectionPath, fallback.baselineSelectionPath);
+    assert.equal(fallback.catalogBaselineSelectionFileSha256, fallback.baselineSelectionFileSha256);
+    assert.equal(fallback.catalogBaselineSelectionSource, "reviewed-pr-baseline-file");
+    f.write("pr-569-catalog-baseline.txt", `${manual}\n`);
+    const installed = selectComparison(f.root, { defaultBaseline: base, prNumber: "569" });
+    assert.equal(installed.baseline, reviewed);
+    assert.equal(installed.baselineSelectionSource, "reviewed-pr-baseline-file");
+    assert.equal(installed.catalogBaseline, manual);
+    assert.equal(installed.catalogBaselineSelectionPath, `${directory}/pr-569-catalog-baseline.txt`);
+    assert.equal(installed.catalogBaselineSelectionFileSha256, createHash("sha256").update(`${manual}\n`).digest("hex"));
+    assert.equal(installed.catalogBaselineSelectionSource, "reviewed-pr-catalog-baseline-file");
+    assert.equal(installed.manifest, `${directory}/pr-569.json`);
+  } finally { f.close(); }
+});
+void test("catalog pin does not leak to unrelated PRs, global fallback, or explicit manual selection", () => {
+  const f = fixture();
+  try {
+    f.write("current.json", "{}"); f.write("baseline.txt", `${base}\n`);
+    f.write("pr-569.json", "{}"); f.write("pr-569-baseline.txt", `${reviewed}\n`);
+    f.write("pr-569-catalog-baseline.txt", "invalid ignored catalog pin");
+    f.write("manual.json", "{}");
+    for (const prNumber of ["570", undefined]) {
+      const result = selectComparison(f.root, { defaultBaseline: reviewed, prNumber });
+      assert.equal(result.catalogBaseline, base);
+      assert.equal(result.catalogBaselineSelectionPath, `${directory}/baseline.txt`);
+      assert.equal(result.catalogBaselineSelectionSource, "reviewed-baseline-file");
+    }
+    const manualSelection = selectComparison(f.root, { defaultBaseline: base, prNumber: "569", manualBaseline: manual, manualManifest: `${directory}/manual.json` });
+    assert.equal(manualSelection.catalogBaseline, manual);
+    assert.equal(manualSelection.catalogBaselineSelectionSource, "manual-baseline");
+    assert.equal(manualSelection.catalogBaselineSelectionPath, null);
+    const manifestOnly = selectComparison(f.root, { defaultBaseline: reviewed, prNumber: "569", manualManifest: `${directory}/manual.json` });
+    assert.equal(manifestOnly.catalogBaseline, base);
+    assert.equal(manifestOnly.catalogBaselineSelectionSource, "reviewed-baseline-file");
+  } finally { f.close(); }
+});
+void test("catalog-only orphan pin fails without borrowing a global pair", () => {
+  const f = fixture();
+  try {
+    f.write("current.json", "{}"); f.write("baseline.txt", `${base}\n`);
+    f.write("pr-569-catalog-baseline.txt", `${manual}\n`);
+    assert.throws(() => selectComparison(f.root, { defaultBaseline: base, prNumber: "569" }), /catalog baseline requires its ordinary/);
+    assert.equal(selectComparison(f.root, { defaultBaseline: base, prNumber: "570" }).catalogBaseline, base);
+  } finally { f.close(); }
+});
+void test("catalog pin requires exact lowercase SHA plus one LF", () => {
+  const f = fixture();
+  try {
+    f.write("pr-569.json", "{}"); f.write("pr-569-baseline.txt", `${reviewed}\n`);
+    for (const contents of ["main\n", manual, `${manual}\r\n`, `${manual}\n\n`, `${manual.toUpperCase()}\n`, ` ${manual}\n`, `${manual}\n${base}`, `${manual}\0\n`]) {
+      f.write("pr-569-catalog-baseline.txt", contents);
+      assert.throws(() => selectComparison(f.root, { defaultBaseline: base, prNumber: "569" }), /catalog baseline requires exactly/);
+    }
+  } finally { f.close(); }
+});
 void test("incomplete scoped pairs fail closed without affecting unrelated PRs", () => {
   for (const name of ["pr-569-baseline.txt", "pr-569.json"]) {
     const f = fixture();
@@ -106,6 +176,7 @@ void test("CLI PR_NUMBER selects the scoped pair and rejects invalid environment
   const f = fixture();
   try {
     f.write("pr-569.json", "{}"); f.write("pr-569-baseline.txt", `${reviewed}\n`);
+    f.write("pr-569-catalog-baseline.txt", `${manual}\n`);
     const script = fileURLToPath(new URL("./select-comparison.mjs", import.meta.url));
     const env = { ...process.env, DEFAULT_BASELINE_SHA: base, MANUAL_BASELINE_SHA: "", MANUAL_SCHEMA_MANIFEST: "", PR_NUMBER: "569" };
     const selected = spawnSync(process.execPath, [script, f.root], { encoding: "utf8", env });
@@ -113,6 +184,9 @@ void test("CLI PR_NUMBER selects the scoped pair and rejects invalid environment
     assert.match(selected.stdout, new RegExp(`^baseline=${reviewed}$`, "m"));
     assert.match(selected.stdout, /^manifest=\.github\/scheduling-profile-manifests\/pr-569\.json$/m);
     assert.match(selected.stdout, /^baselineSelectionSource=reviewed-pr-baseline-file$/m);
+    assert.match(selected.stdout, new RegExp(`^catalogBaseline=${manual}$`, "m"));
+    assert.match(selected.stdout, /^catalogBaselineSelectionPath=\.github\/scheduling-profile-manifests\/pr-569-catalog-baseline\.txt$/m);
+    assert.match(selected.stdout, /^catalogBaselineSelectionSource=reviewed-pr-catalog-baseline-file$/m);
     const invalid = spawnSync(process.execPath, [script, f.root], { encoding: "utf8", env: { ...env, PR_NUMBER: "0569" } });
     assert.equal(invalid.status, 1);
     assert.match(invalid.stderr, /PR_NUMBER/);

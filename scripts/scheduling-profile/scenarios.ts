@@ -4,8 +4,9 @@ import type { PrismaClient } from "../../generated/prisma";
 import type { createCaller } from "../../src/server/api/root";
 import { addDays, fixtureId, fixtureKey, inspectPublicationAcknowledgements, installBacklogWitness, readMaintenanceReadiness, readPendingPublicationEventIds, seedRequestBacklog, type Fixture } from "./fixtures";
 import type { ParityOptions } from "./parity";
+import { runControlledContention, type ControlEvidence, type ControlledOrder } from "./controlled-contention";
 
-export const scenarioNames = ["cold", "warm", "sunday", "negotiation", "allocation", "catalog", "contention", "backlog"] as const;
+export const scenarioNames = ["cold", "warm", "sunday", "negotiation", "allocation", "catalog", "contention", "backlog", "contention-bulk-first", "contention-acceptance-first"] as const;
 export type ScenarioName = (typeof scenarioNames)[number];
 export type ReceiptInput = { actorId: string; clientKey: string; input: unknown };
 export type ScenarioContext = {
@@ -19,6 +20,7 @@ export type ScenarioContext = {
   maintenance: { metadataAware: boolean; version: number | null };
   captureDomain: () => Promise<unknown>;
   recordPreparationEvidence: (stage: string, evidence: unknown) => void;
+  controlledConnection?: { connectionString: string; applicationName: string };
 };
 
 export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
@@ -379,7 +381,7 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       assert.equal((await db.session.findUniqueOrThrow({ where: { id: fixtureId("historical-session") } })).date.toISOString(), `${attendanceDate}T07:00:00.000Z`);
       results.push(await measure("procedure:catalog-clock-and-attendance", () => admin.admin.updateTimeSlot({ ...base, dayOfWeek: 4, startMin: 930, endMin: 975 })));
       assert.equal((await db.session.findUniqueOrThrow({ where: { id: fixtureId("historical-session") } })).startMin, 930);
-    } else if (name === "contention") {
+    } else if (name === "contention" || name === "contention-bulk-first" || name === "contention-acceptance-first") {
       for (const concurrency of [2, 4]) {
         const agendas = await drain(Array.from({ length: concurrency }, (_, index) => () => measure(`procedure:concurrent-${concurrency}-agenda`, () => tutor(index + 10).sessionPlanning.agenda({ role: "tutor" }))));
         results.push({ concurrency, agendas });
@@ -405,10 +407,33 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
       const offerState = await current(offers.id);
       const offersInput = { requestId: offers.id, offerId: offerState.offer.id, expectedVersion: offerState.request.version, clientKey: fixtureKey("contention-accept"), decision: "ACCEPT" as const };
       remember(f.pairs[41]!.studentUserIds[0]!, "respond", offersInput);
-      results.push(await drain([
-        () => measure("procedure:contended-bulk", () => admin.admin.autoAssignUnassignedRooms({ targets: [{ id: shortage.id, expectedRoomVersion: shortage.roomVersion }] })),
-        () => measure("procedure:contended-acceptance", () => student(41).sessionPlanning.respond(offersInput)),
-      ]));
+      const bulk = () => measure("procedure:contended-bulk", () => admin.admin.autoAssignUnassignedRooms({ targets: [{ id: shortage.id, expectedRoomVersion: shortage.roomVersion }] }));
+      const acceptance = () => measure("procedure:contended-acceptance", () => student(41).sessionPlanning.respond(offersInput));
+      if (name === "contention") {
+        results.push(await drain([bulk, acceptance]));
+      } else {
+        const order: ControlledOrder = name === "contention-bulk-first" ? "bulk-before-acceptance" : "acceptance-before-bulk";
+        const evidence: ControlEvidence = { order, applicationName: ctx.controlledConnection?.applicationName ?? "missing", phase: "not-started", completed: false, snapshots: [] };
+        let output: { bulk: Awaited<ReturnType<typeof bulk>>; acceptance: Awaited<ReturnType<typeof acceptance>> } | undefined;
+        let failed = false;
+        let failure: unknown;
+        try {
+          assert.ok(ctx.controlledConnection, "Controlled diagnostics require the guarded owned connection and request-pool application name");
+          output = await runControlledContention({ ...ctx.controlledConnection, order, bulk, acceptance, evidence });
+        } catch (error) { failed = true; failure = error; }
+        finally {
+          // Raw scheduling proof is separate evidence. Never reorder or omit
+          // the actual public results, audit arrays, clocks or recovery graph.
+          try { ctx.recordPreparationEvidence("controlled-contention-chain", evidence); }
+          catch (error) {
+            if (failed) throw new AggregateError([failure, error], "Controlled request and evidence recording failed");
+            throw error;
+          }
+        }
+        if (failed) throw failure;
+        assert.ok(output);
+        results.push([output.bulk, output.acceptance]);
+      }
       assert.notEqual((await db.pairing.findUniqueOrThrow({ where: { id: target.id } })).roomId, heldRoom);
     }
   }
@@ -416,5 +441,5 @@ export async function runScenario(name: ScenarioName, ctx: ScenarioContext) {
   // delegates. This is fixture provenance, excluded from latency measurements.
   const continuationPlans = await db.sessionPlan.findMany({ where: { assignments: { some: { pairingId: f.pairs[98]!.id } } }, select: { id: true } });
   await db.sessionPlanContinuationMember.createMany({ data: continuationPlans.flatMap((plan) => f.pairs[98]!.tuteeIds.map((tuteeId, person) => ({ planId: plan.id, pairingId: f.pairs[98]!.id, tuteeId, assignmentId: fixtureId("continuation", person), joinedAt: f.anchor }))), skipDuplicates: true });
-  return { scenario: name, results };
+  return { scenario: name === "contention-bulk-first" || name === "contention-acceptance-first" ? "contention" : name, results };
 }

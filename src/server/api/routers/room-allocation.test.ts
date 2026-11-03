@@ -1,5 +1,7 @@
+import { releasePairingsInOrder } from "~/server/ordered-pairing-release";
 import type { Session } from "next-auth";
 import { randomUUID } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
@@ -929,6 +931,350 @@ it("catalog propagation reserves retained automatic rooms before reallocating di
     await db.pairing.findUniqueOrThrow({ where: { id: second.id } }),
   ).toMatchObject({ roomId: rooms[1], dayOfWeek: 1 });
 });
+
+it.each(["forward", "reverse"] as const)(
+  "keeps audited catalog detach/restore and recovery row order stable with %s heap insertion",
+  async (insertionOrder) => {
+    const ids = {
+      autoA: "catalog-order-auto-a", autoZ: "catalog-order-auto-z",
+      secondary: "catalog-order-fixed-a", primary: "catalog-order-fixed-z",
+    };
+    // The explicit primary deliberately sorts after its sibling. Both members
+    // must remain independently visible in audit and recovery record keys.
+    const group = await db.pairingGroup.create({ data: {
+      id: "catalog-order-fixed-group", tutorId: thirdTutorId, termId, primaryPairingId: ids.primary,
+    } });
+    const rows = [
+      { id: ids.autoA, tutorId, subject, roomId: rooms[0]!, roomMode: "AUTO" as const, groupId: null },
+      { id: ids.autoZ, tutorId: otherTutorId, subject, roomId: rooms[1]!, roomMode: "AUTO" as const, groupId: null },
+      { id: ids.secondary, tutorId: thirdTutorId, subject: "Fixed Science", roomId: rooms[2]!, roomMode: "FIXED" as const, groupId: group.id },
+      { id: ids.primary, tutorId: thirdTutorId, subject: "Fixed Mathematics", roomId: rooms[2]!, roomMode: "FIXED" as const, groupId: group.id },
+    ];
+    for (const row of insertionOrder === "forward" ? rows : [...rows].reverse()) {
+      await db.pairing.create({ data: {
+        ...row, termId, timeSlotId: slotId, dayOfWeek: 7, startMin: 600, endMin: 660, scheduleConfirmed: true,
+        tutees: { create: row.groupId ? learners.map((tuteeId) => ({ tuteeId })) : [] },
+      } });
+    }
+    const before = await unitRows(Object.values(ids));
+    const roster = await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] });
+    const count = async () => ({
+      pairings: await db.pairing.count(), groups: await db.pairingGroup.count(),
+      sessions: await db.session.count(), notifications: await db.notification.count(),
+      notices: await db.sessionNotice.count(), email: await db.emailDelivery.count(),
+    });
+    const counts = await count();
+    const rootId = "catalog-order-recovery-root";
+    await db.recoveryAction.create({ data: {
+      id: rootId, kind: "INITIAL_ADMISSION", applicationId: "catalog-order-synthetic-admission", before: {},
+    } });
+    await db.recoveryTrackedEntity.createMany({ data: Object.values(ids).map((recordId) => ({
+      actionId: rootId, entity: "Pairing", recordId,
+    })) });
+
+    const result = await actor("HEAD").admin.updateTimeSlot({
+      id: slotId, label: "Ordered catalog propagation", dayOfWeek: 6, startMin: 600, endMin: 660, active: true,
+    });
+    expect(result).toMatchObject({ updatedPairings: 4, updatedSessions: 0, dayOfWeek: 6 });
+    const restored = await unitRows(Object.values(ids));
+    for (const row of restored) {
+      const prior = before.find((entry) => entry.id === row.id)!;
+      expect(row).toMatchObject({
+        groupId: prior.groupId, roomId: prior.roomId, roomMode: prior.roomMode,
+        scheduleConfirmed: true, roomNeedsAssignment: false, roomShortageKey: null,
+        timeSlotId: slotId, dayOfWeek: 6, startMin: 600, endMin: 660,
+        roomVersion: prior.roomVersion + (row.id === ids.primary ? 2 : 1),
+      });
+      // Apart from the corrected weekday, original scalar domain values stay
+      // exact. The existing sequential restore bumps the primary once more
+      // when its sibling rejoins; the batched detach must add no sibling bump.
+      expect(row).toEqual({
+        ...prior, dayOfWeek: 6, roomVersion: prior.roomVersion + (row.id === ids.primary ? 2 : 1),
+      });
+    }
+    expect(await db.pairingGroup.findUniqueOrThrow({ where: { id: group.id } })).toEqual(group);
+    expect(await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] })).toEqual(roster);
+    expect(await count()).toEqual(counts);
+
+    const record = (value: unknown): Record<string, unknown> => {
+      expect(value !== null && typeof value === "object" && !Array.isArray(value)).toBe(true);
+      return value as Record<string, unknown>;
+    };
+    const array = (value: unknown): unknown[] => {
+      expect(Array.isArray(value)).toBe(true);
+      return value as unknown[];
+    };
+    const labels = new Map<string, string>(Object.entries(ids).map(([name, id]) => [id, name]));
+    const label = (id: unknown) => {
+      expect(typeof id).toBe("string");
+      const name = labels.get(id as string);
+      expect(name).toBeDefined();
+      return name!;
+    };
+    const phase = (old: Record<string, unknown>, next: Record<string, unknown>) => {
+      if (old.groupId === next.groupId && old.roomId === next.roomId &&
+        old.scheduleConfirmed === next.scheduleConfirmed && old.dayOfWeek === next.dayOfWeek &&
+        old.roomVersion !== next.roomVersion) return "sibling-version";
+      if (next.groupId === null && next.roomId === null) return "movable-detach";
+      if (next.groupId === null && next.scheduleConfirmed === false) return "group-detach";
+      return next.groupId === group.id ? "group-restore" : "movable-restore";
+    };
+    const expectedDirect = [
+      ["movable-detach", "autoA"], ["movable-detach", "autoZ"],
+      ["group-detach", "primary"], ["group-detach", "secondary"],
+      ["group-restore", "primary"], ["group-restore", "secondary"],
+      ["movable-restore", "autoA"], ["movable-restore", "autoZ"],
+    ];
+    const audit = await db.auditLog.findFirstOrThrow({ where: { operation: "admin.updateTimeSlot" } });
+    const changes = array(record(audit.details).changes).map(record).filter((change) => change.entity === "Pairing");
+    expect(changes).toHaveLength(6);
+    const expectedAuditMembers = [
+      ["autoA", "autoZ"], ["secondary", "primary"],
+      ["primary"], ["secondary"], ["autoA"], ["autoZ"],
+    ];
+    const auditOrder = changes.flatMap((change, index) => {
+      // Both original bulk changes keep their complete audit grouping. Their
+      // arrays sort by ID even when the group's write order is primary-first.
+      expect(change.write).toBe(index < 2 ? "updateMany" : "update");
+      expect(change.affectedCount).toBe(index < 2 ? 2 : 1);
+      const previous = array(change.before), next = array(change.after);
+      expect(previous.map((row) => label(record(row).id))).toEqual(expectedAuditMembers[index]);
+      expect(next.map((row) => label(record(row).id))).toEqual(expectedAuditMembers[index]);
+      return previous.map((value, member) => {
+        const old = record(value), updated = record(next[member]);
+        expect(updated.id).toBe(old.id);
+        const prior = before.find((row) => row.id === old.id)!;
+        const stage = phase(old, updated);
+        expect(old.roomVersion).toBe(prior.roomVersion);
+        expect(updated.roomVersion).toBe(prior.roomVersion + (index < 2 ? 0 : 1));
+        if (stage === "movable-detach") {
+          expect(old.roomId).toBe(prior.roomId);
+          expect(updated).toMatchObject({ groupId: null, roomId: null, scheduleConfirmed: true, dayOfWeek: 7 });
+        } else if (stage === "group-detach") {
+          expect(old.groupId).toBe(group.id);
+          expect(updated).toMatchObject({ groupId: null, scheduleConfirmed: false, roomId: rooms[2], dayOfWeek: 7 });
+        } else {
+          expect(updated).toMatchObject({
+            dayOfWeek: 6, timeSlotId: slotId, startMin: 600, endMin: 660,
+            scheduleConfirmed: true, roomId: prior.roomId,
+            groupId: stage === "group-restore" ? group.id : null,
+          });
+        }
+        return [stage, label(updated.id)];
+      });
+    });
+    expect(auditOrder).toEqual([
+      ...expectedDirect.slice(0, 2), ["group-detach", "secondary"], ["group-detach", "primary"],
+      ...expectedDirect.slice(4),
+    ]);
+
+    const journal = await db.recoveryChange.findMany({ where: { actionId: rootId }, orderBy: { id: "asc" } });
+    expect(journal).toHaveLength(9);
+    expect(new Set(journal.map((change) => change.eventId)).size).toBe(1);
+    const journalOrder = journal.map((change) => {
+      expect(change.entity).toBe("Pairing"); expect(change.operation).toBe("UPDATE");
+      const old = record(change.before), updated = record(change.after), key = record(change.recordKey);
+      expect(key.id).toBe(updated.id); expect(updated.id).toBe(old.id);
+      return [phase(old, updated), label(key.id)];
+    });
+    // Every AFTER trigger sees the entire group detached. Only the original
+    // sequential restore adds a sibling-version row before secondary's update.
+    expect(journalOrder).toEqual([
+      ...expectedDirect.slice(0, 5), ["sibling-version", "primary"],
+      ...expectedDirect.slice(5),
+    ]);
+    expect((await db.recoveryFence.findUniqueOrThrow({ where: { actionId: rootId } })).revision).toBe(9);
+    expect(await db.auditLog.count({ where: { operation: "admin.updateTimeSlot" } })).toBe(1);
+  },
+);
+
+it("invalidates the original sibling sets on group moves and deletes", async () => {
+  const groups = ["version-left", "version-right"];
+  await db.pairingGroup.createMany({ data: groups.map((id, index) => ({
+    id, tutorId, termId, primaryPairingId: index === 0 ? "version-z" : "version-c",
+  })) });
+  const ids = ["version-z", "version-p", "version-c", "version-a", "version-free"];
+  await db.pairing.createMany({ data: ids.map((id, i) => ({
+    id, tutorId, termId, subject, dayOfWeek: 2, startMin: 600, endMin: 645,
+    groupId: i < 2 ? groups[0] : i < 4 ? groups[1] : null,
+  })) });
+  const values = async () => Object.fromEntries((await unitRows(ids)).map((r) => [r.id, r.roomVersion]));
+  const original = await values();
+  await db.pairing.update({ where: { id: "version-p" }, data: { groupId: groups[1] } });
+  const moved = await values();
+  for (const id of ids)
+    expect(moved[id]).toBe(original[id]! + (["version-z", "version-c", "version-a"].includes(id) ? 1 : 0));
+  await db.pairing.delete({ where: { id: "version-p" } });
+  const deleted = await values();
+  for (const id of ids.filter((id) => id !== "version-p"))
+    expect(deleted[id]).toBe(moved[id]! + (["version-c", "version-a"].includes(id) ? 1 : 0));
+});
+
+it("rolls back ordered releases when a reviewed pairing is missing or duplicated", async () => {
+  const pairing = await evidence(rooms[0]!);
+  const before = await db.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+  for (const units of [[["catalog-missing"]], [[pairing.id], ["catalog-missing"]], [[pairing.id], [pairing.id]]]) {
+    await expect(db.$transaction((tx) => releasePairingsInOrder(tx, units, "rooms")))
+      .rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await db.pairing.findUniqueOrThrow({ where: { id: pairing.id } })).toEqual(before);
+  }
+});
+
+it.each(["forward", "reverse"] as const)("propagates 100 linked rows without splitting a six-member automatic group across a release boundary with %s heap insertion", async (insertionOrder) => {
+  const groupStart = 30, groupSize = 6;
+  const pairingIds = Array.from({ length: 100 }, (_, index) => `catalog-capacity-pair-${String(index).padStart(3, "0")}`);
+  const tutorIds = Array.from({ length: 95 }, (_, index) => `catalog-capacity-tutor-${String(index).padStart(3, "0")}`);
+  const roomIds = tutorIds.map((_, index) => `catalog-capacity-room-${String(index).padStart(3, "0")}`);
+  const groupIds = pairingIds.slice(groupStart, groupStart + groupSize);
+  // Positions 30/31 and 32..35 fall on opposite sides of naive 32-row chunks.
+  // Choose the last member as primary so restore order also exercises that rule.
+  const primaryId = groupIds.at(-1)!;
+  const memberOrder = [primaryId, ...groupIds.filter((id) => id !== primaryId)];
+  const unitIndex = (index: number) => index < groupStart ? index
+    : index < groupStart + groupSize ? groupStart : index - groupSize + 1;
+  await db.tutor.createMany({ data: tutorIds.map((id, index) => ({
+    id, englishName: `Synthetic capacity tutor ${index}`, status: "ACTIVE" as const,
+  })) });
+  await db.room.createMany({ data: roomIds.map((id, index) => ({ id, name: `Synthetic capacity room ${index}` })) });
+  const subjects = Array.from({ length: groupSize }, (_, index) => ({
+    id: `catalog-capacity-subject-${index}`, name: `Synthetic capacity subject ${index}`,
+  }));
+  await db.subject.createMany({ data: subjects });
+  const qualifications = tutorIds.flatMap((id, index) => (index === groupStart ? subjects.map((row) => row.id) : [subjectId])
+    .map((subjectId) => ({ tutorId: id, subjectId, approvedById: "allocation-ADMIN" })));
+  await db.tutorQualification.createMany({ data: qualifications });
+  await db.qualificationGrant.createMany({ data: qualifications.map((row) => ({
+    tutorId: row.tutorId, sourceSubjectId: row.subjectId, subjectId: row.subjectId,
+  })) });
+  const group = await db.pairingGroup.create({ data: {
+    id: "catalog-capacity-group", tutorId: tutorIds[groupStart]!, termId, primaryPairingId: primaryId,
+  } });
+  const pairingData = pairingIds.map((id, index) => ({
+    id, tutorId: tutorIds[unitIndex(index)]!, termId, timeSlotId: slotId,
+    subject: index >= groupStart && index < groupStart + groupSize ? subjects[index - groupStart]!.name : subject,
+    groupId: groupIds.includes(id) ? group.id : null,
+    roomId: roomIds[unitIndex(index)]!, roomMode: "AUTO" as const,
+    scheduleConfirmed: true, dayOfWeek: 7, startMin: 600, endMin: 660,
+  }));
+  await db.pairing.createMany({ data: insertionOrder === "forward" ? pairingData : [...pairingData].reverse() });
+  const rosterData = groupIds.flatMap((pairingId) => learners.map((tuteeId) => ({ pairingId, tuteeId })));
+  await db.pairingTutee.createMany({ data: insertionOrder === "forward" ? rosterData : [...rosterData].reverse() });
+  const before = await unitRows(pairingIds);
+  expect(before).toHaveLength(100);
+  expect(before.slice(30, 36).map((row) => row.id)).toEqual(groupIds);
+  const versions = new Map(before.map((row) => [row.id, row.roomVersion]));
+  const roster = await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] });
+  const counts = async () => ({
+    pairings: await db.pairing.count(), groups: await db.pairingGroup.count(), sessions: await db.session.count(),
+    notifications: await db.notification.count(), notices: await db.sessionNotice.count(), email: await db.emailDelivery.count(),
+  });
+  const originalCounts = await counts();
+  const rootId = "catalog-capacity-recovery-root";
+  await db.recoveryAction.create({ data: {
+    id: rootId, kind: "INITIAL_ADMISSION", applicationId: "catalog-capacity-synthetic-admission", before: {},
+  } });
+  await db.recoveryTrackedEntity.createMany({ data: groupIds.map((recordId) => ({
+    actionId: rootId, entity: "Pairing", recordId,
+  })) });
+  const result = await (async () => {
+    const started = performance.now();
+    let outcome = "failed";
+    try {
+      const result = await actor("HEAD").admin.updateTimeSlot({
+        id: slotId, label: "Synthetic capacity catalog move", dayOfWeek: 6, startMin: 600, endMin: 660, active: true,
+      });
+      outcome = "completed";
+      return result;
+    } finally {
+      // One synthetic createCaller observation, including real permission and
+      // audit work. The production transaction's existing 20s cap is unchanged.
+      console.info("[catalog-capacity-request]", JSON.stringify({
+        rows: 100, groupSize, groupStart, groupEndExclusive: groupStart + groupSize, insertionOrder,
+        outcome, elapsedMs: performance.now() - started, transport: "procedure", includesHttp: false,
+      }));
+    }
+  })();
+  expect(result).toMatchObject({ updatedPairings: 100, updatedSessions: 0, dayOfWeek: 6 });
+  const restored = await unitRows(pairingIds);
+  expect(restored).toHaveLength(100);
+  for (const [index, row] of restored.entries()) {
+    const original = before[index]!;
+    const position = memberOrder.indexOf(row.id);
+    // Whole-statement release adds no sibling bump. The unchanged original
+    // restore increments each member once and each earlier restored sibling
+    // once again for every subsequent member that rejoins the group.
+    const increment = position < 0 ? 1 : groupSize - position;
+    expect(row).toEqual({ ...original, dayOfWeek: 6, roomVersion: original.roomVersion + increment });
+  }
+  expect(await db.pairingGroup.findUniqueOrThrow({ where: { id: group.id } })).toEqual(group);
+  expect(await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] })).toEqual(roster);
+  expect(await counts()).toEqual(originalCounts);
+  expect(await db.timeSlot.findUniqueOrThrow({ where: { id: slotId } })).toMatchObject({ dayOfWeek: 6, startMin: 600, endMin: 660 });
+
+  const record = (value: unknown): Record<string, unknown> => {
+    expect(value !== null && typeof value === "object" && !Array.isArray(value)).toBe(true);
+    return value as Record<string, unknown>;
+  };
+  const array = (value: unknown): unknown[] => {
+    expect(Array.isArray(value)).toBe(true);
+    return value as unknown[];
+  };
+  const rowId = (row: Record<string, unknown>) => {
+    expect(typeof row.id).toBe("string");
+    return row.id as string;
+  };
+  const audit = await db.auditLog.findFirstOrThrow({ where: { operation: "admin.updateTimeSlot" } });
+  const changes = array(record(audit.details).changes).map(record).filter((change) => change.entity === "Pairing");
+  const release = changes[0]!;
+  expect(release).toMatchObject({ write: "updateMany", affectedCount: 100 });
+  const releaseBefore = array(release.before).map(record), releaseAfter = array(release.after).map(record);
+  expect(releaseBefore).toHaveLength(100); expect(releaseAfter).toHaveLength(100);
+  expect(releaseBefore.map(rowId).sort()).toEqual(pairingIds);
+  expect(releaseAfter.map(rowId).sort()).toEqual(pairingIds);
+  for (const row of releaseAfter) {
+    expect(row).toMatchObject({ groupId: null, roomId: null, scheduleConfirmed: true, dayOfWeek: 7 });
+    expect(row.roomVersion).toBe(versions.get(rowId(row)));
+  }
+  const groupRelease = changes.find((change) => change.write === "updateMany" && change.affectedCount === groupSize)!;
+  expect(groupRelease).toBeDefined();
+  const groupBefore = array(groupRelease.before).map(record);
+  expect(groupBefore.map(rowId).sort()).toEqual(groupIds);
+  for (const row of groupBefore) {
+    expect(row).toMatchObject({ groupId: null, roomId: null, scheduleConfirmed: true });
+    expect(row.roomVersion).toBe(versions.get(rowId(row)));
+  }
+  const detached = array(groupRelease.after).map(record);
+  expect(detached.map(rowId).sort()).toEqual(groupIds);
+  for (const row of detached) {
+    expect(row).toMatchObject({ groupId: null, roomId: null, scheduleConfirmed: false });
+    expect(row.roomVersion).toBe(versions.get(rowId(row)));
+  }
+  const journal = await db.recoveryChange.findMany({ where: { actionId: rootId }, orderBy: { id: "asc" } });
+  const restorationOrder = memberOrder.flatMap((member, index) => [
+    ...memberOrder.slice(0, index).sort(), member,
+  ]);
+  expect(restorationOrder).toHaveLength(21);
+  expect(journal).toHaveLength(33);
+  const journalIds = journal.map((change) => {
+    expect(change.entity).toBe("Pairing"); expect(change.operation).toBe("UPDATE");
+    const key = record(change.recordKey), old = record(change.before), next = record(change.after);
+    expect(key.id).toBe(old.id); expect(next.id).toBe(old.id);
+    return rowId(key);
+  });
+  // Release is ID-ordered, group detach follows its primary-first member list,
+  // and every restore first journals prior siblings in ID order, then itself.
+  expect(journalIds).toEqual([...groupIds, ...memberOrder, ...restorationOrder]);
+  for (const [index, change] of journal.entries()) {
+    const old = record(change.before), next = record(change.after);
+    if (index < 12) expect(next.roomVersion).toBe(old.roomVersion);
+    else expect(next.roomVersion).toBe((old.roomVersion as number) + 1);
+  }
+  const events = await db.recoveryEvent.findMany({ where: { actionId: rootId } });
+  expect(events).toHaveLength(1);
+  expect(new Set(journal.map((change) => change.eventId))).toEqual(new Set([events[0]!.id]));
+  expect((await db.recoveryFence.findUniqueOrThrow({ where: { actionId: rootId } })).revision).toBe(33);
+  expect(await db.auditLog.count({ where: { operation: "admin.updateTimeSlot" } })).toBe(1);
+}, 60_000);
 
 it("a fixed-room catalog conflict rolls back the entire cohort and slot", async () => {
   const fixed = await create({ roomMode: "FIXED", roomId: rooms[0] });
