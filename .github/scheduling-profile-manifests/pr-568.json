@@ -35,6 +35,10 @@
     {
       "path": "prisma/migrations/20261103046000_student_metadata_roster_guard/migration.sql",
       "sha256": "d145a1d640c151b9cd1b06c21653f80eda5a041381e97c46baa3f163e563c4db"
+    },
+    {
+      "path": "prisma/migrations/20261103060000_effective_room_occupancy/migration.sql",
+      "sha256": "318ec5738301911fc148ea69e5b3aa32347cd76ce9f8c5d3452b5037abd466b2"
     }
   ],
   "historicalMigrations": {
