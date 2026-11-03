@@ -18,7 +18,7 @@ import { runtimeImports, runtimeCliGraph as inspectRuntimeCliGraph } from "./run
 const root = path.resolve(import.meta.dirname, "..");
 const bash = process.env.SHBS_TEST_BASH ?? "bash";
 
-const runtimeCliGraph = (entry) => inspectRuntimeCliGraph(root, entry);
+const runtimeCliGraph = (entry, projectRoot = root) => inspectRuntimeCliGraph(projectRoot, entry);
 
 function runtimeSourceCopies(dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8")) {
   const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
@@ -89,6 +89,21 @@ test("prepared operator sources require their exact destination and final app co
     dockerfile.replace("/runtime-output/app/src/server/program/continuation-opening.ts", "/elsewhere/continuation-opening.ts"),
     dockerfile.replace(/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m, ""),
   ]) assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(changed)).includes(missing));
+});
+
+test("CLI import discovery validates JSON assets and requires their runtime copy", (t) => {
+  const fixture = mkdtempSync(path.join(tmpdir(), "shbs-cli-json-"));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  writeFileSync(path.join(fixture, "entry.ts"), 'import data from "./data.json" with { type: "json" }; export { data };');
+  writeFileSync(path.join(fixture, "data.json"), JSON.stringify({ text: 'import "./not-code.ts"', label: "Synthetic 合成" }));
+  const graph = runtimeCliGraph("entry.ts", fixture);
+  assert.deepEqual([...graph.files], ["package.json", "tsconfig.json", "entry.ts", "data.json"]);
+  assert.deepEqual([...graph.packages], ["tsx"]);
+  const copies = [...graph.files].map((file) => ({ source: file, target: file }));
+  assert.deepEqual(missingRuntimeFiles(graph, copies), []);
+  assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== "data.json")), ["data.json"]);
+  writeFileSync(path.join(fixture, "data.json"), '{"broken":');
+  assert.throws(() => runtimeCliGraph("entry.ts", fixture), SyntaxError);
 });
 
 test("history ownership source is explicit in the prepared app without a duplicate runner layer", () => {

@@ -123,6 +123,10 @@ export function withCommonOperatorPayload(baseline, candidate, requiredFiles) {
     const canonical = /^(?:\/app\/|\.\/)(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]*\/?$/;
     assert.ok(canonical.test(destination) && !destination.split("/").includes(".."), "Unsupported baseline COPY destination");
     assert.ok(args.length === 1 || destination.endsWith("/"), "Multiple COPY sources require an exact directory destination");
+    // Docker treats an existing directory as a directory even without '/'. A
+    // differently named destination cannot safely be inferred to be a file.
+    assert.ok(destination.endsWith("/") || path.posix.basename(destination) === path.posix.basename(args[0]),
+      "Ambiguous baseline COPY destination requires an explicit trailing slash");
     return args.map((source) => {
       assert.ok(/^\/app\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\/?$/.test(source) &&
         !source.split("/").some((part) => part === "." || part === ".."), "Unsupported baseline COPY source");

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { regularRuntimeSource, requiredOperatorFiles } from "./runtime-cli-graph.mjs";
+import { regularRuntimeSource, requiredOperatorFiles, runtimeImports } from "./runtime-cli-graph.mjs";
 import {
   assertMeasuredIdentity,
   baselineRevision,
@@ -91,6 +91,7 @@ test("unsupported baseline COPY forms cannot manufacture missing operator payloa
     "COPY --from=build --link /app/src/server/history-row-ownership.ts ./src/server/",
     "COPY --from=build --chown=someone:else /app/src/server/history-row-ownership.ts ./src/server/",
     'COPY --from=build "/app/src/server/history-row-ownership.ts" ./src/server/',
+    "COPY --from=build /app/src/server/history-row-ownership.ts ./src/server",
   ]) assert.throws(() => withCommonOperatorPayload(operatorLayout() + copy + "\n", candidate, requiredFiles));
 });
 
@@ -129,6 +130,11 @@ test("normalization authority follows actual runtime imports, not unrelated cand
   assert.equal(readFileSync(regularRuntimeSource(root, "src/server/required.ts"), "utf8"), "export const required = true;");
   for (const invalid of ["../outside.ts", "/absolute.ts", "src/../outside.ts", "src\\server\\required.ts", "src/server"])
     assert.throws(() => regularRuntimeSource(root, invalid));
+});
+
+test("JSON operator dependencies are validated terminal data, not TypeScript programs", () => {
+  assert.deepEqual(runtimeImports(JSON.stringify({ message: 'import secrets from "./unrelated"', nested: { value: 1 } }), "messages/en.json"), []);
+  assert.throws(() => runtimeImports('{"malformed":', "messages/zh.json"), SyntaxError);
 });
 
 test("regular operator source validation refuses file symlinks before hashing", (t) => {

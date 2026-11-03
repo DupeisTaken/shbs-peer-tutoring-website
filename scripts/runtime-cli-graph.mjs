@@ -34,6 +34,10 @@ export function regularRuntimeSource(root, relative) {
 // TypeScript is loaded only for graph inspection. Packaging scope detection needs
 // no npm installation; the scoped CI comparison installs locked tools first.
 export function runtimeImports(source, fileName) {
+  if (fileName.endsWith(".json")) {
+    JSON.parse(source);
+    return [];
+  }
   const ts = require("typescript");
   const emitted = ts.transpileModule(source, {
     fileName,
