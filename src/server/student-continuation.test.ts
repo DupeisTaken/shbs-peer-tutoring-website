@@ -297,28 +297,54 @@ async function priorLessonSuccessors(kind: "tutor" | "learner") {
       },
     });
     const id = `old-math-successor-${index}`;
-    await db.pairing.create({
-      data: {
-        id,
-        tutorId: tutors[index]!,
-        termId: original.termId,
-        subject: original.subject,
-        dayOfWeek: original.dayOfWeek,
-        startMin: original.startMin,
-        endMin: original.endMin,
-        scheduleConfirmed: original.scheduleConfirmed,
-        timeSlotId: original.timeSlotId,
-        roomId: original.roomId,
-        tutees: { create: { tuteeId: learners[index]! } },
-      },
-    });
-    await db.pairingExecutionSuccessor.create({
-      data: {
-        sourcePairingId: index === 1 ? original.id : "old-math-successor-1",
-        targetPairingId: id,
-        receiptId: `synthetic-prior-transfer-${index}`,
-        effectiveAt: now,
-      },
+    await inTransaction(db, async (tx) => {
+      // Match the production transfer: stage a real target, record its edge,
+      // then reserve the reviewed room and add its roster in the same transaction.
+      await tx.pairing.create({
+        data: {
+          id,
+          tutorId: tutors[index]!,
+          termId: original.termId,
+          subject: original.subject,
+          dayOfWeek: original.dayOfWeek,
+          startMin: original.startMin,
+          endMin: original.endMin,
+          timeSlotId: original.timeSlotId,
+          groupId: null,
+          scheduleConfirmed: false,
+          roomId: null,
+          roomMode: "NONE",
+        },
+      });
+      await tx.pairingExecutionSuccessor.create({
+        data: {
+          sourcePairingId: index === 1 ? original.id : "old-math-successor-1",
+          targetPairingId: id,
+          receiptId: `synthetic-prior-transfer-${index}`,
+          effectiveAt: now,
+        },
+      });
+      await tx.pairing.update({
+        where: { id },
+        data: {
+          groupId: original.groupId,
+          scheduleConfirmed: original.scheduleConfirmed,
+          roomId: original.roomId,
+          roomMode: original.roomMode,
+          roomNeedsAssignment: original.roomNeedsAssignment,
+          roomShortageKey: original.roomShortageKey,
+        },
+      });
+      await tx.pairingTutee.create({
+        data: { pairingId: id, tuteeId: learners[index]! },
+      });
+      expect(
+        await tx.pairing.findUniqueOrThrow({ where: { id } }),
+      ).toMatchObject({
+        scheduleConfirmed: true,
+        roomId: "room",
+        roomMode: original.roomMode,
+      });
     });
   }
   if (kind === "tutor")
