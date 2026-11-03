@@ -335,7 +335,7 @@ export const reviewedRecoverySchemaMetadata={
 export function assertReviewedRecoverySchema(columns:Record<string,unknown>[],enums:Record<string,unknown>[]) {
   const domain=columns.filter(row=>row.table_name!=="_prisma_migrations").map(row=>`${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`).sort();
   const migration=columns.filter(row=>row.table_name==="_prisma_migrations").map(row=>`${String(row.column_name)}|${String(row.udt_name)}`).sort();
-  const identityVersion=domain.join("\n")===REVIEWED_COLUMNS.join("\n")?0:domain.join("\n")===REVIEWED_IDENTITY_COLUMNS.join("\n")?1:null;
+  const identityVersion:0|1|null=domain.join("\n")===REVIEWED_COLUMNS.join("\n")?0:domain.join("\n")===REVIEWED_IDENTITY_COLUMNS.join("\n")?1:null;
   operatorAssert(identityVersion!==null,"UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
   operatorAssert(migration.length===0||migration.join("\n")===PRISMA_METADATA.join("\n"),"UNREVIEWED_MIGRATION_METADATA_SCHEMA");
   const labels=enums.map(row=>`${String(row.type_name)}|${String(row.enum_label)}`).sort();
