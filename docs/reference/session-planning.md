@@ -423,6 +423,46 @@ same synthetic fixture, harness, anchor, dependency lockfile and database schema
 The job reserves time for evidence upload and fails on exhausted budgets; partial
 samples do not count as passing evidence.
 
+The matrix admits all workers into one interval on the same Shanghai calendar
+date. Start a campaign between **00:30–11:30** or **19:15–20:30** Shanghai time.
+Admission reserves at least three hours before 14:30 or 23:30 respectively. The
+command deadline is also limited by the shared anchor's twelve-hour lifetime.
+These limits apply on weekdays, Sundays, calendar closures and makeup days.
+Outside either start window, the matrix writes a `DEFERRED` receipt with the
+next eligible UTC instant. It skips measurements and the aggregate. No runner
+waits for that instant. Check the account queue and confirm the PR still has
+the recorded head, then run `gh run rerun <deferred-run-id> --repo <owner/repo>`
+during an eligible window. Rerun the entire deferred workflow because it has no
+measurement jobs to resume. This preserves the original PR event and its scoped
+baseline and catalog pins. A successful deferral job cannot establish
+performance acceptance. Require the complete `PASS` aggregate for the current
+head and successfully completed measurement jobs in the admitted attempt.
+
+The worker's phase receipts record the static command label, elapsed time, exit
+status and remaining phase budget. Only the initial disposable Alpine package
+setup may retry once. Each attempt has at most 30 seconds and both share a
+60-second ceiling under the worker's existing deadline. The first failure
+remains in the terminal receipt even when the retry succeeds. A failed
+migration, comparison, timing command or parity check ends that worker.
+
+The special workflow caps preflight at two runners and the remaining matrix at
+four per PR. Three admitted PRs can use twelve profiling jobs. Run required CI
+ahead of a coordinated campaign and check the account queue for other work. A delayed worker that cannot fit its
+entire command budget must fail before timing starts. Each worker records the
+actual Node and PostgreSQL clock ranges. Aggregation verifies those ranges
+against the same interval for latency, diagnostics and original-schema trials.
+
+This preserves the real HTTP and database clocks. The synthetic timetable has
+15:00 starts, later alternate and proposed slots, and 45-minute lessons. A
+15:00 crossing in the original comparison changed two notice-availability
+relations even though every persisted table matched. Both relations remain in
+the complete-history comparison. The midnight buffer keeps every real-time
+request in its original planning day, including the Sunday preparation and
+Monday visibility transition. The deadline-specific negotiation fixture picks
+an already scheduled cohort with room for the full 24-hour response window.
+It still checks the actual persisted deadline at one millisecond before expiry
+and at equality.
+
 The comparison helper rejects changed historical migrations or domain models.
 It permits only the exact appended maintenance models and their additive migration
 to be overlaid on the baseline. The baseline application source stays unchanged.
@@ -512,7 +552,7 @@ discarded warmup: 20 rounds for cold/Sunday and 40 for other workflow scenarios.
 The hosted workflow divides this complete population into contiguous four-round
 partitions, each with its own discarded process warmup. One fixed anchor and
 immutable Node image cover the run. Each baseline/candidate pair stays serial on
-one runner; up to six independent hosted jobs may run concurrently. This changes
+one runner; up to four independent hosted jobs may run concurrently. This changes
 queueing capacity, not sample populations, per-runner limits or paired measurement
 order; available repository capacity may still queue jobs. Native-schema cold
 controls use the same four-round ranges and aggregate separately to 20 samples.

@@ -1,3 +1,4 @@
+import { validateReportClocks } from "./clock-admission.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
@@ -22,7 +23,7 @@ export const CONTENTION_SCENARIOS = Object.freeze({
   "bulk-before-acceptance": "contention-bulk-first",
   "acceptance-before-bulk": "contention-acceptance-first",
 });
-const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
+const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/clock-admission.mjs", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
 const auditOperations = ["admin.autoAssignUnassignedRooms", "sessionPlanning.accepted", "sessionPlanning.responded", "sessionPlanning.respond"];
 const auditActions = ["Auto Assign Unassigned Rooms", "Session planning: accepted", "Session planning: responded", "Respond"];
 const population = Object.freeze({
@@ -384,7 +385,7 @@ function validateControlledReport(value, order, revision, candidate) {
   const runner = record(report.profileRunner, "Controlled runner");
   for (const key of ["id", "name", "os", "arch"]) text(runner[key], `Controlled runner ${key}`);
   assert.ok(Number.isInteger(report.timeoutMs) && report.timeoutMs >= 30_000 && report.timeoutMs <= 150_000 && finite(report.elapsedMs, "Completed command duration") <= report.timeoutMs, "Over-budget controlled command");
-  assert.ok(instant(report.startedAt, "Report start") <= instant(report.finishedAt, "Report finish"), "Report finish predates start");
+  validateReportClocks(report);
   assert.ok(Array.isArray(report.phaseTimings) && report.phaseTimings.length > 0 && report.phaseTimings.every((phase) => phase.status === "completed" && phase.elapsedIsLowerBound === false && Number.isFinite(phase.elapsedMs) && phase.elapsedMs >= 0), "Incomplete controlled harness phase");
   same(report.httpUnauthorized, [{ case: "missing", status: 401, code: "UNAUTHORIZED" }, { case: "wrong", status: 401, code: "UNAUTHORIZED" }], "actual HTTP denial evidence");
   assert.ok(report.http?.loopback === true && Number.isInteger(report.http.requests) && report.http.requests >= 2, "Missing actual HTTP evidence");

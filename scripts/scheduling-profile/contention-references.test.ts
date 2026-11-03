@@ -1,3 +1,4 @@
+import { createClockAdmission } from "./clock-admission.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -12,7 +13,7 @@ import {
 type Order = typeof CONTENTION_ORDERS[number];
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 const options = { expectedBaseline: "a".repeat(40), expectedCandidate: "b".repeat(40) };
-const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
+const harnessPaths = ["scripts/profile-scheduling-requests.ts", "scripts/scheduling-profile/fixtures.ts", "scripts/scheduling-profile/scenarios.ts", "scripts/scheduling-profile/clock-admission.mjs", "scripts/scheduling-profile/metrics.ts", "scripts/scheduling-profile/parity.ts", "scripts/scheduling-profile/http.ts", "scripts/scheduling-profile/register-server-runtime.mjs", "scripts/scheduling-profile/server-runtime-hooks.mjs", "scripts/scheduling-profile/controlled-contention.ts", "scripts/scheduling-profile/contention-references.mjs", "scripts/scheduling-profile/contention-fence-witness.ts"];
 const population = { "http:concurrent-2-agenda": 2, "http:concurrent-4-agenda": 4, "http:competing-schedule-a": 1, "http:competing-schedule-b": 1, "http:contention-pending-room": 1, "http:contended-bulk": 1, "http:contended-acceptance": 1 };
 const period = { classid: "10", objid: "20", objsubid: 1 };
 const room = { classid: "30", objid: "40", objsubid: 1 };
@@ -93,14 +94,14 @@ function report(order: Order, head = false) {
     revision: head ? options.expectedCandidate : options.expectedBaseline,
     contentionInputs: { nodeImage, comparison: comparison() },
     beforeAfterSemanticEquality: head ? true : null,
-    fixture: { anchor: "2026-11-02T23:00:00.000Z", scenarios: [scenario], transport: "http", samples: 3, currentPairings: 100, rooms: 100 },
+    fixture: { anchor: "2026-11-02T23:00:00.000Z", clockAdmission: createClockAdmission("2026-11-02T23:00:00.000Z", "2026-11-02T23:00:00.000Z"), scenarios: [scenario], transport: "http", samples: 3, currentPairings: 100, rooms: 100 },
     runtime: { node: "v22.20.0", platform: "linux", arch: "x64", cpu: `hosted-${order}`, logicalCpus: 4 },
     profileRunner: { id: `runner-${order}`, name: `runner-${order}`, os: "Linux", arch: "X64" },
     database: { host: "127.0.0.1", port: 55439, name: "shbs_performance_test", poolMax: 6 }, postgresVersion: [{ server_version: "16.6" }],
     harnessHashes: Object.fromEntries(harnessPaths.map((path) => [path, sha(path)])),
     sourceHashes: { "prisma/schema.prisma": sha("shared schema"), "package-lock.json": sha("same dependencies"), "src/server/session-planning/index.ts": sha(head ? "candidate" : "control") },
     migrationFiles: [migration], migrations: [{ name: migration.name, checksum: migration.sha256 }],
-    timeoutMs: 150_000, elapsedMs: 4000, startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:04.000Z",
+    timeoutMs: 150_000, elapsedMs: 4000, databaseClock: { startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:03.000Z" }, startedAt: "2026-11-03T00:00:00.000Z", finishedAt: "2026-11-03T00:00:04.000Z",
     phaseTimings: [{ phase: "scenario", status: "completed", elapsedIsLowerBound: false, elapsedMs: 3000 }],
     httpUnauthorized: [{ case: "missing", status: 401, code: "UNAUTHORIZED" }, { case: "wrong", status: 401, code: "UNAUTHORIZED" }], http: { loopback: true, requests: 35 },
     receipts: [0, 1, 2].map((round) => ({ scenario, round, contentionOrder: order, contentionHistoryOrder: order, contentionFenceEvidence: fence(order), parity: graph, digest: sha(JSON.stringify(graph)), output: { scenario: "contention", results: ["full original prelude", "bulk", "acceptance"] }, receiptInputs: [], pairingCreations: [], operationWindows: [], parityWindow: [] })),
