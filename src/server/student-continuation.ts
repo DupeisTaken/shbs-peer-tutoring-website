@@ -130,13 +130,6 @@ async function continuationContext(
         orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }],
       })
     : [];
-  // Multiple retained profiles cannot create duplicate choices for the same historical lesson.
-  const sources = [
-    ...new Map(links.map((link) => [link.pairingId, link])).values(),
-  ];
-  const subjects = await tx.subject.findMany({
-    where: { name: { in: sources.map((x) => x.pairing.subject) } },
-  });
   const aliases = await tx.accountEmail.findMany({
     where: { userId, verifiedAt: { not: null } },
     select: { email: true },
@@ -196,6 +189,61 @@ async function continuationContext(
         where: { surveyId: request.id },
       })
     : [];
+  // Follow only these owned candidates/recorded choices, in batches. Retained
+  // sources remain evidence; a new option uses the terminal execution assignment.
+  const successors = new Map<string, string>();
+  const queried = new Set<string>();
+  let frontier = [
+    ...new Set([
+      ...links.map((link) => link.pairingId),
+      ...choices.map((choice) => choice.sourcePairingId),
+    ]),
+  ];
+  while (frontier.length) {
+    for (const id of frontier) queried.add(id);
+    const rows = await tx.pairingExecutionSuccessor.findMany({
+      where: { sourcePairingId: { in: frontier } },
+      select: { sourcePairingId: true, targetPairingId: true },
+    });
+    for (const row of rows)
+      successors.set(row.sourcePairingId, row.targetPairingId);
+    frontier = [...new Set(rows.map((row) => row.targetPairingId))].filter(
+      (id) => !queried.has(id),
+    );
+  }
+  const terminal = (sourceId: string) => {
+    const seen = new Set<string>();
+    let id = sourceId;
+    while (successors.has(id)) {
+      if (seen.has(id)) throw conflict();
+      seen.add(id);
+      id = successors.get(id)!;
+    }
+    return id;
+  };
+  const chosenSources = new Set(
+    choices.map((choice) => choice.sourcePairingId),
+  );
+  const chosenTerminals = new Set(
+    choices.map((choice) => terminal(choice.sourcePairingId)),
+  );
+  // Existing consent (including release) stays bound to its original source. Do
+  // not offer its successor as fresh demand; independent lessons remain available.
+  const sources = [
+    ...new Map(
+      links
+        .filter(
+          (link) =>
+            chosenSources.has(link.pairingId) ||
+            (!successors.has(link.pairingId) &&
+              !chosenTerminals.has(link.pairingId)),
+        )
+        .map((link) => [link.pairingId, link]),
+    ).values(),
+  ];
+  const subjects = await tx.subject.findMany({
+    where: { name: { in: sources.map((x) => x.pairing.subject) } },
+  });
   const policy = await publishedPolicy(tx, "tutee-policy");
   const localized =
     policy?.documents.find((x) => x.locale === locale && x.body.trim()) ??
