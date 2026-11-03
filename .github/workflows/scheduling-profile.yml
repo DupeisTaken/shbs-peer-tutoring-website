@@ -89,7 +89,7 @@ jobs:
       fail-fast: false
       # Independent hosted runners own separate databases. Each before/after
       # pair remains serial on its same runner with fixed resource limits.
-      max-parallel: 3
+      max-parallel: 6
       matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
     services:
       postgres:
