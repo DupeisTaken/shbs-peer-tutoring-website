@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 /** Parsed receipt fields are checked at runtime before use. The public result
  * types below deliberately expose no unchecked JSON values to TypeScript callers.
@@ -39,8 +40,10 @@ const sha = (value, length, name) => {
   assert.ok(typeof value === "string" && new RegExp(`^[a-f0-9]{${length}}$`).test(value), `${name} must be an immutable lowercase hash`);
   return value;
 };
-/** @param {unknown} actual @param {unknown} expected @param {string} name */
-const same = (actual, expected, name) => assert.deepStrictEqual(actual, expected, `Incomparable ${name}`);
+/** Full semantic graphs are compared without constructing unbounded assertion
+ * diffs on failure. Raw paired receipts retain the inspectable evidence.
+ * @param {unknown} actual @param {unknown} expected @param {string} name */
+const same = (actual, expected, name) => assert.ok(isDeepStrictEqual(actual, expected), `Incomparable ${name}`);
 /** @param {number[]} values @param {number} fraction @returns {number|null} */
 const percentile = (values, fraction) => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -140,6 +143,7 @@ function validateReport(value, scenario, revision, index, manifest, native = fal
     record(row, "Applied migration");
     assert.ok(!applied.has(row.name), "Duplicate applied migration");
     applied.add(row.name);
+    /** @type {Evidence | undefined} */
     const file = report.migrationFiles.find((entry) => entry.name === row.name);
     assert.ok(file && [file.sha256, file.lfSha256, file.crlfSha256].includes(row.checksum), "Applied migration checksum differs");
   }
@@ -197,8 +201,10 @@ function validateReport(value, scenario, revision, index, manifest, native = fal
     }
     if (scenario === "contention") same(current.filter((sample) => sample.label.startsWith("http:competing-schedule-") && !sample.succeeded).length, 1, "one intentional competing request conflict");
   }
-  same(Object.keys(record(metrics.operations, "Operation summaries")).sort(), Object.keys(population).sort(), "operation summary label coverage");
-  for (const [label, summary] of Object.entries(metrics.operations)) {
+  const operationSummaries = record(metrics.operations, "Operation summaries");
+  same(Object.keys(operationSummaries).sort(), Object.keys(population).sort(), "operation summary label coverage");
+  for (const [label, value] of Object.entries(operationSummaries)) {
+    const summary = record(value, "Completed operation summary");
     const selected = rows.filter((sample) => sample.label === label);
     same({ samples: summary.samples, completed: summary.completed, errors: summary.errors, unfinished: summary.unfinished, censored: summary.censored }, {
       samples: selected.length, completed: selected.length, errors: selected.filter((sample) => !sample.succeeded).length, unfinished: 0, censored: 0,
