@@ -135,12 +135,12 @@
       "C": "最终提议",
       "GROUP": "全体协商"
     },
-    "includeAll": "包含本次课的所有学员",
+    "includeAll": "包含本次辅导的所有学习伙伴",
     "allScopeHelp": "所有人都须同意最新方案。",
-    "oneScopeHelp": "仅适用于所选学员。",
+    "oneScopeHelp": "仅适用于所选学习伙伴。",
     "automaticRoom": "线下 — 自动分配教室",
     "checkingLocation": "正在检查时间和地点…",
-    "allocationFailed": "无法确认该时间和地点。请检查当前课程，尝试其他时间或线上授课，然后重新预览。",
+    "allocationFailed": "无法确认该时间和地点。请核对本次辅导安排，尝试其他时间或选择线上辅导，然后重新预览。",
     "roomReviewHelp": "发送时会再次检查教室。如不可用，请重新预览分配结果。"
   },
   "nextRecruitment": {
@@ -2559,7 +2559,7 @@
       "legacyHelp": "此日程部分已移至新页面。请打开日程继续；在你选择链接前，主页将保持当前状态。"
     },
     "workspace": {
-      "label": "导师工作区",
+      "label": "辅导伙伴工作区",
       "schedule": "日程",
       "pairings": "配对",
       "preferences": "偏好设置",
