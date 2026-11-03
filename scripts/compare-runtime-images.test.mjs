@@ -57,6 +57,7 @@ test("existing runner files are not duplicated to inflate the historical baselin
   const candidate = operatorLayout(sourceCopy(file));
   for (const copy of [
     `COPY --from=build --chown=nextjs:nodejs /app/${file} ./${file}`,
+    `COPY --from=build --chown=nextjs:nodejs \\\n      /app/${file} ./src/server/`,
     `COPY --from=build --chown=nextjs:nodejs /app/src/server/other.ts \\\n      /app/${file} ./src/server/`,
     "COPY --from=build --chown=nextjs:nodejs /app/src ./src",
     "COPY --from=build --chown=nextjs:nodejs /app/src/server/ ./src/server/",

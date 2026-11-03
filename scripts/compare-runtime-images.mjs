@@ -110,7 +110,7 @@ export function withCommonOperatorPayload(baseline, candidate, requiredFiles) {
   const after = prepared(candidate);
   const runner = baseline.slice(before.end).replace(/\\\n\s*/g, " ");
   const direct = runner.split("\n").flatMap((raw) => {
-    const line = raw.trim();
+    const line = raw.trim().replace(/\s+/g, " ");
     if (!/^COPY\b/i.test(line)) return [];
     if (/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/(?:app \.\/|dependencies\/node_modules \.\/node_modules)$/.test(line) ||
       line === "COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh") return [];
