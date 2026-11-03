@@ -7,8 +7,88 @@ import {
   captureParity,
   compareParity,
   createParityAliasRewriter,
+  selectParityCaptureSchema,
   type ParityTables,
 } from "./parity";
+
+void test("native-original selection is explicit and restricted to an unpaired cold HTTP latency control", () => {
+  const cold = { scenario: "cold", mode: "latency", transport: "http", compare: false };
+  assert.equal(selectParityCaptureSchema(undefined, cold), "shared");
+  assert.equal(selectParityCaptureSchema("shared", { ...cold, compare: true }), "shared");
+  assert.equal(selectParityCaptureSchema("native-original", cold), "native-original");
+  for (const context of [
+    { ...cold, compare: true }, { ...cold, scenario: "warm" },
+    { ...cold, scenario: "all" }, { ...cold, mode: "diagnostic" },
+    { ...cold, transport: "procedure" },
+  ]) assert.throws(() => selectParityCaptureSchema("native-original", context), /unpaired cold HTTP latency/);
+  assert.throws(() => selectParityCaptureSchema("auto", cold), /Unknown parity capture schema/);
+});
+
+void test("native-original capture uses positive original fields with no new model delegates", async () => {
+  const absent = new Set([
+    "personPartitionReceipt", "retiredHistoryOwnership", "historyRowOwnership", "personHistoryCorrectionReceipt",
+    "personParticipationTransferReceipt", "participantConsolidation", "pairingExecutionSuccessor",
+    "sessionPlanExecution", "sessionParticipantExecution", "sessionResponseExecution", "qualificationTransferGrant",
+    "studentRequestExecutionAssignment", "recoveryCheckpoint", "recoveryDeliveryEffect",
+    "recoveryDeliveryCancellation", "recoveryDeliveryCoverage", "recoveryWorkflowDraft",
+  ]);
+  const addedFields: Record<string, string> = {
+    user: "historyAccessRevision", personCombineReceipt: "ownershipTransfers",
+    sessionPlanContinuationMember: "sourceSurveyId", notification: "recoveryWithdrawnAt",
+    emailDelivery: "sourceNotificationId",
+  };
+  const queries = new Set<string>();
+  let open = false;
+  const tx = new Proxy({}, {
+    get: (_target, name) => {
+      assert.equal(typeof name, "string");
+      const delegate = name as string;
+      assert.ok(!absent.has(delegate), `Original schema has no ${delegate} delegate`);
+      return { findMany: (args?: { select?: Record<string, boolean> }) => {
+        assert.equal(open, true);
+        assert.ok(args?.select, `${delegate} must have a fixed positive native projection`);
+        queries.add(delegate);
+        if (addedFields[delegate]) assert.ok(!args.select[addedFields[delegate]], "New scalar field entered native capture");
+        if (delegate === "user") assert.ok(!args.select.passwordHash);
+        if (delegate === "studentSurvey") assert.ok(!args.select.tokenHash);
+        return Promise.resolve([]);
+      } };
+    },
+  });
+  const db = { $transaction: async (work: (client: unknown) => Promise<unknown>, options: unknown) => {
+    assert.deepEqual(options, { isolationLevel: "RepeatableRead", timeout: 120_000 });
+    open = true;
+    try { return await work(tx); } finally { open = false; }
+  } } as unknown as PrismaClient;
+  const snapshot = await captureParity(db, { captureSchema: "native-original" });
+  assert.equal(snapshot.captureSchema, "native-original");
+  assert.equal(Object.keys(snapshot.tables).length, 51);
+  for (const delegate of ["user", "personCombineReceipt", "sessionPlanContinuationMember", "notification", "emailDelivery", "recoveryChange"])
+    assert.ok(queries.has(delegate), `${delegate} disappeared from original-schema evidence`);
+  assert.ok(!Object.hasOwn(snapshot.tables, "RecoveryCheckpoint"));
+  assert.throws(() => compareParity(snapshot, canonicalizeParity(
+    Object.fromEntries(Object.keys(snapshot.tables).map((name) => [name, []])),
+  )), /semantic state differs/);
+});
+
+void test("shared capture fails on missing combined fields or delegates instead of reducing its schema", async () => {
+  for (const missing of ["field", "delegate"]) {
+    const tx = new Proxy({}, {
+      get: (_target, name) => {
+        if (missing === "delegate" && name === "personPartitionReceipt") return undefined;
+        return { findMany: (args?: { select?: Record<string, boolean> }) => {
+          if (missing === "field" && name === "user") {
+            assert.equal(args?.select?.historyAccessRevision, true);
+            throw new Error("Original client has no historyAccessRevision field");
+          }
+          return Promise.resolve([]);
+        } };
+      },
+    });
+    const db = { $transaction: (work: (client: unknown) => Promise<unknown>) => work(tx) } as unknown as PrismaClient;
+    await assert.rejects(captureParity(db), missing === "field" ? /no historyAccessRevision field/ : TypeError);
+  }
+});
 
 void test("incremental alias matching equals the original escaped longest-literal regex after every insertion", () => {
   const aliases = new Map<string, string>();

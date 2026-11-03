@@ -45,6 +45,7 @@ if [ "$PROFILE_REVISION" = base ]; then
     native_budget=$(profile_budget_ms 90) || exit 124
     bounded 90 node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs scripts/profile-scheduling-requests.ts \
       --scenario cold --samples 20 --anchor "$PROFILE_ANCHOR" --transport http \
+      --capture-schema native-original \
       --partition-index "$PROFILE_PARTITION_INDEX" --partition-count "$PROFILE_PARTITION_COUNT" \
       --mode latency --timeout-ms "$native_budget" --output /evidence/base-native-latency.json
   fi
@@ -61,7 +62,7 @@ bounded 30 node --import tsx --test scripts/scheduling-profile/metrics.integrati
 
 measurement_budget=$(profile_budget_ms 150) || exit 124
 set -- --scenario "$PROFILE_SCENARIO" --samples "$PROFILE_SAMPLES" \
-  --anchor "$PROFILE_ANCHOR" --transport http --mode "$PROFILE_MODE" \
+  --anchor "$PROFILE_ANCHOR" --transport http --mode "$PROFILE_MODE" --capture-schema shared \
   --timeout-ms "$measurement_budget" --output "/evidence/$PROFILE_REVISION-$PROFILE_MODE.json"
 if [ "$PROFILE_MODE" = latency ]; then
   set -- "$@" --partition-index "$PROFILE_PARTITION_INDEX" --partition-count "$PROFILE_PARTITION_COUNT"

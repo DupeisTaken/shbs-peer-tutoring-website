@@ -424,6 +424,15 @@ It permits only the exact appended maintenance models and their additive migrati
 to be overlaid on the baseline. The baseline application source stays unchanged.
 This shared-schema control includes the new triggers' cost on both revisions; a
 separately labelled native-schema cold baseline records the original schema too.
+That pre-overlay command explicitly selects `--capture-schema native-original`:
+a fixed positive projection of the original schema's fields and delegates,
+excluding later identity/recovery fields and sidecars. Both its receipt and
+snapshot identify this reduced capture contract. It is restricted to unpaired
+cold HTTP latency controls; the aggregator independently verifies the original
+schema hash and keeps these observations separate from shared-schema parity.
+Ordinary paired commands use `--capture-schema shared`, retain the complete
+combined projection, and fail on missing fields or tables. There is no automatic
+fallback from complete capture to the native projection.
 Later comparisons with byte-identical schemas and migration chains require no
 overlay or native-schema control. Unrelated schema changes still fail closed.
 For a combined-feature run, manual dispatch may select an explicitly reviewed

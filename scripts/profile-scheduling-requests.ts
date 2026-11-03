@@ -21,7 +21,7 @@ import type { PoolClient } from "pg";
 import { createProfiler, type ProfileMode } from "./scheduling-profile/metrics";
 import { addLateRootWitness, assertRecoveryWitnesses, fixtureId, resetFixture, seedFixture } from "./scheduling-profile/fixtures";
 import { runScenario, scenarioNames, type ReceiptInput, type ScenarioName } from "./scheduling-profile/scenarios";
-import { captureParity, compareParity, type ParityOptions, type ParitySnapshot } from "./scheduling-profile/parity";
+import { captureParity, compareParity, selectParityCaptureSchema, type ParityOptions, type ParitySnapshot } from "./scheduling-profile/parity";
 import type { HttpHarness } from "./scheduling-profile/http";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -30,7 +30,7 @@ const flags = new Map<string, string>();
 for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index]!;
   const value = process.argv[index + 1];
-  assert.ok(["--scenario", "--mode", "--transport", "--timeout-ms", "--anchor", "--samples", "--partition-index", "--partition-count", "--output", "--compare"].includes(key), `Unknown option ${key}`);
+  assert.ok(["--scenario", "--mode", "--transport", "--capture-schema", "--timeout-ms", "--anchor", "--samples", "--partition-index", "--partition-count", "--output", "--compare"].includes(key), `Unknown option ${key}`);
   assert.ok(value && !value.startsWith("--") && !flags.has(key), `Missing/repeated option ${key}`);
   flags.set(key, value);
 }
@@ -47,6 +47,9 @@ assert.ok(!/--conditions(?:=|\s+)(?:[^\s]*,)?react-server\b/.test([...process.ex
 assert.equal((globalThis as unknown as Record<symbol, unknown>)[Symbol.for("shbs.scheduling-profile.server-runtime")], 1, "Preload scripts/scheduling-profile/register-server-runtime.mjs after tsx.");
 const requested = flags.get("--scenario")!;
 assert.ok(requested === "all" || scenarioNames.includes(requested as ScenarioName));
+const captureSchema = selectParityCaptureSchema(flags.get("--capture-schema"), {
+  scenario: requested, mode, transport, compare: flags.has("--compare"),
+});
 if (transport === "domain") assert.ok(requested === "cold" || requested === "sunday" || requested === "backlog", "Domain-only transport supports cold/Sunday agendas and explicit backlog diagnostics.");
 // The diagnostic-only stress case is an explicit separate command, preserving
 // the existing ordinary all-scenarios workload and its latency sample contract.
@@ -116,13 +119,16 @@ type Report = {
 const report: Report = {
   schemaVersion: 3, partitionProtocolVersion: 1, partition, profileRunner,
   samplingComplete: false, partitionComplete: false, latencyComparisonEligible: false,
-  status: "RUNNING", mode, transport, timeoutMs, startedAt: new Date().toISOString(),
+  status: "RUNNING", mode, transport, captureSchema, timeoutMs, startedAt: new Date().toISOString(),
   revision: git("rev-parse", "HEAD").trim(), workingTree: git("status", "--short"), trackedDiffSha256: hash(git("diff", "--binary", "HEAD")),
   harnessHashes, sourceHashes, migrationFiles: migrations,
   runtime: { node: process.version, platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model, logicalCpus: os.cpus().length },
   fixture: { anchor: anchor.toISOString(), scenarios, transport, samples, currentPairings: 100, rooms: 100, explicitSubjectGroups: 1, calendarOverrides: 2, continuationAssignments: 2, continuationReceipts: 2, ordinaryRecoveryRoots: 5, lateRootWitness: true, ...(requested === "backlog" ? { backlogRequests: 205, failingNotices: 60, hotSourceUpdates: 1200, warmupRounds: 0 } : {}) },
   database: { host: target.hostname, port: 55439, name: "shbs_performance_test", poolMax: 6 },
   methodology: {
+    captureSchema: captureSchema === "shared"
+      ? "Complete combined-schema projection, including required identity/recovery fields and sidecars. Missing fields or tables fail the run."
+      : "Reduced native-original cold control: fixed c113b8ef field/delegate projection, excluding later identity/recovery fields and sidecars. Original schema bytes are independently verified; this is not shared-schema domain parity or a paired speedup comparison.",
     procedure: "Real authenticated synthetic createCaller context and real middleware/Prisma/transactions; excludes HTTP transport and authentication session exchange.",
     http: "When selected: actual loopback HTTP requests via @trpc/client httpLink + superjson and @trpc/server standalone adapter around the unchanged production appRouter. Task-local opaque session cookies stand in for authentication exchange. No Next ingress/proxy, Auth.js exchange, TLS or production network is measured. SQL diagnostics are bound to the incoming request's measured client context.",
     runtimeConditions: "Normal React/Next/Auth.js resolution. A harness-only Node module hook adds react-server solely when resolving the exact server-only marker package, selecting its own published empty.js entry. No authentication/application module is mocked or redirected.",
@@ -270,7 +276,7 @@ try {
     // their instrumented elapsed times never establish a latency improvement.
     previous = JSON.parse(readFileSync(resolve(root, flags.get("--compare")!), "utf8")) as Report;
     assert.equal(previous.status, "PASS");
-    for (const key of ["schemaVersion", "partitionProtocolVersion", "partition", "profileRunner", "mode", "fixture", "harnessHashes", "runtime", "migrations", "postgresVersion"] as const) assert.deepEqual(report[key], previous[key], `Incomparable ${key}`);
+    for (const key of ["schemaVersion", "partitionProtocolVersion", "partition", "profileRunner", "mode", "captureSchema", "fixture", "harnessHashes", "runtime", "migrations", "postgresVersion"] as const) assert.deepEqual(report[key], previous[key], `Incomparable ${key}`);
     assertOwnReceiptRange(previous.receipts);
   }
   const { createCaller } = await import("../src/server/api/root");
@@ -322,7 +328,7 @@ try {
         }
       };
       const scenarioBefore = new Date().toISOString();
-      const captureDomain = () => timedPhase("capture-domain", () => captureParity(client, { receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")] }));
+      const captureDomain = () => timedPhase("capture-domain", () => captureParity(client, { captureSchema, receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")] }));
       const recordPreparationEvidence = (stage: string, evidence: unknown) => {
         preparationEvidence.push({ scenario, round, stage, evidence });
         save();
@@ -335,7 +341,7 @@ try {
       // remain inspectable. The normalizer retains event order and every fixed
       // domain-boundary relation; it rejects a phase exceeding 120 seconds.
       const parityWindow = [{ label: `scenario:${scenario}`, before: scenarioBefore, after: new Date().toISOString() }];
-      const parity = await timedPhase("capture-final-parity", () => captureParity(client, { operationWindows: parityWindow, receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")], procedureResults: [{ label: scenario, result: output }] }));
+      const parity = await timedPhase("capture-final-parity", () => captureParity(client, { captureSchema, operationWindows: parityWindow, receiptInputs, pairingCreations, seededPairingIds: [...fixture.pairs.map((pair) => pair.id), fixtureId("prior-pairing")], procedureResults: [{ label: scenario, result: output }] }));
       if (round < 0) continue;
       const digest = await timedPhase("parity-digest", () => hash(JSON.stringify(parity)));
       // Retain one complete canonical snapshot per scenario and each round's
