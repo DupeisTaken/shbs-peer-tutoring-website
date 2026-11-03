@@ -3921,6 +3921,8 @@
         "SessionPlanCohort": "Dated teaching session",
         "SessionPlanParticipant": "Tutee session commitment",
         "SessionPlanningSuggestion": "Suggested session time",
+        "SchedulingMaintenanceState": "État de maintenance du planning",
+        "SchedulingDirtyEvent": "Indicateur de modification du planning",
         "SessionPlanningRequest": "Formal scheduling request",
         "SessionPlanningOffer": "Scheduling offer",
         "SessionPlanningResponse": "Scheduling response",

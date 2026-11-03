@@ -11,6 +11,7 @@ import {
 import { db } from "~/server/db";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { currentPolicy } from "~/server/policy-acceptance";
+import { runAuditedMutation } from "~/server/audit/evidence";
 import {
   saveSchoolCalendar,
   resetSchoolCalendar,
@@ -576,6 +577,116 @@ describe("durable individual agreement", () => {
 });
 
 describe("whole-group agreement and split", () => {
+  it.each([
+    { label: "forward insertion and relation order", relation: ["planning-one", "planning-two"], legacy: false },
+    { label: "reversed insertion and relation order", relation: ["planning-two", "planning-one"], legacy: false },
+    { label: "a legacy reversed stored parent", relation: ["planning-two", "planning-one"], legacy: true },
+  ])("persists stable new ALL audiences and preserves split evidence with $label", async ({ relation, legacy }) => {
+    const original = await source();
+    const previous = await db.sessionPlanParticipant.findMany({ where: { planId: original.planId } });
+    await db.sessionPlanParticipant.deleteMany({ where: { planId: original.planId } });
+    for (const [index, tuteeId] of relation.entries()) {
+      const row = previous.find((row) => row.tuteeId === tuteeId)!;
+      await db.sessionPlanParticipant.create({ data: { ...row, id: `planning-roster-order-${index}` } });
+    }
+    const rootId = "planning-roster-order-root";
+    await db.recoveryAction.create({ data: {
+      id: rootId, kind: "INITIAL_ADMISSION", applicationId: "planning-roster-order-admission", before: {},
+    } });
+    await db.recoveryTrackedEntity.create({ data: { actionId: rootId, entity: "Tutor", recordId: tutor.tutorId } });
+
+    const observed: string[][] = [];
+    // Both permutations are legal results of this unordered relation. Read the
+    // real rows, then control only their returned order so the regression does
+    // not depend on a particular PostgreSQL plan or generated participant IDs.
+    const reordered = db.$extends({ query: { sessionPlanCohort: { async findUnique({ args, query }) {
+      const row = await query(args);
+      if (row?.id !== original.id || !("plan" in row) || !row.plan || typeof row.plan !== "object" ||
+        !("participants" in row.plan) || !Array.isArray(row.plan.participants)) return row;
+      const plan = row.plan as Record<string, unknown> & { participants: { tuteeId: string }[] };
+      const participants = [...plan.participants].sort((left, right) =>
+        relation.indexOf(left.tuteeId) - relation.indexOf(right.tuteeId));
+      observed.push(participants.map((person) => person.tuteeId));
+      return { ...row, plan: { ...plan, participants } };
+    } } } });
+    const workflowDb = reordered as unknown as typeof db;
+    const audited = async (
+      operation: string,
+      actor: { id: string },
+      work: (tx: typeof db) => Promise<{ id: string }>,
+    ) => {
+      const result = await runAuditedMutation(workflowDb, {
+        id: actor.id, name: "Synthetic roster-order actor", role: actor.id === tutor.id ? "TUTOR" : "STUDENT",
+      }, operation, async (tx) => ({ ok: true, value: await work(tx) }));
+      return result.value;
+    };
+    const parent = await audited("sessionPlanning.propose", tutor, (tx) => proposeSession(tx, tutor, {
+      cohortId: original.id, expectedVersion: original.version, clientKey: randomUUID(),
+      scope: "ALL", kind: "RESCHEDULE", ...time(),
+    }));
+    expect(observed[0]).toEqual(relation);
+    expect((await read(parent.id)).participantIds).toEqual(["planning-one", "planning-two"]);
+    // A pre-existing request keeps its captured audience order. Only the new
+    // proposal boundary is canonicalized, never a later read or split replay.
+    const expected = legacy ? ["planning-two", "planning-one"] : ["planning-one", "planning-two"];
+    if (legacy) await db.sessionPlanningRequest.update({ where: { id: parent.id }, data: { participantIds: expected } });
+    const first = await current(parent.id);
+    await audited("sessionPlanning.respond", one, (tx) => respondSession(tx, one, {
+      requestId: parent.id, offerId: first.offer.id, expectedVersion: first.request.version,
+      clientKey: randomUUID(), decision: "REJECT", alternative: time("2026-11-04"),
+    }));
+    const counter = await read(parent.id);
+    await audited("sessionPlanning.requestSplit", one, (tx) => requestSeparateSession(tx, one, {
+      requestId: parent.id, expectedVersion: counter.version, clientKey: randomUUID(),
+    }));
+    const split = await read(parent.id);
+    await audited("sessionPlanning.formalizeSplit", tutor, (tx) => formalizeSeparateSessions(tx, tutor, {
+      requestId: parent.id, expectedVersion: split.version, clientKey: randomUUID(),
+    }));
+    expect(await read(parent.id)).toMatchObject({ participantIds: expected, status: "SPLIT" });
+    const children = await db.sessionPlanningRequest.findMany({
+      where: { parentRequestId: parent.id }, include: { offers: true },
+    });
+    expect(children).toHaveLength(2);
+    const childById = new Map(children.map((row) => {
+      expect(row.participantIds).toHaveLength(1);
+      return [row.id, (row.participantIds as string[])[0]!] as const;
+    }));
+    const offerIds = new Set(children.flatMap((row) => row.offers.map((offer) => offer.id)));
+    const record = (value: unknown): Record<string, unknown> => {
+      expect(value !== null && typeof value === "object" && !Array.isArray(value)).toBe(true);
+      return value as Record<string, unknown>;
+    };
+    const array = (value: unknown): unknown[] => {
+      expect(Array.isArray(value)).toBe(true);
+      return value as unknown[];
+    };
+    const learner = (id: unknown) => typeof id === "string" ? childById.get(id) : undefined;
+    const journal = await db.recoveryChange.findMany({ where: { actionId: rootId }, orderBy: { id: "asc" } });
+    const inserts = (entity: string) => journal.filter((change) => change.entity === entity && change.operation === "INSERT")
+      .map((change) => ({ eventId: change.eventId, after: record(change.after) }));
+    const childInserts = inserts("SessionPlanningRequest").filter((change) => learner(change.after.id) !== undefined);
+    expect(childInserts.map((change) => learner(change.after.id))).toEqual(expected);
+    expect(new Set(childInserts.map((change) => change.eventId)).size).toBe(1);
+    const expectedRecipients = expected.flatMap((id) => [tutor.id, id === "planning-one" ? one.id : two.id]);
+    expect(inserts("SessionPlanningResponse")
+      .filter((change) => typeof change.after.offerId === "string" && offerIds.has(change.after.offerId))
+      .map((change) => change.after.actorUserId)).toEqual(expectedRecipients);
+    expect(inserts("SessionNotice")
+      .filter((change) => learner(change.after.requestId) !== undefined)
+      .map((change) => change.after.recipientUserId)).toEqual(expectedRecipients);
+    expect((await db.recoveryFence.findUniqueOrThrow({ where: { actionId: rootId } })).revision).toBe(journal.length);
+
+    const audit = await db.auditLog.findFirstOrThrow({ where: { operation: "sessionPlanning.formalizeSplit" } });
+    const auditChildren = array(record(audit.details).changes).map(record)
+      .filter((change) => change.entity === "SessionPlanningRequest" && change.write === "create")
+      .flatMap((change) => array(change.after).map(record))
+      .map((row) => learner(row.id));
+    expect(auditChildren).toEqual(expected);
+    expect(await db.auditLog.count({ where: { operation: "sessionPlanning.split", entityId: parent.id } })).toBe(1);
+    expect(await db.session.count()).toBe(0);
+  });
+
   it("gives split-extra children one explicit extra root and physical cohort with replay-safe membership", async () => {
     const { id } = await propose("ALL", "EXTRA");
     await respond(id, one, "REJECT", time("2026-11-04"));

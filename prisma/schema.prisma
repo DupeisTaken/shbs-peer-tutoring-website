@@ -3122,3 +3122,33 @@ model SchoolDepartureEvent {
   createdAt DateTime @default(now())
   @@unique([userId, revision])
 }
+
+/// Rebuildable publication watermark and current-check work queue; never authority.
+model SchedulingMaintenanceState {
+  id String @id @default("program")
+  publicationVersion Int @default(0)
+  settlementVersion Int @default(0)
+  windowStart String @default("")
+  prepareEnd String @default("")
+  timeZone String @default("")
+  unavailable Int @default(0)
+  normalized Int @default(0)
+  settlementBatchActive Boolean @default(false)
+  settlementBatchExhausted Boolean @default(false)
+  settlementCursor String @default("")
+  settlementEventIds BigInt[] @default([])
+  settlementRequestIds String[] @default([])
+  updatedAt DateTime @default(now())
+}
+
+/// Transactional source invalidation only. Sequence allocation is not commit order.
+model SchedulingDirtyEvent {
+  id BigInt @id @default(autoincrement())
+  sourceTable String
+  requestId String? @unique
+  publicationPending Boolean @default(true)
+  settlementPending Boolean @default(true)
+  createdAt DateTime @default(now())
+  @@index([publicationPending, id])
+  @@index([settlementPending, id])
+}

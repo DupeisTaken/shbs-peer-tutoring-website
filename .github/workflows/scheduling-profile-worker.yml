@@ -1,0 +1,180 @@
+name: Scheduling profile partition
+
+on:
+  workflow_call:
+    inputs:
+      baseline:
+        required: true
+        type: string
+      candidate:
+        required: true
+        type: string
+      scenario:
+        required: true
+        type: string
+      mode:
+        required: true
+        type: string
+      partition:
+        required: true
+        type: number
+      partition-count:
+        required: true
+        type: number
+      samples:
+        required: true
+        type: number
+      anchor:
+        required: true
+        type: string
+      node-image:
+        required: true
+        type: string
+      schema-manifest:
+        required: true
+        type: string
+      baseline-selection-path:
+        required: true
+        type: string
+      baseline-selection-file-sha256:
+        required: true
+        type: string
+      baseline-selection-source:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shbs_performance_test
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shbs_performance_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BASELINE_SHA: ${{ inputs.baseline }}
+      CANDIDATE_SHA: ${{ inputs.candidate }}
+      PROFILE_SCENARIO: ${{ inputs.scenario }}
+      PROFILE_MODE: ${{ inputs.mode }}
+      PROFILE_SCHEMA_MANIFEST: ${{ inputs.schema-manifest }}
+      PROFILE_BASELINE_SELECTION_PATH: ${{ inputs.baseline-selection-path }}
+      PROFILE_BASELINE_SELECTION_FILE_SHA256: ${{ inputs.baseline-selection-file-sha256 }}
+      PROFILE_BASELINE_SELECTION_SOURCE: ${{ inputs.baseline-selection-source }}
+      PROFILE_PARTITION_INDEX: ${{ inputs.partition }}
+      PROFILE_PARTITION_COUNT: ${{ inputs.partition-count }}
+      PROFILE_SAMPLES: ${{ inputs.samples }}
+      PROFILE_ANCHOR: ${{ inputs.anchor }}
+      PROFILE_NODE_IMAGE: ${{ inputs.node-image }}
+      PROFILE_PARTITION_RUNNER_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.scenario }}-${{ inputs.mode }}-${{ inputs.partition }}
+    steps:
+      - name: Validate immutable source selection
+        shell: bash
+        run: |
+          [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
+            [[ "$PROFILE_SCHEMA_MANIFEST" =~ ^\.github/scheduling-profile-manifests/[a-zA-Z0-9_-]+\.json$ ]]
+          fi
+          # Leave room for failure receipts/artifact upload before the job's 9m cap.
+          echo "PROFILE_DEADLINE=$(( $(date +%s) + 420 ))" >> "$GITHUB_ENV"
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: profile-head
+          persist-credentials: false
+      - name: Check remaining wall-clock budget before preparing the databases
+        shell: bash
+        working-directory: profile-head
+        run: |
+          node --input-type=module -e '
+            import { validateClockAdmissionBudget } from "./scripts/scheduling-profile/clock-admission.mjs";
+            const start = new Date();
+            validateClockAdmissionBudget({
+              anchor: process.env.PROFILE_ANCHOR,
+              startedAt: start,
+              timeoutMs: Number(process.env.PROFILE_DEADLINE) * 1000 - start.getTime(),
+            });'
+      - name: Checkout baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          path: profile-base
+          persist-credentials: false
+      - name: Download the bulk-before-acceptance full reference
+        if: inputs.scenario == 'contention'
+        uses: actions/download-artifact@v4
+        with:
+          name: scheduling-profile-contention-bulk-first-diagnostic-part-0-${{ github.run_attempt }}
+          path: profile-head/outputs/contention-references/bulk-before-acceptance
+      - name: Download the acceptance-before-bulk full reference
+        if: inputs.scenario == 'contention'
+        uses: actions/download-artifact@v4
+        with:
+          name: scheduling-profile-contention-acceptance-first-diagnostic-part-0-${{ github.run_attempt }}
+          path: profile-head/outputs/contention-references/acceptance-before-bulk
+      - name: Freeze comparison inputs
+        shell: bash
+        run: |
+          mkdir -p profile-head/outputs/scheduling-profile profile-base/scripts/scheduling-profile
+          # Inspect before copying: default allows only the initial additive
+          # metadata. Combined-feature runs require an explicit exact hash manifest;
+          # every historical migration and baseline application file stays intact.
+          manifest_args=()
+          if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
+            manifest_args=(inspect "$PWD/profile-head/$PROFILE_SCHEMA_MANIFEST")
+          fi
+          node profile-head/scripts/scheduling-profile/comparison-inputs.mjs \
+            profile-base profile-head profile-head/outputs/scheduling-profile/comparison-inputs.json "${manifest_args[@]}"
+          cp profile-head/scripts/profile-scheduling-requests.ts profile-base/scripts/
+          cp profile-head/scripts/run-scheduling-profile-ci.sh profile-base/scripts/
+          cp profile-head/scripts/scheduling-profile/* profile-base/scripts/scheduling-profile/
+          printf '%s\n' "$PROFILE_ANCHOR" > profile-head/outputs/scheduling-profile/anchor.txt
+          timeout 60 docker pull "$PROFILE_NODE_IMAGE"
+          docker image inspect "$PROFILE_NODE_IMAGE" --format '{{.Id}}' > profile-head/outputs/scheduling-profile/node-image.txt
+      - name: Measure baseline then candidate
+        shell: bash
+        run: |
+          set -o pipefail
+          anchor="$(cat profile-head/outputs/scheduling-profile/anchor.txt)"
+          node_image="$(cat profile-head/outputs/scheduling-profile/node-image.txt)"
+          for revision in base head; do
+            docker run --rm --cpus=2 --memory=4g --network=host \
+              -v "$PWD/profile-$revision:/work" \
+              -v "$PWD/profile-head/outputs/scheduling-profile:/evidence" \
+              -v "$PWD/profile-head:/overlay:ro" \
+              -w /work \
+              -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55439/shbs_performance_test \
+              -e AUTH_SECRET=synthetic-scheduling-profile-secret-only \
+              -e NEXT_TELEMETRY_DISABLED=1 \
+              -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
+              -e PROFILE_REVISION="$revision" -e PROFILE_SCENARIO -e PROFILE_MODE -e PROFILE_DEADLINE \
+              -e PROFILE_SCHEMA_MANIFEST -e BASELINE_SHA -e CANDIDATE_SHA \
+              -e PROFILE_BASELINE_SELECTION_PATH -e PROFILE_BASELINE_SELECTION_FILE_SHA256 -e PROFILE_BASELINE_SELECTION_SOURCE \
+              -e PROFILE_ANCHOR="$anchor" -e PROFILE_SAMPLES \
+              -e PROFILE_PARTITION_INDEX -e PROFILE_PARTITION_COUNT -e PROFILE_PARTITION_RUNNER_ID \
+              -e PROFILE_RUNNER_NAME="$RUNNER_NAME" -e PROFILE_RUNNER_OS="$RUNNER_OS" -e PROFILE_RUNNER_ARCH="$RUNNER_ARCH" \
+              "$node_image" sh -eu scripts/run-scheduling-profile-ci.sh \
+              2>&1 | tee "profile-head/outputs/scheduling-profile/$revision.log"
+          done
+      - name: Retain raw samples and failure receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduling-profile-${{ inputs.scenario }}-${{ inputs.mode }}-part-${{ inputs.partition }}-${{ github.run_attempt }}
+          path: profile-head/outputs/scheduling-profile/
+          retention-days: 7
+          if-no-files-found: warn

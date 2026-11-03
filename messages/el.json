@@ -3921,6 +3921,8 @@
         "SessionPlanCohort": "Dated teaching session",
         "SessionPlanParticipant": "Tutee session commitment",
         "SessionPlanningSuggestion": "Suggested session time",
+        "SchedulingMaintenanceState": "Κατάσταση συντήρησης προγραμματισμού",
+        "SchedulingDirtyEvent": "Ένδειξη αλλαγής προγραμματισμού",
         "SessionPlanningRequest": "Formal scheduling request",
         "SessionPlanningOffer": "Scheduling offer",
         "SessionPlanningResponse": "Scheduling response",

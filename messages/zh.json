@@ -3921,6 +3921,8 @@
         "SessionPlanCohort": "单次辅导安排",
         "SessionPlanParticipant": "学生单次课程约定",
         "SessionPlanningSuggestion": "课程时间建议",
+        "SchedulingMaintenanceState": "排课维护状态",
+        "SchedulingDirtyEvent": "排课变更标记",
         "SessionPlanningRequest": "正式时间安排请求",
         "SessionPlanningOffer": "时间安排提议",
         "SessionPlanningResponse": "时间安排回复",
