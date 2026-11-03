@@ -40,51 +40,54 @@ const tutor = (id: string) => ({ kind: "TUTOR" as const, id });
 const tutee = (id: string) => ({ kind: "TUTEE" as const, id });
 
 /** This file owns only the guarded disposable test database during its serial run. */
-async function clearFixture() {
-  const tables = await db.$queryRaw<{ tablename: string }[]>`
+async function clearFixture(client: Pick<typeof db, "$queryRaw" | "$executeRawUnsafe"> = db) {
+  const tables = await client.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables
     WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
-  await db.$executeRawUnsafe(
+  await client.$executeRawUnsafe(
     "TRUNCATE " + tables.map(({ tablename }) => '"' + tablename.replaceAll('"', '""') + '"').join(",") + " CASCADE",
   );
 }
 
 beforeEach(async () => {
   (globalThis as { rateLimitStore?: Map<string, unknown> }).rateLimitStore?.clear();
-  await clearFixture();
   vi.stubEnv("AUTH_URL", "https://partition.example.test");
   mail.send.mockReset().mockResolvedValue(undefined);
-  await db.user.createMany({
-    data: ([["head", "HEAD"], ["admin", "ADMIN"], ["coord", "COORDINATOR"], ["viewer", "VIEWER"]] as const).map(([id, role]) => ({
-      id, role, name: id, username: id, email: `${id}@example.test`,
-      passwordHash, emailVerifiedAt: new Date("2026-10-01T00:00:00Z"),
-    })),
-  });
-  await db.person.create({ data: { id: personId } });
-  await db.term.createMany({ data: [
-    { id: "past-term", name: "Original term", schoolYear: "24-25", quarter: "Q1", active: false },
-    { id: "current-term", name: "Current term", schoolYear: "26-27", quarter: "Q1", active: true },
-  ] });
-  await db.tutor.createMany({ data: [
-    { id: "tutor-a", personId, englishName: "Same original name", status: "ARCHIVED", gradeLevel: 9, gradeSchoolYear: "24-25" },
-    { id: "tutor-b", personId, englishName: "Same original name", status: "GRADUATED", gradeLevel: 10, gradeSchoolYear: "25-26" },
-  ] });
-  await db.tutee.create({ data: {
-    id: "tutee-a", personId, englishName: "Same original name", status: "INACTIVE", intakeTermId: "past-term",
-    gradeLevel: "9", signupSubmittedAt: new Date("2024-09-01T00:00:00Z"),
-    signatureName: "Original synthetic signature", signedAt: new Date("2024-09-01T00:00:00Z"), signedRulebook: true,
-  } });
-  await db.pairing.create({ data: {
-    id: "original-pairing", tutorId: "tutor-a", termId: "past-term", subject: "Mathematics", dayOfWeek: 2, startMin: 600, endMin: 630,
-  } });
-  await db.session.create({ data: {
-    id: "original-session", pairingId: "original-pairing", tutorId: "tutor-a", date: new Date("2024-10-01T00:00:00Z"),
-    startMin: 600, endMin: 630, durationMin: 30, shCount: 2, shFactor: 2, month: "2024-10", schoolYear: "24-25", quarter: "Q1",
-  } });
-  await db.sessionTutee.create({ data: { sessionId: "original-session", tuteeId: "tutee-a", status: "PRESENT" } });
-  await db.serviceHourAdjustment.create({ data: {
-    id: "original-adjustment", tutorId: "tutor-a", month: "2024-10", schoolYear: "24-25", quarter: "Q1", type: "EXTRA", amount: 0.5, reason: "Original synthetic amendment",
-  } });
+  // Commit the complete starting state before exercising the real client in each test.
+  await db.$transaction(async (tx) => {
+    await clearFixture(tx);
+    await tx.user.createMany({
+      data: ([["head", "HEAD"], ["admin", "ADMIN"], ["coord", "COORDINATOR"], ["viewer", "VIEWER"]] as const).map(([id, role]) => ({
+        id, role, name: id, username: id, email: `${id}@example.test`,
+        passwordHash, emailVerifiedAt: new Date("2026-10-01T00:00:00Z"),
+      })),
+    });
+    await tx.person.create({ data: { id: personId } });
+    await tx.term.createMany({ data: [
+      { id: "past-term", name: "Original term", schoolYear: "24-25", quarter: "Q1", active: false },
+      { id: "current-term", name: "Current term", schoolYear: "26-27", quarter: "Q1", active: true },
+    ] });
+    await tx.tutor.createMany({ data: [
+      { id: "tutor-a", personId, englishName: "Same original name", status: "ARCHIVED", gradeLevel: 9, gradeSchoolYear: "24-25" },
+      { id: "tutor-b", personId, englishName: "Same original name", status: "GRADUATED", gradeLevel: 10, gradeSchoolYear: "25-26" },
+    ] });
+    await tx.tutee.create({ data: {
+      id: "tutee-a", personId, englishName: "Same original name", status: "INACTIVE", intakeTermId: "past-term",
+      gradeLevel: "9", signupSubmittedAt: new Date("2024-09-01T00:00:00Z"),
+      signatureName: "Original synthetic signature", signedAt: new Date("2024-09-01T00:00:00Z"), signedRulebook: true,
+    } });
+    await tx.pairing.create({ data: {
+      id: "original-pairing", tutorId: "tutor-a", termId: "past-term", subject: "Mathematics", dayOfWeek: 2, startMin: 600, endMin: 630,
+    } });
+    await tx.session.create({ data: {
+      id: "original-session", pairingId: "original-pairing", tutorId: "tutor-a", date: new Date("2024-10-01T00:00:00Z"),
+      startMin: 600, endMin: 630, durationMin: 30, shCount: 2, shFactor: 2, month: "2024-10", schoolYear: "24-25", quarter: "Q1",
+    } });
+    await tx.sessionTutee.create({ data: { sessionId: "original-session", tuteeId: "tutee-a", status: "PRESENT" } });
+    await tx.serviceHourAdjustment.create({ data: {
+      id: "original-adjustment", tutorId: "tutor-a", month: "2024-10", schoolYear: "24-25", quarter: "Q1", type: "EXTRA", amount: 0.5, reason: "Original synthetic amendment",
+    } });
+  }, { timeout: 30_000 });
 });
 afterEach(() => vi.unstubAllEnvs());
 afterAll(async () => {
