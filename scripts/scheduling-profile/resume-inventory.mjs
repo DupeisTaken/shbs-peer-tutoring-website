@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { isDeepStrictEqual, promisify } from "node:util";
 import { profileMatrix } from "./aggregate-partitions.mjs";
 
 /** @typedef {{scenario:string,mode:string,partition:number,partitionCount:number,samples:number}} Slot */
@@ -17,6 +17,7 @@ import { profileMatrix } from "./aggregate-partitions.mjs";
 /** @typedef {{repository:string,runId:string,attempt:number,artifactId:string,name:string,digest:string,size:number,archiveSha256:string,archiveSize:number,slot:Slot,expired:boolean,headSha:string,createdAt:string,updatedAt:string}} Archive */
 /** @typedef {{fetch?:typeof fetch,token?:string,maximumExtractedBytes?:number}} Options */
 /** @typedef {Record<string, any>} Evidence */
+/** @typedef {{repository:string,runId:string,slot:Slot,aliasAttempt:number,aliasJobId:string,sourceAttempt:number,sourceJobId:string,attemptStartedAt:string,startedAt:string,completedAt:string,aliasCreatedAt:string,sourceCreatedAt:string,runnerId:string,runnerName:string,runnerGroupName:string,sourceRunnerGroupId:number|null,aliasRunnerGroupId:number|null,stepsSha256:string,sourceArtifactId:string|null,sourceArchiveSha256:string|null}} CarriedExecution */
 const API = "https://api.github.com";
 const MAX_ARCHIVE = 512 * 1024 * 1024;
 const MAX_ARCHIVE_CORPUS = 4 * 1024 * 1024 * 1024;
@@ -123,12 +124,37 @@ function selectedSteps(/** @type {Evidence} */ job) {
   return /** @type {Evidence[]} */ (job.steps);
 }
 
+/** Carried successful check records have a new ID/attempt/creation time but no
+ * new runner execution. Missing or approximate historical evidence is not an
+ * alias. In particular, only the observed null/zero group sentinel is equivalent. */
+function carryProof(/** @type {Evidence} */ job, /** @type {Evidence} */ source, /** @type {string} */ attemptStartedAt) {
+  assert.ok(job.status === "completed" && job.conclusion === "success" && source.status === "completed" && source.conclusion === "success", "Carried provider job has no successful source");
+  for (const name of ["name", "head_sha", "started_at", "completed_at", "runner_id", "runner_name", "runner_group_name", "labels", "steps"])
+    assert.ok(isDeepStrictEqual(job[name], source[name]), "Carried provider execution differs from its historical source");
+  const start = timestamp(job.started_at), finish = timestamp(job.completed_at);
+  const created = timestamp(job.created_at), sourceCreated = timestamp(source.created_at);
+  assert.ok(Date.parse(sourceCreated) <= Date.parse(start) && Date.parse(start) <= Date.parse(finish) && Date.parse(finish) < Date.parse(attemptStartedAt) && Date.parse(created) >= Date.parse(attemptStartedAt), "Carried provider execution has an invalid timeline");
+  canonicalId(job.runner_id);
+  assert.ok(typeof job.runner_name === "string" && job.runner_name && typeof job.runner_group_name === "string" && job.runner_group_name && Array.isArray(job.labels) && job.labels.length > 0 && job.labels.every((/** @type {unknown} */ label) => typeof label === "string" && label), "Missing carried provider runner identity");
+  for (const value of [source.runner_group_id, job.runner_group_id])
+    assert.ok(value === null || (Number.isSafeInteger(value) && value >= 0), "Missing carried runner group evidence");
+  assert.equal(source.runner_group_id ?? 0, job.runner_group_id ?? 0, "Carried provider runner group differs");
+  const numbers = new Set();
+  for (const raw of job.steps) {
+    const step = object(raw), stepStart = timestamp(step.started_at), stepFinish = timestamp(step.completed_at);
+    assert.ok(Number.isSafeInteger(step.number) && step.number > 0 && !numbers.has(step.number), "Invalid carried provider step identity"); numbers.add(step.number);
+    assert.ok(step.status === "completed" && ["success", "skipped"].includes(step.conclusion) && Date.parse(start) <= Date.parse(stepStart) && Date.parse(stepStart) <= Date.parse(stepFinish) && Date.parse(stepFinish) <= Date.parse(finish), "Incomplete carried provider step timeline");
+  }
+  return { start, finish, created, sourceCreated };
+}
+
 /** Enumerate every execution, including failed/in-progress jobs with no archive.
  * Selection and retry authorization belong to the caller; inventory never chooses
- * an older PASS or hides the current worker. Compare a fresh complete result after
- * extraction to reject a concurrent rerun or replaced/deleted provider evidence.
+ * an older PASS or hides a current worker. Proven carried successful checks are
+ * recorded separately with their original execution/artifact lineage. Compare a
+ * fresh complete result after extraction to reject provider evidence changes.
  * @param {Campaign} campaign @param {Slot[]} slots @param {Options} [options]
- * @returns {Promise<{executions:Execution[],archives:Archive[]}>} */
+ * @returns {Promise<{executions:Execution[],archives:Archive[],audit:{attempts:Array<{attempt:number,startedAt:string,headSha:string}>,carriedExecutions:CarriedExecution[]}}>} */
 export async function collectInventory(campaign, slots, options = {}) {
   campaignValid(campaign);
   const selected = new Map(slots.map((slot) => [key(slotValid(slot)), slot]));
@@ -145,8 +171,20 @@ export async function collectInventory(campaign, slots, options = {}) {
   assert.ok([campaign.workflowSha, campaign.candidateRevision].includes(head), "Wrong provider event revision");
   assert.equal(run.run_attempt, campaign.currentAttempt, "Provider run attempt changed");
   /** @type {Execution[]} */ const executions = [];
+  /** @type {Array<{attempt:number,startedAt:string,headSha:string}>} */ const attempts = [];
+  /** @type {CarriedExecution[]} */ const carriedExecutions = [];
+  /** @type {Map<string,{job:Evidence,execution:Execution}>} */ const history = new Map();
   const jobIds = new Set();
   for (let attempt = campaign.campaignAttempt; attempt <= campaign.currentAttempt; attempt++) {
+    const metadata = await request(client, `${base}/runs/${campaign.runId}/attempts/${attempt}`);
+    assert.equal(canonicalId(metadata.id), campaign.runId, "Wrong provider attempt run");
+    assert.equal(metadata.run_attempt, attempt, "Wrong provider attempt identity");
+    assert.equal(sha(metadata.head_sha), head, "Wrong provider attempt revision");
+    assert.equal(metadata.path, workflowPath, "Wrong provider attempt workflow");
+    const attemptStartedAt = timestamp(metadata.run_started_at);
+    const previousAttempt = attempts.at(-1);
+    assert.ok(!previousAttempt || Date.parse(attemptStartedAt) > Date.parse(previousAttempt.startedAt), "Provider attempt clock did not advance");
+    attempts.push({ attempt, startedAt: attemptStartedAt, headSha: head });
     const jobs = await paginated(client, `${base}/runs/${campaign.runId}/attempts/${attempt}/jobs`, "jobs");
     const seenSlots = new Set();
     for (const job of jobs) {
@@ -186,10 +224,24 @@ export async function collectInventory(campaign, slots, options = {}) {
       assert.ok(measured.length <= 1, "Duplicate provider measurement step");
       if (job.status === "completed" && job.conclusion === "success")
         assert.ok(measured.length === 1 && measured[0]?.status === "completed" && measured[0]?.conclusion === "success", "Successful provider job lacks completed measurement");
+      if (job.completed_at !== undefined && job.completed_at !== null && Date.parse(timestamp(job.completed_at)) < Date.parse(attemptStartedAt)) {
+        const source = history.get(key(wanted));
+        assert.ok(source, "Carried provider job is missing its original execution");
+        const proof = carryProof(job, source.job, attemptStartedAt);
+        carriedExecutions.push({ repository: campaign.repository, runId: campaign.runId, slot: wanted,
+          aliasAttempt: attempt, aliasJobId: id, sourceAttempt: source.execution.attempt, sourceJobId: source.execution.jobId,
+          attemptStartedAt, startedAt: proof.start, completedAt: proof.finish, aliasCreatedAt: proof.created,
+          sourceCreatedAt: proof.sourceCreated, runnerId: canonicalId(job.runner_id), runnerName: job.runner_name,
+          runnerGroupName: job.runner_group_name, sourceRunnerGroupId: source.job.runner_group_id, aliasRunnerGroupId: job.runner_group_id,
+          stepsSha256: createHash("sha256").update(JSON.stringify(job.steps)).digest("hex"), sourceArtifactId: null, sourceArchiveSha256: null });
+        continue;
+      }
       const measurementStarted = measured.some((/** @type {Evidence} */ step) => step.status === "in_progress" || (step.status === "completed" && step.conclusion !== "skipped"));
       const conclusion = job.status === "completed" ? String(job.conclusion) : String(job.status);
-      executions.push({ repository: campaign.repository, runId: campaign.runId, workflowSha: campaign.workflowSha, attempt, jobId: id, slot: wanted, conclusion, status: job.status, artifactId: null, measurementStarted, headSha: head,
-        ...(skipped ? { nonStart: { kind: "PROVIDER_SKIPPED_JOB", jobId: id, status: "completed", conclusion: "skipped", stepCount: 0 } } : {}) });
+      /** @type {Execution} */ const execution = { repository: campaign.repository, runId: campaign.runId, workflowSha: campaign.workflowSha, attempt, jobId: id, slot: wanted, conclusion, status: job.status, artifactId: null, measurementStarted, headSha: head,
+        ...(skipped ? { nonStart: { kind: "PROVIDER_SKIPPED_JOB", jobId: id, status: "completed", conclusion: "skipped", stepCount: 0 } } : {}) };
+      executions.push(execution);
+      history.set(key(wanted), { job, execution });
     }
   }
   /** @type {Archive[]} */ const archives = [];
@@ -217,6 +269,7 @@ export async function collectInventory(campaign, slots, options = {}) {
     assert.ok(Number.isSafeInteger(artifact.size_in_bytes) && artifact.size_in_bytes > 0 && artifact.size_in_bytes <= MAX_ARCHIVE, "Invalid artifact archive size");
     assert.ok(typeof artifact.digest === "string" && /^sha256:[a-f0-9]{64}$/.test(artifact.digest), "Missing provider artifact SHA256");
     const execution = executions.find((entry) => entry.attempt === attempt && key(entry.slot) === key(wanted));
+    assert.ok(!carriedExecutions.some((entry) => entry.aliasAttempt === attempt && key(entry.slot) === key(wanted)), "Carried provider alias cannot own a new artifact");
     assert.ok(execution && !execution.artifactId, "Artifact has no unique provider execution");
     execution.artifactId = id;
     assert.ok(!execution.nonStart, "Skipped provider job cannot have a measurement archive");
@@ -225,7 +278,14 @@ export async function collectInventory(campaign, slots, options = {}) {
   // Stable sorting makes equality rechecks independent of provider listing order.
   executions.sort((a, b) => key(a.slot).localeCompare(key(b.slot)) || a.attempt - b.attempt);
   archives.sort((a, b) => key(a.slot).localeCompare(key(b.slot)) || a.attempt - b.attempt);
-  return { executions, archives };
+  for (const alias of carriedExecutions) {
+    const source = archives.find((archive) => archive.attempt === alias.sourceAttempt && key(archive.slot) === key(alias.slot));
+    assert.ok(source, "Carried provider job is missing its original authenticated artifact");
+    alias.sourceArtifactId = source.artifactId;
+    alias.sourceArchiveSha256 = source.archiveSha256;
+  }
+  carriedExecutions.sort((a, b) => key(a.slot).localeCompare(key(b.slot)) || a.aliasAttempt - b.aliasAttempt);
+  return { executions, archives, audit: { attempts, carriedExecutions } };
 }
 
 const execute = promisify(execFile);

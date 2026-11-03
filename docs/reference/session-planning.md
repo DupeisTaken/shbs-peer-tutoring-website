@@ -648,6 +648,11 @@ execution. Both controlled diagnostic orders and required native cold controls
 must pass. A contention worker reads only the two completed ordering jobs when
 acquiring references. GitHub can report future steps of an active job as
 `pending` with no conclusion. Those steps never qualify a slot for pooling.
+On a partial rerun GitHub can assign a new check ID to a completed job while
+preserving its original runner and every step timestamp. The verifier ties that
+row back to its original successful job and archive using the authenticated
+attempt boundary and matching execution history. The receipt records both IDs.
+An actual new job still requires its own terminal evidence and archive.
 The aggregate records artifact IDs, attempts and hashes in
 `scheduling-profile-selection.json` beside the canonical result.
 

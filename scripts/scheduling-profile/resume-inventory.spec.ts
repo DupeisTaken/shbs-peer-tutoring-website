@@ -33,13 +33,17 @@ function artifact(id: number, attempt: number, target = slot): ProviderRecord {
     created_at: "2026-11-03T01:00:00Z", updated_at: "2026-11-03T01:00:00Z",
   };
 }
-function fixture() {
+function fixture(binding: Campaign = campaign) {
   const state = {
-    run: { id: 123, repository: { full_name: campaign.repository }, path: ".github/workflows/scheduling-profile.yml",
-      head_sha: campaign.candidateRevision, event: "pull_request", run_attempt: 2 } as ProviderRecord,
+    run: { id: Number(binding.runId), repository: { full_name: binding.repository }, path: ".github/workflows/scheduling-profile.yml",
+      head_sha: binding.candidateRevision, event: "pull_request", run_attempt: binding.currentAttempt } as ProviderRecord,
     jobs: new Map<number, ProviderRecord[]>([[1, [job(101, 1)]], [2, [job(102, 2, slot, "failure")]]]),
     artifacts: [artifact(201, 1)] as ProviderRecord[],
   };
+  const attempts = new Map<number, ProviderRecord>();
+  for (let attempt = binding.campaignAttempt; attempt <= binding.currentAttempt; attempt++) attempts.set(attempt, {
+    ...state.run, run_attempt: attempt, run_started_at: `2026-11-03T0${attempt}:00:00Z`,
+  });
   const calls: string[] = [];
   const send: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : input); calls.push(url.pathname + url.search);
@@ -47,17 +51,18 @@ function fixture() {
     assert.equal(new Headers(init?.headers).get("authorization"), `Bearer ${token}`);
     assert.equal(init?.redirect, "error");
     let body: unknown;
-    if (url.pathname.endsWith("/runs/123")) body = state.run;
+    if (url.pathname.endsWith(`/runs/${binding.runId}`)) body = state.run;
+    else if (/\/attempts\/[1-9][0-9]*$/.test(url.pathname)) body = attempts.get(Number(url.pathname.split("/").at(-1)));
     else {
       const match = /\/attempts\/([1-9][0-9]*)\/jobs$/.exec(url.pathname);
       const values = match ? state.jobs.get(Number(match[1])) ?? [] : state.artifacts;
-      assert.ok(match ?? url.pathname.endsWith("/runs/123/artifacts"));
+      assert.ok(match ?? url.pathname.endsWith(`/runs/${binding.runId}/artifacts`));
       const page = Number(url.searchParams.get("page"));
       body = { total_count: values.length, [match ? "jobs" : "artifacts"]: values.slice((page - 1) * 100, page * 100) };
     }
     return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
   };
-  return { state, calls, options: { fetch: send, token } };
+  return { state, attempts, calls, options: { fetch: send, token } };
 }
 
 void test("retains every authenticated execution, including a newer failed job without an artifact", async () => {
@@ -121,12 +126,12 @@ const observedActiveJobs = [
   {
     capturedAt: "2026-11-03T17:37:52.4499648Z", runId: "41654909625", jobId: "126090636477",
     headSha: "b00c95dac80115d08abfa55905474c6db98e2e82", scenario: "sunday",
-    measureStartedAt: "2026-11-03T17:35:37Z",
+    measureStartedAt: "2026-11-03T17:35:37Z", attemptStartedAt: "2026-11-03T16:30:51Z",
   },
   {
     capturedAt: "2026-11-03T17:37:52.4418644Z", runId: "41654810867", jobId: "126090623585",
     headSha: "ca93010c75fffd74475f96357dcb80d1d9fb5906", scenario: "warm",
-    measureStartedAt: "2026-11-03T17:35:33Z",
+    measureStartedAt: "2026-11-03T17:35:33Z", attemptStartedAt: "2026-11-03T16:30:48Z",
   },
 ] as const;
 for (const observed of observedActiveJobs) void test(`accepts observed pending/null future step without promoting active job ${observed.jobId}`, async () => {
@@ -145,7 +150,9 @@ for (const observed of observedActiveJobs) void test(`accepts observed pending/n
     const path = new URL(input instanceof Request ? input.url : input).pathname;
     const response = path.endsWith(`/runs/${observed.runId}`)
       ? { id: Number(observed.runId), repository: { full_name: current.repository }, path: ".github/workflows/scheduling-profile.yml", event: "pull_request", head_sha: observed.headSha, run_attempt: 2 }
-      : path.endsWith("/jobs") ? { total_count: 1, jobs: [body] } : { total_count: 0, artifacts: [] };
+      : path.endsWith("/attempts/2")
+        ? { id: Number(observed.runId), run_attempt: 2, head_sha: observed.headSha, path: ".github/workflows/scheduling-profile.yml", run_started_at: observed.attemptStartedAt }
+        : path.endsWith("/jobs") ? { total_count: 1, jobs: [body] } : { total_count: 0, artifacts: [] };
     return new Response(JSON.stringify(response), { headers: { "content-type": "application/json" } });
   };
   const result = await collectInventory(current, [target], { fetch: send, token });
@@ -181,6 +188,101 @@ void test("never accepts pending/null as a completed successful measure or skipp
   await assert.rejects(collectInventory(campaign, [slot], options), /Successful provider job lacks completed measurement/);
 });
 
+function observedCarry() {
+  const binding: Campaign = { ...campaign, repository: "DupeisTaken/shbs-peer-tutoring-website", runId: "41688808733",
+    candidateRevision: "f8a380786004d00eddcb31bece14eb5a2c95c2d7", workflowSha: "f8a380786004d00eddcb31bece14eb5a2c95c2d7" };
+  const target: Slot = { scenario: "contention-acceptance-first", mode: "diagnostic", partition: 0, partitionCount: 1, samples: 3 };
+  const result = fixture(binding);
+  result.attempts.get(1)!.run_started_at = "2026-11-03T17:55:02Z";
+  result.attempts.get(2)!.run_started_at = "2026-11-03T18:07:46Z";
+  // Full real step timeline from the signed f8-attempt1-complete-jobs and
+  // f8-attempt2-start-jobs snapshots. The archive hash/size below are synthetic
+  // unit metadata; production always joins the separately authenticated ZIP.
+  const timeline: Array<[number, string, string, string, "success" | "skipped"]> = [
+    [1, "Set up job", "18:01:46", "18:01:47", "success"],
+    [2, "Initialize containers", "18:01:47", "18:01:58", "success"],
+    [3, "Validate immutable source selection", "18:01:58", "18:01:58", "success"],
+    [4, "Checkout candidate", "18:01:58", "18:02:06", "success"],
+    [5, "Check remaining wall-clock budget before preparing the databases", "18:02:06", "18:02:06", "success"],
+    [6, "Authorize the partition from its execution history", "18:02:06", "18:02:06", "skipped"],
+    [7, "Checkout baseline", "18:02:06", "18:02:16", "success"],
+    [8, "Authenticate both controlled ordering references", "18:02:16", "18:02:16", "skipped"],
+    [9, "Freeze comparison inputs", "18:02:16", "18:02:18", "success"],
+    [10, "Measure baseline then candidate", "18:02:18", "18:05:28", "success"],
+    [11, "Seal the raw partition including setup and measurement failures", "18:05:28", "18:05:28", "success"],
+    [12, "Retain raw samples and failure receipts", "18:05:28", "18:05:30", "success"],
+    [22, "Post Checkout baseline", "18:05:30", "18:05:30", "success"],
+    [23, "Post Checkout candidate", "18:05:30", "18:05:30", "success"],
+    [24, "Stop containers", "18:05:30", "18:05:31", "success"],
+    [25, "Complete job", "18:05:31", "18:05:31", "success"],
+  ];
+  const original: ProviderRecord = {
+    id: 126105236044, run_id: Number(binding.runId), run_attempt: 1,
+    name: "preflight (contention-acceptance-first, diagnostic, 0, 1, 3) / measure",
+    head_sha: binding.candidateRevision, status: "completed", conclusion: "success",
+    runner_id: 1000008866, runner_name: "GitHub Actions 1000008866", runner_group_id: 0,
+    runner_group_name: "GitHub Actions", labels: ["ubuntu-latest"],
+    created_at: "2026-11-03T18:01:44Z", started_at: "2026-11-03T18:01:46Z", completed_at: "2026-11-03T18:05:33Z",
+    steps: timeline.map(([number, name, start, finish, conclusion]) => ({ number, name, status: "completed", conclusion,
+      started_at: `2026-11-03T${start}Z`, completed_at: `2026-11-03T${finish}Z` })),
+  };
+  const alias: ProviderRecord = { ...original, id: 126108597002, run_attempt: 2,
+    runner_group_id: null, created_at: "2026-11-03T18:07:48Z", steps: structuredClone(original.steps) };
+  result.state.jobs.set(1, [original]); result.state.jobs.set(2, [alias]);
+  result.state.artifacts = [{ ...artifact(13257032315, 1, target), workflow_run: { id: Number(binding.runId), head_sha: binding.candidateRevision } }];
+  return { ...result, binding, target, original, alias };
+}
+
+void test("retains the original execution and ZIP while auditing a provider-carried successful check alias", async () => {
+  const { binding, target, options } = observedCarry();
+  const result = await collectInventory(binding, [target], options);
+  assert.deepEqual(result.executions.map(({ jobId, attempt, artifactId }) => ({ jobId, attempt, artifactId })), [
+    { jobId: "126105236044", attempt: 1, artifactId: "13257032315" },
+  ]);
+  assert.equal(result.archives.length, 1);
+  assert.deepEqual(result.audit.attempts.map(({ attempt, startedAt }) => ({ attempt, startedAt })), [
+    { attempt: 1, startedAt: "2026-11-03T17:55:02Z" }, { attempt: 2, startedAt: "2026-11-03T18:07:46Z" },
+  ]);
+  assert.equal(result.audit.carriedExecutions.length, 1);
+  assert.equal(result.audit.carriedExecutions[0]!.sourceJobId, "126105236044");
+  assert.equal(result.audit.carriedExecutions[0]!.aliasJobId, "126108597002");
+  assert.equal(result.audit.carriedExecutions[0]!.sourceArtifactId, "13257032315");
+  assert.equal(result.audit.carriedExecutions[0]!.sourceArchiveSha256, "c".repeat(64));
+  assert.equal(result.audit.carriedExecutions[0]!.sourceRunnerGroupId, 0);
+  assert.equal(result.audit.carriedExecutions[0]!.aliasRunnerGroupId, null);
+  assert.deepEqual(await collectInventory(binding, [target], options), result);
+});
+
+for (const [name, change] of [
+  ["different runner", (data: ReturnType<typeof observedCarry>) => { data.alias.runner_id = 1000009999; }],
+  ["different runner group", (data: ReturnType<typeof observedCarry>) => { data.alias.runner_group_id = 5; }],
+  ["changed real step", (data: ReturnType<typeof observedCarry>) => { (data.alias.steps as ProviderRecord[])[9]!.completed_at = "2026-11-03T18:05:27Z"; }],
+  ["missing original", (data: ReturnType<typeof observedCarry>) => { data.state.jobs.set(1, []); }],
+  ["missing original artifact", (data: ReturnType<typeof observedCarry>) => { data.state.artifacts = []; }],
+  ["failed original", (data: ReturnType<typeof observedCarry>) => { data.original.conclusion = "failure"; }],
+  ["failed alias", (data: ReturnType<typeof observedCarry>) => { data.alias.conclusion = "failure"; }],
+  ["cancelled alias", (data: ReturnType<typeof observedCarry>) => { data.alias.conclusion = "cancelled"; }],
+  ["incomplete alias", (data: ReturnType<typeof observedCarry>) => { data.alias.status = "in_progress"; data.alias.conclusion = null; }],
+  ["new alias artifact", (data: ReturnType<typeof observedCarry>) => { data.state.artifacts.push({ ...artifact(13259999999, 2, data.target), workflow_run: { id: Number(data.binding.runId), head_sha: data.binding.candidateRevision } }); }],
+  ["creation before rerun", (data: ReturnType<typeof observedCarry>) => { data.alias.created_at = "2026-11-03T18:06:00Z"; }],
+] as const) void test(`does not elide an unproven carried execution: ${name}`, async () => {
+  const data = observedCarry(); change(data);
+  await assert.rejects(collectInventory(data.binding, [data.target], data.options));
+});
+
+void test("a real newer rerun remains a distinct execution instead of inheriting the old success", async () => {
+  const data = observedCarry();
+  data.alias.runner_id = 1000009999;
+  data.alias.started_at = "2026-11-03T18:08:00Z";
+  data.alias.completed_at = "2026-11-03T18:10:00Z";
+  data.alias.conclusion = "failure";
+  const result = await collectInventory(data.binding, [data.target], data.options);
+  assert.equal(result.executions.length, 2);
+  assert.equal(result.executions[1]!.conclusion, "failure");
+  assert.equal(result.executions[1]!.artifactId, null);
+  assert.deepEqual(result.audit.carriedExecutions, []);
+});
+
 for (const [name, change] of [
   ["wrong run", (state: ReturnType<typeof fixture>["state"]) => { state.run.id = 999; }],
   ["wrong repository", (state: ReturnType<typeof fixture>["state"]) => { state.run.repository = { full_name: "other/repository" }; }],
@@ -208,8 +310,8 @@ for (const [name, change] of [
 void test("fails closed on truncated pages and masks transport/JSON diagnostics", async () => {
   const response: typeof fetch = async () => new Response(JSON.stringify({ total_count: 2, jobs: [] }), { headers: { "content-type": "application/json" } });
   const { options } = fixture();
-  let calls = 0;
-  const truncated: typeof fetch = (input, init) => ++calls === 1 ? options.fetch(input, init) : response(input, init);
+  const truncated: typeof fetch = (input, init) => new URL(input instanceof Request ? input.url : input).pathname.endsWith("/jobs")
+    ? response(input, init) : options.fetch(input, init);
   await assert.rejects(collectInventory(campaign, [slot], { fetch: truncated, token }), /Truncated inventory page/);
   const failed: typeof fetch = async () => { throw new Error(token); };
   await assert.rejects(collectInventory(campaign, [slot], { fetch: failed, token }), (error: unknown) => error instanceof Error && !error.message.includes(token));

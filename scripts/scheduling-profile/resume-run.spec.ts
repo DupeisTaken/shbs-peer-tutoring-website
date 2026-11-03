@@ -57,6 +57,8 @@ void test("worker CLI seals a failed arm, authenticates the next attempt, and re
       expired: false, workflow_run: { id: 123, head_sha: candidate }, created_at: campaign.anchor, updated_at: campaign.anchor }];
     const responses: Record<string, unknown> = { "runs/123": runState, "runs/123/attempts/1/jobs": { jobs: [prior], total_count: 1 },
       "runs/123/attempts/2/jobs": { jobs: [current], total_count: 1 }, "runs/123/artifacts": { artifacts: archives, total_count: 1 } };
+    responses["runs/123/attempts/1"] = { ...runState, run_attempt: 1, run_started_at: "2026-11-03T12:02:00Z" };
+    responses["runs/123/attempts/2"] = { ...runState, run_attempt: 2, run_started_at: "2026-11-03T12:07:00Z" };
     const mock = join(cwd, "provider.mjs");
     await writeFile(mock, `
       import { readFileSync } from "node:fs";

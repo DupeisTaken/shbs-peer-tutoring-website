@@ -90,7 +90,7 @@ async function verify(command, campaign) {
     candidate: campaign.candidateRevision, contentionReferences: references,
     ...(process.env.CATALOG_SELECTION_SOURCE === "reviewed-pr-catalog-baseline-file" ? { catalogBaseline: setting("CATALOG_BASELINE_SHA") } : {}) });
   await recheck();
-  await json("outputs/scheduling-profile-selection.json", { ...selection, campaign });
+  await json("outputs/scheduling-profile-selection.json", { ...selection, campaign, providerAudit: snapshot.audit });
   await json("outputs/scheduling-profile-aggregate.json", result);
 }
 
