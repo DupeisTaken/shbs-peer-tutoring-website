@@ -1463,7 +1463,6 @@ describe("student request lifecycle", () => {
   it("supports schedule review for existing students without a survey and rejects duplicate or stale approvals", async () => {
     // Legacy means no original intake or execution map ever existed. Deleting a
     // modern intake cannot erase its durable authority tombstone.
-<<<<<<< HEAD
     const tutor = await db.tutor.create({
       data: { englishName: "Legacy Tutor", status: "ACTIVE" },
     });
@@ -1488,12 +1487,6 @@ describe("student request lifecycle", () => {
         tutees: { create: { tuteeId: student.id } },
       },
     });
-=======
-    const tutor = await db.tutor.create({ data: { englishName: "Legacy Tutor", status: "ACTIVE" } });
-    const tutorUser = await db.user.create({ data: { email: "legacy-tutor@example.test", role: "TUTOR", tutorId: tutor.id } });
-    const student = await db.tutee.create({ data: { englishName: "Legacy Student", status: "ACTIVE" } });
-    const pairing = await db.pairing.create({ data: { tutorId: tutor.id, termId: "survey-term", subject: "Mathematics", dayOfWeek: 1, startMin: 960, endMin: 1020, tutees: { create: { tuteeId: student.id } } } });
->>>>>>> 37091899064bd9dcbff5f63d73394bc7981f3092
     const row = { tuteeId: student.id, intakeTermId: "survey-term" };
     const target = `${pairing.id}:${row.tuteeId}`;
     const apply = async () =>
