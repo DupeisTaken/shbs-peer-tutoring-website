@@ -25,10 +25,16 @@ type Row = typeof candidate & {
 /** Query-aware fixture verifies the server predicate, rather than returning an
  * unconditional conflict that could hide wrong term/weekday/exclusion logic. */
 function fixture(rows: Row[] = []) {
+  const successorRows: { sourcePairingId: string; targetPairingId: string }[] = [];
+  const planExecutions: { planId: string; tutorId: string }[] = [];
+  const originalParticipants: { id: string; planId: string; tuteeId: string }[] = [];
+  const participantExecutions: { participantId: string; tuteeId: string }[] = [];
+
   const findFirst = vi.fn(
     async ({ where }: { where: Record<string, unknown> }) =>
       rows.find((row) => {
         const excluded = where.id as { notIn: string[] } | undefined;
+        const constraints = where.AND as { id: { notIn: string[] } }[] | undefined;
         return (
           row.termId === where.termId &&
           row.tutorId === where.tutorId &&
@@ -36,7 +42,8 @@ function fixture(rows: Row[] = []) {
           row.dayOfWeek === where.dayOfWeek &&
           row.startMin < (where.startMin as { lt: number }).lt &&
           row.endMin > (where.endMin as { gt: number }).gt &&
-          !excluded?.notIn.includes(row.id)
+          !excluded?.notIn.includes(row.id) &&
+          !constraints?.some((clause) => clause.id.notIn.includes(row.id))
         );
       }) ?? null,
   );
@@ -55,16 +62,53 @@ function fixture(rows: Row[] = []) {
         .fn()
         .mockResolvedValue({ startDate: null, endDate: null }),
     },
+    pairingExecutionSuccessor: {
+      findMany: vi.fn(async ({ where }: { where?: { targetPairingId: { in: string[] } } }) =>
+        successorRows.filter((row) => !where || where.targetPairingId.in.includes(row.targetPairingId))),
+    },
+    sessionPlanExecution: {
+      findMany: vi.fn(async ({ where }: { where: { planId: { in: string[] } } }) =>
+        planExecutions.filter((row) => where.planId.in.includes(row.planId))),
+    },
+    sessionPlanParticipant: {
+      findMany: vi.fn(async ({ where }: { where: { planId: { in: string[] } } }) =>
+        originalParticipants.filter((row) => where.planId.in.includes(row.planId))),
+    },
+    sessionParticipantExecution: {
+      findMany: vi.fn(async ({ where }: { where: { participantId: { in: string[] } } }) =>
+        participantExecutions.filter((row) => where.participantId.in.includes(row.participantId))),
+    },
     sessionPlanCohort: { findMany: vi.fn().mockResolvedValue([]) },
     sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue([]) },
     user: { findMany: vi.fn().mockResolvedValue([]) },
     tutorProfileOwnership: { findMany: vi.fn().mockResolvedValue([]) },
     studentProfileOwnership: { findMany: vi.fn().mockResolvedValue([]) },
   };
-  return { raw, db: raw as unknown as TransactionDb };
+  return { raw, db: raw as unknown as TransactionDb, successorRows, planExecutions, originalParticipants, participantExecutions };
 }
 
 describe("authoritative tutor scheduling", () => {
+  it("excludes retained recurrence evidence while still rejecting an unrelated live collision", async () => {
+    const rows = [{ ...candidate, id: "retained-original" }];
+    const { db, successorRows } = fixture(rows);
+    successorRows.push({ sourcePairingId: "retained-original", targetPairingId: "current-successor" });
+    await expect(assertTutorScheduleAvailable(db, candidate)).resolves.toBeUndefined();
+    rows.push({ ...candidate, id: "independent-live" });
+    await expect(assertTutorScheduleAvailable(db, candidate)).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+  it.each(["tutor", "learner"] as const)("reserves the mapped %s of a dated commitment", async (role) => {
+    const { db, raw, planExecutions, originalParticipants, participantExecutions } = fixture();
+    raw.sessionPlanCohort.findMany.mockResolvedValue([{
+      id: "dated", planId: "dated-plan", date: "2026-11-02",
+      startMin: 610, endMin: 655, roomId: null,
+      plan: { tutorId: "original-tutor", originalDate: "2026-11-01", assignments: [] },
+      participants: [{ tuteeId: "original-learner" }],
+    }]);
+    planExecutions.push({ planId: "dated-plan", tutorId: role === "tutor" ? "tutor" : "other" });
+    originalParticipants.push({ id: "member", planId: "dated-plan", tuteeId: "original-learner" });
+    participantExecutions.push({ participantId: "member", tuteeId: "current-learner" });
+    await expect(allocateRoom(db, { ...candidate, tuteeIds: role === "learner" ? ["current-learner"] : [] }, { roomMode: "NONE" })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
   it("refuses a recurring write that overlaps an agreed dated exception", async () => {
     const { db, raw } = fixture();
     raw.sessionPlanCohort.findMany.mockResolvedValue([

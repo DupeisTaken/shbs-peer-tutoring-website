@@ -16,7 +16,10 @@ function fixture(
     user: {
       findUnique: vi
         .fn()
-        .mockResolvedValue({ role, tutorId, suspendedAt: null, name: "Test" }),
+        .mockImplementation(() => Promise.resolve({
+          id: "actor", role, tutorId, suspendedAt: null, name: "Test",
+          mergedIntoId: null, recoveryVoidedAt: null, historyAccessRevision: 7,
+        })),
       findMany: vi.fn().mockResolvedValue([{ id: "student-a", tutorId: "a" }]),
     },
     tutor: {
@@ -59,6 +62,7 @@ function fixture(
     user: { id: "actor", name: "Test" },
     role,
     tutorId,
+    historyAccessRevision: 7,
     expires: "2099-01-01",
   };
   return {

@@ -8,7 +8,7 @@ export async function admitIdentityNotice(db: DomainDb, id: string, leaseUntil: 
   return inTransaction(db, async (tx) => {
     await tx.$executeRaw`LOCK TABLE "RetiredHistoryOwnership", "HistoryRowOwnership" IN SHARE MODE`;
     const row = await tx.emailDelivery.findUnique({ where: { id } });
-    if (!row || row.status !== "PENDING" || row.attemptStartedAt || row.leaseUntil?.getTime() !== leaseUntil.getTime() || row.attemptId !== priorAttemptId) return null;
+    if (row?.status !== "PENDING" || row.attemptStartedAt || row.leaseUntil?.getTime() !== leaseUntil.getTime() || row.attemptId !== priorAttemptId) return null;
     const decision = await tx.historyRowOwnership.findUnique({ where: { entity_recordId: { entity: "EmailDelivery", recordId: id } } });
     const withheld = decision?.readerUserId === null || (!!row.sourceNotificationId && (!row.userId || !(await tx.notification.count({ where: { id: row.sourceNotificationId, AND: [await notificationOwnershipWhere(tx, row.userId)] } }))));
     if (withheld) {

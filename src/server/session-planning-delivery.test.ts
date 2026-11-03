@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { SessionNotice } from "../../generated/prisma";
+import type { ParticipantConsolidation, SessionNotice, SessionResponseExecution } from "../../generated/prisma";
 import type { DomainDb } from "./transactions";
 
 const transport = vi.hoisted(() => ({ send: vi.fn(), configured: vi.fn(), mark: vi.fn(), lock: vi.fn(), sweep: vi.fn(), owned: vi.fn() }));
@@ -21,6 +21,8 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
 function fixture() {
+  const responseExecutions = new Map<string, SessionResponseExecution>();
+  const participantExecutions = new Map<string, ParticipantConsolidation>();
   const notice: SessionNotice = {
     id: "notice-1", dedupeKey: "offer-1:response-1", requestId: "request-1", offerId: "offer-1", responseId: "response-1",
     recipientUserId: "user-1", recipientEmail: "recipient@example.test", event: "proposed",
@@ -52,11 +54,13 @@ function fixture() {
     $queryRaw: vi.fn(async () => [{ id: notice.id, leaseUntil: notice.leaseUntil, attemptId: notice.attemptId }]),
     sessionNotice: { findUnique: vi.fn(async () => ({ ...notice })), update },
     sessionPlanningResponse: { findUnique: vi.fn(async () => response) },
+    sessionResponseExecution: { findUnique: vi.fn(async ({ where }: { where: { responseId: string } }) => responseExecutions.get(where.responseId) ?? null) },
+    participantConsolidation: { findUnique: vi.fn(async ({ where }: { where: { kind_sourceId: { kind: string; sourceId: string } } }) => participantExecutions.get(`${where.kind_sourceId.kind}:${where.kind_sourceId.sourceId}`) ?? null) },
     user: { findUnique: vi.fn(async () => user) },
     tutee: { findUnique: vi.fn(async () => ({ status: "ACTIVE" })) },
     auditLog: { create: vi.fn(async () => ({})) },
   };
-  return { notice, response, user, update, raw: database, database: database as unknown as DomainDb };
+  return { notice, response, user, update, responseExecutions, participantExecutions, raw: database, database: database as unknown as DomainDb };
 }
 
 it("records SMTP acceptance before qualifying a responder, despite optional mail being off", async () => {
@@ -206,4 +210,30 @@ it("retains visible retry blockers and prevents another participant from retryin
   expect(f.notice.lastError).toContain("unavailable");
   f.raw.user.findUnique.mockResolvedValue({ ...f.user, id: "other-participant" });
   await expect(retrySessionNotice(f.database, f.notice.id, "other-participant")).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+
+it("uses reviewed response execution for delivery while retaining the original actor evidence", async () => {
+  const f = fixture();
+  f.response.actorUserId = "original-user";
+  f.response.actorKey = "tutee:original-profile";
+  const original = structuredClone(f.response);
+  f.participantExecutions.set("TUTEE:original-profile", { kind: "TUTEE", sourceId: "original-profile", targetId: "tutee-1", active: true, revision: 1, receiptId: "reviewed-transfer", effectiveAt: now });
+  f.responseExecutions.set(f.response.id, { responseId: f.response.id, userId: f.user.id, profileKind: "TUTEE", profileId: "tutee-1", respondedByUserId: null, revision: 1, receiptId: "reviewed-transfer" });
+  await deliverSessionNotices(10, f.database);
+  expect(f.notice).toMatchObject({ status: "SENT", acceptedAt: now });
+  expect(f.raw.tutee.findUnique).toHaveBeenCalledWith({ where: { id: "tutee-1" }, select: { status: true } });
+  expect(transport.mark).toHaveBeenCalledWith(f.database, f.response.id, now);
+  expect(f.response).toEqual(original);
+});
+
+it("does not qualify an old recipient after response execution moves during SMTP", async () => {
+  const f = fixture();
+  transport.send.mockImplementation(async () => {
+    f.responseExecutions.set(f.response.id, { responseId: f.response.id, userId: "new-reader", profileKind: "TUTEE", profileId: "new-profile", respondedByUserId: null, revision: 1, receiptId: "concurrent-transfer" });
+  });
+  await deliverSessionNotices(10, f.database);
+  expect(f.notice).toMatchObject({ status: "SENT", acceptedAt: now });
+  expect(f.response).toMatchObject({ actorUserId: "user-1", actorKey: "tutee:tutee-1" });
+  expect(transport.mark).not.toHaveBeenCalled();
 });

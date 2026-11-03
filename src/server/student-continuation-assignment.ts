@@ -515,7 +515,7 @@ export async function attemptContinuationAssignment(
       data: { status: "ACTIVE" },
     });
     await recordStudentRequestExecution(tx, request, pairing.id, input.tuteeId);
-    await stampStudentAssignment(tx, request.tuteeId!);
+    await stampStudentAssignment(tx, request.tuteeId);
     const assigned = await tx.studentContinuationAssignment.update({
       where: { id: row.id },
       data: {

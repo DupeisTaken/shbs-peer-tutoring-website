@@ -174,7 +174,8 @@ it("keeps later exact source restrictions on canonical participation without inh
   await expect(requireParticipantSourceParticipation(tx, "TUTOR", f.tutorB)).rejects.toMatchObject({ code: "FORBIDDEN" });
   const preview = await previewPersonParticipationTransfer(tx, { ...f.selection, tutorIds: [f.tutorB] });
   expect(preview.canTransfer).toBe(false);
-  expect(preview.sourceRestrictions).toEqual(expect.arrayContaining([expect.objectContaining({ sourceId: f.tutorB, blockers: expect.arrayContaining([{ userId: f.userA, reason: "SUSPENDED" }]) })]));
+  const canonicalRestriction = preview.sourceRestrictions.find((source) => source.sourceId === f.tutorB);
+  expect(canonicalRestriction?.blockers).toContainEqual({ userId: f.userA, reason: "SUSPENDED" });
 }));
 
 

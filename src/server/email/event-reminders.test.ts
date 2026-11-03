@@ -91,6 +91,8 @@ function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
     ],
   };
   const rows = new Map<string, Delivery>();
+  const successors: { sourcePairingId: string; targetPairingId: string }[] = [];
+  const publishedPairingIds: string[] = [];
   const state = {
     sourceExists: true,
     eligible: true,
@@ -115,8 +117,9 @@ function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
     },
     pairing: {
       findMany: vi.fn(
-        async (args: { include?: unknown; where: { dayOfWeek?: number } }) =>
-          kind !== "tutoring" || !state.sourceExists
+        async (args: { include?: unknown; where: { dayOfWeek?: number; id?: { notIn: string[] }; AND?: { id?: string | { notIn: string[] } }[] } }) =>
+          kind !== "tutoring" || !state.sourceExists || args.where.id?.notIn.includes(pairing.id) ||
+          args.where.AND?.some(clause => typeof clause.id === "object" && clause.id.notIn.includes(pairing.id))
             ? []
             : args.include
               ? [pairing]
@@ -125,6 +128,8 @@ function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
                 : [],
       ),
     },
+    pairingExecutionSuccessor: { findMany: vi.fn(async (args: { where?: { targetPairingId: { in: string[] } } }) =>
+      successors.filter(row => !args.where || args.where.targetPairingId.in.includes(row.targetPairingId))) },
     schoolCalendarDay: {
       findUnique: vi.fn(async () =>
         state.holiday ? { isSchoolDay: false } : null,
@@ -134,7 +139,8 @@ function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
       count: vi.fn(async () => (state.noTutoring ? 1 : 0)),
     },
     session: { count: vi.fn(async () => (state.absent ? 1 : 0)) },
-    sessionPlan: { count: vi.fn(async () => 0) },
+    sessionPlan: { count: vi.fn(async ({ where }: { where: { assignments: { some: { pairingId: { in: string[] } } } } }) =>
+      publishedPairingIds.filter(id => where.assignments.some.pairingId.in.includes(id)).length) },
     sessionPlanCohort: { findMany: vi.fn(async () => []) },
     studentProfileOwnership: {
       findMany: vi.fn(async () => [{ userId: "retained-owner" }]),
@@ -186,6 +192,8 @@ function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
     pairing,
     state,
     rows,
+    successors,
+    publishedPairingIds,
   };
 }
 
@@ -448,6 +456,38 @@ describe("upcoming event reminders", () => {
     f.pairing.term.endDate = null;
     f.pairing.term.startDate = new Date(start.getTime() + 1);
     expect(await queueEventReminders(f.db, hourBefore)).toBe(0);
+  });
+
+  it("does not queue or deliver a superseded recurring assignment", async () => {
+    const f = fixture("tutoring");
+    await queueEventReminders(f.db, hourBefore);
+    const original = [...f.rows.values()][0]!;
+    expect(await validateEventReminder(f.db, original, hourBefore)).toBe(true);
+    f.successors.push({ sourcePairingId: f.pairing.id, targetPairingId: "successor" });
+    expect(await validateEventReminder(f.db, original, hourBefore)).toBe(false);
+    f.rows.clear();
+    expect(await queueEventReminders(f.db, hourBefore)).toBe(0);
+    expect(f.rows.size).toBe(0);
+  });
+
+  it("lets a transitive predecessor publication suppress the successor's old weekly reminder", async () => {
+    const f = fixture("tutoring");
+    f.successors.push(
+      { sourcePairingId: "original", targetPairingId: "intermediate" },
+      { sourcePairingId: "intermediate", targetPairingId: f.pairing.id },
+      { sourcePairingId: "unrelated", targetPairingId: "other-current" },
+    );
+    f.publishedPairingIds.push("unrelated");
+    expect(await queueEventReminders(f.db, hourBefore)).toBe(1);
+    const queued = [...f.rows.values()][0]!;
+    f.publishedPairingIds.push("original");
+    expect(await validateEventReminder(f.db, queued, hourBefore)).toBe(false);
+    f.rows.clear();
+    expect(await queueEventReminders(f.db, hourBefore)).toBe(0);
+    expect(f.client.sessionPlan.count).toHaveBeenLastCalledWith({ where: {
+      originalDate: "2026-10-28", kind: "REGULAR",
+      assignments: { some: { pairingId: { in: [f.pairing.id, "intermediate", "original"] } } },
+    } });
   });
 
   it("deduplicates a combined tutoring group's tutor across its member pairings", async () => {

@@ -585,9 +585,15 @@ it("requires survey confirmation plus the current linked owner's registry after 
     where: { id: row.id },
     data: { tuteeId: profile.id },
   });
+  const beforeOwnership = await db.tutee.findUniqueOrThrow({ where: { id: profile.id } });
   await db.studentProfileOwnership.create({
     data: { tuteeId: profile.id, userId: "service-student" },
   });
+  // Linking private history advances metadata only. Screening must not block
+  // its revision counter or silently change the original participation status.
+  const owned = await db.tutee.findUniqueOrThrow({ where: { id: profile.id } });
+  expect(owned.status).toBe(beforeOwnership.status);
+  expect(owned.historyIdentityRevision).toBeGreaterThan(beforeOwnership.historyIdentityRevision);
   expect((await currentRequestNotice(db, notice)).verified).toBe(false);
   await verifiedAddress("service-student");
   expect((await currentRequestNotice(db, notice)).verified).toBe(true);
@@ -598,6 +604,10 @@ it("requires survey confirmation plus the current linked owner's registry after 
   expect((await currentRequestNotice(db, notice)).verified).toBe(false);
   await verifiedAddress("service-viewer");
   expect((await currentRequestNotice(db, notice)).verified).toBe(false);
+  // A genuine reactivation remains forbidden for this screened source.
+  await db.tutee.update({ where: { id: profile.id }, data: { status: "INACTIVE" } });
+  await expect(db.tutee.update({ where: { id: profile.id }, data: { status: "ACTIVE" } }))
+    .rejects.toThrow(/Closed or expired student request cannot be assigned or reactivated/);
 });
 
 it("never invents a historical submission time and clear copy states that participation is not approved", async () => {

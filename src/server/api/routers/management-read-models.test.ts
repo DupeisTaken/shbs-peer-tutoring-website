@@ -52,6 +52,10 @@ it("redacts omitted and present private fields without rejecting sparse source r
 function fixture(access: Access = "VIEWER") {
   const role = access === "observer" ? "TUTOR" : access;
   const actor = {
+    id: "reader",
+    historyAccessRevision: 7,
+    mergedIntoId: null,
+    recoveryVoidedAt: null,
     role,
     name: "Reader",
     username: "reader",
@@ -70,7 +74,10 @@ function fixture(access: Access = "VIEWER") {
   const mock = {
     user: {
       ...empty(),
-      findUnique: vi.fn().mockImplementation(async () => actor),
+      findUnique: vi.fn(() => Promise.resolve({
+        ...actor,
+        schoolDeparture: actor.schoolDeparture ? { ...actor.schoolDeparture } : null,
+      })),
       findUniqueOrThrow: vi
         .fn()
         .mockResolvedValue({ suspendedAt: date, suspendedReason: PRIVATE }),
@@ -102,6 +109,7 @@ function fixture(access: Access = "VIEWER") {
     timeSlot: empty(),
     qualificationGrant: empty(),
     pairing: empty(),
+    pairingExecutionSuccessor: empty(),
     session: {
       ...empty(),
       findMany: vi.fn().mockResolvedValue([sessionRow]),
@@ -148,6 +156,7 @@ function fixture(access: Access = "VIEWER") {
       user: { id: "reader", name: "Reader" },
       role,
       tutorId: null,
+      historyAccessRevision: actor.historyAccessRevision,
       expires: "2099-01-01",
     } as Session,
   };

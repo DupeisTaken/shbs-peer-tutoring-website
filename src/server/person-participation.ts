@@ -91,11 +91,13 @@ async function plan(db: DomainDb, raw: Selection) {
   // Whole teaching groups move together; partial clones would multiply room reservations.
   const pairings = await db.pairing.findMany({ where: { OR: [{ id: { in: initialPairings.map((row) => row.id) } }, { groupId: { in: initialPairings.flatMap((row) => row.groupId ? [row.groupId] : []) } }] }, include: { tutees: { select: { tuteeId: true }, orderBy: { tuteeId: "asc" } }, group: true }, orderBy: { id: "asc" } });
   const requestExecutions = await db.studentRequestExecutionAssignment.findMany({ where: { pairingId: { in: pairings.map((row) => row.id) } }, orderBy: [{ surveyId: "asc" }, { pairingId: "asc" }] });
-  let [planExecutions, participantExecutions, historyAccess] = await Promise.all([
+  const [initialPlanExecutions, initialParticipantExecutions, historyAccess] = await Promise.all([
     db.sessionPlanExecution.findMany({ where: { OR: [{ tutorId: { in: input.tutorIds } }, ...pairings.map((row) => ({ assignments: { array_contains: [{ targetPairingId: row.id }] } }))] }, orderBy: { planId: "asc" } }),
     db.sessionParticipantExecution.findMany({ where: { tuteeId: { in: input.tuteeIds } }, orderBy: { participantId: "asc" } }),
     db.historyRowOwnership.findMany({ where: { OR: [{ entity: "Tutor", recordId: { in: input.tutorIds } }, { entity: "Tutee", recordId: { in: input.tuteeIds } }] }, orderBy: [{ entity: "asc" }, { recordId: "asc" }] }),
   ]);
+  let planExecutions = initialPlanExecutions;
+  let participantExecutions = initialParticipantExecutions;
   const mappedParticipants = await db.sessionPlanParticipant.findMany({ where: { id: { in: participantExecutions.filter((row) => input.tuteeIds.includes(row.tuteeId)).map((row) => row.participantId) } }, select: { planId: true } });
   const accessChanges = sourceRestrictions.flatMap((source) => {
     const overlay = historyAccess.find((row) => row.entity === (source.kind === "TUTOR" ? "Tutor" : "Tutee") && row.recordId === source.sourceId);

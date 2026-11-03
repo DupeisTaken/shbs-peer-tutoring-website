@@ -9,6 +9,14 @@ import { hashPassword } from "./auth/password";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
+async function reauthenticatedCaller(id: string) {
+  // A new login reads the server-owned access epoch; existing sessions stay stale.
+  const { role, tutorId, sessionVersion, historyAccessRevision } = await db.user.findUniqueOrThrow({ where: { id } });
+  return createCaller({ db, headers: new Headers(), session: {
+    user: { id }, role, tutorId, sessionVersion, historyAccessRevision, expires: "2099-01-01",
+  } });
+}
+
 afterAll(async () => {
   // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
   await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
@@ -83,7 +91,8 @@ it("shows one crew member with both patrol histories and refuses merge-family de
   const roster = await staff.admin.crewRoster();
   expect(roster).toHaveLength(1);
   expect(roster[0]).toMatchObject({ id: survivor.id, patrols: 2, hours: 2 });
-  expect(await caller(survivor.id, "TUTOR", tutor.id).tutor.myCrew()).toEqual({
+  await expect(caller(survivor.id, "TUTOR", tutor.id).tutor.myCrew()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  expect(await (await reauthenticatedCaller(survivor.id)).tutor.myCrew()).toEqual({
     isCrew: true,
     patrols: 2,
     hours: 2,

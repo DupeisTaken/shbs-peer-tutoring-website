@@ -31,6 +31,64 @@ const at = (catalog: unknown, path: string | null): unknown =>
       catalog,
     );
 
+const identityModels = [
+  "PersonPartitionReceipt", "RetiredHistoryOwnership", "HistoryRowOwnership",
+  "PersonHistoryCorrectionReceipt", "ParticipantConsolidation", "PairingExecutionSuccessor",
+  "SessionPlanExecution", "SessionParticipantExecution", "SessionResponseExecution",
+  "QualificationTransferGrant", "PersonParticipationTransferReceipt", "StudentRequestExecutionAssignment",
+] as const;
+
+it("registers exact identity lifecycle scalar fields without inventing schema enums", () => {
+  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
+  for (const entity of identityModels) {
+    const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find((match) => match[1] === entity);
+    expect(model, entity).toBeDefined();
+    const scalarFields = [...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|Int|Boolean|DateTime|Json)(?:[?\[\]\s])/gm)].map((match) => match[1]);
+    expect(reviewSchema[entity].fields, entity).toEqual(scalarFields);
+    expect(reviewSchema[entity].enums).toEqual({});
+  }
+  expect(reviewSchema.User.fields).toContain("historyAccessRevision");
+  expect(reviewSchema.PersonCombineReceipt.fields).toContain("ownershipTransfers");
+  expect(reviewSchema.EmailDelivery.fields).toContain("sourceNotificationId");
+});
+
+it("keeps private identity snapshots, hashes and source arrays outside the display vocabulary", () => {
+  const privateFields = {
+    User: ["historyAccessRevision"], Tutor: ["historyIdentityRevision"], Tutee: ["historyIdentityRevision"],
+    EmailDelivery: ["sourceNotificationId"],
+    PersonCombineReceipt: ["inputHash", "retiredUserIds", "ownershipTransfers"],
+    PersonPartitionReceipt: ["inputHash", "sources", "subjects"],
+    PersonHistoryCorrectionReceipt: ["inputHash", "sourceUserIds", "before", "after", "subjects"],
+    PersonParticipationTransferReceipt: ["inputHash", "retainedUserId", "selection", "result", "subjects"],
+    RetiredHistoryOwnership: ["sourceUserId", "readerUserId", "receiptId"],
+    HistoryRowOwnership: ["recordId", "readerUserId", "sourceUserIds", "quarantineUserIds", "receiptId"],
+    ParticipantConsolidation: ["sourceId", "targetId"], SessionPlanExecution: ["assignments"],
+    SessionParticipantExecution: ["sourceSurveyIds"], SessionResponseExecution: ["profileId"],
+  };
+  for (const [entity, fields] of Object.entries(privateFields)) for (const field of fields) {
+    expect(auditFieldLabelKey(entity, field), `${entity}.${field}`).toBeNull();
+    expect(auditReferenceEntity(entity, field), `${entity}.${field}`).toBeUndefined();
+    expect(auditEnumLabelKey(entity, field, "ASSIGNED"), `${entity}.${field}`).toBeNull();
+  }
+  // Shared names remain usable on their independent, already-supported owners.
+  expect(auditFieldLabelKey("RecoveryChange", "before")).toBe("auditEventDetails.presentation.fields.before");
+  expect(auditFieldLabelKey("RecoveryChange", "after")).toBe("auditEventDetails.presentation.fields.after");
+  expect(auditFieldLabelKey("SessionPlanningReceipt", "result")).toBe("auditEventDetails.presentation.fields.result");
+  expect(auditReferenceEntity("PairingExecutionSuccessor", "sourcePairingId")).toBe("Pairing");
+  expect(auditReferenceEntity("SessionPlanExecution", "planId")).toBe("SessionPlan");
+  expect(auditReferenceEntity("SessionResponseExecution", "responseId")).toBe("SessionPlanningResponse");
+  expect(auditReferenceEntity("QualificationTransferGrant", "subjectId")).toBe("Subject");
+  expect(auditReferenceEntity("HistoryRowOwnership", "recordId")).toBeUndefined();
+});
+
+it("scopes retired-history String states to their actual owner and preserves unknown values", () => {
+  for (const value of ["ASSIGNED", "QUARANTINED"])
+    expect(auditEnumLabelKey("RetiredHistoryOwnership", "state", value)).toBe(`auditEventDetails.presentation.historyOwnershipStates.${value}`);
+  expect(auditEnumLabelKey("RetiredHistoryOwnership", "state", "FUTURE_STATE")).toBeNull();
+  expect(auditEnumLabelKey("User", "state", "ASSIGNED")).toBeNull();
+  expect(auditEnumLabelKey("RetiredHistoryOwnership", "readerUserId", "ASSIGNED")).toBeNull();
+});
+
 it("labels scheduled-refresh business state without registering private execution evidence for display", () => {
   expect(auditEntityLabelKey("ScheduledProgramRefresh")).toBe("auditEventDetails.presentation.entities.ScheduledProgramRefresh");
   expect(auditEnumLabelKey("ScheduledProgramRefresh", "state", "BLOCKED")).toBe("auditEventDetails.presentation.enums.ScheduledRefreshState.BLOCKED");

@@ -121,7 +121,7 @@ export async function transferredPlanIsCurrent(db: DomainDb, plan: {
   return plan.assignments.every((original) => {
     const targetId = mappings.find((row) => row.sourcePairingId === original.pairingId)?.targetPairingId;
     const target = targets.find((row) => row.id === targetId);
-    if (!target || target.tutorId !== execution.tutorId || target.termId !== plan.termId || target.subject !== original.subject) return false;
+    if (target?.tutorId !== execution.tutorId || target.termId !== plan.termId || target.subject !== original.subject) return false;
     const released = new Set(plan.continuationMembers.filter((row) => row.pairingId === original.pairingId && row.releasedAt).map((row) => row.tuteeId));
     const expected = [...new Set([
       ...z.array(z.string()).parse(original.tuteeIds),

@@ -34,15 +34,20 @@ import type { TransactionDb } from "~/server/transactions";
 import { PASSWORD_CONFIRMATION_WINDOW_MS } from "./password-confirmation";
 
 const router = createTRPCRouter({ account: accountRouter, tutor: tutorRouter, admin: adminRouter });
+const historyAccessRevision = 7;
+const currentAccount = () => ({
+  role: "HEAD", tutorId: "tutor", passwordHash: "stored", name: "Test",
+  historyAccessRevision, mergedIntoId: null, recoveryVoidedAt: null, suspendedAt: null,
+});
 const caller = (id: string, role: Session["role"] = "HEAD") => router.createCaller({
   db, headers: new Headers(),
-  session: { user: { id }, role, tutorId: "tutor", expires: "2099-01-01" },
+  session: { user: { id }, role, tutorId: "tutor", historyAccessRevision, expires: "2099-01-01" },
 });
 const transaction = { user: db.user, $executeRaw: vi.fn() } as unknown as TransactionDb;
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-01-01"));
-  mocks.findUser.mockResolvedValue({ role: "HEAD", tutorId: "tutor", passwordHash: "stored", name: "Test" });
+  mocks.findUser.mockImplementation(() => Promise.resolve(currentAccount()));
   mocks.hash.mockReturnValue(false);
   mocks.features.mockResolvedValue({ EMAIL_2FA: true });
   mocks.delivery.mockReturnValue(true);
@@ -97,7 +102,7 @@ it("rejects oversized input and unauthorized callers before verification", async
   const api = caller(randomUUID());
   await expect(api.account.requestPasswordChangeCode({ currentPassword: "x".repeat(1025) })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await expect(api.account.changePassword({ currentPassword: "valid", newPassword: "x".repeat(1025) })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  mocks.findUser.mockResolvedValue({ role: "VIEWER", tutorId: null });
+  mocks.findUser.mockImplementation(() => Promise.resolve({ ...currentAccount(), role: "VIEWER", tutorId: null }));
   await expect(api.tutor.requestPasswordChangeCode({ currentPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(api.admin.deleteUser({ fingerprint: "a".repeat(64), userId: "cjld2cjxh0000qzrmn831i7rn", confirmPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(mocks.hash).not.toHaveBeenCalled();
@@ -123,6 +128,7 @@ it("keys privileged confirmations to the caller even when actions and targets ro
   // The locked actor read supplies the password-budget identity. Keep each target
   // eligible so target validation cannot short-circuit the confirmation check.
   mocks.findUser.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+    ...currentAccount(),
     id: where.id,
     role: where.id === actorId ? "HEAD" : "ADMIN",
     passwordHash: "stored",
@@ -193,7 +199,7 @@ it.each([
   { role: "HEAD", tutorId: "tutor", suspendedAt: new Date() },
   { role: "HEAD", tutorId: "tutor", mergedIntoId: "survivor" },
 ])("rechecks live privileges before privileged hashing: %j", async (current) => {
-  mocks.findUser.mockResolvedValue({ ...current, passwordHash: "stored" });
+  mocks.findUser.mockImplementation(() => Promise.resolve({ ...currentAccount(), ...current }));
   await expect(caller(randomUUID()).admin.deleteUser({ fingerprint: "a".repeat(64),
     userId: "cjld2cjxh0000qzrmn831i7rn", confirmPassword: "valid",
   })).rejects.toMatchObject({ code: current.mergedIntoId ? "UNAUTHORIZED" : "FORBIDDEN" });

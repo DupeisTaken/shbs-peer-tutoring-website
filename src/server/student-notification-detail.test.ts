@@ -40,8 +40,10 @@ describe("student schedule notification snapshots", () => {
     expect(pending.en).toContain(
       "awaits review; the assignment remains unchanged",
     );
-    expect(approved.en).toContain("assignment is removed");
-    expect(approved.zh).toContain("分配已移除");
+    expect(approved.en).toContain("this original request releases its assignment");
+    expect(approved.en).toContain("Other independently assigned requests remain in effect");
+    expect(approved.zh).toContain("本原始申请解除对应分配");
+    expect(approved.zh).toContain("其他独立申请的分配继续有效");
     expect(declined.en).toContain("declined; the assignment remains unchanged");
     expect(JSON.stringify([pending, approved, declined])).not.toMatch(
       /medical|Private/,

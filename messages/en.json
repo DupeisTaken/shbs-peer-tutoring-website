@@ -3911,7 +3911,23 @@
     "fullEvidence": "Full recorded evidence",
     "recordedPosition": "Recorded position {number}",
     "presentation": {
+      "historyOwnershipStates": {
+        "ASSIGNED": "Assigned",
+        "QUARANTINED": "Quarantined for review"
+      },
       "entities": {
+        "PersonPartitionReceipt": "Identity separation receipt",
+        "RetiredHistoryOwnership": "Retired account history ownership",
+        "HistoryRowOwnership": "Exact history record ownership",
+        "PersonHistoryCorrectionReceipt": "History correction receipt",
+        "ParticipantConsolidation": "Participation consolidation",
+        "PairingExecutionSuccessor": "Assignment execution successor",
+        "SessionPlanExecution": "Session plan execution",
+        "SessionParticipantExecution": "Session participant execution",
+        "SessionResponseExecution": "Session response authority",
+        "QualificationTransferGrant": "Transferred qualification grant",
+        "PersonParticipationTransferReceipt": "Participation transfer receipt",
+        "StudentRequestExecutionAssignment": "Signup execution assignment",
         "StudentContinuationAssignment": "Continuation selection",
         "StudentContinuationPairing": "Continuation pairing link",
         "StudentContinuationReceipt": "Continuation submission receipt",
@@ -6933,11 +6949,11 @@
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",
     "exactRetryHelp": "No receipt was found. Enter your current password to retry the same reviewed operation. Its records, evidence and operation reference stay frozen; a delayed original request and this retry can save only once.",
-    "title": "Separate mistakenly grouped records",
+    "title": "Separate Mistakenly Grouped Records",
     "intro": "Select the records that belong in a separate directory identity. Keep each login with all of its current records and retained history.",
     "choose": "Records to move to a new identity",
     "review": "Review separation",
-    "reviewTitle": "Review both resulting identities",
+    "reviewTitle": "Review Both Resulting Identities",
     "remaining": "Remain in this identity",
     "moving": "Move to a new identity",
     "consequences": "Private history ownership, credentials, restrictions, assignments and original evidence stay unchanged. Both identities require a fresh participation review after separation.",
@@ -7889,7 +7905,7 @@
     "priorEditionCorrection": "If last applied revision {revision}: apply {hours}"
   },
   "personHistoryCorrection": {
-    "title": "Correct retired-account history",
+    "title": "Correct Retired-Account History",
     "intro": "Review who can read history from retired logins and decide what happens to each affected record. Retired logins remain disabled.",
     "sources": "Retired logins in this directory group",
     "sourceSearch": "Search retired logins",
@@ -7903,7 +7919,7 @@
     "quarantineHistory": "No reader — quarantine selected account history",
     "selectedRecipient": "Selected reader: {name} · {id}",
     "review": "Review history and access",
-    "reviewTitle": "Review exact history correction",
+    "reviewTitle": "Review Exact History Correction",
     "historyChanges": "Account history before and after",
     "readerChange": "Current reader: {before}. Reviewed reader: {after}.",
     "noReader": "No reader",
@@ -7942,7 +7958,7 @@
     "pendingEmailConflict": "The stored recipient will lose access to this notification. Quarantine its pending email copy before confirming."
   },
   "personParticipationTransfer": {
-    "title": "Merge active participation",
+    "title": "Merge Active Participation",
     "intro": "Choose one active tutor record and one active tutee record for the retained login. Review the exact future work, qualification evidence and preferences before transferring execution.",
     "selectSources": "Select original participation records",
     "searchLabel": "Search records in this identity group",
@@ -7960,7 +7976,7 @@
     "availabilitySource": "Availability source",
     "defaultPreferences": "If no other source is selected, the chosen active tutor record keeps its own willingness and availability.",
     "review": "Review participation transfer",
-    "reviewTitle": "Review exact participation and future work",
+    "reviewTitle": "Review Exact Participation and Future Work",
     "activeResult": "Selected participation records",
     "accountReference": "Retained account: {id}",
     "tutorResult": "Active tutor: {source}",

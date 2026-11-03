@@ -3911,7 +3911,23 @@
     "fullEvidence": "Preuves enregistrées complètes",
     "recordedPosition": "Position enregistrée {number}",
     "presentation": {
+      "historyOwnershipStates": {
+        "ASSIGNED": "Attribué",
+        "QUARANTINED": "Isolé pour examen"
+      },
       "entities": {
+        "PersonPartitionReceipt": "Reçu de séparation d’identité",
+        "RetiredHistoryOwnership": "Attribution de l’historique d’un compte retiré",
+        "HistoryRowOwnership": "Attribution d’un enregistrement historique",
+        "PersonHistoryCorrectionReceipt": "Reçu de correction d’historique",
+        "ParticipantConsolidation": "Regroupement des participations",
+        "PairingExecutionSuccessor": "Affectation d’exécution suivante",
+        "SessionPlanExecution": "Exécution du plan de séance",
+        "SessionParticipantExecution": "Exécution de la participation à une séance",
+        "SessionResponseExecution": "Droit de réponse à la séance",
+        "QualificationTransferGrant": "Qualification transférée",
+        "PersonParticipationTransferReceipt": "Reçu de transfert de participation",
+        "StudentRequestExecutionAssignment": "Affectation d’exécution d’inscription",
         "StudentContinuationAssignment": "Choix de poursuite",
         "StudentContinuationPairing": "Lien d’affectation poursuivie",
         "StudentContinuationReceipt": "Accusé de réception de la poursuite",

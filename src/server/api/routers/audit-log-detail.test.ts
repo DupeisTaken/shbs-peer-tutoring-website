@@ -28,6 +28,9 @@ const entry = {
 
 function fixture(role: Session["role"] = "ADMIN") {
   const account = {
+    id: "reader",
+    historyAccessRevision: 7,
+    recoveryVoidedAt: null,
     role,
     name: "Current Reader",
     username: "reader",
@@ -50,7 +53,10 @@ function fixture(role: Session["role"] = "ADMIN") {
       findUnique: vi
         .fn()
         .mockImplementation(
-          async (): Promise<typeof account | null> => account,
+          (): Promise<typeof account | null> => Promise.resolve({
+            ...account,
+            schoolDeparture: account.schoolDeparture ? { ...account.schoolDeparture } : null,
+          }),
         ),
     },
     auditLog: {
@@ -76,6 +82,7 @@ function fixture(role: Session["role"] = "ADMIN") {
       user: { id: "reader", name: "Session Reader" },
       role,
       tutorId: null,
+      historyAccessRevision: account.historyAccessRevision,
       expires: "2099-01-01",
     } as Session | null,
   };
@@ -99,9 +106,14 @@ describe("audit event detail read boundary", () => {
       });
       // Only the reader is fetched: renamed/deleted actors and targets cannot
       // silently replace the immutable actor or before/after snapshots.
-      expect(mock.user.findUnique).toHaveBeenCalledOnce();
-      expect(mock.user.findUnique.mock.calls[0]?.[0]).toMatchObject({
+      // Preauthorization and final generation validation both read only this reader.
+      expect(mock.user.findUnique).toHaveBeenCalledTimes(2);
+      expect(mock.user.findUnique).toHaveBeenNthCalledWith(1,
+        expect.objectContaining({ where: { id: "reader" } }),
+      );
+      expect(mock.user.findUnique).toHaveBeenNthCalledWith(2, {
         where: { id: "reader" },
+        select: { historyAccessRevision: true, mergedIntoId: true, recoveryVoidedAt: true },
       });
     },
   );

@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 export const schedulingPgOptions = {
   statementNameGenerator(query: { sql: string }): string {
     if (
-      !/^\s*WITH\s+\/\* shbs:publication-validation \*\/\s+parameters\s+AS\b/i.test(
+      !/^\s*WITH(?:\s+RECURSIVE)?\s+\/\* shbs:publication-validation \*\/\s+parameters\s+AS\b/i.test(
         query.sql,
       )
     )

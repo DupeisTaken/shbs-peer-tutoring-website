@@ -240,22 +240,29 @@ it.each(["TUTOR", "TUTEE"] as const)("rejects a partition cutting a retained %s 
 
 it("rejects a retired-family cut but permits moving its complete immutable component", async () => {
   await liveAccount("owner-a");
-  await db.user.create({ data: { id: "retired-parent", email: "retired-parent@example.test", personId, mergedIntoId: "owner-a" } });
+  // Build the real temporal chain: child retires into a live parent, then the
+  // parent retires into owner-a. New retirement cannot target a retired login.
+  await db.user.create({ data: { id: "retired-parent", email: "retired-parent@example.test", personId } });
   await db.user.create({ data: { id: "retired-child", email: "retired-child@example.test", personId, mergedIntoId: "retired-parent" } });
+  await db.user.update({ where: { id: "retired-parent" }, data: { mergedIntoId: "owner-a" } });
   await db.tutorProfileOwnership.create({ data: { tutorId: "tutor-a", userId: "owner-a" } });
   const partial = await previewPersonPartition(db, { personId, sources: [user("retired-child")] });
   expect(partial).toMatchObject({ canSplit: false });
   const blocker = partial.blockers.find((row) => row.reason === "RETIRED_FAMILY");
   expect(blocker?.sources).toHaveLength(2);
   expect(blocker?.sources).toContainEqual(user("retired-child"));
-  expect(blocker?.sources).toContainEqual(user("retired-parent"));
+  // Current history ownership follows the live reader; the credential chain
+  // remains child -> parent -> owner-a and must not be rewritten by partition.
+  expect(blocker?.sources).toContainEqual(user("owner-a"));
   const before = await originalEvidence();
   await expect(partitionPersonRecords(db, "head", await reviewed([user("retired-child")]))).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.personPartitionReceipt.count()).toBe(0);
   const family = await accountHistoryIds(db, "owner-a");
+  expect([...family].sort()).toEqual(["owner-a", "retired-child", "retired-parent"].sort());
   const result = await partitionPersonRecords(db, "head", await reviewed([user("owner-a"), user("retired-parent"), user("retired-child"), tutor("tutor-a")]));
   expect(await accountHistoryIds(db, "owner-a")).toEqual(family);
   expect(await db.user.findUniqueOrThrow({ where: { id: "retired-child" } })).toMatchObject({ personId: result.newPersonId, mergedIntoId: "retired-parent", passwordHash: null });
+  expect(await db.user.findUniqueOrThrow({ where: { id: "retired-parent" } })).toMatchObject({ personId: result.newPersonId, mergedIntoId: "owner-a", passwordHash: null });
   expect(await originalEvidence()).toEqual(before);
 });
 

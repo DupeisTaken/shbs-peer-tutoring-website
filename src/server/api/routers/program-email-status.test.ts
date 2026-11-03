@@ -21,13 +21,18 @@ beforeEach(() => {
 
 function fixture(role: Session["role"], claimedRole = role) {
   const actor = {
+    id: "email-status-reader",
+    historyAccessRevision: 7,
+    mergedIntoId: null,
+    recoveryVoidedAt: null,
+    suspendedAt: null,
     role,
     name: "Synthetic reader",
     tutorId: null,
     schoolDeparture: null,
   };
   const mock = {
-    user: { findUnique: vi.fn().mockResolvedValue(actor) },
+    user: { findUnique: vi.fn(() => Promise.resolve({ ...actor })) },
     auditLog: { create: vi.fn() },
     emailDelivery: { count: vi.fn() },
   };
@@ -40,6 +45,7 @@ function fixture(role: Session["role"], claimedRole = role) {
         user: { id: "email-status-reader", name: "Synthetic reader" },
         role: claimedRole,
         tutorId: null,
+        historyAccessRevision: actor.historyAccessRevision,
         expires: "2099-01-01",
       },
     }),

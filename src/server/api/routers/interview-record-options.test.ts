@@ -14,14 +14,18 @@ function fixture(role = "ADMIN") {
   });
   const mock = {
     user: {
-      findUnique: vi.fn().mockResolvedValue({
+      findUnique: vi.fn(() => Promise.resolve({
+        id: "reader",
+        historyAccessRevision: 7,
+        mergedIntoId: null,
+        recoveryVoidedAt: null,
         role,
         name: "Reader",
         username: "reader",
         tutorId: null,
         suspendedAt: null,
         schoolDeparture: null,
-      }),
+      })),
     },
     tutorApplication: { ...empty(), count: vi.fn().mockResolvedValue(43) },
     registrationCode: empty(),
@@ -35,6 +39,7 @@ function fixture(role = "ADMIN") {
       user: { id: "reader", name: "Reader" },
       role,
       tutorId: null,
+      historyAccessRevision: 7,
       expires: "2099-01-01",
     } as Session,
   });

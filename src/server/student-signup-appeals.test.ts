@@ -1019,12 +1019,7 @@ it("accepts with retained priority; final rejection closes current queue and pre
   expect(
     (await studentRequestRows(db, undefined, "owner"))[0]?.appeal,
   ).toMatchObject({ id: a.appealId, state: "ACCEPTED" });
-  await flag(2);
-  const b = await appealStudentSignup(db, {
-    token: proof(),
-    reason: "Again",
-    clientKey: randomUUID(),
-  });
+  // Participation predates the second invalidity flag; invalid requests cannot acquire new work.
   const tutor = await db.tutor.create({
     data: { englishName: "Synthetic Tutor", status: "ACTIVE" },
   });
@@ -1055,6 +1050,16 @@ it("accepts with retained priority; final rejection closes current queue and pre
       tutees: { create: { tuteeId: tutee!.id, status: "PRESENT" } },
     },
   });
+  await flag(2);
+  const b = await appealStudentSignup(db, {
+    token: proof(),
+    reason: "Again",
+    clientKey: randomUUID(),
+  });
+  await expect(db.pairing.create({ data: {
+    tutorId: tutor.id, termId: "term", subject: "Science", dayOfWeek: 2,
+    startMin: 960, endMin: 1020, tutees: { create: { tuteeId: tutee!.id } },
+  } })).rejects.toThrow("Closed or expired student request cannot be assigned or reactivated");
   const rejected = {
     id: b.appealId,
     approve: false,
