@@ -349,4 +349,3 @@ export async function transferPersonParticipation(db: DomainDb, actorId: string,
     return result;
   });
 }
-
