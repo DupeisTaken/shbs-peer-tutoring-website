@@ -719,7 +719,12 @@ export function MyInterviews({
   // Internal field focus never expands a manually collapsed section.
   useEffect(() => {
     const arrive = () => {
-      if (window.location.hash === "#tutor-interviews") setExpanded(true);
+      if (
+        ["#tutor-interviews", "#chair-interviews"].includes(
+          window.location.hash,
+        )
+      )
+        setExpanded(true);
     };
     arrive();
     window.addEventListener("hashchange", arrive);

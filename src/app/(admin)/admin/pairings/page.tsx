@@ -19,6 +19,7 @@ import { invalidateWorkloads } from "~/lib/workload-cache";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { pairingEntries } from "~/lib/pairing-groups";
+import { compare, SortHeader, useSort } from "~/app/_components/sortable";
 
 import Link from "next/link";
 import { PairingRoomSummary } from "./room-summary";
@@ -104,6 +105,7 @@ export default function PairingsPage() {
         )
       : (missingId ?? t("participantNames.unnamed"));
   const locale = useLocale();
+  const sort = useSort();
 
   const readOnly = useReadOnly();
   const workloadText = useTranslations("tutorWorkload");
@@ -245,7 +247,9 @@ export default function PairingsPage() {
     else setCreateDraft(next);
   };
   const [confirming, setConfirming] = useState(false);
-  const [needsRoomOnly, setNeedsRoomOnly] = useState(false);
+  const [pairingFilter, setPairingFilter] = useState<
+    "all" | "active" | "pending" | "needsRoom"
+  >("all");
   const arrivalSequence = useRef(0);
   const [arrival, setArrival] = useState<
     (NotificationRecordArrival & { selected?: boolean }) | null
@@ -281,7 +285,7 @@ export default function PairingsPage() {
     !reads.some(({ query }) => query.isFetching)
   ) {
     // Consume an arrival once; later reads must not undo deliberate filtering.
-    setNeedsRoomOnly(false);
+    setPairingFilter("all");
     setArrival({ ...arrival, selected: true });
   }
   useNotificationRecordReveal(
@@ -291,7 +295,7 @@ export default function PairingsPage() {
       !denied &&
       !authorizationDenied &&
       arrivalKnown &&
-      !needsRoomOnly,
+      pairingFilter === "all",
     (cancelled) =>
       setArrival((current) =>
         current?.sequence === cancelled.sequence ? null : current,
@@ -362,18 +366,26 @@ export default function PairingsPage() {
           .map((member) => member.subject)
           .join(" + ")
       : undefined;
-  // Explicit persisted identity is visible on each independently sortable row.
-  // Matching clocks never imply membership, and detail reads use this same cache.
-  const groups = pairingEntries((pairings.data ?? []).map((pairing) => ({
-    ...pairing,
-    // Management retains inactive enrollment evidence in its authorized read;
-    // current plan eligibility uses the same live roster as the tutor catalogue.
-    tutees: pairing.tutees.filter((student) => student.tutee.status !== "INACTIVE"),
-  }))).filter((entry) => entry.groupId);
-  const groupOf = (pairingId: string) => groups.find((entry) =>
-    entry.pairings.some((member) => member.id === pairingId),
+  // Only persisted membership forms a lesson; matching clocks never imply a group.
+  const pairingsById = new Map((pairings.data ?? []).map((p) => [p.id, p]));
+  const planEntries = pairingEntries(
+    (pairings.data ?? []).map((pairing) => ({
+      ...pairing,
+      // Eligibility uses live coverage; the management summary retains the full
+      // authorized roster, including inactive enrollment evidence.
+      tutees: pairing.tutees.filter(
+        (student) => student.tutee.status !== "INACTIVE",
+      ),
+    })),
   );
-  const groupReference = (groupId: string) => t("pairingGroups.reference", { id: groupId });
+  const groupByPairingId = new Map(
+    planEntries
+      .filter((entry) => entry.groupId)
+      .flatMap((entry) => entry.pairings.map((p) => [p.id, entry] as const)),
+  );
+  const groupOf = (pairingId: string) => groupByPairingId.get(pairingId);
+  const groupReference = (groupId: string) =>
+    t("pairingGroups.reference", { id: groupId });
   const roomOnly = !!form.id && form.originalAssignment === assignmentKey(form);
   const loadForm = (
     p: NonNullable<typeof pairings.data>[number],
@@ -465,13 +477,16 @@ export default function PairingsPage() {
               termId: originalPairing?.termId ?? workloads.data!.termId!,
               // Mirror the server's retained-group rule so an unchanged group
               // does not appear as an extra independent block in workload advice.
-              groupId: originalPairing?.groupId &&
+              groupId:
+                originalPairing?.groupId &&
                 groupOf(originalPairing.id)?.groupStatus !== "needsRepair" &&
                 originalPairing.tutorId === form.tutorId &&
                 originalPairing.timeSlotId === form.timeSlotId &&
                 originalPairing.roomMode === form.roomMode &&
-                (form.roomMode !== "FIXED" || originalPairing.roomId === form.roomId)
-                  ? originalPairing.groupId : null,
+                (form.roomMode !== "FIXED" ||
+                  originalPairing.roomId === form.roomId)
+                  ? originalPairing.groupId
+                  : null,
               scheduleConfirmed: true,
               dayOfWeek: selectedSlot.dayOfWeek,
               startMin: selectedSlot.startMin,
@@ -593,9 +608,86 @@ export default function PairingsPage() {
     unassignedReservations.set(key, members);
   }
   const error = writeError;
-  const rows = (pairings.data ?? []).filter(
-    (p) => !needsRoomOnly || p.roomNeedsAssignment,
-  );
+  // Filter and sort complete reservation units so a saved group's members stay
+  // together, including when only one member needs a room or carries a deep link.
+  const entries = planEntries
+    .map((entry) => {
+      const primary = pairingsById.get(entry.primary.id)!;
+      const members = entry.pairings.map((p) => pairingsById.get(p.id)!);
+      // Enrollment order does not change whether subjects share a roster.
+      const rosterKey = (p: typeof primary) =>
+        JSON.stringify(
+          [...new Set(p.tutees.map((student) => student.tuteeId))].sort(),
+        );
+      const primaryRosterKey = rosterKey(primary);
+      return {
+        ...entry,
+        primary,
+        pairings: members,
+        // An explicit no-physical-room choice resolves the room requirement.
+        active: members.every(
+          (p) => p.scheduleConfirmed && (p.roomMode === "NONE" || !!p.room),
+        ),
+        sharedSubject: members.every((p) => p.subject === primary.subject),
+        sharedRoster: members.every((p) => rosterKey(p) === primaryRosterKey),
+      };
+    })
+    .filter((entry) => {
+      switch (pairingFilter) {
+        case "active":
+          return entry.active;
+        case "pending":
+          return !entry.active;
+        case "needsRoom":
+          return entry.pairings.some((p) => p.roomNeedsAssignment);
+        default:
+          return true;
+      }
+    });
+  const entrySortValue = (entry: (typeof entries)[number]): string | number => {
+    const p = entry.primary;
+    switch (sort.key) {
+      case "tutor":
+        return personName(p.tutor);
+      case "subject":
+        return entry.sharedSubject
+          ? p.subject
+          : entry.pairings.map((member) => member.subject).join(" / ");
+      case "when":
+        return pairingScheduleSortValue(p);
+      case "room":
+        return p.scheduleConfirmed ? (p.room?.name ?? "") : "";
+      case "tutees":
+        return (entry.sharedRoster ? [p] : entry.pairings)
+          .flatMap((member) =>
+            member.tutees
+              .map((student) => personName(student.tutee))
+              .sort((a, b) => compare(a, b, locale)),
+          )
+          .join(" / ");
+      default:
+        return "";
+    }
+  };
+  const sortedEntries =
+    sort.dir === "none"
+      ? entries
+      : entries
+          .map((entry, position) => ({
+            entry,
+            position,
+            value: entrySortValue(entry),
+          }))
+          .sort((a, b) => {
+            const unknown = Number(a.value === "") - Number(b.value === "");
+            return (
+              unknown ||
+              compare(a.value, b.value, locale) *
+                (sort.dir === "asc" ? 1 : -1) ||
+              a.position - b.position
+            );
+          })
+          .map(({ entry }) => entry);
 
   // Creation and row editing share the same fields, validation and confirmation ticket flow.
   const editor = (
@@ -859,6 +951,193 @@ export default function PairingsPage() {
     </div>
   );
 
+  const renderPairingActions = (
+    p: NonNullable<typeof pairings.data>[number],
+  ) => (
+    <TableActions>
+      <TableDetails title={`${personName(p.tutor)} · ${p.subject}`}>
+        {groupOf(p.id) &&
+          (() => {
+            const entry = groupOf(p.id)!;
+            const roster = [
+              ...new Map(
+                entry.pairings.flatMap((member) =>
+                  member.tutees.map(
+                    (student) => [student.tuteeId, student] as const,
+                  ),
+                ),
+              ).values(),
+            ];
+            return (
+              <section className="space-y-3 rounded-lg border border-slate-200 p-3">
+                <h3 className="font-semibold break-all">
+                  {groupReference(entry.groupId!)}
+                </h3>
+                <p>
+                  {t(
+                    `pairingGroups.status.${entry.groupStatus ?? "needsRepair"}`,
+                  )}
+                </p>
+                {entry.groupStatus === "needsRepair" && (
+                  <InlineNotice tone="warning">
+                    {t("pairingGroups.needsRepair")}
+                  </InlineNotice>
+                )}
+                <dl className="space-y-2 text-sm">
+                  <div>
+                    <dt className="label">{t("pairingGroups.primary")}</dt>
+                    <dd>{entry.primary.subject}</dd>
+                  </div>
+                  <div>
+                    <dt className="label">{t("pairingGroups.members")}</dt>
+                    <dd>
+                      {[
+                        ...new Set(
+                          entry.pairings.map((member) => member.subject),
+                        ),
+                      ].join(" + ")}
+                    </dd>
+                  </div>
+                </dl>
+                <h4 className="font-medium">
+                  {t("pairingGroups.combinedRoster")}
+                </h4>
+                <ul className="space-y-2 text-sm">
+                  {roster.map((student) => (
+                    <li key={student.tuteeId}>
+                      <p>{personName(student.tutee)}</p>
+                      <p className="muted">
+                        {entry.pairings
+                          .filter((member) =>
+                            member.tutees.some(
+                              (item) => item.tuteeId === student.tuteeId,
+                            ),
+                          )
+                          .map((member) => member.subject)
+                          .filter(
+                            (subject, index, all) =>
+                              all.indexOf(subject) === index,
+                          )
+                          .join(", ")}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })()}
+        <dl className="space-y-3">
+          <div>
+            <dt className="label">{t("admin.pairings.colWhen")}</dt>
+            <dd>{pairingScheduleText(p, t("scheduling.awaiting"), locale)}</dd>
+          </div>
+          <div>
+            <dt className="label">{t("admin.pairings.colSlot")}</dt>
+            <dd>{p.timeSlot?.label ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="label">{t("admin.pairings.colRoom")}</dt>
+            <dd>
+              <RoomAllocationStatus pairing={p} />
+            </dd>
+          </div>
+        </dl>
+        <h3 className="font-semibold">{t("admin.pairings.colTutees")}</h3>
+        <ul className="list-inside list-disc">
+          {p.tutees.map((entry) => (
+            <li key={entry.tuteeId}>{personName(entry.tutee)}</li>
+          ))}
+        </ul>
+      </TableDetails>
+      {!readOnly && (
+        <>
+          <TableAction
+            aria-label={`${t("admin.pairings.edit")}: ${personName(p.tutor)} · ${p.subject}`}
+            disabled={locked}
+            onClick={() => {
+              setConfirming(false);
+              setEditDraft(loadForm(p));
+            }}
+          >
+            {t("admin.pairings.edit")}
+          </TableAction>
+          {p.roomNeedsAssignment && (
+            <TableAction
+              disabled={
+                readBlocked ||
+                working ||
+                refreshFailed ||
+                review.blocked("room:" + p.id)
+              }
+              onClick={() =>
+                review.open({
+                  key: "room:" + p.id,
+                  title: a("retryAllocation"),
+                  description: a("retryHelp"),
+                  confirmLabel: a("retryAllocation"),
+                  details: (
+                    <p>
+                      {personName(p.tutor)} · {p.subject}
+                      {groupSubjects(p) && (
+                        <span className="mt-2 block">
+                          {a("groupScope", {
+                            subjects: groupSubjects(p)!,
+                          })}
+                        </span>
+                      )}
+                    </p>
+                  ),
+                  commit: () =>
+                    retryRoom.mutateAsync({
+                      id: p.id,
+                      expectedRoomVersion: p.roomVersion,
+                    }),
+                  refresh: async () => {
+                    if (!(await refresh())) throw new Error(a("readFailed"));
+                  },
+                  approvalId: queuedApprovalId,
+                  repeatAfterRefresh: true,
+                })
+              }
+            >
+              {a("retryAllocation")}
+            </TableAction>
+          )}
+          <TableAction
+            className="text-red-700"
+            disabled={
+              readBlocked || review.blocked(p.id) || working || refreshFailed
+            }
+            onClick={() =>
+              review.open({
+                key: p.id,
+                title: t("actionReview.pairingTitle"),
+                description: t("actionReview.pairingHelp"),
+                confirmLabel: t("admin.pairings.delete"),
+                details: (
+                  <p>
+                    {personName(p.tutor)} · {p.subject}
+                    <br />
+                    {p.tutees
+                      .map((entry) => personName(entry.tutee))
+                      .join(", ")}
+                  </p>
+                ),
+                commit: () => del.mutateAsync({ id: p.id }),
+                refresh: async () => {
+                  if (!(await refresh())) throw new Error(a("readFailed"));
+                },
+                approvalId: queuedApprovalId,
+              })
+            }
+          >
+            {t("admin.pairings.delete")}
+          </TableAction>
+        </>
+      )}
+    </TableActions>
+  );
+
   if (denied || authorizationDenied)
     return (
       <div className="space-y-6">
@@ -1075,232 +1354,155 @@ export default function PairingsPage() {
           </>
         }
       >
-        <ChoiceButton
-          selected={!needsRoomOnly}
-          onClick={() => {
-            setArrival(null);
-            setNeedsRoomOnly(false);
-          }}
-        >
-          {a("all")}
-        </ChoiceButton>
-        <ChoiceButton
-          selected={needsRoomOnly}
-          onClick={() => {
-            setArrival(null);
-            setNeedsRoomOnly(true);
-          }}
-        >
-          {a("needsRoomReservations", { count: needsRoomReservations })}
-        </ChoiceButton>
+        {(["all", "active", "pending", "needsRoom"] as const).map((filter) => (
+          <ChoiceButton
+            key={filter}
+            selected={pairingFilter === filter}
+            onClick={() => {
+              setArrival(null);
+              setPairingFilter(filter);
+            }}
+          >
+            {filter === "needsRoom"
+              ? a("needsRoomReservations", { count: needsRoomReservations })
+              : a(filter)}
+          </ChoiceButton>
+        ))}
       </FilterToolbar>
       {!readOnly && unassignedRooms.length > 500 && (
         <InlineNotice tone="warning">{a("autoAssignLimit")}</InlineNotice>
       )}
-      {pairings.data && rows.length === 0 && (
+      {pairings.data && entries.length === 0 && (
         <StatePanel kind="empty" title={a("empty")} />
       )}
       {/* Pairing-level facts stay in the summary. Allocation intent belongs in
           details; tutor-wide workload advice stays beside assignment decisions. */}
       <div className="card overflow-hidden">
-        <SummaryTable sortable label={t("admin.pairings.title")}>
+        <SummaryTable label={t("admin.pairings.title")}>
           <thead>
             <tr>
-              <th scope="col">{t("admin.pairings.colTutor")}</th>
-              <th scope="col">{t("admin.pairings.colSubject")}</th>
-              <th scope="col">{t("admin.pairings.colWhen")}</th>
-              <th scope="col">{t("admin.pairings.colRoom")}</th>
-              <th scope="col" className="whitespace-nowrap">
+              <SortHeader sort={sort} sortKey="tutor">
+                {t("admin.pairings.colTutor")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="subject">
+                {t("admin.pairings.colSubject")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="when">
+                {t("admin.pairings.colWhen")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="room">
+                {t("admin.pairings.colRoom")}
+              </SortHeader>
+              <SortHeader
+                sort={sort}
+                sortKey="tutees"
+                className="whitespace-nowrap"
+              >
                 {t("admin.pairings.colTutees")}
-              </th>
+              </SortHeader>
               <th scope="col" className="table-actions-heading">
                 {t("tablePatterns.actions")}
               </th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map((p) => (
-              <tr
-                key={p.id}
-                id={p.id}
-                className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
+          {sortedEntries.map((entry) => {
+            const members = entry.pairings;
+            // Merge only identical facts. Retained inconsistent groups still expose
+            // each member's actual time and room instead of claiming a shared plan.
+            const sharedTutor = members.every(
+              (p) =>
+                p.tutorId === entry.primary.tutorId &&
+                personName(p.tutor) === personName(entry.primary.tutor),
+            );
+            const { sharedSubject, sharedRoster } = entry;
+            const sharedTime = members.every(
+              (p) =>
+                pairingScheduleSortValue(p) ===
+                pairingScheduleSortValue(entry.primary),
+            );
+            const roomKey = (p: typeof entry.primary) =>
+              JSON.stringify([
+                p.scheduleConfirmed,
+                p.room?.name,
+                p.roomId,
+                p.roomMode,
+                p.roomNeedsAssignment,
+              ]);
+            const sharedRoom = members.every(
+              (p) => roomKey(p) === roomKey(entry.primary),
+            );
+            return (
+              <tbody
+                key={entry.id}
+                data-pairing-group={entry.groupId ?? undefined}
+                className={
+                  entry.groupId
+                    ? "bg-accent-50/40 border-b border-slate-300 last:border-b-0"
+                    : "border-b border-slate-200 last:border-b-0"
+                }
               >
-                <td className="font-medium text-slate-900">
-                  {personName(p.tutor)}
-                </td>
-                <td>
-                  <p>{p.subject}</p>
-                  {p.groupId && (
-                    <p className="muted mt-1 break-all text-xs">
-                      {groupReference(p.groupId)}
-                      <span className="block">
-                        {t(`pairingGroups.status.${groupOf(p.id)?.groupStatus ?? "needsRepair"}`)}
-                      </span>
-                    </p>
-                  )}
-                </td>
-                <td data-sort-value={pairingScheduleSortValue(p)}>
-                  {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
-                </td>
-                <td
-                  data-sort-value={
-                    p.scheduleConfirmed ? (p.room?.name ?? "") : ""
-                  }
-                >
-                  <PairingRoomSummary pairing={p} />
-                </td>
-
-                <td>{p.tutees.length}</td>
-                <TableActions>
-                  <TableDetails title={`${personName(p.tutor)} · ${p.subject}`}>
-                    {groupOf(p.id) && (() => {
-                      const entry = groupOf(p.id)!;
-                      const roster = [...new Map(entry.pairings.flatMap((member) =>
-                        member.tutees.map((student) => [student.tuteeId, student] as const),
-                      )).values()];
-                      return <section className="space-y-3 rounded-lg border border-slate-200 p-3">
-                        <h3 className="font-semibold break-all">{groupReference(entry.groupId!)}</h3>
-                        <p>{t(`pairingGroups.status.${entry.groupStatus ?? "needsRepair"}`)}</p>
-                        {entry.groupStatus === "needsRepair" && <InlineNotice tone="warning">{t("pairingGroups.needsRepair")}</InlineNotice>}
-                        <dl className="space-y-2 text-sm">
-                          <div><dt className="label">{t("pairingGroups.primary")}</dt><dd>{entry.primary.subject}</dd></div>
-                          <div><dt className="label">{t("pairingGroups.members")}</dt><dd>{[...new Set(entry.pairings.map((member) => member.subject))].join(" + ")}</dd></div>
-                        </dl>
-                        <h4 className="font-medium">{t("pairingGroups.combinedRoster")}</h4>
-                        <ul className="space-y-2 text-sm">
-                          {roster.map((student) => <li key={student.tuteeId}>
-                            <p>{personName(student.tutee)}</p>
-                            <p className="muted">{entry.pairings.filter((member) => member.tutees.some((item) => item.tuteeId === student.tuteeId)).map((member) => member.subject).filter((subject, index, all) => all.indexOf(subject) === index).join(", ")}</p>
-                          </li>)}
-                        </ul>
-                      </section>;
-                    })()}
-                    <dl className="space-y-3">
-                      <div>
-                        <dt className="label">{t("admin.pairings.colWhen")}</dt>
-                        <dd>
-                          {pairingScheduleText(
-                            p,
-                            t("scheduling.awaiting"),
-                            locale,
-                          )}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="label">{t("admin.pairings.colSlot")}</dt>
-                        <dd>{p.timeSlot?.label ?? "—"}</dd>
-                      </div>
-                      <div>
-                        <dt className="label">{t("admin.pairings.colRoom")}</dt>
-                        <dd>
-                          <RoomAllocationStatus pairing={p} />
-                        </dd>
-                      </div>
-                    </dl>
-                    <h3 className="font-semibold">
-                      {t("admin.pairings.colTutees")}
-                    </h3>
-                    <ul className="list-inside list-disc">
-                      {p.tutees.map((entry) => (
-                        <li key={entry.tuteeId}>{personName(entry.tutee)}</li>
-                      ))}
-                    </ul>
-                  </TableDetails>
-                  {!readOnly && (
-                    <>
-                      <TableAction
-                        aria-label={`${t("admin.pairings.edit")}: ${personName(p.tutor)} · ${p.subject}`}
-                        disabled={locked}
-                        onClick={() => {
-                          setConfirming(false);
-                          setEditDraft(loadForm(p));
-                        }}
+                {members.map((p, index) => (
+                  <tr
+                    key={p.id}
+                    id={p.id}
+                    className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
+                  >
+                    {(!sharedTutor || index === 0) && (
+                      <td
+                        rowSpan={sharedTutor ? members.length : 1}
+                        className="font-medium text-slate-900"
                       >
-                        {t("admin.pairings.edit")}
-                      </TableAction>
-                      {p.roomNeedsAssignment && (
-                        <TableAction
-                          disabled={
-                            readBlocked ||
-                            working ||
-                            refreshFailed ||
-                            review.blocked("room:" + p.id)
-                          }
-                          onClick={() =>
-                            review.open({
-                              key: "room:" + p.id,
-                              title: a("retryAllocation"),
-                              description: a("retryHelp"),
-                              confirmLabel: a("retryAllocation"),
-                              details: (
-                                <p>
-                                  {personName(p.tutor)} · {p.subject}
-                                  {groupSubjects(p) && (
-                                    <span className="mt-2 block">
-                                      {a("groupScope", {
-                                        subjects: groupSubjects(p)!,
-                                      })}
-                                    </span>
-                                  )}
-                                </p>
-                              ),
-                              commit: () =>
-                                retryRoom.mutateAsync({
-                                  id: p.id,
-                                  expectedRoomVersion: p.roomVersion,
-                                }),
-                              refresh: async () => {
-                                if (!(await refresh()))
-                                  throw new Error(a("readFailed"));
-                              },
-                              approvalId: queuedApprovalId,
-                              repeatAfterRefresh: true,
-                            })
-                          }
-                        >
-                          {a("retryAllocation")}
-                        </TableAction>
-                      )}
-                      <TableAction
-                        className="text-red-700"
-                        disabled={
-                          readBlocked ||
-                          review.blocked(p.id) ||
-                          working ||
-                          refreshFailed
-                        }
-                        onClick={() =>
-                          review.open({
-                            key: p.id,
-                            title: t("actionReview.pairingTitle"),
-                            description: t("actionReview.pairingHelp"),
-                            confirmLabel: t("admin.pairings.delete"),
-                            details: (
-                              <p>
-                                {personName(p.tutor)} · {p.subject}
-                                <br />
-                                {p.tutees
-                                  .map((entry) => personName(entry.tutee))
-                                  .join(", ")}
-                              </p>
-                            ),
-                            commit: () => del.mutateAsync({ id: p.id }),
-                            refresh: async () => {
-                              if (!(await refresh()))
-                                throw new Error(a("readFailed"));
-                            },
-                            approvalId: queuedApprovalId,
-                          })
+                        {personName(p.tutor)}
+                      </td>
+                    )}
+                    {(!sharedSubject || index === 0) && (
+                      <td rowSpan={sharedSubject ? members.length : 1}>
+                        {p.subject}
+                      </td>
+                    )}
+                    {(!sharedTime || index === 0) && (
+                      <td
+                        rowSpan={sharedTime ? members.length : 1}
+                        data-sort-value={pairingScheduleSortValue(p)}
+                      >
+                        {pairingScheduleText(
+                          p,
+                          t("scheduling.awaiting"),
+                          locale,
+                        )}
+                      </td>
+                    )}
+                    {(!sharedRoom || index === 0) && (
+                      <td
+                        rowSpan={sharedRoom ? members.length : 1}
+                        data-sort-value={
+                          p.scheduleConfirmed ? (p.room?.name ?? "") : ""
                         }
                       >
-                        {t("admin.pairings.delete")}
-                      </TableAction>
-                    </>
-                  )}
-                </TableActions>
-              </tr>
-            ))}
-          </tbody>
+                        <PairingRoomSummary pairing={p} />
+                      </td>
+                    )}
+                    {(!sharedRoster || index === 0) && (
+                      <td rowSpan={sharedRoster ? members.length : 1}>
+                        {p.tutees.length ? (
+                          <ul className="space-y-1">
+                            {p.tutees.map((student) => (
+                              <li key={student.tuteeId}>
+                                {personName(student.tutee)}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    )}
+                    {renderPairingActions(p)}
+                  </tr>
+                ))}
+              </tbody>
+            );
+          })}
         </SummaryTable>
       </div>
       {!readOnly && review.dialog}

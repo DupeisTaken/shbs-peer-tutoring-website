@@ -51,7 +51,7 @@
     "date": "Fecha",
     "start": "Inicio",
     "end": "Fin",
-    "durationHelp": "Duración prevista: 45 minutos. Al cambiar una hora se ajusta la otra. La duración real se registra por separado.",
+    "durationHelp": "45 minutos previstos. Inicio y fin están vinculados; la asistencia real se registra por separado.",
     "zone": "Zona horaria de la escuela: {timeZone}",
     "extra": "Sesión adicional",
     "rescheduled": "Reprogramada",
@@ -139,7 +139,14 @@
       "B": "Alternativa del participante",
       "C": "Propuesta final",
       "GROUP": "Acuerdo del grupo"
-    }
+    },
+    "includeAll": "Incluir a todos los estudiantes de esta sesión",
+    "allScopeHelp": "Todos deben aceptar la propuesta más reciente.",
+    "oneScopeHelp": "Se aplica solo al estudiante seleccionado.",
+    "automaticRoom": "Presencial — aula asignada automáticamente",
+    "checkingLocation": "Comprobando hora y lugar…",
+    "allocationFailed": "No se pudieron confirmar la hora y el lugar. Revisa la sesión actual, prueba otra hora o En línea y vuelve a revisar.",
+    "roomReviewHelp": "El aula se comprueba de nuevo al enviar. Si no está disponible, revisa una nueva asignación."
   },
   "nextRecruitment": {
     "savedForTarget": "Apertura guardada para {name}.",
@@ -2290,7 +2297,8 @@
       "rosterCount": "Seguimiento de la lista de estudiantes ({count})",
       "interviewSection": "Entrevistas",
       "meetingSection": "Reuniones",
-      "qualificationSection": "Cualificaciones"
+      "qualificationSection": "Cualificaciones",
+      "compactHelp": "Revisa aquí las tareas pendientes. Cada solicitud conserva su propia revisión y guardado."
     },
     "activate": {
       "title": "Confirma tu disponibilidad",
@@ -2554,6 +2562,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "Espacio del tutor",
+      "schedule": "Horario",
+      "pairings": "Asignaciones",
+      "preferences": "Preferencias",
+      "history": "Historial y horas"
     }
   },
   "public": {
@@ -3210,11 +3225,12 @@
     "policyScrollHint": "Desplázate hasta el final de la política para poder aceptarla.",
     "navigation": "Tutoring request workflow",
     "current": "Current Request",
-    "processed": "Processed",
+    "processed": "Cerradas",
+    "notFlaggedInvalid": "Sin marcar como no válidas",
     "loading": "Loading requests…",
     "noActive": "You have no active confirmed request for this quarter. Check your email if you have just submitted.",
     "newRequest": "Submit a new request",
-    "noHistory": "No processed requests yet.",
+    "noHistory": "Aún no hay solicitudes cerradas.",
     "state": {
       "OPEN": "Open",
       "RECALLED": "Recalled",
@@ -3242,15 +3258,15 @@
     "saveAvailability": "Save availability",
     "participation": "Participation Changes",
     "abortHelp": "Because you have a tutor, leaving requires an application. Approval ends your participation and prevents any further applications this quarter.",
-    "recallHelp": "You can recall this unassigned request. It will move to Processed, and admins will be notified.",
+    "recallHelp": "Puedes retirar esta solicitud aún sin asignar. Pasará a Cerradas y se notificará a la administración.",
     "abortPending": "Your quarter-withdrawal application is awaiting admin review. Current assignments remain in place.",
     "applyAbort": "Apply to leave this quarter",
     "recall": "Recall request",
     "abortConsequences": "You are applying to leave the entire tutoring program for the current quarter. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this quarter. Admins and your tutors will be notified.",
-    "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
+    "recallConsequences": "Esto retira de forma inmediata y definitiva tu solicitud aún sin asignar. Aparecerá en Cerradas con la etiqueta Retirada y se notificará a la administración. No podrá reabrirse. Si vuelves a solicitar ayuda, tendrás una nueva fecha de envío y prioridad.",
     "reason": "Reason",
     "boardTitle": "Tutee Request Workflow",
-    "boardHelp": "Match tutees in their original submission order, including unverified requests. Their seven-day verification deadline starts at the first assignment and never resets on resend or reassignment. Closed requests are retained as history.",
+    "boardHelp": "Todas las fuentes de inscripción se ordenan por la fecha de envío original. Needs matching incluye solicitudes parcialmente asignadas; Assigned indica que cada materia solicitada tiene tutor. Las decisiones pendientes, incluidas las apelaciones de invalidez, aparecen en Needs review. Cerradas incluye solicitudes finalizadas o rechazadas, entradas no válidas y revisiones terminadas. Al quitar la marca de invalidez, una solicitud abierta vuelve al grupo que le corresponda. No cambian las asignaciones, la prioridad ni los plazos de verificación.",
     "matching": "Needs matching",
     "assigned": "Assigned",
     "reviews": "Needs review",
@@ -6825,7 +6841,9 @@
     "needsRoom": "Needs room",
     "awaiting": "Awaiting schedule",
     "all": "All pairings",
-    "filter": "Room allocation filter",
+    "active": "Activas",
+    "pending": "Pendientes",
+    "filter": "Filtrar parejas",
     "retryAllocation": "Retry room allocation",
     "retryHelp": "Retry automatic allocation for this reservation. Members of an explicit combined group share the change; independent pairings are not moved.",
     "retryRefresh": "Retry refresh",

@@ -14,10 +14,24 @@ import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import PairingsPage from "./page";
 
+type PairingRowOverride = {
+  id: string;
+  subject: string;
+  groupId?: string | null;
+  group?: { primaryPairingId: string } | null;
+  dayOfWeek?: number;
+  room?: { name: string } | null;
+  roomMode?: "AUTO" | "FIXED" | "NONE" | "LEGACY";
+  roomNeedsAssignment?: boolean;
+  scheduleConfirmed?: boolean;
+  tutees: { tuteeId: string; tutee: { englishName: string } }[];
+};
+
 const state = vi.hoisted(() => ({
   sorting: false,
   grouped: false,
   invalidGroup: false,
+  rows: null as PairingRowOverride[] | null,
   sortMissing: false,
   confirmed: true,
   readOnly: true,
@@ -97,6 +111,11 @@ vi.mock("~/trpc/react", () => ({
                             ]
                           : [p],
                       )
+                      .flatMap((p) =>
+                        state.rows
+                          ? state.rows.map((row) => ({ ...p, ...row }))
+                          : [p],
+                      )
                       .flatMap((p) => state.grouped ? [
                         { ...p, id: "member-a", groupId: "saved-group", group: { primaryPairingId: "member-a" }, subject: "Chemistry", tutees: [{tuteeId: "student", tutee: {englishName: "Group Student"}}] },
                         { ...p, id: "member-b", groupId: "saved-group", group: { primaryPairingId: "member-a" }, subject: "Mathematics", tutees: state.invalidGroup ? [] : [{tuteeId: "student", tutee: {englishName: "Group Student"}}] },
@@ -145,6 +164,7 @@ afterEach(() => {
   state.sorting = false;
   state.grouped = false;
   state.invalidGroup = false;
+  state.rows = null;
   state.sortMissing = false;
   state.confirmed = true;
   state.readOnly = true;
@@ -165,6 +185,29 @@ const mount = (locale: "en" | "zh") =>
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
+
+function savedGroupRows(primaryPairingId = "member-a"): PairingRowOverride[] {
+  const tutees = [
+    { tuteeId: "student", tutee: { englishName: "Group Student" } },
+  ];
+  return [
+    {
+      id: "member-a",
+      subject: "Chemistry",
+      groupId: "saved-group",
+      group: { primaryPairingId },
+      tutees,
+    },
+    {
+      id: "member-b",
+      subject: "Mathematics",
+      groupId: "saved-group",
+      group: { primaryPairingId },
+      tutees,
+    },
+    { id: "independent", subject: "Physics", groupId: null, tutees: [] },
+  ];
+}
 
 it.each([
   ["en", "Mon"],
@@ -430,19 +473,39 @@ it("reveals a shortage target only after authorized async data commits", () => {
   expect(document.activeElement).toBe(document.getElementById("pairing"));
   expect(scroll).toHaveBeenCalledOnce();
 });
-it("opens a filtered-out resolved shortage through its exact validated arrival", () => {
-  const scroll = revealSpy();
-  window.history.replaceState(null, "", "/admin/pairings");
-  render(arrivalPage(new QueryClient()));
-  fireEvent.click(screen.getByRole("button", { name: /Needs room/ }));
-  expect(document.getElementById("pairing")).toBeNull();
-  act(() => {
-    window.history.replaceState(null, "", "/admin/pairings#pairing");
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
-  });
-  expect(document.activeElement).toBe(document.getElementById("pairing"));
-  expect(scroll).toHaveBeenCalledOnce();
-});
+it.each(["active", "pending", "needsRoom"] as const)(
+  "opens a filtered-out record through its exact validated arrival (%s)",
+  (filter) => {
+    const scroll = revealSpy();
+    state.rows = [
+      {
+        id: "pairing",
+        subject: "Target",
+        room: filter === "pending" ? { name: "204" } : null,
+        tutees: [],
+      },
+    ];
+    window.history.replaceState(null, "", "/admin/pairings");
+    render(arrivalPage(new QueryClient()));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: filter === "needsRoom" ? /Needs room/ : en.roomAllocation[filter],
+      }),
+    );
+    expect(document.getElementById("pairing")).toBeNull();
+    act(() => {
+      window.history.replaceState(null, "", "/admin/pairings#pairing");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(document.activeElement).toBe(document.getElementById("pairing"));
+    expect(
+      screen
+        .getByRole("button", { name: en.roomAllocation.all })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(scroll).toHaveBeenCalledOnce();
+  },
+);
 it("does not resurrect a cancelled loading arrival or denied cached record", () => {
   const scroll = revealSpy(),
     client = new QueryClient();
@@ -500,7 +563,8 @@ it.each(["en", "zh"] as const)(
     for (const name of headings) {
       const header = screen.getByRole("button", { name });
       fireEvent.click(header);
-      expect(ids()).toEqual(["a", "z"]);
+      const sortsNames = name === messages.admin.pairings.colTutees;
+      expect(ids()).toEqual(sortsNames ? ["z", "a"] : ["a", "z"]);
       expect(header.closest("th")?.getAttribute("aria-sort")).toBe("ascending");
       fireEvent.click(header);
       expect(ids()).toEqual(["z", "a"]);
@@ -575,69 +639,497 @@ it.each([
   },
 );
 
+it.each(["en", "zh"] as const)(
+  "shares saved-group facts and a common roster across subjects (%s)",
+  (locale) => {
+    state.grouped = true;
+    state.confirmed = false;
+    mount(locale);
+    const messages = locale === "en" ? en : zh;
+    expect(screen.getAllByRole("columnheader")).toHaveLength(6);
+    const reference = messages.pairingGroups.reference.replace(
+      "{id}",
+      "saved-group",
+    );
+    const first = document.getElementById("member-a")!;
+    const second = document.getElementById("member-b")!;
+    expect(first.closest("tbody")).toBe(second.closest("tbody"));
+    expect(
+      within(first)
+        .getByRole("cell", { name: "Synthetic tutor" })
+        .getAttribute("rowspan"),
+    ).toBe("2");
+    const schedule = first.querySelector<HTMLTableCellElement>(
+      "td[data-sort-value]",
+    )!;
+    expect(schedule.textContent).toBe(messages.scheduling.awaiting);
+    expect(schedule.rowSpan).toBe(2);
+    expect(first.querySelectorAll('td[rowspan="2"]')).toHaveLength(4);
+    expect(
+      within(first).getByRole<HTMLTableCellElement>("cell", {
+        name: "Group Student",
+      }).rowSpan,
+    ).toBe(2);
+    expect(within(second).queryByText("Group Student")).toBeNull();
+    expect(within(second).queryByText("Synthetic tutor")).toBeNull();
+    expect(screen.queryByText(reference)).toBeNull();
+    expect(
+      within(first).getByRole("cell", { name: "Chemistry" }).textContent,
+    ).toBe("Chemistry");
+    expect(
+      within(second).getByRole("cell", { name: "Mathematics" }).textContent,
+    ).toBe("Mathematics");
+    const independent = document.getElementById("independent")!;
+    expect(independent.closest("tbody")).not.toBe(first.closest("tbody"));
+    expect(within(independent).getByText("Synthetic tutor")).toBeTruthy();
+    expect(independent.textContent).not.toContain(reference);
+    expect(screen.queryByRole("button", { name: /^Edit:/ })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Synthetic tutor · Chemistry/ }),
+    );
+    const dialog = screen.getByRole("dialog");
+    const group = within(dialog)
+      .getByRole("heading", { name: reference })
+      .closest("section")!;
+    expect(
+      within(group).getByText(messages.pairingGroups.status.awaiting),
+    ).toBeTruthy();
+    expect(within(group).getByText("Chemistry + Mathematics")).toBeTruthy();
+    expect(within(group).getAllByText("Group Student")).toHaveLength(1);
+    expect(within(group).getByText("Chemistry, Mathematics")).toBeTruthy();
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
 
-it.each(["en", "zh"] as const)("shows explicit group identity and complete membership to a %s read-only viewer in six columns", (locale) => {
-  state.grouped = true;
-  state.confirmed = false;
-  mount(locale);
-  const messages = locale === "en" ? en : zh;
-  expect(screen.getAllByRole("columnheader")).toHaveLength(6);
-  const reference = messages.pairingGroups.reference.replace("{id}", "saved-group");
-  expect(screen.getAllByText(reference)).toHaveLength(2);
-  const independent = document.getElementById("independent")!;
-  expect(independent.textContent).not.toContain(reference);
-  expect(screen.queryByRole("button", { name: /^Edit:/ })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Synthetic tutor · Chemistry/ }));
-  const dialog = screen.getByRole("dialog");
-  const group = within(dialog).getByRole("heading", { name: reference }).closest("section")!;
-  expect(within(group).getByText(messages.pairingGroups.status.awaiting)).toBeTruthy();
-  expect(within(group).getByText("Chemistry + Mathematics")).toBeTruthy();
-  expect(within(group).getAllByText("Group Student")).toHaveLength(1);
-  expect(within(group).getByText("Chemistry, Mathematics")).toBeTruthy();
-  expect(state.mutate).not.toHaveBeenCalled();
-});
-
-it("marks a legacy incomplete saved group as needing repair in its summary and reader", () => {
+it("keeps incomplete saved-group membership and exposes repair evidence in Details", () => {
   state.grouped = true;
   state.invalidGroup = true;
   mount("en");
-  expect(screen.getAllByText(en.pairingGroups.status.needsRepair)).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: /Synthetic tutor · Chemistry/ }));
-  expect(within(screen.getByRole("dialog")).getByText(en.pairingGroups.needsRepair)).toBeTruthy();
+  expect(document.getElementById("member-a")!.closest("tbody")).toBe(
+    document.getElementById("member-b")!.closest("tbody"),
+  );
+  expect(screen.queryByText(en.pairingGroups.status.needsRepair)).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: /Synthetic tutor · Chemistry/ }),
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByText(en.pairingGroups.needsRepair),
+  ).toBeTruthy();
   expect(state.mutate).not.toHaveBeenCalled();
 });
 
-it("keeps a deliberate room filter when an arrival is still waiting for its read", () => {
-  const scroll = revealSpy();
-  const client = new QueryClient();
-  window.history.replaceState(null, "", "/admin/pairings#pairing");
-  state.pendingRead = true;
-  const page = render(arrivalPage(client));
-  fireEvent.click(screen.getByRole("button", { name: /Needs room/ }));
-  state.pendingRead = false;
-  page.rerender(arrivalPage(client));
-  expect(
-    screen
-      .getByRole("button", { name: /Needs room/ })
-      .getAttribute("aria-pressed"),
-  ).toBe("true");
-  expect(document.getElementById("pairing")).toBeNull();
-  expect(scroll).not.toHaveBeenCalled();
+it.each(["en", "zh"] as const)(
+  "preserves repeated-subject student assignments and an independent multi-student pairing (%s)",
+  (locale) => {
+    state.rows = [
+      {
+        id: "math-alice",
+        subject: "Mathematics",
+        groupId: "same-subject",
+        group: { primaryPairingId: "math-alice" },
+        tutees: [
+          { tuteeId: "alice", tutee: { englishName: "Alice Synthetic" } },
+        ],
+      },
+      {
+        id: "math-bob",
+        subject: "Mathematics",
+        groupId: "same-subject",
+        group: { primaryPairingId: "math-alice" },
+        tutees: [{ tuteeId: "bob", tutee: { englishName: "Bob Synthetic" } }],
+      },
+      {
+        id: "math-independent",
+        subject: "Mathematics",
+        groupId: null,
+        tutees: [
+          { tuteeId: "charlie", tutee: { englishName: "Charlie Synthetic" } },
+          { tuteeId: "dana", tutee: { englishName: "Dana Synthetic" } },
+        ],
+      },
+    ];
+    mount(locale);
+    const alice = document.getElementById("math-alice")!;
+    const bob = document.getElementById("math-bob")!;
+    const independent = document.getElementById("math-independent")!;
+    expect(alice.closest("tbody")).toBe(bob.closest("tbody"));
+    expect(alice.closest("tbody")).not.toBe(independent.closest("tbody"));
+    expect(
+      within(alice).getByRole<HTMLTableCellElement>("cell", {
+        name: "Mathematics",
+      }).rowSpan,
+    ).toBe(2);
+    expect(within(bob).queryByText("Mathematics")).toBeNull();
+    expect(within(alice).getByText("Alice Synthetic")).toBeTruthy();
+    expect(within(alice).queryByText("Bob Synthetic")).toBeNull();
+    expect(within(bob).getByText("Bob Synthetic")).toBeTruthy();
+    expect(within(bob).queryByText("Alice Synthetic")).toBeNull();
+    expect(
+      within(alice).getByRole<HTMLTableCellElement>("cell", {
+        name: "Alice Synthetic",
+      }).rowSpan,
+    ).toBe(1);
+    expect(
+      within(bob).getByRole<HTMLTableCellElement>("cell", {
+        name: "Bob Synthetic",
+      }).rowSpan,
+    ).toBe(1);
+    expect(within(independent).getByText("Charlie Synthetic")).toBeTruthy();
+    expect(within(independent).getByText("Dana Synthetic")).toBeTruthy();
+    expect(within(independent).queryByRole("cell", { name: "2" })).toBeNull();
+    expect(
+      within(independent).getByRole("cell", { name: "Synthetic tutor" }),
+    ).toBeTruthy();
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each([true, false])(
+  "compares full roster identity sets instead of order or names (same students: %s)",
+  (sameStudents) => {
+    const roster = [
+      { tuteeId: "alex", tutee: { englishName: "Alex Synthetic" } },
+      { tuteeId: "sam", tutee: { englishName: "Sam Synthetic" } },
+    ];
+    const reversed = [...roster]
+      .reverse()
+      .map((student) =>
+        sameStudents
+          ? student
+          : { ...student, tuteeId: `other-${student.tuteeId}` },
+      );
+    state.rows = savedGroupRows()
+      .slice(0, 2)
+      .map((row, index) => ({
+        ...row,
+        subject: "Mathematics",
+        tutees: index === 0 ? roster : reversed,
+      }));
+    if (sameStudents)
+      state.rows.push({
+        id: "peer",
+        subject: "Physics",
+        groupId: null,
+        tutees: reversed,
+      });
+    mount("en");
+    const first = within(document.getElementById("member-a")!);
+    const second = within(document.getElementById("member-b")!);
+    expect(
+      first.getByRole<HTMLTableCellElement>("cell", { name: /Alex Synthetic/ })
+        .rowSpan,
+    ).toBe(sameStudents ? 2 : 1);
+    expect(Boolean(second.queryByText("Alex Synthetic"))).toBe(!sameStudents);
+    expect(Boolean(second.queryByText("Sam Synthetic"))).toBe(!sameStudents);
+    if (sameStudents) {
+      // Equal displayed names tie regardless of group size or enrollment order.
+      const tutees = screen.getByRole("button", {
+        name: en.admin.pairings.colTutees,
+      });
+      for (let direction = 0; direction < 2; direction++) {
+        fireEvent.click(tutees);
+        expect(
+          screen
+            .getAllByRole("row")
+            .slice(1)
+            .map((row) => row.id),
+        ).toEqual(["member-a", "member-b", "peer"]);
+      }
+    }
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it("sorts interleaving subjects as saved groups while retaining every member action", () => {
+  const roster = [
+    { tuteeId: "student", tutee: { englishName: "Group Student" } },
+  ];
+  state.rows = [
+    {
+      id: "biology",
+      subject: "Biology",
+      groupId: "science",
+      group: { primaryPairingId: "physics" },
+      tutees: roster,
+    },
+    {
+      id: "physics",
+      subject: "Physics",
+      groupId: "science",
+      group: { primaryPairingId: "physics" },
+      tutees: roster,
+    },
+    { id: "chemistry", subject: "Chemistry", groupId: null, tutees: roster },
+  ];
+  state.readOnly = false;
+  mount("en");
+  const table = within(
+    screen.getByRole("table", { name: en.admin.pairings.title }),
+  );
+  const ids = () =>
+    table
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.id);
+  expect(ids()).toEqual(["physics", "biology", "chemistry"]);
+  const subject = table.getByRole("button", {
+    name: en.admin.pairings.colSubject,
+  });
+  fireEvent.click(subject);
+  expect(ids()).toEqual(["chemistry", "physics", "biology"]);
+  fireEvent.click(subject);
+  expect(ids()).toEqual(["physics", "biology", "chemistry"]);
+  fireEvent.click(subject);
+  expect(ids()).toEqual(["physics", "biology", "chemistry"]);
+  for (const [id, label] of [
+    ["physics", "Physics"],
+    ["biology", "Biology"],
+  ]) {
+    const row = within(document.getElementById(id!)!);
+    expect(
+      row.getByRole("button", {
+        name: `${en.admin.pairings.edit}: Synthetic tutor · ${label}`,
+      }),
+    ).toBeTruthy();
+    expect(
+      row.getByRole("button", { name: en.admin.pairings.delete }),
+    ).toBeTruthy();
+    expect(
+      row.getByRole("button", {
+        name: `${en.tablePatterns.details}: Synthetic tutor · ${label}`,
+      }),
+    ).toBeTruthy();
+  }
+  expect(state.mutate).not.toHaveBeenCalled();
 });
 
-it("does not reapply an already revealed arrival after a user filters its row out", () => {
-  const scroll = revealSpy();
-  const client = new QueryClient();
-  window.history.replaceState(null, "", "/admin/pairings#pairing");
-  const page = render(arrivalPage(client));
-  expect(scroll).toHaveBeenCalledOnce();
+it.each([
+  ["en", false],
+  ["zh", false],
+  ["en", true],
+  ["zh", true],
+] as const)(
+  "filters complete groups by schedule and room readiness (%s, read-only: %s)",
+  (locale, readOnly) => {
+    const assigned = { scheduleConfirmed: true, room: { name: "204" } };
+    state.readOnly = readOnly;
+    state.rows = [
+      { ...assigned, id: "assigned", subject: "Assigned", tutees: [] },
+      {
+        id: "no-room-needed",
+        subject: "No physical room",
+        roomMode: "NONE",
+        tutees: [],
+      },
+      {
+        ...assigned,
+        id: "awaiting",
+        subject: "Awaiting",
+        scheduleConfirmed: false,
+        tutees: [],
+      },
+      {
+        id: "roomless",
+        subject: "Room needed",
+        roomNeedsAssignment: true,
+        tutees: [],
+      },
+      ...savedGroupRows()
+        .slice(0, 2)
+        .map((row, index) => ({
+          ...row,
+          ...assigned,
+          id: `active-${index}`,
+          groupId: "active-group",
+          group: { primaryPairingId: "active-0" },
+        })),
+      ...savedGroupRows()
+        .slice(0, 2)
+        .map((row, index) => ({
+          ...row,
+          room: index === 0 ? assigned.room : null,
+          roomNeedsAssignment: index === 1,
+        })),
+      ...savedGroupRows()
+        .slice(0, 2)
+        .map((row, index) => ({
+          ...row,
+          ...assigned,
+          id: `schedule-${index}`,
+          groupId: "schedule-group",
+          group: { primaryPairingId: "schedule-0" },
+          scheduleConfirmed: index === 0,
+        })),
+    ];
+    mount(locale);
+    const messages = locale === "en" ? en : zh;
+    const ids = () =>
+      within(screen.getByRole("table", { name: messages.admin.pairings.title }))
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.id);
+    const all = [
+      "assigned",
+      "no-room-needed",
+      "awaiting",
+      "roomless",
+      "active-0",
+      "active-1",
+      "member-a",
+      "member-b",
+      "schedule-0",
+      "schedule-1",
+    ];
+    expect(ids()).toEqual(all);
+    for (const [label, expected] of [
+      [
+        messages.roomAllocation.active,
+        ["assigned", "no-room-needed", "active-0", "active-1"],
+      ],
+      [
+        messages.roomAllocation.pending,
+        [
+          "awaiting",
+          "roomless",
+          "member-a",
+          "member-b",
+          "schedule-0",
+          "schedule-1",
+        ],
+      ],
+      [
+        messages.roomAllocation.needsRoomReservations.replace("{count}", "2"),
+        ["roomless", "member-a", "member-b"],
+      ],
+      [messages.roomAllocation.all, all],
+    ] as const) {
+      const button = screen.getByRole("button", { name: label });
+      fireEvent.click(button);
+      expect(button.getAttribute("aria-pressed")).toBe("true");
+      expect(ids()).toEqual(expected);
+    }
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it("retains every saved member when the room filter matches only one member", () => {
+  state.rows = savedGroupRows();
+  state.rows[0]!.roomNeedsAssignment = true;
+  mount("en");
   fireEvent.click(screen.getByRole("button", { name: /Needs room/ }));
-  page.rerender(arrivalPage(client));
-  expect(document.getElementById("pairing")).toBeNull();
+  const first = document.getElementById("member-a")!;
+  const second = document.getElementById("member-b")!;
+  expect(first).toBeTruthy();
+  expect(second).toBeTruthy();
+  expect(first.closest("tbody")).toBe(second.closest("tbody"));
+  expect(document.getElementById("independent")).toBeNull();
   expect(
-    screen
-      .getByRole("button", { name: /Needs room/ })
-      .getAttribute("aria-pressed"),
-  ).toBe("true");
-  expect(scroll).toHaveBeenCalledOnce();
+    within(first).getByRole<HTMLTableCellElement>("cell", {
+      name: "Group Student",
+    }).rowSpan,
+  ).toBe(2);
+  expect(within(second).queryByText("Group Student")).toBeNull();
+  expect(state.mutate).not.toHaveBeenCalled();
 });
+
+it("shows divergent schedule and room facts on their own saved-group members", () => {
+  state.rows = savedGroupRows();
+  state.rows[1]!.dayOfWeek = 2;
+  state.rows[1]!.room = { name: "Repair Room" };
+  mount("en");
+  const first = document.getElementById("member-a")!;
+  const second = document.getElementById("member-b")!;
+  expect(first.closest("tbody")).toBe(second.closest("tbody"));
+  expect(
+    within(first).getByRole<HTMLTableCellElement>("cell", {
+      name: "Mon 15:30–16:30",
+    }).rowSpan,
+  ).toBe(1);
+  expect(
+    within(second).getByRole<HTMLTableCellElement>("cell", {
+      name: "Tue 15:30–16:30",
+    }).rowSpan,
+  ).toBe(1);
+  expect(within(second).getByText("Repair Room")).toBeTruthy();
+  expect(within(first).queryByText("Repair Room")).toBeNull();
+  fireEvent.click(
+    within(second).getByRole("button", {
+      name: `${en.tablePatterns.details}: Synthetic tutor · Mathematics`,
+    }),
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByText(en.pairingGroups.needsRepair),
+  ).toBeTruthy();
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("reveals a nonprimary saved-group member through its original notification anchor", () => {
+  state.rows = savedGroupRows("member-b");
+  const scroll = revealSpy();
+  window.history.replaceState(null, "", "/admin/pairings#member-a");
+  mount("en");
+  expect(document.activeElement).toBe(document.getElementById("member-a"));
+  expect(scroll).toHaveBeenCalledOnce();
+  expect(document.getElementById("member-a")!.closest("tbody")).toBe(
+    document.getElementById("member-b")!.closest("tbody"),
+  );
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it.each(["active", "pending", "needsRoom"] as const)(
+  "keeps a deliberate %s filter when an arrival is still waiting for its read",
+  (filter) => {
+    const scroll = revealSpy();
+    const client = new QueryClient();
+    state.rows = [
+      {
+        id: "pairing",
+        subject: "Target",
+        room: filter === "pending" ? { name: "204" } : null,
+        tutees: [],
+      },
+    ];
+    window.history.replaceState(null, "", "/admin/pairings#pairing");
+    state.pendingRead = true;
+    const page = render(arrivalPage(client));
+    const label =
+      filter === "needsRoom" ? /Needs room/ : en.roomAllocation[filter];
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    state.pendingRead = false;
+    page.rerender(arrivalPage(client));
+    expect(
+      screen.getByRole("button", { name: label }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(document.getElementById("pairing")).toBeNull();
+    expect(scroll).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["active", "pending", "needsRoom"] as const)(
+  "does not reapply an already revealed arrival after a user selects %s",
+  (filter) => {
+    const scroll = revealSpy();
+    const client = new QueryClient();
+    state.rows = [
+      {
+        id: "pairing",
+        subject: "Target",
+        room: filter === "pending" ? { name: "204" } : null,
+        tutees: [],
+      },
+    ];
+    window.history.replaceState(null, "", "/admin/pairings#pairing");
+    const page = render(arrivalPage(client));
+    expect(scroll).toHaveBeenCalledOnce();
+    const label =
+      filter === "needsRoom" ? /Needs room/ : en.roomAllocation[filter];
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    page.rerender(arrivalPage(client));
+    expect(document.getElementById("pairing")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: label }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(scroll).toHaveBeenCalledOnce();
+  },
+);

@@ -355,6 +355,7 @@ export const studentWorkflowRouter = createTRPCRouter({
     });
     return reviews.map((r) => ({
       id: r.id,
+      legacyTuteeId: r.legacyTuteeId,
       name: tutees.find((t) => t.id === r.legacyTuteeId)?.englishName ?? "—",
       kind: r.kind,
       reason: r.reason,

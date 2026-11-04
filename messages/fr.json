@@ -51,7 +51,7 @@
     "date": "Date",
     "start": "Début",
     "end": "Fin",
-    "durationHelp": "Durée prévue : 45 minutes. Modifier une heure ajuste l’autre. La durée réelle est saisie séparément.",
+    "durationHelp": "45 minutes prévues. Début et fin restent liés ; la présence réelle est enregistrée séparément.",
     "zone": "Fuseau horaire de l’école : {timeZone}",
     "extra": "Séance supplémentaire",
     "rescheduled": "Reprogrammée",
@@ -139,7 +139,14 @@
       "B": "Autre horaire du participant",
       "C": "Proposition finale",
       "GROUP": "Accord du groupe"
-    }
+    },
+    "includeAll": "Inclure tous les élèves de cette séance",
+    "allScopeHelp": "Tout le monde doit accepter la dernière proposition.",
+    "oneScopeHelp": "S’applique uniquement à l’élève sélectionné.",
+    "automaticRoom": "En présentiel — salle attribuée automatiquement",
+    "checkingLocation": "Vérification de l’heure et du lieu…",
+    "allocationFailed": "Impossible de confirmer l’heure et le lieu. Vérifiez la séance, essayez un autre horaire ou En ligne, puis vérifiez à nouveau.",
+    "roomReviewHelp": "La salle est revérifiée à l’envoi. Si elle est indisponible, vérifiez une nouvelle attribution."
   },
   "nextRecruitment": {
     "savedForTarget": "Ouverture enregistrée pour {name}.",
@@ -2290,7 +2297,8 @@
       "rosterCount": "Suivi de la liste des élèves ({count})",
       "interviewSection": "Entretiens",
       "meetingSection": "Réunions",
-      "qualificationSection": "Qualifications"
+      "qualificationSection": "Qualifications",
+      "compactHelp": "Consultez ici les tâches en attente. Chaque demande conserve sa vérification et son enregistrement."
     },
     "activate": {
       "title": "Confirmez votre disponibilité",
@@ -2554,6 +2562,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "Espace tuteur",
+      "schedule": "Planning",
+      "pairings": "Affectations",
+      "preferences": "Préférences",
+      "history": "Historique et heures"
     }
   },
   "public": {
@@ -3210,11 +3225,12 @@
     "policyScrollHint": "Faites défiler la politique jusqu’en bas pour pouvoir l’accepter.",
     "navigation": "Tutoring request workflow",
     "current": "Current Request",
-    "processed": "Processed",
+    "processed": "Clôturées",
+    "notFlaggedInvalid": "Non marquées comme invalides",
     "loading": "Loading requests…",
     "noActive": "You have no active confirmed request for this quarter. Check your email if you have just submitted.",
     "newRequest": "Submit a new request",
-    "noHistory": "No processed requests yet.",
+    "noHistory": "Aucune demande clôturée pour le moment.",
     "state": {
       "OPEN": "Open",
       "RECALLED": "Recalled",
@@ -3242,15 +3258,15 @@
     "saveAvailability": "Save availability",
     "participation": "Participation Changes",
     "abortHelp": "Because you have a tutor, leaving requires an application. Approval ends your participation and prevents any further applications this quarter.",
-    "recallHelp": "You can recall this unassigned request. It will move to Processed, and admins will be notified.",
+    "recallHelp": "Vous pouvez retirer cette demande sans attribution. Elle passera dans Clôturées et l’administration sera avertie.",
     "abortPending": "Your quarter-withdrawal application is awaiting admin review. Current assignments remain in place.",
     "applyAbort": "Apply to leave this quarter",
     "recall": "Recall request",
     "abortConsequences": "You are applying to leave the entire tutoring program for the current quarter. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this quarter. Admins and your tutors will be notified.",
-    "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
+    "recallConsequences": "Cette action retire immédiatement et définitivement votre demande sans attribution. Elle apparaîtra dans Clôturées avec le statut Retirée et l’administration sera avertie. Elle ne pourra pas être rouverte. Une nouvelle demande recevra une nouvelle date de dépôt et une nouvelle priorité.",
     "reason": "Reason",
     "boardTitle": "Tutee Request Workflow",
-    "boardHelp": "Match tutees in their original submission order, including unverified requests. Their seven-day verification deadline starts at the first assignment and never resets on resend or reassignment. Closed requests are retained as history.",
+    "boardHelp": "Toutes les sources d’inscription sont classées selon la date de dépôt initiale. Needs matching inclut les demandes partiellement attribuées ; Assigned signifie que chaque matière demandée dispose d’un tuteur. Les décisions en attente, y compris les recours contre une invalidation, apparaissent dans Needs review. Clôturées regroupe les demandes terminées ou refusées, les entrées invalides et les examens achevés. Retirer une marque d’invalidité replace une demande ouverte dans le groupe approprié. Les attributions, la priorité et les délais de vérification restent inchangés.",
     "matching": "Needs matching",
     "assigned": "Assigned",
     "reviews": "Needs review",
@@ -6825,7 +6841,9 @@
     "needsRoom": "Needs room",
     "awaiting": "Awaiting schedule",
     "all": "All pairings",
-    "filter": "Room allocation filter",
+    "active": "Actives",
+    "pending": "En attente",
+    "filter": "Filtrer les binômes",
     "retryAllocation": "Retry room allocation",
     "retryHelp": "Retry automatic allocation for this reservation. Members of an explicit combined group share the change; independent pairings are not moved.",
     "retryRefresh": "Retry refresh",

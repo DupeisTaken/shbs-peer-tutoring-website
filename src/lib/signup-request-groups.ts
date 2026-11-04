@@ -34,13 +34,16 @@ export function isCurrentManualSignup(
   );
 }
 
-/** Empty or partially assigned requests still need matching; terminal state wins. */
+/** Review work wins over the general Closed group. `processed` is retained as
+ * the stored view key; grouping never changes lifecycle state or assignments. */
 export function signupRequestGroup(
   state: string,
   subjects: readonly string[],
   assignedSubjects: readonly string[],
-): Exclude<RequestTab, "reviews"> {
-  if (state !== "OPEN") return "processed";
+  options: { invalid?: boolean; needsReview?: boolean } = {},
+): RequestTab {
+  if (options.needsReview) return "reviews";
+  if (state !== "OPEN" || options.invalid) return "processed";
   return subjects.length > 0 &&
     subjects.every((s) => assignedSubjects.includes(s))
     ? "assigned"

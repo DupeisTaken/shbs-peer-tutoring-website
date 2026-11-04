@@ -30,9 +30,13 @@ const state = vi.hoisted(() => ({
   split: vi.fn(),
   formalize: vi.fn(),
   retryNotice: vi.fn(),
+  previewLocation: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      sessionPlanning: { previewLocation: { fetch: state.previewLocation } },
+    }),
     sessionPlanning: {
       history: {
         useInfiniteQuery: () => ({
@@ -141,6 +145,13 @@ const sample = (): Agenda => ({
   },
 });
 beforeEach(() => {
+  state.previewLocation
+    .mockReset()
+    .mockImplementation(async (input: { online: boolean }) => ({
+      roomId: input.online ? null : "allocated",
+      roomName: input.online ? null : "B202",
+      online: input.online,
+    }));
   state.data = sample();
   state.error = null;
   state.historyError = null;
@@ -399,18 +410,19 @@ it("reviews scope and clocks before sending an extra, then preserves saved read 
   show();
   fireEvent.click(screen.getByRole("button", { name: messages.addExtra }));
   const dialog = screen.getByRole("dialog");
-  expect(
-    within(dialog).getByRole("radio", { name: messages.one }),
-  ).toBeTruthy();
+  expect(within(dialog).getByText("Remaining Learner")).toBeTruthy();
   fireEvent.change(within(dialog).getByLabelText(messages.end), {
     target: { value: "17:00" },
   });
   expect(
     within(dialog).getByLabelText<HTMLInputElement>(messages.start).value,
   ).toBe("16:15");
-  fireEvent.click(
-    within(dialog).getByRole("button", { name: messages.review }),
+  await act(async () =>
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: messages.review }),
+    ),
   );
+  expect(within(dialog).getByText(/B202/)).toBeTruthy();
   expect(state.propose).not.toHaveBeenCalled();
   state.refetch.mockRejectedValueOnce(new Error("Synthetic read failure"));
   await act(async () =>
@@ -424,6 +436,7 @@ it("reviews scope and clocks before sending an extra, then preserves saved read 
     expectedVersion: 7,
     kind: "EXTRA",
     startMin: 975,
+    roomId: "allocated",
   });
   expect(screen.getByText(messages.savedRefreshFailed)).toBeTruthy();
   await act(async () =>
@@ -441,6 +454,83 @@ it("conceals retained personal data after authoritative access loss", () => {
   );
   expect(screen.queryByText("Remaining Learner")).toBeNull();
   expect(screen.getByText(messages.denied)).toBeTruthy();
+});
+
+it("reviews only the selected learner and never sends when allocation fails", async () => {
+  state.data!.cohorts[0]!.startsAt = new Date("2099-01-01T07:00:00Z");
+  state.data!.cohorts[0]!.tutees.push({ id: "second", name: "Second Learner" });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: messages.addExtra }));
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.click(dialog.getByRole("checkbox", { name: messages.includeAll }));
+  fireEvent.change(dialog.getByLabelText(messages.learner), {
+    target: { value: "second" },
+  });
+  state.previewLocation.mockRejectedValueOnce(
+    new Error("Synthetic room shortage"),
+  );
+  await act(async () =>
+    fireEvent.click(dialog.getByRole("button", { name: messages.review })),
+  );
+  expect(dialog.getByText(messages.allocationFailed)).toBeTruthy();
+  expect(
+    dialog.queryByRole("button", { name: messages.sendProposal }),
+  ).toBeNull();
+  expect(state.propose).not.toHaveBeenCalled();
+  fireEvent.change(dialog.getByLabelText(messages.location), {
+    target: { value: "online" },
+  });
+  await act(async () =>
+    fireEvent.click(dialog.getByRole("button", { name: messages.review })),
+  );
+  expect(state.previewLocation).toHaveBeenLastCalledWith(
+    expect.objectContaining({ scope: "ONE", tuteeId: "second", online: true }),
+    { staleTime: 0 },
+  );
+  await act(async () =>
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.sendProposal }),
+    ),
+  );
+  expect(state.propose).toHaveBeenCalledWith(
+    expect.objectContaining({
+      scope: "ONE",
+      tuteeId: "second",
+      online: true,
+      roomId: null,
+    }),
+  );
+});
+
+it("admits one allocation preview while repeated Review clicks are pending", async () => {
+  state.data!.cohorts[0]!.startsAt = new Date("2099-01-01T07:00:00Z");
+  let finish!: (value: {
+    roomId: string;
+    roomName: string;
+    online: boolean;
+  }) => void;
+  state.previewLocation.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  show();
+  fireEvent.click(screen.getByRole("button", { name: messages.addExtra }));
+  const button = screen.getByRole("button", { name: messages.review });
+  act(() => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  });
+  expect(state.previewLocation).toHaveBeenCalledOnce();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Close editor" })
+      .disabled,
+  ).toBe(true);
+  await act(async () =>
+    finish({ roomId: "allocated", roomName: "B202", online: false }),
+  );
+  expect(screen.getByText(/B202/)).toBeTruthy();
 });
 it("requires explicit resume or discard when switching exact attendance contexts", () => {
   state.data!.cohorts.push({

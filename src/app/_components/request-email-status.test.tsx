@@ -252,3 +252,21 @@ it("conceals cached private appeal evidence after authoritative access revocatio
   expect(screen.queryByText(appeal.body)).toBeNull();
   expect(screen.getByText(en.requestEmail.denied)).toBeTruthy();
 });
+
+
+it("recovers a failed owning-queue refresh after a declined appeal without replaying the decision", async () => {
+  query.data = { ...receipt, requestAppeal: appeal };
+  const queueRefresh = vi.fn().mockRejectedValueOnce(new Error("Queue unavailable")).mockResolvedValue(undefined);
+  render(<NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai"><RequestEmailStatus source={{ kind: "signup", id: "legacy" }} canApply refreshSignal={false} onDecisionRefresh={queueRefresh} /></NextIntlClientProvider>);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Synthetic decline reason" } });
+  fireEvent.click(screen.getByRole("button", { name: en.requestEmail.decline }));
+  await screen.findByText(en.requestEmail.reviewReadFailed);
+  expect(mocks.decline).toHaveBeenCalledOnce();
+  expect(queueRefresh).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: en.requestEmail.decline }));
+  expect(mocks.decline).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: en.requestEmail.retryRead }));
+  await screen.findByText(en.requestEmail.declined);
+  expect(queueRefresh).toHaveBeenCalledTimes(2);
+  expect(mocks.decline).toHaveBeenCalledOnce();
+});

@@ -335,7 +335,7 @@ actions. Each list keeps its own page and navigation state.
 | Change an assigned subject   | Ask Admin/Head to review the assignment        | Owners cannot drop assigned choices; Admin/Head review assignment release and request edits together, retaining recorded sessions |
 | Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
 | Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
-| See the result               | **Current Request** and **Processed**     | Review state and assignment are shown separately                                                                         |
+| See the result               | **Current Request** and **Closed**     | Review state and assignment are shown separately                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
@@ -632,14 +632,21 @@ Combined pairings retain their subjects in the dated lesson: shared time and eac
 
 ### Plan and reschedule a dated session
 
-**My Pairings** keeps your recurring assignments visible. **My agenda** shows the
+The tutor workspace opens on **Schedule**. Switch locally to **Pairings**,
+**Preferences**, or **History & hours**; unfinished editors stay available when you
+return. **Pairings** holds recurring assignments. **My agenda** shows the
 current and next Monday–Sunday week in the school timezone; Sunday prepares the
 following window. Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept
 a schedule change.
 
 Tutees can suggest a time from their schedule. Tutors use **Reschedule Session**
-or **Add Extra Session**, choosing one tutee or all tutees. Editing start or end
+or **Add Extra Session**. Check **Include all tutees in this session**, or uncheck
+it and choose one tutee. For a single-person session, the person is shown directly.
+Choose **In person — room assigned automatically** or **Online**. Review checks
+availability and shows the assigned room before sending. Review does not reserve
+the room; if it becomes unavailable, edit and review again. The system never
+silently switches to Online or changes the reviewed room. Editing start or end
 keeps the planned duration at 45 minutes. A matching current tutee suggestion can
 be formalized directly; otherwise the affected party receives an email to respond.
 
@@ -686,7 +693,7 @@ Room intent remains separate. An automatic room shortage may save as **Needs roo
 but a fixed-room conflict or overlapping independent tutor block rejects the save.
 Grouping does not record attendance or change qualifications, ownership or rosters.
 
-My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. Management's Pairings table keeps subject-level rows and actions, with a common group reference and group details in the rightmost Actions column. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **View dated sessions** opens the agenda. Its **Record attendance** action selects that exact dated cohort and its captured subjects and students. Current planned attendance does not offer an arbitrary subject/group picker. Check actual attendance time and location before submitting; ask management to review historical subject corrections.
+My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. In management’s **Pairings** table, a saved group stays together when you sort or filter. Read across from each subject to its tutees’ names. The table shows a shared subject or identical tutee list once for the whole group, just as it does for a shared tutor, time or room. Use **Details** beside a subject for its group reference, status and combined roster. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **View dated sessions** opens the agenda. Its **Record attendance** action selects that exact dated cohort and its captured subjects and students. Current planned attendance does not offer an arbitrary subject/group picker. Check actual attendance time and location before submitting; ask management to review historical subject corrections.
 
 Existing groups that fail the coverage or schedule checks show **Needs repair**.
 Repair or split them before scheduling or recording combined attendance.
@@ -1237,7 +1244,9 @@ Coordinator approval proposals. Submitting or reviewing an appeal never clears t
 flag automatically. A clear or later reflag retires the old appeal link and retains
 the original request, appeal and review history.
 
-Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
+Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes valid empty or partially assigned requests; Assigned contains valid requests whose requested subjects all have tutors. Sources keep their original submission order. Pending decisions, including invalidity appeals, take precedence in Needs review. Closed groups closed or declined requests, invalid entries and completed review history. This is a general queue status, not a permanent-closure action: clearing an invalid flag returns an open request to matching or assigned without changing assignments, original priority or verification deadlines. Requests move automatically when refreshed; staff keep their selected tab. The validity filter initially shows all entries, so Closed includes invalid requests immediately. Its **Not flagged invalid** choice describes validity, not whether a request is still open.
+
+The older legacy **Decline** action still deletes eligible intake records, so those deleted entries cannot appear in Closed. Retaining that decision history is tracked separately in [#567](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/567).
 
 Self-service cards keep **Edit signup answers** last in the header action group,
 after the available invalidity and resend actions. Each **Release assignment**

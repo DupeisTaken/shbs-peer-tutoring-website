@@ -51,7 +51,7 @@
     "date": "Date",
     "start": "Start",
     "end": "End",
-    "durationHelp": "Planned duration: 45 minutes. Changing either time updates the other. Actual attendance duration is recorded separately.",
+    "durationHelp": "45 minutes planned. Start and end stay linked; actual attendance is recorded separately.",
     "zone": "School time zone: {timeZone}",
     "extra": "Extra session",
     "rescheduled": "Rescheduled",
@@ -139,7 +139,14 @@
       "B": "Tutee’s alternative",
       "C": "Final offer",
       "GROUP": "Group agreement"
-    }
+    },
+    "includeAll": "Include all tutees in this session",
+    "allScopeHelp": "Everyone must agree to the latest proposal.",
+    "oneScopeHelp": "Applies only to the selected tutee.",
+    "automaticRoom": "In person — room assigned automatically",
+    "checkingLocation": "Checking time and location…",
+    "allocationFailed": "Could not confirm this time and location. Check the current session, try another time or Online, then review again.",
+    "roomReviewHelp": "This room is checked again when you send. If unavailable, review a new assignment."
   },
   "nextRecruitment": {
     "savedForTarget": "Opening saved for {name}.",
@@ -2290,7 +2297,8 @@
       "rosterCount": "Roster follow-ups ({count})",
       "interviewSection": "Interviews",
       "meetingSection": "Meetings",
-      "qualificationSection": "Qualifications"
+      "qualificationSection": "Qualifications",
+      "compactHelp": "Review outstanding work here. Each request keeps its own review and save."
     },
     "activate": {
       "title": "Confirm Your Availability",
@@ -2554,6 +2562,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "Tutor workspace",
+      "schedule": "Schedule",
+      "pairings": "Pairings",
+      "preferences": "Preferences",
+      "history": "History & hours"
     }
   },
   "public": {
@@ -3210,11 +3225,12 @@
     "policyScrollHint": "Scroll to the bottom of the policy to enable agreement.",
     "navigation": "Tutoring request workflow",
     "current": "Current Request",
-    "processed": "Processed",
+    "processed": "Closed",
+    "notFlaggedInvalid": "Not flagged invalid",
     "loading": "Loading requests…",
     "noActive": "You have no active confirmed request for this quarter. Check your email if you have just submitted.",
     "newRequest": "Submit a new request",
-    "noHistory": "No processed requests yet.",
+    "noHistory": "No closed requests yet.",
     "state": {
       "OPEN": "Open",
       "RECALLED": "Recalled",
@@ -3242,15 +3258,15 @@
     "saveAvailability": "Save availability",
     "participation": "Participation Changes",
     "abortHelp": "Because you have a tutor, leaving requires an application. Approval ends your participation and prevents any further applications this quarter.",
-    "recallHelp": "You can recall this unassigned request. It will move to Processed, and admins will be notified.",
+    "recallHelp": "You can recall this unassigned request. It will move to Closed, and admins will be notified.",
     "abortPending": "Your quarter-withdrawal application is awaiting admin review. Current assignments remain in place.",
     "applyAbort": "Request withdrawal from this quarter",
     "recall": "Recall request",
     "abortConsequences": "You are applying to leave the entire tutoring program for the current quarter. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this quarter. Admins and your tutors will be notified.",
-    "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
+    "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Closed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
     "reason": "Reason",
     "boardTitle": "Tutee Request Workflow",
-    "boardHelp": "All signup sources share these tabs and counts, ordered by original submission time. Needs matching includes partially assigned requests; Assigned means every requested subject has a tutor. Tutee account verification deadlines remain fixed from the first assignment. Closed requests stay in Processed.",
+    "boardHelp": "All signup sources share these tabs and counts, ordered by original submission time. Needs matching includes partially assigned requests; Assigned means every requested subject has a tutor. Pending decisions, including invalidity appeals, move to Needs review. Closed includes closed or declined requests, invalid entries and completed reviews. Clearing an invalid flag returns an open request to its matching or assigned group. Grouping does not change assignments, priority or verification deadlines.",
     "matching": "Needs matching",
     "assigned": "Assigned",
     "reviews": "Needs review",
@@ -6825,7 +6841,9 @@
     "needsRoom": "Needs room",
     "awaiting": "Awaiting schedule",
     "all": "All pairings",
-    "filter": "Room allocation filter",
+    "active": "Active",
+    "pending": "Pending",
+    "filter": "Pairing filter",
     "retryAllocation": "Retry room allocation",
     "retryHelp": "Retry automatic allocation for this reservation. Members of an explicit combined group share the change; independent pairings are not moved.",
     "retryRefresh": "Retry refresh",

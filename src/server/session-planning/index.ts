@@ -307,7 +307,10 @@ async function loadCohort(tx: TransactionDb, id: string) {
 
 /** Optional reminders read published commitments through the same source and
  * ownership fences as scheduling. This never publishes, consents or records attendance. */
-export async function readCurrentSessionReminderCohort(db: DomainDb, id: string) {
+export async function readCurrentSessionReminderCohort(
+  db: DomainDb,
+  id: string,
+) {
   return inTransaction(db, async (tx) => {
     await lockPlanningEntry(tx);
     const cohort = await tx.sessionPlanCohort.findUnique({
@@ -737,6 +740,7 @@ async function validateTarget(
   computation?: PlanningComputation,
   sharingSource = false,
   publication?: PublicationValidationSnapshot,
+  previewKind?: "RESCHEDULE" | "EXTRA",
 ) {
   let window: ReturnType<typeof plannedWindow>;
   try {
@@ -775,7 +779,9 @@ async function validateTarget(
         })
       : null;
   const reusablePlanId =
-    currentRequest?.kind === "EXTRA" ? sharedExtra?.id : plan.id;
+    (currentRequest?.kind ?? previewKind) === "EXTRA"
+      ? sharedExtra?.id
+      : plan.id;
   // Only initial publication supplies a snapshot: its new cohort UUID has not
   // been inserted, so it cannot already own participants or a pending request.
   const sourceRoster = publication
@@ -785,7 +791,7 @@ async function validateTarget(
         select: { tuteeId: true },
       });
   const mayReleaseSource =
-    currentRequest?.kind !== "EXTRA" &&
+    (currentRequest?.kind ?? previewKind) !== "EXTRA" &&
     // ALL captures its request's original audience. A later continuation can
     // leave someone at the source, so only actual roster coverage vacates it.
     // Initial publication validates a synthetic source without participants.
@@ -2166,6 +2172,152 @@ async function runSessionPlanningSweep(
       await finishSchedulingInvalidationBatch(tx);
     });
   return candidates.length;
+}
+
+export type SessionLocationPreview = PlanningTime & {
+  mode: "propose" | "suggest" | "alternative";
+  cohortId: string;
+  expectedVersion: number;
+  scope: "ONE" | "ALL";
+  tuteeId?: string;
+  kind: "RESCHEDULE" | "EXTRA";
+  requestId?: string;
+  requestVersion?: number;
+  offerId?: string;
+};
+
+/** Preview reserves nothing. The editor submits this exact room through the
+ * existing locked validator; a race must fail, never silently replace consent. */
+export async function previewSessionLocation(
+  db: DomainDb,
+  actor: Actor,
+  input: SessionLocationPreview,
+) {
+  return inTransaction(db, async (tx) => {
+    await lockPlanningEntry(tx);
+    await actorAccount(tx, actor);
+    const now = new Date();
+    const cohort = await loadCohort(tx, input.cohortId);
+    let scope = input.scope;
+    let kind = input.kind;
+    let requestId: string | undefined;
+    let people: string[];
+    const roster = cohort.plan.participants
+      .filter((row) => row.cohortId === cohort.id && row.status === "SCHEDULED")
+      .map((row) => row.tuteeId);
+    if (input.mode === "alternative") {
+      if (!input.requestId)
+        return fail("Select the current scheduling request.");
+      const request = await reloadRequest(tx, input.requestId);
+      const key = await respondingActor(tx, actor, request);
+      const offer = request.offers.find(
+        (row) => row.id === request.currentOfferId,
+      );
+      if (
+        request.cohortId !== cohort.id ||
+        request.status !== "PENDING" ||
+        request.version !== input.requestVersion ||
+        offer?.id !== input.offerId ||
+        !offer ||
+        offer.cutoffAt <= now ||
+        !offer.responses.some(
+          (row) =>
+            row.actorKey === key &&
+            row.actorUserId === actor.id &&
+            row.state === "PENDING",
+        ) ||
+        (request.scope === "ONE" && request.stage >= 3) ||
+        (request.scope === "ALL" && ids(request.rejectionKeys).includes(key))
+      )
+        return fail(
+          "This offer is no longer available for a counteroffer.",
+          "CONFLICT",
+        );
+      people = ids(request.participantIds);
+      scope = request.scope === "ONE" ? "ONE" : "ALL";
+      kind = request.kind === "EXTRA" ? "EXTRA" : "RESCHEDULE";
+      requestId = request.id;
+    } else if (input.mode === "suggest") {
+      const owned = await ownedStudentIds(tx, actor.id);
+      const person = roster.find((id) => owned.includes(id));
+      if (!person)
+        return fail(
+          "Only this session's tutee can suggest a change.",
+          "FORBIDDEN",
+        );
+      people = [person];
+      scope = "ONE";
+      kind = "RESCHEDULE";
+    } else {
+      await requireTutor(tx, actor, cohort.plan.tutorId);
+      people =
+        scope === "ALL"
+          ? roster
+          : input.tuteeId && roster.includes(input.tuteeId)
+            ? [input.tuteeId]
+            : [];
+      if (!people.length)
+        return fail("Select a current learner in this dated session.");
+      const pending = await tx.sessionPlanningRequest.findMany({
+        where: {
+          planId: cohort.planId,
+          status: { in: ["PENDING", "SPLIT_REQUESTED"] },
+        },
+      });
+      if (
+        pending.some((row) =>
+          ids(row.participantIds).some((id) => people.includes(id)),
+        )
+      )
+        return fail(
+          "A scheduling request is already open for these learners.",
+          "CONFLICT",
+        );
+    }
+    await ensureWritable(tx, cohort, input.expectedVersion, now);
+    const validate = (roomId: string | null) =>
+      validateTarget(
+        tx,
+        cohort.plan,
+        { ...input, roomId },
+        people,
+        cohort,
+        scope,
+        requestId,
+        now,
+        undefined,
+        false,
+        undefined,
+        kind,
+      );
+    if (input.online) {
+      await validate(null);
+      return { roomId: null, roomName: null, online: true };
+    }
+    const rooms = await tx.room.findMany({
+      orderBy: [{ programOrder: "asc" }, { name: "asc" }, { id: "asc" }],
+      select: { id: true, name: true },
+    });
+    // Retaining a usable source/suggestion room avoids needless location changes.
+    const preferred = input.roomId ?? cohort.roomId;
+    const candidates = [
+      ...rooms.filter((room) => room.id === preferred),
+      ...rooms.filter((room) => room.id !== preferred),
+    ];
+    for (const room of candidates) {
+      try {
+        await validate(room.id);
+        return { roomId: room.id, roomName: room.name, online: false };
+      } catch (error) {
+        if (!(error instanceof TRPCError) || error.code !== "CONFLICT")
+          throw error;
+      }
+    }
+    return fail(
+      "No room is available for this session. Choose another time or Online.",
+      "CONFLICT",
+    );
+  });
 }
 
 export async function suggestSessionTime(

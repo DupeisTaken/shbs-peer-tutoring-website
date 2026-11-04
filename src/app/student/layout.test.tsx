@@ -540,24 +540,10 @@ it("keeps archived pure-tutor history accessible without management access", asy
   mocks.user.mockResolvedValue({ emailVerifiedAt: new Date(), role: "TUTOR" });
   render(await TutorLayout({ children: <p>Tutor history</p> }));
   expect(screen.getByText("Tutor history")).toBeTruthy();
-  const navigation = screen.getByRole("navigation", {
-    name: "tutor.navigation.label",
-  });
+  expect(document.querySelector('header a[href="/dashboard"]')).toBeTruthy();
   expect(
-    within(navigation)
-      .getByRole("link", { name: "tutor.navigation.dashboard" })
-      .getAttribute("href"),
-  ).toBe("/dashboard");
-  expect(
-    within(navigation)
-      .getByRole("link", { name: "tutor.navigation.dashboard" })
-      .getAttribute("aria-current"),
-  ).toBe("page");
-  expect(
-    within(navigation)
-      .getByRole("link", { name: "tutor.navigation.schedule" })
-      .getAttribute("href"),
-  ).toBe("/schedule");
+    screen.queryByRole("navigation", { name: "tutor.navigation.label" }),
+  ).toBeNull();
   expect(
     screen.queryByRole("link", {
       name: "components.userMenu.backToManagement",
