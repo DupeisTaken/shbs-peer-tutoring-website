@@ -22,9 +22,11 @@ permissions and source-owned writes.
 compact outstanding tasks above local panels. [Schedule](<../../src/app/(tutor)/_components/tutor-schedule.tsx>)
 uses a compact action row for extra sessions, interviews and meetings instead of
 four repeated overview cards. Feature-disabled appointment sources are not queried
-or shown. Chair work remains independently owned beside the agenda; ordinary
-panelists open their own reader and voting workflow. Preferences groups availability,
-workload, willingness and qualifications without combining their saves. History
+or shown. A 24 px section gap separates the complete action and notice block from
+the agenda, including when actions wrap on narrow screens. Chair work remains
+independently owned beside the agenda; ordinary panelists open their own reader
+and voting workflow. Preferences groups availability, workload, willingness and
+qualifications without combining their saves. History
 reuses the authorized personal tutor-history reader; existing historical access at
 `/history` remains available independently of current participation policy.
 
