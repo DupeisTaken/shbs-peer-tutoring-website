@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import TutorDashboard from "./page";
+import messages from "../../../../messages/en.json";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -31,9 +32,14 @@ vi.mock("next/navigation", () => ({
     throw new Error(`redirect:${path}`);
   },
 }));
-vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => key,
-}));
+vi.mock("next-intl/server", async () => {
+  const { createTranslator } = await import("next-intl");
+  const { default: catalog } = await import("../../../../messages/en.json");
+  return {
+    getTranslations: async () =>
+      createTranslator({ locale: "en", messages: catalog }),
+  };
+});
 vi.mock("~/app/_components/school-departure", () => ({
   DepartureBanner: () => null,
 }));
@@ -175,5 +181,89 @@ it.each([
     await expect(TutorDashboard()).rejects.toThrow(`redirect:${destination}`);
     expect(mocks.me).not.toHaveBeenCalled();
     expect(mocks.rooms).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  { total: 0, earned: 0, extras: 0, punishments: 0 },
+  { total: 13.8, earned: 11, extras: 2.8, punishments: 0 },
+  { total: 10.3, earned: 11, extras: 2.8, punishments: 3.5 },
+  { total: -1.5, earned: 0, extras: 0.5, punishments: 2 },
+])(
+  "shows the supplied service-hours total and separate breakdown for %j",
+  async (hours) => {
+    mocks.features.mockResolvedValue({ SERVICE_HOURS: true });
+    mocks.total.mockResolvedValue({
+      ...hours,
+      periodLabel: "Synthetic quarter",
+    });
+    render(await TutorDashboard());
+
+    const summary = within(
+      screen.getByRole("region", { name: messages.dashboard.hours.title }),
+    );
+    expect(summary.getByText("Synthetic quarter")).toBeTruthy();
+    expect(
+      summary.getByText(
+        (_, element) =>
+          element?.textContent === `${hours.total.toFixed(1)} h` &&
+          ![...element.children].some(
+            (child) => child.textContent === `${hours.total.toFixed(1)} h`,
+          ),
+      ),
+    ).toBeTruthy();
+    const breakdown = within(summary.getByRole("list"));
+    expect(
+      breakdown.getByText(`${hours.earned.toFixed(1)} Earned`),
+    ).toBeTruthy();
+    expect(!!breakdown.queryByText(`+ ${hours.extras.toFixed(1)} Extras`)).toBe(
+      hours.extras > 0,
+    );
+    expect(
+      !!breakdown.queryByText(`− ${hours.punishments.toFixed(1)} Penalties`),
+    ).toBe(hours.punishments > 0);
+    expect(breakdown.getAllByRole("listitem")).toHaveLength(
+      1 + Number(hours.extras > 0) + Number(hours.punishments > 0),
+    );
+  },
+);
+
+it("keeps zero hours visible without inventing a missing reporting period", async () => {
+  mocks.features.mockResolvedValue({ SERVICE_HOURS: true });
+  mocks.total.mockResolvedValue({
+    periodLabel: null,
+    total: 0,
+    earned: 0,
+    extras: 0,
+    punishments: 0,
+  });
+  render(await TutorDashboard());
+  const summary = screen.getByRole("region", {
+    name: messages.dashboard.hours.title,
+  });
+  expect(within(summary).getByText("0.0 Earned")).toBeTruthy();
+  expect(summary.textContent).not.toMatch(/Synthetic quarter|null|undefined|·/);
+});
+
+it.each([
+  { service: false, crew: false, member: true },
+  { service: true, crew: false, member: true },
+  { service: false, crew: true, member: true },
+  { service: true, crew: true, member: false },
+  { service: true, crew: true, member: true },
+])(
+  "keeps service and Crew summaries independently gated for %j",
+  async ({ service, crew, member }) => {
+    mocks.features.mockResolvedValue({ SERVICE_HOURS: service, CREW: crew });
+    mocks.crew.mockResolvedValue({ isCrew: member, hours: 4.5, patrols: 9 });
+    render(await TutorDashboard());
+    expect(
+      !!screen.queryByRole("region", { name: messages.dashboard.hours.title }),
+    ).toBe(service);
+    expect(!!screen.queryByText(messages.tutor.dashboard.crew.title)).toBe(
+      crew && member,
+    );
+    expect(!!screen.queryByText("9 patrols")).toBe(crew && member);
+    expect(!!screen.queryByText("4.5", { exact: false })).toBe(crew && member);
   },
 );

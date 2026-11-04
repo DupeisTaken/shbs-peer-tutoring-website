@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
@@ -29,6 +30,7 @@ const state = vi.hoisted(() => ({
   removalPending: false,
   confirmed: true,
   savedGroup: false,
+  sameSubject: false,
   incompleteGroup: false,
   copiedConflict: false,
   otherTerm: false,
@@ -144,7 +146,8 @@ vi.mock("~/trpc/react", () => ({
               roomMode: "AUTO",
               roomNeedsAssignment: false,
               roomVersion: 0,
-              subject: state.savedGroup ? "Physics" : "Maths",
+              subject:
+                state.savedGroup && !state.sameSubject ? "Physics" : "Maths",
               scheduleConfirmed: true,
               dayOfWeek: state.savedGroup ? 1 : 2,
               startMin: 900,
@@ -233,6 +236,7 @@ afterEach(() => {
   state.removalPending = false;
   state.confirmed = true;
   state.savedGroup = false;
+  state.sameSubject = false;
   state.incompleteGroup = false;
   state.copiedConflict = false;
   state.otherTerm = false;
@@ -668,6 +672,56 @@ it("keeps attendance entry on exact dated sessions rather than pairing merge con
     screen.queryByRole("button", { name: messages.pairingGroups.record }),
   ).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
+});
+
+it.each(["en", "zh"] as const)(
+  "keeps a grouped summary's schedule, room and distinct students readable in %s",
+  (locale) => {
+    state.savedGroup = true;
+    state.memberTuteeIds = ["tutee", "second"];
+    render(element(true, locale));
+    const roster = within(
+      screen.getByRole("list", {
+        name: catalogs[locale].pairingGroups.combinedRoster,
+      }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Maths + Physics" }),
+    ).toBeTruthy();
+    expect(screen.getByText("A101")).toBeTruthy();
+    expect(
+      screen.getByText(catalogs[locale].roomAllocation.room, {
+        selector: "dt",
+      }),
+    ).toBeTruthy();
+    expect(roster.getAllByRole("listitem")).toHaveLength(2);
+    expect(roster.getAllByText("Sample Learner")).toHaveLength(1);
+    expect(roster.getAllByText("Maths, Physics")).toHaveLength(2);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(state.setSlot).not.toHaveBeenCalled();
+  },
+);
+
+it("names a single shared subject once and retains assignment controls behind the disclosure", () => {
+  state.savedGroup = true;
+  state.sameSubject = true;
+  state.memberTuteeIds = ["second"];
+  render(element(false));
+  expect(screen.getAllByText("Maths")).toHaveLength(1);
+  expect(
+    screen.queryByRole("link", { name: messages.sessionPlanning.viewSessions }),
+  ).toBeNull();
+  const details = screen
+    .getByText(messages.pairingGroups.memberDetails)
+    .closest("details")!;
+  details.open = true;
+  fireEvent(details, new Event("toggle"));
+  expect(screen.getAllByText("Sample Learner")).toHaveLength(2);
+  expect(screen.queryByRole("combobox")).toBeNull();
+  details.open = false;
+  fireEvent(details, new Event("toggle"));
+  expect(details.querySelector("ul")).toBeTruthy();
+  expect(state.setSlot).not.toHaveBeenCalled();
 });
 
 it("conceals cached Details and forgets its drafts after authoritative denial until fresh recovery", () => {

@@ -67,40 +67,67 @@ export default async function TutorDashboard() {
             </h1>
             <p className="muted mt-1">{t("dashboard.subtitle")}</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end lg:justify-end">
+          <div className="grid w-full min-w-0 gap-3 sm:flex sm:w-auto sm:flex-wrap">
             {features.SERVICE_HOURS && (
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-right">
-                <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-                  {t("dashboard.hours.title")}
-                  {total.periodLabel ? ` · ${total.periodLabel}` : ""}
+              <section
+                aria-label={t("dashboard.hours.title")}
+                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 sm:w-72 sm:max-w-full"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-slate-600">
+                  <h2 className="font-semibold">
+                    {t("dashboard.hours.title")}
+                  </h2>
+                  {total.periodLabel && <p>{total.periodLabel}</p>}
+                </div>
+                <p className="mt-2 text-3xl leading-tight font-semibold tracking-tight text-slate-900 tabular-nums">
+                  {total.total.toFixed(1)}{" "}
+                  <span className="text-base font-medium text-slate-600">
+                    h
+                  </span>
                 </p>
-                <p className="text-xl font-bold text-slate-900">
-                  {total.total.toFixed(1)} h
-                </p>
-                <p className="muted">
-                  {t("tutor.dashboard.hours.earned", {
-                    earned: total.earned.toFixed(1),
-                  })}
-                  {total.extras > 0 &&
-                    ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
-                  {total.punishments > 0 &&
-                    ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
-                </p>
-              </div>
+                {/* Separate terms wrap independently without changing the server's total. */}
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-xs text-slate-600 tabular-nums">
+                  <li>
+                    {t("tutor.dashboard.hours.earned", {
+                      earned: total.earned.toFixed(1),
+                    })}
+                  </li>
+                  {total.extras > 0 && (
+                    <li>
+                      {t("tutor.dashboard.hours.extra", {
+                        extra: total.extras.toFixed(1),
+                      })}
+                    </li>
+                  )}
+                  {total.punishments > 0 && (
+                    <li>
+                      {t("tutor.dashboard.hours.penalty", {
+                        penalty: total.punishments.toFixed(1),
+                      })}
+                    </li>
+                  )}
+                </ul>
+              </section>
             )}
             {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
             {features.CREW && crew.isCrew && (
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-right">
-                <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+              <section
+                aria-label={t("tutor.dashboard.crew.title")}
+                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4"
+              >
+                <h2 className="text-xs font-semibold text-slate-600">
                   {t("tutor.dashboard.crew.title")}
+                </h2>
+                <p className="mt-2 text-3xl leading-tight font-semibold tracking-tight text-slate-900 tabular-nums">
+                  {crew.hours.toFixed(1)}{" "}
+                  <span className="text-base font-medium text-slate-600">
+                    h
+                  </span>
                 </p>
-                <p className="text-xl font-bold text-slate-900">
-                  {crew.hours.toFixed(1)} h
-                </p>
-                <p className="muted">
+                <p className="mt-3 border-t border-slate-100 pt-2 text-xs text-slate-600">
                   {t("tutor.dashboard.crew.patrols", { count: crew.patrols })}
                 </p>
-              </div>
+              </section>
             )}
           </div>
         </div>
