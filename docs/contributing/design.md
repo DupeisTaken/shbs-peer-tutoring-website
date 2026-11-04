@@ -157,6 +157,9 @@ navigation and retained assignment controls in the summary footer. Dashboard hou
 summaries separate the reporting period, primary total and wrapping breakdown;
 Crew credit remains distinct from tutoring credit. Align the hours labels, period,
 totals and wrapping breakdown to the right edge of their header summary cards.
+Use a bold 36 px total with the hour unit in the same size, weight and color,
+14 px breakdown text, and compact 12 px uppercase headings. This preserves the
+legacy summary's readable numeric emphasis within the current card composition.
 These feature-local compositions do not change scheduling, room intent,
 calculation or save ownership.
 

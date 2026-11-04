@@ -73,20 +73,19 @@ export default async function TutorDashboard() {
                 aria-label={t("dashboard.hours.title")}
                 className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right sm:w-72 sm:max-w-full"
               >
-                <div className="space-y-1 text-xs text-slate-600">
-                  <h2 className="font-semibold">
+                <div className="space-y-1 text-xs leading-4 text-slate-600">
+                  <h2 className="font-medium tracking-wide uppercase">
                     {t("dashboard.hours.title")}
                   </h2>
-                  {total.periodLabel && <p>{total.periodLabel}</p>}
+                  {total.periodLabel && (
+                    <p className="break-words">{total.periodLabel}</p>
+                  )}
                 </div>
-                <p className="mt-2 text-3xl leading-tight font-semibold tracking-tight text-slate-900 tabular-nums">
-                  {total.total.toFixed(1)}{" "}
-                  <span className="text-base font-medium text-slate-600">
-                    h
-                  </span>
+                <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
+                  {total.total.toFixed(1)} <span>h</span>
                 </p>
                 {/* Separate terms wrap independently without changing the server's total. */}
-                <ul className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-xs text-slate-600 tabular-nums">
+                <ul className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600 tabular-nums">
                   <li>
                     {t("tutor.dashboard.hours.earned", {
                       earned: total.earned.toFixed(1),
@@ -115,16 +114,13 @@ export default async function TutorDashboard() {
                 aria-label={t("tutor.dashboard.crew.title")}
                 className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right"
               >
-                <h2 className="text-xs font-semibold text-slate-600">
+                <h2 className="text-xs leading-4 font-medium tracking-wide text-slate-600 uppercase">
                   {t("tutor.dashboard.crew.title")}
                 </h2>
-                <p className="mt-2 text-3xl leading-tight font-semibold tracking-tight text-slate-900 tabular-nums">
-                  {crew.hours.toFixed(1)}{" "}
-                  <span className="text-base font-medium text-slate-600">
-                    h
-                  </span>
+                <p className="mt-2 text-4xl leading-none font-bold tracking-tight text-slate-900 tabular-nums">
+                  {crew.hours.toFixed(1)} <span>h</span>
                 </p>
-                <p className="mt-3 border-t border-slate-100 pt-2 text-xs text-slate-600">
+                <p className="mt-3 border-t border-slate-100 pt-2 text-sm leading-5 text-slate-600">
                   {t("tutor.dashboard.crew.patrols", { count: crew.patrols })}
                 </p>
               </section>
