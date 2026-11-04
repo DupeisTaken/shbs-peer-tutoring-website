@@ -1683,7 +1683,7 @@ Coordinator review approves automatic-allocation intent; the room is chosen from
 
 The browser's creation draft carries a UUID through edits and failed requests until an explicit new draft/reset. A committed creation stores a requester-scoped receipt: the same semantic payload returns its existing pairing without repeating allocation or shortage notices. A changed committed payload or a retry after deletion conflicts rather than creating another record. Approval replay retains the original requester's identity when matching this receipt. Receipt rows retain deletion tombstones independently of Pairing foreign keys. Older clients and proposals without a key remain compatible but do not gain response-loss replay protection. Existing pairing edits use room-version snapshots; roster changes also invalidate them.
 
-**Auto-assign rooms** defaults ON immediately when no setting exists. OFF and later re-enablement are staged until program refresh, and a pending change can be cancelled. Disabling automation retains existing reservations, manual scheduling, conflict validation and schedule readers. Feature changes never implicitly reassign existing pairings.
+**Auto-assign rooms** defaults ON when no setting exists. Saved ON/OFF values override that default; existing pending selections remain staged until program refresh, and a pending change can be cancelled. Disabling automation retains existing reservations, manual scheduling, conflict validation and schedule readers. Feature changes never implicitly reassign existing pairings.
 
 Extend [room-allocation.ts](../../src/server/room-allocation.ts) for reservation-unit
 selection/persistence and catalog cohorts; reuse [pairing-creation.ts](../../src/server/pairing-creation.ts)

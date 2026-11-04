@@ -1204,7 +1204,6 @@
           "EMAIL_2FA": "Email 2FA",
           "AUTO_ASSIGN_ROOMS": "Auto-assign rooms"
         },
-        "autoRoomsNote": "On immediately when deployed. Changes apply at the next program refresh; existing bookings are retained. Switch back to the current state to cancel a pending change.",
         "retryRefresh": "Retry refresh",
         "savedRefreshFailed": "The setting was saved, but the latest effective and pending states could not be loaded. Retry refresh without submitting again.",
         "readFailed": "Settings could not be refreshed. Previously loaded values remain visible."

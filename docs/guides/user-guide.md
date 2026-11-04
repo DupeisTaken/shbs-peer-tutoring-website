@@ -1336,7 +1336,8 @@ reload the saved record or explicitly start **New Pairing**; the retry will not
 silently create another reservation. Deleting the original pairing does not
 make an old retry create it again.
 
-Auto-assign rooms is initially On in **Program Settings → Optional Features**.
+Auto-assign rooms defaults to On in **Program Settings → Optional Features** when
+no setting has been saved. Existing saved choices and pending selections are preserved.
 Turning it off or back on takes effect at the next program refresh; switching
 back to the effective value cancels the pending change. Existing bookings are
 retained. Read the [room and period rules](program-configuration.md#schedule-rooms-and-periods)
