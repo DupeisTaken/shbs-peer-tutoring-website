@@ -1248,6 +1248,12 @@ Signup Requests includes self-service and **Staff-entered** requests in the same
 
 The older legacy **Decline** action still deletes eligible intake records, so those deleted entries cannot appear in Closed. Retaining that decision history is tracked separately in [#567](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/567).
 
+Requests in each selected queue have consecutive numbers across signup sources.
+Use the arrow beside a request to collapse or expand its details; the summary and
+header actions stay visible. Assigned requests start collapsed. Reopening retains
+in-progress tutor selections, and newly reported assignment errors or refresh
+recovery reopen the details so follow-up actions remain reachable.
+
 Self-service cards keep **Edit signup answers** last in the header action group,
 after the available invalidity and resend actions. Each **Release assignment**
 action sits beside its subject and tutor, including assignments retained after

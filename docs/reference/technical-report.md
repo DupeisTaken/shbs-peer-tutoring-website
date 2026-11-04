@@ -457,6 +457,14 @@ or reasons. Uncertain current academics use one **Review Needed** indicator;
 historical enrollment originals, correction overlays and reference years retain
 their existing precedence and detail evidence.
 
+`StudentRequestBoard` assigns consecutive display numbers after merging, filtering
+and priority-sorting the selected queue, passing each ordinal to both signup-source
+renderers. These numbers describe the current visible queue, not persistent record
+IDs. Self-service disclosures retain their mounted assignment controllers and
+drafts while hidden. Fulfilled cards close initially and once on fulfillment;
+deliberate reopening survives later refreshes. New assignment feedback reopens the
+details so accepted-write read recovery cannot become hidden by auto-collapse.
+
 Self-service survey request cards show a green **Email verified** or amber
 **Email pending** badge beside the signup source. The badge uses the submission's
 confirmation timestamp, independently of invalidity and workflow state; it must
