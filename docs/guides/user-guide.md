@@ -751,6 +751,9 @@ Read addressed announcements and acknowledge them when prompted. Review session 
 
 ## Crew
 
+Management's **Issued Codes** list shows each invitation code beside the applicant's
+name and expiry, with a compact code-only badge.
+
 Apply at `/crew-signup` and verify the emailed code. Verification sends the application for staff review; it creates no login or crew membership. An application under review keeps its original answers when retried. Contact the team to correct them.
 
 To check an application, enter its email on the same page and verify a fresh mailbox code. Pending and rejected applications show their status without an invitation. Staff approval remains required. An approved application with an available invitation opens the shared receipt popup: copy the code, optionally email it, or continue to `/register-account` with application details prefilled. A new account creates missing credentials; an existing account reviews the approved Crew addition while keeping its password, identity and other access. Close and reopen the receipt without repeating that mailbox check. If the approval's invitation was revoked, expired or already used, follow the displayed guidance or contact the team; checking status never grants membership. Resending or editing the email requires a new verification code.
