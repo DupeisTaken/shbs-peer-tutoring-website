@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchStreamLink, loggerLink, TRPCClientError } from "@trpc/client";
+import { httpBatchStreamLink, TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import {
@@ -21,6 +21,7 @@ import { TRPC_BATCH_OPTIONS } from "~/lib/trpc-batch";
 // into the client bundle.
 import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
+import { createClientLoggerLink } from "./client-logger";
 import { ApprovalNotice } from "~/app/_components/approval-notice";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import {
@@ -231,11 +232,7 @@ function IdentityQueryProvider(props: {
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
-        loggerLink({
-          enabled: (op) =>
-            process.env.NODE_ENV === "development" ||
-            (op.direction === "down" && op.result instanceof Error),
-        }),
+        createClientLoggerLink(),
         httpBatchStreamLink({
           ...TRPC_BATCH_OPTIONS,
           transformer: SuperJSON,

@@ -705,7 +705,13 @@ attendance; it does not merge recurring plans.
 
 Reopen **Combine / split pairings** to add or untick members, or choose **Split this group**. Each remaining group needs at least two members. Assignments leaving a group keep their subject, students and assigned room, but return to **Awaiting schedule** with no catalog slot until a separate schedule is chosen. Changing a member's tutor, schedule or room choice through the management assignment editor releases that member from its old group. The separate room-change and room-retry actions apply to the complete group's reservation; editing the shared catalog slot also retains the group. Group changes remain available after attendance submission and affect future plans only. Previous session records, attendance, ratings, room and credited hours remain unchanged.
 
-Opening or cancelling a group review writes nothing. Failed saves retain the draft; **Reload saved groups** explicitly replaces it after a successful read when plans or rosters changed. If saving succeeded but catalogue refresh failed, **Retry** only reloads the saved data. An attendance draft already in progress keeps its chosen block snapshot when a saved group changes in the background; choose a new block or start another entry to use the latest plan.
+Opening or cancelling a group review writes nothing. Failed saves retain the draft
+and show the reason inside the editor. Correct an invalid selection with **Back**;
+when plans or rosters changed, **Reload saved groups** explicitly replaces the draft
+after a successful read. If saving succeeded but catalogue refresh failed, **Retry**
+only reloads the saved data. An attendance draft already in progress keeps its
+chosen block snapshot when a saved group changes in the background; choose a new
+block or start another entry to use the latest plan.
 
 ### Manage your participation
 

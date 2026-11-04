@@ -1101,6 +1101,14 @@ Client caches belong to the account, role and tutor link. Navigation and focus c
 
 Browser tRPC links share [batch limits](../../src/lib/trpc-batch.ts) so busy pages split simultaneous queries within the server's 20-operation limit. Keep new clients aligned with [signup ingress limits](signup-protection.md#defaults-and-tuning); repeated oversized batches cannot be repaired by retries.
 
+The [client logger](../../src/trpc/client-logger.ts) leaves structured
+`pairingGroups.save` validation (`BAD_REQUEST`) and conflict (`CONFLICT`)
+rejections to the editor's inline error and explicit Reload. Logging those handled
+rejections as console errors would open Next.js's development overlay over the
+recovery controls. Other operations, authorization failures, unexpected server
+errors and transport failures retain the existing error diagnostics; mutation
+rejection, server validation and transaction rollback are unchanged.
+
 ### Stable account usernames
 
 Verified participant accounts share one permanent account handle with any linked tutor record.
