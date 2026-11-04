@@ -1413,6 +1413,9 @@ CSV exports preserve numeric quantities and quote names or comments containing c
 
 ### Management registration codes
 
+Expand a used or expired invitation to view its gray card and crossed-out code.
+The card confirms that the code is no longer valid and offers no sharing actions.
+
 Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Admin/Head can issue directly. Coordinators can request Tutor and Crew codes for Admin/Head review but cannot request Admin/Coordinator grants. Direct issuance and reviewed issuance are recorded in the audit log. Admin/Head can list, share or revoke management codes. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 
 Use **Export Image** beneath a newly issued setup card, or expand an active code
