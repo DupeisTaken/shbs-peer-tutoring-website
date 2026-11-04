@@ -291,6 +291,9 @@ it.each(locales)(
       state.completionState = completion;
       view.rerender(ui(true, true, true, locale, true));
       const beforeVote = eventCard("interview-panel");
+      expect(document.getElementById("interview-panel")!.className).toContain(
+        "border-l-yellow-400",
+      );
       expect(
         beforeVote
           .getByText(messages.agendaEvents.needsAction)
@@ -311,6 +314,9 @@ it.each(locales)(
     state.ownVoteRecorded = true;
     view.rerender(ui(true, true, true, locale, true));
     const afterVote = eventCard("interview-panel");
+    expect(document.getElementById("interview-panel")!.className).toContain(
+      "border-l-slate-300",
+    );
     expect(
       afterVote.getByText(messages.agendaEvents.voteRecorded),
     ).toBeTruthy();
@@ -346,6 +352,9 @@ it.each(locales)(
       state.interviewStatus = status;
       view.rerender(ui(true, true, true, locale, true));
       const card = eventCard("interview-panel");
+      expect(document.getElementById("interview-panel")!.className).toContain(
+        "border-l-emerald-400",
+      );
       expect(
         card.getByText(messages.agendaEvents.completed),
         status,
@@ -386,6 +395,15 @@ it.each(locales)(
     expect(
       card.queryByText(messages.agendaEvents.awaitingAttendance),
     ).toBeNull();
+    // An excuse is already resolved even while the meeting itself is upcoming.
+    state.meetingUpcoming = true;
+    view.rerender(ui(true, true, true, locale, true));
+    expect(document.getElementById("meeting-meeting")!.className).toContain(
+      "border-l-emerald-400",
+    );
+    expect(
+      eventCard("meeting-meeting").getByText(messages.agendaEvents.upcoming),
+    ).toBeTruthy();
   },
 );
 

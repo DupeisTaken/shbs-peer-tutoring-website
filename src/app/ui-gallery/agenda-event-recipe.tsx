@@ -25,6 +25,7 @@ export function AgendaEventRecipe() {
         <AgendaEventCard
           id="gallery-regular"
           kind="regular"
+          statusTone={recorded ? "success" : "warning"}
           title="Mathematics"
           time="Mon · 15:30–16:15"
           details={
@@ -72,6 +73,7 @@ export function AgendaEventRecipe() {
         <AgendaEventCard
           id="gallery-meeting"
           kind="meeting"
+          statusTone="success"
           title="Team meeting"
           time="Thu · 16:00"
           badges={

@@ -200,6 +200,13 @@ export function TutorSchedule({
         <AgendaEventCard
           id={`interview-${row.id}`}
           kind="interview"
+          statusTone={
+            row.status === "INTERVIEW" && !row.ownVoteRecorded
+              ? "warning"
+              : ["PENDING", "INTERVIEW"].includes(row.status)
+                ? "neutral"
+                : "success"
+          }
           title={row.name}
           time={
             <time dateTime={row.interviewAt.toISOString()}>
@@ -273,6 +280,11 @@ export function TutorSchedule({
         <AgendaEventCard
           id={`meeting-${row.id}`}
           kind="meeting"
+          statusTone={
+            row.status === "EXCUSED_ABSENT" || (!row.upcoming && row.status)
+              ? "success"
+              : "neutral"
+          }
           title={row.title}
           time={
             <time dateTime={row.date.toISOString()}>{timeText(row.date)}</time>

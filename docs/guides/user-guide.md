@@ -645,6 +645,8 @@ excuse. Meetings awaiting staff attendance records do not require you to record
 attendance. Gray labels distinguish regular sessions, extras, interviews and
 meetings, while Upcoming and waiting states also use gray. Completed and Excused
 for Absence use green. Completed tutoring and decided interviews remain available in History.
+The colored left edge follows the event's status: yellow when you need to act,
+green for completed or excused events, and gray for upcoming or waiting events.
 Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept
 a schedule change.

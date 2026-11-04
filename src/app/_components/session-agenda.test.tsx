@@ -144,6 +144,7 @@ it.each([
       </NextIntlClientProvider>,
     );
     const card = screen.getByRole("article");
+    expect(card.className).toContain("border-l-slate-300");
     expect(
       within(card).getByText(catalog.agendaEvents.awaitingAttendance),
     ).toBeTruthy();
@@ -821,6 +822,7 @@ it("keeps ended missing attendance in Upcoming and its overview, preserving a dr
   ).toBe("true");
   expect(screen.queryByText("Already recorded")).toBeNull();
   const overdue = document.getElementById("session-cohort-synthetic")!;
+  expect(overdue.className).toContain("border-l-yellow-400");
   expect(
     within(overdue).getByText(en.agendaEvents.needsAction).className,
   ).toContain("bg-yellow-100");
@@ -840,6 +842,9 @@ it("keeps ended missing attendance in Upcoming and its overview, preserving a dr
   );
   expect(screen.getByRole("dialog")).toBe(draft);
   expect(screen.getByText("Already recorded")).toBeTruthy();
+  expect(document.getElementById("session-recorded")!.className).toContain(
+    "border-l-emerald-400",
+  );
   expect(
     within(document.getElementById("session-recorded")!).getByText(
       en.agendaEvents.completed,

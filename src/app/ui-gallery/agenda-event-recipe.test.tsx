@@ -25,6 +25,7 @@ it.each([
       </NextIntlClientProvider>,
     );
     const regular = document.getElementById("gallery-regular")!;
+    expect(regular.className).toContain("border-l-yellow-400");
     expect(
       within(regular).getByText(messages.agendaEvents.needsAction),
     ).toBeTruthy();
@@ -32,6 +33,7 @@ it.each([
       screen.getByRole("button", { name: messages.sessionPlanning.record }),
     );
     expect(document.getElementById("gallery-regular")).toBe(regular);
+    expect(regular.className).toContain("border-l-emerald-400");
     expect(
       within(regular).getByText(messages.agendaEvents.completed),
     ).toBeTruthy();

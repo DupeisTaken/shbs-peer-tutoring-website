@@ -707,6 +707,14 @@ export function SessionAgenda({
                   key={cohort.id}
                   id={`session-${cohort.id}`}
                   kind={cohort.kind === "EXTRA" ? "extra" : "regular"}
+                  statusTone={
+                    cohort.unavailable ||
+                    (role === "tutor" && cohort.needsAttendance)
+                      ? "warning"
+                      : cohort.status === "RECORDED"
+                        ? "success"
+                        : "neutral"
+                  }
                   title={cohortLabel(cohort, t("scheduleUnavailable"))}
                   time={
                     <time dateTime={cohort.startsAt.toISOString()}>

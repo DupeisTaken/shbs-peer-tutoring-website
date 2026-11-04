@@ -9,6 +9,12 @@ const tones = {
   neutral: "bg-slate-100 text-slate-700",
 } as const;
 
+const statusRails = {
+  warning: "border-l-yellow-400",
+  success: "border-l-emerald-400",
+  neutral: "border-l-slate-300",
+} as const;
+
 /** Neutral event labels keep yellow for action and green for completed/excused states. */
 export function AgendaBadge({
   tone = "neutral",
@@ -28,6 +34,7 @@ export function AgendaBadge({
 export function AgendaEventCard({
   id,
   kind,
+  statusTone = "neutral",
   title,
   time,
   details,
@@ -37,6 +44,8 @@ export function AgendaEventCard({
 }: {
   id: string;
   kind: "regular" | "extra" | "interview" | "meeting";
+  /** The owner supplies status; an unfinished action takes priority over other badges. */
+  statusTone?: keyof typeof statusRails;
   title: string;
   time: ReactNode;
   details?: ReactNode;
@@ -49,7 +58,7 @@ export function AgendaEventCard({
     <article
       id={id}
       tabIndex={-1}
-      className="card scroll-mt-6 border-l-4 border-l-slate-300 p-4 sm:p-5"
+      className={`card scroll-mt-6 border-l-4 p-4 sm:p-5 ${statusRails[statusTone]}`}
     >
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1 space-y-2 [overflow-wrap:anywhere]">
