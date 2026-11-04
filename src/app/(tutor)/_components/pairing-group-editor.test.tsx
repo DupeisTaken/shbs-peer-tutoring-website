@@ -15,6 +15,7 @@ import {
   useMutation,
 } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
+import { TRPCClientError } from "@trpc/client";
 import messages from "../../../../messages/en.json";
 import { PairingGroupEditor } from "./pairing-group-editor";
 import type { RouterOutputs } from "~/trpc/react";
@@ -462,6 +463,56 @@ it.each([null, "unpublished"])("requires an explicit choice to clear an existing
   await act(async () => state.writes[0]!.resolve({ ok: true }));
 });
 
+
+it("retains a rejected split review and reloads explicitly before saving the split", async () => {
+  state.data.pairings = pairings.map((p) => p.id === "c" ? p : {
+    ...p, groupId: "saved-group", group: { primaryPairingId: "a" },
+  });
+  state.data.groups = [{
+    id: "saved-group", pairingIds: ["a", "b"], slotId: "slot",
+    scheduleConfirmed: true, dayOfWeek: 1, startMin: 900, endMin: 960,
+    groupStatus: "scheduled", retainSchedule: false,
+    groupEligibility: { eligible: true, reason: null, missing: [], emptyPairingIds: [] },
+  }];
+  show();
+  open();
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.split }));
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.review }));
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.save }));
+  await waitFor(() => expect(state.writes).toHaveLength(1));
+  expect(state.writes[0]!.input).toEqual({ snapshot: "0".repeat(64), groups: [] });
+  const conflict = TRPCClientError.from({ error: {
+    message: "Pairings or schedules changed. Reload before saving this group draft.",
+    code: -32009, data: { code: "CONFLICT", path: "pairingGroups.save" },
+  } });
+  await act(async () => state.writes[0]!.reject(conflict));
+  expect((await screen.findByRole("alert")).textContent).toContain(conflict.message);
+  expect(screen.getByRole("region", { name: messages.pairingGroups.review })).toBeTruthy();
+
+  // A failed Reload cannot adopt a newer version or silently discard the split.
+  state.refetch.mockResolvedValueOnce({ error: new Error("Read unavailable") });
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.reload }));
+  await waitFor(() => expect(state.refetch).toHaveBeenCalledTimes(1));
+  expect(screen.getByText(conflict.message)).toBeTruthy();
+  expect(state.writes).toHaveLength(1);
+  state.refetch.mockResolvedValue({ data: { ...state.data, snapshot: "1".repeat(64) }, error: null });
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.reload }));
+  await screen.findByRole("button", { name: messages.pairingGroups.split });
+  expect(screen.queryByText(conflict.message)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.split }));
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.review }));
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.save }));
+  await waitFor(() => expect(state.writes).toHaveLength(2));
+  expect(state.writes[1]!.input).toEqual({ snapshot: "1".repeat(64), groups: [] });
+  state.refresh.mockRejectedValue(new Error("Read unavailable"));
+  await act(async () => state.writes[1]!.resolve({}));
+  await screen.findByText(messages.pairingGroups.saved);
+  await screen.findByText(messages.pairingGroups.refreshFailed);
+  state.refresh.mockResolvedValue(undefined);
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.retry }));
+  await waitFor(() => expect(screen.queryByText(messages.pairingGroups.refreshFailed)).toBeNull());
+  expect(state.writes).toHaveLength(2);
+});
 
 it("allows separate students' assignments for one common subject without a slot", () => {
   state.data.pairings = pairings.slice(0, 2).map((p, index) => ({

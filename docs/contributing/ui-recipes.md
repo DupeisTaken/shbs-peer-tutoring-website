@@ -25,6 +25,13 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The management summary recipe also uses the production `RoomAllocationStatus`
+reader. Check fixed and automatic room names followed by their status, long
+translated names wrapping at narrow widths, and distinct shortage, intentional
+roomless and awaiting-schedule states. An unscheduled fixed-room choice must not
+appear as a reservation. Verify the tutor/tutee arrangements and management pairing
+details as well as the gallery; these synthetic examples do not allocate rooms.
+
 The [notification preference recipe](../../src/app/ui-gallery/notification-preferences-recipe.tsx)
 uses `SettingRow` with `stackOnMobile` so multiple controls sit below full-width
 descriptions on narrow screens; existing inline settings retain their layout. It
@@ -67,6 +74,12 @@ owns permission checks, captured versions, approval and read-only recovery;
 the gallery performs no write and does not establish promotion readiness. Verify
 the gallery case and the actual Applications page in English and Chinese at
 desktop and mobile widths.
+
+The [agenda event recipe](../../src/app/ui-gallery/agenda-event-recipe.tsx) uses
+the production card and semantic badges for regular/extra sessions, interviews and
+meetings. Its attendance button changes local example state only. Check wrapping,
+all six accents and English/Chinese at desktop/mobile sizes; real tutor/tutee pages
+retain their own action eligibility, filtering and attendance/vote controllers.
 
 For a recipe migration, link its feature issue and the corresponding running-page
 and gallery screenshots in the local verification report. Record language, viewport,

@@ -15,6 +15,10 @@ import { ScheduleInterviewDetails } from "./schedule-interview-details";
 import { ScheduleMeetingDetails } from "./schedule-meeting-details";
 import { upcomingPreview, type ScheduleView } from "~/lib/schedule-overview";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
+import {
+  AgendaBadge,
+  AgendaEventCard,
+} from "~/app/_components/agenda-event-card";
 
 /** The agenda shares dates, not write authority. Each private detail keeps its own
  * retained controller and opens only after a deliberate participant action.
@@ -24,6 +28,7 @@ export function TutorSchedule({
   interviewsEnabled,
   meetingsEnabled,
   compact = false,
+  now: initialNow,
 }: {
   active: boolean;
   interviewsEnabled: boolean;
@@ -32,7 +37,18 @@ export function TutorSchedule({
   compact?: boolean;
 }) {
   const t = useTranslations("unifiedSchedule");
+  const eventText = useTranslations("agendaEvents");
   const format = useFormatter();
+  const [now, setNow] = useState(initialNow);
+  useEffect(() => {
+    const update = () => setNow(new Date());
+    const timer = window.setInterval(update, 30_000);
+    window.addEventListener("focus", update);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", update);
+    };
+  }, []);
   const [view, setView] = useState<ScheduleView>("upcoming");
   const interviewEvents = api.personalSchedule.interviews.useInfiniteQuery(
     { view, includeSummary: false },
@@ -181,86 +197,129 @@ export function TutorSchedule({
       id: `interview:${row.id}`,
       startsAt: row.interviewAt,
       content: (
-        <article
+        <AgendaEventCard
           id={`interview-${row.id}`}
-          tabIndex={-1}
-          className="card scroll-mt-6 space-y-3 p-4 sm:p-5"
+          kind="interview"
+          statusTone={
+            row.status === "INTERVIEW" && !row.ownVoteRecorded
+              ? "warning"
+              : ["PENDING", "INTERVIEW"].includes(row.status)
+                ? "neutral"
+                : "success"
+          }
+          title={row.name}
+          time={
+            <time dateTime={row.interviewAt.toISOString()}>
+              {timeText(row.interviewAt)}
+            </time>
+          }
+          details={
+            <>
+              <p>{row.subjects.join(" / ")}</p>
+              <p className="text-xs">{t("endUnknown")}</p>
+            </>
+          }
+          badges={
+            <>
+              <AgendaBadge>{t(row.isHead ? "chair" : "panelist")}</AgendaBadge>
+              {row.status === "INTERVIEW" && !row.ownVoteRecorded ? (
+                <AgendaBadge tone="warning">
+                  {eventText("needsAction")}
+                </AgendaBadge>
+              ) : ["PENDING", "INTERVIEW"].includes(row.status) ? (
+                <>
+                  {row.ownVoteRecorded && (
+                    <AgendaBadge>{eventText("voteRecorded")}</AgendaBadge>
+                  )}
+                  <AgendaBadge>
+                    {eventText(
+                      row.interviewAt > now ? "upcoming" : "awaitingDecision",
+                    )}
+                  </AgendaBadge>
+                </>
+              ) : (
+                <AgendaBadge tone="success">
+                  {eventText("completed")}
+                </AgendaBadge>
+              )}
+            </>
+          }
+          actions={
+            row.isHead ? (
+              <a
+                className="link inline-flex min-h-11 items-center lg:min-h-8"
+                href={
+                  compact ? "#chair-interviews" : "/dashboard#tutor-interviews"
+                }
+              >
+                {t("openChair")}
+              </a>
+            ) : (
+              <Button
+                size="compact"
+                onClick={() => {
+                  setAllInterviews(false);
+                  setInterviewId(row.id);
+                }}
+              >
+                {t("openInterview")}
+              </Button>
+            )
+          }
         >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-              <h3 className="font-semibold">{row.name}</h3>
-              <p>
-                <time dateTime={row.interviewAt.toISOString()}>
-                  {timeText(row.interviewAt)}
-                </time>
-              </p>
-              <p className="muted text-sm">{row.subjects.join(" / ")}</p>
-              <p className="muted text-sm">{t("endUnknown")}</p>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              <span className="badge">{t("interview")}</span>
-              <span className="badge-slate">
-                {t(row.isHead ? "chair" : "panelist")}
-              </span>
-            </div>
-          </div>
-          {row.isHead ? (
-            <a
-              className="link inline-flex min-h-11 items-center lg:min-h-8"
-              href={
-                compact ? "#chair-interviews" : "/dashboard#tutor-interviews"
-              }
-            >
-              {t("openChair")}
-            </a>
-          ) : (
-            <Button
-              size="compact"
-              onClick={() => {
-                setAllInterviews(false);
-                setInterviewId(row.id);
-              }}
-            >
-              {t("openInterview")}
-            </Button>
+          {row.status === "INTERVIEW" && !row.ownVoteRecorded && (
+            <p className="text-sm text-yellow-900">{eventText("voteNeeded")}</p>
           )}
-        </article>
+        </AgendaEventCard>
       ),
     })),
     ...datedMeetings.map((row) => ({
       id: `meeting:${row.id}`,
       startsAt: row.date,
       content: (
-        <article
+        <AgendaEventCard
           id={`meeting-${row.id}`}
-          tabIndex={-1}
-          className="card scroll-mt-6 space-y-3 p-4 sm:p-5"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-              <h3 className="font-semibold">{row.title}</h3>
-              <p>
-                <time dateTime={row.date.toISOString()}>
-                  {timeText(row.date)}
-                </time>
-              </p>
-              <p className="muted text-sm">{t("endUnknown")}</p>
-              {row.excused && (
-                <p className="text-sm text-amber-900">{t("excused")}</p>
+          kind="meeting"
+          statusTone={
+            row.status === "EXCUSED_ABSENT" || (!row.upcoming && row.status)
+              ? "success"
+              : "neutral"
+          }
+          title={row.title}
+          time={
+            <time dateTime={row.date.toISOString()}>{timeText(row.date)}</time>
+          }
+          details={<p className="text-xs">{t("endUnknown")}</p>}
+          badges={
+            <>
+              {row.status === "EXCUSED_ABSENT" && (
+                <AgendaBadge tone="success">{eventText("excused")}</AgendaBadge>
               )}
-            </div>
-            <span className="badge">{t("meeting")}</span>
-          </div>
-          <Button
-            size="compact"
-            onClick={() => {
-              setAllMeetings(false);
-              setMeetingId(row.id);
-            }}
-          >
-            {t("openMeeting")}
-          </Button>
-        </article>
+              <AgendaBadge
+                tone={!row.upcoming && row.status ? "success" : "neutral"}
+              >
+                {eventText(
+                  row.upcoming
+                    ? "upcoming"
+                    : row.status
+                      ? "completed"
+                      : "awaitingAttendance",
+                )}
+              </AgendaBadge>
+            </>
+          }
+          actions={
+            <Button
+              size="compact"
+              onClick={() => {
+                setAllMeetings(false);
+                setMeetingId(row.id);
+              }}
+            >
+              {t("openMeeting")}
+            </Button>
+          }
+        />
       ),
     })),
   ];

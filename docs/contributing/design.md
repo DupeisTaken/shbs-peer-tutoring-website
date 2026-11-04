@@ -149,6 +149,26 @@ tickets and pending-dismissal rules remain owned by the existing feature.
 
 ## Room and participant composition
 
+Tutor saved-group summaries keep the subjects and combined badge in one header,
+with shared schedule/room facts beside the distinct student roster on wider screens
+and above it on narrow screens. Show a single shared subject once; retain each
+student’s subject associations for mixed-subject groups. Keep dated-session
+navigation and retained assignment controls in the summary footer. Dashboard hour
+summaries separate the reporting period, primary total and wrapping breakdown;
+Crew credit remains distinct from tutoring credit. Align the hours labels, period,
+totals and wrapping breakdown to the right edge of their header summary cards.
+Use a bold 36 px total with the hour unit in the same size, weight and color,
+14 px breakdown text, and compact 12 px uppercase headings. This preserves the
+legacy summary's readable numeric emphasis within the current card composition.
+These feature-local compositions do not change scheduling, room intent,
+calculation or save ownership.
+
+Keep a confirmed room name and its allocation-status badge inline, with the badge
+immediately after the name and natural wrapping for long names or narrow screens.
+Use `RoomAllocationStatus` across tutor summaries, tutee weekly arrangements and
+management details; an unscheduled room selection still displays only its awaiting
+status and must not imply a reservation.
+
 Put room Move up and Move down controls in the existing room rows, beside the
 other row actions. Do not introduce a separate ordering menu or duplicate room
 list. Preserve the existing complete-order review/save boundary, expected version,

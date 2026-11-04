@@ -17,6 +17,8 @@ import PairingsPage from "./page";
 type PairingRowOverride = {
   id: string;
   subject: string;
+  tutorId?: string;
+  tutor?: { englishName: string };
   groupId?: string | null;
   group?: { primaryPairingId: string } | null;
   dayOfWeek?: number;
@@ -116,11 +118,46 @@ vi.mock("~/trpc/react", () => ({
                           ? state.rows.map((row) => ({ ...p, ...row }))
                           : [p],
                       )
-                      .flatMap((p) => state.grouped ? [
-                        { ...p, id: "member-a", groupId: "saved-group", group: { primaryPairingId: "member-a" }, subject: "Chemistry", tutees: [{tuteeId: "student", tutee: {englishName: "Group Student"}}] },
-                        { ...p, id: "member-b", groupId: "saved-group", group: { primaryPairingId: "member-a" }, subject: "Mathematics", tutees: state.invalidGroup ? [] : [{tuteeId: "student", tutee: {englishName: "Group Student"}}] },
-                        { ...p, id: "independent", groupId: null, subject: "Physics" },
-                      ] : [p])
+                      .flatMap((p) =>
+                        state.grouped
+                          ? [
+                              {
+                                ...p,
+                                id: "member-a",
+                                groupId: "saved-group",
+                                group: { primaryPairingId: "member-a" },
+                                subject: "Chemistry",
+                                tutees: [
+                                  {
+                                    tuteeId: "student",
+                                    tutee: { englishName: "Group Student" },
+                                  },
+                                ],
+                              },
+                              {
+                                ...p,
+                                id: "member-b",
+                                groupId: "saved-group",
+                                group: { primaryPairingId: "member-a" },
+                                subject: "Mathematics",
+                                tutees: state.invalidGroup
+                                  ? []
+                                  : [
+                                      {
+                                        tuteeId: "student",
+                                        tutee: { englishName: "Group Student" },
+                                      },
+                                    ],
+                              },
+                              {
+                                ...p,
+                                id: "independent",
+                                groupId: null,
+                                subject: "Physics",
+                              },
+                            ]
+                          : [p],
+                      )
                       .flatMap((p, index) =>
                         state.sortMissing && index === 0
                           ? [
@@ -640,7 +677,7 @@ it.each([
 );
 
 it.each(["en", "zh"] as const)(
-  "shares saved-group facts and a common roster across subjects (%s)",
+  "repeats complete saved-group facts and the common roster on every subject row (%s)",
   (locale) => {
     state.grouped = true;
     state.confirmed = false;
@@ -654,24 +691,17 @@ it.each(["en", "zh"] as const)(
     const first = document.getElementById("member-a")!;
     const second = document.getElementById("member-b")!;
     expect(first.closest("tbody")).toBe(second.closest("tbody"));
-    expect(
-      within(first)
-        .getByRole("cell", { name: "Synthetic tutor" })
-        .getAttribute("rowspan"),
-    ).toBe("2");
-    const schedule = first.querySelector<HTMLTableCellElement>(
-      "td[data-sort-value]",
-    )!;
-    expect(schedule.textContent).toBe(messages.scheduling.awaiting);
-    expect(schedule.rowSpan).toBe(2);
-    expect(first.querySelectorAll('td[rowspan="2"]')).toHaveLength(4);
-    expect(
-      within(first).getByRole<HTMLTableCellElement>("cell", {
-        name: "Group Student",
-      }).rowSpan,
-    ).toBe(2);
-    expect(within(second).queryByText("Group Student")).toBeNull();
-    expect(within(second).queryByText("Synthetic tutor")).toBeNull();
+    for (const row of [first, second]) {
+      expect(within(row).getAllByRole("cell")).toHaveLength(6);
+      expect(row.querySelector("[rowspan]")).toBeNull();
+      expect(
+        within(row).getByRole("cell", { name: "Synthetic tutor" }),
+      ).toBeTruthy();
+      expect(within(row).getAllByRole("cell")[2]!.textContent).toBe(
+        messages.scheduling.awaiting,
+      );
+      expect(within(row).getByText("Group Student")).toBeTruthy();
+    }
     expect(screen.queryByText(reference)).toBeNull();
     expect(
       within(first).getByRole("cell", { name: "Chemistry" }).textContent,
@@ -718,6 +748,69 @@ it("keeps incomplete saved-group membership and exposes repair evidence in Detai
   expect(state.mutate).not.toHaveBeenCalled();
 });
 
+it.each([
+  ["en", true],
+  ["en", false],
+  ["zh", true],
+  ["zh", false],
+] as const)(
+  "keeps complete rows, adjacent group members and shared actions through every sort (%s, read-only: %s)",
+  (locale, readOnly) => {
+    state.readOnly = readOnly;
+    state.rows = savedGroupRows().map((row) => ({
+      ...row,
+      subject: "Mathematics",
+      tutorId: row.groupId ? "zoe" : "alex",
+      tutor: { englishName: row.groupId ? "Zoe Synthetic" : "Alex Synthetic" },
+      dayOfWeek: row.groupId ? 5 : 1,
+      room: { name: row.groupId ? "Room 10" : "Room 2" },
+    }));
+    mount(locale);
+    const messages = locale === "en" ? en : zh;
+    const table = screen.getByRole("table", {
+      name: messages.admin.pairings.title,
+    });
+    for (const label of [
+      messages.admin.pairings.colTutor,
+      messages.admin.pairings.colSubject,
+      messages.admin.pairings.colWhen,
+      messages.admin.pairings.colRoom,
+      messages.admin.pairings.colTutees,
+    ]) {
+      const header = within(table).getByRole("button", { name: label });
+      for (let direction = 0; direction < 3; direction++) {
+        fireEvent.click(header);
+        const rows = within(table).getAllByRole("row").slice(1);
+        const first = rows.findIndex((row) => row.id === "member-a");
+        expect(rows[first + 1]!.id).toBe("member-b");
+        for (const row of rows) {
+          expect(within(row).getAllByRole("cell")).toHaveLength(6);
+          expect(row.querySelector("[rowspan]")).toBeNull();
+          const actions = row.lastElementChild!;
+          expect(actions.classList.contains("table-actions")).toBe(true);
+          expect(
+            actions.firstElementChild!.classList.contains("table-action-list"),
+          ).toBe(true);
+          const buttons = within(actions as HTMLElement).getAllByRole("button");
+          expect(buttons).toHaveLength(readOnly ? 1 : 3);
+          for (const button of buttons)
+            expect(button.classList.contains("table-action-link")).toBe(true);
+          if (!readOnly)
+            expect(
+              buttons.at(-1)!.classList.contains("table-action-danger"),
+            ).toBe(true);
+        }
+        expect(
+          within(document.getElementById("member-b")!).getByRole("cell", {
+            name: "Zoe Synthetic",
+          }),
+        ).toBeTruthy();
+      }
+    }
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
 it.each(["en", "zh"] as const)(
   "preserves repeated-subject student assignments and an independent multi-student pairing (%s)",
   (locale) => {
@@ -758,8 +851,8 @@ it.each(["en", "zh"] as const)(
       within(alice).getByRole<HTMLTableCellElement>("cell", {
         name: "Mathematics",
       }).rowSpan,
-    ).toBe(2);
-    expect(within(bob).queryByText("Mathematics")).toBeNull();
+    ).toBe(1);
+    expect(within(bob).getByRole("cell", { name: "Mathematics" })).toBeTruthy();
     expect(within(alice).getByText("Alice Synthetic")).toBeTruthy();
     expect(within(alice).queryByText("Bob Synthetic")).toBeNull();
     expect(within(bob).getByText("Bob Synthetic")).toBeTruthy();
@@ -786,7 +879,7 @@ it.each(["en", "zh"] as const)(
 );
 
 it.each([true, false])(
-  "compares full roster identity sets instead of order or names (same students: %s)",
+  "repeats rosters regardless of identity or enrollment order (same students: %s)",
   (sameStudents) => {
     const roster = [
       { tuteeId: "alex", tutee: { englishName: "Alex Synthetic" } },
@@ -819,9 +912,9 @@ it.each([true, false])(
     expect(
       first.getByRole<HTMLTableCellElement>("cell", { name: /Alex Synthetic/ })
         .rowSpan,
-    ).toBe(sameStudents ? 2 : 1);
-    expect(Boolean(second.queryByText("Alex Synthetic"))).toBe(!sameStudents);
-    expect(Boolean(second.queryByText("Sam Synthetic"))).toBe(!sameStudents);
+    ).toBe(1);
+    expect(second.getByText("Alex Synthetic")).toBeTruthy();
+    expect(second.getByText("Sam Synthetic")).toBeTruthy();
     if (sameStudents) {
       // Equal displayed names tie regardless of group size or enrollment order.
       const tutees = screen.getByRole("button", {
@@ -1028,8 +1121,8 @@ it("retains every saved member when the room filter matches only one member", ()
     within(first).getByRole<HTMLTableCellElement>("cell", {
       name: "Group Student",
     }).rowSpan,
-  ).toBe(2);
-  expect(within(second).queryByText("Group Student")).toBeNull();
+  ).toBe(1);
+  expect(within(second).getByText("Group Student")).toBeTruthy();
   expect(state.mutate).not.toHaveBeenCalled();
 });
 

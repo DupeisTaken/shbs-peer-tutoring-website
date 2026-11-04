@@ -7,6 +7,7 @@ import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
+import { DisclosureIcon } from "~/app/_components/icons";
 import { StudentRequestInvalidityControls } from "~/app/_components/request-invalidity-controls";
 import {
   InvalidityBadge,
@@ -15,7 +16,14 @@ import {
   RequestInvalidityHost,
   type InvalidityFilterValue,
 } from "~/app/_components/request-invalidity";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
 import { queuedApprovalId } from "~/lib/approval-outcome";
@@ -71,6 +79,7 @@ function SignupReviewAction({
   makeIntent,
   refresh,
   wrapLabel = false,
+  onAttention,
 }: {
   label: string;
   /** Keep the full assignment context in review without repeating it on the row button. */
@@ -81,6 +90,7 @@ function SignupReviewAction({
   makeIntent: (clientKey: string) => (signedTicket: string) => Promise<unknown>;
   refresh: () => Promise<unknown>;
   wrapLabel?: boolean;
+  onAttention?: () => void;
 }) {
   const t = useTranslations("signupEditing");
   const [intent, setIntent] = useState<{
@@ -94,6 +104,9 @@ function SignupReviewAction({
   const [error, setError] = useState<string | undefined>();
   const [approvalId, setApprovalId] = useState<string | null>(null);
   const admitted = useRef(false);
+  useEffect(() => {
+    if (needsRefresh || approvalId || error) onAttention?.();
+  }, [needsRefresh, approvalId, error, onAttention]);
   const recover = async () => {
     if (admitted.current) return;
     admitted.current = true;
@@ -208,10 +221,12 @@ export function SignupAssignmentRelease({
   row,
   pairing,
   proposal,
+  onAttention,
 }: {
   row: Row;
   pairing: Row["pairings"][number];
   proposal: boolean;
+  onAttention?: () => void;
 }) {
   const t = useTranslations("signupAppeal");
   const utils = api.useUtils();
@@ -221,6 +236,7 @@ export function SignupAssignmentRelease({
       label={t(proposal ? "proposeUnassign" : "unassign")}
       reviewTitle={`${t(proposal ? "proposeUnassign" : "unassign")} · ${pairing.subject}`}
       wrapLabel
+      onAttention={onAttention}
       action="SIGNUP_UNASSIGN"
       target={`${row.id}:${pairing.id}`}
       description={t("unassignConsequences")}
@@ -309,7 +325,8 @@ export type AdditionalRequestEntry = {
   sourceId?: string;
   submittedAt: Date;
   group: RequestTab;
-  content: ReactNode;
+  /** The board supplies the ordinal after merging, filtering and priority sorting. */
+  content: ReactNode | ((order: number) => ReactNode);
   invalid?: boolean;
 };
 type StudentRequestBoardProps = {
@@ -613,8 +630,12 @@ function StudentRequestBoardView({
                       <ReviewCard row={row} review={review} />
                     </div>
                   ))}
-                  {bySignupPriority(additionalReviews).map((entry) => (
-                    <div key={entry.id}>{entry.content}</div>
+                  {bySignupPriority(additionalReviews).map((entry, index) => (
+                    <div key={entry.id}>
+                      {typeof entry.content === "function"
+                        ? entry.content(index + 1)
+                        : entry.content}
+                    </div>
                   ))}
                 </>
               ) : (
@@ -622,15 +643,22 @@ function StudentRequestBoardView({
                   ...groups[tab].map((row) => ({
                     id: row.id,
                     submittedAt: row.submittedAt,
-                    content: (
+                    content: (order: number) => (
                       <RequestCard
                         row={row}
+                        order={order}
                         tutors={(tutors.data ?? []).filter(isAssignableTutor)}
                       />
                     ),
                   })),
                   ...visibleAdditional.filter((entry) => entry.group === tab),
-                ]).map((entry) => <div key={entry.id}>{entry.content}</div>)
+                ]).map((entry, index) => (
+                  <div key={entry.id}>
+                    {typeof entry.content === "function"
+                      ? entry.content(index + 1)
+                      : entry.content}
+                  </div>
+                ))
               )}
               {tab === "processed" &&
                 invalidity !== "invalid" &&
@@ -671,10 +699,19 @@ function StudentRequestBoardView({
     </RequestInvalidityHost>
   );
 }
-function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
+function RequestCard({
+  row,
+  tutors,
+  order,
+}: {
+  row: Row;
+  tutors: Tutor[];
+  order: number;
+}) {
   const format = useFormatter();
   const locale = useLocale();
   const t = useTranslations("workflow");
+  const requests = useTranslations("admin.requests");
   const survey = useTranslations("survey");
   const appeals = useTranslations("signupAppeal");
   const names = useTranslations("participantNames");
@@ -688,6 +725,23 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const account = api.account.me.useQuery().data;
   const editing = useTranslations("signupEditing");
   const [editorOpen, setEditorOpen] = useState(false);
+  const detailsId = useId();
+  const choicesId = useId();
+  const fulfilled =
+    row.state === "OPEN" &&
+    row.subjects.length > 0 &&
+    row.subjects.every((subject) =>
+      row.pairings.some((pairing) => pairing.subject === subject.name),
+    );
+  const [collapsed, setCollapsed] = useState(fulfilled);
+  const [previousFulfilled, setPreviousFulfilled] = useState(fulfilled);
+  // Close only on the fulfillment transition; reopening survives background reads.
+  if (previousFulfilled !== fulfilled) {
+    setPreviousFulfilled(fulfilled);
+    if (fulfilled) setCollapsed(true);
+  }
+  // Fresh write feedback must remain discoverable even after automatic collapse.
+  const revealDetails = useCallback(() => setCollapsed(false), []);
   const management =
     !!account && ["HEAD", "ADMIN", "COORDINATOR"].includes(account.role);
   const resend = api.studentWorkflow.resend.useMutation({
@@ -717,44 +771,73 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   return (
     <article
       id={`request-survey-${row.id}`}
-      className="card scroll-mt-6 space-y-4 p-5"
+      className={`card scroll-mt-6 space-y-4 p-5 ${fulfilled ? "bg-slate-50" : ""}`}
     >
       <header className="flex flex-wrap justify-between gap-3">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold break-words">
-              <ParticipantName name={row.name} username={row.username} />
-            </h3>
-            <SignupSourceBadge source="SELF_SERVICE" />
-            {/* confirmedAt records final account review, not intermediate mailbox proof. */}
-            <span className={row.confirmedAt ? "badge-green" : "badge-amber"}>
-              {survey(
-                row.confirmedAt ? "requestConfirmed" : "requestIncomplete",
+        <div className="flex min-w-0 items-start gap-2">
+          <Button
+            variant="ghost"
+            size="compact"
+            className="shrink-0 px-0 lg:min-w-8 [&>span]:text-slate-600"
+            aria-expanded={!collapsed}
+            aria-controls={`${detailsId} ${choicesId}`}
+            aria-label={requests(collapsed ? "expand" : "collapse")}
+            onClick={() => setCollapsed((current) => !current)}
+          >
+            <DisclosureIcon open={!collapsed} />
+          </Button>
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="badge-slate mr-2">#{order}</span>
+              <h3 className="font-semibold break-words">
+                <ParticipantName name={row.name} username={row.username} />
+              </h3>
+              <SignupSourceBadge source="SELF_SERVICE" />
+              {fulfilled && (
+                <span className="badge-green text-green-800">
+                  {requests("fulfilled")}
+                </span>
               )}
-            </span>
-            {row.isInvalid && <InvalidityBadge />}
-            {row.state !== "OPEN" && (
-              <span className="badge-slate">
-                {row.state === "INVALID_REJECTED"
-                  ? appeals("rejectedTitle")
-                  : t(`state.${row.state}`)}
+              {/* confirmedAt records final account review, not intermediate mailbox proof. */}
+              <span className={row.confirmedAt ? "badge-green" : "badge-amber"}>
+                {survey(
+                  row.confirmedAt ? "requestConfirmed" : "requestIncomplete",
+                )}
               </span>
-            )}
-            {row.editedAt && <span className="badge-amber">{t("edited")}</span>}
-          </div>
-          <p className="muted text-xs">
-            {t("priority", {
-              time: format.dateTime(new Date(row.submittedAt), {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }),
-            })}
-          </p>
-          {!row.confirmedAt && row.state === "OPEN" && !row.isInvalid && (
-            <p className="text-sm text-slate-600">{survey("incompleteHelp")}</p>
-          )}
-          <div className="flex flex-wrap items-center gap-x-2 text-sm">
-            <EmailDetails contactOnly email={row.email} name={displayName} />
+              {row.isInvalid && <InvalidityBadge />}
+              {row.state !== "OPEN" && (
+                <span className="badge-slate">
+                  {row.state === "INVALID_REJECTED"
+                    ? appeals("rejectedTitle")
+                    : t(`state.${row.state}`)}
+                </span>
+              )}
+              {row.editedAt && (
+                <span className="badge-amber">{t("edited")}</span>
+              )}
+            </div>
+            <div id={detailsId} hidden={collapsed} className="space-y-2">
+              <p className="muted text-xs">
+                {t("priority", {
+                  time: format.dateTime(new Date(row.submittedAt), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
+                })}
+              </p>
+              {!row.confirmedAt && row.state === "OPEN" && !row.isInvalid && (
+                <p className="text-sm text-slate-600">
+                  {survey("incompleteHelp")}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-x-2 text-sm">
+                <EmailDetails
+                  contactOnly
+                  email={row.email}
+                  name={displayName}
+                />
+              </div>
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap items-start gap-2">
@@ -795,16 +878,88 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
           onClose={() => setEditorOpen(false)}
         />
       )}
-      {!row.confirmedAt && row.verificationDueAt && row.state === "OPEN" && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {t("deadline", {
-            time: format.dateTime(new Date(row.verificationDueAt), {
-              dateStyle: "medium",
-              timeStyle: "short",
-            }),
-          })}
-        </p>
-      )}
+      {/* Hiding mounted details preserves drafts, admitted reviews and read recovery. */}
+      <div id={choicesId} hidden={collapsed} className="space-y-4">
+        {!row.confirmedAt && row.verificationDueAt && row.state === "OPEN" && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            {t("deadline", {
+              time: format.dateTime(new Date(row.verificationDueAt), {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }),
+            })}
+          </p>
+        )}
+        <div className="grid gap-x-3 gap-y-4 border-t border-slate-100 pt-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <div>
+            <p className="muted break-words">{row.contact}</p>
+          </div>
+          <div>
+            <p className="font-medium">{t("availability")}</p>
+            <p className="muted mt-1">
+              {row.slots
+                .map(
+                  (s) =>
+                    `${formatWeekday(s.dayOfWeek, locale)} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
+                )
+                .join(", ")}
+            </p>
+          </div>
+        </div>
+        {row.state === "OPEN" ? (
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            {assignmentEntries.map((entry) =>
+              entry.kind === "subject" ? (
+                <Assignment
+                  key={`subject:${entry.subject.id}`}
+                  row={row}
+                  subject={entry.subject}
+                  tutors={tutors}
+                  assigned={entry.assigned}
+                  onAttention={revealDetails}
+                />
+              ) : (
+                <AssignedSubject
+                  key={`pairing:${entry.pairing.id}`}
+                  row={row}
+                  pairing={entry.pairing}
+                  canRelease={management && !readOnly}
+                  proposal={!["HEAD", "ADMIN"].includes(account?.role ?? "")}
+                  onAttention={revealDetails}
+                />
+              ),
+            )}
+          </div>
+        ) : (
+          <p className="muted text-sm">
+            {row.state === "INVALID_REJECTED"
+              ? appeals("rejected")
+              : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
+          </p>
+        )}
+        {row.reviews.some((r) => r.state !== "PENDING") && (
+          <details className="text-sm">
+            <summary className="min-h-11 cursor-pointer py-3 text-slate-600 lg:min-h-0 lg:py-0">
+              {t("reviewHistory")}
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {row.reviews
+                .filter((r) => r.state !== "PENDING")
+                .map((r) => (
+                  <li key={r.id}>
+                    {t(
+                      r.kind === "STUDENT_ABORT"
+                        ? "applyAbort"
+                        : "scheduleReject",
+                    )}{" "}
+                    · {t(`reviewState.${r.state}`)}
+                    <p className="muted">{r.reason}</p>
+                  </li>
+                ))}
+            </ul>
+          </details>
+        )}
+      </div>
       {resend.isSuccess && (
         <p role="status" className="text-sm">
           {t(resend.data.emailSent ? "resendSent" : "resendFailed")}
@@ -815,73 +970,6 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
           {resend.error.message}
         </p>
       )}
-      <div className="grid gap-x-3 gap-y-4 border-t border-slate-100 pt-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <div>
-          <p className="muted break-words">{row.contact}</p>
-        </div>
-        <div>
-          <p className="font-medium">{t("availability")}</p>
-          <p className="muted mt-1">
-            {row.slots
-              .map(
-                (s) =>
-                  `${formatWeekday(s.dayOfWeek, locale)} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
-              )
-              .join(", ")}
-          </p>
-        </div>
-      </div>
-      {row.state === "OPEN" ? (
-        <div className="space-y-3 border-t border-slate-100 pt-4">
-          {assignmentEntries.map((entry) =>
-            entry.kind === "subject" ? (
-              <Assignment
-                key={`subject:${entry.subject.id}`}
-                row={row}
-                subject={entry.subject}
-                tutors={tutors}
-                assigned={entry.assigned}
-              />
-            ) : (
-              <AssignedSubject
-                key={`pairing:${entry.pairing.id}`}
-                row={row}
-                pairing={entry.pairing}
-                canRelease={management && !readOnly}
-                proposal={!["HEAD", "ADMIN"].includes(account?.role ?? "")}
-              />
-            ),
-          )}
-        </div>
-      ) : (
-        <p className="muted text-sm">
-          {row.state === "INVALID_REJECTED"
-            ? appeals("rejected")
-            : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
-        </p>
-      )}
-      {row.reviews.some((r) => r.state !== "PENDING") && (
-        <details className="text-sm">
-          <summary className="min-h-11 cursor-pointer py-3 text-slate-600 lg:min-h-0 lg:py-0">
-            {t("reviewHistory")}
-          </summary>
-          <ul className="mt-3 space-y-2">
-            {row.reviews
-              .filter((r) => r.state !== "PENDING")
-              .map((r) => (
-                <li key={r.id}>
-                  {t(
-                    r.kind === "STUDENT_ABORT"
-                      ? "applyAbort"
-                      : "scheduleReject",
-                  )}{" "}
-                  · {t(`reviewState.${r.state}`)}
-                  <p className="muted">{r.reason}</p>
-                </li>
-              ))}
-          </ul>
-        </details>
-      )}
     </article>
   );
 }
@@ -891,11 +979,13 @@ function AssignedSubject({
   pairing,
   canRelease,
   proposal,
+  onAttention,
 }: {
   row: Row;
   pairing: Row["pairings"][number];
   canRelease: boolean;
   proposal: boolean;
+  onAttention?: () => void;
 }) {
   return (
     <div
@@ -919,6 +1009,7 @@ function AssignedSubject({
             row={row}
             pairing={pairing}
             proposal={proposal}
+            onAttention={onAttention}
           />
         )}
       </div>
@@ -931,11 +1022,13 @@ function Assignment({
   subject,
   tutors,
   assigned,
+  onAttention,
 }: {
   row: Row;
   subject: { id: string; name: string };
   tutors: Tutor[];
   assigned: boolean;
+  onAttention?: () => void;
 }) {
   const t = useTranslations("workflow");
   const editing = useTranslations("signupEditing");
@@ -960,6 +1053,18 @@ function Assignment({
   const [emailFailed, setEmailFailed] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [approvalId, setApprovalId] = useState<string | null>(null);
+  const assignmentError = assign.error?.message;
+  useEffect(() => {
+    if (needsRefresh || emailFailed || approvalId || assignmentError)
+      onAttention?.();
+  }, [
+    needsRefresh,
+    emailFailed,
+    approvalId,
+    assignmentError,
+    assigned,
+    onAttention,
+  ]);
   const refresh = () =>
     settleRefreshes([
       () => invalidateAndReport(utils.studentWorkflow.adminRequests),

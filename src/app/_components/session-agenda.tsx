@@ -36,6 +36,7 @@ import { SessionCoordinateMessage } from "./session-coordinate-message";
 import { SessionCalendarSubscription } from "./session-calendar-subscription";
 import { programDateKey } from "~/lib/program-time";
 import { focusVisibleContext } from "./focus-visible-context";
+import { AgendaBadge, AgendaEventCard } from "./agenda-event-card";
 
 type Agenda = RouterOutputs["sessionPlanning"]["agenda"];
 export type AgendaCohort = Agenda["cohorts"][number];
@@ -149,6 +150,7 @@ export function SessionAgenda({
   const t = useTranslations("sessionPlanning");
   const format = useFormatter();
   const u = useTranslations("unifiedSchedule");
+  const eventText = useTranslations("agendaEvents");
   const [extraPicker, setExtraPicker] = useState(false);
   const agenda = api.sessionPlanning.agenda.useQuery(
     { role },
@@ -701,65 +703,98 @@ export function SessionAgenda({
                 return <Fragment key={entry.id}>{entry.content}</Fragment>;
               const cohort = entry.cohort;
               return (
-                <article
+                <AgendaEventCard
                   key={cohort.id}
                   id={`session-${cohort.id}`}
-                  tabIndex={-1}
-                  className="card space-y-3 p-4 sm:p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-                      <h3 className="font-semibold">
-                        {cohortLabel(cohort, t("scheduleUnavailable"))}
-                      </h3>
+                  kind={cohort.kind === "EXTRA" ? "extra" : "regular"}
+                  statusTone={
+                    cohort.unavailable ||
+                    (role === "tutor" && cohort.needsAttendance)
+                      ? "warning"
+                      : cohort.status === "RECORDED"
+                        ? "success"
+                        : "neutral"
+                  }
+                  title={cohortLabel(cohort, t("scheduleUnavailable"))}
+                  time={
+                    <time dateTime={cohort.startsAt.toISOString()}>
+                      {timeText(cohort.startsAt, cohort.endsAt)}
+                    </time>
+                  }
+                  details={
+                    <>
                       <p>
-                        <time dateTime={cohort.startsAt.toISOString()}>
-                          {timeText(cohort.startsAt, cohort.endsAt)}
-                        </time>
-                      </p>
-                      <p className="muted text-sm">
                         {role === "tutee"
                           ? cohort.tutorName
                           : cohort.tutees
                               .map((learner) => learner.name)
                               .join(", ")}
                       </p>
-                      <p className="muted text-sm">
+                      <p>
                         {cohort.online
                           ? t("online")
                           : (cohort.roomName ?? t("noRoom"))}
                       </p>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      <span className="badge-slate">
-                        {t(cohort.kind === "EXTRA" ? "extra" : "regular")}
-                      </span>
-                      {cohort.needsAttendance && (
-                        <span className="badge">{t("needsAttendance")}</span>
+                    </>
+                  }
+                  badges={
+                    <>
+                      {cohort.needsAttendance ? (
+                        <AgendaBadge
+                          tone={role === "tutor" ? "warning" : "neutral"}
+                        >
+                          {eventText(
+                            role === "tutor"
+                              ? "needsAction"
+                              : "awaitingAttendance",
+                          )}
+                        </AgendaBadge>
+                      ) : (
+                        !cohort.unavailable &&
+                        cohort.status === "SCHEDULED" &&
+                        cohort.endsAt > now && (
+                          <AgendaBadge>
+                            {eventText(
+                              cohort.startsAt <= now
+                                ? "inProgress"
+                                : "upcoming",
+                            )}
+                          </AgendaBadge>
+                        )
                       )}
                       {cohort.rescheduled && (
-                        <span className="badge">{t("rescheduled")}</span>
+                        <AgendaBadge>{eventText("rescheduled")}</AgendaBadge>
                       )}
                       {cohort.unavailable && (
-                        <span className="badge-slate">
-                          {t("scheduleUnavailable")}
-                        </span>
+                        <AgendaBadge tone="warning">
+                          {eventText("unavailable")}
+                        </AgendaBadge>
                       )}
                       {!cohort.unavailable && cohort.status !== "SCHEDULED" && (
-                        <span className="badge-slate">
-                          {t(
+                        <AgendaBadge
+                          tone={
+                            cohort.status === "RECORDED" ? "success" : "neutral"
+                          }
+                        >
+                          {eventText(
                             cohort.status === "RECORDED"
-                              ? "recorded"
+                              ? "completed"
                               : "cancelled",
                           )}
-                        </span>
+                        </AgendaBadge>
                       )}
-                    </div>
-                  </div>
+                    </>
+                  }
+                >
+                  {role === "tutor" && cohort.needsAttendance && (
+                    <p className="mb-3 text-sm text-yellow-900">
+                      {eventText("attendanceNeeded")}
+                    </p>
+                  )}
                   {cohort.status === "SCHEDULED" &&
                     !preview &&
                     data.cohorts.some((source) => source.id === cohort.id) && (
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
                         <SessionCoordinateMessage cohortId={cohort.id} />
                         {role === "tutor" && data.canTutorWrite && (
                           <>
@@ -840,7 +875,7 @@ export function SessionAgenda({
                         {t("schoolClosed")}
                       </InlineNotice>
                     )}
-                </article>
+                </AgendaEventCard>
               );
             })}
           </div>

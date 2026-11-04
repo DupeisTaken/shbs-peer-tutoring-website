@@ -36,7 +36,7 @@
     "noticePending": "A saved scheduling update has essential email awaiting delivery.",
     "nextDayEnd": "The end time is midnight at the start of the following date.",
     "title": "Sessions",
-    "help": "Your current and next week in {timeZone}. Weekly arrangements stay separate from dated changes.",
+    "help": "Your current and next week in {timeZone}, plus ended sessions awaiting attendance. Weekly arrangements stay separate from dated changes.",
     "week": "Weekly agenda",
     "needsAttendance": "Needs attendance",
     "empty": "No sessions in this view.",
@@ -1204,7 +1204,6 @@
           "EMAIL_2FA": "Email 2FA",
           "AUTO_ASSIGN_ROOMS": "Auto-assign rooms"
         },
-        "autoRoomsNote": "On immediately when deployed. Changes apply at the next program refresh; existing bookings are retained. Switch back to the current state to cancel a pending change.",
         "retryRefresh": "Retry refresh",
         "savedRefreshFailed": "The setting was saved, but the latest effective and pending states could not be loaded. Retry refresh without submitting again.",
         "readFailed": "Settings could not be refreshed. Previously loaded values remain visible."
@@ -7583,6 +7582,25 @@
     "unavailable": "This interview is no longer available to your panel assignment.",
     "emptyGroup": "No interviews in this group."
   },
+  "agendaEvents": {
+    "regular": "Regular Session",
+    "extra": "Extra Session",
+    "interview": "Interview",
+    "meeting": "Meeting",
+    "needsAction": "Needs Action",
+    "upcoming": "Upcoming",
+    "inProgress": "In progress",
+    "completed": "Completed",
+    "excused": "Excused for Absence",
+    "voteRecorded": "Vote recorded",
+    "awaitingDecision": "Awaiting decision",
+    "awaitingAttendance": "Awaiting attendance record",
+    "cancelled": "Cancelled",
+    "rescheduled": "Rescheduled",
+    "unavailable": "Needs schedule review",
+    "attendanceNeeded": "Record attendance to complete this session.",
+    "voteNeeded": "Your interview vote is still needed."
+  },
   "unifiedSchedule": {
     "agenda": "My agenda",
     "interview": "Interview",
@@ -7619,14 +7637,14 @@
     "openPairings": "View pairings",
     "noExtraSource": "An active pairing with a future published session is needed to add an extra session.",
     "upcoming": "Upcoming",
-    "upcomingHelp": "Three unresolved items: action needed first, then the nearest upcoming events. Ended sessions stay here until attendance is recorded.",
+    "upcomingHelp": "Three items: action needed first, then the nearest upcoming events. Ended sessions awaiting attendance and interviews awaiting a decision remain visible.",
     "nothingUpcoming": "No outstanding items.",
     "viewEvent": "View event",
     "eventFilters": "Event filters",
-    "filterHelp": "Upcoming covers the current school week and next week, plus ended sessions missing attendance.",
+    "filterHelp": "Upcoming includes the current school week and next week, plus ended sessions awaiting attendance and open interviews from earlier dates.",
     "filter": {
       "all": "All",
-      "upcoming": "Upcoming (2 weeks)",
+      "upcoming": "Upcoming",
       "history": "History"
     },
     "loadingHistory": "Loading session history…",

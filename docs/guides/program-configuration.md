@@ -130,7 +130,7 @@ truncation.
 
 **Program Settings** groups controls into **Recruitment and Refresh**, **Account Settings**, **Deployment Configurations** and **Optional Features**. Recruitment and Refresh contains the separate tutoring notices and school-day calendar, timezone, recruitment windows and refresh. Account Settings contains name/grade policies, per-account-type name requirements and message-contact permissions. Deployment Configurations contains email/binding configuration and CAPTCHA. Optional Features contains staged feature switches. Message supervision remains in Messages; feedback and appeals remain in Tutee Support. Moving a control does not change its authority or effective timing.
 
-Admin and Head stage changes to these switches in **Program Settings → Optional Features**. Changes take effect at the **next program refresh**, not when the switch is clicked. Auto-assign rooms alone is initially On at deployment, as described below. Existing records remain history. Do not refresh just to preview a switch: refresh changes participation and the current period.
+Admin and Head stage changes to these switches in **Program Settings → Optional Features**. Changes take effect at the **next program refresh**, not when the switch is clicked. Defaults apply only when no saved setting exists; existing choices remain authoritative. Existing records remain history. Do not refresh just to preview a switch: refresh changes participation and the current period.
 
 | Switch | Default | Effect when applied |
 | --- | --- | --- |
@@ -142,18 +142,18 @@ Admin and Head stage changes to these switches in **Program Settings → Optiona
 | Quarter system (`QUARTER_SYSTEM`) | On | On uses Q1–Q4; Off uses S1/S2. Applied mode controls intake and withdrawal wording |
 | Viewer signup (`VIEWER_SIGNUP`) | On | Allows public observer account registration; does not expand viewer permissions |
 | Email 2FA (`EMAIL_2FA`) | On | Makes email two-factor functionality available; users opt into sign-in 2FA in Settings. Configure and test SMTP for production email flows |
-| Auto-assign rooms (`AUTO_ASSIGN_ROOMS`) | On immediately at deployment | Allocates available rooms when schedules are confirmed or changed; disabling only stops automatic allocation |
+| Auto-assign rooms (`AUTO_ASSIGN_ROOMS`) | On | Allocates available rooms when schedules are confirmed or changed; disabling only stops automatic allocation |
 
 Switches control available pages and operations; they do not erase historical data. Turning off service-hour views does not stop attendance from recording calculated hours. See [feature implementation](../../src/server/program/features.ts) and [refresh behavior](#refresh-the-program).
 
 When Email 2FA is on, password changes also require an emailed verification code, even if the user has not opted into sign-in 2FA. Configure working email delivery before relying on this flow in production.
 
-Auto-assign rooms is effective immediately when first deployed, even before a
-feature setting has been saved. Turning it off or enabling it again is staged
+Auto-assign rooms defaults to On when no feature setting has been saved. Existing
+saved On/Off choices and pending selections are preserved. Turning it off or enabling it again is staged
 until the next program refresh. The current On/Off badge remains authoritative;
 the pending badge describes the next refresh. Switch back to the current value
 to cancel a pending change. Admin and Head stage directly; Coordinator proposals require Admin/Head approval before staging.
-Neither deployment nor changing the switch reallocates existing bookings.
+Neither the default nor changing the switch reallocates existing bookings.
 When off, existing/manual reservations, conflict protection and room displays
 continue to operate. If saving succeeds but reloading settings fails, use
 **Retry refresh**; this only reads the saved states.

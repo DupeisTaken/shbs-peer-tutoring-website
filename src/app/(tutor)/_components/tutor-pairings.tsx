@@ -489,79 +489,119 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
         />
       </div>
       <ul className="divide-y divide-slate-100">
-        {entries.map((entry) =>
-          entry.groupId ? (
-            <li key={entry.id} className="space-y-3 py-4">
-              <p className="badge">{t("pairingGroups.combined")}</p>
-              <h3 className="font-semibold text-wrap">
-                {[...new Set(entry.pairings.map((p) => p.subject))].join(" + ")}
-              </h3>
-              {entry.groupStatus === "needsRepair" && (
-                <InlineNotice tone="warning">
-                  {t("pairingGroups.needsRepair")}
-                </InlineNotice>
-              )}
-              <p className="muted text-sm">
-                {pairingScheduleText(
-                  entry.primary,
-                  t("scheduling.awaiting"),
-                  locale,
-                )}{" "}
-              </p>
-              <RoomAllocationStatus pairing={entry.primary} />
-              <ul
-                className="space-y-2"
-                aria-label={t("pairingGroups.combinedRoster")}
-              >
-                {[
-                  ...new Map(
-                    entry.pairings
-                      .flatMap((p) => p.tutees)
-                      .map((x) => [x.tuteeId, x]),
-                  ).values(),
-                ].map((student) => (
-                  <li key={student.tuteeId} className="text-sm">
-                    <p>
-                      {participantNameLabel(
-                        student.tutee.englishName,
-                        student.tutee.user?.username,
-                        t("participantNames.unnamed"),
-                      )}
-                    </p>
-                    <p className="muted text-xs">
-                      {entry.pairings
-                        .filter((p) =>
-                          p.tutees.some((x) => x.tuteeId === student.tuteeId),
-                        )
-                        .map((p) => p.subject)
-                        .filter(
-                          (subject, index, all) =>
-                            all.indexOf(subject) === index,
-                        )
-                        .join(", ")}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-              {active && (
-                <a
-                  className="link inline-flex min-h-11 items-center lg:min-h-8"
-                  href="#sessions"
-                >
-                  {t("sessionPlanning.viewSessions")}
-                </a>
-              )}
-              <DisclosureSection
-                title={t("pairingGroups.memberDetails")}
-                lifetime="retained"
-              >
-                <ul>{entry.pairings.map(renderAssignment)}</ul>
-              </DisclosureSection>
+        {entries.map((entry) => {
+          const subjects = [...new Set(entry.pairings.map((p) => p.subject))];
+          return entry.groupId ? (
+            <li key={entry.id} className="py-3">
+              <div className="min-w-0 rounded-xl border border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                  <h3 className="min-w-0 font-semibold break-words text-slate-900">
+                    {subjects.join(" + ")}
+                  </h3>
+                  <span className="badge-slate">
+                    {t("pairingGroups.combined")}
+                  </span>
+                </div>
+                <div className="space-y-4 p-4">
+                  {entry.groupStatus === "needsRepair" && (
+                    <InlineNotice tone="warning">
+                      {t("pairingGroups.needsRepair")}
+                    </InlineNotice>
+                  )}
+                  <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                    <dl className="min-w-0 space-y-3">
+                      <div>
+                        <dt className="text-xs text-slate-600">
+                          {t("pairingGroups.schedule")}
+                        </dt>
+                        <dd className="mt-1 font-medium break-words text-slate-900">
+                          {pairingScheduleText(
+                            entry.primary,
+                            t("scheduling.awaiting"),
+                            locale,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-slate-600">
+                          {t("roomAllocation.room")}
+                        </dt>
+                        <dd className="mt-1 break-words text-slate-900">
+                          <RoomAllocationStatus pairing={entry.primary} />
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="min-w-0 border-t border-slate-100 pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-4">
+                      <p className="mb-2 text-xs text-slate-600">
+                        {t("pairingGroups.combinedRoster")}
+                      </p>
+                      <ul
+                        className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3"
+                        aria-label={t("pairingGroups.combinedRoster")}
+                      >
+                        {[
+                          ...new Map(
+                            entry.pairings
+                              .flatMap((p) => p.tutees)
+                              .map((x) => [x.tuteeId, x]),
+                          ).values(),
+                        ].map((student) => (
+                          <li
+                            key={student.tuteeId}
+                            className="min-w-0 rounded-lg bg-slate-50 px-3 py-2 text-sm"
+                          >
+                            <p className="font-medium break-words text-slate-900">
+                              {participantNameLabel(
+                                student.tutee.englishName,
+                                student.tutee.user?.username,
+                                t("participantNames.unnamed"),
+                              )}
+                            </p>
+                            {/* One shared subject is already named in the panel heading. */}
+                            {subjects.length > 1 && (
+                              <p className="mt-1 text-xs break-words text-slate-600">
+                                {entry.pairings
+                                  .filter((p) =>
+                                    p.tutees.some(
+                                      (x) => x.tuteeId === student.tuteeId,
+                                    ),
+                                  )
+                                  .map((p) => p.subject)
+                                  .filter(
+                                    (subject, index, all) =>
+                                      all.indexOf(subject) === index,
+                                  )
+                                  .join(", ")}
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3 border-t border-slate-100 px-4 py-3">
+                  {active && (
+                    <a
+                      className="link inline-flex min-h-11 items-center text-sm font-medium lg:min-h-8"
+                      href="#sessions"
+                    >
+                      {t("sessionPlanning.viewSessions")}
+                    </a>
+                  )}
+                  <DisclosureSection
+                    title={t("pairingGroups.memberDetails")}
+                    lifetime="retained"
+                  >
+                    <ul>{entry.pairings.map(renderAssignment)}</ul>
+                  </DisclosureSection>
+                </div>
+              </div>
             </li>
           ) : (
             renderAssignment(entry.primary)
-          ),
-        )}
+          );
+        })}
       </ul>
       {slotOutcome && (
         <InlineNotice

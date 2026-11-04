@@ -126,7 +126,7 @@ async function application(
   });
 }
 
-it("projects only assigned valid appointments in current+next school weeks, with no duration or private evidence", async () => {
+it("projects assigned valid open appointments through next school week plus overdue work, with no private evidence", async () => {
   await application("start", "2026-10-28T08:00:00Z");
   await application("past-in-window", "2026-10-25T16:00:00Z");
   await application("last", "2026-11-08T15:59:59Z");
@@ -148,8 +148,12 @@ it("projects only assigned valid appointments in current+next school weeks, with
     end: "2026-11-08",
     timeZone: "Asia/Shanghai",
   });
-  expect(result.appointments.map((row) => row.id)).toEqual(["start", "last"]);
-  expect(result.appointments[0]).toEqual({
+  expect(result.appointments.map((row) => row.id)).toEqual([
+    "past-in-window",
+    "start",
+    "last",
+  ]);
+  expect(result.appointments.find((row) => row.id === "start")).toEqual({
     id: "start",
     name: "Synthetic start",
     subjects: ["Synthetic subject"],
@@ -183,7 +187,10 @@ it("retains unscheduled, past-open, completed-but-open and decided completion fo
     completed: true,
   });
   const result = await caller().interviews();
-  expect(result.appointments).toEqual([]);
+  expect(result.appointments.map((row) => row.id)).toEqual([
+    "completed-open",
+    "past",
+  ]);
   expect(
     result.tasks.map(({ id, reason, completionState }) => ({
       id,
@@ -214,6 +221,66 @@ it("retains unscheduled, past-open, completed-but-open and decided completion fo
   expect(
     (await caller().interviews()).tasks.every(
       (row) => row.isHead && !row.canChair,
+    ),
+  ).toBe(true);
+});
+
+it("keeps dated interviews open until a terminal decision, independently of completion or the tutor's vote", async () => {
+  const old = "2026-09-01T08:00:00Z";
+  await application("missing-vote", old, { isHead: false });
+  await application("vote-recorded", old, { isHead: false });
+  await application("completed-open", old, {
+    completed: true,
+    isHead: false,
+  });
+  await application("pending-open", old, { status: "PENDING" });
+  await application("future-completed-open", "2026-10-29T08:00:00Z", {
+    completed: true,
+  });
+  await application("paused-old", old, { invalid: true });
+  await application("other-old", old, { other: true });
+  await application("accepted", old, { status: "ACCEPTED" });
+  await application("rejected", old, { status: "REJECTED", completed: true });
+  await application("recalled", old, { status: "RECALLED" });
+  await db.interviewVote.create({
+    data: { applicationId: "vote-recorded", tutorId: "mine", accept: true },
+  });
+
+  // The timeline's event-only read must retain overdue work without loading
+  // the independently bounded task summary or its readiness projection.
+  const upcoming = await caller().interviews({ includeSummary: false });
+  expect(upcoming.appointments.map((row) => row.id)).toEqual([
+    "completed-open",
+    "missing-vote",
+    "pending-open",
+    "vote-recorded",
+    "future-completed-open",
+  ]);
+  expect(
+    upcoming.appointments.find((row) => row.id === "completed-open"),
+  ).toMatchObject({ completionState: "completed", ownVoteRecorded: false });
+  expect(
+    upcoming.appointments.find((row) => row.id === "vote-recorded"),
+  ).toMatchObject({ ownVoteRecorded: true, status: "INTERVIEW" });
+  expect(upcoming.tasks).toEqual([]);
+  expect(
+    (
+      await caller().interviews({ view: "history", includeSummary: false })
+    ).appointments.map((row) => row.id),
+  ).toEqual(["rejected", "recalled", "accepted"]);
+
+  await db.tutorApplication.update({
+    where: { id: "completed-open" },
+    data: { status: "ACCEPTED" },
+  });
+  expect(
+    (await caller().interviews()).appointments.some(
+      (row) => row.id === "completed-open",
+    ),
+  ).toBe(false);
+  expect(
+    (await caller().interviews({ view: "history" })).appointments.some(
+      (row) => row.id === "completed-open",
     ),
   ).toBe(true);
 });
@@ -373,8 +440,17 @@ it("pages dated interview views in a deterministic total order and keeps undated
   await application("undated", null, { status: "ACCEPTED" });
   await application("other", "2026-10-29T08:00:00Z", { other: true });
   const first = await caller().interviews({ limit: 1 });
-  expect(first.appointments.map((row) => row.id)).toEqual(["a"]);
+  expect(first.appointments.map((row) => row.id)).toEqual(["past"]);
   expect(first.pageInfo).toEqual({
+    hasMore: true,
+    nextCursor: { at: new Date("2026-10-15T08:00:00Z"), id: "past" },
+  });
+  const second = await caller().interviews({
+    limit: 1,
+    cursor: first.pageInfo.nextCursor!,
+  });
+  expect(second.appointments.map((row) => row.id)).toEqual(["a"]);
+  expect(second.pageInfo).toEqual({
     hasMore: true,
     nextCursor: { at: new Date("2026-10-29T08:00:00Z"), id: "a" },
   });
@@ -382,22 +458,22 @@ it("pages dated interview views in a deterministic total order and keeps undated
   await db.interviewAssignment.delete({
     where: { applicationId_tutorId: { applicationId: "a", tutorId: "mine" } },
   });
-  const second = await caller().interviews({
-    limit: 1,
-    cursor: first.pageInfo.nextCursor!,
-  });
-  expect(second.appointments.map((row) => row.id)).toEqual(["b"]);
   const third = await caller().interviews({
     limit: 1,
     cursor: second.pageInfo.nextCursor!,
   });
-  expect(third.appointments.map((row) => row.id)).toEqual(["c"]);
-  expect(third.pageInfo).toEqual({ hasMore: false, nextCursor: null });
+  expect(third.appointments.map((row) => row.id)).toEqual(["b"]);
+  const fourth = await caller().interviews({
+    limit: 1,
+    cursor: third.pageInfo.nextCursor!,
+  });
+  expect(fourth.appointments.map((row) => row.id)).toEqual(["c"]);
+  expect(fourth.pageInfo).toEqual({ hasMore: false, nextCursor: null });
   expect(
     (await caller().interviews({ view: "history" })).appointments.map(
       (row) => row.id,
     ),
-  ).toEqual(["terminal", "past"]);
+  ).toEqual(["terminal"]);
   const all: string[] = [];
   let cursor: PersonalScheduleCursor | undefined;
   for (let page = 0; page < 5; page++) {
@@ -444,6 +520,39 @@ it("pages unresolved context independently and computes the top three actions be
   });
   expect(last.tasks.map((row) => row.id)).toEqual(["task-a"]);
   expect(last.taskPageInfo).toEqual({ hasMore: false, nextCursor: null });
+});
+
+it("paginates only terminal interview history before the page limit, including same-time outcomes", async () => {
+  await application("open-latest", "2026-11-03T08:00:00Z", {
+    completed: true,
+  });
+  await application("closed-a", "2026-11-02T08:00:00Z", {
+    status: "ACCEPTED",
+  });
+  await application("closed-b", "2026-11-02T08:00:00Z", {
+    status: "RECALLED",
+  });
+  await application("old-open", "2026-09-01T08:00:00Z", { completed: true });
+  await application("closed-c", "2026-08-31T08:00:00Z", {
+    status: "REJECTED",
+  });
+  const ids: string[] = [];
+  let cursor: PersonalScheduleCursor | undefined;
+  for (let page = 0; page < 4; page++) {
+    const result = await caller().interviews({
+      view: "history",
+      includeSummary: false,
+      limit: 1,
+      cursor,
+    });
+    ids.push(...result.appointments.map((row) => row.id));
+    if (!result.pageInfo.hasMore) {
+      expect(result.pageInfo.nextCursor).toBeNull();
+      break;
+    }
+    cursor = result.pageInfo.nextCursor!;
+  }
+  expect(ids).toEqual(["closed-b", "closed-a", "closed-c"]);
 });
 
 it("only requests an assigned tutor's missing vote or an authorized chair's unscheduled time", async () => {

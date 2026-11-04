@@ -684,6 +684,9 @@ it("retains prior assignment evidence for an invalid request", () => {
       .getByRole("tab", { name: /Closed.*1/ })
       .getAttribute("aria-selected"),
   ).toBe("true");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.requests.expand }),
+  );
   expect(screen.getByText("Existing Tutor")).toBeTruthy();
   expect(screen.getByText("Invalid entry")).toBeTruthy();
 });
@@ -742,7 +745,9 @@ it.each([
     const name = legacy ? "Legacy public student" : "Public survey student";
     const mutation = legacy ? mocks.changeSignup : mocks.changeSurvey;
     const view = show(legacy);
-    fireEvent.click(screen.getByRole("button", { name: "Not flagged invalid" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Not flagged invalid" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
     fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
       target: { value: "My pending signup review" },
@@ -918,6 +923,155 @@ it("starts fulfilled legacy requests collapsed and auto-collapses after fulfillm
   ).toBe("false");
 });
 
+it.each(["en", "zh"] as const)(
+  "numbers the visible %s staff and self-service requests in one queue",
+  (locale) => {
+    mocks.invalid = false;
+    mocks.source = "STAFF";
+    render(content(true, false, locale));
+    // Equal submission times use the same stable source-id tie breaker as the
+    // queue. Staff's former source-local #1 must not duplicate survey's #1.
+    const staff = document.getElementById("request-signup-legacy-1")!;
+    const survey = document.getElementById("request-survey-survey-1")!;
+    expect(within(staff).getByText("#1")).toBeTruthy();
+    expect(within(survey).getByText("#2")).toBeTruthy();
+    expect(
+      screen.getAllByText(/^#\d+$/).map((label) => label.textContent),
+    ).toEqual(["#1", "#2"]);
+  },
+);
+
+it("renumbers the filtered mixed queue after sorting by original submission priority", () => {
+  mocks.invalid = false;
+  const entries = (flagEarly: boolean) => [
+    {
+      id: "later-staff",
+      group: "matching" as const,
+      submittedAt: new Date("2026-10-02"),
+      content: (order: number) => (
+        <article>#{order} Later staff request</article>
+      ),
+    },
+    {
+      id: "earlier-staff",
+      group: "matching" as const,
+      invalid: flagEarly,
+      submittedAt: new Date("2026-09-30"),
+      content: (order: number) => (
+        <article>#{order} Earlier staff request</article>
+      ),
+    },
+  ];
+  const page = (flagEarly: boolean) => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <StudentRequestBoard additionalEntries={entries(flagEarly)} />
+    </NextIntlClientProvider>
+  );
+  const view = render(page(false));
+  expect(screen.getByText("#1 Earlier staff request")).toBeTruthy();
+  expect(
+    within(document.getElementById("request-survey-survey-1")!).getByText("#2"),
+  ).toBeTruthy();
+  expect(screen.getByText("#3 Later staff request")).toBeTruthy();
+  view.rerender(page(true));
+  expect(screen.queryByText(/Earlier staff request/)).toBeNull();
+  expect(
+    within(document.getElementById("request-survey-survey-1")!).getByText("#1"),
+  ).toBeTruthy();
+  expect(screen.getByText("#2 Later staff request")).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: /^Closed 1$/ }));
+  expect(screen.getByText("#1 Earlier staff request")).toBeTruthy();
+});
+
+it.each(["en", "zh"] as const)(
+  "keeps the %s self-service disclosure accessible with its summary and actions available",
+  (locale) => {
+    mocks.invalid = false;
+    mocks.verified = false;
+    const view = render(content(false, false, locale));
+    const messages = locale === "zh" ? zh : en;
+    const control = screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.requests.collapse,
+    });
+    control.focus();
+    expect(control.type).toBe("button");
+    expect(control.getAttribute("aria-expanded")).toBe("true");
+    expect(control.className).toContain("control-compact");
+    const ids = control.getAttribute("aria-controls")!.split(" ");
+    expect(ids.every((id) => !!document.getElementById(id))).toBe(true);
+    expect(ids.length).toBeGreaterThan(0);
+    fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("false");
+    expect(control.getAttribute("aria-label")).toBe(
+      messages.admin.requests.expand,
+    );
+    expect(document.activeElement).toBe(control);
+    expect(
+      screen.getByRole("heading", { name: "Public survey student" }),
+    ).toBeTruthy();
+    expect(screen.getByText("#1")).toBeTruthy();
+    expect(screen.getByText(messages.survey.requestIncomplete)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: messages.workflow.resend }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: messages.signupEditing.edit }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: messages.requestInvalidity.flag }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    view.rerender(content(false, false, locale));
+    expect(control.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("combobox")).toBeTruthy();
+    expect(mocks.assign).not.toHaveBeenCalled();
+    expect(mocks.changeSurvey).not.toHaveBeenCalled();
+  },
+);
+
+it("auto-collapses newly fulfilled self-service details once while preserving a deliberate reopening", () => {
+  // Keep the invalid row in Closed while assignment evidence arrives, so this
+  // checks the mounted card's transition rather than a tab switch's remount.
+  const view = show();
+  const control = screen.getByRole("button", {
+    name: en.admin.requests.collapse,
+  });
+  mocks.assigned = true;
+  view.rerender(content());
+  expect(control.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.queryByRole("group", { name: "Mathematics" })).toBeNull();
+  fireEvent.click(control);
+  expect(screen.getByRole("group", { name: "Mathematics" })).toBeTruthy();
+  view.rerender(content());
+  expect(control.getAttribute("aria-expanded")).toBe("true");
+  mocks.assigned = false;
+  view.rerender(content());
+  expect(control.getAttribute("aria-expanded")).toBe("true");
+  mocks.assigned = true;
+  view.rerender(content());
+  expect(control.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("starts fully assigned self-service requests collapsed with summary status available", () => {
+  mocks.invalid = false;
+  mocks.assigned = true;
+  render(content());
+  fireEvent.click(screen.getByRole("tab", { name: /^Assigned 1$/ }));
+  const control = screen.getByRole("button", {
+    name: en.admin.requests.expand,
+  });
+  expect(control.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    screen.getByRole("heading", { name: "Public survey student" }),
+  ).toBeTruthy();
+  expect(screen.getByText(en.admin.requests.fulfilled)).toBeTruthy();
+  expect(screen.queryByRole("group", { name: "Mathematics" })).toBeNull();
+  fireEvent.click(control);
+  expect(screen.getByRole("group", { name: "Mathematics" })).toBeTruthy();
+});
+
 it("lets an observer choose the static invalidity filter while its period read loads", () => {
   mocks.periodLoading = true;
   render(content(true, true));
@@ -944,6 +1098,7 @@ it.each(["en", "zh"] as const)(
     expect(
       within(header)
         .getAllByRole("button")
+        .filter((button) => !button.hasAttribute("aria-controls"))
         .map((button) => button.textContent),
     ).toEqual([
       messages.requestInvalidity.flag,
@@ -1049,6 +1204,9 @@ it("keeps assignment evidence readable for observers without exposing edit or re
   ];
   render(content(false, true));
   fireEvent.click(screen.getByRole("tab", { name: /Assigned.*1/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.requests.expand }),
+  );
   const row = screen.getByRole("group", { name: "Mathematics" });
   expect(within(row).getByText("Visible Tutor")).toBeTruthy();
   expect(within(row).queryByRole("button")).toBeNull();
@@ -1304,6 +1462,70 @@ function reviewSubjectAssignment(locale: "en" | "zh" = "en") {
 }
 
 it.each(["en", "zh"] as const)(
+  "retains the %s selected tutor and accepted-write recovery through collapse",
+  async (locale) => {
+    mocks.invalid = false;
+    mocks.extraSubjects = [{ id: "physics", name: "Physics" }];
+    mocks.invalidateTutees.mockRejectedValue(
+      new Error("Offline after acceptance"),
+    );
+    const page = render(content(false, false, locale));
+    const messages = locale === "zh" ? zh : en;
+    const math = screen.getByRole("group", { name: "Mathematics" });
+    const select = within(math).getByRole<HTMLSelectElement>("combobox");
+    fireEvent.change(select, { target: { value: "chosen-tutor" } });
+    const control = screen.getByRole("button", {
+      name: messages.admin.requests.collapse,
+    });
+    fireEvent.click(control);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    page.rerender(content(false, false, locale));
+    fireEvent.click(control);
+    expect(within(math).getByRole("combobox")).toBe(select);
+    expect(select.value).toBe("chosen-tutor");
+    expect(mocks.assign).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(math).getByRole("button", { name: messages.workflow.assign }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm release" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+    await screen.findByText(messages.signupEditing.savedRefresh);
+    expect(mocks.assign).toHaveBeenCalledExactlyOnceWith({
+      id: "survey-1",
+      subjectId: "math",
+      tutorId: "chosen-tutor",
+      ticket: "release-ticket",
+      overrideTicket: "qualification-ticket",
+    });
+    const acceptedConfirm = mocks.assignmentConfirm!;
+    fireEvent.click(control);
+    page.rerender(content(false, false, locale));
+    fireEvent.click(control);
+    expect(within(math).getByRole("combobox")).toBe(select);
+    expect(select.value).toBe("chosen-tutor");
+    expect(within(math).getByRole<HTMLSelectElement>("combobox").disabled).toBe(
+      true,
+    );
+    expect(screen.getByText(messages.signupEditing.savedRefresh)).toBeTruthy();
+    // A retained stale callback and read-only Retry must never repeat the write.
+    await act(async () => {
+      await acceptedConfirm("qualification-ticket");
+    });
+    mocks.invalidateTutees.mockResolvedValue(undefined);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.signupEditing.retryRefresh }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText(messages.signupEditing.savedRefresh),
+      ).toBeNull(),
+    );
+    expect(mocks.assign).toHaveBeenCalledOnce();
+    expect(mocks.invalidateTutees).toHaveBeenCalledTimes(2);
+  },
+);
+
+it.each(["en", "zh"] as const)(
   "retains the accessible %s failed-email outcome after the first of two subjects becomes assigned",
   async (locale) => {
     mocks.invalid = false;
@@ -1532,7 +1754,9 @@ it("ignores a late timed assignment ticket after access is revoked and restored"
   page.rerender(content(false, true));
   expect(screen.queryByRole("dialog")).toBeNull();
   page.rerender(content());
-  await act(async () => { await staleTimedConfirm("stale-ticket"); });
+  await act(async () => {
+    await staleTimedConfirm("stale-ticket");
+  });
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(mocks.assign).not.toHaveBeenCalled();
   openSubjectAssignment();
@@ -1563,7 +1787,9 @@ it("retains read-only assignment recovery when access changes during an accepted
   );
   expect(mocks.assign).toHaveBeenCalledOnce();
   page.rerender(content(false, true));
-  await act(async () => { accept({ ok: true, emailSent: true }); });
+  await act(async () => {
+    accept({ ok: true, emailSent: true });
+  });
   expect(screen.queryByRole("dialog")).toBeNull();
   await screen.findByRole("button", { name: en.signupEditing.retryRefresh });
   page.rerender(content());
@@ -1618,7 +1844,11 @@ it.each([false, true])(
     view.rerender(content(legacy));
     expect(screen.getByRole("tab", { name: /^Closed 0$/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: /^Assigned 1$/ }));
-    expect(screen.getByText(legacy ? /Legacy public student/ : "Public survey student")).toBeTruthy();
+    expect(
+      screen.getByText(
+        legacy ? /Legacy public student/ : "Public survey student",
+      ),
+    ).toBeTruthy();
   },
 );
 
@@ -1639,12 +1869,23 @@ it("moves an assigned request into review and returns it after a declined withdr
   expect(screen.getByText("Existing Tutor")).toBeTruthy();
 });
 
-
 it("reveals an invalid survey notification in Needs review while its appeal is pending", () => {
   mocks.appealState = "PENDING";
-  window.history.replaceState(null, "", "/admin/requests#request-survey-survey-1");
-  const view = render(<SessionViewProvider identity="head" pathname="/admin/requests" verified>{content()}</SessionViewProvider>);
-  expect(screen.getByRole("tab", { name: /^Needs review 1$/ }).getAttribute("aria-selected")).toBe("true");
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/requests#request-survey-survey-1",
+  );
+  const view = render(
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      {content()}
+    </SessionViewProvider>,
+  );
+  expect(
+    screen
+      .getByRole("tab", { name: /^Needs review 1$/ })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
   expect(document.querySelectorAll("#request-survey-survey-1")).toHaveLength(1);
   expect(screen.getByText("Synthetic correction")).toBeTruthy();
   expect(screen.getByRole("tab", { name: /^Closed 0$/ })).toBeTruthy();
@@ -1652,16 +1893,18 @@ it("reveals an invalid survey notification in Needs review while its appeal is p
   window.history.replaceState(null, "", "/");
 });
 
-
 it.each([
   { invalid: false, state: "OPEN", expected: /^Assigned 1$/ },
   { invalid: true, state: "INVALID_REJECTED", expected: /^Closed 1$/ },
-])("does not revive an obsolete pending appeal (invalid=$invalid, state=$state)", ({ invalid, state, expected }) => {
-  mocks.invalid = invalid;
-  mocks.state = state;
-  mocks.assigned = true;
-  mocks.appealState = "PENDING";
-  render(content());
-  expect(screen.getByRole("tab", { name: /^Needs review 0$/ })).toBeTruthy();
-  expect(screen.getByRole("tab", { name: expected })).toBeTruthy();
-});
+])(
+  "does not revive an obsolete pending appeal (invalid=$invalid, state=$state)",
+  ({ invalid, state, expected }) => {
+    mocks.invalid = invalid;
+    mocks.state = state;
+    mocks.assigned = true;
+    mocks.appealState = "PENDING";
+    render(content());
+    expect(screen.getByRole("tab", { name: /^Needs review 0$/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: expected })).toBeTruthy();
+  },
+);
