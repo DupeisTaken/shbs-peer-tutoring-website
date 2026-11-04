@@ -420,7 +420,16 @@ export const studentRouter = createTRPCRouter({
         const owned = await ownedStudentIds(tx, ctx.session.user.id);
         const attendance = await tx.sessionTutee.findFirst({
           where: { sessionId: input.sessionId, tuteeId: { in: owned } },
-          include: { tutee: { select: { englishName: true } }, session: { select: { date: true, pairing: { select: { subject: true } }, tutor: { select: { englishName: true } } } } },
+          include: {
+            tutee: { select: { englishName: true } },
+            session: {
+              select: {
+                date: true,
+                pairing: { select: { subject: true } },
+                tutor: { select: { englishName: true } },
+              },
+            },
+          },
         });
         if (!attendance) throw new TRPCError({ code: "FORBIDDEN" });
         const row = await tx.studentFeedback.upsert({
@@ -602,10 +611,14 @@ export const studentRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        // Recovery and ordinary card review take the period fence before card
+        // rows. Appeal decisions must not hold a card while waiting for it.
+        await lockEntity(tx, "program:period");
         await assertFeatureEnabled(tx, "DISCIPLINE");
         const appeal = await tx.studentAppeal.findUniqueOrThrow({
           where: { id: input.id },
         });
+        await lockEntity(tx, `tutee:${appeal.studentId}`);
         const updated = await tx.studentAppeal.updateMany({
           where: {
             id: input.id,

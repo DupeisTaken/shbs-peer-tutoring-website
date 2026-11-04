@@ -5,6 +5,10 @@ import { SignupForm } from "./signup-form";
 import { db } from "~/server/db";
 import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
 import { PublicFormPage } from "~/app/_components/public-form-page";
+import { auth } from "~/server/auth";
+import { notFound, redirect } from "next/navigation";
+import { TRPCError } from "@trpc/server";
+import { readRecoveryWorkflowDraft } from "~/server/recovery/workflow-draft";
 
 export async function generateMetadata() {
   return brandingMetadata("Request a tutor");
@@ -13,9 +17,43 @@ export async function generateMetadata() {
 // This page depends on both current database configuration and the wall clock at request time.
 export const dynamic = "force-dynamic";
 
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams = Promise.resolve({}),
+}: { searchParams?: Promise<{ recoveryDraft?: string | string[] }> } = {}) {
   const t = await getTranslations();
   const transition = await readPublicSignupTransition(db);
+  const draftId = (await searchParams).recoveryDraft;
+  let recoveryDraft;
+  let draftConsumed = false;
+  if (typeof draftId === "string") {
+    const session = await auth();
+    if (!session?.user.id)
+      redirect(
+        `/signin?callbackUrl=${encodeURIComponent(`/signup?recoveryDraft=${encodeURIComponent(draftId)}`)}`,
+      );
+    const draft = await readRecoveryWorkflowDraft(
+      db,
+      { draftId },
+      { id: session.user.id },
+    ).catch((error: unknown) => {
+      // Missing/non-owned drafts, inactive accounts and changed exact ownership
+      // are all unavailable here. Keep the same 404 without disclosing existence;
+      // database, validation and other unexpected failures retain their boundary.
+      if (
+        error instanceof TRPCError &&
+        ["NOT_FOUND", "FORBIDDEN", "CONFLICT"].includes(error.code)
+      )
+        notFound();
+      throw error;
+    });
+    draftConsumed = draft.state === "CONSUMED";
+    if (draft.answers)
+      recoveryDraft = {
+        draftId: draft.draftId,
+        version: draft.version,
+        answers: draft.answers,
+      };
+  }
 
   return (
     <PublicFormPage
@@ -25,7 +63,16 @@ export default async function SignupPage() {
       description={<p>{t("survey.intro")}</p>}
     >
       <div className="mt-6">
-        <SignupForm initialTransition={transition} />
+        {draftConsumed ? (
+          <p role="status" className="card p-6">
+            {t("recoveryWorkflow.consumed")}
+          </p>
+        ) : (
+          <SignupForm
+            initialTransition={transition}
+            recoveryDraft={recoveryDraft}
+          />
+        )}
       </div>
     </PublicFormPage>
   );

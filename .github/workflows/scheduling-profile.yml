@@ -35,6 +35,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: scheduling-profile-${{ github.event.pull_request.number || github.ref }}
@@ -50,6 +51,7 @@ jobs:
       preflight: ${{ steps.clock.outputs.preflight }}
       anchor: ${{ steps.plan.outputs.anchor }}
       node_image: ${{ steps.plan.outputs.node_image }}
+      campaign: ${{ steps.binding.outputs.campaign }}
       baseline: ${{ steps.selection.outputs.baseline }}
       manifest: ${{ steps.selection.outputs.manifest }}
       baseline_path: ${{ steps.selection.outputs.baselineSelectionPath }}
@@ -113,13 +115,40 @@ jobs:
           echo "anchor=$anchor" >> "$GITHUB_OUTPUT"
           timeout 60 docker pull node:22-alpine
           echo "node_image=$(docker image inspect node:22-alpine --format '{{index .RepoDigests 0}}')" >> "$GITHUB_OUTPUT"
+          echo "node_image_id=$(docker image inspect node:22-alpine --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
+          timeout 60 docker pull postgres:16-alpine
+          echo "postgres_image=$(docker image inspect postgres:16-alpine --format '{{index .RepoDigests 0}}')" >> "$GITHUB_OUTPUT"
+      - name: Checkout the immutable application control
+        if: steps.clock.outputs.status == 'ADMITTED'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.selection.outputs.baseline }}
+          path: .profile-baseline
+          persist-credentials: false
+      - name: Checkout the distinct immutable catalog control
+        if: steps.clock.outputs.status == 'ADMITTED' && steps.selection.outputs.catalogBaseline != steps.selection.outputs.baseline
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.selection.outputs.catalogBaseline }}
+          path: .profile-catalog
+          persist-credentials: false
+      - name: Bind admitted campaign to independently inspected controls
+        if: steps.clock.outputs.status == 'ADMITTED'
+        id: binding
+        env:
+          SELECTION: ${{ toJSON(steps.selection.outputs) }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
+          PROFILE_POSTGRES_IMAGE: ${{ steps.plan.outputs.postgres_image }}
+          PROFILE_NODE_IMAGE_ID: ${{ steps.plan.outputs.node_image_id }}
+        run: node scripts/scheduling-profile/resume-campaign.mjs >> "$GITHUB_OUTPUT"
       - name: Validate helpers under the measurement resource limits
         if: steps.clock.outputs.status == 'ADMITTED'
         env:
           PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
         run: |
           docker run --rm --cpus=2 --memory=4g -v "$PWD:/work" -w /work \
-            "$PROFILE_NODE_IMAGE" sh -ec 'npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts'
+            "$PROFILE_NODE_IMAGE" sh -ec 'apk add --no-cache git python3 && npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts scripts/scheduling-profile/resume-*.spec.ts'
   preflight:
     needs: matrix
     if: needs.matrix.outputs.admission == 'ADMITTED'
@@ -136,6 +165,7 @@ jobs:
       partition: ${{ matrix.partition }}
       partition-count: ${{ matrix.partitionCount }}
       samples: ${{ matrix.samples }}
+      campaign: ${{ needs.matrix.outputs.campaign }}
       anchor: ${{ needs.matrix.outputs.anchor }}
       node-image: ${{ needs.matrix.outputs.node_image }}
       schema-manifest: ${{ needs.matrix.outputs.manifest }}
@@ -160,6 +190,7 @@ jobs:
       partition: ${{ matrix.partition }}
       partition-count: ${{ matrix.partitionCount }}
       samples: ${{ matrix.samples }}
+      campaign: ${{ needs.matrix.outputs.campaign }}
       anchor: ${{ needs.matrix.outputs.anchor }}
       node-image: ${{ needs.matrix.outputs.node_image }}
       schema-manifest: ${{ needs.matrix.outputs.manifest }}
@@ -184,21 +215,11 @@ jobs:
         with:
           ref: ${{ env.CANDIDATE_SHA }}
           persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: scheduling-profile-*-part-*-${{ github.run_attempt }}
-          path: outputs/scheduling-profile-parts
-      - name: Require complete paired populations before pooling
-        shell: bash
-        run: |
-          catalog_args=()
-          if [[ "$CATALOG_SELECTION_SOURCE" == "reviewed-pr-catalog-baseline-file" ]]; then
-            catalog_args=(--catalog-baseline "$CATALOG_BASELINE_SHA")
-          fi
-          node --max-old-space-size=4096 scripts/scheduling-profile/aggregate-partitions.mjs \
-            --input outputs/scheduling-profile-parts \
-            --baseline "$BASELINE_SHA" --candidate "$CANDIDATE_SHA" "${catalog_args[@]}" \
-            --output outputs/scheduling-profile-aggregate.json
+      - name: Authenticate every execution and pool complete paired populations
+        env:
+          PROFILE_CAMPAIGN: ${{ needs.matrix.outputs.campaign }}
+          GH_TOKEN: ${{ github.token }}
+        run: node --max-old-space-size=4096 scripts/scheduling-profile/resume-run.mjs aggregate
       - name: Require every diagnostic and latency partition
         if: always()
         run: |
@@ -208,6 +229,8 @@ jobs:
         if: always()
         with:
           name: scheduling-profile-aggregate-${{ github.run_attempt }}
-          path: outputs/scheduling-profile-aggregate.json
+          path: |
+            outputs/scheduling-profile-aggregate.json
+            outputs/scheduling-profile-selection.json
           retention-days: 7
           if-no-files-found: error

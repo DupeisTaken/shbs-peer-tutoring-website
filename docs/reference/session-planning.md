@@ -457,7 +457,7 @@ during an eligible window. Rerun the entire deferred workflow because it has no
 measurement jobs to resume. This preserves the original PR event and its scoped
 baseline and catalog pins. A successful deferral job cannot establish
 performance acceptance. Require the complete `PASS` aggregate for the current
-head and successfully completed measurement jobs in the admitted attempt.
+head and a successful, authenticated receipt for every declared measurement slot.
 
 The worker's phase receipts record the static command label, elapsed time, exit
 status and remaining phase budget. Only the initial disposable Alpine package
@@ -489,6 +489,15 @@ It permits only the exact appended maintenance models and their additive migrati
 to be overlaid on the baseline. The baseline application source stays unchanged.
 This shared-schema control includes the new triggers' cost on both revisions; a
 separately labelled native-schema cold baseline records the original schema too.
+That pre-overlay command explicitly selects `--capture-schema native-original`:
+a fixed positive projection of the original schema's fields and delegates,
+excluding later identity/recovery fields and sidecars. Both its receipt and
+snapshot identify this reduced capture contract. It is restricted to unpaired
+cold HTTP latency controls; the aggregator independently verifies the original
+schema hash and keeps these observations separate from shared-schema parity.
+Ordinary paired commands use `--capture-schema shared`, retain the complete
+combined projection, and fail on missing fields or tables. There is no automatic
+fallback from complete capture to the native projection.
 Later comparisons with byte-identical schemas and migration chains require no
 overlay or native-schema control. Unrelated schema changes still fail closed.
 For a combined-feature run, manual dispatch may select an explicitly reviewed
@@ -519,7 +528,8 @@ and `pr-<number>.json`. Only the corresponding PR selects the pair; both files
 are required. Manual selection takes precedence and the existing integration
 fallback still applies when there is no matching pair.
 
-PR #569 uses the **original-plus-roster-order** control
+PR #569 and the combined recovery PR #570 each bind their own schema manifest
+to the **original-plus-roster-order** control
 (`223a1b213a7a5167187b057d08a349d30f0087ad`). Its only parent is the
 frozen original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6`.
 Only the new proposal roster capture in `src/server/session-planning/index.ts`
@@ -615,8 +625,45 @@ samples and successful paired semantic checks. It retains runner identities and
 paired comparisons. Pooled percentiles describe these hosted-runner observations;
 they are neither one host's repeated experiment nor production p95. Hardware and
 cloud variance between partitions remain explicit. All diagnostic jobs must also
-pass the workflow gate. Rerun the complete workflow attempt when collecting a new
-partition population; earlier attempts' failure artifacts remain separate.
+pass the workflow gate.
+
+#### Resuming a failed measurement partition
+
+For a run that contains the resume workflow, first inspect the failed job, the
+remaining clock budget and the account queue. A terminal dependency-install or
+bootstrap failure with complete phase evidence can be retried with
+`gh run rerun RUN_ID --failed --repo OWNER/REPO` while the original interval
+still admits the worker's entire budget. GitHub retains the successful matrix
+declaration. The retry measures both revisions again on the same runner.
+The aggregate keeps the first baseline and its failed partner in the provenance
+history and uses the new complete pair for that slot.
+
+The declaration pins the repository, run, workflow commit, candidate, both
+baseline selections, schema and lockfile bytes, Node and PostgreSQL image
+digests, anchor, report schema and partition protocol. Each worker seals its
+original files before uploading them. Before pooling, the aggregate reads all
+job attempts in that campaign and verifies each archive against GitHub's
+digest. Every slot must have exactly one complete successful pair as its latest
+execution. Both controlled diagnostic orders and required native cold controls
+must pass. A contention worker reads only the two completed ordering jobs when
+acquiring references. GitHub can report future steps of an active job as
+`pending` with no conclusion. Those steps never qualify a slot for pooling.
+On a partial rerun GitHub can assign a new check ID to a completed job while
+preserving its original runner and every step timestamp. The verifier ties that
+row back to its original successful job and archive using the authenticated
+attempt boundary and matching execution history. The receipt records both IDs.
+An actual new job still requires its own terminal evidence and archive.
+The aggregate records artifact IDs, attempts and hashes in
+`scheduling-profile-selection.json` beside the canonical result.
+
+A newer missing or invalid receipt, measurement timeout, cancellation,
+semantic mismatch, incomplete sample or exhausted campaign interval blocks
+recovery. Keep the original artifacts for investigation. An entirely new
+campaign declares a new interval and acquires its own complete population.
+GitHub reruns use the original event revision, so a run created before this
+workflow shipped cannot acquire its verifier or worker seals retroactively.
+See [GitHub's rerun semantics](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs).
+
 A repeated-state failure in the immutable baseline remains failed evidence even
 when a candidate fixes its cause. Do not sort away stored arrays, audit writes
 or recovery ordinals, or silently patch baseline application files. Any separately
@@ -656,7 +703,7 @@ and fences. Generated identifiers require unambiguous witnesses, and receipt
 hashes must match their exact inputs before canonical comparison. Synthetic
 setup rows, including the allocation scenario's room unavailability, use stable
 fixture IDs; all their fields remain in parity. API-created records retain their
-generated IDs and require explicit semantic witnesses. The normalization format is version 2: compact references point to a retained
+generated IDs and require explicit semantic witnesses. The normalization format is version 3: compact references point to a retained
 dictionary of full semantic identities, with compact edges to parent identities.
 This lossless graph encoding of normalized identities prevents repeated escaping
 of nested parent strings from exhausting the artifact size. It retains all
@@ -675,8 +722,16 @@ two; combining cohort and participant writes into one SQL statement remains
 unsupported. Under-one-second first publication is a target to verify from a
 passing supported-runtime result, not a property established by this harness's
 presence or by earlier Windows measurements.
+The combined schema capture also retains identity ownership and execution sidecars,
+qualification provenance, source requests, checkpoint scopes and transaction
+membership, shared delivery effects and cancellations, and workflow owner bindings.
+Every added domain table has an explicit scalar/JSON projection. New feature
+evidence remains a real difference when the historical baseline cannot produce it;
+such scenarios require separate candidate proof and cannot claim baseline parity.
 Persistence `createdAt`/`updatedAt` values are omitted recursively, including in
-journal snapshots and procedure results. Continuation creation boundaries and
+journal snapshots and procedure results, except native qualification approval
+time, retained as `qualificationApprovedAt`. Qualification fixture approval and
+grant dates use the shared synthetic anchor. Continuation creation boundaries and
 sweep selection/rotation therefore need separate semantic witnesses. This is
 normalized output parity, not byte-identical full journal content. The native
 original-schema control currently covers cold publication only; other shared-schema
@@ -692,3 +747,5 @@ Use the repository's [verification requirements](../contributing/verification.md
 for schema agreement, complete regression checks and actual-page screenshots.
 
 [Reference home](README.md).
+
+Manual dispatch of the supplementary concurrency workflow reproduces the measured scheduling revision `60be69874d08c803d0ff6b62627faded9db93e62`, including its v2 capture and PR #569 database manifest. Its aggregate identifies that revision even when dispatched from a later main. The regular combined profile uses the active PR head and its full shared capture.

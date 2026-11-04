@@ -125,110 +125,107 @@ const shortages = () =>
   db.notification.findMany({ where: { title: "Pairing needs a room" } });
 
 beforeEach(async () => {
-  const tables = await db.$queryRaw<
-    { tablename: string }[]
-  >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
-  await db.$executeRawUnsafe(
-    "TRUNCATE " +
-      tables
-        .map((t) => '"' + t.tablename.replaceAll('"', '""') + '"')
-        .join(",") +
-      " CASCADE",
-  );
-  termId = (
-    await db.term.create({
+  termId = "allocation-term";
+  tutorId = "allocation-tutor-01";
+  otherTutorId = "allocation-tutor-02";
+  thirdTutorId = "allocation-tutor-03";
+  subjectId = "allocation-subject";
+  rooms = ["allocation-room-01", "allocation-room-02", "allocation-room-03"];
+  slotId = "allocation-slot-01";
+  overlapId = "allocation-slot-02";
+  adjacentId = "allocation-slot-03";
+  otherSlotId = "allocation-slot-04";
+  learners = ["allocation-learner-01", "allocation-learner-02"];
+
+  // Only fixture construction shares a transaction. Its real commit completes
+  // before root callers run; test-owned commits, concurrency and triggers stay real.
+  await db.$transaction(async (tx) => {
+    const tables = await tx.$queryRaw<
+      { tablename: string }[]
+    >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
+    await tx.$executeRawUnsafe(
+      "TRUNCATE " +
+        tables
+          .map((t) => '"' + t.tablename.replaceAll('"', '""') + '"')
+          .join(",") +
+        " CASCADE",
+    );
+    await tx.term.create({
       data: {
+        id: termId,
         name: "Allocation 26-27 Q1",
         schoolYear: "26-27",
         quarter: "Q1",
         active: true,
       },
-    })
-  ).id;
-  tutorId = (
-    await db.tutor.create({
-      data: { englishName: "Allocation Tutor", status: "ACTIVE" },
-    })
-  ).id;
-  otherTutorId = (
-    await db.tutor.create({
-      data: { englishName: "Evidence Tutor", status: "ACTIVE" },
-    })
-  ).id;
-  thirdTutorId = (await db.tutor.create({ data: { englishName: "Independent blocker tutor", status: "ACTIVE" } })).id;
-  for (const role of [
-    "HEAD",
-    "ADMIN",
-    "COORDINATOR",
-    "TUTOR",
-    "VIEWER",
-  ] as const)
-    await db.user.create({
-      data: {
+    });
+    await tx.tutor.createMany({
+      data: [
+        { id: tutorId, englishName: "Allocation Tutor", status: "ACTIVE" },
+        { id: otherTutorId, englishName: "Evidence Tutor", status: "ACTIVE" },
+        { id: thirdTutorId, englishName: "Independent blocker tutor", status: "ACTIVE" },
+      ],
+    });
+    await tx.user.createMany({
+      data: (["HEAD", "ADMIN", "COORDINATOR", "TUTOR", "VIEWER"] as const).map((role) => ({
         id: `allocation-${role}`,
         name: `Allocation ${role}`,
         email: `allocation-${role}@example.test`,
         role,
         tutorId: role === "TUTOR" ? tutorId : null,
-      },
+      })),
     });
-  subjectId = (await db.subject.create({ data: { name: subject } })).id;
-  for (const id of [tutorId, otherTutorId, thirdTutorId])
-    await db.tutorQualification.create({
-      data: {
+    await tx.subject.create({ data: { id: subjectId, name: subject } });
+    await tx.tutorQualification.createMany({
+      data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
+        tutorId: id, subjectId, approvedById: "allocation-ADMIN",
+      })),
+    });
+    await tx.qualificationGrant.createMany({
+      data: [tutorId, otherTutorId, thirdTutorId].map((id) => ({
         tutorId: id,
+        sourceSubjectId: subjectId,
         subjectId,
-        approvedById: "allocation-ADMIN",
-        grants: { create: { subjectId } },
-      },
+      })),
     });
-  rooms = [];
-  for (const name of ["Allocation A", "Allocation B", "Allocation C"])
-    rooms.push((await db.room.create({ data: { name } })).id);
-  rooms.sort();
-  slotId = (
-    await db.timeSlot.create({
-      data: {
+    await tx.room.createMany({
+      data: ["Allocation A", "Allocation B", "Allocation C"].map((name, index) => ({
+        id: rooms[index]!, name,
+      })),
+    });
+    await tx.timeSlot.createMany({
+      data: [{
+        id: slotId,
         label: "Sunday primary",
         dayOfWeek: 7,
         startMin: 600,
         endMin: 660,
-      },
-    })
-  ).id;
-  overlapId = (
-    await db.timeSlot.create({
-      data: {
+      }, {
+        id: overlapId,
         label: "Sunday overlap",
         dayOfWeek: 7,
         startMin: 630,
         endMin: 690,
-      },
-    })
-  ).id;
-  adjacentId = (
-    await db.timeSlot.create({
-      data: {
+      }, {
+        id: adjacentId,
         label: "Sunday adjacent",
         dayOfWeek: 7,
         startMin: 660,
         endMin: 720,
-      },
-    })
-  ).id;
-  otherSlotId = (
-    await db.timeSlot.create({
-      data: {
+      }, {
+        id: otherSlotId,
         label: "Monday primary",
         dayOfWeek: 1,
         startMin: 600,
         endMin: 660,
-      },
-    })
-  ).id;
-  learners = [];
-  for (const englishName of ["Allocation Learner A", "Allocation Learner B"])
-    learners.push((await db.tutee.create({ data: { englishName } })).id);
+      }],
+    });
+    await tx.tutee.createMany({
+      data: ["Allocation Learner A", "Allocation Learner B"].map((englishName, index) => ({
+        id: learners[index]!, englishName,
+      })),
+    });
+  }, { timeout: 20_000 });
 });
 
 afterAll(() => db.$disconnect());

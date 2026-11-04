@@ -24,6 +24,9 @@ on:
       samples:
         required: true
         type: number
+      campaign:
+        required: true
+        type: string
       anchor:
         required: true
         type: string
@@ -45,6 +48,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   measure:
@@ -52,7 +56,7 @@ jobs:
     timeout-minutes: 9
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ${{ fromJSON(inputs.campaign).postgresImage }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -76,6 +80,7 @@ jobs:
       PROFILE_PARTITION_INDEX: ${{ inputs.partition }}
       PROFILE_PARTITION_COUNT: ${{ inputs.partition-count }}
       PROFILE_SAMPLES: ${{ inputs.samples }}
+      PROFILE_CAMPAIGN: ${{ inputs.campaign }}
       PROFILE_ANCHOR: ${{ inputs.anchor }}
       PROFILE_NODE_IMAGE: ${{ inputs.node-image }}
       PROFILE_PARTITION_RUNNER_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.scenario }}-${{ inputs.mode }}-${{ inputs.partition }}
@@ -108,25 +113,26 @@ jobs:
               startedAt: start,
               timeoutMs: Number(process.env.PROFILE_DEADLINE) * 1000 - start.getTime(),
             });'
+      - name: Authorize the partition from its execution history
+        if: github.run_attempt != fromJSON(inputs.campaign).campaignAttempt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: profile-head
+        run: node scripts/scheduling-profile/resume-run.mjs authorize
       - name: Checkout baseline
         uses: actions/checkout@v4
         with:
           ref: ${{ env.BASELINE_SHA }}
           path: profile-base
           persist-credentials: false
-      - name: Download the bulk-before-acceptance full reference
+      - name: Authenticate both controlled ordering references
         if: inputs.scenario == 'contention'
-        uses: actions/download-artifact@v4
-        with:
-          name: scheduling-profile-contention-bulk-first-diagnostic-part-0-${{ github.run_attempt }}
-          path: profile-head/outputs/contention-references/bulk-before-acceptance
-      - name: Download the acceptance-before-bulk full reference
-        if: inputs.scenario == 'contention'
-        uses: actions/download-artifact@v4
-        with:
-          name: scheduling-profile-contention-acceptance-first-diagnostic-part-0-${{ github.run_attempt }}
-          path: profile-head/outputs/contention-references/acceptance-before-bulk
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: profile-head
+        run: node scripts/scheduling-profile/resume-run.mjs references
       - name: Freeze comparison inputs
+        id: freeze
         shell: bash
         run: |
           mkdir -p profile-head/outputs/scheduling-profile profile-base/scripts/scheduling-profile
@@ -170,6 +176,10 @@ jobs:
               "$node_image" sh -eu scripts/run-scheduling-profile-ci.sh \
               2>&1 | tee "profile-head/outputs/scheduling-profile/$revision.log"
           done
+      - name: Seal the raw partition including setup and measurement failures
+        if: ${{ !cancelled() && steps.freeze.outcome == 'success' }}
+        working-directory: profile-head
+        run: node scripts/scheduling-profile/resume-run.mjs seal
       - name: Retain raw samples and failure receipts
         if: always()
         uses: actions/upload-artifact@v4

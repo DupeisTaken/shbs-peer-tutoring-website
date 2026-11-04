@@ -91,6 +91,19 @@ test("prepared operator sources require their exact destination and final app co
   ]) assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(changed)).includes(missing));
 });
 
+test("CLI packaging guard catches omitted recovery acceptance descendants", () => {
+  const copies = runtimeSourceCopies();
+  const graph = runtimeCliGraph("scripts/recovery.ts");
+  for (const omitted of [
+    "src/server/recovery/operator-cutover.ts",
+    "src/server/recovery/operator-next.ts",
+    "src/lib/session-identity.ts",
+  ]) {
+    assert.ok(graph.files.has(omitted), `${omitted} must be exercised by recovery`);
+    assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== omitted)), [omitted]);
+  }
+});
+
 test("CLI import discovery validates JSON assets and requires their runtime copy", (t) => {
   const fixture = mkdtempSync(path.join(tmpdir(), "shbs-cli-json-"));
   t.after(() => rmSync(fixture, { recursive: true, force: true }));

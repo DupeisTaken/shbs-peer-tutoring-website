@@ -35,6 +35,130 @@ const maintenanceUrl =
   "postgresql://operator:secret-stage@127.0.0.1:5544/postgres";
 const sql =
   "--\n-- PostgreSQL database dump\n--\nCREATE TABLE example (id int);\n";
+
+void test("scoped checkpoint capture is distinct from read-only inspection and operator apply", () => {
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "checkpoint",
+      "capture",
+      "--adapter",
+      "ATTENDANCE",
+      "--source-id",
+      "session",
+      "--actor-id",
+      "head",
+    ]),
+    {
+      kind: "checkpoint.capture",
+      adapter: "ATTENDANCE",
+      sourceId: "session",
+      actorId: "head",
+    },
+  );
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "checkpoint",
+      "inspect",
+      "--checkpoint-id",
+      "checkpoint",
+      "--actor-id",
+      "head",
+    ]),
+    { kind: "checkpoint.inspect", checkpointId: "checkpoint", actorId: "head" },
+  );
+  assert.throws(() =>
+    parseRecoveryCommand([
+      "checkpoint",
+      "capture",
+      "--adapter",
+      "ARBITRARY_SQL",
+      "--source-id",
+      "x",
+      "--actor-id",
+      "head",
+    ]),
+  );
+  assert.throws(() =>
+    parseRecoveryCommand([
+      "checkpoint",
+      "inspect",
+      "--checkpoint-id",
+      "x",
+      "--actor-id",
+      "head",
+      "--operator",
+      "true",
+    ]),
+  );
+});
+void test("site phase commands bind exact reviewed plan and receipt without secret argv options", () => {
+  for (const phase of ["reconcile", "acceptance", "cutover", "rollback"]) {
+    assert.deepEqual(
+      parseRecoveryCommand([
+        "site",
+        phase,
+        "--plan",
+        "plan.json",
+        "--plan-hash",
+        hash,
+        "--reason",
+        "Reviewed synthetic rehearsal",
+      ]),
+      {
+        kind: `site.${phase}`,
+        plan: "plan.json",
+        planHash: hash,
+        reason: "Reviewed synthetic rehearsal",
+      },
+    );
+    assert.throws(() =>
+      parseRecoveryCommand([
+        "site",
+        phase,
+        "--plan",
+        "plan.json",
+        "--plan-hash",
+        hash,
+        "--reason",
+        "reviewed",
+        "--auth-secret",
+        "secret",
+      ]),
+    );
+  }
+  assert.throws(() =>
+    parseRecoveryCommand([
+      "site",
+      "reconcile-plan",
+      "--plan",
+      "p",
+      "--plan-hash",
+      hash,
+      "--receipt",
+      "r",
+      "--receipt-hash",
+      "bad",
+      "--out",
+      "o",
+    ]),
+  );
+  assert.throws(() =>
+    parseRecoveryCommand([
+      "site",
+      "cutover-plan",
+      "--plan",
+      "p",
+      "--plan-hash",
+      hash,
+      "--receipt",
+      "r",
+      "--receipt-hash",
+      hash,
+      "--out",
+      "o",
+    ]),
+  );
+});
 async function temporary(t: TestContext) {
   const dir = await mkdtemp(join(tmpdir(), "shbs-recovery-"));
   t.after(async () => {
@@ -180,6 +304,42 @@ void test("parser refuses role impersonation, SQL, missing values, repeated flag
     { id: "a;$(x)", revision: 2, active: true },
   );
 });
+
+void test("dependency inspection requires a bounded exact record reference", () => {
+  assert.deepEqual(
+    parseRecoveryCommand([
+      "records",
+      "dependencies",
+      "--table",
+      "PairingTutee",
+      "--key",
+      '{"pairingId":"pairing","tuteeId":"student"}',
+      "--limit",
+      "25",
+    ]),
+    {
+      kind: "records.dependencies",
+      table: "PairingTutee",
+      key: { pairingId: "pairing", tuteeId: "student" },
+      limit: 25,
+    },
+  );
+  for (const args of [
+    ["records", "dependencies", "--table", "User"],
+    ["records", "dependencies", "--table", "User", "--key", "{}"],
+    [
+      "records",
+      "dependencies",
+      "--table",
+      "User",
+      "--key",
+      '{"id":"x"}',
+      "--where",
+      "true",
+    ],
+  ])
+    assert.throws(() => parseRecoveryCommand(args), { name: "OperatorError" });
+});
 void test("plan hashes are canonical, files are exclusive, changed plans and oversized plans are refused", async (t) => {
   const dir = await temporary(t);
   const file = join(dir, "plan.json");
@@ -244,7 +404,7 @@ void test("node-pg receives the IPv6 address without losing credentials, SSL or 
       assert.equal(databaseIdentity(original).host, expectedIdentity);
       assert.equal(planHash(databaseIdentity(original)), reviewedHash);
       if (!host.startsWith("[")) assert.equal(normalized, original);
-      // Record/admission clients add UTC options after the same normalization.
+      // Both raw operator and record/admission clients add runtime UTC options.
       const utc = new Client({ connectionString: utcDatabaseUrl(normalized) });
       assert.equal(utc.host, client.host);
       assert.deepEqual(utc.ssl, client.ssl);
@@ -263,6 +423,44 @@ void test("node-pg receives the IPv6 address without losing credentials, SSL or 
       () => postgresClientUrl(`postgresql://synthetic@[::1]/test?${option}`),
       /UNSUPPORTED_DATABASE_URL_OPTIONS/,
     );
+});
+
+void test("operator runtime UTC startup options override a non-UTC driver fallback without changing reviewed inputs", () => {
+  const original =
+    "postgresql://synthetic:disposable@localhost:5544/recovery_test?sslmode=disable";
+  const reviewedIdentity = databaseIdentity(original);
+  const reviewedHash = planHash(reviewedIdentity);
+  const fallbackOptions = "-c timezone=Asia/Shanghai";
+  const baseline = new Client({
+    connectionString: original,
+    options: fallbackOptions,
+  });
+  const runtimeUrl = utcDatabaseUrl(postgresClientUrl(original));
+  const client = new Client({
+    connectionString: runtimeUrl,
+    options: fallbackOptions,
+  });
+  // Inspect the real driver's parsed startup parameters without opening a socket.
+  const baselineParameters = Reflect.get(baseline, "connectionParameters") as {
+    options: unknown;
+  };
+  const runtimeParameters = Reflect.get(client, "connectionParameters") as {
+    options: unknown;
+  };
+  assert.equal(baselineParameters.options, fallbackOptions);
+  assert.equal(runtimeParameters.options, "-c timezone=UTC");
+  assert.equal(client.host, baseline.host);
+  assert.equal(client.database, baseline.database);
+  assert.equal(client.user, baseline.user);
+  assert.deepEqual(client.ssl, baseline.ssl);
+  assert.deepEqual(databaseIdentity(original), reviewedIdentity);
+  assert.equal(planHash(databaseIdentity(original)), reviewedHash);
+  // Caller-supplied startup options remain forbidden, even though the runtime
+  // adds its own fixed option after input validation.
+  assert.throws(
+    () => postgresClientUrl(`${original}&options=-c%20timezone%3DUTC`),
+    /UNSUPPORTED_DATABASE_URL_OPTIONS/,
+  );
 });
 
 function fixture(
@@ -458,52 +656,59 @@ void test("staging converts IPv6 URI hosts for both PostgreSQL tools without cha
     ["127.0.0.1", "[::1]"],
     ["localhost", "localhost"],
   ] as const) {
-    await t.test(`${sourceHost} source and ${maintenanceHost} staging`, async (t) => {
-      const endpoints = {
-        source: sourceUrl.replace("127.0.0.1", sourceHost),
-        maintenance: maintenanceUrl.replace("127.0.0.1", maintenanceHost),
-      };
-      const { plan, dependencies, tools, queries } = await planned(
-        t,
-        {},
-        endpoints,
-      );
-      const reviewedHash = planHash(plan);
-      assert.equal(
-        plan.source.host,
-        sourceHost.startsWith("[") ? "[::1]" : sourceHost,
-      );
-      assert.equal(
-        plan.maintenance.host,
-        maintenanceHost.startsWith("[") ? "[::1]" : maintenanceHost,
-      );
-      const receipt = await stageSitePlan(
-        plan,
-        endpoints.source,
-        endpoints.maintenance,
-        "Synthetic endpoint rehearsal",
-        dependencies,
-      );
-      assert.deepEqual(
-        tools.map(({ tool, env }) => [tool, env.PGHOST, env.PGPORT]),
-        [
-          ["pg_dump", sourceHost.startsWith("[") ? "::1" : sourceHost, "5432"],
+    await t.test(
+      `${sourceHost} source and ${maintenanceHost} staging`,
+      async (t) => {
+        const endpoints = {
+          source: sourceUrl.replace("127.0.0.1", sourceHost),
+          maintenance: maintenanceUrl.replace("127.0.0.1", maintenanceHost),
+        };
+        const { plan, dependencies, tools, queries } = await planned(
+          t,
+          {},
+          endpoints,
+        );
+        const reviewedHash = planHash(plan);
+        assert.equal(
+          plan.source.host,
+          sourceHost.startsWith("[") ? "[::1]" : sourceHost,
+        );
+        assert.equal(
+          plan.maintenance.host,
+          maintenanceHost.startsWith("[") ? "[::1]" : maintenanceHost,
+        );
+        const receipt = await stageSitePlan(
+          plan,
+          endpoints.source,
+          endpoints.maintenance,
+          "Synthetic endpoint rehearsal",
+          dependencies,
+        );
+        assert.deepEqual(
+          tools.map(({ tool, env }) => [tool, env.PGHOST, env.PGPORT]),
           [
-            "psql",
-            maintenanceHost.startsWith("[") ? "::1" : maintenanceHost,
-            "5544",
+            [
+              "pg_dump",
+              sourceHost.startsWith("[") ? "::1" : sourceHost,
+              "5432",
+            ],
+            [
+              "psql",
+              maintenanceHost.startsWith("[") ? "::1" : maintenanceHost,
+              "5544",
+            ],
           ],
-        ],
-      );
-      assert.equal(planHash(plan), reviewedHash);
-      assert.equal(receipt.planHash, reviewedHash);
-      assert.equal(receipt.state, "SEALED_STAGING_ONLY");
-      assert.ok(
-        queries.includes(
-          'ALTER DATABASE "shbs_recovery_test" ALLOW_CONNECTIONS false',
-        ),
-      );
-    });
+        );
+        assert.equal(planHash(plan), reviewedHash);
+        assert.equal(receipt.planHash, reviewedHash);
+        assert.equal(receipt.state, "SEALED_STAGING_ONLY");
+        assert.ok(
+          queries.includes(
+            'ALTER DATABASE "shbs_recovery_test" ALLOW_CONNECTIONS false',
+          ),
+        );
+      },
+    );
   }
 });
 void test("loopback aliases cannot bypass separate-port isolation", async (t) => {

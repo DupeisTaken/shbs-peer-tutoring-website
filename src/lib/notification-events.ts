@@ -56,6 +56,7 @@ export const notificationEvents = [
   "tutee_appeal_reviewed",
   "student_assignment_updated",
   "student_continuation_released",
+  "recovery_workflow_draft",
   "room_assignment_needed",
   "student_availability_updated",
   "student_request_recalled",
@@ -135,7 +136,11 @@ export function notificationEvent(
   }
   if (event === "announcement_published") {
     const title = label(data.announcementTitle, 200);
-    if (title && (data.announcementAction === "published" || data.announcementAction === "updated")) {
+    if (
+      title &&
+      (data.announcementAction === "published" ||
+        data.announcementAction === "updated")
+    ) {
       context.announcementTitle = title;
       context.announcementAction = data.announcementAction;
     }

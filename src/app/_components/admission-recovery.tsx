@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import type {
   AdmissionRecoveryPlan,
@@ -9,12 +9,17 @@ import type {
 } from "~/lib/recovery";
 import { api } from "~/trpc/react";
 import { recoveryEvidenceMessage } from "~/lib/recovery-evidence";
+import { checkpointEvidenceText } from "~/lib/checkpoint-evidence";
 import { Button } from "./ui/button";
 import { Modal, useDialogPending } from "./ui/modal";
 import { QueryFeedback } from "./ui/query-feedback";
 import { DisclosureSection } from "./ui/disclosure-section";
 import { SummaryTable, TableAction, TableActions } from "./ui/summary-table";
 import { useSessionAccessDenied } from "./session-view-state";
+import {
+  RecoveryDeliveryConsequences,
+  RecoveryOwnerFollowUp,
+} from "./checkpoint-recovery";
 
 function RecoveryConfirmation({
   pending,
@@ -76,6 +81,7 @@ function RecoveryPlan({
 }) {
   const t = useTranslations("recovery");
   const format = useFormatter();
+  const locale = useLocale();
   const [plan, setPlan] = useState(incomingPlan);
   const changed = incomingPlan.fingerprint !== plan.fingerprint;
   const reviewBlocked = changed || refreshing || readFailed;
@@ -88,7 +94,7 @@ function RecoveryPlan({
             ? { kind: t("eventUnknown") }
             : evidence.values,
         )
-      : message;
+      : checkpointEvidenceText(message, locale);
   };
   const [reason, setReason] = useState("");
   const [confirm, setConfirm] = useState(false);
@@ -229,6 +235,9 @@ function RecoveryPlan({
             {t("reviewUpdated")}
           </Button>
         </div>
+      )}
+      {!!plan.deliveryEffects?.length && (
+        <RecoveryDeliveryConsequences effects={plan.deliveryEffects} />
       )}
       <div>
         <h3 className="font-medium">{t("effects")}</h3>
@@ -574,6 +583,12 @@ export function AdmissionRecovery({
                 {savedReceipt.id}
               </p>
               <p>{t("receiptHelp")}</p>
+              <RecoveryOwnerFollowUp result={savedReceipt.result} />
+              {savedReceipt.deliveries && (
+                <RecoveryDeliveryConsequences
+                  effects={savedReceipt.deliveries.effects}
+                />
+              )}
               <dl className="space-y-2">
                 <div>
                   <dt>{t("reason")}</dt>
@@ -596,9 +611,15 @@ export function AdmissionRecovery({
               <p>
                 <Link
                   className="link"
-                  href={`/admin/recovery?action=${encodeURIComponent(savedReceipt.actionId)}`}
+                  href={
+                    savedReceipt.checkpoint
+                      ? `/admin/recovery?checkpoint=${encodeURIComponent(savedReceipt.checkpoint.id)}`
+                      : `/admin/recovery?action=${encodeURIComponent(savedReceipt.actionId)}`
+                  }
                 >
-                  {t("sourceAction")}
+                  {savedReceipt.checkpoint
+                    ? `${savedReceipt.checkpoint.sourceEntity}: ${savedReceipt.checkpoint.sourceId}`
+                    : t("sourceAction")}
                 </Link>
               </p>
             </>

@@ -33,6 +33,7 @@ export async function resendStuckEmails(
       WITH candidates AS MATERIALIZED (
         SELECT id FROM "EmailDelivery"
         WHERE (status = 'FAILED' OR (status = 'PENDING' AND attempts > 0))
+          AND ("attemptStartedAt" IS NULL OR category IN ('security','request_service','monthly_hours','school_hours'))
           AND ("leaseUntil" IS NULL OR "leaseUntil" <= NOW())
           AND ((category = 'security' AND ${securityAvailable})
             OR (category = 'request_service' AND ${serviceAvailable})

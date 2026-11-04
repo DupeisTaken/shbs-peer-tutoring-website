@@ -1,11 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import type { z } from "zod";
 import type { departureChange } from "~/lib/school-departure";
-import { lockAccountProfile } from "./account-profile";
+import { lockAccountProfile } from "./account-profile-lock";
 import { inTransaction, lockEntity, type DomainDb } from "./transactions";
 import { ownedStudentIds } from "./student-ownership";
-import { recordAudit } from "./audit/log";
-import { preserveHistoricalAcademics } from "./historical-academics";
+import { recordAudit } from "./audit/record";
+import { preserveHistoricalAcademics } from "./historical-academic-snapshot";
+import { withRecoveryDeliverySource } from "./recovery/delivery-effects";
 import { requireParticipantSourceParticipation } from "./participant-source-restrictions";
 import { accountHistoryReaderId } from "./account-history";
 
@@ -175,7 +176,7 @@ export async function changeSchoolDeparture(
       const readerId = await accountHistoryReaderId(tx, user.id);
       if (readerId) await tx.user.update({ where: { id: readerId }, data: { historyAccessRevision: { increment: 1 } } });
     }
-    await tx.schoolDepartureEvent.create({
+    const departureEvent = await tx.schoolDepartureEvent.create({
       data: {
         userId: user.id,
         action: input.action,
@@ -194,34 +195,39 @@ export async function changeSchoolDeparture(
       },
       tx,
     );
-    await tx.notification.create({
-      data: {
-        userId: user.id,
-        title: "School departure updated / 离校状态已更新",
-        ...notificationInAppEvent("school_departure_updated", undefined, {
-          en: {
-            GRADUATED: "Your school status was changed to graduated.",
-            TRANSFERRED: "Your school status was changed to transferred.",
-            RETURN:
-              "Your return to school was recorded. Review your participation status.",
-            REVOKE: "Your post-departure observer access was revoked.",
-            RESTORE: "Your post-departure observer access was restored.",
-          }[input.action],
-          zh: {
-            GRADUATED: "您的在校状态已更改为已毕业。",
-            TRANSFERRED: "您的在校状态已更改为已转学。",
-            RETURN: "您的返校状态已记录。请查看参与状态。",
-            REVOKE: "您的离校后观察员权限已撤销。",
-            RESTORE: "您的离校后观察员权限已恢复。",
-          }[input.action],
+    await withRecoveryDeliverySource(
+      tx,
+      { entity: "SchoolDepartureEvent", recordId: departureEvent.id },
+      () =>
+        tx.notification.create({
+          data: {
+            userId: user.id,
+            title: "School departure updated / 离校状态已更新",
+            ...notificationInAppEvent("school_departure_updated", undefined, {
+              en: {
+                GRADUATED: "Your school status was changed to graduated.",
+                TRANSFERRED: "Your school status was changed to transferred.",
+                RETURN:
+                  "Your return to school was recorded. Review your participation status.",
+                REVOKE: "Your post-departure observer access was revoked.",
+                RESTORE: "Your post-departure observer access was restored.",
+              }[input.action],
+              zh: {
+                GRADUATED: "您的在校状态已更改为已毕业。",
+                TRANSFERRED: "您的在校状态已更改为已转学。",
+                RETURN: "您的返校状态已记录。请查看参与状态。",
+                REVOKE: "您的离校后观察员权限已撤销。",
+                RESTORE: "您的离校后观察员权限已恢复。",
+              }[input.action],
+            }),
+            body: input.action,
+            link:
+              user.tutorId && !user.tutorAccessRevoked
+                ? "/settings"
+                : "/student?view=account",
+          },
         }),
-        body: input.action,
-        link:
-          user.tutorId && !user.tutorAccessRevoked
-            ? "/settings"
-            : "/student?view=account",
-      },
-    });
+    );
     return { ok: true, revision };
   });
 }

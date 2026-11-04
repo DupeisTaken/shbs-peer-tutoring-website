@@ -1,26 +1,180 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import type {
   InspectedRecord,
   RecordKey,
   RecordTable,
+  RecordReference,
 } from "~/server/recovery/record-inspector";
 import { Button } from "./ui/button";
 import { useSessionAccessDenied } from "./session-view-state";
 import { QueryFeedback } from "./ui/query-feedback";
 import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
 
-function RecordReader({ record }: { record: InspectedRecord }) {
+function EvidenceReference({ reference }: { reference: RecordReference }) {
+  return (
+    <a
+      className="inline-flex min-h-11 items-center [overflow-wrap:anywhere] underline lg:min-h-8"
+      href={`/admin/database?table=${encodeURIComponent(reference.table)}&key=${encodeURIComponent(JSON.stringify(reference.key))}`}
+    >
+      {reference.table} {JSON.stringify(reference.key)}
+    </a>
+  );
+}
+
+/** Each page is bound to the exact selected reference; following a relationship
+ * performs another ordinary masked read and never grants recovery authority. */
+function RecordedEvidence({
+  record,
+  onBack,
+  onDenied,
+}: {
+  record: InspectedRecord;
+  onBack: () => void;
+  onDenied: () => void;
+}) {
   const t = useTranslations("recordInspector");
+  const [cursors, setCursors] = useState<string[]>([]);
+  const query = api.recordInspector.dependencies.useQuery(
+    { ...record.reference, cursor: cursors.at(-1), limit: 25 },
+    { retry: false },
+  );
+  const denied = useSessionAccessDenied(query);
+  useEffect(() => {
+    if (denied) onDenied();
+  }, [denied, onDenied]);
+  const data = denied || query.isError ? undefined : query.data;
+  const hasRecordReferences = !!(
+    record.evidence?.affectedRecord ?? record.evidence?.relatedRecords.length
+  );
+  return (
+    <section className="space-y-4">
+      <QueryFeedback
+        hasData={!!data}
+        loading={query.isLoading}
+        error={query.isError}
+        retrying={query.isFetching}
+        loadingTitle={t("loading")}
+        errorTitle={t("loadFailed")}
+        retryLabel={t("retry")}
+        onRetry={() => {
+          void query.refetch();
+        }}
+      />
+      {!denied && (
+        <Button size="compact" onClick={onBack}>
+          {t("backToRecord")}
+        </Button>
+      )}
+      {data && (
+        <>
+          <h3 className="font-medium">{t("recordedEvidence")}</h3>
+          <p>{t("recordedEvidenceHelp")}</p>
+          <p className="font-mono text-xs">
+            <EvidenceReference reference={data.source} />
+          </p>
+          {record.evidence && (
+            <div className="space-y-2">
+              {record.evidence.affectedRecord && (
+                <p>
+                  <EvidenceReference
+                    reference={record.evidence.affectedRecord}
+                  />
+                </p>
+              )}
+              {record.evidence.relatedRecords.map((reference) => (
+                <p key={JSON.stringify(reference)}>
+                  <EvidenceReference reference={reference} />
+                </p>
+              ))}
+            </div>
+          )}
+          {data.changes.length ? (
+            <ul className="space-y-4">
+              {data.changes.map((change) => (
+                <li
+                  className="rounded-lg border p-3"
+                  key={JSON.stringify(change.key)}
+                >
+                  <p className="font-mono text-xs">
+                    <EvidenceReference reference={change.reference} />
+                  </p>
+                  <pre className="mt-2 text-xs break-words whitespace-pre-wrap">
+                    {JSON.stringify(change.fields, null, 2)}
+                  </pre>
+                  {change.evidence?.affectedRecord && (
+                    <p className="mt-2">
+                      <EvidenceReference
+                        reference={change.evidence.affectedRecord}
+                      />
+                    </p>
+                  )}
+                  {change.evidence?.relatedRecords.map((reference) => (
+                    <p className="mt-2" key={JSON.stringify(reference)}>
+                      <EvidenceReference reference={reference} />
+                    </p>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          ) : !hasRecordReferences ? (
+            <p>{t("noRecordedEvidence")}</p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              size="compact"
+              disabled={!cursors.length || query.isFetching}
+              onClick={() => setCursors((old) => old.slice(0, -1))}
+            >
+              {t("previous")}
+            </Button>
+            <span>{t("page", { page: cursors.length + 1 })}</span>
+            <Button
+              size="compact"
+              disabled={!data.nextCursor || query.isFetching}
+              onClick={() => {
+                if (data.nextCursor)
+                  setCursors((old) => [...old, data.nextCursor!]);
+              }}
+            >
+              {t("next")}
+            </Button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function RecordReader({
+  record,
+  onDenied,
+}: {
+  record: InspectedRecord;
+  onDenied: () => void;
+}) {
+  const t = useTranslations("recordInspector");
+  const [showEvidence, setShowEvidence] = useState(false);
   const [copyState, setCopyState] = useState<"ready" | "copied" | "failed">(
     "ready",
   );
+  if (showEvidence)
+    return (
+      <RecordedEvidence
+        record={record}
+        onBack={() => setShowEvidence(false)}
+        onDenied={onDenied}
+      />
+    );
   return (
     <div className="space-y-4">
       <p>{t("rawHelp")}</p>
+      <Button size="compact" onClick={() => setShowEvidence(true)}>
+        {t("recordedEvidence")}
+      </Button>
       <div>
         <h3 className="font-medium">{t("reference")}</h3>
         <pre className="mt-2 overflow-x-auto rounded bg-slate-50 p-3 text-xs [overflow-wrap:anywhere] whitespace-pre-wrap">
@@ -101,9 +255,11 @@ function parseExactKey(
 function RecordBrowser({
   table,
   initialKey = "",
+  onDenied,
 }: {
   table: RecordTable;
   initialKey?: string;
+  onDenied: () => void;
 }) {
   const t = useTranslations("recordInspector");
   // URL state is only a convenience. The server validates the same exact key
@@ -119,14 +275,27 @@ function RecordBrowser({
   const [key, setKey] = useState<RecordKey | undefined>(initial.key);
   const [invalid, setInvalid] = useState(initial.invalid);
   const [cursors, setCursors] = useState<string[]>([]);
+  const [relationshipDenied, setRelationshipDenied] = useState(false);
+  const denyRelationships = useCallback(() => {
+    setRelationshipDenied(true);
+    onDenied();
+  }, [onDenied]);
   const records = api.recordInspector.records.useQuery(
     { table: table.name, key, cursor: cursors.at(-1), limit: 25 },
     { enabled: !invalid, retry: false },
   );
   // A failed refresh must unmount readers, including already-open identity dialogs.
   // Never keep stale privileged content visible after access is revoked.
-  const denied = useSessionAccessDenied(records);
+  const denied = useSessionAccessDenied(records) || relationshipDenied;
+  useEffect(() => {
+    if (denied) onDenied();
+  }, [denied, onDenied]);
   const data = denied || records.isError || invalid ? undefined : records.data;
+  const refreshRecords = () => {
+    void records.refetch().then((result) => {
+      if (result.isSuccess) setRelationshipDenied(false);
+    });
+  };
   return (
     <div className="space-y-4">
       {!denied && (
@@ -181,13 +350,13 @@ function RecordBrowser({
       <QueryFeedback
         hasData={!!data}
         loading={records.isLoading}
-        error={records.isError}
+        error={records.isError || relationshipDenied}
         retrying={records.isFetching}
         loadingTitle={t("loading")}
         errorTitle={t("loadFailed")}
         retryLabel={t("retry")}
         onRetry={() => {
-          void records.refetch();
+          refreshRecords();
         }}
       />
       {data && (
@@ -211,7 +380,10 @@ function RecordBrowser({
                       label={t("details")}
                       longReader
                     >
-                      <RecordReader record={record} />
+                      <RecordReader
+                        record={record}
+                        onDenied={denyRelationships}
+                      />
                     </TableDetails>
                   </TableActions>
                 </tr>
@@ -258,10 +430,12 @@ export function DatabaseInspector({
 }) {
   const t = useTranslations("recordInspector");
   const [selected, setSelected] = useState(initialTable);
+  const [readerDenied, setReaderDenied] = useState(false);
+  const denyReader = useCallback(() => setReaderDenied(true), []);
   const catalog = api.recordInspector.tables.useQuery(undefined, {
     retry: false,
   });
-  const denied = useSessionAccessDenied(catalog);
+  const denied = useSessionAccessDenied(catalog) || readerDenied;
   const tables = denied || catalog.isError ? undefined : catalog.data;
   const table = tables?.find((candidate) => candidate.name === selected);
   return (
@@ -273,13 +447,15 @@ export function DatabaseInspector({
       <QueryFeedback
         hasData={!!tables}
         loading={catalog.isLoading}
-        error={catalog.isError}
+        error={catalog.isError || readerDenied}
         retrying={catalog.isFetching}
         loadingTitle={t("loading")}
         errorTitle={t("loadFailed")}
         retryLabel={t("retry")}
         onRetry={() => {
-          void catalog.refetch();
+          void catalog.refetch().then((result) => {
+            if (result.isSuccess) setReaderDenied(false);
+          });
         }}
       />
       {tables && (
@@ -332,6 +508,7 @@ export function DatabaseInspector({
               </details>
               {table.available ? (
                 <RecordBrowser
+                  onDenied={denyReader}
                   key={table.name}
                   table={table}
                   initialKey={table.name === initialTable ? initialKey : ""}

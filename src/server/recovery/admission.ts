@@ -17,9 +17,16 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 import { lockUsernameNamespace } from "~/server/auth/username-namespace";
+import { lockAccountProfile } from "~/server/account-profile-lock";
 import { databaseScope } from "~/server/db-scope";
 import { recoveryAccountSelect, recoveryHash, recoveryJson } from "./capture";
 import { preservedRecoveryEvent } from "./independent-changes";
+import { validateAdmissionRootChanges } from "./admission-root-policy";
+import {
+  inspectRecoveryDeliveryEffects,
+  cancelRecoveryDeliveryEffects,
+  lockRecoveryDeliveryRoots,
+} from "./delivery-effects";
 
 const role = z.enum([
   "STUDENT",
@@ -32,6 +39,8 @@ const role = z.enum([
 ]);
 const account = z.object({
   id: z.string(),
+  personId: z.string().nullable().optional(),
+  studentId: z.string().nullable().optional(),
   role,
   tutorId: z.string().nullable(),
   tutorAccessRevoked: z.boolean(),
@@ -48,6 +57,7 @@ const beforeSchema = z.object({
   tutor: z
     .object({
       id: z.string(),
+      personId: z.string().nullable().optional(),
       status: z.enum([
         "PENDING",
         "ACTIVE",
@@ -146,15 +156,22 @@ function changesOnly(before: unknown, after: unknown, allowed: string[]) {
 }
 
 async function graph(tx: TransactionDb, actionId: string) {
-  const action = await tx.recoveryAction.findUnique({
+  const storedAction = await tx.recoveryAction.findUnique({
     where: { id: actionId },
   });
-  if (!action)
+  if (!storedAction)
     throw new TRPCError({
       code: "NOT_FOUND",
       message:
         "Admission provenance was not captured. Legacy audit evidence cannot establish a safe recovery.",
     });
+  if (storedAction.kind !== "INITIAL_ADMISSION" || !storedAction.applicationId)
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "This recovery source is not an admission. Use its typed checkpoint route.",
+    });
+  const action = { ...storedAction, applicationId: storedAction.applicationId };
   const before = beforeSchema.safeParse(action.before);
   const after = afterSchema.safeParse(action.after);
   const application = await tx.tutorApplication.findUnique({
@@ -298,6 +315,19 @@ async function graph(tx: TransactionDb, actionId: string) {
       })
     : [];
   const receipt = await tx.recoveryReceipt.findUnique({ where: { actionId } });
+  const compensatedEventIds = events
+    .filter(
+      (event) =>
+        event.kind === "ADMISSION" ||
+        !preservedRecoveryEvent(
+          changes.filter((change) => change.eventId === event.id),
+        ),
+    )
+    .map((event) => event.id);
+  const delivery = await inspectRecoveryDeliveryEffects(tx, {
+    actionId,
+    eventIds: compensatedEventIds,
+  });
   const independentAdmission =
     application && tutorId
       ? await tx.tutorApplication.count({
@@ -309,9 +339,15 @@ async function graph(tx: TransactionDb, actionId: string) {
           },
         })
       : 0;
+  // A matching name/function is insufficient: WHEN predicates and UPDATE OF
+  // filters can silently omit writes while retaining the expected event mask.
+  // Constraint triggers can defer coverage past the planner's transaction reads.
   const missingCoverage = await tx.$queryRaw<
     Array<{ tableName: string }>
-  >`SELECT tablename AS "tableName" FROM pg_tables p WHERE schemaname='public' AND tablename NOT LIKE 'Recovery%' AND tablename NOT IN ('_prisma_migrations','SchedulingMaintenanceState','SchedulingDirtyEvent','AuditLog','Notification','EmailDelivery','EmailOutbox','SignupMailAttempt','UsernameNamespaceGuard','SignupQuota','SignupLease','PublicApplicationRateLimit','CaptchaProof','CaptchaGrant') AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid=format('%I.%I',p.schemaname,p.tablename)::regclass AND t.tgname='recovery_change_journal' AND t.tgenabled IN ('O','A') AND t.tgtype=29 AND NOT t.tgisinternal AND t.tgnargs=0 AND t.tgqual IS NULL AND cardinality(t.tgattr::smallint[])=0 AND t.tgconstraint=0 AND t.tgfoid=CASE WHEN p.tablename IN ('RetiredHistoryOwnership','HistoryRowOwnership','PersonHistoryCorrectionReceipt','ParticipantConsolidation','PairingExecutionSuccessor','SessionPlanExecution','SessionParticipantExecution','SessionResponseExecution','QualificationTransferGrant','PersonParticipationTransferReceipt','StudentRequestExecutionAssignment') THEN to_regprocedure('recovery_capture_identity_authority()') WHEN p.tablename='PersonPartitionReceipt' THEN to_regprocedure('recovery_capture_person_partition()') WHEN p.tablename IN ('StudentContinuationReceipt','StudentContinuationAssignment','StudentContinuationPairing','SessionPlanContinuationMember') THEN 'recovery_capture_continuation_change()'::regprocedure ELSE 'recovery_capture_change()'::regprocedure END) ORDER BY tablename`;
+  >`SELECT tablename AS "tableName" FROM pg_tables p WHERE schemaname='public'
+    AND tablename NOT IN ('RecoveryAction','RecoveryCheckpoint','RecoveryEvent','RecoveryTrackedEntity','RecoveryFence','RecoveryChange','RecoveryReceipt','RecoveryDeliveryEffect','RecoveryDeliveryCancellation','RecoveryDeliveryCoverage','RecoveryWorkflowDraft',
+      '_prisma_migrations','AuditLog','Notification','EmailDelivery','EmailOutbox','SignupMailAttempt','UsernameNamespaceGuard','SignupQuota','SignupLease','PublicApplicationRateLimit','CaptchaProof','CaptchaGrant','SchedulingMaintenanceState','SchedulingDirtyEvent')
+    AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid=format('%I.%I',p.schemaname,p.tablename)::regclass AND t.tgname='recovery_change_journal' AND t.tgenabled IN ('O','A') AND t.tgtype=29 AND t.tgqual IS NULL AND t.tgattr::text='' AND t.tgnargs=0 AND NOT t.tgisinternal AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred AND t.tgfoid=CASE WHEN p.tablename IN ('RetiredHistoryOwnership','HistoryRowOwnership','PersonHistoryCorrectionReceipt','ParticipantConsolidation','PairingExecutionSuccessor','SessionPlanExecution','SessionParticipantExecution','SessionResponseExecution','QualificationTransferGrant','PersonParticipationTransferReceipt','StudentRequestExecutionAssignment') THEN to_regprocedure('recovery_capture_identity_authority()') WHEN p.tablename='PersonPartitionReceipt' THEN to_regprocedure('recovery_capture_person_partition()') WHEN p.tablename IN ('StudentContinuationReceipt','StudentContinuationAssignment','StudentContinuationPairing','SessionPlanContinuationMember') THEN to_regprocedure('recovery_capture_continuation_change()') ELSE to_regprocedure('recovery_capture_change()') END) ORDER BY tablename`;
   const [replication] = await tx.$queryRaw<
     Array<{ mode: string }>
   >`SELECT current_setting('session_replication_role') AS mode`;
@@ -332,6 +368,8 @@ async function graph(tx: TransactionDb, actionId: string) {
     clockRestores,
     messageLinks,
     receipt,
+    delivery,
+    compensatedEventIds,
     independentAdmission,
     missingCoverage,
     replicationMode: replication?.mode,
@@ -351,7 +389,7 @@ function admissionAccounts(g: Graph) {
   );
 }
 function buildPlan(g: Graph): AdmissionRecoveryPlan {
-  const blockers: string[] = [];
+  const blockers: string[] = [...g.delivery.blockers];
   if (
     g.events.length > 100 ||
     g.changes.length > 2000 ||
@@ -406,12 +444,29 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     blockers.push(RECOVERY_EVIDENCE.clockChanged);
   const rootEvents = g.events.filter((event) => event.kind === "ADMISSION");
   if (rootEvents.length !== 1) blockers.push(RECOVERY_EVIDENCE.sourceEvent);
+  if (
+    g.before.success &&
+    g.after.success &&
+    g.after.data.tutor &&
+    !validateAdmissionRootChanges(
+      g.changes.filter((change) =>
+        rootEvents.some((event) => event.id === change.eventId),
+      ),
+      {
+        applicationId: g.action.applicationId,
+        tutorId: g.after.data.tutor.id,
+        codeIds: g.after.data.codeIds,
+        beforeAccount: g.before.data.account,
+        afterAccount: g.after.data.account,
+        beforeTutor: g.before.data.tutor,
+      },
+    ).supported
+  )
+    blockers.push(recoveryEventPrefix + "UNSUPPORTED.");
   // Events group a whole transaction. Scheduling/reporting inside trusted admission
   // capture still needs its own compensation adapter; the ADMISSION label must
   // not hide a commitment, published report or private calendar capability.
-  if (
-    g.changes.some((change) => unsupportedDependentTables.has(change.entity))
-  )
+  if (g.changes.some((change) => unsupportedDependentTables.has(change.entity)))
     blockers.push(recoveryEventPrefix + "UNSUPPORTED.");
   const later = g.events.filter((event) => event.kind !== "ADMISSION");
   for (const event of later) {
@@ -432,6 +487,7 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
                 "tutorAccessRevoked",
                 "role",
                 "sessionVersion",
+                "historyAccessRevision",
                 "profileVersion",
                 "personId",
                 "recoveryVoidedAt",
@@ -524,7 +580,7 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
       blockers.push(RECOVERY_EVIDENCE.missingRegistration);
   const accounts = admissionAccounts(g).map((user) => user.id);
   const fingerprint = recoveryHash({
-    adapterVersion: 3,
+    adapterVersion: 4,
     action: g.action,
     changes: g.changes.map((change) => ({
       ...change,
@@ -542,6 +598,7 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     independentAdmission: g.independentAdmission,
     missingCoverage: g.missingCoverage,
     replicationMode: g.replicationMode,
+    delivery: g.delivery,
   });
   return {
     version: 1,
@@ -614,6 +671,7 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
       createdAt: event.createdAt.toISOString(),
     })),
     alreadyVoided: !!g.receipt,
+    deliveryEffects: g.delivery.effects,
   };
 }
 
@@ -649,12 +707,20 @@ async function apply(
       // journal fence closes the preview/apply race, including raw SQL descendants.
       await lockEntity(tx, "program:period");
       await lockUsernameNamespace(tx);
+      await lockAccountProfile(tx, actor.id);
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id=${actor.id} FOR SHARE`;
       const source = await tx.recoveryAction.findUniqueOrThrow({
         where: { id: input.actionId },
       });
+      if (source.kind !== "INITIAL_ADMISSION" || !source.applicationId)
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "This recovery source is not an admission. Use its typed checkpoint route.",
+        });
       await lockEntity(tx, `interview:${source.applicationId}`);
       await tx.$queryRaw`SELECT id FROM "TutorApplication" WHERE id = ${source.applicationId} FOR UPDATE`;
-      await lockEntity(tx, `recovery:${input.actionId}`);
+      await lockRecoveryDeliveryRoots(tx, input.actionId);
       // A row-version write rejects an old Serializable snapshot even when it
       // waited on the advisory fence after a descendant committed.
       await tx.$executeRaw`INSERT INTO "RecoveryFence"("actionId","revision") VALUES(${input.actionId},1) ON CONFLICT ("actionId") DO UPDATE SET revision="RecoveryFence".revision+1`;
@@ -722,7 +788,9 @@ async function apply(
             "Two or more later dependent events require the operator CLI.",
         });
       const before = beforeSchema.parse(g.action.before);
-      await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating','1',true)`;
+      // Only this root is compensated. Other live roots must retain these writes
+      // as new conflict evidence, and independent scheduling triggers still run.
+      await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating',${input.actionId},true)`;
       const independent =
         before.tutor?.status === "ACTIVE" || g.independentAdmission > 0;
       await tx.registrationCode.updateMany({
@@ -924,6 +992,11 @@ async function apply(
           promotedTutorId: before.application.promotedTutorId,
         },
       });
+      const deliveryCancellation = await cancelRecoveryDeliveryEffects(
+        tx,
+        { actionId: input.actionId, eventIds: g.compensatedEventIds },
+        input.clientKey,
+      );
       const receipt = await tx.recoveryReceipt.create({
         data: {
           actionId: input.actionId,
@@ -938,6 +1011,7 @@ async function apply(
             plan,
             before: g.action.before,
             preservedInterviewEvidence: true,
+            deliveries: deliveryCancellation,
           }),
         },
       });

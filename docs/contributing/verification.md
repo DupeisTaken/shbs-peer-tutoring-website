@@ -103,6 +103,24 @@ available runners. Peak four-PR slot demand follows from the job graph. The
 baseline measured one workflow. Compare hosted elapsed time and queue delays
 before revising this allocation.
 
+The combined identity, scheduling and recovery suite has 674 files. For the 52
+files missing from the original inventory, the timing map takes the maximum
+rounded-up duration observed in three successful hosted runs.
+[First run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41576683483),
+[second run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41583957456),
+[third run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41589617797).
+
+Three suites now commit their reset and fixture writes together before invoking
+the real application client. The room suite also batches independent seed rows.
+All constraints, triggers, test cases and tested transaction boundaries remain
+active. Three serial Ubuntu samples on the required PostgreSQL 16 and Node 22
+configuration each passed all 162 cases. Maximum reporter durations were 47,391
+ms for history correction, 38,476 ms for partition and 81,670 ms for room
+allocation. These replace the older weights for those files. Under the previous nine-shard policy, the longest projected job was 512.550
+seconds and the longest observed shard job took 450 seconds. The three-shard policy above now governs scheduling.
+[Calibration run and JSON artifacts](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/41600315274).
+
+
 For a dependency-audit failure, inspect the reported advisory and dependency path,
 then update the affected lockfile entries within the supported version range.
 Keep the audit gate enabled. For Vite/Vitest tooling updates, run `npm audit`,

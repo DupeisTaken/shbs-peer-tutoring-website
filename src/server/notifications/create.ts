@@ -9,45 +9,22 @@ import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
 import superjson from "superjson";
 import type {
   NotificationEvent,
-  NotificationContext,
 } from "~/lib/notification-events";
 import { notificationInAppEvent } from "~/lib/notification-details";
-import enMessages from "../../../messages/en.json";
-import zhMessages from "../../../messages/zh.json";
-
-/** Name only the affected record; free-text reasons stay in their authorized workflow. */
-export function namedNotificationDetail(
-  event: NotificationEvent,
-  name: string,
-) {
-  return {
-    en: `${name}: ${enMessages.notificationEvents[event].body}`,
-    zh: `${name}：${zhMessages.notificationEvents[event].body}`,
-  };
-}
-
-/** Retain a readable English text snapshot for older readers without inferring event
- * identity from free text. Current UI and mail localize the explicit event. */
-export function notificationData(
-  event: NotificationEvent,
-  context?: NotificationContext,
-  detail?: { en: string; zh: string },
-) {
-  return {
-    title: enMessages.notificationEvents[event].title,
-    ...notificationInAppEvent(event, context, detail),
-  };
-}
-
-export interface NotificationInput {
-  title: string;
-  body?: string;
-  link?: string;
-  /** Explicitly suppress optional email copies for a workflow with an in-app-only contract. */
-  inAppOnly?: boolean;
-  event?: NotificationEvent;
-  context?: NotificationContext & { inAppDetail?: { en: string; zh: string } };
-}
+import {
+  notifyUsers as notifyUsersWithClient,
+  notifyAdmins as notifyAdminsWithClient,
+  notifyTutors as notifyTutorsWithClient,
+  notificationData,
+  namedNotificationDetail,
+  managementNotificationRecipients,
+  managementReviewers,
+  managementReviewSourceLink,
+  selectManagementReviewers,
+  type NotificationInput,
+} from "./core";
+export { notificationData, namedNotificationDetail, managementNotificationRecipients, managementReviewers, managementReviewSourceLink };
+export type { NotificationInput } from "./core";
 
 /** Create the same notification for each of the given user ids (de-duplicated, skips empty). */
 export async function notifyUsers(
@@ -55,41 +32,7 @@ export async function notifyUsers(
   data: NotificationInput,
   client: TransactionDb = db,
 ): Promise<void> {
-  const ids = [...new Set(userIds)].filter(Boolean);
-  if (ids.length === 0) return;
-  await client.notification.createMany({
-    data: ids.map((userId) => ({
-      userId,
-      title: data.title,
-      body: data.body ?? null,
-      link: data.link ?? null,
-      ...(data.inAppOnly ? { inAppOnly: true } : {}),
-      ...(data.event ? notificationInAppEvent(data.event, data.context) : {}),
-    })),
-  });
-}
-
-/** Only explicit review events change ownership. Outcomes, status notices and room
- * shortages retain their existing full management audience. Never infer this from copy. */
-const managementReviewEvents = new Set<NotificationEvent>([
-  "account_appeal_requested", "tutor_application_pending", "crew_application_pending", "qualification_requested",
-  "request_invalidity_appeal_pending", "attendance_cards_pending", "translation_review_pending",
-  "tutor_optout_requested", "tutor_reentry_requested", "crew_optout_requested", "crew_reentry_requested",
-  "tutee_card_appeal", "tutee_optout_requested", "student_withdrawal_pending", "student_schedule_review_pending",
-]);
-
-export async function managementNotificationRecipients(
-  client: TransactionDb,
-  event?: NotificationEvent,
-  opts?: { exclude?: string; headOnly?: boolean },
-) {
-  if ((event && managementReviewEvents.has(event)) || opts?.headOnly)
-    return managementReviewers(client, opts);
-  return client.user.findMany({
-    where: { role: { in: ["ADMIN", "HEAD"] }, suspendedAt: null, mergedIntoId: null,
-      ...(opts?.exclude ? { id: { not: opts.exclude } } : {}) },
-    select: { id: true, role: true },
-  });
+  return notifyUsersWithClient(userIds, data, client);
 }
 
 /** Fan out to the event's current active management audience, with optional actor exclusion. */
@@ -98,48 +41,7 @@ export async function notifyAdmins(
   opts?: { exclude?: string; headOnly?: boolean },
   client: TransactionDb = db,
 ): Promise<void> {
-  const admins = await managementNotificationRecipients(client, data.event, opts);
-  await notifyUsers(admins.map((u) => u.id), data, client);
-}
-
-/** Notification ownership is distinct from permission: Head remains an eligible
- * reviewer, but ordinary work goes to active Admins first. Apply exclusions before
- * choosing the fallback so an Admin's own request cannot strand the queue. */
-export async function managementReviewers(
-  client: TransactionDb,
-  opts?: { exclude?: string; headOnly?: boolean; allowHeadSelfReview?: boolean },
-) {
-  const candidates = await client.user.findMany({
-    where: {
-      role: { in: opts?.headOnly ? ["HEAD"] : ["HEAD", "ADMIN"] },
-      suspendedAt: null,
-      mergedIntoId: null,
-    },
-    select: { id: true, role: true },
-  });
-  return selectManagementReviewers(candidates, opts);
-}
-
-function selectManagementReviewers<T extends { id: string; role: string }>(
-  candidates: T[],
-  opts?: { exclude?: string; headOnly?: boolean; allowHeadSelfReview?: boolean },
-) {
-  const eligible = candidates.filter((user) =>
-    (!opts?.headOnly || user.role === "HEAD") &&
-    (user.id !== opts?.exclude || (opts?.allowHeadSelfReview && user.role === "HEAD")),
-  );
-  const admins = eligible.filter((user) => user.role === "ADMIN");
-  return admins.length ? admins : eligible.filter((user) => user.role === "HEAD");
-}
-
-type DomainReviewSource = "TutorStatusRequest" | "CrewStatusRequest" | "CrewApplication";
-
-/** Source-specific links make future delivery/repair idempotent without attributing
- * an older queue-wide notification to a particular historical request. */
-export function managementReviewSourceLink(source: DomainReviewSource, id: string) {
-  const page = source === "TutorStatusRequest" ? "/admin/tutor-requests" : "/admin/crew";
-  const anchor = source === "CrewApplication" ? "application" : "request";
-  return `${page}#${anchor}-${encodeURIComponent(id)}`;
+  return notifyAdminsWithClient(data, opts, client);
 }
 
 type DomainReviewNotice = {
@@ -326,15 +228,5 @@ export async function notifyTutors(
   data: NotificationInput,
   client: TransactionDb = db,
 ): Promise<void> {
-  const ids = [...new Set(tutorIds)].filter(Boolean);
-  if (ids.length === 0) return;
-  const users = await client.user.findMany({
-    where: { tutorId: { in: ids } },
-    select: { id: true },
-  });
-  await notifyUsers(
-    users.map((u) => u.id),
-    data,
-    client,
-  );
+  return notifyTutorsWithClient(tutorIds, data, client);
 }

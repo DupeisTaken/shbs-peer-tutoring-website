@@ -3,7 +3,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   settings: vi.fn(),
   rows: vi.fn(),
+  leases: vi.fn<() => Promise<Array<{ id: string; leaseUntil: Date; attemptId: string | null }>>>(),
   row: vi.fn(),
+  account: vi.fn(),
   update: vi.fn(),
   updateMany: vi.fn(),
   available: vi.fn(),
@@ -18,6 +20,7 @@ vi.mock("~/server/db", () => ({
     $queryRaw: mocks.rows,
     $executeRaw: mocks.execute,
     historyRowOwnership: { findUnique: mocks.ownership },
+    user: { findUnique: mocks.account },
     emailDelivery: {
       findUnique: mocks.row,
       findUniqueOrThrow: mocks.row,
@@ -45,7 +48,24 @@ beforeEach(() => {
   vi.stubEnv("AUTH_URL", "https://school.example.test");
   vi.stubEnv("AUTH_SECRET", "synthetic-notification-secret");
   mocks.settings.mockResolvedValue({ emailNotificationsEnabled: true });
-  mocks.rows.mockResolvedValue([{ id: "notice-1", leaseUntil, attemptId: null }]);
+  mocks.leases.mockResolvedValue([{ id: "notice-1", leaseUntil, attemptId: null }]);
+  // Keep the real identity/recovery admission path. A lease row is not a
+  // cancellation record, causal root or transport outcome.
+  mocks.rows.mockImplementation((parts: TemplateStringsArray) => {
+    const sql = parts.join("?");
+    if (sql.includes("WITH candidates AS MATERIALIZED")) return mocks.leases();
+    if (sql.includes('SELECT DISTINCT "actionId"')) return Promise.resolve([]);
+    if (sql.includes('FROM "EmailDelivery"') && sql.includes("FOR UPDATE"))
+      return Promise.resolve([{ id: "notice-1" }]);
+    if (sql.includes('SELECT true AS found FROM "RecoveryDeliveryCancellation"'))
+      return Promise.resolve([]);
+    throw new Error("Unexpected notification routing fixture query");
+  });
+  mocks.account.mockResolvedValue({
+    mergedIntoId: null,
+    recoveryVoidedAt: null,
+    suspendedAt: null,
+  });
   mocks.ownership.mockResolvedValue(null);
   mocks.updateMany.mockResolvedValue({ count: 1 });
   mocks.execute.mockResolvedValue(0);
@@ -67,13 +87,13 @@ function notice(
     context?: unknown;
   } = {},
 ) {
-  mocks.row.mockResolvedValue({
+  const row = {
     id: "notice-1",
     userId: "account-1",
     sourceNotificationId: null,
     leaseUntil,
-    attemptId: null,
-    attemptStartedAt: null,
+    attemptId: null as string | null,
+    attemptStartedAt: null as Date | null,
     status: "PENDING",
     category,
     event,
@@ -95,7 +115,42 @@ function notice(
       emailSecurity: false,
       emails: [{ email: "recipient@example.test", verifiedAt: new Date() }],
     },
+  };
+  mocks.row.mockImplementation(async () => row);
+  mocks.account.mockResolvedValue({
+    mergedIntoId: row.user.mergedIntoId,
+    recoveryVoidedAt: null,
+    suspendedAt: row.user.suspendedAt,
   });
+  mocks.update.mockImplementation(
+    async ({ data }: { data: Record<string, unknown> }) => {
+      const attempts = row.attempts + (typeof data.attempts === "object" ? 1 : 0);
+      Object.assign(row, data, { attempts });
+      return row;
+    },
+  );
+  mocks.updateMany.mockImplementation(
+    async ({ where, data }: {
+      where: Record<string, unknown>;
+      data: Record<string, unknown>;
+    }) => {
+      // Bulk stale-attempt cleanup and settings sweeps do not match this fresh
+      // fixture. Exact row writes retain the admitted token and state for finish.
+      if (where.id !== row.id) return { count: 0 };
+      if (typeof where.status === "string" && where.status !== row.status)
+        return { count: 0 };
+      if ("attemptId" in where && where.attemptId !== row.attemptId)
+        return { count: 0 };
+      if (where.leaseUntil instanceof Date &&
+        where.leaseUntil.getTime() !== row.leaseUntil?.getTime())
+        return { count: 0 };
+      const attempts = typeof data.attempts === "object"
+        ? row.attempts + 1 : data.attempts ?? row.attempts;
+      Object.assign(row, data, { attempts });
+      return { count: 1 };
+    },
+  );
+  return row;
 }
 it.each([
   "primary_changed",
@@ -165,6 +220,22 @@ it("sends an eligible ordinary notice before recording SMTP acceptance", async (
   });
   await deliverNotifications();
   expect(mocks.send).toHaveBeenCalledTimes(1);
+  expect(mocks.account).toHaveBeenCalledWith({
+    where: { id: "account-1" },
+    select: { mergedIntoId: true, recoveryVoidedAt: true, suspendedAt: true },
+  });
+  expect(mocks.update).toHaveBeenCalledWith({
+    where: { id: "notice-1" },
+    data: {
+      status: "SENDING",
+      attemptId: expect.any(String) as unknown,
+      attemptStartedAt: expect.any(Date) as unknown,
+      attempts: { increment: 1 },
+    },
+  });
+  expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(
+    mocks.send.mock.invocationCallOrder[0]!,
+  );
   const sentCall = mocks.updateMany.mock.calls.findIndex(
     ([input]) => (input as { data: { status: string } }).data.status === "SENT",
   );
@@ -333,6 +404,8 @@ it("requires reminder opt-in and a still-current eligible event before dispatch"
   await deliverNotifications();
   expect(mocks.send).not.toHaveBeenCalled();
   mocks.reminderEligible.mockResolvedValue(true);
+  // A skipped row is terminal; evaluate a fresh pending notice for eligibility.
+  notice("reminder", "meeting_upcoming", { role: "TUTOR", reminder: true });
   await deliverNotifications();
   expect(mocks.send).toHaveBeenCalledOnce();
   const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
@@ -363,14 +436,46 @@ it("withholds a quarantined optional copy at the real admission boundary", async
   await deliverNotifications();
   expect(mocks.send).not.toHaveBeenCalled();
   expect(mocks.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-    where: { id: "notice-1", status: "PENDING", leaseUntil, attemptId: null },
+    where: { id: "notice-1", status: "PENDING", leaseUntil, attemptId: null, attemptStartedAt: null },
     data: expect.objectContaining({ status: "CANCELLED" }) as unknown,
   }));
 });
 
 it("does not send from a stale worker lease", async () => {
   notice("info", "program_update");
-  mocks.rows.mockResolvedValue([{ id: "notice-1", leaseUntil: new Date(leaseUntil.getTime() - 1), attemptId: null }]);
+  mocks.leases.mockResolvedValue([{ id: "notice-1", leaseUntil: new Date(leaseUntil.getTime() - 1), attemptId: null }]);
   await deliverNotifications();
   expect(mocks.send).not.toHaveBeenCalled();
+  expect(mocks.update).not.toHaveBeenCalled();
+});
+
+it("rechecks current account authority after reading an eligible routing snapshot", async () => {
+  const row = notice("info", "program_update");
+  mocks.account.mockResolvedValue({
+    mergedIntoId: "surviving-account",
+    recoveryVoidedAt: null,
+    suspendedAt: null,
+  });
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
+  expect(mocks.update).not.toHaveBeenCalled();
+  expect(row.status).toBe("CANCELLED");
+});
+
+it("retains an admitted transport failure as uncertain without sending it again", async () => {
+  const row = notice("info", "program_update");
+  mocks.send.mockRejectedValue(new Error("provider credential sentinel"));
+  await deliverNotifications();
+  expect(mocks.send).toHaveBeenCalledOnce();
+  expect(row).toMatchObject({
+    status: "UNCERTAIN",
+    attemptId: expect.any(String) as unknown,
+    attemptStartedAt: expect.any(Date) as unknown,
+    attempts: 1,
+  });
+  expect(JSON.stringify(mocks.updateMany.mock.calls)).not.toContain("sentinel");
+  // Even a stale sweep presenting this row again must not replay its transport.
+  await deliverNotifications();
+  expect(mocks.send).toHaveBeenCalledOnce();
+  expect(mocks.update).toHaveBeenCalledOnce();
 });

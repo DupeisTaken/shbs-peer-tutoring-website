@@ -37,6 +37,7 @@ const mock = vi.hoisted(() => ({
         }[];
         retrying: number;
         failed: number;
+        uncertain: number;
       },
   statusError: null as Error | null,
   fetching: false,
@@ -79,7 +80,11 @@ vi.mock("~/trpc/react", () => ({
         },
       },
       setEmailNotifications: {
-        useMutation: () => ({ mutate: mock.mutate, isPending: mock.pending, error: mock.saveError }),
+        useMutation: () => ({
+          mutate: mock.mutate,
+          isPending: mock.pending,
+          error: mock.saveError,
+        }),
       },
       setSecondaryEmailBinding: {
         useMutation: () => ({ mutate: mock.binding, isPending: mock.pending }),
@@ -113,6 +118,7 @@ beforeEach(() => {
     ],
     retrying: 0,
     failed: 0,
+    uncertain: 0,
   };
   mock.statusError = null;
   mock.fetching = false;
@@ -139,20 +145,43 @@ function content(chinese = false) {
 
 // Diagnostics and operational retry survive the governance merge: an Admin's
 // setting request stays unapplied and must not appear as a failed save.
-it.each([false, true])("retains mail diagnostics and direct retry alongside a pending Admin setting request (Chinese=%s)", (chinese) => {
-  mock.settings!.canApply = false;
-  mock.status!.failed = 1;
-  mock.saveError = { message: "Approval queued", data: { approvalId: "email-request" } };
-  render(content(chinese));
-  const messages = chinese ? zh : en;
-  expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
-  expect(screen.getByText(messages.programEmail.channel.SECURITY)).toBeTruthy();
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.programEmail.resendStuck }).disabled).toBe(false);
-  expect(screen.getByRole("checkbox", { name: messages.approvals.requestChange.replace("{setting}", messages.programEmail.enable) })).toBeTruthy();
-  expect(screen.queryByText("Approval queued")).toBeNull();
-  expect(screen.queryByText(messages.programEmail.saved)).toBeNull();
-  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Other program draft" }).value).toBe("Unchanged draft");
-});
+it.each([false, true])(
+  "retains mail diagnostics and direct retry alongside a pending Admin setting request (Chinese=%s)",
+  (chinese) => {
+    mock.settings!.canApply = false;
+    mock.status!.failed = 1;
+    mock.saveError = {
+      message: "Approval queued",
+      data: { approvalId: "email-request" },
+    };
+    render(content(chinese));
+    const messages = chinese ? zh : en;
+    expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
+    expect(
+      screen.getByText(messages.programEmail.channel.SECURITY),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: messages.programEmail.resendStuck,
+      }).disabled,
+    ).toBe(false);
+    expect(
+      screen.getByRole("checkbox", {
+        name: messages.approvals.requestChange.replace(
+          "{setting}",
+          messages.programEmail.enable,
+        ),
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Approval queued")).toBeNull();
+    expect(screen.queryByText(messages.programEmail.saved)).toBeNull();
+    expect(
+      screen.getByRole<HTMLInputElement>("textbox", {
+        name: "Other program draft",
+      }).value,
+    ).toBe("Unchanged draft");
+  },
+);
 
 it.each([false, true])(
   "warns for a broken security sender even when optional mail is disabled (Chinese=%s)",
@@ -196,6 +225,24 @@ it("shows retrying and exhausted deliveries separately even when SMTP authentica
   ).toBeTruthy();
   expect(screen.getAllByText(en.programEmail.transport.READY)).toHaveLength(2);
 });
+
+it.each([false, true])(
+  "shows uncertain outcomes separately and does not enable replay (Chinese=%s)",
+  (chinese) => {
+    mock.status!.uncertain = 2;
+    render(content(chinese));
+    const copy = chinese ? zh.programEmail : en.programEmail;
+    const expected = chinese
+      ? "有 2 封邮件的投递结果需要核查。这些邮件可能已发送，不会自动重试。"
+      : "Email delivery outcomes needing review: 2. These emails may already have been sent and will not be retried automatically.";
+    expect(screen.getByText(expected)).toBeTruthy();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: copy.resendStuck })
+        .disabled,
+    ).toBe(true);
+    expect(mock.resend).not.toHaveBeenCalled();
+  },
+);
 
 it("loads diagnostics with bounded foreground polling and no automatic retry storm", () => {
   mock.status = undefined;

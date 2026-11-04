@@ -57,7 +57,10 @@ import {
   validateNextRecruitmentWrite,
 } from "./program/next-recruitment";
 import {
-  scheduleRefreshInput, cancelRefreshInput, validateScheduleRefresh, validateCancelRefresh,
+  scheduleRefreshInput,
+  cancelRefreshInput,
+  validateScheduleRefresh,
+  validateCancelRefresh,
 } from "./program/scheduled-refresh";
 
 export class ApprovalQueued extends Error {
@@ -96,6 +99,15 @@ export async function proposalAuthority(
     value && typeof value === "object"
       ? (value as Record<string, unknown>)
       : {};
+  if (operation === "recovery.restoreCheckpoint") {
+    const checkpoint = await client.recoveryCheckpoint.findUniqueOrThrow({
+      where: { id: z.string().min(1).max(200).parse(input.checkpointId) },
+      select: { adapter: true },
+    });
+    return classifyApproval(operation, value, {
+      checkpointRequiresHead: checkpoint.adapter === "PROGRAM_REFRESH",
+    });
+  }
   // Reading an exact completion receipt makes no live change. Admin lost-response
   // retries and Coordinator retries after review must not create correction proposals.
   // The API rechecks this classification under the application's review lock.
@@ -333,7 +345,13 @@ export function canRequestProposal(
 /** Only registered management mutations may be replayed. Reuse their Zod parsers so
  * invalid input cannot enter the queue and dates/defaults have exactly the usual meaning. */
 export async function parseProposal(operation: string, input: unknown) {
-  if (["monthlyHours.save", "monthlyHours.generate", "monthlyHours.retry"].includes(operation))
+  if (
+    [
+      "monthlyHours.save",
+      "monthlyHours.generate",
+      "monthlyHours.retry",
+    ].includes(operation)
+  )
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Monthly overviews have been retired. Use School Month Reports.",
@@ -446,6 +464,27 @@ export async function proposalTargets(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.string(), z.unknown()).parse(input);
+  if (operation === "recovery.restoreCheckpoint") {
+    const { inspectRecoveryCheckpoint, restoreCheckpointInput } =
+      await import("./recovery/checkpoint");
+    const submitted = restoreCheckpointInput.parse(input);
+    const plan = await inspectRecoveryCheckpoint(client, {
+      checkpointId: submitted.checkpointId,
+    });
+    if (
+      !plan.websiteEligible ||
+      plan.fingerprint !== submitted.expectedFingerprint
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "Checkpoint evidence changed or requires the operator CLI. Inspect it again.",
+      });
+    return JSON.parse(JSON.stringify(plan)) as Record<
+      string,
+      Prisma.InputJsonValue
+    >;
+  }
   if (operation === "recovery.voidAdmission") {
     // The complete causal graph is review evidence, not a requester assertion.
     // Rebuilding it at approval detects changed-away-and-back descendant writes.
@@ -572,8 +611,12 @@ export async function proposalTargets(
     });
   }
   if (operation === "admin.cancelRefresh") {
-    const row = await validateCancelRefresh(client, cancelRefreshInput.parse(fields));
-    return capturedTargets({ schedule: row,
+    const row = await validateCancelRefresh(
+      client,
+      cancelRefreshInput.parse(fields),
+    );
+    return capturedTargets({
+      schedule: row,
       ...(includeAuthorityContext ? { authorityContext: { version: 1 } } : {}),
     });
   }
@@ -1233,8 +1276,7 @@ export async function queueProposal(
     }
     // School recipient notifications must not take account rows after holding
     // the schedule while a delivery admission owns the opposite lock order.
-    if (operation === "schoolHours.save")
-      await lockUsernameNamespace(tx);
+    if (operation === "schoolHours.save") await lockUsernameNamespace(tx);
     // Retry/double-click of the same unchanged proposal returns its existing request.
     await lockEntity(
       tx,
@@ -1319,7 +1361,12 @@ export async function queueProposal(
       true,
     );
     if (
-      ["program.prepareNextRecruitment", "admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"].includes(operation)
+      [
+        "program.prepareNextRecruitment",
+        "admin.refresh",
+        "admin.scheduleRefresh",
+        "admin.cancelRefresh",
+      ].includes(operation)
     ) {
       // Capturing evidence may wait behind a refresh or mode edit. Retain the
       // requester's live authority under a row lock until the proposal commits.
@@ -1449,10 +1496,9 @@ export async function queueProposal(
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
-        title:
-          headOnly
-            ? "Management change awaiting Head approval"
-            : "Management change awaiting approval",
+        title: headOnly
+          ? "Management change awaiting Head approval"
+          : "Management change awaiting approval",
         ...notificationInAppEvent(
           headOnly
             ? "management_head_review_pending"

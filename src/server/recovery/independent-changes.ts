@@ -29,6 +29,9 @@ const preservedFields: Record<string, ReadonlySet<string>> = {
     "emailSecondaryRecipients",
     "passwordHash",
     "sessionVersion",
+    // History ownership invalidates old private-read sessions. Preserve the live
+    // epoch; typed ownership/execution rows remain unsupported independently.
+    "historyAccessRevision",
     "mustChangePassword",
     "twoFactorEnabled",
     "emailVerifiedAt",
@@ -71,11 +74,17 @@ export function preservedRecoveryChange(change: Change): boolean {
   // Delivery preferences belong to the account, not its admission. Journal
   // every write, but preserve these settings rather than compensating them.
   if (change.entity === "NotificationPreference") {
-    const allowed = change.operation === "UPDATE"
-      ? ["badgeEnabled", "emailEnabled"]
-      : ["INSERT", "DELETE"].includes(change.operation)
-        ? ["userId", "category", "badgeEnabled", "emailEnabled"] : [];
-    return allowed.length > 0 && parsed.data.length > 0 && parsed.data.every((field) => allowed.includes(field));
+    const allowed =
+      change.operation === "UPDATE"
+        ? ["badgeEnabled", "emailEnabled"]
+        : ["INSERT", "DELETE"].includes(change.operation)
+          ? ["userId", "category", "badgeEnabled", "emailEnabled"]
+          : [];
+    return (
+      allowed.length > 0 &&
+      parsed.data.length > 0 &&
+      parsed.data.every((field) => allowed.includes(field))
+    );
   }
   if (change.operation !== "UPDATE") return false;
   // A supported independent role/suspension write also advances the database-owned

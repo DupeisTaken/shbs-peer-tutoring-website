@@ -26,6 +26,7 @@ export function isReviewReference(value: unknown): value is ReviewReference {
  * This is a presentation inventory, never an execution/authority registry. */
 export const approvalSummaryContexts: Record<string, readonly string[]> = {
   "recovery.voidAdmission": ["actionId"],
+  "recovery.restoreCheckpoint": ["checkpointId"],
   "studentWorkflow.headEditSignup": ["id"],
   "studentWorkflow.headUnassign": ["id", "pairingId"],
   "studentWorkflow.resolveSignupAppeal": ["id"],

@@ -46,6 +46,9 @@ import { studentSignupLocalAnswers } from "./student-signup-answers";
 import { verifySignupCaptcha } from "./captcha";
 import { withSignupLease } from "./signup-admission";
 import { studentRequestRows } from "./student-workflow";
+import { participantIdentity } from "./recovery/adapters/shared";
+import { recoveryHash, recoveryJson } from "./recovery/capture";
+import { consumeRecoveryWorkflowDraft, readRecoveryWorkflowDraft } from "./recovery/workflow-draft";
 
 const email = "owner@example.test";
 const password = "Existing-password-268!";
@@ -146,6 +149,126 @@ async function staged(input: Awaited<ReturnType<typeof answers>>, clientKey = ra
   const intent = await db.studentSignupIntent.findUniqueOrThrow({ where: { id: receipt.intentId } });
   return { receipt, intent, clientKey, input };
 }
+
+async function recoveryDraftFixture(closed = true) {
+  const source = await existing();
+  if (closed) {
+    await db.tutee.update({
+      where: { id: source.tutee.id },
+      data: { status: "INACTIVE" },
+    });
+    await db.studentSurvey.update({
+      where: { id: source.row.id },
+      data: { state: "RECALLED", resolvedAt: new Date() },
+    });
+  }
+  const identity = await participantIdentity(db, "TUTEE", source.tutee.id);
+  const draft = await db.recoveryWorkflowDraft.create({
+    data: {
+      actionId: "synthetic-reviewed-recovery",
+      sourceSurveyId: source.row.id,
+      sourceTuteeId: source.tutee.id,
+      ownerUserId: source.user.id,
+      ownerBindingHash: recoveryHash(identity.binding),
+      answers: recoveryJson(studentSignupLocalAnswers(source.payload)),
+      createdAt: new Date(Date.now() - 1000),
+    },
+  });
+  return {
+    ...source,
+    draft,
+    reference: { draftId: draft.id, expectedVersion: draft.version },
+  };
+}
+
+it.each(["version", "mailbox", "ownership", "existing-open"])(
+  "draft adoption failure (%s) commits no signup intent and sends no mail",
+  async (failure) => {
+    const source = await recoveryDraftFixture(failure !== "existing-open");
+    const payload = await answers(
+      failure === "mailbox" ? { email: "unowned@example.test" } : {},
+    );
+    if (failure === "ownership")
+      await db.studentProfileOwnership.delete({
+        where: { tuteeId: source.tutee.id },
+      });
+    const reference = {
+      ...source.reference,
+      expectedVersion:
+        failure === "version" ? 999 : source.reference.expectedVersion,
+    };
+    const before = await db.studentSurvey.count();
+    await expect(
+      stageStudentSignupIntent(
+        db,
+        payload,
+        randomUUID(),
+        source.user.id,
+        reference,
+      ),
+    ).rejects.toThrow();
+    expect(await db.studentSignupIntent.count()).toBe(0);
+    expect(await db.studentSurvey.count()).toBe(before);
+    expect(fixtures.send).not.toHaveBeenCalled();
+    expect(
+      (
+        await db.recoveryWorkflowDraft.findUniqueOrThrow({
+          where: { id: source.draft.id },
+        })
+      ).state,
+    ).toBe("PENDING_OWNER_REVIEW");
+  },
+);
+
+it("signup and draft adoption commit together while mailbox verification remains fresh", async () => {
+  const source = await recoveryDraftFixture();
+  const payload = await answers();
+  const clientKey = randomUUID();
+  const receipt = await stageStudentSignupIntent(
+    db,
+    payload,
+    clientKey,
+    source.user.id,
+    source.reference,
+  );
+  const intent = await db.studentSignupIntent.findUniqueOrThrow({
+    where: { id: receipt.intentId },
+  });
+  const survey = await db.studentSurvey.findUniqueOrThrow({
+    where: { id: intent.surveyId },
+  });
+  expect(survey.id).not.toBe(source.row.id);
+  expect(survey.confirmedAt).toBeNull();
+  expect(intent.verifiedAt).toBeNull();
+  expect(
+    await db.recoveryWorkflowDraft.findUniqueOrThrow({
+      where: { id: source.draft.id },
+    }),
+  ).toMatchObject({
+    state: "CONSUMED",
+    submittedSurveyId: survey.id,
+    version: source.draft.version + 1,
+  });
+  const messages = fixtures.send.mock.calls.length;
+  // Losing access to the draft after acceptance cannot hide or duplicate its
+  // already accepted exact signup receipt.
+  await db.studentProfileOwnership.delete({
+    where: { tuteeId: source.tutee.id },
+  });
+  await expect(readRecoveryWorkflowDraft(db, { draftId: source.draft.id }, { id: source.user.id })).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(consumeRecoveryWorkflowDraft(db, { ...source.reference, surveyId: survey.id }, { id: source.user.id })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await stageStudentSignupIntent(
+      db,
+      payload,
+      clientKey,
+      source.user.id,
+      source.reference,
+    ),
+  ).toMatchObject({ intentId: intent.id });
+  expect(fixtures.send).toHaveBeenCalledTimes(messages);
+  expect(await db.studentSignupIntent.count()).toBe(1);
+});
 
 async function invitation(intentId: string) {
   const intent = await db.studentSignupIntent.findUniqueOrThrow({ where: { id: intentId } });

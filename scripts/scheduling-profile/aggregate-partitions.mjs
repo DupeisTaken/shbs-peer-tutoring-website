@@ -21,7 +21,7 @@ import { CONTENTION_ORDERS, CONTENTION_SCENARIOS, assertContentionReferenceCompa
  * @typedef {import("./contention-references.mjs").ContentionReferences} ContentionReferences
  * @typedef {{report:Evidence,rows:Observation[],parity:Evidence,digest:string,contentionOutcomes:Map<number,Evidence>}} Validated
  * @typedef {{entry:PartitionInput,before:Validated,after:Validated,native?:Validated,index:number}} Part
- * @typedef {{required:boolean,reported:boolean,semanticComparisonToSharedSchema:boolean,scenario?:string,rounds?:number,schemaSha256?:string,operations?:Record<string,Summary>,evidence?:unknown[]}} NativeControl
+ * @typedef {{required:boolean,reported:boolean,semanticComparisonToSharedSchema:boolean,captureSchema?:string,scenario?:string,rounds?:number,schemaSha256?:string,operations?:Record<string,Summary>,evidence?:unknown[]}} NativeControl
  * @typedef {{schemaVersion:number,partitionProtocolVersion:number,status:string,samplingComplete:boolean,latencyComparisonEligible:boolean,baselineRevision:string,catalogBaselineRevision:string|null,baselineComparisons:Record<string,unknown>,candidateRevision:string,anchor:string,sharedInputs:unknown,scenarios:{scenario:string,baselineRevision:string,rounds:number,partitions:number,semanticDigest:string|null,contention?:unknown,operations:Record<string,Operation>,evidence:unknown[]}[],controlledDiagnostics:unknown,nativeControl:NativeControl,interpretation:Record<string,string>}} AggregateReport
  */
 
@@ -110,6 +110,8 @@ function validateReport(value, scenario, revision, index, manifest, native = fal
   same(report.partitionProtocolVersion, 1, "partition protocol");
   same(report.mode, "latency", "measurement mode; diagnostics cannot enter latency pooling");
   same(report.transport, "http", "HTTP transport");
+  const captureSchema = native ? "native-original" : "shared";
+  same(report.captureSchema, captureSchema, "declared capture schema (native control cannot enter paired comparison)");
   same(report.samplingComplete, false, "partition samplingComplete");
   same(report.partitionComplete, true, "partition completion");
   same(report.latencyComparisonEligible, false, "partition latency eligibility");
@@ -173,10 +175,13 @@ function validateReport(value, scenario, revision, index, manifest, native = fal
   }
   const first = receipts.find((receipt) => receipt.round === index * 4);
   record(first.parity, "First LOCAL full parity");
+  same(first.parity.captureSchema, captureSchema, "snapshot capture schema matches its report");
+  same(record(first.parity.normalization, "Parity normalization").version, 3, "complete parity normalization version");
   sha(first.digest, 64, "Semantic digest");
   same(hash(JSON.stringify(first.parity)), first.digest, "full parity digest");
   for (const receipt of receipts) {
     same(receipt.scenario, scenario, "receipt scenario");
+    if (receipt.parity) same(receipt.parity.captureSchema, captureSchema, "snapshot capture schema matches its report");
     if (scenario === "contention") {
       record(receipt.parity, "Every free contention round requires its full actual graph");
       assert.ok(CONTENTION_ORDERS.includes(receipt.contentionOrder), "Missing/invalid actual contention lock order");
@@ -422,7 +427,7 @@ export function aggregatePartitions(inputs, options) {
     else if (!groupComparison) baselineComparisons.set(controlGroup, manifest);
     const shared = {
       anchor: before.report.fixture.anchor, protocol: before.report.partitionProtocolVersion,
-      schemaVersion: before.report.schemaVersion, mode: before.report.mode, transport: before.report.transport,
+      schemaVersion: before.report.schemaVersion, mode: before.report.mode, transport: before.report.transport, captureSchema: before.report.captureSchema,
       harnessHashes: before.report.harnessHashes, migrations: before.report.migrations,
       migrationFiles: before.report.migrationFiles, postgresVersion: before.report.postgresVersion,
       database: before.report.database, nodeImage: image, comparison: sharedComparison,
@@ -535,7 +540,7 @@ export function aggregatePartitions(inputs, options) {
       same(part.native.digest, template.digest, "within-native semantic digests");
       same(part.native.report.sourceHashes, template.report.sourceHashes, "immutable native baseline source bytes across runners");
     }
-    nativeControl = { ...nativeControl, reported: true, scenario: "cold", rounds: 20,
+    nativeControl = { ...nativeControl, reported: true, captureSchema: "native-original", scenario: "cold", rounds: 20,
       schemaSha256: common.comparison.originalSchemaSha256,
       operations: Object.fromEntries(Object.keys(expectedOperationPopulation("cold")).map((label) => [label, summary(nativeParts.flatMap((part) => part.native.rows.filter((row) => row.label === label)))])),
       evidence: nativeParts.map((part) => ({ partition: part.index, reference: part.entry.reference, files: part.entry.files ?? null, profileRunner: part.native.report.profileRunner, runtime: part.native.report.runtime })),
@@ -553,7 +558,7 @@ export function aggregatePartitions(inputs, options) {
         : "Catalog alone uses the separately pinned catalog correctness control. The other six scenarios and native cold control retain the primary baseline. Both baseline pin files belong to the same PR scope. Each control group keeps exact source provenance; schema, dependency, harness and reviewed-manifest inputs remain shared. No comparison across the two baseline source histories is implied.",
       pairing: "Each candidate/baseline ratio pairs the same global round, operation label and occurrence on the same runner. Runners and hardware can vary between partitions; raw runner/runtime references are retained. Contention pairs enumerate verified actual lock and exact history orders. Ratios require both orders to match; unmatched pairs stay raw with null ratios. Order strata use actual lock acquisition only, never transaction/audit timestamp order. Certified disagreements are flagged and counted.",
       population: "All seven free latency scenarios, unchanged 20/40-round populations, exact four-round partitions and one discarded warmup per partition are required. No failures, unfinished/censored samples, missing or duplicate partitions are omitted.",
-      native: "Original-schema cold observations form an independent 20-round baseline when required. No native-versus-shared-schema semantic parity or paired gain is claimed.",
+      native: "Original-schema cold observations form an independent 20-round baseline when required. Their explicit native-original capture uses the fixed original-schema field/delegate projection, excluding later identity/recovery fields and sidecars. No native-versus-shared-schema semantic parity or paired gain is claimed.",
       contention: "Every free round retains its full actual graph and must match one of the two validated exact controlled references. Actual period-lock evidence and raw audit chronology are independently validated; only a strict shared certificate can permit a lock/history disagreement. No journals, aliases, arrays, clocks or raw observations are sorted or filtered. Controlled timings include deliberate waits and remain separate from free latency.",
       diagnostic: "Diagnostic observations never enter latency pooling. The workflow separately requires negotiation/allocation/catalog plus both three-round controlled-contention preflights, and every remaining diagnostic/backlog matrix job. Controlled waits never enter free latency pooling.",
     },
@@ -691,8 +696,9 @@ export function loadPartitionInputs(directory) {
 
 /** Discover only the two exact controlled diagnostic artifacts. They remain
  * outside the 60 latency inputs, but their validated graphs gate free outcomes.
- * @param {string} directory */
-export function loadControlledReferencePaths(directory) {
+ * @param {string} directory
+ * @param {ReadonlySet<string>} [verifiedNames] Exact names from the authenticated selection for this campaign. */
+export function loadControlledReferencePaths(directory, verifiedNames) {
   const root = resolve(directory);
   /** @type {Partial<Record<import("./contention-references.mjs").ContentionOrder, import("./contention-references.mjs").PathPair>>} */
   const found = {};
@@ -705,6 +711,7 @@ export function loadControlledReferencePaths(directory) {
       assert.ok(order && !found[order], "Duplicate controlled contention reference artifact");
       for (const required of ["base-diagnostic.json", "head-diagnostic.json", "comparison-inputs.json", "node-image.txt"])
         assert.ok(statSync(join(current, required)).isFile(), `Missing controlled reference ${required}`);
+      if (verifiedNames) assert.ok(verifiedNames.has(relative(root, current).replaceAll("\\", "/")), "Unselected controlled reference artifact");
       attempts.add(match[2]);
       found[order] = { baselinePath: join(current, "base-diagnostic.json"), candidatePath: join(current, "head-diagnostic.json"),
         nodeImagePath: join(current, "node-image.txt"), comparisonPath: join(current, "comparison-inputs.json"), reference: relative(root, current).replaceAll("\\", "/") };
@@ -713,7 +720,7 @@ export function loadControlledReferencePaths(directory) {
   };
   visit(root);
   same(Object.keys(found).sort(), [...CONTENTION_ORDERS].sort(), "both complete controlled reference artifacts");
-  same(attempts.size, 1, "one controlled reference run attempt");
+  if (!verifiedNames) same(attempts.size, 1, "one controlled reference run attempt");
   return /** @type {Record<import("./contention-references.mjs").ContentionOrder, import("./contention-references.mjs").PathPair>} */ (found);
 }
 

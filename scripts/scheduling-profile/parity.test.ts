@@ -7,8 +7,88 @@ import {
   captureParity,
   compareParity,
   createParityAliasRewriter,
+  selectParityCaptureSchema,
   type ParityTables,
 } from "./parity";
+
+void test("native-original selection is explicit and restricted to an unpaired cold HTTP latency control", () => {
+  const cold = { scenario: "cold", mode: "latency", transport: "http", compare: false };
+  assert.equal(selectParityCaptureSchema(undefined, cold), "shared");
+  assert.equal(selectParityCaptureSchema("shared", { ...cold, compare: true }), "shared");
+  assert.equal(selectParityCaptureSchema("native-original", cold), "native-original");
+  for (const context of [
+    { ...cold, compare: true }, { ...cold, scenario: "warm" },
+    { ...cold, scenario: "all" }, { ...cold, mode: "diagnostic" },
+    { ...cold, transport: "procedure" },
+  ]) assert.throws(() => selectParityCaptureSchema("native-original", context), /unpaired cold HTTP latency/);
+  assert.throws(() => selectParityCaptureSchema("auto", cold), /Unknown parity capture schema/);
+});
+
+void test("native-original capture uses positive original fields with no new model delegates", async () => {
+  const absent = new Set([
+    "personPartitionReceipt", "retiredHistoryOwnership", "historyRowOwnership", "personHistoryCorrectionReceipt",
+    "personParticipationTransferReceipt", "participantConsolidation", "pairingExecutionSuccessor",
+    "sessionPlanExecution", "sessionParticipantExecution", "sessionResponseExecution", "qualificationTransferGrant",
+    "studentRequestExecutionAssignment", "recoveryCheckpoint", "recoveryDeliveryEffect",
+    "recoveryDeliveryCancellation", "recoveryDeliveryCoverage", "recoveryWorkflowDraft",
+  ]);
+  const addedFields: Record<string, string> = {
+    user: "historyAccessRevision", personCombineReceipt: "ownershipTransfers",
+    sessionPlanContinuationMember: "sourceSurveyId", notification: "recoveryWithdrawnAt",
+    emailDelivery: "sourceNotificationId",
+  };
+  const queries = new Set<string>();
+  let open = false;
+  const tx = new Proxy({}, {
+    get: (_target, name) => {
+      assert.equal(typeof name, "string");
+      const delegate = name as string;
+      assert.ok(!absent.has(delegate), `Original schema has no ${delegate} delegate`);
+      return { findMany: (args?: { select?: Record<string, boolean> }) => {
+        assert.equal(open, true);
+        assert.ok(args?.select, `${delegate} must have a fixed positive native projection`);
+        queries.add(delegate);
+        if (addedFields[delegate]) assert.ok(!args.select[addedFields[delegate]], "New scalar field entered native capture");
+        if (delegate === "user") assert.ok(!args.select.passwordHash);
+        if (delegate === "studentSurvey") assert.ok(!args.select.tokenHash);
+        return Promise.resolve([]);
+      } };
+    },
+  });
+  const db = { $transaction: async (work: (client: unknown) => Promise<unknown>, options: unknown) => {
+    assert.deepEqual(options, { isolationLevel: "RepeatableRead", timeout: 120_000 });
+    open = true;
+    try { return await work(tx); } finally { open = false; }
+  } } as unknown as PrismaClient;
+  const snapshot = await captureParity(db, { captureSchema: "native-original" });
+  assert.equal(snapshot.captureSchema, "native-original");
+  assert.equal(Object.keys(snapshot.tables).length, 51);
+  for (const delegate of ["user", "personCombineReceipt", "sessionPlanContinuationMember", "notification", "emailDelivery", "recoveryChange"])
+    assert.ok(queries.has(delegate), `${delegate} disappeared from original-schema evidence`);
+  assert.ok(!Object.hasOwn(snapshot.tables, "RecoveryCheckpoint"));
+  assert.throws(() => compareParity(snapshot, canonicalizeParity(
+    Object.fromEntries(Object.keys(snapshot.tables).map((name) => [name, []])),
+  )), /semantic state differs/);
+});
+
+void test("shared capture fails on missing combined fields or delegates instead of reducing its schema", async () => {
+  for (const missing of ["field", "delegate"]) {
+    const tx = new Proxy({}, {
+      get: (_target, name) => {
+        if (missing === "delegate" && name === "personPartitionReceipt") return undefined;
+        return { findMany: (args?: { select?: Record<string, boolean> }) => {
+          if (missing === "field" && name === "user") {
+            assert.equal(args?.select?.historyAccessRevision, true);
+            throw new Error("Original client has no historyAccessRevision field");
+          }
+          return Promise.resolve([]);
+        } };
+      },
+    });
+    const db = { $transaction: (work: (client: unknown) => Promise<unknown>) => work(tx) } as unknown as PrismaClient;
+    await assert.rejects(captureParity(db), missing === "field" ? /no historyAccessRevision field/ : TypeError);
+  }
+});
 
 void test("incremental alias matching equals the original escaped longest-literal regex after every insertion", () => {
   const aliases = new Map<string, string>();
@@ -111,6 +191,188 @@ function fixture(prefix: string, sequence = 1n): ParityTables {
   };
 }
 
+/** Combined-schema evidence only, not a claim that the historical baseline can
+ * execute identity transfers or prospective checkpoint recovery. */
+function combinedFixture(prefix: string): ParityTables {
+  const tables = fixture(prefix);
+  const id = (kind: string) => `${prefix}-${kind}-generated`;
+  const at = new Date("2050-01-01T00:00:00Z");
+  const receipt = (kind: string) => ({
+    id: id(kind), actorId: "source-admin", inputHash: `exact-${kind}-input-hash`,
+    personId: "source-person", createdAt: at,
+  });
+  tables.Person = [
+    { id: "source-person", revision: 4, primaryUserId: "source-user", resolutionState: "REVIEW_REQUIRED", mergedIntoId: null, createdAt: at, updatedAt: at },
+    { id: id("partition-person"), revision: 1, primaryUserId: null, resolutionState: "REVIEW_REQUIRED", mergedIntoId: null, createdAt: at, updatedAt: at },
+  ];
+  tables.User = [{ id: "source-user", personId: "source-person", historyAccessRevision: 2, profileVersion: 1, sessionVersion: 3, recoveryVoidedAt: null }];
+  tables.Tutor = [{ id: "source-tutor", personId: "source-person", status: "ACTIVE", historyIdentityRevision: 2 }];
+  tables.Tutee = [{ id: "source-tutee", personId: id("partition-person"), status: "ACTIVE", historyIdentityRevision: 2 }];
+  tables.TutorProfileOwnership = [{ tutorId: "source-tutor", userId: "source-user", revision: 2 }];
+  tables.StudentProfileOwnership = [{ tuteeId: "source-tutee", userId: "source-user", revision: 3 }];
+  tables.PersonCombineReceipt = [{ ...receipt("combine"), outcome: "REVIEW_REQUIRED", retiredUserIds: ["retired-user"], ownershipTransfers: [{ entity: "Notification", recordId: id("notification"), sourceUserId: "retired-user", readerUserId: "source-user" }] }];
+  tables.PersonPartitionReceipt = [{ ...receipt("partition"), newPersonId: id("partition-person"), sources: [{ kind: "TUTEE", id: "source-tutee" }], subjects: [{ entity: "Person", recordId: id("partition-person") }] }];
+  tables.PersonHistoryCorrectionReceipt = [{ ...receipt("history"), destinationPersonId: id("partition-person"), sourceUserIds: ["retired-user"], before: { readerUserId: "retired-user" }, after: { readerUserId: "source-user" }, subjects: [{ entity: "Notification", recordId: id("notification") }] }];
+  tables.RetiredHistoryOwnership = [{ sourceUserId: "retired-user", readerUserId: "source-user", state: "ASSIGNED", revision: 2, receiptId: id("history"), updatedAt: at }];
+  tables.HistoryRowOwnership = [{ entity: "Notification", recordId: id("notification"), readerUserId: "source-user", quarantineUserIds: ["retired-user"], sourceUserIds: ["retired-user"], revision: 3, receiptId: id("history"), updatedAt: at }];
+  tables.PersonParticipationTransferReceipt = [{ ...receipt("participation"), retainedUserId: "source-user", selection: { tutorId: "source-tutor", participantIds: [id("participant")] }, result: { planIds: [id("plan")] }, subjects: [{ entity: "SessionPlan", recordId: id("plan") }] }];
+  tables.ParticipantConsolidation = [{ kind: "TUTEE", sourceId: "old-tutee", targetId: "source-tutee", active: true, revision: 2, receiptId: id("participation"), effectiveAt: at }];
+  tables.PairingExecutionSuccessor = [{ sourcePairingId: "prior-pairing", targetPairingId: "source-pairing", receiptId: id("participation"), effectiveAt: at, revision: 2 }];
+  tables.SessionPlanExecution = [{ planId: id("plan"), tutorId: "source-tutor", revision: 2, receiptId: id("participation"), assignments: [{ pairingId: "source-pairing", tuteeIds: ["source-tutee"] }] }];
+  tables.SessionParticipantExecution = [{ participantId: id("participant"), sourceSurveyIds: ["source-survey"], tuteeId: "source-tutee", revision: 2, receiptId: id("participation") }];
+  tables.SessionPlanningRequest = [{ id: id("request"), planId: id("plan"), cohortId: id("cohort"), kind: "RESCHEDULE", scope: "ALL", participantIds: [id("participant")], parentRequestId: null }];
+  tables.SessionPlanningOffer = [{ id: id("offer"), requestId: id("request"), sequence: 1 }];
+  tables.SessionPlanningResponse = [{ id: id("response"), offerId: id("offer"), actorKey: "tutee:source-tutee" }];
+  tables.SessionResponseExecution = [{ responseId: id("response"), userId: "source-user", profileKind: "TUTEE", profileId: "source-tutee", respondedByUserId: "source-user", revision: 2, receiptId: id("participation") }];
+  tables.TutorQualification = [{ tutorId: "source-tutor", subjectId: "source-subject", approvedById: "source-admin", status: "APPROVED", createdAt: at }];
+  tables.QualificationGrant = [{ tutorId: "source-tutor", sourceSubjectId: "source-subject", subjectId: "variant-subject", grantedAt: at }];
+  tables.QualificationTransferGrant = [{ targetTutorId: "source-tutor", sourceTutorId: "old-tutor", sourceSubjectId: "source-subject", subjectId: "variant-subject", approvedById: "source-admin", approvedAt: at, grantedAt: at, receiptId: id("participation"), active: true, revision: 2 }];
+  tables.StudentRequestExecutionAssignment = [{ surveyId: "source-survey", pairingId: "source-pairing", tuteeId: "source-tutee", sourceTuteeId: "old-tutee", revision: 2, receiptId: id("participation"), createdAt: at, releasedAt: null }];
+  tables.StudentSurvey = [{ id: "source-survey", email: "synthetic@example.invalid", intakeTermId: "source-term", payload: { subjectId: "source-subject" }, currentPayload: null, currentVersion: 0, policyRevision: "synthetic", policySnapshot: {}, submittedAt: at, verificationAttempts: 0, emailCodeVersion: 1, expiresAt: at, confirmedAt: at, publicSignupEmailConfirmedAt: at, state: "OPEN", tuteeId: "source-tutee", firstAssignedAt: at, verificationDueAt: null, editedAt: null, resolvedAt: null, lastLinkSentAt: at, invalidReason: null, invalidatedAt: null, invalidatedById: null, invalidatedByName: null, invalidityVersion: 0 }];
+  tables.RecoveryAction = [...tables.RecoveryAction!, { id: id("checkpoint-action"), kind: "DOMAIN_CHECKPOINT", applicationId: null, before: { planId: id("plan") }, after: null, createdAt: at }];
+  tables.RecoveryCheckpoint = [{ id: id("checkpoint"), actionId: id("checkpoint-action"), schemaVersion: 1, adapter: "PARTICIPANT_TUTEE", adapterVersion: 1, sourceEntity: "Tutee", sourceId: "source-tutee", capturedById: "source-admin", captureTransactionId: id("transaction"), scope: [{ entity: "SessionPlan", recordId: id("plan") }], createdAt: at }];
+  tables.RecoveryEvent = [...tables.RecoveryEvent!, { id: id("checkpoint-event"), actionId: id("checkpoint-action"), transactionId: id("transaction"), kind: "DOMAIN_CHECKPOINT", payload: null, createdAt: at }];
+  tables.RecoveryTrackedEntity = [...tables.RecoveryTrackedEntity!, { actionId: id("checkpoint-action"), entity: "SessionPlan", recordId: id("plan") }];
+  tables.RecoveryFence = [...tables.RecoveryFence!, { actionId: id("checkpoint-action"), revision: 1 }];
+  tables.Notification = [{ id: id("notification"), userId: "source-user", event: "info", context: { draftId: id("draft") }, link: "/synthetic", title: "Synthetic", body: "Synthetic", recoveryWithdrawnAt: at }];
+  tables.EmailDelivery = [{ id: id("delivery"), userId: "source-user", recipient: "synthetic@example.invalid", event: "info", context: { draftId: id("draft") }, reminderKey: null, sourceNotificationId: id("notification"), status: "CANCELLED", attemptId: null, attemptStartedAt: null }];
+  tables.RecoveryDeliveryEffect = [
+    { id: id("effect-old"), actionId: id("action"), eventId: id("event"), notificationId: id("notification"), deliveryId: id("delivery"), createdAt: at },
+    { id: id("effect-new"), actionId: id("checkpoint-action"), eventId: id("checkpoint-event"), notificationId: id("notification"), deliveryId: id("delivery"), createdAt: at },
+  ];
+  tables.RecoveryReceipt = [{ id: id("recovery-receipt"), actionId: id("action"), actorId: "source-admin", clientKey: id("recovery-client"), inputHash: "exact-recovery-input-hash", reason: "Synthetic", channel: "DIRECT", fingerprint: "exact-fingerprint", evidence: { effectId: id("effect-old") }, createdAt: at }];
+  tables.RecoveryDeliveryCancellation = [{ effectId: id("effect-old"), recoveryKey: id("recovery-client"), disposition: "STOPPED", createdAt: at }];
+  tables.RecoveryDeliveryCoverage = [
+    { eventId: id("event"), actionId: id("action"), version: 2, createdAt: at },
+    { eventId: id("checkpoint-event"), actionId: id("checkpoint-action"), version: 2, createdAt: at },
+  ];
+  tables.RecoveryWorkflowDraft = [{ id: id("draft"), actionId: id("checkpoint-action"), sourceSurveyId: "source-survey", sourceTuteeId: "old-tutee", ownerUserId: "source-user", ownerBindingHash: "exact-owner-binding", answers: { subjectId: "source-subject" }, state: "PENDING_OWNER_REVIEW", version: 1, submittedSurveyId: null, consumedAt: null, createdAt: at }];
+  return tables;
+}
+
+void test("combined identity/recovery aliases retain complete shared-root and execution linkages", () => {
+  const expected = canonicalizeParity(combinedFixture("before"));
+  compareParity(canonicalizeParity(combinedFixture("after")), expected);
+  assert.ok(!JSON.stringify(expected).includes("before-"), "Generated references must resolve in sidecars, nested receipts and scopes");
+  assert.equal(expected.tables.RecoveryDeliveryEffect?.length, 2);
+  assert.equal(expected.tables.RecoveryDeliveryCancellation?.length, 1);
+  for (const reference of JSON.stringify(expected).match(/@alias:[a-f0-9]{64}/g) ?? [])
+    assert.ok(Object.hasOwn(expected.semanticAliases, reference));
+});
+
+void test("every combined authority/provenance category remains mutation-sensitive", () => {
+  const expected = canonicalizeParity(combinedFixture("before"));
+  const mutations: [string, string, unknown][] = [
+    ["User", "historyAccessRevision", 8], ["User", "recoveryVoidedAt", new Date("2050-02-01")],
+    ["Tutor", "historyIdentityRevision", 8], ["Tutee", "personId", "different-person"],
+    ["Person", "revision", 8], ["Person", "primaryUserId", "different-user"],
+    ["TutorProfileOwnership", "userId", "different-user"], ["StudentProfileOwnership", "revision", 8],
+    ["PersonCombineReceipt", "ownershipTransfers", []], ["PersonPartitionReceipt", "sources", []],
+    ["PersonHistoryCorrectionReceipt", "after", { readerUserId: "different-user" }],
+    ["RetiredHistoryOwnership", "readerUserId", null], ["HistoryRowOwnership", "readerUserId", null],
+    ["HistoryRowOwnership", "quarantineUserIds", []], ["HistoryRowOwnership", "sourceUserIds", []],
+    ["HistoryRowOwnership", "revision", 8], ["HistoryRowOwnership", "recordId", "different-notification"],
+    ["PersonParticipationTransferReceipt", "selection", {}], ["PersonParticipationTransferReceipt", "inputHash", "changed-hash"],
+    ["ParticipantConsolidation", "active", false], ["ParticipantConsolidation", "targetId", "different-tutee"],
+    ["PairingExecutionSuccessor", "targetPairingId", "different-pairing"],
+    ["SessionPlanExecution", "assignments", []], ["SessionPlanExecution", "revision", 8],
+    ["SessionParticipantExecution", "sourceSurveyIds", []], ["SessionParticipantExecution", "participantId", "different-participant"],
+    ["SessionResponseExecution", "userId", "different-user"], ["SessionResponseExecution", "respondedByUserId", null],
+    ["SessionResponseExecution", "receiptId", "different-receipt"],
+    ["TutorQualification", "status", "REJECTED"], ["QualificationGrant", "sourceSubjectId", "different-subject"],
+    ["TutorQualification", "createdAt", new Date("2050-02-01")],
+    ["QualificationTransferGrant", "sourceTutorId", "different-tutor"], ["QualificationTransferGrant", "active", false],
+    ["QualificationTransferGrant", "approvedAt", new Date("2050-02-01")],
+    ["StudentRequestExecutionAssignment", "sourceTuteeId", "different-tutee"],
+    ["StudentRequestExecutionAssignment", "releasedAt", new Date("2050-02-01")],
+    ["StudentRequestExecutionAssignment", "revision", 8], ["StudentSurvey", "currentVersion", 8],
+    ["RecoveryCheckpoint", "schemaVersion", 0], ["RecoveryCheckpoint", "sourceId", "different-tutee"],
+    ["RecoveryCheckpoint", "scope", []], ["RecoveryCheckpoint", "captureTransactionId", "different-transaction"],
+    ["RecoveryDeliveryEffect", "actionId", "different-root"], ["RecoveryDeliveryEffect", "eventId", "different-event"],
+    ["RecoveryDeliveryEffect", "deliveryId", "different-delivery"],
+    ["RecoveryDeliveryCancellation", "effectId", "after-effect-new-generated"],
+    ["RecoveryDeliveryCancellation", "recoveryKey", "different-recovery"], ["RecoveryDeliveryCancellation", "disposition", "IN_FLIGHT_OR_UNKNOWN"],
+    ["RecoveryDeliveryCoverage", "version", 0], ["RecoveryDeliveryCoverage", "actionId", "different-root"],
+    ["RecoveryWorkflowDraft", "ownerBindingHash", "changed-binding"], ["RecoveryWorkflowDraft", "ownerUserId", "different-user"],
+    ["RecoveryWorkflowDraft", "answers", {}], ["RecoveryWorkflowDraft", "version", 8],
+    ["RecoveryWorkflowDraft", "submittedSurveyId", "different-survey"],
+    ["Notification", "recoveryWithdrawnAt", null], ["EmailDelivery", "sourceNotificationId", null],
+  ];
+  for (const [table, field, value] of mutations) {
+    const actual = combinedFixture("after");
+    actual[table]![0]![field] = value;
+    assert.throws(() => compareParity(canonicalizeParity(actual), expected), `${table}.${field} must remain evidence`);
+  }
+  const missingSharedRoot = combinedFixture("after");
+  missingSharedRoot.RecoveryDeliveryEffect = missingSharedRoot.RecoveryDeliveryEffect!.slice(0, 1);
+  assert.throws(() => compareParity(canonicalizeParity(missingSharedRoot), expected));
+  const baselineWithoutSidecars = fixture("before");
+  assert.throws(() => compareParity(canonicalizeParity(baselineWithoutSidecars), expected),
+    "New candidate evidence is not silently erased to force historical-baseline parity");
+});
+
+void test("capture explicitly selects every combined sidecar field inside its coherent snapshot", async () => {
+  const source = combinedFixture("capture");
+  const explicitTables = [
+    "Person", "PersonCombineReceipt", "PersonPartitionReceipt", "RetiredHistoryOwnership", "HistoryRowOwnership",
+    "PersonHistoryCorrectionReceipt", "PersonParticipationTransferReceipt", "ParticipantConsolidation",
+    "PairingExecutionSuccessor", "SessionPlanExecution", "SessionParticipantExecution", "SessionResponseExecution",
+    "TutorQualification", "QualificationGrant", "QualificationTransferGrant", "StudentRequestExecutionAssignment",
+    "StudentSurvey", "RecoveryCheckpoint", "RecoveryDeliveryEffect", "RecoveryDeliveryCancellation",
+    "RecoveryDeliveryCoverage", "RecoveryWorkflowDraft",
+  ];
+  const tableByDelegate = new Map(Object.keys(source).map((table) => [table.charAt(0).toLowerCase() + table.slice(1), table]));
+  const capturedSource: Record<string, Record<string, unknown>[]> = {};
+  const selected = new Set<string>();
+  let open = false;
+  const tx = new Proxy({}, {
+    get: (_target, property) => {
+      assert.equal(typeof property, "string");
+      const delegate = property as string;
+      return { findMany: (args?: { select?: Record<string, boolean> }) => {
+        assert.equal(open, true);
+        const table = tableByDelegate.get(delegate) ?? delegate.charAt(0).toUpperCase() + delegate.slice(1);
+        const values = source[table] ?? [];
+        capturedSource[table] = [...values];
+        if (explicitTables.includes(table)) {
+          assert.ok(args?.select, `${table} requires a positive projection`);
+          for (const field of Object.keys(values[0]!)) assert.equal(args.select[field], true, `${table}.${field} omitted`);
+          selected.add(table);
+        }
+        if (table === "StudentSurvey") assert.ok(!args?.select?.tokenHash);
+        if (table === "User") assert.ok(!args?.select?.passwordHash);
+        return Promise.resolve(args?.select
+          ? values.map((row) => Object.fromEntries(Object.entries(row).filter(([field]) => args.select![field])))
+          : values);
+      } };
+    },
+  });
+  const db = { $transaction: async (work: (client: unknown) => Promise<unknown>) => {
+    open = true;
+    try { return await work(tx); } finally { open = false; }
+  } } as unknown as PrismaClient;
+  const actual = await captureParity(db);
+  assert.deepEqual([...selected].sort(), [...explicitTables].sort());
+  compareParity(actual, canonicalizeParity(capturedSource));
+});
+
+void test("native qualification approval time survives even when only its recovery journal remains", () => {
+  const journal = (prefix: string, approvedAt: string) => {
+    const tables = fixture(prefix);
+    tables.RecoveryChange = [...tables.RecoveryChange!, {
+      id: 90n, actionId: `${prefix}-action-generated`, eventId: `${prefix}-event-generated`,
+      entity: "TutorQualification", operation: "DELETE", changedFields: null,
+      recordKey: { tutorId: "source-tutor", subjectId: "source-subject" },
+      before: { tutorId: "source-tutor", subjectId: "source-subject", status: "APPROVED", createdAt: approvedAt },
+      after: null,
+    }];
+    return canonicalizeParity(tables);
+  };
+  const expected = journal("before", "2050-01-01T00:00:00.000Z");
+  compareParity(journal("after", "2050-01-01T00:00:00.000Z"), expected);
+  assert.throws(() => compareParity(journal("after", "2050-01-02T00:00:00.000Z"), expected));
+});
+
 /** Normalization stress fixture only: 205 retained parent links, their offers,
  * three actor responses/notices each, plus ordered recovery evidence. It does
  * not claim that this synthetic chain is a production negotiation workflow. */
@@ -182,7 +444,7 @@ void test("compact alias dictionaries bound 205-parent/615-notice serialization 
   const before = canonicalizeParity(depthFixture("raw-before"), options);
   const after = canonicalizeParity(depthFixture("raw-after"), options);
   compareParity(after, before);
-  assert.equal(before.normalization.version, 2);
+  assert.equal(before.normalization.version, 3);
   assert.equal(before.tables.SessionPlanningRequest?.length, 205);
   assert.equal(before.tables.SessionPlanningOffer?.length, 205);
   assert.equal(before.tables.SessionPlanningResponse?.length, 615);

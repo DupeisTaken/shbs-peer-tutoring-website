@@ -282,7 +282,11 @@ for (const database of ["../outside", "fixture/name", "fixture\nname", "fixture\
   test(`rejects database filename separators ${JSON.stringify(database)} before dumping`, (t) => {
     const f = fixture(t);
     const env = path.join(f.directory, ".env");
-    writeFileSync(env, readFileSync(env, "utf8") + `POSTGRES_DB='${database}'\n`);
+    // Construct control bytes after Bash parses the source line. Git Bash can
+    // normalize physical CR bytes in script input before the guard sees them.
+    const encodedDatabase = database.replaceAll("\\", "\\\\").replaceAll("'", "\\'")
+      .replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+    writeFileSync(env, readFileSync(env, "utf8") + `POSTGRES_DB=$'${encodedDatabase}'\n`);
     const result = f.run();
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /POSTGRES_DB cannot contain path separators or line breaks/);

@@ -143,7 +143,9 @@ export async function seedFixture(db: PrismaClient, anchor: Date) {
         await db.studentProfileOwnership.create({ data: { userId, tuteeId: tuteeIds[person]! } });
       }
       await db.policyAcceptance.create({ data: { userId: tutorUserId, slug: "tutor-policy", revision: policy.revision, snapshot: policy.documents, signature: `Synthetic tutor ${index}` } });
-      await db.tutorQualification.create({ data: { tutorId, subjectId, status: "APPROVED", approvedById: adminId, grants: { create: { subjectId } } } });
+      // Approval provenance is domain evidence: both revisions receive the same
+      // synthetic instant instead of unrelated database insertion times.
+      await db.tutorQualification.create({ data: { tutorId, subjectId, status: "APPROVED", approvedById: adminId, createdAt: anchor, grants: { create: { subjectId, grantedAt: anchor } } } });
       await db.tutorSubjectWillingness.create({ data: { tutorId, subjectId, willing: true } });
       await db.tutorAvailability.createMany({ data: [slotId, alternateSlotId].map((slotId) => ({ tutorId, slotId })) });
     }
@@ -160,7 +162,7 @@ export async function seedFixture(db: PrismaClient, anchor: Date) {
     } });
     pairs.push({ id: pairing.id, tutorId, tutorUserId, tuteeIds, studentUserIds, roomId, dayOfWeek });
   }
-  await db.tutorQualification.create({ data: { tutorId: pairs[0]!.tutorId, subjectId: fixtureId("subject", 1), status: "APPROVED", approvedById: adminId, grants: { create: { subjectId: fixtureId("subject", 1) } } } });
+  await db.tutorQualification.create({ data: { tutorId: pairs[0]!.tutorId, subjectId: fixtureId("subject", 1), status: "APPROVED", approvedById: adminId, createdAt: anchor, grants: { create: { subjectId: fixtureId("subject", 1), grantedAt: anchor } } } });
   const group = await db.pairingGroup.create({ data: { id: fixtureId("group"), tutorId: pairs[0]!.tutorId, termId, primaryPairingId: pairs[0]!.id } });
   await db.pairing.updateMany({ where: { id: { in: pairs.slice(0, 2).map((pair) => pair.id) } }, data: { groupId: group.id } });
 

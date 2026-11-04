@@ -1,7 +1,8 @@
 # Selective recovery and operator staging
 
-Use selective recovery when an interview admission was mistaken. The system
-removes the consequences of that admission while retaining independent facts,
+Use selective recovery when a supported admission, participant, workflow,
+attendance, card or program-refresh action was mistaken. The system
+compensates the selected action while retaining independent facts,
 historical evidence and existing tutee accounts. Read the proposed
 effects before applying them. The [recovery reference](../reference/recovery.md)
 describes provenance coverage, permissions and technical limits.
@@ -33,6 +34,43 @@ new field-name evidence cannot be assumed harmless.
 If the records change while you review, your reason remains typed, but recovery is
 disabled. Use **Review updated consequences**, inspect the new effects, then confirm
 again. A failed refresh preserves your reason and offers a read-only retry.
+If applying a checkpoint reports a conflict, the page fetches a fresh preview;
+you must explicitly review the changed consequences before trying again. Selecting
+**Inspect** for the same checkpoint also refreshes its evidence. If an action
+reports that you no longer have permission, private lists, previews and receipts
+are concealed. **Retry** must successfully recheck every open private view before
+showing them again; it does not repeat the write or discard your reason.
+
+A recorded checkpoint outcome is labelled **Restoration already recorded** and
+cannot be applied again. This also covers a pending owner-review draft; it does
+not mean participation has resumed. Blocked evidence and pending management review
+have separate labels. Only a complete supported chain with more than one later
+event directs the operator to the CLI.
+A successfully read receipt also records completion when an older preview still
+looks eligible, provided both the receipt ID and its checkpoint match the active
+view. A receipt reference in the URL alone, or a receipt belonging to another
+checkpoint, does not establish that outcome.
+
+Within the same open application tab and verified sign-in, switching checkpoints
+or navigating away and back does not permit another submission of a recorded
+restoration or queued approval. The page retains their receipt or approval
+reference, and clears the submitted reason after either outcome is recorded.
+Another account, role or session-authority generation cannot inherit that intent.
+This protection follows client-side navigation; a full reload or new tab starts a
+new in-memory cache. Before resubmitting there, inspect the server's receipt and
+approval history and have management reconcile any uncertain approval submission.
+No recovery reason or retry key is saved in browser storage.
+
+An uncertain direct restoration response retains the exact checkpoint,
+fingerprint, trimmed reason and retry key. Confirming its retry reconciles that
+original operation; it does not adopt changed consequences or create a new intent.
+After an uncertain approval submission, **View approval request** opens the
+read-only approval list instead. Have management reconcile the original request
+and any recovery receipt before attempting another submission; approval creation
+does not provide the direct restoration's durable replay guarantee. Do not invent
+a new key or switch checkpoints to bypass either state. A later denial remains
+concealed across page navigation until fresh reads pass for every affected private
+checkpoint and receipt, including a view that is no longer selected.
 
 The website permits a supported action only when its entire tracked causal chain
 has zero or one later logical action. Two later actions anywhere in that chain
@@ -65,6 +103,7 @@ npm run recovery -- records tables
 npm run recovery -- records inspect --table RecoveryAction --limit 25
 npm run recovery -- records inspect --table TutorApplication --key '{"id":"APPLICATION_ID"}'
 npm run recovery -- records inspect --table AuditLog --key '{"id":"AUDIT_ID"}'
+npm run recovery -- records dependencies --table Tutor --key '{"id":"TUTOR_ID"}' --limit 25
 ```
 
 Use the exact model name, key fields and available status reported by `tables`.
@@ -75,6 +114,19 @@ unreviewed copied command. Pages contain at most 100 rows. Supply the returned
 invitation codes, tokens, private message bodies and unreviewed JSON evidence.
 An unsupported table exposes metadata only. The CLI preserves those exclusions;
 it has no full-secret output flag.
+
+`records dependencies` requires an exact key and returns at most 50 recorded
+changes per page. Follow its action/event references to inspect the associated
+journal. Safe affected-record keys and changed-column names are available, but
+raw historical snapshots and credential values remain excluded. A shared record
+reference establishes recorded impact evidence, not permission to reverse it or
+proof that every related action was caused by the selected record.
+
+Checkpoint and other recovery metadata references link through their stored
+action/event identities. Checkpoint dependency pages follow that exact action's
+journal; they do not infer links from private scope or answer snapshots. A missing
+or inaccessible owner-review draft shows the same unavailable page through both
+signup URLs, while the recorded owner can review it through ordinary signup.
 
 ## Save and compare an admission checkpoint
 
@@ -128,6 +180,35 @@ It excludes raw evidence blobs. An already voided admission cannot be used to
 restore an old password, registration code or session. A later admission or new
 credential needs a fresh ordinary authorization.
 
+## Review a scoped checkpoint
+
+The checkpoint section at `/admin/recovery` lists before-states captured by
+supported ordinary writers. You may also deliberately capture the current state
+before a planned action. Capture is a mutation; viewing and comparing are read-only.
+Use the adapter matching the source: `PARTICIPANT_TUTOR`, `PARTICIPANT_TUTEE`,
+`STUDENT_WORKFLOW`, `ATTENDANCE`, `CARD` or `PROGRAM_REFRESH`.
+
+```bash
+npm run recovery -- checkpoint capture --adapter ATTENDANCE --source-id SESSION_ID --actor-id ADMIN_ID --out local-operations/checkpoint.json
+npm run recovery -- checkpoint inspect --checkpoint-id CHECKPOINT_ID --actor-id ADMIN_ID --out local-operations/checkpoint-review.json
+npm run recovery -- checkpoint compare --plan local-operations/checkpoint-review.json --plan-hash REVIEWED_SHA256 --actor-id ADMIN_ID
+npm run recovery -- checkpoint apply --plan local-operations/checkpoint-review.json --plan-hash REVIEWED_SHA256 --actor-id ADMIN_ID --reason 'Reviewed mistaken correction' --client-key 611a19be-3d0a-4d80-bdf2-bc7ace21445d
+npm run recovery -- checkpoint receipt --receipt-id RECEIPT_ID --actor-id ADMIN_ID
+```
+
+The same website zero-or-one later-event rule applies across the entire chain.
+Admin/Head review ordinary restoration; program-refresh restoration requires Head
+authority. Coordinator proposals retain the exact reviewed fingerprint. An operator
+can handle a longer supported chain but cannot bypass current restrictions or
+unknown evidence. Review delivery dispositions: stopped pending work, previously
+observed notices, sent mail and in-flight uncertainty mean different things.
+
+Attendance restoration recalculates the complete merged block and requests fresh
+discrepancy review. Card restoration creates a new review. A closed signup produces
+an owner-review draft; the owner must submit it through normal intake, current
+policy agreement and mailbox verification. A recovery receipt can therefore mean
+that owner action is still required, rather than participation is already active.
+
 ## Stage a whole-site logical backup
 
 Whole-site staging is a separate operator operation. The current backup script
@@ -148,7 +229,8 @@ the same name as a **NOLOGIN**, unprivileged role so the trusted dump's ownershi
 statements can succeed. The tool requires this role to have no superuser,
 create-role, create-database, replication or bypass-RLS privileges. Provision any
 other ownership roles required by the dump under the same isolation policy.
-The tool does not create or change PostgreSQL roles automatically.
+`site stage` does not create or change PostgreSQL roles automatically. Isolated
+rollback later retires only its exact, validated, generated source database role.
 
 Use only a trusted operator-produced backup: a SQL dump is executable database
 input. Keep the chosen file immutable during planning and staging. Create a
@@ -188,29 +270,53 @@ delete its intent to replay the same plan. Review the failure and choose a new
 plan and fresh target. `STAGE_FAILED_FENCE_REQUIRES_MANUAL_INTERVENTION` means the
 operator must immediately fence the isolated instance before further work.
 
-## Cutover remains a separate reviewed procedure
+## Reconcile security and rehearse isolated cutover
 
-There is no automated whole-site cutover or security-state reconciler. Keep the
-target fenced until an operator has completed all of the following:
+Staging does not authorize startup. Each later phase has a separate plan and
+receipt. Run `site reconcile-plan`, `site acceptance-plan`, `site cutover-plan`
+and `site rollback-plan` with the preceding phase's `--plan`, `--plan-hash`,
+`--receipt`, `--receipt-hash` and a new `--out`. Acceptance planning also takes
+`--actor-id SYNTHETIC_USER`; cutover planning takes `--pointer-path FILE`.
+Apply a reviewed phase with the corresponding verb without `-plan`, its plan/hash
+and `--reason`. `npm run recovery -- --help` lists the exact forms.
 
-1. Preserve the current database and external incident/recovery evidence. Confirm
-   the intended backup, business checkpoint, schema and application revision.
-2. Review restored records using isolated read-only PostgreSQL tools, explicitly
-   controlling any temporary reopening of the staging database. Do not use the
-   normal container entrypoint: it deploys migrations, and Next instrumentation
-   and ordinary reads can start workers or materialize records.
-3. Reconcile current suspensions, retirements, departures, grant/invitation
-   revocations and every other security decision after the backup. Invalidate
-   restored sessions and all one-time authentication/invitation/reset tokens.
-   Never revive a previous password or access grant merely because it existed
-   in the backup. Require fresh credential authorization before enabling access.
-4. Reconcile post-backup business events and external effects, including mail,
-   notifications, files and storage that are outside a database dump. Establish
-   that an application startup cannot replay deliveries or deadlines.
-5. Review the resulting difference report and recovery evidence with program
-   leadership. Plan an explicit maintenance window, rollback target, isolated
-   acceptance checks and controlled reopening before changing live connectivity.
+Reconciliation preserves a fresh, snapshot-bound copy of current security state,
+checks stable source identity closure, overlays current restrictions and independent
+grants, disables old passwords and advances session generations. It invalidates
+bearer capabilities, quarantines deferred work and preserves sent/accepted/uncertain
+delivery evidence. Unknown identity/security schema changes block reconciliation.
+Signing-key rotation uses `RECOVERY_PREVIOUS_AUTH_SECRET` and
+`RECOVERY_ROTATED_AUTH_SECRET`; only their fingerprints enter plans and receipts.
 
-These steps are operational blockers, not guarantees supplied by `site stage`.
-Keep the source site unchanged until they are resolved. See the
-[deployment runbook](deployment.md) for existing backup and deployment practices.
+Acceptance, cutover and rollback are restricted to synthetic loopback
+`shbs_*_test` environments. `RECOVERY_APPLICATION_URL` identifies a separately
+provisioned read-only application role; `RECOVERY_FRESH_TEST_PASSWORD` is a fresh
+synthetic credential. Acceptance and rollback also require a trusted matching
+Next standalone build at `.next/standalone`, with `.recovery-checkout.json` binding
+its checkout SHA. Set `RECOVERY_REHEARSAL_CHECKOUT_SHA` to that exact revision
+(the hosted workflow uses `GITHUB_SHA`). The genuine Next/Auth.js probe runs only
+on an owned disposable writable clone with a loopback SMTP sink. It proves a
+fresh login before independently rejecting old keys and session generations;
+the receipt distinguishes observed notification-worker delivery from unchanged
+restored queues. Synthetic capability fixtures additionally prove valid access
+before restoration and rejection afterward.
+
+Cutover atomically changes an exact reviewed deployment pointer and permits only
+that verified read-only target (`READ_ONLY_NO_OUTBOUND`). Clone acceptance does
+not activate a writable production application.
+The password-only synthetic harness refuses accounts requiring two-factor
+authentication. An optional `RECOVERY_CHECKPOINT_AUTH_SECRET` supplies the distinct
+old backup signing key for the rejection proof; it is never saved in receipts.
+
+Rollback uses `RECOVERY_ROLLBACK_DATABASE_URL` and
+`RECOVERY_ROLLBACK_APPLICATION_URL`, a second signing-key rotation and a fresh
+synthetic password. It preserves the newest target security onto the original
+retained-business fixture, invalidates credentials again, switches the pointer
+back and fences the previous target. A rollback never copies old credentials back.
+Same-intent receipts and transactional markers support resuming completed stages
+after a lost response; stale fingerprints or unrelated pointers remain conflicts.
+
+Retain each phase's external evidence and receipt. Check the real rehearsal report
+for measured results; mocked tests and equal table counts do not prove restore or
+cutover correctness. Production connectivity, external storage and operational
+maintenance remain governed by the [deployment runbook](deployment.md).

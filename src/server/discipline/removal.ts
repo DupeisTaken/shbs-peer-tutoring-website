@@ -5,8 +5,9 @@ import { recordDomainAudit } from "~/server/audit/evidence";
 import { auditActorScope } from "~/server/db-scope";
 import { standingFromCounts } from "~/lib/discipline";
 import { getActivePeriodOrNull } from "~/server/period";
-import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
-import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { notifyAdmins, notifyUsers } from "~/server/notifications/core";
+import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
+import { preserveHistoricalAcademics } from "~/server/historical-academic-snapshot";
 import { executionParticipantId, executionSourceIds, supersededPairingIds } from "~/server/participant-execution";
 import {
   inTransaction,
@@ -60,33 +61,43 @@ async function finalizeRemoval(
       },
     },
   });
-  await notifyUsers(
-    links.flatMap((l) =>
-      l.pairing.tutor.user ? [l.pairing.tutor.user.id] : [],
-    ),
-    {
-      ...notificationInAppEvent("tutee_removed", undefined, {
-        en: `Tutee ${tutee.englishName} was removed from the current roster.`,
-        zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
-      }),
-      title: "Tutee removed",
-      body: `${tutee.englishName} was removed from the current roster.`,
-      link: "/dashboard",
-    },
+  await withRecoveryDeliverySource(
     tx,
+    { entity: "TuteeRemovalRequest", recordId: requestId },
+    () =>
+      notifyUsers(
+        links.flatMap((l) =>
+          l.pairing.tutor.user ? [l.pairing.tutor.user.id] : [],
+        ),
+        {
+          ...notificationInAppEvent("tutee_removed", undefined, {
+            en: `Tutee ${tutee.englishName} was removed from the current roster.`,
+            zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
+          }),
+          title: "Tutee removed",
+          body: `${tutee.englishName} was removed from the current roster.`,
+          link: "/dashboard",
+        },
+        tx,
+      ),
   );
-  await notifyAdmins(
-    {
-      ...notificationInAppEvent("tutee_removed", undefined, {
-        en: `Tutee ${tutee.englishName} was removed from the current roster.`,
-        zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
-      }),
-      title: "Tutee removed",
-      body: `${tutee.englishName} was removed from the current roster.`,
-      link: "/admin/tutee-requests",
-    },
-    undefined,
+  await withRecoveryDeliverySource(
     tx,
+    { entity: "TuteeRemovalRequest", recordId: requestId },
+    () =>
+      notifyAdmins(
+        {
+          ...notificationInAppEvent("tutee_removed", undefined, {
+            en: `Tutee ${tutee.englishName} was removed from the current roster.`,
+            zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
+          }),
+          title: "Tutee removed",
+          body: `${tutee.englishName} was removed from the current roster.`,
+          link: "/admin/tutee-requests",
+        },
+        undefined,
+        tx,
+      ),
   );
   await recordDomainAudit(tx, {
     operation: "system.finalizeTuteeRemoval",
@@ -118,112 +129,169 @@ export async function syncPunishmentRemoval(
   tuteeId: string,
 ): Promise<{ removed: boolean }> {
   return inTransaction(db, async (tx) => {
+    // Serialize preflight even for a no-op: two concurrent card writers must
+    // not both observe a below-threshold snapshot before either commits.
+    await lockEntity(tx, "program:period");
     tuteeId = await executionParticipantId(tx, "TUTEE", tuteeId);
-    await lockEntity(tx, `tutee:${tuteeId}`);
-    const tutee = await tx.tutee.findUniqueOrThrow({ where: { id: tuteeId } });
-    const cards = await tx.disciplinaryCard.groupBy({
+    // Most reconciliations are reads. Avoid manufacturing a checkpoint for a
+    // no-op; the mutation path below still locks and recomputes every condition.
+    const candidate = await tx.tutee.findUniqueOrThrow({
+      where: { id: tuteeId },
+      select: { status: true, updatedAt: true },
+    });
+    const valid = await tx.disciplinaryCard.groupBy({
       by: ["color"],
       where: { tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) }, reviewStatus: "VALID" },
       _count: { _all: true },
     });
-    const standing = standingFromCounts({
-      validYellow: cards.find((c) => c.color === "YELLOW")?._count._all ?? 0,
-      validRed: cards.find((c) => c.color === "RED")?._count._all ?? 0,
+    const candidateStanding = standingFromCounts({
+      validYellow:
+        valid.find((row) => row.color === "YELLOW")?._count._all ?? 0,
+      validRed: valid.find((row) => row.color === "RED")?._count._all ?? 0,
       pendingYellow: 0,
       pendingRed: 0,
     });
-    if (!standing.removalPending) {
+    if (candidateStanding.removalPending) {
+      if (candidate.status !== "ACTIVE") return { removed: false };
+    } else {
       const removal = await tx.tuteeRemovalRequest.findFirst({
         where: { tuteeId, kind: "PUNISHMENT", state: "APPROVED" },
         orderBy: { resolvedAt: "desc" },
       });
-      const snapshot = snapshotSchema.safeParse(removal?.pairingSnapshot);
       if (
-        removal &&
-        snapshot.success &&
-        tutee.status === "INACTIVE" &&
-        removal.resolvedAt?.getTime() === tutee.updatedAt.getTime()
-      ) {
-        // Card corrections that restore roster membership are reversals of applied
-        // removal, so their initiating correction must already have Admin/Head authority.
-        if (!["ADMIN", "HEAD"].includes(auditActorScope.getStore()?.role ?? ""))
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message:
-              "Admin or Head approval is required to restore removed participation.",
-          });
-        const pairings = await tx.pairing.findMany({
-          where: {
-            AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
-            id: { in: snapshot.data.pairingIds },
-            term: { active: true },
-            tutor: { status: "ACTIVE" },
-          },
-          select: { id: true },
-        });
-        await preserveHistoricalAcademics(tx, "TUTEE", tuteeId);
-        await tx.pairingTutee.createMany({
-          data: pairings.map((p) => ({ pairingId: p.id, tuteeId })),
-          skipDuplicates: true,
-        });
-        await tx.tutee.update({
-          where: { id: tuteeId },
-          data: { status: pairings.length ? snapshot.data.status : "PENDING" },
-        });
-        await tx.tuteeRemovalRequest.update({
-          where: { id: removal.id },
-          data: { state: "REINSTATED", resolvedByName: "Card correction" },
-        });
-        const original = await tx.auditLog.findFirst({
-          where: {
-            entity: "TuteeRemovalRequest",
-            entityId: removal.id,
-            operation: "system.finalizeTuteeRemoval",
-          },
-          orderBy: { createdAt: "asc" },
-          select: { id: true },
-        });
-        await recordDomainAudit(tx, {
-          operation: "system.reconcilePunishmentRemoval",
-          entity: "TuteeRemovalRequest",
-          entityId: removal.id,
-          action:
-            "Restored participation after Head-authorized card correction",
-          system: true,
-          before: {
-            id: removal.id,
-            tuteeId,
-            state: "APPROVED",
-            status: tutee.status,
-          },
-          after: {
-            id: removal.id,
-            tuteeId,
-            state: "REINSTATED",
-            status: pairings.length ? snapshot.data.status : "PENDING",
-          },
-          originalActionId: original?.id,
-          effects: {
-            originalRecordId: removal.id,
-            restoredPairingIds: pairings.map((pairing) => pairing.id),
-            ...(original
-              ? {}
-              : { originalAuditAvailability: "Unavailable legacy evidence" }),
-          },
-        });
-      }
-      return { removed: false };
+        !removal ||
+        !snapshotSchema.safeParse(removal.pairingSnapshot).success ||
+        candidate.status !== "INACTIVE" ||
+        removal.resolvedAt?.getTime() !== candidate.updatedAt.getTime()
+      )
+        return { removed: false };
     }
-    if (tutee.status !== "ACTIVE") return { removed: false };
-    const request = await tx.tuteeRemovalRequest.create({
-      data: {
-        tuteeId,
-        kind: "PUNISHMENT",
-        reason: `Reached the removal threshold (${standing.effectiveReds} red cards).`,
+    const { withAutomaticRecoveryCheckpoint } =
+      await import("~/server/recovery/checkpoint");
+    const actor = auditActorScope.getStore();
+    return withAutomaticRecoveryCheckpoint(
+      tx,
+      { adapter: "PARTICIPANT_TUTEE", sourceId: tuteeId },
+      actor ? { id: actor.id, name: actor.name } : null,
+      async () => {
+        await lockEntity(tx, `tutee:${tuteeId}`);
+        const tutee = await tx.tutee.findUniqueOrThrow({
+          where: { id: tuteeId },
+        });
+        const cards = await tx.disciplinaryCard.groupBy({
+          by: ["color"],
+          where: { tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) }, reviewStatus: "VALID" },
+          _count: { _all: true },
+        });
+        const standing = standingFromCounts({
+          validYellow:
+            cards.find((c) => c.color === "YELLOW")?._count._all ?? 0,
+          validRed: cards.find((c) => c.color === "RED")?._count._all ?? 0,
+          pendingYellow: 0,
+          pendingRed: 0,
+        });
+        if (!standing.removalPending) {
+          const removal = await tx.tuteeRemovalRequest.findFirst({
+            where: { tuteeId, kind: "PUNISHMENT", state: "APPROVED" },
+            orderBy: { resolvedAt: "desc" },
+          });
+          const snapshot = snapshotSchema.safeParse(removal?.pairingSnapshot);
+          if (
+            removal &&
+            snapshot.success &&
+            tutee.status === "INACTIVE" &&
+            removal.resolvedAt?.getTime() === tutee.updatedAt.getTime()
+          ) {
+            // Card corrections that restore roster membership are reversals of applied
+            // removal, so their initiating correction must already have Admin/Head authority.
+            if (
+              !["ADMIN", "HEAD"].includes(
+                auditActorScope.getStore()?.role ?? "",
+              )
+            )
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message:
+                  "Admin or Head approval is required to restore removed participation.",
+              });
+            const pairings = await tx.pairing.findMany({
+              where: {
+                AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
+                id: { in: snapshot.data.pairingIds },
+                term: { active: true },
+                tutor: { status: "ACTIVE" },
+              },
+              select: { id: true },
+            });
+            await preserveHistoricalAcademics(tx, "TUTEE", tuteeId);
+            await tx.pairingTutee.createMany({
+              data: pairings.map((p) => ({ pairingId: p.id, tuteeId })),
+              skipDuplicates: true,
+            });
+            await tx.tutee.update({
+              where: { id: tuteeId },
+              data: {
+                status: pairings.length ? snapshot.data.status : "PENDING",
+              },
+            });
+            await tx.tuteeRemovalRequest.update({
+              where: { id: removal.id },
+              data: { state: "REINSTATED", resolvedByName: "Card correction" },
+            });
+            const original = await tx.auditLog.findFirst({
+              where: {
+                entity: "TuteeRemovalRequest",
+                entityId: removal.id,
+                operation: "system.finalizeTuteeRemoval",
+              },
+              orderBy: { createdAt: "asc" },
+              select: { id: true },
+            });
+            await recordDomainAudit(tx, {
+              operation: "system.reconcilePunishmentRemoval",
+              entity: "TuteeRemovalRequest",
+              entityId: removal.id,
+              action:
+                "Restored participation after Head-authorized card correction",
+              system: true,
+              before: {
+                id: removal.id,
+                tuteeId,
+                state: "APPROVED",
+                status: tutee.status,
+              },
+              after: {
+                id: removal.id,
+                tuteeId,
+                state: "REINSTATED",
+                status: pairings.length ? snapshot.data.status : "PENDING",
+              },
+              originalActionId: original?.id,
+              effects: {
+                originalRecordId: removal.id,
+                restoredPairingIds: pairings.map((pairing) => pairing.id),
+                ...(original
+                  ? {}
+                  : {
+                      originalAuditAvailability: "Unavailable legacy evidence",
+                    }),
+              },
+            });
+          }
+          return { removed: false };
+        }
+        if (tutee.status !== "ACTIVE") return { removed: false };
+        const request = await tx.tuteeRemovalRequest.create({
+          data: {
+            tuteeId,
+            kind: "PUNISHMENT",
+            reason: `Reached the removal threshold (${standing.effectiveReds} red cards).`,
+          },
+        });
+        await finalizeRemoval(tx, tuteeId, request.id);
+        return { removed: true };
       },
-    });
-    await finalizeRemoval(tx, tuteeId, request.id);
-    return { removed: true };
+    );
   });
 }
 
@@ -242,51 +310,61 @@ export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
     });
     let count = 0;
     for (const request of due) {
-      await lockEntity(tx, `tutee:${request.tuteeId}`);
-      const current = await tx.tuteeRemovalRequest.findUnique({
-        where: { id: request.id },
-      });
-      if (current?.state !== "PENDING") continue;
-      const participation =
-        current.pairingId && current.requestedByTutorId
-          ? await tx.pairingTutee.findFirst({
-              where: {
-                pairingId: current.pairingId,
-                tuteeId: current.tuteeId,
-                pairing: {
-                  tutorId: current.requestedByTutorId,
-                  term: { active: true },
-                },
-                tutee: { status: "ACTIVE" },
+      const { withAutomaticRecoveryCheckpoint } =
+        await import("~/server/recovery/checkpoint");
+      await withAutomaticRecoveryCheckpoint(
+        tx,
+        { adapter: "PARTICIPANT_TUTEE", sourceId: request.tuteeId },
+        null,
+        async () => {
+          await lockEntity(tx, `tutee:${request.tuteeId}`);
+          const current = await tx.tuteeRemovalRequest.findUnique({
+            where: { id: request.id },
+          });
+          if (current?.state !== "PENDING") return;
+          const participation =
+            current.pairingId && current.requestedByTutorId
+              ? await tx.pairingTutee.findFirst({
+                  where: {
+                    pairingId: current.pairingId,
+                    tuteeId: current.tuteeId,
+                    pairing: {
+                      tutorId: current.requestedByTutorId,
+                      term: { active: true },
+                    },
+                    tutee: { status: "ACTIVE" },
+                  },
+                  select: { tuteeId: true },
+                })
+              : null;
+          if (!participation) {
+            await tx.tuteeRemovalRequest.update({
+              where: { id: current.id },
+              data: {
+                state: "DENIED",
+                resolvedAt: new Date(),
+                resolvedByName:
+                  "Participation changed; stale withdrawal cancelled",
               },
-              select: { tuteeId: true },
-            })
-          : null;
-      if (!participation) {
-        await tx.tuteeRemovalRequest.update({
-          where: { id: current.id },
-          data: {
-            state: "DENIED",
-            resolvedAt: new Date(),
-            resolvedByName: "Participation changed; stale withdrawal cancelled",
-          },
-        });
-        await recordDomainAudit(tx, {
-          operation: "system.cancelStaleOptOut",
-          entity: "TuteeRemovalRequest",
-          entityId: current.id,
-          action: "Cancelled stale voluntary removal",
-          system: true,
-          before: current,
-          after: { id: current.id, state: "DENIED" },
-          reason: "Participation changed before withdrawal became due",
-          outcome: "CANCELLED_STALE",
-          effects: { rosterChanged: false },
-        });
-        continue;
-      }
-      await finalizeRemoval(tx, request.tuteeId, request.id);
-      count++;
+            });
+            await recordDomainAudit(tx, {
+              operation: "system.cancelStaleOptOut",
+              entity: "TuteeRemovalRequest",
+              entityId: current.id,
+              action: "Cancelled stale voluntary removal",
+              system: true,
+              before: current,
+              after: { id: current.id, state: "DENIED" },
+              reason: "Participation changed before withdrawal became due",
+              outcome: "CANCELLED_STALE",
+              effects: { rosterChanged: false },
+            });
+            return;
+          }
+          await finalizeRemoval(tx, request.tuteeId, request.id);
+          count++;
+        },
+      );
     }
     return count;
   });

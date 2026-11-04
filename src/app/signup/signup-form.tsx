@@ -38,10 +38,23 @@ import { PolicyAgreement } from "~/app/_components/policy-agreement";
 import { SignupProgress } from "./signup-progress";
 import { SurveyVerification } from "./survey-verification";
 import { SignupEmailField } from "./signup-email-field";
-import { SignupTransitionNotice, useSignupClock } from "./signup-transition-notice";
-import { publicSignupView, type PublicSignupTransition } from "~/lib/public-signup-transition";
+import {
+  SignupTransitionNotice,
+  useSignupClock,
+} from "./signup-transition-notice";
+import {
+  publicSignupView,
+  type PublicSignupTransition,
+} from "~/lib/public-signup-transition";
+import type { RecoverySignupDraft } from "~/lib/recovery-workflow";
 
-export function SignupForm({ initialTransition }: { initialTransition?: PublicSignupTransition } = {}) {
+export function SignupForm({
+  initialTransition,
+  recoveryDraft,
+}: {
+  initialTransition?: PublicSignupTransition;
+  recoveryDraft?: RecoverySignupDraft;
+} = {}) {
   const { APP_TITLE } = useBranding();
   const t = useTranslations();
   const profilePolicy = useProfilePolicy();
@@ -54,16 +67,21 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
   });
   const transition = options.data?.transition ?? initialTransition;
   const transitionNow = useSignupClock(transition?.serverNow);
-  const signupView = transition ? publicSignupView(transition, transitionNow) : null;
+  const signupView = transition
+    ? publicSignupView(transition, transitionNow)
+    : null;
   const transitionText = useTranslations("signupTransition");
   const [draftTerm, setDraftTerm] = useState(transition?.current ?? null);
   const [reviewingPeriod, setReviewingPeriod] = useState(false);
   const [periodReadFailed, setPeriodReadFailed] = useState(false);
   // Adopt the first usable period once. Later reads must not retarget an existing draft.
   if (!draftTerm && transition?.current) setDraftTerm(transition.current);
-  const periodChanged = !!draftTerm && draftTerm.termId !== transition?.current?.termId;
+  const periodChanged =
+    !!draftTerm && draftTerm.termId !== transition?.current?.termId;
   const { refetch: refetchRecruitment } = options;
-  const refreshRecruitment = useCallback(() => { void refetchRecruitment(); }, [refetchRecruitment]);
+  const refreshRecruitment = useCallback(() => {
+    void refetchRecruitment();
+  }, [refetchRecruitment]);
   const policy = api.tutee.surveyPolicy.useQuery({ locale });
   const submit = api.tutee.submitSurvey.useMutation();
   const recoverReceipt = api.tutee.signupReceipt.useMutation();
@@ -83,6 +101,7 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
     email: string;
     emailSent: boolean;
     intentId?: string;
+    recoveryDraftState?: "CONSUMED" | "PENDING_REVIEW" | "UNAVAILABLE";
   } | null>(null);
   const editing = useTranslations("signupEditing");
 
@@ -157,20 +176,30 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
     }
   };
 
-  const [names, setNames] = useState(() => nameDraft());
+  const [names, setNames] = useState(() => nameDraft(recoveryDraft?.answers));
   const [namePolicyReady, setNamePolicyReady] = useState(false);
   const englishName = fullPersonName(names);
-  const [gradeLevel, setGradeLevel] = useState("");
+  const [gradeLevel, setGradeLevel] = useState(
+    recoveryDraft?.answers.gradeLevel ?? "",
+  );
   const [email, setEmail] = useState("");
   const captcha = useSignupCaptcha("tutee.submit", email);
   // A cancelled/rejected initial challenge never dispatched a feature write, so
   // its draft can reopen immediately. Ambiguous writes require receipt recovery.
   const holdDraft = held && (dispatched || working || captcha.pending);
-  const [phone, setPhone] = useState("");
-  const [preferredContact, setPreferredContact] = useState("");
-  const [firstChoiceId, setFirstChoiceId] = useState("");
-  const [secondChoiceId, setSecondChoiceId] = useState("");
-  const [slotIds, setSlotIds] = useState<string[]>([]);
+  const [phone, setPhone] = useState(recoveryDraft?.answers.phone ?? "");
+  const [preferredContact, setPreferredContact] = useState(
+    recoveryDraft?.answers.preferredContact ?? "",
+  );
+  const [firstChoiceId, setFirstChoiceId] = useState(
+    recoveryDraft?.answers.firstChoiceId ?? "",
+  );
+  const [secondChoiceId, setSecondChoiceId] = useState(
+    recoveryDraft?.answers.secondChoiceId ?? "",
+  );
+  const [slotIds, setSlotIds] = useState<string[]>(
+    recoveryDraft?.answers.slotIds ?? [],
+  );
   const [signatureName, setSignatureName] = useState("");
   const [agreedRevision, setAgreedRevision] = useState<string | null>(null);
   const agreed =
@@ -210,7 +239,12 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
     ...(fields.availability === "required" && !slots.length ? ["slots"] : []),
     ...(!policy.data?.body?.trim() || !policy.data?.revision ? ["policy"] : []),
   ];
-  const readOnly = status !== "open" || missing.length > 0 || !draftTerm || periodChanged || reviewingPeriod;
+  const readOnly =
+    status !== "open" ||
+    missing.length > 0 ||
+    !draftTerm ||
+    periodChanged ||
+    reviewingPeriod;
   const canSubmit =
     namePolicyReady &&
     options.isFetchedAfterMount &&
@@ -232,6 +266,12 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
   if (acknowledgement) {
     return (
       <div className="card p-5 sm:p-8">
+        {acknowledgement.recoveryDraftState &&
+          acknowledgement.recoveryDraftState !== "CONSUMED" && (
+            <InlineNotice tone="warning" announcement="status">
+              {t("recoveryWorkflow.adoptionPending")}
+            </InlineNotice>
+          )}
         <SurveyVerification
           email={acknowledgement.email}
           intentId={acknowledgement.intentId}
@@ -245,19 +285,29 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
   // Distinguish pending reads and configuration gaps from a usable signup form.
   if ((options.isError && !options.data) || (policy.isError && !policy.data))
     return (
-      <>{transition && <SignupTransitionNotice data={transition} now={transitionNow} refresh={refreshRecruitment} verified={!options.isError} />}<section className="card space-y-4 p-6">
-        <p role="alert">{t("survey.loadFailed")}</p>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() => {
-            void options.refetch();
-            void policy.refetch();
-          }}
-        >
-          {t("survey.retry")}
-        </button>
-      </section></>
+      <>
+        {transition && (
+          <SignupTransitionNotice
+            data={transition}
+            now={transitionNow}
+            refresh={refreshRecruitment}
+            verified={!options.isError}
+          />
+        )}
+        <section className="card space-y-4 p-6">
+          <p role="alert">{t("survey.loadFailed")}</p>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              void options.refetch();
+              void policy.refetch();
+            }}
+          >
+            {t("survey.retry")}
+          </button>
+        </section>
+      </>
     );
   if (
     (!options.isFetchedAfterMount && !options.isError) ||
@@ -265,28 +315,80 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
     (policy.isLoading && !policy.data)
   )
     return (
-      <>{transition && <SignupTransitionNotice data={transition} now={transitionNow} refresh={refreshRecruitment} verified={!options.isError} />}<p role="status" className="card p-6">
-        {t("workflows.loading")}
-      </p></>
+      <>
+        {transition && (
+          <SignupTransitionNotice
+            data={transition}
+            now={transitionNow}
+            refresh={refreshRecruitment}
+            verified={!options.isError}
+          />
+        )}
+        <p role="status" className="card p-6">
+          {t("workflows.loading")}
+        </p>
+      </>
     );
   return (
     <>
-      {transition && <SignupTransitionNotice data={transition} now={transitionNow} refresh={refreshRecruitment} verified={!options.isError} />}
-      {periodChanged && <InlineNotice tone="warning" announcement="status" action={
-        <Button disabled={working || holdDraft || reviewingPeriod} onClick={async () => {
-          setReviewingPeriod(true);
-          setPeriodReadFailed(false);
-          try {
-            const [latest, latestPolicy] = await Promise.all([options.refetch(), policy.refetch()]);
-            if (latest.error || latestPolicy.error || !latest.data?.transition.current) throw new Error("read failed");
-            // The explicit review retains answers but makes the new period and consent deliberate.
-            setDraftTerm(latest.data.transition.current);
-            setAgreedRevision(null);
-          } catch { setPeriodReadFailed(true); }
-          finally { setReviewingPeriod(false); }
-        }}>{transitionText("reviewPeriod", { period: transition?.current?.label ?? "" })}</Button>
-      }>{transitionText("periodChanged", { period: draftTerm?.label ?? "" })}</InlineNotice>}
-      {periodReadFailed && <InlineNotice tone="error" announcement="alert">{transitionText("reviewFailed")}</InlineNotice>}
+      {recoveryDraft && (
+        <InlineNotice announcement="status">
+          {t("recoveryWorkflow.review")}
+        </InlineNotice>
+      )}
+      {transition && (
+        <SignupTransitionNotice
+          data={transition}
+          now={transitionNow}
+          refresh={refreshRecruitment}
+          verified={!options.isError}
+        />
+      )}
+      {periodChanged && (
+        <InlineNotice
+          tone="warning"
+          announcement="status"
+          action={
+            <Button
+              disabled={working || holdDraft || reviewingPeriod}
+              onClick={async () => {
+                setReviewingPeriod(true);
+                setPeriodReadFailed(false);
+                try {
+                  const [latest, latestPolicy] = await Promise.all([
+                    options.refetch(),
+                    policy.refetch(),
+                  ]);
+                  if (
+                    latest.error ||
+                    latestPolicy.error ||
+                    !latest.data?.transition.current
+                  )
+                    throw new Error("read failed");
+                  // The explicit review retains answers but makes the new period and consent deliberate.
+                  setDraftTerm(latest.data.transition.current);
+                  setAgreedRevision(null);
+                } catch {
+                  setPeriodReadFailed(true);
+                } finally {
+                  setReviewingPeriod(false);
+                }
+              }}
+            >
+              {transitionText("reviewPeriod", {
+                period: transition?.current?.label ?? "",
+              })}
+            </Button>
+          }
+        >
+          {transitionText("periodChanged", { period: draftTerm?.label ?? "" })}
+        </InlineNotice>
+      )}
+      {periodReadFailed && (
+        <InlineNotice tone="error" announcement="alert">
+          {transitionText("reviewFailed")}
+        </InlineNotice>
+      )}
       {/* Cached prerequisites and controlled drafts stay mounted during recovery. */}
       {(options.isError || policy.isError) && (
         <InlineNotice
@@ -311,9 +413,19 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
           status={status}
           missing={missing}
           // The opening card already owns this date/link; retain the closing deadline below.
-          window={signupView?.next ? undefined : signupView?.state === "currentScheduled" && !options.isError && options.data?.recruitment
-            ? { ...options.data.recruitment, opensAt: null, previewUrl: null }
-            : options.data?.recruitment}
+          window={
+            signupView?.next
+              ? undefined
+              : signupView?.state === "currentScheduled" &&
+                  !options.isError &&
+                  options.data?.recruitment
+                ? {
+                    ...options.data.recruitment,
+                    opensAt: null,
+                    previewUrl: null,
+                  }
+                : options.data?.recruitment
+          }
           policy={policy.data}
         />
       )}
@@ -325,24 +437,34 @@ export function SignupForm({ initialTransition }: { initialTransition?: PublicSi
           const policyRevision = policy.data.revision;
           void sendSubmission({
             clientKey: crypto.randomUUID(),
-            answers: normalizeTuteeFields(
-              {
-                ...names,
-                expectedTermId: draftTerm.termId,
-                englishName: englishName.trim(),
-                email: email.trim(),
-                policyRevision,
-                phone: phone.trim() || undefined,
-                preferredContact: preferredContact.trim(),
-                gradeLevel: gradeLevel.trim() || undefined,
-                firstChoiceId,
-                secondChoiceId: secondChoiceId || undefined,
-                slotIds,
-                signatureName: signatureName.trim(),
-                agreed: true as const,
-              },
-              fields,
-            ),
+            answers: {
+              ...normalizeTuteeFields(
+                {
+                  ...names,
+                  expectedTermId: draftTerm.termId,
+                  englishName: englishName.trim(),
+                  email: email.trim(),
+                  policyRevision,
+                  phone: phone.trim() || undefined,
+                  preferredContact: preferredContact.trim(),
+                  gradeLevel: gradeLevel.trim() || undefined,
+                  firstChoiceId,
+                  secondChoiceId: secondChoiceId || undefined,
+                  slotIds,
+                  signatureName: signatureName.trim(),
+                  agreed: true as const,
+                },
+                fields,
+              ),
+              ...(recoveryDraft
+                ? {
+                    recoveryDraft: {
+                      draftId: recoveryDraft.draftId,
+                      expectedVersion: recoveryDraft.version,
+                    },
+                  }
+                : {}),
+            },
           });
         }}
       >

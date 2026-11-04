@@ -49,13 +49,14 @@ function fixture(native = false) {
           }
         }
       }
+      const captureSchema = original ? "native-original" : "shared";
       const parity = matrix.scenario === "contention" ? contentionGraph(CONTENTION_ORDERS[0])
-        : { normalization: { version: 2 }, tables: { Lesson: [{ scenario: matrix.scenario, originalSchemaOnly: original }] }, continuationProvenance: [], clockEvidence: [], semanticAliases: { lesson: "complete synthetic identity" } };
+        : { captureSchema, normalization: { version: 3 }, tables: { Lesson: [{ scenario: matrix.scenario, originalSchemaOnly: original }] }, continuationProvenance: [], clockEvidence: [], semanticAliases: { lesson: "complete synthetic identity" } };
       const digest = sha(JSON.stringify(parity));
       const migrationMap = original ? historicalMigrations : candidateMigrationHashes;
       const migrationFiles = Object.entries(migrationMap).map(([path, digest]) => ({ name: path.split("/")[2]!, sha256: digest, lfSha256: digest, crlfSha256: digest }));
       return {
-        status: "PASS", schemaVersion: 3, partitionProtocolVersion: 1, mode: "latency", transport: "http",
+        status: "PASS", schemaVersion: 3, partitionProtocolVersion: 1, mode: "latency", transport: "http", captureSchema,
         revision: head ? candidate : baseline,
         partition: { index: matrix.partition, count: matrix.partitionCount, start: matrix.partition * 4, end: matrix.partition * 4 + 4, totalSamples: matrix.samples, warmupRounds: 1 },
         samplingComplete: false, partitionComplete: true, latencyComparisonEligible: false,
@@ -99,7 +100,7 @@ const auditOperations = ["admin.autoAssignUnassignedRooms", "sessionPlanning.acc
 const auditActions = ["Auto Assign Unassigned Rooms", "Session planning: accepted", "Session planning: responded", "Respond"];
 function contentionGraph(order: Order) {
   const rows = auditOperations.map((operation, index) => ({ id: `audit-${index}`, operation, action: auditActions[index]!, details: { outcome: "APPLIED", changes: [{ preserved: index }] } }));
-  return { normalization: { version: 2 }, tables: { Lesson: [{ scenario: "contention", originalSchemaOnly: false }], AuditLog: order === CONTENTION_ORDERS[0] ? rows : [...rows.slice(1), rows[0]!] },
+  return { captureSchema: "shared", normalization: { version: 3 }, tables: { Lesson: [{ scenario: "contention", originalSchemaOnly: false }], AuditLog: order === CONTENTION_ORDERS[0] ? rows : [...rows.slice(1), rows[0]!] },
     continuationProvenance: [], clockEvidence: [], semanticAliases: { lesson: "complete synthetic identity" } };
 }
 function referenceDigests() { return Object.fromEntries(CONTENTION_ORDERS.map((order) => [order, sha(JSON.stringify(contentionGraph(order)))])); }
@@ -434,6 +435,8 @@ void test("nonuniform raw response audit timestamps remain valid evidence rather
 });
 
 const invalidFree: { name: string; change: (rows: Entries) => void; pattern: RegExp }[] = [
+  { name: "native capture on a free contention report", change: (rows) => { freeEntries(rows)[0]!.candidate.captureSchema = "native-original"; }, pattern: /declared capture schema|shared.*capture|capture.*schema/ },
+  { name: "native capture on a later free contention graph", change: (rows) => { freeEntries(rows)[0]!.candidate.receipts[1]!.parity!.captureSchema = "native-original"; }, pattern: /snapshot capture schema|shared.*capture|capture.*schema/ },
   { name: "missing later-round full graph", change: (rows) => { delete freeEntries(rows)[0]!.candidate.receipts[1]!.parity; }, pattern: /Every free contention round/ },
   { name: "missing actual order", change: (rows) => { delete freeEntries(rows)[0]!.candidate.receipts[1]!.contentionOrder; }, pattern: /actual contention lock order/ },
   { name: "missing history class", change: (rows) => { delete freeEntries(rows)[0]!.candidate.receipts[1]!.contentionHistoryOrder; }, pattern: /contention history order/ },
@@ -468,6 +471,30 @@ void test("free population requires genuinely validated immutable references", (
   assert.throws(() => buildContentionReferences(pairs, { expectedBaseline: baseline, expectedCandidate: candidate }), /three controlled receipts/);
 });
 
+for (const arm of ["baseline", "candidate"] as const) {
+  void test(`controlled ${arm} report cannot claim native-original capture`, () => {
+    const pairs = controlledPairs();
+    pairs[CONTENTION_ORDERS[0]][arm].captureSchema = "native-original";
+    assert.throws(() => buildContentionReferences(pairs, { expectedBaseline: baseline, expectedCandidate: candidate }), /capture.*schema|shared.*capture/);
+  });
+  void test(`controlled ${arm} graph cannot silently use native-original capture`, () => {
+    const pairs = controlledPairs(), report = pairs[CONTENTION_ORDERS[0]][arm];
+    for (const receipt of report.receipts) {
+      receipt.parity.captureSchema = "native-original";
+      receipt.digest = sha(JSON.stringify(receipt.parity));
+    }
+    assert.throws(() => buildContentionReferences(pairs, { expectedBaseline: baseline, expectedCandidate: candidate }), /capture.*schema|shared.*capture/);
+  });
+  void test(`controlled ${arm} graph cannot use the obsolete normalization contract`, () => {
+    const pairs = controlledPairs(), report = pairs[CONTENTION_ORDERS[0]][arm];
+    for (const receipt of report.receipts) {
+      receipt.parity.normalization.version = 2;
+      receipt.digest = sha(JSON.stringify(receipt.parity));
+    }
+    assert.throws(() => buildContentionReferences(pairs, { expectedBaseline: baseline, expectedCandidate: candidate }), /normalization version/);
+  });
+}
+
 void test("controlled artifact discovery requires two complete unique same-attempt paths", () => {
   const root = mkdtempSync(join(tmpdir(), "controlled-reference-discovery-"));
   try {
@@ -481,6 +508,12 @@ void test("controlled artifact discovery requires two complete unique same-attem
   try {
     writeControlledFiles(mismatch, false, fixture()[0]!.comparison, 1, 2);
     assert.throws(() => loadControlledReferencePaths(mismatch), /one controlled reference run attempt/);
+    const bulk = "scheduling-profile-contention-bulk-first-diagnostic-part-0-1";
+    const acceptance = "scheduling-profile-contention-acceptance-first-diagnostic-part-0-2";
+    assert.throws(() => loadControlledReferencePaths(mismatch, new Set([bulk])), /Unselected controlled reference/);
+    const authenticated = loadControlledReferencePaths(mismatch, new Set([bulk, acceptance]));
+    assert.equal(authenticated["bulk-before-acceptance"].reference, bulk);
+    assert.equal(authenticated["acceptance-before-bulk"].reference, acceptance);
   } finally { rmSync(mismatch, { recursive: true, force: true }); }
 });
 
@@ -490,6 +523,7 @@ void test("requires original-schema native20 coverage only for manifests that ca
   assert.equal(result.nativeControl.reported, true);
   assert.equal(result.nativeControl.rounds, 20);
   assert.equal(result.nativeControl.semanticComparisonToSharedSchema, false);
+  assert.equal(result.nativeControl.captureSchema, "native-original");
   assert.equal(result.nativeControl.operations?.["http:cold-tutor-agenda"]?.p95Ms, 38);
   assert.equal(aggregatePartitions(fixture(), options).nativeControl.required, false);
   const missing = fixture(true);
@@ -504,6 +538,10 @@ const invalid: { name: string; change: (rows: Entries) => void; pattern: RegExp 
   { name: "lowered total sample count", change: (rows) => { rows[0]!.baseline.fixture.samples = 4; }, pattern: /total sample count/ },
   { name: "foreign immutable baseline", change: (rows) => { rows[0]!.baseline.revision = "c".repeat(40); }, pattern: /immutable revision/ },
   { name: "diagnostic timing", change: (rows) => { rows[0]!.baseline.mode = "diagnostic"; }, pattern: /measurement mode/ },
+  { name: "reduced native capture in a paired baseline", change: (rows) => { rows[0]!.baseline.captureSchema = "native-original"; }, pattern: /declared capture schema/ },
+  { name: "reduced native capture in a paired candidate", change: (rows) => { rows[0]!.candidate.captureSchema = "native-original"; }, pattern: /declared capture schema/ },
+  { name: "snapshot silently reduced under a shared label", change: (rows) => { rows[0]!.baseline.receipts[0]!.parity!.captureSchema = "native-original"; }, pattern: /snapshot capture schema/ },
+  { name: "obsolete normalization contract", change: (rows) => { rows[0]!.baseline.receipts[0]!.parity!.normalization.version = 2; }, pattern: /normalization version/ },
   { name: "failed report", change: (rows) => { rows[0]!.candidate.status = "FAIL"; }, pattern: /report status/ },
   { name: "timeout receipt", change: (rows) => { rows[0]!.candidate.status = "TIMEOUT"; }, pattern: /report status/ },
   { name: "over-budget PASS", change: (rows) => { rows[0]!.candidate.elapsedMs = 150_001; }, pattern: /over-budget/ },
@@ -561,6 +599,12 @@ void test("native PASS above its original90-second cap is rejected", () => {
   const rows = fixture(true);
   rows[0]!.native!.elapsedMs = 90_001;
   assert.throws(() => aggregatePartitions(rows, options), /over-budget/);
+});
+
+void test("original-schema native evidence must declare its reduced capture contract", () => {
+  const rows = fixture(true);
+  rows[0]!.native!.captureSchema = "shared";
+  assert.throws(() => aggregatePartitions(rows, options), /declared capture schema/);
 });
 
 void test("a reviewed baseline file must pin the externally expected SHA and retain its explicit manifest", () => {

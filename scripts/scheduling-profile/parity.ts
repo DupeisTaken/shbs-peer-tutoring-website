@@ -1,13 +1,32 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import type { PrismaClient } from "../../generated/prisma";
+import type { Prisma, PrismaClient } from "../../generated/prisma";
 
 type Row = Record<string, unknown>;
 export type ParityTables = Record<string, readonly Row[]>;
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
+export type ParityCaptureSchema = "shared" | "native-original";
+
+/** Reduced evidence is permitted only for the separately reported pristine cold
+ * control. It can never authorize a paired baseline/candidate comparison. */
+export function selectParityCaptureSchema(
+  value: string | undefined,
+  context: { scenario: string; mode: string; transport: string; compare: boolean },
+): ParityCaptureSchema {
+  const schema = value ?? "shared";
+  assert.ok(schema === "shared" || schema === "native-original", "Unknown parity capture schema");
+  if (schema === "native-original") {
+    assert.ok(context.scenario === "cold" && context.mode === "latency" && context.transport === "http" && !context.compare,
+      "Native-original capture is only an unpaired cold HTTP latency control");
+  }
+  return schema;
+}
+
 export type ParityOptions = {
+  /** Explicit reduced native control; omitted means complete shared-schema capture. */
+  captureSchema?: ParityCaptureSchema;
   /** Fixture source IDs are never reinterpreted as operation-created rows. */
   seededPairingIds?: readonly string[];
   /** The actual creation call/result binds generated pairing identity to its
@@ -39,17 +58,19 @@ export type ParityOptions = {
 };
 
 export const PARITY_NORMALIZATION = {
-  version: 2,
+  version: 3,
   omitted: [
-    "createdAt/updatedAt persistence metadata (including journal snapshots)",
+    "createdAt/updatedAt persistence metadata (including journal snapshots), except native qualification approval time",
     "RecoveryChange numeric sequence gaps; per-root change order remains",
     "RecoveryEvent transaction numbers; cross-root transaction grouping remains",
   ],
   preserved: [
-    "Selected scalar/JSON content after the listed identity and clock normalization; array order and duplicate rows remain",
+    "Selected scalar/JSON content within the declared captureSchema after the listed identity and clock normalization; array order and duplicate rows remain",
     "Room/group versions, shortages, notice state, consent and exact domain clocks",
     "Continuation assignedAt/joinedAt/releasedAt and its relation to plan creation",
     "Recovery event/change order, changedFields, parent references and fences",
+    "Identity ownership/execution revisions, immutable receipts, qualification provenance (including native approval time) and exact source/release edges",
+    "Checkpoint scopes/capture transactions, shared delivery roots, cancellations, coverage and workflow owner bindings",
     "Opaque hashes unless the complete original receipt input is verified",
     "Seeded pairing IDs stay exact; created pairing aliases require verified input, actor/client receipt and returned identity",
     "Compact SHA256 alias references retain their complete semantic definitions in semanticAliases, including all parent references",
@@ -57,10 +78,11 @@ export const PARITY_NORMALIZATION = {
   operationClocks:
     "Only allowlisted event instants inside an explicitly recorded operation window normalize; their ordering/equality and relation to every fixed domain boundary remain.",
   limits:
-    "Exact createdAt/updatedAt bytes are not compared, including inside journal snapshots and procedure results. Continuation creation boundaries have a separate witness; sweep selection/rotation needs explicit workload witnesses. This is normalized semantic parity, not byte-identical full journals.",
+    "Exact createdAt/updatedAt bytes are not compared, including inside journal snapshots and procedure results, except TutorQualification.createdAt retained as qualificationApprovedAt. Continuation creation boundaries have a separate witness; sweep selection/rotation needs explicit workload witnesses. Shared-schema capture requires every selected identity/recovery sidecar; feature-only differences require separate candidate evidence. Explicit native-original capture uses only the fixed original-schema projection and cannot establish shared-schema domain parity. This is normalized semantic parity, not byte-identical full journals.",
 } as const;
 
 export type ParitySnapshot = {
+  captureSchema: ParityCaptureSchema;
   normalization: typeof PARITY_NORMALIZATION;
   semanticAliases: Record<string, string>;
   tables: Record<string, Json[]>;
@@ -358,7 +380,27 @@ export function canonicalizeParity(
   registerOccurrences("ServiceHourAdjustment", (row) => key(
     row.tutorId, row.month, row.schoolYear, row.quarter, row.type, row.amount, row.reason,
   ));
-  registerOccurrences("RecoveryAction", (row) => key(row.kind, row.applicationId));
+  // Receipt IDs are operation identities. Keep the opaque input hash exact;
+  // without a verified original input, differing hashes are real incompatibility.
+  for (const table of ["PersonCombineReceipt", "PersonPartitionReceipt",
+    "PersonHistoryCorrectionReceipt", "PersonParticipationTransferReceipt"])
+    registerOccurrences(table, (row) => key(row.actorId, row.inputHash));
+  // Only partition has an immutable, explicit new-Person creation witness.
+  // Other Person/profile/survey source IDs remain exact, including empty groups.
+  for (const row of rows("PersonPartitionReceipt"))
+    addAlias(row.newPersonId, `Person:partition:${key(row.id)}`);
+  const checkpointsByAction = rowsByField(rows("RecoveryCheckpoint"), "actionId");
+  registerOccurrences("RecoveryAction", (row) => {
+    const checkpoints = checkpointsByAction.get(row.id) ?? [];
+    assert.ok(checkpoints.length <= 1, "Recovery action has multiple checkpoints");
+    const checkpoint = checkpoints[0];
+    return checkpoint
+      ? key(row.kind, row.applicationId, checkpoint.adapter, checkpoint.adapterVersion,
+        checkpoint.sourceEntity, checkpoint.sourceId, checkpoint.capturedById)
+      : key(row.kind, row.applicationId);
+  });
+  register("RecoveryCheckpoint", (row) => key(row.actionId));
+  register("RecoveryWorkflowDraft", (row) => key(row.actionId, row.sourceSurveyId));
 
   const orderedChanges = [...rows("RecoveryChange")].sort((a, b) => {
     const left = BigInt(a.id as string | number | bigint);
@@ -393,6 +435,14 @@ export function canonicalizeParity(
     members.push(replaceString(text(event.id)));
     transactions.set(transaction, members);
   }
+  // Capture and journal transactions share one namespace. Preserve whether a
+  // checkpoint was captured alongside each event, even for an empty checkpoint.
+  for (const checkpoint of rows("RecoveryCheckpoint")) {
+    const transaction = text(checkpoint.captureTransactionId);
+    const members = transactions.get(transaction) ?? [];
+    members.push(replaceString(text(checkpoint.id)));
+    transactions.set(transaction, members);
+  }
   for (const [transaction, members] of transactions)
     addAlias(transaction, `transaction:${JSON.stringify(members.sort())}`);
 
@@ -412,6 +462,9 @@ export function canonicalizeParity(
   register("SessionNotice", (row) => replaceString(text(row.dedupeKey)));
   registerOccurrences("Notification", (row) => key(row.userId, row.event, row.context, row.link, row.title, row.body));
   registerOccurrences("EmailDelivery", (row) => key(row.userId, row.recipient, row.event, row.context, row.reminderKey));
+  register("RecoveryDeliveryEffect", (row) => key(
+    row.actionId, row.eventId, row.notificationId, row.deliveryId,
+  ));
   registerOccurrences("AuditLog", (row) => key(row.entity, row.entityId, row.operation, row.action, row.userId));
 
   // Resolve the semantic dependency graph once. Dictionary values contain full
@@ -481,11 +534,26 @@ export function canonicalizeParity(
     return { verifiedInput: normalize(witness.input) };
   };
   const tables: Record<string, Json[]> = {};
+  // This field is native approval evidence, not ordinary persistence metadata:
+  // a transferred grant must retain the original approval's exact instant.
+  const qualificationEvidence = (value: unknown) => {
+    const row = object(value);
+    return row && Object.hasOwn(row, "createdAt")
+      ? { ...row, qualificationApprovedAt: row.createdAt }
+      : value;
+  };
   for (const [table, values] of Object.entries(source).sort(([a], [b]) => a.localeCompare(b))) {
     const mapped = values.map((row) => {
       const copy = { ...row };
       if (table === "SessionPlanningReceipt") copy.payloadHash = normalizedHash(row);
-      if (table === "RecoveryChange") copy.id = `change:${key(row.actionId)}:${changePositions.get(row)!}`;
+      if (table === "TutorQualification") return normalize(qualificationEvidence(copy));
+      if (table === "RecoveryChange") {
+        copy.id = `change:${key(row.actionId)}:${changePositions.get(row)!}`;
+        if (row.entity === "TutorQualification") {
+          copy.before = qualificationEvidence(row.before);
+          copy.after = qualificationEvidence(row.after);
+        }
+      }
       return normalize(copy);
     });
     // Audit order is meaningful within its captured global history. Recovery
@@ -558,12 +626,227 @@ export function canonicalizeParity(
     })),
   }));
   return {
+    captureSchema: options.captureSchema ?? "shared",
     normalization: PARITY_NORMALIZATION,
     semanticAliases: Object.fromEntries([...semanticAliases].sort(([left], [right]) => left.localeCompare(right))),
     tables,
     continuationProvenance: sortByJson(continuationProvenance),
     clockEvidence,
   };
+}
+
+/** Fixed c113b8ef original-schema projection for the separately labelled cold
+ * control. No runtime schema discovery, missing-table fallback, or new sidecars.
+ * Positive selections also prevent a newer generated client from silently
+ * broadening this reduced contract. Shared capture below remains complete. */
+async function captureNativeOriginalTables(tx: Prisma.TransactionClient) {
+  const tables: Record<string, Row[]> = {};
+  tables.ProgramSettings = await tx.programSettings.findMany({ select: {
+    captchaEnabled: true, captchaVersion: true, signupFields: true, nameFields: true, nameFieldsVersion: true, requireLatinNames: true,
+    requireLatinLegalNames: true, usePreferredNames: true, showAlternateNames: true, offeredGrades: true, emailNotificationsEnabled: true, secondaryEmailBindingEnabled: true,
+    id: true, timeZone: true, updatedAt: true,
+  } });
+  tables.ProgramFeature = await tx.programFeature.findMany({ select: {
+    key: true, enabled: true, pendingEnabled: true, revision: true, updatedByName: true, updatedAt: true,
+  } });
+  tables.Term = await tx.term.findMany({ select: {
+    id: true, schoolYear: true, quarter: true, name: true, startDate: true, endDate: true,
+    signupOpensAt: true, signupEnabled: true, signupClosesAt: true, signupOpeningStateSince: true, signupFirstOpenedAt: true, continuationSourceTermId: true,
+    continuationQuarterTransition: true, tutorSignupEnabled: true, tutorSignupOpensAt: true, tutorSignupClosesAt: true, tutorSignupPreviewUrl: true, signupPreviewUrl: true,
+    active: true, nextRecruitmentRevision: true, createdAt: true,
+  } });
+  tables.TimeSlot = await tx.timeSlot.findMany({ select: {
+    id: true, label: true, dayOfWeek: true, startMin: true, endMin: true, active: true,
+    createdAt: true,
+  } });
+  tables.SchoolCalendarDay = await tx.schoolCalendarDay.findMany({ select: {
+    date: true, isSchoolDay: true, timetableWeekday: true, note: true, active: true, version: true,
+    scheduleRevision: true, updatedAt: true,
+  } });
+  tables.Room = await tx.room.findMany({ select: {
+    id: true, name: true, programOrder: true, patrolOrder: true, createdAt: true,
+  } });
+  tables.RoomUnavailability = await tx.roomUnavailability.findMany({ select: {
+    id: true, roomId: true, dayOfWeek: true, startMin: true, endMin: true, reason: true,
+    createdAt: true,
+  } });
+  tables.Pairing = await tx.pairing.findMany({ select: {
+    roomMode: true, roomNeedsAssignment: true, roomVersion: true, roomShortageKey: true, groupId: true, scheduleConfirmed: true,
+    id: true, subject: true, dayOfWeek: true, startMin: true, endMin: true, createdAt: true,
+    tutorId: true, termId: true, roomId: true, timeSlotId: true,
+  } });
+  tables.PairingGroup = await tx.pairingGroup.findMany({ select: {
+    id: true, tutorId: true, termId: true, primaryPairingId: true, createdAt: true, updatedAt: true,
+  } });
+  tables.PairingTutee = await tx.pairingTutee.findMany({ select: {
+    pairingId: true, tuteeId: true,
+  } });
+  tables.PairingCreationRequest = await tx.pairingCreationRequest.findMany({ select: {
+    actorId: true, clientKey: true, payloadHash: true, pairingId: true, createdAt: true,
+  } });
+  tables.User = await tx.user.findMany({ select: {
+    personId: true, studentId: true, id: true, profileVersion: true, sessionVersion: true, recoveryVoidedAt: true,
+    mergedIntoId: true, role: true, tutorAccessRevoked: true, suspendedAt: true, tutorId: true,
+  } });
+  tables.Tutor = await tx.tutor.findMany({ select: {
+    historyIdentityRevision: true, personId: true, id: true, status: true,
+  } });
+  tables.Tutee = await tx.tutee.findMany({ select: {
+    historyIdentityRevision: true, personId: true, id: true, status: true,
+  } });
+  tables.TutorProfileOwnership = await tx.tutorProfileOwnership.findMany({ select: {
+    tutorId: true, userId: true, revision: true,
+  } });
+  tables.StudentProfileOwnership = await tx.studentProfileOwnership.findMany({ select: {
+    tuteeId: true, userId: true, revision: true,
+  } });
+  tables.Person = await tx.person.findMany({ select: {
+    id: true, revision: true, primaryUserId: true, resolutionState: true, mergedIntoId: true, createdAt: true,
+    updatedAt: true,
+  } });
+  tables.PersonCombineReceipt = await tx.personCombineReceipt.findMany({ select: {
+    id: true, actorId: true, inputHash: true, personId: true, outcome: true, retiredUserIds: true,
+    createdAt: true,
+  } });
+  tables.TutorQualification = await tx.tutorQualification.findMany({ select: {
+    tutorId: true, subjectId: true, approvedById: true, status: true, createdAt: true,
+  } });
+  tables.QualificationGrant = await tx.qualificationGrant.findMany({ select: {
+    tutorId: true, sourceSubjectId: true, subjectId: true, grantedAt: true,
+  } });
+  tables.StudentSurvey = await tx.studentSurvey.findMany({ select: {
+    invalidReason: true, invalidatedAt: true, invalidatedById: true, invalidatedByName: true, invalidityVersion: true, id: true,
+    email: true, intakeTermId: true, payload: true, currentPayload: true, currentVersion: true, policyRevision: true,
+    policySnapshot: true, submittedAt: true, verificationAttempts: true, emailCodeVersion: true, expiresAt: true, confirmedAt: true,
+    publicSignupEmailConfirmedAt: true, state: true, tuteeId: true, firstAssignedAt: true, verificationDueAt: true, editedAt: true,
+    resolvedAt: true, lastLinkSentAt: true,
+  } });
+  tables.SchoolDeparture = await tx.schoolDeparture.findMany({ select: {
+    userId: true, reason: true, effectiveAt: true, confirmedAt: true, confirmedById: true, source: true,
+    revision: true, observerRevoked: true, tutorDerived: true,
+  } });
+  tables.SessionPlan = await tx.sessionPlan.findMany({ select: {
+    id: true, generationKey: true, tutorId: true, termId: true, originalDate: true, timeZone: true,
+    kind: true, sourceFingerprint: true, sourceScheduleFingerprint: true, createdAt: true, updatedAt: true,
+  } });
+  tables.SessionPlanAssignment = await tx.sessionPlanAssignment.findMany({ select: {
+    planId: true, pairingId: true, subject: true, tuteeIds: true, primary: true,
+  } });
+  tables.SessionPlanCohort = await tx.sessionPlanCohort.findMany({ select: {
+    id: true, planId: true, date: true, startMin: true, endMin: true, startsAt: true,
+    endsAt: true, roomId: true, online: true, rescheduled: true, sourceInvalidated: true, status: true,
+    version: true, createdAt: true, updatedAt: true,
+  } });
+  tables.SessionPlanParticipant = await tx.sessionPlanParticipant.findMany({ select: {
+    id: true, planId: true, tuteeId: true, cohortId: true, status: true, scheduleOverride: true,
+    calendarSuppressed: true, version: true, updatedAt: true,
+  } });
+  tables.SessionPlanContinuationMember = await tx.sessionPlanContinuationMember.findMany({ select: {
+    planId: true, pairingId: true, tuteeId: true, assignmentId: true, joinedAt: true, releasedAt: true,
+  } });
+  tables.SessionPlanningSuggestion = await tx.sessionPlanningSuggestion.findMany({ select: {
+    id: true, planId: true, cohortId: true, tuteeId: true, actorUserId: true, sourceVersion: true,
+    date: true, startMin: true, roomId: true, online: true, version: true, usedAt: true,
+    createdAt: true,
+  } });
+  tables.SessionPlanningRequest = await tx.sessionPlanningRequest.findMany({ select: {
+    id: true, planId: true, cohortId: true, kind: true, scope: true, participantIds: true,
+    status: true, stage: true, version: true, currentOfferId: true, parentRequestId: true, rejectionKeys: true,
+    createdAt: true, updatedAt: true,
+  } });
+  tables.SessionPlanningOffer = await tx.sessionPlanningOffer.findMany({ select: {
+    id: true, requestId: true, sequence: true, authorKey: true, date: true, startMin: true,
+    endMin: true, startsAt: true, endsAt: true, roomId: true, online: true, cutoffAt: true,
+    createdAt: true,
+  } });
+  tables.SessionPlanningResponse = await tx.sessionPlanningResponse.findMany({ select: {
+    id: true, offerId: true, actorKey: true, actorUserId: true, state: true, acceptedBy: true,
+    deliveredAt: true, deadline: true, respondedAt: true,
+  } });
+  tables.SessionPlanningReceipt = await tx.sessionPlanningReceipt.findMany({ select: {
+    actorId: true, clientKey: true, payloadHash: true, result: true, createdAt: true,
+  } });
+  tables.SessionNotice = await tx.sessionNotice.findMany({ select: {
+    id: true, dedupeKey: true, requestId: true, offerId: true, responseId: true, recipientUserId: true,
+    recipientEmail: true, event: true, context: true, priority: true, status: true, attempts: true,
+    availableAt: true, leaseUntil: true, attemptId: true, attemptStartedAt: true, acceptedAt: true, completedAt: true,
+    lastError: true, createdAt: true, updatedAt: true,
+  } });
+  tables.SessionCalendarToken = await tx.sessionCalendarToken.findMany({ select: {
+    id: true, userId: true, createdAt: true, revokedAt: true,
+  } });
+  assert.equal(tables.SessionCalendarToken.length, 0, "The native profile fixture must not create private calendar capabilities");
+  tables.StudentContinuationAssignment = await tx.studentContinuationAssignment.findMany({ select: {
+    id: true, surveyId: true, sourcePairingId: true, sourceTuteeId: true, targetTermId: true, targetPairingId: true,
+    tuteeId: true, tutorId: true, status: true, reason: true, snapshot: true, createdAt: true,
+    assignedAt: true, releasedAt: true,
+  } });
+  tables.StudentContinuationPairing = await tx.studentContinuationPairing.findMany({ select: {
+    sourcePairingId: true, targetTermId: true, pairingId: true, createdAt: true,
+  } });
+  tables.StudentContinuationReceipt = await tx.studentContinuationReceipt.findMany({ select: {
+    userId: true, clientKey: true, inputHash: true, surveyId: true, result: true, createdAt: true,
+  } });
+  tables.Session = await tx.session.findMany({ select: {
+    planningCohortId: true, updatedAt: true, submissionKey: true, submissionPayloadHash: true, id: true, date: true,
+    tutorStatus: true, tutorAbsentReason: true, startMin: true, endMin: true, ratingPreparedness: true, ratingParticipation: true,
+    ratingUnderstanding: true, ratingBehavior: true, ratingProgress: true, comments: true, month: true, schoolYear: true,
+    quarter: true, durationMin: true, shFactor: true, shCount: true, createdAt: true, mergeGroupId: true,
+    pairingId: true, timeSlotId: true, tutorId: true, actualRoomId: true, online: true,
+  } });
+  tables.SessionTutee = await tx.sessionTutee.findMany({ select: {
+    sessionId: true, tuteeId: true, status: true, absenceReason: true,
+  } });
+  tables.SessionFlag = await tx.sessionFlag.findMany({ select: {
+    id: true, sessionId: true, tutorId: true, expected: true, observed: true, state: true,
+    decisionNote: true, createdAt: true, resolvedAt: true, resolvedById: true, resolvedByName: true,
+  } });
+  tables.DisciplinaryCard = await tx.disciplinaryCard.findMany({ select: {
+    id: true, tuteeId: true, color: true, source: true, reason: true, reviewStatus: true,
+    reviewNote: true, reviewedAt: true, reviewedById: true, issuedByTutorId: true, sessionId: true, createdAt: true,
+    updatedAt: true,
+  } });
+  tables.ServiceHourAdjustment = await tx.serviceHourAdjustment.findMany({ select: {
+    id: true, month: true, schoolYear: true, quarter: true, type: true, amount: true,
+    reason: true, createdAt: true, tutorId: true,
+  } });
+  tables.AuditLog = await tx.auditLog.findMany({ select: {
+    kind: true, operation: true, approvalId: true, details: true, id: true, userId: true,
+    userName: true, action: true, entity: true, entityId: true, undoData: true, undone: true,
+    undoneAt: true, createdAt: true,
+  } });
+  tables.Notification = await tx.notification.findMany({ select: {
+    id: true, userId: true, title: true, category: true, body: true, event: true,
+    context: true, link: true, inAppOnly: true, readAt: true, createdAt: true,
+  } });
+  tables.EmailDelivery = await tx.emailDelivery.findMany({ select: {
+    id: true, reminderKey: true, userId: true, category: true, preferenceTopic: true, event: true,
+    context: true, requestKind: true, requestId: true, requestVersion: true, requestInvalid: true, requestReason: true,
+    requestSubmittedAt: true, requestTimeZone: true, destination: true, recipient: true, previousPrimary: true, createdAt: true,
+    attempts: true, availableAt: true, leaseUntil: true, attemptId: true, attemptStartedAt: true, completedAt: true,
+    status: true, lastError: true, monthlyHoursReportId: true, schoolHoursReportId: true,
+  } });
+  tables.RecoveryAction = await tx.recoveryAction.findMany({ select: {
+    id: true, kind: true, applicationId: true, before: true, after: true, createdAt: true,
+  } });
+  tables.RecoveryEvent = await tx.recoveryEvent.findMany({ select: {
+    id: true, actionId: true, transactionId: true, kind: true, payload: true, createdAt: true,
+  } });
+  tables.RecoveryChange = await tx.recoveryChange.findMany({ orderBy: { id: "asc" }, select: {
+    id: true, actionId: true, eventId: true, entity: true, operation: true, changedFields: true,
+    recordKey: true, before: true, after: true, createdAt: true,
+  } });
+  tables.RecoveryTrackedEntity = await tx.recoveryTrackedEntity.findMany({ select: {
+    actionId: true, entity: true, recordId: true,
+  } });
+  tables.RecoveryFence = await tx.recoveryFence.findMany({ select: {
+    actionId: true, revision: true,
+  } });
+  tables.RecoveryReceipt = await tx.recoveryReceipt.findMany({ select: {
+    id: true, actionId: true, actorId: true, clientKey: true, inputHash: true, reason: true,
+    channel: true, fingerprint: true, evidence: true, createdAt: true,
+  } });
+  return tables;
 }
 
 /** Capture outside timed requests and after competing tasks finish. One
@@ -575,7 +858,9 @@ export async function captureParity(
   db: PrismaClient,
   options: ParityOptions = {},
 ): Promise<ParitySnapshot> {
+  assert.ok(options.captureSchema === undefined || options.captureSchema === "shared" || options.captureSchema === "native-original", "Unknown parity capture schema");
   const tables = await db.$transaction(async (tx) => {
+    if (options.captureSchema === "native-original") return captureNativeOriginalTables(tx);
     const tables: Record<string, Row[]> = {};
     // Explicit delegates make schema additions reviewable; no broad raw-table
     // export and no secrets from User/TutorApplication credential storage.
@@ -593,11 +878,89 @@ export async function captureParity(
     tables.User = await tx.user.findMany({ select: {
       id: true, role: true, tutorId: true, studentId: true,
       suspendedAt: true, tutorAccessRevoked: true, mergedIntoId: true,
+      personId: true, historyAccessRevision: true, profileVersion: true,
+      sessionVersion: true, recoveryVoidedAt: true,
     } });
-    tables.Tutor = await tx.tutor.findMany({ select: { id: true, status: true } });
-    tables.Tutee = await tx.tutee.findMany({ select: { id: true, status: true } });
+    tables.Tutor = await tx.tutor.findMany({ select: {
+      id: true, status: true, personId: true, historyIdentityRevision: true,
+    } });
+    tables.Tutee = await tx.tutee.findMany({ select: {
+      id: true, status: true, personId: true, historyIdentityRevision: true,
+    } });
     tables.TutorProfileOwnership = await tx.tutorProfileOwnership.findMany();
     tables.StudentProfileOwnership = await tx.studentProfileOwnership.findMany();
+    // Explicit scalar/JSON selections cover the combined identity contract.
+    // These are synthetic fixture records, not the operator's privacy projection.
+    tables.Person = await tx.person.findMany({ select: {
+      id: true, revision: true, primaryUserId: true, resolutionState: true,
+      mergedIntoId: true, createdAt: true, updatedAt: true,
+    } });
+    tables.PersonCombineReceipt = await tx.personCombineReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, outcome: true,
+      retiredUserIds: true, ownershipTransfers: true, createdAt: true,
+    } });
+    tables.PersonPartitionReceipt = await tx.personPartitionReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, newPersonId: true,
+      sources: true, subjects: true, createdAt: true,
+    } });
+    tables.RetiredHistoryOwnership = await tx.retiredHistoryOwnership.findMany({ select: {
+      sourceUserId: true, readerUserId: true, state: true, revision: true,
+      receiptId: true, updatedAt: true,
+    } });
+    tables.HistoryRowOwnership = await tx.historyRowOwnership.findMany({ select: {
+      entity: true, recordId: true, readerUserId: true, quarantineUserIds: true,
+      sourceUserIds: true, revision: true, receiptId: true, updatedAt: true,
+    } });
+    tables.PersonHistoryCorrectionReceipt = await tx.personHistoryCorrectionReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, destinationPersonId: true,
+      sourceUserIds: true, before: true, after: true, subjects: true, createdAt: true,
+    } });
+    tables.PersonParticipationTransferReceipt = await tx.personParticipationTransferReceipt.findMany({ select: {
+      id: true, actorId: true, inputHash: true, personId: true, retainedUserId: true,
+      selection: true, result: true, subjects: true, createdAt: true,
+    } });
+    tables.ParticipantConsolidation = await tx.participantConsolidation.findMany({ select: {
+      kind: true, sourceId: true, targetId: true, active: true, revision: true,
+      receiptId: true, effectiveAt: true,
+    } });
+    tables.PairingExecutionSuccessor = await tx.pairingExecutionSuccessor.findMany({ select: {
+      sourcePairingId: true, targetPairingId: true, receiptId: true, effectiveAt: true, revision: true,
+    } });
+    tables.SessionPlanExecution = await tx.sessionPlanExecution.findMany({ select: {
+      planId: true, tutorId: true, revision: true, receiptId: true, assignments: true,
+    } });
+    tables.SessionParticipantExecution = await tx.sessionParticipantExecution.findMany({ select: {
+      participantId: true, sourceSurveyIds: true, tuteeId: true, revision: true, receiptId: true,
+    } });
+    tables.SessionResponseExecution = await tx.sessionResponseExecution.findMany({ select: {
+      responseId: true, userId: true, profileKind: true, profileId: true,
+      respondedByUserId: true, revision: true, receiptId: true,
+    } });
+    tables.TutorQualification = await tx.tutorQualification.findMany({ select: {
+      tutorId: true, subjectId: true, approvedById: true, status: true, createdAt: true,
+    } });
+    tables.QualificationGrant = await tx.qualificationGrant.findMany({ select: {
+      tutorId: true, sourceSubjectId: true, subjectId: true, grantedAt: true,
+    } });
+    tables.QualificationTransferGrant = await tx.qualificationTransferGrant.findMany({ select: {
+      targetTutorId: true, sourceTutorId: true, sourceSubjectId: true, subjectId: true,
+      approvedById: true, approvedAt: true, grantedAt: true, receiptId: true, active: true, revision: true,
+    } });
+    tables.StudentRequestExecutionAssignment = await tx.studentRequestExecutionAssignment.findMany({ select: {
+      surveyId: true, pairingId: true, tuteeId: true, sourceTuteeId: true,
+      revision: true, receiptId: true, createdAt: true, releasedAt: true,
+    } });
+    // Request authority and owner-review results must not be represented by an
+    // edge alone. Exclude only the mailbox capability tokenHash, not lifecycle.
+    tables.StudentSurvey = await tx.studentSurvey.findMany({ select: {
+      id: true, email: true, intakeTermId: true, payload: true, currentPayload: true,
+      currentVersion: true, policyRevision: true, policySnapshot: true, submittedAt: true,
+      verificationAttempts: true, emailCodeVersion: true, expiresAt: true, confirmedAt: true,
+      publicSignupEmailConfirmedAt: true, state: true, tuteeId: true, firstAssignedAt: true,
+      verificationDueAt: true, editedAt: true, resolvedAt: true, lastLinkSentAt: true,
+      invalidReason: true, invalidatedAt: true, invalidatedById: true,
+      invalidatedByName: true, invalidityVersion: true,
+    } });
     tables.SchoolDeparture = await tx.schoolDeparture.findMany();
     tables.SessionPlan = await tx.sessionPlan.findMany();
     tables.SessionPlanAssignment = await tx.sessionPlanAssignment.findMany();
@@ -627,6 +990,25 @@ export async function captureParity(
     tables.Notification = await tx.notification.findMany();
     tables.EmailDelivery = await tx.emailDelivery.findMany();
     tables.RecoveryAction = await tx.recoveryAction.findMany();
+    tables.RecoveryCheckpoint = await tx.recoveryCheckpoint.findMany({ select: {
+      id: true, actionId: true, schemaVersion: true, adapter: true, adapterVersion: true,
+      sourceEntity: true, sourceId: true, capturedById: true, captureTransactionId: true,
+      scope: true, createdAt: true,
+    } });
+    tables.RecoveryDeliveryEffect = await tx.recoveryDeliveryEffect.findMany({ select: {
+      id: true, actionId: true, eventId: true, notificationId: true, deliveryId: true, createdAt: true,
+    } });
+    tables.RecoveryDeliveryCancellation = await tx.recoveryDeliveryCancellation.findMany({ select: {
+      effectId: true, recoveryKey: true, disposition: true, createdAt: true,
+    } });
+    tables.RecoveryDeliveryCoverage = await tx.recoveryDeliveryCoverage.findMany({ select: {
+      eventId: true, actionId: true, version: true, createdAt: true,
+    } });
+    tables.RecoveryWorkflowDraft = await tx.recoveryWorkflowDraft.findMany({ select: {
+      id: true, actionId: true, sourceSurveyId: true, sourceTuteeId: true, ownerUserId: true,
+      ownerBindingHash: true, answers: true, state: true, version: true,
+      submittedSurveyId: true, consumedAt: true, createdAt: true,
+    } });
     tables.RecoveryEvent = await tx.recoveryEvent.findMany();
     tables.RecoveryChange = await tx.recoveryChange.findMany({ orderBy: { id: "asc" } });
     tables.RecoveryTrackedEntity = await tx.recoveryTrackedEntity.findMany();

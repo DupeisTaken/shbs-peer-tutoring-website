@@ -104,6 +104,7 @@ function migrationContract(report) {
 function staticContract(value) {
   const report = record(value, "Report");
   same(report.schemaVersion, 3, "report schema");
+  same(report.captureSchema, "shared", "contention requires a complete shared capture");
   same(report.partitionProtocolVersion, 1, "partition protocol");
   same(report.transport, "http", "HTTP transport");
   const fixture = record(report.fixture, "Fixture");
@@ -393,7 +394,8 @@ function validateControlledReport(value, order, revision, candidate) {
   same(report.receipts.map((receipt) => receipt.round), [0, 1, 2], "exact controlled round order");
   const first = record(report.receipts[0], "First controlled receipt");
   const parity = record(first.parity, "Full controlled parity");
-  same(record(parity.normalization, "Parity normalization").version, 2, "complete parity normalization version");
+  same(parity.captureSchema, "shared", "complete controlled graph capture schema");
+  same(record(parity.normalization, "Parity normalization").version, 3, "complete parity normalization version");
   record(parity.tables, "Full parity tables"); record(parity.semanticAliases, "Complete alias dictionary");
   assert.ok(Array.isArray(parity.clockEvidence) && Array.isArray(parity.continuationProvenance), "Missing full clock/continuation evidence");
   const semanticDigest = sha(first.digest, 64, "Controlled semantic digest");

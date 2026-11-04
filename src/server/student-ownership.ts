@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { DomainDb, TransactionDb } from "./transactions";
 import { syncParticipantPerson } from "./person-identity";
-import { lockUsernameNamespace } from "./auth/username";
+import { lockUsernameNamespace } from "./auth/username-namespace";
 
 /** Account IDs are stable; emails and the current-intake pointer are not ownership evidence. */
 export async function ownedStudentIds(db: DomainDb, userId: string) {

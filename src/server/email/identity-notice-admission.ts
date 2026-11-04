@@ -1,31 +1,42 @@
-import { randomUUID } from "node:crypto";
 import { notificationOwnershipWhere } from "../history-row-ownership";
-import { inTransaction, type DomainDb } from "../transactions";
+import type { DomainDb } from "../transactions";
+import {
+  admitRecoveryGenericDelivery,
+  finishRecoveryGenericDelivery,
+  type RecoveryGenericDeliveryGuard,
+} from "../recovery/delivery-effects";
 
-/** No SMTP is performed while locks are held. Correction and this exact
- * pre-transport admission serialize; admitted/sent mail cannot be recalled. */
-export async function admitIdentityNotice(db: DomainDb, id: string, leaseUntil: Date, priorAttemptId: string | null) {
-  return inTransaction(db, async (tx) => {
+const identityGuard: RecoveryGenericDeliveryGuard = {
+  async lock(tx) {
     await tx.$executeRaw`LOCK TABLE "RetiredHistoryOwnership", "HistoryRowOwnership" IN SHARE MODE`;
-    const row = await tx.emailDelivery.findUnique({ where: { id } });
-    if (row?.status !== "PENDING" || row.attemptStartedAt || row.leaseUntil?.getTime() !== leaseUntil.getTime() || row.attemptId !== priorAttemptId) return null;
-    const decision = await tx.historyRowOwnership.findUnique({ where: { entity_recordId: { entity: "EmailDelivery", recordId: id } } });
-    const withheld = decision?.readerUserId === null || (!!row.sourceNotificationId && (!row.userId || !(await tx.notification.count({ where: { id: row.sourceNotificationId, AND: [await notificationOwnershipWhere(tx, row.userId)] } }))));
-    if (withheld) {
-      await tx.emailDelivery.updateMany({ where: { id, status: "PENDING", leaseUntil, attemptId: priorAttemptId }, data: { status: "CANCELLED", completedAt: new Date(), leaseUntil: null } });
-      return null;
-    }
-    const attemptId = randomUUID();
-    const changed = await tx.emailDelivery.updateMany({ where: { id, status: "PENDING", leaseUntil, attemptId: priorAttemptId, attemptStartedAt: null }, data: { status: "SENDING", attemptId, attemptStartedAt: new Date() } });
-    return changed.count === 1 ? attemptId : null;
-  });
+  },
+  async withheld(tx, row) {
+    if (!row.userId) return true;
+    const account = await tx.user.findUnique({ where: { id: row.userId }, select: {
+      mergedIntoId: true, recoveryVoidedAt: true, suspendedAt: true,
+    } });
+    if (!account || account.mergedIntoId || account.recoveryVoidedAt || account.suspendedAt) return true;
+    const decision = await tx.historyRowOwnership.findUnique({
+      where: { entity_recordId: { entity: "EmailDelivery", recordId: row.id } },
+    });
+    if (decision && decision.readerUserId !== row.userId) return true;
+    if (!row.sourceNotificationId) return false; // Legacy provenance is not invented.
+    return !(await tx.notification.count({ where: {
+      id: row.sourceNotificationId, recoveryWithdrawnAt: null,
+      AND: [await notificationOwnershipWhere(tx, row.userId)],
+    } }));
+  },
+};
+
+/** One transaction and attempt: ownership tables, all exact causal roots, then
+ * the delivery row. Independent notices receive the same identity check. */
+export async function admitIdentityNotice(db: DomainDb, id: string, leaseUntil: Date, priorAttemptId: string | null) {
+  const admitted = await admitRecoveryGenericDelivery(db, id, leaseUntil, priorAttemptId, identityGuard);
+  return admitted && !admitted.independent ? admitted.attemptId : null;
 }
 
-/** A provider/database failure after admission is uncertain, not permission to
- * replay an old private notice. Its exact attempt remains inspectable. */
+/** Exact late acceptance can settle uncertainty after ownership changed; no
+ * completion authorizes another send or copies content to the new reader. */
 export async function finishIdentityNotice(db: DomainDb, id: string, attemptId: string, accepted: boolean) {
-  await db.emailDelivery.updateMany({ where: { id, attemptId, status: "SENDING" }, data: {
-    status: accepted ? "SENT" : "UNCERTAIN", completedAt: new Date(), leaseUntil: null,
-    attempts: { increment: 1 }, lastError: accepted ? null : "Transport was admitted; delivery outcome needs review before any retry.",
-  } });
+  return finishRecoveryGenericDelivery(db, id, attemptId, accepted, identityGuard);
 }

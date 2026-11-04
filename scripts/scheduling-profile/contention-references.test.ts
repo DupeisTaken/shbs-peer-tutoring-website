@@ -71,7 +71,8 @@ function proof(order: Order) {
 function report(order: Order, head = false) {
   const scenario = CONTENTION_SCENARIOS[order];
   const graph = {
-    normalization: { version: 2, preserved: ["full recovery graph and ordering"] },
+    captureSchema: "shared",
+    normalization: { version: 3, preserved: ["full recovery graph and ordering"] },
     tables: { RecoveryChange: [{ ordinal: 1, operation: order }, { ordinal: 2, operation: "other" }], AuditLog: auditBlock(order) },
     semanticAliases: { "@alias:complete": `complete identity:${order}` },
     continuationProvenance: [{ assignedAt: "unchanged exact domain boundary" }], clockEvidence: [{ equal: false, relation: order }],
@@ -89,7 +90,7 @@ function report(order: Order, head = false) {
   }
   const migration = { name: "20260101000000_initial", sha256: sha("SQL"), lfSha256: sha("SQL"), crlfSha256: sha("SQL") };
   return {
-    status: "PASS", schemaVersion: 3, partitionProtocolVersion: 1, partition: null,
+    status: "PASS", captureSchema: "shared", schemaVersion: 3, partitionProtocolVersion: 1, partition: null,
     mode: "diagnostic", transport: "http", samplingComplete: true, partitionComplete: false, latencyComparisonEligible: false,
     revision: head ? options.expectedCandidate : options.expectedBaseline,
     contentionInputs: { nodeImage, comparison: comparison() },
@@ -153,6 +154,16 @@ void test("validates both full controlled orders, retaining132 diagnostic observ
   assert.ok(Object.isFrozen(refs) && Object.isFrozen(refs.byOrder) && Object.isFrozen(refs.byOrder[CONTENTION_ORDERS[0]].parity));
   input[CONTENTION_ORDERS[0]].baseline.receipts[0]!.parity.tables.RecoveryChange[0]!.operation = "later input mutation";
   assert.notDeepEqual(refs.byOrder[CONTENTION_ORDERS[0]].parity, input[CONTENTION_ORDERS[0]].baseline.receipts[0]!.parity);
+});
+
+void test("rejects original-schema contention evidence before reference acceptance", () => {
+  const input = pairs();
+  const report = input["bulk-before-acceptance"].baseline;
+  report.captureSchema = "native-original";
+  assert.throws(() => buildContentionReferences(input, options), /complete shared capture/);
+  report.captureSchema = "shared";
+  report.receipts[0]!.parity.captureSchema = "native-original";
+  assert.throws(() => buildContentionReferences(input, options), /graph capture schema/);
 });
 
 void test("admits static RUNNING free reports across runners, while pinning all source/fixture inputs", () => {
