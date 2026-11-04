@@ -68,6 +68,12 @@ the gallery performs no write and does not establish promotion readiness. Verify
 the gallery case and the actual Applications page in English and Chinese at
 desktop and mobile widths.
 
+The [agenda event recipe](../../src/app/ui-gallery/agenda-event-recipe.tsx) uses
+the production card and semantic badges for regular/extra sessions, interviews and
+meetings. Its attendance button changes local example state only. Check wrapping,
+all six accents and English/Chinese at desktop/mobile sizes; real tutor/tutee pages
+retain their own action eligibility, filtering and attendance/vote controllers.
+
 For a recipe migration, link its feature issue and the corresponding running-page
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.

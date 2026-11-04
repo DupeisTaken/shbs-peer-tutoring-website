@@ -29,8 +29,8 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;
 
 /**
- * Defaults for an unconfigured deployment. Automatic rooms are effective immediately with no
- * booking backfill. Email 2FA remains available with individual sign-in enrollment opt-in.
+ * Defaults only apply to missing settings; saved On/Off choices remain authoritative.
+ * Automatic rooms do not backfill bookings. Email 2FA retains individual sign-in opt-in.
  */
 export const DEFAULT_FEATURES: Features = {
   CREW: true,

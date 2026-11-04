@@ -528,7 +528,10 @@ export default function CrewPage() {
                         data-code-purpose="invitation"
                         className="code-surface badge-green font-mono tracking-widest"
                       >
-                        {t("admin.crew.codeIssued", { code: c.code })}
+                        <span className="sr-only">
+                          {t("admin.crew.codeIssued", { code: c.code })}
+                        </span>
+                        <span aria-hidden="true">{c.code}</span>
                       </span>
                     )}
                     <span className="muted ml-auto text-xs">

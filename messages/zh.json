@@ -36,7 +36,7 @@
     "noticePending": "已保存的时间安排更新尚有重要邮件待发送。",
     "nextDayEnd": "结束时间为次日开始时的午夜。",
     "title": "辅导安排",
-    "help": "按 {timeZone} 显示本周及下周。每周安排与临时改动分别保留。",
+    "help": "按 {timeZone} 显示本周及下周，并保留已结束但尚未记录出勤的辅导。每周安排与临时改动分别保留。",
     "week": "每周日程",
     "needsAttendance": "待记录出勤",
     "empty": "此视图中暂无辅导安排。",
@@ -1196,7 +1196,6 @@
           "EMAIL_2FA": "邮箱双重验证",
           "AUTO_ASSIGN_ROOMS": "自动分配教室"
         },
-        "autoRoomsNote": "部署后立即启用。更改在下次项目刷新时生效，现有预订保持不变。切换回当前状态可取消待生效更改。",
         "retryRefresh": "重试刷新",
         "savedRefreshFailed": "设置已保存，但无法加载最新的当前和待生效状态。请重试刷新，无需再次提交。",
         "readFailed": "无法刷新设置，仍显示上次加载的值。"
@@ -7583,6 +7582,25 @@
     "unavailable": "您当前的面试小组任务已无法访问此面试。",
     "emptyGroup": "此分组暂无面试。"
   },
+  "agendaEvents": {
+    "regular": "每周辅导",
+    "extra": "额外辅导",
+    "interview": "面试",
+    "meeting": "会议",
+    "needsAction": "需处理",
+    "upcoming": "近期",
+    "inProgress": "进行中",
+    "completed": "已完成",
+    "excused": "缺席已获准",
+    "voteRecorded": "已投票",
+    "awaitingDecision": "等待决定",
+    "awaitingAttendance": "等待记录出勤",
+    "cancelled": "已取消",
+    "rescheduled": "已改期",
+    "unavailable": "需要核对安排",
+    "attendanceNeeded": "请记录出勤以完成本次辅导。",
+    "voteNeeded": "本次面试仍需你投票。"
+  },
   "unifiedSchedule": {
     "agenda": "我的日程",
     "interview": "面试",
@@ -7619,14 +7637,14 @@
     "openPairings": "查看配对",
     "noExtraSource": "添加额外辅导需要有效配对，且该配对须有已发布的未来辅导。",
     "upcoming": "近期事项",
-    "upcomingHelp": "显示三项未完成事项：需处理的事项优先，其次是即将开始的活动。已结束的辅导会保留至出勤记录完成。",
+    "upcomingHelp": "最多显示三项：需处理的事项优先，其次是即将开始的活动。尚未记录出勤的辅导和等待决定的面试会继续显示。",
     "nothingUpcoming": "暂无待处理事项。",
     "viewEvent": "查看事项",
     "eventFilters": "事项筛选",
-    "filterHelp": "近期事项包括本周和下周的学校日程，以及已结束但尚未记录出勤的辅导。",
+    "filterHelp": "近期事项包括本周和下周的学校日程，并保留尚未记录出勤的已结束辅导及等待决定的以往面试。",
     "filter": {
       "all": "全部",
-      "upcoming": "近期（两周）",
+      "upcoming": "近期",
       "history": "历史"
     },
     "loadingHistory": "正在加载辅导历史…",

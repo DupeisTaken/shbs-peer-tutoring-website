@@ -457,6 +457,14 @@ or reasons. Uncertain current academics use one **Review Needed** indicator;
 historical enrollment originals, correction overlays and reference years retain
 their existing precedence and detail evidence.
 
+`StudentRequestBoard` assigns consecutive display numbers after merging, filtering
+and priority-sorting the selected queue, passing each ordinal to both signup-source
+renderers. These numbers describe the current visible queue, not persistent record
+IDs. Self-service disclosures retain their mounted assignment controllers and
+drafts while hidden. Fulfilled cards close initially and once on fulfillment;
+deliberate reopening survives later refreshes. New assignment feedback reopens the
+details so accepted-write read recovery cannot become hidden by auto-collapse.
+
 Self-service survey request cards show a green **Email verified** or amber
 **Email pending** badge beside the signup source. The badge uses the submission's
 confirmation timestamp, independently of invalidity and workflow state; it must
@@ -1101,6 +1109,14 @@ Client caches belong to the account, role and tutor link. Navigation and focus c
 
 Browser tRPC links share [batch limits](../../src/lib/trpc-batch.ts) so busy pages split simultaneous queries within the server's 20-operation limit. Keep new clients aligned with [signup ingress limits](signup-protection.md#defaults-and-tuning); repeated oversized batches cannot be repaired by retries.
 
+The [client logger](../../src/trpc/client-logger.ts) leaves structured
+`pairingGroups.save` validation (`BAD_REQUEST`) and conflict (`CONFLICT`)
+rejections to the editor's inline error and explicit Reload. Logging those handled
+rejections as console errors would open Next.js's development overlay over the
+recovery controls. Other operations, authorization failures, unexpected server
+errors and transport failures retain the existing error diagnostics; mutation
+rejection, server validation and transaction rollback are unchanged.
+
 ### Stable account usernames
 
 Verified participant accounts share one permanent account handle with any linked tutor record.
@@ -1683,7 +1699,7 @@ Coordinator review approves automatic-allocation intent; the room is chosen from
 
 The browser's creation draft carries a UUID through edits and failed requests until an explicit new draft/reset. A committed creation stores a requester-scoped receipt: the same semantic payload returns its existing pairing without repeating allocation or shortage notices. A changed committed payload or a retry after deletion conflicts rather than creating another record. Approval replay retains the original requester's identity when matching this receipt. Receipt rows retain deletion tombstones independently of Pairing foreign keys. Older clients and proposals without a key remain compatible but do not gain response-loss replay protection. Existing pairing edits use room-version snapshots; roster changes also invalidate them.
 
-**Auto-assign rooms** defaults ON immediately when no setting exists. OFF and later re-enablement are staged until program refresh, and a pending change can be cancelled. Disabling automation retains existing reservations, manual scheduling, conflict validation and schedule readers. Feature changes never implicitly reassign existing pairings.
+**Auto-assign rooms** defaults ON when no setting exists. Saved ON/OFF values override that default; existing pending selections remain staged until program refresh, and a pending change can be cancelled. Disabling automation retains existing reservations, manual scheduling, conflict validation and schedule readers. Feature changes never implicitly reassign existing pairings.
 
 Extend [room-allocation.ts](../../src/server/room-allocation.ts) for reservation-unit
 selection/persistence and catalog cohorts; reuse [pairing-creation.ts](../../src/server/pairing-creation.ts)
@@ -1731,10 +1747,26 @@ ordinary tutoring recurrence that owns it. Calendar subscriptions remain tutorin
 Sources refresh independently every 30 seconds. A failed or denied source cannot
 erase usable sibling appointments; denied cached evidence stays concealed until a
 successful authorized read. Disabled sources are neither queried nor projected.
-Unscheduled and past-open interviews remain tasks even if completion was recorded;
+Upcoming retains past dated open interviews outside the two-week window until a
+terminal decision, using the same server filter before keyset pagination. History
+contains decided/recalled interviews; recording completion alone cannot close voting
+or decision work. Unscheduled and past-open interviews remain tasks even if completion was recorded;
 decided interviews missing completion evidence remain follow-ups. Their work/history
 entry retains records beyond the dated window. Rendering performs no new writes;
 existing tutoring agenda reads retain their publication and deadline behavior.
+
+The shared [agenda event card](../../src/app/_components/agenda-event-card.tsx)
+separates event type, time/context, status and actions. Event labels use gray,
+as do Upcoming and waiting states. The left rail follows status: yellow for a
+required action or schedule review, green for Completed or Excused for Absence,
+and gray otherwise. Required work takes priority over informational badges;
+tutees awaiting a tutor's attendance record keep a gray rail. These colors stay
+independent of accent selection. Yellow Needs Action identifies
+missing tutoring attendance or the assigned tutor's missing INTERVIEW vote; a
+recorded vote on an open interview shows Vote recorded / Awaiting decision rather
+than Completed. Meetings do not create tutor attendance duties. Excused for Absence
+uses EXCUSED_ABSENT status, including staff-recorded excuses without excusedAt;
+excusedAt continues to govern the separate self-excuse cancellation workflow.
 
 Panelist detail opens lazily into one retained controller and reuses the existing
 vote operation. Each deliberately opened interview keeps its draft across Close and
@@ -1991,6 +2023,13 @@ The [group editor](<../../src/app/(tutor)/_components/pairing-group-editor.tsx>)
 
 Use [pairingEntries](../../src/lib/pairing-groups.ts) for coherent grouped read
 projections, and keep `Session.mergeGroupId` as independent saved attendance evidence.
+Management Pairings filters and sorts complete saved groups, keeping members
+adjacent. Each persisted pairing renders a complete row with its own tutor,
+subject, schedule, room and roster, including repeated shared values. Grouped
+presentation never substitutes the primary member's facts for divergent members.
+Rows use the standard separators without saved-group shading or heavier borders.
+The rightmost actions use the shared summary-table typography and spacing, with
+the destructive `TableAction` variant for Delete.
 Coverage pairs [projection tests](../../src/lib/pairing-groups.test.ts),
 [group router tests](../../src/server/api/routers/pairing-groups.test.ts),
 [editor tests](<../../src/app/(tutor)/_components/pairing-group-editor.test.tsx>)

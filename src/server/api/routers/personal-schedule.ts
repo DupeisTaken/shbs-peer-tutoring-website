@@ -49,23 +49,27 @@ export const personalScheduleRouter = createTRPCRouter({
         },
       } as const;
       const ascending = input.view === "upcoming";
+      // Elapsed time and service-hour completion do not close interview work.
+      // Retain overdue open events before pagination, including older weeks;
+      // only an applied terminal outcome moves a dated interview into History.
       const eventScope: Prisma.TutorApplicationWhereInput =
         input.view === "upcoming"
           ? {
               status: { in: ["PENDING", "INTERVIEW"] },
-              interviewAt: {
-                gte: now > startsAt ? now : startsAt,
-                lt: endsBefore,
-              },
+              OR: [
+                { interviewAt: { lt: now } },
+                {
+                  interviewAt: {
+                    gte: now > startsAt ? now : startsAt,
+                    lt: endsBefore,
+                  },
+                },
+              ],
             }
           : input.view === "history"
             ? {
                 interviewAt: { not: null },
-                OR: [
-                  { interviewAt: { lt: now } },
-                  { status: { in: ["ACCEPTED", "REJECTED", "RECALLED"] } },
-                  { interviewCompletedAt: { not: null } },
-                ],
+                status: { in: ["ACCEPTED", "REJECTED", "RECALLED"] },
               }
             : { interviewAt: { not: null } };
       const eventCursor: Prisma.TutorApplicationWhereInput = input.cursor

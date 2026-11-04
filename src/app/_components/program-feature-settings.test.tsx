@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { FeatureToggles } from "./program-feature-settings";
 
 const state = vi.hoisted(() => ({
@@ -78,6 +79,50 @@ beforeEach(() => {
   state.currentPeriodInvalidate.mockReset().mockResolvedValue(undefined);
 });
 afterEach(cleanup);
+
+for (const [locale, catalog] of [
+  ["en", messages],
+  ["zh", zh],
+] as const) {
+  it.each([
+    { enabled: true, pending: null, selected: true },
+    { enabled: false, pending: null, selected: false },
+    { enabled: true, pending: false, selected: false },
+    { enabled: false, pending: true, selected: true },
+  ])(
+    `${locale}: shows room automation $enabled with pending $pending without descriptive text or writes`,
+    ({ enabled, pending, selected }) => {
+      state.data.features[0] = { key: "AUTO_ASSIGN_ROOMS", enabled, pending };
+      render(
+        <NextIntlClientProvider locale={locale} messages={catalog}>
+          <FeatureToggles />
+        </NextIntlClientProvider>,
+      );
+      const label = catalog.admin.program.features.name.AUTO_ASSIGN_ROOMS;
+      expect(
+        screen.getByRole("switch", { name: label }).getAttribute("aria-checked"),
+      ).toBe(String(selected));
+      expect(screen.getByText(label).parentElement!.textContent).toBe(label);
+      expect(
+        screen.getByText(
+          enabled
+            ? catalog.admin.program.features.on
+            : catalog.admin.program.features.off,
+        ),
+      ).toBeTruthy();
+      if (pending !== null) {
+        const pendingLabel = catalog.admin.program.features.pending.replace(
+          "{state}",
+          pending
+            ? catalog.admin.program.features.on
+            : catalog.admin.program.features.off,
+        );
+        expect(screen.getByText(pendingLabel)).toBeTruthy();
+      }
+      expect(state.mutateAsync).not.toHaveBeenCalled();
+    },
+  );
+}
 
 it("keeps effective On distinct from pending Off and lets Head cancel the pending change", async () => {
   state.data.features[0]!.pending = false;

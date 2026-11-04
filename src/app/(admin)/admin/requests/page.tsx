@@ -514,8 +514,7 @@ export default function RequestsPage() {
 
   const hasPeriod = !!currentPeriod.data;
 
-  // Requests fulfilled in this session stay visible (tagged + collapsed) instead of vanishing,
-  // so the numbering of the remaining queue doesn't jump around mid-processing.
+  // Retain newly fulfilled records until the shared board has reconciled their new group.
   const [retained, setRetained] = useState<Set<string>>(new Set());
   const onFulfilled = (id: string) =>
     setRetained((prev) => new Set(prev).add(id));
@@ -541,8 +540,8 @@ export default function RequestsPage() {
     return m;
   }, [pairings.data, tutors.data, t]);
 
-  // Display = still-pending requests plus any retained-this-session (now ACTIVE) ones, earliest
-  // first. Earliest-first keeps the priority order; retained items hold their original slot.
+  // Include pending and newly fulfilled records; the board owns the mixed-source
+  // queue's final group, priority order and visible numbering.
   const display = useMemo(
     () =>
       (tutees.data ?? [])
@@ -618,7 +617,7 @@ export default function RequestsPage() {
           }
           additionalEntries={
             hasPeriod
-              ? display.map((t2, i) => ({
+              ? display.map((t2) => ({
                   id: `manual-${t2.id}`,
                   sourceId: t2.id,
                   submittedAt: t2.signupSubmittedAt ?? t2.createdAt,
@@ -634,10 +633,10 @@ export default function RequestsPage() {
                       needsReview: t2.hasPendingInvalidityAppeal,
                     },
                   ),
-                  content: (
+                  content: (order: number) => (
                     <RequestCard
                       tutee={t2}
-                      order={i + 1}
+                      order={order}
                       tutors={(tutors.data ?? []).map((tu) => ({
                         id: tu.id,
                         englishName: tu.englishName,

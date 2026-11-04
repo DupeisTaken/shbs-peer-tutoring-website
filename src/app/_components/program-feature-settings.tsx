@@ -154,11 +154,6 @@ export function FeatureToggles() {
                     {t("admin.program.features.quarterNote")}
                   </p>
                 )}
-                {f.key === "AUTO_ASSIGN_ROOMS" && (
-                  <p className="muted text-xs">
-                    {t("admin.program.features.autoRoomsNote")}
-                  </p>
-                )}
               </div>
               <span className={f.enabled ? "badge-green" : "badge-slate"}>
                 {t(

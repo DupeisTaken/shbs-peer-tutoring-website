@@ -36,7 +36,7 @@
     "noticePending": "Un e-mail essentiel relatif à une modification enregistrée attend son envoi.",
     "nextDayEnd": "L’heure de fin correspond à minuit au début du jour suivant.",
     "title": "Séances",
-    "help": "Semaine actuelle et suivante dans le fuseau {timeZone}. Les dispositions hebdomadaires restent séparées des changements ponctuels.",
+    "help": "Semaine actuelle et suivante dans le fuseau {timeZone}, ainsi que les séances terminées sans présences enregistrées. Les dispositions hebdomadaires restent séparées des changements ponctuels.",
     "week": "Agenda hebdomadaire",
     "needsAttendance": "Présences à saisir",
     "empty": "Aucune séance dans cette vue.",
@@ -1204,7 +1204,6 @@
           "EMAIL_2FA": "2FA par e-mail",
           "AUTO_ASSIGN_ROOMS": "Auto-assign rooms"
         },
-        "autoRoomsNote": "On immediately when deployed. Changes apply at the next program refresh; existing bookings are retained. Switch back to the current state to cancel a pending change.",
         "retryRefresh": "Retry refresh",
         "savedRefreshFailed": "The setting was saved, but the latest effective and pending states could not be loaded. Retry refresh without submitting again.",
         "readFailed": "Settings could not be refreshed. Previously loaded values remain visible."
@@ -7583,6 +7582,25 @@
     "unavailable": "This interview is no longer available to your panel assignment.",
     "emptyGroup": "No interviews in this group."
   },
+  "agendaEvents": {
+    "regular": "Séance habituelle",
+    "extra": "Séance supplémentaire",
+    "interview": "Entretien",
+    "meeting": "Réunion",
+    "needsAction": "Action requise",
+    "upcoming": "À venir",
+    "inProgress": "En cours",
+    "completed": "Terminée",
+    "excused": "Absence justifiée",
+    "voteRecorded": "Vote enregistré",
+    "awaitingDecision": "En attente de décision",
+    "awaitingAttendance": "Présences à enregistrer",
+    "cancelled": "Annulée",
+    "rescheduled": "Reprogrammée",
+    "unavailable": "Horaire à vérifier",
+    "attendanceNeeded": "Enregistrez les présences pour terminer cette séance.",
+    "voteNeeded": "Votre vote pour cet entretien est encore attendu."
+  },
   "unifiedSchedule": {
     "agenda": "My agenda",
     "interview": "Interview",
@@ -7619,14 +7637,14 @@
     "openPairings": "Voir les binômes",
     "noExtraSource": "L’ajout d’une séance supplémentaire nécessite un binôme actif avec une future séance publiée.",
     "upcoming": "À venir",
-    "upcomingHelp": "Trois éléments en attente : d’abord ceux qui nécessitent une action, puis les événements à venir les plus proches. Les séances terminées restent ici jusqu’à l’enregistrement des présences.",
+    "upcomingHelp": "Trois éléments : d’abord ceux qui nécessitent une action, puis les événements à venir les plus proches. Les séances sans présences enregistrées et les entretiens en attente de décision restent visibles.",
     "nothingUpcoming": "Aucun élément en attente.",
     "viewEvent": "Voir l’événement",
     "eventFilters": "Filtres d’événements",
-    "filterHelp": "À venir couvre la semaine scolaire actuelle et la suivante, ainsi que les séances terminées sans présences enregistrées.",
+    "filterHelp": "À venir comprend la semaine scolaire actuelle et la suivante, les séances terminées sans présences enregistrées et les entretiens encore ouverts à des dates antérieures.",
     "filter": {
       "all": "Tous",
-      "upcoming": "À venir (2 semaines)",
+      "upcoming": "À venir",
       "history": "Historique"
     },
     "loadingHistory": "Chargement de l’historique des séances…",

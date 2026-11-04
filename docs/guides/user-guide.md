@@ -636,7 +636,18 @@ The tutor workspace opens on **Schedule**. Switch locally to **Pairings**,
 **Preferences**, or **History & hours**; unfinished editors stay available when you
 return. **Pairings** holds recurring assignments. **My agenda** shows the
 current and next Monday–Sunday week in the school timezone; Sunday prepares the
-following window. Start with **Message to coordinate** to agree on a workable
+following window. **Upcoming** also keeps ended sessions missing attendance and
+past open interviews until their decision. Yellow **Needs Action** marks your
+missing attendance or interview vote. **Vote recorded / Awaiting decision** means
+your vote is saved while the interview remains open; it is not yet Completed.
+**Excused for Absence** identifies an excused meeting, including a staff-recorded
+excuse. Meetings awaiting staff attendance records do not require you to record
+attendance. Gray labels distinguish regular sessions, extras, interviews and
+meetings, while Upcoming and waiting states also use gray. Completed and Excused
+for Absence use green. Completed tutoring and decided interviews remain available in History.
+The colored left edge follows the event's status: yellow when you need to act,
+green for completed or excused events, and gray for upcoming or waiting events.
+Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept
 a schedule change.
 
@@ -693,7 +704,7 @@ Room intent remains separate. An automatic room shortage may save as **Needs roo
 but a fixed-room conflict or overlapping independent tutor block rejects the save.
 Grouping does not record attendance or change qualifications, ownership or rosters.
 
-My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. In management’s **Pairings** table, a saved group stays together when you sort or filter. Read across from each subject to its tutees’ names. The table shows a shared subject or identical tutee list once for the whole group, just as it does for a shared tutor, time or room. Use **Details** beside a subject for its group reference, status and combined roster. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **View dated sessions** opens the agenda. Its **Record attendance** action selects that exact dated cohort and its captured subjects and students. Current planned attendance does not offer an arbitrary subject/group picker. Check actual attendance time and location before submitting; ask management to review historical subject corrections.
+My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. In management’s **Pairings** table, a saved group stays together when you sort or filter. Every row repeats its own tutor, subject, time, room and tutee names, including information shared with adjacent members. Read across each complete row to its rightmost actions. Use **Details** beside a subject for its group reference, status and combined roster. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **View dated sessions** opens the agenda. Its **Record attendance** action selects that exact dated cohort and its captured subjects and students. Current planned attendance does not offer an arbitrary subject/group picker. Check actual attendance time and location before submitting; ask management to review historical subject corrections.
 
 Existing groups that fail the coverage or schedule checks show **Needs repair**.
 Repair or split them before scheduling or recording combined attendance.
@@ -705,7 +716,13 @@ attendance; it does not merge recurring plans.
 
 Reopen **Combine / split pairings** to add or untick members, or choose **Split this group**. Each remaining group needs at least two members. Assignments leaving a group keep their subject, students and assigned room, but return to **Awaiting schedule** with no catalog slot until a separate schedule is chosen. Changing a member's tutor, schedule or room choice through the management assignment editor releases that member from its old group. The separate room-change and room-retry actions apply to the complete group's reservation; editing the shared catalog slot also retains the group. Group changes remain available after attendance submission and affect future plans only. Previous session records, attendance, ratings, room and credited hours remain unchanged.
 
-Opening or cancelling a group review writes nothing. Failed saves retain the draft; **Reload saved groups** explicitly replaces it after a successful read when plans or rosters changed. If saving succeeded but catalogue refresh failed, **Retry** only reloads the saved data. An attendance draft already in progress keeps its chosen block snapshot when a saved group changes in the background; choose a new block or start another entry to use the latest plan.
+Opening or cancelling a group review writes nothing. Failed saves retain the draft
+and show the reason inside the editor. Correct an invalid selection with **Back**;
+when plans or rosters changed, **Reload saved groups** explicitly replaces the draft
+after a successful read. If saving succeeded but catalogue refresh failed, **Retry**
+only reloads the saved data. An attendance draft already in progress keeps its
+chosen block snapshot when a saved group changes in the background; choose a new
+block or start another entry to use the latest plan.
 
 ### Manage your participation
 
@@ -750,6 +767,9 @@ applied mode immediately; staged changes do not affect this view.
 Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [tutor policy draft](../../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
 
 ## Crew
+
+Management's **Issued Codes** list shows each invitation code beside the applicant's
+name and expiry, with a compact code-only badge.
 
 Apply at `/crew-signup` and verify the emailed code. Verification sends the application for staff review; it creates no login or crew membership. An application under review keeps its original answers when retried. Contact the team to correct them.
 
@@ -1248,6 +1268,12 @@ Signup Requests includes self-service and **Staff-entered** requests in the same
 
 The older legacy **Decline** action still deletes eligible intake records, so those deleted entries cannot appear in Closed. Retaining that decision history is tracked separately in [#567](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/567).
 
+Requests in each selected queue have consecutive numbers across signup sources.
+Use the arrow beside a request to collapse or expand its details; the summary and
+header actions stay visible. Assigned requests start collapsed. Reopening retains
+in-progress tutor selections, and newly reported assignment errors or refresh
+recovery reopen the details so follow-up actions remain reachable.
+
 Self-service cards keep **Edit signup answers** last in the header action group,
 after the available invalidity and resend actions. Each **Release assignment**
 action sits beside its subject and tutor, including assignments retained after
@@ -1336,7 +1362,8 @@ reload the saved record or explicitly start **New Pairing**; the retry will not
 silently create another reservation. Deleting the original pairing does not
 make an old retry create it again.
 
-Auto-assign rooms is initially On in **Program Settings → Optional Features**.
+Auto-assign rooms defaults to On in **Program Settings → Optional Features** when
+no setting has been saved. Existing saved choices and pending selections are preserved.
 Turning it off or back on takes effect at the next program refresh; switching
 back to the effective value cancels the pending change. Existing bookings are
 retained. Read the [room and period rules](program-configuration.md#schedule-rooms-and-periods)
