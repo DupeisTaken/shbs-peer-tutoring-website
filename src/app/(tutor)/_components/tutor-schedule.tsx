@@ -222,9 +222,7 @@ export function TutorSchedule({
               ) : ["PENDING", "INTERVIEW"].includes(row.status) ? (
                 <>
                   {row.ownVoteRecorded && (
-                    <AgendaBadge tone="success">
-                      {eventText("voteRecorded")}
-                    </AgendaBadge>
+                    <AgendaBadge>{eventText("voteRecorded")}</AgendaBadge>
                   )}
                   <AgendaBadge>
                     {eventText(
@@ -283,7 +281,7 @@ export function TutorSchedule({
           badges={
             <>
               {row.status === "EXCUSED_ABSENT" && (
-                <AgendaBadge tone="excused">{eventText("excused")}</AgendaBadge>
+                <AgendaBadge tone="success">{eventText("excused")}</AgendaBadge>
               )}
               <AgendaBadge
                 tone={!row.upcoming && row.status ? "success" : "neutral"}

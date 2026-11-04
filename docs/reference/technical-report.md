@@ -1740,8 +1740,9 @@ entry retains records beyond the dated window. Rendering performs no new writes;
 existing tutoring agenda reads retain their publication and deadline behavior.
 
 The shared [agenda event card](../../src/app/_components/agenda-event-card.tsx)
-separates event type, time/context, status and actions. Fixed indigo/violet/sky/teal
-type colors stay independent of accent selection. Yellow Needs Action identifies
+separates event type, time/context, status and actions. Event labels and card rails
+use gray, as do Upcoming and waiting states. Green marks Completed and Excused for
+Absence; these colors stay independent of accent selection. Yellow Needs Action identifies
 missing tutoring attendance or the assigned tutor's missing INTERVIEW vote; a
 recorded vote on an open interview shows Vote recorded / Awaiting decision rather
 than Completed. Meetings do not create tutor attendance duties. Excused for Absence

@@ -642,8 +642,9 @@ missing attendance or interview vote. **Vote recorded / Awaiting decision** mean
 your vote is saved while the interview remains open; it is not yet Completed.
 **Excused for Absence** identifies an excused meeting, including a staff-recorded
 excuse. Meetings awaiting staff attendance records do not require you to record
-attendance. Event type colors distinguish regular sessions, extras, interviews and
-meetings; completed tutoring and decided interviews remain available in History.
+attendance. Gray labels distinguish regular sessions, extras, interviews and
+meetings, while Upcoming and waiting states also use gray. Completed and Excused
+for Absence use green. Completed tutoring and decided interviews remain available in History.
 Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept
 a schedule change.

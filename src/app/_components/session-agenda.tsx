@@ -745,9 +745,7 @@ export function SessionAgenda({
                         !cohort.unavailable &&
                         cohort.status === "SCHEDULED" &&
                         cohort.endsAt > now && (
-                          <AgendaBadge
-                            tone={cohort.startsAt <= now ? "info" : "neutral"}
-                          >
+                          <AgendaBadge>
                             {eventText(
                               cohort.startsAt <= now
                                 ? "inProgress"
@@ -757,9 +755,7 @@ export function SessionAgenda({
                         )
                       )}
                       {cohort.rescheduled && (
-                        <AgendaBadge tone="info">
-                          {eventText("rescheduled")}
-                        </AgendaBadge>
+                        <AgendaBadge>{eventText("rescheduled")}</AgendaBadge>
                       )}
                       {cohort.unavailable && (
                         <AgendaBadge tone="warning">

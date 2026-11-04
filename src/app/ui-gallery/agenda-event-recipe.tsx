@@ -64,7 +64,7 @@ export function AgendaEventRecipe() {
           time="Wed · 16:00"
           badges={
             <>
-              <AgendaBadge tone="success">{t("voteRecorded")}</AgendaBadge>
+              <AgendaBadge>{t("voteRecorded")}</AgendaBadge>
               <AgendaBadge>{t("awaitingDecision")}</AgendaBadge>
             </>
           }
@@ -76,7 +76,7 @@ export function AgendaEventRecipe() {
           time="Thu · 16:00"
           badges={
             <>
-              <AgendaBadge tone="excused">{t("excused")}</AgendaBadge>
+              <AgendaBadge tone="success">{t("excused")}</AgendaBadge>
               <AgendaBadge tone="success">{t("completed")}</AgendaBadge>
             </>
           }
