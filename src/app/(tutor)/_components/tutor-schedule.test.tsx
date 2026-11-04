@@ -221,6 +221,7 @@ const ui = (
   interviewsEnabled = true,
   meetingsEnabled = true,
   locale = "en",
+  compact = false,
 ) => (
   <NextIntlClientProvider
     locale={locale}
@@ -228,6 +229,7 @@ const ui = (
     messages={locale === "zh" ? zh : en}
   >
     <TutorSchedule
+      compact={compact}
       active={active}
       interviewsEnabled={interviewsEnabled}
       meetingsEnabled={meetingsEnabled}
@@ -380,4 +382,30 @@ it("routes missing completion evidence to its management workspace", () => {
       .getByRole("link", { name: en.unifiedSchedule.viewEvent })
       .getAttribute("href"),
   ).toBe("/admin/applications#interview-records");
+});
+
+it("uses compact controls without repeated overview cards and keeps chair work local", () => {
+  render(ui(true, true, true, "en", true));
+  expect(
+    screen.queryByRole("heading", { name: en.unifiedSchedule.upcoming }),
+  ).toBeNull();
+  expect(screen.queryByText(en.unifiedSchedule.sessionsHelp)).toBeNull();
+  expect(
+    screen.getByRole("button", { name: en.unifiedSchedule.addExtra }),
+  ).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: en.unifiedSchedule.openChair })
+      .getAttribute("href"),
+  ).toBe("#chair-interviews");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.unifiedSchedule.interviewWork }),
+  );
+  expect(screen.getByRole("dialog").textContent).toContain("Interview history");
+});
+it("resolves the legacy schedule interview arrival to the personal reader", () => {
+  window.history.replaceState(null, "", "/schedule#tutor-interviews");
+  render(ui(true, true, true, "en", true));
+  expect(screen.getByRole("dialog").textContent).toContain("Interview history");
+  window.history.replaceState(null, "", "/");
 });

@@ -11,6 +11,14 @@ import {
 import { requirePolicy } from "../src/server/policy-acceptance";
 import { z } from "zod";
 import { surveyInput } from "../src/server/student-survey";
+import { DEMO_REPORT_GENERATION_KEY } from "./demo-reporting";
+import { verifyDemoAcademicCoverage } from "./demo-academics-verification";
+import { verifyDemoScenarios } from "./demo-scenarios-verification";
+import { verifyDemoPairingCoverage } from "./demo-pairings-verification";
+import {
+  getSchoolHoursReport,
+  schoolHoursCsv,
+} from "../src/server/school-hours";
 
 const connectionString = process.env.DATABASE_URL!;
 assertDemoDatabase(connectionString);
@@ -18,6 +26,9 @@ const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: utcDatabaseUrl(connectionString) }),
 });
 try {
+  console.log("Academic coverage:", await verifyDemoAcademicCoverage(db));
+  console.log("Scenario coverage:", await verifyDemoScenarios(db));
+  console.log("Pairing coverage:", await verifyDemoPairingCoverage(db));
   // Use actual workflow validators, not merely row counts: visible records must be actionable.
   for (const key of ["fiona", "george", "hana"]) {
     const id = seedId(`app-${key}`);
@@ -100,8 +111,65 @@ try {
     await db.pairing.count({ where: { scheduleConfirmed: false } }),
     0,
   );
+  for (const [key, mode] of [
+    ["pairing-alice-math", "FIXED"],
+    ["pairing-bob-physics", "AUTO"],
+    ["pairing-carol-english", "NONE"],
+    ["pairing-david-chem", "FIXED"],
+  ] as const) {
+    const pairing = await db.pairing.findUniqueOrThrow({
+      where: { id: seedId(key) },
+    });
+    assert.equal(pairing.roomMode, mode);
+    assert.equal(pairing.roomNeedsAssignment, false);
+    if (mode === "NONE") assert.equal(pairing.roomId, null);
+    else assert.ok(pairing.roomId);
+  }
+  const storedReport = await db.schoolHoursReport.findUniqueOrThrow({
+    where: { generationKey: DEMO_REPORT_GENERATION_KEY },
+  });
+  const report = await getSchoolHoursReport(db, storedReport.id);
+  assert.equal(report.revision, 1);
+  assert.ok(report.rows.length > 1);
+  assert.equal(report.totals.people, report.rows.length);
+  assert.ok(report.totals.hoursToAdd > 0);
+  assert.ok(
+    Math.abs(
+      report.rows.reduce((sum, row) => sum + row.hoursToAdd, 0) -
+        report.totals.hoursToAdd,
+    ) < 1e-8,
+  );
+  assert.ok(report.rows.some((row) => row.current.crew > 0));
+  assert.ok(report.rows.some((row) => row.current.deductions > 0));
+  for (const row of report.rows) {
+    assert.ok(row.schoolAccountKey.startsWith("demo-"));
+    assert.deepEqual(row.previous, {
+      earned: 0,
+      extras: 0,
+      deductions: 0,
+      crew: 0,
+    });
+  }
+  assert.equal(report.deliveries.length, 1);
+  assert.ok(
+    report.deliveries.every(
+      (row) => row.status === "SKIPPED" && row.lastError === "SCHEDULE_OFF",
+    ),
+  );
+  const reportSchedule = await db.schoolHoursSchedule.findUniqueOrThrow({
+    where: { id: "program" },
+  });
+  assert.equal(reportSchedule.enabled, false);
+  assert.equal(reportSchedule.nextDueAt, null);
+  assert.equal(reportSchedule.headReportId, storedReport.id);
+  assert.ok(reportSchedule.openingReviewedAt);
+  const csv = await schoolHoursCsv(db, storedReport.id);
+  const visibleReportRow = report.rows.find((row) => !row.unchanged);
+  assert.ok(visibleReportRow);
+  assert.ok(csv.content.includes(visibleReportRow.schoolAccountKey));
+  assert.ok(csv.filename.includes(report.month));
   console.log(
-    "Demo verified: API-valid identities, legal interview panels and outcomes, student ownership/consent, modern queues and singleton leadership/term.",
+    "Demo verified: API-valid identities, legal interview panels and outcomes, student ownership/consent, modern queues, explicit room modes, immutable school report/CSV with delivery disabled, and singleton leadership/term.",
   );
 } finally {
   await db.$disconnect();

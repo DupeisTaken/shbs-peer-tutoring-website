@@ -11,7 +11,6 @@ import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { APP_TITLE } from "~/lib/branding";
-import { SectionLinks } from "~/app/_components/section-links";
 
 /**
  * Gates the entire tutor section. Requires an authenticated user linked to a Tutor record.
@@ -159,15 +158,6 @@ export default async function TutorLayout({
           />
         }
       />
-      <div className="mx-auto max-w-6xl px-4 pt-4">
-        <SectionLinks
-          label={t("tutor.navigation.label")}
-          items={[
-            { href: "/dashboard", label: t("tutor.navigation.dashboard") },
-            { href: "/schedule", label: t("tutor.navigation.schedule") },
-          ]}
-        />
-      </div>
       {children}
     </div>
   );

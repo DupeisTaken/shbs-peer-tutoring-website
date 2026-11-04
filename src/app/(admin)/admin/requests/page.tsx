@@ -467,7 +467,9 @@ export default function RequestsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const readOnly = useReadOnly();
-  const tutees = api.admin.tutees.useQuery();
+  const tutees = api.admin.tutees.useQuery(undefined, {
+    refetchInterval: readOnly ? false : 60_000,
+  });
   const managed = api.studentWorkflow.adminRequests.useQuery(undefined, {
     enabled: !readOnly,
   });
@@ -627,6 +629,10 @@ export default function RequestsPage() {
                       (name): name is string => !!name,
                     ),
                     [...(assignedByTutee.get(t2.id)?.keys() ?? [])],
+                    {
+                      invalid: t2.isInvalid,
+                      needsReview: t2.hasPendingInvalidityAppeal,
+                    },
                   ),
                   content: (
                     <RequestCard

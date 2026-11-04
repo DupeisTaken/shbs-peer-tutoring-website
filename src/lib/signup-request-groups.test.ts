@@ -91,12 +91,27 @@ describe("unified signup queue", () => {
     );
     expect(signupRequestGroup("OPEN", ["Math"], ["Math"])).toBe("assigned");
   });
-  it.each(["ABORTED", "RECALLED", "EXPIRED"])(
+  it.each(["ABORTED", "RECALLED", "DISQUALIFIED", "INVALID_REJECTED"])(
     "never reopens terminal %s requests",
     (state) => {
       expect(signupRequestGroup(state, ["Math"], [])).toBe("processed");
     },
   );
+  it.each([{ assigned: [] }, { assigned: ["Math"] }])(
+    "groups invalid entries as Closed regardless of assignments (%j)",
+    ({ assigned }) => {
+      expect(
+        signupRequestGroup("OPEN", ["Math"], assigned, { invalid: true }),
+      ).toBe("processed");
+      expect(
+        signupRequestGroup("OPEN", ["Math"], assigned, { invalid: false }),
+      ).toBe(assigned.length ? "assigned" : "matching");
+    },
+  );
+  it.each([false, true])("prioritizes an actionable decision over assignments or invalidity (%s)", (invalid) => {
+    expect(signupRequestGroup("OPEN", ["Math"], ["Math"], { invalid, needsReview: true })).toBe("reviews");
+    expect(signupRequestGroup("OPEN", ["Math"], ["Math"], { invalid, needsReview: false })).toBe(invalid ? "processed" : "assigned");
+  });
   it("interleaves sources by original submission time with stable ties", () => {
     const early = { id: "manual", submittedAt: new Date("2026-09-01") };
     const late = { id: "survey", submittedAt: new Date("2026-09-02") };

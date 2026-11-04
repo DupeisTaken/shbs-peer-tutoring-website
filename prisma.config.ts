@@ -14,6 +14,6 @@ export default defineConfig({
       : undefined,
   },
   migrations: {
-    seed: "tsx prisma/seed.ts",
+    seed: "tsx --conditions=react-server prisma/seed.ts",
   },
 });

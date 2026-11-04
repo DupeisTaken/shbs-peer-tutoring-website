@@ -395,13 +395,14 @@ it("shows complete time-slot rows and propagation help without editing actions f
   expect(mocks.updateSlot).not.toHaveBeenCalled();
 });
 
-it("replaces pairing rosters with a count and opens the full list through the final column", () => {
+it("shows the pairing roster and opens its read-only details through the final column", () => {
   mocks.readOnly = true;
   render(<PairingsPage />, { wrapper });
   const table = screen.getByRole("table", { name: en.admin.pairings.title });
   expectActionsLast(table);
-  expect(within(table).queryByText("Jordan Student")).toBeNull();
-  expect(within(table).getByText("2")).toBeTruthy();
+  const roster = within(table).getByRole("list");
+  expect(within(roster).getByText("Jordan Student")).toBeTruthy();
+  expect(within(roster).getByText("Casey Student")).toBeTruthy();
   fireEvent.click(
     within(table).getByRole("button", {
       name: "View details: Alex Tutor · Algebra",

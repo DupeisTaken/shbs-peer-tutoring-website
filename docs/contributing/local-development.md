@@ -232,6 +232,122 @@ All example accounts use `Password123!`. The identifiers below work at `/signin`
 
 The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has Admin tutor Alex Interview Chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Carol remains a Coordinator for approval workflows. Bundled policy text still needs school review before publication.
 
+Current lessons contain **26 one-student subject assignments in 12 teaching
+blocks**: ten saved groups and two independent assignments. This is the shape
+created by **Select tutor**, followed by the tutor's **Combine / split pairings**
+workflow. A list of students inside one Pairing row is not a saved group and cannot
+be split by that editor. Alice's three Mathematics assignments are already combined;
+splitting them returns each assignment to Awaiting schedule, preserving completed
+attendance. Choosing the same subject for multiple students does not require a
+multi-subject group.
+
+Room examples include Alice's fixed room, Bob's automatically allocated room,
+Carol's explicit roomless assignment and David's fixed room. The group writer
+normalizes old legacy room intent when forming a current group. A synthetic
+first **School Month Report** includes reviewed zero opening balances, tutoring and
+crew credits, deductions, statistics and a CSV export. It uses the configured
+`AUTH_SECRET` to create its local report capability. Report generation and schedule
+disablement commit together; its synthetic email delivery is skipped and automatic
+reporting stays off. Reseeding preserves this immutable report rather than adding
+editions or changing its snapshot. Create a fresh demo database to start its report
+chain again; an unrelated existing report chain is never replaced.
+
+The current scenario manifest covers **60 role records: 42 ordinary (70%) and
+18 edge cases (30%)**. Historical cohorts, inactive archives and auxiliary review
+rows are retained outside that denominator. Ordinary records have defined academics,
+known signup provenance and no special discipline, withdrawal or review state.
+Routine waiting for matching, excused absences and normal scheduling are ordinary
+cases; the pending queue remains a synthetic rehearsal, not a copy of live volume.
+
+Current tutee sources are **30 Self-service, 10 Staff-entered and 2 Earlier signup**.
+Self-service examples include confirmed synthetic surveys, account ownership and
+exact policy acceptance evidence. The extra student accounts use
+`demo-<fixture-key>@example.test` and the shared demo password above. The two
+unknown-source examples are Mia and pending Zoe. **Earlier signup means unknown
+entry provenance, not an earlier submission date.** Its badge is intentionally
+retained for those examples rather than applied to the whole seed by default.
+Three redundant current cards are omitted; the invalid-card example remains in
+historical reporting. Edge scenarios are concentrated on nine tutors and nine
+tutees, including appeals, membership requests, discipline, incomplete academics
+and username collisions. The verifier checks their actual states as well as counts.
+
+Academic details are complete for 46 of the 49 tutor/tutee demo accounts: a
+confirmed grade and reference school year, or Pia's explicit graduated status.
+The website derives the class/graduation year from that grade and reference year;
+there is no separate class-name field. Alice and Emma have confirmed profiles.
+Most current tutee roster entries also include their enrollment year, so
+accountless participants show their grade and class-of without invented logins.
+The two Alex/Andrea Kim roster fixtures have dated provisional tutor grades.
+Evan, Oscar and Kate retain account confirmation examples; Madonna retains an
+undated roster grade. Pending Zoe retains a missing enrollment-year example.
+Existing historical originals and accepted survey/policy
+snapshots are not rewritten.
+
+For an existing disposable demo, add the missing scenario evidence and academics
+without resetting exploration data:
+
+```bash
+npx tsx --conditions=react-server prisma/seed-scenarios.ts
+```
+
+Use the existing `DATABASE_URL` and `SHBS_DEMO_SEED=1`. This creates credentials
+only for missing, unchanged synthetic self-service fixtures; it never resets an
+existing password or rewrites an accepted survey. Changed or deleted fixtures are
+reported as deviations, so an explored database may differ from the fresh 70/30
+target. The three redundant cards are removed only when their complete fixture
+values and timestamps still match and no appeal, audit or approval references them.
+Existing signup priority and signature dates are preserved, even when an older
+rehearsal has artificial attendance chronology. Fresh ordinary intake and pairing
+creation dates precede their attendance examples.
+
+To add only these missing academic details to an existing disposable demo, keep
+its `DATABASE_URL` and set `SHBS_DEMO_SEED=1`, then run:
+
+```bash
+npx tsx --conditions=react-server prisma/seed-academics.ts
+```
+
+This helper skips existing academic confirmations and populated enrollment metadata.
+It preserves historical academic originals before initializing a linked account's
+current profile; only current roster-only fixtures receive missing year metadata.
+It does not reseed credentials, schedules, reports
+or review queues, and does nothing after the active demo term has been refreshed.
+For the edit-preservation regression, seed a separate `shbs_*_test` database twice
+and run `npx tsx --conditions=react-server prisma/verify-demo-academics.ts`. That
+test deliberately changes Alice's grade in the test database, verifies a selective
+repeat preserves it, and compares academic, report, policy, survey and historical
+evidence. It refuses the exploration demo database.
+Also run `npx tsx --conditions=react-server prisma/verify-demo-scenarios.ts` on that
+disposable test database to verify evidence-backed provenance, exact scenario
+coverage, no-op repeats and preservation of edited intake/card records. It leaves
+its deliberate edits in the test database and refuses a demo database.
+
+To upgrade untouched assignments in an existing demo without a full reseed, run
+`npx tsx --conditions=react-server prisma/seed-pairings.ts`. Keep the same loopback
+database guard and `SHBS_DEMO_SEED=1`. It preserves original primary pairing IDs,
+completed attendance and immutable report evidence, and reports edited or missing
+fixtures rather than replacing them. The original assignment rows remain the
+historical anchors; current rosters use one assignment per student and subject.
+
+On a separate migrated `shbs_*_test` database, run
+`npm test -- src/test/demo-seed.test.ts --maxWorkers=1`. It verifies every current
+assignment against the real Select tutor procedures, plus saved-group split/rejoin
+and selective-upgrade preservation. These probes must never target the explored
+demo. A passing row-count check alone does not establish that the UI can create an
+assignment.
+
+The regular integration suite includes this test: it empties
+only a guarded disposable test database, runs the documented seed entry point
+twice, then checks the workflow, pairing and edit-preservation verifiers. CI
+supplies a fresh PostgreSQL service and the committed migration chain. This guards
+against a seed that works only after manual changes in one developer's database.
+
+Opening a tutor or tutee agenda publishes ordinary upcoming sessions from the
+confirmed assignments. Rescheduling negotiations and extra sessions remain
+interactive rehearsals: use the tutor and student accounts to create
+the corresponding proposals and agreements. The seed does not fabricate participant
+responses or reusable calendar-access tokens.
+
 Seeded survey tokens are deliberately unusable: request a new email link through the form. Local email capture is required to rehearse verification and recovery without delivering real email. Never enable a public mail-capture endpoint on a deployed site. Create coordinator proposals through the interface so their immutable target snapshots reflect the database at submission time.
 
 ## 4. Run the app

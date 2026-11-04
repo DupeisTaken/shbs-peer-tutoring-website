@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   crew: vi.fn(),
   rooms: vi.fn(),
   features: vi.fn(),
+  schedule: vi.fn(),
 }));
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
 vi.mock("~/server/db", () => ({ db: {} }));
@@ -77,8 +78,31 @@ vi.mock("~/app/(tutor)/_components/subject-willingness", () => ({
 vi.mock("~/app/(tutor)/_components/dashboard-tasks", () => ({
   DashboardTasks: () => <p>Task preview</p>,
 }));
-vi.mock("~/app/(tutor)/_components/dashboard-schedule-links", () => ({
-  DashboardScheduleLinks: () => <p>Schedule continuation</p>,
+vi.mock("~/app/(tutor)/_components/tutor-workspace", () => ({
+  TutorWorkspace: ({
+    attention,
+    schedule,
+    pairings,
+    preferences,
+    history,
+  }: Record<string, ReactNode>) => (
+    <>
+      {attention}
+      {schedule}
+      {pairings}
+      {preferences}
+      {history}
+    </>
+  ),
+}));
+vi.mock("~/app/(tutor)/_components/tutor-schedule", () => ({
+  TutorSchedule: (props: unknown) => {
+    mocks.schedule(props);
+    return <p>Schedule content</p>;
+  },
+}));
+vi.mock("~/app/history/personal-tutor-history", () => ({
+  PersonalTutorHistory: () => <p>Personal tutor history</p>,
 }));
 vi.mock("~/app/(tutor)/_components/tutor-room-schedule", () => ({
   TutorRoomSchedule: () => <p>Read-only room grid</p>,
@@ -109,25 +133,37 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it("keeps Pairings expanded before its task preview and retains the chair workspace", async () => {
-  render(await TutorDashboard());
-  const pairings = screen.getByText("Expanded pairings");
-  expect(pairings.closest("#tutor-pairings")).toBeTruthy();
-  expect(pairings.closest("details")).toBeNull();
-  expect(
-    pairings.compareDocumentPosition(screen.getByText("Task preview")) &
-      Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
-  expect(screen.getByText("Interview workspace: chair")).toBeTruthy();
-  expect(screen.getByText("Schedule continuation")).toBeTruthy();
-  expect(mocks.rooms).not.toHaveBeenCalled();
-  for (const label of [
-    "Read-only room grid",
-    "Program calendar notice",
-    "School calendar notice",
-  ])
-    expect(screen.queryByText(label)).toBeNull();
-});
+it.each(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
+  "composes the workspace with %s access and retained feature owners",
+  async (status) => {
+    mocks.me.mockResolvedValue({ status });
+    render(await TutorDashboard());
+    expect(mocks.schedule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        active: status === "ACTIVE",
+        interviewsEnabled: true,
+        meetingsEnabled: true,
+        compact: true,
+      }),
+    );
+    expect(
+      screen.getByText("Expanded pairings").closest("#tutor-pairings"),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByText("Task preview")
+        .compareDocumentPosition(screen.getByText("Schedule content")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(!!screen.queryByText("Interview workspace: chair")).toBe(
+      status === "ACTIVE",
+    );
+    expect(screen.getByText("Personal tutor history")).toBeTruthy();
+    expect(mocks.rooms).toHaveBeenCalledOnce();
+    expect(screen.getByText("Read-only room grid")).toBeTruthy();
+    expect(screen.getByText("School calendar notice")).toBeTruthy();
+  },
+);
 
 it.each([
   [null, "/signin"],

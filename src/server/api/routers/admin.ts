@@ -807,6 +807,28 @@ export const adminRouter = createTRPCRouter({
     const invaliditiesByTutee = new Map(
       invalidities.map((row) => [row.tuteeId, row]),
     );
+    // Only current flag generations can move a legacy signup into Needs review.
+    // Observers receive no appeal evidence or pending-review signal.
+    const flagged = invalidities.filter((row) => row.invalidatedAt);
+    const pendingAppeals =
+      !isViewer && flagged.length
+        ? await ctx.db.requestInvalidityAppeal.findMany({
+            where: {
+              status: "PENDING",
+              notice: {
+                requestKind: "signup",
+                OR: flagged.map((row) => ({
+                  requestId: row.tuteeId,
+                  requestVersion: row.invalidityVersion,
+                })),
+              },
+            },
+            select: { notice: { select: { requestId: true } } },
+          })
+        : [];
+    const pendingAppealIds = new Set(
+      pendingAppeals.map((row) => row.notice.requestId),
+    );
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
       // name / email / phone — so an admin can vet it. Never auto-blocks; it just labels.
@@ -838,6 +860,7 @@ export const adminRouter = createTRPCRouter({
       return isViewer
         ? {
             ...t,
+            hasPendingInvalidityAppeal: false,
             ...requestInvalidity(
               invaliditiesByTutee.get(t.id) ?? emptyRequestInvalidity,
               false,
@@ -855,6 +878,7 @@ export const adminRouter = createTRPCRouter({
           }
         : {
             ...t,
+            hasPendingInvalidityAppeal: pendingAppealIds.has(t.id),
             ...requestInvalidity(
               invaliditiesByTutee.get(t.id) ?? emptyRequestInvalidity,
             ),

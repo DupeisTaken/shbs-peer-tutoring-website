@@ -33,6 +33,7 @@ import {
   sessionAttendanceContext,
   readSessionAgenda,
   readSessionAgendaHistory,
+  previewSessionLocation,
 } from ".";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -230,6 +231,138 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 afterAll(async () => {
   await db.$disconnect();
+});
+
+describe("automatic dated-room review", () => {
+  async function preview(
+    overrides: Partial<Parameters<typeof previewSessionLocation>[2]> = {},
+    actor = tutor,
+  ) {
+    const cohort = await source();
+    return previewSessionLocation(db, actor, {
+      ...time(),
+      mode: "propose",
+      cohortId: cohort.id,
+      expectedVersion: cohort.version,
+      scope: "ALL",
+      kind: "EXTRA",
+      ...overrides,
+    });
+  }
+  it("skips blocked rooms in program order and creates no reservation or consent", async () => {
+    await db.room.createMany({
+      data: [
+        { id: "blocked", name: "A", programOrder: 0 },
+        { id: "available", name: "B", programOrder: 1 },
+      ],
+    });
+    await db.roomUnavailability.create({
+      data: { roomId: "blocked", dayOfWeek: 2, startMin: 890, endMin: 960 },
+    });
+    const before = await db.sessionPlanCohort.count();
+    expect(await preview()).toEqual({
+      roomId: "available",
+      roomName: "B",
+      online: false,
+    });
+    expect(await db.sessionPlanningRequest.count()).toBe(0);
+    expect(await db.sessionPlanningOffer.count()).toBe(0);
+    expect(await db.sessionPlanningSuggestion.count()).toBe(0);
+    expect(await db.sessionPlanCohort.count()).toBe(before);
+  });
+  it("fails without physical rooms but permits an explicit Online proposal", async () => {
+    await expect(preview()).rejects.toThrow("No room is available");
+    expect(await preview({ online: true })).toEqual({
+      roomId: null,
+      roomName: null,
+      online: true,
+    });
+  });
+  it("does not release the original lesson for an extra and denies unrelated actors", async () => {
+    await db.room.create({ data: { id: "room", name: "Room" } });
+    const cohort = await source();
+    await expect(
+      preview({ date: cohort.date, startMin: cohort.startMin }),
+    ).rejects.toThrow();
+    await expect(
+      preview({}, { id: one.id, tutorId: tutor.tutorId }),
+    ).rejects.toThrow("Only this active tutor");
+    await expect(
+      preview({ expectedVersion: cohort.version + 1 }),
+    ).rejects.toThrow("session changed");
+  });
+  it("rechecks the reviewed room at submission without silently substituting another room", async () => {
+    await db.room.createMany({
+      data: [
+        { id: "room-a", name: "A" },
+        { id: "room-b", name: "B" },
+      ],
+    });
+    const allocation = await preview();
+    await db.roomUnavailability.create({
+      data: {
+        roomId: allocation.roomId!,
+        dayOfWeek: 2,
+        startMin: 890,
+        endMin: 960,
+      },
+    });
+    const cohort = await source();
+    await expect(
+      proposeSession(db, tutor, {
+        ...time(),
+        roomId: allocation.roomId,
+        cohortId: cohort.id,
+        expectedVersion: cohort.version,
+        clientKey: randomUUID(),
+        scope: "ALL",
+        kind: "EXTRA",
+      }),
+    ).rejects.toThrow("room is blocked");
+    expect(await db.sessionPlanningRequest.count()).toBe(0);
+    expect((await preview()).roomId).toBe("room-b");
+  });
+  it("allocates suggestions and current counteroffers without recording a response", async () => {
+    await db.room.create({ data: { id: "room", name: "Room" } });
+    expect(
+      (
+        await preview(
+          { mode: "suggest", kind: "RESCHEDULE" },
+          { id: one.id, tutorId: "" },
+        )
+      ).roomId,
+    ).toBe("room");
+    const { id } = await propose("ALL");
+    const { request, offer } = await current(id);
+    const allocation = await preview(
+      {
+        mode: "alternative",
+        requestId: id,
+        requestVersion: request.version,
+        offerId: offer.id,
+        date: "2026-11-04",
+      },
+      { id: one.id, tutorId: "" },
+    );
+    expect(allocation.roomId).toBe("room");
+    expect((await current(id)).offer.id).toBe(offer.id);
+    expect(
+      (await current(id)).offer.responses.find(
+        (row) => row.actorKey === "tutee:planning-one",
+      )?.state,
+    ).toBe("PENDING");
+    await expect(
+      preview(
+        {
+          mode: "alternative",
+          requestId: id,
+          requestVersion: request.version + 1,
+          offerId: offer.id,
+        },
+        { id: one.id, tutorId: "" },
+      ),
+    ).rejects.toThrow("no longer available");
+  });
 });
 
 describe("durable individual agreement", () => {

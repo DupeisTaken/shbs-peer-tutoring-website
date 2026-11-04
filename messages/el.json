@@ -51,7 +51,7 @@
     "date": "Ημερομηνία",
     "start": "Έναρξη",
     "end": "Λήξη",
-    "durationHelp": "Προγραμματισμένη διάρκεια: 45 λεπτά. Η αλλαγή της μίας ώρας ενημερώνει την άλλη. Η πραγματική διάρκεια καταγράφεται χωριστά.",
+    "durationHelp": "Προγραμματισμένα 45 λεπτά. Έναρξη και λήξη συνδέονται· η πραγματική παρουσία καταγράφεται χωριστά.",
     "zone": "Ζώνη ώρας σχολείου: {timeZone}",
     "extra": "Πρόσθετη συνάντηση",
     "rescheduled": "Μεταφέρθηκε",
@@ -139,7 +139,14 @@
       "B": "Εναλλακτική του εκπαιδευόμενου",
       "C": "Τελική πρόταση",
       "GROUP": "Ομαδική συμφωνία"
-    }
+    },
+    "includeAll": "Συμπερίληψη όλων των μαθητών αυτής της συνεδρίας",
+    "allScopeHelp": "Όλοι πρέπει να συμφωνήσουν με την τελευταία πρόταση.",
+    "oneScopeHelp": "Ισχύει μόνο για τον επιλεγμένο μαθητή.",
+    "automaticRoom": "Διά ζώσης — αυτόματη ανάθεση αίθουσας",
+    "checkingLocation": "Έλεγχος ώρας και τοποθεσίας…",
+    "allocationFailed": "Δεν επιβεβαιώθηκαν η ώρα και η τοποθεσία. Ελέγξτε τη συνεδρία, δοκιμάστε άλλη ώρα ή διαδικτυακά και ελέγξτε ξανά.",
+    "roomReviewHelp": "Η αίθουσα ελέγχεται ξανά κατά την αποστολή. Αν δεν είναι διαθέσιμη, ελέγξτε νέα ανάθεση."
   },
   "nextRecruitment": {
     "savedForTarget": "Η έναρξη αποθηκεύτηκε για {name}.",
@@ -2290,7 +2297,8 @@
       "rosterCount": "Εκκρεμότητες καταλόγου μαθητών ({count})",
       "interviewSection": "Συνεντεύξεις",
       "meetingSection": "Συναντήσεις",
-      "qualificationSection": "Προσόντα"
+      "qualificationSection": "Προσόντα",
+      "compactHelp": "Ελέγξτε εδώ τις εκκρεμότητες. Κάθε αίτημα ελέγχεται και αποθηκεύεται χωριστά."
     },
     "activate": {
       "title": "Επιβεβαιώστε τη διαθεσιμότητά σας",
@@ -2554,6 +2562,13 @@
       "openSchedule": "View Schedule",
       "interviews": "My interview appointments",
       "legacyHelp": "This schedule section has moved. Open Schedule to continue; your dashboard stays here until you choose the link."
+    },
+    "workspace": {
+      "label": "Χώρος εκπαιδευτή",
+      "schedule": "Πρόγραμμα",
+      "pairings": "Αντιστοιχίσεις",
+      "preferences": "Προτιμήσεις",
+      "history": "Ιστορικό και ώρες"
     }
   },
   "public": {
@@ -3210,11 +3225,12 @@
     "policyScrollHint": "Μεταβείτε στο τέλος της πολιτικής για να ενεργοποιήσετε τη συγκατάθεση.",
     "navigation": "Tutoring request workflow",
     "current": "Current Request",
-    "processed": "Processed",
+    "processed": "Κλειστά",
+    "notFlaggedInvalid": "Χωρίς επισήμανση ακυρότητας",
     "loading": "Loading requests…",
     "noActive": "You have no active confirmed request for this quarter. Check your email if you have just submitted.",
     "newRequest": "Submit a new request",
-    "noHistory": "No processed requests yet.",
+    "noHistory": "Δεν υπάρχουν ακόμη κλειστά αιτήματα.",
     "state": {
       "OPEN": "Open",
       "RECALLED": "Recalled",
@@ -3242,15 +3258,15 @@
     "saveAvailability": "Save availability",
     "participation": "Participation Changes",
     "abortHelp": "Because you have a tutor, leaving requires an application. Approval ends your participation and prevents any further applications this quarter.",
-    "recallHelp": "You can recall this unassigned request. It will move to Processed, and admins will be notified.",
+    "recallHelp": "Μπορείτε να αποσύρετε αυτό το αίτημα που δεν έχει ακόμη αντιστοιχιστεί. Θα μεταφερθεί στα Κλειστά και θα ειδοποιηθούν οι διαχειριστές.",
     "abortPending": "Your quarter-withdrawal application is awaiting admin review. Current assignments remain in place.",
     "applyAbort": "Apply to leave this quarter",
     "recall": "Recall request",
     "abortConsequences": "You are applying to leave the entire tutoring program for the current quarter. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this quarter. Admins and your tutors will be notified.",
-    "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
+    "recallConsequences": "Αυτό αποσύρει άμεσα και οριστικά το αίτημα που δεν έχει ακόμη αντιστοιχιστεί. Θα εμφανίζεται στα Κλειστά με ένδειξη απόσυρσης και θα ειδοποιηθούν οι διαχειριστές. Δεν μπορεί να ανοίξει ξανά. Μια νέα αίτηση θα λάβει νέο χρόνο υποβολής και προτεραιότητα.",
     "reason": "Reason",
     "boardTitle": "Tutee Request Workflow",
-    "boardHelp": "Match tutees in their original submission order, including unverified requests. Their seven-day verification deadline starts at the first assignment and never resets on resend or reassignment. Closed requests are retained as history.",
+    "boardHelp": "Όλες οι πηγές εγγραφής ταξινομούνται με βάση τον αρχικό χρόνο υποβολής. Το Needs matching περιλαμβάνει και μερικώς αντιστοιχισμένα αιτήματα· το Assigned σημαίνει ότι κάθε ζητούμενο μάθημα έχει εκπαιδευτή. Οι εκκρεμείς αποφάσεις, μαζί με τις ενστάσεις ακυρότητας, μεταφέρονται στο Needs review. Τα Κλειστά περιλαμβάνουν αιτήματα που έληξαν ή απορρίφθηκαν, άκυρες εγγραφές και ολοκληρωμένες αξιολογήσεις. Η άρση της επισήμανσης ακυρότητας επαναφέρει ένα ανοιχτό αίτημα στην κατάλληλη ομάδα. Οι αναθέσεις, η προτεραιότητα και οι προθεσμίες επαλήθευσης δεν αλλάζουν.",
     "matching": "Needs matching",
     "assigned": "Assigned",
     "reviews": "Needs review",
@@ -6825,7 +6841,9 @@
     "needsRoom": "Needs room",
     "awaiting": "Awaiting schedule",
     "all": "All pairings",
-    "filter": "Room allocation filter",
+    "active": "Ενεργά",
+    "pending": "Σε εκκρεμότητα",
+    "filter": "Φίλτρο αντιστοιχίσεων",
     "retryAllocation": "Retry room allocation",
     "retryHelp": "Retry automatic allocation for this reservation. Members of an explicit combined group share the change; independent pairings are not moved.",
     "retryRefresh": "Retry refresh",

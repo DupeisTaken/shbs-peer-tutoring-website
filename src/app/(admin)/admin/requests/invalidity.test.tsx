@@ -13,6 +13,7 @@ import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import zh from "../../../../../messages/zh.json";
 import en from "../../../../../messages/en.json";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { StudentRequestBoard } from "./student-request-board";
 import RequestsPage from "./page";
@@ -33,6 +34,9 @@ const mocks = vi.hoisted(() => ({
   periodLoading: false,
   role: "HEAD",
   state: "OPEN",
+  appealState: null as string | null,
+  legacyAppeal: false,
+  reviewState: null as string | null,
   currentVersion: 2,
   extraSubjects: [] as { id: string; name: string }[],
   pairings: null as
@@ -81,22 +85,27 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
   }) => {
     mocks.timedConfirm = onConfirm;
     return (
-    <div role="dialog" aria-label={title} data-target={target} aria-busy={busy}>
-      {error && <p role="alert">{error}</p>}
-      <button
-        disabled={busy}
-        onClick={() =>
-          void Promise.resolve(onConfirm("release-ticket")).catch(
-            () => undefined,
-          )
-        }
+      <div
+        role="dialog"
+        aria-label={title}
+        data-target={target}
+        aria-busy={busy}
       >
-        Confirm release
-      </button>
-      <button disabled={busy} onClick={onCancel}>
-        Cancel release
-      </button>
-    </div>
+        {error && <p role="alert">{error}</p>}
+        <button
+          disabled={busy}
+          onClick={() =>
+            void Promise.resolve(onConfirm("release-ticket")).catch(
+              () => undefined,
+            )
+          }
+        >
+          Confirm release
+        </button>
+        <button disabled={busy} onClick={onCancel}>
+          Cancel release
+        </button>
+      </div>
     );
   },
 }));
@@ -206,6 +215,7 @@ vi.mock("~/trpc/react", () => ({
     account: { me: { useQuery: () => ({ data: { role: mocks.role } }) } },
     studentWorkflow: {
       headUnassign: { useMutation: () => ({ mutateAsync: mocks.unassign }) },
+      resolveReview: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       resolveSignupAppeal: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       adminRequests: {
         useQuery: () => ({
@@ -228,7 +238,24 @@ vi.mock("~/trpc/react", () => ({
                     ...mocks.extraSubjects,
                   ],
                   slots: [],
-                  reviews: [],
+                  reviews: mocks.reviewState
+                    ? [
+                        {
+                          id: "review",
+                          kind: "STUDENT_ABORT",
+                          state: mocks.reviewState,
+                          reason: "Synthetic withdrawal",
+                          createdAt: new Date("2026-10-01"),
+                        },
+                      ]
+                    : [],
+                  appeal: mocks.appealState
+                    ? {
+                        id: "appeal",
+                        state: mocks.appealState,
+                        reason: "Synthetic correction",
+                      }
+                    : null,
                   pairings:
                     mocks.pairings ??
                     (mocks.assigned
@@ -309,6 +336,7 @@ vi.mock("~/trpc/react", () => ({
                   : null,
               owner: mocks.legacyOwner,
               signupSource: mocks.source,
+              hasPendingInvalidityAppeal: mocks.legacyAppeal,
               signupSubmittedAt: new Date("2026-10-01"),
               createdAt: new Date("2026-10-01"),
               updatedAt: new Date("2026-10-01"),
@@ -357,8 +385,10 @@ const content = (
 );
 const show = (legacy = false, viewer = false) => {
   const view = render(content(legacy, viewer));
-  if (mocks.invalid)
+  if (mocks.invalid) {
+    if (!viewer) fireEvent.click(screen.getByRole("tab", { name: /Closed/ }));
     fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
+  }
   return view;
 };
 beforeEach(() => {
@@ -377,6 +407,9 @@ beforeEach(() => {
   mocks.periodLoading = false;
   mocks.role = "HEAD";
   mocks.state = "OPEN";
+  mocks.appealState = null;
+  mocks.legacyAppeal = false;
+  mocks.reviewState = null;
   mocks.currentVersion = 2;
   mocks.extraSubjects = [];
   mocks.pairings = null;
@@ -613,7 +646,7 @@ it.each([true, false])(
     mocks.verified = verified;
     mocks.state = "INVALID_REJECTED";
     show();
-    fireEvent.click(screen.getByRole("tab", { name: /Processed/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Closed/ }));
     expect(
       screen.getByText(
         en.survey[verified ? "requestConfirmed" : "requestIncomplete"],
@@ -627,7 +660,7 @@ it.each([true, false])(
   },
 );
 
-it("keeps a flagged public request visible in its original queue without assignment controls or inline private reason", () => {
+it("keeps a flagged public request visible in Closed without assignment controls or inline private reason", () => {
   show();
   expect(screen.getByText("Public survey student")).toBeTruthy();
   expect(screen.getByText("Invalid entry")).toBeTruthy();
@@ -636,7 +669,7 @@ it("keeps a flagged public request visible in its original queue without assignm
   ).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(screen.queryByText("Private staff reason")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
+  fireEvent.click(screen.getByRole("button", { name: "Not flagged invalid" }));
   expect(screen.queryByText("Public survey student")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
   expect(screen.getByText("Public survey student")).toBeTruthy();
@@ -645,7 +678,12 @@ it("keeps a flagged public request visible in its original queue without assignm
 it("retains prior assignment evidence for an invalid request", () => {
   mocks.assigned = true;
   show();
-  fireEvent.click(screen.getByRole("tab", { name: /Assigned.*1/ }));
+  expect(screen.getByRole("tab", { name: /Assigned.*0/ })).toBeTruthy();
+  expect(
+    screen
+      .getByRole("tab", { name: /Closed.*1/ })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
   expect(screen.getByText("Existing Tutor")).toBeTruthy();
   expect(screen.getByText("Invalid entry")).toBeTruthy();
 });
@@ -704,7 +742,7 @@ it.each([
     const name = legacy ? "Legacy public student" : "Public survey student";
     const mutation = legacy ? mocks.changeSignup : mocks.changeSurvey;
     const view = show(legacy);
-    fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
+    fireEvent.click(screen.getByRole("button", { name: "Not flagged invalid" }));
     fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
     fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
       target: { value: "My pending signup review" },
@@ -758,7 +796,7 @@ it.each([
     const view = show(legacy);
     fireEvent.click(
       screen.getByRole("button", {
-        name: clearing ? "Invalid entries" : "Active entries",
+        name: clearing ? "Invalid entries" : "Not flagged invalid",
       }),
     );
     fireEvent.click(
@@ -1101,7 +1139,7 @@ it.each(["RECALLED", "DISQUALIFIED", "ABORTED", "INVALID_REJECTED"])(
       },
     ];
     render(content());
-    fireEvent.click(screen.getByRole("tab", { name: /Processed.*1/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Closed.*1/ }));
     const card = screen
       .getByRole("heading", { name: "Public survey student" })
       .closest("article")!;
@@ -1498,8 +1536,12 @@ it("ignores a late timed assignment ticket after access is revoked and restored"
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(mocks.assign).not.toHaveBeenCalled();
   openSubjectAssignment();
-  await act(async () => { await staleTimedConfirm("stale-ticket"); });
-  expect(screen.queryByRole("dialog", { name: "Assignment consequences" })).toBeNull();
+  await act(async () => {
+    await staleTimedConfirm("stale-ticket");
+  });
+  expect(
+    screen.queryByRole("dialog", { name: "Assignment consequences" }),
+  ).toBeNull();
   expect(mocks.assign).not.toHaveBeenCalled();
 });
 
@@ -1507,9 +1549,18 @@ it("retains read-only assignment recovery when access changes during an accepted
   mocks.invalid = false;
   mocks.invalidateTutees.mockRejectedValue(new Error("Read unavailable"));
   let accept!: (value: { ok: boolean; emailSent: boolean }) => void;
-  mocks.assign.mockImplementationOnce(() => new Promise((resolve) => { accept = resolve; }));
+  mocks.assign.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        accept = resolve;
+      }),
+  );
   const page = render(content());
-  fireEvent.click(within(reviewSubjectAssignment()).getByRole("button", { name: "Confirm assignment" }));
+  fireEvent.click(
+    within(reviewSubjectAssignment()).getByRole("button", {
+      name: "Confirm assignment",
+    }),
+  );
   expect(mocks.assign).toHaveBeenCalledOnce();
   page.rerender(content(false, true));
   await act(async () => { accept({ ok: true, emailSent: true }); });
@@ -1517,7 +1568,100 @@ it("retains read-only assignment recovery when access changes during an accepted
   await screen.findByRole("button", { name: en.signupEditing.retryRefresh });
   page.rerender(content());
   mocks.invalidateTutees.mockResolvedValue(undefined);
-  fireEvent.click(screen.getByRole("button", { name: en.signupEditing.retryRefresh }));
-  await waitFor(() => expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.signupEditing.retryRefresh }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull(),
+  );
   expect(mocks.assign).toHaveBeenCalledOnce();
+});
+
+it.each([false, true])(
+  "moves invalid requests between Closed and Needs review on appeal updates (legacy=%s)",
+  (legacy) => {
+    mocks.survey = !legacy;
+    const view = render(content(legacy));
+    expect(
+      screen
+        .getByRole("button", { name: "All entries" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByRole("tab", { name: /^Closed 1$/ })).toBeTruthy();
+    expect(
+      screen.getByRole("tab", { name: /^Needs matching 0$/ }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /^Closed 1$/ }));
+    mocks.appealState = "PENDING";
+    mocks.legacyAppeal = true;
+    view.rerender(content(legacy));
+    expect(
+      screen
+        .getByRole("tab", { name: /^Closed 0$/ })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: /^Needs review 1$/ }));
+    expect(screen.queryByText(en.workflow.emptySection)).toBeNull();
+    if (!legacy) expect(screen.getByText("Synthetic correction")).toBeTruthy();
+    else
+      expect(
+        screen.getByRole("button", { name: "Review invalid flag" }),
+      ).toBeTruthy();
+    mocks.appealState = "REJECTED";
+    mocks.legacyAppeal = false;
+    view.rerender(content(legacy));
+    expect(screen.getByRole("tab", { name: /^Needs review 0$/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /^Closed 1$/ }));
+    expect(screen.getByText("Invalid entry")).toBeTruthy();
+    mocks.invalid = false;
+    mocks.assigned = true;
+    view.rerender(content(legacy));
+    expect(screen.getByRole("tab", { name: /^Closed 0$/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: /^Assigned 1$/ }));
+    expect(screen.getByText(legacy ? /Legacy public student/ : "Public survey student")).toBeTruthy();
+  },
+);
+
+it("moves an assigned request into review and returns it after a declined withdrawal", () => {
+  mocks.invalid = false;
+  mocks.assigned = true;
+  mocks.reviewState = "PENDING";
+  const view = render(content());
+  expect(screen.getByRole("tab", { name: /^Assigned 0$/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: /^Needs review 1$/ }));
+  expect(screen.getByText("Synthetic withdrawal")).toBeTruthy();
+  expect(document.getElementById("request-survey-survey-1")).toBeTruthy();
+  mocks.reviewState = "DENIED";
+  view.rerender(content());
+  expect(screen.getByRole("tab", { name: /^Needs review 0$/ })).toBeTruthy();
+  expect(screen.getByRole("tab", { name: /^Closed 0$/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: /^Assigned 1$/ }));
+  expect(screen.getByText("Existing Tutor")).toBeTruthy();
+});
+
+
+it("reveals an invalid survey notification in Needs review while its appeal is pending", () => {
+  mocks.appealState = "PENDING";
+  window.history.replaceState(null, "", "/admin/requests#request-survey-survey-1");
+  const view = render(<SessionViewProvider identity="head" pathname="/admin/requests" verified>{content()}</SessionViewProvider>);
+  expect(screen.getByRole("tab", { name: /^Needs review 1$/ }).getAttribute("aria-selected")).toBe("true");
+  expect(document.querySelectorAll("#request-survey-survey-1")).toHaveLength(1);
+  expect(screen.getByText("Synthetic correction")).toBeTruthy();
+  expect(screen.getByRole("tab", { name: /^Closed 0$/ })).toBeTruthy();
+  view.unmount();
+  window.history.replaceState(null, "", "/");
+});
+
+
+it.each([
+  { invalid: false, state: "OPEN", expected: /^Assigned 1$/ },
+  { invalid: true, state: "INVALID_REJECTED", expected: /^Closed 1$/ },
+])("does not revive an obsolete pending appeal (invalid=$invalid, state=$state)", ({ invalid, state, expected }) => {
+  mocks.invalid = invalid;
+  mocks.state = state;
+  mocks.assigned = true;
+  mocks.appealState = "PENDING";
+  render(content());
+  expect(screen.getByRole("tab", { name: /^Needs review 0$/ })).toBeTruthy();
+  expect(screen.getByRole("tab", { name: expected })).toBeTruthy();
 });

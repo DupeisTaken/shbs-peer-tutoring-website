@@ -20,7 +20,12 @@ import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
-import { DashboardScheduleLinks } from "~/app/(tutor)/_components/dashboard-schedule-links";
+import { TutorWorkspace } from "~/app/(tutor)/_components/tutor-workspace";
+import { TutorSchedule } from "~/app/(tutor)/_components/tutor-schedule";
+import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
+import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
+import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
+import { PersonalTutorHistory } from "~/app/history/personal-tutor-history";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -39,23 +44,24 @@ export default async function TutorDashboard() {
   const inactive = me.status !== "ACTIVE";
   const pending = me.status === "PENDING";
 
-  const [total, crew, features] = await Promise.all([
+  const [total, crew, features, rooms] = await Promise.all([
     api.tutor.myMonthlyTotal(),
     api.tutor.myCrew(),
     getFeatures(db),
+    api.tutor.schedule(),
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7 px-4 py-5 sm:space-y-8 sm:py-8">
+    <div className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:py-6">
       <SessionPagePosition
         id="tutor-dashboard-v1"
         scope={`${me.status}:${total.periodLabel ?? ""}`}
         ready
       />
       {/* Header + monthly service-hour earnings */}
-      <section className="border-accent-100 bg-accent-50/45 rounded-xl border px-4 py-5 sm:px-6 sm:py-6">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="text-center sm:text-left">
+      <section className="border-accent-100 bg-accent-50/45 rounded-xl border p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="page-title">
               {t("dashboard.greeting", { name: session?.user?.name ?? "" })}
             </h1>
@@ -63,12 +69,12 @@ export default async function TutorDashboard() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end lg:justify-end">
             {features.SERVICE_HOURS && (
-              <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 text-center shadow-sm sm:text-right">
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-right">
                 <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
                   {t("dashboard.hours.title")}
                   {total.periodLabel ? ` · ${total.periodLabel}` : ""}
                 </p>
-                <p className="text-3xl font-bold text-slate-900">
+                <p className="text-xl font-bold text-slate-900">
                   {total.total.toFixed(1)} h
                 </p>
                 <p className="muted">
@@ -84,11 +90,11 @@ export default async function TutorDashboard() {
             )}
             {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
             {features.CREW && crew.isCrew && (
-              <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 text-center shadow-sm sm:text-right">
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-right">
                 <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
                   {t("tutor.dashboard.crew.title")}
                 </p>
-                <p className="text-3xl font-bold text-slate-900">
+                <p className="text-xl font-bold text-slate-900">
                   {crew.hours.toFixed(1)} h
                 </p>
                 <p className="muted">
@@ -127,60 +133,105 @@ export default async function TutorDashboard() {
         </div>
       )}
 
-      <section
-        id="tutor-pairings"
-        tabIndex={-1}
-        className="card scroll-mt-6 p-4 sm:p-5"
-      >
-        <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
-        <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
-        <TutorPairings active={!inactive} />
-      </section>
-
-      <DashboardTasks
-        status={me.status}
-        interviewsEnabled={features.INTERVIEWS}
-        meetingsEnabled={features.MEETINGS}
-        now={new Date()}
-      />
-      <DashboardScheduleLinks
-        interviewsEnabled={!inactive && features.INTERVIEWS}
-      />
-
-      {/* Unresolved work remains expanded. Only optional editors and completed
-          evidence use disclosures, which retain mounted drafts when collapsed. */}
-      {!inactive && features.INTERVIEWS && <MyInterviews audience="chair" />}
-      <QualificationRequests
-        active={!inactive}
-        viewScope={total.periodLabel ?? ""}
-      />
-      <section
-        id="tutor-preferences"
-        tabIndex={-1}
-        className="scroll-mt-6 space-y-4"
-      >
-        <SubjectWillingness />
-        <section className="card p-4 sm:p-5">
-          <h2 className="section-title">{t("dashboard.availability.title")}</h2>
-          <p className="muted mt-1 mb-4 text-sm">
-            {t("dashboard.availability.help")}
-          </p>
-          {inactive && <TutorWorkloadPreference summaryOnly />}
-          {!inactive && (
-            <DisclosureSection
-              title={t("dashboard.availability.edit")}
-              lifetime="retained"
+      <TutorWorkspace
+        attention={
+          <DashboardTasks
+            status={me.status}
+            interviewsEnabled={features.INTERVIEWS}
+            meetingsEnabled={features.MEETINGS}
+            now={new Date()}
+            compact
+          />
+        }
+        schedule={
+          <div className="space-y-4">
+            <TutorSchedule
+              active={!inactive}
+              interviewsEnabled={features.INTERVIEWS}
+              meetingsEnabled={features.MEETINGS}
+              now={new Date()}
+              compact
+            />
+            {!inactive && features.INTERVIEWS && (
+              <div id="chair-interviews" tabIndex={-1}>
+                <MyInterviews audience="chair" />
+              </div>
+            )}
+            <section
+              id="room-schedule"
+              tabIndex={-1}
+              className="scroll-mt-6 space-y-3"
             >
-              <AvailabilityEditor />
-              {/* Independent sibling forms retain their own drafts and save recovery. */}
-              <TutorWorkloadPreference embedded />
-            </DisclosureSection>
-          )}
-        </section>
-      </section>
+              <ProgramCalendarNotice />
+              <SchoolCalendarNotice />
+              <DisclosureSection
+                title={t("dashboard.schedule.title")}
+                lifetime="retained"
+              >
+                <TutorRoomSchedule initialData={rooms} />
+              </DisclosureSection>
+            </section>
+          </div>
+        }
+        pairings={
+          <div className="space-y-4">
+            <section
+              id="tutor-pairings"
+              tabIndex={-1}
+              className="card scroll-mt-6 p-4 sm:p-5"
+            >
+              <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
+              <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
+              <TutorPairings active={!inactive} />
+            </section>
 
-      {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}
-      {!inactive && features.DISCIPLINE && <TutorDiscipline />}
+            {!inactive && features.DISCIPLINE && <TutorDiscipline />}
+          </div>
+        }
+        preferences={
+          <div className="space-y-4">
+            <QualificationRequests
+              active={!inactive}
+              viewScope={total.periodLabel ?? ""}
+            />
+            <section
+              id="tutor-preferences"
+              tabIndex={-1}
+              className="scroll-mt-6 space-y-4"
+            >
+              <SubjectWillingness />
+              <section className="card p-4 sm:p-5">
+                <h2 className="section-title">
+                  {t("dashboard.availability.title")}
+                </h2>
+                <p className="muted mt-1 mb-4 text-sm">
+                  {t("dashboard.availability.help")}
+                </p>
+                {inactive && <TutorWorkloadPreference summaryOnly />}
+                {!inactive && (
+                  <DisclosureSection
+                    title={t("dashboard.availability.edit")}
+                    lifetime="retained"
+                  >
+                    <AvailabilityEditor />
+                    {/* Independent sibling forms retain their own drafts and save recovery. */}
+                    <TutorWorkloadPreference embedded />
+                  </DisclosureSection>
+                )}
+              </section>
+            </section>
+          </div>
+        }
+        history={
+          <section
+            id="tutor-history"
+            tabIndex={-1}
+            className="card scroll-mt-6 p-4 sm:p-5"
+          >
+            <PersonalTutorHistory />
+          </section>
+        }
+      />
     </div>
   );
 }
