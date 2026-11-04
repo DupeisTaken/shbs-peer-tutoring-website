@@ -352,7 +352,8 @@ export function TutorSchedule({
     ]);
     if (compact)
       return (
-        <div className="space-y-3">
+        // SessionAgenda renders this overview beside the agenda in every read state.
+        <div className="mb-6 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="compact"
