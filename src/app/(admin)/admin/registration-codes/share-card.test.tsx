@@ -48,6 +48,34 @@ function show(locale = "en", readOnly = false, extra = {}) {
 
 describe("setup card image export", () => {
   it.each(REGISTRATION_KINDS)(
+    "renders inactive %s history without a redemption claim or supplied actions",
+    (kind) => {
+      const { container } = show("en", false, {
+        kind,
+        inactive: true,
+        code: "ABCD1234EFGH",
+      });
+      const code = screen.getByText("ABCD1234EFGH");
+      const card = code.closest<HTMLElement>("[data-account-setup-card]")!;
+      expect(card).toBeTruthy();
+      expect(
+        within(card).getByText(
+          en.admin.registrationCodes[registrationKindLabel[kind]],
+        ),
+      ).toBeTruthy();
+      expect(
+        within(card).getByText(en.admin.registrationCodes.invalidNote),
+      ).toBeTruthy();
+      expect(code.classList.contains("line-through")).toBe(true);
+      expect(container.querySelector("[data-code-purpose]")).toBeNull();
+      expect(card.textContent).not.toContain(props.registerUrl);
+      expect(card.textContent).not.toContain("2099");
+      expect(screen.queryByRole("button")).toBeNull();
+      expect(downloadCardImage).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(REGISTRATION_KINDS)(
     "exports the %s card without surrounding actions",
     async (kind) => {
       show("en", false, { kind });

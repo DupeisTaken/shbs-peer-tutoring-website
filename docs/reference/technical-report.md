@@ -2228,6 +2228,12 @@ are unchanged; no missing map entry may produce an invalid confirmation instant.
 
 ### Management registration codes
 
+Expanded used and expired codes reuse the active setup card's centered layout,
+heading and role. Their gray surface and outline, struck-through code and localized
+invalid notice identify historical codes without redemption instructions or share,
+export or revoke actions. Masked codes retain the no-code fallback; this presentation
+does not change code visibility or validity.
+
 Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Admin/Head can issue Tutor/Crew/Admin/Coordinator codes directly (including the legacy omitted-kind Tutor default). Coordinators can request Tutor/Crew invitations for Admin/Head review but cannot request management-role invitations. The input-dependent policy preserves review of Coordinator proposals and records direct Admin/Head issuance in the transactional audit trail. Admin/Head can list, share and revoke management codes. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 
 Admin/Coordinator redemption requires mailbox proof and explicit review. New accounts receive management access without Tutor, Crew, Tutee or Translator participation. Existing primary or verified-secondary email owners retain credentials, identity and participant attachments; the resulting rank is the higher of the existing and invited management ranks. An exclusive Viewer transitions out of Viewer when accepting this authorized upgrade. No code grants Head or demotes a higher rank. Expiry, rate limits, email binding, issuer authority and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
