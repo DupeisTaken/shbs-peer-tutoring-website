@@ -255,14 +255,45 @@ describe("registration code export availability", () => {
     expect(state.revoke).not.toHaveBeenCalled();
   });
 
-  it.each(["used", "expired"])("does not export %s records", (status) => {
-    state.status = status;
-    show();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Expand: Test invitation" }),
-    );
-    expect(screen.queryByRole("button", { name: "Export Image" })).toBeNull();
-  });
+  it.each([
+    ["en", "used"],
+    ["en", "expired"],
+    ["zh", "used"],
+    ["zh", "expired"],
+  ] as const)(
+    "shows the inactive card without sharing or redemption instructions (%s %s)",
+    (locale, status) => {
+      state.status = status;
+      show(false, locale);
+      const text = locale === "zh" ? chinese : messages;
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: `${text.admin.registrationCodes.expand}: Test invitation`,
+        }),
+      );
+      const code = screen.getByText("TEST5");
+      const card = code.closest<HTMLElement>("[data-account-setup-card]")!;
+      expect(card).toBeTruthy();
+      expect(
+        within(card).getByText(text.admin.registrationCodes.kindTutor),
+      ).toBeTruthy();
+      expect(
+        within(card).getByText(text.admin.registrationCodes.invalidNote),
+      ).toBeTruthy();
+      expect(code.classList.contains("line-through")).toBe(true);
+      expect(card.textContent).not.toContain("/register");
+      for (const name of ["copy", "revoke", "exportImage"] as const) {
+        expect(
+          screen.queryByRole("button", {
+            name: text.admin.registrationCodes[name],
+          }),
+        ).toBeNull();
+      }
+      expect(downloadCardImage).not.toHaveBeenCalled();
+      expect(state.issue).not.toHaveBeenCalled();
+      expect(state.revoke).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not offer export for masked records", () => {
     state.code = null;
@@ -360,7 +391,9 @@ it.each(["TUTOR", "CREW"] as const)(
       target: { value: "ADMIN" },
     });
     expect(
-      screen.getByRole("button", { name: messages.admin.registrationCodes.issue }),
+      screen.getByRole("button", {
+        name: messages.admin.registrationCodes.issue,
+      }),
     ).toBeTruthy();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: kind } });
     fireEvent.click(

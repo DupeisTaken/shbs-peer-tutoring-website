@@ -120,8 +120,7 @@ export default function RegistrationCodesPage() {
   const [label, setLabel] = useState("");
   const [kind, setKind] = useState<RegistrationKind>("TUTOR");
   // Match issuance authority for the selected kind without broadening revocation.
-  const canIssueDirectly =
-    isHead || role === "ADMIN";
+  const canIssueDirectly = isHead || role === "ADMIN";
   const [issued, setIssued] = useState<{
     code: string;
     label: string | null;
@@ -477,27 +476,15 @@ export default function RegistrationCodesPage() {
                 className="mt-3 space-y-3 border-t border-slate-100 pt-3"
               >
                 {open &&
-                  (c.code && c.status === "active" ? (
+                  (c.code ? (
                     <ShareCard
                       key={c.code}
                       code={c.code}
                       kind={c.kind}
                       expiresAt={c.expiresAt}
                       registerUrl={registerUrl}
+                      inactive={c.status !== "active"}
                     />
-                  ) : c.code ? (
-                    // Used / expired: the code is no longer shareable.
-                    <div>
-                      <p className="label">
-                        {t("admin.registrationCodes.codeLabel")}
-                      </p>
-                      <p className="font-mono text-2xl font-bold tracking-[0.3em] text-slate-400 line-through">
-                        {c.code}
-                      </p>
-                      <p className="muted text-xs">
-                        {t("admin.registrationCodes.invalidNote")}
-                      </p>
-                    </div>
                   ) : (
                     <p className="muted text-sm">
                       {t("admin.registrationCodes.noCode")}
