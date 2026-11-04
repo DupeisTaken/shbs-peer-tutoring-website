@@ -1731,10 +1731,22 @@ ordinary tutoring recurrence that owns it. Calendar subscriptions remain tutorin
 Sources refresh independently every 30 seconds. A failed or denied source cannot
 erase usable sibling appointments; denied cached evidence stays concealed until a
 successful authorized read. Disabled sources are neither queried nor projected.
-Unscheduled and past-open interviews remain tasks even if completion was recorded;
+Upcoming retains past dated open interviews outside the two-week window until a
+terminal decision, using the same server filter before keyset pagination. History
+contains decided/recalled interviews; recording completion alone cannot close voting
+or decision work. Unscheduled and past-open interviews remain tasks even if completion was recorded;
 decided interviews missing completion evidence remain follow-ups. Their work/history
 entry retains records beyond the dated window. Rendering performs no new writes;
 existing tutoring agenda reads retain their publication and deadline behavior.
+
+The shared [agenda event card](../../src/app/_components/agenda-event-card.tsx)
+separates event type, time/context, status and actions. Fixed indigo/violet/sky/teal
+type colors stay independent of accent selection. Yellow Needs Action identifies
+missing tutoring attendance or the assigned tutor's missing INTERVIEW vote; a
+recorded vote on an open interview shows Vote recorded / Awaiting decision rather
+than Completed. Meetings do not create tutor attendance duties. Excused for Absence
+uses EXCUSED_ABSENT status, including staff-recorded excuses without excusedAt;
+excusedAt continues to govern the separate self-excuse cancellation workflow.
 
 Panelist detail opens lazily into one retained controller and reuses the existing
 vote operation. Each deliberately opened interview keeps its draft across Close and

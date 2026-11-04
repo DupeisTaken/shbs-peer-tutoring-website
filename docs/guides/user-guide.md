@@ -636,7 +636,15 @@ The tutor workspace opens on **Schedule**. Switch locally to **Pairings**,
 **Preferences**, or **History & hours**; unfinished editors stay available when you
 return. **Pairings** holds recurring assignments. **My agenda** shows the
 current and next Monday–Sunday week in the school timezone; Sunday prepares the
-following window. Start with **Message to coordinate** to agree on a workable
+following window. **Upcoming** also keeps ended sessions missing attendance and
+past open interviews until their decision. Yellow **Needs Action** marks your
+missing attendance or interview vote. **Vote recorded / Awaiting decision** means
+your vote is saved while the interview remains open; it is not yet Completed.
+**Excused for Absence** identifies an excused meeting, including a staff-recorded
+excuse. Meetings awaiting staff attendance records do not require you to record
+attendance. Event type colors distinguish regular sessions, extras, interviews and
+meetings; completed tutoring and decided interviews remain available in History.
+Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept
 a schedule change.
 

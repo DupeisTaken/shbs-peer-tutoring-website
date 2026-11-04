@@ -127,6 +127,39 @@ vi.mock("~/app/(tutor)/_components/attendance-form", () => ({
 }));
 
 const messages = en.sessionPlanning;
+
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "describes missing attendance without assigning the tutee a recording duty (%s)",
+  (locale, catalog) => {
+    render(
+      <NextIntlClientProvider
+        locale={locale}
+        timeZone="Asia/Shanghai"
+        messages={catalog}
+      >
+        <SessionAgenda role="tutee" />
+      </NextIntlClientProvider>,
+    );
+    const card = screen.getByRole("article");
+    expect(
+      within(card).getByText(catalog.agendaEvents.awaitingAttendance),
+    ).toBeTruthy();
+    expect(
+      within(card).queryByText(catalog.agendaEvents.needsAction),
+    ).toBeNull();
+    expect(
+      within(card).queryByText(catalog.agendaEvents.attendanceNeeded),
+    ).toBeNull();
+    expect(
+      within(card).queryByRole("button", {
+        name: catalog.sessionPlanning.record,
+      }),
+    ).toBeNull();
+  },
+);
 const sample = (): Agenda => ({
   timeZone: "Asia/Shanghai",
   windowStart: "2026-10-26",
@@ -787,6 +820,14 @@ it("keeps ended missing attendance in Upcoming and its overview, preserving a dr
       .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(screen.queryByText("Already recorded")).toBeNull();
+  const overdue = document.getElementById("session-cohort-synthetic")!;
+  expect(
+    within(overdue).getByText(en.agendaEvents.needsAction).className,
+  ).toContain("bg-yellow-100");
+  expect(
+    within(overdue).getByText(en.agendaEvents.attendanceNeeded),
+  ).toBeTruthy();
+  expect(within(overdue).queryByText(en.agendaEvents.completed)).toBeNull();
   fireEvent.click(
     within(screen.getByRole("region", { name: "Overview test" })).getByRole(
       "button",
@@ -799,6 +840,11 @@ it("keeps ended missing attendance in Upcoming and its overview, preserving a dr
   );
   expect(screen.getByRole("dialog")).toBe(draft);
   expect(screen.getByText("Already recorded")).toBeTruthy();
+  expect(
+    within(document.getElementById("session-recorded")!).getByText(
+      en.agendaEvents.completed,
+    ),
+  ).toBeTruthy();
   fireEvent.click(
     screen.getByRole("button", { name: en.unifiedSchedule.filter.all }),
   );
