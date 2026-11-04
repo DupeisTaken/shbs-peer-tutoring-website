@@ -155,8 +155,16 @@ and above it on narrow screens. Show a single shared subject once; retain each
 student’s subject associations for mixed-subject groups. Keep dated-session
 navigation and retained assignment controls in the summary footer. Dashboard hour
 summaries separate the reporting period, primary total and wrapping breakdown;
-Crew credit remains distinct from tutoring credit. These feature-local compositions
-do not change scheduling, room intent, calculation or save ownership.
+Crew credit remains distinct from tutoring credit. Align the hours labels, period,
+totals and wrapping breakdown to the right edge of their header summary cards.
+These feature-local compositions do not change scheduling, room intent,
+calculation or save ownership.
+
+Keep a confirmed room name and its allocation-status badge inline, with the badge
+immediately after the name and natural wrapping for long names or narrow screens.
+Use `RoomAllocationStatus` across tutor summaries, tutee weekly arrangements and
+management details; an unscheduled room selection still displays only its awaiting
+status and must not imply a reservation.
 
 Put room Move up and Move down controls in the existing room rows, beside the
 other row actions. Do not introduce a separate ordering menu or duplicate room

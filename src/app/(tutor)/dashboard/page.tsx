@@ -71,9 +71,9 @@ export default async function TutorDashboard() {
             {features.SERVICE_HOURS && (
               <section
                 aria-label={t("dashboard.hours.title")}
-                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 sm:w-72 sm:max-w-full"
+                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right sm:w-72 sm:max-w-full"
               >
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-slate-600">
+                <div className="space-y-1 text-xs text-slate-600">
                   <h2 className="font-semibold">
                     {t("dashboard.hours.title")}
                   </h2>
@@ -86,7 +86,7 @@ export default async function TutorDashboard() {
                   </span>
                 </p>
                 {/* Separate terms wrap independently without changing the server's total. */}
-                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-xs text-slate-600 tabular-nums">
+                <ul className="mt-3 flex flex-wrap justify-end gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-xs text-slate-600 tabular-nums">
                   <li>
                     {t("tutor.dashboard.hours.earned", {
                       earned: total.earned.toFixed(1),
@@ -113,7 +113,7 @@ export default async function TutorDashboard() {
             {features.CREW && crew.isCrew && (
               <section
                 aria-label={t("tutor.dashboard.crew.title")}
-                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4"
+                className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 text-right"
               >
                 <h2 className="text-xs font-semibold text-slate-600">
                   {t("tutor.dashboard.crew.title")}
