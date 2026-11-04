@@ -2,6 +2,7 @@
 import { useId, useState } from "react";
 import { Button } from "~/app/_components/ui/button";
 import { Modal } from "~/app/_components/ui/modal";
+import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
 import {
   SummaryTable,
   TableAction,
@@ -27,6 +28,61 @@ export function AdminSummaryRecipe({ locale }: { locale: "en" | "zh" }) {
           ? "摘要、控件行与重要操作"
           : "Summaries, control rows and consequential actions"}
       </h2>
+      <section
+        aria-label={zh ? "教室名称与状态" : "Room names and status"}
+        className="space-y-3"
+      >
+        <h3 className="font-semibold">
+          {zh ? "教室名称与状态" : "Room names and status"}
+        </h3>
+        <p className="text-sm text-slate-600">
+          {zh
+            ? "状态紧随教室名称，空间不足时换行。等待排期的教室选择不表示已预留。"
+            : "Status follows the room name and wraps when needed. An unscheduled room choice is not a reservation."}
+        </p>
+        <ul className="space-y-3 text-sm">
+          {[
+            {
+              room: { name: "A101" },
+              roomMode: "FIXED",
+              roomNeedsAssignment: false,
+              scheduleConfirmed: true,
+            },
+            {
+              room: {
+                name: zh
+                  ? "学习共享空间——北翼协作教学教室"
+                  : "Learning commons — north wing collaborative teaching room",
+              },
+              roomMode: "AUTO",
+              roomNeedsAssignment: false,
+              scheduleConfirmed: true,
+            },
+            {
+              room: null,
+              roomMode: "AUTO",
+              roomNeedsAssignment: true,
+              scheduleConfirmed: true,
+            },
+            {
+              room: null,
+              roomMode: "NONE",
+              roomNeedsAssignment: false,
+              scheduleConfirmed: true,
+            },
+            {
+              room: { name: "B202" },
+              roomMode: "FIXED",
+              roomNeedsAssignment: false,
+              scheduleConfirmed: false,
+            },
+          ].map((pairing, index) => (
+            <li key={index}>
+              <RoomAllocationStatus pairing={pairing} />
+            </li>
+          ))}
+        </ul>
+      </section>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
         {/* Use the production label/input sibling tracks; badges never reserve
          * a cell that could move an automatically placed spanning label. */}

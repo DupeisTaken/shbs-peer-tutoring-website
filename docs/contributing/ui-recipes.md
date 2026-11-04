@@ -25,6 +25,13 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The management summary recipe also uses the production `RoomAllocationStatus`
+reader. Check fixed and automatic room names followed by their status, long
+translated names wrapping at narrow widths, and distinct shortage, intentional
+roomless and awaiting-schedule states. An unscheduled fixed-room choice must not
+appear as a reservation. Verify the tutor/tutee arrangements and management pairing
+details as well as the gallery; these synthetic examples do not allocate rooms.
+
 The [notification preference recipe](../../src/app/ui-gallery/notification-preferences-recipe.tsx)
 uses `SettingRow` with `stackOnMobile` so multiple controls sit below full-width
 descriptions on narrow screens; existing inline settings retain their layout. It

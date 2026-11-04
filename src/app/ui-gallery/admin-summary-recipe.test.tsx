@@ -13,6 +13,50 @@ import zh from "../../../messages/zh.json";
 import { AdminSummaryRecipe } from "./admin-summary-recipe";
 afterEach(cleanup);
 it.each(["en", "zh"] as const)(
+  "shows persisted room facts and keeps shortage, roomless and unscheduled states distinct (%s)",
+  (locale) => {
+    const catalog = locale === "en" ? en : zh;
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <AdminSummaryRecipe locale={locale} />
+      </NextIntlClientProvider>,
+    );
+    const rooms = within(
+      screen.getByRole("region", {
+        name: locale === "en" ? "Room names and status" : "教室名称与状态",
+      }),
+    );
+    expect(rooms.getAllByRole("listitem")).toHaveLength(5);
+    const labels = catalog.roomAllocation;
+    for (const [name, status] of [
+      ["A101", labels.mode.FIXED],
+      [
+        locale === "en"
+          ? "Learning commons — north wing collaborative teaching room"
+          : "学习共享空间——北翼协作教学教室",
+        labels.mode.AUTO,
+      ],
+    ] as const) {
+      const room = rooms.getByText(name);
+      const row = within(room.closest("li")!);
+      expect(
+        room.compareDocumentPosition(row.getByText(status)) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    for (const status of [
+      labels.needsRoom,
+      labels.mode.NONE,
+      labels.awaiting,
+    ]) {
+      const label = rooms.getByText(status);
+      expect(label.closest("li")?.textContent).toBe(status);
+    }
+    expect(rooms.queryByText("B202")).toBeNull();
+  },
+);
+
+it.each(["en", "zh"] as const)(
   "preserves visible consequential labels, focus return and leading selection (%s)",
   (locale) => {
     render(

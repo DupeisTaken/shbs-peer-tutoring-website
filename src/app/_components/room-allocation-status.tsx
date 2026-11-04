@@ -3,7 +3,8 @@
 import { useTranslations } from "next-intl";
 
 /** Display only persisted room intent. A missing reservation is never labelled
- * as availability; legacy roomless records are not inferred to be shortages. */
+ * as availability; legacy roomless records are not inferred to be shortages.
+ * Keep the badge after the name, wrapping without shortening the room label. */
 export function RoomAllocationStatus({
   pairing,
 }: {
@@ -16,9 +17,9 @@ export function RoomAllocationStatus({
 }) {
   const t = useTranslations("roomAllocation");
   return (
-    <div className="space-y-1">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       {pairing.scheduleConfirmed && pairing.room && (
-        <span className="block">{pairing.room.name}</span>
+        <span className="min-w-0 break-words">{pairing.room.name}</span>
       )}
       <span
         className={pairing.roomNeedsAssignment ? "badge-amber" : "badge-slate"}
