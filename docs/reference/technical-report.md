@@ -1995,6 +1995,7 @@ Management Pairings filters and sorts complete saved groups, keeping members
 adjacent. Each persisted pairing renders a complete row with its own tutor,
 subject, schedule, room and roster, including repeated shared values. Grouped
 presentation never substitutes the primary member's facts for divergent members.
+Rows use the standard separators without saved-group shading or heavier borders.
 The rightmost actions use the shared summary-table typography and spacing, with
 the destructive `TableAction` variant for Delete.
 Coverage pairs [projection tests](../../src/lib/pairing-groups.test.ts),

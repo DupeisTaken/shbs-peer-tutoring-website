@@ -1409,11 +1409,7 @@ export default function PairingsPage() {
             <tbody
               key={entry.id}
               data-pairing-group={entry.groupId ?? undefined}
-              className={
-                entry.groupId
-                  ? "bg-accent-50/40 border-b border-slate-300 last:border-b-0"
-                  : "border-b border-slate-200 last:border-b-0"
-              }
+              className="border-b border-slate-100 last:border-b-0"
             >
               {/* Keep saved members adjacent, but repeat each member's own facts
                     so its trailing actions always have a complete row context. */}
