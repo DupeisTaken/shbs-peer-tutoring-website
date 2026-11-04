@@ -1104,7 +1104,7 @@ export default function PairingsPage() {
             </TableAction>
           )}
           <TableAction
-            className="text-red-700"
+            variant="danger"
             disabled={
               readBlocked || review.blocked(p.id) || working || refreshFailed
             }
@@ -1405,104 +1405,56 @@ export default function PairingsPage() {
               </th>
             </tr>
           </thead>
-          {sortedEntries.map((entry) => {
-            const members = entry.pairings;
-            // Merge only identical facts. Retained inconsistent groups still expose
-            // each member's actual time and room instead of claiming a shared plan.
-            const sharedTutor = members.every(
-              (p) =>
-                p.tutorId === entry.primary.tutorId &&
-                personName(p.tutor) === personName(entry.primary.tutor),
-            );
-            const { sharedSubject, sharedRoster } = entry;
-            const sharedTime = members.every(
-              (p) =>
-                pairingScheduleSortValue(p) ===
-                pairingScheduleSortValue(entry.primary),
-            );
-            const roomKey = (p: typeof entry.primary) =>
-              JSON.stringify([
-                p.scheduleConfirmed,
-                p.room?.name,
-                p.roomId,
-                p.roomMode,
-                p.roomNeedsAssignment,
-              ]);
-            const sharedRoom = members.every(
-              (p) => roomKey(p) === roomKey(entry.primary),
-            );
-            return (
-              <tbody
-                key={entry.id}
-                data-pairing-group={entry.groupId ?? undefined}
-                className={
-                  entry.groupId
-                    ? "bg-accent-50/40 border-b border-slate-300 last:border-b-0"
-                    : "border-b border-slate-200 last:border-b-0"
-                }
-              >
-                {members.map((p, index) => (
-                  <tr
-                    key={p.id}
-                    id={p.id}
-                    className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
+          {sortedEntries.map((entry) => (
+            <tbody
+              key={entry.id}
+              data-pairing-group={entry.groupId ?? undefined}
+              className={
+                entry.groupId
+                  ? "bg-accent-50/40 border-b border-slate-300 last:border-b-0"
+                  : "border-b border-slate-200 last:border-b-0"
+              }
+            >
+              {/* Keep saved members adjacent, but repeat each member's own facts
+                    so its trailing actions always have a complete row context. */}
+              {entry.pairings.map((p) => (
+                <tr
+                  key={p.id}
+                  id={p.id}
+                  className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
+                >
+                  <td className="font-medium text-slate-900">
+                    {personName(p.tutor)}
+                  </td>
+                  <td>{p.subject}</td>
+                  <td data-sort-value={pairingScheduleSortValue(p)}>
+                    {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
+                  </td>
+                  <td
+                    data-sort-value={
+                      p.scheduleConfirmed ? (p.room?.name ?? "") : ""
+                    }
                   >
-                    {(!sharedTutor || index === 0) && (
-                      <td
-                        rowSpan={sharedTutor ? members.length : 1}
-                        className="font-medium text-slate-900"
-                      >
-                        {personName(p.tutor)}
-                      </td>
+                    <PairingRoomSummary pairing={p} />
+                  </td>
+                  <td>
+                    {p.tutees.length ? (
+                      <ul className="space-y-1">
+                        {p.tutees.map((student) => (
+                          <li key={student.tuteeId}>
+                            {personName(student.tutee)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      "—"
                     )}
-                    {(!sharedSubject || index === 0) && (
-                      <td rowSpan={sharedSubject ? members.length : 1}>
-                        {p.subject}
-                      </td>
-                    )}
-                    {(!sharedTime || index === 0) && (
-                      <td
-                        rowSpan={sharedTime ? members.length : 1}
-                        data-sort-value={pairingScheduleSortValue(p)}
-                      >
-                        {pairingScheduleText(
-                          p,
-                          t("scheduling.awaiting"),
-                          locale,
-                        )}
-                      </td>
-                    )}
-                    {(!sharedRoom || index === 0) && (
-                      <td
-                        rowSpan={sharedRoom ? members.length : 1}
-                        data-sort-value={
-                          p.scheduleConfirmed ? (p.room?.name ?? "") : ""
-                        }
-                      >
-                        <PairingRoomSummary pairing={p} />
-                      </td>
-                    )}
-                    {(!sharedRoster || index === 0) && (
-                      <td rowSpan={sharedRoster ? members.length : 1}>
-                        {p.tutees.length ? (
-                          <ul className="space-y-1">
-                            {p.tutees.map((student) => (
-                              <li key={student.tuteeId}>
-                                {personName(student.tutee)}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    )}
-                    {renderPairingActions(p)}
-                  </tr>
-                ))}
-              </tbody>
-            );
-          })}
+                  </td>
+                  {renderPairingActions(p)}
+                </tr>
+              ))}
+            </tbody>
+          ))}
         </SummaryTable>
       </div>
       {!readOnly && review.dialog}

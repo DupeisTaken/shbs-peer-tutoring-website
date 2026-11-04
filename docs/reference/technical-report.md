@@ -1991,6 +1991,12 @@ The [group editor](<../../src/app/(tutor)/_components/pairing-group-editor.tsx>)
 
 Use [pairingEntries](../../src/lib/pairing-groups.ts) for coherent grouped read
 projections, and keep `Session.mergeGroupId` as independent saved attendance evidence.
+Management Pairings filters and sorts complete saved groups, keeping members
+adjacent. Each persisted pairing renders a complete row with its own tutor,
+subject, schedule, room and roster, including repeated shared values. Grouped
+presentation never substitutes the primary member's facts for divergent members.
+The rightmost actions use the shared summary-table typography and spacing, with
+the destructive `TableAction` variant for Delete.
 Coverage pairs [projection tests](../../src/lib/pairing-groups.test.ts),
 [group router tests](../../src/server/api/routers/pairing-groups.test.ts),
 [editor tests](<../../src/app/(tutor)/_components/pairing-group-editor.test.tsx>)
