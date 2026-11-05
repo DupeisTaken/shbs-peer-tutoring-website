@@ -8224,7 +8224,7 @@
     "none": "No open original request currently owns this assignment. Refresh your assignment list."
   },
   "legacySignupDecline": {
-    "title": "Decline signup for {name}?",
+    "title": "Decline Signup for {name}?",
     "consequence": "Declining permanently closes this signup and releases its current assignments. The source details, account links and history are retained. A fresh signup follows normal eligibility rules.",
     "confirm": "Decline signup",
     "declined": "Declined",
