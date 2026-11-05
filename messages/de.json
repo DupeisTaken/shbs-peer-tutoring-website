@@ -3687,7 +3687,8 @@
         "languages": "Sprachen",
         "messagePermissions": "Nachrichtenberechtigungen",
         "TutorApplication": "Mentorenbewerbungen",
-        "TuteeRequestInvalidity": "Prüfung früherer öffentlicher Anmeldungen"
+        "TuteeRequestInvalidity": "Prüfung früherer öffentlicher Anmeldungen",
+        "LegacySignupDecline": "Ablehnung einer älteren Anmeldung"
       },
       "operations": {
         "corrections_correctAttendance": "Anwesenheit einer Sitzung korrigieren",
@@ -3727,6 +3728,7 @@
         "admin_assignSignup": "Anmeldung einem Mentor zuordnen",
         "admin_setTuteeStatus": "Teilnahmestatus einer lernenden Person ändern",
         "admin_deleteTutee": "Datensatz einer lernenden Person löschen",
+        "admin_declineSignup": "Ältere Anmeldung ablehnen und Verlauf bewahren",
         "admin_createSubject": "Fach hinzufügen",
         "admin_updateSubject": "Fach bearbeiten",
         "admin_deleteSubject": "Ein Fachangebot archivieren",
@@ -3865,6 +3867,7 @@
       "referenceAmbiguous": "Widersprüchliche erfasste Angaben zu: {entity}",
       "unknownField": "Unbekanntes Feld: {field}",
       "archiveSubjectOutcome": "Dieses Fachangebot deaktivieren; bestehende Anmeldungen und historische Verweise bleiben erhalten.",
+      "declineLegacySignupOutcome": "Diese ältere Anmeldung schließen und ihre aktuellen Zuweisungen aufheben. Angaben, Kontozuordnung und Verlauf bleiben erhalten. Eine neue Teilnahme erfordert einen neuen zulässigen Antrag.",
       "assignInterviewersOutcome": "Eine neue Interviewprüfung mit dem beantragten Gremium und Vorsitz beginnen. Frühere Stimmen, der Interviewabschluss und gutgeschriebene Interviewstunden werden entfernt.",
       "replaceAcceptedPanelOutcome": "Eine neue Interviewprüfung beginnen und frühere Stimmen, den Abschluss sowie Interviewstunden entfernen. Unbenutzte Einladungen dieser Erstbewerbung widerrufen. Die bisherige Tutoraufnahme und aktuellen Zuweisungen rückgängig machen, sofern keine andere angenommene Bewerbung die Mitgliedschaft unabhängig erlaubt.",
       "saveCourseGroupOutcome": "Die Gruppe und beantragten Angebote als aktiv speichern. Ausgelassene bestehende Angebote archivieren und ihre Verweise erhalten. Umbenannte Angebote aktualisieren auch übereinstimmende Fachbezeichnungen in Zuweisungen.",
@@ -4037,6 +4040,7 @@
         "StudentSignupAppeal": "Anmeldebeschwerde",
         "StudentSignupNotice": "Anmeldebenachrichtigung",
         "TuteeRequestInvalidity": "Prüfung der Anmeldegültigkeit",
+        "LegacySignupDecline": "Ablehnung einer älteren Anmeldung",
         "StudentRequestReview": "Änderungsantrag der lernenden Person",
         "StudentQuarterBlock": "Austrittsbeschränkung für den Zeitraum",
         "StudentProfileOwnership": "Eigentümerschaft des Lernprofils",
@@ -8218,5 +8222,17 @@
     "retry": "Refresh original requests",
     "source": "Original student: {id} · Request: {request}",
     "none": "No open original request currently owns this assignment. Refresh your assignment list."
+  },
+  "legacySignupDecline": {
+    "title": "Anmeldung von {name} ablehnen?",
+    "consequence": "Die Ablehnung schließt diese Anmeldung dauerhaft und hebt ihre aktuellen Zuweisungen auf. Quelldaten, Kontoverknüpfungen und Verlauf bleiben erhalten. Für eine neue Anmeldung gelten die üblichen Voraussetzungen.",
+    "confirm": "Anmeldung ablehnen",
+    "declined": "Abgelehnt",
+    "decision": "Am {when} von {name} abgelehnt",
+    "staff": "einem Teammitglied",
+    "snapshot": "Anmeldedaten zum Entscheidungszeitpunkt",
+    "snapshotHelp": "Diese Quelldaten wurden bei der Ablehnung erfasst. Spätere Profiländerungen ändern diese Momentaufnahme nicht.",
+    "closedHelp": "Diese Anmeldung ist geschlossen und kann weder zugewiesen noch reaktiviert werden.",
+    "released": "Aufgehobene aktuelle Zuweisungen: {count}"
   }
 }

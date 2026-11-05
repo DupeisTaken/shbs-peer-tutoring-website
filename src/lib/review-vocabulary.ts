@@ -135,6 +135,8 @@ const privateIdentityFields: Readonly<Record<string, readonly string[]>> = {
   // authenticated draft reader; schema metadata never authorizes generic display.
   RecoveryCheckpoint: ["sourceId", "capturedById", "captureTransactionId", "scope"],
   RecoveryWorkflowDraft: ["sourceSurveyId", "sourceTuteeId", "ownerUserId", "ownerBindingHash", "answers", "submittedSurveyId"],
+  // Original intake and retry evidence stay with the private signup reader.
+  LegacySignupDecline: ["intakeSnapshot", "clientKey", "inputHash", "expectedUpdatedAt"],
   // Derived maintenance queues are not scheduling decisions or participant evidence.
   SchedulingMaintenanceState: [
     "publicationVersion", "settlementVersion", "windowStart", "prepareEnd", "timeZone",

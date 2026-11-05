@@ -14,6 +14,7 @@ import type {
 const operator = { operator: true } as const;
 const web = { userId: "current-admin" };
 const identityMetadataCases = [
+  ["LegacySignupDecline", { tuteeId: "declined-source" }],
   ["PersonPartitionReceipt", { id: "partition" }],
   ["RetiredHistoryOwnership", { sourceUserId: "retired" }],
   ["HistoryRowOwnership", { entity: "Tutor", recordId: "original" }],
@@ -75,6 +76,8 @@ describe("read-only database inspector", () => {
     async (table, key) => {
       const { db, client } = fixture();
       const privateFields = {
+        clientKey: "PRIVATE-SENTINEL",
+        intakeSnapshot: { contact: "PRIVATE-SENTINEL" },
         inputHash: "PRIVATE-SENTINEL",
         before: { secret: "PRIVATE-SENTINEL" },
         after: { secret: "PRIVATE-SENTINEL" },

@@ -3676,6 +3676,7 @@
         "StudentSurvey": "报名申请",
         "TutorApplication": "辅导伙伴申请",
         "TuteeRequestInvalidity": "旧版公开报名审核",
+        "LegacySignupDecline": "旧版报名拒绝决定",
         "StudentRequestReview": "学习伙伴变更申请",
         "RoomUnavailability": "教室不可用时段",
         "period": "项目周期",
@@ -3727,6 +3728,7 @@
         "admin_assignSignup": "为报名者分配辅导伙伴",
         "admin_setTuteeStatus": "更改学习伙伴参与状态",
         "admin_deleteTutee": "删除学习伙伴记录",
+        "admin_declineSignup": "拒绝旧版报名并保留历史",
         "admin_createSubject": "添加科目",
         "admin_updateSubject": "编辑科目",
         "admin_deleteSubject": "归档科目开设项",
@@ -3865,6 +3867,7 @@
       "referenceAmbiguous": "以下对象的已记录详情存在冲突：{entity}",
       "unknownField": "未识别的字段：{field}",
       "archiveSubjectOutcome": "将此科目开设项设为非活动；保留现有报名及历史记录中的引用。",
+      "declineLegacySignupOutcome": "关闭此条旧版报名并解除其当前分配。报名资料、账号归属和历史仍予保留；再次参与须提交符合条件的新申请。",
       "assignInterviewersOutcome": "由拟定面试小组及主席重新开始面试审核，并清除先前投票、面试完成记录及已计入的面试服务时数。",
       "replaceAcceptedPanelOutcome": "重新开始面试审核，清除先前投票、面试完成记录及服务时数，并撤销此首次申请尚未使用的邀请。除非另有已获接受的申请独立授予成员资格，否则同时撤销原辅导伙伴录取及当前配对。",
       "saveCourseGroupOutcome": "保存科目组，并将拟定的科目开设项设为活动。未列入的现有开设项会归档，其引用记录予以保留。开设项更名也会同步更新名称匹配的配对科目标签。",
@@ -4037,6 +4040,7 @@
         "StudentSignupAppeal": "报名申诉",
         "StudentSignupNotice": "报名通知",
         "TuteeRequestInvalidity": "报名有效性审核",
+        "LegacySignupDecline": "旧版报名拒绝决定",
         "StudentRequestReview": "学习伙伴变更申请",
         "StudentQuarterBlock": "周期退出限制",
         "StudentProfileOwnership": "学习伙伴资料归属",
@@ -8218,5 +8222,17 @@
     "retry": "刷新原始申请",
     "source": "原始学习伙伴：{id} · 申请：{request}",
     "none": "当前没有进行中的原始申请拥有此分配。请刷新分配列表。"
+  },
+  "legacySignupDecline": {
+    "title": "确认拒绝 {name} 的报名？",
+    "consequence": "拒绝后，此次报名将永久关闭，并解除当前分配。报名资料、账号关联和历史记录将保留。重新报名仍须符合现有资格规则。",
+    "confirm": "拒绝报名",
+    "declined": "已拒绝",
+    "decision": "{name} 于 {when} 拒绝",
+    "staff": "工作人员",
+    "snapshot": "决定时的报名资料",
+    "snapshotHelp": "以下资料记录于工作人员拒绝报名时。之后的个人资料修改不会改变此快照。",
+    "closedHelp": "此次报名已关闭，无法再分配或重新启用。",
+    "released": "已解除的当前分配：{count}"
   }
 }

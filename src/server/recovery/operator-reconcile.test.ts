@@ -3,9 +3,11 @@ import {
   assertRotatedSigningSecrets,
   inspectSiteSecurityReconciliation,
   validateSecurityIdentityClosure,
+  readReconciliationSnapshot,
   type OverlaySnapshot,
 } from "./operator-reconcile";
 import type { OperatorSql } from "./operator-site";
+import { reviewedRecoverySchemaMetadata } from "./operator-schema";
 
 function fixture(
   options: { restriction?: Date; tooLarge?: boolean; fail?: boolean } = {},
@@ -45,6 +47,86 @@ function fixture(
 }
 
 describe("operator security reconciliation evidence", () => {
+  it("fingerprints retained decline authority and reads reviewed older backups without a nonexistent table", async () => {
+    const snapshot = async (
+      known: boolean,
+      contact = "PRIVATE-DECLINE-INTAKE",
+      retry = "key",
+    ) => {
+      const queries: string[] = [];
+      const db: OperatorSql = {
+        async query(sql) {
+          queries.push(sql);
+          if (sql.includes("information_schema"))
+            return {
+              rows: known
+                ? reviewedRecoverySchemaMetadata.identityLegacyDeclineColumns
+                : reviewedRecoverySchemaMetadata.identityColumns,
+            };
+          if (sql.includes("pg_enum"))
+            return { rows: reviewedRecoverySchemaMetadata.enums };
+          if (sql.includes("pg_trigger"))
+            return {
+              rows: [
+                {
+                  tgenabled: "O",
+                  tgtype: 19,
+                  proname: "advance_account_session_version",
+                },
+              ],
+            };
+          if (sql.includes('FROM public."LegacySignupDecline"'))
+            return {
+              rows: [
+                {
+                  row: {
+                    tuteeId: "declined",
+                    termId: "old-term",
+                    intakeSnapshot: { contact },
+                    clientKey: retry,
+                    inputHash: retry,
+                  },
+                },
+              ],
+            };
+          if (sql.includes("count(*)")) return { rows: [{ count: "0" }] };
+          return { rows: [] };
+        },
+        async close() {
+          throw new Error("Caller owns the SQL connection");
+        },
+      };
+      return { state: await readReconciliationSnapshot(db), queries };
+    };
+    const before = await snapshot(true);
+    const changedIntake = await snapshot(true, "changed private intake");
+    const changedRetry = await snapshot(
+      true,
+      "PRIVATE-DECLINE-INTAKE",
+      "fresh-retry-key",
+    );
+    const declineAuthority = (state: OverlaySnapshot) =>
+      state.authorityFingerprints.find(
+        (row) => row.table === "LegacySignupDecline",
+      );
+    expect(declineAuthority(before.state)).toBeDefined();
+    expect(declineAuthority(changedIntake.state)).not.toEqual(
+      declineAuthority(before.state),
+    );
+    expect(declineAuthority(changedRetry.state)).toEqual(
+      declineAuthority(before.state),
+    );
+    expect(JSON.stringify(before.state)).not.toContain(
+      "PRIVATE-DECLINE-INTAKE",
+    );
+    const old = await snapshot(false);
+    expect(declineAuthority(old.state)).toBeUndefined();
+    expect(
+      old.queries.some((sql) =>
+        sql.includes('FROM public."LegacySignupDecline"'),
+      ),
+    ).toBe(false);
+  });
   it("compares normalized restriction timestamps in read-only snapshots without clearing cutover blockers", async () => {
     const source = fixture({ restriction: new Date("2026-02-02T00:00:00Z") });
     const restored = fixture({ restriction: new Date("2026-02-01T00:00:00Z") });

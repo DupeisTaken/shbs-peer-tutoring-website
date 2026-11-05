@@ -33,6 +33,9 @@ const mocks = vi.hoisted(() => ({
   username: null as string | null,
   periodLoading: false,
   role: "HEAD",
+  legacyReviewsDenied: false,
+  constructDecline: vi.fn(),
+  decline: vi.fn(),
   state: "OPEN",
   appealState: null as string | null,
   legacyAppeal: false,
@@ -277,7 +280,15 @@ vi.mock("~/trpc/react", () => ({
             : [],
         }),
       },
-      legacyReviews: { useQuery: () => ({ data: [] }) },
+      legacyReviews: {
+        useQuery: () => ({
+          data: [],
+          error: mocks.legacyReviewsDenied
+            ? { data: { code: "FORBIDDEN" }, message: "Review access denied" }
+            : null,
+          isSuccess: !mocks.legacyReviewsDenied,
+        }),
+      },
       resend: { useMutation: () => ({ mutate: vi.fn() }) },
       assign: {
         useMutation: () => ({
@@ -290,6 +301,12 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     admin: {
+      declineSignup: {
+        useMutation: () => {
+          mocks.constructDecline();
+          return { mutateAsync: mocks.decline };
+        },
+      },
       tutors: {
         useQuery: () => ({
           data: [
@@ -406,6 +423,8 @@ beforeEach(() => {
   mocks.username = null;
   mocks.periodLoading = false;
   mocks.role = "HEAD";
+  mocks.legacyReviewsDenied = false;
+  mocks.decline.mockResolvedValue({ ok: true });
   mocks.state = "OPEN";
   mocks.appealState = null;
   mocks.legacyAppeal = false;
@@ -437,6 +456,32 @@ beforeEach(() => {
   mocks.fetchTutees.mockImplementation(async () => fresh("legacy-1"));
 });
 afterEach(cleanup);
+
+it("never constructs a decline mutation in the observer page", () => {
+  mocks.survey = false;
+  mocks.invalid = false;
+  render(content(true, true));
+  expect(mocks.constructDecline).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("button", { name: en.admin.requests.decline }),
+  ).toBeNull();
+});
+
+it("conceals an open decline review when only the legacy-review prerequisite denies access", async () => {
+  mocks.survey = false;
+  mocks.invalid = false;
+  mocks.source = "STAFF";
+  const view = render(content(true));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.requests.decline }),
+  );
+  expect(await screen.findByRole("dialog")).toBeTruthy();
+  mocks.legacyReviewsDenied = true;
+  view.rerender(content(true));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText("Review access denied")).toBeTruthy();
+  expect(mocks.decline).not.toHaveBeenCalled();
+});
 
 it.each([
   { locale: "en" as const, label: "Edited", viewer: false },
@@ -1488,7 +1533,13 @@ it.each(["en", "zh"] as const)(
       within(math).getByRole("button", { name: messages.workflow.assign }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Confirm release" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+    // Settle the accepted write, failed refresh and feedback's attention effect
+    // before testing a deliberate collapse of that newly revealed feedback.
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Confirm assignment" }),
+      );
+    });
     await screen.findByText(messages.signupEditing.savedRefresh);
     expect(mocks.assign).toHaveBeenCalledExactlyOnceWith({
       id: "survey-1",
@@ -1498,9 +1549,21 @@ it.each(["en", "zh"] as const)(
       overrideTicket: "qualification-ticket",
     });
     const acceptedConfirm = mocks.assignmentConfirm!;
+    expect(math.isConnected).toBe(true);
+    expect(select.isConnected).toBe(true);
+    expect(control.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("false");
+    expect(within(math).queryByRole("combobox")).toBeNull();
+    expect(math.querySelector("select")).toBe(select);
     page.rerender(content(false, false, locale));
-    fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.admin.requests.expand,
+      }),
+    );
+    expect(control.getAttribute("aria-expanded")).toBe("true");
     expect(within(math).getByRole("combobox")).toBe(select);
     expect(select.value).toBe("chosen-tutor");
     expect(within(math).getByRole<HTMLSelectElement>("combobox").disabled).toBe(

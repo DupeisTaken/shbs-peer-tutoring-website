@@ -73,6 +73,8 @@ import {
 } from "~/server/request-invalidity";
 import { synchronizeStudentSignupAnswers } from "~/server/student-signup-revisions";
 import { assertHeadDiscretionarySignupChange } from "~/server/student-signup-management";
+import { declineLegacySignup, legacySignupDeclineInput } from "~/server/legacy-signup-decline";
+import { legacySignupDeclineView } from "~/lib/legacy-signup-decline";
 import { hasReadyCredentials } from "~/lib/account-readiness";
 import {
   accountDirectoryDetails,
@@ -807,6 +809,12 @@ export const adminRouter = createTRPCRouter({
     const invaliditiesByTutee = new Map(
       invalidities.map((row) => [row.tuteeId, row]),
     );
+    // Decision snapshots include private intake and ownership evidence. Observers
+    // receive no property or query for this management-only retained lifecycle.
+    const declines = isViewer ? [] : await ctx.db.legacySignupDecline.findMany({
+      where: { tuteeId: { in: tutees.map((row) => row.id) } },
+    });
+    const declinesByTutee = new Map(declines.map((row) => [row.tuteeId, legacySignupDeclineView(row)]));
     // Only current flag generations can move a legacy signup into Needs review.
     // Observers receive no appeal evidence or pending-review signal.
     const flagged = invalidities.filter((row) => row.invalidatedAt);
@@ -878,6 +886,7 @@ export const adminRouter = createTRPCRouter({
           }
         : {
             ...t,
+            signupDecline: declinesByTutee.get(t.id) ?? null,
             hasPendingInvalidityAppeal: pendingAppealIds.has(t.id),
             ...requestInvalidity(
               invaliditiesByTutee.get(t.id) ?? emptyRequestInvalidity,
@@ -3260,6 +3269,10 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 
+  declineSignup: adminProcedure
+    .input(legacySignupDeclineInput)
+    .mutation(({ ctx, input }) => declineLegacySignup(ctx.db, ctx.session.user.id, input)),
+
   deleteTutee: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(({ ctx, input }) =>
@@ -3273,6 +3286,8 @@ export const adminRouter = createTRPCRouter({
           input,
         );
         await assertTuteeInvalidityCleared(tx, input.id);
+        if (await tx.legacySignupDecline.findUnique({ where: { tuteeId: input.id } }))
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This signup has a retained decline decision and cannot be deleted." });
         await assertNoPublishedTuteeDeletion(tx, input.id);
         const sessions = await tx.sessionTutee.count({
           where: { tuteeId: input.id },

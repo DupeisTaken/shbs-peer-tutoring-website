@@ -83,6 +83,7 @@ function fixture() {
     tuteeRemovalRequest: { findMany: vi.fn(async () => []) },
     disciplinaryCard: { findMany: cardQuery, groupBy: countQuery },
     studentSurvey: { findUnique: vi.fn(async () => null) },
+    legacySignupDecline: { findUnique: vi.fn(async () => null) },
     pairing: { findMany: vi.fn(async () => []) },
   } as unknown as TransactionDb;
   return { tx, cards, cardQuery, countQuery };
@@ -105,6 +106,48 @@ it("blocks canonical participant activation using all effective VALID cards, inc
   expect(inspected.blockers).toContain(
     "Current disciplinary standing prevents restoring participation.",
   );
+});
+
+it("keeps a declined exact source terminal without blocking a fresh profile or exposing its intake", async () => {
+  const f = fixture();
+  f.countQuery.mockResolvedValue([]);
+  vi.mocked(executionParticipantId).mockImplementation(
+    async (_tx, _kind, id) => id,
+  );
+  vi.mocked(executionSourceIds).mockImplementation(async (_tx, _kind, id) => [
+    id,
+  ]);
+  const findUnique = vi.fn(async ({ where }: { where: { tuteeId: string } }) =>
+    where.tuteeId === "declined"
+      ? {
+          tuteeId: "declined",
+          termId: "old-term",
+          resolvedAt: new Date(0),
+          clientKey: "PRIVATE-RETRY",
+          intakeSnapshot: { contact: "PRIVATE-INTAKE" },
+        }
+      : null,
+  );
+  Object.assign(f.tx, { legacySignupDecline: { findUnique } });
+  const declined = await inspectRecoveryParticipantEligibility(f.tx, {
+    kind: "TUTEE",
+    sourceId: "declined",
+  });
+  expect(declined.blockers).toContain(
+    "This legacy signup was declined. A new request is required.",
+  );
+  expect(findUnique).toHaveBeenCalledWith({
+    where: { tuteeId: "declined" },
+    select: { tuteeId: true, termId: true, resolvedAt: true },
+  });
+  expect(JSON.stringify(declined.evidence)).not.toMatch(
+    /PRIVATE-RETRY|PRIVATE-INTAKE/,
+  );
+  const fresh = await inspectRecoveryParticipantEligibility(f.tx, {
+    kind: "TUTEE",
+    sourceId: "fresh",
+  });
+  expect(fresh.blockers).toEqual([]);
 });
 
 it("refuses resurrection of a superseded source and partial projected consolidated standing", async () => {

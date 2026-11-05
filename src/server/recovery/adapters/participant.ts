@@ -147,6 +147,13 @@ async function eligible(
     await requireStudentSchoolParticipation(tx, id);
     if (!readOnly) await assertStudentRequestAssignable(tx, id);
     else {
+      // A declined source remains terminal even if a captured status predates it.
+      if (await tx.legacySignupDecline.findUnique({ where: { tuteeId: id } }))
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "This legacy signup was declined. A new request is required.",
+        });
       const survey = await tx.studentSurvey.findUnique({
         where: { tuteeId: id },
       });

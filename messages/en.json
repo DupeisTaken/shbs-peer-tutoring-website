@@ -3676,6 +3676,7 @@
         "StudentSurvey": "Signup requests",
         "TutorApplication": "Tutor applications",
         "TuteeRequestInvalidity": "Legacy public signup review",
+        "LegacySignupDecline": "Legacy signup decline",
         "StudentRequestReview": "Tutee change requests",
         "RoomUnavailability": "Room blocked periods",
         "period": "Program period",
@@ -3727,6 +3728,7 @@
         "admin_assignSignup": "Assign a signup to a tutor",
         "admin_setTuteeStatus": "Change a tutee's participation status",
         "admin_deleteTutee": "Delete a tutee record",
+        "admin_declineSignup": "Decline a legacy signup and retain its history",
         "admin_createSubject": "Add a subject",
         "admin_updateSubject": "Edit a subject",
         "admin_deleteSubject": "Archive a subject offering",
@@ -3865,6 +3867,7 @@
       "referenceAmbiguous": "Conflicting captured details for: {entity}",
       "unknownField": "Unrecognized field: {field}",
       "archiveSubjectOutcome": "Mark this subject offering inactive; keep existing signup and historical references.",
+      "declineLegacySignupOutcome": "Close this exact legacy signup and release its current assignments. Keep its source details, account ownership and history. Future participation requires a new eligible request.",
       "assignInterviewersOutcome": "Start a fresh interview review with the requested panel and chair. Clear previous votes, interview completion and credited interview hours.",
       "replaceAcceptedPanelOutcome": "Start a fresh interview review and clear previous votes, completion and interview hours. Revoke unused invitations from this initial application. Reverse its prior tutor admission and current assignments unless another accepted application independently authorizes membership.",
       "saveCourseGroupOutcome": "Save the group and requested offerings as active. Archive omitted existing offerings while preserving their references. Renamed offerings also update matching assignment subject labels.",
@@ -4037,6 +4040,7 @@
         "StudentSignupAppeal": "Signup appeal",
         "StudentSignupNotice": "Signup notice",
         "TuteeRequestInvalidity": "Signup validity review",
+        "LegacySignupDecline": "Legacy signup decline",
         "StudentRequestReview": "Tutee change request",
         "StudentQuarterBlock": "Period withdrawal restriction",
         "StudentProfileOwnership": "Tutee profile ownership",
@@ -8218,5 +8222,17 @@
     "retry": "Refresh original requests",
     "source": "Original student: {id} · Request: {request}",
     "none": "No open original request currently owns this assignment. Refresh your assignment list."
+  },
+  "legacySignupDecline": {
+    "title": "Decline Signup for {name}?",
+    "consequence": "Declining permanently closes this signup and releases its current assignments. The source details, account links and history are retained. A fresh signup follows normal eligibility rules.",
+    "confirm": "Decline signup",
+    "declined": "Declined",
+    "decision": "Declined {when} by {name}",
+    "staff": "a staff member",
+    "snapshot": "Intake at the decision",
+    "snapshotHelp": "These source details were recorded when staff declined the signup. Later profile edits do not change this snapshot.",
+    "closedHelp": "This signup is closed and cannot be assigned or reactivated.",
+    "released": "Current assignments released: {count}"
   }
 }

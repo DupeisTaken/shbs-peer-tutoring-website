@@ -93,6 +93,7 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     StudentSignupAppeal: ["id"],
     StudentSignupNotice: ["id"],
     TuteeRequestInvalidity: ["tuteeId"],
+    LegacySignupDecline: ["tuteeId"],
     StudentRequestReview: ["id"],
     StudentQuarterBlock: ["id"],
     StudentProfileOwnership: ["tuteeId"],

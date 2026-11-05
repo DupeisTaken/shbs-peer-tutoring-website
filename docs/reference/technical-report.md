@@ -465,6 +465,37 @@ drafts while hidden. Fulfilled cards close initially and once on fulfillment;
 deliberate reopening survives later refreshes. New assignment feedback reopens the
 details so accepted-write read recovery cannot become hidden by auto-collapse.
 
+The board distinguishes first `account.me` hydration from an established account
+change. A local revision key retains the initial child lifetime; later account
+loss/change or route changes still dispose private controllers. The outer server
+session-identity provider remains the cache and authorization boundary. Only an
+explicit tab click during the first unresolved period is handed to that read's
+resolved scope. Saved provisional views and filters are not transferred. Initial
+notification discovery waits for that scope, then retains its existing once-only
+destination precedence. Later period changes reset presentation without discarding
+an accepted write's read-only recovery.
+
+[`admin.declineSignup`](../../src/server/legacy-signup-decline.ts) closes an exact
+current legacy source using a roster version and same-intent client receipt.
+`LegacySignupDecline` stores prospective, management-only decision evidence;
+there is no backfill from missing rows and no new account/email-wide ban. Its
+typed snapshot contains the known source at decision time, not an inferred pristine
+original submission. The write retains the Tutee and ownership, sets it inactive,
+and releases only current-period links atomically. Survey-backed or consolidated
+sources, pending participation reviews, invalidity, attendance and published work
+remain guarded. Coordinator proposals preserve the old deletion authority, and
+approval targets include non-scalar review, participation and publication evidence.
+
+Closed legacy cards use that snapshot rather than live roster/catalog values.
+Observers receive no decision property. The stable management-only review owner
+retains admission above replaceable cards and denied reads; authoritative denial
+immediately conceals and revokes private review evidence. Accepted synchronization
+failures, including after Close, offer reads only. The central assignment guard,
+database trigger, roster deletion protection and recovery eligibility keep the
+exact source terminal; a fresh admitted source is independent. See the
+[recovery contract](recovery.md#retained-legacy-signup-decisions) for archival and
+checkpoint boundaries.
+
 Self-service survey request cards show a green **Email verified** or amber
 **Email pending** badge beside the signup source. The badge uses the submission's
 confirmation timestamp, independently of invalidity and workflow state; it must
@@ -1111,7 +1142,10 @@ Browser tRPC links share [batch limits](../../src/lib/trpc-batch.ts) so busy pag
 
 The [client logger](../../src/trpc/client-logger.ts) leaves structured
 `pairingGroups.save` validation (`BAD_REQUEST`) and conflict (`CONFLICT`)
-rejections to the editor's inline error and explicit Reload. Logging those handled
+rejections to the editor's inline error and explicit Reload. The retained-signup
+decline review likewise owns `admin.declineSignup` validation, conflict and
+precondition (`PRECONDITION_FAILED`) rejections, including queued proposals.
+Logging those handled
 rejections as console errors would open Next.js's development overlay over the
 recovery controls. Other operations, authorization failures, unexpected server
 errors and transport failures retain the existing error diagnostics; mutation

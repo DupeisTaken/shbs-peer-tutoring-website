@@ -3687,7 +3687,8 @@
         "languages": "언어",
         "messagePermissions": "메시지 전송 권한",
         "TutorApplication": "튜터 지원",
-        "TuteeRequestInvalidity": "이전 방식의 공개 신청 검토"
+        "TuteeRequestInvalidity": "이전 방식의 공개 신청 검토",
+        "LegacySignupDecline": "이전 가입 신청 거절"
       },
       "operations": {
         "corrections_correctAttendance": "수업 출석 기록 정정",
@@ -3727,6 +3728,7 @@
         "admin_assignSignup": "등록 신청에 튜터 배정",
         "admin_setTuteeStatus": "학생 참여 상태 변경",
         "admin_deleteTutee": "학생 기록 삭제",
+        "admin_declineSignup": "이전 가입 신청을 거절하고 기록 보존",
         "admin_createSubject": "과목 추가",
         "admin_updateSubject": "과목 편집",
         "admin_deleteSubject": "개설 과목 보관 처리",
@@ -3865,6 +3867,7 @@
       "referenceAmbiguous": "기록된 세부 정보가 서로 다름: {entity}",
       "unknownField": "알 수 없는 항목: {field}",
       "archiveSubjectOutcome": "이 개설 과목을 비활성화하고 기존 등록 신청과 과거 기록의 참조를 유지합니다.",
+      "declineLegacySignupOutcome": "이전 가입 신청을 종료하고 현재 배정을 해제합니다. 신청 정보, 계정 소유 관계 및 기록은 보존됩니다. 다시 참여하려면 자격 요건을 충족하는 새 신청이 필요합니다.",
       "assignInterviewersOutcome": "요청된 면접 담당자와 책임자로 새 면접 심사를 시작합니다. 이전 투표, 면접 완료 기록, 인정된 면접 봉사 시간을 삭제합니다.",
       "replaceAcceptedPanelOutcome": "새 면접 심사를 시작하고 이전 투표, 완료 기록, 면접 봉사 시간을 삭제합니다. 이 최초 지원의 미사용 초대를 철회합니다. 별도의 수락된 지원이 독립적으로 참여 자격을 부여하는 경우를 제외하고 이전 튜터 선발과 현재 지도 배정을 취소합니다.",
       "saveCourseGroupOutcome": "과목 그룹을 저장하고 요청된 개설 과목을 활성화합니다. 빠진 기존 개설 과목은 참조를 유지한 채 보관 처리합니다. 개설 과목 이름이 바뀌면 일치하는 지도 배정의 과목 이름도 갱신됩니다.",
@@ -4037,6 +4040,7 @@
         "StudentSignupAppeal": "등록 신청 이의 제기",
         "StudentSignupNotice": "등록 신청 안내",
         "TuteeRequestInvalidity": "등록 신청 유효성 검토",
+        "LegacySignupDecline": "이전 가입 신청 거절",
         "StudentRequestReview": "학생 변경 신청",
         "StudentQuarterBlock": "해당 분기 탈퇴에 따른 제한",
         "StudentProfileOwnership": "학생 프로필 소유권",
@@ -8218,5 +8222,17 @@
     "retry": "Refresh original requests",
     "source": "Original student: {id} · Request: {request}",
     "none": "No open original request currently owns this assignment. Refresh your assignment list."
+  },
+  "legacySignupDecline": {
+    "title": "{name}님의 신청을 거절하시겠습니까?",
+    "consequence": "거절하면 이 신청이 영구적으로 종료되고 현재 배정이 해제됩니다. 원본 정보, 계정 연결 및 기록은 유지됩니다. 새 신청에는 기존 자격 요건이 적용됩니다.",
+    "confirm": "신청 거절",
+    "declined": "거절됨",
+    "decision": "{when}에 {name}님이 거절",
+    "staff": "담당자",
+    "snapshot": "결정 당시 신청 정보",
+    "snapshotHelp": "담당자가 신청을 거절할 당시 기록한 정보입니다. 이후 프로필 변경은 이 기록에 반영되지 않습니다.",
+    "closedHelp": "이 신청은 종료되어 배정하거나 다시 활성화할 수 없습니다.",
+    "released": "해제된 현재 배정: {count}"
   }
 }

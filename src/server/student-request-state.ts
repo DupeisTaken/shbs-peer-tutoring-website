@@ -246,10 +246,16 @@ export async function assertStudentRequestAssignable(
   tuteeId: string,
 ) {
   await requireStudentSchoolParticipation(tx, tuteeId);
+  // A malformed later survey attachment cannot turn a closed legacy source into
+  // a fresh intake. Ordinary resubmission owns a new profile and request ID.
+  if (await tx.legacySignupDecline.findUnique({ where: { tuteeId } }))
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This signup was declined. A new request is required." });
   const row = await tx.studentSurvey.findUnique({ where: { tuteeId } });
   if (!row) {
     // Share the legacy review lock, including the first flag when no metadata row exists.
     await lockLegacySignupReview(tx, tuteeId);
+    if (await tx.legacySignupDecline.findUnique({ where: { tuteeId } }))
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This signup was declined. A new request is required." });
     const invalidity = await tx.tuteeRequestInvalidity.findUnique({
       where: { tuteeId },
     });

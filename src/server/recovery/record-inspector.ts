@@ -146,6 +146,8 @@ const fieldPolicies: Record<string, string> = {
     "id surveyId invalidityVersion kind recipientEmail accountId state attempts createdAt lastAttemptAt sentAt",
   TuteeRequestInvalidity:
     "tuteeId invalidatedAt invalidatedById invalidatedByName invalidityVersion",
+  LegacySignupDecline:
+    "tuteeId termId resolvedAt resolvedById resolvedByName expectedUpdatedAt",
   StudentRequestReview:
     "id surveyId legacyTuteeId legacyIntakeTermId kind requestedByUserId pairingId state createdAt resolvedAt resolvedByUserId",
   StudentQuarterBlock:

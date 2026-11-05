@@ -1268,9 +1268,28 @@ the original request, appeal and review history.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes valid empty or partially assigned requests; Assigned contains valid requests whose requested subjects all have tutors. Sources keep their original submission order. Pending decisions, including invalidity appeals, take precedence in Needs review. Closed groups closed or declined requests, invalid entries and completed review history. This is a general queue status, not a permanent-closure action: clearing an invalid flag returns an open request to matching or assigned without changing assignments, original priority or verification deadlines. Requests move automatically when refreshed; staff keep their selected tab. The validity filter initially shows all entries, so Closed includes invalid requests immediately. Its **Not flagged invalid** choice describes validity, not whether a request is still open.
 
-The older legacy **Decline** action still deletes eligible intake records, so those deleted entries cannot appear in Closed. Retaining that decision history is tracked separately in [#567](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/567).
+For an older signup without a survey, **Decline** now retains a decision
+instead of deleting the source. The review names the signup and explains that its
+current assignments will be released. Existing management approval rules still
+apply: Coordinators submit a proposal; Admin or Head applies the decision.
+Invalid flags and pending participation reviews must be resolved first. Attendance
+or published-session evidence still prevents decline.
+
+The request appears in **Closed** for its decision period with the reviewer,
+decision time and **Intake at the decision**. That section shows the known source
+details captured at the decision, including choices, availability and signature;
+later profile or catalog changes do not rewrite it. Older records already deleted
+before this change have no reconstructed decision. Declining retains the source,
+account links and history. This exact signup cannot be assigned, reactivated or
+deleted through ordinary roster controls; a fresh signup follows the normal
+eligibility rules and uses a separate source. Completed periods retain the evidence
+through the archive workflow.
 
 Requests in each selected queue have consecutive numbers across signup sources.
+An explicit tab click made during initial account or period loading remains
+selected when those reads finish. A real account/access change or later period
+change still clears the relevant private state or presentation scope. An explicit
+notification destination takes precedence over an early manual tab choice.
 Use the arrow beside a request to collapse or expand its details; the summary and
 header actions stay visible. Assigned requests start collapsed. Reopening retains
 in-progress tutor selections, and newly reported assignment errors or refresh

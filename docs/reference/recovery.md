@@ -11,6 +11,26 @@ RecoveryChange retain its transitive record scope and database change coverage.
 RecoveryReceipt retains the same-intent result and compensation evidence.
 Historical AuditLog `undoData` is not sufficient provenance for this planner.
 
+### Retained legacy signup decisions
+
+`LegacySignupDecline` is prospective terminal evidence for one exact legacy source,
+not a reversible participant-status update or an account-wide restriction. Its
+change journal joins the tracked source so an earlier checkpoint cannot silently
+restore participation across a later decline. Both read-only previews and write
+eligibility reject assignment/reactivation of that source; the roster deletion
+guard and database constraints retain its decision. This adds no automatic decline
+checkpoint, ordinary undo or compensating reopen route. A new admitted signup
+creates a separate source under the existing ownership and eligibility rules.
+
+Archive transfer preserves the decision-time intake and historical links, validates
+its inactive source/ended period and restores links before the terminal sidecar.
+Operational retry UUID/hash values are excluded; import supplies inert defaults
+instead of restoring a live retry capability. Operator schema review recognizes
+both the prior reviewed backup schemas and the complete additive decline schema.
+Reconciliation fingerprints the retained decision and intake as authority, excluding
+retry mechanics. The record inspector exposes decision metadata without private
+intake or receipt capability.
+
 `inspectAdmissionRecovery` builds a plan against the current database without
 performing domain writes. The plan contains an action/application ID, fingerprint,
 coverage, dependent-event count, website eligibility, blockers, warnings, projected

@@ -376,6 +376,7 @@ const DIVERGENCE_AUTHORITIES = [
   "DisciplinaryCard",
   "StudentQuarterBlock",
   "TuteeRequestInvalidity",
+  "LegacySignupDecline",
   "StudentRequestReview",
   "MessageTutorAssignment",
   "Pairing",
@@ -414,7 +415,7 @@ export async function readReconciliationSnapshot(
     "SELECT t.typname AS type_name,e.enumlabel AS enum_label FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' ORDER BY t.typname,e.enumsortorder LIMIT 2001",
   );
   operatorAssert(enums.rows.length <= 2000, "SECURITY_SCHEMA_TOO_LARGE");
-  const { identityVersion } = assertReviewedRecoverySchema(
+  const { identityVersion, legacySignupDecline } = assertReviewedRecoverySchema(
     schema.rows,
     enums.rows,
   );
@@ -461,13 +462,24 @@ export async function readReconciliationSnapshot(
       referenceIdentities[table] = records.rows.map((row) => String(row.id));
     }
   const authorityFingerprints: Record<string, unknown>[] = [];
-  for (const table of [...DIVERGENCE_AUTHORITIES, "StudentSurvey"]) {
+  for (const table of [
+    ...DIVERGENCE_AUTHORITIES.filter(
+      (table) => table !== "LegacySignupDecline" || legacySignupDecline,
+    ),
+    "StudentSurvey",
+  ]) {
     const records = await db.query(
       `SELECT to_jsonb(t) AS row FROM public.${quote(table)} t ORDER BY to_jsonb(t)::text LIMIT 10001`,
     );
     operatorAssert(records.rows.length <= 10000, "SECURITY_MANIFEST_TOO_LARGE");
     const values = records.rows.map((record) => {
       const row = record.row as Record<string, unknown>;
+      if (table === "LegacySignupDecline")
+        return Object.fromEntries(
+          Object.entries(row).filter(
+            ([field]) => !["clientKey", "inputHash"].includes(field),
+          ),
+        );
       if (table !== "StudentSurvey") return row;
       // These are separately invalidated bearer mechanics, not enrollment authority.
       return Object.fromEntries(
