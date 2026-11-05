@@ -18,6 +18,7 @@ import {
   legacyAcademicRecordId,
 } from "~/lib/historical-academics";
 import { historicalAcademicSnapshot } from "~/server/historical-academics";
+import { legacySignupDeclineSnapshotSchema } from "~/lib/legacy-signup-decline";
 import { initializePersonSource } from "~/server/person-source-initialization";
 import type { PersonSource } from "~/server/person-identity";
 
@@ -65,6 +66,8 @@ export const RECORD_TABLES = [
   "StudentSignupAppeal",
   "StudentRequestReview",
   "StudentQuarterBlock",
+  // Historical memberships restore before the exact-source terminal decision.
+  "LegacySignupDecline",
   "StudentProfileOwnership",
   "PolicyAcceptance",
   "StudentFeedback",
@@ -139,6 +142,10 @@ async function catalogue(tx: TransactionDb) {
           // Retry keys are operational capabilities, not archival answer/consent evidence.
           // The database gives imported revisions a fresh key without changing their evidence.
           !(table === "StudentSignupRevision" && c.name === "clientKey") &&
+          !(
+            table === "LegacySignupDecline" &&
+            ["clientKey", "inputHash"].includes(c.name)
+          ) &&
           !(
             table === "StudentSignupAppeal" &&
             ["clientKey", "decisionKey", "decisionHash"].includes(c.name)
@@ -409,6 +416,30 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
             "Account reference not found. Create/link accounts through the normal account workflow first.",
           );
         validateDomainRow(table, row);
+        if (table === "LegacySignupDecline") {
+          const [source, term, surveyCount, activeLinks] = await Promise.all([
+            tx.tutee.findUnique({ where: { id: String(row.tuteeId) } }),
+            tx.term.findUnique({ where: { id: String(row.termId) } }),
+            tx.studentSurvey.count({ where: { tuteeId: String(row.tuteeId) } }),
+            tx.pairingTutee.count({
+              where: {
+                tuteeId: String(row.tuteeId),
+                pairing: { term: { active: true } },
+              },
+            }),
+          ]);
+          // CSV restores retained history; it cannot decline live enrollment.
+          if (
+            source?.status !== "INACTIVE" ||
+            !term ||
+            term.active ||
+            surveyCount ||
+            activeLinks
+          )
+            fail(
+              "Legacy decline history requires an inactive legacy profile, an inactive decision term and no active assignments.",
+            );
+        }
         if (
           table === "HistoricalAcademicRecord" &&
           String(row.id).startsWith("legacy-")
@@ -618,6 +649,19 @@ function databaseError(error: unknown) {
 }
 
 function validateDomainRow(table: Table, row: Row) {
+  if (table === "LegacySignupDecline") {
+    const snapshot = legacySignupDeclineSnapshotSchema.safeParse(
+      row.intakeSnapshot,
+    );
+    if (
+      !snapshot.success ||
+      snapshot.data.source.id !== row.tuteeId ||
+      snapshot.data.decisionPeriod.id !== row.termId
+    )
+      fail(
+        "Legacy decline history requires its exact source and decision-period snapshot.",
+      );
+  }
   if (table === "HistoricalAcademicRecord") {
     if (!!row.tuteeId === !!row.tutorId)
       fail(

@@ -155,6 +155,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.assignSignup": "Tutee",
   "admin.setTuteeStatus": "Tutee",
   "admin.deleteTutee": "Tutee",
+  "admin.declineSignup": "Tutee",
   "admin.createSubject": "Subject",
   "admin.updateSubject": "Subject",
   "admin.deleteSubject": "Subject",

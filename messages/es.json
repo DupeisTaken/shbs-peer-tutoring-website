@@ -3687,7 +3687,8 @@
         "languages": "Idiomas",
         "messagePermissions": "Permisos de mensajería",
         "TutorApplication": "Solicitudes para ser tutor",
-        "TuteeRequestInvalidity": "Revisión de inscripción pública anterior"
+        "TuteeRequestInvalidity": "Revisión de inscripción pública anterior",
+        "LegacySignupDecline": "Rechazo de inscripción antigua"
       },
       "operations": {
         "corrections_correctAttendance": "Corregir la asistencia de una sesión",
@@ -3727,6 +3728,7 @@
         "admin_assignSignup": "Asignar una inscripción a un tutor",
         "admin_setTuteeStatus": "Cambiar el estado de participación de un estudiante",
         "admin_deleteTutee": "Eliminar el registro de un estudiante",
+        "admin_declineSignup": "Rechazar una inscripción antigua y conservar su historial",
         "admin_createSubject": "Añadir una asignatura",
         "admin_updateSubject": "Editar una asignatura",
         "admin_deleteSubject": "Archivar una oferta de asignatura",
@@ -3865,6 +3867,7 @@
       "referenceAmbiguous": "Los detalles registrados de {entity} son contradictorios",
       "unknownField": "Campo no reconocido: {field}",
       "archiveSubjectOutcome": "Marcar esta oferta de asignatura como inactiva y conservar las referencias de las inscripciones existentes y del historial.",
+      "declineLegacySignupOutcome": "Cerrar esta inscripción antigua y liberar sus asignaciones actuales. Se conservan sus datos, la titularidad de la cuenta y el historial. Para volver a participar se necesita una nueva solicitud que cumpla los requisitos.",
       "assignInterviewersOutcome": "Iniciar una nueva evaluación de entrevista con el panel y la presidencia solicitados. Borrar los votos anteriores, el registro de finalización y las horas de entrevista acreditadas.",
       "replaceAcceptedPanelOutcome": "Iniciar una nueva evaluación de entrevista y borrar los votos anteriores, la finalización y las horas de entrevista. Revocar las invitaciones sin usar de esta solicitud inicial. Revertir la admisión previa del tutor y sus asignaciones actuales, salvo que otra solicitud aceptada autorice la participación de forma independiente.",
       "saveCourseGroupOutcome": "Guardar el grupo y las ofertas solicitadas como activos. Archivar las ofertas existentes omitidas y conservar sus referencias. Los cambios de nombre también actualizan las etiquetas de asignatura coincidentes en las asignaciones.",
@@ -4037,6 +4040,7 @@
         "StudentSignupAppeal": "Recurso sobre la inscripción",
         "StudentSignupNotice": "Aviso de inscripción",
         "TuteeRequestInvalidity": "Revisión de validez de la inscripción",
+        "LegacySignupDecline": "Rechazo de inscripción antigua",
         "StudentRequestReview": "Solicitud de cambio de un estudiante",
         "StudentQuarterBlock": "Restricción tras la baja del periodo",
         "StudentProfileOwnership": "Titularidad del perfil del estudiante",
@@ -8218,5 +8222,17 @@
     "retry": "Refresh original requests",
     "source": "Original student: {id} · Request: {request}",
     "none": "No open original request currently owns this assignment. Refresh your assignment list."
+  },
+  "legacySignupDecline": {
+    "title": "¿Rechazar la solicitud de {name}?",
+    "consequence": "El rechazo cierra esta solicitud de forma permanente y libera sus asignaciones actuales. Se conservan los datos de origen, los vínculos de cuenta y el historial. Una nueva solicitud debe cumplir los requisitos habituales.",
+    "confirm": "Rechazar solicitud",
+    "declined": "Rechazada",
+    "decision": "Rechazada el {when} por {name}",
+    "staff": "un miembro del equipo",
+    "snapshot": "Datos al tomar la decisión",
+    "snapshotHelp": "Estos datos se registraron cuando el personal rechazó la solicitud. Los cambios posteriores del perfil no modifican esta copia.",
+    "closedHelp": "Esta solicitud está cerrada y no puede asignarse ni reactivarse.",
+    "released": "Asignaciones actuales liberadas: {count}"
   }
 }

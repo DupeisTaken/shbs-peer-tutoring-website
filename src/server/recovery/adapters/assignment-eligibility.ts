@@ -53,6 +53,19 @@ export async function inspectRecoveryParticipantEligibility(
     identity.sourceRestrictions,
     input.reversedDepartureUserIds,
   );
+  // Exact-source closure survives status compensation, period restoration and
+  // ownership changes. A later independently submitted profile is unaffected.
+  const legacyDecline =
+    input.kind === "TUTEE"
+      ? await tx.legacySignupDecline.findUnique({
+          where: { tuteeId: input.sourceId },
+          select: { tuteeId: true, termId: true, resolvedAt: true },
+        })
+      : null;
+  if (legacyDecline)
+    blockers.push(
+      "This legacy signup was declined. A new request is required.",
+    );
   const policyEvidence = [];
   for (const owner of identity.owners) {
     if (
@@ -178,6 +191,13 @@ export async function inspectRecoveryParticipantEligibility(
     blockers: [...new Set(blockers)],
     evidence: recoveryJson({
       identity,
+      legacyDecline: legacyDecline
+        ? {
+            tuteeId: legacyDecline.tuteeId,
+            termId: legacyDecline.termId,
+            resolvedAt: legacyDecline.resolvedAt,
+          }
+        : null,
       policyEvidence,
       cards,
       executionTargetId,

@@ -3687,7 +3687,8 @@
         "languages": "Langues",
         "messagePermissions": "Autorisations de messagerie",
         "TutorApplication": "Candidatures au tutorat",
-        "TuteeRequestInvalidity": "Examen d’une ancienne inscription publique"
+        "TuteeRequestInvalidity": "Examen d’une ancienne inscription publique",
+        "LegacySignupDecline": "Refus d’une ancienne inscription"
       },
       "operations": {
         "corrections_correctAttendance": "Corriger la présence à une séance",
@@ -3727,6 +3728,7 @@
         "admin_assignSignup": "Affecter une inscription à un tuteur",
         "admin_setTuteeStatus": "Modifier le statut de participation d’un élève",
         "admin_deleteTutee": "Supprimer le dossier d’un élève",
+        "admin_declineSignup": "Refuser une ancienne inscription et conserver son historique",
         "admin_createSubject": "Ajouter une matière",
         "admin_updateSubject": "Modifier une matière",
         "admin_deleteSubject": "Archiver une matière proposée",
@@ -3865,6 +3867,7 @@
       "referenceAmbiguous": "Détails enregistrés contradictoires pour : {entity}",
       "unknownField": "Champ non reconnu : {field}",
       "archiveSubjectOutcome": "Désactiver cette matière proposée tout en conservant les références des inscriptions existantes et de l’historique.",
+      "declineLegacySignupOutcome": "Fermer cette ancienne inscription et libérer ses affectations actuelles. Les renseignements, la propriété du compte et l’historique sont conservés. Une nouvelle participation nécessite une nouvelle demande admissible.",
       "assignInterviewersOutcome": "Commencer une nouvelle évaluation d’entretien avec le jury et la présidence demandés. Effacer les votes précédents, l’enregistrement de fin d’entretien et les heures d’entretien créditées.",
       "replaceAcceptedPanelOutcome": "Commencer une nouvelle évaluation d’entretien et effacer les votes précédents, la fin d’entretien et les heures créditées. Révoquer les invitations inutilisées de cette candidature initiale. Annuler l’admission antérieure du tuteur et ses affectations actuelles, sauf si une autre candidature acceptée autorise indépendamment sa participation.",
       "saveCourseGroupOutcome": "Enregistrer le groupe et les matières demandées comme actifs. Archiver les matières existantes omises tout en conservant leurs références. Les changements de nom mettent aussi à jour les libellés de matière correspondants dans les affectations.",
@@ -4037,6 +4040,7 @@
         "StudentSignupAppeal": "Recours concernant l’inscription",
         "StudentSignupNotice": "Avis d’inscription",
         "TuteeRequestInvalidity": "Examen de validité de l’inscription",
+        "LegacySignupDecline": "Refus d’une ancienne inscription",
         "StudentRequestReview": "Demande de modification d’un élève",
         "StudentQuarterBlock": "Restriction après retrait de la période",
         "StudentProfileOwnership": "Titularité du profil d’élève",
@@ -8218,5 +8222,17 @@
     "retry": "Refresh original requests",
     "source": "Original student: {id} · Request: {request}",
     "none": "No open original request currently owns this assignment. Refresh your assignment list."
+  },
+  "legacySignupDecline": {
+    "title": "Refuser la demande de {name} ?",
+    "consequence": "Le refus ferme définitivement cette demande et libère ses affectations actuelles. Les données sources, les liens de compte et l’historique sont conservés. Une nouvelle demande reste soumise aux critères habituels.",
+    "confirm": "Refuser la demande",
+    "declined": "Refusée",
+    "decision": "Refusée le {when} par {name}",
+    "staff": "un membre du personnel",
+    "snapshot": "Données au moment de la décision",
+    "snapshotHelp": "Ces données ont été enregistrées lors du refus. Les modifications ultérieures du profil ne changent pas cet instantané.",
+    "closedHelp": "Cette demande est fermée et ne peut être ni affectée ni réactivée.",
+    "released": "Affectations actuelles libérées : {count}"
   }
 }

@@ -101,6 +101,7 @@ function fixture(access: Access = "VIEWER") {
     tutor: empty(),
     tutee: empty(),
     tuteeRequestInvalidity: empty(),
+    legacySignupDecline: empty(),
     historicalAcademicRecord: empty(),
     subject: empty(),
     subjectLevel: empty(),

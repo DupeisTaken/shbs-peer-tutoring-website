@@ -449,6 +449,7 @@ model SubjectLevel {
 /// A program period = one quarter of a school year. Exactly one is `active` at a time (the
 /// "current period"); refreshing creates + activates the next quarter's term. See src/lib/period.ts.
 model Term {
+  legacySignupDeclines LegacySignupDecline[]
   sessionPlans SessionPlan[]
   id         String         @id @default(cuid())
   schoolYear String // "25-26"
@@ -804,6 +805,7 @@ enum SignupSource {
 }
 
 model Tutee {
+  legacySignupDecline LegacySignupDecline?
   sessionPlanParticipants SessionPlanParticipant[]
   /// Monotonic history ownership/group fence, independent of original roster evidence.
   historyIdentityRevision Int @default(0)
@@ -2085,6 +2087,25 @@ model TuteeRequestInvalidity {
   invalidatedById String?
   invalidatedByName String?
   invalidityVersion Int @default(0)
+}
+
+/// A prospective terminal decision for one exact pre-survey signup source.
+/// The snapshot records what was known at decision time, never reconstructed original intake.
+model LegacySignupDecline {
+  tuteeId String @id
+  tutee Tutee @relation(fields: [tuteeId], references: [id], onDelete: Restrict)
+  termId String
+  term Term @relation(fields: [termId], references: [id], onDelete: Restrict)
+  resolvedAt DateTime @default(now())
+  resolvedById String
+  resolvedByName String?
+  expectedUpdatedAt DateTime
+  /// Archive imports retain the decision but receive no original retry capability.
+  clientKey String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inputHash String @default("")
+  intakeSnapshot Json
+
+  @@index([termId, resolvedAt])
 }
 
 /// Approval is required for assigned-student withdrawal and tutor schedule rejection.

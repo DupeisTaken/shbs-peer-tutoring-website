@@ -890,6 +890,20 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  if (operation === "admin.declineSignup" && typeof fields.id === "string") {
+    // A pending participation review or publication can appear without changing
+    // roster.updatedAt. Approval must review the same exact decline boundary.
+    const id = fields.id;
+    const [reviews, removals, surveys, consolidations, attendance, publication] = await Promise.all([
+      client.studentRequestReview.findMany({ where: { legacyTuteeId: id, state: "PENDING" }, select: { id: true, kind: true, state: true }, orderBy: { id: "asc" } }),
+      client.tuteeRemovalRequest.findMany({ where: { tuteeId: id, state: "PENDING" }, select: { id: true, kind: true, state: true }, orderBy: { id: "asc" } }),
+      client.studentSurvey.findMany({ where: { tuteeId: id }, select: { id: true, state: true }, orderBy: { id: "asc" } }),
+      client.participantConsolidation.findMany({ where: { kind: "TUTEE", active: true, OR: [{ sourceId: id }, { targetId: id }] }, orderBy: { sourceId: "asc" } }),
+      client.sessionTutee.count({ where: { tuteeId: id } }),
+      client.sessionPlanParticipant.count({ where: { tuteeId: id } }),
+    ]);
+    targets.legacySignupDeclineContext = { reviews, removals, surveys, consolidations, attendance, publication };
+  }
   // New captures opt in; replay selects this exact shape only when the immutable
   // request has the version marker. Old proposals retain their original digest
   // and missing originals, without backfilling from today's account/defaults.
@@ -1168,6 +1182,7 @@ export async function proposalTargets(
     ["Tutee", "PairingTutee", "tuteeId"],
     ["Tutee", "TuteeAvailability", "tuteeId"],
     ["Tutee", "TuteeRequestInvalidity", "tuteeId"],
+    ["Tutee", "LegacySignupDecline", "tuteeId"],
     ["Tutee", "TuteeRemovalRequest", "tuteeId"],
     ["Tutee", "DisciplinaryCard", "tuteeId"],
     ["TimeSlot", "Pairing", "timeSlotId"],
@@ -1189,13 +1204,15 @@ export async function proposalTargets(
     const values = ids.get(parent);
     if (values?.size) {
       const childFields =
-        child === "Pairing"
+        child === "LegacySignupDecline"
+          ? "to_jsonb(t) - ARRAY['clientKey','inputHash']::text[]"
+          : child === "Pairing"
           ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
           : "to_jsonb(t)";
       const rows = await client.$queryRaw<unknown[]>(
         Prisma.sql`SELECT ${Prisma.raw(childFields)} AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
       );
-      if (child !== "TuteeRequestInvalidity" || rows.length)
+      if (!["TuteeRequestInvalidity", "LegacySignupDecline"].includes(child) || rows.length)
         targets[`${parent}.${child}`] = rows;
     }
   }

@@ -93,13 +93,13 @@ export async function discretionarySignupChange(
         return true;
   }
   if (
-    ["admin.updateTutee", "admin.setTuteeStatus", "admin.deleteTutee"].includes(
+    ["admin.updateTutee", "admin.setTuteeStatus", "admin.deleteTutee", "admin.declineSignup"].includes(
       operation,
     ) &&
     typeof input.id === "string" &&
     (await currentPublicSignup(db, input.id))
   ) {
-    if (operation === "admin.deleteTutee") return true;
+    if (operation === "admin.deleteTutee" || operation === "admin.declineSignup") return true;
     const row = await db.tutee.findUniqueOrThrow({
       where: { id: input.id },
       select: {

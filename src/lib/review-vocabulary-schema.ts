@@ -1672,6 +1672,14 @@ export const reviewSchema = {
       "invalidityVersion",
     ],
   },
+  LegacySignupDecline: {
+    references: { tuteeId: "Tutee", termId: "Term" },
+    enums: {},
+    fields: [
+      "tuteeId", "tutee", "termId", "term", "resolvedAt", "resolvedById",
+      "resolvedByName", "expectedUpdatedAt", "clientKey", "inputHash", "intakeSnapshot",
+    ],
+  },
   StudentRequestReview: {
     references: {
       surveyId: "StudentSurvey",

@@ -6,6 +6,11 @@ import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
+import {
+  DeclinedLegacySignupCard,
+  LegacySignupDeclineActions,
+  useLegacySignupDecline,
+} from "./legacy-signup-decline";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
 import {
   requestEmailStatus,
@@ -20,7 +25,7 @@ import {
   type InvalidityRecord,
 } from "~/app/_components/request-invalidity";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -42,7 +47,6 @@ import { formatWeekday, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
-import { useDialog } from "~/app/_components/confirm-dialog";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
 type SlotLite = {
@@ -123,7 +127,7 @@ function RequestCard({
     ? null
     : requestEmailStatus(tutee.email, tutee.user ?? tutee.owner);
   const account = api.account.me.useQuery().data;
-  const { confirm, dialog } = useDialog();
+  const decline = useLegacySignupDecline();
   const [confirmCourse, setConfirmCourse] = useState<{
     id: string;
     name: string;
@@ -135,9 +139,6 @@ function RequestCard({
       return onChanged();
     },
     onError: () => onChanged(), // refresh on a stale-write conflict
-  });
-  const del = api.admin.deleteTutee.useMutation({
-    onSuccess: () => onChanged(),
   });
 
   const detailsId = useId();
@@ -306,28 +307,27 @@ function RequestCard({
                 coordinator={account?.role === "COORDINATOR"}
               />
             )}
-          {!fulfilled && !readOnly && !tutee.unverified && !tutee.isInvalid && (
-            <Button
-              variant="danger"
-              size="compact"
-              className="shrink-0"
-              onClick={async () => {
-                if (
-                  await confirm({
-                    title: t("admin.requests.declineConfirm", {
-                      name: displayName,
-                    }),
-                    confirmLabel: t("common.confirm"),
-                    cancelLabel: t("common.cancel"),
-                    danger: true,
+          {!fulfilled &&
+            !readOnly &&
+            !tutee.unverified &&
+            !tutee.isInvalid &&
+            decline && (
+              <Button
+                variant="danger"
+                size="compact"
+                className="shrink-0"
+                disabled={assign.isPending || decline.blocked(tutee)}
+                onClick={() =>
+                  decline.open({
+                    id: tutee.id,
+                    updatedAt: tutee.updatedAt,
+                    name: displayName,
                   })
-                )
-                  del.mutate({ id: tutee.id });
-              }}
-            >
-              {t("admin.requests.decline")}
-            </Button>
-          )}
+                }
+              >
+                {t("admin.requests.decline")}
+              </Button>
+            )}
         </div>
       </div>
 
@@ -452,18 +452,27 @@ function RequestCard({
             {assign.error && (
               <p className="text-sm text-red-600">{assign.error.message}</p>
             )}
-            {(del.error ?? null) && (
-              <p className="text-sm text-red-600">{del.error?.message}</p>
-            )}
           </div>
         )}
-        {dialog}
       </div>
     </div>
   );
 }
 
 export default function RequestsPage() {
+  const readOnly = useReadOnly();
+  // Keep write admission above loading/denial branches. Evidence is rendered and
+  // revoked by the authorized content; a denied read cannot erase an in-flight write.
+  return readOnly ? (
+    <RequestsPageContent />
+  ) : (
+    <LegacySignupDeclineActions>
+      <RequestsPageContent />
+    </LegacySignupDeclineActions>
+  );
+}
+
+function RequestsPageContent() {
   const t = useTranslations();
   const utils = api.useUtils();
   const readOnly = useReadOnly();
@@ -473,6 +482,10 @@ export default function RequestsPage() {
   const managed = api.studentWorkflow.adminRequests.useQuery(undefined, {
     enabled: !readOnly,
   });
+  const legacyReviews = api.studentWorkflow.legacyReviews.useQuery(undefined, {
+    enabled: !readOnly,
+  });
+  const account = api.account.me.useQuery();
   const tutors = api.admin.tutors.useQuery();
   const currentPeriod = api.admin.currentPeriod.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
@@ -483,9 +496,17 @@ export default function RequestsPage() {
     tutors,
     currentPeriod,
     pairings,
-    ...(readOnly ? [] : [managed]),
+    ...(readOnly ? [] : [managed, legacyReviews, account]),
   );
+  const decline = useLegacySignupDecline();
+  const revokeDecline = decline?.revoke;
+  useEffect(() => {
+    if (denied) revokeDecline?.();
+  }, [denied, revokeDecline]);
   const viewScope = currentPeriod.data?.termId ?? "no-active-period";
+  // A pending read may be idle/paused during hydration, so isLoading alone is
+  // not proof that this first period has resolved. Null is a known empty period.
+  const periodLoading = currentPeriod.data === undefined;
   const [observerInvalidity, setObserverInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
       id: "requests.observer-invalidity.v1",
@@ -497,11 +518,7 @@ export default function RequestsPage() {
   useSessionPageScroll({
     id: "requests-observer",
     scope: JSON.stringify([viewScope, observerInvalidity]),
-    ready:
-      !!tutees.data &&
-      !!tutors.data &&
-      !!pairings.data &&
-      !currentPeriod.isLoading,
+    ready: !!tutees.data && !!tutors.data && !!pairings.data && !periodLoading,
     enabled: readOnly && !denied,
   });
 
@@ -545,14 +562,22 @@ export default function RequestsPage() {
   const display = useMemo(
     () =>
       (tutees.data ?? [])
+        .map((row) => ({
+          ...row,
+          // The observer API omits this private property completely. Narrow the
+          // response before composing a local queue; never widen the API shape.
+          signupDecline: "signupDecline" in row ? row.signupDecline : null,
+        }))
         .filter((t2) => !managed.data?.some((r) => r.tuteeId === t2.id))
         .filter((t2) =>
-          isCurrentManualSignup(
-            t2,
-            currentPeriod.data?.termId,
-            assignedByTutee.has(t2.id),
-            retained.has(t2.id),
-          ),
+          t2.signupDecline
+            ? t2.signupDecline.termId === currentPeriod.data?.termId
+            : isCurrentManualSignup(
+                t2,
+                currentPeriod.data?.termId,
+                assignedByTutee.has(t2.id),
+                retained.has(t2.id),
+              ),
         )
         .sort(
           (a, b) =>
@@ -584,6 +609,8 @@ export default function RequestsPage() {
           currentPeriod.error?.message ??
           pairings.error?.message ??
           managed.error?.message ??
+          legacyReviews.error?.message ??
+          account.error?.message ??
           t("uiPatterns.loadFailed")}
       </p>
     );
@@ -596,7 +623,7 @@ export default function RequestsPage() {
         <p className="muted text-sm">{t("workflow.sourceHelp")}</p>
       </DisclosureSection>
 
-      {!currentPeriod.isLoading && !hasPeriod && (
+      {!periodLoading && !hasPeriod && (
         <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>
       )}
 
@@ -605,50 +632,72 @@ export default function RequestsPage() {
           {tutees.error.message}
         </p>
       )}
+      {currentPeriod.error && (
+        <p role="alert" className="text-red-700">
+          {currentPeriod.error.message}{" "}
+          <Button size="compact" onClick={() => void currentPeriod.refetch()}>
+            {t("uiPatterns.retry")}
+          </Button>
+        </p>
+      )}
       {!readOnly ? (
         <StudentRequestBoard
           viewScope={viewScope}
+          viewScopeLoading={periodLoading}
           viewDenied={denied}
           additionalLoading={
-            tutees.isLoading ||
-            managed.isLoading ||
-            pairings.isLoading ||
-            currentPeriod.isLoading
+            tutees.data === undefined ||
+            managed.data === undefined ||
+            pairings.data === undefined ||
+            periodLoading
           }
           additionalEntries={
             hasPeriod
               ? display.map((t2) => ({
                   id: `manual-${t2.id}`,
                   sourceId: t2.id,
-                  submittedAt: t2.signupSubmittedAt ?? t2.createdAt,
-                  invalid: t2.isInvalid,
-                  group: signupRequestGroup(
-                    "OPEN",
-                    [t2.firstChoice?.name, t2.secondChoice?.name].filter(
-                      (name): name is string => !!name,
+                  submittedAt: t2.signupDecline
+                    ? new Date(
+                        t2.signupDecline.snapshot.source.signupSubmittedAt ??
+                          t2.signupDecline.snapshot.source.createdAt,
+                      )
+                    : (t2.signupSubmittedAt ?? t2.createdAt),
+                  invalid: t2.signupDecline ? false : t2.isInvalid,
+                  group: t2.signupDecline
+                    ? "processed"
+                    : signupRequestGroup(
+                        "OPEN",
+                        [t2.firstChoice?.name, t2.secondChoice?.name].filter(
+                          (name): name is string => !!name,
+                        ),
+                        [...(assignedByTutee.get(t2.id)?.keys() ?? [])],
+                        {
+                          invalid: t2.isInvalid,
+                          needsReview: t2.hasPendingInvalidityAppeal,
+                        },
+                      ),
+                  content: (order: number) =>
+                    t2.signupDecline ? (
+                      <DeclinedLegacySignupCard
+                        decline={t2.signupDecline}
+                        order={order}
+                      />
+                    ) : (
+                      <RequestCard
+                        tutee={t2}
+                        order={order}
+                        tutors={(tutors.data ?? []).map((tu) => ({
+                          id: tu.id,
+                          englishName: tu.englishName,
+                          user: tu.user,
+                          active: isAssignableTutor(tu),
+                        }))}
+                        assigned={assignedByTutee.get(t2.id) ?? new Map()}
+                        fulfilled={isFulfilled(t2)}
+                        onChanged={invalidate}
+                        onFulfilled={onFulfilled}
+                      />
                     ),
-                    [...(assignedByTutee.get(t2.id)?.keys() ?? [])],
-                    {
-                      invalid: t2.isInvalid,
-                      needsReview: t2.hasPendingInvalidityAppeal,
-                    },
-                  ),
-                  content: (order: number) => (
-                    <RequestCard
-                      tutee={t2}
-                      order={order}
-                      tutors={(tutors.data ?? []).map((tu) => ({
-                        id: tu.id,
-                        englishName: tu.englishName,
-                        user: tu.user,
-                        active: isAssignableTutor(tu),
-                      }))}
-                      assigned={assignedByTutee.get(t2.id) ?? new Map()}
-                      fulfilled={isFulfilled(t2)}
-                      onChanged={invalidate}
-                      onFulfilled={onFulfilled}
-                    />
-                  ),
                 }))
               : []
           }
@@ -680,6 +729,7 @@ export default function RequestsPage() {
               ))}
         </div>
       )}
+      {!denied && decline?.dialog}
     </div>
   );
 }

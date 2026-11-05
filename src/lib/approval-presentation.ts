@@ -89,6 +89,8 @@ export function approvalPresentation(
     add("name", evidence.applicantName);
   if (operation === "admin.createAnnouncement")
     outcome = "createAnnouncementOutcome";
+  if (operation === "admin.declineSignup")
+    outcome = "declineLegacySignupOutcome";
   if (
     operation === "admin.createAnnouncement" &&
     Array.isArray(evidence.announcementRecipients)

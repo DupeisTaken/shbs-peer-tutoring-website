@@ -97,6 +97,7 @@ function transaction(kind: "TUTOR" | "TUTEE" = "TUTEE") {
       findMany: vi.fn(async () => []),
     },
     disciplinaryCard: { groupBy: vi.fn(async () => []) },
+    legacySignupDecline: { findUnique: vi.fn(async () => null) },
   } as unknown as TransactionDb;
 }
 beforeEach(() => vi.clearAllMocks());

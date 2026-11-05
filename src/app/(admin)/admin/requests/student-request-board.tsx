@@ -25,6 +25,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { settleRefreshes } from "~/lib/settle-refreshes";
@@ -333,19 +334,38 @@ type StudentRequestBoardProps = {
   additionalEntries?: AdditionalRequestEntry[];
   additionalLoading?: boolean;
   viewScope?: string;
+  viewScopeLoading?: boolean;
   viewDenied?: boolean;
 };
 export function StudentRequestBoard(props: StudentRequestBoardProps) {
   const account = api.account.me.useQuery().data;
-  // Private child drafts cannot cross accounts; a scope change only resets views.
-  return (
-    <StudentRequestBoardView key={account?.id ?? "unverified"} {...props} />
-  );
+  const pathname = usePathname();
+  const [boundary, setBoundary] = useState({
+    accountId: account?.id,
+    accountSeen: !!account?.id,
+    pathname,
+    revision: 0,
+  });
+  if (boundary.accountId !== account?.id || boundary.pathname !== pathname) {
+    // The server session-identity provider already owns the initial login. Its
+    // first account read must not erase a click; later account/route changes must
+    // still dispose private drafts and reviews, including account disappearance.
+    const firstAccount =
+      !boundary.accountSeen && !!account?.id && boundary.pathname === pathname;
+    setBoundary({
+      accountId: account?.id,
+      accountSeen: boundary.accountSeen || !!account?.id,
+      pathname,
+      revision: boundary.revision + (firstAccount ? 0 : 1),
+    });
+  }
+  return <StudentRequestBoardView key={boundary.revision} {...props} />;
 }
 function StudentRequestBoardView({
   additionalEntries = [],
   additionalLoading = false,
   viewScope = "",
+  viewScopeLoading = false,
   viewDenied = false,
 }: StudentRequestBoardProps) {
   const t = useTranslations("workflow");
@@ -409,6 +429,29 @@ function StudentRequestBoardView({
     // Static tab choices stay usable during reads; explicit notice reveal and
     // page-scroll restoration still wait for their complete authorized content.
   });
+  const [initialPeriod, setInitialPeriod] = useState({
+    pending: viewScopeLoading,
+    scope: viewScope,
+    choice: null as RequestTab | null,
+  });
+  if (initialPeriod.pending) {
+    if (!viewScopeLoading) {
+      // Transfer only a manual tab click from the initial unresolved period.
+      // Saved views, filters and notification targets keep their own scope rules.
+      setInitialPeriod({ pending: false, scope: viewScope, choice: null });
+      if (!denied && initialPeriod.choice) reconcileTab(initialPeriod.choice);
+    } else if (
+      initialPeriod.scope !== viewScope ||
+      (denied && initialPeriod.choice)
+    ) {
+      setInitialPeriod({ pending: true, scope: viewScope, choice: null });
+    }
+  }
+  const chooseTab = (next: RequestTab) => {
+    setTab(next);
+    if (!denied && initialPeriod.pending && viewScopeLoading)
+      setInitialPeriod({ ...initialPeriod, choice: next });
+  };
   const [invalidity, setInvalidity, reconcileInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
       id: "requests.invalidity.v1",
@@ -422,7 +465,10 @@ function StudentRequestBoardView({
       const hash = window.location.hash;
       setTargetMissing(false);
       setArrival(
-        verified && !denied && requestBoardTarget(hash)
+        verified &&
+          !denied &&
+          !initialPeriod.pending &&
+          requestBoardTarget(hash)
           ? {
               hash,
               pathname: window.location.pathname,
@@ -434,7 +480,7 @@ function StudentRequestBoardView({
     reveal();
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
-  }, [verified, denied]);
+  }, [verified, denied, initialPeriod.pending]);
   const [noticeScope, setNoticeScope] = useState(viewScope);
   if (noticeScope !== viewScope) {
     // A pending arrival belongs to its original period, never a later read scope.
@@ -605,7 +651,7 @@ function StudentRequestBoardView({
             label: `${t(value)} ${counts[value]}`,
           }))}
           value={tab}
-          onChange={setTab}
+          onChange={chooseTab}
         >
           {/* The queue owns spacing between its filters and every results state. */}
           <div className="space-y-4">

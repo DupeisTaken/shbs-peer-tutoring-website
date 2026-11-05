@@ -9,6 +9,7 @@ import {
   type TransferFile,
 } from "~/lib/record-transfer";
 import { previewTicket } from "~/server/record-transfer";
+import type { LegacySignupDeclineSnapshot } from "~/lib/legacy-signup-decline";
 
 const roles = [
   "HEAD",
@@ -106,6 +107,72 @@ function fixtures() {
       },
     ]),
   ];
+}
+
+function declineHistory(): LegacySignupDeclineSnapshot {
+  return {
+    schemaVersion: 1,
+    source: {
+      id: "tutee",
+      englishName: "Known decision-time learner",
+      firstName: null,
+      lastName: null,
+      preferredName: null,
+      legacyName: null,
+      alternativeNames: null,
+      email: "intake@example.test",
+      phone: null,
+      preferredContact: "Original intake contact",
+      notes: null,
+      gradeLevel: "10",
+      academicallyGraduated: false,
+      signupSource: "UNKNOWN",
+      intakeTermId: null,
+      signupSubmittedAt: null,
+      createdAt: "2024-10-01T10:00:00.000Z",
+      status: "PENDING",
+      firstChoice: { id: "old-subject", name: "Original subject" },
+      secondChoice: null,
+      signedRulebook: true,
+      signatureName: "Original signature",
+      signedAt: "2024-10-01T10:00:00.000Z",
+    },
+    decisionPeriod: {
+      id: "decision-term",
+      name: "25-26 Q1",
+      schoolYear: "25-26",
+      quarter: "Q1",
+    },
+    availability: [
+      {
+        id: "old-slot",
+        label: "Original slot",
+        dayOfWeek: 1,
+        startMin: 900,
+        endMin: 960,
+      },
+    ],
+    ownership: {
+      userId: null,
+      retainedOwnerId: null,
+      personId: null,
+      historyIdentityRevision: 0,
+    },
+    pairings: [
+      {
+        id: "pair",
+        termId: "term",
+        subject: "Math",
+        tutorId: "tutor",
+        tutorName: "Historical tutor",
+        dayOfWeek: 2,
+        startMin: 600,
+        endMin: 630,
+        scheduleConfirmed: false,
+        removed: false,
+      },
+    ],
+  };
 }
 
 beforeEach(async () => {
@@ -238,6 +305,152 @@ it("does not revive an exported survey verification token", async () => {
   await expect(
     caller().recordTransfer.preview({ files: exported.files }),
   ).resolves.toBeDefined();
+});
+
+it("round-trips retained legacy decline evidence and historical links without retry authority", async () => {
+  const snapshot = declineHistory();
+  const decline = {
+    tuteeId: "tutee",
+    termId: "decision-term",
+    resolvedAt: "2025-10-02T10:00:00.000Z",
+    resolvedById: "former-reviewer",
+    resolvedByName: "Original reviewer",
+    expectedUpdatedAt: "2025-10-01T10:00:00.000Z",
+    intakeSnapshot: snapshot,
+  };
+  const files = [
+    ...fixtures().filter(
+      (item) =>
+        !["Term.csv", "Session.csv", "SessionTutee.csv"].includes(item.name),
+    ),
+    file("Term", [
+      {
+        id: "term",
+        schoolYear: "24-25",
+        quarter: "Q1",
+        name: "24-25 Q1",
+        active: false,
+      },
+      {
+        id: "decision-term",
+        schoolYear: "25-26",
+        quarter: "Q1",
+        name: "25-26 Q1",
+        active: false,
+      },
+    ]),
+    file("LegacySignupDecline", [decline]),
+  ];
+  const preview = await caller().recordTransfer.preview({ files });
+  expect(await db.legacySignupDecline.count()).toBe(0);
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  const stored = await db.legacySignupDecline.findUniqueOrThrow({
+    where: { tuteeId: "tutee" },
+  });
+  expect(stored).toMatchObject({ intakeSnapshot: snapshot, inputHash: "" });
+  expect(stored.clientKey).toMatch(/^[a-f\d-]{36}$/i);
+  expect(
+    await db.pairingTutee.count({
+      where: { tuteeId: "tutee", pairingId: "pair" },
+    }),
+  ).toBe(1);
+
+  // Later directory metadata does not replace retained decision-time evidence.
+  await db.tutee.update({
+    where: { id: "tutee" },
+    data: { englishName: "Later directory label" },
+  });
+  const exported = await caller().recordTransfer.export({});
+  const exportedDecline = exported.files.find(
+    (item) => item.name === "LegacySignupDecline.csv",
+  )!;
+  const [header] = parseRecordCsv(exportedDecline.text);
+  expect(header).toContain("intakeSnapshot");
+  expect(header).not.toContain("clientKey");
+  expect(header).not.toContain("inputHash");
+  expect(exportedDecline.text).toContain("Original intake contact");
+  expect(exportedDecline.text).toContain("Original signature");
+  const repeat = await caller().recordTransfer.preview({
+    files: [exportedDecline],
+  });
+  expect(repeat.summary).toEqual([
+    { table: "LegacySignupDecline", created: 0, skipped: 1 },
+  ]);
+  await caller().recordTransfer.import({
+    files: [exportedDecline],
+    ticket: repeat.ticket,
+  });
+  expect(
+    await db.legacySignupDecline.findUniqueOrThrow({
+      where: { tuteeId: "tutee" },
+    }),
+  ).toEqual(stored);
+
+  for (const capability of ["clientKey", "inputHash"]) {
+    await expect(
+      caller().recordTransfer.preview({
+        files: [
+          file("LegacySignupDecline", [
+            {
+              ...decline,
+              [capability]: stored[capability as "clientKey" | "inputHash"],
+            },
+          ]),
+        ],
+      }),
+    ).rejects.toThrow(/unknown or duplicate columns/);
+  }
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("LegacySignupDecline", [
+          {
+            ...decline,
+            intakeSnapshot: {
+              ...snapshot,
+              source: { ...snapshot.source, englishName: "Changed original" },
+            },
+          },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/Existing records are never overwritten/);
+});
+
+it("refuses importing decline history as a way to close active enrollment or invent source evidence", async () => {
+  const base = fixtures();
+  const imported = await caller().recordTransfer.preview({ files: base });
+  await caller().recordTransfer.import({
+    files: base,
+    ticket: imported.ticket,
+  });
+  const snapshot = declineHistory();
+  const row = {
+    tuteeId: "tutee",
+    termId: "term",
+    resolvedById: "former-reviewer",
+    expectedUpdatedAt: "2024-10-01T10:00:00.000Z",
+    intakeSnapshot: {
+      ...snapshot,
+      decisionPeriod: { ...snapshot.decisionPeriod, id: "term" },
+    },
+  };
+  await db.tutee.update({ where: { id: "tutee" }, data: { status: "ACTIVE" } });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [file("LegacySignupDecline", [row])],
+    }),
+  ).rejects.toThrow(/inactive legacy profile/);
+  await db.tutee.update({
+    where: { id: "tutee" },
+    data: { status: "INACTIVE" },
+  });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [file("LegacySignupDecline", [{ ...row, intakeSnapshot: {} }])],
+    }),
+  ).rejects.toThrow(/exact source and decision-period snapshot/);
+  expect(await db.legacySignupDecline.count()).toBe(0);
 });
 
 it.each(roles.filter((r) => r !== "HEAD" && r !== "ADMIN"))(

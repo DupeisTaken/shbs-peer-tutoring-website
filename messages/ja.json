@@ -3687,7 +3687,8 @@
         "languages": "言語",
         "messagePermissions": "メッセージ送信権限",
         "TutorApplication": "チューター応募",
-        "TuteeRequestInvalidity": "旧方式の公開申込の審査"
+        "TuteeRequestInvalidity": "旧方式の公開申込の審査",
+        "LegacySignupDecline": "旧形式の申込の却下"
       },
       "operations": {
         "corrections_correctAttendance": "指導回の出欠記録を訂正",
@@ -3727,6 +3728,7 @@
         "admin_assignSignup": "申込みにチューターを割り当てる",
         "admin_setTuteeStatus": "生徒の参加状態を変更",
         "admin_deleteTutee": "生徒の記録を削除",
+        "admin_declineSignup": "旧形式の申込を却下し履歴を保持",
         "admin_createSubject": "科目を追加",
         "admin_updateSubject": "科目を編集",
         "admin_deleteSubject": "科目の開設項目をアーカイブ",
@@ -3865,6 +3867,7 @@
       "referenceAmbiguous": "記録された詳細に矛盾があります：{entity}",
       "unknownField": "未認識の項目：{field}",
       "archiveSubjectOutcome": "この科目の開設項目を無効にし、既存の申込みと過去の記録からの参照を維持します。",
+      "declineLegacySignupOutcome": "この旧形式の申込を終了し、現在の割り当てを解除します。申込情報、アカウントの所有関係、履歴は保持されます。再び参加するには、条件を満たす新しい申込が必要です。",
       "assignInterviewersOutcome": "申請された面接担当者と責任者による新しい面接審査を開始し、以前の投票、面接完了記録、認定済みの面接活動時間を削除します。",
       "replaceAcceptedPanelOutcome": "新しい面接審査を開始し、以前の投票、面接完了記録、活動時間を削除します。この初回応募の未使用の招待を無効化します。別の受理済み応募が独立して参加資格を認めている場合を除き、以前のチューター採用と現在の指導割当てを取り消します。",
       "saveCourseGroupOutcome": "科目グループを保存し、申請された開設項目を有効にします。省略された既存の開設項目は参照を維持したままアーカイブします。開設項目の名称変更は、一致する指導割当ての科目名にも反映されます。",
@@ -4037,6 +4040,7 @@
         "StudentSignupAppeal": "申込みへの異議申立て",
         "StudentSignupNotice": "申込みのお知らせ",
         "TuteeRequestInvalidity": "申込みの有効性審査",
+        "LegacySignupDecline": "旧形式の申込の却下",
         "StudentRequestReview": "生徒の変更申請",
         "StudentQuarterBlock": "当期の参加辞退による制限",
         "StudentProfileOwnership": "生徒プロフィールの所有権",
@@ -8218,5 +8222,17 @@
     "retry": "Refresh original requests",
     "source": "Original student: {id} · Request: {request}",
     "none": "No open original request currently owns this assignment. Refresh your assignment list."
+  },
+  "legacySignupDecline": {
+    "title": "{name} の申込みを却下しますか？",
+    "consequence": "却下すると、この申込みは完全に終了し、現在の割当てが解除されます。元の情報、アカウントの関連付け、履歴は保持されます。新たな申込みには通常の参加条件が適用されます。",
+    "confirm": "申込みを却下",
+    "declined": "却下済み",
+    "decision": "{when} に {name} が却下",
+    "staff": "担当者",
+    "snapshot": "決定時の申込み情報",
+    "snapshotHelp": "担当者が申込みを却下した時点の情報です。その後のプロフィール変更は、この記録に反映されません。",
+    "closedHelp": "この申込みは終了しており、割当てや再有効化はできません。",
+    "released": "解除した現在の割当て：{count}"
   }
 }

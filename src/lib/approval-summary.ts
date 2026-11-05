@@ -109,6 +109,7 @@ export const approvalSummaryContexts: Record<string, readonly string[]> = {
   "admin.assignSignup": ["tuteeId", "tutorId"],
   "admin.setTuteeStatus": ["id"],
   "admin.deleteTutee": ["id"],
+  "admin.declineSignup": ["id"],
   "admin.createSubject": [],
   "admin.updateSubject": ["id"],
   "admin.deleteSubject": ["id"],

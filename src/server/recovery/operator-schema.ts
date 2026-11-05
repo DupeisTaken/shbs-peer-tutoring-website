@@ -347,6 +347,20 @@ const REVIEWED_IDENTITY_COLUMNS = [
   ...REVIEWED_COLUMNS,
   ...IDENTITY_ADDITIONS,
 ].sort();
+// Keep already reviewed backup schemas readable. A complete additive table is
+// reviewed separately; partial or unknown columns still fail the exact match.
+const LEGACY_DECLINE_COLUMNS =
+  "clientKey:uuid,expectedUpdatedAt:timestamp,inputHash:text,intakeSnapshot:jsonb,resolvedAt:timestamp,resolvedById:text,resolvedByName:text,termId:text,tuteeId:text"
+    .split(",")
+    .map((field) => `LegacySignupDecline|${field.replace(":", "|")}`);
+const REVIEWED_DECLINE_COLUMNS = [
+  ...REVIEWED_COLUMNS,
+  ...LEGACY_DECLINE_COLUMNS,
+].sort();
+const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
+  ...REVIEWED_IDENTITY_COLUMNS,
+  ...LEGACY_DECLINE_COLUMNS,
+].sort();
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -359,6 +373,16 @@ const PRISMA_METADATA = [
 ].sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  legacyDeclineColumns: REVIEWED_DECLINE_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
+  identityLegacyDeclineColumns: REVIEWED_IDENTITY_DECLINE_COLUMNS.map(
+    (line) => {
+      const [table_name, column_name, udt_name] = line.split("|");
+      return { table_name, column_name, udt_name };
+    },
+  ),
   identityColumns: REVIEWED_IDENTITY_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -389,9 +413,11 @@ export function assertReviewedRecoverySchema(
     .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
     .sort();
   const identityVersion: 0 | 1 | null =
-    domain.join("\n") === REVIEWED_COLUMNS.join("\n")
+    domain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
+    domain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
       ? 0
-      : domain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n")
+      : domain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
+          domain.join("\n") === REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
         ? 1
         : null;
   operatorAssert(identityVersion !== null, "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
@@ -407,5 +433,10 @@ export function assertReviewedRecoverySchema(
     labels.join("\n") === REVIEWED_ENUMS.join("\n"),
     "UNREVIEWED_RECOVERY_ENUM_SCHEMA",
   );
-  return { identityVersion };
+  return {
+    identityVersion,
+    legacySignupDecline: domain.some((column) =>
+      column.startsWith("LegacySignupDecline|"),
+    ),
+  };
 }

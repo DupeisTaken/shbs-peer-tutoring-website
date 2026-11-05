@@ -6,11 +6,15 @@ export function createClientLoggerLink() {
     enabled: (op) => {
       if (op.direction === "down" && op.result instanceof TRPCClientError) {
         const data = op.result.data;
-        // The group editor renders these rejected drafts with inline recovery.
-        // Logging them as console errors also raises Next's development overlay.
+        // These named editors own inline rejection/queued-approval recovery.
+        // Console errors would raise Next's overlay over their recovery controls.
         if (
-          data?.path === "pairingGroups.save" &&
-          (data.code === "BAD_REQUEST" || data.code === "CONFLICT")
+          (data?.path === "pairingGroups.save" &&
+            (data.code === "BAD_REQUEST" || data.code === "CONFLICT")) ||
+          (data?.path === "admin.declineSignup" &&
+            (data.code === "BAD_REQUEST" ||
+              data.code === "CONFLICT" ||
+              data.code === "PRECONDITION_FAILED"))
         )
           return false;
       }
