@@ -2,6 +2,15 @@
 
 Each pull request selects an immutable source control and a reviewed migration manifest. PR #569 binds 112 historical migrations plus two scheduling additions. PR #568 has ten additions with identity, and PR #570 has twenty with identity and recovery. Unrelated pull requests use their own base unless a scoped manifest or explicit manual selection applies.
 
+PR #604 uses the immediate pre-feature main commit
+`fd93b1d0b45d9ea196c39c0f2791c1371f6eaeb6` as its scoped control. Its manifest
+pins the complete existing migration chain and the retained legacy signup decline
+schema/migration. That addition creates decision evidence, journals its changes and
+extends the closed-roster trigger with an exact-source decline fence. Existing
+scheduling scenarios compare the baseline application under this candidate schema;
+the new decline workflow has separate candidate regression evidence and makes no
+baseline parity or speedup claim. The comparison policy remains unchanged.
+
 The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
 Each `pr-N-baseline.txt` and `pr-N-catalog-baseline.txt` contains a full SHA followed by LF. Combined PR #570 compares shared captures with the complete identity and recovery projections. Its original-schema cold control captures only the fixed historical projection. Controlled contention diagnostics retain both complete ordered histories. Uncontrolled rounds preserve their independent observed fence order and raw audit chronology.
