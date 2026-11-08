@@ -2790,7 +2790,7 @@
       "label": "退出登录"
     },
     "userMenu": {
-      "settings": "设置",
+      "settings": "账户设置",
       "enterTutor": "进入辅导伙伴主页",
       "enterAdmin": "进入管理区",
       "enterTutee": "进入学习伙伴主页",
