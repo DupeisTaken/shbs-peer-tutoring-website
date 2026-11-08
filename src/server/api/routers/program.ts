@@ -26,6 +26,8 @@ import { recordAudit } from "~/server/audit/log";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { getEmailDeliveryStatus } from "~/server/email/delivery-status";
 import { resendStuckEmails } from "~/server/email/resend-stuck";
+import { notificationLockCategories } from "~/lib/notification-categories";
+import { notificationLocksInput, saveNotificationLocks } from "~/server/program/notification-locks";
 
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { isProgramTimeZone } from "~/lib/program-time";
@@ -419,6 +421,14 @@ export const programRouter = createTRPCRouter({
       failed,
     };
   }),
+  notificationLockSettings: adminProcedure.query(async ({ ctx }) => {
+    const settings = await ctx.db.programSettings.findUnique({ where: { id: "program" }, select: { notificationLocks: true } });
+    return {
+      categories: notificationLockCategories(settings?.notificationLocks).map((row) => ({ ...row, badgeAvailable: row.category !== "reminders" })),
+      canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
+    };
+  }),
+  setNotificationLocks: adminOnlyProcedure.input(notificationLocksInput).mutation(({ ctx, input }) => saveNotificationLocks(ctx.db, input, ctx.session.user)),
   setEmailNotifications: adminOnlyProcedure
     .input(z.object({ enabled: z.boolean(), expectedEnabled: z.boolean() }))
     .mutation(async ({ ctx, input }) =>

@@ -4952,7 +4952,7 @@
   },
   "programEmail": {
     "title": "Email Notifications",
-    "help": "Enable optional messages, program updates, review requests and event reminders. Each person chooses their categories in account preferences.",
+    "help": "Manage email delivery and the notification choices required for everyone. Personal preferences apply to unlocked choices.",
     "on": "Enabled",
     "off": "Disabled",
     "enable": "Enable email notifications",
@@ -6037,7 +6037,11 @@
     "program": "Other program updates",
     "programHelp": "Program updates not included in another category.",
     "reminders": "Upcoming reminders",
-    "remindersHelp": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions."
+    "remindersHelp": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions.",
+    "locked": "{category} email is required by the program administrator. You can still unsubscribe from other optional categories.",
+    "successRequired": "Optional email choices are now off. Email required by the administrator remains enabled.",
+    "requiredHelp": "Email required by the administrator stays enabled when you unsubscribe from all optional categories.",
+    "successCategoryRequired": "Optional {category} emails are now off. Email required by the administrator remains enabled."
   },
   "participantRecovery": {
     "loading": "Loading records…",
@@ -7707,7 +7711,9 @@
       "management": "Management proposals, decisions and corrected records.",
       "program": "Program updates not included in another category.",
       "reminders": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions."
-    }
+    },
+    "locked": "Required by administrator",
+    "lockDemo": "Demonstrate required message email"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -8234,5 +8240,22 @@
     "snapshotHelp": "These source details were recorded when staff declined the signup. Later profile edits do not change this snapshot.",
     "closedHelp": "This signup is closed and cannot be assigned or reactivated.",
     "released": "Current assignments released: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "Delivery settings",
+    "requiredTab": "Required notifications",
+    "help": "Require selected notification choices for everyone. Locked choices stay on while the person’s saved preference is preserved for when you unlock them.",
+    "badge": "Lock unread badge on",
+    "email": "Lock email on",
+    "badgeFor": "{category}: lock unread badge on",
+    "emailFor": "{category}: lock email on",
+    "deliveryHelp": "Required email still follows program email enablement, delivery availability and recipient eligibility. Security emails remain required separately.",
+    "readOnly": "Only Admin and Head can change these requirements.",
+    "save": "Save requirements",
+    "saving": "Saving…",
+    "saved": "Requirements saved.",
+    "loadFailed": "The latest requirements could not be loaded. Your draft is retained. Retry the read before saving.",
+    "refreshFailed": "Requirements were saved, but the latest settings could not be loaded. Retry the read; do not save again.",
+    "reload": "Reload latest requirements"
   }
 }

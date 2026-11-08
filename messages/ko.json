@@ -4953,7 +4953,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "이메일 알림",
-    "help": "메시지, 프로그램 소식, 검토 요청 및 일정 알림의 선택적 이메일을 활성화합니다. 각 사용자는 계정 설정에서 수신할 범주를 선택합니다.",
+    "help": "이메일 발송과 모든 사용자에게 필수인 알림 옵션을 관리합니다. 잠기지 않은 옵션에는 개인 환경설정이 적용됩니다.",
     "on": "켜짐",
     "off": "꺼짐",
     "enable": "이메일 알림 켜기",
@@ -6003,7 +6003,11 @@
     "program": "기타 프로그램 소식",
     "programHelp": "다른 범주에 속하지 않는 프로그램 소식입니다.",
     "reminders": "예정된 일정 알림",
-    "remindersHelp": "면접, 회의 및 확정된 튜터링 수업 24시간 전과 1시간 전에 이메일을 보냅니다."
+    "remindersHelp": "면접, 회의 및 확정된 튜터링 수업 24시간 전과 1시간 전에 이메일을 보냅니다.",
+    "locked": "{category} 이메일은 관리자가 필수로 지정했습니다. 다른 선택적 카테고리는 수신 거부할 수 있습니다.",
+    "successRequired": "선택적 이메일이 꺼졌습니다. 관리자가 필수로 지정한 이메일은 계속 켜져 있습니다.",
+    "requiredHelp": "모든 선택적 카테고리를 수신 거부해도 관리자가 필수로 지정한 이메일은 계속 켜져 있습니다.",
+    "successCategoryRequired": "{category}의 선택적 이메일이 꺼졌습니다. 관리자가 필수로 지정한 이메일은 계속 켜져 있습니다."
   },
   "participantRecovery": {
     "loading": "기록을 불러오는 중…",
@@ -7707,7 +7711,9 @@
       "management": "관리 제안, 결정 및 기록 수정입니다.",
       "program": "다른 범주에 속하지 않는 프로그램 소식입니다.",
       "reminders": "면접, 회의 및 확정된 튜터링 수업 24시간 전과 1시간 전에 이메일을 보냅니다."
-    }
+    },
+    "locked": "관리자가 필수로 지정함",
+    "lockDemo": "메시지 이메일 필수 설정 시연"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -8234,5 +8240,22 @@
     "snapshotHelp": "담당자가 신청을 거절할 당시 기록한 정보입니다. 이후 프로필 변경은 이 기록에 반영되지 않습니다.",
     "closedHelp": "이 신청은 종료되어 배정하거나 다시 활성화할 수 없습니다.",
     "released": "해제된 현재 배정: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "발송 설정",
+    "requiredTab": "필수 알림",
+    "help": "선택한 알림 옵션을 모든 사용자에게 적용합니다. 잠긴 옵션은 켜진 상태를 유지하며 개인의 저장된 환경설정은 잠금 해제 후를 위해 보존됩니다.",
+    "badge": "읽지 않음 배지 켜짐으로 잠금",
+    "email": "이메일 켜짐으로 잠금",
+    "badgeFor": "{category}: 읽지 않음 배지 켜짐으로 잠금",
+    "emailFor": "{category}: 이메일 켜짐으로 잠금",
+    "deliveryHelp": "필수 이메일에도 프로그램 이메일 활성화, 발송 가능 여부 및 수신 자격이 적용됩니다. 보안 이메일은 별도로 필수입니다.",
+    "readOnly": "Admin과 Head만 이 요구사항을 변경할 수 있습니다.",
+    "save": "요구사항 저장",
+    "saving": "저장 중…",
+    "saved": "요구사항이 저장되었습니다.",
+    "loadFailed": "최신 요구사항을 불러오지 못했습니다. 초안은 유지됩니다. 저장하기 전에 읽기를 다시 시도하세요.",
+    "refreshFailed": "요구사항은 저장되었지만 최신 설정을 불러오지 못했습니다. 다시 저장하지 말고 읽기를 다시 시도하세요.",
+    "reload": "최신 요구사항 다시 불러오기"
   }
 }

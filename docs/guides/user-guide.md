@@ -1601,6 +1601,12 @@ Email notices include a clear action button and a copyable link, with a plain-te
 
 Staff, tutors and tutees can use **Account → Notification preferences**, also linked from the bell, to choose unread-badge and optional-email settings independently. The eleven categories are messages, review requests, applications, tutoring assignments, attendance, membership, account updates, announcements, management, other program updates and upcoming reminders. Reminders are email-only. Save applies your choices; Cancel discards unsaved changes.
 
+Admin/Head can require individual badge or email choices to stay on. A required
+choice is checked, unavailable to edit and labelled as required by your
+administrator. Your previous personal choice is preserved and returns when the
+requirement is removed. Required email still depends on the program email switch,
+your verified delivery addresses and current access to that type of notice.
+
 Turning off a category's badge keeps its notices in the bell and preserves their read/unread state. You can still open them or mark them read. Turning the badge back on counts any still-unread notices again. Existing accounts retain their previous email opt-ins until changed; new categories inherit the corresponding old setting, while review requests and reminders retain their separate opt-ins. New accounts start with optional email off and badges on.
 
 When Admin/Head enable **Email Notifications** in **Program Settings → Deployment Configurations** directly or approve a Coordinator request, optional email controls become available. Only active Admin/Head reviewers can enable review-request email; participant copies of the same event follow their own subject category. Reminders cover interviews, meetings and confirmed tutoring sessions at 24 hours and 1 hour before. Tutoring reminders are suppressed on No tutoring dates, explicitly marked non-school days, and recorded tutor or assigned-tutee absences; missing attendance is not treated as absence. Queued reminders are checked again before sending. By default notices go only to a verified primary; you can also include verified secondary addresses.
@@ -1612,6 +1618,12 @@ On **Program Settings → Deployment Configurations**, **Email delivery status**
 After the email service is repaired, ADMIN/HEAD can select **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications. The result confirms queuing; delivery happens through the normal worker. Account notifications follow current email preferences and recipient ownership; essential request notices recheck the exact request source and revision and bypass optional preferences. Emails already being processed or completed are excluded, and optional emails remain excluded while notifications are disabled. If more eligible messages remain, refresh status before queuing another batch. If queuing succeeds but the status read fails, use **Refresh status** to recover without submitting the same action again.
 
 Optional notification emails also include **Unsubscribe** below the footer. The link opens a page without requiring sign-in; opening it alone changes nothing. Choose to stop that exact notification category or all optional notification emails, then confirm. Older links without a recorded topic retain their displayed broad category. This changes the account's email preferences for both primary and included secondary addresses, not just the inbox that received the link; badge choices stay unchanged. In-app notifications, account security alerts, verification, password recovery and signup confirmation remain available. You can turn optional categories back on in **Account → Notification preferences** when program notifications are enabled.
+
+Unsubscribe cannot turn off an administrator-required category. The page explains
+when the linked category is required; you can still stop other categories that
+are available to change. Choosing all affects only unlocked categories, and the
+confirmation explains when required notifications remain enabled. A locked
+category's saved personal choice is preserved.
 
 Unsubscribe links expire after 90 days. Use a newer notification or sign in to manage preferences if a link is expired or unavailable. Treat these links as private: anyone with a valid link can turn off the optional categories it offers. Emails already accepted for delivery cannot be recalled.
 

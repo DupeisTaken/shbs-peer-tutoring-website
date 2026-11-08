@@ -361,6 +361,9 @@ const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
   ...REVIEWED_IDENTITY_COLUMNS,
   ...LEGACY_DECLINE_COLUMNS,
 ].sort();
+// This additive preference policy grants no bearer or identity authority. Retain
+// every reviewed older backup shape while requiring its exact PostgreSQL type.
+const NOTIFICATION_LOCK_COLUMN = "ProgramSettings|notificationLocks|jsonb";
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -373,6 +376,15 @@ const PRISMA_METADATA = [
 ].sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  notificationLockColumns: [
+    ...REVIEWED_IDENTITY_DECLINE_COLUMNS,
+    NOTIFICATION_LOCK_COLUMN,
+  ]
+    .sort()
+    .map((line) => {
+      const [table_name, column_name, udt_name] = line.split("|");
+      return { table_name, column_name, udt_name };
+    }),
   legacyDeclineColumns: REVIEWED_DECLINE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -412,12 +424,17 @@ export function assertReviewedRecoverySchema(
     .filter((row) => row.table_name === "_prisma_migrations")
     .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
     .sort();
+  const reviewedDomain =
+    domain.filter((column) => column === NOTIFICATION_LOCK_COLUMN).length === 1
+      ? domain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
+      : domain;
   const identityVersion: 0 | 1 | null =
-    domain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
-    domain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
+    reviewedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
+    reviewedDomain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
       ? 0
-      : domain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
-          domain.join("\n") === REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
+      : reviewedDomain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
+          reviewedDomain.join("\n") ===
+            REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
         ? 1
         : null;
   operatorAssert(identityVersion !== null, "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");

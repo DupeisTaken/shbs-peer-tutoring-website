@@ -25,7 +25,7 @@ import { maskEmail } from "~/server/auth/mask";
 import { notifyAdmins } from "~/server/notifications/create";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { eligibleReviewRecipient } from "~/server/email/notification-policy";
-import { notificationCategories, effectiveNotificationPreference, informationCategories, type NotificationCategory } from "~/lib/notification-categories";
+import { notificationCategories, effectiveNotificationPreference, informationCategories, notificationLockFor, notificationLockCategories, type NotificationCategory } from "~/lib/notification-categories";
 import {
   requestEmailChange,
   confirmEmailChange,
@@ -40,15 +40,16 @@ export const accountRouter = createTRPCRouter({
   notificationPreferences: protectedProcedure.query(async ({ ctx }) => {
     const [user, program] = await Promise.all([
       ctx.db.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, include: { notificationPreferences: true } }),
-      ctx.db.programSettings.findUnique({ where: { id: "program" }, select: { emailNotificationsEnabled: true } }),
+      ctx.db.programSettings.findUnique({ where: { id: "program" }, select: { emailNotificationsEnabled: true, notificationLocks: true } }),
     ]);
     const emailEnabled = program?.emailNotificationsEnabled ?? false;
     const canReceiveReviewRequests = eligibleReviewRecipient(user);
     return {
       categories: notificationCategories.map((category) => ({
-        ...effectiveNotificationPreference(user, category, user.notificationPreferences),
+        ...effectiveNotificationPreference(user, category, user.notificationPreferences, program?.notificationLocks),
+        ...notificationLockFor(program?.notificationLocks, category),
         badgeAvailable: category !== "reminders",
-        emailEditable: emailEnabled && (category !== "reviews" || canReceiveReviewRequests),
+        emailEditable: emailEnabled && !notificationLockFor(program?.notificationLocks, category).emailLocked && (category !== "reviews" || canReceiveReviewRequests),
       })),
       emailEnabled, canReceiveReviewRequests, emailSecondaryRecipients: user.emailSecondaryRecipients,
       deliveryAvailable: isEmailDeliveryAvailable("PROGRAM"),
@@ -58,20 +59,31 @@ export const accountRouter = createTRPCRouter({
     categories: z.array(z.object({ category: z.enum(notificationCategories), badgeEnabled: z.boolean(), emailEnabled: z.boolean() }))
       .max(notificationCategories.length).refine((rows) => new Set(rows.map((row) => row.category)).size === rows.length, "Each category can be submitted once."),
     emailSecondaryRecipients: z.boolean().optional(),
+    expectedLocks: z.array(z.object({ category: z.enum(notificationCategories), badgeLocked: z.boolean(), emailLocked: z.boolean() })).length(notificationCategories.length)
+      .refine((rows) => new Set(rows.map((row) => row.category)).size === notificationCategories.length, "Include each notification category exactly once.").optional(),
   })).mutation(async ({ ctx, input }) => ctx.db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('email-notifications-setting', 0))`;
     const user = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, include: { notificationPreferences: true } });
     const settings = await tx.programSettings.findUnique({ where: { id: "program" } });
+    if (input.expectedLocks && notificationLockCategories(settings?.notificationLocks).some((row) => {
+      const expected = input.expectedLocks!.find((item) => item.category === row.category)!;
+      return expected.badgeLocked !== row.badgeLocked || expected.emailLocked !== row.emailLocked;
+    })) throw new TRPCError({ code: "CONFLICT", message: "Notification requirements changed. Reload your settings before saving." });
     for (const row of input.categories) {
       const current = effectiveNotificationPreference(user, row.category, user.notificationPreferences);
+      const required = notificationLockFor(settings?.notificationLocks, row.category);
+      if ((required.badgeLocked && !row.badgeEnabled) || (required.emailLocked && !row.emailEnabled))
+        throw new TRPCError({ code: "FORBIDDEN", message: "This notification choice is required by the program administrator. Reload your settings." });
       if (row.category === "reminders" && row.badgeEnabled !== current.badgeEnabled)
         throw new TRPCError({ code: "BAD_REQUEST", message: "Upcoming reminders are email-only." });
-      if (row.emailEnabled && row.emailEnabled !== current.emailEnabled &&
+      if (!required.emailLocked && row.emailEnabled && row.emailEnabled !== current.emailEnabled &&
         (!settings?.emailNotificationsEnabled || (row.category === "reviews" && !eligibleReviewRecipient(user))))
         throw new TRPCError({ code: "FORBIDDEN", message: "Email cannot be enabled for this category with your current access and program settings." });
+      // Saving another choice must not replace a locked channel's underlying preference.
+      const saved = { category: row.category, badgeEnabled: required.badgeLocked ? current.badgeEnabled : row.badgeEnabled, emailEnabled: required.emailLocked ? current.emailEnabled : row.emailEnabled };
       await tx.notificationPreference.upsert({
         where: { userId_category: { userId: user.id, category: row.category } },
-        create: { userId: user.id, ...row }, update: { badgeEnabled: row.badgeEnabled, emailEnabled: row.emailEnabled },
+        create: { userId: user.id, ...saved }, update: { badgeEnabled: saved.badgeEnabled, emailEnabled: saved.emailEnabled },
       });
     }
     if (input.emailSecondaryRecipients !== undefined) {
@@ -187,8 +199,17 @@ export const accountRouter = createTRPCRouter({
             message:
               "Email notifications are disabled by the program administrator.",
           });
-        const current = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } });
-        if (input.emailReviewRequests && !current.emailReviewRequests) {
+        const current = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, include: { notificationPreferences: true } });
+        const required = notificationLockCategories(program.notificationLocks);
+        const requiredTopics = new Set(required.filter((row) => row.emailLocked).map((row) => row.category));
+        for (const category of requiredTopics) {
+          const enabled = category === "messages" ? input.emailMessages : category === "reviews" ? input.emailReviewRequests : category === "reminders" ? input.emailEventReminders : input.emailInfo;
+          if (enabled === false) throw new TRPCError({ code: "FORBIDDEN", message: "This notification choice is required by the program administrator." });
+          // A broad legacy switch must not change the saved choice beneath a requirement.
+          const original = effectiveNotificationPreference(current, category, current.notificationPreferences);
+          await tx.notificationPreference.upsert({ where: { userId_category: { userId: current.id, category } }, create: { userId: current.id, ...original }, update: {} });
+        }
+        if (!requiredTopics.has("reviews") && input.emailReviewRequests && !current.emailReviewRequests) {
           if (!eligibleReviewRecipient(current))
             throw new TRPCError({
               code: "FORBIDDEN",
@@ -199,12 +220,12 @@ export const accountRouter = createTRPCRouter({
         await tx.user.update({
           where: { id: ctx.session.user.id },
           data: {
-            emailMessages: input.emailMessages,
+            ...(!requiredTopics.has("messages") ? { emailMessages: input.emailMessages } : {}),
             emailInfo: input.emailInfo,
-            ...(input.emailReviewRequests !== undefined
+            ...(input.emailReviewRequests !== undefined && !requiredTopics.has("reviews")
               ? { emailReviewRequests: input.emailReviewRequests }
               : {}),
-            ...(input.emailEventReminders !== undefined
+            ...(input.emailEventReminders !== undefined && !requiredTopics.has("reminders")
               ? { emailEventReminders: input.emailEventReminders }
               : {}),
             emailSecondaryRecipients: input.emailSecondaryRecipients,
@@ -217,18 +238,18 @@ export const accountRouter = createTRPCRouter({
         if (input.emailInfo !== current.emailInfo) changedTopics.push(...informationCategories.map((category) => ({ category, enabled: input.emailInfo })));
         if (input.emailReviewRequests !== undefined && input.emailReviewRequests !== current.emailReviewRequests) changedTopics.push({ category: "reviews", enabled: input.emailReviewRequests });
         if (input.emailEventReminders !== undefined && input.emailEventReminders !== current.emailEventReminders) changedTopics.push({ category: "reminders", enabled: input.emailEventReminders });
-        for (const topic of changedTopics) await tx.notificationPreference.upsert({
+        for (const topic of changedTopics.filter((topic) => !requiredTopics.has(topic.category))) await tx.notificationPreference.upsert({
           where: { userId_category: { userId: current.id, category: topic.category } },
           create: { userId: current.id, category: topic.category, emailEnabled: topic.enabled }, update: { emailEnabled: topic.enabled },
         });
         // Opting out cancels existing copies too; a later opt-in must not replay them.
         const stoppedCategories = [
           ...(input.emailMessages === false && current.emailMessages ? ["messages"] : []),
-          ...(input.emailInfo === false && current.emailInfo ? ["info", "information"] : []),
+          ...(input.emailInfo === false && current.emailInfo && !informationCategories.some((category) => requiredTopics.has(category)) ? ["info", "information"] : []),
           ...(input.emailReviewRequests === false && current.emailReviewRequests ? ["review"] : []),
           ...(input.emailEventReminders === false && current.emailEventReminders ? ["reminder"] : []),
         ];
-        const stoppedTopics = changedTopics.filter((topic) => !topic.enabled).map((topic) => topic.category);
+        const stoppedTopics = changedTopics.filter((topic) => !topic.enabled && !requiredTopics.has(topic.category)).map((topic) => topic.category);
         if (stoppedCategories.length || stoppedTopics.length)
           await tx.emailDelivery.updateMany({
             where: {
