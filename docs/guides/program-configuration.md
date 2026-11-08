@@ -526,6 +526,9 @@ Imported meetings/attendance cannot be edited or deleted through the normal
 meeting editor; ask the operator to review archive recovery for a source
 correction. Original records imported before origin tracking remain unclassified;
 their history is not automatically labelled or declared already reported.
+The new automation exclusions apply only to records with established archive
+provenance. Reviewing school opening balances does not classify older records;
+their existing automation remains until a separate operator origin review.
 
 Imported attendance blocks, flags and crew observations stay separate from
 automatic catalogue and patrol comparisons. Changing a current catalogue slot

@@ -57,6 +57,7 @@ export function SchoolHoursBaselineEditor({
   refresh: () => Promise<Basis>;
 }) {
   const t = useTranslations("schoolHours");
+  const patternText = useTranslations("uiPatterns");
   const [captured, setCaptured] = useState(basis);
   const [drafts, setDrafts] = useState(() => initial(basis));
   const [reason, setReason] = useState("");
@@ -187,7 +188,13 @@ export function SchoolHoursBaselineEditor({
           {t("staleBaseline")}
         </InlineNotice>
       )}
-      <SummaryTable label={t("baselineTitle")}>
+      <p className="text-sm text-slate-700 lg:hidden">
+        {patternText("scrollTable")}
+      </p>
+      <SummaryTable
+        label={t("baselineTitle")}
+        className="min-w-[44rem] [&_th]:whitespace-nowrap"
+      >
         <thead>
           <tr>
             <th>{t("individual")}</th>

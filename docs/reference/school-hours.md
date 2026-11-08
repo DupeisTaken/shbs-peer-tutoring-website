@@ -47,6 +47,8 @@ unreviewed identities block issuance until reviewed. Once reports exist, review
 cannot overwrite already committed balances for existing people.
 Opening reviews can be saved in batches. Only explicitly reviewed people advance;
 their source ownership evidence remains anchored while other people are reviewed.
+The narrow-screen review table scrolls horizontally to keep its source headers
+and values readable, with the existing sticky detail actions.
 Unfinished reviews continue to block issuance, rather than turning missing inputs
 into zero or inferring school posting from stored source credit.
 
@@ -66,7 +68,11 @@ negative reversal. The migration does not guess which older records came from an
 import: pretracking evidence retains the explicit school-ledger opening review.
 This release does not add a bulk archive-to-report release action. Intentionally
 unreported historical hours require operator reconciliation with the school
-ledger; importing them alone is not posting authority. Normal imported source
+ledger; importing them alone is not posting authority. Opening-balance review
+does not establish archive provenance. Older unclassified records retain their
+existing automation behavior until a separate operator review establishes their
+origin; this release adds no retrospective classification tool or automatic
+backfill. Normal imported source
 inserts are journaled through their original source references. Simple financial
 provenance keys also link boundary changes to tracked source IDs as unsupported
 recovery consequences. A security-overlay restore fingerprints all provenance and
