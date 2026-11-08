@@ -27,6 +27,12 @@ type Day = {
   schedulingEffect?: string;
 };
 
+function impactConflict(failure: unknown) {
+  if (!failure || typeof failure !== "object" || !("data" in failure)) return false;
+  const data = failure.data;
+  return !!data && typeof data === "object" && "code" in data && data.code === "CONFLICT";
+}
+
 /** Keep date-only labels intact: converting to local instants can shift their calendar day. */
 function CalendarRange({
   date,
@@ -92,6 +98,7 @@ export function ProgramCalendarSettings() {
   const remove = api.program.removeCalendarDay.useMutation();
   const [removePreviewing, setRemovePreviewing] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [removeRefreshing, setRemoveRefreshing] = useState(false);
   const removeGuard = useRef(false);
   const [editor, setEditor] = useState<{
     day: Day | null;
@@ -143,7 +150,22 @@ export function ProgramCalendarSettings() {
           {t("loadFailed")}
         </InlineNotice>
       )}
-      {removeError && <InlineNotice tone="error" announcement="alert">{removeError}</InlineNotice>}
+      {removeError && <InlineNotice tone="error" announcement="alert" action={
+        <Button disabled={removeRefreshing || !!removePreviewing} onClick={async () => {
+          if (removeGuard.current) return;
+          removeGuard.current = true;
+          setRemoveRefreshing(true);
+          try {
+            const result = await query.refetch();
+            if (result.isSuccess) setRemoveError(null);
+          } catch {
+            // Keep the failed review visible until an explicit read succeeds.
+          } finally {
+            removeGuard.current = false;
+            setRemoveRefreshing(false);
+          }
+        }}>{t("refresh")}</Button>
+      }>{removeError}</InlineNotice>}
       {data.days.some((day) => day.active) ? (
         <SummaryTable sortable label={t("title")}>
           <thead>
@@ -205,8 +227,9 @@ export function ProgramCalendarSettings() {
                             removeGuard.current = true;
                             setRemovePreviewing(day.date);
                             setRemoveError(null);
+                            const previewing = day.schedulingEffect === "PAUSE_REGULAR";
                             try {
-                              const removalImpact = day.schedulingEffect === "PAUSE_REGULAR"
+                              const removalImpact = previewing
                                 ? await utils.program.calendarImpact.fetch({ date: day.date, endDate: day.endDate, expectedVersion: day.version, remove: true }, { staleTime: 0 })
                                 : null;
                               review.open({
@@ -242,7 +265,9 @@ export function ProgramCalendarSettings() {
                               repeatAfterRefresh: true,
                               });
                             } catch (failure) {
-                              setRemoveError(failure instanceof Error ? failure.message : t("loadFailed"));
+                              setRemoveError(previewing
+                                ? t(impactConflict(failure) ? "impactConflict" : "impactFailed")
+                                : failure instanceof Error ? failure.message : t("loadFailed"));
                             } finally {
                               removeGuard.current = false;
                               setRemovePreviewing(null);
@@ -330,6 +355,7 @@ function CalendarEditor({
   const [saved, setSaved] = useState(false);
   const [readPending, setReadPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewConflict, setPreviewConflict] = useState(false);
   const admitted = useRef(false);
   const committed = useRef(false);
   const [accepted, setAccepted] = useState(false);
@@ -355,12 +381,13 @@ function CalendarEditor({
       className="space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
-        if (disabled || pending || admitted.current || committed.current)
+        if (disabled || pending || admitted.current || committed.current || previewConflict)
           return;
         admitted.current = true;
         setError(null);
+        const previewing = needsReview && !impact;
         try {
-          if (needsReview && !impact) {
+          if (previewing) {
             setReadPending(true);
             const reviewed = await utils.program.calendarImpact.fetch({
               date, endDate, schedulingEffect, expectedVersion,
@@ -380,7 +407,11 @@ function CalendarEditor({
           setSaved(true);
           await sync();
         } catch (failure) {
-          if (!queuedApprovalId(failure))
+          if (previewing) {
+            const conflict = impactConflict(failure);
+            setPreviewConflict(conflict);
+            setError(t(conflict ? "impactConflict" : "impactFailed"));
+          } else if (!queuedApprovalId(failure))
             setError(
               failure instanceof Error ? failure.message : t("saveFailed"),
             );
@@ -471,7 +502,7 @@ function CalendarEditor({
           </InlineNotice>
         )}
         <FormActions>
-          <Button type="submit" variant="primary">
+          <Button type="submit" variant="primary" disabled={previewConflict}>
             {pending
               ? t("saving")
               : needsReview && !impact
@@ -510,7 +541,7 @@ function CalendarEditor({
           {t("refreshFailed")}
         </InlineNotice>
       )}
-      {!accepted && save.error?.data?.code === "CONFLICT" && (
+      {!accepted && (previewConflict || save.error?.data?.code === "CONFLICT") && (
         <Button
           disabled={pending}
           onClick={async () => {
@@ -518,7 +549,7 @@ function CalendarEditor({
             try {
               await onReload();
             } catch {
-              setError(t("loadFailed"));
+              setError(t(previewConflict ? "impactConflict" : "loadFailed"));
             } finally {
               setReadPending(false);
             }

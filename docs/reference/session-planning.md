@@ -149,6 +149,9 @@ who returns to an ordinary shared cohort. `calendarSuppressed` distinguishes an
 ordinary commitment that may be restored on reset from a user/lifecycle
 cancellation. Restoration rechecks conflicts; exact matching cohorts coalesce
 and emptied physical cohorts retain cancellation evidence for subscriptions.
+This includes restoring peers to an already-agreed sibling at the unchanged
+weekly clock: retain the agreed cohort's identity and each learner's separate
+consent, rather than creating overlapping attendance blocks.
 Calendar-change notices include current live proposal recipients on the target
 date, even when no confirmed lesson or recurring assignment exists there yet.
 Superseded offers, elapsed cutoffs and terminal requests do not expand that audience.

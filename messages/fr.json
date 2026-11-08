@@ -6111,6 +6111,8 @@
     "removePauseHelp": "Supprimer cette suspension. Les engagements réguliers futurs admissibles pourront être rétablis après vérification des autres restrictions et conflits. Les séances commencées et les présences enregistrées restent inchangées.",
     "reviewImpact": "Vérifier l’effet sur la planification",
     "impactTitle": "Vérifier les engagements concernés",
+    "impactFailed": "Impossible de vérifier les changements de planning. Aucun changement n’a été appliqué. Réessaie la vérification.",
+    "impactConflict": "Cet avis a changé. Recharge les détails actuels avant de vérifier à nouveau.",
     "impactScope": "Aperçu des engagements futurs existants des élèves selon la règle résultante, y compris ceux déjà suspendus. Les élèves d’une même séance sont comptés séparément ; les récurrences futures suivent aussi cette règle.",
     "impactPause": "Engagements réguliers suspendus selon la règle résultante : {count}",
     "impactRetain": "Exceptions explicitement convenues maintenues : {count}",

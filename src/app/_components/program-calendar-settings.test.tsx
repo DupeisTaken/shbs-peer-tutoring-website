@@ -377,23 +377,65 @@ it.each(["en", "zh"] as const)("reviews a read-only impact snapshot before apply
   expect(state.sessionInvalidate).toHaveBeenCalledOnce();
 });
 
-it("keeps a failed preview editable and retains its captured range/version for retry", async () => {
-  state.preview.mockRejectedValueOnce(new Error("Impact unavailable"));
-  const view = render(tree());
-  edit();
+it.each([
+  ["en", "transport"], ["zh", "transport"], ["en", "internal"], ["zh", "internal"],
+] as const)("localizes a failed preview and retains the editable draft/version for retry (%s, %s)", async (locale, failureKind) => {
+  const copy = (locale === "en" ? en : zh).programCalendar;
+  const raw = failureKind === "transport" ? "signal is aborted without reason" : "PRIVATE INTERNAL ERROR";
+  state.preview.mockRejectedValueOnce(failureKind === "transport" ? new Error(raw) : { message: raw, data: { code: "INTERNAL_SERVER_ERROR" } });
+  const view = render(tree(locale));
+  fireEvent.click(screen.getByRole("button", { name: copy.edit }));
   fireEvent.change(effect(), { target: { value: "PAUSE_REGULAR" } });
-  fireEvent.change(field(en.programCalendar.endDate), { target: { value: "2027-01-08" } });
-  await reviewImpact();
-  expect(screen.getByRole("alert").textContent).toContain("Impact unavailable");
-  expect(field(en.programCalendar.endDate).value).toBe("2027-01-08");
-  expect(field(en.programCalendar.endDate).matches(":disabled")).toBe(false);
+  fireEvent.change(field(copy.endDate), { target: { value: "2027-01-08" } });
+  fireEvent.change(field(copy.reason), { target: { value: "Retained synthetic draft" } });
+  await reviewImpact(locale);
+  expect(screen.getByRole("alert").textContent).toContain(copy.impactFailed);
+  expect(screen.getByRole("alert").textContent).not.toContain(raw);
+  expect(field(copy.endDate).value).toBe("2027-01-08");
+  expect(field(copy.reason).value).toBe("Retained synthetic draft");
+  expect(field(copy.endDate).matches(":disabled")).toBe(false);
   expect(effect().value).toBe("PAUSE_REGULAR");
   expect(state.save).not.toHaveBeenCalled();
   state.days = [{ ...state.days[0]!, version: 4, endDate: "2027-01-06" }];
-  view.rerender(tree());
-  await reviewImpact();
+  view.rerender(tree(locale));
+  await reviewImpact(locale);
   expect(state.preview).toHaveBeenLastCalledWith(expect.objectContaining({ endDate: "2027-01-08", expectedVersion: 3 }), { staleTime: 0 });
+  expect(field(copy.reason).value).toBe("Retained synthetic draft");
+  expect(screen.queryByRole("alert")).toBeNull();
   expect(state.save).not.toHaveBeenCalled();
+});
+
+it.each(["en", "zh"] as const)("reloads an impact-read conflict only by an explicit successful read and adopts the fresh version (%s)", async (locale) => {
+  const copy = (locale === "en" ? en : zh).programCalendar;
+  state.days[0]!.schedulingEffect = "PAUSE_REGULAR";
+  state.preview.mockRejectedValueOnce({ message: "PRIVATE STALE DETAILS", data: { code: "CONFLICT" } });
+  const fresh = { ...state.days[0]!, endDate: "2027-01-10", reason: "Fresh synthetic notice", version: 4 };
+  state.refetch.mockResolvedValueOnce({ isSuccess: false, error: new Error("signal is aborted without reason") })
+    .mockResolvedValueOnce({ isSuccess: true, data: { days: [fresh] } });
+  render(tree(locale));
+  fireEvent.click(screen.getByRole("button", { name: copy.edit }));
+  fireEvent.change(field(copy.endDate), { target: { value: "2027-01-08" } });
+  fireEvent.change(field(copy.reason), { target: { value: "Draft before explicit reload" } });
+  await reviewImpact(locale);
+  expect(screen.getByRole("alert").textContent).toContain(copy.impactConflict);
+  expect(screen.getByRole("alert").textContent).not.toContain("PRIVATE STALE DETAILS");
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: copy.reviewImpact }).disabled).toBe(true);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.reload })); });
+  expect(field(copy.endDate).value).toBe("2027-01-08");
+  expect(field(copy.reason).value).toBe("Draft before explicit reload");
+  expect(screen.getByRole("alert").textContent).toContain(copy.impactConflict);
+  expect(state.save).not.toHaveBeenCalled();
+  expect(state.preview).toHaveBeenCalledOnce();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.reload })); });
+  expect(field(copy.endDate).value).toBe(fresh.endDate);
+  expect(field(copy.reason).value).toBe(fresh.reason);
+  expect(screen.queryByRole("alert")).toBeNull();
+  await reviewImpact(locale);
+  expect(state.preview).toHaveBeenLastCalledWith(expect.objectContaining({ endDate: fresh.endDate, expectedVersion: 4 }), { staleTime: 0 });
+  expect(state.save).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.save })); });
+  expect(state.save).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ expectedVersion: 4, endDate: fresh.endDate, reason: fresh.reason }));
+  expect(state.remove).not.toHaveBeenCalled();
 });
 
 it.each(["endDate", "reason", "effect"] as const)("requires a new review after the reviewed %s changes", async (changed) => {
@@ -460,15 +502,44 @@ it("reviews restoration before removing a pause and commits only from the named 
   expect(state.sessionInvalidate).toHaveBeenCalledOnce();
 });
 
-it("does not open removal confirmation or mutate after a failed pause preview", async () => {
+it.each([
+  ["en", "transport"], ["zh", "transport"], ["en", "conflict"], ["zh", "conflict"],
+] as const)("recovers a failed removal preview by read only and keeps failed-refresh errors visible (%s, %s)", async (locale, failureKind) => {
+  const copy = (locale === "en" ? en : zh).programCalendar;
   state.days[0]!.schedulingEffect = "PAUSE_REGULAR";
-  state.preview.mockRejectedValueOnce(new Error("Cannot review restoration"));
-  render(tree());
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.programCalendar.remove })); });
-  expect(screen.getByRole("alert").textContent).toContain("Cannot review restoration");
+  state.preview.mockRejectedValueOnce(failureKind === "conflict"
+    ? { message: "PRIVATE STALE REMOVAL", data: { code: "CONFLICT" } }
+    : new Error("signal is aborted without reason"));
+  state.refetch.mockRejectedValueOnce(new Error("PRIVATE REFRESH DETAIL"))
+    .mockResolvedValueOnce({ isSuccess: false, error: new Error("Offline") })
+    .mockImplementationOnce(async () => {
+      state.days = [{ ...state.days[0]!, version: 4 }];
+      return { isSuccess: true, data: { days: state.days } };
+    });
+  render(tree(locale));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.remove })); });
+  const expected = failureKind === "conflict" ? copy.impactConflict : copy.impactFailed;
+  expect(screen.getByRole("alert").textContent).toContain(expected);
+  expect(screen.getByRole("alert").textContent).not.toMatch(/PRIVATE|signal is aborted/);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.refresh })); });
+    expect(screen.getByRole("alert").textContent).toContain(expected);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(state.remove).not.toHaveBeenCalled();
+    expect(state.preview).toHaveBeenCalledOnce();
+  }
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.refresh })); });
+  expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(state.remove).not.toHaveBeenCalled();
   expect(state.save).not.toHaveBeenCalled();
+  expect(state.preview).toHaveBeenCalledOnce();
+  expect(state.invalidate).not.toHaveBeenCalled();
+  expect(state.sessionInvalidate).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.remove })); });
+  expect(state.preview).toHaveBeenLastCalledWith(expect.objectContaining({ expectedVersion: 4, remove: true }), { staleTime: 0 });
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(state.remove).not.toHaveBeenCalled();
 });
 
 it("does not obtain a policy review after edit permission is revoked", () => {

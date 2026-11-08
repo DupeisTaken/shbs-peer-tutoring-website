@@ -6111,6 +6111,8 @@
     "removePauseHelp": "Diese Nachhilfepause entfernen. Berechtigte zukünftige reguläre Termine können nach Prüfung anderer Einschränkungen und Konflikte wiederhergestellt werden. Bereits begonnene Termine und erfasste Anwesenheit bleiben unverändert.",
     "reviewImpact": "Planungsauswirkung prüfen",
     "impactTitle": "Betroffene Termine prüfen",
+    "impactFailed": "Die Planungsänderungen konnten nicht geprüft werden. Es wurde nichts angewendet. Versuche die Prüfung erneut.",
+    "impactConflict": "Dieser Hinweis wurde geändert. Lade die aktuellen Angaben neu, bevor du erneut prüfst.",
     "impactScope": "Vorschau bestehender zukünftiger Lernendentermine unter der neuen Regel, einschließlich bereits pausierter Termine. Lernende einer gemeinsamen Stunde zählen einzeln; künftige Wiederholungen folgen ebenfalls der Regel.",
     "impactPause": "Unter der neuen Regel pausierte reguläre Termine: {count}",
     "impactRetain": "Ausdrücklich vereinbarte Ausnahmen bleiben: {count}",

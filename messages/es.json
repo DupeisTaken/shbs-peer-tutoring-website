@@ -6111,6 +6111,8 @@
     "removePauseHelp": "Eliminar esta pausa de tutorías. Las sesiones regulares futuras que cumplan los requisitos podrán restablecerse tras comprobar otras restricciones y conflictos. Las sesiones iniciadas y la asistencia registrada no cambian.",
     "reviewImpact": "Revisar efecto en la programación",
     "impactTitle": "Revisar compromisos afectados",
+    "impactFailed": "No se pudieron revisar los cambios de horario. No se aplicó ningún cambio. Intenta la revisión de nuevo.",
+    "impactConflict": "Este aviso ha cambiado. Vuelve a cargar los detalles actuales antes de revisarlo de nuevo.",
     "impactScope": "Vista previa de los compromisos futuros existentes de estudiantes según la regla resultante, incluidos los ya pausados. Los estudiantes de una misma sesión se cuentan por separado; la regla también rige la recurrencia futura.",
     "impactPause": "Compromisos regulares pausados según la regla resultante: {count}",
     "impactRetain": "Excepciones acordadas expresamente que se mantienen: {count}",

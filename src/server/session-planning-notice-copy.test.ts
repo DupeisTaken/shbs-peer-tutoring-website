@@ -10,6 +10,9 @@ it("requires affirmative agreement for paused-date offers without advertising a 
   expect(copy.text).toContain("未回复不会视为接受");
   expect(copy.text).not.toContain("24-hour clock");
   expect(copy.text).not.toContain("Silence can mean acceptance");
+  // The admitted terms remain explicit-only even if management removes the pause.
+  expect(copy.text).not.toContain("on a paused tutoring date");
+  expect(copy.text).not.toContain("暂停日期");
   expect(sessionNoticeContext({ requiresExplicitAcceptance: "true", privateData: "secret" })).toEqual({});
   expect(sessionNoticeContext({ requiresExplicitAcceptance: true })).toEqual({ requiresExplicitAcceptance: true });
 });

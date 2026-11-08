@@ -274,6 +274,115 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     return { uid: line("UID"), sequence: Number(line("SEQUENCE")), status: line("STATUS"), startsAt: line("DTSTART") };
   }
 
+  it.each(["tutoring pause", "school closure"] as const)(
+    "coalesces an unchanged-clock restoration into the exact agreed sibling after %s",
+    async (restriction) => {
+      const room = await db.room.create({ data: { name: "Synthetic A101" } });
+      await db.pairing.update({
+        where: { id: "planning-pairing" },
+        data: { roomId: room.id, roomMode: "FIXED" },
+      });
+      await ensureSessionPlanningWindow(db, now);
+      const original = await source();
+      const originalPeople = await members(original.id);
+      const readFeeds = await feeds();
+      const originalUid = `cohort-${original.id}@shbs-session`;
+      const learnerUids = {
+        one: `commitment-${originalPeople.find((person) => person.tuteeId === "planning-one")!.id}@shbs-session`,
+        two: `commitment-${originalPeople.find((person) => person.tuteeId === "planning-two")!.id}@shbs-session`,
+      };
+      const published = await readFeeds();
+      // A school-closed source supports finishing its existing negotiation. A
+      // tutoring pause also permits starting an explicit exception from it.
+      if (restriction === "tutoring pause")
+        await pause(original.date, "2026-11-06");
+      const pending = await proposeSession(db, tutor, {
+        cohortId: original.id,
+        expectedVersion: (await source()).version,
+        clientKey: randomUUID(),
+        scope: "ONE",
+        kind: "RESCHEDULE",
+        tuteeId: "planning-one",
+        date: "2026-11-03",
+        startMin: 950,
+        online: true,
+      });
+      const closure = restriction === "school closure"
+        ? await saveSchoolCalendar(db, {
+          date: original.date, isSchoolDay: false, timetableWeekday: null,
+          note: "Synthetic closure before counteroffer", expectedVersion: 0,
+        }, tutor.id)
+        : null;
+      await respond(pending.id, one, "REJECT", {
+        date: original.date, startMin: original.startMin,
+        roomId: original.roomId, online: original.online,
+      });
+      await respond(pending.id, tutor, "ACCEPT");
+      const agreement = await read(pending.id);
+      expect(agreement.status).toBe("ACCEPTED");
+      const agreed = await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { planId_tuteeId: { planId: original.planId, tuteeId: "planning-one" } },
+      });
+      const sibling = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: agreed.cohortId! } });
+      expect(sibling.id).not.toBe(original.id);
+      expect(sibling).toMatchObject({
+        planId: original.planId, date: original.date,
+        startMin: original.startMin, endMin: original.endMin,
+        roomId: room.id, online: false, status: "SCHEDULED",
+      });
+      expect(agreed.scheduleOverride).toBe(true);
+      const suppressedSource = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+      expect(suppressedSource.status).toBe("CANCELLED");
+      const beforeReset = await readFeeds();
+      if (closure)
+        await resetSchoolCalendar(db, { date: original.date, expectedVersion: closure.version }, tutor.id);
+      else
+        await remove(original.date);
+
+      const active = await db.sessionPlanCohort.findMany({
+        where: { planId: original.planId, date: original.date, status: "SCHEDULED" },
+      });
+      expect(active.map((row) => row.id)).toEqual([sibling.id]);
+      expect(active[0]?.version).toBe(sibling.version + 1);
+      const restored = await members(sibling.id);
+      expect(restored.map((person) => person.id).sort()).toEqual(originalPeople.map((person) => person.id).sort());
+      expect(restored.map((person) => person.tuteeId)).toEqual(["planning-one", "planning-two"]);
+      expect(restored.every((person) => person.status === "SCHEDULED" && !person.calendarSuppressed && !person.tutoringPauseSuppressed)).toBe(true);
+      expect(restored.find((person) => person.tuteeId === "planning-one")).toEqual(agreed);
+      expect(restored.find((person) => person.tuteeId === "planning-two")?.scheduleOverride).toBe(false);
+      expect(await read(pending.id)).toEqual(agreement);
+      const retired = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+      expect(retired).toMatchObject({ status: "CANCELLED", sourceInvalidated: false, version: suppressedSource.version + 1 });
+      expect(await members(original.id)).toEqual([]);
+
+      const resetFeeds = await readFeeds();
+      const siblingUid = `cohort-${sibling.id}@shbs-session`;
+      expect(calendarEvent(resetFeeds.tutor, siblingUid)).toMatchObject({ uid: siblingUid, status: "CONFIRMED", sequence: sibling.version + 1 });
+      expect(calendarEvent(resetFeeds.tutor, originalUid)).toMatchObject({ uid: originalUid, status: "CANCELLED", sequence: retired.version });
+      expect(calendarEvent(resetFeeds.tutor, originalUid).sequence).toBeGreaterThan(calendarEvent(beforeReset.tutor, originalUid).sequence);
+      expect(calendarEvent(resetFeeds.one, learnerUids.one)).toEqual(calendarEvent(beforeReset.one, learnerUids.one));
+      expect(calendarEvent(resetFeeds.two, learnerUids.two)).toMatchObject({ uid: learnerUids.two, status: "CONFIRMED", startsAt: calendarEvent(published.two, learnerUids.two).startsAt });
+      expect(calendarEvent(resetFeeds.two, learnerUids.two).sequence).toBeGreaterThan(calendarEvent(beforeReset.two, learnerUids.two).sequence);
+      const context = await db.$transaction((tx) => sessionAttendanceContext(
+        tx, tutor, sibling.id, active[0]!.version, new Date(original.endsAt.getTime() + 1),
+      ));
+      expect(context.tuteeIds.sort()).toEqual(["planning-one", "planning-two"]);
+      expect(context.assignments).toEqual([{ pairingId: "planning-pairing", subject: "Math", primary: true, tuteeIds: ["planning-one", "planning-two"] }]);
+      expect(await db.session.count()).toBe(0);
+      await ensureSessionPlanningWindow(db, now);
+      await ensureSessionPlanningWindow(db, now);
+      expect(await members(sibling.id)).toEqual(restored);
+      expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: sibling.id } })).toEqual(active[0]);
+      expect(await readFeeds()).toEqual(resetFeeds);
+
+      await pause(original.date);
+      const pausedAgain = await members(sibling.id);
+      expect(pausedAgain.find((person) => person.tuteeId === "planning-one")).toEqual(agreed);
+      expect(pausedAgain.find((person) => person.tuteeId === "planning-two")).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true, scheduleOverride: false });
+      expect(await read(pending.id)).toEqual(agreement);
+    },
+  );
+
   it("preserves ordinary no-pause projection shapes and the baseline publication/reconciliation fingerprint", async () => {
     const original = await source();
     const ordinaryHash = (startMin: number) => createHash("sha256")

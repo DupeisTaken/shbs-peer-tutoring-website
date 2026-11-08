@@ -1502,7 +1502,7 @@ async function reconcileOrdinaryPlans(
       if (!changed) continue;
       let cohort: Cohort;
       const shared =
-        window && clockChanged
+        window
           ? await tx.sessionPlanCohort.findFirst({
               where: {
                 planId: plan.id,
@@ -1516,10 +1516,10 @@ async function reconcileOrdinaryPlans(
               },
             })
           : null;
-      if (window && clockChanged && (protectedPeople.length || shared)) {
+      if (window && (shared || (clockChanged && protectedPeople.length))) {
         // A shared clock does not transfer one learner's explicit agreement to peers.
-        // Exact matches coalesce into one physical lesson even when the ordinary
-        // source has no protected learner left; an emptied source retires its UID.
+        // Restoration can rejoin an exact agreed sibling without changing the
+        // weekly clock. Keep that lesson's UID and retire the emptied source.
         cohort = shared
           ? await tx.sessionPlanCohort.update({
               where: { id: shared.id },

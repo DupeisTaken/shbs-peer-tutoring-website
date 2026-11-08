@@ -160,8 +160,8 @@ export function sessionPlanningNoticeCopy(
     );
   } else if (safe.isActionable && safe.requiresExplicitAcceptance) {
     lines.push(
-      "Explicit agreement required: this offer is on a paused tutoring date. Every affected tutor and learner must affirmatively agree to this exact offer before the cutoff. Silence will not accept it. Sign in to respond; replying to this email does not decide.",
-      "此提议位于常规辅导暂停日期，必须明确同意：每位受影响的辅导伙伴和学习伙伴须在截止前明确同意同一提议。未回复不会视为接受。请登录平台回复；回复本邮件不能作出决定。",
+      "Explicit agreement required: every affected tutor and learner must affirmatively agree to this exact offer before the cutoff. Silence will not accept it. Sign in to respond; replying to this email does not decide.",
+      "必须明确同意：每位受影响的辅导伙伴和学习伙伴须在截止前明确同意同一提议。未回复不会视为接受。请登录平台回复；回复本邮件不能作出决定。",
     );
   } else if (safe.isActionable) {
     lines.push(

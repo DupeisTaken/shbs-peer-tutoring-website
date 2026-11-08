@@ -6111,6 +6111,8 @@
     "removePauseHelp": "Remove this tutoring pause. Eligible future regular commitments may return after checking other restrictions and conflicts. Started sessions and recorded attendance stay unchanged.",
     "reviewImpact": "Review scheduling effect",
     "impactTitle": "Review Affected Commitments",
+    "impactFailed": "Could not review scheduling changes. Nothing was applied. Try the review again.",
+    "impactConflict": "This notice changed. Reload the current details before reviewing again.",
     "impactScope": "Preview of existing future learner commitments under the resulting rule, including those already paused. Learners in one lesson are counted separately; future recurrence follows the rule too.",
     "impactPause": "Regular commitments paused under the resulting rule: {count}",
     "impactRetain": "Explicitly agreed exceptions retained: {count}",
