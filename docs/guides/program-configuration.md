@@ -400,12 +400,27 @@ activate another period.
 When Q1 or Q3 tutee recruitment ends or is paused, the public page automatically
 shows the next Q2 or Q4 opening. A quarter awaiting its own initial opening keeps
 its current countdown. Reopening recruitment restores current-quarter eligibility.
+The tutor form follows the same handoff using its own recruitment settings and
+prepared opening; a tutee opening never supplies the tutor form's date.
 Open pages update at timed boundaries and poll settings every 30 seconds; pending
 activation is checked every five seconds.
 
 The display names the upcoming quarter and program timezone. Without approved
 refresh, an opening is marked planned and awaiting activation. Missing, cleared,
 stale, disabled, cancelled and blocked settings have explicit status messages.
+When a refresh is blocked or cancelled, or next-quarter recruitment is disabled,
+a saved opening bound to the current next-period target remains visible as a
+**configured opening**, subject to activation and review. It has no countdown and
+does not promise that signup will open then. An absent, explicitly cleared or
+stale-target opening is shown without an invented or mislabelled date.
+
+A blocked refresh can legitimately result from a change to any part of its
+reviewed evidence, even when the displayed opening itself is unchanged. Reload
+the latest refresh review and check the destination, prepared openings, staged
+features, timezone and Head authorization. Head must review a new schedule
+directly or approve an Admin's fresh request; displaying the configured date
+never bypasses that review.
+
 Reaching zero does not open signup: the destination must actually be active and
 normal intake prerequisites must hold. Delayed refresh shows pending activation.
 Read failures suspend the cached opening promise until a successful retry.
