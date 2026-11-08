@@ -55,7 +55,7 @@ export function StudentScheduleAction({
         {!row.verified && (
           <span className="badge-amber">{t("unverified")}</span>
         )}
-        {row.editedAt && <span className="badge-amber">{t("edited")}</span>}
+        {row.editedAt && <span className="badge-slate">{t("edited")}</span>}
       </div>
       {!row.verified && row.verificationDueAt && (
         <p className="text-sm font-medium text-amber-800">
