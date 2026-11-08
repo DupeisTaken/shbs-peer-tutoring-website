@@ -147,7 +147,13 @@ it("never qualifies a cancelled proposal, before admission or during an admitted
   const before = fixture();
   before.response.offer.request.status = "CANCELLED";
   await deliverSessionNotices(10, before.database);
-  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ subject: expect.stringContaining("Earlier update") as unknown }));
+  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({
+    subject: expect.stringContaining("Earlier tutoring update") as unknown,
+    text: expect.stringContaining("no longer an actionable offer") as unknown,
+    presentation: expect.objectContaining({
+      action: expect.objectContaining({ label: "View current schedule / 查看当前安排" }) as unknown,
+    }) as unknown,
+  }));
   expect(transport.mark).not.toHaveBeenCalled();
   transport.send.mockClear();
   const during = fixture();

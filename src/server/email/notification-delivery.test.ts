@@ -292,6 +292,18 @@ it("persists distinct notification destinations for all verified recipients and 
     expect(html).not.toContain("PRIVATE SENTINEL");
     expect(html).not.toContain("PRIVATE BODY");
     expect(html).toContain("View program update / 查看项目通知");
+    expect(message.presentation?.body).toContain("Asia/Shanghai");
+    // Generic legacy updates still need their maintained sign-in instruction,
+    // but must not append the second, generic settings/sign-in footer.
+    expect(message.presentation?.body?.match(/Sign in to review/g)).toHaveLength(1);
+    expect(message.text.match(/Sign in to review/g)).toHaveLength(1);
+    expect(message.text).not.toContain("account settings");
+    expect(message.presentation?.body).not.toContain("account settings");
+    expect(message.presentation?.body).not.toContain(unsubscribe.href);
+    // The unsubscribe token belongs in its footer href, never a second raw URL
+    // paragraph beside the main action. The complete text alternative keeps it.
+    expect(html).not.toContain("Unsubscribe / 取消订阅:");
+    expect(html.match(/class="footer-unsubscribe accent"/g)).toHaveLength(1);
   }
   expect(
     await db.emailDelivery.count({ where: { userId: uid, status: "SENT" } }),

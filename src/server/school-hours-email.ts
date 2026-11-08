@@ -1,4 +1,4 @@
-import { APP_TITLE } from "~/lib/branding";
+import { DEFAULT_BRANDING } from "~/lib/branding-config";
 import {
   formatSchoolHours,
   schoolHoursApproximation,
@@ -57,7 +57,7 @@ export function schoolHoursHeading(month: string) {
 
 function editionGuidance(report: SchoolHoursPublicReport) {
   return report.revision > 1
-    ? `Revision ${report.revision} replaces revision ${report.revision - 1} for ${report.month}. If the immediately preceding edition was applied, apply only each person's highlighted correction. If an earlier edition was last applied, choose that edition's correction from the person's table. If nothing was applied, use the replacement month amount once. Choose only one matching row; never add these alternatives together. If the last applied edition is unknown or missing, ask the program team before posting.\n本修订替代该月上一版本。若上一版已入账，仅应用突出显示的更正额；若最后入账的是更早版本，请选择该人的对应版本更正额。若从未入账，使用替代月度金额一次。仅选择一个符合情况的选项，切勿相加。若不确定或找不到最后入账版本，请先联系项目团队。`
+    ? `Revision ${report.revision} replaces revision ${report.revision - 1} for ${report.month}. If the immediately preceding edition was applied, apply only each person's highlighted correction. For an earlier applied edition, choose its correction from that person's table. If nothing was applied, use the replacement month amount once. Choose only one matching row; never add alternatives. If unknown or not listed, ask the program team before posting. Negative corrections are deductions.\n本修订替代该月上一版本。若上一版已入账，仅应用突出显示的更正额；若更早版本已入账，请选择该人的对应更正额。若从未入账，使用替代月度金额一次。仅选符合情况的一项，切勿相加。若不确定或版本未列出，请先联系项目团队。负数更正应扣除。`
     : "Apply each person's highlighted amount to that person's school account once. A negative amount is a correction to deduct. Tutoring and Crew are the breakdown, not additional amounts to add again.\n请将每个人突出显示的时数计入该人的学校账户一次。负数表示应扣除的更正额；辅导与执勤仅为总额明细，不应再次相加。";
 }
 
@@ -86,10 +86,13 @@ function editionChoicesHtml(row: SchoolHoursPublicRow, revision: number) {
   const choices = schoolHoursPriorEditions(row, revision)
     .map(
       (edition) =>
-        `<tr><th scope="row" style="text-align:left;padding:9px;border-bottom:1px solid #CBD5E1">r${edition.revision} (${e(formatSchoolHours(edition.monthAmount, true))} h)</th><td style="padding:9px;border-bottom:1px solid #CBD5E1;font-weight:700">${e(formatSchoolHours(edition.correctionToCurrent, true))} h</td></tr>`,
+        `<tr><th scope="row" style="text-align:left;padding:9px;border-bottom:1px solid #CBD5E1;overflow-wrap:anywhere;word-break:break-word">r${edition.revision} (${e(formatSchoolHours(edition.monthAmount, true))} h)</th><td style="padding:9px;border-bottom:1px solid #CBD5E1;font-weight:700;overflow-wrap:anywhere;word-break:break-word">${e(formatSchoolHours(edition.correctionToCurrent, true))} h</td></tr>`,
     )
     .join("");
-  return `<div style="margin-top:16px"><p style="font-weight:700">Last applied edition → correction to apply now<br>最后入账版本 → 现在应应用的更正额</p><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr><th style="text-align:left;padding:9px">Last applied edition / 最后入账版本</th><th style="text-align:left;padding:9px">Correction to apply now / 现在应应用的更正额</th></tr></thead><tbody>${choices}<tr><th scope="row" style="text-align:left;padding:9px">Nothing applied / 从未入账</th><td style="padding:9px;font-weight:700">${e(formatSchoolHours(row.monthAmount, true))} h once / 一次</td></tr></tbody></table><p style="font-size:13px;line-height:1.7">Choose only one row matching this person's last applied edition. Never add the alternatives together. If unknown or not listed, ask the program team before posting. Negative corrections are deductions.<br>仅选择符合该人最后入账版本的一个选项，切勿相加。若不确定或版本未列出，请先联系项目团队。负数更正应扣除。</p></div>`;
+  // The report introduction owns the complete posting rules. Each person's table
+  // keeps the exact alternatives and one-choice instruction without repeating them.
+  // Fixed columns and inline wrapping keep full-precision values inside narrow cards.
+  return `<div style="margin-top:16px"><p style="font-weight:700">Choose one matching row / 仅选符合情况的一项</p><table class="edition-choices" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px"><thead><tr><th style="text-align:left;padding:9px;overflow-wrap:anywhere;word-break:break-word">Last applied edition / 最后入账版本</th><th style="text-align:left;padding:9px;overflow-wrap:anywhere;word-break:break-word">Correction to apply now / 现在应应用的更正额</th></tr></thead><tbody>${choices}<tr><th scope="row" style="text-align:left;padding:9px;overflow-wrap:anywhere;word-break:break-word">Nothing applied / 从未入账</th><td style="padding:9px;font-weight:700;overflow-wrap:anywhere;word-break:break-word">${e(formatSchoolHours(row.monthAmount, true))} h once / 一次</td></tr></tbody></table></div>`;
 }
 
 function editionChoicesText(row: SchoolHoursPublicRow, revision: number) {
@@ -99,7 +102,7 @@ function editionChoicesText(row: SchoolHoursPublicRow, revision: number) {
         `r${edition.revision} (${formatSchoolHours(edition.monthAmount, true)} h applied) -> ${formatSchoolHours(edition.correctionToCurrent, true)} h`,
     )
     .join("\n");
-  return `\nLast applied edition -> correction to apply now / 最后入账版本 -> 现在应应用的更正额 (choose one / 仅选一项):\n${choices}${choices ? "\n" : ""}Nothing applied / 从未入账 -> ${formatSchoolHours(row.monthAmount, true)} h once / 一次\nChoose only one matching row; never add alternatives. If unknown or not listed, ask the program team. Negative corrections are deductions. / 仅选符合情况的一项，切勿相加；若不确定或未列出，请先联系项目团队。负数应扣除。`;
+  return `\nLast applied edition -> correction to apply now / 最后入账版本 -> 现在应应用的更正额 (choose one / 仅选一项):\n${choices}${choices ? "\n" : ""}Nothing applied / 从未入账 -> ${formatSchoolHours(row.monthAmount, true)} h once / 一次`;
 }
 
 function schoolHoursValueHtml(value: number) {
@@ -137,25 +140,33 @@ export function renderSchoolHoursContent(
     .filter((row) => row.previousMonthAmount !== null)
     .map(
       (row) =>
-        `<tr><th scope="row" style="text-align:left;padding:10px;border-bottom:1px solid #CBD5E1">${e(row.exportName)}</th><td style="padding:10px;border-bottom:1px solid #CBD5E1">${e(row.previousMonthAmount === null ? "—" : formatSchoolHours(row.previousMonthAmount))}</td><td style="padding:10px;border-bottom:1px solid #CBD5E1">${e(formatSchoolHours(row.monthAmount))}</td><td style="padding:10px;border-bottom:1px solid #CBD5E1">${e(row.monthComparison === null ? "—" : formatSchoolHours(row.monthComparison, true))}</td></tr>`,
+        `<tr><th scope="row" style="text-align:left;padding:10px;border-bottom:1px solid #CBD5E1;overflow-wrap:anywhere;word-break:break-word">${e(row.exportName)}</th><td style="padding:10px;border-bottom:1px solid #CBD5E1;overflow-wrap:anywhere;word-break:break-word">${e(row.previousMonthAmount === null ? "—" : formatSchoolHours(row.previousMonthAmount))}</td><td style="padding:10px;border-bottom:1px solid #CBD5E1;overflow-wrap:anywhere;word-break:break-word">${e(formatSchoolHours(row.monthAmount))}</td><td style="padding:10px;border-bottom:1px solid #CBD5E1;overflow-wrap:anywhere;word-break:break-word">${e(row.monthComparison === null ? "—" : formatSchoolHours(row.monthComparison, true))}</td></tr>`,
     )
     .join("");
-  return `<p style="line-height:1.7;color:#475569">Month / 月份: <strong>${e(report.month)}</strong> · Revision / 版本: <strong>${report.revision}</strong><br>Issued / 发出时间: ${e(schoolHoursIssuedTime(report))} (${e(report.timeZone)})</p><div style="padding:16px;background:#EFF6FF;border-left:4px solid #2563EB;line-height:1.7">${e(editionGuidance(report)).replaceAll("\n", "<br>")}</div>${cards || "<p>No individual changes in this edition. / 本版本无个人时数变化。</p>"}<p style="font-size:14px;line-height:1.7;color:#475569">This saved edition reports recorded changes; it does not confirm that the school has posted them. The email, link and download are copies of the same instruction. Late records remain eligible for a later report.<br>此报告记录已录入的变化，不代表学校已完成入账。邮件、链接与下载均为同一指示的副本。迟交记录仍可纳入后续报告。</p>${comparisons ? `<details style="margin-top:20px"><summary style="cursor:pointer;font-weight:650;padding:12px 0">Previous-month comparison / 与上月比较 · informational only / 仅供参考</summary><p>These differences compare monthly report amounts. They are not additional credits or deductions for any account.<br>此差异仅比较月度报告金额，不应作为额外时数或扣减入账。</p><div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px"><thead><tr><th style="text-align:left">Individual / 个人</th><th>Previous month / 上月</th><th>This month / 本月</th><th>Difference / 差异</th></tr></thead><tbody>${comparisons}</tbody></table></div></details>` : ""}${report.includeStatistics ? `<details style="margin-top:20px"><summary style="cursor:pointer;font-weight:650;padding:12px 0">Optional program statistics / 项目统计（可选）</summary><p>${report.totals.people} individuals / 人 · Tutoring / 辅导: ${e(formatSchoolHours(report.totals.tutoringChange, true))} h · Crew / 执勤: ${e(formatSchoolHours(report.totals.crewChange, true))} h · Net changes / 净变化: ${e(formatSchoolHours(report.totals.hoursToAdd, true))} h</p><p>Program statistics are not an amount to apply to any one account. / 项目统计不可计入任何单一个人账户。</p></details>` : ""}`;
+  return `<p style="line-height:1.7;color:#475569">Month / 月份: <strong>${e(report.month)}</strong> · Revision / 版本: <strong>${report.revision}</strong><br>Issued / 发出时间: ${e(schoolHoursIssuedTime(report))} (${e(report.timeZone)})</p><div style="padding:16px;background:#EFF6FF;border-left:4px solid #2563EB;line-height:1.7">${e(editionGuidance(report)).replaceAll("\n", "<br>")}</div>${cards || "<p>No individual changes in this edition. / 本版本无个人时数变化。</p>"}<p style="font-size:14px;line-height:1.7;color:#475569">This saved edition reports recorded changes; it does not confirm that the school has posted them. The email, link and download are copies of the same instruction. Late records remain eligible for a later report.<br>此报告记录已录入的变化，不代表学校已完成入账。邮件、链接与下载均为同一指示的副本。迟交记录仍可纳入后续报告。</p>${comparisons ? `<details style="margin-top:20px"><summary style="cursor:pointer;font-weight:650;padding:12px 0">Previous-month comparison / 与上月比较 · informational only / 仅供参考</summary><p>These differences compare monthly report amounts. They are not additional credits or deductions for any account.<br>此差异仅比较月度报告金额，不应作为额外时数或扣减入账。</p><div style="overflow-x:auto"><table class="month-comparison" style="border-collapse:collapse;table-layout:fixed;width:100%;font-size:14px"><thead><tr><th style="text-align:left;overflow-wrap:anywhere;word-break:break-word">Individual / 个人</th><th style="overflow-wrap:anywhere;word-break:break-word">Previous month / 上月</th><th style="overflow-wrap:anywhere;word-break:break-word">This month / 本月</th><th style="overflow-wrap:anywhere;word-break:break-word">Difference / 差异</th></tr></thead><tbody>${comparisons}</tbody></table></div></details>` : ""}${report.includeStatistics ? `<details style="margin-top:20px"><summary style="cursor:pointer;font-weight:650;padding:12px 0">Optional program statistics / 项目统计（可选）</summary><p>${report.totals.people} individuals / 人 · Tutoring / 辅导: ${e(formatSchoolHours(report.totals.tutoringChange, true))} h · Crew / 执勤: ${e(formatSchoolHours(report.totals.crewChange, true))} h · Net changes / 净变化: ${e(formatSchoolHours(report.totals.hoursToAdd, true))} h</p><p>Program statistics are not an amount to apply to any one account. / 项目统计不可计入任何单一个人账户。</p></details>` : ""}`;
 }
 
 export function schoolHoursEmailCopy(input: {
+  /** Supplied by live callers; isolated previews need no server environment. */
+  brand?: string;
   report: SchoolHoursPublicReport;
   reportUrl: string;
   preview?: boolean;
 }) {
   const { report: sourceReport, reportUrl, preview } = input;
+  const APP_TITLE = input.brand ?? DEFAULT_BRANDING.APP_TITLE;
   const rows = schoolHoursVisibleRows(sourceReport);
   const report = {
     ...sourceReport,
     rows,
     totals: { ...sourceReport.totals, people: rows.length },
   };
-  const subject = schoolHoursHeading(report.month);
+  const heading = schoolHoursHeading(report.month);
+  // Distinguish corrections in the inbox while retaining the requested report heading.
+  const subject =
+    report.revision > 1
+      ? `Correction r${report.revision}: ${report.month} school-hours report / 学校时数报告更正`
+      : heading;
   const textRows = report.rows
     .map(
       (row) =>
@@ -171,6 +182,6 @@ export function schoolHoursEmailCopy(input: {
   const action = preview
     ? '<span aria-disabled="true" style="display:inline-block;background:#0D59E6;color:white;padding:12px 18px;border-radius:7px;font-weight:700">View Month Report</span>'
     : `<a href="${escapeSchoolHours(reportUrl)}" style="display:inline-block;background:#0D59E6;color:white;padding:12px 18px;border-radius:7px;font-weight:700;text-decoration:none">View Month Report</a>`;
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeSchoolHours(subject)}</title></head><body style="margin:0;background:#EAF0F7;color:#0F172A;font-family:Arial,sans-serif"><main style="max-width:760px;margin:0 auto;padding:24px 16px"><p style="color:#475569;font-size:14px">${escapeSchoolHours(APP_TITLE)}</p><h1 style="font-size:28px;line-height:1.25">${escapeSchoolHours(subject)}</h1>${renderSchoolHoursContent(report)}<p style="margin:24px 0">${action}</p><p style="font-size:13px;line-height:1.7;color:#475569">${escapeSchoolHours(capabilityNotice).replaceAll("\n", "<br>")}</p></main></body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeSchoolHours(subject)}</title></head><body style="margin:0;background:#EAF0F7;color:#0F172A;font-family:Arial,sans-serif"><main style="max-width:760px;margin:0 auto;padding:24px 16px"><p style="color:#475569;font-size:14px">${escapeSchoolHours(APP_TITLE)}</p><h1 style="font-size:28px;line-height:1.25">${escapeSchoolHours(heading)}</h1>${renderSchoolHoursContent(report)}<p style="margin:24px 0">${action}</p><p style="font-size:13px;line-height:1.7;color:#475569">${escapeSchoolHours(capabilityNotice).replaceAll("\n", "<br>")}</p></main></body></html>`;
   return { subject, text, html };
 }

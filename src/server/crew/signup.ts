@@ -19,6 +19,7 @@ import {
 } from "~/server/auth/registration";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import { codeEmailCopy } from "~/server/email/direct-email-copy";
 import { managementReviewSourceLink, notifyAdmins } from "~/server/notifications/create";
 import { getFeatures } from "~/server/program/features";
 import {
@@ -183,13 +184,12 @@ export async function stageCrewVerification(
       category: "SECURITY",
       signup: true,
       to: email,
-      subject: "Verify your crew application email / 验证工作人员申请邮箱",
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ${CREW_CODE_TTL_MINUTES} minutes. This verifies your mailbox; crew access still requires approval.\n\n工作人员申请邮箱验证码为 ${code}，有效期 ${CREW_CODE_TTL_MINUTES} 分钟。此步骤仅验证邮箱，工作人员权限仍须审批。`,
-      presentation: {
+      ...codeEmailCopy({
+        subject: "Verify your crew application / 验证值勤人员申请",
         code,
-        codePurpose: "verification",
-        eyebrow: "EMAIL VERIFICATION",
-      },
+        eyebrow: "EMAIL VERIFICATION / 邮箱验证",
+        body: `Enter this code to verify your crew application email. It expires in ${CREW_CODE_TTL_MINUTES} minutes. Crew access still requires approval.\n输入此验证码以验证值勤人员申请邮箱，${CREW_CODE_TTL_MINUTES} 分钟内有效。值勤人员权限仍须审批。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。`,
+      }),
     });
     return { ok: true as const };
   });

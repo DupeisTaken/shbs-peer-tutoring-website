@@ -2182,6 +2182,19 @@ details use bounded bilingual snapshots. Account secrets and profile field value
 are excluded; request-status reason disclosure retains its separate mailbox-proof
 rule. Historical rows are not reconstructed from mutable current records.
 
+[Direct-mail copy builders](../../src/server/email/direct-email-copy.ts) keep full
+codes and URLs in plain text and supply escaped `presentation.body` prose for HTML.
+The shared code panel and named action carry those values once in the HTML body;
+the separate copyable-link fallback remains available. Legacy callers without an
+explicit body retain their text, with only an exact standalone action-URL paragraph
+removed. The renderer never deletes URLs embedded in sentences or interprets
+caller prose as HTML or Markdown. Expiry labels distinguish verification codes,
+invitations and permanent request deadlines. Session subjects use maintained
+bilingual outcomes instead of event IDs; proposed/confirmed times and response
+warnings retain their scheduling meaning. Request reasons appear once and still
+require request-specific mailbox proof. Optional notification HTML puts unsubscribe
+in the footer; plain text retains its full link.
+
 The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.

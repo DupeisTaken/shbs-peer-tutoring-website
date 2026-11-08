@@ -1,5 +1,7 @@
 export interface EmailPresentation {
   action?: { label: string; url: string };
+  /** Escaped HTML-view prose. Keep complete codes and URLs in the required text fallback. */
+  body?: string;
   eyebrow?: string;
   code?: string;
   /** Purpose is presentation metadata, never inferred authorization from code length.
@@ -77,11 +79,13 @@ export function renderEmail(input: {
         "Email icons require an absolute HTTP(S) URL without credentials.",
       );
   }
-  const paragraphs = text
+  const paragraphs = (presentation.body ?? text)
     .split(/\n\n+/)
     .map((part) => {
-      // The source text retains the raw URL for text-only clients; HTML places it below the CTA.
-      const content = action ? part.replace(action.url, "").trim() : part;
+      // Only a dedicated URL paragraph is redundant with the CTA/fallback.
+      // Embedded links remain intact: removing a substring would damage caller prose.
+      const content = part.trim();
+      if (content === action?.url) return "";
       return content
         ? `<p style="margin:0 0 20px;line-height:1.7;overflow-wrap:anywhere;word-break:break-word">${escape(content).replace(/\n/g, "<br>")}</p>`
         : "";
@@ -105,9 +109,9 @@ ${presentation.code ? `<div class="code" style="background:${codeBackground};col
 ${paragraphs}
 ${action ? `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td bgcolor="#0D59E6" style="background:#0D59E6;border-radius:4px"><a href="${escape(action.url)}" style="display:inline-block;border:1px solid #0D59E6;border-radius:4px;background:#0D59E6;padding:15px 23px;font-size:15px;font-weight:700;line-height:20px;color:#FFFFFF;text-decoration:none;mso-padding-alt:15px 23px;overflow-wrap:anywhere;word-break:break-word">${escape(action.label)}</a></td></tr></table>` : ""}
 </td></tr>
-${action ? `<tr><td class="inside panel" bgcolor="#22272E" style="padding:22px 40px 26px;background:#22272E;border-top:1px solid #414A58"><p class="muted" style="margin:0 0 8px;font-size:12px;line-height:20px;color:#C5CDDA">Or copy this link into your browser:</p><a class="ink accent" href="${escape(action.url)}" style="font-size:12px;line-height:20px;color:#ADC9FF;text-decoration:underline;word-break:break-all;overflow-wrap:anywhere">${escape(action.url)}</a></td></tr>` : ""}
+${action ? `<tr><td class="inside panel" bgcolor="#22272E" style="padding:22px 40px 26px;background:#22272E;border-top:1px solid #414A58"><p class="muted" style="margin:0 0 8px;font-size:12px;line-height:20px;color:#C5CDDA">Copy this link into your browser / 复制链接到浏览器：</p><a class="ink accent" href="${escape(action.url)}" style="font-size:12px;line-height:20px;color:#ADC9FF;text-decoration:underline;word-break:break-all;overflow-wrap:anywhere">${escape(action.url)}</a></td></tr>` : ""}
 </table></td></tr>
-<tr><td class="footer rule muted" align="center" style="padding:28px 40px 0;color:#C5CDDA;font-size:12px;line-height:20px;text-align:center">${iconUrl ? `<img class="footer-icon" src="${escape(iconUrl)}" alt="${escape(brand)} icon" width="48" height="48" style="display:block;width:48px;height:48px;margin:0 auto 14px;border:0;border-radius:12px;color:#C5CDDA;font-size:10px">` : ""}<p class="footer-brand ink" style="margin:0 0 10px;color:#F4F7FC;font-size:14px;font-weight:700;line-height:22px;overflow-wrap:anywhere;word-break:break-word">${escape(brand)}</p><p class="footer-copy" style="margin:0">This is an automated message. Keep account links and verification codes private.</p>${unsubscribeUrl ? `<p style="margin:8px 0 0"><a class="footer-unsubscribe accent" href="${escape(unsubscribeUrl)}" style="display:inline-block;padding:12px 8px;font-size:12px;line-height:20px;color:#ADC9FF;text-decoration:underline;overflow-wrap:anywhere;word-break:break-word">Unsubscribe</a></p>` : ""}</td></tr></table>
+<tr><td class="footer rule muted" align="center" style="padding:28px 40px 0;color:#C5CDDA;font-size:12px;line-height:20px;text-align:center">${iconUrl ? `<img class="footer-icon" src="${escape(iconUrl)}" alt="${escape(brand)} icon" width="48" height="48" style="display:block;width:48px;height:48px;margin:0 auto 14px;border:0;border-radius:12px;color:#C5CDDA;font-size:10px">` : ""}<p class="footer-brand ink" style="margin:0 0 10px;color:#F4F7FC;font-size:14px;font-weight:700;line-height:22px;overflow-wrap:anywhere;word-break:break-word">${escape(brand)}</p><p class="footer-copy" style="margin:0">Automated message. Keep account links and codes private.<br>此为自动邮件，请勿分享账户链接和验证码。</p>${unsubscribeUrl ? `<p style="margin:8px 0 0"><a class="footer-unsubscribe accent" href="${escape(unsubscribeUrl)}" style="display:inline-block;padding:12px 8px;font-size:12px;line-height:20px;color:#ADC9FF;text-decoration:underline;overflow-wrap:anywhere;word-break:break-word">Unsubscribe / 取消订阅</a></p>` : ""}</td></tr></table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr></table></body></html>`;
 }

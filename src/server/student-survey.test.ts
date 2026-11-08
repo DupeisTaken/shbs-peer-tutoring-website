@@ -1034,7 +1034,7 @@ describe("student request lifecycle", () => {
         .signupSubmittedAt,
     ).toEqual(row.submittedAt);
     expect(send.mock.calls.at(-1)?.[0].text).toContain(
-      row.verificationDueAt!.toISOString(),
+      emailDeadline({ at: row.verificationDueAt!, timeZone: await getProgramTimeZone(db) }, { en: "Complete verification by", zh: "完成验证截止时间" }),
     );
     await resendSurvey(db, email);
     expect(
@@ -1686,3 +1686,5 @@ it("preserves all four name fields when staff materialize an intake before accou
   ).toEqual(row.payload);
   expect(await db.user.findUnique({ where: { email } })).toBeNull();
 });
+import { emailDeadline } from "./email/direct-email-copy";
+import { getProgramTimeZone } from "./program/time-zone-reader";

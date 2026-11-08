@@ -13,7 +13,7 @@ import {
   isEmailConfigured,
   isEmailDeliveryAvailable,
 } from "~/server/email/sender";
-import { APP_TITLE } from "~/lib/branding";
+import { linkedEmailCopy } from "~/server/email/direct-email-copy";
 import { emailOrigin } from "~/server/email/urls";
 import { hashPassword } from "./password";
 import { TRPCError } from "@trpc/server";
@@ -62,9 +62,12 @@ export async function issueAccountVerification(
   await emailSender.send({
     category: "SECURITY",
     to: email,
-    subject: `Verify and set up your ${APP_TITLE} account`,
-    presentation: { action: { label: "Set up your account", url: link } },
-    text: `The program team sent you an account setup link. Open it to verify this email and set your password. This does not change your tutor or tutee participation.\n\n${link}\n\nThe link expires in seven days. Ignore it if you did not request an account.`,
+    ...linkedEmailCopy({
+      subject: "Verify and set up your account / 验证并设置账户",
+      eyebrow: "ACCOUNT SETUP / 账户设置",
+      body: "The program team invited you to verify this email and set your password. The link expires in seven days. Your tutor or tutee participation stays unchanged.\n项目团队邀请您验证邮箱并设置密码。链接七天内有效，不会更改辅导伙伴或学习伙伴身份。\n\nIf you did not request an account, ignore this email.\n如未申请账户，请忽略此邮件。",
+      action: { label: "Set up your account / 设置账户", url: link },
+    }),
   });
   return { emailed: isEmailConfigured("SECURITY") };
 }
@@ -145,12 +148,12 @@ async function deliverResetLink(to: string, token: string): Promise<void> {
   await emailSender.send({
     category: "SECURITY",
     to,
-    subject: `Reset your ${APP_TITLE} password`,
-    text:
-      `We received a request to reset your ${APP_TITLE} password.\n\n` +
-      `Reset it within ${TOKEN_TTL_MINUTES} minutes:\n${link}\n\n` +
-      `If you didn't request this, you can safely ignore this email.`,
-    presentation: { action: { label: "Reset your password", url: link } },
+    ...linkedEmailCopy({
+      subject: "Reset your password / 重设密码",
+      eyebrow: "ACCOUNT RECOVERY / 账户恢复",
+      body: `Use this link to set a new password within ${TOKEN_TTL_MINUTES} minutes.\n请在 ${TOKEN_TTL_MINUTES} 分钟内通过此链接设置新密码。\n\nIf you did not request this, ignore this email; your password stays unchanged.\n如非本人申请，请忽略此邮件，密码不会更改。`,
+      action: { label: "Reset your password / 重设密码", url: link },
+    }),
   });
 }
 

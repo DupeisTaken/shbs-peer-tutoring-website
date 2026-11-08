@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { APP_TITLE } from "~/lib/branding";
 import { z } from "zod";
 import { lockUsernameNamespace } from "~/server/auth/username-namespace";
 import {
@@ -137,6 +138,7 @@ export function schoolHoursDeliveryCopy(
   if (!schoolHoursTokenMatches(token, report.linkTokenHash))
     throw new Error("School report link requires reissue.");
   return schoolHoursEmailCopy({
+    brand: APP_TITLE,
     report: publicSchoolHoursReport(report.snapshot),
     reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(token)}`,
   });

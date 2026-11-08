@@ -4,7 +4,7 @@ import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
-import { notificationEmailCopy } from "./notification-copy";
+import { notificationEmailContent } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
 import {
   effectiveNotificationPreference,
@@ -287,15 +287,6 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         ),
       );
       const timeZone = current?.timeZone ?? "Asia/Shanghai";
-      const time = new Intl.DateTimeFormat("en", {
-        dateStyle: "long",
-        timeStyle: "short",
-        timeZone,
-      }).format(row.createdAt);
-      const copy = notificationEmailCopy(row.event, row.context);
-      const footer = essential
-        ? "If you do not recognize this activity, contact the program team through private support.\n如非本人操作，请通过私密支持联系项目团队。"
-        : "Sign in to review the update. You can manage optional email notifications in account settings.\n请登录查看通知。您可在账户设置中管理可选邮件通知。";
       // Only optional notification classes receive this narrowly scoped account capability.
       const unsubscribeUrl = [
         "messages",
@@ -306,6 +297,15 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       ].includes(row.category)
         ? notificationUnsubscribeUrl(id)
         : undefined;
+      const content = notificationEmailContent({
+        event: row.event,
+        context: row.context,
+        createdAt: row.createdAt,
+        timeZone,
+        category: row.category,
+        link,
+        unsubscribeUrl,
+      });
       if (!essential) {
         transportAttempt = await admitIdentityNotice(db, id, leaseUntil, attemptId);
         if (!transportAttempt) continue;
@@ -314,25 +314,8 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         emailSender.send({
           category,
           to: row.recipient,
-          subject: copy.subject,
           messageId: `<account-notice-${id}@shbs-notifications>`,
-          text: `${copy.description}\n\nNotice issued: ${time} (${timeZone}) / 通知发出时间\n\n${footer}\n\n${link}${unsubscribeUrl ? `\n\nUnsubscribe / 取消订阅: ${unsubscribeUrl}` : ""}`,
-          presentation: {
-            ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
-            eyebrow: essential
-              ? "ACCOUNT SECURITY"
-              : row.category === "messages"
-                ? "PRIVATE MESSAGES"
-                : review
-                  ? "REVIEW REQUEST"
-                  : reminder
-                    ? "UPCOMING EVENT"
-                    : "PROGRAM UPDATE",
-            action: {
-              label: copy.action,
-              url: link,
-            },
-          },
+          ...content,
         });
       if (transportAttempt) {
         // Record provider acceptance separately from completion failure. A failed

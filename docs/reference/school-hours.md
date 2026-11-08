@@ -103,6 +103,15 @@ editions are not silently retargeted or resent as current.
 
 ## Link-only retrieval and names
 
+Delivery keeps the existing light email layout, **The Program [month] Report is
+ready** heading and **View Month Report** action. Correction subjects identify the
+report month and revision. Complete posting/unknown-edition safeguards appear once
+above the individual cards; each person still has their exact correction choices.
+Correction and comparison tables wrap full-precision values within their columns
+on narrow screens rather than rounding or truncating posting instructions.
+Runtime callers supply the public brand to the pure email builder so offline
+previews do not load server configuration.
+
 The [link helper](../../src/server/school-hours-link.ts) creates a purpose-separated
 capability from the report ID, link version and AUTH_SECRET. Only its digest is
 stored; retries reproduce the same token. Revocation or reissue invalidates prior

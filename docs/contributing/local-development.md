@@ -392,6 +392,12 @@ spacing; only its background changes to dark green (`#18342C`) or blue (`#172F49
 Check that instructions and full codes remain readable when stylesheets or images are blocked.
 Use `npx tsx scripts/preview-emails.ts` to generate synthetic invitation, verification
 and legacy-mail previews in ignored `.validation/email-previews`; it sends no mail.
+The gallery also renders production session, notification, request, appeal, history
+and school-report copy with complete plain-text alternatives. Review both languages
+at desktop/mobile widths and the stylesheet/images-removed invitation. Shared HTML
+uses explicit escaped body prose; avoid removing codes or link substrings from
+sentences to deduplicate it. Code expiry and permanent verification deadlines need
+distinct labels. Keep full codes and URLs in the text-only alternative.
 
 Check copied-code mailbox verification and verified-browser handoff independently.
 Older five-digit, five-character alphanumeric and twelve-character invitations must

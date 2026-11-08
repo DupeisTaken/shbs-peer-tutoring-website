@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, it } from "vitest";
 import { schoolHoursEmailCopy } from "./school-hours-email";
 import {
@@ -6,6 +7,16 @@ import {
   schoolHoursHtmlResponse,
 } from "./school-hours-public";
 import { schoolHoursTestSnapshot } from "./school-hours-test-fixture";
+
+it("uses the caller's public runtime brand without interpreting it as HTML", () => {
+  const email = schoolHoursEmailCopy({
+    brand: "Pilot <School>",
+    report: publicSchoolHoursReport(schoolHoursTestSnapshot()),
+    reportUrl: "https://reports.example.test/saved",
+  });
+  expect(email.html).toContain("Pilot &lt;School&gt;");
+  expect(email.html).not.toContain("Pilot <School>");
+});
 
 it.each([
   [1.7500000000000002, "+1.75"],
@@ -90,6 +101,43 @@ it("shows incremental per-person revision corrections and full replacement amoun
   expect(copy.text).toContain("Not an additional account correction");
   expect(copy.html).toContain("Previous-month comparison");
 });
+it.each([2, 3])(
+  "identifies revision %s in the inbox while retaining the report heading and complete posting choices",
+  (revision) => {
+    const report = publicSchoolHoursReport(schoolHoursTestSnapshot(revision));
+    const copy = schoolHoursEmailCopy({
+      report,
+      reportUrl: "https://reports.example.test/saved",
+    });
+    expect(copy.subject).toBe(
+      `Correction r${revision}: 2026-10 school-hours report / 学校时数报告更正`,
+    );
+    expect(copy.html).toMatch(
+      /<h1[^>]*>The Program October Report is ready<\/h1>/,
+    );
+    expect(copy.html).toContain(">View Month Report</a>");
+    // The full safety rule belongs to the introduction rather than every person.
+    for (const content of [copy.html, copy.text]) {
+      expect(content.match(/never add alternatives/g)).toHaveLength(1);
+      expect(content.match(/If unknown or not listed/g)).toHaveLength(1);
+      expect(
+        content.match(/Negative corrections are deductions/g),
+      ).toHaveLength(1);
+      expect(content).toContain("use the replacement month amount once");
+    }
+    expect(
+      copy.html.match(/Choose one matching row \/ 仅选符合情况的一项/g),
+    ).toHaveLength(report.rows.length);
+    expect(copy.text.match(/\(choose one \/ 仅选一项\)/g)).toHaveLength(
+      report.rows.length,
+    );
+    expect(copy.text.match(/Nothing applied \/ 从未入账 ->/g)).toHaveLength(
+      report.rows.length,
+    );
+    expect(copy.html).toContain("background:#EAF0F7");
+    expect(copy.html).toContain("background:#F8FAFC");
+  },
+);
 it("renders previews without navigation, live capabilities or changes to the accounting body", () => {
   const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
   const actual = schoolHoursEmailCopy({
@@ -200,7 +248,7 @@ it("lets a recipient who missed r2 choose the complete r1-to-r3 correction inste
     "Choose only one matching row; never add alternatives",
   );
   expect(copy.text).toContain("If unknown or not listed, ask the program team");
-  expect(copy.html).toContain("Last applied edition → correction to apply now");
+  expect(copy.html).toContain("Last applied edition / 最后入账版本");
   expect(copy.html).toMatch(/r1 \(\+7 h\)<\/th><td[^>]*>\+0.7 h<\/td>/);
   expect(copy.html).toMatch(/r2 \(\+7.5 h\)<\/th><td[^>]*>\+0.2 h<\/td>/);
   const csv = schoolHoursCsv(report);
@@ -211,3 +259,44 @@ it("lets a recipient who missed r2 choose the complete r1-to-r3 correction inste
   ).toMatch(/,0.7,0.2$/);
   expect(csv.content).toContain("Never add alternatives");
 });
+
+it.each([2, 3])(
+  "keeps exact revision %s values in wrapping table cells on narrow cards",
+  (revision) => {
+    const report = publicSchoolHoursReport(schoolHoursTestSnapshot(revision));
+    const person = report.rows[0]!;
+    const exact = 0.23333333333333334;
+    person.monthAmount = 7.233333333333333;
+    person.previousEditionAmount = 7.016666666666667;
+    person.monthComparison = exact;
+    person.priorEditions = [
+      {
+        revision: 1,
+        monthAmount: 7.016666666666667,
+        correctionToCurrent: exact,
+      },
+    ];
+    const copy = schoolHoursEmailCopy({
+      report,
+      reportUrl: "https://reports.example.test/saved",
+    });
+    const doc = new DOMParser().parseFromString(copy.html, "text/html");
+    const choices = doc.querySelector<HTMLTableElement>(".edition-choices")!;
+    expect(choices.textContent).toContain("r1 (+7.016666666666667 h)");
+    expect(choices.textContent).toContain(`+${exact} h`);
+    expect(choices.textContent).toContain("+7.233333333333333 h once");
+    expect(copy.text).toContain(`+${exact} h`);
+    const tables = doc.querySelectorAll<HTMLTableElement>(
+      ".edition-choices,.month-comparison",
+    );
+    expect(tables.length).toBe(report.rows.length + 1);
+    for (const table of tables) {
+      expect(table.style.tableLayout).toBe("fixed");
+      expect(table.style.width).toBe("100%");
+      for (const cell of table.querySelectorAll<HTMLElement>("th,td")) {
+        expect(cell.style.overflowWrap).toBe("anywhere");
+        expect(cell.style.wordBreak).toBe("break-word");
+      }
+    }
+  },
+);

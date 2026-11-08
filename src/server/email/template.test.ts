@@ -20,6 +20,68 @@ it("escapes caller text and gives the CTA and fallback exactly the same token UR
   expect(html).toContain("prefers-color-scheme:dark");
 });
 
+it("uses escaped presentation prose while leaving the complete plain-text alternative untouched", () => {
+  const url = "https://school.example/verify?token=synthetic";
+  const text = `Verification code: 0012. 验证码：0012。\n\n${url}`;
+  const input = {
+    brand: "School",
+    subject: "Verify your email",
+    text,
+    presentation: {
+      body: "Enter the code below within ten minutes.\n\n请在十分钟内输入验证码。 <script>literal</script>",
+      code: "0012",
+      codePurpose: "verification" as const,
+      action: { label: "Verify email / 验证邮箱", url },
+    },
+  };
+  const doc = new DOMParser().parseFromString(renderEmail(input), "text/html");
+  expect(doc.querySelector(".body")?.textContent).toContain(
+    "请在十分钟内输入验证码。 <script>literal</script>",
+  );
+  expect(doc.querySelector("script")).toBeNull();
+  expect(doc.querySelector(".body")?.textContent).not.toContain(
+    "Verification code: 0012",
+  );
+  expect(doc.querySelector(".code")?.textContent).toBe("0012");
+  expect(input.text).toBe(text);
+  expect([...doc.querySelectorAll("a")].map((link) => link.href)).toEqual([
+    url,
+    url,
+  ]);
+});
+
+it("removes only standalone action URLs and preserves complete embedded link sentences", () => {
+  const url = "https://school.example/register?invitation=synthetic";
+  const sentence = `Enter your code at ${url}. 请前往 ${url} 输入验证码。`;
+  const doc = new DOMParser().parseFromString(
+    renderEmail({
+      brand: "School",
+      subject: "Review your invitation",
+      text: `${sentence}\n\n  ${url}  \n\nKeep this invitation private.`,
+      presentation: { action: { label: "Review invitation", url } },
+    }),
+    "text/html",
+  );
+  const paragraphs = [...doc.querySelectorAll(".body > p")].map(
+    (paragraph) => paragraph.textContent,
+  );
+  expect(paragraphs).toEqual([sentence, "Keep this invitation private."]);
+});
+
+it("honors an explicitly empty HTML body without recovering redundant fallback prose", () => {
+  const doc = new DOMParser().parseFromString(
+    renderEmail({
+      brand: "School",
+      subject: "Your code",
+      text: "Your verification code is 0012.",
+      presentation: { body: "", code: "0012" },
+    }),
+    "text/html",
+  );
+  expect(doc.querySelector(".body > p")).toBeNull();
+  expect(doc.querySelector(".code")?.textContent).toBe("0012");
+});
+
 it("keeps mixed-language instructions and code readable without images", () => {
   const html = renderEmail({
     brand: "Peer tutoring 同伴辅导",
@@ -205,7 +267,7 @@ it("adds an escaped unsubscribe link after the existing footer with readable inl
   doc.querySelectorAll("style").forEach((style) => style.remove());
   const link = doc.querySelector<HTMLAnchorElement>(".footer-unsubscribe")!;
   expect(link.getAttribute("href")).toBe(unsubscribeUrl);
-  expect(link.textContent).toBe("Unsubscribe");
+  expect(link.textContent).toBe("Unsubscribe / 取消订阅");
   expect(link.style.textDecoration).toBe("underline");
   expect(doc.querySelector("script,private,[onerror],[onload]")).toBeNull();
   expect(html).toContain("&amp;note=&quot;&lt;private&gt;&quot;");
@@ -348,7 +410,7 @@ it("keeps all email text at readable contrast when a client strips the styleshee
     code: doc.querySelector(".code"),
     action: doc.querySelector("a"),
     fallbackInstructions: [...doc.querySelectorAll("p")].find((paragraph) =>
-      paragraph.textContent?.startsWith("Or copy this link"),
+      paragraph.textContent?.startsWith("Copy this link into your browser"),
     ),
     fallbackLink: doc.querySelector("a.ink"),
   };
@@ -377,7 +439,7 @@ it("retains branded bilingual instructions, verification code and both usable ac
     url,
   ]);
   expect(doc.body.textContent).toContain(
-    "Keep account links and verification codes private.",
+    "Keep account links and codes private.",
   );
 });
 
@@ -407,7 +469,7 @@ it("places one accessible 48px site icon above the footer brand and privacy copy
   const footerCopy = footer.querySelector(".footer-copy")!;
   expect(footerBrand.textContent).toBe("SHBS Peer Tutoring");
   expect(footerCopy.textContent).toBe(
-    "This is an automated message. Keep account links and verification codes private.",
+    "Automated message. Keep account links and codes private.此为自动邮件，请勿分享账户链接和验证码。",
   );
   expect(footer.contains(icon)).toBe(true);
   expect(

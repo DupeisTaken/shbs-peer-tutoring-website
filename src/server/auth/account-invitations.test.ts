@@ -2,6 +2,8 @@ import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import type { EmailMessage } from "~/server/email/sender";
 import { expectNoCodeSecrets } from "~/test/code-secrets";
+import { emailDeadline } from "~/server/email/direct-email-copy";
+import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const mail = vi.hoisted(() => ({
   send: vi.fn<(message: EmailMessage) => Promise<void>>(),
@@ -638,7 +640,7 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
     where: { id: invite.invitationId },
   });
   expect(mail.send.mock.calls.at(-1)?.[0].subject).toContain("read-only Viewer access");
-  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(before.emailCodeExpiresAt!.toISOString());
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(emailDeadline({ at: before.emailCodeExpiresAt!, timeZone: await getProgramTimeZone(db) }, { en: "Code expires", zh: "验证码有效期至" }));
   expect(mail.send.mock.calls.at(-1)?.[0].text).toContain("新增权限仍须另行确认");
   mail.send.mockRejectedValueOnce(Error("offline"));
   await expect(
@@ -664,7 +666,7 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
     "5 letters and numbers",
   );
   expect(mail.send.mock.calls.at(-1)?.[0].text).toContain("read-only Viewer access");
-  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(before.expiresAt.toISOString());
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(emailDeadline({ at: before.expiresAt, timeZone: await getProgramTimeZone(db) }, { en: "Invitation expires", zh: "邀请有效期至" }));
 });
 
 it.each(["staff", "display"] as const)(
@@ -1588,7 +1590,7 @@ it("starts a fresh fixed review window after near-expiry Viewer verification", a
     });
     expect(row.expiresAt).toEqual(source.codeExpiresAt);
     expect(mail.send.mock.lastCall![0].text).toContain(
-      source.codeExpiresAt.toISOString(),
+      emailDeadline({ at: source.codeExpiresAt, timeZone: await getProgramTimeZone(db) }, { en: "Code expires", zh: "验证码有效期至" }),
     );
     const proof = await verifyAccountInvitation(db, {
       ...invite,

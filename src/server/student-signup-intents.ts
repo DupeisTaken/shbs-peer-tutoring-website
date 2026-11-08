@@ -37,6 +37,7 @@ import {
   recordPublicSignupEmailConfirmation,
 } from "./student-survey";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
+import { tutoringSignupEmailCopy } from "./email/direct-email-copy";
 import { emailOrigin } from "./email/urls";
 import { requireSchoolParticipation } from "./school-departure";
 import { signupRejected } from "./signup-admission";
@@ -292,24 +293,16 @@ async function sendStudentSignupIntent(
 ) {
   try {
     const timeZone = await getProgramTimeZone(db);
-    const deadline = (locale: string) =>
-      new Intl.DateTimeFormat(locale, {
-        dateStyle: "long",
-        timeStyle: "short",
-        timeZone,
-      }).format(intent.expiresAt);
     const url = `${emailOrigin()}/tutee-signup/account?intent=${intent.id}`;
     await emailSender.send({
       category: "PROGRAM",
       signup: true,
       to: intent.email,
-      subject: "Verify your tutoring signup / 请验证辅导报名邮箱",
-      presentation: {
+      ...tutoringSignupEmailCopy({
         code: surveyEmailCode(intent.tokenHash, intent.emailCodeVersion),
-        codePurpose: "verification",
-        action: { label: "Verify email / 验证邮箱", url },
-      },
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}. / 您的邮箱验证码是 ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}。\n\nYour tutoring request is saved, but signup is not complete. Enter this code for this submission, then continue to finish account review and confirm your request. Your original submission priority is kept.\n\n辅导申请已保存，但报名尚未完成。请输入本次提交的验证码，再继续完成账户确认并确认申请。原提交优先顺序将保留。\n\nVerify by ${deadline("en")} (${timeZone}). / 请在 ${deadline("zh")}（${timeZone}）前验证。\n${url}`,
+        url,
+        deadline: { at: intent.expiresAt, timeZone },
+      }),
     });
     return true;
   } catch {

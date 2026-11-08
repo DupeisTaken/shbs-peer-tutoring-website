@@ -14,7 +14,7 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { withSignupAdmission, signupMetric } from "~/server/signup-admission";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
-import { APP_TITLE } from "~/lib/branding";
+import { codeEmailCopy } from "~/server/email/direct-email-copy";
 import { getFeatures } from "~/server/program/features";
 import { normalizeEmailCode } from "~/server/auth/code";
 import {
@@ -73,13 +73,12 @@ export const viewerRouter = createTRPCRouter({
                 category: "SECURITY",
                 signup: true,
                 to: input.email.trim().toLowerCase(),
-                subject: `${APP_TITLE}: verify Viewer signup / 验证观察员注册`,
-                text: `Verify your email to continue signing up for read-only Viewer access. This code does not enroll you as a tutor or tutee.\n验证邮箱后可继续申请只读观察员权限；此验证码不会将您登记为辅导伙伴或学习伙伴。\n\nYour email verification code (4 digits) / 邮箱验证码（4 位数字） is ${res.code}.\n\nIt expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.\n验证码将在 ${VIEWER_CODE_TTL_MINUTES} 分钟后失效。如非本人申请，请忽略此邮件。`,
-                presentation: {
+                ...codeEmailCopy({
+                  subject: "Verify Viewer signup / 验证观察员注册",
                   code: res.code,
-                  codePurpose: "verification",
-                  eyebrow: "EMAIL VERIFICATION",
-                },
+                  eyebrow: "EMAIL VERIFICATION / 邮箱验证",
+                  body: `Enter this code to continue signing up for read-only Viewer access. It expires in ${VIEWER_CODE_TTL_MINUTES} minutes. This does not enroll you as a tutor or tutee.\n输入此验证码以继续申请只读观察员权限，${VIEWER_CODE_TTL_MINUTES} 分钟内有效。此步骤不会将您登记为辅导伙伴或学习伙伴。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。`,
+                }),
               });
             });
           } catch (error) {

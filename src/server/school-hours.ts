@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { APP_TITLE } from "~/lib/branding";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Prisma, type SchoolHoursSchedule } from "../../generated/prisma";
@@ -874,6 +875,7 @@ async function preview(db: DomainDb, month: string) {
     contentHash,
     blockers,
     email: schoolHoursEmailCopy({
+      brand: APP_TITLE,
       report: snapshot,
       reportUrl: "#school-report-preview",
       preview: true,

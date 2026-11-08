@@ -4,6 +4,7 @@ import { lockAccountProfile } from "~/server/account-profile";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { rateLimit } from "~/server/rate-limit";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import { codeEmailCopy } from "~/server/email/direct-email-copy";
 import { verifyPasswordConfirmation } from "./password-confirmation";
 import { hashCode, freshEmailCode } from "./registration";
 import { normalizeEmailCode } from "./code";
@@ -202,13 +203,12 @@ export async function requestSecondaryEmail(
     await emailSender.send({
       category: "SECURITY",
       to: email,
-      subject: "Verify your secondary email",
-      presentation: {
+      ...codeEmailCopy({
+        subject: "Verify your secondary email / 验证备用邮箱",
         code,
-        codePurpose: "verification",
-        eyebrow: "EMAIL VERIFICATION",
-      },
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ten minutes. If you did not request this, ignore this message.`,
+        eyebrow: "EMAIL VERIFICATION / 邮箱验证",
+        body: "Enter this code to add a secondary email address. It expires in 10 minutes. The address is added only after confirmation.\n输入此验证码以添加备用邮箱，10 分钟内有效。确认后才会添加邮箱。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。",
+      }),
     });
   } catch (error) {
     // Retire only this failed delivery's challenge; never cancel a newer resend.

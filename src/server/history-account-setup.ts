@@ -8,6 +8,7 @@ import {
 import { hashPassword } from "./auth/password";
 import { lockUsernameNamespace } from "./auth/username";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
+import { codeEmailCopy } from "./email/direct-email-copy";
 import {
   historyTokenDigest,
   requireHistoryManager,
@@ -128,13 +129,12 @@ export async function startHistoryAccount(
     await emailSender.send({
       category: "SECURITY",
       to: invite.email,
-      subject: "Verify historical access / 验证历史记录访问",
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in 15 minutes. This only sets up a personal login; it does not enroll you in the program.\n\n历史记录访问验证码：${code}，15 分钟内有效。此步骤仅用于设置个人登录账号，不会加入当前项目。`,
-      presentation: {
+      ...codeEmailCopy({
+        subject: "Verify historical access / 验证历史记录访问",
         code,
-        codePurpose: "verification",
-        eyebrow: "EMAIL VERIFICATION",
-      },
+        eyebrow: "EMAIL VERIFICATION / 邮箱验证",
+        body: "Enter this code to set up a personal login for historical records. It expires in 15 minutes. This does not enroll you in the current program.\n输入此验证码以设置历史记录访问账号，15 分钟内有效。此步骤不会加入当前项目。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。",
+      }),
     });
     await updateSetup(tx, value, {
         setupCodeHash: hashCode(code),

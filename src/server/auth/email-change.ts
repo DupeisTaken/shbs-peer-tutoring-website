@@ -9,6 +9,7 @@ import { rateLimit } from "~/server/rate-limit";
 import { db } from "~/server/db";
 import { inTransaction, lockEntity } from "~/server/transactions";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import { codeEmailCopy } from "~/server/email/direct-email-copy";
 import { hashCode, freshEmailCode } from "./registration";
 import { verifyPasswordConfirmation } from "./password-confirmation";
 
@@ -86,13 +87,12 @@ export async function requestEmailChange(
   await emailSender.send({
     category: "SECURITY",
     to: targetEmail,
-    subject: "Verify your new account email",
-    presentation: {
+    ...codeEmailCopy({
+      subject: "Verify your new primary email / 验证新主邮箱",
       code,
-      codePurpose: "verification",
-      eyebrow: "EMAIL VERIFICATION",
-    },
-    text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ten minutes.`,
+      eyebrow: "EMAIL VERIFICATION / 邮箱验证",
+      body: "Enter this code to change your primary email address. It expires in 10 minutes. Your email changes only after confirmation.\n输入此验证码以更改主邮箱，10 分钟内有效。确认后才会更改邮箱。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。",
+    }),
   });
 }
 
