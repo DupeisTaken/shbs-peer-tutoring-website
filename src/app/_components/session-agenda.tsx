@@ -84,7 +84,8 @@ export function SessionResponseDeadline({
 }) {
   const t = useTranslations("sessionPlanning");
   const format = useFormatter();
-  if (!deliveredAt)
+  // Exception consent is required even before transport accepts its notice.
+  if (!deliveredAt && !requiresExplicitAcceptance)
     return <p className="text-sm text-amber-900">{t("deliveryPending")}</p>;
   if (!deadline || requiresExplicitAcceptance)
     return (
@@ -513,6 +514,14 @@ export function SessionAgenda({
       </>
     );
   const data = agenda.data;
+  const locationKnown = (offer: { online: boolean; roomId: string | null }) =>
+    offer.online || offer.roomId === null || data.rooms.some((room) => room.id === offer.roomId);
+  const locationText = (offer: { online: boolean; roomId: string | null }) =>
+    offer.online
+      ? t("online")
+      : offer.roomId === null
+        ? t("noRoom")
+        : data.rooms.find((room) => room.id === offer.roomId)?.name ?? t("locationUnavailable");
   const pastCohorts = !historyDenied
     ? (history.data?.pages.flatMap((page) => page.cohorts) ?? [])
     : [];
@@ -1029,6 +1038,12 @@ export function SessionAgenda({
                         {t("proposed")}:{" "}
                         {timeText(offer.startsAt, offer.endsAt)}
                       </p>
+                      <p>{t("location")}: {locationText(offer)}</p>
+                      {!locationKnown(offer) && (
+                        <Button disabled={working || agenda.isFetching} onClick={() => void agenda.refetch()}>
+                          {t("retry")}
+                        </Button>
+                      )}
                       {cohort && request.kind === "RESCHEDULE" && (
                         <p className="muted text-sm">
                           {t("before")}:{" "}
@@ -1064,7 +1079,7 @@ export function SessionAgenda({
                   {canRespond && offer && (
                     <div className="flex flex-wrap gap-2">
                       <Button
-                        disabled={blocked}
+                        disabled={blocked || !locationKnown(offer)}
                         onClick={() => beginDecision(request, "ACCEPT")}
                       >
                         {t("accept")}
@@ -1289,7 +1304,8 @@ export function SessionAgenda({
                 </Button>
                 <Button
                   variant="primary"
-                  disabled={blocked}
+                  disabled={blocked || (decisionReview.decision === "ACCEPT" &&
+                    !!decisionReview.request.currentOffer && !locationKnown(decisionReview.request.currentOffer))}
                   onClick={() =>
                     void commit(() => {
                       const request = decisionReview.request;
@@ -1326,12 +1342,29 @@ export function SessionAgenda({
             }
           >
             {decisionReview.request.currentOffer && (
-              <p>
-                {timeText(
-                  decisionReview.request.currentOffer.startsAt,
-                  decisionReview.request.currentOffer.endsAt,
+              <div className="space-y-2">
+                <p>
+                  {timeText(
+                    decisionReview.request.currentOffer.startsAt,
+                    decisionReview.request.currentOffer.endsAt,
+                  )}
+                </p>
+                <p>{t("location")}: {locationText(decisionReview.request.currentOffer)}</p>
+                {!locationKnown(decisionReview.request.currentOffer) && (
+                  <Button disabled={working || agenda.isFetching} onClick={() => void agenda.refetch()}>
+                    {t("retry")}
+                  </Button>
                 )}
-              </p>
+                {decisionReview.request.currentOffer.requiresExplicitAcceptance && (
+                  <SessionResponseDeadline
+                    deadline={null}
+                    deliveredAt={null}
+                    cutoffAt={decisionReview.request.currentOffer.cutoffAt}
+                    now={now}
+                    requiresExplicitAcceptance
+                  />
+                )}
+              </div>
             )}
             <p className="mt-3">
               {t(

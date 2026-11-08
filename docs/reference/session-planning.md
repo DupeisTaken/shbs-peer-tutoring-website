@@ -226,6 +226,11 @@ request-state path. Short-notice cutoff and explicit agreement rules still apply
 The agenda and optional-session picker expose suppressed sources without granting
 attendance authority. Attendance, reminder reads and private calendars use the
 effective scheduled roster. A paused source alone reserves no active commitment.
+Pending requests and captured decision reviews display the proposed room or
+Online choice alongside the time. Explicit-only guidance appears before email
+delivery as well as afterwards. An unknown physical room asks for a refresh and
+blocks acceptance without silently substituting Online or a roomless offer;
+fresh server validation still checks the captured offer and version.
 Affirmatively agreed dated exceptions may receive reminders even on paused dates;
 an overlapping `NOTICE` still suppresses optional reminders under the legacy
 notice contract. Queued essential proposal mail is checked against current policy
