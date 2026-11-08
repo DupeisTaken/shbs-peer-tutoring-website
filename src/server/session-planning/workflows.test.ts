@@ -380,6 +380,43 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
       expect(pausedAgain.find((person) => person.tuteeId === "planning-one")).toEqual(agreed);
       expect(pausedAgain.find((person) => person.tuteeId === "planning-two")).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true, scheduleOverride: false });
       expect(await read(pending.id)).toEqual(agreement);
+      const secondPauseFeeds = await readFeeds();
+      expect(calendarEvent(secondPauseFeeds.one, learnerUids.one)).toEqual(calendarEvent(resetFeeds.one, learnerUids.one));
+      expect(calendarEvent(secondPauseFeeds.two, learnerUids.two).status).toBe("CANCELLED");
+
+      // Once peers have merged, another complete cycle must restore them into
+      // that same agreed lesson, rather than revive its now-empty source.
+      await remove(original.date);
+      const repeatedActive = await db.sessionPlanCohort.findMany({
+        where: { planId: original.planId, date: original.date, status: "SCHEDULED" },
+      });
+      expect(repeatedActive.map((row) => row.id)).toEqual([sibling.id]);
+      expect(await db.sessionPlanCohort.count({ where: { planId: original.planId, date: original.date } })).toBe(2);
+      expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } })).toEqual(retired);
+      expect(await members(original.id)).toEqual([]);
+      const restoredAgain = await members(sibling.id);
+      expect(restoredAgain.map((person) => person.id).sort()).toEqual(originalPeople.map((person) => person.id).sort());
+      expect(restoredAgain.find((person) => person.tuteeId === "planning-one")).toEqual(agreed);
+      expect(restoredAgain.find((person) => person.tuteeId === "planning-two")).toMatchObject({
+        status: "SCHEDULED", tutoringPauseSuppressed: false, calendarSuppressed: false,
+        scheduleOverride: false, version: pausedAgain.find((person) => person.tuteeId === "planning-two")!.version + 1,
+      });
+      expect(await read(pending.id)).toEqual(agreement);
+      const repeatedContext = await db.$transaction((tx) => sessionAttendanceContext(
+        tx, tutor, sibling.id, repeatedActive[0]!.version, new Date(original.endsAt.getTime() + 1),
+      ));
+      expect(repeatedContext.tuteeIds.sort()).toEqual(["planning-one", "planning-two"]);
+      const secondResetFeeds = await readFeeds();
+      expect(calendarEvent(secondResetFeeds.one, learnerUids.one)).toEqual(calendarEvent(resetFeeds.one, learnerUids.one));
+      expect(calendarEvent(secondResetFeeds.two, learnerUids.two)).toMatchObject({ uid: learnerUids.two, status: "CONFIRMED", startsAt: calendarEvent(resetFeeds.two, learnerUids.two).startsAt });
+      expect(calendarEvent(secondResetFeeds.two, learnerUids.two).sequence).toBeGreaterThan(calendarEvent(secondPauseFeeds.two, learnerUids.two).sequence);
+      expect(calendarEvent(secondResetFeeds.tutor, originalUid)).toEqual(calendarEvent(resetFeeds.tutor, originalUid));
+      await ensureSessionPlanningWindow(db, now);
+      await ensureSessionPlanningWindow(db, now);
+      expect(await members(sibling.id)).toEqual(restoredAgain);
+      expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: sibling.id } })).toEqual(repeatedActive[0]);
+      expect(await readFeeds()).toEqual(secondResetFeeds);
+      expect(await db.session.count()).toBe(0);
     },
   );
 

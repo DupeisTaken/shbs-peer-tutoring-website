@@ -11,8 +11,11 @@ scheduling scenarios compare the baseline application under this candidate schem
 the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
-PR #606 uses its immediate pre-feature main commit
-`dfe9be18a0a6efb68aa6b956252002bdee24f184` as both scheduling controls.
+PR #606 uses its integrated pre-feature main commit
+`64d55753608e064205fc5788e08687fe99dc5c9a` as both scheduling controls.
+This advances the earlier `dfe9be18` pin for upstream account-menu wording,
+neutral Edited-badge styling and documentation updates. Scheduling sources,
+harness, schema and dependency bytes are unchanged between those baselines.
 Its manifest binds all 133 historical migrations and the four tutoring-policy
 additions (`20261108010000`, `20261108011000`, `20261108012000`,
 `20261108013000`), both complete schema hashes and the unchanged dependency lock.
