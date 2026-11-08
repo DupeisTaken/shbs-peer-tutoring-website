@@ -2642,6 +2642,8 @@ model SchoolHoursSchedule {
   id String @id @default("program")
   enabled Boolean @default(false)
   recipientEmails String[] @default([])
+  /// Staff-only labels keyed by normalized mailbox; never part of a report or mail.
+  recipientLabels Json @default("{}")
   timeZone String @default("Asia/Shanghai")
   includeStatistics Boolean @default(false)
   dateOverrides Json @default("{}")

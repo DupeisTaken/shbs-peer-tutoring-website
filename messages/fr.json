@@ -4491,7 +4491,8 @@
         "linkVersion": "Version du lien du rapport",
         "linkRevokedAt": "Date de révocation du lien du rapport",
         "schoolHoursReportId": "Identifiant du rapport scolaire",
-        "schoolHoursReport": "Rapport scolaire"
+        "schoolHoursReport": "Rapport scolaire",
+        "recipientLabels": "Libellés des destinataires"
       },
       "enums": {
         "Role": {
@@ -7970,7 +7971,7 @@
     "enable": "Activer les rapports mensuels scolaires",
     "activationHelp": "Avant activation, vérifiez les soldes initiaux et activez les heures de service, les emails facultatifs et la livraison.",
     "recipients": "Adresses des destinataires scolaires",
-    "recipientsHelp": "Une adresse par ligne. Chacun reçoit séparément le lien enregistré. Aucune connexion scolaire ni vérification d'email requise.",
+    "recipientsHelp": "Chaque destinataire reçoit un e-mail séparé avec le lien vers le rapport enregistré. Aucun compte scolaire ni vérification de l’adresse n’est nécessaire. Ajoutez jusqu’à 100 destinataires.",
     "scheduleHelp": "Par défaut : dernier jour du mois à midi dans le fuseau enregistré. Chaque exception concerne un envoi. Les présences tardives restent éligibles au rapport suivant.",
     "overrideMonth": "Mois d'envoi",
     "addOverride": "Définir une date spécifique",
@@ -8057,7 +8058,23 @@
     "blocked": "À résoudre avant publication",
     "featureOff": "Les heures de service sont désactivées. Aperçu indisponible.",
     "priorEditionHelp": "Choisissez uniquement la dernière version réellement appliquée à ce compte. Si aucune, appliquez une fois le mois complet corrigé. En cas de doute, consultez l’équipe avant saisie.",
-    "priorEditionCorrection": "Dernière version appliquée {revision} : appliquer {hours}"
+    "priorEditionCorrection": "Dernière version appliquée {revision} : appliquer {hours}",
+    "addRecipient": "Ajouter un destinataire",
+    "editRecipient": "Modifier",
+    "removeRecipient": "Retirer",
+    "recipientEmail": "Adresse e-mail",
+    "recipientLabel": "Libellé (facultatif)",
+    "recipientLabelHelp": "Par exemple, Secrétariat ou Direction. Les libellés sont des notes internes, absentes des e-mails.",
+    "noRecipients": "Aucun destinataire",
+    "noRecipientsHelp": "Ajoutez les personnes qui doivent recevoir le rapport scolaire.",
+    "recipientInvalid": "Saisissez une adresse e-mail valide.",
+    "recipientDuplicate": "Cette adresse figure déjà dans la liste.",
+    "updateRecipient": "Mettre à jour",
+    "cancelRecipient": "Annuler",
+    "editRecipientEmail": "Modifier le destinataire {email}",
+    "removeRecipientEmail": "Retirer le destinataire {email}",
+    "finishRecipient": "Terminez ou annulez la modification du destinataire avant d’enregistrer le calendrier.",
+    "noRecipientLabel": "Sans libellé"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",

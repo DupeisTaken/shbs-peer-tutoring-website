@@ -90,6 +90,7 @@ const zero = { earned: 0, extras: 0, deductions: 0, crew: 0 };
 const config = {
   enabled: true,
   recipientEmails: ["school@example.test"],
+  recipientLabels: { "school@example.test": "School office" },
   timeZone: "Asia/Shanghai",
   includeStatistics: false,
   dateOverrides: {},
@@ -124,7 +125,11 @@ const summary = {
 };
 function settings(): Settings {
   return {
-    config: { ...config, recipientEmails: [...config.recipientEmails] },
+    config: {
+      ...config,
+      recipientEmails: [...config.recipientEmails],
+      recipientLabels: { ...config.recipientLabels },
+    },
     canEdit: true,
     canApply: true,
     canGenerate: true,
@@ -367,6 +372,44 @@ async function refreshSettings() {
   await act(async () => {
     await client.refetchQueries({ queryKey: [["schoolHours", "settings"]] });
   });
+}
+
+function editRecipient(email: string, nextEmail: string, label = "") {
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.schoolHours.editRecipientEmail.replace("{email}", email),
+    }),
+  );
+  const editor = within(
+    screen.getByRole("group", { name: en.schoolHours.editRecipient }),
+  );
+  fireEvent.change(editor.getByLabelText(en.schoolHours.recipientEmail), {
+    target: { value: nextEmail },
+  });
+  fireEvent.change(editor.getByLabelText(en.schoolHours.recipientLabel), {
+    target: { value: label },
+  });
+  fireEvent.click(
+    editor.getByRole("button", { name: en.schoolHours.updateRecipient }),
+  );
+}
+
+function addRecipient(email: string, label = "") {
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.addRecipient }),
+  );
+  const editor = within(
+    screen.getByRole("group", { name: en.schoolHours.addRecipient }),
+  );
+  fireEvent.change(editor.getByLabelText(en.schoolHours.recipientEmail), {
+    target: { value: email },
+  });
+  fireEvent.change(editor.getByLabelText(en.schoolHours.recipientLabel), {
+    target: { value: label },
+  });
+  fireEvent.click(
+    editor.getByRole("button", { name: en.schoolHours.addRecipient }),
+  );
 }
 
 it.each(["en", "zh"] as const)(
@@ -1077,7 +1120,8 @@ it.each(["en", "zh"] as const)(
     expect(
       screen.queryByRole("table", { name: copy.baselineTitle }),
     ).toBeNull();
-    expect(screen.getByLabelText(copy.recipients)).toBeTruthy();
+    expect(screen.getByRole("list", { name: copy.recipients })).toBeTruthy();
+    expect(screen.getByText("School office")).toBeTruthy();
     expect(screen.getByRole("button", { name: copy.preview })).toBeTruthy();
     await openDisclosure(summary.textContent);
     expect(
@@ -1166,11 +1210,8 @@ it("retains drafts and submits external recipients and local date overrides only
   render(show());
   await openPanel();
   await loadPreview();
-  fireEvent.change(screen.getByLabelText(en.schoolHours.recipients), {
-    target: {
-      value: "office@example.test\nsecond@example.test\noffice@example.test",
-    },
-  });
+  editRecipient("school@example.test", "office@example.test", "School office");
+  addRecipient("second@example.test", "Principal");
   expect(
     screen.queryByRole("table", { name: en.schoolHours.individualAmounts }),
   ).toBeNull();
@@ -1192,6 +1233,10 @@ it("retains drafts and submits external recipients and local date overrides only
     expect(remote.save).toHaveBeenCalledWith({
       enabled: true,
       recipientEmails: ["office@example.test", "second@example.test"],
+      recipientLabels: {
+        "office@example.test": "School office",
+        "second@example.test": "Principal",
+      },
       timeZone: "Asia/Shanghai",
       includeStatistics: false,
       dateOverrides: { "2026-10": "2026-10-30T13:15" },
@@ -1218,12 +1263,58 @@ it("limits Coordinators to proposals, excluding baseline confirmation and genera
   expect(
     screen.queryByRole("button", { name: en.schoolHours.issue }),
   ).toBeNull();
-  fireEvent.change(screen.getByLabelText(en.schoolHours.recipients), {
-    target: { value: "office@example.test" },
-  });
+  editRecipient("school@example.test", "office@example.test", "School office");
   expect(
     screen.getByRole("button", { name: en.schoolHours.requestSave }),
   ).toBeTruthy();
+});
+
+it("blocks schedule review until an unfinished recipient is added or canceled", async () => {
+  render(show());
+  await openPanel();
+  fireEvent.click(screen.getByLabelText(en.schoolHours.includeStatistics));
+  const save = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.schoolHours.save,
+  });
+  expect(save.disabled).toBe(false);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.addRecipient }),
+  );
+  fireEvent.change(screen.getByLabelText(en.schoolHours.recipientEmail), {
+    target: { value: "unfinished@example.test" },
+  });
+  expect(save.disabled).toBe(true);
+  fireEvent.submit(save.closest("form")!);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(remote.save).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.cancelRecipient }),
+  );
+  expect(save.disabled).toBe(false);
+  expect(screen.queryByText("unfinished@example.test")).toBeNull();
+  expect(screen.getByText("School office")).toBeTruthy();
+});
+
+it("reviews a label-only recipient change before sending the settings mutation", async () => {
+  render(show());
+  await openPanel();
+  editRecipient("school@example.test", "school@example.test", "Principal");
+  expect(remote.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.save }));
+  const review = await screen.findByRole("dialog");
+  expect(within(review).getByText("school@example.test")).toBeTruthy();
+  expect(within(review).getByText("Principal")).toBeTruthy();
+  expect(remote.save).not.toHaveBeenCalled();
+  await confirm(en.schoolHours.save);
+  expect(remote.save).toHaveBeenCalledExactlyOnceWith({
+    enabled: true,
+    recipientEmails: ["school@example.test"],
+    recipientLabels: { "school@example.test": "Principal" },
+    timeZone: "Asia/Shanghai",
+    includeStatistics: false,
+    dateOverrides: {},
+    expectedVersion: 1,
+  });
 });
 
 it("rejects an override outside its labelled month without a mutation or review", async () => {
@@ -1511,13 +1602,10 @@ it("hides saved data and drops a late CSV after a staff permission denial", asyn
   ).toBeNull();
 });
 
-
 it("preserves the adopted settings version and month until explicit Reload", async () => {
   render(show());
   await openPanel();
-  fireEvent.change(screen.getByLabelText(en.schoolHours.recipients), {
-    target: { value: "draft@example.test" },
-  });
+  editRecipient("school@example.test", "draft@example.test", "Draft office");
   fireEvent.change(screen.getByLabelText(en.schoolHours.reportMonth), {
     target: { value: "2026-09" },
   });
@@ -1528,22 +1616,21 @@ it("preserves the adopted settings version and month until explicit Reload", asy
       version: 2,
       timeZone: "Pacific/Kiritimati",
       recipientEmails: ["fresh@example.test"],
+      recipientLabels: { "fresh@example.test": "Fresh office" },
     },
   });
   await refreshSettings();
   await screen.findByText(en.schoolHours.stale);
-  expect(
-    screen.getByLabelText<HTMLTextAreaElement>(en.schoolHours.recipients).value,
-  ).toBe("draft@example.test");
+  expect(screen.getByText("draft@example.test")).toBeTruthy();
+  expect(screen.getByText("Draft office")).toBeTruthy();
+  expect(screen.queryByText("fresh@example.test")).toBeNull();
   expect(
     screen.getByLabelText<HTMLInputElement>(en.schoolHours.reportMonth).value,
   ).toBe("2026-09");
   fireEvent.click(screen.getByRole("button", { name: en.schoolHours.reload }));
-  await waitFor(() =>
-    expect(
-      screen.getByLabelText<HTMLTextAreaElement>(en.schoolHours.recipients).value,
-    ).toBe("fresh@example.test"),
-  );
+  await screen.findByText("fresh@example.test");
+  expect(screen.getByText("Fresh office")).toBeTruthy();
+  expect(screen.queryByText("draft@example.test")).toBeNull();
   expect(
     screen.getByLabelText<HTMLInputElement>(en.schoolHours.reportMonth).value,
   ).toBe("2026-09");
@@ -1553,30 +1640,102 @@ it("preserves the adopted settings version and month until explicit Reload", asy
 it("discards a denied private settings draft and review before a fresh read restores editing", async () => {
   render(show());
   await openPanel();
-  fireEvent.change(screen.getByLabelText(en.schoolHours.recipients), {
-    target: { value: "private-draft@example.test" },
-  });
+  editRecipient(
+    "school@example.test",
+    "private-draft@example.test",
+    "Private label",
+  );
   fireEvent.click(screen.getByRole("button", { name: en.schoolHours.save }));
   await screen.findByRole("dialog");
   remote.settings.mockRejectedValue({ data: { code: "FORBIDDEN" } });
   await refreshSettings();
   await screen.findByText(en.schoolHours.denied);
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.queryByLabelText(en.schoolHours.recipients)).toBeNull();
+  expect(
+    screen.queryByRole("list", { name: en.schoolHours.recipients }),
+  ).toBeNull();
+  expect(screen.queryByText("Private label")).toBeNull();
   remote.settings.mockResolvedValue({
     ...settings(),
-    config: { ...config, version: 2, recipientEmails: ["restored@example.test"] },
+    config: {
+      ...config,
+      version: 2,
+      recipientEmails: ["restored@example.test"],
+      recipientLabels: { "restored@example.test": "Restored office" },
+    },
   });
-  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.retryRead }));
-  const recipients = await screen.findByLabelText<HTMLTextAreaElement>(
-    en.schoolHours.recipients,
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.retryRead }),
   );
-  expect(recipients.value).toBe("restored@example.test");
+  await screen.findByText("restored@example.test");
+  expect(screen.getByText("Restored office")).toBeTruthy();
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(remote.save).not.toHaveBeenCalled();
   expect(remote.generate).not.toHaveBeenCalled();
 });
 
+it("discards an unfinished recipient editor on stale Reload and resets schedule Save blocking", async () => {
+  render(show());
+  await openPanel();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.addRecipient }),
+  );
+  fireEvent.change(screen.getByLabelText(en.schoolHours.recipientEmail), {
+    target: { value: "unfinished@example.test" },
+  });
+  remote.settings.mockResolvedValue({
+    ...settings(),
+    config: {
+      ...config,
+      version: 2,
+      recipientLabels: { "school@example.test": "Fresh office" },
+    },
+  });
+  await refreshSettings();
+  await screen.findByText(en.schoolHours.stale);
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.schoolHours.recipientEmail)
+      .value,
+  ).toBe("unfinished@example.test");
+  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.reload }));
+  await screen.findByText("Fresh office");
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  expect(screen.queryByLabelText(en.schoolHours.recipientEmail)).toBeNull();
+  fireEvent.click(screen.getByLabelText(en.schoolHours.includeStatistics));
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: en.schoolHours.save })
+      .disabled,
+  ).toBe(false);
+  expect(remote.save).not.toHaveBeenCalled();
+});
+
+it("discards an unfinished recipient editor after denial and unblocks the restored schedule", async () => {
+  render(show());
+  await openPanel();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.addRecipient }),
+  );
+  fireEvent.change(screen.getByLabelText(en.schoolHours.recipientEmail), {
+    target: { value: "private-unfinished@example.test" },
+  });
+  remote.settings.mockRejectedValue({ data: { code: "FORBIDDEN" } });
+  await refreshSettings();
+  await screen.findByText(en.schoolHours.denied);
+  expect(screen.queryByLabelText(en.schoolHours.recipientEmail)).toBeNull();
+  remote.settings.mockResolvedValue(settings());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.retryRead }),
+  );
+  await screen.findByRole("list", { name: en.schoolHours.recipients });
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  fireEvent.click(screen.getByLabelText(en.schoolHours.includeStatistics));
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: en.schoolHours.save })
+      .disabled,
+  ).toBe(false);
+  expect(screen.queryByLabelText(en.schoolHours.recipientEmail)).toBeNull();
+  expect(remote.save).not.toHaveBeenCalled();
+});
 
 it.each(["panel", "communication"] as const)(
   "recovers a preview-origin denial through settings Retry without restoring the old preview (%s)",
@@ -1603,10 +1762,14 @@ it.each(["panel", "communication"] as const)(
     }
     await loadPreview();
     remote.preview.mockRejectedValue({ data: { code: "FORBIDDEN" } });
-    fireEvent.click(screen.getByRole("button", { name: en.schoolHours.preview }));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.schoolHours.preview }),
+    );
     await screen.findByText(en.schoolHours.denied);
     expect(remote.settings).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: en.schoolHours.retryRead }));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.schoolHours.retryRead }),
+    );
     await screen.findByLabelText(en.schoolHours.reportMonth);
     // This fixture deliberately uses staleTime: 0. The successful manual Retry
     // re-enables the settings observer, which performs its normal stale read.
@@ -1640,7 +1803,9 @@ it("keeps an accepted issue blocked after its refresh is denied and explicit Ret
   expect(remote.generate).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("dialog")).toBeNull();
   remote.settings.mockResolvedValue(settings());
-  fireEvent.click(screen.getByRole("button", { name: en.schoolHours.retryRead }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHours.retryRead }),
+  );
   await screen.findByLabelText(en.schoolHours.reportMonth);
   expect(
     screen.queryByRole("table", { name: en.schoolHours.individualAmounts }),
