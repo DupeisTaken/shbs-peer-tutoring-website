@@ -11,6 +11,17 @@ scheduling scenarios compare the baseline application under this candidate schem
 the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
+PR #651 pins its original PR base `17a096aa1f13701f0af89a75d7862dff1a359a90`
+and all 133 existing migration hashes. Its sole addition,
+`20261108010000_notification_choice_locks`, adds the default-empty
+`ProgramSettings.notificationLocks` setting and lets the existing email-enqueue
+helper apply required category email choices. Existing scheduling scenarios run
+with that empty setting in both application arms under the candidate schema,
+with the native-schema control retained separately. Required-notification behavior
+has candidate-specific regression evidence; this manifest makes no baseline
+feature parity or speedup claim. Dependency and historical SQL bytes remain fixed,
+and no comparison policy is relaxed.
+
 The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
 Each `pr-N-baseline.txt` and `pr-N-catalog-baseline.txt` contains a full SHA followed by LF. Combined PR #570 compares shared captures with the complete identity and recovery projections. Its original-schema cold control captures only the fixed historical projection. Controlled contention diagnostics retain both complete ordered histories. Uncontrolled rounds preserve their independent observed fence order and raw audit chronology.
