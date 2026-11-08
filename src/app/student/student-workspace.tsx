@@ -227,7 +227,7 @@ function CurrentRequest({
       <div className="card space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="badge-green">{t("verified")}</span>
-          {row.editedAt && <span className="badge-amber">{t("edited")}</span>}
+          {row.editedAt && <span className="badge-slate">{t("edited")}</span>}
         </div>
         <p className="text-lg font-semibold">
           {row.subjects.map((s) => s.name).join(" · ")}
