@@ -201,7 +201,11 @@ export function ProgramNotificationLocks() {
             <p className="text-sm text-slate-600">{t("readOnly")}</p>
           )}
           <NotificationLockFields
-            rows={draft?.categories ?? data.categories}
+            rows={
+              data.canEdit
+                ? (draft?.categories ?? data.categories)
+                : data.categories
+            }
             disabled={blocked}
             onChange={(choice) => {
               setAccepted(false);

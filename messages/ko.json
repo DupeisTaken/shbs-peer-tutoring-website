@@ -3793,6 +3793,7 @@
         "program_setProfilePolicy": "이름 표시 및 모집 대상 학년 변경",
         "program_setSignupField": "등록 신청 항목 요구 사항 변경",
         "program_setEmailNotifications": "프로그램 이메일 알림 변경",
+        "program_setNotificationLocks": "필수 알림 설정 변경",
         "program_setSecondaryEmailBinding": "보조 이메일 등록 가능 여부 변경",
         "program_setTimeZone": "프로그램 시간대 변경",
         "program_prepareNextRecruitment": "다음 기간 모집 시작 준비",

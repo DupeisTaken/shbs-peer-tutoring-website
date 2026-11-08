@@ -3793,6 +3793,7 @@
         "program_setProfilePolicy": "Namensanzeige und angebotene Jahrgangsstufen ändern",
         "program_setSignupField": "Anforderung an ein Anmeldefeld ändern",
         "program_setEmailNotifications": "E-Mail-Benachrichtigungen des Programms ändern",
+        "program_setNotificationLocks": "Erforderliche Benachrichtigungsoptionen ändern",
         "program_setSecondaryEmailBinding": "Verfügbarkeit der Verknüpfung weiterer E-Mail-Adressen ändern",
         "program_setTimeZone": "Programmzeitzone ändern",
         "program_prepareNextRecruitment": "Aufnahmeöffnung des nächsten Zeitraums vorbereiten",

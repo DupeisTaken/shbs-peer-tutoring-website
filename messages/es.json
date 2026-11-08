@@ -3793,6 +3793,7 @@
         "program_setProfilePolicy": "Cambiar la visualización de nombres y los cursos admitidos",
         "program_setSignupField": "Cambiar los requisitos de un campo de inscripción",
         "program_setEmailNotifications": "Cambiar las notificaciones por correo del programa",
+        "program_setNotificationLocks": "Cambiar las opciones de notificación obligatorias",
         "program_setSecondaryEmailBinding": "Cambiar la disponibilidad de vinculación de correo secundario",
         "program_setTimeZone": "Cambiar la zona horaria del programa",
         "program_prepareNextRecruitment": "Preparar la apertura de inscripciones del próximo período",

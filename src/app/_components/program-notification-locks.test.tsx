@@ -227,3 +227,38 @@ it("renders read-only requirements without save controls", () => {
     screen.queryByRole("button", { name: en.notificationLocks.save }),
   ).toBeNull();
 });
+
+it("shows saved requirements after edit permission is lost and restores the retained draft when permission returns", () => {
+  const view = render(content("en"));
+  fireEvent.click(screen.getByRole("checkbox", { name: emailName("en") }));
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: emailName("en") })
+      .checked,
+  ).toBe(true);
+
+  mock.data = { ...mock.data, canEdit: false };
+  view.rerender(content("en"));
+  const readOnlyEmail = screen.getByRole<HTMLInputElement>("checkbox", {
+    name: emailName("en"),
+  });
+  expect(readOnlyEmail.checked).toBe(false);
+  expect(readOnlyEmail.disabled).toBe(true);
+  expect(
+    screen.queryByRole("button", { name: en.notificationLocks.save }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.uiPatterns.cancel }),
+  ).toBeNull();
+
+  mock.data = { ...mock.data, canEdit: true };
+  view.rerender(content("en"));
+  const restoredEmail = screen.getByRole<HTMLInputElement>("checkbox", {
+    name: emailName("en"),
+  });
+  expect(restoredEmail.checked).toBe(true);
+  expect(restoredEmail.disabled).toBe(false);
+  expect(
+    screen.getByRole("button", { name: en.notificationLocks.save }),
+  ).toBeTruthy();
+  expect(mock.save).not.toHaveBeenCalled();
+});

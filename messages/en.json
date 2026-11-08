@@ -3796,6 +3796,7 @@
         "program_setProfilePolicy": "Change name display and offered grades",
         "program_setSignupField": "Change a signup field requirement",
         "program_setEmailNotifications": "Change program email notifications",
+        "program_setNotificationLocks": "Change required notification choices",
         "program_setSecondaryEmailBinding": "Change secondary email binding availability",
         "program_setTimeZone": "Change the program time zone",
         "program_prepareNextRecruitment": "Prepare next-period recruitment opening",

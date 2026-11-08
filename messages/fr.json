@@ -3793,6 +3793,7 @@
         "program_setProfilePolicy": "Modifier l’affichage des noms et les niveaux scolaires proposés",
         "program_setSignupField": "Modifier les exigences d’un champ d’inscription",
         "program_setEmailNotifications": "Modifier les notifications par e-mail du programme",
+        "program_setNotificationLocks": "Modifier les choix de notification obligatoires",
         "program_setSecondaryEmailBinding": "Modifier la disponibilité de l’association d’une adresse e-mail secondaire",
         "program_setTimeZone": "Modifier le fuseau horaire du programme",
         "program_prepareNextRecruitment": "Préparer l’ouverture du recrutement de la prochaine période",

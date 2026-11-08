@@ -3796,6 +3796,7 @@
         "program_setProfilePolicy": "更改姓名显示和可选年级",
         "program_setSignupField": "更改报名字段要求",
         "program_setEmailNotifications": "更改项目邮件通知设置",
+        "program_setNotificationLocks": "更改必需通知选项",
         "program_setSecondaryEmailBinding": "更改备用邮箱绑定设置",
         "program_setTimeZone": "更改项目时区",
         "program_prepareNextRecruitment": "准备下一周期招募开放时间",

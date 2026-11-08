@@ -3793,6 +3793,7 @@
         "program_setProfilePolicy": "Αλλαγή εμφάνισης ονομάτων και προσφερόμενων σχολικών τάξεων",
         "program_setSignupField": "Αλλαγή απαίτησης πεδίου εγγραφής",
         "program_setEmailNotifications": "Αλλαγή ειδοποιήσεων email προγράμματος",
+        "program_setNotificationLocks": "Αλλαγή υποχρεωτικών επιλογών ειδοποιήσεων",
         "program_setSecondaryEmailBinding": "Αλλαγή διαθεσιμότητας σύνδεσης δευτερεύοντος email",
         "program_setTimeZone": "Αλλαγή ζώνης ώρας προγράμματος",
         "program_prepareNextRecruitment": "Προετοιμασία έναρξης εγγραφών επόμενης περιόδου",

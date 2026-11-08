@@ -3793,6 +3793,7 @@
         "program_setProfilePolicy": "氏名の表示と募集対象学年を変更",
         "program_setSignupField": "申込み項目の入力要件を変更",
         "program_setEmailNotifications": "プログラムのメール通知を変更",
+        "program_setNotificationLocks": "必須の通知設定を変更",
         "program_setSecondaryEmailBinding": "予備メールアドレスの登録可否を変更",
         "program_setTimeZone": "プログラムのタイムゾーンを変更",
         "program_prepareNextRecruitment": "次の期間の募集開始を準備",
