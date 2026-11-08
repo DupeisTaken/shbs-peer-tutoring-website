@@ -3226,6 +3226,8 @@ model SessionNotice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([status, availableAt, priority])
+  // Exact-offer consent checks must not scan unrelated notice history.
+  @@index([offerId])
 }
 
 model SessionCalendarToken {

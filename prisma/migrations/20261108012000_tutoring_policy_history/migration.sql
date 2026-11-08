@@ -62,10 +62,10 @@ LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,public AS $body$
   WHERE key IN ('id','date','endDate','schedulingEffect','active','version','updatedAt','effectiveAt');
 $body$;
 
-CREATE OR REPLACE FUNCTION recovery_capture_change() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION public.recovery_capture_change() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
 DECLARE
- b JSONB := CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE CASE WHEN TG_TABLE_NAME IN ('ProgramCalendarDay','ProgramCalendarPolicyRevision') THEN recovery_calendar_policy_safe_row(to_jsonb(OLD)) WHEN TG_TABLE_NAME='ProgramFeature' THEN jsonb_build_object('id',to_jsonb(OLD)->'key','key',to_jsonb(OLD)->'key','enabled',to_jsonb(OLD)->'enabled','pendingEnabled',to_jsonb(OLD)->'pendingEnabled','revision',to_jsonb(OLD)->'revision','updatedAt',to_jsonb(OLD)->'updatedAt') WHEN TG_TABLE_NAME='DisciplinaryCard' THEN recovery_safe_row(to_jsonb(OLD)) || jsonb_build_object('source',to_jsonb(OLD)->'source','color',to_jsonb(OLD)->'color','reviewStatus',to_jsonb(OLD)->'reviewStatus') WHEN TG_TABLE_NAME IN ('SessionPlan','SessionPlanAssignment','SessionPlanCohort','SessionPlanParticipant','SessionPlanningSuggestion','SessionPlanningRequest','SessionPlanningOffer','SessionPlanningResponse','SessionPlanningReceipt','SessionNotice','SessionCalendarToken') THEN recovery_planning_safe_row(to_jsonb(OLD)) ELSE recovery_safe_row(to_jsonb(OLD)) END END;
- a JSONB := CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE CASE WHEN TG_TABLE_NAME IN ('ProgramCalendarDay','ProgramCalendarPolicyRevision') THEN recovery_calendar_policy_safe_row(to_jsonb(NEW)) WHEN TG_TABLE_NAME='ProgramFeature' THEN jsonb_build_object('id',to_jsonb(NEW)->'key','key',to_jsonb(NEW)->'key','enabled',to_jsonb(NEW)->'enabled','pendingEnabled',to_jsonb(NEW)->'pendingEnabled','revision',to_jsonb(NEW)->'revision','updatedAt',to_jsonb(NEW)->'updatedAt') WHEN TG_TABLE_NAME='DisciplinaryCard' THEN recovery_safe_row(to_jsonb(NEW)) || jsonb_build_object('source',to_jsonb(NEW)->'source','color',to_jsonb(NEW)->'color','reviewStatus',to_jsonb(NEW)->'reviewStatus') WHEN TG_TABLE_NAME IN ('SessionPlan','SessionPlanAssignment','SessionPlanCohort','SessionPlanParticipant','SessionPlanningSuggestion','SessionPlanningRequest','SessionPlanningOffer','SessionPlanningResponse','SessionPlanningReceipt','SessionNotice','SessionCalendarToken') THEN recovery_planning_safe_row(to_jsonb(NEW)) ELSE recovery_safe_row(to_jsonb(NEW)) END END;
+ b JSONB := CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE CASE WHEN TG_TABLE_NAME IN ('ProgramCalendarDay','ProgramCalendarPolicyRevision') THEN public.recovery_calendar_policy_safe_row(to_jsonb(OLD)) WHEN TG_TABLE_NAME='ProgramFeature' THEN jsonb_build_object('id',to_jsonb(OLD)->'key','key',to_jsonb(OLD)->'key','enabled',to_jsonb(OLD)->'enabled','pendingEnabled',to_jsonb(OLD)->'pendingEnabled','revision',to_jsonb(OLD)->'revision','updatedAt',to_jsonb(OLD)->'updatedAt') WHEN TG_TABLE_NAME='DisciplinaryCard' THEN public.recovery_safe_row(to_jsonb(OLD)) || jsonb_build_object('source',to_jsonb(OLD)->'source','color',to_jsonb(OLD)->'color','reviewStatus',to_jsonb(OLD)->'reviewStatus') WHEN TG_TABLE_NAME IN ('SessionPlan','SessionPlanAssignment','SessionPlanCohort','SessionPlanParticipant','SessionPlanningSuggestion','SessionPlanningRequest','SessionPlanningOffer','SessionPlanningResponse','SessionPlanningReceipt','SessionNotice','SessionCalendarToken') THEN public.recovery_planning_safe_row(to_jsonb(OLD)) ELSE public.recovery_safe_row(to_jsonb(OLD)) END END;
+ a JSONB := CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE CASE WHEN TG_TABLE_NAME IN ('ProgramCalendarDay','ProgramCalendarPolicyRevision') THEN public.recovery_calendar_policy_safe_row(to_jsonb(NEW)) WHEN TG_TABLE_NAME='ProgramFeature' THEN jsonb_build_object('id',to_jsonb(NEW)->'key','key',to_jsonb(NEW)->'key','enabled',to_jsonb(NEW)->'enabled','pendingEnabled',to_jsonb(NEW)->'pendingEnabled','revision',to_jsonb(NEW)->'revision','updatedAt',to_jsonb(NEW)->'updatedAt') WHEN TG_TABLE_NAME='DisciplinaryCard' THEN public.recovery_safe_row(to_jsonb(NEW)) || jsonb_build_object('source',to_jsonb(NEW)->'source','color',to_jsonb(NEW)->'color','reviewStatus',to_jsonb(NEW)->'reviewStatus') WHEN TG_TABLE_NAME IN ('SessionPlan','SessionPlanAssignment','SessionPlanCohort','SessionPlanParticipant','SessionPlanningSuggestion','SessionPlanningRequest','SessionPlanningOffer','SessionPlanningResponse','SessionPlanningReceipt','SessionNotice','SessionCalendarToken') THEN public.recovery_planning_safe_row(to_jsonb(NEW)) ELSE public.recovery_safe_row(to_jsonb(NEW)) END END;
  r JSONB := COALESCE(a,b);
  root_id TEXT;
  event_id TEXT;
@@ -95,7 +95,7 @@ BEGIN
      (SELECT value FROM jsonb_each(COALESCE(a,'{}')) UNION ALL SELECT value FROM jsonb_each(COALESCE(b,'{}'))) refs
      WHERE jsonb_typeof(value) = 'string'))
    UNION SELECT t."actionId" FROM "RecoveryTrackedEntity" t
-     JOIN recovery_planning_references(TG_TABLE_NAME,COALESCE(to_jsonb(NEW),to_jsonb(OLD))) refs
+     JOIN public.recovery_planning_references(TG_TABLE_NAME,COALESCE(to_jsonb(NEW),to_jsonb(OLD))) refs
        ON refs.entity=t.entity AND refs.record_id=t."recordId"
    UNION SELECT active_root WHERE active_root IS NOT NULL
    ORDER BY 1
@@ -139,7 +139,7 @@ BEGIN
    -- A participant/account alias can introduce a root after its plan was created.
    -- Retain the parent identity so subsequent cohort/offer changes remain causal.
    INSERT INTO "RecoveryTrackedEntity"("actionId",entity,"recordId")
-     SELECT root_id,refs.entity,refs.record_id FROM recovery_planning_references(TG_TABLE_NAME,COALESCE(to_jsonb(NEW),to_jsonb(OLD))) refs
+     SELECT root_id,refs.entity,refs.record_id FROM public.recovery_planning_references(TG_TABLE_NAME,COALESCE(to_jsonb(NEW),to_jsonb(OLD))) refs
      WHERE refs.entity='SessionPlan' ON CONFLICT DO NOTHING;
    -- Pairing membership propagates scope to its student, but never to unrelated
    -- foreign keys such as the administrator, programme term or shared subject.

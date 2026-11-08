@@ -210,9 +210,15 @@ paused. Source/owner changes still require the existing live authority checks.
 
 Submission, counteroffers, delivery completion, final agreement and the deadline
 sweep recheck the proposed date's pause policy. While paused, essential-mail
-delivery records acceptance time but creates no silence deadline. Pending timeout
-responses cannot become optional participation; existing elapsed response clocks
-are not restarted. A valid move out of a paused date remains negotiable, and
+delivery records acceptance time but creates no silence deadline. Applying a pause
+clears existing pending response deadlines while retaining SMTP acceptance times;
+timeout/unknown acceptance cannot become optional participation. Removing the
+pause does not revive a cleared deadline or count silence spent under the pause.
+Previously delivered pause-exposed offers therefore still need affirmative replies;
+a genuinely new ordinary offer may use the normal delivery-based response clock.
+If an essential message was admitted with explicit-only guidance, completion does
+not start a silence timer merely because the pause was removed while SMTP was in
+flight. A valid move out of a paused date remains negotiable, and
 expiration never resurrects the suppressed original. Only current pending offers
 hold rooms/participants; terminal requests release those holds through the normal
 request-state path. Short-notice cutoff and explicit agreement rules still apply.
@@ -225,6 +231,11 @@ an overlapping `NOTICE` still suppresses optional reminders under the legacy
 notice contract. Queued essential proposal mail is checked against current policy
 before delivery so its agreement guidance cannot promise silence acceptance on
 a paused date. Existing SMTP acceptance times remain historical facts.
+The stricter explicit-only transport admission remains sticky across automatic
+and manual retries, including a later notice for the same offer. Retrying retains
+the actual prior admission time while rotating the active attempt ID/lease; an old
+attempt completion cannot settle the replacement. A never-admitted queued notice
+does not establish that transport evidence.
 
 The management impact preview is a read-only snapshot of already-published future
 participant commitments, not unique people, sessions or all future recurrence.
@@ -309,7 +320,19 @@ Whole-database offline backup/test resets may truncate source and history togeth
 following the existing immutable-evidence reset convention. Operational record
 editing exposes no history truncation or historical revision writer. Source-only
 truncation appends deactivation; accidental history-only truncation while source
-rows remain fails the semantic consistency check.
+rows remain fails the semantic consistency check. Privileged offline database
+restoration must restore source and revision history consistently; runtime guards
+do not claim to prevent a database administrator from replacing the full database.
+All new migration helper definitions and trigger references are explicitly in
+`public`, with fixed function search paths where appropriate, so a custom caller
+schema or a migration search path beginning with `pg_catalog` cannot shadow the
+intended recovery projection. Clean migration verification must use the committed
+chain; updating a stored checksum does not establish successful installation.
+The [consent lookup index](../../prisma/migrations/20261108013000_tutoring_consent_lookup/migration.sql)
+adds a B-tree on `SessionNotice.offerId` for repeated exact-offer sticky-admission
+checks in agenda/sweep paths. It narrows candidate notice history before applying
+admission-time/context filters. The tradeoff is an extra index entry and insertion
+work per notice; this change does not itself establish a measured latency gain.
 
 Conflict checks reuse the proposed party's current execution identities within
 one operation. The original published actors remain historical evidence; they do

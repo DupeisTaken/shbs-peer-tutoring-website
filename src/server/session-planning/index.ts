@@ -684,7 +684,7 @@ async function notice(
         select: { name: true },
       })
     : null;
-  const requiresExplicitAcceptance = !!offer && isRegularTutoringPaused(offer.date, await pauseRanges(tx));
+  const requiresExplicitAcceptance = !!offer && await offerRequiresExplicitAgreement(tx, offer);
   for (const recipient of await recipients(
     tx,
     request.plan,
@@ -1131,6 +1131,15 @@ async function affirmativePauseParticipants(tx: TransactionDb, plan: Plan, cohor
 
 async function pauseRanges(tx: TransactionDb) {
   return tx.programCalendarDay.findMany({ where: { active: true, schedulingEffect: "PAUSE_REGULAR" } });
+}
+
+async function offerRequiresExplicitAgreement(tx: TransactionDb, offer: { id: string; date: string }) {
+  if (isRegularTutoringPaused(offer.date, await pauseRanges(tx))) return true;
+  // Once transport may have delivered explicit-only terms, every completion
+  // and decision for that exact offer must honor them, even after policy reset.
+  return !!(await tx.sessionNotice.count({ where: { offerId: offer.id, attemptStartedAt: { not: null },
+    context: { path: ["requiresExplicitAcceptance"], equals: true },
+  } }));
 }
 
 /** Policy changes reconcile every future publication, including moved/extra
@@ -2011,7 +2020,7 @@ async function finishAgreement(
   const offer = request.offers.find((row) => row.id === request.currentOfferId);
   if (!offer) return;
   if (offer.responses.some((row) => row.state !== "ACCEPTED")) return;
-  const pausedTarget = isRegularTutoringPaused(offer.date, await pauseRanges(tx));
+  const pausedTarget = await offerRequiresExplicitAgreement(tx, offer);
   if (pausedTarget) {
     for (const response of offer.responses)
       if (!(await affirmativeResponseProvenance(tx, request, offer, response))) return;
@@ -2221,11 +2230,13 @@ async function finishAgreement(
   );
 }
 
-/** Only provider acceptance of the current essential notice starts this response's 24 hours. */
+/** Provider acceptance records delivery. A response starts a silence clock only
+ * when neither live policy nor any already-admitted guidance required consent. */
 export async function markSessionResponseDelivered(
   tx: TransactionDb,
   responseId: string,
   acceptedAt: Date,
+  admittedExplicitOnly = false,
 ) {
   await lockSessionPlanning(tx);
   const response = await tx.sessionPlanningResponse.findUnique({
@@ -2234,16 +2245,23 @@ export async function markSessionResponseDelivered(
   });
   if (
     response?.state !== "PENDING" ||
-    response.deliveredAt ||
     response.offer.request.status !== "PENDING" ||
     response.offer.request.currentOfferId !== response.offerId
   )
     return false;
+  const explicitOnly = admittedExplicitOnly || await offerRequiresExplicitAgreement(tx, response.offer);
+  if (response.deliveredAt) {
+    // A delayed normal completion must not outvote a stricter receipt admitted
+    // concurrently, including a provider attempt whose acknowledgement was lost.
+    if (explicitOnly && response.deadline)
+      await tx.sessionPlanningResponse.update({ where: { id: response.id }, data: { deadline: null } });
+    return false;
+  }
   await tx.sessionPlanningResponse.update({
     where: { id: response.id },
     data: {
       deliveredAt: acceptedAt,
-      deadline: isRegularTutoringPaused(response.offer.date, await pauseRanges(tx))
+      deadline: explicitOnly
         ? null : responseDeadline(acceptedAt, response.offer.cutoffAt),
     },
   });
@@ -2262,7 +2280,7 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
   if (request.status !== "PENDING") return;
   const offer = request.offers.find((row) => row.id === request.currentOfferId);
   if (!offer) return;
-  const pausedTarget = isRegularTutoringPaused(offer.date, await pauseRanges(tx));
+  const pausedTarget = await offerRequiresExplicitAgreement(tx, offer);
   if (!(await sourceIsCurrent(tx, request.plan))) {
     await closeRequest(tx, request, "STALE", "stale", now);
     return;
@@ -2323,7 +2341,13 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
     },
     data: { state: "ACCEPTED", acceptedBy: "TIMEOUT", respondedAt: now },
   });
-  if (changed.count)
+  // Time spent under an explicit-only pause cannot become silence consent when
+  // the pause is later removed. Preserve delivery evidence, never restart clocks.
+  const cleared = pausedTarget ? await tx.sessionPlanningResponse.updateMany({
+    where: { offerId: offer.id, state: "PENDING", deadline: { not: null } },
+    data: { deadline: null },
+  }) : { count: 0 };
+  if (changed.count || cleared.count)
     await tx.sessionPlanningRequest.update({
       where: { id: request.id },
       data: { version: { increment: 1 } },
@@ -2331,7 +2355,7 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
   const current = await reloadRequest(tx, request.id);
   await finishAgreement(tx, current, now, true);
   const latest = await reloadRequest(tx, request.id);
-  if (changed.count && latest.status === "PENDING")
+  if ((changed.count || cleared.count) && latest.status === "PENDING")
     await notice(tx, latest, pausedTarget ? "proposed" : "response_autoaccepted");
 }
 
@@ -3527,7 +3551,7 @@ export async function readSessionAgenda(
               startsAt: offer.startsAt,
               endsAt: offer.endsAt,
               cutoffAt: offer.cutoffAt,
-              requiresExplicitAcceptance: isRegularTutoringPaused(offer.date, tutoringPauses),
+              requiresExplicitAcceptance: await offerRequiresExplicitAgreement(tx, offer),
               responses,
               myResponse,
               schoolClosed: !resolvePlanningTimetableDay(offer.date, calendar)

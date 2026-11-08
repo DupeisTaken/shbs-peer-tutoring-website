@@ -6,6 +6,49 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 
+it("indexes exact-offer sticky consent lookups without a partial-history predicate", async () => {
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const index = await client.query<{ valid: boolean; ready: boolean; method: string; columns: string[]; plain: boolean }>(`
+      SELECT definition.indisvalid AS valid,definition.indisready AS ready,method.amname AS method,
+        ARRAY(SELECT attribute.attname::text FROM unnest(definition.indkey) WITH ORDINALITY indexed_column(attnum,sort_order)
+          JOIN pg_attribute attribute ON attribute.attrelid=definition.indrelid AND attribute.attnum=indexed_column.attnum
+          ORDER BY indexed_column.sort_order) AS columns,
+        definition.indpred IS NULL AND definition.indexprs IS NULL AS plain
+      FROM pg_index definition JOIN pg_class relation ON relation.oid=definition.indexrelid
+      JOIN pg_am method ON method.oid=relation.relam
+      WHERE definition.indexrelid=to_regclass('public."SessionNotice_offerId_idx"')`);
+    expect(index.rows).toEqual([{ valid: true, ready: true, method: "btree", columns: ["offerId"], plain: true }]);
+  } finally { await client.end(); }
+});
+
+it("pins migration helpers and trigger references to public even with pg_catalog first", async () => {
+  for (const migration of [
+    "20261108010000_tutoring_pause_policy", "20261108011000_tutoring_pause_recovery", "20261108012000_tutoring_policy_history", "20261108013000_tutoring_consent_lookup",
+  ]) {
+    const sql = readFileSync(`prisma/migrations/${migration}/migration.sql`, "utf8");
+    for (const match of sql.matchAll(/CREATE (?:OR REPLACE )?FUNCTION\s+([^\s(]+)/g))
+      expect(match[1]).toMatch(/^public\./);
+    for (const match of sql.matchAll(/EXECUTE FUNCTION\s+([^\s(]+)/g))
+      expect(match[1]).toMatch(/^public\./);
+  }
+  const names = [
+    "scheduling_mark_dirty", "scheduling_verify_maintenance_triggers", "recovery_planning_safe_row", "recovery_safe_row",
+    "capture_tutoring_policy_revision", "recovery_calendar_policy_safe_row", "recovery_capture_change", "tutoring_policy_history_integrity",
+  ];
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const helpers = await client.query<{ schema: string; name: string }>(`
+      SELECT namespace.nspname AS schema,helper.proname AS name
+      FROM pg_proc helper JOIN pg_namespace namespace ON namespace.oid=helper.pronamespace
+      WHERE helper.proname=ANY($1::text[]) AND namespace.nspname IN ('public','pg_catalog')
+      ORDER BY helper.proname,namespace.nspname`, [names]);
+    expect(helpers.rows).toEqual(names.sort().map((name) => ({ schema: "public", name })));
+  } finally { await client.end(); }
+});
+
 it("backfills legacy notices and participant suppression without activating tutoring pauses", async () => {
   const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();

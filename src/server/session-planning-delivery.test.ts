@@ -52,7 +52,7 @@ function fixture() {
   });
   const database = {
     $queryRaw: vi.fn(async () => [{ id: notice.id, leaseUntil: notice.leaseUntil, attemptId: notice.attemptId }]),
-    sessionNotice: { findUnique: vi.fn(async () => ({ ...notice })), update },
+    sessionNotice: { findUnique: vi.fn(async () => ({ ...notice })), update, count: vi.fn(async () => 0) },
     sessionPlanningResponse: { findUnique: vi.fn(async () => response) },
     programCalendarDay: { count: vi.fn(async () => 0) },
     sessionResponseExecution: { findUnique: vi.fn(async ({ where }: { where: { responseId: string } }) => responseExecutions.get(where.responseId) ?? null) },
@@ -75,7 +75,7 @@ it("records SMTP acceptance before qualifying a responder, despite optional mail
     category: "PROGRAM", messageId: "<session-notice-notice-1@shbs-notifications>",
   }));
   expect(f.notice).toMatchObject({ status: "SENT", attempts: 1, acceptedAt: now });
-  expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now);
+  expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now, false);
 });
 
 it("rechecks a pause activated after a notice was queued before composing essential mail", async () => {
@@ -88,6 +88,40 @@ it("rechecks a pause activated after a notice was queued before composing essent
   const sent: unknown = transport.send.mock.calls[0]?.[0];
   expect(typeof sent === "object" && sent !== null && "text" in sent ? sent.text : null).not.toContain("Silence can mean acceptance");
   expect(f.notice.context).toMatchObject({ requiresExplicitAcceptance: true });
+});
+
+it("retains explicit-only SMTP admission guidance when the pause is removed before provider completion", async () => {
+  const f = fixture();
+  f.raw.programCalendarDay.count.mockResolvedValue(1);
+  const admitted = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil!, null);
+  expect(admitted?.row.context).toMatchObject({ requiresExplicitAcceptance: true });
+  f.raw.programCalendarDay.count.mockResolvedValue(0);
+  await finishSessionNotice(f.database, f.notice.id, admitted!.row.attemptId!, now);
+  expect(transport.mark).toHaveBeenCalledWith(f.database, f.response.id, now, true);
+  await finishSessionNotice(f.database, f.notice.id, admitted!.row.attemptId!, now);
+  expect(transport.mark).toHaveBeenCalledTimes(1);
+});
+
+it("keeps earlier explicit-only guidance across a failed provider attempt and a retry after pause removal", async () => {
+  const f = fixture();
+  f.raw.programCalendarDay.count.mockResolvedValue(1);
+  const first = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil!, null);
+  await finishSessionNotice(f.database, f.notice.id, first!.row.attemptId!, null);
+  f.raw.programCalendarDay.count.mockResolvedValue(0);
+  f.notice.leaseUntil = new Date(now.getTime() + 300_000);
+  const retry = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil, f.notice.attemptId);
+  expect(retry?.row.context).toMatchObject({ requiresExplicitAcceptance: true });
+  await finishSessionNotice(f.database, f.notice.id, retry!.row.attemptId!, now);
+  expect(transport.mark).toHaveBeenCalledWith(f.database, f.response.id, now, true);
+});
+
+it("keeps another already-admitted receipt's explicit-only guidance when composing the same offer", async () => {
+  const f = fixture();
+  f.raw.sessionNotice.count.mockResolvedValue(1);
+  const admitted = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil!, null);
+  expect(admitted?.row.context).toMatchObject({ requiresExplicitAcceptance: true });
+  await finishSessionNotice(f.database, f.notice.id, admitted!.row.attemptId!, now);
+  expect(transport.mark).toHaveBeenCalledWith(f.database, f.response.id, now, true);
 });
 
 it("queued, unconfigured and failed mail cannot start a response clock", async () => {
@@ -143,7 +177,7 @@ it("qualifies the tutor's B response only through that tutor's delivery receipt"
   f.user.role = "TUTOR";
   f.notice.context = { isActionable: true, stage: "B" };
   await deliverSessionNotices(10, f.database);
-  expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now);
+  expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now, false);
   expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining("%2Fschedule%23sessions") as unknown }));
   expect(transport.owned).not.toHaveBeenCalled();
 });
@@ -211,6 +245,39 @@ it("retries a failed receipt once without replaying a schedule or resetting acce
   expect(transport.send).not.toHaveBeenCalled();
 });
 
+it.each([false, true])("preserves actual explicit admission across manual retry without inventing it for a queued notice (attempted: %s)", async (attempted) => {
+  const f = fixture();
+  f.notice.context = { isActionable: true, requiresExplicitAcceptance: true };
+  let oldAttempt: string | null = null;
+  if (attempted) {
+    f.raw.programCalendarDay.count.mockResolvedValue(1);
+    const first = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil!, null);
+    oldAttempt = first!.row.attemptId!;
+    await finishSessionNotice(f.database, f.notice.id, oldAttempt, null);
+  } else {
+    // Queued guidance was never admitted to SMTP; it may use the live normal
+    // policy after removal, unlike a failed or lost-acknowledgement attempt.
+    f.notice.status = "BLOCKED";
+    f.notice.leaseUntil = null;
+    f.notice.lastError = "transport unavailable before admission";
+  }
+  f.raw.programCalendarDay.count.mockResolvedValue(0);
+  const priorAdmission = f.notice.attemptStartedAt;
+  expect(await retrySessionNotice(f.database, f.notice.id, f.user.id)).toEqual({ queued: true, status: "PENDING" });
+  expect(f.notice).toMatchObject({ attemptId: null, leaseUntil: null, attemptStartedAt: priorAdmission });
+  expect(await retrySessionNotice(f.database, f.notice.id, f.user.id)).toEqual({ queued: false, status: "PENDING" });
+  f.notice.leaseUntil = new Date(now.getTime() + 300_000);
+  const retry = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil, null);
+  expect(retry?.row.context).toMatchObject({ requiresExplicitAcceptance: attempted });
+  if (oldAttempt) {
+    await finishSessionNotice(f.database, f.notice.id, oldAttempt, now);
+    expect(f.notice).toMatchObject({ status: "SENDING", attemptId: retry!.row.attemptId });
+    expect(transport.mark).not.toHaveBeenCalled();
+  }
+  await finishSessionNotice(f.database, f.notice.id, retry!.row.attemptId!, now);
+  expect(transport.mark).toHaveBeenCalledWith(f.database, f.response.id, now, attempted);
+});
+
 it("retains visible retry blockers and prevents another participant from retrying", async () => {
   const f = fixture();
   f.notice.status = "BLOCKED";
@@ -236,7 +303,7 @@ it("uses reviewed response execution for delivery while retaining the original a
   await deliverSessionNotices(10, f.database);
   expect(f.notice).toMatchObject({ status: "SENT", acceptedAt: now });
   expect(f.raw.tutee.findUnique).toHaveBeenCalledWith({ where: { id: "tutee-1" }, select: { status: true } });
-  expect(transport.mark).toHaveBeenCalledWith(f.database, f.response.id, now);
+  expect(transport.mark).toHaveBeenCalledWith(f.database, f.response.id, now, false);
   expect(f.response).toEqual(original);
 });
 

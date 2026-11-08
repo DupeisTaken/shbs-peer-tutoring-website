@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   afterAll,
   afterEach,
@@ -22,6 +22,7 @@ import { changeSchoolDeparture } from "~/server/school-departure";
 import * as transactionHelpers from "~/server/transactions";
 import { plannedWindow, type PlanningTime } from "~/lib/session-planning";
 import { assertNoPublishedTuteeDeletion } from "./deletion-guards";
+import { sessionCalendarFeed } from "~/server/session-planning-calendar";
 import {
   ensureSessionPlanningWindow,
   proposeSession,
@@ -255,6 +256,81 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     return saved;
   }
   const members = (cohortId: string) => db.sessionPlanParticipant.findMany({ where: { cohortId }, orderBy: { tuteeId: "asc" } });
+  async function feeds() {
+    const tokens = { tutor: "T".repeat(43), one: "A".repeat(43), two: "B".repeat(43) };
+    const actors = [[tutor.id, tokens.tutor], [one.id, tokens.one], [two.id, tokens.two]] as const;
+    for (const [userId, token] of actors)
+      await db.sessionCalendarToken.create({ data: { userId, tokenHash: createHash("sha256").update(token).digest("hex") } });
+    return async () => ({
+      tutor: await sessionCalendarFeed(db, tokens.tutor, new Date()),
+      one: await sessionCalendarFeed(db, tokens.one, new Date()),
+      two: await sessionCalendarFeed(db, tokens.two, new Date()),
+    });
+  }
+  function calendarEvent(feed: string | null, uid: string) {
+    const block = feed?.split("BEGIN:VEVENT\r\n").find((part) => part.includes(`UID:${uid}\r\n`));
+    expect(block).toBeDefined();
+    const line = (name: string) => block?.split("\r\n").find((value) => value.startsWith(`${name}:`))?.slice(name.length + 1);
+    return { uid: line("UID"), sequence: Number(line("SEQUENCE")), status: line("STATUS"), startsAt: line("DTSTART") };
+  }
+
+  it("exports real private-feed cancellation and restoration with stable participant/cohort UIDs and increasing sequences", async () => {
+    const original = await source();
+    const people = await members(original.id);
+    const oneId = people.find((person) => person.tuteeId === "planning-one")!.id;
+    const twoId = people.find((person) => person.tuteeId === "planning-two")!.id;
+    const readFeeds = await feeds();
+    const before = await readFeeds();
+    const keys = { tutor: `cohort-${original.id}@shbs-session`, one: `commitment-${oneId}@shbs-session`, two: `commitment-${twoId}@shbs-session` };
+    await pause();
+    await db.programCalendarDay.update({ where: { date: original.date }, data: { reason: "PRIVATE SYNTHETIC BREAK REASON" } });
+    const cancelled = await readFeeds();
+    await remove(original.date);
+    const restored = await readFeeds();
+    for (const kind of ["tutor", "one", "two"] as const) {
+      const first = calendarEvent(before[kind], keys[kind]);
+      const middle = calendarEvent(cancelled[kind], keys[kind]);
+      const last = calendarEvent(restored[kind], keys[kind]);
+      expect(first.status).toBe("CONFIRMED");
+      expect(middle).toMatchObject({ uid: first.uid, startsAt: first.startsAt, status: "CANCELLED" });
+      expect(middle.sequence).toBeGreaterThan(first.sequence);
+      expect(last).toMatchObject({ uid: first.uid, startsAt: first.startsAt, status: "CONFIRMED" });
+      expect(last.sequence).toBeGreaterThan(middle.sequence);
+      expect(cancelled[kind]).not.toContain("PRIVATE SYNTHETIC BREAK REASON");
+      expect(restored[kind]).not.toContain("ATTENDEE");
+    }
+    expect(before.one).not.toContain(keys.two);
+    expect(before.two).not.toContain(keys.one);
+    expect(before.tutor).not.toContain("commitment-");
+    await ensureSessionPlanningWindow(db, now);
+    await ensureSessionPlanningWindow(db, now);
+    const repeated = await readFeeds();
+    for (const kind of ["tutor", "one", "two"] as const)
+      expect(calendarEvent(repeated[kind], keys[kind])).toEqual(calendarEvent(restored[kind], keys[kind]));
+  });
+
+  it("retains an explicitly agreed learner's feed identity, sequence and status while only the ordinary peer is paused", async () => {
+    const { original } = await returnOneToOrdinaryCohort();
+    const people = await members(original.id);
+    const oneUid = `commitment-${people.find((person) => person.tuteeId === "planning-one")!.id}@shbs-session`;
+    const twoUid = `commitment-${people.find((person) => person.tuteeId === "planning-two")!.id}@shbs-session`;
+    const tutorUid = `cohort-${original.id}@shbs-session`;
+    const readFeeds = await feeds();
+    const before = await readFeeds();
+    await pause();
+    const paused = await readFeeds();
+    expect(calendarEvent(paused.one, oneUid)).toEqual(calendarEvent(before.one, oneUid));
+    expect(calendarEvent(paused.tutor, tutorUid).status).toBe("CONFIRMED");
+    expect(calendarEvent(paused.two, twoUid).status).toBe("CANCELLED");
+    expect(calendarEvent(paused.two, twoUid).sequence).toBeGreaterThan(calendarEvent(before.two, twoUid).sequence);
+    expect(paused.one).not.toContain(twoUid);
+    expect(paused.one).not.toContain("Synthetic Two");
+    expect(paused.one).not.toContain("Synthetic pause");
+    await remove(original.date);
+    const restored = await readFeeds();
+    expect(calendarEvent(restored.one, oneUid)).toEqual(calendarEvent(before.one, oneUid));
+    expect(calendarEvent(restored.two, twoUid).status).toBe("CONFIRMED");
+  });
 
   it("retains NOTICE semantics and pauses already-published ordinary commitments", async () => {
     const original = await source();
@@ -320,6 +396,8 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     await ensureSessionPlanningWindow(db, new Date());
     const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { date: "2026-11-09" } });
     expect((await members(future.id)).every((person) => person.status === "CANCELLED" && person.calendarSuppressed && person.tutoringPauseSuppressed)).toBe(true);
+    // Sunday has prepared this source, but it enters the visible window Monday.
+    vi.setSystemTime(new Date("2026-11-02T00:00:00Z"));
     const agenda = await readSessionAgenda(db, tutor, "tutor");
     expect(agenda.cohorts.find((row) => row.id === future.id)).toMatchObject({ tutoringPaused: true, canArrangeException: true, unavailable: false });
   });
@@ -352,6 +430,66 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     expect(agenda.requests.find((row) => row.id === proposed.id)?.currentOffer).toMatchObject({ requiresExplicitAcceptance: true });
     await respond(proposed.id, one, "ACCEPT");
     expect((await current(proposed.id)).request.status).toBe("ACCEPTED");
+  });
+
+  it("clears an existing pending deadline during pause and never converts paused silence into acceptance after removal", async () => {
+    const proposed = await propose();
+    const { offer } = await current(proposed.id);
+    const response = offer.responses.find((row) => row.actorKey === "tutee:planning-one")!;
+    await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, now));
+    expect((await current(proposed.id)).offer.responses.find((row) => row.id === response.id)?.deadline).not.toBeNull();
+    await pause("2026-11-03");
+    expect(await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: response.id } })).toMatchObject({ state: "PENDING", deliveredAt: now, deadline: null });
+    const corrected = await read(proposed.id);
+    const notices = await db.sessionNotice.count({ where: { requestId: proposed.id } });
+    await sweepSessionPlanning(db, now);
+    await sweepSessionPlanning(db, now);
+    expect((await read(proposed.id)).version).toBe(corrected.version);
+    expect(await db.sessionNotice.count({ where: { requestId: proposed.id } })).toBe(notices);
+    vi.setSystemTime(new Date(now.getTime() + 2 * 86_400_000));
+    await remove("2026-11-03");
+    await sweepSessionPlanning(db, new Date());
+    expect((await current(proposed.id)).request.status).toBe("PENDING");
+    expect(await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, new Date()))).toBe(false);
+    expect((await current(proposed.id)).offer.responses.find((row) => row.id === response.id)?.deadline).toBeNull();
+  });
+
+  it("does not start an automatic clock after pause removal for an explicitly-only transport admission", async () => {
+    await pause("2026-11-03");
+    const proposed = await propose();
+    const { offer } = await current(proposed.id);
+    const response = offer.responses.find((row) => row.actorKey === "tutee:planning-one")!;
+    await remove("2026-11-03");
+    expect(await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, now, true))).toBe(true);
+    expect(await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: response.id } })).toMatchObject({ deliveredAt: now, deadline: null, state: "PENDING" });
+    expect(await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, new Date(now.getTime() + 1000)))).toBe(false);
+    vi.setSystemTime(new Date(now.getTime() + 2 * 86_400_000));
+    await sweepSessionPlanning(db, new Date());
+    expect((await current(proposed.id)).request.status).toBe("PENDING");
+  });
+
+  it("honors another admitted explicit receipt when an older normal completion arrives after removal", async () => {
+    const proposed = await propose();
+    const { offer } = await current(proposed.id);
+    const response = offer.responses.find((row) => row.actorKey === "tutee:planning-one")!;
+    await db.sessionNotice.create({ data: {
+      dedupeKey: `synthetic-explicit-flight:${response.id}`, requestId: proposed.id, offerId: offer.id,
+      responseId: response.id, recipientUserId: one.id, recipientEmail: "planning-one@example.test",
+      event: "proposed", context: { isActionable: true, requiresExplicitAcceptance: true },
+      status: "SENDING", attemptId: randomUUID(), attemptStartedAt: now,
+    } });
+    expect(await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, now, false))).toBe(true);
+    expect(await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: response.id } })).toMatchObject({ deliveredAt: now, deadline: null });
+    // Model a previously stored normal timer from an older provider race. The
+    // stricter completion clears it while preserving the original delivery time.
+    await db.sessionPlanningResponse.update({ where: { id: response.id }, data: { deadline: new Date(now.getTime() + 86_400_000) } });
+    expect(await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, new Date(now.getTime() + 1000), true))).toBe(false);
+    expect(await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: response.id } })).toMatchObject({ deliveredAt: now, deadline: null });
+    await db.sessionPlanningResponse.update({ where: { id: response.id }, data: { deadline: new Date(now.getTime() + 86_400_000) } });
+    vi.setSystemTime(new Date(now.getTime() + 2 * 86_400_000));
+    await sweepSessionPlanning(db, new Date());
+    expect((await current(proposed.id)).request.status).toBe("PENDING");
+    expect(await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: response.id } })).toMatchObject({ state: "PENDING", deadline: null });
   });
 
   it("preserves exact explicit agreements per learner while suppressing ordinary peers", async () => {

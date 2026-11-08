@@ -1890,7 +1890,7 @@ it.each(["EXPLICIT", "TIMEOUT", null])("requires exact affirmative dated evidenc
   const action = tutor().tutor.submitAttendance({ ...attendance(), cohortId: cohort.id, expectedCohortVersion: cohort.version, startMin: clocks.startMin, endMin: clocks.endMin, online: true });
   if (acceptedBy === "EXPLICIT") {
     const saved = await action;
-    expect(await db.session.findUniqueOrThrow({ where: { id: saved.id } })).toMatchObject({ planningCohortId: cohort.id, shCount: 1.5 });
+    expect(await db.session.findUniqueOrThrow({ where: { id: saved.id } })).toMatchObject({ planningCohortId: cohort.id, durationMin: 45, shFactor: 2, shCount: 2 });
   } else {
     await expect(action).rejects.toMatchObject({ code: "CONFLICT" });
     expect(await db.session.count()).toBe(0);

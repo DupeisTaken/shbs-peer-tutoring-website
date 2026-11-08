@@ -747,6 +747,9 @@ invalidation dependency graph without rewriting attendance or school-calendar ro
 Apply the following `20261108011000_tutoring_pause_recovery` migration as well;
 it preserves the separate suppression cause in safe recovery journal snapshots
 without including notice reasons, message bodies or delivery capabilities.
+Apply the complete subsequent migration chain, including semantic policy history
+and the exact-offer consent lookup index. The index adds storage/write overhead
+to bound notice-history lookups; it does not change scheduling policy.
 
 
 Observers can read the public current-period and recruitment values. Private settings tabs explain that access is unavailable without starting protected settings reads. While account identity is unknown they show loading; identity read failures offer recovery rather than assuming authorization or displaying an empty panel.
