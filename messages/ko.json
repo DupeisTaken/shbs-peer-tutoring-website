@@ -2798,7 +2798,7 @@
       "label": "로그아웃"
     },
     "userMenu": {
-      "settings": "설정",
+      "settings": "계정 설정",
       "enterTutor": "튜터 페이지로 이동",
       "enterAdmin": "관리자 영역으로 이동",
       "enterTutee": "학습자 페이지로 이동",
