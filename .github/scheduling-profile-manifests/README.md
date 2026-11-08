@@ -11,6 +11,18 @@ scheduling scenarios compare the baseline application under this candidate schem
 the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
+PR #639 uses its pre-change main commit
+`dfe9be18a0a6efb68aa6b956252002bdee24f184` as its scoped control. Its manifest
+pins both schema versions, the unchanged dependency lock, all 133 historical
+migrations and the single `20261108010000_imported_record_provenance` addition.
+That migration adds server-owned archive provenance and its recovery journal
+trigger; it does not reclassify existing records. The baseline application runs
+under the candidate schema for the existing scheduling scenarios, with the
+separate native-schema cold control retained. New archive-import, reporting and
+admission behavior has separate candidate regression coverage and establishes no
+baseline support, semantic parity or speedup claim for those new paths. This
+PR-scoped selection changes no comparison or harness guard.
+
 The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
 Each `pr-N-baseline.txt` and `pr-N-catalog-baseline.txt` contains a full SHA followed by LF. Combined PR #570 compares shared captures with the complete identity and recovery projections. Its original-schema cold control captures only the fixed historical projection. Controlled contention diagnostics retain both complete ordered histories. Uncontrolled rounds preserve their independent observed fence order and raw audit chronology.
