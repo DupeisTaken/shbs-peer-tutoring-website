@@ -16,6 +16,7 @@ import {
   saveSchoolCalendar,
   resetSchoolCalendar,
 } from "~/server/program/school-calendar";
+import { saveProgramCalendar, removeProgramCalendar } from "~/server/program/calendar";
 import { assertRoomBlackoutAvailable } from "~/server/room-bookings";
 import { changeSchoolDeparture } from "~/server/school-departure";
 import * as transactionHelpers from "~/server/transactions";
@@ -34,6 +35,8 @@ import {
   readSessionAgenda,
   readSessionAgendaHistory,
   previewSessionLocation,
+  previewProgramCalendarImpact,
+  readCurrentSessionReminderCohort,
 } from ".";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -231,6 +234,312 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 afterAll(async () => {
   await db.$disconnect();
+});
+
+describe("regular tutoring pauses and affirmative exceptions", () => {
+  async function pause(date = "2026-11-02", endDate = date) {
+    // Domain-clock fixtures exercise the real scheduler against PostgreSQL.
+    // Production writers use the DB semantic clock; never backdate that clock.
+    const saved = await db.programCalendarDay.upsert({ where: { date },
+      create: { date, endDate, reason: "Synthetic pause", schedulingEffect: "PAUSE_REGULAR" },
+      update: { endDate, active: true, schedulingEffect: "PAUSE_REGULAR", version: { increment: 1 } },
+    });
+    await db.programCalendarPolicyRevision.create({ data: { date, endDate, schedulingEffect: "PAUSE_REGULAR", active: true, version: saved.version, effectiveAt: new Date() } });
+    await ensureSessionPlanningWindow(db, new Date());
+    return saved;
+  }
+  async function remove(date: string) {
+    const saved = await db.programCalendarDay.update({ where: { date }, data: { active: false, version: { increment: 1 } } });
+    await db.programCalendarPolicyRevision.create({ data: { date, endDate: saved.endDate, schedulingEffect: saved.schedulingEffect, active: false, version: saved.version, effectiveAt: new Date() } });
+    await ensureSessionPlanningWindow(db, new Date());
+    return saved;
+  }
+  const members = (cohortId: string) => db.sessionPlanParticipant.findMany({ where: { cohortId }, orderBy: { tuteeId: "asc" } });
+
+  it("retains NOTICE semantics and pauses already-published ordinary commitments", async () => {
+    const original = await source();
+    await saveProgramCalendar(db, { date: original.date, endDate: original.date, reason: "Synthetic information", schedulingEffect: "NOTICE", expectedVersion: 0 });
+    expect((await members(original.id)).every((person) => person.status === "SCHEDULED")).toBe(true);
+    await pause();
+    expect(await members(original.id)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ status: "CANCELLED", tutoringPauseSuppressed: true, calendarSuppressed: false }),
+    ]));
+    const paused = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+    expect(paused).toMatchObject({ status: "CANCELLED", sourceInvalidated: false });
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda.cohorts.find((row) => row.id === original.id)).toMatchObject({
+      tutoringPaused: true, canArrangeException: true, canRecordAttendance: false,
+      primaryPairingId: "planning-pairing", tutees: expect.arrayContaining([{ id: "planning-one", name: "Synthetic One" }]) as unknown,
+    });
+    expect(await db.session.count()).toBe(0);
+  });
+
+  it("applies and removes real-clock config pauses synchronously before any agenda read", async () => {
+    vi.useRealTimers();
+    await db.term.update({ where: { id: "planning-term" }, data: { startDate: null, endDate: null } });
+    const realNow = new Date();
+    await ensureSessionPlanningWindow(db, realNow);
+    const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { startsAt: { gt: realNow }, status: "SCHEDULED" }, orderBy: { startsAt: "asc" } });
+    const saved = await saveProgramCalendar(db, { date: future.date, endDate: future.date, reason: "Synthetic real-clock policy", schedulingEffect: "PAUSE_REGULAR", expectedVersion: 0 });
+    expect((await members(future.id)).every((person) => person.status === "CANCELLED" && person.tutoringPauseSuppressed)).toBe(true);
+    await removeProgramCalendar(db, { date: saved.date, expectedVersion: saved.version });
+    expect((await members(future.id)).every((person) => person.status === "SCHEDULED" && !person.tutoringPauseSuppressed)).toBe(true);
+  });
+
+  it("keeps repeated publication stable and overlapping pauses effective until both are removed", async () => {
+    const original = await source();
+    await pause("2026-11-01", "2026-11-03");
+    await pause("2026-11-02", "2026-11-04");
+    const before = await members(original.id);
+    const cohortBefore = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+    await ensureSessionPlanningWindow(db, now);
+    await ensureSessionPlanningWindow(db, now);
+    expect(await members(original.id)).toEqual(before);
+    expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } })).toEqual(cohortBefore);
+    await remove("2026-11-01");
+    expect((await members(original.id)).every((row) => row.tutoringPauseSuppressed)).toBe(true);
+    await remove("2026-11-02");
+    expect((await members(original.id)).every((row) => row.status === "SCHEDULED" && !row.tutoringPauseSuppressed)).toBe(true);
+  });
+
+  it("publishes paused source tombstones when policy predates the publication window", async () => {
+    await pause("2026-11-09", "2026-11-13");
+    vi.setSystemTime(new Date("2026-11-01T00:00:00Z"));
+    await ensureSessionPlanningWindow(db, new Date());
+    const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { date: "2026-11-09" } });
+    expect(future.status).toBe("CANCELLED");
+    expect((await members(future.id)).every((person) => person.tutoringPauseSuppressed)).toBe(true);
+    const result = await proposeSession(db, tutor, { cohortId: future.id, expectedVersion: future.version, clientKey: randomUUID(), scope: "ONE", tuteeId: "planning-one", kind: "EXTRA", ...time("2026-11-10") });
+    expect((await current(result.id)).request.status).toBe("PENDING");
+  });
+
+  it("retains both automatic reasons when a paused source is first published on a school closure", async () => {
+    await pause("2026-11-09", "2026-11-13");
+    await db.schoolCalendarDay.create({ data: { date: "2026-11-09", isSchoolDay: false, note: "Synthetic closure" } });
+    vi.setSystemTime(new Date("2026-11-01T00:00:00Z"));
+    await ensureSessionPlanningWindow(db, new Date());
+    const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { date: "2026-11-09" } });
+    expect((await members(future.id)).every((person) => person.status === "CANCELLED" && person.calendarSuppressed && person.tutoringPauseSuppressed)).toBe(true);
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda.cohorts.find((row) => row.id === future.id)).toMatchObject({ tutoringPaused: true, canArrangeException: true, unavailable: false });
+  });
+
+  it("supports moving out from a paused source and an extra exception on the paused date", async () => {
+    const original = await source();
+    await pause();
+    const moved = await propose("ONE", "RESCHEDULE", "2026-11-03");
+    await respond(moved.id, one, "ACCEPT");
+    const movedPerson = await db.sessionPlanParticipant.findUniqueOrThrow({ where: { planId_tuteeId: { planId: original.planId, tuteeId: "planning-one" } }, include: { cohort: true } });
+    expect(movedPerson).toMatchObject({ status: "SCHEDULED", tutoringPauseSuppressed: false, cohort: { date: "2026-11-03" } });
+    const pausedSource = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+    const extra = await proposeSession(db, tutor, { cohortId: original.id, expectedVersion: pausedSource.version, clientKey: randomUUID(), scope: "ONE", tuteeId: "planning-two", kind: "EXTRA", date: original.date, startMin: 960, online: true });
+    await respond(extra.id, two, "ACCEPT");
+    expect(await db.sessionPlanParticipant.count({ where: { plan: { kind: "EXTRA" }, status: "SCHEDULED" } })).toBe(1);
+    expect((await members(original.id)).find((person) => person.tuteeId === "planning-two")).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true });
+  });
+
+  it("never accepts a paused target through delivered silence and issues no new autoaccept clock", async () => {
+    await pause("2026-11-03");
+    const proposed = await propose();
+    const { offer } = await current(proposed.id);
+    const response = offer.responses.find((row) => row.actorKey === "tutee:planning-one")!;
+    await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, now));
+    expect(await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: response.id } })).toMatchObject({ deliveredAt: now, deadline: null, state: "PENDING" });
+    vi.setSystemTime(new Date(now.getTime() + 2 * 86_400_000));
+    await sweepSessionPlanning(db, new Date());
+    expect((await current(proposed.id)).request.status).toBe("PENDING");
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda.requests.find((row) => row.id === proposed.id)?.currentOffer).toMatchObject({ requiresExplicitAcceptance: true });
+    await respond(proposed.id, one, "ACCEPT");
+    expect((await current(proposed.id)).request.status).toBe("ACCEPTED");
+  });
+
+  it("preserves exact explicit agreements per learner while suppressing ordinary peers", async () => {
+    const { original } = await returnOneToOrdinaryCohort();
+    await pause();
+    const people = await members(original.id);
+    expect(people.find((person) => person.tuteeId === "planning-one")).toMatchObject({ status: "SCHEDULED", tutoringPauseSuppressed: false });
+    expect(people.find((person) => person.tuteeId === "planning-two")).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true });
+    const tutorAgenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(tutorAgenda.cohorts.find((row) => row.id === original.id)).toMatchObject({
+      tutoringPaused: false, tutees: [{ id: "planning-one", name: "Synthetic One" }],
+      pausedTutees: [{ id: "planning-two", name: "Synthetic Two" }], canArrangeException: true,
+    });
+    const activeAgenda = await readSessionAgenda(db, one, "tutee");
+    expect(activeAgenda.cohorts.find((row) => row.id === original.id)).toMatchObject({ tutoringPaused: false, canArrangeException: false, pausedTutees: [] });
+    expect(await readCurrentSessionReminderCohort(db, original.id)).not.toBeNull();
+  });
+
+  it("does not treat an old timeout or scheduleOverride flag as explicit pause consent", async () => {
+    const first = await propose();
+    const { offer } = await current(first.id);
+    const response = offer.responses.find((row) => row.actorKey === "tutee:planning-one")!;
+    await db.$transaction((tx) => markSessionResponseDelivered(tx, response.id, now));
+    vi.setSystemTime(new Date(now.getTime() + 86_400_000 + 1));
+    await sweepSessionPlanning(db, new Date());
+    expect((await current(first.id)).request.status).toBe("ACCEPTED");
+    const person = await db.sessionPlanParticipant.findUniqueOrThrow({ where: { planId_tuteeId: { planId: (await source()).planId, tuteeId: "planning-one" } } });
+    expect(person.scheduleOverride).toBe(true);
+    await pause("2026-11-03");
+    expect(await db.sessionPlanParticipant.findUniqueOrThrow({ where: { id: person.id } })).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true });
+  });
+
+  it("does not promote split-parent timeout consent into a fresh MATCHED exception", async () => {
+    const proposed = await propose("ALL");
+    const { offer } = await current(proposed.id);
+    // A captured split can contain previous timer evidence for one learner;
+    // another group member still needs to respond to the shared offer.
+    await db.sessionPlanningResponse.updateMany({ where: { offerId: offer.id, actorKey: "tutee:planning-one" }, data: { state: "ACCEPTED", acceptedBy: "TIMEOUT" } });
+    const parent = await db.sessionPlanningRequest.update({ where: { id: proposed.id }, data: { status: "SPLIT_REQUESTED", version: { increment: 1 } } });
+    await pause("2026-11-03");
+    await formalizeSeparateSessions(db, tutor, { requestId: parent.id, expectedVersion: parent.version, clientKey: randomUUID() });
+    const child = await db.sessionPlanningRequest.findFirstOrThrow({ where: { parentRequestId: parent.id, participantIds: { equals: ["planning-one"] } } });
+    const childOffer = await current(child.id);
+    expect(childOffer.request.status).toBe("PENDING");
+    expect(childOffer.offer.responses.find((row) => row.actorKey === "tutee:planning-one")).toMatchObject({ state: "PENDING", acceptedBy: null });
+    await respond(child.id, one, "ACCEPT");
+    expect((await current(child.id)).request.status).toBe("ACCEPTED");
+  });
+
+  it("requires confirmation for historical MATCHED split children whose parent evidence was TIMEOUT", async () => {
+    const original = await source();
+    const proposed = await propose("ALL");
+    const { offer } = await current(proposed.id);
+    await db.sessionPlanningResponse.updateMany({ where: { offerId: offer.id, actorKey: "tutee:planning-one" }, data: { state: "ACCEPTED", acceptedBy: "TIMEOUT" } });
+    const parent = await db.sessionPlanningRequest.update({ where: { id: proposed.id }, data: { status: "SPLIT_REQUESTED", version: { increment: 1 } } });
+    await formalizeSeparateSessions(db, tutor, { requestId: parent.id, expectedVersion: parent.version, clientKey: randomUUID() });
+    const child = await db.sessionPlanningRequest.findFirstOrThrow({ where: { parentRequestId: parent.id, participantIds: { equals: ["planning-one"] } } });
+    const childOffer = await current(child.id);
+    // Model the former writer's durable lossy provenance, without running it.
+    await db.sessionPlanningResponse.updateMany({ where: { offerId: childOffer.offer.id, actorKey: "tutee:planning-one" }, data: { state: "ACCEPTED", acceptedBy: "MATCHED" } });
+    await db.sessionPlanningRequest.update({ where: { id: child.id }, data: { status: "ACCEPTED" } });
+    const moved = await db.sessionPlanCohort.create({ data: { planId: original.planId, ...plannedWindow(time(), "Asia/Shanghai"), rescheduled: true } });
+    await db.sessionPlanParticipant.updateMany({ where: { planId: original.planId, tuteeId: "planning-one" }, data: { cohortId: moved.id, scheduleOverride: true } });
+    await pause("2026-11-03");
+    expect((await members(moved.id))[0]).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true });
+  });
+
+  it.each(["TIMEOUT", null])("requires confirmation for pending %s evidence while retaining delivery evidence", async (acceptedBy) => {
+    const proposed = await propose("ALL");
+    const { offer } = await current(proposed.id);
+    const response = offer.responses.find((row) => row.actorKey === "tutee:planning-one")!;
+    await db.sessionPlanningResponse.update({ where: { id: response.id }, data: { state: "ACCEPTED", acceptedBy, deliveredAt: now, deadline: new Date(now.getTime() + 86_400_000) } });
+    await pause("2026-11-03");
+    expect(await db.sessionPlanningResponse.findUniqueOrThrow({ where: { id: response.id } })).toMatchObject({ state: "PENDING", acceptedBy: null, deliveredAt: now, deadline: null });
+    await respond(proposed.id, one, "ACCEPT");
+    await respond(proposed.id, two, "ACCEPT");
+    expect((await current(proposed.id)).request.status).toBe("ACCEPTED");
+  });
+
+  it("does not resurrect user cancellations or school-closed sources on pause removal", async () => {
+    const original = await source();
+    await db.sessionPlanParticipant.updateMany({ where: { cohortId: original.id, tuteeId: "planning-one" }, data: { status: "CANCELLED", calendarSuppressed: false, tutoringPauseSuppressed: false } });
+    await pause();
+    await saveSchoolCalendar(db, { date: original.date, isSchoolDay: false, timetableWeekday: null, note: "Synthetic closure", expectedVersion: 0 }, tutor.id);
+    await remove(original.date);
+    const people = await members(original.id);
+    expect(people.find((person) => person.tuteeId === "planning-one")).toMatchObject({ status: "CANCELLED", calendarSuppressed: false, tutoringPauseSuppressed: false });
+    expect(people.find((person) => person.tuteeId === "planning-two")).toMatchObject({ status: "CANCELLED", calendarSuppressed: true, tutoringPauseSuppressed: false });
+    const school = await db.schoolCalendarDay.findUniqueOrThrow({ where: { date: original.date } });
+    await resetSchoolCalendar(db, { date: original.date, expectedVersion: school.version }, tutor.id);
+    expect((await members(original.id)).find((person) => person.tuteeId === "planning-two")?.status).toBe("SCHEDULED");
+  });
+
+  it("reconciles future commitments beyond the current publication window and preserves started evidence", async () => {
+    vi.setSystemTime(new Date("2026-11-15T00:00:00Z"));
+    await ensureSessionPlanningWindow(db, new Date());
+    const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { date: "2026-11-23" } });
+    vi.setSystemTime(now);
+    await pause("2026-11-23");
+    expect((await members(future.id)).every((person) => person.tutoringPauseSuppressed)).toBe(true);
+    const original = await source();
+    vi.setSystemTime(new Date(original.startsAt.getTime() + 1));
+    await pause(original.date);
+    expect((await members(original.id)).every((person) => person.status === "SCHEDULED")).toBe(true);
+  });
+
+  it.each(["closure-first", "pause-first"] as const)("retains independent pause exception entry for %s school-calendar transitions", async (order) => {
+    const original = await source();
+    if (order === "pause-first") await pause();
+    await saveSchoolCalendar(db, { date: original.date, isSchoolDay: false, timetableWeekday: null, note: "Synthetic closure", expectedVersion: 0 }, tutor.id);
+    if (order === "closure-first") await pause();
+    const school = await db.schoolCalendarDay.findUniqueOrThrow({ where: { date: original.date } });
+    await resetSchoolCalendar(db, { date: original.date, expectedVersion: school.version }, tutor.id);
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda.cohorts.find((row) => row.id === original.id)).toMatchObject({ tutoringPaused: true, canArrangeException: true, unavailable: false, canRecordAttendance: false });
+    const proposed = await propose("ONE", "RESCHEDULE", "2026-11-03");
+    await respond(proposed.id, one, "ACCEPT");
+    expect((await current(proposed.id)).request.status).toBe("ACCEPTED");
+  });
+
+  it("expires paused-target offers without restoring paused source commitments", async () => {
+    await pause("2026-11-02", "2026-11-03");
+    const proposed = await propose();
+    const { offer } = await current(proposed.id);
+    vi.setSystemTime(offer.cutoffAt);
+    await sweepSessionPlanning(db, new Date());
+    expect((await current(proposed.id)).request.status).toBe("EXPIRED");
+    expect((await members((await source()).id)).every((person) => person.status === "CANCELLED" && person.tutoringPauseSuppressed)).toBe(true);
+  });
+
+  it("clears automatic pause reasons when the only paused source loses its assignment authority", async () => {
+    const original = await source();
+    await pause();
+    await db.tutor.update({ where: { id: tutor.tutorId }, data: { status: "ARCHIVED" } });
+    await ensureSessionPlanningWindow(db, now);
+    expect((await members(original.id)).every((person) => person.status === "CANCELLED" && !person.tutoringPauseSuppressed)).toBe(true);
+    await remove(original.date);
+    expect((await members(original.id)).every((person) => person.status === "CANCELLED")).toBe(true);
+  });
+
+  it("does not revive an unconfirmed ordinary schedule when a pause is removed while retaining agreed exceptions", async () => {
+    const { original } = await returnOneToOrdinaryCohort();
+    await pause();
+    await db.pairing.update({ where: { id: "planning-pairing" }, data: { scheduleConfirmed: false } });
+    await remove(original.date);
+    const people = await members(original.id);
+    expect(people.find((person) => person.tuteeId === "planning-one")).toMatchObject({ status: "SCHEDULED", tutoringPauseSuppressed: false });
+    expect(people.find((person) => person.tuteeId === "planning-two")).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: false, calendarSuppressed: true });
+    await db.pairing.update({ where: { id: "planning-pairing" }, data: { scheduleConfirmed: true } });
+    await ensureSessionPlanningWindow(db, now);
+    expect((await members(original.id)).every((person) => person.status === "SCHEDULED")).toBe(true);
+  });
+
+  it("previews published participant impact without creating or changing commitments", async () => {
+    const { original } = await returnOneToOrdinaryCohort();
+    const before = await members(original.id);
+    expect(await previewProgramCalendarImpact(db, { date: original.date, endDate: original.date, schedulingEffect: "PAUSE_REGULAR" }, now)).toMatchObject({ scope: "publishedFutureParticipants", pauseCount: 1, retainedExceptionCount: 1, confirmationCount: 0 });
+    expect(await members(original.id)).toEqual(before);
+  });
+
+  it("shows restoration conflicts as unavailable after pause removal and retries after the dated conflict is released", async () => {
+    const original = await source();
+    await pause();
+    const paused = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+    const extra = await proposeSession(db, tutor, { cohortId: original.id, expectedVersion: paused.version, clientKey: randomUUID(), scope: "ONE", tuteeId: "planning-one", kind: "EXTRA", date: original.date, startMin: original.startMin, online: true });
+    await respond(extra.id, one, "ACCEPT");
+    await remove(original.date);
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda.cohorts.find((row) => row.id === original.id)).toMatchObject({ tutoringPaused: false, canArrangeException: false, unavailable: true, status: "CANCELLED" });
+    const extraPlan = await db.sessionPlan.findFirstOrThrow({ where: { kind: "EXTRA" } });
+    await db.sessionPlanCohort.updateMany({ where: { planId: extraPlan.id }, data: { status: "CANCELLED" } });
+    await db.sessionPlanParticipant.updateMany({ where: { planId: extraPlan.id }, data: { status: "CANCELLED", tutoringPauseSuppressed: false } });
+    await ensureSessionPlanningWindow(db, now);
+    expect((await members(original.id)).every((person) => person.status === "SCHEDULED" && !person.tutoringPauseSuppressed)).toBe(true);
+  });
+
+  it("restores ordinary learners to a changed weekly clock even when an explicit extra now occupies the old clock", async () => {
+    const original = await source();
+    await pause();
+    await db.pairing.update({ where: { id: "planning-pairing" }, data: { startMin: 1000, endMin: 1045 } });
+    const paused = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+    const extra = await proposeSession(db, tutor, { cohortId: original.id, expectedVersion: paused.version, clientKey: randomUUID(), scope: "ONE", tuteeId: "planning-one", kind: "EXTRA", date: original.date, startMin: original.startMin, online: true });
+    await respond(extra.id, one, "ACCEPT");
+    await remove(original.date);
+    expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } })).toMatchObject({ status: "SCHEDULED", startMin: 1000, endMin: 1045 });
+    expect((await members(original.id)).every((person) => person.status === "SCHEDULED" && !person.tutoringPauseSuppressed && !person.calendarSuppressed)).toBe(true);
+    expect(await db.sessionPlanCohort.count({ where: { plan: { kind: "EXTRA" }, status: "SCHEDULED", startMin: original.startMin } })).toBe(1);
+  });
 });
 
 describe("automatic dated-room review", () => {

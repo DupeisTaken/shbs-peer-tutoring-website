@@ -317,9 +317,10 @@ Current schedules include only active-period assignments on explicitly owned, no
 
 Schedule notices can show program no-tutoring dates or date ranges and their
 reasons. Both the starting and ending dates are included; a single-day notice
-uses the same date for both. They are informational: confirm individual plans
-with your tutor. These notices do not cancel assignments, block attendance,
-change recurring schedules or change the school-day appeal calendar.
+uses the same date for both. **Notice only** provides context; **Pause regular
+tutoring** removes automatic ordinary commitments while allowing individually
+agreed exceptions. Confirm optional plans through the dated session workflow.
+Neither mode changes recurring assignments or the school-day appeal calendar.
 
 The dashboard previews up to three existing recurring schedules and links to the
 complete schedule and request lists. Confirm individual meeting dates with your
@@ -1089,6 +1090,12 @@ reason. Admin/Head apply changes directly; Coordinators request review. Each sta
 date identifies one notice. Different notices may overlap and remain separate.
 Edit an existing notice to change its ending date or reason; to move its starting
 date, remove it and create a new notice. **View details** shows the complete reason.
+Select **Notice only** to display context, or **Pause regular tutoring** to suppress
+future ordinary sessions on those dates while permitting expressly agreed dated
+exceptions. Review affected published commitments before applying or lifting a pause.
+School-day appeal deadlines and historical attendance remain unchanged. Overlapping
+pauses apply independently; removing one does not lift another. Existing notices
+remain informational until their scheduling effect is deliberately changed.
 
 **Crew** separates review work, the roster and patrol settings. Staff **Tutee Support**
 separates feedback and appeals, with a link to the school calendar in Program Settings; other users see only their

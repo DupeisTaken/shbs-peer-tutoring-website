@@ -19,6 +19,18 @@ const notificationCategoryLabels = Object.fromEntries(notificationCategories.map
  * rather than Prisma enums. Keep each mapping scoped to its exact entity/field;
  * an identical token in a name, explanation or unknown object remains text. */
 export const reviewStringDomains = {
+  ProgramCalendarDay: {
+    schedulingEffect: {
+      NOTICE: "programCalendar.noticeEffect",
+      PAUSE_REGULAR: "programCalendar.pauseEffect",
+    },
+  },
+  ProgramCalendarPolicyRevision: {
+    schedulingEffect: {
+      NOTICE: "programCalendar.noticeEffect",
+      PAUSE_REGULAR: "programCalendar.pauseEffect",
+    },
+  },
   RetiredHistoryOwnership: {
     state: {
       ASSIGNED: `${prefix}.historyOwnershipStates.ASSIGNED`,

@@ -308,6 +308,7 @@ beforeEach(() => {
     windowStart: date,
     windowEnd: date,
     canTutorWrite: false,
+    tutoringPauses: [],
     rooms: [],
     schoolCalendarDays: [],
     cohorts: [],

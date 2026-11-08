@@ -7,7 +7,7 @@ import zh from "../../../messages/zh.json";
 import { ProgramCalendarNotice } from "./program-calendar";
 
 const state = vi.hoisted(() => ({
-  days: [] as { date: string; endDate?: string; reason: string }[],
+  days: [] as { date: string; endDate?: string; reason: string; schedulingEffect?: "NOTICE" | "PAUSE_REGULAR" }[],
   error: null as null | { message: string; data?: { code?: string } },
   refetch: vi.fn(),
 }));
@@ -88,4 +88,20 @@ it("hides denied cached dates through transport failure and reveals them only af
   state.error = null;
   notice.rerender(tree());
   expect(screen.getByText("2026-10-15")).toBeTruthy();
+});
+
+it.each(["en", "zh"] as const)("distinguishes active pauses from legacy informational notices in %s", (locale) => {
+  state.days = [
+    { date: "2026-11-02", endDate: "2026-11-06", reason: "Optional midterms", schedulingEffect: "PAUSE_REGULAR" },
+    { date: "2026-11-09", endDate: "2026-11-13", reason: "Legacy context" },
+  ];
+  render(tree(locale));
+  const copy = (locale === "en" ? en : zh).programCalendar;
+  const rows = screen.getAllByRole("listitem");
+  expect(rows[0]!.textContent).toContain(copy.pauseEffect);
+  expect(rows[0]!.textContent).not.toContain(copy.noticeEffect);
+  expect(rows[1]!.textContent).toContain(copy.noticeEffect);
+  expect(rows[1]!.textContent).not.toContain(copy.pauseEffect);
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByRole("combobox")).toBeNull();
 });

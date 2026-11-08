@@ -74,6 +74,11 @@ export async function admitSessionNotice(
     }
     const state = await actionableState(tx, row);
     const context = sessionNoticeContext(row.context);
+    // Re-read policy when dispatching retained notices; a pause may have been
+    // activated after the proposal was queued, before transport admission.
+    if (state.response) context.requiresExplicitAcceptance = !!(await tx.programCalendarDay.count({
+      where: { active: true, schedulingEffect: "PAUSE_REGULAR", date: { lte: state.response.offer.date }, endDate: { gte: state.response.offer.date } },
+    }));
     const actionable = context.isActionable === true && state.current;
     const user = await recipientState(tx, row, actionable ? state.response?.actorKey : undefined);
     if (!user) {
@@ -87,7 +92,7 @@ export async function admitSessionNotice(
       return null;
     }
     const admitted = await tx.sessionNotice.update({
-      where: { id }, data: { status: "SENDING", attemptId: randomUUID(), attemptStartedAt: new Date(), attempts: { increment: 1 }, lastError: null },
+      where: { id }, data: { status: "SENDING", attemptId: randomUUID(), attemptStartedAt: new Date(), attempts: { increment: 1 }, lastError: null, context: { ...context } },
     });
     return { row: admitted, obsolete: context.isActionable === true && !state.current,
       destination: state.response?.actorKey.startsWith("tutor:") || (!state.response && user.tutorId)

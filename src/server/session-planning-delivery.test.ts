@@ -32,7 +32,7 @@ function fixture() {
   };
   const response = {
     id: "response-1", actorKey: "tutee:tutee-1", actorUserId: "user-1", state: "PENDING", offerId: "offer-1",
-    offer: { requestId: "request-1", cutoffAt: new Date("2026-11-02T04:00:00Z"), request: { status: "PENDING", currentOfferId: "offer-1" } },
+    offer: { requestId: "request-1", date: "2026-11-02", cutoffAt: new Date("2026-11-02T04:00:00Z"), request: { status: "PENDING", currentOfferId: "offer-1" } },
   };
   const user = {
     id: "user-1", email: notice.recipientEmail, role: "STUDENT", tuteeMember: true,
@@ -54,6 +54,7 @@ function fixture() {
     $queryRaw: vi.fn(async () => [{ id: notice.id, leaseUntil: notice.leaseUntil, attemptId: notice.attemptId }]),
     sessionNotice: { findUnique: vi.fn(async () => ({ ...notice })), update },
     sessionPlanningResponse: { findUnique: vi.fn(async () => response) },
+    programCalendarDay: { count: vi.fn(async () => 0) },
     sessionResponseExecution: { findUnique: vi.fn(async ({ where }: { where: { responseId: string } }) => responseExecutions.get(where.responseId) ?? null) },
     participantConsolidation: { findUnique: vi.fn(async ({ where }: { where: { kind_sourceId: { kind: string; sourceId: string } } }) => participantExecutions.get(`${where.kind_sourceId.kind}:${where.kind_sourceId.sourceId}`) ?? null) },
     user: { findUnique: vi.fn(async () => user) },
@@ -75,6 +76,18 @@ it("records SMTP acceptance before qualifying a responder, despite optional mail
   }));
   expect(f.notice).toMatchObject({ status: "SENT", attempts: 1, acceptedAt: now });
   expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now);
+});
+
+it("rechecks a pause activated after a notice was queued before composing essential mail", async () => {
+  const f = fixture();
+  f.raw.programCalendarDay.count.mockResolvedValue(1);
+  await deliverSessionNotices(10, f.database);
+  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({
+    text: expect.stringContaining("Silence will not accept it") as unknown,
+  }));
+  const sent: unknown = transport.send.mock.calls[0]?.[0];
+  expect(typeof sent === "object" && sent !== null && "text" in sent ? sent.text : null).not.toContain("Silence can mean acceptance");
+  expect(f.notice.context).toMatchObject({ requiresExplicitAcceptance: true });
 });
 
 it("queued, unconfigured and failed mail cannot start a response clock", async () => {

@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { createSchoolCalendarSnapshot } from "~/lib/school-calendar";
+import { isRegularTutoringPaused } from "~/lib/tutoring-policy";
 import { programDateKey } from "~/lib/program-time";
 import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
@@ -25,7 +26,7 @@ export async function datedUnavailableRooms(
 ) {
   if (!roomIds.length) return new Set<string>();
   await lockEntity(tx, "session-planning");
-  const [calendar, term, timeZone, cohorts, requests] = await Promise.all([
+  const [calendar, term, timeZone, cohorts, requests, tutoringPauses] = await Promise.all([
     tx.schoolCalendarDay.findMany(),
     tx.term.findUniqueOrThrow({ where: { id: schedule.termId } }),
     getProgramTimeZone(tx),
@@ -49,6 +50,7 @@ export async function datedUnavailableRooms(
       include: { offers: true },
       take: 5001,
     }),
+    tx.programCalendarDay.findMany({ where: { active: true, schedulingEffect: "PAUSE_REGULAR" } }),
   ]);
   if (cohorts.length > 5000 || requests.length > 5000)
     throw new TRPCError({
@@ -68,6 +70,7 @@ export async function datedUnavailableRooms(
     const day = calendarSnapshot.resolve(date);
     return (
       day.isSchoolDay &&
+      !isRegularTutoringPaused(date, tutoringPauses) &&
       day.effectiveTimetableWeekday === schedule.dayOfWeek &&
       start < schedule.startMin + 45 &&
       end > schedule.startMin &&

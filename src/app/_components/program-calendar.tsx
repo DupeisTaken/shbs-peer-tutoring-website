@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
@@ -24,6 +24,7 @@ type Day = {
   reason: string;
   active: boolean;
   version: number;
+  schedulingEffect?: string;
 };
 
 /** Keep date-only labels intact: converting to local instants can shift their calendar day. */
@@ -47,7 +48,7 @@ function CalendarRange({
     </span>
   );
 }
-/** Participant schedules consume this read-only context; it cannot affect attendance validity. */
+/** Display the selected effect; the dated scheduler owns commitments and attendance authority. */
 export function ProgramCalendarNotice() {
   const t = useTranslations("programCalendar");
   const query = api.program.calendar.useQuery();
@@ -74,6 +75,9 @@ export function ProgramCalendarNotice() {
             <li key={day.date}>
               <CalendarRange date={day.date} endDate={day.endDate} /> ·{" "}
               {day.reason}
+              <p className="mt-1 font-medium">
+                {t(day.schedulingEffect === "PAUSE_REGULAR" ? "pauseEffect" : "noticeEffect")}
+              </p>
             </li>
           ))}
       </ul>
@@ -86,6 +90,9 @@ export function ProgramCalendarSettings() {
   const utils = api.useUtils();
   const review = useActionReview();
   const remove = api.program.removeCalendarDay.useMutation();
+  const [removePreviewing, setRemovePreviewing] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const removeGuard = useRef(false);
   const [editor, setEditor] = useState<{
     day: Day | null;
     snapshot: Day[];
@@ -118,7 +125,7 @@ export function ProgramCalendarSettings() {
         </div>
         {data.canEdit && (
           <Button
-            disabled={!!query.error}
+            disabled={!!query.error || !!removePreviewing}
             onClick={() => setEditor({ day: null, snapshot: data.days })}
           >
             {t("add")}
@@ -136,12 +143,14 @@ export function ProgramCalendarSettings() {
           {t("loadFailed")}
         </InlineNotice>
       )}
+      {removeError && <InlineNotice tone="error" announcement="alert">{removeError}</InlineNotice>}
       {data.days.some((day) => day.active) ? (
         <SummaryTable sortable label={t("title")}>
           <thead>
             <tr>
               <th>{t("date")}</th>
               <th>{t("reason")}</th>
+              <th>{t("schedulingEffect")}</th>
               <th className="table-actions-heading">{t("actions")}</th>
             </tr>
           </thead>
@@ -167,6 +176,9 @@ export function ProgramCalendarSettings() {
                         : day.reason}
                     </p>
                   </td>
+                  <td className="max-w-xs text-sm">
+                    {t(day.schedulingEffect === "PAUSE_REGULAR" ? "pauseEffect" : "noticeEffect")}
+                  </td>
                   <TableActions>
                     <TableDetails
                       title={`${t("title")} · ${day.date}${day.endDate !== day.date ? ` ${t("through")} ${day.endDate}` : ""}`}
@@ -179,7 +191,7 @@ export function ProgramCalendarSettings() {
                     {data.canEdit && (
                       <>
                         <TableAction
-                          disabled={!!query.error}
+                          disabled={!!query.error || !!removePreviewing}
                           onClick={() =>
                             setEditor({ day, snapshot: data.days })
                           }
@@ -187,21 +199,29 @@ export function ProgramCalendarSettings() {
                           {t("edit")}
                         </TableAction>
                         <TableAction
-                          disabled={!!query.error || review.blocked(day.date)}
-                          onClick={() =>
-                            review.open({
+                          disabled={!!query.error || !!removePreviewing || review.blocked(day.date)}
+                          onClick={async () => {
+                            if (removeGuard.current) return;
+                            removeGuard.current = true;
+                            setRemovePreviewing(day.date);
+                            setRemoveError(null);
+                            try {
+                              const removalImpact = day.schedulingEffect === "PAUSE_REGULAR"
+                                ? await utils.program.calendarImpact.fetch({ date: day.date, endDate: day.endDate, expectedVersion: day.version, remove: true }, { staleTime: 0 })
+                                : null;
+                              review.open({
                               key: day.date,
                               title: t("removeTitle"),
-                              description: t("removeHelp"),
+                              description: t(day.schedulingEffect === "PAUSE_REGULAR" ? "removePauseHelp" : "removeHelp"),
                               confirmLabel: t("remove"),
                               details: (
-                                <p>
+                                <div className="space-y-2"><p>
                                   <CalendarRange
                                     date={day.date}
                                     endDate={day.endDate}
                                   />{" "}
                                   · {day.reason}
-                                </p>
+                                </p>{removalImpact && <><p>{t("impactScope")}</p><p>{t("impactRestore", { count: removalImpact.restorationCount })}</p><p>{t("impactRule")}</p></>}</div>
                               ),
                               commit: () =>
                                 remove.mutateAsync({
@@ -216,11 +236,18 @@ export function ProgramCalendarSettings() {
                                     ),
                                   () =>
                                     invalidateAndReport(utils.program.calendar),
+                                  async () => { await utils.sessionPlanning?.invalidate(); },
                                 ]),
                               approvalId: queuedApprovalId,
                               repeatAfterRefresh: true,
-                            })
-                          }
+                              });
+                            } catch (failure) {
+                              setRemoveError(failure instanceof Error ? failure.message : t("loadFailed"));
+                            } finally {
+                              removeGuard.current = false;
+                              setRemovePreviewing(null);
+                            }
+                          }}
                         >
                           {t("remove")}
                         </TableAction>
@@ -287,6 +314,18 @@ function CalendarEditor({
     initial?.endDate ?? initial?.date ?? "",
   );
   const [reason, setReason] = useState(initial?.reason ?? "");
+  const [schedulingEffect, setSchedulingEffect] = useState<"NOTICE" | "PAUSE_REGULAR">(
+    initial?.schedulingEffect === "PAUSE_REGULAR" ? "PAUSE_REGULAR" : "NOTICE",
+  );
+  const effectHelpId = useId();
+  const [impact, setImpact] = useState<{
+    pauseCount: number;
+    retainedExceptionCount: number;
+    confirmationCount: number;
+    restorationCount: number;
+  } | null>(null);
+  const needsReview = schedulingEffect === "PAUSE_REGULAR" || initial?.schedulingEffect === "PAUSE_REGULAR";
+  const expectedVersion = initial?.version ?? snapshot.find((day) => day.date === date && !day.active)?.version ?? 0;
   const [readFailed, setReadFailed] = useState(false);
   const [saved, setSaved] = useState(false);
   const [readPending, setReadPending] = useState(false);
@@ -302,6 +341,7 @@ function CalendarEditor({
       await settleRefreshes([
         () => invalidateAndReport(utils.program.calendarSettings),
         () => invalidateAndReport(utils.program.calendar),
+        async () => { await utils.sessionPlanning?.invalidate(); },
       ]);
       setReadFailed(false);
     } catch {
@@ -320,15 +360,20 @@ function CalendarEditor({
         admitted.current = true;
         setError(null);
         try {
+          if (needsReview && !impact) {
+            setReadPending(true);
+            const reviewed = await utils.program.calendarImpact.fetch({
+              date, endDate, schedulingEffect, expectedVersion,
+            }, { staleTime: 0 });
+            setImpact(reviewed);
+            return;
+          }
           await save.mutateAsync({
             date,
             endDate,
             reason,
-            expectedVersion:
-              initial?.version ??
-              snapshot.find((day) => day.date === date && !day.active)
-                ?.version ??
-              0,
+            schedulingEffect,
+            expectedVersion,
           });
           committed.current = true;
           setAccepted(true);
@@ -345,6 +390,7 @@ function CalendarEditor({
           }
         } finally {
           admitted.current = false;
+          setReadPending(false);
         }
       }}
     >
@@ -367,6 +413,7 @@ function CalendarEditor({
                 if (!endDate || endDate === date)
                   setEndDate(event.target.value);
                 setDate(event.target.value);
+                setImpact(null);
               }}
             />
           </label>
@@ -378,10 +425,28 @@ function CalendarEditor({
               required
               min={date || undefined}
               value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
+              onChange={(event) => { setEndDate(event.target.value); setImpact(null); }}
             />
           </label>
         </div>
+        <label className="block">
+          <span className="label">{t("schedulingEffect")}</span>
+          <select
+            className="input w-full"
+            value={schedulingEffect}
+            aria-describedby={effectHelpId}
+            onChange={(event) => {
+              setSchedulingEffect(event.target.value as "NOTICE" | "PAUSE_REGULAR");
+              setImpact(null);
+            }}
+          >
+            <option value="NOTICE">{t("noticeEffect")}</option>
+            <option value="PAUSE_REGULAR">{t("pauseEffect")}</option>
+          </select>
+          <span id={effectHelpId} className="muted mt-1 block text-sm">
+            {t(schedulingEffect === "PAUSE_REGULAR" ? "pauseHelp" : "noticeHelp")}
+          </span>
+        </label>
         <label className="block">
           <span className="label">{t("reason")}</span>
           <textarea
@@ -389,13 +454,28 @@ function CalendarEditor({
             required
             maxLength={300}
             value={reason}
-            onChange={(event) => setReason(event.target.value)}
+            onChange={(event) => { setReason(event.target.value); setImpact(null); }}
           />
         </label>
+        {impact && (
+          <InlineNotice tone="warning" announcement="status">
+            <p className="font-medium">{t("impactTitle")}</p>
+            <p>{t("impactScope")}</p>
+            <ul className="mt-2 list-disc pl-5">
+              <li>{t("impactPause", { count: impact.pauseCount })}</li>
+              <li>{t("impactRetain", { count: impact.retainedExceptionCount })}</li>
+              <li>{t("impactConfirm", { count: impact.confirmationCount })}</li>
+              <li>{t("impactRestore", { count: impact.restorationCount })}</li>
+            </ul>
+            <p className="mt-2">{t("impactRule")}</p>
+          </InlineNotice>
+        )}
         <FormActions>
           <Button type="submit" variant="primary">
             {pending
               ? t("saving")
+              : needsReview && !impact
+                ? t("reviewImpact")
               : canApply
                 ? t("save")
                 : approvals("requestAdmin")}

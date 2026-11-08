@@ -38,6 +38,11 @@ import {
 } from "~/lib/program-time";
 import { createSchoolCalendarSnapshot } from "~/lib/school-calendar";
 import {
+  isRegularTutoringPaused,
+  tutoringPauseSemanticRanges,
+  type TutoringPauseRange,
+} from "~/lib/tutoring-policy";
+import {
   inTransaction,
   lockEntity,
   type DomainDb,
@@ -48,6 +53,7 @@ import { ownedStudentIds } from "~/server/student-ownership";
 import { requireParticipantSourceParticipation } from "~/server/participant-source-restrictions";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { getProgramTimeZone } from "~/server/program/time-zone-reader";
+import { readRegularTutoringPausedAt } from "~/server/program/calendar-policy-history";
 import { recordDomainAudit } from "~/server/audit/evidence";
 import { findAccountPolicy, requirePolicy } from "~/server/policy-acceptance";
 import {
@@ -99,6 +105,7 @@ type Cohort = Prisma.SessionPlanCohortGetPayload<Record<string, never>>;
 type PlanningComputation = {
   calendar: ReturnType<typeof createSchoolCalendarSnapshot>;
   parseDateTime: ReturnType<typeof createProgramDateTimeParser>;
+  tutoringPauses?: readonly TutoringPauseRange[];
 };
 type Actor = { id: string; tutorId?: string | null };
 type Versioned = { expectedVersion: number; clientKey: string };
@@ -109,6 +116,7 @@ type Proposed = PlanningTime &
     tuteeId?: string;
     kind: "RESCHEDULE" | "EXTRA";
     suggestionId?: string;
+    pausedOnly?: boolean;
   };
 const ids = (value: Prisma.JsonValue): string[] =>
   Array.isArray(value)
@@ -323,6 +331,12 @@ export async function readCurrentSessionReminderCohort(
       !(await sourceIsCurrent(tx, cohort.plan))
     )
       return null;
+    const calendarDay = resolvePlanningTimetableDay(cohort.date, await tx.schoolCalendarDay.findMany());
+    if (isRegularTutoringPaused(cohort.date, await pauseRanges(tx)) || !calendarDay.isSchoolDay) {
+      const affirmative = await affirmativePauseParticipants(tx, cohort.plan, cohort);
+      const scheduled = cohort.plan.participants.filter((person) => person.cohortId === cohort.id && person.status === "SCHEDULED");
+      if (!scheduled.length || scheduled.some((person) => !affirmative.has(person.tuteeId))) return null;
+    }
     // Delivery uses the reviewed executor while original assignment identifiers
     // continue to identify publication and legacy reminder receipts.
     const execution = await tx.sessionPlanExecution.findUnique({ where: { planId: cohort.planId } });
@@ -585,7 +599,10 @@ async function ensureWritable(
 ) {
   if (cohort.version !== version)
     fail("The session changed. Reload before continuing.", "CONFLICT");
-  if (cohort.status !== "SCHEDULED" || cohort.startsAt <= now)
+  const pausedSource = cohort.plan.participants.some((person) =>
+    person.cohortId === cohort.id && person.tutoringPauseSuppressed) &&
+    isRegularTutoringPaused(cohort.date, await pauseRanges(tx));
+  if ((cohort.status !== "SCHEDULED" && !pausedSource) || cohort.startsAt <= now)
     fail(
       "This session has started or is no longer available for scheduling.",
       "CONFLICT",
@@ -667,6 +684,7 @@ async function notice(
         select: { name: true },
       })
     : null;
+  const requiresExplicitAcceptance = !!offer && isRegularTutoringPaused(offer.date, await pauseRanges(tx));
   for (const recipient of await recipients(
     tx,
     request.plan,
@@ -696,6 +714,7 @@ async function notice(
         event,
         context: {
           isActionable: actionable,
+          requiresExplicitAcceptance,
           startsAt: offer?.startsAt.toISOString() ?? null,
           endsAt: offer?.endsAt.toISOString() ?? null,
           originalStartsAt: original,
@@ -826,7 +845,7 @@ async function validateTarget(
       await tx.schoolCalendarDay.findMany(),
     );
   const weekday = new Date(`${time.date}T00:00:00Z`).getUTCDay() || 7;
-  const recurring =
+  const recurring = isRegularTutoringPaused(time.date, computation?.tutoringPauses ?? await pauseRanges(tx)) ? [] :
     publication?.recurring ??
     (!timetable.isSchoolDay
       ? []
@@ -1050,6 +1069,201 @@ async function notifyPlanChange(
   );
 }
 
+const affirmativeAcceptance = new Set(["AUTHOR", "MATCHED", "EXPLICIT"]);
+
+async function affirmativeResponseProvenance(
+  tx: TransactionDb,
+  request: Request,
+  offer: Request["offers"][number],
+  response: Request["offers"][number]["responses"][number],
+  depth = 0,
+): Promise<boolean> {
+  if (response.state !== "ACCEPTED" || !affirmativeAcceptance.has(response.acceptedBy ?? "") || depth > 8) return false;
+  if (response.acceptedBy !== "MATCHED" || !request.parentRequestId) return true;
+  // Older splits labelled carried TIMEOUT consent MATCHED. Verify the exact
+  // parent offer instead of trusting that lossy historical label.
+  const parent = await reloadRequest(tx, request.parentRequestId);
+  const prior = parent.offers.find((row) => row.id === parent.currentOfferId);
+  if (prior?.date !== offer.date || prior.startMin !== offer.startMin || prior.endMin !== offer.endMin ||
+      prior.roomId !== offer.roomId || prior.online !== offer.online ||
+      prior.startsAt.getTime() !== offer.startsAt.getTime() || prior.endsAt.getTime() !== offer.endsAt.getTime()) return false;
+  const evidence = prior.responses.find((row) => row.actorKey === response.actorKey);
+  return !!evidence && affirmativeResponseProvenance(tx, parent, prior, evidence, depth + 1);
+}
+
+/** Only an exact accepted offer by the current tutor and learner authorizes a
+ * paused-date exception. Flags and historical timeout acceptance are not consent. */
+async function affirmativePauseParticipants(tx: TransactionDb, plan: Plan, cohort: Cohort) {
+  const extraRoot = plan.kind === "EXTRA" && plan.generationKey.startsWith("extra:")
+    ? plan.generationKey.slice(6) : null;
+  const requests = await tx.sessionPlanningRequest.findMany({
+    where: {
+      status: "ACCEPTED",
+      OR: [{ planId: plan.id }, ...(extraRoot ? [{ id: extraRoot }, { parentRequestId: extraRoot }] : [])],
+    },
+    include: requestInclude,
+  });
+  const result = new Set<string>();
+  for (const request of requests) {
+    const offer = request.offers.find((row) => row.id === request.currentOfferId);
+    if (offer?.date !== cohort.date || offer.startMin !== cohort.startMin ||
+        offer.endMin !== cohort.endMin || offer.roomId !== cohort.roomId || offer.online !== cohort.online ||
+        offer.startsAt.getTime() !== cohort.startsAt.getTime() || offer.endsAt.getTime() !== cohort.endsAt.getTime()) continue;
+    const owners = await executionResponseOwnerIds(tx, offer.responses.map((row) => row.id));
+    const affirmative = new Set<string>();
+    for (const response of offer.responses)
+      if (await affirmativeResponseProvenance(tx, request, offer, response)) affirmative.add(response.id);
+    for (const tuteeId of ids(request.participantIds)) {
+      if (!plan.participants.some((person) => person.tuteeId === tuteeId && person.cohortId === cohort.id)) continue;
+      try {
+        const audience = await recipients(tx, request.plan, [tuteeId]);
+        if (audience.length >= 2 && audience.every((actor) => offer.responses.some((response) =>
+          response.actorKey === actor.actorKey &&
+          (owners.get(response.id) ?? response.actorUserId) === actor.user.id &&
+          affirmative.has(response.id)))) result.add(tuteeId);
+      } catch {
+        // Missing/currently ineligible owners require a fresh agreement.
+      }
+    }
+  }
+  return result;
+}
+
+async function pauseRanges(tx: TransactionDb) {
+  return tx.programCalendarDay.findMany({ where: { active: true, schedulingEffect: "PAUSE_REGULAR" } });
+}
+
+/** Policy changes reconcile every future publication, including moved/extra
+ * cohorts outside the visible two-week window. Separate tombstones preserve
+ * user cancellations and school-calendar suppression across overlapping resets. */
+async function reconcileTutoringPauses(tx: TransactionDb, ranges: readonly TutoringPauseRange[], now: Date) {
+  const rows = await tx.sessionPlanCohort.findMany({
+    where: { startsAt: { gt: now }, status: { in: ["SCHEDULED", "CANCELLED"] }, sessions: { none: {} },
+      OR: [...ranges.map((range) => ({ date: { gte: range.date, lte: range.endDate } })),
+        { participants: { some: { tutoringPauseSuppressed: true } } }],
+    },
+    include: { plan: { include: planInclude } },
+    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+  });
+  if (!rows.length && !ranges.length) return;
+  const calendar = createSchoolCalendarSnapshot(await tx.schoolCalendarDay.findMany());
+  for (const cohort of rows) {
+    const plan = cohort.plan;
+    const people = plan.participants.filter((person) => person.cohortId === cohort.id &&
+      (person.status === "SCHEDULED" || person.tutoringPauseSuppressed || person.calendarSuppressed));
+    if (!people.length || !(await sourceIsCurrent(tx, plan))) continue;
+    const paused = isRegularTutoringPaused(cohort.date, ranges);
+    const affirmative = paused ? await affirmativePauseParticipants(tx, plan, cohort) : new Set<string>();
+    const suppress = people.filter((person) => paused && !affirmative.has(person.tuteeId) && !person.tutoringPauseSuppressed);
+    const restore = people.filter((person) => person.tutoringPauseSuppressed && (!paused || affirmative.has(person.tuteeId)));
+    if (!suppress.length && !restore.length) continue;
+    const changedIds: string[] = [];
+    if (suppress.length) {
+      await tx.sessionPlanParticipant.updateMany({
+        where: { id: { in: suppress.map((person) => person.id) } },
+        data: { status: "CANCELLED", tutoringPauseSuppressed: true, version: { increment: 1 } },
+      });
+      changedIds.push(...suppress.map((person) => person.tuteeId));
+    }
+    for (const person of restore) {
+      if (!paused && plan.kind === "REGULAR" && !person.scheduleOverride &&
+          cohort.date === plan.originalDate && !cohort.rescheduled) {
+        // The weekly clock may have changed during the pause. Hand ordinary
+        // restoration to its owner, which safely splits/coalesces current clocks
+        // around retained exceptions and retries conflicts on later dirty events.
+        await tx.sessionPlanParticipant.update({ where: { id: person.id }, data: {
+          tutoringPauseSuppressed: false, calendarSuppressed: true, status: "CANCELLED", version: { increment: 1 },
+        } });
+        continue;
+      }
+      const day = calendar.resolve(cohort.date);
+      const primary = plan.assignments.find((assignment) => assignment.primary) ?? plan.assignments[0];
+      const pairing = primary ? await tx.pairing.findUnique({ where: { id: await executionPairingId(tx, primary.pairingId) }, select: { dayOfWeek: true, scheduleConfirmed: true } }) : null;
+      const calendarBlocked = plan.kind === "REGULAR" && !person.scheduleOverride
+        ? !pairing?.scheduleConfirmed || !day.isSchoolDay || day.effectiveTimetableWeekday !== pairing.dayOfWeek
+        : person.calendarSuppressed;
+      let available = !calendarBlocked;
+      if (available) {
+        try {
+          await validateTarget(tx, plan, cohort, [person.tuteeId], cohort, "ALL", undefined, now, undefined, true);
+        } catch { available = false; }
+      }
+      // A conflict stays a reversible pause tombstone and retries when dirtied.
+      if (!available && !calendarBlocked) continue;
+      await tx.sessionPlanParticipant.update({
+        where: { id: person.id },
+        data: { status: available ? "SCHEDULED" : "CANCELLED", tutoringPauseSuppressed: false,
+          calendarSuppressed: calendarBlocked, version: { increment: 1 } },
+      });
+      changedIds.push(person.tuteeId);
+    }
+    if (!changedIds.length) continue;
+    const remaining = await tx.sessionPlanParticipant.count({ where: { cohortId: cohort.id, status: "SCHEDULED" } });
+    const changed = await tx.sessionPlanCohort.update({
+      where: { id: cohort.id }, data: { status: remaining ? "SCHEDULED" : "CANCELLED", version: { increment: 1 } },
+    });
+    const currentPlan = await tx.sessionPlan.findUniqueOrThrow({ where: { id: plan.id }, include: planInclude });
+    await notifyPlanChange(tx, currentPlan, changed, remaining ? "schedule_updated" : "cancelled", cohort.startsAt, changedIds);
+    await audit(tx, plan.id, "tutoringPauseUpdated", true);
+  }
+  // A newly added pause invalidates silence-based acceptance even when some
+  // recipients previously timed out on the still-pending exact offer.
+  const pending = await tx.sessionPlanningRequest.findMany({ where: { status: { in: ["PENDING", "SPLIT_REQUESTED"] } }, include: requestInclude });
+  for (const request of pending) await settleRequest(tx, request, now);
+}
+
+export async function previewProgramCalendarImpact(
+  db: DomainDb,
+  input: { date: string; endDate: string; schedulingEffect?: string; remove?: boolean },
+  now = new Date(),
+) {
+  return inTransaction(db, async (tx) => {
+    const existing = await tx.programCalendarDay.findMany();
+    const current = existing.find((row) => row.date === input.date);
+    const next = existing.filter((row) => row.date !== input.date);
+    if (!input.remove) next.push({ ...current, date: input.date, endDate: input.endDate,
+      schedulingEffect: input.schedulingEffect ?? current?.schedulingEffect ?? "NOTICE", active: true } as typeof existing[number]);
+    const start = current && current.date < input.date ? current.date : input.date;
+    const end = current && current.endDate > input.endDate ? current.endDate : input.endDate;
+    const cohorts = await tx.sessionPlanCohort.findMany({
+      where: { date: { gte: start, lte: end }, startsAt: { gt: now }, sessions: { none: {} }, status: { in: ["SCHEDULED", "CANCELLED"] } },
+      include: { plan: { include: planInclude } },
+    });
+    const counts = { scope: "publishedFutureParticipants" as const, pauseCount: 0, retainedExceptionCount: 0, confirmationCount: 0, restorationCount: 0 };
+    const computation: PlanningComputation = {
+      calendar: createSchoolCalendarSnapshot(await tx.schoolCalendarDay.findMany()),
+      parseDateTime: createProgramDateTimeParser(), tutoringPauses: next,
+    };
+    for (const cohort of cohorts) {
+      if (!(await sourceIsCurrent(tx, cohort.plan))) continue;
+      const explicit = await affirmativePauseParticipants(tx, cohort.plan, cohort);
+      for (const person of cohort.plan.participants.filter((row) => row.cohortId === cohort.id && (row.status === "SCHEDULED" || row.tutoringPauseSuppressed || row.calendarSuppressed))) {
+        if (isRegularTutoringPaused(cohort.date, next)) {
+          if (explicit.has(person.tuteeId)) counts.retainedExceptionCount++;
+          else if (person.scheduleOverride || cohort.plan.kind === "EXTRA" || cohort.rescheduled) counts.confirmationCount++;
+          else counts.pauseCount++;
+        } else if (person.tutoringPauseSuppressed) {
+          const day = computation.calendar.resolve(cohort.date);
+          const primary = cohort.plan.assignments.find((assignment) => assignment.primary) ?? cohort.plan.assignments[0];
+          const pairing = primary ? await tx.pairing.findUnique({ where: { id: await executionPairingId(tx, primary.pairingId) }, select: { scheduleConfirmed: true, dayOfWeek: true, startMin: true, roomId: true } }) : null;
+          const ordinary = cohort.plan.kind === "REGULAR" && !person.scheduleOverride;
+          const blocked = ordinary
+            ? !pairing?.scheduleConfirmed || !day.isSchoolDay || day.effectiveTimetableWeekday !== pairing.dayOfWeek
+            : person.calendarSuppressed;
+          if (!blocked) try {
+            const target = ordinary && pairing
+              ? plannedWindow({ date: cohort.plan.originalDate, startMin: pairing.startMin, roomId: pairing.roomId, online: false }, cohort.plan.timeZone, computation.parseDateTime)
+              : cohort;
+            await validateTarget(tx, cohort.plan, target, [person.tuteeId], cohort, "ALL", undefined, now, computation, true);
+            counts.restorationCount++;
+          } catch { /* Conflicted restoration is not promised by the preview. */ }
+        }
+      }
+    }
+    return counts;
+  });
+}
+
 async function reconcileOrdinaryPlans(
   tx: TransactionDb,
   prefix: string,
@@ -1065,6 +1279,7 @@ async function reconcileOrdinaryPlans(
     schedule.roomId,
     timeZone,
     calendar.semanticDays(),
+    tutoringPauseSemanticRanges(computation.tutoringPauses ?? []),
   ]);
   const candidateWhere: Prisma.SessionPlanWhereInput = {
     generationKey: { startsWith: prefix },
@@ -1128,11 +1343,11 @@ async function reconcileOrdinaryPlans(
       });
       const ordinary = people.filter(
         (person) =>
-          !person.scheduleOverride &&
+          !person.scheduleOverride && !person.tutoringPauseSuppressed &&
           (person.status === "SCHEDULED" || person.calendarSuppressed),
       );
       const protectedPeople = people.filter(
-        (person) => person.scheduleOverride && person.status === "SCHEDULED",
+        (person) => person.scheduleOverride && !person.tutoringPauseSuppressed && person.status === "SCHEDULED",
       );
       // Older automatic tombstones kept participant status SCHEDULED. Accepted
       // request evidence backfills each learner's override; revive only that
@@ -1210,7 +1425,8 @@ async function reconcileOrdinaryPlans(
       const ordinaryTuteeIds = ordinary.map((person) => person.tuteeId);
       const day = calendar.resolve(plan.originalDate);
       const applies =
-        day.isSchoolDay && day.effectiveTimetableWeekday === schedule.dayOfWeek;
+        day.isSchoolDay && day.effectiveTimetableWeekday === schedule.dayOfWeek &&
+        !isRegularTutoringPaused(plan.originalDate, computation.tutoringPauses ?? []);
       if (
         hasPending &&
         applies &&
@@ -1389,7 +1605,7 @@ export async function ensureSessionPlanningWindow(
               startsAt: { gt: now },
               OR: [
                 { status: "SCHEDULED" },
-                { participants: { some: { calendarSuppressed: true } } },
+                { participants: { some: { OR: [{ calendarSuppressed: true }, { tutoringPauseSuppressed: true }] } } },
               ],
             },
           },
@@ -1430,7 +1646,9 @@ export async function ensureSessionPlanningWindow(
     const computation: PlanningComputation = {
       calendar: createSchoolCalendarSnapshot(overrides),
       parseDateTime: createProgramDateTimeParser(),
+      tutoringPauses: await pauseRanges(tx),
     };
+    await reconcileTutoringPauses(tx, computation.tutoringPauses ?? [], now);
     const publicationNotices: PublicationNotice[] = [];
     const evidencePairingIds = await pairingEvidenceIds(tx, rows.map((row) => row.id));
     const continuationPairingIds = await readContinuationPairingIds(tx, evidencePairingIds);
@@ -1494,9 +1712,12 @@ export async function ensureSessionPlanningWindow(
         // including cancelled or moved commitments. Only later dates publish anew.
         if (inheritedDates.has(date)) continue;
         const day = computation.calendar.resolve(date);
+        const pausedClosedSource = !day.isSchoolDay &&
+          isRegularTutoringPaused(date, computation.tutoringPauses ?? []) &&
+          (new Date(`${date}T00:00:00Z`).getUTCDay() || 7) === primary.dayOfWeek;
         if (
-          !day.isSchoolDay ||
-          day.effectiveTimetableWeekday !== primary.dayOfWeek
+          !pausedClosedSource && (!day.isSchoolDay ||
+          day.effectiveTimetableWeekday !== primary.dayOfWeek)
         )
           continue;
         if (
@@ -1589,7 +1810,9 @@ export async function ensureSessionPlanningWindow(
           })),
         });
         existing.add(generationKey);
-        let available = true;
+        const tutoringPaused = isRegularTutoringPaused(date, computation.tutoringPauses ?? []);
+        const schoolSuppressed = !computation.calendar.resolve(date).isSchoolDay;
+        let available = !tutoringPaused;
         // Validation needs only immutable publication facts; don't hydrate the
         // complete plan/roster/account graph twice for each newly inserted date.
         const plan: ValidationPlan = {
@@ -1627,7 +1850,7 @@ export async function ensureSessionPlanningWindow(
               computation.calendar.resolve(date).effectiveTimetableWeekday ?? 0,
             ...window,
           });
-          await validateTarget(
+          if (!tutoringPaused) await validateTarget(
             tx,
             plan,
             window,
@@ -1650,7 +1873,7 @@ export async function ensureSessionPlanningWindow(
             planId,
             ...window,
             status: available ? "SCHEDULED" : "CANCELLED",
-            sourceInvalidated: !available,
+            sourceInvalidated: !available && (!tutoringPaused || schoolSuppressed),
           },
         });
         await tx.sessionPlanParticipant.createMany({
@@ -1659,7 +1882,8 @@ export async function ensureSessionPlanningWindow(
             tuteeId,
             cohortId,
             status: available ? "SCHEDULED" : "CANCELLED",
-            calendarSuppressed: !available,
+            calendarSuppressed: (!available && !tutoringPaused) || schoolSuppressed,
+            tutoringPauseSuppressed: tutoringPaused,
           })),
         });
         publicationNotices.push(
@@ -1787,6 +2011,18 @@ async function finishAgreement(
   const offer = request.offers.find((row) => row.id === request.currentOfferId);
   if (!offer) return;
   if (offer.responses.some((row) => row.state !== "ACCEPTED")) return;
+  const pausedTarget = isRegularTutoringPaused(offer.date, await pauseRanges(tx));
+  if (pausedTarget) {
+    for (const response of offer.responses)
+      if (!(await affirmativeResponseProvenance(tx, request, offer, response))) return;
+    const audience = await recipients(tx, request.plan, ids(request.participantIds));
+    const owners = await executionResponseOwnerIds(tx, offer.responses.map((row) => row.id));
+    if (!audience.every((actor) => offer.responses.some((response) => response.actorKey === actor.actorKey &&
+      (owners.get(response.id) ?? response.actorUserId) === actor.user.id))) {
+      await closeRequest(tx, request, "STALE", "stale", now);
+      return;
+    }
+  }
   const source = await loadCohort(tx, request.cohortId);
   const sourceCalendar = resolvePlanningTimetableDay(
     source.plan.originalDate,
@@ -1809,9 +2045,12 @@ async function finishAgreement(
     !source.rescheduled &&
     (!sourceCalendar.isSchoolDay ||
       sourceCalendar.effectiveTimetableWeekday !== sourcePairing?.dayOfWeek);
+  const tutoringPauseSuppressed = source.plan.participants.some((person) =>
+    person.cohortId === source.id && person.tutoringPauseSuppressed) &&
+    isRegularTutoringPaused(source.date, await pauseRanges(tx));
   if (
     !(await sourceIsCurrent(tx, request.plan)) ||
-    (source.status !== "SCHEDULED" && !calendarSuppressed) ||
+    (source.status !== "SCHEDULED" && !calendarSuppressed && !tutoringPauseSuppressed) ||
     source.startsAt <= now ||
     offer.startsAt <= now
   ) {
@@ -1874,7 +2113,7 @@ async function finishAgreement(
   const sourceRoster = request.plan.participants.filter(
     (person) =>
       person.cohortId === source.id &&
-      (person.status === "SCHEDULED" || person.calendarSuppressed),
+      (person.status === "SCHEDULED" || person.calendarSuppressed || person.tutoringPauseSuppressed),
   );
   const movesWholeCohort =
     request.kind !== "EXTRA" &&
@@ -1932,7 +2171,7 @@ async function finishAgreement(
   for (const tuteeId of people) {
     if (request.kind === "EXTRA")
       await tx.sessionPlanParticipant.create({
-        data: { planId: targetPlanId, tuteeId, cohortId: cohort.id },
+        data: { planId: targetPlanId, tuteeId, cohortId: cohort.id, scheduleOverride: true },
       });
     else
       await tx.sessionPlanParticipant.update({
@@ -1942,6 +2181,7 @@ async function finishAgreement(
           status: "SCHEDULED",
           scheduleOverride: true,
           calendarSuppressed: false,
+          tutoringPauseSuppressed: false,
           version: { increment: 1 },
         },
       });
@@ -1976,7 +2216,7 @@ async function finishAgreement(
     tx,
     request,
     "ACCEPTED",
-    automatic ? "autoaccepted" : "accepted",
+    automatic && !pausedTarget ? "autoaccepted" : "accepted",
     now,
   );
 }
@@ -2003,7 +2243,8 @@ export async function markSessionResponseDelivered(
     where: { id: response.id },
     data: {
       deliveredAt: acceptedAt,
-      deadline: responseDeadline(acceptedAt, response.offer.cutoffAt),
+      deadline: isRegularTutoringPaused(response.offer.date, await pauseRanges(tx))
+        ? null : responseDeadline(acceptedAt, response.offer.cutoffAt),
     },
   });
   return true;
@@ -2021,6 +2262,7 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
   if (request.status !== "PENDING") return;
   const offer = request.offers.find((row) => row.id === request.currentOfferId);
   if (!offer) return;
+  const pausedTarget = isRegularTutoringPaused(offer.date, await pauseRanges(tx));
   if (!(await sourceIsCurrent(tx, request.plan))) {
     await closeRequest(tx, request, "STALE", "stale", now);
     return;
@@ -2048,7 +2290,7 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
   }
   // Cutoff wins over late mail and late worker execution: short notice never invents consent.
   if (offer.cutoffAt <= now) {
-    const missedAutomaticWindow = offer.responses.some(
+    const missedAutomaticWindow = !pausedTarget && offer.responses.some(
       (response) =>
         response.state === "PENDING" &&
         response.deliveredAt &&
@@ -2064,7 +2306,15 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
     );
     return;
   }
-  const changed = await tx.sessionPlanningResponse.updateMany({
+  const unconfirmed = [];
+  if (pausedTarget) for (const response of offer.responses)
+    if (response.state === "ACCEPTED" && !(await affirmativeResponseProvenance(tx, request, offer, response))) unconfirmed.push(response.id);
+  const changed = pausedTarget
+    ? await tx.sessionPlanningResponse.updateMany({
+        where: { offerId: offer.id, id: { in: unconfirmed }, state: "ACCEPTED" },
+        data: { state: "PENDING", acceptedBy: null, respondedAt: null, deadline: null },
+      })
+    : await tx.sessionPlanningResponse.updateMany({
     where: {
       offerId: offer.id,
       state: "PENDING",
@@ -2082,7 +2332,7 @@ async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
   await finishAgreement(tx, current, now, true);
   const latest = await reloadRequest(tx, request.id);
   if (changed.count && latest.status === "PENDING")
-    await notice(tx, latest, "response_autoaccepted");
+    await notice(tx, latest, pausedTarget ? "proposed" : "response_autoaccepted");
 }
 
 export async function sweepSessionPlanning(db: DomainDb, now = new Date()) {
@@ -2184,6 +2434,7 @@ export type SessionLocationPreview = PlanningTime & {
   requestId?: string;
   requestVersion?: number;
   offerId?: string;
+  pausedOnly?: boolean;
 };
 
 /** Preview reserves nothing. The editor submits this exact room through the
@@ -2203,7 +2454,8 @@ export async function previewSessionLocation(
     let requestId: string | undefined;
     let people: string[];
     const roster = cohort.plan.participants
-      .filter((row) => row.cohortId === cohort.id && row.status === "SCHEDULED")
+      .filter((row) => row.cohortId === cohort.id &&
+        (input.pausedOnly ? row.tutoringPauseSuppressed : row.status === "SCHEDULED" || row.tutoringPauseSuppressed))
       .map((row) => row.tuteeId);
     if (input.mode === "alternative") {
       if (!input.requestId)
@@ -2335,7 +2587,7 @@ export async function suggestSessionTime(
       const participant = cohort.plan.participants.find(
         (row) =>
           row.cohortId === cohort.id &&
-          row.status === "SCHEDULED" &&
+          (row.status === "SCHEDULED" || row.tutoringPauseSuppressed) &&
           owned.includes(row.tuteeId),
       );
       if (!participant)
@@ -2415,7 +2667,8 @@ export async function proposeSession(
       await ensureWritable(tx, cohort, input.expectedVersion, now);
       const roster = cohort.plan.participants
         .filter(
-          (row) => row.cohortId === cohort.id && row.status === "SCHEDULED",
+          (row) => row.cohortId === cohort.id &&
+            (input.pausedOnly ? row.tutoringPauseSuppressed : row.status === "SCHEDULED" || row.tutoringPauseSuppressed),
         )
         // Relation reads have no implicit order. Capture a stable new audience
         // so later split children and their audit/recovery writes keep its order.
@@ -2628,6 +2881,7 @@ export async function respondSession(
               data: {
                 status: "CANCELLED",
                 calendarSuppressed: false,
+                tutoringPauseSuppressed: false,
                 version: { increment: 1 },
               },
             });
@@ -2733,6 +2987,7 @@ export async function formalizeSeparateSessions(
             "The original session has started or its roster changed. Reload the split outcome.",
             "CONFLICT",
           );
+        const responseOwners = await executionResponseOwnerIds(tx, offer.responses.map((row) => row.id));
         for (const tuteeId of ids(parent.participantIds)) {
           const child = await tx.sessionPlanningRequest.create({
             data: {
@@ -2749,14 +3004,14 @@ export async function formalizeSeparateSessions(
             offer.responses.some(
               (row) =>
                 row.actorKey === `tutor:${parent.plan.tutorId}` &&
-                row.actorUserId === actor.id &&
-                row.state === "ACCEPTED",
+                (responseOwners.get(row.id) ?? row.actorUserId) === actor.id &&
+                row.state === "ACCEPTED" && affirmativeAcceptance.has(row.acceptedBy ?? ""),
             ) &&
             offer.responses.some(
               (row) =>
                 row.actorKey === `tutee:${tuteeId}` &&
-                row.actorUserId === owner.id &&
-                row.state === "ACCEPTED",
+                (responseOwners.get(row.id) ?? row.actorUserId) === owner.id &&
+                row.state === "ACCEPTED" && affirmativeAcceptance.has(row.acceptedBy ?? ""),
             );
           const current = await makeOffer(
             tx,
@@ -2843,10 +3098,21 @@ function projectAgendaCohort(
   calendar: Parameters<typeof resolvePlanningTimetableDay>[1],
   now: Date,
   history = false,
+  tutoringPauses: readonly TutoringPauseRange[] = [],
 ) {
   const roster = row.participants.filter(
     (person) => person.status === "SCHEDULED",
   );
+  const pauseReasons = row.participants.filter((person) => person.tutoringPauseSuppressed &&
+    (role === "tutor" || owned.includes(person.tuteeId)));
+  const policyPaused = isRegularTutoringPaused(row.date, tutoringPauses);
+  const paused = policyPaused ? pauseReasons : [];
+  const restorationBlocked = !policyPaused && pauseReasons.length > 0;
+  const ordinaryUnavailable = !policyPaused && row.participants.some((person) =>
+    person.calendarSuppressed && person.status === "CANCELLED" && (role === "tutor" || owned.includes(person.tuteeId)));
+  const activePersonal = roster.filter((person) => role === "tutor" || owned.includes(person.tuteeId));
+  const eligible = activePersonal.length ? activePersonal : paused;
+  const tutoringPaused = paused.length > 0 && !activePersonal.length;
   const capturedIds = new Set(
     row.plan.assignments.flatMap((assignment) =>
       assignmentRoster(row.plan, assignment),
@@ -2867,7 +3133,7 @@ function projectAgendaCohort(
       ? displayRoster.filter((person) => owned.includes(person.tuteeId))
       : history
         ? displayRoster
-        : roster;
+        : eligible;
   const assignments = row.plan.assignments.filter((assignment) =>
     assignmentRoster(row.plan, assignment).some((id) =>
       personal.some((person) => person.tuteeId === id),
@@ -2898,7 +3164,10 @@ function projectAgendaCohort(
           : row.rescheduled || roster.some((person) => person.scheduleOverride),
       schoolClosed: !resolvePlanningTimetableDay(row.date, calendar)
         .isSchoolDay,
-      unavailable: row.sourceInvalidated,
+      unavailable: restorationBlocked || (!activePersonal.length && ordinaryUnavailable) || (row.sourceInvalidated && !paused.length),
+      tutoringPaused,
+      canArrangeException: !history && paused.length > 0 && !row.sessions.length && row.startsAt > now,
+      pausedTutees: paused.map((person) => ({ id: person.tuteeId, name: person.tutee.englishName })),
       status:
         role === "tutee" &&
         personal.every((person) => person.status === "CANCELLED")
@@ -2917,11 +3186,11 @@ function projectAgendaCohort(
       tutorName: row.plan.tutor.englishName,
       tutees:
         role === "tutor"
-          ? (history ? displayRoster : roster).map((person) => ({
+          ? (history ? displayRoster : eligible).map((person) => ({
               id: person.tuteeId,
               name: person.tutee.englishName,
             }))
-          : (history ? displayRoster : roster)
+          : (history ? displayRoster : eligible)
               .filter((person) => owned.includes(person.tuteeId))
               .map((person) => ({
                 id: person.tuteeId,
@@ -3129,6 +3398,7 @@ export async function readSessionAgenda(
       select: { id: true, name: true },
     });
     const calendar = await tx.schoolCalendarDay.findMany();
+    const tutoringPauses = await pauseRanges(tx);
     // Read execution only for the bounded agenda results. Published actors and
     // roster keys remain the evidence used to match consent and personal access.
     const liveRows = rows.filter((row) => !row.sessions.length);
@@ -3164,7 +3434,10 @@ export async function readSessionAgenda(
     const cohorts = [];
     for (const row of rows) {
       const rowContext = role === "tutee" ? { ...context, owned: ownedSources(row.plan) } : context;
-      const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now);
+      const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now, false, tutoringPauses);
+      if (projectedRows.some((projected) => projected.canArrangeException) && !(await sourceIsCurrent(tx, row.plan))) {
+        for (const projected of projectedRows) { projected.canArrangeException = false; projected.unavailable = true; }
+      }
       const execution = executionByPlan.get(row.planId);
       if (execution && !row.sessions.length) {
         const assignmentMap = new Map(executionAssignments.parse(execution.assignments).map((mapping) => [mapping.sourcePairingId, mapping.targetPairingId]));
@@ -3175,6 +3448,10 @@ export async function readSessionAgenda(
           projected.pairingIds = projected.pairingIds.map((pairingId) => assignmentMap.get(pairingId) ?? pairingId);
           projected.primaryPairingId = projected.primaryPairingId ? assignmentMap.get(projected.primaryPairingId) ?? projected.primaryPairingId : null;
           projected.tutees = projected.tutees.map((person) => {
+            const id = studentMap.get(person.id);
+            return id ? { id, name: studentNames.get(id) ?? fail("The executing learner profile is unavailable.", "CONFLICT") } : person;
+          });
+          projected.pausedTutees = projected.pausedTutees.map((person) => {
             const id = studentMap.get(person.id);
             return id ? { id, name: studentNames.get(id) ?? fail("The executing learner profile is unavailable.", "CONFLICT") } : person;
           });
@@ -3250,6 +3527,7 @@ export async function readSessionAgenda(
               startsAt: offer.startsAt,
               endsAt: offer.endsAt,
               cutoffAt: offer.cutoffAt,
+              requiresExplicitAcceptance: isRegularTutoringPaused(offer.date, tutoringPauses),
               responses,
               myResponse,
               schoolClosed: !resolvePlanningTimetableDay(offer.date, calendar)
@@ -3309,6 +3587,7 @@ export async function readSessionAgenda(
         preparedThrough: publication.prepareEnd,
       },
       rooms: roomRows,
+      tutoringPauses: tutoringPauses.map(({ date, endDate, schedulingEffect, active }) => ({ date, endDate, schedulingEffect, active })),
       schoolCalendarDays: calendar.map(
         (day: {
           date: string;
@@ -3393,6 +3672,11 @@ export async function sessionAttendanceContext(
   );
   if (!participants.length)
     return fail("This session has no active commitments.", "CONFLICT");
+  if (await readRegularTutoringPausedAt(tx, cohort.date, cohort.startsAt)) {
+    const affirmative = await affirmativePauseParticipants(tx, cohort.plan, cohort);
+    if (participants.some((person) => !affirmative.has(person.tuteeId)))
+      return fail("This tutoring date required explicit agreement before attendance could be recorded.", "CONFLICT");
+  }
   const assignments = cohort.plan.assignments
     .map((row) => ({
       pairingId: row.pairingId,
@@ -3475,6 +3759,7 @@ export async function syncContinuationPlanMembership(
   const calendar = !input.releasedAt
     ? await tx.schoolCalendarDay.findMany()
     : [];
+  const tutoringPauses = !input.releasedAt ? await pauseRanges(tx) : [];
   const plans = await tx.sessionPlan.findMany({
     where: { assignments: { some: { pairingId: { in: await pairingEvidenceIds(tx, [input.pairingId]) } } } },
     include: { ...planInclude, cohorts: true },
@@ -3521,6 +3806,7 @@ export async function syncContinuationPlanMembership(
         cohort.status === "SCHEDULED",
     );
     const day = resolvePlanningTimetableDay(plan.originalDate, calendar);
+    const tutoringPaused = !input.releasedAt && isRegularTutoringPaused(plan.originalDate, tutoringPauses);
     const suppressed =
       !input.releasedAt &&
       (!day.isSchoolDay ||
@@ -3555,24 +3841,23 @@ export async function syncContinuationPlanMembership(
           cohort.date === plan.originalDate &&
           !cohort.rescheduled &&
           cohort.status === "CANCELLED" &&
-          cohort.sourceInvalidated &&
           plan.participants.some(
             (person) =>
-              person.cohortId === cohort.id && person.calendarSuppressed,
+              person.cohortId === cohort.id && (person.calendarSuppressed || person.tutoringPauseSuppressed),
           ),
       );
       const candidate: Cohort = {
         id: randomUUID(),
         planId: plan.id,
         ...window,
-        status: suppressed ? "CANCELLED" : "SCHEDULED",
+        status: suppressed || tutoringPaused ? "CANCELLED" : "SCHEDULED",
         sourceInvalidated: Boolean(suppressed),
         rescheduled: false,
         version: 1,
         createdAt: now,
         updatedAt: now,
       };
-      if (!shared && !suppressedSource && !suppressed)
+      if (!shared && !suppressedSource && !suppressed && !tutoringPaused)
         await validateTarget(
           tx,
           plan,
@@ -3589,7 +3874,7 @@ export async function syncContinuationPlanMembership(
         (await tx.sessionPlanCohort.create({ data: candidate }));
     }
     if (!input.releasedAt && (!original || original.startsAt <= now)) continue;
-    if (!input.releasedAt && original && !suppressed)
+    if (!input.releasedAt && original && !suppressed && !tutoringPaused)
       await validateTarget(
         tx,
         plan,
@@ -3646,6 +3931,7 @@ export async function syncContinuationPlanMembership(
           data: {
             status: "CANCELLED",
             calendarSuppressed: false,
+            tutoringPauseSuppressed: false,
             version: { increment: 1 },
           },
         });
@@ -3685,15 +3971,16 @@ export async function syncContinuationPlanMembership(
           planId: plan.id,
           tuteeId: input.tuteeId,
           cohortId: original.id,
-          status: suppressed ? "CANCELLED" : "SCHEDULED",
+          status: suppressed || tutoringPaused ? "CANCELLED" : "SCHEDULED",
           scheduleOverride: false,
           calendarSuppressed: Boolean(suppressed),
+          tutoringPauseSuppressed: Boolean(tutoringPaused),
         },
       });
       const changed = await tx.sessionPlanCohort.update({
         where: { id: original.id },
         data: {
-          ...(!suppressed
+          ...(!suppressed && !tutoringPaused
             ? { status: "SCHEDULED", sourceInvalidated: false }
             : {}),
           version: { increment: 1 },
@@ -3747,7 +4034,7 @@ export async function invalidateSessionPlansForPairings(
           cohorts: {
             some: {
               startsAt: { gt: now },
-              participants: { some: { calendarSuppressed: true } },
+              participants: { some: { OR: [{ calendarSuppressed: true }, { tutoringPauseSuppressed: true }] } },
             },
           },
         },
@@ -3769,7 +4056,7 @@ export async function invalidateSessionPlansForPairings(
         startsAt: { gt: now },
         OR: [
           { status: "SCHEDULED" },
-          { participants: { some: { calendarSuppressed: true } } },
+          { participants: { some: { OR: [{ calendarSuppressed: true }, { tutoringPauseSuppressed: true }] } } },
         ],
       },
     });
@@ -3787,6 +4074,7 @@ export async function invalidateSessionPlansForPairings(
         data: {
           status: "CANCELLED",
           calendarSuppressed: false,
+          tutoringPauseSuppressed: false,
           version: { increment: 1 },
         },
       });
@@ -3830,12 +4118,14 @@ export async function assertSessionPlanningWeeklyAvailable(
     where: { id: schedule.termId },
   });
   const calendar = createSchoolCalendarSnapshot(overrides);
+  const tutoringPauses = await pauseRanges(tx);
   let termStart: string | undefined;
   let termEnd: string | undefined;
   const applies = (date: string) => {
     const day = calendar.resolve(date);
     return (
       day.isSchoolDay &&
+      !isRegularTutoringPaused(date, tutoringPauses) &&
       day.effectiveTimetableWeekday === schedule.dayOfWeek &&
       (!term.startDate ||
         date >= (termStart ??= programDateKey(term.startDate, timeZone))) &&

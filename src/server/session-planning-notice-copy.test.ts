@@ -4,6 +4,16 @@ import {
   sessionPlanningNoticeCopy,
 } from "./session-planning-notice-copy";
 
+it("requires affirmative agreement for paused-date offers without advertising a silence timer", () => {
+  const copy = sessionPlanningNoticeCopy("proposed", { isActionable: true, requiresExplicitAcceptance: true });
+  expect(copy.text).toContain("Silence will not accept it");
+  expect(copy.text).toContain("未回复不会视为接受");
+  expect(copy.text).not.toContain("24-hour clock");
+  expect(copy.text).not.toContain("Silence can mean acceptance");
+  expect(sessionNoticeContext({ requiresExplicitAcceptance: "true", privateData: "secret" })).toEqual({});
+  expect(sessionNoticeContext({ requiresExplicitAcceptance: true })).toEqual({ requiresExplicitAcceptance: true });
+});
+
 it("distinguishes a missed delivered deadline from ordinary short-notice expiry", () => {
   const copy = sessionPlanningNoticeCopy("deadline_missed", {
     startsAt: "2026-11-04T07:00:00.000Z",

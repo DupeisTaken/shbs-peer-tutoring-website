@@ -168,6 +168,7 @@ const sample = (): Agenda => ({
   canTutorWrite: true,
   rooms: [{ id: "room", name: "A101" }],
   schoolCalendarDays: [],
+  tutoringPauses: [],
   cohorts: [{ ...attendanceOccurrence }],
   requests: [],
   suggestions: [],
@@ -376,6 +377,7 @@ it("stops historical response prompts on a split request while retaining evidenc
       endsAt: new Date("2099-01-04T07:45:00Z"),
       cutoffAt: new Date("2099-01-03T07:00:00Z"),
       schoolClosed: false,
+      requiresExplicitAcceptance: false,
       responses: [
         response,
         {
@@ -642,6 +644,7 @@ it("offers separate rescheduling after an ALL rejection budget is spent, with a 
         endsAt: new Date("2099-01-04T07:45:00Z"),
         cutoffAt: new Date("2099-01-03T07:00:00Z"),
         schoolClosed: false,
+        requiresExplicitAcceptance: false,
         responses: [response],
         myResponse: response,
         canReject: false,
@@ -923,4 +926,48 @@ it("a denied history read conceals tutoring caches while keeping independent fil
   expect(onViewChange).toHaveBeenCalledWith("all");
   fireEvent.click(screen.getByRole("button", { name: messages.retry }));
   expect(state.historyRetry).toHaveBeenCalledOnce();
+});
+
+it.each(["en", "zh"] as const)("shows a paused source without attendance duty and opens an exception in %s", (locale) => {
+  const catalog = locale === "en" ? en : zh;
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.tutoringPauses = [{ date: "2099-01-01", endDate: "2099-01-14", schedulingEffect: "PAUSE_REGULAR", active: true }];
+  state.data!.cohorts = [{ ...attendanceOccurrence, date: "2099-01-01", status: "CANCELLED", tutoringPaused: true,
+    canArrangeException: true, pausedTutees: attendanceOccurrence.tutees, tutees: [], needsAttendance: false, canRecordAttendance: false,
+    startsAt: new Date("2099-01-01T07:00:00Z"), endsAt: new Date("2099-01-01T07:45:00Z") }];
+  show("tutor", locale);
+  const card = screen.getByRole("article");
+  expect(within(card).getByText(catalog.sessionPlanning.tutoringPausedHelp)).toBeTruthy();
+  expect(within(card).queryByRole("button", { name: catalog.sessionPlanning.record })).toBeNull();
+  fireEvent.click(within(card).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
+  expect(screen.getByRole("dialog").textContent).toContain(catalog.sessionPlanning.tutoringPauseProposal);
+  expect(state.propose).not.toHaveBeenCalled();
+});
+
+it("keeps a mixed cohort attendance roster separate from the paused exception audience", () => {
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.cohorts = [{ ...attendanceOccurrence, date: "2099-01-01", canArrangeException: true,
+    tutees: [{ id: "remaining", name: "Remaining Learner" }],
+    pausedTutees: [{ id: "paused", name: "Paused Learner" }],
+    startsAt: new Date("2099-01-01T07:00:00Z"), endsAt: new Date("2099-01-01T07:45:00Z") }];
+  show();
+  const card = screen.getByRole("article");
+  expect(within(card).getByText("Remaining Learner")).toBeTruthy();
+  expect(within(card).queryByText(messages.tutoringPausedHelp)).toBeNull();
+  expect(within(card).getByRole("button", { name: messages.record })).toBeTruthy();
+  fireEvent.click(within(card).getByRole("button", { name: messages.arrangeException }));
+  expect(screen.getByRole("dialog").textContent).toContain("Paused Learner");
+  expect(screen.getByRole("dialog").textContent).not.toContain("Remaining Learner");
+});
+
+it("an exception response never displays a silence countdown even when an older deadline exists", () => {
+  const now = new Date("2099-01-01T00:00:00Z");
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <SessionResponseDeadline deliveredAt={now} deadline={new Date("2099-01-02T00:00:00Z")} cutoffAt={new Date("2099-01-03T00:00:00Z")} now={now} requiresExplicitAcceptance />
+  </NextIntlClientProvider>);
+  expect(screen.getByText(messages.requiresExplicit)).toBeTruthy();
+  expect(screen.queryByText(/24h/)).toBeNull();
+  expect(screen.queryByText(/remaining/i)).toBeNull();
 });

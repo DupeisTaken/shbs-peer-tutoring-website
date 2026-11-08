@@ -146,7 +146,14 @@
     "automaticRoom": "Presencial — aula asignada automáticamente",
     "checkingLocation": "Comprobando hora y lugar…",
     "allocationFailed": "No se pudieron confirmar la hora y el lugar. Revisa la sesión actual, prueba otra hora o En línea y vuelve a revisar.",
-    "roomReviewHelp": "El aula se comprueba de nuevo al enviar. Si no está disponible, revisa una nueva asignación."
+    "roomReviewHelp": "El aula se comprueba de nuevo al enviar. Si no está disponible, revisa una nueva asignación.",
+    "tutoringPaused": "Tutoría regular pausada",
+    "tutoringPausedHelp": "Esta sesión regular está pausada. No se exige asistencia. Una excepción requiere el acuerdo expreso de todos los participantes.",
+    "arrangeException": "Acordar excepción",
+    "requiresExplicit": "Se requiere acuerdo expreso; el silencio no acepta esta oferta.",
+    "explicitExceptionHelp": "Esta excepción requiere el acuerdo expreso del tutor y de cada estudiante participante. No responder significa no aceptar.",
+    "tutoringPauseProposal": "Las tutorías regulares están pausadas en esta fecha. La propuesta solo puede continuar como excepción acordada expresamente.",
+    "exceptionScheduled": "Excepción acordada"
   },
   "nextRecruitment": {
     "savedForTarget": "Apertura guardada para {name}.",
@@ -4100,7 +4107,8 @@
         "MonthlyHoursSchedule": "Programación de informes mensuales",
         "MonthlyHoursReport": "Informe mensual de horas de servicio",
         "SchoolHoursSchedule": "Calendario de informes escolares",
-        "SchoolHoursReport": "Informe individual de horas para la escuela"
+        "SchoolHoursReport": "Informe individual de horas para la escuela",
+        "ProgramCalendarPolicyRevision": "Revisión de la política de fechas de tutoría"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Confirmación del correo de inscripción pública",
@@ -4491,7 +4499,9 @@
         "linkVersion": "Versión del enlace del informe",
         "linkRevokedAt": "Fecha de revocación del enlace del informe",
         "schoolHoursReportId": "ID del informe escolar",
-        "schoolHoursReport": "Informe escolar"
+        "schoolHoursReport": "Informe escolar",
+        "schedulingEffect": "Efecto en la programación",
+        "tutoringPauseSuppressed": "Tutoría regular pausada"
       },
       "enums": {
         "Role": {
@@ -6067,8 +6077,8 @@
     "layout": "Guardar se aplica solo a este diseño."
   },
   "programCalendar": {
-    "title": "Fechas sin tutoría",
-    "informational": "Fechas y motivos informativos del programa. Estos avisos no restringen la asistencia ni cambian el calendario escolar utilizado para las apelaciones.",
+    "title": "Avisos y pausas de tutorías",
+    "informational": "Cada intervalo es un aviso o una pausa de tutorías regulares. Las pausas permiten excepciones acordadas expresamente y no cambian el calendario escolar ni los plazos de apelación.",
     "refresh": "Actualizar",
     "reload": "Recargar borrador",
     "loadFailed": "No se pudieron cargar los avisos de tutoría.",
@@ -6091,7 +6101,21 @@
     "saved": "Aviso guardado.",
     "saveFailed": "No se pudo guardar el aviso.",
     "refreshFailed": "El aviso se guardó, pero no se pudo cargar la lista actualizada. Actualiza para sincronizar sin volver a guardar.",
-    "details": "Ver detalles"
+    "details": "Ver detalles",
+    "schedulingEffect": "Efecto en la programación",
+    "noticeEffect": "Solo aviso",
+    "pauseEffect": "Pausar tutorías regulares",
+    "noticeHelp": "Muestra un aviso sin cambiar las sesiones con fecha.",
+    "pauseHelp": "Se pausan las sesiones regulares. Las excepciones requieren el acuerdo expreso del tutor y de cada estudiante participante; el silencio no equivale a aceptar. Los días lectivos y los plazos de apelación siguen siendo independientes.",
+    "removePauseHelp": "Eliminar esta pausa de tutorías. Las sesiones regulares futuras que cumplan los requisitos podrán restablecerse tras comprobar otras restricciones y conflictos. Las sesiones iniciadas y la asistencia registrada no cambian.",
+    "reviewImpact": "Revisar efecto en la programación",
+    "impactTitle": "Revisar compromisos afectados",
+    "impactScope": "Vista previa de los compromisos futuros existentes de estudiantes según la regla resultante, incluidos los ya pausados. Los estudiantes de una misma sesión se cuentan por separado; la regla también rige la recurrencia futura.",
+    "impactPause": "Compromisos regulares pausados según la regla resultante: {count}",
+    "impactRetain": "Excepciones acordadas expresamente que se mantienen: {count}",
+    "impactConfirm": "Necesitan confirmación expresa: {count}",
+    "impactRestore": "Candidatos a restablecimiento: {count}",
+    "impactRule": "Al guardar se vuelven a comprobar los acuerdos y conflictos actuales. Las sesiones iniciadas y la asistencia registrada no cambian."
   },
   "roomOrder": {
     "title": "Orden de las aulas",
@@ -7211,7 +7235,7 @@
   "schoolCalendar": {
     "title": "Calendario escolar",
     "help": "Configura cierres escolares y el horario semanal aplicado a una fecha. Las demás fechas siguen el calendario escolar de lunes a viernes.",
-    "noticeDistinction": "Los avisos de días sin tutoría son información independiente y no cambian este calendario escolar.",
+    "noticeDistinction": "Los avisos y pausas de tutoría no cambian los días lectivos, la asignación de horarios ni el cómputo de días de apelación.",
     "add": "Añadir excepción de fecha",
     "date": "Fecha real",
     "timetable": "Horario",
