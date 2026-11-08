@@ -371,8 +371,17 @@ const PRISMA_METADATA = [
   "rolled_back_at|timestamptz",
   "started_at|timestamptz",
 ].sort();
+const IMPORT_PROVENANCE_COLUMNS = [
+  "ImportedRecordProvenance|entity|text",
+  "ImportedRecordProvenance|importedAt|timestamp",
+  "ImportedRecordProvenance|recordId|text",
+].sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  importProvenanceColumns: IMPORT_PROVENANCE_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
   legacyDeclineColumns: REVIEWED_DECLINE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -412,12 +421,26 @@ export function assertReviewedRecoverySchema(
     .filter((row) => row.table_name === "_prisma_migrations")
     .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
     .sort();
+  // Accept only the complete reviewed archive boundary. Its removal or partial
+  // restoration must not widen the authority of an otherwise reviewed backup.
+  const provenance = domain.filter((column) =>
+    column.startsWith("ImportedRecordProvenance|"),
+  );
+  operatorAssert(
+    provenance.length === 0 ||
+      provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
+    "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
+  );
+  const reviewedDomain = domain.filter(
+    (column) => !column.startsWith("ImportedRecordProvenance|"),
+  );
   const identityVersion: 0 | 1 | null =
-    domain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
-    domain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
+    reviewedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
+    reviewedDomain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
       ? 0
-      : domain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
-          domain.join("\n") === REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
+      : reviewedDomain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
+          reviewedDomain.join("\n") ===
+            REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
         ? 1
         : null;
   operatorAssert(identityVersion !== null, "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");

@@ -16,6 +16,7 @@ import { policyActionTarget } from "~/lib/policy-evidence";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import { hashPassword } from "~/server/auth/password";
 import { syncSessionFlag } from "~/server/crew/flags";
+import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import * as flags from "~/server/crew/flags";
 import {
   completeRegistration,
@@ -1407,6 +1408,70 @@ it("attendance correction reverses automatic removal, restores current pairing a
   ).rejects.toMatchObject({ code: "CONFLICT" });
 });
 
+it("an imported approved removal is historical evidence rather than automatic reinstatement authority", async () => {
+  const at = new Date("2026-09-01T00:00:00Z");
+  await db.pairingTutee.deleteMany({ where: { tuteeId: "review-tutee" } });
+  await db.tutee.update({
+    where: { id: "review-tutee" },
+    data: { status: "INACTIVE", updatedAt: at },
+  });
+  const removal = await db.tuteeRemovalRequest.create({
+    data: {
+      tuteeId: "review-tutee",
+      kind: "PUNISHMENT",
+      state: "APPROVED",
+      resolvedAt: at,
+      pairingSnapshot: { pairingIds: ["review-pairing"], status: "ACTIVE" },
+    },
+  });
+  await db.importedRecordProvenance.create({
+    data: { entity: "TuteeRemovalRequest", recordId: removal.id },
+  });
+  expect(
+    await auditActorScope.run(
+      { id: "review-head", name: "Review Head", role: "HEAD" },
+      () => syncPunishmentRemoval(db, "review-tutee"),
+    ),
+  ).toEqual({ removed: false });
+  expect(
+    (await db.tutee.findUniqueOrThrow({ where: { id: "review-tutee" } }))
+      .status,
+  ).toBe("INACTIVE");
+  expect(
+    await db.pairingTutee.count({ where: { tuteeId: "review-tutee" } }),
+  ).toBe(0);
+  expect(
+    (
+      await db.tuteeRemovalRequest.findUniqueOrThrow({
+        where: { id: removal.id },
+      })
+    ).state,
+  ).toBe("APPROVED");
+});
+
+it("retains valid imported cards in disciplinary standing after explicit current participation", async () => {
+  const cards = await Promise.all(
+    [0, 1].map(() =>
+      db.disciplinaryCard.create({
+        data: { tuteeId: "review-tutee", color: "RED", reviewStatus: "VALID" },
+      }),
+    ),
+  );
+  await db.importedRecordProvenance.createMany({
+    data: cards.map((card) => ({
+      entity: "DisciplinaryCard",
+      recordId: card.id,
+    })),
+  });
+  expect(await syncPunishmentRemoval(db, "review-tutee")).toEqual({
+    removed: true,
+  });
+  expect(
+    (await db.tutee.findUniqueOrThrow({ where: { id: "review-tutee" } }))
+      .status,
+  ).toBe("INACTIVE");
+});
+
 it("a merged attendance correction credits the combined block exactly once", async () => {
   await db.pairing.create({
     data: {
@@ -1552,8 +1617,12 @@ it("revoking an application accepted for an existing account revokes its tutor g
 });
 
 it("concurrent period refresh advances exactly one quarter and rejects a stale retry", async () => {
-  const input = { confirm: "REFRESH", expectedTermId: "review-term",
-    expectedPreparation: (await caller().program.nextRecruitment()).refreshEvidence };
+  const input = {
+    confirm: "REFRESH",
+    expectedTermId: "review-term",
+    expectedPreparation: (await caller().program.nextRecruitment())
+      .refreshEvidence,
+  };
   const outcomes = await Promise.allSettled([
     caller().admin.refresh(input),
     caller().admin.refresh(input),
@@ -2107,12 +2176,16 @@ it("F09: undoing a card review must reconcile the resulting removal", async () =
   const log = await db.auditLog.findFirstOrThrow({
     where: { entityId: second.id },
   });
-  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({
+    code: "PRECONDITION_FAILED",
+  });
   // Retain coverage of the legacy domain primitive, which has no website entry.
-  expect(await auditActorScope.run(
-    { id: "review-head", name: "Review Head", role: "HEAD" },
-    () => audit.applyUndo(log.undoData, db),
-  )).toBe(true);
+  expect(
+    await auditActorScope.run(
+      { id: "review-head", name: "Review Head", role: "HEAD" },
+      () => audit.applyUndo(log.undoData, db),
+    ),
+  ).toBe(true);
   const removed = await db.tutee.findUniqueOrThrow({
     where: { id: "review-tutee" },
   });
@@ -2393,7 +2466,9 @@ it("F19: announcement deletion undo must retain existing acknowledgements", asyn
   });
   await caller().admin.deleteAnnouncement({ id: a.id });
   const log = await db.auditLog.findFirstOrThrow({ where: { entityId: a.id } });
-  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({
+    code: "PRECONDITION_FAILED",
+  });
   expect(await audit.applyUndo(log.undoData, db)).toBe(true);
   expect(
     await db.announcementAck.count({ where: { announcementId: a.id } }),
@@ -3485,7 +3560,11 @@ it("interview outcomes cannot bypass the assigned chair", async () => {
       accept: true,
       comment: "Majority accepts",
       expectedUpdatedAt: current.updatedAt,
-      completion: { completedAt: new Date("2026-09-15T04:00:00Z"), durationMin: 30, attendedTutorIds: panel.map((p) => p.id) },
+      completion: {
+        completedAt: new Date("2026-09-15T04:00:00Z"),
+        durationMin: 30,
+        attendedTutorIds: panel.map((p) => p.id),
+      },
     }),
   ).resolves.toEqual({ ok: true });
   expect(await db.approvalRequest.count()).toBe(0);
@@ -3622,7 +3701,9 @@ it("historical Coordinator-chair completion corrections preserve decisions, vote
     orderBy: { id: "asc" },
   });
   const coordinator = caller("COORDINATOR", "panel-user-0", panel[0]!.id);
-  await expect(coordinator.interviewManagement.complete(input)).resolves.toEqual({
+  await expect(
+    coordinator.interviewManagement.complete(input),
+  ).resolves.toEqual({
     ok: true,
   });
   expect(await db.approvalRequest.count()).toBe(0);
@@ -3763,7 +3844,9 @@ it("Admin lost-response completion retry returns its receipt and a fresh correct
     expectedUpdatedAt: recorded.updatedAt,
   });
   expect(await db.approvalRequest.count()).toBe(0);
-  const corrected = await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } });
+  const corrected = await db.serviceHourAdjustment.findMany({
+    orderBy: { id: "asc" },
+  });
   expect(corrected).toHaveLength(credits.length);
   expect(corrected.every((row) => row.amount === 0.75)).toBe(true);
 });
@@ -4039,7 +4122,10 @@ it("Admin-reviewed Coordinator interview correction retains original period and 
     attendedTutorIds: [panel[0]!.id],
     expectedUpdatedAt: current.updatedAt,
   };
-  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
   await expect(
     caller("COORDINATOR", "review-viewer").interviewManagement.complete(
       correction,
@@ -4150,7 +4236,11 @@ it("chair acceptance preserves recorded service and ordinary tutors see only the
       accept: true,
       comment: "All panelists recommend acceptance",
       expectedUpdatedAt: current.updatedAt,
-      completion: { completedAt: new Date("2026-09-15"), durationMin: 45, attendedTutorIds: [panel[1]!.id] },
+      completion: {
+        completedAt: new Date("2026-09-15"),
+        durationMin: 45,
+        attendedTutorIds: [panel[1]!.id],
+      },
     }),
   ).resolves.toEqual({ ok: true });
   const pending = (
@@ -4262,12 +4352,16 @@ it("application setup links recover exact legacy provenance without guessing, pr
     data: { englishName: app.name },
   });
   const read = async () =>
-    (await caller().admin.tutorApplications()).find((row) => row.id === app.id)!;
+    (await caller().admin.tutorApplications()).find(
+      (row) => row.id === app.id,
+    )!;
   const workflow = async () =>
-    (await caller().interviewManagement.options({
-      completion: "ALL",
-      applicationId: app.id,
-    })).applications.rows[0]!;
+    (
+      await caller().interviewManagement.options({
+        completion: "ALL",
+        applicationId: app.id,
+      })
+    ).applications.rows[0]!;
   const expiresAt = new Date(0);
   // Neither a matching email/name nor a non-tutor code grants a roster binding.
   await db.registrationCode.createMany({
@@ -4300,7 +4394,9 @@ it("application setup links recover exact legacy provenance without guessing, pr
   });
   // Consumed/expired codes retain exact provenance without being redeemable again.
   expect((await read()).setupTutorId).toBe("review-tutor");
-  expect((await workflow()).registration.href).toBe("/admin/users#tutor-review-tutor");
+  expect((await workflow()).registration.href).toBe(
+    "/admin/users#tutor-review-tutor",
+  );
   expect(
     (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
       .promotedTutorId,
@@ -4332,7 +4428,9 @@ it("application setup links recover exact legacy provenance without guessing, pr
     orderBy: { id: "asc" },
   });
   expect((await read()).setupTutorId).toBe("review-tutor");
-  expect((await workflow()).registration.href).toBe("/admin/users#tutor-review-tutor");
+  expect((await workflow()).registration.href).toBe(
+    "/admin/users#tutor-review-tutor",
+  );
   const observerRow = (
     await caller("VIEWER", "review-viewer").admin.tutorApplications()
   ).find((row) => row.id === app.id)!;
@@ -4683,7 +4781,11 @@ it("the selected Admin chair can break a tie while a Head panelist cannot take o
       accept: true,
       comment: "Chair tie-break",
       expectedUpdatedAt: current.updatedAt,
-      completion: { completedAt: new Date("2026-09-15T04:00:00Z"), durationMin: 30, attendedTutorIds: panel.map((p) => p.id) },
+      completion: {
+        completedAt: new Date("2026-09-15T04:00:00Z"),
+        durationMin: 30,
+        attendedTutorIds: panel.map((p) => p.id),
+      },
     }),
   ).resolves.toEqual({ ok: true });
   expect(await db.approvalRequest.count()).toBe(0);

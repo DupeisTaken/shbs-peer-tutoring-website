@@ -505,7 +505,41 @@ old mailbox proof.
 - Use `true`/`false`, numeric quantities, enum values from the application's schema, and ISO timestamps with `Z` or a timezone offset. Use JSON inside a quoted cell for arrays and objects.
 - `\N` means a database null. An empty cell means empty text. Double a literal leading backslash or apostrophe. Exports prefix formula-like text with an apostrophe for spreadsheet safety; the importer reverses that prefix.
 - New terms must have `active=false`. New pairing groups, pairings and sessions must belong to inactive terms. Importing history never changes the active program period. Stored historical service hours are retained, rather than recalculated with a later policy.
+- New tutor rows require an explicit inactive status (`GRADUATED`, `OPTED_OUT`, `ARCHIVED` or `TRANSFERRED`); new tutees require `INACTIVE`. Use the normal signup, roster and reactivation workflows for current participation. Omitting a status does not activate an archived participant.
+- Import completed application, request, appeal, card and flag outcomes only. New meetings and their attendance must be in the past; supplied patrol creation, credit and observation timestamps cannot be in the future. New announcements require `active=false`. Create pending work, upcoming meetings and published notices through their current management pages.
+- Historical interview panels, subject intents and votes require completed applications. Historical cards, signup screening, availability and qualifications require inactive participant targets; signup records and quarter restrictions require inactive terms. Signup screening also requires an inactive intake term when one is recorded. These checks also apply when only a related child file is selected.
 - Select related CSV files together; the importer orders them by dependency. References must point to another selected record or an existing database record. A transfer supports up to **5 MiB of expanded CSV data and 5,000 records**. For larger complete exports, use an operator-managed database backup.
+
+New imported evidence is recorded separately from current operational work. Its
+stored service credit remains visible in history and retained totals; importing
+does not certify that the school has posted it or queue it as new school credit.
+See [school service-hours reporting](user-guide.md#review-records-and-reports)
+for the opening-balance review. An exact existing record is still skipped before
+the new-record checks, so reimporting an unchanged current export does not change
+its origin or membership. Use a full deployment backup for restoring live state;
+the historical CSV importer does not restart pending workflows.
+
+Imported meeting attendance and amendments keep their original policy evidence.
+A later native meeting attendance edit or tutor excuse does not recalculate those
+past deductions or use imported absences to exhaust the current allowance.
+Imported meetings/attendance cannot be edited or deleted through the normal
+meeting editor; ask the operator to review archive recovery for a source
+correction. Original records imported before origin tracking remain unclassified;
+their history is not automatically labelled or declared already reported.
+
+Imported attendance blocks, flags and crew observations stay separate from
+automatic catalogue and patrol comparisons. Changing a current catalogue slot
+does not change an imported block's stored times or hours, including a combined
+block with one imported attendance row. Imported patrol observations do not raise
+new discrepancy requests against native attendance. The native interview
+completion workflow also preserves imported application, panel and credit
+evidence. Re-saving an imported accepted tutor application cannot create or
+reissue current tutor membership or an invitation; that historical acceptance
+also cannot prevent revocation of a separate native grant. Valid historical
+cards continue to count under the existing discipline
+policy; an imported removal decision does not automatically reinstate a learner
+when a later card correction runs. Deliberate reviewed source corrections remain
+separate from these automatic effects.
 
 For example, import these three files together to add an archived tutor and pairing. IDs are synthetic; replace them with your own stable identifiers. The tutor record does not create a login.
 

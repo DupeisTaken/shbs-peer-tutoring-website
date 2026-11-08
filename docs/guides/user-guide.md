@@ -1425,6 +1425,18 @@ Before the first report, Admin/Head review each person's school-account referenc
 and already-reported opening amounts. Confirm zero explicitly when no hours were
 previously reported. Resolve missing or conflicting identities before issuance;
 old monthly totals are not a substitute for individual opening balances.
+Save completed reviews in batches; each saved person stays reviewed while the
+remaining people are checked. Issuance remains blocked until the required reviews
+and identity issues are resolved. A missing balance is never treated as zero.
+
+Newly imported historical attendance, adjustments and Crew patrols remain visible
+as archive evidence in program records and totals. School reports show the number
+of these excluded sources; importing them does not create new school credits or
+opening-review work. Imports made before archive tracking began still require
+the original opening reconciliation. If historical hours genuinely remain unposted,
+reconcile them with the school operator rather than importing or reporting them
+again. A restored archive that overlaps previously reviewed school evidence blocks
+issuance until its reporting boundary is reconciled.
 
 Automation starts off. Add school recipient email addresses, review the timezone
 and save. The default send is noon on the last day of each month; individual

@@ -188,38 +188,60 @@ async function audit(
 /** Explicit ownership and retirement edges are identity evidence. Names, shared
  * Person rows and email addresses never join beneficiaries. */
 async function collect(db: DomainDb) {
-  const [users, tutors, sessions, adjustments, patrols] = await Promise.all([
-    db.user.findMany({
-      select: {
-        id: true,
-        ...nameSelect,
-        name: true,
-        tutorId: true,
-        mergedIntoId: true,
-      },
-    }),
-    db.tutor.findMany({
-      select: {
-        id: true,
-        ...nameSelect,
-        englishName: true,
-        nameFieldsConfirmed: true,
-        retainedOwner: { select: { userId: true } },
-      },
-    }),
-    db.session.findMany({
-      select: { id: true, tutorId: true, shCount: true },
-      orderBy: { id: "asc" },
-    }),
-    db.serviceHourAdjustment.findMany({
-      select: { id: true, tutorId: true, type: true, amount: true },
-      orderBy: { id: "asc" },
-    }),
-    db.patrol.findMany({
-      select: { id: true, crewUserId: true, hours: true },
-      orderBy: { id: "asc" },
-    }),
-  ]);
+  const [users, tutors, sessions, adjustments, patrols, imported] =
+    await Promise.all([
+      db.user.findMany({
+        select: {
+          id: true,
+          ...nameSelect,
+          name: true,
+          tutorId: true,
+          mergedIntoId: true,
+        },
+      }),
+      db.tutor.findMany({
+        select: {
+          id: true,
+          ...nameSelect,
+          englishName: true,
+          nameFieldsConfirmed: true,
+          retainedOwner: { select: { userId: true } },
+        },
+      }),
+      db.session.findMany({
+        select: { id: true, tutorId: true, shCount: true },
+        orderBy: { id: "asc" },
+      }),
+      db.serviceHourAdjustment.findMany({
+        select: { id: true, tutorId: true, type: true, amount: true },
+        orderBy: { id: "asc" },
+      }),
+      db.patrol.findMany({
+        select: { id: true, crewUserId: true, hours: true },
+        orderBy: { id: "asc" },
+      }),
+      db.importedRecordProvenance.findMany({
+        where: {
+          entity: { in: ["Session", "ServiceHourAdjustment", "Patrol"] },
+        },
+        select: { entity: true, recordId: true },
+      }),
+    ]);
+  const importedKeys = new Set(
+    imported.map((row) => `${row.entity}:${row.recordId}`),
+  );
+  const importedSourceKeys = new Set(
+    imported.map(
+      (row) =>
+        `${row.entity === "Session" ? "session" : row.entity === "Patrol" ? "patrol" : "adjustment"}:${row.recordId}`,
+    ),
+  );
+  const archivedSourceKeys = new Set<string>();
+  const archived = (entity: string, id: string, sourceKey: string) => {
+    if (!importedKeys.has(`${entity}:${id}`)) return false;
+    archivedSourceKeys.add(sourceKey);
+    return true;
+  };
   const blockers: Blocker[] = [];
   const userMap = new Map(users.map((user) => [user.id, user]));
   const tutorMap = new Map(tutors.map((tutor) => [tutor.id, tutor]));
@@ -339,27 +361,41 @@ async function collect(db: DomainDb) {
       ownerId,
     });
   }
+  // Stored archive hours remain available in rosters/history. Importing evidence
+  // alone never certifies new school credit, even for an already-reviewed owner.
   for (const row of sessions)
-    add("tutor", row.tutorId, `session:${row.id}`, "earned", row.shCount);
+    if (!archived("Session", row.id, `session:${row.id}`))
+      add("tutor", row.tutorId, `session:${row.id}`, "earned", row.shCount);
   // Reconciliation IDs (meeting absences/interview awards) are logical source
   // keys, so delete/recreate with the same ID never becomes a second deduction.
   for (const row of adjustments)
-    add(
-      "tutor",
-      row.tutorId,
-      `adjustment:${row.id}`,
-      row.type === "EXTRA" ? "extras" : "deductions",
-      row.amount,
-    );
+    if (!archived("ServiceHourAdjustment", row.id, `adjustment:${row.id}`))
+      add(
+        "tutor",
+        row.tutorId,
+        `adjustment:${row.id}`,
+        row.type === "EXTRA" ? "extras" : "deductions",
+        row.amount,
+      );
   for (const row of patrols)
-    add("user", row.crewUserId, `patrol:${row.id}`, "crew", row.hours);
+    if (!archived("Patrol", row.id, `patrol:${row.id}`))
+      add("user", row.crewUserId, `patrol:${row.id}`, "crew", row.hours);
   for (const person of people.values())
     for (const key of keys)
       person.components[key] = componentTotals
         .get(person.beneficiaryId)!
         [key].toNumber();
   sources.sort((a, b) => a.key.localeCompare(b.key));
-  return { people, sources, blockers, resolve, userMap, tutorMap };
+  return {
+    people,
+    sources,
+    blockers,
+    resolve,
+    userMap,
+    tutorMap,
+    archivedSourceKeys,
+    importedSourceKeys,
+  };
 }
 
 async function accounting(db: DomainDb) {
@@ -379,6 +415,24 @@ async function accounting(db: DomainDb) {
     : [];
   const previous = new Map<string, Person>();
   const blockers = [...current.blockers];
+  // Reimporting a deleted logical source must not turn its committed credit into
+  // a negative correction. Such a boundary change needs explicit reconciliation.
+  for (const source of [...committed.sources, ...opening.sources]) {
+    if (
+      current.importedSourceKeys.has(source.key) &&
+      !blockers.some(
+        (blocker) =>
+          blocker.code === "IMPORTED_SOURCE_REQUIRES_RECONCILIATION" &&
+          blocker.beneficiaryId === source.beneficiaryId,
+      )
+    )
+      blockers.push({
+        code: "IMPORTED_SOURCE_REQUIRES_RECONCILIATION",
+        beneficiaryId: source.beneficiaryId,
+        message:
+          "Previously reviewed school-reporting evidence was restored as an archive. Reconcile its reporting boundary before issuing.",
+      });
+  }
   const resolvePerson = (person: Person) => {
     const direct = current.resolve(person.beneficiaryId);
     if (direct) return direct;
@@ -506,6 +560,7 @@ async function accounting(db: DomainDb) {
       head: head?.id ?? null,
       participants,
       sources: current.sources,
+      archivedSourceKeys: [...current.archivedSourceKeys].sort(),
       blockers,
     }),
   };
@@ -520,6 +575,7 @@ export async function schoolHoursBaselinePreview(db: DomainDb) {
       headReportId: result.head?.id ?? null,
       participants: result.participants,
       blockers: result.blockers,
+      archivedSourceCount: result.current.archivedSourceKeys.size,
     };
   });
 }
@@ -576,7 +632,23 @@ export async function reviewSchoolHoursBaseline(
       throw invalid(
         "Each independent participant needs a distinct school identifier.",
       );
-    opening.sources = result.current.sources;
+    // A partial review anchors only its selected people. Preserve everyone
+    // else's reviewed ownership evidence rather than adopting a background read.
+    const reviewed = new Set(
+      input.participants.map((row) => row.beneficiaryId),
+    );
+    opening.sources = [
+      ...opening.sources.filter(
+        (source) =>
+          !reviewed.has(
+            result.current.resolve(source.beneficiaryId) ??
+              source.beneficiaryId,
+          ),
+      ),
+      ...result.current.sources.filter((source) =>
+        reviewed.has(source.beneficiaryId),
+      ),
+    ].sort((left, right) => left.key.localeCompare(right.key));
     const baselineVersion = input.expectedBaselineVersion + 1;
     await tx.schoolHoursSchedule.upsert({
       where: { id: "program" },
@@ -863,6 +935,7 @@ async function preview(db: DomainDb, month: string) {
     recipients: config.recipientEmails,
     snapshot: { ...snapshot, generatedAt: null },
     sources: state.current.sources,
+    archivedSourceKeys: [...state.current.archivedSourceKeys].sort(),
     blockers,
   });
   return {
@@ -894,6 +967,7 @@ export async function previewSchoolHours(db: DomainDb, month: string) {
       contentHash: result.contentHash,
       blockers: result.blockers,
       email: result.email,
+      archivedSourceCount: result.state.current.archivedSourceKeys.size,
     };
   });
 }

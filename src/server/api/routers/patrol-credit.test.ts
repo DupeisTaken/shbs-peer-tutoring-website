@@ -229,6 +229,8 @@ it("rejects an archive reservation assigned to a different patrol author and rol
 });
 
 it("restores overlapping legacy awards and an observation-free patrol without changing historical totals", async () => {
+  // The complete archived batch must already have happened at import time.
+  vi.setSystemTime(new Date("2026-09-01T08:41:00Z"));
   const patrols = [
     { id: "first", crewUserId: crewId, hours: 0.5, createdAt: "2026-09-01T08:10:00.000Z", updatedAt: "2026-09-01T08:30:00.000Z" },
     { id: "duplicate", crewUserId: crewId, hours: 1, createdAt: "2026-09-01T08:11:00.000Z", updatedAt: "2026-09-01T08:11:00.000Z" },

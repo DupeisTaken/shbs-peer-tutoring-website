@@ -68,9 +68,12 @@ export function SchoolHoursBaselineEditor({
   const pending = captured.participants.filter((person) =>
     reviewable(person, captured),
   );
+  const selected = pending.filter(
+    (person) => drafts[person.beneficiaryId]?.reviewed,
+  );
   const valid =
-    pending.length > 0 &&
-    pending.every((person) => {
+    selected.length > 0 &&
+    selected.every((person) => {
       const draft = drafts[person.beneficiaryId];
       return (
         draft?.reviewed &&
@@ -98,7 +101,7 @@ export function SchoolHoursBaselineEditor({
       !reason.trim()
     )
       return;
-    const participants = pending.map((person) => {
+    const participants = selected.map((person) => {
       const draft = drafts[person.beneficiaryId]!;
       return {
         beneficiaryId: person.beneficiaryId,
@@ -127,8 +130,20 @@ export function SchoolHoursBaselineEditor({
         }),
       refresh: async () => {
         const fresh = await refresh();
+        const submitted = new Set(
+          participants.map((person) => person.beneficiaryId),
+        );
         setCaptured(fresh);
-        setDrafts(initial(fresh));
+        // Saving one reviewed batch must not discard another person's draft.
+        // Fresh evidence still requires a new explicit per-person acknowledgement.
+        setDrafts((previous) => {
+          const next = initial(fresh);
+          for (const id of Object.keys(next)) {
+            if (!submitted.has(id) && previous[id])
+              next[id] = { ...previous[id], reviewed: false };
+          }
+          return next;
+        });
         setAcknowledged(false);
       },
       renderError: () => t("writeFailed"),
@@ -139,6 +154,11 @@ export function SchoolHoursBaselineEditor({
       <h3 className="text-sm font-semibold">{t("baselineTitle")}</h3>
       <p className="text-sm text-slate-700">{t("baselineHelp")}</p>
       <p className="muted text-sm">{t("mappingHelp")}</p>
+      {basis.archivedSourceCount > 0 && (
+        <InlineNotice>
+          {t("archivedSources", { count: basis.archivedSourceCount })}
+        </InlineNotice>
+      )}
       <SchoolHoursBlockers
         blockers={basis.blockers}
         participants={basis.participants}
@@ -317,6 +337,10 @@ export function SchoolHoursBaselineEditor({
       )}
       {canReview && pending.length > 0 && (
         <fieldset className="space-y-3" disabled={blocked || stale}>
+          <p className="text-sm text-slate-700">{t("baselineBatchHelp")}</p>
+          <p role="status" className="text-sm font-semibold">
+            {t("baselineSelectedCount", { count: selected.length })}
+          </p>
           <label className="block space-y-1 text-sm">
             <span className="block">{t("baselineReason")}</span>
             <textarea
