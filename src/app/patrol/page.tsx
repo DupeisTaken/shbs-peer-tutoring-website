@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useId } from "react";
+import { useState, useRef, useEffect, useId, useLayoutEffect } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -10,6 +10,8 @@ import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { AcademicError } from "~/app/_components/academic-error";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { StatePanel } from "~/app/_components/ui/patterns";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
 
 type Headcount = "ZERO" | "ONE" | "TWO" | "THREE" | "FOUR_PLUS";
 const BUCKETS: { value: Headcount; label: string }[] = [
@@ -151,6 +153,8 @@ export default function PatrolPage() {
   const [note, setNote] = useState("");
   const [optOutReason, setOptOutReason] = useState("");
   const [showOptOut, setShowOptOut] = useState(false);
+  const optOutReview = useActionReview();
+  const optOutKey = "crew-membership:opt-out";
   const draftRevoked = statusDenied || configDenied;
   const [wasDraftRevoked, setWasDraftRevoked] = useState(draftRevoked);
   if (draftRevoked !== wasDraftRevoked) {
@@ -168,15 +172,63 @@ export default function PatrolPage() {
   }, [draftRevoked]);
 
   const refetchStatus = () => utils.crew.myStatus.invalidate();
-  const optOut = api.crew.requestOptOut.useMutation({
-    onSuccess: refetchStatus,
-  });
+  const optOut = api.crew.requestOptOut.useMutation();
   const recall = api.crew.recallOptOut.useMutation({
     onSuccess: refetchStatus,
   });
   const reentry = api.crew.requestReentry.useMutation({
     onSuccess: refetchStatus,
   });
+  const membershipBusy =
+    optOut.isPending ||
+    recall.isPending ||
+    reentry.isPending ||
+    optOutReview.busy;
+  const optOutAllowed =
+    !statusHidden &&
+    !draftRevoked &&
+    status === "ACTIVE" &&
+    !pending &&
+    !myStatus.error &&
+    !myStatus.isFetching &&
+    !membershipBusy;
+  const optOutAllowedNow = useRef(false);
+  useLayoutEffect(() => {
+    optOutAllowedNow.current = optOutAllowed;
+  }, [optOutAllowed]);
+  const { revoke: revokeOptOut } = optOutReview;
+  useEffect(() => {
+    if (statusHidden || draftRevoked) revokeOptOut();
+  }, [statusHidden, draftRevoked, revokeOptOut]);
+  const optOutBlocked = !optOutAllowed || optOutReview.blocked(optOutKey);
+  const reviewOptOut = () => {
+    if (optOutBlocked || !optOutAllowedNow.current) return;
+    const reason = optOutReason.trim();
+    optOutReview.open({
+      key: optOutKey,
+      title: t("crew.patrol.optOut.request"),
+      description: t("tutor.settings.optOutReviewHelp"),
+      confirmLabel: t("crew.patrol.optOut.submit"),
+      confirmVariant: "danger",
+      confirmDelayMs: 3_000,
+      successMessage: t("tutor.settings.optOutSubmitted"),
+      details: reason ? (
+        <div className="space-y-1">
+          <p className="label">{t("crew.patrol.optOut.reasonLabel")}</p>
+          <p className="text-sm wrap-anywhere whitespace-pre-wrap">{reason}</p>
+        </div>
+      ) : undefined,
+      // Capture the reviewed reason, but recheck current eligibility when confirming.
+      commit: () => {
+        if (!optOutAllowedNow.current)
+          throw new Error(t("participantRecovery.loadFailed"));
+        return optOut.mutateAsync({ reason: reason || undefined });
+      },
+      refresh: () => invalidateAndReport(utils.crew.myStatus),
+      renderResult: () => <p>{t("crew.patrol.optOut.pending")}</p>,
+      repeatAfterRefresh: true,
+    });
+  };
 
   const submit = api.crew.submitPatrol.useMutation({
     onSuccess: async () => {
@@ -482,7 +534,7 @@ export default function PatrolPage() {
                   </span>
                   <button
                     className="btn-secondary btn-sm"
-                    disabled={recall.isPending || !!myStatus.error}
+                    disabled={membershipBusy || !!myStatus.error}
                     onClick={() => {
                       if (!myStatus.error) recall.mutate();
                     }}
@@ -500,29 +552,26 @@ export default function PatrolPage() {
                   </label>
                   <textarea
                     id={`${fieldId}-reason`}
-                    disabled={optOut.isPending || !!myStatus.error}
+                    disabled={optOutBlocked}
                     value={optOutReason}
                     onChange={(e) => setOptOutReason(e.target.value)}
                     placeholder={t("crew.patrol.optOut.reason")}
                     rows={2}
+                    maxLength={500}
                     className="textarea"
                   />
                   <div className="flex gap-2">
-                    <button
-                      className="btn-secondary btn-sm"
-                      disabled={optOut.isPending || !!myStatus.error}
-                      onClick={() =>
-                        !myStatus.error &&
-                        optOut.mutate({
-                          reason: optOutReason.trim() || undefined,
-                        })
-                      }
+                    <Button
+                      variant="danger"
+                      size="compact"
+                      disabled={optOutBlocked}
+                      onClick={reviewOptOut}
                     >
                       {t("crew.patrol.optOut.submit")}
-                    </button>
+                    </Button>
                     <button
                       className="btn-secondary btn-sm"
-                      disabled={optOut.isPending}
+                      disabled={membershipBusy}
                       onClick={() => setShowOptOut(false)}
                     >
                       {t("common.close")}
@@ -530,13 +579,14 @@ export default function PatrolPage() {
                   </div>
                 </div>
               ) : (
-                <button
-                  className="link text-sm"
-                  disabled={!!myStatus.error}
+                <Button
+                  variant="danger"
+                  size="compact"
+                  disabled={optOutBlocked}
                   onClick={() => setShowOptOut(true)}
                 >
                   {t("crew.patrol.optOut.request")}
-                </button>
+                </Button>
               )}
               {(optOut.error ?? recall.error) && (
                 <p className="mt-2 text-sm text-red-600">
@@ -547,6 +597,7 @@ export default function PatrolPage() {
           )}
         </>
       )}
+      {!statusHidden && !draftRevoked && optOutReview.dialog}
     </div>
   );
 }

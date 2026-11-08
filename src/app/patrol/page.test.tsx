@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
@@ -31,6 +32,9 @@ const state = vi.hoisted(() => ({
   > => ({}))(),
   cold: false,
   refetch: vi.fn(),
+  optOut: vi.fn(),
+  invalidateStatus: vi.fn(),
+  reviewTime: 0,
 }));
 const lifecycle = vi.hoisted(() => ({
   onSuccess: () => Promise.resolve(),
@@ -40,7 +44,7 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       crew: {
-        myStatus: { invalidate: vi.fn() },
+        myStatus: { invalidate: state.invalidateStatus },
         patrolConfig: { invalidate: state.invalidateConfig },
         myPatrols: { invalidate: state.invalidateHistory },
       },
@@ -84,7 +88,9 @@ vi.mock("~/trpc/react", () => ({
           refetch: state.refetch,
         }),
       },
-      requestOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
+      requestOptOut: {
+        useMutation: () => ({ mutateAsync: state.optOut, isPending: false }),
+      },
       recallOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
       requestReentry: { useMutation: () => ({ mutate: vi.fn() }) },
       submitPatrol: {
@@ -103,6 +109,7 @@ let queryClient: QueryClient;
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 beforeEach(() => {
   Object.assign(state, {
@@ -115,6 +122,21 @@ beforeEach(() => {
   state.readError = {};
   state.cold = false;
   state.refetch.mockReset();
+  state.optOut.mockReset().mockResolvedValue({ id: "opt-out-1" });
+  state.invalidateStatus.mockReset().mockResolvedValue(undefined);
+  state.reviewTime = 0;
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false;
+    },
+  });
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -134,6 +156,146 @@ const view = (locale: "en" | "zh" = "en") => (
   </QueryClientProvider>
 );
 const show = (locale: "en" | "zh" = "en") => render(view(locale));
+
+function openCrewReview(locale: "en" | "zh" = "en") {
+  const copy = locale === "zh" ? chinese : messages;
+  vi.spyOn(performance, "now").mockImplementation(() => state.reviewTime);
+  const opener = screen.getByRole("button", {
+    name: copy.crew.patrol.optOut.request,
+  });
+  expect(opener.className).toContain("btn-danger");
+  fireEvent.click(opener);
+  fireEvent.change(screen.getByLabelText(copy.crew.patrol.optOut.reasonLabel), {
+    target: { value: "  Exam schedule  " },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: copy.crew.patrol.optOut.submit }),
+  );
+  return within(
+    screen.getByRole("dialog", { name: copy.crew.patrol.optOut.request }),
+  );
+}
+function readyCrewReview() {
+  act(() => {
+    state.reviewTime += 3_000;
+    fireEvent.focus(window);
+  });
+  return within(screen.getByRole("dialog")).getByRole("button", {
+    name: messages.crew.patrol.optOut.submit,
+  });
+}
+
+it.each(["en", "zh"] as const)(
+  "reviews the red crew opt-out request and keeps cancellation safe in %s",
+  (locale) => {
+    show(locale);
+    const copy = locale === "zh" ? chinese : messages;
+    const review = openCrewReview(locale);
+    const confirm = review.getByRole<HTMLButtonElement>("button", {
+      name: copy.crew.patrol.optOut.submit,
+    });
+    expect(confirm.className).toContain("btn-danger");
+    expect(confirm.disabled).toBe(true);
+    expect(review.getByText("Exam schedule")).toBeTruthy();
+    expect(review.getByText(copy.tutor.settings.optOutReviewHelp)).toBeTruthy();
+    fireEvent.click(confirm);
+    expect(state.optOut).not.toHaveBeenCalled();
+    fireEvent.click(
+      review.getByRole("button", { name: copy.actionReview.cancel }),
+    );
+    expect(
+      screen.getByRole<HTMLTextAreaElement>("textbox", {
+        name: copy.crew.patrol.optOut.reasonLabel,
+      }).value,
+    ).toBe("  Exam schedule  ");
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.crew.patrol.optOut.submit }),
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByRole<HTMLButtonElement>(
+        "button",
+        { name: copy.crew.patrol.optOut.submit },
+      ).disabled,
+    ).toBe(true);
+  },
+);
+
+it("admits one crew request, freezes pending inputs and retains a rejected reason", async () => {
+  let reject!: (error: Error) => void;
+  state.optOut.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, fail) => {
+        reject = fail;
+      }),
+  );
+  show();
+  openCrewReview();
+  const confirm = readyCrewReview();
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  expect(state.optOut).toHaveBeenCalledExactlyOnceWith({
+    reason: "Exam schedule",
+  });
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: messages.crew.patrol.optOut.reasonLabel,
+    }).disabled,
+  ).toBe(true);
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  await act(async () => {
+    reject(new Error("Request failed"));
+  });
+  expect(screen.getByRole("alert").textContent).toContain("Request failed");
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.actionReview.cancel,
+    }),
+  );
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: messages.crew.patrol.optOut.reasonLabel,
+    }).value,
+  ).toBe("  Exam schedule  ");
+  expect(state.invalidateStatus).not.toHaveBeenCalled();
+});
+
+it("recovers an accepted crew request through reads only after the review closes", async () => {
+  state.invalidateStatus.mockRejectedValueOnce(new Error("Read unavailable"));
+  show();
+  openCrewReview();
+  fireEvent.click(readyCrewReview());
+  await screen.findByText(messages.actionReview.refreshFailed);
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.actionReview.close,
+    }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.actionReview.retry }),
+  );
+  await screen.findByText(messages.tutor.settings.optOutSubmitted);
+  expect(state.optOut).toHaveBeenCalledOnce();
+  expect(state.invalidateStatus).toHaveBeenCalledTimes(2);
+});
+
+it("rechecks crew status and conceals private review evidence after access denial", async () => {
+  const rendered = show();
+  openCrewReview();
+  state.status = "OPTED_OUT";
+  rendered.rerender(view());
+  fireEvent.click(readyCrewReview());
+  await screen.findByText(messages.participantRecovery.loadFailed);
+  expect(state.optOut).not.toHaveBeenCalled();
+  state.readError.status = { message: "Denied", data: { code: "FORBIDDEN" } };
+  rendered.rerender(view());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("Exam schedule")).toBeNull();
+});
 
 it("announces that evidence was saved without claiming zero-hour submissions earned credit", () => {
   state.hours = 0;

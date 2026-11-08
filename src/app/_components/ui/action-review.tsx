@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "./button";
 import { Modal } from "./modal";
 import { InlineNotice } from "./patterns";
+import { ReviewCountdown, useReviewDelay } from "../use-review-delay";
 
 export type ReviewedAction = {
   key: string;
@@ -14,6 +15,8 @@ export type ReviewedAction = {
   confirmLabel: string;
   /** Non-destructive reviews may use the primary accent; destructive stays default. */
   confirmVariant?: "primary" | "danger";
+  /** Optional local reading pause; does not replace a server confirmation ticket. */
+  confirmDelayMs?: number;
   /** Optional feature-owned summary of a completed write, separate from read recovery. */
   renderResult?: (result: unknown) => ReactNode;
   /** A successful request may queue work without applying the eventual change. */
@@ -120,6 +123,7 @@ function ActionReview({
   onRecovery: (failed: boolean) => void;
 }) {
   const t = useTranslations("actionReview");
+  const delay = useReviewDelay(action.confirmDelayMs);
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [writeResult, setWriteResult] = useState<unknown>();
@@ -154,7 +158,7 @@ function ActionReview({
   const commit = async () => {
     // React disabled state arrives on the next render. This guard also excludes
     // two submissions in the same event turn and all replays after acceptance.
-    if (admitted.current) return;
+    if (admitted.current || !delay.ready()) return;
     admitted.current = true;
     pending(true);
     setError(undefined);
@@ -226,12 +230,22 @@ function ActionReview({
       }}
       footer={
         <>
+          {!accepted && delay.remaining > 0 && (
+            <ReviewCountdown
+              id={delay.descriptionId}
+              remaining={delay.remaining}
+            />
+          )}
           <Button data-dialog-autofocus onClick={close}>
             {t(accepted ? "close" : "cancel")}
           </Button>
           {!accepted && (
             <Button
               variant={action.confirmVariant ?? "danger"}
+              disabled={delay.remaining > 0}
+              aria-describedby={
+                delay.remaining > 0 ? delay.descriptionId : undefined
+              }
               onClick={() => void commit()}
             >
               {action.confirmLabel}

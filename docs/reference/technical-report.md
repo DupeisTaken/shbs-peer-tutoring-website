@@ -1041,6 +1041,12 @@ rate limits, signup opening clocks and session timeouts are outside this contrac
 
 ## Identity and authorization
 
+`AccountSettings` composes `SchoolDepartureAction` into `AcademicPanel`'s optional
+action slot. The self-report opens the existing `SchoolDeparturePanel` in a
+`ProfileDialog`; staff academic panels retain their existing layout and departure
+editors. Academic drafts and departure revisions remain independent. A confirmed
+departure keeps the entry available for return requests and history.
+
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
 `SchoolDepartureEvent` records. [Portal access](../../src/lib/portal-access.ts) derives
 read-only observer access without rewriting roles. Protected procedures and workspace
@@ -1588,6 +1594,15 @@ Deadline timestamps live in PostgreSQL. The Node worker checks at startup and ev
 ### Membership changes
 
 Tutor and crew requests lock the member, recheck current membership and change only a pending request. Membership, notification and audit changes commit together, including through coordinator review. A stale request cannot override a later manual status change. Opt-out approval requires a seven-day wait; reentry requires approval without that wait. Opting out does not automatically perform the staff student-requeue action.
+
+Self-service Tutor/Crew opt-out reviews and the pending tutor's direct opt-out
+confirmation opt into a three-second presentation pause through `useReviewDelay`.
+The hook uses a monotonic deadline, resamples on focus/visibility, and rechecks
+readiness on click. Each explicit opening starts a new pause; Cancel is immediate
+and reaching zero never submits. `useActionReview` and `useDialog` remain immediate
+by default. This local pause is independent of server confirmation tickets and
+the seven-day membership approval wait. Crew review captures the displayed reason
+and rechecks eligibility before submitting; accepted-write recovery only refetches.
 
 These requests differ from non-survey tutee opt-outs relayed by a tutor: [removal processing](../../src/server/discipline/removal.ts) finalizes those after their seven-day recall window when a workflow enforces due requests. Survey/account-linked whole-period withdrawals instead require staff review and impose the period signup block. Do not merge these lifecycle rules.
 

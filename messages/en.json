@@ -5633,6 +5633,7 @@
     "recordedDatesUnknown": "Session dates not recorded"
   },
   "schoolDeparture": {
+    "reportTransfer": "I have transferred away",
     "title": "School Departure",
     "eyebrow": "Stay connected",
     "graduated": "Graduated",

@@ -5599,6 +5599,7 @@
     "recordedDatesUnknown": "Session dates not recorded"
   },
   "schoolDeparture": {
+    "reportTransfer": "다른 학교로 전학했습니다",
     "title": "School Departure",
     "eyebrow": "Stay connected",
     "graduated": "Graduated",
