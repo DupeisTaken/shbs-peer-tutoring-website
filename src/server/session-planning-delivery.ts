@@ -83,6 +83,7 @@ export async function admitSessionNotice(
     if (state.response) context.requiresExplicitAcceptance = offerAdmittedExplicit || !!(await tx.programCalendarDay.count({
       where: { active: true, schedulingEffect: "PAUSE_REGULAR", date: { lte: state.response.offer.date }, endDate: { gte: state.response.offer.date } },
     }));
+    if (context.requiresExplicitAcceptance !== true) delete context.requiresExplicitAcceptance;
     const actionable = context.isActionable === true && state.current;
     const user = await recipientState(tx, row, actionable ? state.response?.actorKey : undefined);
     if (!user) {
@@ -95,8 +96,14 @@ export async function admitSessionNotice(
       await tx.sessionNotice.update({ where: { id }, data: { leaseUntil: null, availableAt: new Date(Date.now() + 60_000), lastError: unavailable } });
       return null;
     }
+    // Admission changes only the stricter-guidance flag. Keep stored schedule
+    // context extensions intact; rendering continues to use its own allowlist.
+    const admittedContext = row.context && typeof row.context === "object" && !Array.isArray(row.context)
+      ? { ...row.context } : {};
+    if (context.requiresExplicitAcceptance === true) admittedContext.requiresExplicitAcceptance = true;
+    else delete admittedContext.requiresExplicitAcceptance;
     const admitted = await tx.sessionNotice.update({
-      where: { id }, data: { status: "SENDING", attemptId: randomUUID(), attemptStartedAt: new Date(), attempts: { increment: 1 }, lastError: null, context: { ...context } },
+      where: { id }, data: { status: "SENDING", attemptId: randomUUID(), attemptStartedAt: new Date(), attempts: { increment: 1 }, lastError: null, context: admittedContext },
     });
     return { row: admitted, obsolete: context.isActionable === true && !state.current,
       destination: state.response?.actorKey.startsWith("tutor:") || (!state.response && user.tutorId)

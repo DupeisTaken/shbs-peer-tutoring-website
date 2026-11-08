@@ -971,3 +971,17 @@ it("an exception response never displays a silence countdown even when an older 
   expect(screen.queryByText(/24h/)).toBeNull();
   expect(screen.queryByText(/remaining/i)).toBeNull();
 });
+
+it("keeps ordinary agenda actions usable when optional pause metadata is absent", () => {
+  delete state.data!.tutoringPauses;
+  for (const cohort of state.data!.cohorts) {
+    delete cohort.tutoringPaused;
+    delete cohort.canArrangeException;
+    delete cohort.pausedTutees;
+  }
+  show();
+  const card = screen.getByRole("article");
+  expect(within(card).getByText(/Remaining Learner/)).toBeTruthy();
+  expect(within(card).getByRole("button", { name: messages.record })).toBeTruthy();
+  expect(within(card).queryByRole("button", { name: messages.arrangeException })).toBeNull();
+});

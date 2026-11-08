@@ -714,7 +714,7 @@ async function notice(
         event,
         context: {
           isActionable: actionable,
-          requiresExplicitAcceptance,
+          ...(requiresExplicitAcceptance ? { requiresExplicitAcceptance: true } : {}),
           startsAt: offer?.startsAt.toISOString() ?? null,
           endsAt: offer?.endsAt.toISOString() ?? null,
           originalStartsAt: original,
@@ -1282,13 +1282,15 @@ async function reconcileOrdinaryPlans(
   now: Date,
 ) {
   const { calendar, parseDateTime } = computation;
+  const semanticPauses = tutoringPauseSemanticRanges(computation.tutoringPauses ?? []);
   const scheduleHash = fingerprint([
     schedule.dayOfWeek,
     schedule.startMin,
     schedule.roomId,
     timeZone,
     calendar.semanticDays(),
-    tutoringPauseSemanticRanges(computation.tutoringPauses ?? []),
+    // Keep the ordinary five-element publication identity byte-for-byte stable.
+    ...(semanticPauses.length ? [semanticPauses] : []),
   ]);
   const candidateWhere: Prisma.SessionPlanWhereInput = {
     generationKey: { startsWith: prefix },
@@ -3131,8 +3133,8 @@ function projectAgendaCohort(
     (role === "tutor" || owned.includes(person.tuteeId)));
   const policyPaused = isRegularTutoringPaused(row.date, tutoringPauses);
   const paused = policyPaused ? pauseReasons : [];
-  const restorationBlocked = !policyPaused && pauseReasons.length > 0;
-  const ordinaryUnavailable = !policyPaused && row.participants.some((person) =>
+  const restorationBlocked = !history && !policyPaused && pauseReasons.length > 0;
+  const ordinaryUnavailable = !history && !policyPaused && row.participants.some((person) =>
     person.calendarSuppressed && person.status === "CANCELLED" && (role === "tutor" || owned.includes(person.tuteeId)));
   const activePersonal = roster.filter((person) => role === "tutor" || owned.includes(person.tuteeId));
   const eligible = activePersonal.length ? activePersonal : paused;
@@ -3189,9 +3191,11 @@ function projectAgendaCohort(
       schoolClosed: !resolvePlanningTimetableDay(row.date, calendar)
         .isSchoolDay,
       unavailable: restorationBlocked || (!activePersonal.length && ordinaryUnavailable) || (row.sourceInvalidated && !paused.length),
-      tutoringPaused,
-      canArrangeException: !history && paused.length > 0 && !row.sessions.length && row.startsAt > now,
-      pausedTutees: paused.map((person) => ({ id: person.tuteeId, name: person.tutee.englishName })),
+      ...(paused.length ? {
+        tutoringPaused,
+        canArrangeException: !history && !row.sessions.length && row.startsAt > now,
+        pausedTutees: paused.map((person) => ({ id: person.tuteeId, name: person.tutee.englishName })),
+      } : {}),
       status:
         role === "tutee" &&
         personal.every((person) => person.status === "CANCELLED")
@@ -3475,7 +3479,7 @@ export async function readSessionAgenda(
             const id = studentMap.get(person.id);
             return id ? { id, name: studentNames.get(id) ?? fail("The executing learner profile is unavailable.", "CONFLICT") } : person;
           });
-          projected.pausedTutees = projected.pausedTutees.map((person) => {
+          if (projected.pausedTutees) projected.pausedTutees = projected.pausedTutees.map((person) => {
             const id = studentMap.get(person.id);
             return id ? { id, name: studentNames.get(id) ?? fail("The executing learner profile is unavailable.", "CONFLICT") } : person;
           });
@@ -3551,7 +3555,7 @@ export async function readSessionAgenda(
               startsAt: offer.startsAt,
               endsAt: offer.endsAt,
               cutoffAt: offer.cutoffAt,
-              requiresExplicitAcceptance: await offerRequiresExplicitAgreement(tx, offer),
+              ...(await offerRequiresExplicitAgreement(tx, offer) ? { requiresExplicitAcceptance: true } : {}),
               responses,
               myResponse,
               schoolClosed: !resolvePlanningTimetableDay(offer.date, calendar)
@@ -3611,7 +3615,9 @@ export async function readSessionAgenda(
         preparedThrough: publication.prepareEnd,
       },
       rooms: roomRows,
-      tutoringPauses: tutoringPauses.map(({ date, endDate, schedulingEffect, active }) => ({ date, endDate, schedulingEffect, active })),
+      ...(tutoringPauses.length ? {
+        tutoringPauses: tutoringPauses.map(({ date, endDate, schedulingEffect, active }) => ({ date, endDate, schedulingEffect, active })),
+      } : {}),
       schoolCalendarDays: calendar.map(
         (day: {
           date: string;

@@ -75,7 +75,20 @@ it("records SMTP acceptance before qualifying a responder, despite optional mail
     category: "PROGRAM", messageId: "<session-notice-notice-1@shbs-notifications>",
   }));
   expect(f.notice).toMatchObject({ status: "SENT", attempts: 1, acceptedAt: now });
+  expect(f.notice.context).not.toHaveProperty("requiresExplicitAcceptance");
   expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now, false);
+});
+
+it("preserves ordinary stored context extensions while rendering only the safe notice copy", async () => {
+  const f = fixture();
+  f.notice.context = { isActionable: true, stage: "A", scope: "ONE", kind: "RESCHEDULE",
+    extension: { synthetic: "UNRENDERED SYNTHETIC FIELD" } };
+  const original = structuredClone(f.notice.context);
+  await deliverSessionNotices(10, f.database);
+  expect(f.notice.context).toEqual(original);
+  expect(f.notice.context).not.toHaveProperty("requiresExplicitAcceptance");
+  const sent: unknown = transport.send.mock.calls[0]?.[0];
+  expect(typeof sent === "object" && sent !== null && "text" in sent ? sent.text : null).not.toContain("UNRENDERED SYNTHETIC FIELD");
 });
 
 it("rechecks a pause activated after a notice was queued before composing essential mail", async () => {
@@ -268,7 +281,8 @@ it.each([false, true])("preserves actual explicit admission across manual retry 
   expect(await retrySessionNotice(f.database, f.notice.id, f.user.id)).toEqual({ queued: false, status: "PENDING" });
   f.notice.leaseUntil = new Date(now.getTime() + 300_000);
   const retry = await admitSessionNotice(f.database, f.notice.id, f.notice.leaseUntil, null);
-  expect(retry?.row.context).toMatchObject({ requiresExplicitAcceptance: attempted });
+  if (attempted) expect(retry?.row.context).toMatchObject({ requiresExplicitAcceptance: true });
+  else expect(retry?.row.context).not.toHaveProperty("requiresExplicitAcceptance");
   if (oldAttempt) {
     await finishSessionNotice(f.database, f.notice.id, oldAttempt, now);
     expect(f.notice).toMatchObject({ status: "SENDING", attemptId: retry!.row.attemptId });

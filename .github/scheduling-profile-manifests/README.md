@@ -11,6 +11,27 @@ scheduling scenarios compare the baseline application under this candidate schem
 the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
+PR #606 uses its immediate pre-feature main commit
+`dfe9be18a0a6efb68aa6b956252002bdee24f184` as both scheduling controls.
+Its manifest binds all 133 historical migrations and the four tutoring-policy
+additions (`20261108010000`, `20261108011000`, `20261108012000`,
+`20261108013000`), both complete schema hashes and the unchanged dependency lock.
+Those additions introduce explicit legacy-safe notice/pause effects, independent
+participant suppression, safe recovery evidence, semantic policy history and its
+integrity guards, plus the exact-offer notice lookup index. SQL namespace and
+trigger behavior are part of the pinned bytes.
+
+The shared-schema control runs unchanged baseline application sources under this
+exact candidate schema. The fixture generator, workload populations, capture
+projections and parity/latency criteria are unchanged. The ordinary scheduling
+fixtures do not activate tutoring pauses; pause/affirmative-exception behavior has
+separate candidate regression evidence. This manifest authorizes only the input
+overlay, not a parity result or baseline support for new policy behavior. The
+native-schema control remains required, and any additional domain evidence or
+procedure-result difference remains subject to the existing comparison rules.
+Missing or changed bytes, an unlisted migration or a changed dependency lock still
+fail closed. No general or other-PR baseline selection is changed.
+
 The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
 Each `pr-N-baseline.txt` and `pr-N-catalog-baseline.txt` contains a full SHA followed by LF. Combined PR #570 compares shared captures with the complete identity and recovery projections. Its original-schema cold control captures only the fixed historical projection. Controlled contention diagnostics retain both complete ordered histories. Uncontrolled rounds preserve their independent observed fence order and raw audit chronology.

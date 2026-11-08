@@ -274,6 +274,39 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     return { uid: line("UID"), sequence: Number(line("SEQUENCE")), status: line("STATUS"), startsAt: line("DTSTART") };
   }
 
+  it("preserves ordinary no-pause projection shapes and the baseline publication/reconciliation fingerprint", async () => {
+    const original = await source();
+    const ordinaryHash = (startMin: number) => createHash("sha256")
+      .update(JSON.stringify([1, startMin, null, "Asia/Shanghai", []])).digest("hex");
+    expect((await db.sessionPlan.findUniqueOrThrow({ where: { id: original.planId } })).sourceScheduleFingerprint).toBe(ordinaryHash(900));
+    await db.pairing.update({ where: { id: "planning-pairing" }, data: { startMin: 915, endMin: 960 } });
+    await ensureSessionPlanningWindow(db, now);
+    expect((await db.sessionPlan.findUniqueOrThrow({ where: { id: original.planId } })).sourceScheduleFingerprint).toBe(ordinaryHash(915));
+    const request = await propose();
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda).not.toHaveProperty("tutoringPauses");
+    const cohort = agenda.cohorts.find((row) => row.id === original.id);
+    expect(cohort).toBeDefined();
+    for (const key of ["tutoringPaused", "canArrangeException", "pausedTutees"])
+      expect(cohort).not.toHaveProperty(key);
+    expect(agenda.requests.find((row) => row.id === request.id)?.currentOffer).not.toHaveProperty("requiresExplicitAcceptance");
+  });
+
+  it("keeps ended pause cancellations historical without claiming a current restoration error", async () => {
+    const original = await source();
+    await pause();
+    const before = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id }, include: { participants: true } });
+    const ended = new Date(original.endsAt.getTime() + 1);
+    for (const [actor, role] of [[tutor, "tutor"], [one, "tutee"]] as const) {
+      const history = await readSessionAgendaHistory(db, actor, { role }, ended);
+      const recorded = history.cohorts.find((row) => row.id === original.id);
+      expect(recorded).toMatchObject({ status: "CANCELLED", unavailable: false, canRecordAttendance: false });
+      expect(recorded).not.toHaveProperty("canArrangeException");
+    }
+    expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id }, include: { participants: true } })).toEqual(before);
+    expect(await db.session.count()).toBe(0);
+  });
+
   it("exports real private-feed cancellation and restoration with stable participant/cohort UIDs and increasing sequences", async () => {
     const original = await source();
     const people = await members(original.id);
@@ -504,7 +537,9 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
       pausedTutees: [{ id: "planning-two", name: "Synthetic Two" }], canArrangeException: true,
     });
     const activeAgenda = await readSessionAgenda(db, one, "tutee");
-    expect(activeAgenda.cohorts.find((row) => row.id === original.id)).toMatchObject({ tutoringPaused: false, canArrangeException: false, pausedTutees: [] });
+    const activeView = activeAgenda.cohorts.find((row) => row.id === original.id);
+    for (const key of ["tutoringPaused", "canArrangeException", "pausedTutees"])
+      expect(activeView).not.toHaveProperty(key);
     expect(await readCurrentSessionReminderCohort(db, original.id)).not.toBeNull();
   });
 
@@ -658,7 +693,10 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     await respond(extra.id, one, "ACCEPT");
     await remove(original.date);
     const agenda = await readSessionAgenda(db, tutor, "tutor");
-    expect(agenda.cohorts.find((row) => row.id === original.id)).toMatchObject({ tutoringPaused: false, canArrangeException: false, unavailable: true, status: "CANCELLED" });
+    const blocked = agenda.cohorts.find((row) => row.id === original.id);
+    expect(blocked).toMatchObject({ unavailable: true, status: "CANCELLED" });
+    expect(blocked).not.toHaveProperty("tutoringPaused");
+    expect(blocked).not.toHaveProperty("canArrangeException");
     const extraPlan = await db.sessionPlan.findFirstOrThrow({ where: { kind: "EXTRA" } });
     await db.sessionPlanCohort.updateMany({ where: { planId: extraPlan.id }, data: { status: "CANCELLED" } });
     await db.sessionPlanParticipant.updateMany({ where: { planId: extraPlan.id }, data: { status: "CANCELLED", tutoringPauseSuppressed: false } });
@@ -994,6 +1032,8 @@ describe("durable individual agreement", () => {
 
   it("starts silence consent only after successful essential transport acceptance", async () => {
     const { id } = await propose();
+    const notice = await db.sessionNotice.findFirstOrThrow({ where: { requestId: id, event: "proposed", responseId: { not: null } } });
+    expect(notice.context).not.toHaveProperty("requiresExplicitAcceptance");
     await sweepSessionPlanning(db, new Date("2026-10-27T01:00:00Z"));
     expect((await read(id)).status).toBe("PENDING");
     const { offer } = await current(id);

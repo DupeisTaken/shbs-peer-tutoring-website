@@ -286,7 +286,7 @@ export function SessionAgenda({
         ? result.data.requests.find((item) => item.id === editor.request!.id)
         : undefined;
       if (cohort) {
-        setEditor({ ...editor, cohort: editor.pausedOnly ? { ...cohort, tutees: cohort.pausedTutees } : cohort, request });
+        setEditor({ ...editor, cohort: editor.pausedOnly ? { ...cohort, tutees: cohort.pausedTutees ?? [] } : cohort, request });
         setEditorGeneration((value) => value + 1);
         setError(null);
       }
@@ -375,7 +375,7 @@ export function SessionAgenda({
   const extraSources = [
     ...normalExtraSources.map((cohort) => ({ ...cohort, pausedOnly: false })),
     ...safeCohorts.filter((cohort) => cohort.canArrangeException).map((cohort) => ({
-      ...cohort, tutees: cohort.pausedTutees, tutoringPaused: true, pausedOnly: true,
+      ...cohort, tutees: cohort.pausedTutees ?? [], tutoringPaused: true, pausedOnly: true,
     })),
   ];
   const canAddExtra =
@@ -737,7 +737,7 @@ export function SessionAgenda({
                       <p>
                         {role === "tutee"
                           ? cohort.tutorName
-                          : (cohort.tutoringPaused ? cohort.pausedTutees : cohort.tutees)
+                          : (cohort.tutoringPaused ? (cohort.pausedTutees ?? []) : cohort.tutees)
                               .map((learner) => learner.name)
                               .join(", ")}
                       </p>
@@ -823,7 +823,7 @@ export function SessionAgenda({
                               onClick={() =>
                                 setEditor({
                                   mode: "propose",
-                                  cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees } : cohort,
+                                  cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees ?? [] } : cohort,
                                   pausedOnly: cohort.tutoringPaused,
                                   kind: "RESCHEDULE",
                                 })
@@ -833,7 +833,7 @@ export function SessionAgenda({
                             </Button>
                             {cohort.canArrangeException && !cohort.tutoringPaused && (
                               <Button size="compact" disabled={blocked || cohort.startsAt <= now || cohort.unavailable}
-                                onClick={() => setEditor({ mode: "propose", cohort: { ...cohort, tutees: cohort.pausedTutees }, kind: "RESCHEDULE", pausedOnly: true })}>
+                                onClick={() => setEditor({ mode: "propose", cohort: { ...cohort, tutees: cohort.pausedTutees ?? [] }, kind: "RESCHEDULE", pausedOnly: true })}>
                                 {t("arrangeException")}
                               </Button>
                             )}
@@ -867,7 +867,7 @@ export function SessionAgenda({
                               cohort.unavailable
                             }
                             onClick={() =>
-                              setEditor({ mode: "suggest", cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees } : cohort, pausedOnly: cohort.tutoringPaused })
+                              setEditor({ mode: "suggest", cohort: cohort.tutoringPaused ? { ...cohort, tutees: cohort.pausedTutees ?? [] } : cohort, pausedOnly: cohort.tutoringPaused })
                             }
                           >
                             {t("suggest")}
