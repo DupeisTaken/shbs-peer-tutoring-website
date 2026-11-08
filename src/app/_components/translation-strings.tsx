@@ -93,7 +93,7 @@ function StringRow({
       <div className="flex flex-wrap items-center gap-2">
         <code className="text-[11px] text-slate-600">{item.key}</code>
         {overridden && (
-          <span className="badge-amber">{t("localization.overridden")}</span>
+          <span className="badge-slate">{t("localization.overridden")}</span>
         )}
         {draft?.success && (
           <span className="text-xs text-green-600">

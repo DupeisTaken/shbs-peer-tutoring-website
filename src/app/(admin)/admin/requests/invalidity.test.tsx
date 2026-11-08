@@ -489,7 +489,7 @@ it.each([
   { locale: "en" as const, label: "Edited", viewer: true },
   { locale: "zh" as const, label: "已修改", viewer: true },
 ])(
-  "keeps the edited badge unbracketed for $locale viewer=$viewer",
+  "keeps the edited badge neutral and unbracketed for $locale viewer=$viewer",
   ({ locale, label, viewer }) => {
     mocks.invalid = false;
     const view = render(content(false, viewer, locale));
@@ -497,7 +497,7 @@ it.each([
 
     mocks.edited = true;
     view.rerender(content(false, viewer, locale));
-    expect(screen.getByText(label).classList.contains("badge-amber")).toBe(
+    expect(screen.getByText(label).classList.contains("badge-slate")).toBe(
       true,
     );
     expect(screen.queryByText(`[${label}]`)).toBeNull();

@@ -96,7 +96,7 @@ it.each([
   ["en", "Edited"],
   ["zh", "已修改"],
 ])(
-  "shows the unbracketed edited badge only for edited rows in %s",
+  "shows the neutral, unbracketed edited badge only for edited rows in %s",
   (locale, label) => {
     const view = render(element(true, locale));
     expect(screen.queryByText(label)).toBeNull();
@@ -107,7 +107,7 @@ it.each([
         editedAt: new Date("2026-10-20T00:00:00Z"),
       }),
     );
-    expect(screen.getByText(label).classList.contains("badge-amber")).toBe(true);
+    expect(screen.getByText(label).classList.contains("badge-slate")).toBe(true);
     expect(screen.queryByText(`[${label}]`)).toBeNull();
 
     view.rerender(element(true, locale));
