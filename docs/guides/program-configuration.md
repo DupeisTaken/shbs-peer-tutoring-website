@@ -327,7 +327,7 @@ The default demo seed uses **Standard → Honors → AP**, with ranks 0, 1 and 2
 
 Staff manage recorded qualifications in **Subject Availability**; application decisions and interviews are in **Tutor Applications**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
 
-Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Ordinary management catalogue and qualification writes require Admin/Head authority; Coordinators submit proposals for review, and viewers cannot write. Removing an existing qualification reverses an applied grant and requires Head authority.
+Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Ordinary management catalogue and qualification writes require Admin/Head authority; Coordinators submit proposals for review, and viewers cannot write. Removing an existing qualification reverses an applied grant: Admin or Head can apply it directly; Coordinators submit a proposal for Admin or Head review.
 
 Interview completion is a separate reviewed action in **Tutor Applications → Interview
 Records**. **Record completion & award hours** collects actual datetime, 1–480 minutes,
@@ -337,6 +337,19 @@ Coordinator submissions await Admin/Head review. **Correct completion & hours** 
 source-owned automatic credits, preserves unrelated adjustments and original period
 ownership, and allows Admin/Head application and Coordinator proposals.
 Both INTERVIEWS and SERVICE_HOURS must be enabled for completion writes.
+
+Corrections use the original evidenced physical-panel candidates, separately from
+the current voting panel, and preview each recipient's and the total credit change.
+An open additional/higher panel repair retains completion and earned service while
+requiring new votes. Later qualification approval reuses that service, including
+authorized corrections, without awarding it again. See the [interview procedure](user-guide.md#start-tutoring).
+
+Changed recorded-service corrections require the application version reviewed by
+the editor. Admin/Head application and Coordinator proposal admission reject
+missing or stale versions. An exact match to the validated completion and complete
+credit ledger remains a no-op, including a retry with an older or omitted version.
+Failed corrections retain their draft for an explicit successful reload and fresh
+review; they do not reopen the application decision.
 
 The read-only review combines decision, completion/approval and registration/setup
 status. Only applied initial acceptance authorizes the existing registration workflow;
@@ -480,7 +493,21 @@ Open **Hour Adjustments** (`/admin/hour-adjustments`) to add extra hours or a pu
 
 Months remain in `YYYY-MM` format. Desktop tables reserve space for months and wrap long names, reasons and translated labels; a constrained desktop table can scroll within its card. On mobile, each record stacks its labelled fields and delete action so the full reason stays readable. Form controls and row actions support touch and keyboard use.
 
-HEAD and ADMIN can apply additions; Coordinator additions require Admin/Head review. Deleting an existing adjustment reverses recorded hours; Admin/Head apply it and Coordinators submit review proposals. Pending proposals leave live hours unchanged. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
+HEAD and ADMIN can apply additions; Coordinator additions require Admin/Head review. Deleting a supported adjustment reverses recorded hours; Admin/Head apply it and Coordinators submit review proposals. Pending proposals leave live hours unchanged. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
+
+Automatic credits with a proved current interview source cannot be deleted
+independently. **Hour Adjustments** labels them **Interview source** and, where a
+current correction route is available, offers **Correct interview hours**. This
+opens the exact interview's existing completion review, even outside the saved
+Interview Records filters; opening it changes no hours. Correct completion,
+duration or attendance there under the existing version and approval rules.
+
+Unavailable, unresolved and conflicting interview sources have distinct labels
+and no invented correction link. Conflicting source claims also block independent
+deletion. Rows labelled **Interview record unavailable** or **Unresolved interview
+source** retain their available generic **Delete** action under the same
+Admin/Head or Coordinator-review authority; their label does not establish a
+manual origin or authorize reconstruction of missing interview evidence.
 
 ## Reports and exports
 

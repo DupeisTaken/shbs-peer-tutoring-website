@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -46,12 +47,14 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   refetch: vi.fn(),
   fetch: vi.fn(),
+  exactFetch: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       interviewManagement: {
-        options: { invalidate: mocks.refetch, fetch: mocks.fetch },
+        options: { invalidate: mocks.refetch, fetch: mocks.exactFetch },
+        completionEvidence: { fetch: mocks.fetch, invalidate: mocks.refetch },
       },
       admin: {
         tutorApplications: { invalidate: mocks.refetch },
@@ -113,11 +116,43 @@ const fixture = () => ({
     ],
   },
 });
+const evidence = (applicationId = "candidate") => {
+  const application = fixture().applications.rows.find(
+    (row) => row.id === applicationId,
+  )!;
+  return {
+    ...application,
+    completionParticipants: application.interviewers.map((person) => ({
+      ...person,
+      tutor: { ...person.tutor, status: "ACTIVE" },
+      creditHours: 0,
+      currentPanel: true,
+    })),
+  };
+};
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mocks.options.mockReturnValue({ data: fixture(), refetch: mocks.refetch });
+  mocks.exactFetch.mockImplementation(
+    async ({ applicationId }: { applicationId: string }) => ({
+      ...fixture(),
+      applications: {
+        ...fixture().applications,
+        rows: fixture().applications.rows.filter(
+          (row) => row.id === applicationId,
+        ),
+      },
+    }),
+  );
+  mocks.fetch.mockImplementation(
+    async ({ applicationId }: { applicationId: string }) =>
+      evidence(applicationId),
+  );
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
 const show = (locale = "en") =>
   render(
     <NextIntlClientProvider
@@ -173,6 +208,11 @@ it("shows panel/chair/schedule/completion without expansion and deep-links the e
   fireEvent.click(
     screen.getByRole("button", { name: en.interviewReview.record }),
   );
+  await waitFor(() =>
+    expect(
+      document.getElementById("interview-completion-editor"),
+    ).not.toBeNull(),
+  );
   const form = document.getElementById("interview-completion-editor")!;
   fireEvent.change(within(form).getByLabelText("Record Interview Completion"), {
     target: { value: "2026-09-10T16:00" },
@@ -225,7 +265,7 @@ it("preserves an explicit completion date sort when changing completion scope", 
 
 it.each(["sort", "status"] as const)(
   "retains read controls and a saved completion draft through an uncached %s request and retry",
-  (field) => {
+  async (field) => {
     let state: "ready" | "loading" | "error" = "ready";
     let switched = false;
     mocks.options.mockImplementation(
@@ -258,6 +298,11 @@ it.each(["sort", "status"] as const)(
     fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
     fireEvent.click(
       screen.getByRole("button", { name: en.interviewReview.record }),
+    );
+    await waitFor(() =>
+      expect(
+        document.getElementById("interview-completion-editor"),
+      ).not.toBeNull(),
     );
     const form = document.getElementById("interview-completion-editor")!;
     fireEvent.change(within(form).getByLabelText(en.interviewReview.reason), {
@@ -315,9 +360,11 @@ it.each(["sort", "status"] as const)(
     fireEvent.click(
       screen.getByRole("button", { name: en.interviewReview.record }),
     );
-    expect(
-      screen.getByDisplayValue("Retained attendance evidence"),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        screen.getByDisplayValue("Retained attendance evidence"),
+      ).toBeTruthy(),
+    );
     expect(mocks.complete).not.toHaveBeenCalled();
   },
 );
@@ -586,13 +633,38 @@ it.each(["save", "reload"])(
     mocks.complete.mockRejectedValueOnce(
       source === "save" ? denial : new Error("Evidence changed"),
     );
-    mocks.fetch.mockRejectedValueOnce(denial);
+    if (source === "reload")
+      mocks.fetch
+        .mockImplementationOnce(
+          async ({ applicationId }: { applicationId: string }) => {
+            const application = fixture().applications.rows.find(
+              (row) => row.id === applicationId,
+            )!;
+            return {
+              ...application,
+              completionParticipants: application.interviewers.map(
+                (person) => ({
+                  ...person,
+                  tutor: { ...person.tutor, status: "ACTIVE" },
+                  creditHours: 0,
+                  currentPanel: true,
+                }),
+              ),
+            };
+          },
+        )
+        .mockRejectedValueOnce(denial);
     show();
     fireEvent.click(
       screen.getByRole("button", { name: /Candidate One Needs completion/ }),
     );
     fireEvent.click(
       screen.getByRole("button", { name: en.interviewReview.record }),
+    );
+    await waitFor(() =>
+      expect(
+        document.getElementById("interview-completion-editor"),
+      ).not.toBeNull(),
     );
     fireEvent.change(screen.getByLabelText(en.workflows.interviewComplete), {
       target: { value: "2026-09-10T16:00" },
@@ -644,5 +716,412 @@ it.each(["save", "reload"])(
     await waitFor(() => expect(screen.getByText("Candidate One")).toBeTruthy());
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(mocks.complete).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("loads exact completion evidence before opening, retains readable history on failure and retries reads only", async () => {
+  mocks.fetch.mockRejectedValueOnce(
+    new Error("Historical service evidence unavailable"),
+  );
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  const open = screen.getByRole("button", { name: en.interviewReview.record });
+  fireEvent.click(open);
+  fireEvent.click(open);
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Historical service evidence unavailable",
+    ),
+  );
+  expect(mocks.fetch).toHaveBeenCalledOnce();
+  expect(mocks.fetch).toHaveBeenCalledWith(
+    { applicationId: "candidate" },
+    { staleTime: 0 },
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText("Candidate One")).toBeTruthy();
+  expect(mocks.complete).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+  );
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+  expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it("opens historical correction when all current assignments are gone using only evidenced former participants", async () => {
+  const former = {
+    tutorId: "historical",
+    tutor: {
+      englishName: "Historical Inactive Participant",
+      status: "GRADUATED",
+    },
+    attended: true,
+    creditHours: 0.75,
+    currentPanel: false,
+  };
+  mocks.fetch.mockResolvedValueOnce({
+    ...evidence("completed"),
+    completionParticipants: [former],
+  });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Earlier Candidate/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.correct }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText("Historical Inactive Participant"),
+    ).toBeTruthy(),
+  );
+  expect(
+    screen.getByLabelText<HTMLInputElement>("Historical Inactive Participant")
+      .checked,
+  ).toBe(true);
+  expect(screen.getByText(en.admin.tutorStatus.GRADUATED)).toBeTruthy();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it("blocks dependent opening and confirmation on failed owning reads while preserving a historical draft", async () => {
+  const tree = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <InterviewManagement />
+    </NextIntlClientProvider>
+  );
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    error: new Error("Background read failed"),
+    refetch: mocks.refetch,
+  });
+  const view = render(tree());
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  const open = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.interviewReview.record,
+  });
+  expect(open.disabled).toBe(true);
+  fireEvent.click(open);
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  mocks.options.mockReturnValue({ data: fixture(), refetch: mocks.refetch });
+  view.rerender(tree());
+  fireEvent.click(open);
+  await waitFor(() =>
+    expect(
+      document.getElementById("interview-completion-editor"),
+    ).not.toBeNull(),
+  );
+  fireEvent.change(screen.getByLabelText(en.workflows.interviewComplete), {
+    target: { value: "2026-09-10T16:00" },
+  });
+  fireEvent.change(screen.getByLabelText(en.interviewReview.reason), {
+    target: { value: "Retain evidence through failed reads" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.review }),
+  );
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    error: new Error("Background read failed again"),
+    refetch: mocks.refetch,
+  });
+  view.rerender(tree());
+  const confirm = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.interviewReview.confirmAward,
+  });
+  expect(confirm.disabled).toBe(true);
+  fireEvent.click(confirm);
+  expect(mocks.complete).not.toHaveBeenCalled();
+  expect(screen.getByText("Retain evidence through failed reads")).toBeTruthy();
+});
+
+it("does not let a late evidence success reopen private details after denial and explicit recovery", async () => {
+  let finish!: (value: ReturnType<typeof evidence>) => void;
+  mocks.fetch.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const tree = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <InterviewManagement />
+    </NextIntlClientProvider>
+  );
+  const view = render(tree());
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.record }),
+  );
+  const denied = Object.assign(new Error("Management access revoked"), {
+    data: { code: "FORBIDDEN" },
+  });
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    error: denied,
+    isSuccess: false,
+    refetch: mocks.refetch,
+  });
+  view.rerender(tree());
+  expect(screen.queryByText("Candidate One")).toBeNull();
+  expect(screen.queryByText(/Total credit/)).toBeNull();
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    isSuccess: true,
+    refetch: mocks.refetch,
+  });
+  view.rerender(tree());
+  mocks.refetch.mockResolvedValueOnce({ data: fixture(), error: null });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+  );
+  await waitFor(() => expect(screen.getByText("Candidate One")).toBeTruthy());
+  await act(async () => finish(evidence()));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it.each(["different identity", "denied read"] as const)(
+  "refuses a completion evidence %s without revealing a private editor",
+  async (scenario) => {
+    if (scenario === "different identity")
+      mocks.fetch.mockResolvedValueOnce({
+        ...evidence(),
+        id: "another-application",
+      });
+    else
+      mocks.fetch.mockRejectedValueOnce(
+        Object.assign(new Error("Read denied"), {
+          data: { code: "FORBIDDEN" },
+        }),
+      );
+    show();
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.record }),
+    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    if (scenario === "denied read")
+      expect(screen.queryByText("Candidate One")).toBeNull();
+    expect(mocks.complete).not.toHaveBeenCalled();
+  },
+);
+
+const sourceEvidence = () => ({
+  ...evidence("completed"),
+  completionParticipants: [
+    {
+      tutorId: "original",
+      tutor: {
+        englishName: "Original Interview Participant",
+        status: "OPTED_OUT",
+      },
+      attended: true,
+      creditHours: 0.75,
+      currentPanel: false,
+    },
+    {
+      tutorId: "missed",
+      tutor: {
+        englishName: "Original Missed Participant",
+        status: "GRADUATED",
+      },
+      attended: false,
+      creditHours: 0,
+      currentPanel: false,
+    },
+    {
+      tutorId: "other",
+      tutor: { englishName: "Original Other Participant", status: "ACTIVE" },
+      attended: false,
+      creditHours: 0,
+      currentPanel: false,
+    },
+  ],
+});
+const arriveAtCompletion = (id: string) => {
+  window.history.replaceState(
+    null,
+    "",
+    `/admin/applications#interview-completion-${encodeURIComponent(id)}`,
+  );
+};
+
+it("opens an exact completed source outside saved list scope once through reads without changing the list", async () => {
+  const owner = fixture();
+  owner.applications.rows = owner.applications.rows.filter(
+    (row) => row.id === "candidate",
+  );
+  mocks.options.mockReturnValue({ data: owner, refetch: mocks.refetch });
+  mocks.fetch.mockResolvedValueOnce(sourceEvidence());
+  arriveAtCompletion("completed");
+  show();
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText("Original Interview Participant"),
+    ).toBeTruthy(),
+  );
+  expect(mocks.exactFetch).toHaveBeenCalledWith(
+    {
+      applicationId: "completed",
+      page: 0,
+      search: "",
+      completion: "ALL",
+      status: "",
+      sort: "CREATED_DESC",
+    },
+    { staleTime: 0 },
+  );
+  expect(mocks.fetch).toHaveBeenCalledWith(
+    { applicationId: "completed" },
+    { staleTime: 0 },
+  );
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "",
+    completion: "OPEN",
+    status: "",
+    sort: "CREATED_DESC",
+  });
+  fireEvent.click(screen.getByRole("button", { name: en.common.cancel }));
+  fireEvent.change(
+    screen.getByRole("combobox", {
+      name: en.admin.applications.filters.status,
+    }),
+    { target: { value: "ACCEPTED" } },
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.exactFetch).toHaveBeenCalledOnce();
+  expect(mocks.fetch).toHaveBeenCalledOnce();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it("offers top-level read-only retry when an exact source arrival cannot load outside the current list", async () => {
+  mocks.exactFetch.mockRejectedValueOnce(
+    new Error("Exact interview read failed"),
+  );
+  mocks.fetch.mockResolvedValueOnce(sourceEvidence());
+  arriveAtCompletion("completed");
+  show();
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Exact interview read failed",
+    ),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.interviewReview.correctionEvidence.retryArrival,
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText("Original Interview Participant"),
+    ).toBeTruthy(),
+  );
+  expect(mocks.exactFetch).toHaveBeenCalledTimes(2);
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it("defers a source arrival while another completion draft is open and preserves that draft", async () => {
+  mocks.fetch.mockImplementation(
+    async ({ applicationId }: { applicationId: string }) =>
+      applicationId === "completed"
+        ? sourceEvidence()
+        : evidence(applicationId),
+  );
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.record }),
+  );
+  await waitFor(() =>
+    expect(
+      document.getElementById("interview-completion-editor"),
+    ).not.toBeNull(),
+  );
+  fireEvent.change(screen.getByLabelText(en.interviewReview.reason), {
+    target: { value: "Retained unrelated completion draft" },
+  });
+  act(() => {
+    arriveAtCompletion("completed");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  });
+  expect(
+    screen.getByDisplayValue("Retained unrelated completion draft"),
+  ).toBeTruthy();
+  expect(mocks.exactFetch).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: en.common.cancel }));
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText("Original Interview Participant"),
+    ).toBeTruthy(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.common.cancel }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.record }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByDisplayValue("Retained unrelated completion draft"),
+    ).toBeTruthy(),
+  );
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it("invalidates a late exact-arrival read across denied access and explicit recovery", async () => {
+  let finish!: (value: ReturnType<typeof fixture>) => void;
+  mocks.exactFetch.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  arriveAtCompletion("completed");
+  const tree = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <InterviewManagement />
+    </NextIntlClientProvider>
+  );
+  const view = render(tree());
+  await waitFor(() => expect(mocks.exactFetch).toHaveBeenCalledOnce());
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    error: Object.assign(new Error("Management access revoked"), {
+      data: { code: "FORBIDDEN" },
+    }),
+    refetch: mocks.refetch,
+  });
+  view.rerender(tree());
+  expect(screen.queryByText("Candidate One")).toBeNull();
+  mocks.options.mockReturnValue({
+    data: fixture(),
+    isSuccess: true,
+    refetch: mocks.refetch,
+  });
+  view.rerender(tree());
+  mocks.refetch.mockResolvedValueOnce({ data: fixture(), error: null });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+  );
+  await waitFor(() => expect(screen.getByText("Candidate One")).toBeTruthy());
+  await act(async () => finish(fixture()));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+
+it.each(["%ZZ", "%00", "a".repeat(201), "record/other"])(
+  "ignores an invalid exact completion fragment before any private reader: %s",
+  (id) => {
+    window.history.replaceState(
+      null,
+      "",
+      `/admin/applications#interview-completion-${id}`,
+    );
+    show();
+    expect(mocks.exactFetch).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
   },
 );

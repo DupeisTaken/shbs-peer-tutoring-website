@@ -9,8 +9,17 @@ import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
 import { FormSection, InlineNotice } from "./ui/patterns";
 
+export type CompletionParticipant = {
+  tutorId: string;
+  tutor: { englishName: string; status: string | null };
+  attended: boolean;
+  creditHours: number;
+  currentPanel: boolean;
+};
 export type InterviewRecord =
-  RouterOutputs["interviewManagement"]["options"]["applications"]["rows"][number];
+  RouterOutputs["interviewManagement"]["options"]["applications"]["rows"][number] & {
+    completionParticipants?: CompletionParticipant[];
+  };
 export type CompletionDraft = {
   date: string;
   duration: string;
@@ -74,6 +83,7 @@ export function InterviewCompletionReview({
   refresh,
   reload,
   onAccessDenied,
+  readAvailable = true,
 }: {
   application: InterviewRecord;
   initialDraft?: CompletionDraft;
@@ -81,11 +91,13 @@ export function InterviewCompletionReview({
   refresh: () => Promise<unknown>;
   reload: () => Promise<InterviewRecord>;
   onAccessDenied?: () => void;
+  readAvailable?: boolean;
 }) {
   const t = useTranslations("interviewReview");
   const all = useTranslations();
   const format = useFormatter();
   const timeZone = useTimeZone();
+  const correctionT = useTranslations("interviewReview.correctionEvidence");
   const [evidence, setEvidence] = useState(
     initialDraft?.evidence ?? application,
   );
@@ -96,7 +108,7 @@ export function InterviewCompletionReview({
           ? programDateTimeInput(application.interviewCompletedAt, timeZone)
           : "",
         duration: String(application.interviewDurationMin ?? 30),
-        attended: application.interviewers
+        attended: (application.completionParticipants ?? [])
           .filter((p) => p.attended)
           .map((p) => p.tutorId),
         reason: "",
@@ -112,7 +124,9 @@ export function InterviewCompletionReview({
   );
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [readRecoveryFailed, setReadRecoveryFailed] = useState(false);
   const writing = useRef(false);
+  const reading = useRef(false);
   const editor = useRef<HTMLFormElement>(null);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   // Replacing editor/review controls must leave keyboard focus inside the dialog.
@@ -123,13 +137,46 @@ export function InterviewCompletionReview({
   const mutation = api.interviewManagement.complete.useMutation();
   const busy = mutation.isPending || refreshing || submitting;
   const correction = !!evidence.interviewCompletedAt;
+  // The private evidence reader supplies historical physical-panel candidates
+  // and real source amounts. Today's voting assignments cannot reconstruct them.
+  const participants = evidence.completionParticipants ?? [];
+  const evidenceAvailable = participants.length > 0;
+  const canReview = readAvailable && evidenceAvailable && !readRecoveryFailed;
   const action = t(correction ? "correct" : "record");
   const hours = Number(draft.duration) / 60;
+  const beforeTotal = participants.reduce(
+    (sum, person) => sum + person.creditHours,
+    0,
+  );
+  const afterTotal = hours * draft.attended.length;
+  const completionDate = () =>
+    evidence.interviewCompletedAt &&
+    draft.date === programDateTimeInput(evidence.interviewCompletedAt, timeZone)
+      ? evidence.interviewCompletedAt
+      : parseProgramDateTime(draft.date, timeZone);
   const number = (value: number) =>
     format.number(value, { maximumFractionDigits: 4 });
   const update = (values: Partial<CompletionDraft>) =>
     setDraft((previous) => ({ ...previous, ...values }));
+  const retryReads = async () => {
+    if (reading.current || writing.current || busy) return;
+    reading.current = true;
+    setRefreshing(true);
+    try {
+      await refresh();
+      setReadRecoveryFailed(false);
+    } catch (caught) {
+      const code = (caught as { data?: { code?: string } }).data?.code;
+      if (code === "FORBIDDEN" || code === "UNAUTHORIZED") onAccessDenied?.();
+      else setReadRecoveryFailed(true);
+    } finally {
+      reading.current = false;
+      setRefreshing(false);
+    }
+  };
   const sync = async () => {
+    if (reading.current) return;
+    reading.current = true;
     setRefreshing(true);
     try {
       await refresh();
@@ -137,11 +184,12 @@ export function InterviewCompletionReview({
     } catch {
       setRefreshFailed(true);
     } finally {
+      reading.current = false;
       setRefreshing(false);
     }
   };
   const submit = async () => {
-    if (writing.current || step !== "review") return;
+    if (writing.current || busy || !canReview || step !== "review") return;
     writing.current = true;
     setSubmitting(true);
     setError("");
@@ -149,7 +197,7 @@ export function InterviewCompletionReview({
       await mutation.mutateAsync({
         applicationId: application.id,
         durationMin: Number(draft.duration),
-        completedAt: parseProgramDateTime(draft.date, timeZone),
+        completedAt: completionDate(),
         attendedTutorIds: draft.attended,
         reason: draft.reason.trim(),
         expectedUpdatedAt: draft.version,
@@ -188,6 +236,41 @@ export function InterviewCompletionReview({
           : { ...draft, evidence },
       );
   };
+  const reloadEvidence = async () => {
+    if (reading.current || writing.current || busy) return;
+    reading.current = true;
+    setRefreshing(true);
+    try {
+      const current = await reload();
+      if (
+        current.id !== application.id ||
+        !current.completionParticipants?.length
+      )
+        throw new Error(correctionT("missingEvidence"));
+      setEvidence(current);
+      setDraft({
+        date: current.interviewCompletedAt
+          ? programDateTimeInput(current.interviewCompletedAt, timeZone)
+          : "",
+        duration: String(current.interviewDurationMin ?? 30),
+        attended: current.completionParticipants
+          .filter((p) => p.attended)
+          .map((p) => p.tutorId),
+        reason: "",
+        version: current.updatedAt,
+      });
+      setError("");
+      setReadRecoveryFailed(false);
+      setStep("edit");
+    } catch (caught) {
+      const code = (caught as { data?: { code?: string } }).data?.code;
+      if (code === "FORBIDDEN" || code === "UNAUTHORIZED") onAccessDenied?.();
+      else setError(caught instanceof Error ? caught.message : t("saveFailed"));
+    } finally {
+      reading.current = false;
+      setRefreshing(false);
+    }
+  };
   return (
     <Modal
       wide
@@ -208,6 +291,7 @@ export function InterviewCompletionReview({
               variant="primary"
               type="submit"
               form="interview-completion-editor"
+              disabled={busy || !canReview}
             >
               {t("review")}
             </Button>
@@ -224,7 +308,7 @@ export function InterviewCompletionReview({
               </Button>
               <Button
                 variant="primary"
-                disabled={busy}
+                disabled={busy || !canReview}
                 onClick={() => void submit()}
               >
                 {t(correction ? "confirmCorrection" : "confirmAward")}
@@ -243,10 +327,7 @@ export function InterviewCompletionReview({
           step === "applied"
             ? {
                 ...application,
-                interviewCompletedAt: parseProgramDateTime(
-                  draft.date,
-                  timeZone,
-                ),
+                interviewCompletedAt: completionDate(),
                 interviewDurationMin: Number(draft.duration),
                 pendingCompletion: false,
               }
@@ -255,19 +336,54 @@ export function InterviewCompletionReview({
               : application
         }
       />
+      {(step === "edit" || step === "review") &&
+        (!readAvailable || readRecoveryFailed) && (
+          <InlineNotice
+            tone="warning"
+            announcement="status"
+            action={
+              <Button disabled={busy} onClick={() => void retryReads()}>
+                {t("refreshOnly")}
+              </Button>
+            }
+          >
+            {correctionT("readUnavailable")}
+          </InlineNotice>
+        )}
+      {!evidenceAvailable && (step === "edit" || step === "review") && (
+        <InlineNotice
+          tone="warning"
+          announcement="status"
+          action={
+            !error ? (
+              <Button disabled={busy} onClick={() => void reloadEvidence()}>
+                {t("reloadEvidence")}
+              </Button>
+            ) : undefined
+          }
+        >
+          {correctionT("missingEvidence")}
+        </InlineNotice>
+      )}
       {step === "edit" && (
         <form
           ref={editor}
           id="interview-completion-editor"
           onSubmit={(event) => {
             event.preventDefault();
+            if (busy || !canReview) return;
             setError("");
             try {
-              const date = parseProgramDateTime(draft.date, timeZone);
+              const date = completionDate();
               if (
                 date > new Date() ||
                 draft.attended.length === 0 ||
+                new Set(draft.attended).size !== draft.attended.length ||
+                draft.attended.some(
+                  (id) => !participants.some((person) => person.tutorId === id),
+                ) ||
                 !draft.reason.trim() ||
+                draft.reason.trim().length > 1000 ||
                 !Number.isInteger(Number(draft.duration)) ||
                 Number(draft.duration) < 1 ||
                 Number(draft.duration) > 480
@@ -310,29 +426,58 @@ export function InterviewCompletionReview({
                 />
               </label>
             </div>
+            {correction && (
+              <InlineNotice>
+                <p>{correctionT("historyHelp")}</p>
+                <p className="mt-1">
+                  {correctionT("decisionPanel", {
+                    names:
+                      evidence.interviewers
+                        .map((person) => person.tutor.englishName)
+                        .join(", ") || all("workflows.unassignedPanel"),
+                  })}
+                </p>
+              </InlineNotice>
+            )}
             <fieldset>
-              <legend className="label">{all("workflows.attended")}</legend>
+              <legend className="label">
+                {correction
+                  ? correctionT("participants")
+                  : all("workflows.attended")}
+              </legend>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {evidence.interviewers.map((panelist) => (
-                  <label
+                {participants.map((panelist) => (
+                  <div
                     key={panelist.tutorId}
-                    className="flex min-h-11 items-center gap-2 lg:min-h-8"
+                    className="flex flex-wrap items-center gap-2"
                   >
-                    <input
-                      type="checkbox"
-                      checked={draft.attended.includes(panelist.tutorId)}
-                      onChange={(event) =>
-                        update({
-                          attended: event.target.checked
-                            ? [...draft.attended, panelist.tutorId]
-                            : draft.attended.filter(
-                                (id) => id !== panelist.tutorId,
-                              ),
-                        })
-                      }
-                    />
-                    {panelist.tutor.englishName}
-                  </label>
+                    <label className="flex min-h-11 items-center gap-2 lg:min-h-8">
+                      <input
+                        type="checkbox"
+                        checked={draft.attended.includes(panelist.tutorId)}
+                        onChange={(event) =>
+                          update({
+                            attended: event.target.checked
+                              ? [...draft.attended, panelist.tutorId]
+                              : draft.attended.filter(
+                                  (id) => id !== panelist.tutorId,
+                                ),
+                          })
+                        }
+                      />
+                      {panelist.tutor.englishName}
+                    </label>
+                    {correction && !panelist.currentPanel && (
+                      <span className="badge-slate">
+                        {correctionT("formerPanelist")}
+                      </span>
+                    )}
+                    {panelist.tutor.status && (
+                      <span className="badge-slate">
+                        {all(`admin.tutorStatus.${panelist.tutor.status}`)}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             </fieldset>
@@ -356,29 +501,29 @@ export function InterviewCompletionReview({
           </h3>
           <p>
             {t("reviewDate", {
-              date: format.dateTime(
-                parseProgramDateTime(draft.date, timeZone),
-                { dateStyle: "medium", timeStyle: "short" },
-              ),
+              date: format.dateTime(completionDate(), {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }),
               minutes: Number(draft.duration),
             })}
           </p>
           <p className="break-words whitespace-pre-wrap">{draft.reason}</p>
           {correction && (
-            <InlineNotice tone="warning">{t("replacement")}</InlineNotice>
+            <InlineNotice tone="warning">
+              <p>{t("replacement")}</p>
+              <p className="mt-1">{correctionT("historyHelp")}</p>
+            </InlineNotice>
           )}
           <ul className="space-y-2">
-            {evidence.interviewers
+            {participants
               .filter(
                 (p) =>
                   draft.attended.includes(p.tutorId) ||
-                  (correction && p.attended),
+                  (correction && (p.attended || p.creditHours !== 0)),
               )
               .map((panelist) => {
-                const before =
-                  correction && panelist.attended
-                    ? (evidence.interviewDurationMin ?? 0) / 60
-                    : 0;
+                const before = panelist.creditHours;
                 const after = draft.attended.includes(panelist.tutorId)
                   ? hours
                   : 0;
@@ -387,7 +532,19 @@ export function InterviewCompletionReview({
                     className="flex flex-wrap justify-between gap-2 border-b border-slate-100 py-2"
                     key={panelist.tutorId}
                   >
-                    <span>{panelist.tutor.englishName}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span>{panelist.tutor.englishName}</span>
+                      {correction && !panelist.currentPanel && (
+                        <span className="badge-slate">
+                          {correctionT("formerPanelist")}
+                        </span>
+                      )}
+                      {panelist.tutor.status && (
+                        <span className="badge-slate">
+                          {all(`admin.tutorStatus.${panelist.tutor.status}`)}
+                        </span>
+                      )}
+                    </span>
                     <span>
                       {correction
                         ? t("change", {
@@ -402,7 +559,13 @@ export function InterviewCompletionReview({
               })}
           </ul>
           <p className="font-semibold">
-            {t("total", { hours: number(hours * draft.attended.length) })}
+            {correction
+              ? correctionT("totalChange", {
+                  before: number(beforeTotal),
+                  after: number(afterTotal),
+                  delta: number(afterTotal - beforeTotal),
+                })
+              : t("total", { hours: number(afterTotal) })}
           </p>
           <p className="muted text-sm">
             {t(correction ? "correctionApproval" : "initialApproval")}
@@ -429,45 +592,7 @@ export function InterviewCompletionReview({
           tone="error"
           announcement="alert"
           action={
-            <Button
-              disabled={busy}
-              onClick={async () => {
-                setRefreshing(true);
-                try {
-                  const current = await reload();
-                  setEvidence(current);
-                  setDraft({
-                    date: current.interviewCompletedAt
-                      ? programDateTimeInput(
-                          current.interviewCompletedAt,
-                          timeZone,
-                        )
-                      : "",
-                    duration: String(current.interviewDurationMin ?? 30),
-                    attended: current.interviewers
-                      .filter((p) => p.attended)
-                      .map((p) => p.tutorId),
-                    reason: "",
-                    version: current.updatedAt,
-                  });
-                  setError("");
-                  setStep("edit");
-                } catch (caught) {
-                  const code = (caught as { data?: { code?: string } }).data
-                    ?.code;
-                  if (code === "FORBIDDEN" || code === "UNAUTHORIZED")
-                    onAccessDenied?.();
-                  else
-                    setError(
-                      caught instanceof Error
-                        ? caught.message
-                        : t("saveFailed"),
-                    );
-                } finally {
-                  setRefreshing(false);
-                }
-              }}
-            >
+            <Button disabled={busy} onClick={() => void reloadEvidence()}>
               {t("reloadEvidence")}
             </Button>
           }

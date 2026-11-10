@@ -86,6 +86,18 @@ export default function AdjustmentsPage() {
   const [amount, setAmount] = useState("1");
   const [reason, setReason] = useState("");
   const busy = writing || create.isPending || synchronizing;
+  const sourceLabel = (kind: string) =>
+    t(
+      kind === "INDEPENDENT"
+        ? "admin.adjustments.source.other"
+        : kind === "INTERVIEW" || kind === "LIVE_INTERVIEW"
+          ? "admin.adjustments.source.interview"
+          : kind === "ORPHANED_INTERVIEW"
+            ? "admin.adjustments.source.orphaned"
+            : kind === "CONFLICTING_INTERVIEW"
+              ? "admin.adjustments.source.conflicting"
+              : "admin.adjustments.source.unresolved",
+    );
   const startAnother = () => {
     if (busy || admitted.current || refreshFailed) return;
     accepted.current = false;
@@ -355,7 +367,14 @@ export default function AdjustmentsPage() {
                   </time>
                 </td>
                 <td role="cell" className="text-slate-500">
-                  {t(`admin.adjustments.typeLabel.${a.type}`)}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>{t(`admin.adjustments.typeLabel.${a.type}`)}</span>
+                    {a.source?.kind !== "INDEPENDENT" && (
+                      <span className="badge-slate">
+                        {sourceLabel(a.source?.kind ?? "UNRESOLVED_INTERVIEW")}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td role="cell" className="text-right">
                   {/* Decimal amounts are one token; the table scrolls locally
@@ -376,9 +395,34 @@ export default function AdjustmentsPage() {
                         {t("admin.adjustments.table.reason")}
                       </dt>
                       <dd className="whitespace-pre-wrap">{a.reason ?? "—"}</dd>
+                      <dt className="font-semibold">
+                        {t("admin.adjustments.source.label")}
+                      </dt>
+                      <dd>
+                        {sourceLabel(a.source?.kind ?? "UNRESOLVED_INTERVIEW")}
+                      </dd>
+                      {!readOnly && a.source?.kind !== "INDEPENDENT" && (
+                        <dd className="text-sm">
+                          {t(
+                            a.source?.correctionHref
+                              ? "admin.adjustments.source.help"
+                              : "admin.adjustments.source.unavailable",
+                          )}
+                        </dd>
+                      )}
                     </dl>
                   </TableDetails>
-                  {!readOnly && (
+                  {!readOnly && a.source?.correctionHref && (
+                    <Link
+                      href={a.source.correctionHref}
+                      prefetch={false}
+                      className="table-action-link"
+                      aria-label={`${t("admin.adjustments.source.correct")}: ${a.tutor.englishName}, ${a.month}`}
+                    >
+                      {t("admin.adjustments.source.correct")}
+                    </Link>
+                  )}
+                  {!readOnly && a.source?.canDelete && (
                     <TableAction
                       onClick={() =>
                         review.open({
@@ -409,7 +453,9 @@ export default function AdjustmentsPage() {
                           approvalId: queuedApprovalId,
                         })
                       }
-                      disabled={review.blocked(a.id)}
+                      disabled={
+                        review.blocked(a.id) || !!list.error || list.isLoading
+                      }
                       aria-label={`${t("admin.adjustments.table.delete")}: ${a.tutor.englishName}, ${a.month}`}
                       className="text-red-700"
                     >

@@ -35,6 +35,10 @@ const commit = vi.fn(),
   refresh = vi.fn(),
   reload = vi.fn(),
   close = vi.fn();
+const retainedServiceMessages = {
+  en: "This approval reuses the recorded interview completion, attendance and service-hour credits, including authorized corrections. The current panel may differ from the recorded attendees. This approval adds or removes no service hours.",
+  zh: "此次批准将沿用已记录的面试完成、出席和服务时数信息，包括已授权的更正。当前评审小组可能与已记录的出席人员不同。此次批准不会增加或扣除服务时数。",
+};
 beforeEach(() => {
   vi.resetAllMocks();
   commit.mockResolvedValue({ ok: true });
@@ -52,7 +56,13 @@ const element = (
   <NextIntlClientProvider
     locale={locale}
     timeZone="Asia/Shanghai"
-    messages={locale === "en" ? en : zh}
+    messages={{
+      ...(locale === "en" ? en : zh),
+      interviewApproval: {
+        ...(locale === "en" ? en : zh).interviewApproval,
+        retainedService: retainedServiceMessages[locale],
+      },
+    }}
   >
     <InterviewApprovalDialog
       evidence={evidence}
@@ -311,6 +321,94 @@ it("reuses exact recorded completion including seconds and attendance without of
       }),
     ),
   );
+});
+
+it.each(["en", "zh"] as const)(
+  "retains recorded qualification service when no original attendee remains on the panel (%s)",
+  async (locale) => {
+    const catalog = locale === "en" ? en : zh;
+    const recorded = {
+      ...record,
+      type: "ADDITIONAL_SUBJECT" as const,
+      interviewCompletedAt: new Date("2026-09-01T02:00:37.456Z"),
+      interviewDurationMin: 45,
+    };
+    render(element(recorded, true, true, locale));
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByText(retainedServiceMessages[locale])).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.interviewApproval.review }),
+    );
+    expect(
+      within(confirmation()).getByText(retainedServiceMessages[locale]),
+    ).toBeTruthy();
+    expect(within(confirmation()).queryByText("Admin Chair")).toBeNull();
+    expect(within(confirmation()).queryByText(/0 hours|0 小时/)).toBeNull();
+    fireEvent.click(
+      within(confirmation()).getByRole("button", {
+        name: catalog.interviewApproval.confirm,
+      }),
+    );
+    await waitFor(() =>
+      expect(commit).toHaveBeenCalledExactlyOnceWith({
+        comment: "Panel evidence reviewed",
+        expectedUpdatedAt: record.updatedAt,
+        retainRecordedService: true,
+        completion: {
+          completedAt: recorded.interviewCompletedAt,
+          durationMin: 45,
+          attendedTutorIds: [],
+        },
+      }),
+    );
+  },
+);
+
+it("keeps the captured retained-service payload and token through a failed write and background refresh", async () => {
+  commit.mockRejectedValueOnce(new Error("Response lost"));
+  const recorded = {
+    ...record,
+    type: "HIGHER_LEVEL" as const,
+    interviewCompletedAt: new Date("2026-09-01T02:00:37.456Z"),
+    interviewDurationMin: 45,
+    panel: record.panel.map((person) => ({
+      ...person,
+      attended: person.tutorId === "one",
+    })),
+  };
+  const view = render(element(recorded));
+  review();
+  confirm();
+  await screen.findByText("Response lost");
+  const submitted = commit.mock.calls[0]?.[0] as unknown;
+  fireEvent.click(
+    within(confirmation()).getByRole("button", {
+      name: en.actionReview.cancel,
+    }),
+  );
+  view.rerender(
+    element(
+      {
+        ...recorded,
+        interviewDurationMin: 60,
+        updatedAt: new Date("2026-09-02T00:00:00Z"),
+        panel: recorded.panel.map((person) => ({ ...person, attended: false })),
+      },
+      false,
+      true,
+      "en",
+      true,
+    ),
+  );
+  review();
+  confirm();
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
+  expect(commit.mock.calls[1]?.[0]).toBe(submitted);
+  expect(commit.mock.calls[1]?.[0]).toMatchObject({
+    retainRecordedService: true,
+    completion: { durationMin: 45, attendedTutorIds: ["one"] },
+    expectedUpdatedAt: record.updatedAt,
+  });
 });
 
 it.each([

@@ -23,6 +23,7 @@ import {
   interviewHourRows,
   sameInterviewCompletionEvidence,
   recordInterviewApprovalService,
+  retainRecordedInterviewService,
 } from "~/server/interview-hours";
 
 export function assertQualificationReviewer(role: string) {
@@ -86,6 +87,7 @@ export async function decideQualificationApplication(
     comment: string;
     expectedUpdatedAt: Date;
     completion?: InterviewService;
+    retainRecordedService?: true;
   },
 ) {
   assertQualificationReviewer(actor.role);
@@ -141,6 +143,15 @@ export async function decideQualificationApplication(
     });
   let chairId: string | null = null;
   const hasPanel = app.status === "INTERVIEW" || app.interviewers.length > 0;
+  if (
+    input.retainRecordedService &&
+    (!hasPanel || !input.accept || !input.completion)
+  )
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Recorded service can only be retained when approving a completed qualification interview.",
+    });
   // Direct review permits approval only; rejection must satisfy the chair and
   // completed panel-vote checks below, even when called outside the UI.
   if (!input.accept && !hasPanel)
@@ -182,6 +193,17 @@ export async function decideQualificationApplication(
           app.id,
           app.interviewers.map((p) => p.tutorId),
         );
+        if (input.retainRecordedService) {
+          // The retained receipt also checks the archived source ledger; merely
+          // matching the current panel would miss former attendees' credits.
+          await retainRecordedInterviewService(
+            tx,
+            app.id,
+            app,
+            input.completion,
+          );
+          return { ok: true };
+        }
         if (sameInterviewCompletionEvidence(app, credits, input.completion))
           return { ok: true };
       }
@@ -194,8 +216,12 @@ export async function decideQualificationApplication(
     });
   if (app.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
     staleConflict();
-  if (hasPanel && input.accept && input.completion)
-    await recordInterviewApprovalService(tx, app.id, app, input.completion);
+  if (hasPanel && input.accept && input.completion) {
+    if (input.retainRecordedService)
+      await retainRecordedInterviewService(tx, app.id, app, input.completion);
+    else
+      await recordInterviewApprovalService(tx, app.id, app, input.completion);
+  }
   const snapshot: { id: string; name: string }[] = [];
   const grantedLabels: string[] = [];
   if (input.accept) {
@@ -227,7 +253,12 @@ export async function decideQualificationApplication(
       select: { id: true, name: true, level: { select: { name: true } } },
     });
     snapshot.push(...subjects.map(({ id, name }) => ({ id, name })));
-    grantedLabels.push(...subjects.map((subject) => `${subject.name}${subject.level ? ` (${subject.level.name})` : ""}`));
+    grantedLabels.push(
+      ...subjects.map(
+        (subject) =>
+          `${subject.name}${subject.level ? ` (${subject.level.name})` : ""}`,
+      ),
+    );
     if (!snapshot.length)
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",

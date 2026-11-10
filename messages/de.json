@@ -1710,11 +1710,22 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "Neue Stundenkorrektur"
+      "create": "Neue Stundenkorrektur",
+      "source": {
+        "label": "Quelle",
+        "other": "Andere Stundenanpassung",
+        "interview": "Interviewquelle",
+        "orphaned": "Interviewaufzeichnung nicht verfügbar",
+        "unresolved": "Ungeklärte Interviewquelle",
+        "conflicting": "Widersprüchliche Interviewquelle",
+        "correct": "Interviewstunden korrigieren",
+        "help": "Diese Stunden stammen aus erfasstem Interviewdienst. Prüfen Sie das Interview, um Abschlusszeit, Dauer oder Anwesenheit zu korrigieren.",
+        "unavailable": "Für diesen Eintrag ist keine Korrektur des Interviewabschlusses verfügbar."
+      }
     },
     "applications": {
       "title": "Tutor-Bewerbungen",
-      "intro": "Bewerber prüfen und ein {n}-köpfiges Interviewgremium zuweisen (einen Leiter markieren). Auf eine Zeile klicken, um sie aufzuklappen. Der Leiter terminiert das Interview und erfasst die Entscheidung im eigenen Dashboard.",
+      "intro": "Prüfen Sie Bewerbungen und wählen Sie ein Interviewgremium mit {n}–{max} Tutoren und einem Vorsitz. Klicken Sie auf eine Zeile, um sie zu öffnen. Der Vorsitz plant das Interview und erfasst die Entscheidung im eigenen Dashboard.",
       "empty": "Noch keine Bewerbungen.",
       "status": {
         "PENDING": "ausstehend",
@@ -1724,7 +1735,7 @@
         "RECALLED": "Recalled"
       },
       "noCourses": "keine Fächer",
-      "panelSummary": "Gremium {n}/{total}",
+      "panelSummary": "Gremium: {n}",
       "votesSummary": "Stimmen {accepts}/{total}",
       "accept": "Annehmen",
       "reject": "Ablehnen",
@@ -1738,14 +1749,14 @@
         "selfStudied": "Selbststudium: {note}"
       },
       "noQualification": "Keine Qualifikation angegeben",
-      "panelHeading": "Interviewgremium (wählen Sie {n}, einen Leiter markieren)",
+      "panelHeading": "Interviewgremium ({n}–{max} Tutoren, ein Vorsitz)",
       "scheduled": "Geplant: {when} (vom Leiter festgelegt)",
       "panelistSlot": "— Panelist {n} —",
       "head": "Leiter",
       "saving": "Wird gespeichert…",
       "savePanel": "Gremium speichern",
       "saved": "Gespeichert.",
-      "pickHint": "{n} Tutoren und einen Leiter auswählen.",
+      "pickHint": "Wählen Sie mindestens {n} Tutoren und einen Vorsitz.",
       "votesDecisionHeading": "Stimmen & Entscheidung",
       "voteTally": "{accepts} dafür · {rejects} dagegen",
       "noVotes": "Noch keine Stimmen.",
@@ -1800,7 +1811,21 @@
         "unavailable": "{name} (nicht verfügbar — Auswahl ersetzen)",
         "chairSlot": "Interviewmitglied {n} als Vorsitz wählen"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "Das Interviewteam wurde während der Bearbeitung geändert. Laden Sie es neu, um das aktuelle Team zu prüfen.",
+        "reloadHelp": "Beim Neuladen wird dieser Entwurf durch das aktuell gespeicherte Interviewteam ersetzt.",
+        "reload": "Interviewteam neu laden",
+        "loading": "Interviewteam wird geladen…",
+        "retry": "Interviewteam erneut laden",
+        "reloadError": "Das aktuelle Interviewteam konnte nicht geladen werden. Ihr Entwurf bleibt unverändert.",
+        "refreshError": "Die Teamänderung wurde eingereicht, aber das aktuelle Team konnte nicht geladen werden. Laden Sie es erneut, bevor Sie weitere Änderungen vornehmen."
+      },
+      "panelRepair": {
+        "reason": "Grund für die Korrektur des Interviewteams",
+        "save": "Interviewteam korrigieren",
+        "consequence": "Beim Ersetzen dieses offenen Interviewteams werden seine Stimmen gelöscht. Erfasste Abschlussdaten und erworbene Stunden bleiben als Historie erhalten; neue Teammitglieder erhalten keine automatische Gutschrift. Alle Mitglieder des Ersatzteams müssen erneut abstimmen."
+      }
     },
     "cards": {
       "title": "Disziplin der Lernenden",
@@ -7019,7 +7044,18 @@
     "reloadEvidence": "Aktuelle Nachweise neu laden (Entwurf ersetzen)",
     "historyFollowups": "{count, plural, one {# abgeschlossenes Interview benötigt noch} other {# abgeschlossene Interviews benötigen noch}} die Erfassung des Abschlusses und die Stundengutschrift durch die Verwaltung.",
     "accessDenied": "Der Zugriff auf Interviews ist nicht mehr verfügbar. Laden Sie die Ansicht neu, um Ihre aktuellen Berechtigungen zu prüfen.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "correctionEvidence": {
+      "readUnavailable": "Die aktuellen Interviewnachweise müssen erfolgreich geladen werden, bevor Sie prüfen oder einreichen. Ihr Entwurf bleibt erhalten.",
+      "missingEvidence": "Laden Sie die erfassten Interviewteilnehmer und aktuellen Quellgutschriften, bevor Sie diese Änderung prüfen.",
+      "historyHelp": "Anwesenheit und Stunden gehören zum erfassten Interview. Neue Mitglieder des Entscheidungsteams werden dadurch nicht zu damaligen Interviewteilnehmern.",
+      "decisionPanel": "Aktuelles Entscheidungsteam: {names}",
+      "participants": "Anwesenheit im Team des erfassten Interviews",
+      "formerPanelist": "Früheres Teammitglied",
+      "loading": "Abschlussnachweise werden geladen…",
+      "totalChange": "Gesamtgutschrift: {before} → {after} Stunden (Änderung {delta})",
+      "retryArrival": "Interviewaufzeichnung erneut laden"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7056,7 +7092,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "Diese Genehmigung übernimmt den erfassten Interviewabschluss, die Anwesenheit und die Zeitgutschriften einschließlich genehmigter Korrekturen. Das aktuelle Gremium kann von den erfassten Teilnehmenden abweichen. Diese Genehmigung fügt keine Dienststunden hinzu und entfernt keine."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",

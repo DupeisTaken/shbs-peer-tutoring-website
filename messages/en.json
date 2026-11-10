@@ -1710,11 +1710,22 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "New hour adjustment"
+      "create": "New hour adjustment",
+      "source": {
+        "label": "Source",
+        "other": "Other hour adjustment",
+        "interview": "Interview source",
+        "orphaned": "Interview record unavailable",
+        "unresolved": "Unresolved interview source",
+        "conflicting": "Conflicting interview source",
+        "correct": "Correct interview hours",
+        "help": "These hours come from recorded interview service. Review the interview to correct its completion, duration or attendance.",
+        "unavailable": "An interview completion correction is unavailable for this row."
+      }
     },
     "applications": {
       "title": "Tutor Applications",
-      "intro": "Review applicants and assign a {n}-tutor interview panel (mark one chair). Click a row to expand. The chair schedules the interview and records the decision from their own dashboard.",
+      "intro": "Review applicants and assign an interview panel of {n}–{max} tutors, with one chair. Click a row to expand. The chair schedules the interview and records the decision from their own dashboard.",
       "empty": "No applications yet.",
       "status": {
         "PENDING": "pending",
@@ -1724,7 +1735,7 @@
         "RECALLED": "Recalled"
       },
       "noCourses": "no subjects",
-      "panelSummary": "panel {n}/{total}",
+      "panelSummary": "panel {n}",
       "votesSummary": "votes {accepts}/{total}",
       "accept": "Accept",
       "reject": "Reject",
@@ -1738,14 +1749,14 @@
         "selfStudied": "self-studied: {note}"
       },
       "noQualification": "no qualification given",
-      "panelHeading": "Interview Panel (Choose {n}, Mark One Chair)",
+      "panelHeading": "Interview Panel ({n}–{max} Tutors, One Chair)",
       "scheduled": "Scheduled: {when} (set by the chair)",
       "panelistSlot": "— Panelist {n} —",
       "head": "chair",
       "saving": "Saving…",
       "savePanel": "Save Panel",
       "saved": "Saved.",
-      "pickHint": "Pick {n} tutors and a chair.",
+      "pickHint": "Pick at least {n} tutors and a chair.",
       "votesDecisionHeading": "Votes & Decision",
       "voteTally": "{accepts} accept · {rejects} reject",
       "noVotes": "No votes yet.",
@@ -1800,7 +1811,21 @@
         "unavailable": "{name} (unavailable — replace this selection)",
         "chairSlot": "Choose panelist {n} as chair"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "The panel changed while this draft was open. Reload to review the current panel.",
+        "reloadHelp": "Reload replaces this draft with the current saved panel.",
+        "reload": "Reload panel",
+        "loading": "Loading panel…",
+        "retry": "Retry loading panel",
+        "reloadError": "The current panel could not be loaded. Your draft is unchanged.",
+        "refreshError": "The panel change was submitted, but the current panel could not be loaded. Retry loading before making another change."
+      },
+      "panelRepair": {
+        "reason": "Reason for panel repair",
+        "save": "Repair panel",
+        "consequence": "Replacing this open panel clears its votes. Recorded completion and earned hours stay as history; new panelists receive no automatic credit. Every replacement panelist must vote again."
+      }
     },
     "cards": {
       "title": "Tutee Discipline",
@@ -7019,7 +7044,18 @@
     "reloadEvidence": "Reload current evidence (replace draft)",
     "historyFollowups": "{count, plural, one {# finalized interview still needs} other {# finalized interviews still need}} management to record completion and hours.",
     "accessDenied": "Interview access is no longer available. Reload to check your current permissions.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "correctionEvidence": {
+      "readUnavailable": "Current interview evidence must load successfully before you review or submit. Your draft is retained.",
+      "missingEvidence": "Load the recorded interview participants and current source credits before reviewing this change.",
+      "historyHelp": "Attendance and credits belong to the recorded interview. Replacing the decision panel does not make its new members interview attendees.",
+      "decisionPanel": "Current decision panel: {names}",
+      "participants": "Attendance from the recorded interview panel",
+      "formerPanelist": "Former panelist",
+      "loading": "Loading completion evidence…",
+      "totalChange": "Total credit: {before} → {after} hours (change {delta})",
+      "retryArrival": "Retry interview record"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7056,7 +7092,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "This approval reuses the recorded interview completion, attendance and service-hour credits, including authorized corrections. The current panel may differ from the recorded attendees. This approval adds or removes no service hours."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",

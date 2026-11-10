@@ -37,6 +37,9 @@ const mocks = vi.hoisted(() => {
     invalidate: vi.fn(),
     additional: false,
     interview: false,
+    panelCount: 3,
+    appStatus: null as string | null,
+    actorTutorId: "chair",
     role: "HEAD",
     decide: vi.fn(),
     minimized: false,
@@ -59,7 +62,10 @@ vi.mock("~/app/_components/email-details", () => ({
   EmailDetails: () => null,
 }));
 vi.mock("~/app/_components/application-identity-correction", () => ({
-  ApplicationIdentityCorrection: (props: unknown) => { mocks.identity(props); return null; },
+  ApplicationIdentityCorrection: (props: unknown) => {
+    mocks.identity(props);
+    return null;
+  },
 }));
 vi.mock("~/app/_components/interview-management", () => ({
   InterviewManagement: (props: { enabled: boolean }) => {
@@ -97,7 +103,9 @@ vi.mock("~/trpc/react", () => ({
     }),
     account: {
       me: {
-        useQuery: () => ({ data: { role: mocks.role, tutorId: "chair" } }),
+        useQuery: () => ({
+          data: { role: mocks.role, tutorId: mocks.actorTutorId },
+        }),
       },
     },
     qualificationApplication: {
@@ -172,11 +180,13 @@ vi.mock("~/trpc/react", () => ({
                   name: mocks.name,
                   email: "candidate@example.test",
                   preferredContact: null,
-                  status: mocks.interview
-                    ? "INTERVIEW"
-                    : mocks.additional
-                      ? "PENDING"
-                      : "ACCEPTED",
+                  status:
+                    mocks.appStatus ??
+                    (mocks.interview
+                      ? "INTERVIEW"
+                      : mocks.additional
+                        ? "PENDING"
+                        : "ACCEPTED"),
                   updatedAt: new Date("2026-09-01"),
                   interviewAt: null,
                   interviewCompletedAt: null,
@@ -199,11 +209,13 @@ vi.mock("~/trpc/react", () => ({
                       ]
                     : [],
                   interviewers: mocks.interview
-                    ? ["chair", "second", "third"].map((id) => ({
-                        isHead: id === "chair",
-                        attended: false,
-                        tutor: { id, englishName: id },
-                      }))
+                    ? ["chair", "second", "third", "fourth"]
+                        .slice(0, mocks.panelCount)
+                        .map((id) => ({
+                          isHead: id === "chair",
+                          attended: false,
+                          tutor: { id, englishName: id },
+                        }))
                     : mocks.additional
                       ? []
                       : [
@@ -273,6 +285,9 @@ beforeEach(() => {
   mocks.enabled = true;
   mocks.additional = false;
   mocks.interview = false;
+  mocks.panelCount = 3;
+  mocks.appStatus = null;
+  mocks.actorTutorId = "chair";
   mocks.role = "HEAD";
   mocks.minimized = false;
   mocks.invalid = false;
@@ -282,14 +297,23 @@ beforeEach(() => {
   mocks.setupState = "active";
 });
 afterEach(cleanup);
-it.each(["HEAD", "ADMIN", "COORDINATOR"])("opens initial identity evidence with explicit correction authority for %s", (role) => {
-  mocks.role = role;
-  show();
-  expect(mocks.identity).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
-  expect(mocks.identity).toHaveBeenCalledWith(expect.objectContaining({ applicationId: "candidate", canCorrect: true, canApply: role === "HEAD" || role === "ADMIN" }));
-  expect(mocks.decide).not.toHaveBeenCalled();
-});
+it.each(["HEAD", "ADMIN", "COORDINATOR"])(
+  "opens initial identity evidence with explicit correction authority for %s",
+  (role) => {
+    mocks.role = role;
+    show();
+    expect(mocks.identity).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    expect(mocks.identity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationId: "candidate",
+        canCorrect: true,
+        canApply: role === "HEAD" || role === "ADMIN",
+      }),
+    );
+    expect(mocks.decide).not.toHaveBeenCalled();
+  },
+);
 
 it("keeps correction controls out of the read-only application evidence view", () => {
   render(content(true));
@@ -618,6 +642,63 @@ it("does not expose additional request decisions or panel setup to Coordinators"
   expect(
     screen.getByText("Another Admin or Head must review this request."),
   ).toBeTruthy();
+});
+
+it.each(["ADMIN", "HEAD"])(
+  "offers an explicit reasoned repair for an open qualification panel to another %s",
+  (role) => {
+    mocks.additional = true;
+    mocks.interview = true;
+    mocks.role = role;
+    show();
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    expect(
+      screen.getByRole("textbox", { name: "Reason for panel repair" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Repair panel" })
+        .disabled,
+    ).toBe(true);
+    expect(
+      screen.getByText(/Every replacement panelist must vote again/),
+    ).toBeTruthy();
+  },
+);
+
+it.each(["ACCEPTED", "REJECTED", "RECALLED"])(
+  "conceals qualification panel repair after the final %s outcome",
+  (status) => {
+    mocks.additional = true;
+    mocks.interview = true;
+    mocks.appStatus = status;
+    show();
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    expect(screen.queryByRole("button", { name: "Repair panel" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
+  },
+);
+
+it("conceals the applicant's own open qualification panel repair, including Head", () => {
+  mocks.additional = true;
+  mocks.interview = true;
+  mocks.actorTutorId = "candidate-tutor";
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(screen.queryByRole("button", { name: "Repair panel" })).toBeNull();
+  expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
+});
+
+it("shows a valid four-member panel as a count within the supported three-to-eight range", () => {
+  mocks.additional = true;
+  mocks.interview = true;
+  mocks.panelCount = 4;
+  show();
+  expect(screen.getByText(/panel 4/).textContent).not.toContain("4/3");
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(
+    screen.getByText("Interview Panel (3–8 Tutors, One Chair)"),
+  ).toBeTruthy();
+  expect(screen.getByText(/interview panel of 3–8 tutors/)).toBeTruthy();
 });
 
 it("keeps an open interview approval draft mounted when its application leaves the current filter", () => {

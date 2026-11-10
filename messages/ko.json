@@ -1710,11 +1710,22 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "새 활동 시간 조정"
+      "create": "새 활동 시간 조정",
+      "source": {
+        "label": "출처",
+        "other": "기타 시간 조정",
+        "interview": "면접 출처",
+        "orphaned": "면접 기록을 사용할 수 없음",
+        "unresolved": "확인되지 않은 면접 출처",
+        "conflicting": "충돌하는 면접 출처",
+        "correct": "면접 시간 수정",
+        "help": "이 시간은 기록된 면접 활동에서 산정되었습니다. 면접을 검토하여 완료 시각, 소요 시간 또는 출석을 수정하세요.",
+        "unavailable": "이 행에서는 면접 완료 기록 수정을 열 수 없습니다."
+      }
     },
     "applications": {
       "title": "튜터 지원",
-      "intro": "지원자를 검토하고 {n}명의 면접 패널을 배정하세요 (대표 한 명 지정). 행을 클릭하면 펼쳐집니다. 대표가 자신의 대시보드에서 면접 일정을 잡고 결정을 기록합니다.",
+      "intro": "신청자를 검토하고 {n}~{max}명의 튜터로 면접 위원회를 구성한 뒤 위원장 한 명을 지정하세요. 행을 누르면 상세 내용이 표시됩니다. 위원장은 자신의 대시보드에서 면접을 예약하고 결정을 기록합니다.",
       "empty": "아직 지원이 없습니다.",
       "status": {
         "PENDING": "대기 중",
@@ -1724,7 +1735,7 @@
         "RECALLED": "Recalled"
       },
       "noCourses": "과목 없음",
-      "panelSummary": "패널 {n}/{total}",
+      "panelSummary": "면접 위원 {n}명",
       "votesSummary": "투표 {accepts}/{total}",
       "accept": "합격",
       "reject": "불합격",
@@ -1738,14 +1749,14 @@
         "selfStudied": "자기 학습: {note}"
       },
       "noQualification": "자격 정보 없음",
-      "panelHeading": "면접 패널 ({n}명 선택, 대표 1명 지정)",
+      "panelHeading": "면접 위원회 ({n}~{max}명, 위원장 1명)",
       "scheduled": "일정: {when} (대표가 설정)",
       "panelistSlot": "— 패널리스트 {n} —",
       "head": "대표",
       "saving": "저장 중…",
       "savePanel": "패널 저장",
       "saved": "저장되었습니다.",
-      "pickHint": "{n}명의 튜터와 대표를 선택하세요.",
+      "pickHint": "최소 {n}명의 튜터와 위원장을 선택하세요.",
       "votesDecisionHeading": "투표 및 결정",
       "voteTally": "{accepts}명 합격 · {rejects}명 불합격",
       "noVotes": "아직 투표가 없습니다.",
@@ -1800,7 +1811,21 @@
         "unavailable": "{name} (선택 불가 — 교체 필요)",
         "chairSlot": "면접위원 {n}을 의장으로 선택"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "이 초안을 편집하는 동안 면접 위원단이 변경되었습니다. 다시 불러와 현재 위원단을 확인하세요.",
+        "reloadHelp": "다시 불러오면 이 초안이 현재 저장된 면접 위원단으로 바뀝니다.",
+        "reload": "면접 위원단 다시 불러오기",
+        "loading": "면접 위원단 불러오는 중…",
+        "retry": "면접 위원단 불러오기 재시도",
+        "reloadError": "현재 면접 위원단을 불러오지 못했습니다. 초안은 그대로 유지됩니다.",
+        "refreshError": "면접 위원단 변경이 제출되었지만 현재 위원단을 불러오지 못했습니다. 다른 변경을 하기 전에 다시 불러오세요."
+      },
+      "panelRepair": {
+        "reason": "면접 위원단 수정 사유",
+        "save": "면접 위원단 수정",
+        "consequence": "진행 중인 이 면접 위원단을 교체하면 투표가 삭제됩니다. 기록된 완료 정보와 인정된 시간은 이력으로 유지되며 새 위원에게 시간이 자동으로 인정되지 않습니다. 교체된 위원단의 모든 위원은 다시 투표해야 합니다."
+      }
     },
     "cards": {
       "title": "학생 규정 준수",
@@ -7019,7 +7044,18 @@
     "reloadEvidence": "현재 근거 다시 불러오기 (초안 교체)",
     "historyFollowups": "{count, plural, one {종료된 면접 #건에 대해} other {종료된 면접 #건에 대해}} 관리 담당자가 아직 완료 기록과 봉사 시간 부여를 해야 합니다.",
     "accessDenied": "더 이상 면접에 접근할 수 없습니다. 다시 불러와 현재 권한을 확인하세요.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "correctionEvidence": {
+      "readUnavailable": "검토하거나 제출하기 전에 현재 면접 근거를 정상적으로 불러와야 합니다. 초안은 유지됩니다.",
+      "missingEvidence": "이 변경을 검토하기 전에 기록된 면접 참여자와 현재 원본 인정 시간을 불러오세요.",
+      "historyHelp": "출석과 시간은 기록된 면접에 속합니다. 결정 위원단을 교체해도 새 위원이 이전 면접의 출석자가 되지는 않습니다.",
+      "decisionPanel": "현재 결정 위원단: {names}",
+      "participants": "기록된 면접 위원단의 출석",
+      "formerPanelist": "이전 면접 위원",
+      "loading": "면접 완료 근거 불러오는 중…",
+      "totalChange": "총 인정 시간: {before} → {after}시간 (변경 {delta})",
+      "retryArrival": "면접 기록 불러오기 재시도"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7056,7 +7092,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "이 승인에서는 승인된 정정을 포함한 면접 완료, 출석 및 봉사 시간 기록을 유지합니다. 현재 심사위원은 기록된 참석자와 다를 수 있습니다. 이 승인으로 봉사 시간이 추가되거나 삭제되지 않습니다."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",

@@ -1632,11 +1632,22 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "Nuevo ajuste de horas"
+      "create": "Nuevo ajuste de horas",
+      "source": {
+        "label": "Origen",
+        "other": "Otro ajuste de horas",
+        "interview": "Origen de entrevista",
+        "orphaned": "Registro de entrevista no disponible",
+        "unresolved": "Origen de entrevista sin resolver",
+        "conflicting": "Origen de entrevista en conflicto",
+        "correct": "Corregir horas de entrevista",
+        "help": "Estas horas proceden de un servicio de entrevista registrado. Revisa la entrevista para corregir la finalización, duración o asistencia.",
+        "unavailable": "La corrección de finalización de entrevista no está disponible para esta fila."
+      }
     },
     "applications": {
       "title": "Solicitudes de tutores",
-      "intro": "Revisa a los solicitantes y asigna un panel de entrevista de {n} tutores (marca uno como responsable). Haz clic en una fila para expandirla. El responsable programa la entrevista y registra la decisión desde su propio panel.",
+      "intro": "Revise las solicitudes y asigne un panel de entrevista de {n}–{max} tutores, con una persona que lo presida. Pulse una fila para ampliarla. Quien preside programa la entrevista y registra la decisión desde su propio panel.",
       "empty": "Aún no hay solicitudes.",
       "status": {
         "PENDING": "pendiente",
@@ -1646,7 +1657,7 @@
         "RECALLED": "Recalled"
       },
       "noCourses": "sin materias",
-      "panelSummary": "panel {n}/{total}",
+      "panelSummary": "panel: {n}",
       "votesSummary": "votos {accepts}/{total}",
       "accept": "Aceptar",
       "reject": "Rechazar",
@@ -1660,14 +1671,14 @@
         "selfStudied": "autodidacta: {note}"
       },
       "noQualification": "no indicó cualificación",
-      "panelHeading": "Panel de entrevista (elige {n}, marca uno como responsable)",
+      "panelHeading": "Panel de entrevista ({n}–{max} tutores, una presidencia)",
       "scheduled": "Programada: {when} (fijada por el responsable)",
       "panelistSlot": "— panelista {n} —",
       "head": "responsable",
       "saving": "Guardando…",
       "savePanel": "Guardar panel",
       "saved": "Guardado.",
-      "pickHint": "Elige {n} tutores y un responsable.",
+      "pickHint": "Seleccione al menos {n} tutores y una persona que presida.",
       "votesDecisionHeading": "Votos y decisión",
       "voteTally": "{accepts} aceptan · {rejects} rechazan",
       "noVotes": "Aún no hay votos.",
@@ -1722,7 +1733,21 @@
         "unavailable": "{name} (no disponible; sustituye esta selección)",
         "chairSlot": "Elegir al entrevistador {n} como presidente"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "El comité cambió mientras este borrador estaba abierto. Vuelve a cargarlo para revisar el comité actual.",
+        "reloadHelp": "Volver a cargar reemplaza este borrador con el comité guardado actualmente.",
+        "reload": "Volver a cargar el comité",
+        "loading": "Cargando el comité…",
+        "retry": "Reintentar cargar el comité",
+        "reloadError": "No se pudo cargar el comité actual. Tu borrador no ha cambiado.",
+        "refreshError": "Se envió el cambio del comité, pero no se pudo cargar el comité actual. Vuelve a intentar cargarlo antes de hacer otro cambio."
+      },
+      "panelRepair": {
+        "reason": "Motivo de la corrección del comité",
+        "save": "Corregir el comité",
+        "consequence": "Reemplazar este comité abierto borra sus votos. La finalización registrada y las horas obtenidas se conservan como historial; los nuevos miembros no reciben crédito automático. Todos los miembros del comité de reemplazo deben volver a votar."
+      }
     },
     "cards": {
       "title": "Disciplina de estudiantes",
@@ -7019,7 +7044,18 @@
     "reloadEvidence": "Volver a cargar los justificantes actuales (sustituir borrador)",
     "historyFollowups": "{count, plural, one {# entrevista finalizada aún requiere} other {# entrevistas finalizadas aún requieren}} que el equipo de gestión registre la finalización y las horas.",
     "accessDenied": "El acceso a las entrevistas ya no está disponible. Vuelva a cargar para comprobar sus permisos actuales.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "correctionEvidence": {
+      "readUnavailable": "Las pruebas actuales de la entrevista deben cargarse correctamente antes de revisar o enviar. Tu borrador se conserva.",
+      "missingEvidence": "Carga los participantes registrados de la entrevista y los créditos actuales de origen antes de revisar este cambio.",
+      "historyHelp": "La asistencia y las horas pertenecen a la entrevista registrada. Cambiar el comité de decisión no convierte a sus nuevos miembros en asistentes de esa entrevista.",
+      "decisionPanel": "Comité de decisión actual: {names}",
+      "participants": "Asistencia del comité de la entrevista registrada",
+      "formerPanelist": "Antiguo miembro del comité",
+      "loading": "Cargando pruebas de finalización…",
+      "totalChange": "Crédito total: {before} → {after} horas (cambio {delta})",
+      "retryArrival": "Reintentar cargar la entrevista"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7056,7 +7092,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "Esta aprobación conserva la finalización, la asistencia y los créditos de horas de servicio registrados, incluidas las correcciones autorizadas. El panel actual puede diferir de los asistentes registrados. Esta aprobación no añade ni elimina horas de servicio."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",

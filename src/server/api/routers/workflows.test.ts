@@ -27,6 +27,7 @@ import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
 import { auditActorScope, databaseScope } from "~/server/db-scope";
 import { lockEntity } from "~/server/transactions";
+import { lockUsernameNamespace } from "~/server/auth/username";
 import * as audit from "~/server/audit/log";
 import { availableSubjectIds } from "~/server/subject-willingness";
 import { ensureSessionPlanningWindow } from "~/server/session-planning";
@@ -1898,86 +1899,193 @@ it("records one combined attendance submission after unchanged-clock pause resto
   vi.setSystemTime(new Date("2026-10-26T00:00:00Z"));
   try {
     await db.programSettings.create({ data: { timeZone: "Asia/Shanghai" } });
-    await db.pairing.update({ where: { id: "review-pairing" }, data: { endMin: 975, roomMode: "FIXED" } });
-    await db.tutee.create({ data: { id: "restored-peer", englishName: "Synthetic Peer", status: "ACTIVE" } });
-    await db.pairingTutee.create({ data: { pairingId: "review-pairing", tuteeId: "restored-peer" } });
-    await db.user.create({ data: {
-      id: "restoration-learner", email: "restoration-learner@example.test", role: "STUDENT",
-      studentId: "review-tutee", tuteeMember: true, emailVerifiedAt: new Date(),
-    } });
+    await db.pairing.update({
+      where: { id: "review-pairing" },
+      data: { endMin: 975, roomMode: "FIXED" },
+    });
+    await db.tutee.create({
+      data: {
+        id: "restored-peer",
+        englishName: "Synthetic Peer",
+        status: "ACTIVE",
+      },
+    });
+    await db.pairingTutee.create({
+      data: { pairingId: "review-pairing", tuteeId: "restored-peer" },
+    });
+    await db.user.create({
+      data: {
+        id: "restoration-learner",
+        email: "restoration-learner@example.test",
+        role: "STUDENT",
+        studentId: "review-tutee",
+        tuteeMember: true,
+        emailVerifiedAt: new Date(),
+      },
+    });
     await ensureSessionPlanningWindow(db, new Date());
-    const original = await db.sessionPlanCohort.findFirstOrThrow({ where: { plan: { tutorId: "review-tutor" }, date: "2026-11-02" } });
-    const policy = await db.programCalendarDay.create({ data: {
-      date: original.date, endDate: "2026-11-06", reason: "Synthetic pause", schedulingEffect: "PAUSE_REGULAR",
-    } });
+    const original = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { plan: { tutorId: "review-tutor" }, date: "2026-11-02" },
+    });
+    const policy = await db.programCalendarDay.create({
+      data: {
+        date: original.date,
+        endDate: "2026-11-06",
+        reason: "Synthetic pause",
+        schedulingEffect: "PAUSE_REGULAR",
+      },
+    });
     // Pinned historical fixture only: production policy writers use DB time.
-    await db.programCalendarPolicyRevision.create({ data: {
-      date: policy.date, endDate: policy.endDate, schedulingEffect: policy.schedulingEffect,
-      active: true, version: policy.version, effectiveAt: new Date(),
-    } });
+    await db.programCalendarPolicyRevision.create({
+      data: {
+        date: policy.date,
+        endDate: policy.endDate,
+        schedulingEffect: policy.schedulingEffect,
+        active: true,
+        version: policy.version,
+        effectiveAt: new Date(),
+      },
+    });
     await ensureSessionPlanningWindow(db, new Date());
-    const paused = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: original.id } });
+    const paused = await db.sessionPlanCohort.findUniqueOrThrow({
+      where: { id: original.id },
+    });
     const request = await tutor().sessionPlanning.propose({
-      cohortId: original.id, expectedVersion: paused.version, clientKey: randomUUID(),
-      scope: "ONE", kind: "RESCHEDULE", tuteeId: "review-tutee",
-      date: "2026-11-03", startMin: 950, online: true,
+      cohortId: original.id,
+      expectedVersion: paused.version,
+      clientKey: randomUUID(),
+      scope: "ONE",
+      kind: "RESCHEDULE",
+      tuteeId: "review-tutee",
+      date: "2026-11-03",
+      startMin: 950,
+      online: true,
     });
-    const pending = await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: request.id } });
+    const pending = await db.sessionPlanningRequest.findUniqueOrThrow({
+      where: { id: request.id },
+    });
     await caller("STUDENT", "restoration-learner").sessionPlanning.respond({
-      requestId: pending.id, offerId: pending.currentOfferId!, expectedVersion: pending.version,
-      clientKey: randomUUID(), decision: "REJECT",
-      alternative: { date: original.date, startMin: original.startMin, roomId: original.roomId, online: false },
+      requestId: pending.id,
+      offerId: pending.currentOfferId!,
+      expectedVersion: pending.version,
+      clientKey: randomUUID(),
+      decision: "REJECT",
+      alternative: {
+        date: original.date,
+        startMin: original.startMin,
+        roomId: original.roomId,
+        online: false,
+      },
     });
-    const counter = await db.sessionPlanningRequest.findUniqueOrThrow({ where: { id: request.id } });
+    const counter = await db.sessionPlanningRequest.findUniqueOrThrow({
+      where: { id: request.id },
+    });
     await tutor().sessionPlanning.respond({
-      requestId: counter.id, offerId: counter.currentOfferId!, expectedVersion: counter.version,
-      clientKey: randomUUID(), decision: "ACCEPT",
+      requestId: counter.id,
+      offerId: counter.currentOfferId!,
+      expectedVersion: counter.version,
+      clientKey: randomUUID(),
+      decision: "ACCEPT",
     });
     const agreed = await db.sessionPlanParticipant.findUniqueOrThrow({
-      where: { planId_tuteeId: { planId: original.planId, tuteeId: "review-tutee" } },
+      where: {
+        planId_tuteeId: { planId: original.planId, tuteeId: "review-tutee" },
+      },
     });
     expect(agreed.cohortId).not.toBe(original.id);
-    const removed = await db.programCalendarDay.update({ where: { date: policy.date }, data: { active: false, version: { increment: 1 } } });
-    await db.programCalendarPolicyRevision.create({ data: {
-      date: removed.date, endDate: removed.endDate, schedulingEffect: removed.schedulingEffect,
-      active: false, version: removed.version, effectiveAt: new Date(),
-    } });
+    const removed = await db.programCalendarDay.update({
+      where: { date: policy.date },
+      data: { active: false, version: { increment: 1 } },
+    });
+    await db.programCalendarPolicyRevision.create({
+      data: {
+        date: removed.date,
+        endDate: removed.endDate,
+        schedulingEffect: removed.schedulingEffect,
+        active: false,
+        version: removed.version,
+        effectiveAt: new Date(),
+      },
+    });
     await ensureSessionPlanningWindow(db, new Date());
     const active = await db.sessionPlanCohort.findMany({
-      where: { planId: original.planId, date: original.date, status: "SCHEDULED" },
+      where: {
+        planId: original.planId,
+        date: original.date,
+        status: "SCHEDULED",
+      },
     });
     expect(active.map((row) => row.id)).toEqual([agreed.cohortId]);
     const combined = active[0]!;
     vi.setSystemTime(new Date(original.endsAt.getTime() + 60_000));
     const input = {
-      ...attendance(), cohortId: combined.id, expectedCohortVersion: combined.version,
-      date: new Date(`${original.date}T00:00:00Z`), startMin: original.startMin, endMin: original.endMin,
-      actualRoomId: original.roomId, online: false,
-      tutees: ["review-tutee", "restored-peer"].map((tuteeId) => ({ tuteeId, status: "PRESENT" as const })),
+      ...attendance(),
+      cohortId: combined.id,
+      expectedCohortVersion: combined.version,
+      date: new Date(`${original.date}T00:00:00Z`),
+      startMin: original.startMin,
+      endMin: original.endMin,
+      actualRoomId: original.roomId,
+      online: false,
+      tutees: ["review-tutee", "restored-peer"].map((tuteeId) => ({
+        tuteeId,
+        status: "PRESENT" as const,
+      })),
     };
     const saved = await tutor().tutor.submitAttendance(input);
-    const recorded = await db.session.findMany({ where: { planningCohortId: combined.id }, include: { tutees: true } });
+    const recorded = await db.session.findMany({
+      where: { planningCohortId: combined.id },
+      include: { tutees: true },
+    });
     expect(recorded).toHaveLength(1); // This fixture has one assignment in the combined block.
     expect(recorded[0]?.id).toBe(saved.id);
-    expect(recorded[0]?.tutees.map((person) => person.tuteeId).sort()).toEqual(["restored-peer", "review-tutee"]);
-    expect(recorded[0]?.tutees.every((person) => person.status === "PRESENT")).toBe(true);
-    expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: combined.id } })).toMatchObject({ status: "RECORDED" });
+    expect(recorded[0]?.tutees.map((person) => person.tuteeId).sort()).toEqual([
+      "restored-peer",
+      "review-tutee",
+    ]);
+    expect(
+      recorded[0]?.tutees.every((person) => person.status === "PRESENT"),
+    ).toBe(true);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: combined.id },
+      }),
+    ).toMatchObject({ status: "RECORDED" });
     expect(await tutor().tutor.submitAttendance(input)).toEqual(saved);
-    expect(await db.session.count({ where: { planningCohortId: original.id } })).toBe(0);
-    expect(await db.sessionPlanCohort.count({ where: { planId: original.planId, date: original.date, status: "SCHEDULED" } })).toBe(0);
+    expect(
+      await db.session.count({ where: { planningCohortId: original.id } }),
+    ).toBe(0);
+    expect(
+      await db.sessionPlanCohort.count({
+        where: {
+          planId: original.planId,
+          date: original.date,
+          status: "SCHEDULED",
+        },
+      }),
+    ).toBe(0);
   } finally {
     vi.useRealTimers();
   }
 });
 
 it("rejects a new omitted-cohort attendance write for a policy-governed paused lesson before creating hours or cards", async () => {
-  await db.programCalendarPolicyRevision.create({ data: {
-    date: "2026-09-07", endDate: "2026-09-07", schedulingEffect: "PAUSE_REGULAR", active: true,
-    version: 1, effectiveAt: new Date("2026-09-01T00:00:00Z"),
-  } });
-  await expect(tutor().tutor.submitAttendance({ ...attendance(),
-    tutees: [{ tuteeId: "review-tutee", status: "UNEXCUSED_ABSENT" }],
-  })).rejects.toMatchObject({ code: "CONFLICT" });
+  await db.programCalendarPolicyRevision.create({
+    data: {
+      date: "2026-09-07",
+      endDate: "2026-09-07",
+      schedulingEffect: "PAUSE_REGULAR",
+      active: true,
+      version: 1,
+      effectiveAt: new Date("2026-09-01T00:00:00Z"),
+    },
+  });
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...attendance(),
+      tutees: [{ tuteeId: "review-tutee", status: "UNEXCUSED_ABSENT" }],
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.session.count()).toBe(0);
   expect(await db.disciplinaryCard.count()).toBe(0);
 });
@@ -1985,64 +2093,194 @@ it("rejects a new omitted-cohort attendance write for a policy-governed paused l
 it("keeps immutable legacy attendance replay valid after historical pause evidence is restored", async () => {
   const input = attendance();
   const saved = await tutor().tutor.submitAttendance(input);
-  await db.programCalendarPolicyRevision.create({ data: {
-    date: "2026-09-07", endDate: "2026-09-07", schedulingEffect: "PAUSE_REGULAR", active: true,
-    version: 1, effectiveAt: new Date("2026-09-01T00:00:00Z"),
-  } });
+  await db.programCalendarPolicyRevision.create({
+    data: {
+      date: "2026-09-07",
+      endDate: "2026-09-07",
+      schedulingEffect: "PAUSE_REGULAR",
+      active: true,
+      version: 1,
+      effectiveAt: new Date("2026-09-01T00:00:00Z"),
+    },
+  });
   expect(await tutor().tutor.submitAttendance(input)).toEqual(saved);
   expect(await db.session.count()).toBe(1);
 });
 
-it.each(["activation", "equal-start"] as const)("preserves legacy historical attendance for a pause %s at or after lesson start", async (when) => {
-  await db.programCalendarPolicyRevision.create({ data: {
-    date: "2026-09-07", endDate: "2026-09-07", schedulingEffect: "PAUSE_REGULAR", active: true,
-    version: 1, effectiveAt: new Date(when === "equal-start" ? "2026-09-07T07:30:00Z" : "2026-09-08T00:00:00Z"),
-  } });
-  const saved = await tutor().tutor.submitAttendance(attendance());
-  expect(await db.session.findUniqueOrThrow({ where: { id: saved.id } })).toMatchObject({ shCount: 2 });
-});
+it.each(["activation", "equal-start"] as const)(
+  "preserves legacy historical attendance for a pause %s at or after lesson start",
+  async (when) => {
+    await db.programCalendarPolicyRevision.create({
+      data: {
+        date: "2026-09-07",
+        endDate: "2026-09-07",
+        schedulingEffect: "PAUSE_REGULAR",
+        active: true,
+        version: 1,
+        effectiveAt: new Date(
+          when === "equal-start"
+            ? "2026-09-07T07:30:00Z"
+            : "2026-09-08T00:00:00Z",
+        ),
+      },
+    });
+    const saved = await tutor().tutor.submitAttendance(attendance());
+    expect(
+      await db.session.findUniqueOrThrow({ where: { id: saved.id } }),
+    ).toMatchObject({ shCount: 2 });
+  },
+);
 
 it("does not let a poststart pause reset erase the historical explicit-agreement requirement", async () => {
-  await db.programCalendarPolicyRevision.createMany({ data: [
-    { date: "2026-09-07", endDate: "2026-09-07", schedulingEffect: "PAUSE_REGULAR", active: true, version: 1, effectiveAt: new Date("2026-09-01T00:00:00Z") },
-    { date: "2026-09-07", endDate: "2026-09-07", schedulingEffect: "PAUSE_REGULAR", active: false, version: 2, effectiveAt: new Date("2026-09-08T00:00:00Z") },
-  ] });
-  await expect(tutor().tutor.submitAttendance(attendance())).rejects.toMatchObject({ code: "CONFLICT" });
+  await db.programCalendarPolicyRevision.createMany({
+    data: [
+      {
+        date: "2026-09-07",
+        endDate: "2026-09-07",
+        schedulingEffect: "PAUSE_REGULAR",
+        active: true,
+        version: 1,
+        effectiveAt: new Date("2026-09-01T00:00:00Z"),
+      },
+      {
+        date: "2026-09-07",
+        endDate: "2026-09-07",
+        schedulingEffect: "PAUSE_REGULAR",
+        active: false,
+        version: 2,
+        effectiveAt: new Date("2026-09-08T00:00:00Z"),
+      },
+    ],
+  });
+  await expect(
+    tutor().tutor.submitAttendance(attendance()),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.session.count()).toBe(0);
 });
 
-it.each(["EXPLICIT", "TIMEOUT", null])("requires exact affirmative dated evidence for paused attendance, acceptance=%s", async (acceptedBy) => {
-  await db.programCalendarPolicyRevision.create({ data: {
-    date: "2026-09-07", endDate: "2026-09-07", schedulingEffect: "PAUSE_REGULAR", active: true,
-    version: 1, effectiveAt: new Date("2026-09-01T00:00:00Z"),
-  } });
-  const plan = await db.sessionPlan.create({ data: {
-    generationKey: `synthetic-attendance-${randomUUID()}`, tutorId: "review-tutor", termId: "review-term",
-    originalDate: "2026-09-07", timeZone: "Asia/Shanghai", sourceFingerprint: "synthetic",
-    assignments: { create: { pairingId: "review-pairing", subject: "Review Math", tuteeIds: ["review-tutee"], primary: true } },
-  } });
-  const clocks = { date: "2026-09-07", startMin: 930, endMin: 975, startsAt: new Date("2026-09-07T07:30:00Z"), endsAt: new Date("2026-09-07T08:15:00Z"), online: true };
-  const cohort = await db.sessionPlanCohort.create({ data: { planId: plan.id, ...clocks } });
-  await db.sessionPlanParticipant.create({ data: { planId: plan.id, tuteeId: "review-tutee", cohortId: cohort.id, scheduleOverride: true } });
-  const request = await db.sessionPlanningRequest.create({ data: { planId: plan.id, cohortId: cohort.id, kind: "RESCHEDULE", scope: "ONE", participantIds: ["review-tutee"], status: "ACCEPTED" } });
-  const owner = await db.user.create({ data: { id: "synthetic-paused-tutee", email: "paused-tutee@example.test", role: "STUDENT", tuteeMember: true, studentId: "review-tutee", emailVerifiedAt: new Date() } });
-  const offer = await db.sessionPlanningOffer.create({ data: {
-    requestId: request.id, sequence: 1, authorKey: "tutor:review-tutor", ...clocks, cutoffAt: clocks.startsAt,
-    responses: { create: [
-      { actorKey: "tutor:review-tutor", actorUserId: "review-user", state: "ACCEPTED", acceptedBy: "AUTHOR" },
-      { actorKey: "tutee:review-tutee", actorUserId: owner.id, state: "ACCEPTED", acceptedBy },
-    ] },
-  } });
-  await db.sessionPlanningRequest.update({ where: { id: request.id }, data: { currentOfferId: offer.id } });
-  const action = tutor().tutor.submitAttendance({ ...attendance(), cohortId: cohort.id, expectedCohortVersion: cohort.version, startMin: clocks.startMin, endMin: clocks.endMin, online: true });
-  if (acceptedBy === "EXPLICIT") {
-    const saved = await action;
-    expect(await db.session.findUniqueOrThrow({ where: { id: saved.id } })).toMatchObject({ planningCohortId: cohort.id, durationMin: 45, shFactor: 2, shCount: 2 });
-  } else {
-    await expect(action).rejects.toMatchObject({ code: "CONFLICT" });
-    expect(await db.session.count()).toBe(0);
-  }
-});
+it.each(["EXPLICIT", "TIMEOUT", null])(
+  "requires exact affirmative dated evidence for paused attendance, acceptance=%s",
+  async (acceptedBy) => {
+    await db.programCalendarPolicyRevision.create({
+      data: {
+        date: "2026-09-07",
+        endDate: "2026-09-07",
+        schedulingEffect: "PAUSE_REGULAR",
+        active: true,
+        version: 1,
+        effectiveAt: new Date("2026-09-01T00:00:00Z"),
+      },
+    });
+    const plan = await db.sessionPlan.create({
+      data: {
+        generationKey: `synthetic-attendance-${randomUUID()}`,
+        tutorId: "review-tutor",
+        termId: "review-term",
+        originalDate: "2026-09-07",
+        timeZone: "Asia/Shanghai",
+        sourceFingerprint: "synthetic",
+        assignments: {
+          create: {
+            pairingId: "review-pairing",
+            subject: "Review Math",
+            tuteeIds: ["review-tutee"],
+            primary: true,
+          },
+        },
+      },
+    });
+    const clocks = {
+      date: "2026-09-07",
+      startMin: 930,
+      endMin: 975,
+      startsAt: new Date("2026-09-07T07:30:00Z"),
+      endsAt: new Date("2026-09-07T08:15:00Z"),
+      online: true,
+    };
+    const cohort = await db.sessionPlanCohort.create({
+      data: { planId: plan.id, ...clocks },
+    });
+    await db.sessionPlanParticipant.create({
+      data: {
+        planId: plan.id,
+        tuteeId: "review-tutee",
+        cohortId: cohort.id,
+        scheduleOverride: true,
+      },
+    });
+    const request = await db.sessionPlanningRequest.create({
+      data: {
+        planId: plan.id,
+        cohortId: cohort.id,
+        kind: "RESCHEDULE",
+        scope: "ONE",
+        participantIds: ["review-tutee"],
+        status: "ACCEPTED",
+      },
+    });
+    const owner = await db.user.create({
+      data: {
+        id: "synthetic-paused-tutee",
+        email: "paused-tutee@example.test",
+        role: "STUDENT",
+        tuteeMember: true,
+        studentId: "review-tutee",
+        emailVerifiedAt: new Date(),
+      },
+    });
+    const offer = await db.sessionPlanningOffer.create({
+      data: {
+        requestId: request.id,
+        sequence: 1,
+        authorKey: "tutor:review-tutor",
+        ...clocks,
+        cutoffAt: clocks.startsAt,
+        responses: {
+          create: [
+            {
+              actorKey: "tutor:review-tutor",
+              actorUserId: "review-user",
+              state: "ACCEPTED",
+              acceptedBy: "AUTHOR",
+            },
+            {
+              actorKey: "tutee:review-tutee",
+              actorUserId: owner.id,
+              state: "ACCEPTED",
+              acceptedBy,
+            },
+          ],
+        },
+      },
+    });
+    await db.sessionPlanningRequest.update({
+      where: { id: request.id },
+      data: { currentOfferId: offer.id },
+    });
+    const action = tutor().tutor.submitAttendance({
+      ...attendance(),
+      cohortId: cohort.id,
+      expectedCohortVersion: cohort.version,
+      startMin: clocks.startMin,
+      endMin: clocks.endMin,
+      online: true,
+    });
+    if (acceptedBy === "EXPLICIT") {
+      const saved = await action;
+      expect(
+        await db.session.findUniqueOrThrow({ where: { id: saved.id } }),
+      ).toMatchObject({
+        planningCohortId: cohort.id,
+        durationMin: 45,
+        shFactor: 2,
+        shCount: 2,
+      });
+    } else {
+      await expect(action).rejects.toMatchObject({ code: "CONFLICT" });
+      expect(await db.session.count()).toBe(0);
+    }
+  },
+);
 it("informational no-tutoring ranges preserve attendance, schedules and school-day rules", async () => {
   const before = await db.pairing.findUniqueOrThrow({
     where: { id: "review-pairing" },
@@ -3758,10 +3996,14 @@ it("interview completion awards only attendees, and a correction replaces credit
   await caller().interviewManagement.complete(input);
   await caller().interviewManagement.complete(input);
   expect(await db.serviceHourAdjustment.count()).toBe(3);
+  const reviewed = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
   await caller().interviewManagement.complete({
     ...input,
     durationMin: 45,
     attendedTutorIds: [panel[0]!.id],
+    expectedUpdatedAt: reviewed.updatedAt,
   });
   const rows = await db.serviceHourAdjustment.findMany();
   expect(rows).toHaveLength(1);
@@ -4046,8 +4288,15 @@ it("Coordinator completion proposals deduplicate, replay on approval, and retry 
   expect(
     await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
   ).toEqual(credits);
-  // Missing credit is a correction even when every form field still matches;
-  // Coordinator cannot recreate it through the receipt exception.
+  const approvedRequest = await db.approvalRequest.findUniqueOrThrow({
+    where: { id: request.id },
+  });
+  const sourceEvidence = await db.auditLog.findMany({
+    where: { entityId: app.id, operation: "interviewService.record" },
+    orderBy: { id: "asc" },
+  });
+  // A deleted credit corrupts the approved source ledger even if every form
+  // field matches. It is neither an applied receipt nor a new correction proposal.
   await db.serviceHourAdjustment.delete({ where: { id: credits[0]!.id } });
   const recorded = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
@@ -4057,13 +4306,30 @@ it("Coordinator completion proposals deduplicate, replay on approval, and retry 
       ...input,
       expectedUpdatedAt: recorded.updatedAt,
     }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  ).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.serviceHourAdjustment.count()).toBe(2);
   expect(
     await db.approvalRequest.count({
       where: { operation: "interviewManagement.complete", state: "PENDING" },
     }),
-  ).toBe(1);
+  ).toBe(0);
+  expect(
+    await db.approvalRequest.findUniqueOrThrow({
+      where: { id: request.id },
+    }),
+  ).toEqual(approvedRequest);
+  expect(await db.approvalRequest.count()).toBe(1);
+  expect(
+    await db.auditLog.findMany({
+      where: { entityId: app.id, operation: "interviewService.record" },
+      orderBy: { id: "asc" },
+    }),
+  ).toEqual(sourceEvidence);
+  expect(
+    await db.tutorApplication.findUniqueOrThrow({
+      where: { id: app.id },
+    }),
+  ).toEqual(recorded);
 });
 
 it("Coordinator receipt retry cannot overwrite a correction committed while it waits for the source lock", async () => {
@@ -4080,9 +4346,16 @@ it("Coordinator receipt retry cannot overwrite a correction committed while it w
     reason: "Verified attendance",
   };
   await caller().interviewManagement.complete(input);
+  const reviewed = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
   let pending: Promise<unknown> | undefined;
+  let winningEvidence: { application: unknown; credits: unknown } | undefined;
   await db
     .$transaction(async (tx) => {
+      // Model a legal production writer: it owns namespace before application.
+      // Holding application first would deadlock with the retry's namespace fence.
+      await lockUsernameNamespace(tx);
       await lockEntity(tx, `interview:${app.id}`);
       await tx.$queryRaw`SELECT id FROM "TutorApplication" WHERE id=${app.id} FOR UPDATE`;
       pending = caller("COORDINATOR", "review-viewer")
@@ -4096,7 +4369,7 @@ it("Coordinator receipt retry cannot overwrite a correction committed while it w
       while (!waiting && Date.now() < deadline) {
         const [state] = await tx.$queryRaw<
           { waiting: boolean }[]
-        >`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS waiting`;
+        >`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS waiting`;
         waiting = state!.waiting;
         if (!waiting) await new Promise((resolve) => setTimeout(resolve, 20));
       }
@@ -4106,13 +4379,29 @@ it("Coordinator receipt retry cannot overwrite a correction committed while it w
           ...input,
           durationMin: 45,
           reason: "Head reviewed correction",
+          expectedUpdatedAt: reviewed.updatedAt,
         }),
       );
+      winningEvidence = {
+        application: await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: app.id },
+        }),
+        credits: await tx.serviceHourAdjustment.findMany({
+          orderBy: { id: "asc" },
+        }),
+      };
     })
     .finally(async () => {
       await pending;
     });
   expect(await pending).toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }),
+  ).toEqual(winningEvidence?.application);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(winningEvidence?.credits);
+  expect(await db.serviceHourAdjustment.count()).toBe(panel.length);
   expect(
     (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
       .interviewDurationMin,
@@ -4194,10 +4483,14 @@ it("interview corrections and panel replacement preserve manual and prefix-neigh
     reason: "Verified",
   };
   await caller().interviewManagement.complete(input);
+  const reviewed = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
   await caller().interviewManagement.complete({
     ...input,
     durationMin: 45,
     attendedTutorIds: [panel[0]!.id],
+    expectedUpdatedAt: reviewed.updatedAt,
   });
   const current = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },

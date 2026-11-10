@@ -404,7 +404,9 @@ export const protectedProcedure = t.procedure
               message:
                 "Use the qualification request decision controls. Request history cannot be deleted.",
             });
-          if (app.status !== "PENDING")
+          // Open panels have an explicit, reasoned repair in the resolver. Final
+          // decisions and recalls remain immutable, including legacy entry points.
+          if (!["PENDING", "INTERVIEW"].includes(app.status))
             throw new TRPCError({
               code: "CONFLICT",
               message:
@@ -413,6 +415,19 @@ export const protectedProcedure = t.procedure
         }
       }
     }
+    // Preserve management authorization before the source-aware version check:
+    // forbidden callers must not inspect private source ownership through conflicts.
+    if (
+      type === "mutation" &&
+      ["interviewManagement.complete", "admin.deleteAdjustment"].includes(
+        path,
+      ) &&
+      !["HEAD", "ADMIN", "COORDINATOR"].includes(account.role)
+    )
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Admin access required.",
+      });
     // Text-only translator mutations validate and create destination-bound drafts in
     // their resolvers. Other coordinator website changes use the general approval queue.
     const translationDraftWrite = [
@@ -510,6 +525,26 @@ export const protectedProcedure = t.procedure
           // correction cannot turn a Coordinator retry into a new hours write.
           const { lockApplicationReview } =
             await import("~/server/request-invalidity");
+          const { lockUsernameNamespace } =
+            await import("~/server/auth/username");
+          // Completion's live actor check follows the same namespace-before-
+          // application order as panel repair and lifecycle writers.
+          try {
+            await lockUsernameNamespace(auditedDb);
+          } catch (cause) {
+            const { isSerializationFailure } =
+              await import("~/server/auth/username-snapshot");
+            // The namespace fence rejects a pre-wait Serializable snapshot.
+            // Surface that refusal as a stale review; never retry its write.
+            if (isSerializationFailure(cause))
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "Interview service changed while this review waited. Reload the current evidence.",
+                cause,
+              });
+            throw cause;
+          }
           await lockApplicationReview(auditedDb, raw.applicationId);
         }
       }

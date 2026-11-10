@@ -49,7 +49,12 @@ import {
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { programDateKey } from "~/lib/program-time";
 import { getProgramTimeZone } from "~/server/program/time-zone";
-import { clearInterviewHours } from "~/server/interview-hours";
+import {
+  assertRecordedInterviewService,
+  clearInterviewHours,
+  interviewServiceContext,
+} from "~/server/interview-hours";
+import { recordDomainAudit } from "~/server/audit/evidence";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { tutorWorkloads } from "~/server/tutor-workload";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
@@ -181,6 +186,7 @@ import {
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
 import { serviceHoursSummary } from "~/server/service-hours-summary";
+import { lockAdjustmentDeletion } from "~/server/interview-adjustment-source";
 import {
   lockAttendanceSchedule,
   propagateSlotAttendance,
@@ -3945,8 +3951,40 @@ export const adminRouter = createTRPCRouter({
         orderBy: { createdAt: "desc" },
         include: { tutor: { select: { englishName: true } } },
       });
-      // Withhold the staff-entered adjustment reason from VIEWER.
-      return isViewer ? rows.map((r) => ({ ...r, reason: null })) : rows;
+      const { inspectInterviewAdjustmentSources } =
+        await import("~/server/interview-adjustment-source");
+      const sources = await inspectInterviewAdjustmentSources(ctx.db, rows);
+      // A shared source classifier owns deletion support. Observer summaries
+      // receive only a coarse label, never source IDs, evidence or editor links.
+      return rows.map((row) => {
+        const source = sources.get(row.id);
+        if (!source) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const correctionId = source.correctionApplicationId;
+        const linkableCorrection =
+          typeof correctionId === "string" &&
+          correctionId.trim().length > 0 &&
+          correctionId.length <= 200 &&
+          [...correctionId].every(
+            (character) =>
+              character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127,
+          );
+        return {
+          ...row,
+          reason: isViewer ? null : row.reason,
+          source: {
+            kind: isViewer
+              ? source.kind === "INDEPENDENT"
+                ? ("INDEPENDENT" as const)
+                : ("INTERVIEW" as const)
+              : source.kind,
+            canDelete: !isViewer && source.canDelete,
+            correctionHref:
+              !isViewer && linkableCorrection
+                ? `/admin/applications#interview-completion-${encodeURIComponent(correctionId)}`
+                : null,
+          },
+        };
+      });
     }),
 
   createAdjustment: adminProcedure
@@ -3974,10 +4012,23 @@ export const adminRouter = createTRPCRouter({
 
   deleteAdjustment: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "SERVICE_HOURS");
-      return ctx.db.serviceHourAdjustment.delete({ where: { id: input.id } });
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await assertFeatureEnabled(tx, "SERVICE_HOURS");
+        const row = await lockAdjustmentDeletion(tx, input.id, async () => {
+          // Freeze the applying reviewer after the namespace wait, before any
+          // private source read. Approval replay uses that reviewer's context.
+          const actor = await activeManagementActor(tx, ctx.session.user.id);
+          if (actor.recoveryVoidedAt || actor.role !== ctx.session.role)
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Your current management authority changed. Reload before deleting an adjustment.",
+            });
+        });
+        return tx.serviceHourAdjustment.delete({ where: { id: row.id } });
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Tutor applications + interview assignment
@@ -4102,7 +4153,7 @@ export const adminRouter = createTRPCRouter({
     }));
   }),
 
-  /** Assign up to three tutors (one head) to interview an applicant; moves it to INTERVIEW. */
+  /** Assign three to eight panelists; open qualification reviews support audited repair. */
   assignInterviewers: adminProcedure
     .input(
       z.object({
@@ -4113,6 +4164,7 @@ export const adminRouter = createTRPCRouter({
           .max(8),
         headTutorId: cuid,
         expectedUpdatedAt,
+        repairReason: z.string().trim().min(1).max(1000).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -4157,17 +4209,17 @@ export const adminRouter = createTRPCRouter({
         await lockApplicationReview(tx, input.applicationId);
         const lockedApplication = await tx.tutorApplication.findUniqueOrThrow({
           where: { id: input.applicationId },
+          include: { interviewers: true, votes: true },
         });
         assertRequestProcessable(lockedApplication);
-        if (lockedApplication.type !== "INITIAL") {
+        const qualificationPanel = lockedApplication.type !== "INITIAL";
+        const repairingPanel =
+          qualificationPanel && lockedApplication.status === "INTERVIEW";
+        if (qualificationPanel) {
+          const actor = await activeManagementActor(tx, ctx.session.user.id);
           if (
             ctx.session.tutorId === lockedApplication.requestedTutorId ||
-            (await tx.user.count({
-              where: {
-                id: ctx.session.user.id,
-                tutorId: lockedApplication.requestedTutorId,
-              },
-            }))
+            actor.tutorId === lockedApplication.requestedTutorId
           )
             throw new TRPCError({
               code: "FORBIDDEN",
@@ -4175,11 +4227,33 @@ export const adminRouter = createTRPCRouter({
             });
           if (!["ADMIN", "HEAD"].includes(ctx.session.role))
             throw new TRPCError({ code: "FORBIDDEN" });
-          if (lockedApplication.status !== "PENDING")
+          if (
+            !["PENDING", "INTERVIEW"].includes(lockedApplication.status) ||
+            lockedApplication.decidedAt ||
+            lockedApplication.decidedByTutorId ||
+            lockedApplication.qualificationDecidedById ||
+            lockedApplication.qualificationSnapshot !== null ||
+            lockedApplication.decisionComment !== null
+          )
             throw new TRPCError({
               code: "CONFLICT",
               message:
                 "Keep the existing qualification review and panel history.",
+            });
+          if (repairingPanel && !input.repairReason)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Explain why this open qualification panel needs repair.",
+            });
+          if (
+            !lockedApplication.requestedTutorId ||
+            !lockedApplication.requestedSubjectId
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "This qualification request has no recorded applicant or subject.",
             });
           if (
             lockedApplication.requestedTutorId &&
@@ -4220,6 +4294,37 @@ export const adminRouter = createTRPCRouter({
           tutorIds,
           input.headTutorId,
         );
+        const oldPanel = lockedApplication.interviewers;
+        const previousService = repairingPanel
+          ? await interviewServiceContext(
+              tx,
+              input.applicationId,
+              lockedApplication,
+            )
+          : null;
+        const retainedCredits = previousService?.credits ?? [];
+        if (repairingPanel && lockedApplication.interviewCompletedAt)
+          await assertRecordedInterviewService(
+            tx,
+            input.applicationId,
+            lockedApplication,
+            {
+              completedAt: lockedApplication.interviewCompletedAt,
+              durationMin: lockedApplication.interviewDurationMin ?? 0,
+              attendedTutorIds: oldPanel
+                .filter((row) => row.attended)
+                .map((row) => row.tutorId),
+            },
+          );
+        else if (repairingPanel && retainedCredits.length)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Interview credits have no recorded completion. Review the service evidence before repairing this panel.",
+          });
+        const retainedAttendees = new Set(
+          retainedCredits.map((row) => row.tutorId),
+        );
         // Concurrency guard on the application — rolls back the panel edit on a stale write.
         const upd = await tx.tutorApplication.updateMany({
           where: {
@@ -4228,24 +4333,25 @@ export const adminRouter = createTRPCRouter({
           },
           data: {
             status: "INTERVIEW",
-            interviewCompletedAt: null,
-            interviewDurationMin: null,
-            decidedAt: null,
-            decidedByTutorId: null,
-            decisionComment: null,
+            // Panel repair changes the voting body, never who earned service.
+            // Completed service and exact source credits remain historical evidence.
+            ...(!repairingPanel && {
+              interviewCompletedAt: null,
+              interviewDurationMin: null,
+              decidedAt: null,
+              decidedByTutorId: null,
+              decisionComment: null,
+            }),
           },
         });
         if (upd.count === 0) staleConflict();
         await reconcileApplication(tx, input.applicationId);
-        const oldPanel = await tx.interviewAssignment.findMany({
-          where: { applicationId: input.applicationId },
-          select: { tutorId: true },
-        });
-        await clearInterviewHours(
-          tx,
-          input.applicationId,
-          oldPanel.map((row) => row.tutorId),
-        );
+        if (!repairingPanel)
+          await clearInterviewHours(
+            tx,
+            input.applicationId,
+            oldPanel.map((row) => row.tutorId),
+          );
         // Replacing a panel starts a fresh review; votes from its previous panel cannot decide it.
         await tx.interviewVote.deleteMany({
           where: { applicationId: input.applicationId },
@@ -4258,8 +4364,70 @@ export const adminRouter = createTRPCRouter({
             applicationId: input.applicationId,
             tutorId,
             isHead: tutorId === input.headTutorId,
+            attended:
+              repairingPanel && !!lockedApplication.interviewCompletedAt
+                ? retainedAttendees.has(tutorId)
+                : false,
           })),
         });
+        if (repairingPanel)
+          // Explicit feature evidence retains superseded deliberations/attendance;
+          // the generic scalar audit intentionally omits these private fields.
+          await recordDomainAudit(tx, {
+            operation: "admin.assignInterviewers",
+            entity: "TutorApplication",
+            entityId: input.applicationId,
+            action: "Repaired open qualification interview panel",
+            reason: input.repairReason,
+            before: lockedApplication,
+            after: { status: "INTERVIEW" },
+            effects: {
+              panelRepairVersion: 1,
+              expectedUpdatedAt: input.expectedUpdatedAt.toISOString(),
+              previousPanel: oldPanel.map((row) => ({
+                tutorId: row.tutorId,
+                isHead: row.isHead,
+                attended: row.attended,
+                assignedAt: row.createdAt.toISOString(),
+              })),
+              replacementPanel: tutorIds.map((tutorId) => ({
+                tutorId,
+                isHead: tutorId === input.headTutorId,
+                attended:
+                  !!lockedApplication.interviewCompletedAt &&
+                  retainedAttendees.has(tutorId),
+              })),
+              supersededVotes: lockedApplication.votes.map((vote) => ({
+                tutorId: vote.tutorId,
+                accept: vote.accept,
+                comment: vote.comment,
+                createdAt: vote.createdAt.toISOString(),
+              })),
+              retainedService: {
+                sourceRevision: previousService?.sourceRevision ?? 0,
+                eligibleTutorIds:
+                  previousService?.eligibleTutorIds ??
+                  oldPanel.map((row) => row.tutorId),
+                completedAt:
+                  lockedApplication.interviewCompletedAt?.toISOString() ?? null,
+                durationMin: lockedApplication.interviewDurationMin,
+                schoolYear: lockedApplication.interviewSchoolYear,
+                quarter: lockedApplication.interviewQuarter,
+                scheduledAt:
+                  lockedApplication.interviewAt?.toISOString() ?? null,
+                credits: retainedCredits.map((row) => ({
+                  id: row.id,
+                  tutorId: row.tutorId,
+                  type: row.type,
+                  amount: row.amount,
+                  month: row.month,
+                  schoolYear: row.schoolYear,
+                  quarter: row.quarter,
+                  reason: row.reason,
+                })),
+              },
+            },
+          });
       });
       // Notify the assigned panelists.
       await notifyTutors(tutorIds, {

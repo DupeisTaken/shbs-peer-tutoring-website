@@ -111,7 +111,8 @@ type Application = InvalidityRecord & {
   decidedByTutor: { englishName: string } | null;
 };
 
-const PANEL_SIZE = 3;
+const MIN_PANEL_SIZE = 3;
+const MAX_PANEL_SIZE = 8;
 
 function ApplicationCard({
   app,
@@ -137,6 +138,7 @@ function ApplicationCard({
     t("participantNames.unnamed"),
   );
   const readOnly = useReadOnly();
+  const utils = api.useUtils();
   const account = api.account.me.useQuery().data;
   const additional = app.type !== "INITIAL";
   const canEditPanel =
@@ -146,7 +148,7 @@ function ApplicationCard({
       (!!account &&
         ["ADMIN", "HEAD"].includes(account.role) &&
         account.tutorId !== app.requestedTutorId &&
-        app.status === "PENDING"));
+        ["PENDING", "INTERVIEW"].includes(app.status)));
   const { confirm, dialog } = useDialog();
   // Mount details lazily, then retain the editor while collapsed so panel drafts
   // survive reopening without fetching qualifications for every unopened card.
@@ -218,7 +220,9 @@ function ApplicationCard({
             <StatusBadge status={app.status} />
             {app.isInvalid && <InvalidityBadge />}
             {app.identityNeedsReview && !additional && (
-              <span className="badge-amber">{t("applicationIdentity.needsReview")}</span>
+              <span className="badge-amber">
+                {t("applicationIdentity.needsReview")}
+              </span>
             )}
             <span className="badge-slate">
               {t(`qualificationRequests.${app.type}`)}
@@ -230,7 +234,6 @@ function ApplicationCard({
                   {" · "}
                   {t("admin.applications.panelSummary", {
                     n: app.interviewers.length,
-                    total: PANEL_SIZE,
                   })}
                   {app.votes.length > 0
                     ? ` · ${t("admin.applications.votesSummary", {
@@ -350,7 +353,9 @@ function ApplicationCard({
           {!additional && !readOnly && (
             <ApplicationIdentityCorrection
               applicationId={app.id}
-              canCorrect={["HEAD", "ADMIN", "COORDINATOR"].includes(account?.role ?? "")}
+              canCorrect={["HEAD", "ADMIN", "COORDINATOR"].includes(
+                account?.role ?? "",
+              )}
               canApply={["HEAD", "ADMIN"].includes(account?.role ?? "")}
               invalid={app.isInvalid}
               onChanged={onChanged}
@@ -415,7 +420,10 @@ function ApplicationCard({
           {(features?.INTERVIEWS === true || hasInterviewHistory) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
+                {t("admin.applications.panelHeading", {
+                  n: MIN_PANEL_SIZE,
+                  max: MAX_PANEL_SIZE,
+                })}
               </p>
               {app.interviewAt && (
                 <p className="muted mt-1">
@@ -440,8 +448,44 @@ function ApplicationCard({
                         .join(" · "),
                     }))}
                     interviewers={app.interviewers}
+                    repairRequired={additional && app.status === "INTERVIEW"}
                     tutors={tutors}
-                    onChanged={onChanged}
+                    onChanged={() => onChanged(true)}
+                    onReload={async () => {
+                      const [rows, actor, currentFeatures] = await Promise.all([
+                        utils.admin.tutorApplications.fetch(undefined, {
+                          staleTime: 0,
+                        }),
+                        utils.account.me.fetch(undefined, { staleTime: 0 }),
+                        utils.program.features.fetch(undefined, {
+                          staleTime: 0,
+                        }),
+                      ]);
+                      const fresh = rows.find((row) => row.id === app.id);
+                      // A fresh snapshot is adoptable only while the same actor
+                      // can still edit this exact application and enabled feature.
+                      if (
+                        !fresh ||
+                        fresh.isInvalid ||
+                        !currentFeatures.INTERVIEWS ||
+                        !["ADMIN", "HEAD", "COORDINATOR"].includes(
+                          actor.role,
+                        ) ||
+                        (fresh.type !== "INITIAL" &&
+                          (!["ADMIN", "HEAD"].includes(actor.role) ||
+                            actor.tutorId === fresh.requestedTutorId ||
+                            !["PENDING", "INTERVIEW"].includes(fresh.status)))
+                      )
+                        throw new Error(t("uiPatterns.loadFailed"));
+                      return {
+                        applicationId: fresh.id,
+                        updatedAt: fresh.updatedAt,
+                        interviewers: fresh.interviewers,
+                        repairRequired:
+                          fresh.type !== "INITIAL" &&
+                          fresh.status === "INTERVIEW",
+                      };
+                    }}
                   />
                   <p className="muted my-3 text-sm">
                     {t("workflows.allVotes")}{" "}
@@ -722,7 +766,10 @@ export default function ApplicationsPage() {
         <div>
           <h1 className="page-title">{t("admin.applications.title")}</h1>
           <p className="muted mt-1">
-            {t("admin.applications.intro", { n: PANEL_SIZE })}
+            {t("admin.applications.intro", {
+              n: MIN_PANEL_SIZE,
+              max: MAX_PANEL_SIZE,
+            })}
           </p>
         </div>
 

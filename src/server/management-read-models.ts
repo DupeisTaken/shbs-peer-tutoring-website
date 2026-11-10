@@ -14,7 +14,10 @@ const scalar = z
   .nullish();
 // Projection emits null even when a source omitted the private field. Zod 4
 // requires unknown-valued keys unless their absence is explicitly accepted.
-const hidden = z.unknown().optional().transform(() => null);
+const hidden = z
+  .unknown()
+  .optional()
+  .transform(() => null);
 function summary(fields: string, relations: z.ZodRawShape = {}, redacted = "") {
   return z.object({
     ...Object.fromEntries(
@@ -86,8 +89,12 @@ const tutee = summary(
     owner: account.nullish(),
     academic: academic.optional(),
     enrollmentPeriod: summary("schoolYear quarter").nullish(),
-    enrollmentCorrection: summary("schoolYear", { rawGrade: schoolGrade }).nullish(),
-    enrollmentOriginal: summary("schoolYear academicallyGraduated", { rawGrade: schoolGrade }).nullish(),
+    enrollmentCorrection: summary("schoolYear", {
+      rawGrade: schoolGrade,
+    }).nullish(),
+    enrollmentOriginal: summary("schoolYear academicallyGraduated", {
+      rawGrade: schoolGrade,
+    }).nullish(),
     firstChoice: subject.nullish(),
     secondChoice: subject.nullish(),
     availabilities: list(summary("tuteeId slotId", { slot })).optional(),
@@ -284,7 +291,16 @@ export const managementReadModels = {
   "admin.adjustments": list(
     summary(
       "id month schoolYear quarter type amount createdAt tutorId",
-      { tutor: person },
+      {
+        tutor: person,
+        source: z
+          .object({
+            kind: z.enum(["INDEPENDENT", "INTERVIEW"]),
+            canDelete: z.boolean().transform(() => false),
+            correctionHref: hidden,
+          })
+          .optional(),
+      },
       "reason",
     ),
   ),
@@ -296,7 +312,9 @@ export const managementReadModels = {
   }),
   "admin.patrolOrder": list(summary("id name patrolOrder")),
   "admin.crewRoster": list(
-    summary("id name canonicalName username tutor crewOnly status patrols hours"),
+    summary(
+      "id name canonicalName username tutor crewOnly status patrols hours",
+    ),
   ),
   "admin.crewSummary": summary(
     "patrols hours openFlags members openApplications openRequests",
@@ -310,7 +328,11 @@ export const managementReadModels = {
   ),
   "admin.crewIssuedCodes": list(summary("id name expiresAt", {}, "code")),
   "admin.crewRequests": list(
-    summary("id kind member canonicalName username eligibleAt approvable createdAt", {}, "reason"),
+    summary(
+      "id kind member canonicalName username eligibleAt approvable createdAt",
+      {},
+      "reason",
+    ),
   ),
   "admin.sessionFlags": list(
     summary(
