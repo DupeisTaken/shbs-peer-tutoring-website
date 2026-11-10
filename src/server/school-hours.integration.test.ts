@@ -172,6 +172,9 @@ async function cleanReports() {
   createdReports.clear();
 }
 async function cleanSources() {
+  await db.importedRecordProvenance.deleteMany({
+    where: { recordId: { startsWith: prefix } },
+  });
   await db.session.deleteMany({ where: { id: { startsWith: prefix } } });
   await db.serviceHourAdjustment.deleteMany({
     where: { id: { startsWith: prefix } },
@@ -205,7 +208,7 @@ beforeAll(async () => {
     ],
   });
   await db.tutor.createMany({
-    data: ["A", "B", "C"].map((key) => ({
+    data: ["A", "B", "C", "D"].map((key) => ({
       id: id(key),
       englishName: "Duplicate Synthetic Name",
       firstName: "Legal",
@@ -328,6 +331,193 @@ it("requires explicit per-person opening review; previews are read-only and each
     own.find((row) => row.beneficiaryId === `tutor:${id("B")}`)?.hoursToAdd,
   ).toBe(2);
   expect(new Set(own.map((row) => row.schoolAccountKey)).size).toBe(4);
+});
+
+it("retains imported archive hours without adding opening-review identities or school credit", async () => {
+  await session("archive-session", 100);
+  await adjustment("archive-adjustment", "D", 50);
+  await db.patrol.create({
+    data: { id: id("archive-patrol"), crewUserId: id("crew"), hours: 25 },
+  });
+  await db.importedRecordProvenance.createMany({
+    data: [
+      { entity: "Session", recordId: id("archive-session") },
+      { entity: "ServiceHourAdjustment", recordId: id("archive-adjustment") },
+      { entity: "Patrol", recordId: id("archive-patrol") },
+    ],
+  });
+  const opening = await schoolHoursBaselinePreview(db);
+  expect(opening.archivedSourceCount).toBe(3);
+  expect(
+    opening.participants.some(
+      (row) => row.beneficiaryId === `tutor:${id("D")}`,
+    ),
+  ).toBe(false);
+  expect(
+    opening.participants.find((row) => row.beneficiaryId === `tutor:${id("A")}`)
+      ?.current.earned,
+  ).toBe(8);
+  expect(
+    opening.participants.find(
+      (row) => row.beneficiaryId === `user:${id("crew")}`,
+    )?.current.crew,
+  ).toBe(0.5);
+  expect(
+    await db.serviceHourAdjustment.findUniqueOrThrow({
+      where: { id: id("archive-adjustment") },
+    }),
+  ).toMatchObject({ amount: 50 });
+  await reviewOpening();
+  await enable();
+  const { report } = await issue();
+  expect(
+    report.rows.find((row) => row.beneficiaryId === `tutor:${id("A")}`)
+      ?.hoursToAdd,
+  ).toBe(7);
+  expect(
+    report.rows.some((row) => row.beneficiaryId === `tutor:${id("D")}`),
+  ).toBe(false);
+});
+
+it("keeps imports after a committed issue separate from native late credits and signed reversals", async () => {
+  await reviewOpening();
+  await enable();
+  await issue();
+  await session("archive-after-issue", 100);
+  await db.importedRecordProvenance.create({
+    data: { entity: "Session", recordId: id("archive-after-issue") },
+  });
+  await session("native-late-correction", 0.25);
+  await db.serviceHourAdjustment.delete({ where: { id: id("extra-B") } });
+  const next = await previewSchoolHours(db, "2013-10");
+  expect(next.archivedSourceCount).toBe(1);
+  expect(next.blockers).toEqual([]);
+  expect(
+    next.rows.find((row) => row.beneficiaryId === `tutor:${id("A")}`)
+      ?.hoursToAdd,
+  ).toBe(0.25);
+  expect(
+    next.rows.find((row) => row.beneficiaryId === `tutor:${id("B")}`)
+      ?.hoursToAdd,
+  ).toBe(-2);
+});
+
+it.each(["opening", "committed"] as const)(
+  "blocks reimported %s source evidence rather than issuing a false reversal",
+  async (stage) => {
+    await reviewOpening();
+    await enable();
+    if (stage === "committed") await issue();
+    // A deleted source restored from CSV receives provenance; its logical ID was
+    // already reviewed, so archive exclusion cannot silently reverse that credit.
+    await db.serviceHourAdjustment.delete({ where: { id: id("extra-B") } });
+    await adjustment("extra-B", "B", 2);
+    await db.importedRecordProvenance.create({
+      data: { entity: "ServiceHourAdjustment", recordId: id("extra-B") },
+    });
+    const next = await previewSchoolHours(db, "2013-10");
+    expect(next.blockers).toContainEqual(
+      expect.objectContaining({
+        code: "IMPORTED_SOURCE_REQUIRES_RECONCILIATION",
+        beneficiaryId: `tutor:${id("B")}`,
+      }),
+    );
+    await expect(issue("2013-10")).rejects.toThrow("restored as an archive");
+    await db.serviceHourAdjustment.delete({ where: { id: id("extra-B") } });
+    const removedAgain = await previewSchoolHours(db, "2013-10");
+    expect(removedAgain.blockers).toContainEqual(
+      expect.objectContaining({
+        code: "IMPORTED_SOURCE_REQUIRES_RECONCILIATION",
+      }),
+    );
+  },
+);
+
+it("retains independent reviewed source evidence while saving an opening review in batches", async () => {
+  let opening = await schoolHoursBaselinePreview(db);
+  const reviewOne = async (beneficiaryId: string) => {
+    await reviewSchoolHoursBaseline(
+      db,
+      {
+        expectedContentHash: opening.contentHash,
+        expectedBaselineVersion: opening.baselineVersion,
+        acknowledged: true,
+        reason: "Synthetic individually verified opening balance",
+        participants: [
+          {
+            beneficiaryId,
+            schoolAccountKey: `school:${beneficiaryId}`,
+            earned: 0,
+            extras: 0,
+            deductions: 0,
+            crew: 0,
+            reviewed: true,
+          },
+        ],
+      },
+      actorId,
+    );
+    opening = await schoolHoursBaselinePreview(db);
+  };
+  await reviewOne(`tutor:${id("A")}`);
+  expect(
+    opening.participants.find((row) => row.beneficiaryId === `tutor:${id("A")}`)
+      ?.needsReview,
+  ).toBe(false);
+  expect(
+    opening.participants.find((row) => row.beneficiaryId === `tutor:${id("B")}`)
+      ?.needsReview,
+  ).toBe(true);
+  let config = await db.schoolHoursSchedule.findUniqueOrThrow({
+    where: { id: "program" },
+  });
+  expect(config.openingBaseline).toMatchObject({
+    sources: expect.arrayContaining([
+      expect.objectContaining({ key: `session:${id("earned")}` }),
+    ]) as unknown,
+  });
+  await reviewOne(`tutor:${id("B")}`);
+  config = await db.schoolHoursSchedule.findUniqueOrThrow({
+    where: { id: "program" },
+  });
+  expect(config.openingBaseline).toMatchObject({
+    sources: expect.arrayContaining([
+      expect.objectContaining({ key: `session:${id("earned")}` }),
+      expect.objectContaining({ key: `adjustment:${id("extra-B")}` }),
+    ]) as unknown,
+  });
+  await expect(enable()).rejects.toThrow("Review every opening balance");
+});
+
+it("journals provenance changes against a tracked source as unsupported recovery consequences", async () => {
+  await expect(
+    db.$transaction(async (tx) => {
+      const actionId = id("archive-boundary-recovery");
+      await tx.recoveryAction.create({
+        data: {
+          id: actionId,
+          kind: "DOMAIN_CHECKPOINT",
+          applicationId: id("synthetic-checkpoint"),
+          before: {},
+        },
+      });
+      await tx.recoveryTrackedEntity.create({
+        data: { actionId, entity: "Session", recordId: id("earned") },
+      });
+      await tx.importedRecordProvenance.create({
+        data: { entity: "Session", recordId: id("earned") },
+      });
+      const change = await tx.recoveryChange.findFirstOrThrow({
+        where: { actionId, entity: "ImportedRecordProvenance" },
+      });
+      expect(change.after).toMatchObject({ recordId: id("earned") });
+      const event = await tx.recoveryEvent.findUniqueOrThrow({
+        where: { id: change.eventId },
+      });
+      expect(event.kind).toBe("UNSUPPORTED");
+      throw new Error("rollback synthetic archive boundary recovery");
+    }),
+  ).rejects.toThrow("rollback synthetic archive boundary recovery");
 });
 
 it("does not repeat standing deductions or recreated logical adjustment records; late historical sessions enter the next issue", async () => {

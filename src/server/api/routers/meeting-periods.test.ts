@@ -360,3 +360,41 @@ it("keeps absence deductions semester-wide independently of the visible quarter"
     }),
   ).toEqual([{ amount: 0.25, quarter: "Q2" }]);
 });
+
+it("does not rewrite or delete imported meeting evidence through native management actions", async () => {
+  const meeting = await db.tutorMeeting.create({
+    data: { title: "Archived meeting", termId: "old", date: past },
+  });
+  const attendance = await db.meetingAttendance.create({
+    data: {
+      meetingId: meeting.id,
+      tutorId: "mine",
+      status: "UNEXCUSED_ABSENT",
+    },
+  });
+  await db.importedRecordProvenance.createMany({
+    data: [
+      { entity: "TutorMeeting", recordId: meeting.id },
+      { entity: "MeetingAttendance", recordId: attendance.id },
+    ],
+  });
+  await expect(
+    caller().admin.recordMeetingAttendance({
+      meetingId: meeting.id,
+      entries: [{ tutorId: "mine", status: "PRESENT" }],
+    }),
+  ).rejects.toThrow(/imported historical evidence/);
+  await expect(
+    caller().admin.deleteMeeting({ id: meeting.id }),
+  ).rejects.toThrow(/imported historical evidence/);
+  expect(
+    (
+      await db.meetingAttendance.findUniqueOrThrow({
+        where: { id: attendance.id },
+      })
+    ).status,
+  ).toBe("UNEXCUSED_ABSENT");
+  expect(
+    await db.tutorMeeting.findUnique({ where: { id: meeting.id } }),
+  ).not.toBeNull();
+});

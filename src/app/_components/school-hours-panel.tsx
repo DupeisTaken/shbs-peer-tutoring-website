@@ -273,7 +273,14 @@ function SchoolHoursController() {
           timeZone: zone,
         })
       : t("none");
-  const title = `${t("title")} · ${data ? `${t(data.config.enabled ? "enabled" : "disabled")} · ${t("recipientCount", { count: data.config.recipientEmails.length })}${data.config.enabled ? ` · ${t("nextSend")}: ${date(data.config.nextDueAt, data.config.timeZone)}` : ""}` : t(hidden ? "denied" : "loading")}`;
+  const attention = data
+    ? baselineReviewCount > 0
+      ? t("baselineAttention", { count: baselineReviewCount })
+      : !data.config.openingReviewedAt
+        ? t("baselineSetupRequired")
+        : ""
+    : "";
+  const title = `${t("title")} · ${data ? `${t(data.config.enabled ? "enabled" : "disabled")} · ${t("recipientCount", { count: data.config.recipientEmails.length })}${data.config.enabled ? ` · ${t("nextSend")}: ${date(data.config.nextDueAt, data.config.timeZone)}` : ""}${attention ? ` · ${attention}` : ""}` : t(hidden ? "denied" : "loading")}`;
   return (
     <DisclosureSection
       title={title}
@@ -320,8 +327,8 @@ function SchoolHoursController() {
                 onRetry={() => void baseline.refetch()}
               />
               {baseline.data && (
-                // Keep recurring reporting compact without losing an opened
-                // review draft when staff collapse its evidence.
+                // Reporting setup is deliberate work. Its counted summary stays
+                // visible without pushing the ordinary hours roster offscreen.
                 <DisclosureSection
                   title={`${t("baselineTitle")} · ${t("baselineSummary", {
                     review: baselineReviewCount,
@@ -329,11 +336,6 @@ function SchoolHoursController() {
                       baseline.data.participants.length - baselineReviewCount,
                   })}${baseline.data.blockers.length ? ` · ${t("baselineIssues", { count: baseline.data.blockers.length })}` : ""}`}
                   lifetime="retained"
-                  defaultOpen={
-                    !baseline.data.headReportId ||
-                    baselineReviewCount > 0 ||
-                    baseline.data.blockers.length > 0
-                  }
                 >
                   <SchoolHoursBaselineEditor
                     basis={baseline.data}
@@ -369,6 +371,8 @@ function SchoolHoursController() {
                       disabled={
                         !draft.enabled &&
                         (!data.config.openingReviewedAt ||
+                          baselineReviewCount > 0 ||
+                          !!baseline.data?.blockers.length ||
                           !data.transportAvailable ||
                           !data.optionalEmailEnabled ||
                           !data.serviceHoursEnabled)
@@ -380,6 +384,8 @@ function SchoolHoursController() {
                     {t("enable")}
                   </label>
                   {(!data.config.openingReviewedAt ||
+                    baselineReviewCount > 0 ||
+                    !!baseline.data?.blockers.length ||
                     !data.transportAvailable ||
                     !data.optionalEmailEnabled ||
                     !data.serviceHoursEnabled) && (

@@ -2652,6 +2652,16 @@ model EmailDelivery {
   @@unique([schoolHoursReportId, recipient])
 }
 
+/// Archive evidence is retained without granting current workflow or reporting authority.
+/// Operational metadata is written by the importer and never accepted from CSV.
+model ImportedRecordProvenance {
+  entity     String
+  recordId   String
+  importedAt DateTime @default(now())
+
+  @@id([entity, recordId])
+}
+
 /// Independent school issue chain; previews and mail delivery never advance it.
 model SchoolHoursSchedule {
   id String @id @default("program")
