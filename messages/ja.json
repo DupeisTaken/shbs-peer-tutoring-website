@@ -234,7 +234,7 @@
     "acknowledge": "I verified the recipient and every listed original record.",
     "checkReceipt": "Check delivery receipt",
     "uncertain": "The delivery result is unknown. Check its saved receipt before starting another invitation.",
-    "notRecorded": "No completed receipt is available yet. Wait, then check again; sending again could duplicate an in-flight delivery.",
+    "notRecorded": "まだ受領記録がありません。確認や再試行の際は、元の招待内容を変更しないでください。",
     "blocked": {
       "GROUP_REVIEW_REQUIRED": "Complete current participation review before inviting.",
       "NOT_HISTORICAL": "Every selected record must be historical.",
@@ -242,7 +242,12 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "retryExact": "この招待を同じ内容で再試行",
+    "exactRetryHelp": "再試行では元の宛先、記録、理由を保持します。リクエストがすでに受け付けられている場合は、保存済みの結果を確認するだけで、メールは再送しません。",
+    "stopRequest": "招待リクエストを停止",
+    "stopRequestHelp": "送信開始前に元のリクエストを停止します。同じリクエストが後から到着した場合も送信されません。送信がすでに始まっている場合は、保存済みの結果を確認するだけです。既存の招待や他のリクエストは保持されます。",
+    "confirmStopRequest": "この招待リクエストを停止"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -4109,6 +4114,8 @@
         "MonthlyHoursReport": "月次サービス時間レポート",
         "SchoolHoursSchedule": "学校向け報告スケジュール",
         "SchoolHoursReport": "学校向け個人奉仕時間報告",
+        "TranslationIntentReceipt": "翻訳リクエストの受付記録",
+        "HistoricalInvitationOperationClosure": "過去記録への招待停止記録",
         "ProgramCalendarPolicyRevision": "指導日ルールの改訂履歴",
         "ImportedRecordProvenance": "アーカイブ取り込み元の記録"
       },
@@ -5609,7 +5616,8 @@
     "historyAccessLost": "This history is no longer available. Refresh to check your current access.",
     "recordDetailsLabel": "View History: {name} · Record {id}",
     "recordedDateRange": "Session dates: {first} – {last}",
-    "recordedDatesUnknown": "Session dates not recorded"
+    "recordedDatesUnknown": "Session dates not recorded",
+    "invitation_ABANDONED": "この招待リクエストは送信開始前に停止されました。後から送信されることもありません。"
   },
   "schoolDeparture": {
     "title": "School Departure",

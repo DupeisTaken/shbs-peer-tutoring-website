@@ -4,10 +4,16 @@ import {
   inspectSiteSecurityReconciliation,
   validateSecurityIdentityClosure,
   readReconciliationSnapshot,
+  reconcileSecuritySnapshot,
   type OverlaySnapshot,
 } from "./operator-reconcile";
 import type { OperatorSql } from "./operator-site";
 import { reviewedRecoverySchemaMetadata } from "./operator-schema";
+import { receiptGuardFixture } from "./receipt-guard-metadata.test-fixtures";
+import type {
+  ReceiptGuardMetadata,
+  ReceiptTable,
+} from "./receipt-guard-metadata";
 
 function fixture(
   options: { restriction?: Date; tooLarge?: boolean; fail?: boolean } = {},
@@ -355,5 +361,547 @@ describe("reviewed security overlay contracts", () => {
         keys,
       ),
     ).toThrow("RECOVERY_SIGNING_SECRET_MISMATCH");
+  });
+});
+
+type InvitationClosure = {
+  operationId: string;
+  issuedById: string;
+  inputHash: string;
+  scopeKey: string;
+  createdAt: string;
+};
+const stoppedInvitation: InvitationClosure = {
+  operationId: "00000000-0000-4000-8000-000000000614",
+  issuedById: "synthetic-private-actor",
+  inputHash: "a".repeat(64),
+  scopeKey: "b".repeat(64),
+  createdAt: "2026-11-09T01:00:00.000Z",
+};
+function invitationClosureDatabase(
+  closures: InvitationClosure[],
+  options: {
+    present?: boolean;
+    identity?: boolean;
+    decline?: boolean;
+    receipts?: Record<string, unknown>[];
+    receiptPresent?: boolean;
+    weakenGuard?: (table: ReceiptTable, guard: ReceiptGuardMetadata) => void;
+  } = {},
+) {
+  const { present = true, identity = true, decline = true } = options;
+  const metadata = reviewedRecoverySchemaMetadata;
+  const baseColumns = identity
+    ? decline
+      ? metadata.identityLegacyDeclineColumns
+      : metadata.identityColumns
+    : decline
+      ? metadata.legacyDeclineColumns
+      : metadata.columns;
+  const queries: string[] = [];
+  const db: OperatorSql = {
+    async query(sql, values) {
+      queries.push(sql);
+      if (sql.includes("information_schema"))
+        return {
+          rows: [
+            ...baseColumns,
+            ...(present
+              ? metadata.historicalInvitationOperationClosureColumns
+              : []),
+            ...(options.receiptPresent
+              ? metadata.translationIntentReceiptColumns
+              : []),
+          ],
+        };
+      if (sql.includes("pg_enum")) return { rows: metadata.enums };
+      if (sql.includes("receipt_guard_")) {
+        const table = values?.[0] as ReceiptTable;
+        if (table === "HistoricalInvitationOperationClosure" && !present)
+          throw new Error("Guard read must skip a missing closure table");
+        if (table === "TranslationIntentReceipt" && !options.receiptPresent)
+          throw new Error(
+            "Guard read must skip a missing translation receipt table",
+          );
+        const guard = receiptGuardFixture(table);
+        options.weakenGuard?.(table, guard);
+        return {
+          rows: sql.includes("receipt_guard_columns")
+            ? guard.columns
+            : sql.includes("receipt_guard_constraints")
+              ? guard.constraints
+              : guard.triggers,
+        };
+      }
+      if (sql.includes("pg_trigger"))
+        return {
+          rows: [
+            {
+              tgenabled: "O",
+              tgtype: 19,
+              proname: "advance_account_session_version",
+              definition: "synthetic-reviewed-trigger",
+              function: "synthetic-reviewed-function",
+            },
+          ],
+        };
+      if (sql.includes('"HistoricalInvitationOperationClosure"')) {
+        if (!present) throw new Error("The older backup has no closure table");
+        if (!/^SELECT\b/.test(sql))
+          throw new Error(
+            "Immutable stopped operations must never be rewritten",
+          );
+        return { rows: closures.map((row) => ({ row })) };
+      }
+      if (sql.includes('"TranslationIntentReceipt"')) {
+        if (!options.receiptPresent)
+          throw new Error("The older backup has no translation receipts");
+        if (!/^SELECT\b/.test(sql))
+          throw new Error(
+            "Terminal translation receipts must never be rewritten",
+          );
+        return { rows: (options.receipts ?? []).map((row) => ({ row })) };
+      }
+      if (sql.includes("to_regclass"))
+        return { rows: [{ dirty: false, maintenance: false }] };
+      if (sql.includes("count(*)")) return { rows: [{ count: "0" }] };
+      if (sql.includes("AS fingerprint"))
+        return { rows: [{ fingerprint: "0".repeat(64) }] };
+      return { rows: [] };
+    },
+    async close() {
+      throw new Error("Caller owns the synthetic SQL connection");
+    },
+  };
+  return { db, queries };
+}
+const closureAuthority = (snapshot: OverlaySnapshot) =>
+  snapshot.authorityFingerprints.find(
+    (row) => row.table === "HistoricalInvitationOperationClosure",
+  );
+
+describe("stopped historical operation recovery fences", () => {
+  it.each([
+    { identity: false, decline: false },
+    { identity: false, decline: true },
+    { identity: true, decline: false },
+    { identity: true, decline: true },
+  ])(
+    "reads legacy schema identity=$identity decline=$decline without querying a missing closure table",
+    async (version) => {
+      const old = invitationClosureDatabase([], { ...version, present: false });
+      const snapshot = await readReconciliationSnapshot(old.db);
+      expect(closureAuthority(snapshot)).toBeUndefined();
+      expect(
+        old.queries.some((sql) =>
+          sql.includes('"HistoricalInvitationOperationClosure"'),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    { identity: false, decline: false },
+    { identity: false, decline: true },
+    { identity: true, decline: false },
+    { identity: true, decline: true },
+  ])(
+    "fingerprints complete additive closure schema identity=$identity decline=$decline without exposing its values",
+    async (version) => {
+      const source = invitationClosureDatabase([stoppedInvitation], version);
+      const snapshot = await readReconciliationSnapshot(source.db);
+      const fingerprint: unknown = expect.stringMatching(/^[a-f0-9]{64}$/);
+      expect(closureAuthority(snapshot)).toEqual({
+        table: "HistoricalInvitationOperationClosure",
+        fingerprint,
+      });
+      const serialized = JSON.stringify(snapshot);
+      for (const value of Object.values(stoppedInvitation))
+        expect(serialized).not.toContain(value);
+      expect(
+        snapshot.tables.HistoricalInvitationOperationClosure,
+      ).toBeUndefined();
+      expect(
+        snapshot.capabilityFingerprints.some(
+          (row) => row.table === "HistoricalInvitationOperationClosure",
+        ),
+      ).toBe(false);
+      expect(source.queries.every((sql) => /^SELECT\b/.test(sql))).toBe(true);
+    },
+  );
+
+  it.each([
+    ["operationId", "00000000-0000-4000-8000-000000000615"],
+    ["issuedById", "synthetic-different-owner"],
+    ["inputHash", "c".repeat(64)],
+    ["scopeKey", "d".repeat(64)],
+    ["createdAt", "2026-11-09T02:00:00.000Z"],
+  ] as const)(
+    "refuses a changed closure %s before reconciliation in either cutover direction",
+    async (field, value) => {
+      const original = await readReconciliationSnapshot(
+        invitationClosureDatabase([stoppedInvitation]).db,
+      );
+      const changed = await readReconciliationSnapshot(
+        invitationClosureDatabase([{ ...stoppedInvitation, [field]: value }])
+          .db,
+      );
+      expect(closureAuthority(original)).not.toEqual(closureAuthority(changed));
+      expect(() => validateSecurityIdentityClosure(original, changed)).toThrow(
+        "CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION",
+      );
+      expect(() => validateSecurityIdentityClosure(changed, original)).toThrow(
+        "CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION",
+      );
+    },
+  );
+
+  it("refuses missing stopped-operation evidence during both restore and rollback review", async () => {
+    const stopped = await readReconciliationSnapshot(
+      invitationClosureDatabase([stoppedInvitation]).db,
+    );
+    const missing = await readReconciliationSnapshot(
+      invitationClosureDatabase([]).db,
+    );
+    expect(() => validateSecurityIdentityClosure(stopped, missing)).toThrow(
+      "CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION",
+    );
+    expect(() => validateSecurityIdentityClosure(missing, stopped)).toThrow(
+      "CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION",
+    );
+  });
+
+  it("preserves identical immutable closure evidence through reconciliation and rollback overlays", async () => {
+    const first = invitationClosureDatabase([stoppedInvitation]);
+    const second = invitationClosureDatabase([stoppedInvitation]);
+    const current = await readReconciliationSnapshot(first.db);
+    const restored = await readReconciliationSnapshot(second.db);
+    expect(() =>
+      validateSecurityIdentityClosure(current, restored),
+    ).not.toThrow();
+    const applied = await reconcileSecuritySnapshot(
+      second.db,
+      current,
+      restored,
+    );
+    expect(closureAuthority(applied.finalState)).toEqual(
+      closureAuthority(current),
+    );
+    expect(() =>
+      validateSecurityIdentityClosure(applied.finalState, current),
+    ).not.toThrow();
+    const rolledBack = await reconcileSecuritySnapshot(
+      first.db,
+      applied.finalState,
+      current,
+    );
+    expect(closureAuthority(rolledBack.finalState)).toEqual(
+      closureAuthority(current),
+    );
+    for (const target of [first, second])
+      expect(
+        target.queries
+          .filter((sql) =>
+            sql.includes('"HistoricalInvitationOperationClosure"'),
+          )
+          .every((sql) => /^SELECT\b/.test(sql)),
+      ).toBe(true);
+  });
+
+  it("keeps the authority read bounded instead of accepting an oversized closure ledger", async () => {
+    const oversized = invitationClosureDatabase(
+      Array.from({ length: 10_001 }, (_, index) => ({
+        ...stoppedInvitation,
+        operationId: `synthetic-${index}`,
+      })),
+    );
+    await expect(readReconciliationSnapshot(oversized.db)).rejects.toThrow(
+      "SECURITY_MANIFEST_TOO_LARGE",
+    );
+  });
+});
+
+const acceptedTranslation = {
+  actorId: "synthetic-private-translator",
+  intentId: "00000000-0000-4000-8000-000000000654",
+  protocolVersion: 1,
+  status: "ACCEPTED",
+  operation: "localization.setString",
+  mode: "DRAFT",
+  inputHash: "e".repeat(64),
+  draftId: "synthetic-private-accepted-draft",
+  cleared: false,
+  createdAt: "2026-11-09T03:00:00.000Z",
+};
+const stoppedTranslation = {
+  ...acceptedTranslation,
+  intentId: "00000000-0000-4000-8000-000000000655",
+  status: "STOPPED",
+  operation: null,
+  mode: null,
+  inputHash: null,
+  draftId: null,
+  cleared: null,
+};
+const translationAuthority = (snapshot: OverlaySnapshot) =>
+  snapshot.authorityFingerprints.find(
+    (row) => row.table === "TranslationIntentReceipt",
+  );
+
+describe("translation terminal evidence in whole-site reconciliation", () => {
+  it("inspects all sixteen schema combinations and skips catalog/row reads for absent ledgers", async () => {
+    for (const identity of [false, true])
+      for (const decline of [false, true])
+        for (const present of [false, true])
+          for (const receiptPresent of [false, true]) {
+            const fixture = invitationClosureDatabase(
+              present ? [stoppedInvitation] : [],
+              {
+                identity,
+                decline,
+                present,
+                receiptPresent,
+                receipts: [acceptedTranslation, stoppedTranslation],
+              },
+            );
+            const snapshot = await readReconciliationSnapshot(fixture.db);
+            expect(Boolean(closureAuthority(snapshot))).toBe(present);
+            expect(Boolean(translationAuthority(snapshot))).toBe(
+              receiptPresent,
+            );
+            expect(
+              fixture.queries.filter((sql) =>
+                sql.includes("receipt_guard_columns"),
+              ),
+            ).toHaveLength(Number(present) + Number(receiptPresent));
+            if (!receiptPresent)
+              expect(
+                fixture.queries.some((sql) =>
+                  sql.includes('"TranslationIntentReceipt"'),
+                ),
+              ).toBe(false);
+            expect(fixture.queries.every((sql) => /^SELECT\b/.test(sql))).toBe(
+              true,
+            );
+          }
+  });
+
+  it.each([
+    ["actorId", "synthetic-private-different-actor"],
+    ["intentId", "00000000-0000-4000-8000-000000000656"],
+    ["protocolVersion", 2],
+    ["status", "STOPPED"],
+    ["operation", "home.setContent"],
+    ["mode", "PUBLISH"],
+    ["inputHash", "f".repeat(64)],
+    ["draftId", "synthetic-different-draft"],
+    ["cleared", true],
+    ["createdAt", "2026-11-09T04:00:00.000Z"],
+  ])(
+    "hashes every receipt field (%s) and refuses changed evidence before either overlay direction",
+    async (field, value) => {
+      // Per-field synthetic drift deliberately exercises the reader's full-row
+      // hashing, including values that a valid live CHECK would itself refuse.
+      const original = await readReconciliationSnapshot(
+        invitationClosureDatabase([], {
+          receiptPresent: true,
+          receipts: [acceptedTranslation],
+        }).db,
+      );
+      const changed = await readReconciliationSnapshot(
+        invitationClosureDatabase([], {
+          receiptPresent: true,
+          receipts: [{ ...acceptedTranslation, [String(field)]: value }],
+        }).db,
+      );
+      expect(translationAuthority(original)).not.toEqual(
+        translationAuthority(changed),
+      );
+      for (const [current, restored] of [
+        [original, changed],
+        [changed, original],
+      ] as const)
+        expect(() =>
+          validateSecurityIdentityClosure(current, restored),
+        ).toThrow("CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION");
+    },
+  );
+
+  it("refuses a missing accepted/stop row or entire optional table in either direction", async () => {
+    const original = await readReconciliationSnapshot(
+      invitationClosureDatabase([], {
+        receiptPresent: true,
+        receipts: [acceptedTranslation, stoppedTranslation],
+      }).db,
+    );
+    for (const receipts of [[acceptedTranslation], [stoppedTranslation], []]) {
+      const missing = await readReconciliationSnapshot(
+        invitationClosureDatabase([], { receiptPresent: true, receipts }).db,
+      );
+      for (const [current, restored] of [
+        [original, missing],
+        [missing, original],
+      ] as const)
+        expect(() =>
+          validateSecurityIdentityClosure(current, restored),
+        ).toThrow("CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION");
+    }
+    const absent = await readReconciliationSnapshot(
+      invitationClosureDatabase([]).db,
+    );
+    for (const [current, restored] of [
+      [original, absent],
+      [absent, original],
+    ] as const)
+      expect(() => validateSecurityIdentityClosure(current, restored)).toThrow(
+        "RECOVERY_SCHEMA_MISMATCH",
+      );
+  });
+
+  it.each([
+    "HistoricalInvitationOperationClosure",
+    "TranslationIntentReceipt",
+  ] as const)(
+    "refuses equal-but-weakened %s guards independently before either direction can write",
+    async (table) => {
+      for (const weaken of [
+        (guard: ReceiptGuardMetadata) => {
+          guard.triggers[0]!.enabled = "D";
+        },
+        (guard: ReceiptGuardMetadata) => {
+          guard.triggers[0]!.body = "BEGIN RETURN OLD; END";
+        },
+        (guard: ReceiptGuardMetadata) => {
+          guard.constraints[0]!.key_columns = ["inputHash"];
+        },
+        (guard: ReceiptGuardMetadata) => {
+          guard.columns[0]!.not_null = false;
+        },
+        (guard: ReceiptGuardMetadata) => {
+          guard.constraints[0]!.index_opclasses = [
+            "unreviewed.custom_text_ops",
+          ];
+        },
+        (guard: ReceiptGuardMetadata) => {
+          guard.constraints[0]!.index_collations = ["pg_catalog.C"];
+        },
+        ...(table === "TranslationIntentReceipt"
+          ? [
+              (guard: ReceiptGuardMetadata) => {
+                const binding = guard.constraints.find(
+                  (row) => row.name === "translation_intent_receipt_binding",
+                )!;
+                binding.expression = `${String(binding.expression)} OR true`;
+              },
+            ]
+          : []),
+      ]) {
+        for (const [weakenSource, weakenRestored] of [
+          [true, true],
+          [true, false],
+          [false, true],
+        ]) {
+          const fixtures = [weakenSource, weakenRestored].map((bad) =>
+            invitationClosureDatabase([stoppedInvitation], {
+              receiptPresent: true,
+              receipts: [acceptedTranslation],
+              weakenGuard: (name, guard) => {
+                if (bad && name === table) weaken(guard);
+              },
+            }),
+          );
+          const source = fixtures[0]!;
+          const target = fixtures[1]!;
+          const reconcile = async () => {
+            const current = await readReconciliationSnapshot(source.db);
+            const restored = await readReconciliationSnapshot(target.db);
+            validateSecurityIdentityClosure(current, restored);
+            return reconcileSecuritySnapshot(target.db, current, restored);
+          };
+          await expect(reconcile()).rejects.toThrow(
+            "UNREVIEWED_RECEIPT_GUARD_METADATA",
+          );
+          for (const fixture of fixtures)
+            expect(fixture.queries.every((sql) => /^SELECT\b/.test(sql))).toBe(
+              true,
+            );
+        }
+      }
+    },
+  );
+
+  it("keeps matching accepted/stop rows and guard digests out of overlays, expiry and exported private values", async () => {
+    const first = invitationClosureDatabase([stoppedInvitation], {
+      receiptPresent: true,
+      receipts: [acceptedTranslation, stoppedTranslation],
+    });
+    const second = invitationClosureDatabase([stoppedInvitation], {
+      receiptPresent: true,
+      receipts: [acceptedTranslation, stoppedTranslation],
+    });
+    const original = await readReconciliationSnapshot(first.db);
+    const restored = await readReconciliationSnapshot(second.db);
+    const fingerprint: unknown = expect.stringMatching(/^[a-f0-9]{64}$/);
+    expect(
+      original.authorityFingerprints.filter((row) =>
+        String(row.table).endsWith(":guard"),
+      ),
+    ).toEqual([
+      { table: "HistoricalInvitationOperationClosure:guard", fingerprint },
+      { table: "TranslationIntentReceipt:guard", fingerprint },
+    ]);
+    for (const value of [
+      acceptedTranslation.actorId,
+      acceptedTranslation.intentId,
+      stoppedTranslation.intentId,
+      acceptedTranslation.inputHash,
+      acceptedTranslation.draftId,
+      acceptedTranslation.createdAt,
+    ])
+      expect(JSON.stringify(original)).not.toContain(value);
+    expect(original.tables.TranslationIntentReceipt).toBeUndefined();
+    expect(
+      original.capabilityFingerprints.some(
+        (row) => row.table === "TranslationIntentReceipt",
+      ),
+    ).toBe(false);
+    expect(() =>
+      validateSecurityIdentityClosure(original, restored),
+    ).not.toThrow();
+    const applied = await reconcileSecuritySnapshot(
+      second.db,
+      original,
+      restored,
+    );
+    const rolledBack = await reconcileSecuritySnapshot(
+      first.db,
+      applied.finalState,
+      original,
+    );
+    expect(translationAuthority(applied.finalState)).toEqual(
+      translationAuthority(original),
+    );
+    expect(translationAuthority(rolledBack.finalState)).toEqual(
+      translationAuthority(original),
+    );
+    for (const fixture of [first, second])
+      expect(
+        fixture.queries
+          .filter((sql) => sql.includes('"TranslationIntentReceipt"'))
+          .every((sql) => /^SELECT\b/.test(sql)),
+      ).toBe(true);
+  });
+
+  it("refuses an oversized receipt ledger instead of pruning permanent replay/stop evidence", async () => {
+    const fixture = invitationClosureDatabase([], {
+      receiptPresent: true,
+      receipts: Array.from({ length: 10_001 }, (_, index) => ({
+        ...stoppedTranslation,
+        intentId: `synthetic-${index}`,
+      })),
+    });
+    await expect(readReconciliationSnapshot(fixture.db)).rejects.toThrow(
+      "SECURITY_MANIFEST_TOO_LARGE",
+    );
   });
 });

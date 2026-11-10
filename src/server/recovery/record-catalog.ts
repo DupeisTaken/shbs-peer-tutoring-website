@@ -122,6 +122,7 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     TuteeHistoryInvitationAttempt: ["id"],
     HistoricalRecordInvitation: ["scopeKey"],
     HistoricalRecordInvitationAttempt: ["id"],
+    HistoricalInvitationOperationClosure: ["operationId"],
     HistoricalRecordClaimReceipt: ["tokenHash"],
     StudentActionConfirmation: ["id"],
     PolicyAcceptance: ["id"],
@@ -135,6 +136,8 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     MessageTutorAssignment: ["tuteeId", "tutorId"],
     MessageModeration: ["id"],
     TranslationDraft: ["id"],
+    // Identity metadata only; terminal replay/stop bindings have no row policy.
+    TranslationIntentReceipt: ["actorId", "intentId"],
     TutorQualification: ["tutorId", "subjectId"],
     QualificationGrant: ["tutorId", "sourceSubjectId", "subjectId"],
     SchoolCalendarDay: ["date"],

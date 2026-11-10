@@ -234,7 +234,7 @@
     "acknowledge": "I verified the recipient and every listed original record.",
     "checkReceipt": "Check delivery receipt",
     "uncertain": "The delivery result is unknown. Check its saved receipt before starting another invitation.",
-    "notRecorded": "No completed receipt is available yet. Wait, then check again; sending again could duplicate an in-flight delivery.",
+    "notRecorded": "Aucun reçu n’est encore disponible. Conservez l’invitation initiale sans modification lors de la vérification ou d’une nouvelle tentative.",
     "blocked": {
       "GROUP_REVIEW_REQUIRED": "Complete current participation review before inviting.",
       "NOT_HISTORICAL": "Every selected record must be historical.",
@@ -242,7 +242,12 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "retryExact": "Réessayer cette invitation à l’identique",
+    "exactRetryHelp": "Cette tentative conserve le destinataire, les dossiers et le motif d’origine. Si la demande a déjà été acceptée, elle consulte uniquement le résultat enregistré sans envoyer d’autre e-mail.",
+    "stopRequest": "Arrêter la demande d’invitation",
+    "stopRequestHelp": "Arrêtez la demande initiale avant le début de l’envoi, même si cette même demande arrive plus tard. Si l’envoi a déjà commencé, seul le résultat enregistré est consulté. Les invitations existantes et les autres demandes sont conservées.",
+    "confirmStopRequest": "Arrêter cette demande d’invitation"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -4109,6 +4114,8 @@
         "MonthlyHoursReport": "Rapport mensuel des heures de service",
         "SchoolHoursSchedule": "Calendrier des rapports scolaires",
         "SchoolHoursReport": "Rapport individuel des heures pour l’école",
+        "TranslationIntentReceipt": "Reçu de demande de traduction",
+        "HistoricalInvitationOperationClosure": "Reçu d’arrêt d’une invitation historique",
         "ProgramCalendarPolicyRevision": "Révision de la règle des dates de tutorat",
         "ImportedRecordProvenance": "Provenance de l’import d’archives"
       },
@@ -5609,7 +5616,8 @@
     "historyAccessLost": "This history is no longer available. Refresh to check your current access.",
     "recordDetailsLabel": "View History: {name} · Record {id}",
     "recordedDateRange": "Session dates: {first} – {last}",
-    "recordedDatesUnknown": "Session dates not recorded"
+    "recordedDatesUnknown": "Session dates not recorded",
+    "invitation_ABANDONED": "Cette demande d’invitation a été arrêtée avant le début de l’envoi. Elle ne pourra pas être envoyée ultérieurement."
   },
   "schoolDeparture": {
     "title": "School Departure",

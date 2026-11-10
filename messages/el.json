@@ -234,7 +234,7 @@
     "acknowledge": "I verified the recipient and every listed original record.",
     "checkReceipt": "Check delivery receipt",
     "uncertain": "The delivery result is unknown. Check its saved receipt before starting another invitation.",
-    "notRecorded": "No completed receipt is available yet. Wait, then check again; sending again could duplicate an in-flight delivery.",
+    "notRecorded": "Δεν υπάρχει ακόμη απόδειξη. Διατηρήστε την αρχική πρόσκληση αμετάβλητη κατά τον έλεγχο ή την επανάληψη.",
     "blocked": {
       "GROUP_REVIEW_REQUIRED": "Complete current participation review before inviting.",
       "NOT_HISTORICAL": "Every selected record must be historical.",
@@ -242,7 +242,12 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "retryExact": "Επανάληψη της ίδιας ακριβώς πρόσκλησης",
+    "exactRetryHelp": "Η επανάληψη διατηρεί τον αρχικό παραλήπτη, τις εγγραφές και την αιτιολογία. Αν το αίτημα έχει ήδη γίνει δεκτό, ελέγχεται μόνο το αποθηκευμένο αποτέλεσμα χωρίς αποστολή άλλου email.",
+    "stopRequest": "Διακοπή αιτήματος πρόσκλησης",
+    "stopRequestHelp": "Σταματήστε το αρχικό αίτημα πριν αρχίσει η αποστολή, ακόμη και αν φτάσει αργότερα το ίδιο αίτημα. Αν η αποστολή έχει ήδη αρχίσει, ελέγχεται μόνο το αποθηκευμένο αποτέλεσμα. Οι υπάρχουσες προσκλήσεις και τα άλλα αιτήματα διατηρούνται.",
+    "confirmStopRequest": "Διακοπή αυτού του αιτήματος πρόσκλησης"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -4109,6 +4114,8 @@
         "MonthlyHoursReport": "Μηνιαία αναφορά ωρών υπηρεσίας",
         "SchoolHoursSchedule": "Πρόγραμμα αναφορών σχολείου",
         "SchoolHoursReport": "Ατομική αναφορά ωρών προς το σχολείο",
+        "TranslationIntentReceipt": "Απόδειξη αιτήματος μετάφρασης",
+        "HistoricalInvitationOperationClosure": "Απόδειξη διακοπής ιστορικής πρόσκλησης",
         "ProgramCalendarPolicyRevision": "Αναθεώρηση πολιτικής ημερομηνιών διδασκαλίας",
         "ImportedRecordProvenance": "Προέλευση εισαγωγής αρχειακών δεδομένων"
       },
@@ -5609,7 +5616,8 @@
     "historyAccessLost": "This history is no longer available. Refresh to check your current access.",
     "recordDetailsLabel": "View History: {name} · Record {id}",
     "recordedDateRange": "Session dates: {first} – {last}",
-    "recordedDatesUnknown": "Session dates not recorded"
+    "recordedDatesUnknown": "Session dates not recorded",
+    "invitation_ABANDONED": "Αυτό το αίτημα πρόσκλησης σταμάτησε πριν αρχίσει η αποστολή. Δεν μπορεί να σταλεί αργότερα."
   },
   "schoolDeparture": {
     "title": "School Departure",

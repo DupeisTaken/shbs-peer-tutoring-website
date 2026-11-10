@@ -312,6 +312,27 @@ source/backup pair cannot certify a new table, bearer column, changed type or en
 label. Such changes fail closed, and identity-reader changes additionally require
 an explicit semantic adapter review.
 
+`HistoricalInvitationOperationClosure` is an exact reviewed optional additive table
+for older backup compatibility and permanent deny authority when present. Security
+reconciliation fingerprints its complete rows and rejects source/restored divergence
+before overlay, cutover or rollback. It cannot copy, delete, invalidate or quarantine
+an immutable stop to obtain agreement. An older backup's absent table is not authority
+to omit a live fence or reopen a delayed original invitation request.
+
+`TranslationIntentReceipt` is a second separately reviewed optional additive table
+for older-backup compatibility. Both terminal ledgers preserve their complete row
+evidence and must match the reviewed scalar schema, primary keys and immutable
+update/delete guards. Before comparing fingerprints, recovery validates their
+column types, nullability and defaults, key/index metadata, applicable CHECK
+expressions and exact trigger/function contract. Equal but weakened guards on
+source and restored databases are not accepted. Translation receipt divergence
+blocks reconciliation, cutover and rollback; recovery cannot copy, expire, delete,
+invalidate or quarantine accepted or stopped evidence to force agreement. These
+ledgers are outside ordinary inverse compensation and are not reusable access
+capabilities. Adding the translation ledger does not itself enable translation
+request submission or recovery controls; those require their matching application
+release.
+
 An operator session is acquired during a brief controlled opening and the target
 is immediately fenced again. Reconciliation reads current source state in a
 read-only repeatable-read transaction and exports that exact PostgreSQL snapshot

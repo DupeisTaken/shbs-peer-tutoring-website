@@ -234,7 +234,7 @@
     "acknowledge": "I verified the recipient and every listed original record.",
     "checkReceipt": "Check delivery receipt",
     "uncertain": "The delivery result is unknown. Check its saved receipt before starting another invitation.",
-    "notRecorded": "No completed receipt is available yet. Wait, then check again; sending again could duplicate an in-flight delivery.",
+    "notRecorded": "No receipt is available yet. Keep the original invitation unchanged while checking or retrying it.",
     "blocked": {
       "GROUP_REVIEW_REQUIRED": "Complete current participation review before inviting.",
       "NOT_HISTORICAL": "Every selected record must be historical.",
@@ -242,7 +242,12 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "retryExact": "Retry this exact invitation",
+    "exactRetryHelp": "This retry keeps the original recipient, records and reason. If the request was already accepted, it only checks the saved result and sends no additional email.",
+    "stopRequest": "Stop invitation request",
+    "stopRequestHelp": "Stop the original request before sending starts, including any late arrival of the same request. If sending has already started, this checks its saved result instead. Existing invitations and other requests are preserved.",
+    "confirmStopRequest": "Stop this invitation request"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -4109,6 +4114,8 @@
         "MonthlyHoursReport": "Monthly service-hours report",
         "SchoolHoursSchedule": "School report schedule",
         "SchoolHoursReport": "Individual school-hours report",
+        "TranslationIntentReceipt": "Translation request receipt",
+        "HistoricalInvitationOperationClosure": "Historical invitation stop receipt",
         "ProgramCalendarPolicyRevision": "Tutoring date policy revision",
         "ImportedRecordProvenance": "Archive import provenance"
       },
@@ -5643,7 +5650,8 @@
     "historyAccessLost": "This history is no longer available. Refresh to check your current access.",
     "recordDetailsLabel": "View History: {name} · Record {id}",
     "recordedDateRange": "Session dates: {first} – {last}",
-    "recordedDatesUnknown": "Session dates not recorded"
+    "recordedDatesUnknown": "Session dates not recorded",
+    "invitation_ABANDONED": "This invitation request was stopped before sending started. It cannot send later."
   },
   "schoolDeparture": {
     "title": "School Departure",

@@ -102,6 +102,118 @@ it("registers archive import metadata without exposing polymorphic provenance bi
   expect(auditFieldLabelKey("Tutor", "importedAt")).toBeNull();
 });
 
+it("discovers historical invitation stop metadata with exact scalar-only schema coverage", () => {
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
+  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find(
+    (match) => match[1] === "HistoricalInvitationOperationClosure",
+  );
+  expect(model).toBeDefined();
+  const scalarFields = [
+    ...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|DateTime)(?:[?\[\]\s])/gm),
+  ].map((match) => match[1]);
+  expect(scalarFields).toEqual([
+    "operationId",
+    "issuedById",
+    "inputHash",
+    "scopeKey",
+    "createdAt",
+  ]);
+  expect(reviewSchema.HistoricalInvitationOperationClosure).toEqual({
+    fields: scalarFields,
+    references: {},
+    enums: {},
+  });
+  expect(auditEntityLabelKey("HistoricalInvitationOperationClosure")).toBe(
+    "auditEventDetails.presentation.entities.HistoricalInvitationOperationClosure",
+  );
+});
+
+it("withholds stopped invitation bindings from generic labels and references without changing other owners", () => {
+  for (const field of ["operationId", "issuedById", "inputHash", "scopeKey"]) {
+    expect(
+      auditFieldLabelKey("HistoricalInvitationOperationClosure", field),
+      field,
+    ).toBeNull();
+    expect(
+      auditEnumLabelKey(
+        "HistoricalInvitationOperationClosure",
+        field,
+        "ABANDONED",
+      ),
+      field,
+    ).toBeNull();
+    expect(
+      auditReferenceEntity("HistoricalInvitationOperationClosure", field),
+      field,
+    ).toBeUndefined();
+  }
+  expect(
+    auditFieldLabelKey("HistoricalInvitationOperationClosure", "createdAt"),
+  ).toBe("auditEventDetails.presentation.fields.createdAt");
+  expect(
+    auditReferenceEntity("HistoricalInvitationOperationClosure", "createdAt"),
+  ).toBeUndefined();
+  // Issuer labels on the existing invitation and real references are independent.
+  expect(auditFieldLabelKey("TuteeHistoryInvitation", "issuedById")).toBe(
+    "auditEventDetails.presentation.fields.issuedById",
+  );
+  expect(auditReferenceEntity("TuteeHistoryInvitation", "tuteeId")).toBe(
+    "Tutee",
+  );
+});
+
+it("catalogues translation terminal scalars but withholds actor, UUID, hash and result bindings", () => {
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
+  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find(
+    (match) => match[1] === "TranslationIntentReceipt",
+  );
+  expect(model).toBeDefined();
+  const scalarFields = [
+    ...model![2]!.matchAll(
+      /^\s*(\w+)\s+(?:String|Int|Boolean|DateTime)(?:[?\[\]\s])/gm,
+    ),
+  ].map((match) => match[1]);
+  expect(reviewSchema.TranslationIntentReceipt).toEqual({
+    fields: scalarFields,
+    references: {},
+    enums: {},
+  });
+  for (const field of [
+    "actorId",
+    "intentId",
+    "protocolVersion",
+    "operation",
+    "mode",
+    "inputHash",
+    "draftId",
+    "cleared",
+  ]) {
+    expect(
+      auditFieldLabelKey("TranslationIntentReceipt", field),
+      field,
+    ).toBeNull();
+    expect(
+      auditEnumLabelKey("TranslationIntentReceipt", field, "DRAFT"),
+      field,
+    ).toBeNull();
+    expect(
+      auditReferenceEntity("TranslationIntentReceipt", field),
+      field,
+    ).toBeUndefined();
+  }
+  expect(
+    auditReferenceEntity("TranslationIntentReceipt", "actorId"),
+  ).toBeUndefined();
+  expect(auditFieldLabelKey("TranslationDraft", "operation")).not.toBeNull();
+  expect(auditFieldLabelKey("RecoveryReceipt", "actorId")).not.toBeNull();
+});
+
 it("registers exact identity lifecycle scalar fields without inventing schema enums", () => {
   const schema = readFileSync(
     new URL("../../prisma/schema.prisma", import.meta.url),

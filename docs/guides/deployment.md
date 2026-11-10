@@ -1182,6 +1182,24 @@ ownership backup. Keep the new table and guards during application rollback; an 
 application will not display retained tutor links. Review any ownership correction through
 the staff workflow, and never remove guards to force a conflicting account attachment.
 
+Before deploying historical invitation stop controls, apply the committed
+`20261109010000_historical_invitation_operation_closure` migration and regenerate
+the matching Prisma client. Include operation closures in full database backups;
+never prune or edit them as expired invitations. Their immutable deny evidence keeps
+an explicitly stopped request from sending if its original call arrives later.
+Recovery refuses to drop or replace that fence. See the [invitation procedure](historical-participant-transition.md#invite-an-alumnus-without-a-login).
+Every serving instance, including a [corrective application rollback](#retain-current-and-previous-tested-images),
+must retain closure-aware invitation admission and receipt handling. Preserving
+the ledger alone does not make an older writer honor stopped requests.
+
+Apply `20261109020000_translation_intent_receipts` with the same complete migration
+chain and matching generated Prisma client. Its immutable terminal ledger and the
+historical invitation closure table must remain in full backups and application
+rollback; neither has an expiry cleanup or identity/draft cascade. The recovery
+operator packages their positive metadata/schema checks together. This foundation
+does not activate translation request submission, Check or Stop; deploy the
+matching application implementation before relying on those controls.
+
 ## Patrol credit migration
 
 Apply `20261002010000_patrol_credit_budget` before starting the updated application. It adds server award timestamps and unique UTC 20-minute evidence reservations. Existing positive-hour patrols retain their hours, notes, observations and update timestamps; their recorded creation time becomes the historical award time. All observed intervals are reserved. A patrol without observations reserves its creation interval. For overlapping legacy awards, the earliest submission owns the reservation, with ID as the tie-breaker. No duplicates are deleted and no historical totals are reduced. Zero-hour records receive no award time or reservation.

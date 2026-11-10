@@ -122,6 +122,7 @@ COPY --from=build /app/src/server/recovery/operator-marker.ts /runtime-output/ap
 COPY --from=build /app/src/server/recovery/operator-next.ts /runtime-output/app/src/server/recovery/operator-next.ts
 COPY --from=build /app/src/server/recovery/operator-reconcile.ts /runtime-output/app/src/server/recovery/operator-reconcile.ts
 COPY --from=build /app/src/server/recovery/operator-schema.ts /runtime-output/app/src/server/recovery/operator-schema.ts
+COPY --from=build /app/src/server/recovery/receipt-guard-metadata.ts /runtime-output/app/src/server/recovery/receipt-guard-metadata.ts
 COPY --from=build /app/src/server/recovery/receipt.ts /runtime-output/app/src/server/recovery/receipt.ts
 COPY --from=build /app/src/server/recovery/workflow-draft.ts /runtime-output/app/src/server/recovery/workflow-draft.ts
 COPY --from=build /app/src/server/request-review.ts /runtime-output/app/src/server/request-review.ts
