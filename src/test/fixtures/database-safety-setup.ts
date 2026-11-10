@@ -14,9 +14,10 @@ vi.mock("@prisma/adapter-pg", () => ({
 vi.mock("~/server/db", async () => {
   const { appendFileSync, existsSync, unlinkSync } = await import("node:fs");
   const { join } = await import("node:path");
+  const { createDatabaseSafetyFake } = await import("./database-safety-model");
   const directory = process.env.SHBS_TEST_SAFETY_DIRECTORY;
   if (!directory) throw new Error("Missing owned safety fixture directory");
-  const record = (operation: string) => {
+  const record = (operation: string, writes: boolean) => {
     appendFileSync(
       join(directory, "ledger.jsonl"),
       JSON.stringify({
@@ -26,36 +27,10 @@ vi.mock("~/server/db", async () => {
     );
     // File-backed synthetic rows make a destructive fake query observable to
     // the parent process. No PostgreSQL connection is involved in this probe.
-    if (operation !== "disconnect" && existsSync(join(directory, "sentinel")))
+    if (writes && existsSync(join(directory, "sentinel")))
       unlinkSync(join(directory, "sentinel"));
   };
-  const db = new Proxy(
-    {},
-    {
-      get(_target, key) {
-        if (key === "$disconnect") return async () => record("disconnect");
-        if (key === "$queryRaw")
-          return async () => {
-            record("query");
-            return [{ tablename: "User" }];
-          };
-        if (key === "$executeRawUnsafe") return async () => record("execute");
-        return new Proxy(
-          {},
-          {
-            get(_delegate, operation) {
-              return async () => {
-                record(`${String(key)}.${String(operation)}`);
-                if (key === "user" && operation === "createMany")
-                  return { count: 4 };
-                throw new Error("Unexpected query after refused fixture setup");
-              };
-            },
-          },
-        );
-      },
-    },
-  );
+  const db = createDatabaseSafetyFake(record);
   return { db };
 });
 

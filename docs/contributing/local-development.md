@@ -520,6 +520,16 @@ lifecycle checks, distinct from PostgreSQL sentinel-survival verification on a
 new disposable rejected target. Never perform that live refusal check on a retained
 demo or program database. Keep failed reproduction receipts when verifying a repair.
 
+The lifecycle fake executes callback transactions and distinguishes reads from
+writes. A separate final reporter validates every module, nested-suite, test and
+unhandled error; a setup guard must not conceal an unrelated teardown failure.
+Negative controls remove a cleanup guard or inject a second hook error only in
+new temporary source copies, record the transformations and verify the tracked
+original stays unchanged. They must expose real fake writes or the unexpected
+error, rather than pass because a mock method is missing. Set
+`SHBS_TEST_SAFETY_EVIDENCE_DIRECTORY` to a new owned output folder to retain child
+default logs, JSON/all-error reports, ledgers and source-mutation receipts.
+
 For the tutor creation layout regression, run `node scripts/test-tutor-form-layout.mjs`
 against a running loopback site with synthetic data. Set `TEST_BASE_URL`,
 `SHBS_BROWSER_STATE` to an authenticated staff Playwright storage-state file, and
