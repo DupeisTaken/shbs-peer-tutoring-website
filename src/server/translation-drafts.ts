@@ -18,16 +18,48 @@ export async function proposeTranslation(
   payload: Prisma.InputJsonValue,
 ) {
   if (["HEAD", "ADMIN"].includes(session.role)) return false;
-  await withTranslationWrite(db, async (tx) => {
+  return withTranslationWrite(db, async (tx) => {
     const fields = z.record(z.string(), z.unknown()).parse(payload);
     const baseline = await translationBaseline(tx, operation, fields);
     const action = approvalNotificationDetail(operation, {}, {}, "pending");
-    const news = operation === "home.setNewsTranslation" && typeof fields.postId === "string" ? await tx.newsTranslation.findUnique({ where: { postId_locale: { postId: fields.postId, locale: "en" } }, select: { title: true } }) : null;
-    const section = operation === "home.setSectionTranslation" && typeof fields.sectionId === "string" ? await tx.landingSectionTranslation.findUnique({ where: { sectionId_locale: { sectionId: fields.sectionId, locale: "en" } }, select: { title: true } }) : null;
-    const page = operation === "home.setPageTitle" && typeof fields.id === "string" ? await tx.customPage.findUnique({ where: { id: fields.id }, select: { slug: true } }) : null;
-    const destination = [news?.title, section?.title, page?.slug, fields.key, fields.slug, fields.postId, fields.sectionId, fields.pageId].find((value) => typeof value === "string");
-    const target = typeof destination === "string" ? notificationLabel(destination) : "—";
-    await tx.translationDraft.create({
+    const news =
+      operation === "home.setNewsTranslation" &&
+      typeof fields.postId === "string"
+        ? await tx.newsTranslation.findUnique({
+            where: { postId_locale: { postId: fields.postId, locale: "en" } },
+            select: { title: true },
+          })
+        : null;
+    const section =
+      operation === "home.setSectionTranslation" &&
+      typeof fields.sectionId === "string"
+        ? await tx.landingSectionTranslation.findUnique({
+            where: {
+              sectionId_locale: { sectionId: fields.sectionId, locale: "en" },
+            },
+            select: { title: true },
+          })
+        : null;
+    const page =
+      operation === "home.setPageTitle" && typeof fields.id === "string"
+        ? await tx.customPage.findUnique({
+            where: { id: fields.id },
+            select: { slug: true },
+          })
+        : null;
+    const destination = [
+      news?.title,
+      section?.title,
+      page?.slug,
+      fields.key,
+      fields.slug,
+      fields.postId,
+      fields.sectionId,
+      fields.pageId,
+    ].find((value) => typeof value === "string");
+    const target =
+      typeof destination === "string" ? notificationLabel(destination) : "—";
+    const draft = await tx.translationDraft.create({
       data: {
         authorId: session.user.id,
         operation,
@@ -49,6 +81,6 @@ export async function proposeTranslation(
       undefined,
       tx,
     );
+    return draft.id;
   });
-  return true;
 }

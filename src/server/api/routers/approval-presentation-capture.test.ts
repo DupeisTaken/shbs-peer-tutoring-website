@@ -23,6 +23,8 @@ const actor = (id: string, role: Session["role"]) =>
       user: { id, name: "Session display name", email: `${id}@example.test` },
       role,
       tutorId: null,
+      sessionVersion: 0,
+      historyAccessRevision: 0,
       expires: "2099-01-01T00:00:00Z",
     },
   });
@@ -561,7 +563,10 @@ it.each([
       data: { key: "CREW", enabled: effective, pendingEnabled: pending },
     });
     const request = await queued(() =>
-      coordinator().program.setFeaturePending({ key: "CREW", enabled: requested }),
+      coordinator().program.setFeaturePending({
+        key: "CREW",
+        enabled: requested,
+      }),
     );
     expect(request.targets).toMatchObject({
       reviewPresentation: {

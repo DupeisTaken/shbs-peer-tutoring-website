@@ -1063,6 +1063,8 @@ const sessionFor = (
   user: { id: userId, name: "Review Actor", email: `${userId}@example.test` },
   role,
   tutorId,
+  sessionVersion: 0,
+  historyAccessRevision: 0,
   expires: "2099-01-01T00:00:00Z",
 });
 const caller = (

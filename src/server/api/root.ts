@@ -49,6 +49,7 @@ import { messagingRouter } from "./routers/messaging";
 import { interviewManagementRouter } from "./routers/interview-management";
 import { subjectAvailabilityRouter } from "./routers/subject-availability";
 import { translationReviewRouter } from "./routers/translation-review";
+import { translationIntentRouter } from "./routers/translation-intent";
 import { personalScheduleRouter } from "./routers/personal-schedule";
 
 export const appRouter = createTRPCRouter({
@@ -70,6 +71,7 @@ export const appRouter = createTRPCRouter({
   interviewManagement: interviewManagementRouter,
   subjectAvailability: subjectAvailabilityRouter,
   translationReview: translationReviewRouter,
+  translationIntent: translationIntentRouter,
   student: studentRouter,
   messaging: messagingRouter,
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),

@@ -512,7 +512,8 @@
     "close": "关闭",
     "collapseAll": "全部收起",
     "expandAll": "全部展开",
-    "loading": "正在加载…"
+    "loading": "正在加载…",
+    "retry": "重试"
   },
   "auth": {
     "signinTitle": "登录",
@@ -3088,7 +3089,11 @@
       "id": "待翻译内容",
       "other": "待翻译内容"
     },
-    "refreshFailed": "您的更改已被接受，但更新后的内容未能刷新。请重试刷新，无需再次提交。"
+    "refreshFailed": "您的更改已被接受，但更新后的内容未能刷新。请重试刷新，无需再次提交。",
+    "acceptedRefreshFailed": "提交已被接受，但无法读取最新数据。请重试刷新，无需再次提交。",
+    "readFailed": "无法读取当前翻译数据。草稿已保留，请先重试再提交。",
+    "retryRead": "重试刷新",
+    "identityReadFailed": "无法读取账户权限。请先重试，再编辑翻译。"
   },
   "workflows": {
     "interviewsDisabledHistory": "面试功能已关闭。历史记录仍可查看，重新启用后可记录完成情况。",
@@ -8376,5 +8381,46 @@
     "snapshotHelp": "以下资料记录于工作人员拒绝报名时。之后的个人资料修改不会改变此快照。",
     "closedHelp": "此次报名已关闭，无法再分配或重新启用。",
     "released": "已解除的当前分配：{count}"
+  },
+  "translationIntent": {
+    "title": "恢复翻译请求",
+    "help": "结果未确认的请求会阻止新的翻译提交。请查询结果、重试保留的原请求，或先停止原请求再进行新的编辑。",
+    "pending": "请求处理中。",
+    "unknown": "结果尚未确认。请勿提交替代请求。",
+    "notRecorded": "尚无最终结果记录。替换此请求前，请先停止它。",
+    "acceptedDraft": "此请求已提交草稿。这里不显示后续审核或删除情况。",
+    "acceptedPublished": "此请求受理时已发布。当前文字可能已更改。",
+    "stopped": "此请求已停止，之后无法再生效。",
+    "restoreOnly": "返回此处不会恢复已提交的文字。请查询结果或停止请求。",
+    "lookup": "查询结果",
+    "stop": "停止未确认的请求",
+    "retryExact": "重试原请求",
+    "refreshAccepted": "刷新已受理的结果",
+    "dismiss": "关闭此回执",
+    "storageFailed": "恢复存储不可用。新的提交已被阻止，请重试存储。",
+    "retryStorage": "重试恢复存储",
+    "signIn": "请验证账号以恢复其请求。",
+    "reference": "请求 {id}",
+    "submitFailed": "未能确认响应。再次尝试前，请先查询已保存的结果。",
+    "refreshFailed": "请求已受理，但刷新失败。请刷新，勿再次提交。",
+    "readFailed": "无法核实已保存的结果。请再次查询。",
+    "refreshAuthority": "重新核实账号权限",
+    "modes": {
+      "DRAFT": "提交草稿",
+      "PUBLISH": "发布"
+    },
+    "operations": {
+      "localization": {
+        "setString": "界面文本"
+      },
+      "home": {
+        "setNewsTranslation": "新闻",
+        "setPageTitle": "页面标题",
+        "setContent": "首页文字",
+        "setSectionTranslation": "网站板块"
+      }
+    },
+    "authorityRequired": "重试原请求前，请重新核实账号权限，或停止该请求。",
+    "noRequests": "此账号没有保留的翻译请求。"
   }
 }

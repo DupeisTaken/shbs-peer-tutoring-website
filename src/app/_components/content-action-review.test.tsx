@@ -10,19 +10,32 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
+import { translationFixtureKey } from "~/test/translation-query-bindings";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import LandingAdminPage from "../(admin)/admin/landing/landing-editor";
 import AnnouncementsPage from "../(admin)/admin/announcements/page";
 import { ReadOnlyProvider } from "./read-only";
+import { createTranslationIntentClient } from "~/lib/translation-intent-client";
+import type * as IntentClientModule from "~/lib/translation-intent-client";
+import {
+  translationBusinessInputs,
+  translationIntentEnvelope,
+} from "~/lib/translation-intent";
 
 const state = vi.hoisted(() => ({
   hidden: false,
-  commit: vi.fn(),
+  commit: vi.fn<(operation: string, input: unknown) => void>(),
   refresh: vi.fn(),
   error: null as Error | null,
   fieldError: null as null | { message: string },
   pending: false,
+  textGate: null as Promise<void> | null,
+  readFailure: null as Error | null,
+  read: vi.fn<(name: string, input?: unknown) => void>(),
+  intentClient: undefined as
+    IntentClientModule.TranslationIntentClient | undefined,
   write: vi.fn(),
   coldReads: false,
   readError: ((): Record<
@@ -30,11 +43,21 @@ const state = vi.hoisted(() => ({
     { message: string; data?: { code: string } } | undefined
   > => ({}))(),
 }));
+vi.mock("~/lib/translation-intent-client", async (original) => {
+  const actual = await original<typeof IntentClientModule>();
+  return {
+    ...actual,
+    get translationIntentClient() {
+      return state.intentClient!;
+    },
+  };
+});
 const translations = [
   { locale: "en", title: "Synthetic content", body: "Example body" },
   { locale: "zh", title: "中文示例", body: "内容" },
 ];
 const data: Record<string, unknown> = {
+  me: { id: "landing-review-admin", role: "ADMIN", canTranslate: true },
   layout: [],
   content: [
     {
@@ -106,68 +129,121 @@ const data: Record<string, unknown> = {
   ],
   announcementCandidates: [],
 };
-vi.mock("@trpc/react-query", () => ({
-  getQueryKey: (procedure: { name: string }) => [procedure.name],
-}));
 let queryClient: QueryClient;
-vi.mock("~/trpc/react", () => ({
-  api: new Proxy(
-    {},
-    {
-      get: (_target, scope) =>
-        scope === "useUtils"
-          ? () =>
-              new Proxy(
+vi.mock("~/trpc/react", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  function useAccountQuery() {
+    return useQuery({
+      queryKey: translationFixtureKey("account.me"),
+      queryFn: async () => data.me,
+      initialData: data.me,
+      staleTime: Infinity,
+    });
+  }
+  return {
+    api: new Proxy(
+      {},
+      {
+        get: (_target, scope) =>
+          scope === "useUtils"
+            ? () =>
+                new Proxy(
+                  {},
+                  {
+                    get: () =>
+                      new Proxy(
+                        {},
+                        {
+                          get: (_target, name) => ({
+                            invalidate: state.refresh,
+                            fetch: async (input?: unknown) => {
+                              state.read(String(name), input);
+                              if (state.readFailure) throw state.readFailure;
+                              return data[String(name)] ?? [];
+                            },
+                          }),
+                        },
+                      ),
+                  },
+                )
+            : new Proxy(
                 {},
                 {
-                  get: () =>
-                    new Proxy(
-                      {},
-                      { get: () => ({ invalidate: state.refresh }) },
-                    ),
+                  get: (_target, name) => ({
+                    name: String(name),
+                    _def: () => ({ path: [String(scope), String(name)] }),
+                    useQuery:
+                      name === "me"
+                        ? useAccountQuery
+                        : () => ({
+                            data:
+                              name === "me"
+                                ? data.me
+                                : state.coldReads &&
+                                    (name === "announcements" ||
+                                      name === "announcementCandidates")
+                                  ? undefined
+                                  : state.hidden &&
+                                      name !== "languages" &&
+                                      name !== "layout"
+                                    ? []
+                                    : (data[String(name)] ?? []),
+                            error: state.readError[String(name)],
+                            isError: !!state.readError[String(name)],
+                            isSuccess:
+                              !state.readError[String(name)] &&
+                              !state.coldReads,
+                            isFetching: false,
+                            isLoading: false,
+                            refetch: state.refresh,
+                          }),
+                    useMutation: () => ({
+                      mutate: state.write,
+                      isPending: state.pending,
+                      error: state.fieldError,
+                      reset: vi.fn(),
+                      mutateAsync: async (input: unknown) => {
+                        state.commit(String(name), input);
+                        if (state.error) throw state.error;
+                        if (scope === "home" && name === "setContent") {
+                          if (state.textGate) await state.textGate;
+                          const captured = translationBusinessInputs[
+                            "home.setContent"
+                          ]
+                            .extend({ intent: translationIntentEnvelope })
+                            .parse(input);
+                          return {
+                            ok: true,
+                            receipt: {
+                              status: "ACCEPTED",
+                              version: 1,
+                              intentId: captured.intent.id,
+                              operation: "home.setContent",
+                              mode: captured.intent.mode,
+                              outcome:
+                                captured.intent.mode === "DRAFT"
+                                  ? "DRAFT_SUBMITTED"
+                                  : "PUBLISHED",
+                              acceptedAt: new Date("2026-11-09"),
+                              draftId:
+                                captured.intent.mode === "DRAFT"
+                                  ? "synthetic-draft"
+                                  : null,
+                              cleared: false,
+                              replayed: false,
+                            },
+                          };
+                        }
+                        return {};
+                      },
+                    }),
+                  }),
                 },
-              )
-          : new Proxy(
-              {},
-              {
-                get: (_target, name) => ({
-                  name: String(name),
-                  useQuery: () => ({
-                    data:
-                      state.coldReads &&
-                      (name === "announcements" ||
-                        name === "announcementCandidates")
-                        ? undefined
-                        : state.hidden &&
-                            name !== "languages" &&
-                            name !== "layout"
-                          ? []
-                          : (data[String(name)] ?? []),
-                    error: state.readError[String(name)],
-                    isError: !!state.readError[String(name)],
-                    isSuccess:
-                      !state.readError[String(name)] && !state.coldReads,
-                    isFetching: false,
-                    isLoading: false,
-                    refetch: state.refresh,
-                  }),
-                  useMutation: () => ({
-                    mutate: state.write,
-                    isPending: state.pending,
-                    error: state.fieldError,
-                    reset: vi.fn(),
-                    mutateAsync: async (input: unknown) => {
-                      state.commit(String(name), input);
-                      if (state.error) throw state.error;
-                      return {};
-                    },
-                  }),
-                }),
-              },
-            ),
-    },
-  ),
-}));
+              ),
+      },
+    ),
+  };
+});
 vi.mock("./markdown", () => ({
   Markdown: ({ children }: { children: string }) => <p>{children}</p>,
 }));
@@ -175,12 +251,17 @@ beforeEach(() => {
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  installSessionReadReceipts(queryClient);
+  sessionStorage.clear();
+  state.intentClient = createTranslationIntentClient(() => sessionStorage);
   state.readError = {};
   state.coldReads = false;
   state.hidden = false;
   state.error = null;
   state.fieldError = null;
   state.pending = false;
+  state.textGate = null;
+  state.readFailure = null;
   data.layout = [];
   vi.resetAllMocks();
   state.refresh.mockResolvedValue(undefined);
@@ -197,7 +278,10 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
     <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
@@ -237,7 +321,7 @@ it("puts custom-page navigation before boxed actions and Delete last without wri
   expect(state.write).not.toHaveBeenCalled();
 });
 
-it("retains independent fixed-content drafts across locales, tabs, errors and pending writes", () => {
+it("retains independent fixed-content drafts across locales, tabs, errors and pending writes", async () => {
   const view = render(<LandingAdminPage />, { wrapper });
   fireEvent.click(
     screen.getByRole("tab", { name: en.admin.landing.tabs.content }),
@@ -261,11 +345,80 @@ it("retains independent fixed-content drafts across locales, tabs, errors and pe
     screen.getByRole("tab", { name: en.admin.landing.tabs.content }),
   );
   expect(tagline().value).toBe("English local draft");
-  state.pending = true;
+  state.fieldError = null;
+  let finish!: () => void;
+  state.textGate = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
   view.rerender(<LandingAdminPage />);
+  fireEvent.click(screen.getByRole("button", { name: en.common.save }));
+  await waitFor(() => expect(state.commit).toHaveBeenCalledTimes(1));
+  const submitted = state.commit.mock.calls[0]![1];
+  const captured = translationBusinessInputs["home.setContent"]
+    .extend({ intent: translationIntentEnvelope })
+    .parse(submitted);
+  const uuid: unknown = expect.stringMatching(/^[0-9a-f-]{36}$/);
+  expect(state.commit.mock.calls[0]![0]).toBe("setContent");
+  expect(captured).toEqual({
+    locale: "en",
+    key: "tagline",
+    value: "English local draft",
+    intent: {
+      version: 1,
+      id: uuid,
+      actorId: "landing-review-admin",
+      mode: "PUBLISH",
+    },
+  });
+  expect(Object.isFrozen(submitted)).toBe(true);
+  if (!submitted || typeof submitted !== "object" || !("intent" in submitted))
+    throw new Error("The raw request did not retain its captured intent");
+  expect(Object.isFrozen(submitted.intent)).toBe(true);
+  const original = JSON.stringify(submitted);
   expect(tagline().disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: en.common.save }));
   fireEvent.change(language, { target: { value: "zh" } });
   expect(tagline().value).toBe("中文本地草稿");
+  expect(tagline().disabled).toBe(true);
+  expect(JSON.stringify(submitted)).toBe(original);
+  expect(state.commit).toHaveBeenCalledTimes(1);
+  fireEvent.change(language, { target: { value: "en" } });
+  expect(tagline().value).toBe("English local draft");
+
+  state.readFailure = new Error("Synthetic accepted content read unavailable");
+  await act(async () => {
+    finish();
+  });
+  const retry = await screen.findByRole<HTMLButtonElement>("button", {
+    name: en.translationIntent.refreshAccepted,
+  });
+  await waitFor(() => expect(retry.disabled).toBe(false));
+  expect(tagline().disabled).toBe(true);
+  expect(state.read).toHaveBeenCalledExactlyOnceWith("content", {
+    locale: "en",
+  });
+  expect(state.refresh).toHaveBeenCalledTimes(1);
+  state.readFailure = null;
+  await act(async () => {
+    fireEvent.click(retry);
+  });
+  await waitFor(() => expect(tagline().disabled).toBe(false));
+  expect(tagline().value).toBe("English local draft");
+  fireEvent.change(language, { target: { value: "zh" } });
+  expect(tagline().value).toBe("中文本地草稿");
+  expect(state.read).toHaveBeenCalledTimes(2);
+  expect(
+    state.read.mock.calls.every(
+      ([name, input]) =>
+        name === "content" &&
+        !!input &&
+        typeof input === "object" &&
+        "locale" in input &&
+        input.locale === "en",
+    ),
+  ).toBe(true);
+  expect(state.refresh).toHaveBeenCalledTimes(2);
+  expect(state.commit).toHaveBeenCalledTimes(1);
   expect(state.write).not.toHaveBeenCalled();
 });
 
@@ -508,7 +661,10 @@ it("retains labelled announcement drafts through transient read failure but conc
       name: en.admin.announcements.new.broadcast,
     }).disabled,
   ).toBe(true);
-  queryClient.setQueryData(["announcements"], data.announcements);
+  queryClient.setQueryData(
+    translationFixtureKey("admin.announcements"),
+    data.announcements,
+  );
   state.readError.announcements = {
     message: "Denied",
     data: { code: "FORBIDDEN" },
@@ -521,7 +677,9 @@ it("retains labelled announcement drafts through transient read failure but conc
     }),
   ).toBeNull();
   expect(screen.queryByDisplayValue("Creation draft")).toBeNull();
-  expect(queryClient.getQueryData(["announcements"])).toBeUndefined();
+  expect(
+    queryClient.getQueryData(translationFixtureKey("admin.announcements")),
+  ).toBeUndefined();
   state.readError.announcements = { message: "Offline" };
   rendered.rerender(<AnnouncementsPage />);
   expect(screen.queryByDisplayValue("Synthetic content")).toBeNull();

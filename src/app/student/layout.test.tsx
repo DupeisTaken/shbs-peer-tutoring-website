@@ -61,6 +61,9 @@ vi.mock("~/app/_components/dismissible-notice", () => ({
 vi.mock("~/app/_components/sign-out-button", () => ({
   SignOutButton: () => null,
 }));
+vi.mock("~/app/_components/translation-intent-recovery", () => ({
+  TranslationIntentRecoveryEntry: () => <p>Own translation receipt recovery</p>,
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
   redirect: (path: string) => {
@@ -225,13 +228,17 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   },
 );
 it.each(["VIEWER", "STUDENT"])(
-  "denies the translation workspace to %s without explicit Translator membership",
+  "limits %s without Translator membership to own receipt recovery",
   async (role) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
     mocks.user.mockResolvedValue({ role, canTranslate: false });
-    await expect(LocalizationLayout({ children: null })).rejects.toThrow(
-      "redirect:/",
+    render(
+      await LocalizationLayout({
+        children: <p>Private translation workspace</p>,
+      }),
     );
+    expect(screen.getByText("Own translation receipt recovery")).toBeTruthy();
+    expect(screen.queryByText("Private translation workspace")).toBeNull();
   },
 );
 it("keeps assigned translators focused and redirects suspended translators", async () => {

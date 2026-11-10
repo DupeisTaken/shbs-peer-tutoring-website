@@ -7,9 +7,15 @@ import {
   translationReviewerProcedure,
   adminProcedure,
 } from "~/server/api/trpc";
-import { lockEntity } from "~/server/transactions";
 import {
-  assertTranslationCurrent,
+  lockTranslationReviewDecision,
+  translationReviewDecisionInput,
+} from "~/server/translation-review-preflight";
+import {
+  captureTranslationReviewAuthority,
+  lockTranslationReviewAuthority,
+} from "~/server/translation-review-authority";
+import {
   visibleTranslationPayload,
   withTranslationWrite,
 } from "~/server/translation-destination";
@@ -47,30 +53,23 @@ export const translationReviewRouter = createTRPCRouter({
       }));
     }),
   decide: adminProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        approve: z.boolean(),
-        expectedUpdatedAt: z.coerce.date(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) =>
-      withTranslationWrite(ctx.db, async (tx) => {
-        await lockEntity(tx, `translation:${input.id}`);
-        const draft = await tx.translationDraft.findUniqueOrThrow({
-          where: { id: input.id },
-        });
-        if (
-          draft.state !== "PENDING" ||
-          draft.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()
-        )
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "This draft changed or was already reviewed.",
-          });
+    .input(translationReviewDecisionInput)
+    .mutation(async ({ ctx, input }) => {
+      const authority = captureTranslationReviewAuthority(ctx.session);
+      return withTranslationWrite(ctx.db, async (tx) => {
+        const reviewer = await lockTranslationReviewAuthority(
+          tx,
+          authority,
+          "DECIDE",
+          input,
+        );
+        const draft = await lockTranslationReviewDecision(tx, input);
         if (input.approve) {
-          await assertTranslationCurrent(tx, draft.operation, draft.payload);
-          const context = { ...ctx, db: tx as PrismaClient };
+          const context = {
+            ...ctx,
+            db: tx as PrismaClient,
+            session: { ...ctx.session, role: reviewer.role },
+          };
           const home = homeRouter.createCaller(context);
           const localization = localizationRouter.createCaller(context);
           const value = z.object({
@@ -151,6 +150,6 @@ export const translationReviewRouter = createTRPCRouter({
           },
         });
         return { ok: true };
-      }),
-    ),
+      });
+    }),
 });

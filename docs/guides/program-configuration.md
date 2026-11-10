@@ -686,6 +686,22 @@ Assigned translators submit text drafts for review. If the destination text or l
 
 Translations cover interface strings and supported public text such as news, sections and page titles. Translators can add a language with English fallback; management controls visibility, ordering and deletion of added languages. Built-in language catalogs cannot be deleted. Enabling a UI language does not create a policy translation: publish reviewed policy text separately, or the policy falls back to English.
 
+If language settings or translation data cannot load, use **Retry refresh** before
+making changes. Unfinished entries and separate language/content drafts remain.
+After an accepted submission or publication, Retry reads the result without creating
+another draft or decision. Changing context does not resolve earlier synchronization.
+
+Keep the source placeholder names and supported value types in interface text,
+including rich policy-link tags. Wording and language-specific plural branches may
+change. Correct an incompatible override's placeholders or clear it to restore the
+default. Reject an older incompatible draft and submit a correction; approval still
+validates it.
+
+A published interface override applies only to its selected language. After
+clearing it, reload the page to use the environment-provided text or bundled
+default. A translation in an added language does not change English or another
+language's fallback text.
+
 ## Tutor and tutee recruitment windows
 
 ### Download public QR images

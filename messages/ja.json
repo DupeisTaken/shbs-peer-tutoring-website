@@ -512,7 +512,8 @@
     "close": "閉じる",
     "collapseAll": "すべて折りたたむ",
     "expandAll": "すべて展開",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "再試行"
   },
   "auth": {
     "signinTitle": "サインイン",
@@ -3088,7 +3089,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "変更は受け付けられましたが、更新後のテキストを再読み込みできませんでした。再送信せず、更新を再試行してください。"
+    "refreshFailed": "変更は受け付けられましたが、更新後のテキストを再読み込みできませんでした。再送信せず、更新を再試行してください。",
+    "acceptedRefreshFailed": "送信は受け付けられましたが、最新データを読み込めませんでした。再送信せず、更新を再試行してください。",
+    "readFailed": "現在の翻訳データを読み込めませんでした。下書きは保持されています。送信前に再試行してください。",
+    "retryRead": "更新を再試行",
+    "identityReadFailed": "アカウントの権限を読み込めませんでした。翻訳を編集する前に再試行してください。"
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -8376,5 +8381,46 @@
     "snapshotHelp": "担当者が申込みを却下した時点の情報です。その後のプロフィール変更は、この記録に反映されません。",
     "closedHelp": "この申込みは終了しており、割当てや再有効化はできません。",
     "released": "解除した現在の割当て：{count}"
+  },
+  "translationIntent": {
+    "title": "翻訳リクエストの復旧",
+    "help": "結果未確認のリクエストがある間は新しい翻訳を送信できません。結果を確認するか、保持された元のリクエストを再試行するか、新しい編集の前に停止してください。",
+    "pending": "リクエストを処理中です。",
+    "unknown": "結果が未確認です。代わりのリクエストを送信しないでください。",
+    "notRecorded": "確定した結果はまだ記録されていません。置き換える前にこのリクエストを停止してください。",
+    "acceptedDraft": "このリクエストは下書きを提出しました。その後の審査や削除はここには表示されません。",
+    "acceptedPublished": "このリクエストは受理時に公開されました。現在の文面は変更されている可能性があります。",
+    "stopped": "このリクエストは停止され、後から適用されることはありません。",
+    "restoreOnly": "ここに戻っても送信した文面は復元されません。結果を確認するかリクエストを停止してください。",
+    "lookup": "結果を確認",
+    "stop": "未確定のリクエストを停止",
+    "retryExact": "元のリクエストを再試行",
+    "refreshAccepted": "受理済みの結果を更新",
+    "dismiss": "受領記録を閉じる",
+    "storageFailed": "復旧用ストレージを利用できません。新しい送信は停止されています。ストレージを再試行してください。",
+    "retryStorage": "復旧用ストレージを再試行",
+    "signIn": "アカウントを確認してリクエストを復旧してください。",
+    "reference": "リクエスト {id}",
+    "submitFailed": "応答を確認できませんでした。再試行する前に保存済みの結果を確認してください。",
+    "refreshFailed": "リクエストは受理されましたが更新に失敗しました。再送信せずに更新してください。",
+    "readFailed": "保存済みの結果を確認できませんでした。もう一度確認してください。",
+    "refreshAuthority": "アカウント権限を再確認",
+    "modes": {
+      "DRAFT": "下書きの提出",
+      "PUBLISH": "公開"
+    },
+    "operations": {
+      "localization": {
+        "setString": "画面のテキスト"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "元のリクエストを再試行する前にアカウント権限を再確認するか、リクエストを停止してください。",
+    "noRequests": "このアカウントには保持された翻訳リクエストがありません。"
   }
 }

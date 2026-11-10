@@ -6,11 +6,13 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useTranslations } from "next-intl";
+import { getQueryKey } from "@trpc/react-query";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import {
@@ -26,7 +28,13 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { TranslationIntentRecovery } from "~/app/_components/translation-intent-recovery";
+import { useTranslationIntent } from "~/app/_components/use-translation-intent";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
 import {
   type Block,
@@ -45,7 +53,9 @@ import {
 
 type Tab = "layout" | "content" | "sections" | "pages" | "news" | "images";
 type LandingScene = { ready: boolean; denied: boolean; scope: string };
-const LandingViewContext = createContext<((tab: Tab, scene: LandingScene) => void) | null>(null);
+const LandingViewContext = createContext<
+  ((tab: Tab, scene: LandingScene) => void) | null
+>(null);
 /** Each lazy panel reports its own usable query, so unrelated image loading cannot
  * trigger viewport restoration before the selected editor is mounted. */
 function useLandingScene(tab: Tab, scene: LandingScene, active = true) {
@@ -65,6 +75,31 @@ function useLandingReview() {
   const review = useContext(LandingReviewContext);
   if (!review) throw new Error("Landing review requires its route owner.");
   return review;
+}
+
+type LandingIntent = {
+  submit: ReturnType<typeof useTranslationIntent>["submit"];
+  blocked: boolean;
+  maySynchronize: () => boolean;
+};
+const LandingIntentContext = createContext<LandingIntent | null>(null);
+function useLandingIntent() {
+  const owner = useContext(LandingIntentContext);
+  if (!owner) throw new Error("Landing text writes require their route owner.");
+  return owner;
+}
+async function synchronizeLandingText(
+  owner: LandingIntent,
+  invalidate: () => Promise<void>,
+  read: () => Promise<unknown>,
+) {
+  if (!owner.maySynchronize())
+    throw new Error("Landing read authority is unavailable.");
+  await invalidate();
+  if (!owner.maySynchronize())
+    throw new Error("Landing read authority is unavailable.");
+  if (!Array.isArray(await read()))
+    throw new Error("Landing text could not be refreshed.");
 }
 
 type ImageInfo = {
@@ -97,21 +132,189 @@ const FIELD_LABEL: Record<string, string> = {
 export default function LandingAdminPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const me = api.account.me.useQuery();
+  const accountDenied = useSessionAccessDenied({
+    ...me,
+    isSuccess: me.isSuccess && me.data != null,
+    denialKey: "landing-account",
+    queryKey: getQueryKey(api.account.me, undefined, "query"),
+  });
+  const missingAccount = me.isSuccess && me.data == null;
+  const [verifiedActor, setVerifiedActor] = useState<string>();
+  if (me.isSuccess && !me.error && me.data?.id && verifiedActor !== me.data.id)
+    setVerifiedActor(me.data.id);
+  const actorId =
+    !accountDenied && me.data?.id === verifiedActor ? verifiedActor : undefined;
+  const committedActor = useRef(verifiedActor);
+  useLayoutEffect(() => {
+    committedActor.current = verifiedActor;
+  });
+  const management =
+    !!me.data && ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data.role);
+  const privateAccess = !!actorId && management && !!me.data?.canTranslate;
+  const mode =
+    me.data?.role === "HEAD" || me.data?.role === "ADMIN" ? "PUBLISH" : "DRAFT";
   const review = useActionReview();
   const [scenes, setScenes] = useState<Partial<Record<Tab, LandingScene>>>({});
   const reportScene = useCallback((key: Tab, scene: LandingScene) => {
-    setScenes((old) => JSON.stringify(old[key]) === JSON.stringify(scene) ? old : { ...old, [key]: scene });
+    setScenes((old) =>
+      JSON.stringify(old[key]) === JSON.stringify(scene)
+        ? old
+        : { ...old, [key]: scene },
+    );
   }, []);
-  const images = api.home.images.useQuery();
-  const imageDenied = useSessionAccessDenied(images);
-  const [tab, setTab] = useSessionViewState<Tab>({ id: "landing.tab.v1", initialState: "layout",
-    parse: viewEnum(["layout", "content", "sections", "pages", "news", "images"]), enabled: !imageDenied });
+  const images = api.home.images.useQuery(undefined, {
+    enabled: privateAccess,
+  });
+  const imageDenied = useSessionAccessDenied({
+    ...images,
+    isSuccess: images.isSuccess && Array.isArray(images.data),
+  });
+  const concealed = !privateAccess || imageDenied;
+  const canSubmit = !readOnly && !concealed && !me.error && me.isSuccess;
+  const live = useRef({ actorId, canSubmit });
+  useLayoutEffect(() => {
+    live.current = { actorId, canSubmit };
+  });
+  const active = useRef(false);
+  useLayoutEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const intent = useTranslationIntent({
+    actorId,
+    mode,
+    canSubmit,
+    refreshAuthority: async () => {
+      const fresh = await me.refetch();
+      if (fresh.error || !fresh.data)
+        throw new Error("Landing account authority could not be refreshed.");
+      return {
+        actorId: fresh.data.id,
+        mode:
+          fresh.data.role === "HEAD" || fresh.data.role === "ADMIN"
+            ? "PUBLISH"
+            : "DRAFT",
+        canSubmit:
+          !readOnly &&
+          !!fresh.data.canTranslate &&
+          ["HEAD", "ADMIN", "COORDINATOR"].includes(fresh.data.role),
+      };
+    },
+  });
+  const lease = useRef<{
+    token: symbol;
+    actorId: string;
+    accepted: boolean;
+  } | null>(null);
+  const [leaseBusy, setLeaseBusy] = useState(false);
+  const [submitFailed, setSubmitFailed] = useState(false);
+  useLayoutEffect(() => {
+    if (actorId && lease.current && lease.current.actorId !== actorId) {
+      lease.current = null;
+      setLeaseBusy(false);
+    }
+  }, [actorId]);
+  const maySynchronize = () =>
+    active.current &&
+    !!actorId &&
+    live.current.actorId === actorId &&
+    live.current.canSubmit;
+  const submit: LandingIntent["submit"] = async (
+    operation,
+    business,
+    raw,
+    handlers,
+  ) => {
+    const originalActor = live.current.actorId;
+    if (
+      !originalActor ||
+      !live.current.canSubmit ||
+      lease.current ||
+      intent.blocked
+    )
+      return { status: "BLOCKED" };
+    const token = Symbol(operation);
+    lease.current = { token, actorId: originalActor, accepted: false };
+    setLeaseBusy(true);
+    setSubmitFailed(false);
+    const owns = () =>
+      lease.current?.token === token &&
+      committedActor.current === originalActor;
+    const release = () => {
+      if (owns()) {
+        lease.current = null;
+        setLeaseBusy(false);
+      }
+    };
+    try {
+      const result = await intent.submit(operation, business, raw, {
+        onAccepted: async (receipt, context) => {
+          if (!owns()) return;
+          // Terminal evidence settles the original local lease before any read.
+          lease.current!.accepted = true;
+          const synchronize = context.synchronize && maySynchronize();
+          await handlers.onAccepted(receipt, { synchronize });
+          if (synchronize && maySynchronize()) release();
+        },
+        onStopped: async (receipt) => {
+          if (!owns()) return;
+          try {
+            await handlers.onStopped?.(receipt);
+          } finally {
+            release();
+          }
+        },
+      });
+      if (result.status === "BLOCKED") release();
+      // UNKNOWN retains the exact original lease until accepted/stop evidence.
+      return result;
+    } catch {
+      release();
+      if (committedActor.current === originalActor) setSubmitFailed(true);
+      return { status: "BLOCKED" };
+    }
+  };
+  const reviewNow = useRef(review);
+  useLayoutEffect(() => {
+    reviewNow.current = review;
+  });
+  const revoked = useRef(false);
+  useEffect(() => {
+    if (concealed && !revoked.current) {
+      revoked.current = true;
+      reviewNow.current.revoke();
+    }
+    if (!concealed) revoked.current = false;
+  }, [concealed]);
+  const [tab, setTab] = useSessionViewState<Tab>({
+    id: "landing.tab.v1",
+    initialState: "layout",
+    parse: viewEnum([
+      "layout",
+      "content",
+      "sections",
+      "pages",
+      "news",
+      "images",
+    ]),
+    enabled: !concealed,
+  });
   const [openedTabs, setOpenedTabs] = useState<ReadonlySet<Tab>>(
     () => new Set(["layout"]),
   );
-  const scene = tab === "images" ? { ready: !!images.data, denied: imageDenied, scope: "" } : scenes[tab];
-  useSessionPageScroll({ id: "landing", scope: JSON.stringify([tab, scene?.scope ?? ""]),
-    ready: !!images.data && !!scene?.ready, enabled: !imageDenied && !scene?.denied });
+  const scene =
+    tab === "images"
+      ? { ready: !!images.data, denied: imageDenied, scope: "" }
+      : scenes[tab];
+  useSessionPageScroll({
+    id: "landing",
+    scope: JSON.stringify([tab, scene?.scope ?? ""]),
+    ready: !!images.data && !!scene?.ready,
+    enabled: !concealed && !scene?.denied,
+  });
 
   // Order groups the landing-page surfaces (layout → content → sections → news) ahead of standalone
   // pages and the shared image library. Each tab carries a one-line description shown below the bar.
@@ -149,92 +352,190 @@ export default function LandingAdminPage() {
   ];
   const activeDesc = tabs.find((tb) => tb.key === tab)?.desc;
 
-  if (imageDenied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
-    <LandingViewContext.Provider value={reportScene}>
-    <LandingReviewContext.Provider value={review}>
-      <div className="space-y-6">
-        {!readOnly && review.dialog}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="page-title">{t("admin.landing.title")}</h1>
-            <p className="muted mt-1">{t("admin.landing.subtitle")}</p>
-          </div>
-          {/* Opens the real landing page (drafts + hidden sections shown) in a new tab. */}
-          <a
-            href="/landing-preview"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-secondary btn-sm shrink-0"
-          >
-            {t("admin.landing.preview.button")} ↗
-          </a>
-        </div>
-
-        <SectionTabs
-          label={t("admin.landing.title")}
-          items={tabs.map((item) => ({ value: item.key, label: item.label }))}
-          value={tab}
-          onChange={(next) => {
-            setOpenedTabs((previous) => new Set(previous).add(next));
-            setTab(next);
-          }}
-        >
-          {activeDesc && <p className="muted mb-4 text-sm">{activeDesc}</p>}
-          {images.error && (
-            <StatePanel
-              kind="error"
-              title={t("uiPatterns.loadFailed")}
-              action={
-                <Button onClick={() => void images.refetch()}>
-                  {t("uiPatterns.retry")}
-                </Button>
-              }
-            >
-              {images.error.message}
-            </StatePanel>
-          )}
-          {/* Opened tab owners keep their drafts and pending callbacks. Initial
-              queries remain lazy until a tab has actually been visited. */}
-          {(openedTabs.has("layout") || tab === "layout") && (
-            <div hidden={tab !== "layout"}>
-              <LayoutEditor images={images.data ?? []} readOnly={readOnly} />
-            </div>
-          )}
-          {(openedTabs.has("content") || tab === "content") && (
-            <div hidden={tab !== "content"}>
-              <ContentEditor images={images.data ?? []} readOnly={readOnly} />
-            </div>
-          )}
-          {(openedTabs.has("sections") || tab === "sections") && (
-            <div hidden={tab !== "sections"}>
-              <SectionsManager images={images.data ?? []} readOnly={readOnly} />
-            </div>
-          )}
-          {(openedTabs.has("pages") || tab === "pages") && (
-            <div hidden={tab !== "pages"}>
-              <PagesManager images={images.data ?? []} readOnly={readOnly} />
-            </div>
-          )}
-          {(openedTabs.has("news") || tab === "news") && (
-            <div hidden={tab !== "news"}>
-              <NewsManager images={images.data ?? []} readOnly={readOnly} />
-            </div>
-          )}
-          {(openedTabs.has("images") || tab === "images") && (
-            <div hidden={tab !== "images"}>
-              <ImageLibrary
-                images={images.data ?? []}
-                loading={images.isLoading}
-                readOnly={readOnly}
-                onChanged={() => images.refetch()}
+    <LandingIntentContext.Provider
+      value={{ submit, blocked: intent.blocked || leaseBusy, maySynchronize }}
+    >
+      <LandingViewContext.Provider value={reportScene}>
+        <LandingReviewContext.Provider value={review}>
+          <div className="space-y-6">
+            <TranslationIntentRecovery
+              actorId={actorId}
+              refreshAuthority={async () => {
+                await me.refetch();
+              }}
+            />
+            {concealed ? (
+              <StatePanel
+                kind={
+                  accountDenied || imageDenied || !!me.data
+                    ? "denied"
+                    : me.error || missingAccount
+                      ? "error"
+                      : "loading"
+                }
+                title={t(
+                  me.data || accountDenied || imageDenied
+                    ? "uiPatterns.editorDenied"
+                    : me.error || missingAccount
+                      ? "uiPatterns.loadFailed"
+                      : "admin.landing.loading",
+                )}
+                action={
+                  <Button onClick={() => void me.refetch()}>
+                    {t("uiPatterns.retry")}
+                  </Button>
+                }
               />
-            </div>
-          )}
-        </SectionTabs>
-      </div>
-    </LandingReviewContext.Provider>
-    </LandingViewContext.Provider>
+            ) : (
+              <div key={actorId} className="space-y-6">
+                {!readOnly && review.dialog}
+                {submitFailed && (
+                  <InlineNotice tone="error" announcement="alert">
+                    {t("translationIntent.submitFailed")}
+                  </InlineNotice>
+                )}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h1 className="page-title">{t("admin.landing.title")}</h1>
+                    <p className="muted mt-1">{t("admin.landing.subtitle")}</p>
+                  </div>
+                  {/* Opens the real landing page (drafts + hidden sections shown) in a new tab. */}
+                  <a
+                    href="/landing-preview"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary btn-sm shrink-0"
+                  >
+                    {t("admin.landing.preview.button")} ↗
+                  </a>
+                </div>
+
+                <SectionTabs
+                  label={t("admin.landing.title")}
+                  items={tabs.map((item) => ({
+                    value: item.key,
+                    label: item.label,
+                  }))}
+                  value={tab}
+                  onChange={(next) => {
+                    setOpenedTabs((previous) => new Set(previous).add(next));
+                    setTab(next);
+                  }}
+                >
+                  {activeDesc && (
+                    <p className="muted mb-4 text-sm">{activeDesc}</p>
+                  )}
+                  {images.error && (
+                    <StatePanel
+                      kind="error"
+                      title={t("uiPatterns.loadFailed")}
+                      action={
+                        <Button onClick={() => void images.refetch()}>
+                          {t("uiPatterns.retry")}
+                        </Button>
+                      }
+                    >
+                      {images.error.message}
+                    </StatePanel>
+                  )}
+                  {/* Opened tab owners keep their drafts and pending callbacks. Initial
+              queries remain lazy until a tab has actually been visited. */}
+                  {(openedTabs.has("layout") || tab === "layout") && (
+                    <div hidden={tab !== "layout"}>
+                      <LayoutEditor
+                        images={images.data ?? []}
+                        readOnly={readOnly}
+                      />
+                    </div>
+                  )}
+                  {(openedTabs.has("content") || tab === "content") && (
+                    <div hidden={tab !== "content"}>
+                      <ContentEditor
+                        images={images.data ?? []}
+                        readOnly={readOnly}
+                      />
+                    </div>
+                  )}
+                  {(openedTabs.has("sections") || tab === "sections") && (
+                    <div hidden={tab !== "sections"}>
+                      <SectionsManager
+                        images={images.data ?? []}
+                        readOnly={readOnly}
+                      />
+                    </div>
+                  )}
+                  {(openedTabs.has("pages") || tab === "pages") && (
+                    <div hidden={tab !== "pages"}>
+                      <PagesManager
+                        images={images.data ?? []}
+                        readOnly={readOnly}
+                      />
+                    </div>
+                  )}
+                  {(openedTabs.has("news") || tab === "news") && (
+                    <div hidden={tab !== "news"}>
+                      <NewsManager
+                        images={images.data ?? []}
+                        readOnly={readOnly}
+                      />
+                    </div>
+                  )}
+                  {(openedTabs.has("images") || tab === "images") && (
+                    <div hidden={tab !== "images"}>
+                      <ImageLibrary
+                        images={images.data ?? []}
+                        loading={images.isLoading}
+                        readOnly={readOnly}
+                        onChanged={() => images.refetch()}
+                      />
+                    </div>
+                  )}
+                </SectionTabs>
+              </div>
+            )}
+          </div>
+        </LandingReviewContext.Provider>
+      </LandingViewContext.Provider>
+    </LandingIntentContext.Provider>
+  );
+}
+
+/** Denied-route recovery mounts identity and own metadata only, never editor reads. */
+export function LandingIntentRecovery() {
+  const t = useTranslations();
+  const me = api.account.me.useQuery();
+  const denied = useSessionAccessDenied({
+    ...me,
+    isSuccess: me.isSuccess && me.data != null,
+    denialKey: "landing-recovery-account",
+    queryKey: getQueryKey(api.account.me, undefined, "query"),
+  });
+  const missing = me.isSuccess && me.data == null;
+  const [verified, setVerified] = useState<string>();
+  if (me.isSuccess && !me.error && me.data?.id && verified !== me.data.id)
+    setVerified(me.data.id);
+  const actorId = !denied && me.data?.id === verified ? verified : undefined;
+  return (
+    <>
+      {!actorId && (
+        <StatePanel
+          kind={denied ? "denied" : me.error || missing ? "error" : "loading"}
+          title={t("uiPatterns.loadFailed")}
+          action={
+            <Button onClick={() => void me.refetch()}>
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      )}
+      <TranslationIntentRecovery
+        actorId={actorId}
+        refreshAuthority={async () => {
+          await me.refetch();
+        }}
+      />
+    </>
   );
 }
 
@@ -273,8 +574,18 @@ function ContentEditor({
   const t = useTranslations();
   const languages = api.i18n.languages.useQuery();
   const denied = useSessionAccessDenied(languages);
-  const [locale, setLocale] = useSessionViewState({ id: "landing.content.locale.v1", initialState: "en", parse: viewEnum((languages.data ?? []).map((language) => language.code)), enabled: !denied, restoreReady: !!languages.data });
-  useLandingScene("content", { ready: false, denied, scope: locale }, denied || !languages.data);
+  const [locale, setLocale] = useSessionViewState({
+    id: "landing.content.locale.v1",
+    initialState: "en",
+    parse: viewEnum((languages.data ?? []).map((language) => language.code)),
+    enabled: !denied,
+    restoreReady: !!languages.data,
+  });
+  useLandingScene(
+    "content",
+    { ready: false, denied, scope: locale },
+    denied || !languages.data,
+  );
   const [openedLocales, setOpenedLocales] = useState<ReadonlySet<string>>(
     () => new Set(["en"]),
   );
@@ -334,11 +645,23 @@ function ContentLocaleEditor({
   const t = useTranslations();
   const content = api.home.content.useQuery({ locale });
   const denied = useSessionAccessDenied(content);
-  useLandingScene("content", { ready: !!content.data, denied, scope: locale }, active);
+  useLandingScene(
+    "content",
+    { ready: !!content.data, denied, scope: locale },
+    active,
+  );
   const utils = api.useUtils();
-  const refresh = () => {
-    void utils.home.content.invalidate({ locale });
-  };
+  const owner = useLandingIntent();
+  const refresh = () =>
+    synchronizeLandingText(
+      owner,
+      () =>
+        invalidateAndReport({
+          invalidate: (_input, filters, options) =>
+            utils.home.content.invalidate({ locale }, filters, options),
+        }),
+      () => utils.home.content.fetch({ locale }),
+    );
   const byKey = new Map(
     (content.data ?? []).map((field) => [field.key, field]),
   );
@@ -409,13 +732,25 @@ function ContentField({
   locale: string;
   field: ContentFieldData;
   readOnly: boolean;
-  onSaved: () => void;
+  onSaved: () => Promise<unknown>;
 }) {
   const t = useTranslations();
   const baseline = field.override ?? field.default ?? "";
   const fieldId = useId();
   const [value, setValue] = useState(baseline);
-  const save = api.home.setContent.useMutation({ onSuccess: onSaved });
+  const owner = useLandingIntent();
+  const save = api.home.setContent.useMutation({ retry: false });
+  const submit = (next: string) =>
+    owner.submit(
+      "home.setContent",
+      { locale, key: field.key, value: next },
+      (input) => save.mutateAsync(input),
+      {
+        onAccepted: async (_receipt, { synchronize }) => {
+          if (synchronize) await onSaved();
+        },
+      },
+    );
   const dirty = value !== baseline;
   const label = t(
     `admin.landing.fields.${FIELD_LABEL[field.key] ?? field.key}`,
@@ -442,7 +777,7 @@ function ContentField({
           rows={3}
           value={value}
           readOnly={readOnly}
-          disabled={save.isPending}
+          disabled={owner.blocked}
           onChange={(e) => setValue(e.target.value)}
           placeholder={field.default ?? ""}
         />
@@ -452,7 +787,7 @@ function ContentField({
           className="input w-full"
           value={value}
           readOnly={readOnly}
-          disabled={save.isPending}
+          disabled={owner.blocked}
           onChange={(e) => setValue(e.target.value)}
           placeholder={field.default ?? ""}
         />
@@ -479,10 +814,11 @@ function ContentField({
               <button
                 type="button"
                 className="link text-xs"
-                disabled={save.isPending}
+                disabled={owner.blocked}
                 onClick={() => {
+                  if (owner.blocked) return;
                   setValue(field.default ?? "");
-                  save.mutate({ locale, key: field.key, value: "" });
+                  void submit("");
                 }}
               >
                 {t("admin.landing.revert")}
@@ -491,8 +827,10 @@ function ContentField({
             <button
               type="button"
               className="btn-primary btn-sm"
-              disabled={!dirty || save.isPending}
-              onClick={() => save.mutate({ locale, key: field.key, value })}
+              disabled={!dirty || owner.blocked}
+              onClick={() => {
+                if (!owner.blocked) void submit(value);
+              }}
             >
               {t("common.save")}
             </button>
@@ -515,12 +853,14 @@ function ImageSlotField({
   field: ContentFieldData;
   images: ImageInfo[];
   readOnly: boolean;
-  onSaved: () => void;
+  onSaved: () => Promise<unknown>;
 }) {
   const t = useTranslations();
   const fieldId = useId();
-  const save = api.home.setContent.useMutation({ onSuccess: onSaved });
-  const current = field.override;
+  const owner = useLandingIntent();
+  const save = api.home.setContent.useMutation({ retry: false });
+  const [selection, setSelection] = useState<string>();
+  const current = selection ?? field.override;
   const label = t(
     `admin.landing.fields.${FIELD_LABEL[field.key] ?? field.key}`,
   );
@@ -547,12 +887,26 @@ function ImageSlotField({
           <div className="flex flex-col gap-2">
             <select
               id={fieldId}
-              disabled={save.isPending}
+              disabled={owner.blocked}
               className="select field-auto min-w-44"
               value={current ?? ""}
-              onChange={(e) =>
-                save.mutate({ locale, key: field.key, value: e.target.value })
-              }
+              onChange={(e) => {
+                if (owner.blocked) return;
+                const value = e.target.value;
+                setSelection(value);
+                void owner.submit(
+                  "home.setContent",
+                  { locale, key: field.key, value },
+                  (input) => save.mutateAsync(input),
+                  {
+                    onAccepted: async (_receipt, { synchronize }) => {
+                      if (!synchronize) return;
+                      await onSaved();
+                      if (owner.maySynchronize()) setSelection(undefined);
+                    },
+                  },
+                );
+              }}
             >
               <option value="">
                 {t("admin.landing.content.heroImage.choose")}
@@ -700,9 +1054,8 @@ function NewsPostCard({
   const utils = api.useUtils();
   const update = api.home.updateNews.useMutation({ onSuccess: onChanged });
   const del = api.home.deleteNews.useMutation();
-  const saveTr = api.home.setNewsTranslation.useMutation({
-    onSuccess: onChanged,
-  });
+  const owner = useLandingIntent();
+  const saveTr = api.home.setNewsTranslation.useMutation({ retry: false });
   const removeTr = api.home.removeNewsTranslation.useMutation();
 
   const en = post.translations.find((tr) => tr.locale === "en");
@@ -850,10 +1203,25 @@ function NewsPostCard({
         translations={post.translations}
         images={images}
         readOnly={readOnly}
-        onSave={(locale, title, body) =>
-          saveTr.mutate({ postId: post.id, locale, title, body })
-        }
-        saving={saveTr.isPending}
+        onSave={(locale, title, body) => {
+          if (owner.blocked) return;
+          void owner.submit(
+            "home.setNewsTranslation",
+            { postId: post.id, locale, title, body },
+            (input) => saveTr.mutateAsync(input),
+            {
+              onAccepted: async (_receipt, { synchronize }) => {
+                if (synchronize)
+                  await synchronizeLandingText(
+                    owner,
+                    () => invalidateAndReport(utils.home.news),
+                    () => utils.home.news.fetch(),
+                  );
+              },
+            },
+          );
+        }}
+        saving={owner.blocked}
         saveError={saveTr.error?.message}
         onRemove={(locale) => removeTr.mutateAsync({ postId: post.id, locale })}
         onRemoved={() => invalidateAndReport(utils.home.news)}
@@ -950,6 +1318,7 @@ function LocalizedTranslations({
         {!readOnly && notAdded.length > 0 && (
           <select
             value=""
+            disabled={saving}
             aria-label={t("admin.landing.translation.add")}
             onChange={(e) => {
               const c = e.target.value;
@@ -1539,9 +1908,8 @@ function SectionCard({
   const utils = api.useUtils();
   const update = api.home.updateSection.useMutation({ onSuccess: onChanged });
   const del = api.home.deleteSection.useMutation();
-  const saveTr = api.home.setSectionTranslation.useMutation({
-    onSuccess: onChanged,
-  });
+  const owner = useLandingIntent();
+  const saveTr = api.home.setSectionTranslation.useMutation({ retry: false });
   const removeTr = api.home.removeSectionTranslation.useMutation();
 
   const en = section.translations.find((tr) => tr.locale === "en");
@@ -1675,10 +2043,25 @@ function SectionCard({
         translations={section.translations}
         images={images}
         readOnly={readOnly}
-        onSave={(locale, title, body) =>
-          saveTr.mutate({ sectionId: section.id, locale, title, body })
-        }
-        saving={saveTr.isPending}
+        onSave={(locale, title, body) => {
+          if (owner.blocked) return;
+          void owner.submit(
+            "home.setSectionTranslation",
+            { sectionId: section.id, locale, title, body },
+            (input) => saveTr.mutateAsync(input),
+            {
+              onAccepted: async (_receipt, { synchronize }) => {
+                if (synchronize)
+                  await synchronizeLandingText(
+                    owner,
+                    () => invalidateAndReport(utils.home.sections),
+                    () => utils.home.sections.fetch(),
+                  );
+              },
+            },
+          );
+        }}
+        saving={owner.blocked}
         saveError={saveTr.error?.message}
         onRemove={(locale) =>
           removeTr.mutateAsync({ sectionId: section.id, locale })
@@ -1697,7 +2080,11 @@ function useSlugDraft(
   write: (slug: string) => Promise<unknown>,
   read: () => Promise<string>,
 ) {
-  const [draft, setDraft] = useState<{ value: string; revision: number; acknowledged?: boolean } | null>(null);
+  const [draft, setDraft] = useState<{
+    value: string;
+    revision: number;
+    acknowledged?: boolean;
+  } | null>(null);
   const revision = useRef(0);
   const acknowledged = useRef<number | null>(null);
   const admitted = useRef(false);
@@ -1718,10 +2105,13 @@ function useSlugDraft(
     setBusy(true);
     try {
       const canonical = await read();
-      if (revision.current === receipt.revision) acknowledged.current = receipt.revision;
-      setDraft((current) => current?.revision === receipt.revision
-        ? { value: canonical, revision: receipt.revision, acknowledged: true }
-        : current);
+      if (revision.current === receipt.revision)
+        acknowledged.current = receipt.revision;
+      setDraft((current) =>
+        current?.revision === receipt.revision
+          ? { value: canonical, revision: receipt.revision, acknowledged: true }
+          : current,
+      );
       accepted.current = null;
       admitted.current = false;
       setNeedsRefresh(false);
@@ -1734,7 +2124,10 @@ function useSlugDraft(
   };
   const commit = async () => {
     if (admitted.current || acknowledged.current === revision.current) return;
-    const clean = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const clean = value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
     const submittedRevision = ++revision.current;
     setDraft({ value: clean, revision: submittedRevision });
     if (clean === saved) {
@@ -1770,7 +2163,11 @@ function SlugField({
   const inputId = useId();
   const guidanceId = useId();
   const update = api.home.updateSection.useMutation();
-  const slug = useSlugDraft(section.slug ?? "", (value) => update.mutateAsync({ id: section.id, slug: value }), () => readSlug(section.id));
+  const slug = useSlugDraft(
+    section.slug ?? "",
+    (value) => update.mutateAsync({ id: section.id, slug: value }),
+    () => readSlug(section.id),
+  );
 
   return (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -1787,7 +2184,9 @@ function SlugField({
         aria-describedby={guidanceId}
         onBlur={() => void slug.commit()}
       />
-      <span id={guidanceId} className="muted text-xs">{t("saveBoundary.blur")}</span>
+      <span id={guidanceId} className="muted text-xs">
+        {t("saveBoundary.blur")}
+      </span>
       {section.slug && (
         <a
           href={`/p/${section.slug}`}
@@ -1800,14 +2199,20 @@ function SlugField({
       )}
       {slug.needsRefresh && !slug.busy && (
         <span role="alert" className="text-xs">
-          {t("uiPatterns.loadFailed")} {" "}
-          <button type="button" className="link control-compact" onClick={() => void slug.refresh()}>
+          {t("uiPatterns.loadFailed")}{" "}
+          <button
+            type="button"
+            className="link control-compact"
+            onClick={() => void slug.refresh()}
+          >
             {t("uiPatterns.retry")}
           </button>
         </span>
       )}
       {update.error?.data?.approvalId && (
-        <span role="status" className="text-amber-700">{t("approvals.queuedBody")}</span>
+        <span role="status" className="text-amber-700">
+          {t("approvals.queuedBody")}
+        </span>
       )}
       {update.error && !update.error.data?.approvalId && (
         <span className="text-red-600">{update.error.message}</span>
@@ -1941,11 +2346,25 @@ function LayoutEditorSession({
     onSuccess: () => utils.home.layout.invalidate({ owner }),
   });
   const saveLock = useRef(false);
-  const [locale, setLocale] = useSessionViewState({ id: "landing.layout.locale.v1", scope: owner, initialState: "en", parse: viewEnum((languages.data ?? []).map((language) => language.code)), enabled: !denied, restoreReady: !!languages.data });
-  useLandingScene("layout", { ready: !!layout.data && !!languages.data, denied, scope: locale }, owner === "landing");
+  const [locale, setLocale] = useSessionViewState({
+    id: "landing.layout.locale.v1",
+    scope: owner,
+    initialState: "en",
+    parse: viewEnum((languages.data ?? []).map((language) => language.code)),
+    enabled: !denied,
+    restoreReady: !!languages.data,
+  });
+  useLandingScene(
+    "layout",
+    { ready: !!layout.data && !!languages.data, denied, scope: locale },
+    owner === "landing",
+  );
   // Untouched content follows the read. The first edit captures its own baseline;
   // background refreshes cannot replace that draft or redefine dirty state.
-  const [draft, setDraft] = useState<{ blocks: Block[]; baseline: string } | null>(null);
+  const [draft, setDraft] = useState<{
+    blocks: Block[];
+    baseline: string;
+  } | null>(null);
   const blocks = draft?.blocks ?? layout.data;
   const baseline = draft?.baseline ?? JSON.stringify(layout.data ?? []);
   const setBlocks = (next: Block[]) => setDraft({ blocks: next, baseline });
@@ -1982,7 +2401,10 @@ function LayoutEditorSession({
     save.mutate(
       { owner, blocks },
       {
-        onSuccess: () => setDraft((current) => current ? { ...current, baseline: submitted } : current),
+        onSuccess: () =>
+          setDraft((current) =>
+            current ? { ...current, baseline: submitted } : current,
+          ),
         onSettled: () => {
           saveLock.current = false;
         },
@@ -2823,7 +3245,8 @@ function PageCard({
   const [opened, setOpened] = useState(false);
   const update = api.home.updatePage.useMutation({ onSuccess: onChanged });
   const del = api.home.deletePage.useMutation();
-  const setTitle = api.home.setPageTitle.useMutation({ onSuccess: onChanged });
+  const owner = useLandingIntent();
+  const setTitle = api.home.setPageTitle.useMutation({ retry: false });
 
   const heading =
     page.title.en ??
@@ -2926,7 +3349,18 @@ function PageCard({
               ))}
             </select>
           </label>
-          <PageTitleField page={page} locale={locale} setTitle={setTitle} />
+          <PageTitleField
+            page={page}
+            locale={locale}
+            setTitle={setTitle}
+            onSaved={() =>
+              synchronizeLandingText(
+                owner,
+                () => invalidateAndReport(utils.home.pages),
+                () => utils.home.pages.fetch(),
+              )
+            }
+          />
           <PageSlugField key={page.id} page={page} readSlug={readSlug} />
           <label className="flex min-h-11 items-center gap-1.5 lg:min-h-10">
             <input
@@ -2983,14 +3417,19 @@ function PageTitleField({
   page,
   locale,
   setTitle,
+  onSaved,
 }: {
   page: PageRow;
   locale: string;
   setTitle: ReturnType<typeof api.home.setPageTitle.useMutation>;
+  onSaved: () => Promise<unknown>;
 }) {
   const t = useTranslations();
   const guidanceId = useId();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const owner = useLandingIntent();
+  const edits = useRef<Record<string, number>>({});
+  const attempted = useRef<Record<string, number>>({});
   const val = drafts[locale] ?? page.title[locale] ?? "";
   return (
     <div className="space-y-1">
@@ -3001,13 +3440,36 @@ function PageTitleField({
           aria-describedby={guidanceId}
           className="input field-auto min-w-40"
           value={val}
-          disabled={setTitle.isPending}
-          onChange={(e) =>
-            setDrafts((previous) => ({ ...previous, [locale]: e.target.value }))
-          }
+          disabled={owner.blocked}
+          onChange={(e) => {
+            if (owner.blocked) return;
+            edits.current[locale] = (edits.current[locale] ?? 0) + 1;
+            setDrafts((previous) => ({
+              ...previous,
+              [locale]: e.target.value,
+            }));
+          }}
           onBlur={() => {
-            if (val !== (page.title[locale] ?? ""))
-              setTitle.mutate({ id: page.id, locale, value: val });
+            const revision = edits.current[locale] ?? 0;
+            if (
+              owner.blocked ||
+              val === (page.title[locale] ?? "") ||
+              revision <= (attempted.current[locale] ?? 0)
+            )
+              return;
+            // Closing/refocusing recovery never turns the prior blur into a new
+            // UUID. A later deliberate edit owns the next independent intent.
+            attempted.current[locale] = revision;
+            void owner.submit(
+              "home.setPageTitle",
+              { id: page.id, locale, value: val },
+              (input) => setTitle.mutateAsync(input),
+              {
+                onAccepted: async (_receipt, { synchronize }) => {
+                  if (synchronize) await onSaved();
+                },
+              },
+            );
           }}
         />
       </label>
@@ -3029,7 +3491,11 @@ function PageSlugField({
   const inputId = useId();
   const guidanceId = useId();
   const update = api.home.updatePage.useMutation();
-  const slug = useSlugDraft(page.slug, (value) => update.mutateAsync({ id: page.id, slug: value }), () => readSlug(page.id));
+  const slug = useSlugDraft(
+    page.slug,
+    (value) => update.mutateAsync({ id: page.id, slug: value }),
+    () => readSlug(page.id),
+  );
 
   return (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -3045,17 +3511,25 @@ function PageSlugField({
         aria-describedby={guidanceId}
         onBlur={() => void slug.commit()}
       />
-      <span id={guidanceId} className="sr-only">{t("saveBoundary.blur")}</span>
+      <span id={guidanceId} className="sr-only">
+        {t("saveBoundary.blur")}
+      </span>
       {slug.needsRefresh && !slug.busy && (
         <span role="alert" className="text-xs">
-          {t("uiPatterns.loadFailed")} {" "}
-          <button type="button" className="link control-compact" onClick={() => void slug.refresh()}>
+          {t("uiPatterns.loadFailed")}{" "}
+          <button
+            type="button"
+            className="link control-compact"
+            onClick={() => void slug.refresh()}
+          >
             {t("uiPatterns.retry")}
           </button>
         </span>
       )}
       {update.error?.data?.approvalId && (
-        <span role="status" className="text-amber-700">{t("approvals.queuedBody")}</span>
+        <span role="status" className="text-amber-700">
+          {t("approvals.queuedBody")}
+        </span>
       )}
       {update.error && !update.error.data?.approvalId && (
         <span className="text-red-600">{update.error.message}</span>

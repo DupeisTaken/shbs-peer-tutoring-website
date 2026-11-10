@@ -2612,13 +2612,68 @@ read failure and locale changes; Retry neither accepts nor prepares an action.
 
 Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
 
+[Request message resolution](../../src/i18n/request.ts) deep-copies the selected
+bundled catalogue before applying environment and exact-locale database overrides.
+Built-in languages use their own bundle; added languages use an independent
+English base. Precedence is bundled text, then `MESSAGES_OVERRIDE`, then the
+selected locale's published overrides. Clearing an override restores the lower
+precedence value on the next request. A database override-read failure retains
+that fallback. Imported catalogues and earlier request results remain unchanged.
+
+Live interface overrides validate their [ICU caller contract](../../src/lib/translation-message-contract.ts)
+before draft creation or publication. Canonical English defines exact value/callback
+names; numeric, temporal, scalar and rich callback uses must remain compatible with
+the supplied values. Numeric values may use plain interpolation, while locale plural
+categories, wording and supported formatting remain independent. Direct writes and
+transactional draft/general approval replay share validation, so an unsafe historical
+draft cannot publish or finalize its decision. Explicit blank/default restoration
+retains the review boundary; existing overrides are not automatically rewritten.
+
 The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
+
+Translation review captures the original request's account and history-access
+generations before waiting. Under the destination fence it acquires sorted
+account-profile and User locks, then rechecks those generations, active identity
+and current management authority before direct decision or Coordinator proposal
+admission. Admin/Head may decide; Coordinators may propose. Queued execution also
+validates the exact stored pending decision and its original requester's live
+management access, rather than trusting replay input or an earlier role snapshot.
+The draft must still be PENDING at the reviewed version. Approval revalidates the
+current destination and interface-message contract before publication; rejection
+remains available for unsafe draft content. Changed authority or stale evidence
+fails before a decision/proposal can commit. Translator assignment is independent
+of management review authority.
 
 Management language reads use the strict [catalogue reader](../../src/server/i18n/languages.ts):
 storage failure propagates, while successful missing rows merge bundled languages.
 Public rendering and language pickers deliberately retain enabled bundled fallback
 during outages. A custom-language editor falls back to English only after a successful
-catalogue read establishes an unknown language.
+catalogue read establishes an unknown language. Language settings, website composition
+and review retain permitted cached evidence/drafts during ordinary read failures and
+block dependent writes; denial remains concealed until fresh non-null authorized
+reads. Each captured destination/type/locale owns its draft and accepted receipt.
+Accepted submission/review recovery includes fresh originating-scope reads even after
+that query becomes inactive and never repeats the mutation. Review decisions retain
+their existing mounted-editor receipt lifetime.
+
+The five text setters additionally bind an immutable original actor, operation,
+requested mode and UUID before their first POST. Server intent receipts distinguish
+accepted drafts/publications from durably stopped requests. Same-tab recovery storage
+contains only those four metadata fields, never input, hashes or private destination
+content. An unknown outcome fences replacement UUIDs; only the mounted owner retains
+exact input for an explicit same-UUID retry. Restored metadata permits protected own
+result lookup and Stop, without guessed replay or a claim about current publication.
+Accepted state settles before separately gated read synchronization. A failed refresh
+does not repeat the write. Lookup, account recheck and POST retry have independent
+control leases so a hanging response cannot disable durable Stop; late results remain
+bound to their original request and cannot downgrade a terminal receipt or release a
+new attempt.
+
+A passive authenticated root link discovers this account's retained metadata without
+network reads. `/localization` supplies a metadata-only entry when live privileges no
+longer admit the editor; its fresh own-account check and protected GET/Stop do not mount
+private destination readers or restore Translator/management authority. The existing
+management-layout denial remains unchanged.
 
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
 

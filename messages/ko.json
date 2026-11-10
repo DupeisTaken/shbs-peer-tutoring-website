@@ -512,7 +512,8 @@
     "close": "닫기",
     "collapseAll": "모두 접기",
     "expandAll": "모두 펼치기",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "다시 시도"
   },
   "auth": {
     "signinTitle": "로그인",
@@ -3088,7 +3089,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "변경 사항이 접수되었지만 갱신된 텍스트를 불러올 수 없습니다. 다시 제출하지 말고 새로 고침을 다시 시도하세요."
+    "refreshFailed": "변경 사항이 접수되었지만 갱신된 텍스트를 불러올 수 없습니다. 다시 제출하지 말고 새로 고침을 다시 시도하세요.",
+    "acceptedRefreshFailed": "제출이 접수되었지만 최신 데이터를 불러오지 못했습니다. 다시 제출하지 말고 새로고침을 재시도하세요.",
+    "readFailed": "현재 번역 데이터를 불러오지 못했습니다. 초안은 유지됩니다. 제출하기 전에 다시 시도하세요.",
+    "retryRead": "새로고침 재시도",
+    "identityReadFailed": "계정 권한을 불러오지 못했습니다. 번역을 편집하기 전에 다시 시도하세요."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -8376,5 +8381,46 @@
     "snapshotHelp": "담당자가 신청을 거절할 당시 기록한 정보입니다. 이후 프로필 변경은 이 기록에 반영되지 않습니다.",
     "closedHelp": "이 신청은 종료되어 배정하거나 다시 활성화할 수 없습니다.",
     "released": "해제된 현재 배정: {count}"
+  },
+  "translationIntent": {
+    "title": "번역 요청 복구",
+    "help": "결과가 확인되지 않은 요청은 새 번역 제출을 막습니다. 결과를 확인하거나 보관된 원래 요청을 다시 시도하거나 새 편집 전에 중지하세요.",
+    "pending": "요청 처리 중입니다.",
+    "unknown": "결과가 확인되지 않았습니다. 대체 요청을 제출하지 마세요.",
+    "notRecorded": "아직 최종 결과가 기록되지 않았습니다. 이 요청을 대체하기 전에 중지하세요.",
+    "acceptedDraft": "이 요청은 초안을 제출했습니다. 이후 검토나 삭제는 여기에 표시되지 않습니다.",
+    "acceptedPublished": "이 요청은 수락 당시 게시되었습니다. 현재 문구는 변경되었을 수 있습니다.",
+    "stopped": "이 요청은 중지되어 나중에 적용될 수 없습니다.",
+    "restoreOnly": "여기로 돌아와도 제출한 문구는 복원되지 않습니다. 결과를 확인하거나 요청을 중지하세요.",
+    "lookup": "결과 확인",
+    "stop": "미확정 요청 중지",
+    "retryExact": "원래 요청 재시도",
+    "refreshAccepted": "수락된 결과 새로고침",
+    "dismiss": "접수 기록 닫기",
+    "storageFailed": "복구 저장소를 사용할 수 없습니다. 새 제출이 차단되었습니다. 저장소를 다시 시도하세요.",
+    "retryStorage": "복구 저장소 재시도",
+    "signIn": "계정을 확인하여 요청을 복구하세요.",
+    "reference": "요청 {id}",
+    "submitFailed": "응답이 확인되지 않았습니다. 다시 시도하기 전에 저장된 결과를 확인하세요.",
+    "refreshFailed": "요청은 수락되었지만 새로고침에 실패했습니다. 다시 제출하지 말고 새로고침하세요.",
+    "readFailed": "저장된 결과를 확인할 수 없습니다. 다시 확인하세요.",
+    "refreshAuthority": "계정 접근 권한 재확인",
+    "modes": {
+      "DRAFT": "초안 제출",
+      "PUBLISH": "게시"
+    },
+    "operations": {
+      "localization": {
+        "setString": "인터페이스 텍스트"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "원래 요청을 다시 시도하기 전에 계정 접근 권한을 재확인하거나 요청을 중지하세요.",
+    "noRequests": "이 계정에 보관된 번역 요청이 없습니다."
   }
 }

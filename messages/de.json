@@ -512,7 +512,8 @@
     "close": "Schließen",
     "collapseAll": "Alle zuklappen",
     "expandAll": "Alle aufklappen",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Erneut versuchen"
   },
   "auth": {
     "signinTitle": "Anmelden",
@@ -3088,7 +3089,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "Deine Änderung wurde angenommen, aber der aktualisierte Text konnte nicht geladen werden. Versuche die Aktualisierung erneut, ohne die Änderung nochmals abzusenden."
+    "refreshFailed": "Deine Änderung wurde angenommen, aber der aktualisierte Text konnte nicht geladen werden. Versuche die Aktualisierung erneut, ohne die Änderung nochmals abzusenden.",
+    "acceptedRefreshFailed": "Die Einreichung wurde angenommen, aber die aktuellen Daten konnten nicht geladen werden. Wiederholen Sie die Aktualisierung, ohne erneut einzureichen.",
+    "readFailed": "Die aktuellen Übersetzungsdaten konnten nicht geladen werden. Ihr Entwurf bleibt erhalten. Versuchen Sie es vor dem Einreichen erneut.",
+    "retryRead": "Aktualisierung wiederholen",
+    "identityReadFailed": "Der Kontozugriff konnte nicht geladen werden. Versuchen Sie es erneut, bevor Sie Übersetzungen bearbeiten."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -8376,5 +8381,46 @@
     "snapshotHelp": "Diese Quelldaten wurden bei der Ablehnung erfasst. Spätere Profiländerungen ändern diese Momentaufnahme nicht.",
     "closedHelp": "Diese Anmeldung ist geschlossen und kann weder zugewiesen noch reaktiviert werden.",
     "released": "Aufgehobene aktuelle Zuweisungen: {count}"
+  },
+  "translationIntent": {
+    "title": "Übersetzungsanfragen wiederherstellen",
+    "help": "Eine unbestätigte Anfrage blockiert neue Übersetzungen. Prüfen Sie das Ergebnis, wiederholen Sie die gespeicherte Originalanfrage oder stoppen Sie sie vor einer neuen Bearbeitung.",
+    "pending": "Anfrage wird bearbeitet.",
+    "unknown": "Das Ergebnis ist unbestätigt. Senden Sie keine Ersatzanfrage.",
+    "notRecorded": "Es liegt noch kein endgültiges Ergebnis vor. Stoppen Sie diese Anfrage, bevor Sie sie ersetzen.",
+    "acceptedDraft": "Diese Anfrage hat einen Entwurf eingereicht. Spätere Prüfungen oder Löschungen werden hier nicht angezeigt.",
+    "acceptedPublished": "Diese Anfrage wurde bei Annahme veröffentlicht. Der aktuelle Text kann sich geändert haben.",
+    "stopped": "Diese Anfrage wurde gestoppt und kann später nicht mehr wirksam werden.",
+    "restoreOnly": "Die Rückkehr stellt den eingereichten Text nicht wieder her. Prüfen Sie das Ergebnis oder stoppen Sie die Anfrage.",
+    "lookup": "Ergebnis prüfen",
+    "stop": "Ungeklärte Anfrage stoppen",
+    "retryExact": "Originalanfrage wiederholen",
+    "refreshAccepted": "Angenommenes Ergebnis aktualisieren",
+    "dismiss": "Beleg ausblenden",
+    "storageFailed": "Der Wiederherstellungsspeicher ist nicht verfügbar. Neue Übermittlungen sind blockiert; versuchen Sie es erneut.",
+    "retryStorage": "Speicher erneut versuchen",
+    "signIn": "Bestätigen Sie Ihr Konto, um dessen Anfragen wiederherzustellen.",
+    "reference": "Anfrage {id}",
+    "submitFailed": "Die Antwort wurde nicht bestätigt. Prüfen Sie vor einem neuen Versuch das gespeicherte Ergebnis.",
+    "refreshFailed": "Die Anfrage wurde angenommen, aber die Aktualisierung ist fehlgeschlagen. Aktualisieren Sie ohne erneute Übermittlung.",
+    "readFailed": "Das gespeicherte Ergebnis konnte nicht bestätigt werden. Prüfen Sie es erneut.",
+    "refreshAuthority": "Kontozugriff erneut prüfen",
+    "modes": {
+      "DRAFT": "Entwurf einreichen",
+      "PUBLISH": "Veröffentlichung"
+    },
+    "operations": {
+      "localization": {
+        "setString": "Oberflächentexte"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "Prüfen Sie vor dem Wiederholen den Kontozugriff erneut oder stoppen Sie die Anfrage.",
+    "noRequests": "Für dieses Konto sind keine Übersetzungsanfragen gespeichert."
   }
 }

@@ -1,52 +1,16 @@
-import {
-  requireTranslationLocale,
-  withTranslationWrite,
-} from "~/server/translation-destination";
+import { requireTranslationLocale } from "~/server/translation-destination";
 import { proposeTranslation } from "~/server/translation-drafts";
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
-import { parse } from "@formatjs/icu-messageformat-parser";
+import {
+  interfaceMessageBases,
+  validateInterfaceMessage,
+} from "~/server/i18n/interface-message-validation";
+import { translationSetterInputs } from "~/lib/translation-intent";
+import { dispatchTranslationWrite } from "~/server/translation-intents";
 
 import { createTRPCRouter, translatorProcedure } from "~/server/api/trpc";
 import { LOCALES } from "~/i18n/config";
 import { listManagedLanguages } from "~/server/i18n/languages";
-import enMessages from "../../../../messages/en.json";
-import zhMessages from "../../../../messages/zh.json";
-import esMessages from "../../../../messages/es.json";
-import jaMessages from "../../../../messages/ja.json";
-import koMessages from "../../../../messages/ko.json";
-import elMessages from "../../../../messages/el.json";
-import deMessages from "../../../../messages/de.json";
-import frMessages from "../../../../messages/fr.json";
-
-/** Bundled message sources, keyed by locale. English is the canonical key set. */
-const MESSAGES: Record<string, Record<string, unknown>> = {
-  en: enMessages,
-  zh: zhMessages,
-  es: esMessages,
-  ja: jaMessages,
-  ko: koMessages,
-  el: elMessages,
-  de: deMessages,
-  fr: frMessages,
-};
-
-/** Flatten a nested messages object into dot-path → string-leaf entries. */
-function flatten(
-  obj: Record<string, unknown>,
-  prefix = "",
-  out: Record<string, string> = {},
-): Record<string, string> {
-  for (const [k, v] of Object.entries(obj)) {
-    const key = prefix ? `${prefix}.${k}` : k;
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      flatten(v as Record<string, unknown>, key, out);
-    } else if (typeof v === "string") {
-      out[key] = v;
-    }
-  }
-  return out;
-}
 
 const isBuiltin = (code: string) =>
   (LOCALES as readonly string[]).includes(code);
@@ -56,14 +20,6 @@ async function resolveLocale(locale: string): Promise<string> {
   if (isBuiltin(locale)) return locale;
   const langs = await listManagedLanguages();
   return langs.some((l) => l.code === locale) ? locale : "en";
-}
-
-/** Flattened base values for a locale: bundled JSON for built-ins, English for added languages. */
-function localeBase(
-  locale: string,
-  enFlat: Record<string, string>,
-): Record<string, string> {
-  return isBuiltin(locale) ? flatten(MESSAGES[locale] ?? {}) : enFlat;
 }
 
 /**
@@ -86,8 +42,8 @@ export const localizationRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const locale = await resolveLocale(input.locale);
-      const enFlat = flatten(MESSAGES.en ?? {});
-      const localeFlat = localeBase(locale, enFlat);
+      const { english: enFlat, local: localeFlat } =
+        interfaceMessageBases(locale);
       const overrides = await ctx.db.messageOverride.findMany({
         where: { locale },
         select: { key: true, value: true },
@@ -120,7 +76,7 @@ export const localizationRouter = createTRPCRouter({
       }
       const refData = await Promise.all(
         refCodes.map(async (rl) => {
-          const flat = localeBase(rl, enFlat);
+          const { local: flat } = interfaceMessageBases(rl);
           const ovr = await ctx.db.messageOverride.findMany({
             where: { locale: rl },
             select: { key: true, value: true },
@@ -149,62 +105,49 @@ export const localizationRouter = createTRPCRouter({
 
   /** Set (or, when blank / equal to the bundled value, clear) the override for one key. */
   setString: translatorProcedure
-    .input(
-      z.object({
-        locale: z.string(),
-        key: z.string().min(1),
-        value: z.string(),
-      }),
-    )
-    .mutation(({ ctx, input }) =>
-      withTranslationWrite(ctx.db, async (tx) => {
-        // Keep locale lookup on the lock-holding connection. A display helper's
-        // error fallback must never redirect a failed custom-language save to English.
-        const locale = await requireTranslationLocale(tx, input.locale);
-        const enFlat = flatten(MESSAGES.en ?? {});
-        const localeFlat = localeBase(locale, enFlat);
-        const base = localeFlat[input.key] ?? enFlat[input.key];
-        const value = input.value;
-        if (!enFlat[input.key])
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Unknown translation key.",
-          });
-        if (value.trim()) {
-          try {
-            parse(value);
-          } catch {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "Invalid ICU message syntax. Check placeholders and plural clauses.",
+    .input(translationSetterInputs["localization.setString"])
+    .mutation(({ ctx, input: parsed }) => {
+      const { intent, ...input } = parsed;
+      return dispatchTranslationWrite({
+        db: ctx.db,
+        session: ctx.session,
+        operation: "localization.setString",
+        intent,
+        business: input,
+        work: async (tx, actorSession) => {
+          // Keep locale lookup on the lock-holding connection. A display helper's
+          // error fallback must never redirect a failed custom-language save to English.
+          const locale = await requireTranslationLocale(tx, input.locale);
+          const value = input.value;
+          const { base } = validateInterfaceMessage(locale, input.key, value);
+          const draftId = await proposeTranslation(
+            tx,
+            actorSession,
+            "localization.setString",
+            {
+              ...input,
+              locale,
+            },
+          );
+          if (draftId) return { result: { ok: true, cleared: false }, draftId };
+          if (!value.trim() || value === base) {
+            await tx.messageOverride.deleteMany({
+              where: { locale, key: input.key },
             });
+            return { result: { ok: true, cleared: true } };
           }
-        }
-        if (
-          await proposeTranslation(tx, ctx.session, "localization.setString", {
-            ...input,
-            locale,
-          })
-        )
-          return { ok: true, cleared: false };
-        if (!value.trim() || value === base) {
-          await tx.messageOverride.deleteMany({
-            where: { locale, key: input.key },
+          await tx.messageOverride.upsert({
+            where: { locale_key: { locale, key: input.key } },
+            update: { value, updatedByName: actorSession.user.name },
+            create: {
+              locale,
+              key: input.key,
+              value,
+              updatedByName: actorSession.user.name,
+            },
           });
-          return { ok: true, cleared: true };
-        }
-        await tx.messageOverride.upsert({
-          where: { locale_key: { locale, key: input.key } },
-          update: { value, updatedByName: ctx.session.user.name },
-          create: {
-            locale,
-            key: input.key,
-            value,
-            updatedByName: ctx.session.user.name,
-          },
-        });
-        return { ok: true, cleared: false };
-      }),
-    ),
+          return { result: { ok: true, cleared: false } };
+        },
+      });
+    }),
 });

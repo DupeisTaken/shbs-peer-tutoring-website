@@ -49,6 +49,7 @@ const mocks = vi.hoisted(() => ({
   readOnly: false,
   authorize: vi.fn(),
   editor: vi.fn(),
+  intentRecovery: vi.fn(),
   meetings: [
     {
       id: "meeting-1",
@@ -116,6 +117,10 @@ vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
 vi.mock("../(admin)/admin/landing/landing-editor", () => ({
+  LandingIntentRecovery: () => {
+    mocks.intentRecovery();
+    return <p>Own translation request recovery</p>;
+  },
   default: () => {
     mocks.editor();
     return <h2>Live landing editor</h2>;
@@ -523,6 +528,7 @@ it("mounts the landing editor only after live authorization succeeds", async () 
     screen.getByRole("heading", { name: "Live landing editor" }),
   ).toBeTruthy();
   expect(mocks.editor).toHaveBeenCalledOnce();
+  expect(mocks.intentRecovery).not.toHaveBeenCalled();
 });
 
 it("replaces a denied editor with a terminal access explanation and return route", async () => {
@@ -530,6 +536,8 @@ it("replaces a denied editor with a terminal access explanation and return route
   render(await LandingPage());
   expect(mocks.authorize).toHaveBeenCalledOnce();
   expect(mocks.editor).not.toHaveBeenCalled();
+  expect(mocks.intentRecovery).toHaveBeenCalledOnce();
+  expect(screen.getByText("Own translation request recovery")).toBeTruthy();
   expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("false");
   expect(
     screen.getByRole("heading", { name: "uiPatterns.editorDenied" }),
