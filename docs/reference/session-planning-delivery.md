@@ -29,13 +29,23 @@ by priority. Claims use five-minute leases and `FOR UPDATE SKIP LOCKED`; admissi
 and completion share the scheduling fence and an attempt UUID. SMTP runs outside
 database transactions. Several server instances can claim disjoint batches.
 
-A queued notice does not begin a response window. Only recorded SMTP acceptance
-of the current response's essential notice qualifies its 24-hour deadline. The
-initial email links to the portal's exact deadline; subscription refresh and
-inbox delivery do not establish consent. Unconfigured development console mail
-also does not qualify a clock. Missing configuration, failed delivery or lost
-verified recipient ownership leaves a visible recovery condition and prevents
-automatic agreement through that notice.
+A queued notice does not begin a response window. Recorded SMTP acceptance of the
+current response's essential notice qualifies its 24-hour deadline only when
+automatic agreement is allowed and the complete interval ends before both the
+original and proposed starts. Paused-date offers require affirmative agreement
+from the tutor and every affected tutee: delivery records acceptance time without
+starting a silence deadline. Applying a pause clears affected offers' pending
+deadlines; removing it does not revive them or count paused silence as acceptance.
+Offers delivered during a pause, or admitted for delivery with explicit-only
+guidance, still need affirmative replies after pause removal, including completion
+or retry after removal; a new ordinary offer may use the normal clock. See the
+[affirmative exception contract](session-planning.md#tutoring-pauses-and-affirmative-exceptions).
+The initial email links to the portal for its response requirements and any
+applicable deadline; subscription refresh and inbox delivery do not establish consent.
+Unconfigured development console mail also does not qualify a clock. Missing
+configuration, failed delivery or lost verified
+recipient ownership leaves a visible recovery condition and prevents automatic
+agreement through that notice.
 
 `SENT` means SMTP accepted the message, not that the participant received or read
 it. Acceptance followed by a server/database failure can cause a retry; SMTP does

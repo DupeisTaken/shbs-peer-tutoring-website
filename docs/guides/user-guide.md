@@ -720,12 +720,22 @@ once with an alternative sent to everyone. After using that rejection, choose
 **Separate reschedule** if a later time still fails; the tutor then formalizes
 individual requests. Recurring pairing groups remain intact.
 
-The 24-hour response window begins only after the essential email is accepted by
-the mail server. Delivery failure blocks automatic acceptance; inspect delivery
-status and retry. No response within a valid window means acceptance. If 24 hours
-cannot fit before the original or proposed session starts, explicit agreement is
-required before the earlier start; otherwise the request expires and the original
-session stays in place unless a separate authoritative school-calendar or assignment change cancelled it. If a server outage misses an otherwise completed response window until after a session starts, the system requests review instead of retroactively moving the session. Check the portal and essential notice for authoritative outcomes.
+For an ordinary offer eligible for automatic agreement, the 24-hour response window
+begins only after the essential email is accepted by the mail server. Delivery
+failure blocks automatic acceptance; inspect delivery status and retry. Silence at
+the end of a valid window means acceptance. Paused-date extras and reschedules
+require affirmative agreement from the tutor and every affected tutee for the exact
+proposed arrangement; email delivery creates no silence deadline. Applying a pause
+clears pending response deadlines for affected offers. Removing it does not revive
+those deadlines or count silence under the pause as agreement. Offers delivered
+during a pause, or whose delivery began with explicit-only guidance, still need
+affirmative replies after the pause ends; a new ordinary offer may use the normal
+response window. See the
+[paused-date agreement rules](../reference/session-planning.md#tutoring-pauses-and-affirmative-exceptions).
+If 24 hours cannot fit before the original or proposed session starts, explicit
+agreement is required before the earlier start; otherwise the request expires and
+the original session stays in place unless a separate authoritative school-calendar,
+tutoring-pause or assignment change cancelled it. If a server outage misses an otherwise completed response window until after a session starts, the system requests review instead of retroactively moving the session. Check the portal and essential notice for authoritative outcomes.
 
 An extra session follows the same agreement process and leaves the regular lesson
 in place. A rejected extra proposal never cancels the regular lesson. Scheduling
@@ -1736,7 +1746,7 @@ Staff, tutors and tutees can use **Account → Notification preferences**, also 
 
 Turning off a category's badge keeps its notices in the bell and preserves their read/unread state. You can still open them or mark them read. Turning the badge back on counts any still-unread notices again. Existing accounts retain their previous email opt-ins until changed; new categories inherit the corresponding old setting, while review requests and reminders retain their separate opt-ins. New accounts start with optional email off and badges on.
 
-When Admin/Head enable **Email Notifications** in **Program Settings → Deployment Configurations** directly or approve a Coordinator request, optional email controls become available. Only active Admin/Head reviewers can enable review-request email; participant copies of the same event follow their own subject category. Reminders cover interviews, meetings and confirmed tutoring sessions at 24 hours and 1 hour before. Tutoring reminders are suppressed on No tutoring dates, explicitly marked non-school days, and recorded tutor or assigned-tutee absences; missing attendance is not treated as absence. Queued reminders are checked again before sending. By default notices go only to a verified primary; you can also include verified secondary addresses.
+When Admin/Head enable **Email Notifications** in **Program Settings → Deployment Configurations** directly or approve a Coordinator request, optional email controls become available. Only active Admin/Head reviewers can enable review-request email; participant copies of the same event follow their own subject category. Reminders cover interviews, meetings and confirmed tutoring sessions at 24 hours and 1 hour before. Ordinary recurring tutoring reminders are suppressed on active **No tutoring** date ranges and explicitly marked non-school days. Confirmed dated exceptions with affirmative agreement from the tutor and every participating tutee may receive reminders during **Pause regular tutoring** or on non-school days; an overlapping **Notice only** range still suppresses them. Recorded tutor or assigned-tutee absences suppress tutoring reminders; missing attendance is not treated as absence. Queued reminders are checked again before sending. By default notices go only to a verified primary; you can also include verified secondary addresses.
 
 Notices identify the affected person or record and the committed action where captured detail exists. Message email names the sender without copying the message or recipient list; announcement email gives its title and publication/update action. Account alerts identify changed fields or access and distinguish password changes from enabling or disabling two-step verification without exposing secret values. Required verification, recovery, sign-in, invitation, signup and request-status email explains its specific purpose and remains independent of optional choices. Security alerts cannot be disabled. A primary change additionally notifies the previous verified primary, even if that address is subsequently removed. Historical notices are not reconstructed from today's records.
 
