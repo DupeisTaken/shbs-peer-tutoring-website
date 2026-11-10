@@ -1439,15 +1439,20 @@ There is no semester reset. The old admin monthly overview has been removed.
 The saved report and staff preview show each person's **Carry In → Raw Change →
 Hours → Carry Out**, alongside their name and school-account reference. **Raw
 Change** combines tutoring and Crew, displayed in hours and minutes rounded to
-the nearest minute. **Hours** is the exact amount to enter once. The other values
+the nearest minute. **Hours** is the exact amount to enter once; **—** means no
+entry for that instruction. The dash replaces zero and repeated no-entry text
+in the summary. The other values
 explain the balance and must not be entered separately. Open that person's
 **Details** for separate tutoring/Crew values, exact decimals, previous-month
 comparisons and the correction matching the last edition actually entered.
 Historical reports with no recorded carry show it as unavailable.
 
-School notification emails stay brief and use the recipient's email language.
+School notification emails use the recipient's email language and contain only
+the report-ready notice, month/revision metadata and report link. Hour amounts,
+carry balances and participant breakdowns appear only in the viewed report.
 **View Month Report** opens the saved public report, where **Details / 详情**
-expands inline. Staff use **Details** on the school-report management page to
+expands below the person's compact table row. On narrow screens, scroll the
+report table horizontally to see all columns. Staff use **Details** on the school-report management page to
 open a dialog. The light boxes identify individual people; the blue guidance
 explains how to apply that edition. Screenshots and framed HTML previews in a
 local review report demonstrate these locations and are not email attachments.

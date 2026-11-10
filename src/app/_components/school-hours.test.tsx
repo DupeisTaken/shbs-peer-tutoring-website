@@ -499,7 +499,7 @@ it.each([
 );
 
 it.each(["en", "zh"] as const)(
-  "explains a zero instruction beside Hours and preserves full nonnegative carried debt (%s)",
+  "uses a dash for zero Hours while preserving full nonnegative carried debt (%s)",
   (locale) => {
     const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
     const snapshot = preview();
@@ -519,7 +519,10 @@ it.each(["en", "zh"] as const)(
         screen.getByRole(role, { name: copy.individualAmounts }),
       );
       expect(view.getByText(duration(copy, 1, 20, "-"))).toBeTruthy();
-      expect(view.getByText(copy.zeroAmount)).toBeTruthy();
+      expect(view.getByLabelText(copy.zeroAmount).textContent?.trim()).toBe(
+        "—",
+      );
+      expect(view.queryByText(copy.zeroAmount)).toBeNull();
       expect(
         view.getByTitle(
           copy.exactCarryHours.replace("{hours}", "-1.3333333333333333"),
@@ -527,6 +530,7 @@ it.each(["en", "zh"] as const)(
       ).toBe(copy.carryMinutes.replace("{minutes}", "-80"));
     }
     expect(screen.getByText(copy.nonnegativeApplyInstructions)).toBeTruthy();
+    expect(screen.getAllByText(copy.hoursDashLegend)).toHaveLength(1);
   },
 );
 
@@ -561,7 +565,9 @@ it.each(["en", "zh"] as const)(
       ),
     );
     const condition = copy.revisionAmountCondition.replace("{revision}", "2");
-    expect(screen.getAllByText(condition)).toHaveLength(2);
+    expect(screen.queryByText(condition)).toBeNull();
+    expect(screen.getAllByLabelText(copy.zeroAmount)).toHaveLength(2);
+    expect(screen.getByText(copy.nonnegativeRevisionInstructions)).toBeTruthy();
     const list = screen.getByRole("list", { name: copy.individualAmounts });
     fireEvent.click(within(list).getByRole("button"));
     const detail = within(screen.getByRole("dialog", { name: "Blair" }));
@@ -939,8 +945,11 @@ it("keeps each revision instruction conditional and moves prior-month/revision v
       view.getAllByText(
         en.schoolHours.revisionAmountCondition.replace("{revision}", "1"),
       ),
-    ).toHaveLength(2);
-    expect(view.getByText(en.schoolHours.zeroAmount)).toBeTruthy();
+    ).toHaveLength(1);
+    expect(
+      view.getByLabelText(en.schoolHours.zeroAmount).textContent?.trim(),
+    ).toBe("—");
+    expect(view.queryByText(en.schoolHours.zeroAmount)).toBeNull();
     expect(view.queryByText(en.schoolHours.unchanged)).toBeNull();
     expect(
       view.queryByText(
