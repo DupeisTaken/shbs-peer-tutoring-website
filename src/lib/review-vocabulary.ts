@@ -145,6 +145,11 @@ const schemaFor = (entity: string | undefined) =>
 const privateIdentityFields: Readonly<Record<string, readonly string[]>> = {
   // The importer owns this polymorphic/composite boundary, not a display route.
   ImportedRecordProvenance: ["entity", "recordId"],
+  // Terminal binding/result internals belong only to the actor-bound receipt
+  // endpoint. Schema discoverability never grants generic audit disclosure.
+  TranslationIntentReceipt: ["actorId", "intentId", "protocolVersion", "operation", "mode", "inputHash", "draftId", "cleared"],
+  // Stopped invitation bindings remain with their actor-scoped recovery reader.
+  HistoricalInvitationOperationClosure: ["operationId", "issuedById", "inputHash", "scopeKey"],
   // Recovery source bindings and owner answers require the scoped inspector or
   // authenticated draft reader; schema metadata never authorizes generic display.
   RecoveryCheckpoint: ["sourceId", "capturedById", "captureTransactionId", "scope"],

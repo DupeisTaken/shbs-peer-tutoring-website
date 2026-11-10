@@ -7,6 +7,16 @@ export const reviewSchema = {
     enums: {},
     fields: ["entity", "recordId", "importedAt"],
   },
+  HistoricalInvitationOperationClosure: {
+    references: {},
+    enums: {},
+    fields: ["operationId", "issuedById", "inputHash", "scopeKey", "createdAt"],
+  },
+  TranslationIntentReceipt: {
+    references: {},
+    enums: {},
+    fields: ["actorId", "intentId", "protocolVersion", "status", "operation", "mode", "inputHash", "draftId", "cleared", "createdAt"],
+  },
   SchedulingMaintenanceState: {
     references: {},
     enums: {},

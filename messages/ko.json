@@ -234,7 +234,7 @@
     "acknowledge": "I verified the recipient and every listed original record.",
     "checkReceipt": "Check delivery receipt",
     "uncertain": "The delivery result is unknown. Check its saved receipt before starting another invitation.",
-    "notRecorded": "No completed receipt is available yet. Wait, then check again; sending again could duplicate an in-flight delivery.",
+    "notRecorded": "아직 처리 기록이 없습니다. 확인하거나 다시 시도할 때 원래 초대 내용을 변경하지 마세요.",
     "blocked": {
       "GROUP_REVIEW_REQUIRED": "Complete current participation review before inviting.",
       "NOT_HISTORICAL": "Every selected record must be historical.",
@@ -242,7 +242,12 @@
       "ACCOUNT_CONFLICT": "Ownership conflicts require Admin-reviewed correction or combination.",
       "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
       "UNKNOWN": "Further review is required before sending."
-    }
+    },
+    "retryExact": "동일한 초대 다시 시도",
+    "exactRetryHelp": "다시 시도해도 원래 수신자, 기록 및 사유가 유지됩니다. 요청이 이미 접수된 경우 저장된 결과만 확인하며 이메일을 추가로 보내지 않습니다.",
+    "stopRequest": "초대 요청 중지",
+    "stopRequestHelp": "전송이 시작되기 전에 원래 요청을 중지하며 같은 요청이 나중에 도착해도 전송되지 않습니다. 전송이 이미 시작된 경우 저장된 결과만 확인합니다. 기존 초대와 다른 요청은 유지됩니다.",
+    "confirmStopRequest": "이 초대 요청 중지"
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
@@ -4109,6 +4114,8 @@
         "MonthlyHoursReport": "월간 서비스 시간 보고서",
         "SchoolHoursSchedule": "학교 보고 일정",
         "SchoolHoursReport": "학교 제출용 개인 봉사시간 보고서",
+        "TranslationIntentReceipt": "번역 요청 접수 기록",
+        "HistoricalInvitationOperationClosure": "과거 기록 초대 중지 확인서",
         "ProgramCalendarPolicyRevision": "튜터링 날짜 정책 변경 기록",
         "ImportedRecordProvenance": "보관 자료 가져오기 출처 기록"
       },
@@ -5609,7 +5616,8 @@
     "historyAccessLost": "This history is no longer available. Refresh to check your current access.",
     "recordDetailsLabel": "View History: {name} · Record {id}",
     "recordedDateRange": "Session dates: {first} – {last}",
-    "recordedDatesUnknown": "Session dates not recorded"
+    "recordedDatesUnknown": "Session dates not recorded",
+    "invitation_ABANDONED": "이 초대 요청은 전송이 시작되기 전에 중지되었습니다. 나중에도 전송되지 않습니다."
   },
   "schoolDeparture": {
     "title": "School Departure",

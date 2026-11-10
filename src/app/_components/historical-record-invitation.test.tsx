@@ -2,14 +2,16 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { useState } from "react";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { HistoricalRecordInvitation } from "./historical-record-invitation";
 import { ProfileDialog } from "./profile-dialog";
+import { useDialogPending } from "./ui/modal";
 import type { RouterOutputs } from "~/trpc/react";
 
 const mocks = vi.hoisted(() => ({
-  preview: vi.fn(), send: vi.fn(), cancel: vi.fn(), receipt: vi.fn(), refetch: vi.fn(), query: vi.fn(),
+  preview: vi.fn(), send: vi.fn(), cancel: vi.fn(), stop: vi.fn(), receipt: vi.fn(), refetch: vi.fn(), query: vi.fn(),
   error: null as null | { message: string; data?: { code: string } },
   status: null as RouterOutputs["tuteeHistory"]["exactInvitationStatus"],
   sendPending: false,
@@ -23,12 +25,20 @@ vi.mock("~/trpc/react", () => ({ api: {
     exactInvitationStatus: { useQuery: (input: unknown) => { mocks.query(input); return { data: mocks.status, error: mocks.error, isFetching: false, isLoading: false, refetch: mocks.refetch }; } },
     inviteExact: { useMutation: (callbacks: typeof mocks.callbacks) => { mocks.callbacks = callbacks; return { mutate: mocks.send, isPending: mocks.sendPending }; } },
     cancelExactInvitation: { useMutation: () => ({ mutateAsync: mocks.cancel, isPending: false }) },
+    abandonExactInvitation: { useMutation: () => ({ mutateAsync: mocks.stop, isPending: false }) },
   },
 } }));
 vi.mock("./tutee-history", () => ({ HistoryError: ({ message }: { message: string }) => <p role="alert">{message}</p> }));
 
-function view(locale: "en" | "zh" = "en", chosen = sources, accessDenied = false, onClose?: () => void) {
-  const invitation = <HistoricalRecordInvitation sources={chosen} accessDenied={accessDenied} />;
+// CombineRecords independently registers its child's reported uncertainty. This
+// ancestor is essential: a direct ProfileDialog cannot expose nested busy loops.
+function PendingAncestor({ chosen, accessDenied }: { chosen: typeof sources; accessDenied: boolean }) {
+  const [pending, setPending] = useState(false);
+  useDialogPending(pending);
+  return <><button disabled={pending}>Sibling change</button><HistoricalRecordInvitation sources={chosen} accessDenied={accessDenied} onPendingChange={setPending} /></>;
+}
+function view(locale: "en" | "zh" = "en", chosen = sources, accessDenied = false, onClose?: () => void, mirroredAncestor = false) {
+  const invitation = mirroredAncestor ? <PendingAncestor chosen={chosen} accessDenied={accessDenied} /> : <HistoricalRecordInvitation sources={chosen} accessDenied={accessDenied} />;
   return <NextIntlClientProvider locale={locale} messages={locale === "en" ? en : zh} timeZone="UTC">
     {onClose ? <ProfileDialog title="Historical setup" onClose={onClose}>{invitation}</ProfileDialog> : invitation}
   </NextIntlClientProvider>;
@@ -40,9 +50,10 @@ async function review(locale: "en" | "zh" = "en") {
   fireEvent.click(screen.getByRole("button", { name: copy.historicalInvitation.review }));
   await screen.findByText("Original Tutor");
 }
-function send() {
-  fireEvent.click(screen.getByLabelText(en.historicalInvitation.acknowledge));
-  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.sendInvitation }));
+function send(locale: "en" | "zh" = "en") {
+  const copy = locale === "en" ? en : zh;
+  fireEvent.click(screen.getByLabelText(copy.historicalInvitation.acknowledge));
+  fireEvent.click(screen.getByRole("button", { name: copy.tuteeHistory.sendInvitation }));
 }
 function uncertainStatus(attemptId: string, revision = "b".repeat(64)) {
   return {
@@ -60,6 +71,7 @@ beforeEach(() => {
   mocks.refetch.mockImplementation(async () => ({ data: mocks.status }));
   mocks.receipt.mockResolvedValue(null);
   mocks.cancel.mockResolvedValue({ cancelled: true });
+  mocks.stop.mockImplementation(async (input: { operationId: string }) => ({ attemptId: input.operationId, status: "ABANDONED", expiresAt: null }));
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } },
     close: { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } },
@@ -112,14 +124,204 @@ it("admits one send and recovers a lost response by reading its original receipt
   expect(mocks.send).toHaveBeenCalledTimes(1);
 });
 
-it("keeps a missing receipt uncertain instead of authorizing another send", async () => {
+it.each(["en", "zh"] as const)("retries a never-admitted invitation with its original intent and keeps the native modal fenced in %s", async (locale) => {
+  const copy = locale === "en" ? en : zh;
+  const close = vi.fn();
+  const mounted = render(view(locale, sources, false, close));
+  await review(locale);
+  send(locale);
+  const intent = mocks.send.mock.calls[0]![0] as { operationId: string };
+  act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
+  const closeButton = screen.getByRole<HTMLButtonElement>("button", { name: copy.accountProfile.close });
+  expect(closeButton.disabled).toBe(true);
+  fireEvent(screen.getByRole("dialog"), new Event("cancel", { bubbles: false, cancelable: true }));
+  expect(close).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: copy.historicalInvitation.retryExact })).toBeNull();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.historicalInvitation.checkReceipt })); });
+  }
+  expect(mocks.receipt).toHaveBeenCalledTimes(2);
+  expect(mocks.receipt).toHaveBeenLastCalledWith({ operationId: intent.operationId }, { staleTime: 0 });
+  expect(mocks.refetch).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(copy.historicalInvitation.notRecorded)).toBeTruthy();
+  expect(screen.getByRole("button", { name: copy.historicalInvitation.review }).matches(":disabled")).toBe(true);
+  expect(screen.getByLabelText(copy.tuteeHistory.email).matches(":disabled")).toBe(true);
+  expect(screen.queryByRole("button", { name: copy.tuteeHistory.cancelInvitation })).toBeNull();
+  expect(mocks.cancel).not.toHaveBeenCalled();
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+
+  // A directory change cannot widen the original review or supply a fresh key.
+  mounted.rerender(view(locale, [...sources, { kind: "TUTOR", id: "later-member" }], false, close));
+  const retry = screen.getByRole<HTMLButtonElement>("button", { name: copy.historicalInvitation.retryExact });
+  expect(retry.disabled).toBe(false);
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  expect(mocks.send).toHaveBeenCalledTimes(2);
+  expect(mocks.send.mock.calls[1]![0]).toEqual(intent);
+  expect(closeButton.disabled).toBe(true);
+  await act(async () => {
+    await mocks.callbacks!.onSuccess({ attemptId: intent.operationId, status: "PUBLISHED", expiresAt: new Date() });
+    mocks.callbacks!.onSettled();
+  });
+  expect(closeButton.disabled).toBe(false);
+  expect(screen.getByText(copy.tuteeHistory.invitation_PUBLISHED)).toBeTruthy();
+  expect(mocks.send).toHaveBeenCalledTimes(2);
+});
+
+it("requires a fresh authorized scope read before allowing an exact retry", async () => {
   render(view());
   await review();
   send();
   act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
-  fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt }));
-  await screen.findByText(en.historicalInvitation.notRecorded);
+  mocks.refetch.mockRejectedValueOnce(new Error("scope disconnected"));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  expect(screen.getByRole("button", { name: en.historicalInvitation.retryExact }).matches(":disabled")).toBe(true);
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  expect(screen.getByRole("button", { name: en.historicalInvitation.retryExact }).matches(":disabled")).toBe(false);
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+});
+
+it("keeps a rejected exact retry uncertain until the late original operation has a receipt", async () => {
+  const close = vi.fn();
+  render(view("en", sources, false, close));
+  await review();
+  send();
+  const intent = mocks.send.mock.calls[0]![0] as { operationId: string };
+  act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.retryExact }));
+  act(() => { mocks.callbacks!.onError({ message: "rate limited", data: { code: "TOO_MANY_REQUESTS" } }); mocks.callbacks!.onSettled(); });
+  expect(screen.getByRole("button", { name: en.accountProfile.close }).matches(":disabled")).toBe(true);
   expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(true);
+  expect(screen.queryByRole("button", { name: en.historicalInvitation.retryExact })).toBeNull();
+  mocks.receipt.mockResolvedValue({ attemptId: intent.operationId, status: "PUBLISHED", expiresAt: new Date() });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  expect(screen.getByRole("button", { name: en.accountProfile.close }).matches(":disabled")).toBe(false);
+  expect(mocks.receipt).toHaveBeenLastCalledWith({ operationId: intent.operationId }, { staleTime: 0 });
+  expect(mocks.send).toHaveBeenCalledTimes(2);
+  expect(mocks.send.mock.calls[1]![0]).toEqual(intent);
+});
+
+it("conceals the frozen retry after authoritative denial and retains denial through a transport failure", async () => {
+  const mounted = render(view());
+  await review();
+  send();
+  act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  mocks.error = { message: "forbidden", data: { code: "FORBIDDEN" } };
+  mounted.rerender(view());
+  expect(screen.queryByRole("button", { name: en.historicalInvitation.retryExact })).toBeNull();
+  expect(screen.queryByText(en.tuteeHistory.invitationRecipient.replace("{email}", "alumni@example.test"))).toBeNull();
+  mocks.error = { message: "network interrupted" };
+  mounted.rerender(view());
+  expect(screen.queryByRole("button", { name: en.historicalInvitation.retryExact })).toBeNull();
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+});
+
+it.each(["en", "zh"] as const)("keeps the stop review usable beneath an ancestor pending fence and cancels without writes in %s", async (locale) => {
+  const copy = locale === "en" ? en : zh;
+  const close = vi.fn();
+  render(view(locale, sources, false, close, true));
+  await review(locale);
+  send(locale);
+  act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: copy.historicalInvitation.checkReceipt })); });
+  const opener = screen.getByRole<HTMLButtonElement>("button", { name: copy.historicalInvitation.stopRequest });
+  opener.focus();
+  fireEvent.click(opener);
+  const confirmation = screen.getByRole("region", { name: copy.historicalInvitation.stopRequest });
+  expect(within(confirmation).getByRole("button", { name: copy.historicalInvitation.confirmStopRequest }).matches(":disabled")).toBe(false);
+  expect(screen.getByRole("button", { name: copy.accountProfile.close }).matches(":disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Sibling change" }).matches(":disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: copy.historicalInvitation.retryExact }).matches(":disabled")).toBe(true);
+  expect(mocks.stop).not.toHaveBeenCalled();
+  fireEvent.click(within(confirmation).getByRole("button", { name: copy.uiPatterns.cancel }));
+  expect(screen.queryByRole("region", { name: copy.historicalInvitation.stopRequest })).toBeNull();
+  expect(document.activeElement).toBe(opener);
+  fireEvent.click(opener);
+  fireEvent.keyDown(screen.getByRole("region", { name: copy.historicalInvitation.stopRequest }), { key: "Escape" });
+  expect(screen.queryByRole("region", { name: copy.historicalInvitation.stopRequest })).toBeNull();
+  expect(document.activeElement).toBe(opener);
+  expect(close).not.toHaveBeenCalled();
+  expect(mocks.stop).not.toHaveBeenCalled();
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+});
+
+it("admits one stop beneath an ancestor fence, then recovers its accepted result with reads before a fresh invitation", async () => {
+  render(view("en", sources, false, vi.fn(), true));
+  await review();
+  send();
+  const intent = mocks.send.mock.calls[0]![0] as { operationId: string };
+  act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.stopRequest }));
+  const confirmation = screen.getByRole("region", { name: en.historicalInvitation.stopRequest });
+  const confirm = within(confirmation).getByRole("button", { name: en.historicalInvitation.confirmStopRequest });
+  let finishStop!: (value: { attemptId: string; status: "ABANDONED"; expiresAt: null }) => void;
+  mocks.stop.mockImplementationOnce(() => new Promise((resolve) => { finishStop = resolve; }));
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  expect(mocks.stop).toHaveBeenCalledTimes(1);
+  expect(mocks.stop).toHaveBeenCalledWith(intent);
+  expect(confirm.matches(":disabled")).toBe(true);
+  expect(within(confirmation).getByRole("button", { name: en.uiPatterns.cancel }).matches(":disabled")).toBe(true);
+  fireEvent.keyDown(confirmation, { key: "Escape" });
+  expect(screen.getByRole("region", { name: en.historicalInvitation.stopRequest })).toBeTruthy();
+  mocks.refetch.mockRejectedValueOnce(new Error("accepted stop refresh disconnected"));
+  await act(async () => { finishStop({ attemptId: intent.operationId, status: "ABANDONED", expiresAt: null }); });
+  expect(screen.getByText(en.tuteeHistory.invitation_ABANDONED)).toBeTruthy();
+  expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(true);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.refreshInvitation })); });
+  expect(mocks.stop).toHaveBeenCalledTimes(1);
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+  expect(mocks.receipt).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.review }));
+  await screen.findByText("Original Tutor");
+  send();
+  expect(mocks.send).toHaveBeenCalledTimes(2);
+  expect((mocks.send.mock.calls[1]![0] as { operationId: string }).operationId).not.toBe(intent.operationId);
+});
+
+it("recovers a lost stop response by reading its original closed receipt without replaying the stop", async () => {
+  render(view("en", sources, false, vi.fn(), true));
+  await review();
+  send();
+  const intent = mocks.send.mock.calls[0]![0] as { operationId: string };
+  act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  mocks.stop.mockRejectedValueOnce(new Error("stop response interrupted"));
+  fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.stopRequest }));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.confirmStopRequest })); });
+  expect(screen.getByRole("button", { name: en.accountProfile.close }).matches(":disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(true);
+  mocks.receipt.mockResolvedValue({ attemptId: intent.operationId, status: "ABANDONED", expiresAt: null });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  expect(screen.getByText(en.tuteeHistory.invitation_ABANDONED)).toBeTruthy();
+  expect(screen.getByRole("button", { name: en.accountProfile.close }).matches(":disabled")).toBe(false);
+  expect(mocks.receipt).toHaveBeenLastCalledWith({ operationId: intent.operationId }, { staleTime: 0 });
+  expect(mocks.stop).toHaveBeenCalledTimes(1);
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+});
+
+it("shows the admitted receipt when delivery wins the stop race and keeps the existing cancellation boundary", async () => {
+  render(view("en", sources, false, vi.fn(), true));
+  await review();
+  send();
+  const intent = mocks.send.mock.calls[0]![0] as { operationId: string };
+  act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  mocks.status = uncertainStatus(intent.operationId);
+  mocks.stop.mockResolvedValueOnce({ attemptId: intent.operationId, status: "UNCERTAIN", expiresAt: null });
+  fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.stopRequest }));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.confirmStopRequest })); });
+  expect(screen.getByText(en.tuteeHistory.invitation_UNCERTAIN)).toBeTruthy();
+  expect(screen.queryByText(en.tuteeHistory.invitation_ABANDONED)).toBeNull();
+  expect(screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }).matches(":disabled")).toBe(false);
+  expect(screen.queryByRole("button", { name: en.historicalInvitation.retryExact })).toBeNull();
+  expect(mocks.cancel).not.toHaveBeenCalled();
+  expect(mocks.stop).toHaveBeenCalledTimes(1);
   expect(mocks.send).toHaveBeenCalledTimes(1);
 });
 
@@ -165,6 +367,7 @@ it("keeps unresolved delivery receipts mounted and allows only receipt reads unt
   expect(close).not.toHaveBeenCalled();
   mocks.receipt.mockResolvedValue({ attemptId: operationId, status: "UNCERTAIN", expiresAt: null });
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
+  expect(screen.queryByRole("button", { name: en.historicalInvitation.retryExact })).toBeNull();
   expect(closeButton.disabled).toBe(true);
   expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(true);
   mocks.receipt.mockResolvedValue({ attemptId: operationId, status: "PUBLISHED", expiresAt: new Date() });
@@ -262,11 +465,11 @@ it("does not use cached scope evidence to cancel a missing or mismatched receipt
   act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
   mounted.rerender(view("en", sources, false, close));
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
-  expect(mocks.refetch).not.toHaveBeenCalled();
+  expect(mocks.refetch).toHaveBeenCalledOnce();
   expect(screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }).matches(":disabled")).toBe(true);
   mocks.receipt.mockResolvedValue({ attemptId: operationId, status: "UNCERTAIN", expiresAt: null });
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
-  expect(mocks.refetch).toHaveBeenCalledOnce();
+  expect(mocks.refetch).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }).matches(":disabled")).toBe(true);
   expect(screen.getByRole("button", { name: en.accountProfile.close }).matches(":disabled")).toBe(true);
   expect(mocks.cancel).not.toHaveBeenCalled();

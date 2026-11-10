@@ -2356,6 +2356,16 @@ model HistoricalRecordInvitationAttempt {
   @@index([scopeKey, sequence])
 }
 
+/// Permanent, actor/input-bound stop for an operation that never admitted delivery.
+/// Separate from attempts so stopping cannot obscure another scope's active delivery.
+model HistoricalInvitationOperationClosure {
+  operationId String @id
+  issuedById String
+  inputHash String
+  scopeKey String
+  createdAt DateTime @default(now())
+}
+
 /// Read-only accepted-claim recovery survives legacy token consumption and replacements.
 /// Possession of this digest never grants access without the recorded account and live ownership.
 model HistoricalRecordClaimReceipt {
@@ -2481,6 +2491,23 @@ model MessageModeration {
   reason String
   createdAt DateTime @default(now())
   @@index([messageId, createdAt])
+}
+
+/// Immutable original-actor replay/stop evidence, not a capability or a live publication.
+/// No relations/cascades: account or draft removal must never reopen an old UUID.
+model TranslationIntentReceipt {
+  actorId         String
+  intentId        String
+  protocolVersion Int
+  status          String
+  operation       String?
+  mode            String?
+  inputHash       String?
+  draftId         String?
+  cleared         Boolean?
+  createdAt       DateTime @default(now())
+
+  @@id([actorId, intentId])
 }
 
 /// Draft proposals never affect public rendering until a management member approves them.

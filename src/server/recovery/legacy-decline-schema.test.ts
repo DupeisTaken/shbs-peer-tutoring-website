@@ -15,6 +15,8 @@ describe("legacy decline recovery schema compatibility", () => {
     ] as const) {
       expect(assertReviewedRecoverySchema(columns, metadata.enums)).toEqual({
         identityVersion,
+        historicalInvitationOperationClosure: false,
+        translationIntentReceipt: false,
         legacySignupDecline: columns.some(
           (column) => column.table_name === "LegacySignupDecline",
         ),

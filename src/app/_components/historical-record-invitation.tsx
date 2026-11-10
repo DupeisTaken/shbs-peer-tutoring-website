@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { api, type RouterOutputs } from "~/trpc/react";
+import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { ChangeReview, FormSection, InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
@@ -56,9 +56,18 @@ export function HistoricalRecordInvitation({
   const [uncertainRevision, setUncertainRevision] = useState<string | null>(null);
   const [missingReceipt, setMissingReceipt] = useState(false);
   const [accessLost, setAccessLost] = useState(false);
+  const [stopReview, setStopReview] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const admitted = useRef(false);
+  const stopAdmission = useRef(false);
+  const stopOpener = useRef<HTMLButtonElement>(null);
+  const stopReviewNode = useRef<HTMLDivElement>(null);
+  const stopParent = useRef<HTMLDialogElement | null>(null);
+  const wasStopReview = useRef(false);
   const readAdmission = useRef(false);
   const operation = useRef<string | null>(null);
+  const [frozenIntent, setFrozenIntent] = useState<RouterInputs["tuteeHistory"]["inviteExact"] | null>(null);
+  const replaying = useRef(false);
   const status = api.tuteeHistory.exactInvitationStatus.useQuery(
     { sources },
     { refetchOnMount: "always", gcTime: 0, enabled: !accessDenied },
@@ -70,7 +79,7 @@ export function HistoricalRecordInvitation({
   const [observedStatusDenial, setObservedStatusDenial] = useState(false);
   if (statusDenied !== observedStatusDenial) {
     setObservedStatusDenial(statusDenied);
-    if (statusDenied) setAccessLost(true);
+    if (statusDenied) { setAccessLost(true); setStopReview(false); }
   }
   useEffect(() => {
     if (statusDenied) revoke();
@@ -83,6 +92,7 @@ export function HistoricalRecordInvitation({
       // when normalizing the thrown value for recovery and evidence concealment.
       throw Object.assign(new Error(result.error.message), { data: result.error.data });
     }
+    if (result.data === undefined) throw new Error("Invitation status unavailable");
     // A durable admitted attempt can be explicitly superseded. Confirm its exact
     // identity in a fresh scope read before releasing the unknown-outcome fence.
     setUncertainRevision(
@@ -96,7 +106,7 @@ export function HistoricalRecordInvitation({
     setAccessLost(false);
   };
   const recover = async () => {
-    if (readAdmission.current) return;
+    if (readAdmission.current || admitted.current || stopAdmission.current) return;
     readAdmission.current = true;
     setReading(true);
     try {
@@ -110,6 +120,10 @@ export function HistoricalRecordInvitation({
         if (!saved) {
           setMissingReceipt(true);
           setUncertainRevision(null);
+          // Absence never releases the operation fence. A fresh authorized scope
+          // read permits only a replay of the already reviewed, immutable intent.
+          await refresh(null);
+          setError(null);
           return;
         }
         setReceipt(saved);
@@ -133,6 +147,7 @@ export function HistoricalRecordInvitation({
       setReceipt(saved);
       setUncertain(saved.status === "UNCERTAIN");
       setUncertainRevision(null);
+      setMissingReceipt(false);
       setPreview(null);
       setAcknowledged(false);
       setRefreshRequired(true);
@@ -142,8 +157,11 @@ export function HistoricalRecordInvitation({
     },
     onError: (failure) => {
       const rejected = ["BAD_REQUEST", "CONFLICT", "PRECONDITION_FAILED", "FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "TOO_MANY_REQUESTS"].includes(failure.data?.code ?? "");
-      setUncertain(!rejected);
+      // A rejected replay cannot prove that the original request will not arrive
+      // late. Only a saved receipt resolves that original operation's outcome.
+      setUncertain(replaying.current || !rejected);
       setUncertainRevision(null);
+      setMissingReceipt(false);
       setRefreshRequired(true);
       setPreview(null);
       setAcknowledged(false);
@@ -153,6 +171,7 @@ export function HistoricalRecordInvitation({
     onSettled: () => { admitted.current = false; },
   });
   const cancel = api.tuteeHistory.cancelExactInvitation.useMutation();
+  const stop = api.tuteeHistory.abandonExactInvitation.useMutation();
   const cancelDenied = denied(cancel.error);
   const [observedCancelDenial, setObservedCancelDenial] = useState(false);
   if (cancelDenied !== observedCancelDenial) {
@@ -162,7 +181,7 @@ export function HistoricalRecordInvitation({
   // Unknown delivery keeps its receipt reader mounted. A confirmed durable
   // attempt instead permits a nested cancellation review; keeping that fence
   // registered would disable the child modal through its inherited busy state.
-  const ownPending = send.isPending || cancel.isPending;
+  const ownPending = send.isPending || cancel.isPending || stop.isPending || stopping;
   const unresolved = uncertain && !uncertainRevision;
   const dismissalPending = ownPending || unresolved;
   const aggregatePending = useDialogPending(dismissalPending);
@@ -171,6 +190,14 @@ export function HistoricalRecordInvitation({
     onPendingChange?.(dismissalPending);
     return () => onPendingChange?.(false);
   }, [dismissalPending, onPendingChange]);
+  useEffect(() => {
+    if (stopReview) stopReviewNode.current?.querySelector<HTMLButtonElement>("[data-stop-cancel]")?.focus();
+    else if (wasStopReview.current) {
+      if (stopOpener.current && !stopOpener.current.matches(":disabled")) stopOpener.current.focus();
+      else stopParent.current?.focus();
+    }
+    wasStopReview.current = stopReview;
+  }, [stopReview]);
   useEffect(() => {
     if (cancelDenied) revoke();
   }, [cancelDenied, revoke]);
@@ -186,8 +213,43 @@ export function HistoricalRecordInvitation({
     setPreview(null);
     setAcknowledged(false);
     operation.current = null;
+    setFrozenIntent(null);
+    replaying.current = false;
     setUncertainRevision(null);
     setError(null);
+  };
+  const stopOriginal = async () => {
+    if (stopAdmission.current || admitted.current || readAdmission.current || unavailableForAction || !ready || !stopReview || !uncertain || !missingReceipt || !frozenIntent) return;
+    stopAdmission.current = true;
+    setStopping(true);
+    setError(null);
+    try {
+      const saved = await stop.mutateAsync(frozenIntent);
+      // An already admitted attempt wins the race and returns its receipt. Only
+      // ABANDONED proves a permanent stop; UNCERTAIN keeps delivery protected.
+      setReceipt(saved);
+      setUncertain(saved.status === "UNCERTAIN");
+      setUncertainRevision(null);
+      setMissingReceipt(false);
+      setStopReview(false);
+      setRefreshRequired(true);
+      try { await refresh(saved); } catch (cause) {
+        if (denied(cause)) setAccessLost(true);
+      }
+    } catch (cause) {
+      // A lost stop response may already have committed its closure. Retain the
+      // frozen operation and recover its result through receipt reads only.
+      setStopReview(false);
+      setUncertain(true);
+      setMissingReceipt(false);
+      setUncertainRevision(null);
+      setRefreshRequired(true);
+      if (denied(cause)) setAccessLost(true);
+      setError(cause instanceof Error ? cause.message : "failed");
+    } finally {
+      stopAdmission.current = false;
+      setStopping(false);
+    }
   };
 
   return (
@@ -198,7 +260,7 @@ export function HistoricalRecordInvitation({
         hasData={!concealed && status.data !== undefined}
         loading={status.isLoading}
         error={concealed || !!status.error || refreshRequired || uncertain}
-        retrying={reading || busy}
+        retrying={reading || busy || stopReview}
         loadingTitle={history("loading")}
         errorTitle={history(concealed ? "invitationDenied" : "invitationRefreshFailed")}
         retryLabel={uncertain ? t("checkReceipt") : history("refreshInvitation")}
@@ -209,6 +271,28 @@ export function HistoricalRecordInvitation({
         {missingReceipt && <p className="mt-2">{t("notRecorded")}</p>}
       </InlineNotice>}
       {!concealed && <>
+        {uncertain && missingReceipt && frozenIntent && <div className="space-y-2">
+          <p className="break-all text-sm">{history("invitationRecipient", { email: frozenIntent.email })}</p>
+          <p className="muted text-sm">{t("exactRetryHelp")}</p>
+          <div className="flex flex-wrap gap-2">
+          <Button disabled={unavailableForAction || !ready || stopReview} onClick={() => {
+            if (unavailableForAction || !ready || stopReview || admitted.current || readAdmission.current) return;
+            admitted.current = true;
+            replaying.current = true;
+            setMissingReceipt(false);
+            setUncertainRevision(null);
+            setError(null);
+            // The server's actor/input-hash fence returns an admitted receipt
+            // without another SMTP attempt, including a late original request.
+            send.mutate(frozenIntent);
+          }}>{t("retryExact")}</Button>
+          <Button ref={stopOpener} variant="danger" disabled={unavailableForAction || !ready || stopReview} onClick={(event) => {
+            if (unavailableForAction || !ready || admitted.current || readAdmission.current || stopAdmission.current) return;
+            stopParent.current = event.currentTarget.closest("dialog");
+            setStopReview(true);
+          }}>{t("stopRequest")}</Button>
+          </div>
+        </div>}
         {receipt && <InlineNotice tone={receipt.status === "PUBLISHED" ? "success" : "warning"} announcement="status">
           {history(`invitation_${receipt.status}`)}
         </InlineNotice>}
@@ -292,8 +376,11 @@ export function HistoricalRecordInvitation({
               if (disabled || !ready || !preview.canInvite || !acknowledged || admitted.current || readAdmission.current) return;
               admitted.current = true;
               operation.current ??= crypto.randomUUID();
+              replaying.current = false;
+              const intent = { sources: sources.map((source) => ({ ...source })), email, reason, fingerprint: preview.fingerprint, operationId: operation.current };
+              setFrozenIntent(intent);
               setError(null);
-              send.mutate({ sources, email, reason, fingerprint: preview.fingerprint, operationId: operation.current });
+              send.mutate(intent);
             }}
           >{history("sendInvitation")}</Button>}
         />}
@@ -301,6 +388,27 @@ export function HistoricalRecordInvitation({
       </>}
       {concealed && <StatePanel kind="denied" title={ui("loadFailed")} />}
       {cancellation.dialog}
+      {/* This named review stays inline: ancestors may independently register the
+          unresolved operation as pending, which would disable a nested modal. */}
+      {stopReview && !concealed && frozenIntent && <div ref={stopReviewNode}
+        className="rounded-lg border border-slate-200 p-4"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!stopAdmission.current) setStopReview(false);
+          }
+        }}
+      >
+        <ChangeReview title={t("stopRequest")}
+          evidence={<p className="break-all text-sm">{history("invitationRecipient", { email: frozenIntent.email })}</p>}
+          consequences={<p className="text-sm">{t("stopRequestHelp")}</p>}
+          actions={<>
+            <Button data-stop-cancel disabled={stopping || stop.isPending} onClick={() => { if (!stopAdmission.current) setStopReview(false); }}>{ui("cancel")}</Button>
+            <Button variant="danger" disabled={unavailableForAction || !ready} onClick={() => void stopOriginal()}>{t("confirmStopRequest")}</Button>
+          </>}
+        />
+      </div>}
     </section>
   );
 }

@@ -362,6 +362,16 @@ const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
   ...REVIEWED_IDENTITY_COLUMNS,
   ...LEGACY_DECLINE_COLUMNS,
 ].sort();
+// Stopped operation authority is additive and permanent. Old backups remain
+// inspectable; a partial or changed closure table is never a reviewed schema.
+const INVITATION_CLOSURE_COLUMNS = "createdAt:timestamp,inputHash:text,issuedById:text,operationId:text,scopeKey:text"
+  .split(",")
+  .map((field) => `HistoricalInvitationOperationClosure|${field.replace(":", "|")}`)
+  .sort();
+const TRANSLATION_INTENT_COLUMNS = "actorId:text,cleared:bool,createdAt:timestamp,draftId:text,inputHash:text,intentId:text,mode:text,operation:text,protocolVersion:int4,status:text"
+  .split(",")
+  .map((field) => `TranslationIntentReceipt|${field.replace(":", "|")}`)
+  .sort();
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -380,6 +390,14 @@ const IMPORT_PROVENANCE_COLUMNS = [
 
 export const reviewedRecoverySchemaMetadata = {
   importProvenanceColumns: IMPORT_PROVENANCE_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
+  translationIntentReceiptColumns: TRANSLATION_INTENT_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
+  historicalInvitationOperationClosureColumns: INVITATION_CLOSURE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
   }),
@@ -411,8 +429,18 @@ export function assertReviewedRecoverySchema(
   columns: Record<string, unknown>[],
   enums: Record<string, unknown>[],
 ) {
+  const translation = columns
+    .filter((row) => row.table_name === "TranslationIntentReceipt")
+    .map((row) => `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`)
+    .sort();
+  operatorAssert(translation.length === 0 || translation.join("\n") === TRANSLATION_INTENT_COLUMNS.join("\n"), "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  const closure = columns
+    .filter((row) => row.table_name === "HistoricalInvitationOperationClosure")
+    .map((row) => `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`)
+    .sort();
+  operatorAssert(closure.length === 0 || closure.join("\n") === INVITATION_CLOSURE_COLUMNS.join("\n"), "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
   const domain = columns
-    .filter((row) => row.table_name !== "_prisma_migrations")
+    .filter((row) => row.table_name !== "_prisma_migrations" && row.table_name !== "HistoricalInvitationOperationClosure" && row.table_name !== "TranslationIntentReceipt")
     .map(
       (row) =>
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
@@ -445,6 +473,7 @@ export function assertReviewedRecoverySchema(
       provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
     "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
   );
+  // Compose the independently reviewed tutoring-era and import-boundary profiles.
   const reviewedDomain = comparedDomain.filter(
     (column) => !column.startsWith("ImportedRecordProvenance|"),
   );
@@ -471,6 +500,8 @@ export function assertReviewedRecoverySchema(
     "UNREVIEWED_RECOVERY_ENUM_SCHEMA",
   );
   return {
+    translationIntentReceipt: translation.length > 0,
+    historicalInvitationOperationClosure: closure.length > 0,
     identityVersion,
     legacySignupDecline: domain.some((column) =>
       column.startsWith("LegacySignupDecline|"),

@@ -288,6 +288,22 @@ delivery evidence. Unknown identity/security schema changes block reconciliation
 Signing-key rotation uses `RECOVERY_PREVIOUS_AUTH_SECRET` and
 `RECOVERY_ROTATED_AUTH_SECRET`; only their fingerprints enter plans and receipts.
 
+Historical invitation operation closures are permanent deny authority. Reconciliation
+compares complete closure evidence when the reviewed additive table exists and refuses
+cutover/rollback when it differs or a live stop would be omitted. It never copies,
+deletes, invalidates or quarantines closures to force agreement. Reviewed older backup
+schemas remain inspectable; absence cannot reopen a stopped operation. See the
+[authority contract](../reference/recovery.md#whole-site-staging-boundary).
+
+Preserve `TranslationIntentReceipt` alongside historical invitation closures in
+complete database backups. Reconciliation verifies each present ledger against
+its exact reviewed schema and immutable database guards before comparing complete
+receipt evidence. Missing or weakened guards and divergent accepted/stopped
+evidence block progress; do not edit or remove either ledger to clear the block.
+An older backup's absent table cannot erase a live terminal boundary. The additive
+translation table alone provides no editor or recovery action; use only controls
+delivered by the matching application release.
+
 Acceptance, cutover and rollback are restricted to synthetic loopback
 `shbs_*_test` environments. `RECOVERY_APPLICATION_URL` identifies a separately
 provisioned read-only application role; `RECOVERY_FRESH_TEST_PASSWORD` is a fresh

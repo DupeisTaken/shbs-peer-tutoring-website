@@ -123,7 +123,17 @@ recipient sees the same exact list before claiming. Original Tutee invitations a
 in-flight deliveries continue through their existing adapter; their tokens retain
 their original purpose, expiry and proof requirements. A lost new invitation response
 is recovered using **Check delivery receipt**, which reads the actor's original
-attempt even if another invitation has since replaced it. It never resends email.
+attempt even after replacement. If no receipt exists, the editor refreshes exact
+invitation status. **Retry this exact invitation** retains the original recipient,
+records, reason and review; an admitted request returns its result without another
+email, including when the delayed original arrives.
+
+**Stop invitation request** opens a separate inline review. Cancel or Escape changes
+nothing. Confirming permanently stops the original request only if delivery was never
+admitted, fencing any late arrival. If admission already won, its result is shown and
+the existing cancellation workflow remains authoritative. Close, Escape, sibling edits
+and new invitations stay protected until the original outcome is resolved. Accepted
+stop refresh failures recover by reads before a fresh invitation can be reviewed.
 
 New displayed invitation codes contain five characters, mixing letters and numbers,
 in a box with a green background. The separate email verification code contains four
@@ -148,7 +158,7 @@ For a new login, enter the invited email and verify the separately emailed code.
 - Email codes last 15 minutes and allow six incorrect attempts. Wait at least one minute before resending; a new code replaces the previous code and completion proof. Repeating successful account creation returns the existing completion receipt without resetting its password.
 - Sending first commits a separate, inactive delivery attempt. The existing invitation, setup challenge and account-review receipt remain usable during SMTP delivery. Only recipient acceptance followed by a fresh authorized, unchanged-record check publishes the candidate and retires its predecessor. SMTP acceptance does not establish inbox delivery.
 - A failed replacement email leaves the complete existing invitation intact. The latest admitted staff replacement defines the intended recipient: it supersedes an older in-flight attempt even if the newer email fails. A late older email cannot become the replacement. Staff may deliberately send another reviewed invitation after checking the displayed result.
-- Delivery results distinguish a published invitation, a failed email, a superseded attempt and an uncertain result. **Refresh invitation status** only reads the committed receipt; it never repeats sending. An interrupted or uncertain attempt remains inactive unless publication already committed. Cancel the displayed pending attempt before deliberately starting again. Another Admin or Head can refresh and cancel a first pending attempt even when no invitation has been published yet. A stale cancellation requires a fresh review after publication or a newer admission.
+- Delivery results distinguish a published invitation, failed email, superseded attempt, uncertain outcome and request stopped before admission. Receipt/status refresh never sends; exact retry retains the operation and cannot send again after admission. A stopped request cannot send later. An admitted uncertain attempt remains protected until receipt recovery or freshly reviewed cancellation; Stop cannot bypass that boundary. Another Admin or Head can inspect and cancel a first pending attempt without a published invitation. Stale cancellation requires fresh review after publication or newer admission.
 - Record edits, new ownership, issuer demotion/suspension, invitation expiry or setup/account-review progress during delivery prevent publication. Accepted mail whose publication rolls back cannot replace the predecessor. A lost publication acknowledgement is reconciled from the durable attempt and active invitation, without replaying SMTP or account setup.
 - The sender's configured AUTH_URL and security email delivery must be available. No production email is used in local verification.
 

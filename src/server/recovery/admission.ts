@@ -342,10 +342,14 @@ async function graph(tx: TransactionDb, actionId: string) {
   // A matching name/function is insufficient: WHEN predicates and UPDATE OF
   // filters can silently omit writes while retaining the expected event mask.
   // Constraint triggers can defer coverage past the planner's transaction reads.
+  // Immutable stops for invitations that never admitted delivery remain effective;
+  // they grant no participation and are never admission compensation targets.
+  // Translation terminal receipts likewise preserve deny/replay evidence; this
+  // exact exception grants no translation compensation or capability handling.
   const missingCoverage = await tx.$queryRaw<
     Array<{ tableName: string }>
   >`SELECT tablename AS "tableName" FROM pg_tables p WHERE schemaname='public'
-    AND tablename NOT IN ('RecoveryAction','RecoveryCheckpoint','RecoveryEvent','RecoveryTrackedEntity','RecoveryFence','RecoveryChange','RecoveryReceipt','RecoveryDeliveryEffect','RecoveryDeliveryCancellation','RecoveryDeliveryCoverage','RecoveryWorkflowDraft',
+    AND tablename NOT IN ('RecoveryAction','RecoveryCheckpoint','RecoveryEvent','RecoveryTrackedEntity','RecoveryFence','RecoveryChange','RecoveryReceipt','RecoveryDeliveryEffect','RecoveryDeliveryCancellation','RecoveryDeliveryCoverage','RecoveryWorkflowDraft','HistoricalInvitationOperationClosure','TranslationIntentReceipt',
       '_prisma_migrations','AuditLog','Notification','EmailDelivery','EmailOutbox','SignupMailAttempt','UsernameNamespaceGuard','SignupQuota','SignupLease','PublicApplicationRateLimit','CaptchaProof','CaptchaGrant','SchedulingMaintenanceState','SchedulingDirtyEvent')
     AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid=format('%I.%I',p.schemaname,p.tablename)::regclass AND t.tgname='recovery_change_journal' AND t.tgenabled IN ('O','A') AND t.tgtype=29 AND t.tgqual IS NULL AND t.tgattr::text='' AND t.tgnargs=0 AND NOT t.tgisinternal AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred AND t.tgfoid=CASE WHEN p.tablename IN ('RetiredHistoryOwnership','HistoryRowOwnership','PersonHistoryCorrectionReceipt','ParticipantConsolidation','PairingExecutionSuccessor','SessionPlanExecution','SessionParticipantExecution','SessionResponseExecution','QualificationTransferGrant','PersonParticipationTransferReceipt','StudentRequestExecutionAssignment') THEN to_regprocedure('recovery_capture_identity_authority()') WHEN p.tablename='PersonPartitionReceipt' THEN to_regprocedure('recovery_capture_person_partition()') WHEN p.tablename IN ('StudentContinuationReceipt','StudentContinuationAssignment','StudentContinuationPairing','SessionPlanContinuationMember') THEN to_regprocedure('recovery_capture_continuation_change()') ELSE to_regprocedure('recovery_capture_change()') END) ORDER BY tablename`;
   const [replication] = await tx.$queryRaw<

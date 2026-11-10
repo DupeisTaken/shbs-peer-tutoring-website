@@ -21,6 +21,7 @@ import {
   type SiteDependencies,
 } from "./operator-site";
 import { assertReviewedRecoverySchema } from "./operator-schema";
+import { readReceiptGuardMetadata } from "./receipt-guard-metadata";
 import {
   appendIdentityEvidence,
   assertIdentityAuthorityClosure,
@@ -377,6 +378,12 @@ const DIVERGENCE_AUTHORITIES = [
   "StudentQuarterBlock",
   "TuteeRequestInvalidity",
   "LegacySignupDecline",
+  // Permanent deny-only receipts must match exactly: the security overlay must
+  // neither drop a stopped operation nor rewrite immutable closure evidence.
+  "HistoricalInvitationOperationClosure",
+  // Accepted/stop evidence is domain authority, never a security overlay or a
+  // capability to expire. Every original receipt field participates in the hash.
+  "TranslationIntentReceipt",
   "StudentRequestReview",
   "MessageTutorAssignment",
   "Pairing",
@@ -415,10 +422,19 @@ export async function readReconciliationSnapshot(
     "SELECT t.typname AS type_name,e.enumlabel AS enum_label FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' ORDER BY t.typname,e.enumsortorder LIMIT 2001",
   );
   operatorAssert(enums.rows.length <= 2000, "SECURITY_SCHEMA_TOO_LARGE");
-  const { identityVersion, legacySignupDecline } = assertReviewedRecoverySchema(
-    schema.rows,
-    enums.rows,
-  );
+  const {
+    identityVersion,
+    legacySignupDecline,
+    historicalInvitationOperationClosure,
+    translationIntentReceipt,
+  } = assertReviewedRecoverySchema(schema.rows, enums.rows);
+  // Validate against known contracts before equality/hashing: identical weakened
+  // guards on both databases must refuse automatic restore and rollback alike.
+  const receiptGuards: Record<string, unknown>[] = [];
+  for (const table of [
+    ...(historicalInvitationOperationClosure ? ["HistoricalInvitationOperationClosure" as const] : []),
+    ...(translationIntentReceipt ? ["TranslationIntentReceipt" as const] : []),
+  ]) receiptGuards.push({ table: `${table}:guard`, fingerprint: planHash(await readReceiptGuardMetadata(db, table)) });
   const trigger =
     await db.query(`SELECT t.tgenabled,t.tgtype,p.proname,pg_get_triggerdef(t.oid) AS definition,pg_get_functiondef(p.oid) AS function
     FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid='public."User"'::regclass AND t.tgname='account_session_version' AND NOT t.tgisinternal`);
@@ -461,10 +477,14 @@ export async function readReconciliationSnapshot(
       operatorAssert(count <= 10000, "SECURITY_MANIFEST_TOO_LARGE");
       referenceIdentities[table] = records.rows.map((row) => String(row.id));
     }
-  const authorityFingerprints: Record<string, unknown>[] = [];
+  const authorityFingerprints: Record<string, unknown>[] = [...receiptGuards];
   for (const table of [
     ...DIVERGENCE_AUTHORITIES.filter(
-      (table) => table !== "LegacySignupDecline" || legacySignupDecline,
+      (table) =>
+        (table !== "LegacySignupDecline" || legacySignupDecline) &&
+        (table !== "HistoricalInvitationOperationClosure" ||
+          historicalInvitationOperationClosure) &&
+        (table !== "TranslationIntentReceipt" || translationIntentReceipt),
     ),
     // A security overlay cannot restore historical financial/workflow records
     // while dropping the operational boundary that keeps them archive-only.

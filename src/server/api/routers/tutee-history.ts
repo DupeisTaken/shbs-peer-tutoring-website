@@ -46,6 +46,7 @@ import {
   exactHistoryInvitationStatus,
   cancelExactHistoryInvitation,
   exactHistoryInvitationReceipt,
+  abandonExactHistoryInvitation,
 } from "~/server/exact-history-invitations";
 
 const detailInput = z.object({
@@ -84,6 +85,10 @@ export const tuteeHistoryRouter = createTRPCRouter({
   inviteExact: adminOnlyProcedure.input(exactHistoryInviteInput).mutation(({ ctx, input }) => {
     limit(ctx.session.user.id);
     return inviteExactHistory(ctx.db, ctx.session.user.id, input);
+  }),
+  abandonExactInvitation: adminOnlyProcedure.input(exactHistoryInviteInput).mutation(({ ctx, input }) => {
+    limit(ctx.session.user.id);
+    return abandonExactHistoryInvitation(ctx.db, ctx.session.user.id, input);
   }),
   exactInvitationStatus: adminOnlyProcedure.input(z.object({ sources: exactHistorySources })).query(({ ctx, input }) =>
     exactHistoryInvitationStatus(ctx.db, ctx.session.user.id, input.sources),

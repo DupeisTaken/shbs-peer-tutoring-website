@@ -97,6 +97,7 @@ test("CLI packaging guard catches omitted recovery acceptance descendants", () =
   for (const omitted of [
     "src/server/recovery/operator-cutover.ts",
     "src/server/recovery/operator-next.ts",
+    "src/server/recovery/receipt-guard-metadata.ts",
     "src/lib/session-identity.ts",
     "src/lib/tutoring-policy.ts",
     "src/server/program/calendar-policy-history.ts",
@@ -104,6 +105,19 @@ test("CLI packaging guard catches omitted recovery acceptance descendants", () =
     assert.ok(graph.files.has(omitted), `${omitted} must be exercised by recovery`);
     assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== omitted)), [omitted]);
   }
+});
+
+test("receipt guard verifier ships at its exact prepared CLI destination", () => {
+  const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+  const missing = "src/server/recovery/receipt-guard-metadata.ts";
+  const graph = runtimeCliGraph("scripts/recovery.ts");
+  assert.match(dockerfile, /^COPY --from=build \/app\/src\/server\/recovery\/receipt-guard-metadata\.ts \/runtime-output\/app\/src\/server\/recovery\/receipt-guard-metadata\.ts\s*$/m);
+  for (const changed of [
+    dockerfile.replace("/runtime-output/app/src/server/recovery/receipt-guard-metadata.ts", "/elsewhere/receipt-guard-metadata.ts"),
+    dockerfile.replace(/^COPY --from=runtime-files --chown=nextjs:nodejs \/runtime-output\/app \.\/\s*$/m, ""),
+  ]) assert.ok(missingRuntimeFiles(graph, runtimeSourceCopies(changed)).includes(missing));
+  const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
+  assert.ok(!runner.includes("/app/src/server/recovery/receipt-guard-metadata.ts"));
 });
 
 test("CLI import discovery validates JSON assets and requires their runtime copy", (t) => {

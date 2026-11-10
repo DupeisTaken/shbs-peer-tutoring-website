@@ -104,6 +104,13 @@ it("restoring an older manual checkpoint stops shared correction notices and pre
   const original = await attendance();
   const manual = await captureRecoveryCheckpoint(db,
     { adapter: "ATTENDANCE", sourceId: original.id }, actor);
+  const stoppedSource = await db.tutee.create({ data: {
+    id: "stopped-invitation-source", englishName: "Synthetic stopped source", status: "INACTIVE",
+  } });
+  const closure = await db.historicalInvitationOperationClosure.create({ data: {
+    operationId: randomUUID(), issuedById: actor.id, inputHash: "c".repeat(64),
+    scopeKey: "synthetic-unadmitted-invitation-scope",
+  } });
   const independent = await db.notification.create({ data: {
     userId: actor.id, title: "Synthetic independent notice", link: "/admin/audit",
   } });
@@ -123,12 +130,18 @@ it("restoring an older manual checkpoint stops shared correction notices and pre
   expect(manualPlan.blockers).toEqual([]);
   expect(manualPlan.dependentEventCount).toBe(1);
   expect(automaticPlan.blockers).toEqual([]);
+  expect(await db.historicalInvitationOperationClosure.findUnique({ where: { operationId: closure.operationId } }))
+    .toEqual(closure);
   const physical = (plan: typeof manualPlan) => plan.delivery.effects.map((effect) =>
     `${effect.notificationId ?? ""}:${effect.deliveryId ?? ""}`).sort();
   expect(manualPlan.delivery.effects.some((effect) => !!effect.deliveryId)).toBe(true);
   expect(physical(manualPlan)).toEqual(physical(automaticPlan));
   const restored = await applyRecoveryCheckpoint(db, intent(manualPlan), actor);
   expect((await db.session.findUniqueOrThrow({ where: { id: original.id } })).endMin).toBe(960);
+  expect(await db.historicalInvitationOperationClosure.findUnique({ where: { operationId: closure.operationId } }))
+    .toEqual(closure);
+  expect((await db.tutee.findUniqueOrThrow({ where: { id: stoppedSource.id } })).status).toBe("INACTIVE");
+  expect(await db.pairingTutee.count({ where: { tuteeId: stoppedSource.id } })).toBe(0);
   const mailIds = manualPlan.delivery.effects.flatMap((effect) => effect.deliveryId ? [effect.deliveryId] : []);
   expect(await db.emailDelivery.count({ where: { id: { in: mailIds }, status: "CANCELLED" } }))
     .toBe(new Set(mailIds).size);

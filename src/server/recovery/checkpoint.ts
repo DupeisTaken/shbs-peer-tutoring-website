@@ -371,9 +371,13 @@ async function graph(tx: TransactionDb, checkpointId: string) {
     events,
     changes: changes.map((change) => ({ ...change, id: change.id.toString() })),
   };
+  // Immutable stops for invitations that never admitted delivery remain effective;
+  // they grant no participation and are never checkpoint compensation targets.
+  // Translation terminal receipts preserve deny/replay evidence independently
+  // of every checkpoint adapter; only this exact metadata table is exempt.
   const coverage = await tx.$queryRaw<Array<{ tableName: string }>>`
     SELECT tablename AS "tableName" FROM pg_tables p WHERE schemaname='public'
-    AND tablename NOT IN ('RecoveryAction','RecoveryCheckpoint','RecoveryEvent','RecoveryTrackedEntity','RecoveryFence','RecoveryChange','RecoveryReceipt','RecoveryDeliveryEffect','RecoveryDeliveryCancellation','RecoveryDeliveryCoverage','RecoveryWorkflowDraft','_prisma_migrations','AuditLog','Notification','EmailDelivery','EmailOutbox','SignupMailAttempt','UsernameNamespaceGuard','SignupQuota','SignupLease','PublicApplicationRateLimit','CaptchaProof','CaptchaGrant','SchedulingMaintenanceState','SchedulingDirtyEvent')
+    AND tablename NOT IN ('RecoveryAction','RecoveryCheckpoint','RecoveryEvent','RecoveryTrackedEntity','RecoveryFence','RecoveryChange','RecoveryReceipt','RecoveryDeliveryEffect','RecoveryDeliveryCancellation','RecoveryDeliveryCoverage','RecoveryWorkflowDraft','HistoricalInvitationOperationClosure','TranslationIntentReceipt','_prisma_migrations','AuditLog','Notification','EmailDelivery','EmailOutbox','SignupMailAttempt','UsernameNamespaceGuard','SignupQuota','SignupLease','PublicApplicationRateLimit','CaptchaProof','CaptchaGrant','SchedulingMaintenanceState','SchedulingDirtyEvent')
     AND NOT EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid=format('%I.%I',p.schemaname,p.tablename)::regclass
       AND t.tgname='recovery_change_journal' AND t.tgenabled IN ('O','A') AND t.tgtype=29 AND t.tgqual IS NULL AND t.tgattr::text='' AND t.tgnargs=0 AND NOT t.tgisinternal
       AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred

@@ -30,10 +30,14 @@ export const exactHistoryInviteInput = exactHistoryPreviewInput.extend({
 });
 type PreviewInput = z.infer<typeof exactHistoryPreviewInput>;
 type InviteInput = z.infer<typeof exactHistoryInviteInput>;
+type ClosedReceipt = { attemptId: string; status: "ABANDONED"; expiresAt: null };
+export type ExactHistoryInvitationReceipt = HistoryInvitationReceipt | ClosedReceipt;
 type Block = "GROUP_REVIEW_REQUIRED" | "NOT_HISTORICAL" | "CURRENT_WORK" | "ACCOUNT_CONFLICT" | "ACCOUNT_NOT_READY";
 const stale = () => new TRPCError({ code: "CONFLICT", message: "HISTORY_STALE" });
 const invalid = () => new TRPCError({ code: "NOT_FOUND", message: "HISTORY_INVITATION_INVALID" });
 const scopeKey = (sources: ExactHistorySource[]) => digest(JSON.stringify(exactHistorySources.parse(sources)));
+const operationHash = (input: InviteInput) => digest(JSON.stringify({ ...input, sources: exactHistorySources.parse(input.sources) }));
+const closedReceipt = (operationId: string): ClosedReceipt => ({ attemptId: operationId, status: "ABANDONED", expiresAt: null });
 
 /** Freeze exact source IDs and their ownership/group generations. Directory expansion
  * is evidence for conflict detection only; it never expands the invitation's grants. */
@@ -130,6 +134,10 @@ async function predecessorFingerprint(db: DomainDb, invite: HistoricalRecordInvi
 export async function exactHistoryInvitationReceipt(db: DomainDb, actorId: string, operationId: string) {
   await requireHistoryManager(db, actorId);
   const attempt = await db.historicalRecordInvitationAttempt.findUnique({ where: { id: operationId } });
+  if (!attempt) {
+    const closure = await db.historicalInvitationOperationClosure.findUnique({ where: { operationId } });
+    return closure?.issuedById === actorId ? closedReceipt(operationId) : null;
+  }
   if (attempt?.issuedById !== actorId) return null;
   const live = attempt.status === "PUBLISHED" ? await db.historicalRecordInvitation.findUnique({ where: { scopeKey: attempt.scopeKey } }) : null;
   const receipt = historyInvitationReceipt(attempt);
@@ -170,15 +178,53 @@ export async function cancelExactHistoryInvitation(db: DomainDb, actorId: string
   });
 }
 
-export async function inviteExactHistory(db: DomainDb, actorId: string, input: InviteInput): Promise<HistoryInvitationReceipt> {
+/** A fresh stop grants nothing, so stale or deleted sources do not prevent it.
+ * The global namespace lock in lockScope serializes both tables even when a
+ * colliding UUID supplies different source IDs. Keep the established lock order. */
+export async function abandonExactHistoryInvitation(db: DomainDb, actorId: string, input: InviteInput): Promise<ExactHistoryInvitationReceipt> {
+  const inputHash = operationHash(input);
+  return inTransaction(db, async (tx) => {
+    await lockScope(tx, input.sources, [actorId], input.email);
+    await requireHistoryManager(tx, actorId);
+    const attempt = await tx.historicalRecordInvitationAttempt.findUnique({ where: { id: input.operationId } });
+    if (attempt) {
+      if (attempt.issuedById !== actorId || attempt.inputHash !== inputHash) throw stale();
+      // Admission already won. Do not claim to stop externally accepted SMTP,
+      // supersede another attempt, or touch a published predecessor.
+      return (await exactHistoryInvitationReceipt(tx, actorId, input.operationId))!;
+    }
+    const previous = await tx.historicalInvitationOperationClosure.findUnique({ where: { operationId: input.operationId } });
+    if (previous) {
+      if (previous.issuedById !== actorId || previous.inputHash !== inputHash) throw stale();
+      return closedReceipt(input.operationId);
+    }
+    await tx.historicalInvitationOperationClosure.create({ data: {
+      operationId: input.operationId, issuedById: actorId, inputHash, scopeKey: scopeKey(input.sources),
+    } });
+    await tx.auditLog.create({ data: {
+      userId: actorId, entity: "HistoricalInvitationOperationClosure", entityId: input.operationId,
+      operation: "tuteeHistory.abandonExactInvitation", kind: "ACTION", action: "Stopped an unadmitted historical invitation request",
+      details: { sources: input.sources, outcome: "ABANDONED", changeApplied: true },
+    } });
+    return closedReceipt(input.operationId);
+  });
+}
+
+export async function inviteExactHistory(db: DomainDb, actorId: string, input: InviteInput): Promise<ExactHistoryInvitationReceipt> {
   const owner = afterCommitScope.getStore();
   if (((!("$connect" in db) || typeof db.$connect !== "function") || databaseScope.getStore()) && (!owner?.database || owner.committed)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "HISTORY_DELIVERY_COMMIT_REQUIRED" });
-  const inputHash = digest(JSON.stringify({ ...input, sources: exactHistorySources.parse(input.sources) }));
+  const inputHash = operationHash(input);
   // Even an explicit duplicate mutation is read-only after its first admission.
   const previous = await db.historicalRecordInvitationAttempt.findUnique({ where: { id: input.operationId } });
   if (previous) {
     if (previous.issuedById !== actorId || previous.inputHash !== inputHash) throw stale();
     return (await exactHistoryInvitationReceipt(db, actorId, input.operationId))!;
+  }
+  const closure = await db.historicalInvitationOperationClosure.findUnique({ where: { operationId: input.operationId } });
+  if (closure) {
+    await requireHistoryManager(db, actorId);
+    if (closure.issuedById !== actorId || closure.inputHash !== inputHash) throw stale();
+    return closedReceipt(input.operationId);
   }
   const origin = process.env.AUTH_URL;
   if (!origin || !isEmailDeliveryAvailable("SECURITY")) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "HISTORY_EMAIL_UNAVAILABLE" });
@@ -193,7 +239,15 @@ export async function inviteExactHistory(db: DomainDb, actorId: string, input: I
     const existing = await tx.historicalRecordInvitationAttempt.findUnique({ where: { id: input.operationId } });
     if (existing) {
       if (existing.issuedById !== actorId || existing.inputHash !== inputHash) throw stale();
-      return { attempt: existing, fresh: false };
+      return { kind: "attempt" as const, attempt: existing, fresh: false };
+    }
+    // Both stop and admission hold the same global namespace lock. A missing
+    // fast-path receipt cannot bypass a stop committed while this request waited.
+    const stopped = await tx.historicalInvitationOperationClosure.findUnique({ where: { operationId: input.operationId } });
+    if (stopped) {
+      await requireHistoryManager(tx, actorId);
+      if (stopped.issuedById !== actorId || stopped.inputHash !== inputHash) throw stale();
+      return { kind: "closed" as const };
     }
     const review = await invitationPreview(tx, actorId, input);
     if (review.fingerprint !== input.fingerprint) throw stale();
@@ -210,8 +264,9 @@ export async function inviteExactHistory(db: DomainDb, actorId: string, input: I
       reason: input.reason, expiresAt: new Date(Date.now() + 7 * 86400000),
     } });
     await tx.auditLog.create({ data: { userId: actorId, entity: "HistoricalRecordInvitation", entityId: key, operation: "tuteeHistory.inviteExact", kind: "ACTION", action: "Admitted exact historical invitation", details: { attemptId: attempt.id, sources: input.sources, reason: input.reason, outcome: "DELIVERY_ADMITTED", changeApplied: false } } });
-    return { attempt, fresh: true };
+    return { kind: "attempt" as const, attempt, fresh: true };
   });
+  if (admitted.kind === "closed") return closedReceipt(input.operationId);
   if (!admitted.fresh) return (await exactHistoryInvitationReceipt(deliveryDb, actorId, input.operationId))!;
   const receipt = historyInvitationReceipt(admitted.attempt);
   const scope = historyInvitationScope(exactHistorySources.parse(admitted.attempt.sources));

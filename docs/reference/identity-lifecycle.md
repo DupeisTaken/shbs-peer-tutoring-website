@@ -255,9 +255,23 @@ the explicit adapter in [history-account-setup](../../src/server/history-account
 Delivery commits an inert `HistoricalRecordInvitationAttempt` before SMTP, then
 rechecks authority, scope and predecessor setup/envelope progress before publication.
 A failed or superseded candidate retains the predecessor. The actor-bound operation
-receipt remains readable after later replacements; a lost response is reconciled by
-read, never by sending again. Credentials still require the separate mailbox challenge
-and shared account invitation review. Creating a neutral login does not claim sources.
+receipt remains readable after later replacements. Lost responses recover through
+receipt and fresh scope reads. With no receipt, explicit exact retry retains the
+original operation ID, recipient, sources, reason and review fingerprint; an admitted
+request returns its receipt without repeating SMTP, including a delayed original.
+Absence or rejected retry never authorizes edited input or a new operation.
+
+The named **Stop invitation request** review can atomically record an immutable,
+actor/full-input-bound `HistoricalInvitationOperationClosure` before admission.
+Admission and stop share the global namespace lock even across different source
+scopes. A stopped late original returns terminal `ABANDONED`; an already-admitted
+attempt wins and returns unchanged. Stale/deleted source eligibility cannot prevent
+this deny-only stop. Lost stop responses recover through the same actor-bound receipt;
+accepted stop synchronization retries reads before a fresh invitation review. Unknown
+SMTP retains the existing reviewed cancellation boundary. Closures contain no mailbox,
+source detail, token or access grant and remain permanent backup/recovery authority.
+Credentials still need separate mailbox proof and shared account review; a neutral
+login does not claim sources. See the [staff procedure](../guides/historical-participant-transition.md#invite-an-alumnus-without-a-login).
 
 Both legacy and exact claims atomically write `HistoricalRecordClaimReceipt` with
 ownership and audit. It stores a token digest, exact source IDs and the receiving

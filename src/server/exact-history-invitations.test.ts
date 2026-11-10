@@ -15,7 +15,9 @@ import { startHistoryAccount, verifyHistoryAccount, completeHistoryAccount } fro
 import { issueHistoryAccountInvitation, redeemAccountInvitation } from "./auth/account-invitations";
 import { historyTokenDigest } from "./tutee-history";
 import { databaseScope } from "./db-scope";
-import { inviteExactHistory, type ExactHistorySource } from "./exact-history-invitations";
+import { abandonExactHistoryInvitation, inviteExactHistory, type ExactHistorySource } from "./exact-history-invitations";
+import { lockEntity } from "./transactions";
+import { lockUsernameNamespace } from "./auth/username";
 import { previewTutorHistory, linkTutorHistory } from "./tutor-history";
 
 const sources: ExactHistorySource[] = [{ kind: "TUTOR", id: "tutor" }, { kind: "TUTEE", id: "tutee" }];
@@ -62,7 +64,7 @@ beforeEach(async () => {
   actorId = `exact-manager-${randomUUID()}`;
   vi.stubEnv("AUTH_URL", "https://history.example.test");
   mail.send.mockReset().mockResolvedValue(undefined);
-  mail.available.mockReturnValue(true);
+  mail.available.mockReset().mockReturnValue(true);
   await db.user.createMany({ data: [
     { id: actorId, email: `${actorId}@example.test`, name: "Archive Manager", role: "ADMIN", emailVerifiedAt: new Date(), passwordHash: hashPassword(password) },
     { id: "recipient", email, name: "Archive Recipient", role: "STUDENT", tuteeMember: false, tutorAccessRevoked: true, emailVerifiedAt: new Date(), passwordHash: hashPassword(password) },
@@ -291,6 +293,192 @@ it("recovers actor-bound receipts after later replacements and never resends an 
   await expect(caller().tuteeHistory.inviteExact({ ...first.payload, reason: "Different operation payload must be rejected" })).rejects.toThrow("HISTORY_STALE");
 });
 
+it("returns the same admitted receipt when an exact replay races an in-flight SMTP delivery", async () => {
+  const payload = await input();
+  const started = gate();
+  const release = gate();
+  mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+  const original = caller().tuteeHistory.inviteExact(payload);
+  const settled = Promise.allSettled([original]);
+  try {
+    await entered(started.promise);
+    expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
+    expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
+    await expect(caller().tuteeHistory.inviteExact({ ...payload, reason: "A changed reason must never share the same operation" })).rejects.toThrow("HISTORY_STALE");
+    expect(await db.historicalRecordInvitationAttempt.count()).toBe(1);
+    expect(await db.historicalRecordInvitation.count()).toBe(0);
+    expect(mail.send).toHaveBeenCalledTimes(1);
+  } finally { release.open(); await settled; }
+  expect(await original).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
+  expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
+  expect(mail.send).toHaveBeenCalledTimes(1);
+});
+
+it("admits one exact retry after missing receipts and deduplicates the original request arriving late", async () => {
+  const payload = await input();
+  const originalArrival = gate();
+  const started = gate();
+  const release = gate();
+  // Model a request held before domain admission rather than treating a missing
+  // receipt as proof that it can never reach the server.
+  const original = (async () => { await originalArrival.promise; return caller().tuteeHistory.inviteExact(payload); })();
+  const settledOriginal = Promise.allSettled([original]);
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toBeNull();
+    }
+    expect(await caller().tuteeHistory.exactInvitationStatus({ sources })).toBeNull();
+    expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
+    expect(mail.send).not.toHaveBeenCalled();
+    mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+    const replay = caller().tuteeHistory.inviteExact(payload);
+    const settledReplay = Promise.allSettled([replay]);
+    try {
+      await entered(started.promise);
+      originalArrival.open();
+      expect(await original).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
+      expect(await db.historicalRecordInvitationAttempt.count()).toBe(1);
+      expect(mail.send).toHaveBeenCalledTimes(1);
+    } finally { release.open(); await settledReplay; }
+    expect(await replay).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
+  } finally { originalArrival.open(); release.open(); await settledOriginal; }
+  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
+  expect(await db.historicalRecordInvitationAttempt.count()).toBe(1);
+  expect(await db.historicalRecordInvitation.count()).toBe(1);
+  expect(mail.send).toHaveBeenCalledTimes(1);
+});
+
+it("permanently stops a stale never-admitted operation even after a source is deleted, without creating a delivery or grant", async () => {
+  const payload = await input();
+  await db.person.update({ where: { id: "archive-group" }, data: { revision: { increment: 1 } } });
+  await db.tutee.delete({ where: { id: "tutee" } });
+  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toBeNull();
+  const stopped = { attemptId: payload.operationId, status: "ABANDONED", expiresAt: null };
+  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toEqual(stopped);
+  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toEqual(stopped);
+  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toEqual(stopped);
+  // Even unavailable delivery cannot hide the terminal stop or make a late
+  // original request acquire a different delivery operation.
+  mail.available.mockReturnValue(false);
+  expect(await caller().tuteeHistory.inviteExact(payload)).toEqual(stopped);
+  expect(await db.historicalInvitationOperationClosure.count()).toBe(1);
+  expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
+  expect(await db.historicalRecordInvitation.count()).toBe(0);
+  expect(await db.auditLog.count({ where: {
+    operation: "tuteeHistory.abandonExactInvitation", entity: "HistoricalInvitationOperationClosure", entityId: payload.operationId,
+    AND: [
+      { details: { path: ["outcome"], equals: "ABANDONED" } },
+      { details: { path: ["changeApplied"], equals: true } },
+    ],
+  } })).toBe(1);
+  expect(await caller().tuteeHistory.exactInvitationStatus({ sources })).toBeNull();
+  expect(mail.send).not.toHaveBeenCalled();
+});
+
+it("binds stopped operation receipts to the issuing actor and every original input without exposing mailbox details", async () => {
+  const payload = await input([{ kind: "TUTOR", id: "tutor" }]);
+  await caller().tuteeHistory.abandonExactInvitation(payload);
+  await db.user.update({ where: { id: "other" }, data: { role: "ADMIN" } });
+  expect(await caller("other").tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toBeNull();
+  await expect(caller("other").tuteeHistory.abandonExactInvitation(payload)).rejects.toThrow("HISTORY_STALE");
+  await expect(caller("other").tuteeHistory.inviteExact(payload)).rejects.toThrow("HISTORY_STALE");
+  for (const changed of [
+    { ...payload, reason: "A different justification cannot reuse the stopped operation" },
+    { ...payload, email: "different@example.test" },
+    { ...payload, sources: [{ kind: "TUTEE" as const, id: "tutee" }] },
+    { ...payload, fingerprint: "b".repeat(64) },
+  ]) {
+    await expect(caller().tuteeHistory.abandonExactInvitation(changed)).rejects.toThrow("HISTORY_STALE");
+    await expect(caller().tuteeHistory.inviteExact(changed)).rejects.toThrow("HISTORY_STALE");
+  }
+  const row = await db.historicalInvitationOperationClosure.findUniqueOrThrow({ where: { operationId: payload.operationId } });
+  expect(Object.keys(row).sort()).toEqual(["createdAt", "inputHash", "issuedById", "operationId", "scopeKey"]);
+  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toEqual({ attemptId: payload.operationId, status: "ABANDONED", expiresAt: null });
+  expect(mail.send).not.toHaveBeenCalled();
+  expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
+  await db.user.update({ where: { id: actorId }, data: { role: "STUDENT" } });
+  await expect(inviteExactHistory(db, actorId, payload)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(abandonExactHistoryInvitation(db, actorId, payload)).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+it.each([false, true])("serializes a stop winner against a request already past its missing-receipt fast path (different source scope: %s)", async (differentScope) => {
+  const payload = await input([{ kind: "TUTOR", id: "tutor" }]);
+  const originalInput = differentScope
+    ? { ...await input([{ kind: "TUTEE", id: "tutee" }]), operationId: payload.operationId }
+    : payload;
+  const passedFastPath = gate();
+  let original!: ReturnType<typeof inviteExactHistory>;
+  let observed: Promise<PromiseSettledResult<Awaited<ReturnType<typeof inviteExactHistory>>>[]> | undefined;
+  try {
+    await db.$transaction(async (tx) => {
+      // Hold the established period -> namespace order. The original passes
+      // the missing closure read, then waits for this transaction to commit.
+      await lockEntity(tx, "program:period");
+      await lockUsernameNamespace(tx);
+      mail.available.mockImplementationOnce(() => { passedFastPath.open(); return true; });
+      original = inviteExactHistory(db, actorId, originalInput);
+      observed = Promise.allSettled([original]);
+      await entered(passedFastPath.promise);
+      expect(await abandonExactHistoryInvitation(tx, actorId, payload)).toMatchObject({ status: "ABANDONED" });
+    });
+  } finally { if (observed) await observed; }
+  if (differentScope) await expect(original).rejects.toThrow("HISTORY_STALE");
+  else expect(await original).toMatchObject({ attemptId: payload.operationId, status: "ABANDONED" });
+  expect(await db.historicalInvitationOperationClosure.count()).toBe(1);
+  expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
+  expect(mail.send).not.toHaveBeenCalled();
+});
+
+it("returns the original admitted receipt when SMTP admission wins a stop race and leaves its predecessor untouched", async () => {
+  await invite();
+  const predecessor = await grant();
+  const payload = await input();
+  const started = gate();
+  const release = gate();
+  mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+  const original = caller().tuteeHistory.inviteExact(payload);
+  const observed = Promise.allSettled([original]);
+  try {
+    await entered(started.promise);
+    expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
+    const differentScope = { ...await input([{ kind: "TUTOR", id: "tutor" }]), operationId: payload.operationId };
+    await expect(caller().tuteeHistory.abandonExactInvitation(differentScope)).rejects.toThrow("HISTORY_STALE");
+    await expect(caller().tuteeHistory.abandonExactInvitation({ ...payload, reason: "A changed stop intent cannot alter an admitted request" })).rejects.toThrow("HISTORY_STALE");
+    expect(await db.historicalInvitationOperationClosure.count()).toBe(0);
+    expect(await grant()).toEqual(predecessor);
+    expect(await db.historicalRecordInvitationAttempt.findUnique({ where: { id: payload.operationId } })).toMatchObject({ status: "ADMITTED" });
+    expect(mail.send).toHaveBeenCalledTimes(2);
+  } finally { release.open(); await observed; }
+  expect(await original).toMatchObject({ status: "PUBLISHED" });
+  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toMatchObject({ status: "PUBLISHED" });
+  expect(mail.send).toHaveBeenCalledTimes(2);
+});
+
+it.each(["demoted", "suspended"] as const)("does not create stop authority for a %s issuer", async (change) => {
+  const payload = await input();
+  await db.user.update({ where: { id: actorId }, data: change === "demoted" ? { role: "STUDENT" } : { suspendedAt: new Date() } });
+  await expect(abandonExactHistoryInvitation(db, actorId, payload)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.historicalInvitationOperationClosure.count()).toBe(0);
+  expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
+  expect(mail.send).not.toHaveBeenCalled();
+});
+
+it("commits stop authority atomically with audit and keeps the resulting closure immutable", async () => {
+  const payload = await input();
+  await db.$executeRawUnsafe(`CREATE FUNCTION exact_history_stop_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='tuteeHistory.abandonExactInvitation' THEN RAISE EXCEPTION 'Injected stop failure'; END IF; RETURN NEW; END $$`);
+  try {
+    await db.$executeRawUnsafe(`CREATE TRIGGER exact_history_stop_failure BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION exact_history_stop_failure()`);
+    try { await expect(caller().tuteeHistory.abandonExactInvitation(payload)).rejects.toBeDefined(); }
+    finally { await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS exact_history_stop_failure ON "AuditLog"`); }
+  } finally { await db.$executeRawUnsafe(`DROP FUNCTION exact_history_stop_failure()`); }
+  expect(await db.historicalInvitationOperationClosure.count()).toBe(0);
+  await caller().tuteeHistory.abandonExactInvitation(payload);
+  await expect(db.historicalInvitationOperationClosure.delete({ where: { operationId: payload.operationId } })).rejects.toThrow("Historical invitation operation closures are immutable");
+  await expect(db.historicalInvitationOperationClosure.update({ where: { operationId: payload.operationId }, data: { inputHash: "changed" } })).rejects.toThrow("Historical invitation operation closures are immutable");
+  expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({ status: "ABANDONED" });
+  expect(mail.send).not.toHaveBeenCalled();
+});
+
 it("lets a newer failed intent supersede a slow accepted send while preserving the published predecessor", async () => {
   await invite();
   const before = await grant();
@@ -379,6 +567,7 @@ it("rolls back final publication atomically when audit fails and read recovery d
   expect(result!.receipt.status).toBe("UNCERTAIN");
   expect(await grant()).toEqual(before);
   expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: result!.payload.operationId })).toMatchObject({ status: "UNCERTAIN" });
+  expect(await caller().tuteeHistory.inviteExact(result!.payload)).toMatchObject({ attemptId: result!.payload.operationId, status: "UNCERTAIN" });
   expect(mail.send).toHaveBeenCalledTimes(2);
 });
 

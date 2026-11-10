@@ -234,7 +234,7 @@
     "acknowledge": "我已核实收件人及每条列出的原始记录。",
     "checkReceipt": "查询发送回执",
     "uncertain": "发送结果尚未确定。开始另一封邀请前，请先查询已保存的回执。",
-    "notRecorded": "暂时没有完成回执。请稍后再次查询；重新发送可能重复正在处理的邮件。",
+    "notRecorded": "暂时没有回执。查询或重试时，请保持原邀请内容不变。",
     "blocked": {
       "GROUP_REVIEW_REQUIRED": "邀请前请完成当前参与审核。",
       "NOT_HISTORICAL": "所选记录必须全部为历史记录。",
@@ -242,7 +242,12 @@
       "ACCOUNT_CONFLICT": "归属冲突须由管理员审核更正或合并。",
       "ACCOUNT_NOT_READY": "现有归属账号需先完成验证设置或找回流程。",
       "UNKNOWN": "发送前需要进一步审核。"
-    }
+    },
+    "retryExact": "原样重试此邀请",
+    "exactRetryHelp": "重试将保留原收件人、记录和原因。如果请求已受理，重试只会查询保存的结果，不会再次发送邮件。",
+    "stopRequest": "停止邀请请求",
+    "stopRequestHelp": "在发送开始前停止原请求，包括稍后才到达的同一请求。如果发送已开始，此操作只会查询保存的结果。现有邀请及其他请求均会保留。",
+    "confirmStopRequest": "停止此邀请请求"
   },
   "personParticipation": {
     "availableAt": "最早审核时间：{date}",
@@ -4109,6 +4114,8 @@
         "MonthlyHoursReport": "月度服务时数报告",
         "SchoolHoursSchedule": "学校报告计划",
         "SchoolHoursReport": "个人学校服务时数报告",
+        "TranslationIntentReceipt": "翻译请求回执",
+        "HistoricalInvitationOperationClosure": "历史记录邀请停止回执",
         "ProgramCalendarPolicyRevision": "辅导日期规则修订记录",
         "ImportedRecordProvenance": "档案导入来源记录"
       },
@@ -5643,7 +5650,8 @@
     "historyAccessLost": "此历史记录已无法访问。请刷新以确认当前访问权限。",
     "recordDetailsLabel": "查看历史：{name} · 记录 {id}",
     "recordedDateRange": "辅导日期：{first} 至 {last}",
-    "recordedDatesUnknown": "辅导日期未记录"
+    "recordedDatesUnknown": "辅导日期未记录",
+    "invitation_ABANDONED": "此邀请请求已在发送开始前停止，之后也不会发送。"
   },
   "schoolDeparture": {
     "title": "离校状态",
