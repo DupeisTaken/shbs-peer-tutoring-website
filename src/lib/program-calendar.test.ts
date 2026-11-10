@@ -4,6 +4,12 @@ import { programCalendarWrite } from "./program-calendar";
 const notice = { date: "2026-10-12", reason: "Exam week", expectedVersion: 0 };
 
 describe("inclusive program calendar ranges", () => {
+  it("accepts only explicit supported effects and leaves legacy intent absent", () => {
+    expect(programCalendarWrite.parse(notice).schedulingEffect).toBeUndefined();
+    for (const schedulingEffect of ["NOTICE", "PAUSE_REGULAR"])
+      expect(programCalendarWrite.parse({ ...notice, schedulingEffect }).schedulingEffect).toBe(schedulingEffect);
+    expect(programCalendarWrite.safeParse({ ...notice, schedulingEffect: "CANCEL_ALL" }).success).toBe(false);
+  });
   it("normalizes legacy one-day inputs and retains explicit inclusive endpoints", () => {
     expect(programCalendarWrite.parse(notice).endDate).toBe(notice.date);
     expect(

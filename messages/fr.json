@@ -14,7 +14,7 @@
     "oneFlow": "Accord individuel : première offre, autre horaire du participant, puis offre finale du tuteur. Un refus final annule seulement cette séance du participant.",
     "allFlow": "Tous doivent accepter le dernier horaire. Chaque personne peut refuser une fois en proposant une alternative. Un ancien accord ne vaut pas pour un nouvel horaire. Une reprogrammation individuelle est ensuite possible.",
     "viewSessions": "Voir les séances datées",
-    "explicitBy": "Un accord explicite est requis avant le {deadline}. Le silence ne vaut pas accord pour ce changement à court préavis.",
+    "explicitBy": "Un accord explicite est requis avant le {deadline}. Le silence ne vaut pas acceptation de cette proposition.",
     "reload": "Recharger les données actuelles et abandonner ce brouillon",
     "messageUnavailable": "La messagerie directe est indisponible pour cette séance. Vérifiez vos droits ou contactez la gestion.",
     "calendarSubscription": "Abonnement au calendrier",
@@ -75,6 +75,7 @@
     "chooseLearner": "Choisir un participant",
     "scopeHelp": "Le mode individuel ne change que cette séance du participant choisi. Le mode collectif exige l’accord de tous sur le dernier horaire.",
     "location": "Lieu",
+    "locationUnavailable": "Salle indisponible. Actualise les détails avant de donner ton accord.",
     "sameRoom": "Conserver la salle prévue",
     "online": "En ligne",
     "noRoom": "Sans salle physique",
@@ -146,7 +147,14 @@
     "automaticRoom": "En présentiel — salle attribuée automatiquement",
     "checkingLocation": "Vérification de l’heure et du lieu…",
     "allocationFailed": "Impossible de confirmer l’heure et le lieu. Vérifiez la séance, essayez un autre horaire ou En ligne, puis vérifiez à nouveau.",
-    "roomReviewHelp": "La salle est revérifiée à l’envoi. Si elle est indisponible, vérifiez une nouvelle attribution."
+    "roomReviewHelp": "La salle est revérifiée à l’envoi. Si elle est indisponible, vérifiez une nouvelle attribution.",
+    "tutoringPaused": "Tutorat régulier suspendu",
+    "tutoringPausedHelp": "Cette séance régulière est suspendue. Aucune présence n’est requise. Une exception nécessite l’accord explicite de chaque participant.",
+    "arrangeException": "Prévoir une exception",
+    "requiresExplicit": "Un accord explicite est nécessaire ; le silence ne vaut pas acceptation de cette offre.",
+    "explicitExceptionHelp": "Cette exception nécessite l’accord explicite du tuteur et de chaque élève participant. Sans réponse, il n’y a pas d’accord.",
+    "tutoringPauseProposal": "Le tutorat régulier est suspendu à cette date. Cette proposition ne peut continuer que comme exception explicitement convenue.",
+    "exceptionScheduled": "Exception convenue"
   },
   "nextRecruitment": {
     "savedForTarget": "Ouverture enregistrée pour {name}.",
@@ -4100,7 +4108,8 @@
         "MonthlyHoursSchedule": "Planification des rapports mensuels",
         "MonthlyHoursReport": "Rapport mensuel des heures de service",
         "SchoolHoursSchedule": "Calendrier des rapports scolaires",
-        "SchoolHoursReport": "Rapport individuel des heures pour l’école"
+        "SchoolHoursReport": "Rapport individuel des heures pour l’école",
+        "ProgramCalendarPolicyRevision": "Révision de la règle des dates de tutorat"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Confirmation de l’e-mail d’inscription publique",
@@ -4491,7 +4500,9 @@
         "linkVersion": "Version du lien du rapport",
         "linkRevokedAt": "Date de révocation du lien du rapport",
         "schoolHoursReportId": "Identifiant du rapport scolaire",
-        "schoolHoursReport": "Rapport scolaire"
+        "schoolHoursReport": "Rapport scolaire",
+        "schedulingEffect": "Effet sur la planification",
+        "tutoringPauseSuppressed": "Tutorat régulier suspendu"
       },
       "enums": {
         "Role": {
@@ -6067,8 +6078,8 @@
     "layout": "Enregistrer ne concerne que cette mise en page."
   },
   "programCalendar": {
-    "title": "Dates sans tutorat",
-    "informational": "Dates et motifs communiqués à titre informatif. Ces avis ne limitent pas la saisie des présences et ne modifient pas le calendrier scolaire utilisé pour les recours.",
+    "title": "Informations et suspensions du tutorat",
+    "informational": "Chaque période est une information ou une suspension des séances régulières. Les suspensions autorisent des exceptions explicitement convenues et ne modifient ni le calendrier scolaire ni les délais de recours.",
     "refresh": "Actualiser",
     "reload": "Recharger le brouillon",
     "loadFailed": "Impossible de charger les avis de tutorat.",
@@ -6091,7 +6102,23 @@
     "saved": "Avis enregistré.",
     "saveFailed": "Impossible d’enregistrer l’avis.",
     "refreshFailed": "L’avis a été enregistré, mais la liste à jour n’a pas pu être chargée. Actualisez pour synchroniser sans enregistrer à nouveau.",
-    "details": "Voir les détails"
+    "details": "Voir les détails",
+    "schedulingEffect": "Effet sur la planification",
+    "noticeEffect": "Information uniquement",
+    "pauseEffect": "Suspendre les séances régulières",
+    "noticeHelp": "Affiche une information sans modifier les séances datées.",
+    "pauseHelp": "Les séances régulières sont suspendues. Les exceptions nécessitent l’accord explicite du tuteur et de chaque élève participant ; le silence ne vaut pas accord. Les jours scolaires et les délais de recours restent indépendants.",
+    "removePauseHelp": "Supprimer cette suspension. Les engagements réguliers futurs admissibles pourront être rétablis après vérification des autres restrictions et conflits. Les séances commencées et les présences enregistrées restent inchangées.",
+    "reviewImpact": "Vérifier l’effet sur la planification",
+    "impactTitle": "Vérifier les engagements concernés",
+    "impactFailed": "Impossible de vérifier les changements de planning. Aucun changement n’a été appliqué. Réessaie la vérification.",
+    "impactConflict": "Cet avis a changé. Recharge les détails actuels avant de vérifier à nouveau.",
+    "impactScope": "Aperçu des engagements futurs existants des élèves selon la règle résultante, y compris ceux déjà suspendus. Les élèves d’une même séance sont comptés séparément ; les récurrences futures suivent aussi cette règle.",
+    "impactPause": "Engagements réguliers suspendus selon la règle résultante : {count}",
+    "impactRetain": "Exceptions explicitement convenues maintenues : {count}",
+    "impactConfirm": "Confirmation explicite nécessaire : {count}",
+    "impactRestore": "Candidats au rétablissement : {count}",
+    "impactRule": "L’enregistrement vérifie à nouveau les accords et conflits actuels. Les séances commencées et les présences enregistrées restent inchangées."
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
@@ -7211,7 +7238,7 @@
   "schoolCalendar": {
     "title": "Calendrier scolaire",
     "help": "Définissez les fermetures et le jour d’emploi du temps appliqué à une date. Les autres dates suivent le calendrier scolaire du lundi au vendredi.",
-    "noticeDistinction": "Les avis de jours sans tutorat sont des informations distinctes et ne modifient pas ce calendrier scolaire.",
+    "noticeDistinction": "Les informations et suspensions du tutorat ne modifient ni les jours scolaires, ni les horaires applicables, ni le décompte des jours de recours.",
     "add": "Ajouter une exception",
     "date": "Date réelle",
     "timetable": "Emploi du temps",

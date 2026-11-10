@@ -74,6 +74,16 @@ export async function admitSessionNotice(
     }
     const state = await actionableState(tx, row);
     const context = sessionNoticeContext(row.context);
+    // Re-read policy when dispatching retained notices; a pause may have been
+    // activated after the proposal was queued, before transport admission.
+    const alreadyAdmittedExplicit = context.requiresExplicitAcceptance === true && row.attemptStartedAt !== null;
+    const offerAdmittedExplicit = alreadyAdmittedExplicit || !!(state.response && await tx.sessionNotice.count({
+      where: { offerId: state.response.offerId, attemptStartedAt: { not: null }, context: { path: ["requiresExplicitAcceptance"], equals: true } },
+    }));
+    if (state.response) context.requiresExplicitAcceptance = offerAdmittedExplicit || !!(await tx.programCalendarDay.count({
+      where: { active: true, schedulingEffect: "PAUSE_REGULAR", date: { lte: state.response.offer.date }, endDate: { gte: state.response.offer.date } },
+    }));
+    if (context.requiresExplicitAcceptance !== true) delete context.requiresExplicitAcceptance;
     const actionable = context.isActionable === true && state.current;
     const user = await recipientState(tx, row, actionable ? state.response?.actorKey : undefined);
     if (!user) {
@@ -86,8 +96,14 @@ export async function admitSessionNotice(
       await tx.sessionNotice.update({ where: { id }, data: { leaseUntil: null, availableAt: new Date(Date.now() + 60_000), lastError: unavailable } });
       return null;
     }
+    // Admission changes only the stricter-guidance flag. Keep stored schedule
+    // context extensions intact; rendering continues to use its own allowlist.
+    const admittedContext = row.context && typeof row.context === "object" && !Array.isArray(row.context)
+      ? { ...row.context } : {};
+    if (context.requiresExplicitAcceptance === true) admittedContext.requiresExplicitAcceptance = true;
+    else delete admittedContext.requiresExplicitAcceptance;
     const admitted = await tx.sessionNotice.update({
-      where: { id }, data: { status: "SENDING", attemptId: randomUUID(), attemptStartedAt: new Date(), attempts: { increment: 1 }, lastError: null },
+      where: { id }, data: { status: "SENDING", attemptId: randomUUID(), attemptStartedAt: new Date(), attempts: { increment: 1 }, lastError: null, context: admittedContext },
     });
     return { row: admitted, obsolete: context.isActionable === true && !state.current,
       destination: state.response?.actorKey.startsWith("tutor:") || (!state.response && user.tutorId)
@@ -109,7 +125,8 @@ export async function finishSessionNotice(database: DomainDb, id: string, attemp
       const state = await actionableState(tx, row);
       if (state.current && row.responseId && sessionNoticeContext(row.context).isActionable &&
           await recipientState(tx, row, state.response?.actorKey)) {
-        await markSessionResponseDelivered(tx, row.responseId, acceptedAt);
+        await markSessionResponseDelivered(tx, row.responseId, acceptedAt,
+          sessionNoticeContext(row.context).requiresExplicitAcceptance === true);
       }
     } else {
       await tx.sessionNotice.update({ where: { id }, data: {
@@ -191,7 +208,9 @@ export async function retrySessionNotice(database: DomainDb, id: string, actorId
     }
     await tx.sessionNotice.update({ where: { id }, data: {
       recipientEmail: destination.email, status: "PENDING", attempts: 0, availableAt: new Date(),
-      leaseUntil: null, attemptId: null, attemptStartedAt: null, completedAt: null, lastError: null,
+      // Retain the last real admission as guidance evidence across manual retry;
+      // the next admission replaces it. Attempt identity and lease still reset.
+      leaseUntil: null, attemptId: null, completedAt: null, lastError: null,
     } });
     await tx.auditLog.create({ data: {
       userId: actorId, operation: "sessionPlanning.retryNotice", entity: "SessionNotice", entityId: id,

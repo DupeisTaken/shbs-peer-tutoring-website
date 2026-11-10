@@ -928,7 +928,8 @@ when extending them; they are not an outstanding implementation checklist.
 The [contributor recipe](../contributing/implementation.md#add-an-action-or-feature) describes how
 to add a caller while preserving these boundaries.
 
-- **Informational tutoring dates:** no-tutoring notices carry program-local
+- **Tutoring calendar policy:** no-tutoring ranges carry an explicit `NOTICE` or
+  `PAUSE_REGULAR` effect and program-local
   inclusive starting and ending dates and a reason, independently of the school-day
   calendar used by appeals. `ProgramCalendarDay.date` remains the unique starting
   date and stable identity; `endDate` must be on or after it. Equal endpoints mean
@@ -939,8 +940,10 @@ to add a caller while preserving these boundaries.
   their versions and one-day meaning. Legacy writes and queued approval payloads
   without an end date retain that one-day meaning. Tombstones keep versions
   monotonic across removal and recreation so stale writes cannot revive a notice.
-  Displaying a range must not prohibit attendance, change an appeal deadline,
-  cancel a pairing, modify recurrence or infer a next session. Preserve the
+  Existing rows remain `NOTICE`; only an applied `PAUSE_REGULAR` policy suppresses
+  future ordinary dated commitments. School days, appeal deadlines, recurring
+  assignments and historical attendance remain separate. Suppression is reversible
+  per participant, without undoing user cancellations or individual dated agreement. Preserve the
   Admin/Head direct-write, Coordinator approval and audit model.
 - **Name requirements:** per-account-type Required, Optional and Hidden states
   apply to signup and later profile editing. All fields may be optional or hidden;
@@ -1851,7 +1854,8 @@ behavior; an existing row or incompatible older proposal requires fresh review.
 Protected participant reads expose bounded calendar facts without staff notes.
 Tutor upcoming sessions and today's task summary share these facts; attendance,
 historical session dates and service hours remain actual evidence. The separate
-`ProgramCalendarDay` inclusive no-tutoring ranges retain their informational meaning.
+`ProgramCalendarDay` ranges retain informational `NOTICE` behavior unless explicitly
+changed to `PAUSE_REGULAR`; tutoring-only pauses leave this school calendar unchanged.
 The [dated-session audience adapter](../../src/server/school-calendar-session-audience.ts)
 adds current eligible tutors and tutees from actual scheduled cohorts, including
 explicit extras and moved commitments retained on closed dates. Split rosters use

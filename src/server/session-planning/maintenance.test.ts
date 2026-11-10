@@ -94,7 +94,7 @@ describe("durable scheduling watermark", () => {
   it.each([
     ["missing state", { id: null }],
     ["old implementation", { publicationVersion: 0 }],
-    ["new implementation", { publicationVersion: 2 }],
+    ["new implementation", { publicationVersion: SCHEDULING_MAINTENANCE_VERSION + 1 }],
     ["different timezone", { timeZone: "UTC" }],
     ["Sunday preparation", { prepareEnd: "2026-11-15" }],
     ["Monday window", { windowStart: "2026-11-02" }],
