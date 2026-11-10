@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeEach, expect, it } from "vitest";
 import { db } from "~/server/db";
+import type { TransactionDb } from "~/server/transactions";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { correctAttendance } from "~/server/corrections/attendance";
 import { reviewCard } from "~/server/corrections/card";
@@ -13,157 +14,286 @@ import {
 import { readRecoveryReceipt } from "./receipt";
 
 const actor = { id: "recovery-head", name: "Synthetic reviewer" };
-async function resetFixture() {
-  assertIsolatedTestDatabase(process.env.DATABASE_URL);
-  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
-    throw new Error("Use the serial shbs_shipping_test database");
-  // Commit reset and seed together. A timed-out hook must not leave independent
-  // writes running into the next case; database waits expire inside its 10s cap.
+const fixtureHookTimeout = 20_000;
+const fixtureControlTimeout = 50_000;
+
+/** Probe metadata must also settle before a control case can finish. */
+async function fixtureDdl(work: (tx: TransactionDb) => Promise<void>) {
   await db.$transaction(
     async (tx) => {
       await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '1s'");
-      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '2s'");
-      const tables = await tx.$queryRaw<
-        Array<{ tablename: string }>
-      >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename<>'_prisma_migrations'`;
-      await tx.$executeRawUnsafe(
-        `TRUNCATE ${tables.map((row) => '"' + row.tablename.replaceAll('"', '""') + '"').join(",")} CASCADE`,
-      );
-      await tx.user.create({
-        data: {
-          id: actor.id,
-          email: "recovery-head@example.test",
-          role: "HEAD",
-        },
-      });
-      await tx.term.create({
-        data: {
-          id: "term",
-          name: "Synthetic quarter",
-          schoolYear: "26-27",
-          quarter: "Q1",
-          active: true,
-        },
-      });
-      await tx.tutor.create({
-        data: { id: "tutor", englishName: "Synthetic tutor", status: "ACTIVE" },
-      });
-      await tx.tutee.create({
-        data: {
-          id: "learner",
-          englishName: "Synthetic learner",
-          status: "ACTIVE",
-        },
-      });
-      await tx.pairing.create({
-        data: {
-          id: "pairing",
-          tutorId: "tutor",
-          termId: "term",
-          subject: "Synthetic subject",
-          dayOfWeek: 1,
-          startMin: 900,
-          endMin: 960,
-        },
-      });
-      await tx.programFeature.upsert({
-        where: { key: "DISCIPLINE" },
-        create: { key: "DISCIPLINE", enabled: true },
-        update: { enabled: true },
-      });
+      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '1s'");
+      await work(tx);
     },
-    // Leave room for an in-flight statement to finish before rollback drains.
-    { maxWait: 1_000, timeout: 4_000 },
+    { maxWait: 1_000, timeout: 3_000 },
   );
 }
-beforeEach(resetFixture);
+
+async function resetFixture(statementTimeoutMs: 2_000 | 6_000 = 6_000) {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
+  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
+    throw new Error("Use the serial shbs_shipping_test database");
+  // TRUNCATE fires real scheduling/calendar triggers even for empty tables.
+  // Keep the complete atomic reset; legitimate CI work can take more than 2s.
+  const started = performance.now();
+  let phaseStarted = started;
+  let phase = "acquire";
+  let tableCount = 0;
+  let committed = false;
+  let sqlState: string | null = null;
+  const timings: Record<string, number> = {};
+  const nextPhase = (next: string) => {
+    const now = performance.now();
+    timings[phase] = Math.round(now - phaseStarted);
+    phase = next;
+    phaseStarted = now;
+  };
+  try {
+    await db.$transaction(
+      async (tx) => {
+        nextPhase("configure");
+        await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '1s'");
+        // Only the delayed-reset negative control selects the former 2s limit.
+        await tx.$executeRawUnsafe(
+          `SET LOCAL statement_timeout = '${statementTimeoutMs}ms'`,
+        );
+        nextPhase("catalog");
+        const tables = await tx.$queryRaw<
+          Array<{ tablename: string }>
+        >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename<>'_prisma_migrations'`;
+        tableCount = tables.length;
+        nextPhase("truncate");
+        await tx.$executeRawUnsafe(
+          `TRUNCATE ${tables.map((row) => '"' + row.tablename.replaceAll('"', '""') + '"').join(",")} CASCADE`,
+        );
+        nextPhase("seed");
+        await tx.user.create({
+          data: {
+            id: actor.id,
+            email: "recovery-head@example.test",
+            role: "HEAD",
+          },
+        });
+        await tx.term.create({
+          data: {
+            id: "term",
+            name: "Synthetic quarter",
+            schoolYear: "26-27",
+            quarter: "Q1",
+            active: true,
+          },
+        });
+        await tx.tutor.create({
+          data: {
+            id: "tutor",
+            englishName: "Synthetic tutor",
+            status: "ACTIVE",
+          },
+        });
+        await tx.tutee.create({
+          data: {
+            id: "learner",
+            englishName: "Synthetic learner",
+            status: "ACTIVE",
+          },
+        });
+        await tx.pairing.create({
+          data: {
+            id: "pairing",
+            tutorId: "tutor",
+            termId: "term",
+            subject: "Synthetic subject",
+            dayOfWeek: 1,
+            startMin: 900,
+            endMin: 960,
+          },
+        });
+        await tx.programFeature.upsert({
+          where: { key: "DISCIPLINE" },
+          create: { key: "DISCIPLINE", enabled: true },
+          update: { enabled: true },
+        });
+        nextPhase("commit");
+      },
+      // 1s acquisition + 10s transaction + up to 6s active-statement drain leaves
+      // rollback margin inside this fixture's 20s hook, without a global override.
+      { maxWait: 1_000, timeout: 10_000 },
+    );
+    committed = true;
+  } catch (error: unknown) {
+    // Log only the stable SQLSTATE, never a connection string or fixture rows.
+    if (error instanceof Error)
+      sqlState = /Code: `([A-Z0-9]{5})`/.exec(error.message)?.[1] ?? null;
+    throw error instanceof Error
+      ? error
+      : new Error("Fixture reset failed", { cause: error });
+  } finally {
+    const settledPhase = phase;
+    nextPhase("settled");
+    if (process.env.CI || process.env.SHBS_PROFILE_RECOVERY_FIXTURE === "1") {
+      console.info(
+        "[checkpoint fixture reset]",
+        JSON.stringify({
+          committed,
+          phase: settledPhase,
+          sqlState,
+          tableCount,
+          statementTimeoutMs,
+          timings,
+          totalMs: Math.round(performance.now() - started),
+        }),
+      );
+    }
+  }
+}
+beforeEach(() => resetFixture(), fixtureHookTimeout);
 afterAll(() => db.$disconnect());
 
-it("blocked fixture reset rolls back before the hook deadline and the next reset is clean", async () => {
-  let releaseLock!: () => void;
-  let lockAcquired!: () => void;
-  const released = new Promise<void>((resolve) => {
-    releaseLock = resolve;
-  });
-  const acquired = new Promise<void>((resolve) => {
-    lockAcquired = resolve;
-  });
-  const blocker = db.$transaction(
-    async (tx) => {
-      await tx.$executeRawUnsafe('LOCK TABLE "User" IN ACCESS SHARE MODE');
-      lockAcquired();
-      await released;
-    },
-    { timeout: 8_000 },
-  );
-  // Attach a rejection handler immediately so a failed lock owner is always drained.
-  const settledBlocker = blocker.then(
-    () => null,
-    (error: unknown) =>
-      error instanceof Error
-        ? error
-        : new Error("Fixture lock owner failed", { cause: error }),
-  );
-  try {
-    await Promise.race([acquired, blocker]);
-    await expect(resetFixture()).rejects.toThrow(/lock timeout/);
-    expect(await db.user.count({ where: { id: actor.id } })).toBe(1);
-    expect(await db.pairing.count()).toBe(1);
-  } finally {
-    releaseLock();
-    const error = await settledBlocker;
-    if (error) throw error;
-  }
-  await resetFixture();
-  expect(await db.user.count()).toBe(1);
-  expect(await db.pairing.count()).toBe(1);
-}, 20_000);
-
-it("a failed final fixture write restores the previous committed state", async () => {
-  await db.user.update({
-    where: { id: actor.id },
-    data: { name: "Before reset" },
-  });
-  await db.programFeature.update({
-    where: { key: "DISCIPLINE" },
-    data: { enabled: false },
-  });
-  await db.$executeRawUnsafe(`CREATE FUNCTION public.fail_recovery_fixture() RETURNS trigger
-    LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic final fixture write failure'; END $$`);
-  try {
-    await db.$executeRawUnsafe(`CREATE TRIGGER fail_recovery_fixture BEFORE INSERT ON "ProgramFeature"
-      FOR EACH ROW EXECUTE FUNCTION public.fail_recovery_fixture()`);
-    await expect(resetFixture()).rejects.toThrow(
-      /Synthetic final fixture write failure/,
+it(
+  "blocked fixture reset rolls back before the hook deadline and the next reset is clean",
+  async () => {
+    let releaseLock!: () => void;
+    let lockAcquired!: () => void;
+    const released = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+    const acquired = new Promise<void>((resolve) => {
+      lockAcquired = resolve;
+    });
+    const blocker = db.$transaction(
+      async (tx) => {
+        await tx.$executeRawUnsafe('LOCK TABLE "User" IN ACCESS SHARE MODE');
+        lockAcquired();
+        await released;
+      },
+      { timeout: 25_000 },
     );
+    // Attach a rejection handler immediately so a failed lock owner is always drained.
+    const settledBlocker = blocker.then(
+      () => null,
+      (error: unknown) =>
+        error instanceof Error
+          ? error
+          : new Error("Fixture lock owner failed", { cause: error }),
+    );
+    try {
+      await Promise.race([acquired, blocker]);
+      await expect(resetFixture()).rejects.toThrow(/55P03/);
+      expect(await db.user.count({ where: { id: actor.id } })).toBe(1);
+      expect(await db.pairing.count()).toBe(1);
+    } finally {
+      releaseLock();
+      const error = await settledBlocker;
+      if (error) throw error;
+    }
+    await resetFixture();
+    expect(await db.user.count()).toBe(1);
+    expect(await db.pairing.count()).toBe(1);
+  },
+  fixtureControlTimeout,
+);
+
+it(
+  "a failed final fixture write restores the previous committed state",
+  async () => {
+    await db.user.update({
+      where: { id: actor.id },
+      data: { name: "Before reset" },
+    });
+    await db.programFeature.update({
+      where: { key: "DISCIPLINE" },
+      data: { enabled: false },
+    });
+    await fixtureDdl(async (tx) => {
+      await tx.$executeRawUnsafe(`CREATE FUNCTION public.fail_recovery_fixture() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic final fixture write failure'; END $$`);
+      await tx.$executeRawUnsafe(`CREATE TRIGGER fail_recovery_fixture BEFORE INSERT ON "ProgramFeature"
+      FOR EACH ROW EXECUTE FUNCTION public.fail_recovery_fixture()`);
+    });
+    try {
+      await expect(resetFixture()).rejects.toThrow(
+        /Synthetic final fixture write failure/,
+      );
+      expect(
+        (await db.user.findUniqueOrThrow({ where: { id: actor.id } })).name,
+      ).toBe("Before reset");
+      expect(
+        (
+          await db.programFeature.findUniqueOrThrow({
+            where: { key: "DISCIPLINE" },
+          })
+        ).enabled,
+      ).toBe(false);
+    } finally {
+      await fixtureDdl(async (tx) => {
+        await tx.$executeRawUnsafe(
+          'DROP TRIGGER IF EXISTS fail_recovery_fixture ON "ProgramFeature"',
+        );
+        await tx.$executeRawUnsafe(
+          "DROP FUNCTION public.fail_recovery_fixture()",
+        );
+      });
+    }
+    await resetFixture();
     expect(
       (await db.user.findUniqueOrThrow({ where: { id: actor.id } })).name,
-    ).toBe("Before reset");
+    ).toBeNull();
     expect(
       (
         await db.programFeature.findUniqueOrThrow({
           where: { key: "DISCIPLINE" },
         })
       ).enabled,
-    ).toBe(false);
-  } finally {
-    await db.$executeRawUnsafe(
-      'DROP TRIGGER IF EXISTS fail_recovery_fixture ON "ProgramFeature"',
-    );
-    await db.$executeRawUnsafe("DROP FUNCTION public.fail_recovery_fixture()");
-  }
-  await resetFixture();
-  expect(
-    (await db.user.findUniqueOrThrow({ where: { id: actor.id } })).name,
-  ).toBeNull();
-  expect(
-    (
-      await db.programFeature.findUniqueOrThrow({
-        where: { key: "DISCIPLINE" },
-      })
-    ).enabled,
-  ).toBe(true);
-}, 20_000);
+    ).toBe(true);
+  },
+  fixtureControlTimeout,
+);
+
+it(
+  "valid fixture reset can exceed the former two-second statement cap",
+  async () => {
+    await fixtureDdl(async (tx) => {
+      await tx.$executeRawUnsafe(`CREATE FUNCTION public.delay_recovery_fixture() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(2.1); RETURN NULL; END $$`);
+      // One statement trigger on one table supplies a real database delay without
+      // depending on runner speed or bypassing any existing truncation triggers.
+      await tx.$executeRawUnsafe(`CREATE TRIGGER delay_recovery_fixture BEFORE TRUNCATE ON "ProgramFeature"
+      FOR EACH STATEMENT EXECUTE FUNCTION public.delay_recovery_fixture()`);
+    });
+    try {
+      await db.user.update({
+        where: { id: actor.id },
+        data: { name: "Before delayed reset" },
+      });
+      await expect(resetFixture(2_000)).rejects.toThrow(/57014/);
+      expect(
+        (await db.user.findUniqueOrThrow({ where: { id: actor.id } })).name,
+      ).toBe("Before delayed reset");
+      await resetFixture();
+      expect(await db.user.count()).toBe(1);
+      expect(
+        (await db.user.findUniqueOrThrow({ where: { id: actor.id } })).name,
+      ).toBeNull();
+      expect(
+        (
+          await db.programFeature.findUniqueOrThrow({
+            where: { key: "DISCIPLINE" },
+          })
+        ).enabled,
+      ).toBe(true);
+    } finally {
+      await fixtureDdl(async (tx) => {
+        await tx.$executeRawUnsafe(
+          'DROP TRIGGER IF EXISTS delay_recovery_fixture ON "ProgramFeature"',
+        );
+        await tx.$executeRawUnsafe(
+          "DROP FUNCTION public.delay_recovery_fixture()",
+        );
+      });
+    }
+  },
+  fixtureControlTimeout,
+);
 
 async function attendance() {
   return db.session.create({
