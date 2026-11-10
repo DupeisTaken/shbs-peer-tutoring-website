@@ -468,14 +468,22 @@ Application tests live under `src/**/*.test.{ts,tsx}`:
 - **UI render tests** exercise interactive controls in jsdom without starting the website.
 
 [Recovery checkpoint fixtures](../../src/server/recovery/correction-checkpoints.integration.test.ts)
-reset and seed in one transaction before exercising
-the real application client. Their 1-second acquisition wait, 4-second transaction
-limit and 2-second statement limit leave room for an in-flight statement to drain
-before rollback, inside the unchanged 10-second setup hook. Lock waits are capped
-at 1 second. A blocked reset rolls back and
-must settle before the next case starts; do not replace these bounds with a
-longer global hook timeout. The checkpoint integration suite exercises a real
-blocking lock and verifies that a subsequent reset starts cleanly.
+reset and seed in one transaction before exercising the real application client.
+Their fixture-specific 20-second hook covers a 1-second acquisition wait,
+10-second transaction and up to 6 seconds draining an active statement before
+rollback. Lock waits remain capped at 1 second. The global Vitest timeouts and
+ordinary test-body limits stay unchanged. Synthetic trigger installation/cleanup
+uses separate bounded transactions; the three failure/delay controls have
+50-second case limits for multiple resets and cleanup.
+
+Keep the single schema-wide `TRUNCATE`: scheduling and calendar policy triggers
+also run on empty tables, so skipping empty tables, substituting `DELETE` or
+disabling triggers changes fixture semantics. The checkpoint suite checks a real
+blocking lock, final-write rollback and a valid reset delayed beyond the former
+two-second statement cap. CI emits catalog, truncate, seed and settlement timings
+after each reset settles, including failures. Set `SHBS_PROFILE_RECOVERY_FIXTURE=1`
+for equivalent local diagnostics. A failed phase includes rollback/drain time;
+logs contain only timings, table counts and SQLSTATE, never fixture rows or URLs.
 
 [`src/test/setup.ts`](../../src/test/setup.ts) loads `.env` and supplies fallback
 `AUTH_SECRET`/`DATABASE_URL` values for tests that need no live database. It does
