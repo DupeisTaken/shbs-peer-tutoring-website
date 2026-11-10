@@ -46,6 +46,7 @@ export const reviewTechnicalFields = new Set([
   "expectedPolicy",
   "expectedState",
   "expectedEnabled",
+  "expectedCategories",
   "expectedTimeZone",
   "expectedTermId",
   "expectedFingerprint",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useId } from "react";
 import type { NotificationCategory } from "~/lib/notification-categories";
 import { SettingRow } from "./ui/patterns";
 
@@ -13,6 +14,8 @@ export type NotificationPreferenceAvailability =
   NotificationPreferenceChoice & {
     badgeAvailable: boolean;
     emailEditable: boolean;
+    badgeLocked?: boolean;
+    emailLocked?: boolean;
   };
 
 /** The same staged, labelled controls serve account settings and the gallery.
@@ -29,6 +32,7 @@ export function NotificationPreferenceFields({
   onChange: (choice: NotificationPreferenceChoice) => void;
 }) {
   const t = useTranslations("notificationPreferences");
+  const id = useId();
   return (
     <div className="divide-y divide-slate-100">
       {rows.map((row) => {
@@ -44,13 +48,18 @@ export function NotificationPreferenceFields({
               control={
                 <>
                   {row.badgeAvailable ? (
-                    <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm">
+                    <label className="flex min-h-11 items-center gap-2 rounded-md px-2 text-sm">
                       <input
                         type="checkbox"
                         className="accent-accent-600 h-4 w-4"
-                        disabled={disabled}
+                        disabled={disabled || row.badgeLocked}
                         aria-label={t("badgeFor", { category })}
-                        checked={choice.badgeEnabled}
+                        aria-describedby={
+                          row.badgeLocked
+                            ? `${id}-${row.category}-badge-required`
+                            : undefined
+                        }
+                        checked={row.badgeLocked ? true : choice.badgeEnabled}
                         onChange={(event) =>
                           onChange({
                             ...choice,
@@ -58,23 +67,42 @@ export function NotificationPreferenceFields({
                           })
                         }
                       />
-                      {t("badge")}
+                      <span>
+                        <span className="block">{t("badge")}</span>
+                        {row.badgeLocked && (
+                          <span
+                            id={`${id}-${row.category}-badge-required`}
+                            className="block text-xs font-medium text-slate-600"
+                          >
+                            {t("locked")}
+                          </span>
+                        )}
+                      </span>
                     </label>
                   ) : (
                     <span className="px-2 text-xs text-slate-600">
                       {t("emailOnly")}
                     </span>
                   )}
-                  <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm">
+                  <label className="flex min-h-11 items-center gap-2 rounded-md px-2 text-sm">
                     <input
                       type="checkbox"
                       className="accent-accent-600 h-4 w-4"
-                      disabled={disabled || !row.emailEditable}
+                      disabled={
+                        disabled || !row.emailEditable || row.emailLocked
+                      }
                       aria-label={t("emailFor", { category })}
+                      aria-describedby={
+                        row.emailLocked
+                          ? `${id}-${row.category}-email-required`
+                          : undefined
+                      }
                       checked={
-                        row.emailEditable
-                          ? choice.emailEnabled
-                          : row.emailEnabled
+                        row.emailLocked
+                          ? true
+                          : row.emailEditable
+                            ? choice.emailEnabled
+                            : row.emailEnabled
                       }
                       onChange={(event) =>
                         onChange({
@@ -83,7 +111,17 @@ export function NotificationPreferenceFields({
                         })
                       }
                     />
-                    {t("email")}
+                    <span>
+                      <span className="block">{t("email")}</span>
+                      {row.emailLocked && (
+                        <span
+                          id={`${id}-${row.category}-email-required`}
+                          className="block text-xs font-medium text-slate-600"
+                        >
+                          {t("locked")}
+                        </span>
+                      )}
+                    </span>
                   </label>
                 </>
               }

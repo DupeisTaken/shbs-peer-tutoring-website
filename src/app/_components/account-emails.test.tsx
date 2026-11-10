@@ -210,6 +210,11 @@ it("saves badge and email categories independently", () => {
   fireEvent.click(screen.getByRole("checkbox", { name: /Include verified/ }));
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
+    expectedLocks: notificationCategories.map((category) => ({
+      category,
+      badgeLocked: false,
+      emailLocked: false,
+    })),
     categories: notificationCategories.map((category) => ({
       category,
       badgeEnabled: category !== "tutoring",
@@ -261,6 +266,79 @@ it.each(["en", "zh"] as const)(
   },
 );
 
+it.each(["en", "zh"] as const)(
+  "shows required choices on and disabled in %s",
+  (locale) => {
+    const catalog = locale === "zh" ? zh : messages;
+    mocks.preferenceData.categories = mocks.preferenceData.categories.map(
+      (row) =>
+        row.category === "messages"
+          ? { ...row, badgeLocked: true, emailLocked: true }
+          : row,
+    );
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <EmailPreferences />
+      </NextIntlClientProvider>,
+    );
+    for (const pattern of [
+      catalog.notificationPreferences.badgeFor,
+      catalog.notificationPreferences.emailFor,
+    ]) {
+      const field = screen.getByRole<HTMLInputElement>("checkbox", {
+        name: pattern.replace(
+          "{category}",
+          catalog.notificationPreferences.categories.messages,
+        ),
+      });
+      expect(field.disabled).toBe(true);
+      expect(field.checked).toBe(true);
+      expect(
+        document.getElementById(field.getAttribute("aria-describedby")!)
+          ?.textContent,
+      ).toBe(catalog.notificationPreferences.locked);
+    }
+  },
+);
+
+it("binds a personal draft to its original locks when an admin unlocks a category", () => {
+  mocks.preferenceData.categories = mocks.preferenceData.categories.map(
+    (row) =>
+      row.category === "messages"
+        ? { ...row, emailLocked: true, emailEnabled: true }
+        : row,
+  );
+  const rendered = view(<EmailPreferences />);
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Tutoring assignments: unread badge",
+    }),
+  );
+  mocks.preferenceData.categories = mocks.preferenceData.categories.map(
+    (row) =>
+      row.category === "messages"
+        ? { ...row, emailLocked: false, emailEnabled: false }
+        : row,
+  );
+  rendered.rerender(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <EmailPreferences />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.notificationPreferences.save }),
+  );
+  expect(mocks.preferences).toHaveBeenCalledWith(
+    expect.objectContaining({
+      expectedLocks: notificationCategories.map((category) => ({
+        category,
+        badgeLocked: false,
+        emailLocked: category === "messages",
+      })),
+    }),
+  );
+});
+
 it("keeps badge preferences editable when optional email is disabled", () => {
   mocks.preferenceData.emailEnabled = false;
   mocks.preferenceData.categories = mocks.preferenceData.categories.map(
@@ -282,6 +360,11 @@ it("keeps badge preferences editable when optional email is disabled", () => {
   );
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
+    expectedLocks: notificationCategories.map((category) => ({
+      category,
+      badgeLocked: false,
+      emailLocked: false,
+    })),
     categories: notificationCategories.map((category) => ({
       category,
       badgeEnabled: category !== "tutoring",
@@ -340,6 +423,11 @@ it("does not submit a stale email enabling draft after the global gate closes", 
   );
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
+    expectedLocks: notificationCategories.map((category) => ({
+      category,
+      badgeLocked: false,
+      emailLocked: false,
+    })),
     categories: notificationCategories.map((category) => ({
       category,
       badgeEnabled: category !== "reviews",

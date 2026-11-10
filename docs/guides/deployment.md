@@ -1000,6 +1000,15 @@ Generate synthetic, offline previews with `npx tsx scripts/preview-emails.ts`; o
 
 Optional notification mail includes an **Unsubscribe** footer link and a plain-text equivalent. `/unsubscribe` is a public confirmation page: link scanners and GET requests do not change preferences. The signed link expires after 90 days and permits only disabling its notification category or all optional categories for the account, including included secondary destinations. Security alerts and essential direct mail never include this control; student signup confirmation is essential even though it uses the PROGRAM sender. No SMTP provider subscription list is involved. Treat unsubscribe URLs as private capabilities and do not add them to logs or analytics. Verify confirmation, expired/invalid links, category-only and all-optional changes, and continued security delivery before rollout.
 
+Apply `20261108010000_notification_choice_locks` and regenerate Prisma with the
+updated application before using **Required notifications**. The additive migration
+defaults every category to unlocked and updates the transactional email-preference
+helper; it changes no personal opt-ins and replays no skipped mail. Verify a locked
+message-email choice with a personal off preference, a badge lock, unlock restoration
+and an unsubscribe that stops unlocked categories while required notices continue.
+The program email switch and recipient-access checks still apply. See
+[notification requirements](program-configuration.md#optional-email-notifications).
+
 For the supplied Docker deployment, pull and recreate the app as above: the image
 contains the generated Prisma client and its entrypoint runs migrations. For a
 source-based deployment outside Docker, apply all migrations with `npm run db:migrate`,

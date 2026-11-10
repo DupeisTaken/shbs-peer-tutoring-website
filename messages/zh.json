@@ -3804,6 +3804,7 @@
         "program_setProfilePolicy": "更改姓名显示和可选年级",
         "program_setSignupField": "更改报名字段要求",
         "program_setEmailNotifications": "更改项目邮件通知设置",
+        "program_setNotificationLocks": "更改必需通知选项",
         "program_setSecondaryEmailBinding": "更改备用邮箱绑定设置",
         "program_setTimeZone": "更改项目时区",
         "program_prepareNextRecruitment": "准备下一周期招募开放时间",
@@ -4966,7 +4967,7 @@
   },
   "programEmail": {
     "title": "邮件通知",
-    "help": "启用可选的私信、项目通知、审核请求及活动提醒邮件。每个人可在账户设置中选择接收类别。",
+    "help": "管理邮件投递，以及所有人必须开启的通知选项。未锁定的选项按个人偏好生效。",
     "on": "已启用",
     "off": "已关闭",
     "enable": "启用邮件通知",
@@ -6051,7 +6052,11 @@
     "program": "其他项目通知",
     "programHelp": "未归入其他类别的项目通知。",
     "reminders": "即将开始的活动提醒",
-    "remindersHelp": "在已安排的面试、会议和已确认辅导课程开始前24小时及1小时发送邮件。"
+    "remindersHelp": "在已安排的面试、会议和已确认辅导课程开始前24小时及1小时发送邮件。",
+    "locked": "项目管理员要求开启{category}邮件。您仍可退订其他可选类别。",
+    "successRequired": "可选邮件已关闭。管理员要求开启的邮件仍保持开启。",
+    "requiredHelp": "退订所有可选类别时，管理员要求开启的邮件仍保持开启。",
+    "successCategoryRequired": "{category}中的可选邮件已关闭。管理员要求开启的邮件仍保持开启。"
   },
   "participantRecovery": {
     "loading": "正在加载记录…",
@@ -7737,7 +7742,9 @@
       "management": "管理提案、决定与记录更正。",
       "program": "未归入其他类别的项目通知。",
       "reminders": "在已安排的面试、会议和已确认辅导课程开始前24小时及1小时发送邮件。"
-    }
+    },
+    "locked": "管理员要求开启",
+    "lockDemo": "演示必须开启私信邮件"
   },
   "scheduledRefresh": {
     "title": "预约下一次刷新",
@@ -8287,5 +8294,22 @@
     "snapshotHelp": "以下资料记录于工作人员拒绝报名时。之后的个人资料修改不会改变此快照。",
     "closedHelp": "此次报名已关闭，无法再分配或重新启用。",
     "released": "已解除的当前分配：{count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "投递设置",
+    "requiredTab": "必需通知",
+    "help": "为所有人指定必须开启的通知选项。锁定期间选项保持开启；原个人偏好将保留，并在解锁后恢复生效。",
+    "badge": "锁定未读标记为开启",
+    "email": "锁定邮件为开启",
+    "badgeFor": "{category}：锁定未读标记为开启",
+    "emailFor": "{category}：锁定邮件为开启",
+    "deliveryHelp": "必需邮件仍受项目邮件总开关、投递可用性和收件人资格限制。安全邮件另行保持必需。",
+    "readOnly": "仅管理员和负责人可以更改这些要求。",
+    "save": "保存通知要求",
+    "saving": "正在保存…",
+    "saved": "通知要求已保存。",
+    "loadFailed": "无法加载最新通知要求。草稿已保留；请重试读取后再保存。",
+    "refreshFailed": "通知要求已保存，但无法加载最新设置。请重试读取，不要再次保存。",
+    "reload": "重新加载最新要求"
   }
 }

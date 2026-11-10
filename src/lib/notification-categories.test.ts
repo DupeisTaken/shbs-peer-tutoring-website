@@ -4,6 +4,7 @@ import {
   effectiveNotificationPreference,
   notificationCategory,
   notificationEventCategories,
+  notificationLockCategories,
 } from "./notification-categories";
 
 it("covers every maintained event and keeps unknown legacy notices visible", () => {
@@ -12,6 +13,32 @@ it("covers every maintained event and keeps unknown legacy notices visible", () 
   );
   expect(notificationCategory(null, undefined, "/messages")).toBe("messages");
   expect(notificationCategory("future_event")).toBe("program");
+});
+it("overlays only valid ON requirements and restores saved values without changing them", () => {
+  const saved = [
+    { category: "messages", badgeEnabled: false, emailEnabled: false },
+  ];
+  const required = {
+    messages: { badgeLocked: true, emailLocked: true },
+    reminders: { badgeLocked: true, emailLocked: true },
+  };
+  expect(
+    effectiveNotificationPreference({}, "messages", saved, required),
+  ).toMatchObject({ badgeEnabled: true, emailEnabled: true });
+  expect(
+    effectiveNotificationPreference({}, "messages", saved, {}),
+  ).toMatchObject({ badgeEnabled: false, emailEnabled: false });
+  expect(saved[0]).toMatchObject({ badgeEnabled: false, emailEnabled: false });
+  expect(
+    notificationLockCategories(required).find(
+      (row) => row.category === "reminders",
+    ),
+  ).toMatchObject({ badgeLocked: false, emailLocked: true });
+  expect(
+    notificationLockCategories({ messages: { emailLocked: "true" } }).some(
+      (row) => row.emailLocked,
+    ),
+  ).toBe(false);
 });
 it("distinguishes reviewers from participants without changing the event's domain", () => {
   expect(
@@ -23,8 +50,12 @@ it("distinguishes reviewers from participants without changing the event's domai
   expect(
     notificationCategory("crew_application_pending", { role: "ADMIN" }),
   ).toBe("reviews");
-  expect(notificationCategory("crew_application_pending", { role: "STUDENT" })).toBe("applications");
-  expect(notificationCategory("management_head_review_pending", { role: "ADMIN" })).toBe("management");
+  expect(
+    notificationCategory("crew_application_pending", { role: "STUDENT" }),
+  ).toBe("applications");
+  expect(
+    notificationCategory("management_head_review_pending", { role: "ADMIN" }),
+  ).toBe("management");
   expect(
     notificationCategory("crew_application_pending", { role: "HEAD" }),
   ).toBe("reviews");

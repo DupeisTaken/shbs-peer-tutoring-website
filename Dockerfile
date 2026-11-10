@@ -55,6 +55,7 @@ COPY --from=build /app/src/lib/csv.ts /runtime-output/app/src/lib/csv.ts
 COPY --from=build /app/src/lib/discipline.ts /runtime-output/app/src/lib/discipline.ts
 COPY --from=build /app/src/lib/historical-academics.ts /runtime-output/app/src/lib/historical-academics.ts
 COPY --from=build /app/src/lib/name-field-policy.ts /runtime-output/app/src/lib/name-field-policy.ts
+COPY --from=build /app/src/lib/notification-categories.ts /runtime-output/app/src/lib/notification-categories.ts
 COPY --from=build /app/src/lib/notification-details.ts /runtime-output/app/src/lib/notification-details.ts
 COPY --from=build /app/src/lib/notification-events.ts /runtime-output/app/src/lib/notification-events.ts
 COPY --from=build /app/src/lib/notification-facts.ts /runtime-output/app/src/lib/notification-facts.ts

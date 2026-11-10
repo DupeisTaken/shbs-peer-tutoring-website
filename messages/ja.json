@@ -3801,6 +3801,7 @@
         "program_setProfilePolicy": "氏名の表示と募集対象学年を変更",
         "program_setSignupField": "申込み項目の入力要件を変更",
         "program_setEmailNotifications": "プログラムのメール通知を変更",
+        "program_setNotificationLocks": "必須の通知設定を変更",
         "program_setSecondaryEmailBinding": "予備メールアドレスの登録可否を変更",
         "program_setTimeZone": "プログラムのタイムゾーンを変更",
         "program_prepareNextRecruitment": "次の期間の募集開始を準備",
@@ -4967,7 +4968,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "メール通知",
-    "help": "メッセージ、プログラム更新、審査依頼、予定のリマインダーの任意メールを有効にします。各自がアカウント設定で受信する種類を選びます。",
+    "help": "メール配信と全員に必須の通知設定を管理します。ロックされていない項目には個人の設定が適用されます。",
     "on": "有効",
     "off": "無効",
     "enable": "メール通知を有効にする",
@@ -6017,7 +6018,11 @@
     "program": "その他のプログラム更新",
     "programHelp": "他のカテゴリに含まれないプログラム更新。",
     "reminders": "予定のリマインダー",
-    "remindersHelp": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。"
+    "remindersHelp": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。",
+    "locked": "{category}のメールは管理者により必須です。他の任意カテゴリは配信停止できます。",
+    "successRequired": "任意メールを無効にしました。管理者が必須にしたメールは引き続き有効です。",
+    "requiredHelp": "すべての任意カテゴリを配信停止しても、管理者が必須にしたメールは引き続き有効です。",
+    "successCategoryRequired": "{category}の任意メールを無効にしました。管理者が必須にしたメールは引き続き有効です。"
   },
   "participantRecovery": {
     "loading": "記録を読み込み中…",
@@ -7737,7 +7742,9 @@
       "management": "管理上の提案、決定と記録訂正。",
       "program": "他のカテゴリに含まれないプログラム更新。",
       "reminders": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。"
-    }
+    },
+    "locked": "管理者による必須設定",
+    "lockDemo": "メッセージメールの必須設定を表示"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -8287,5 +8294,22 @@
     "snapshotHelp": "担当者が申込みを却下した時点の情報です。その後のプロフィール変更は、この記録に反映されません。",
     "closedHelp": "この申込みは終了しており、割当てや再有効化はできません。",
     "released": "解除した現在の割当て：{count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "配信設定",
+    "requiredTab": "必須通知",
+    "help": "選択した通知設定を全員に適用します。ロック中は有効のままとなり、個人の保存済み設定は解除後のために保持されます。",
+    "badge": "未読バッジを有効に固定",
+    "email": "メールを有効に固定",
+    "badgeFor": "{category}：未読バッジを有効に固定",
+    "emailFor": "{category}：メールを有効に固定",
+    "deliveryHelp": "必須メールにもプログラムのメール有効化、配信の可用性、受信資格が適用されます。セキュリティメールは別途必須です。",
+    "readOnly": "この要件を変更できるのはAdminとHeadのみです。",
+    "save": "要件を保存",
+    "saving": "保存中…",
+    "saved": "要件を保存しました。",
+    "loadFailed": "最新の要件を読み込めませんでした。下書きは保持されています。保存する前に読み込みを再試行してください。",
+    "refreshFailed": "要件は保存されましたが、最新の設定を読み込めませんでした。再保存せず、読み込みを再試行してください。",
+    "reload": "最新の要件を再読み込み"
   }
 }

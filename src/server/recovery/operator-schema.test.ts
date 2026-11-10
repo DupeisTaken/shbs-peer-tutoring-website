@@ -5,6 +5,83 @@ import {
 } from "./operator-schema";
 
 describe("static operator recovery schema review", () => {
+  it("keeps notification-lock compatibility independent from reviewed history, labels and complete archive provenance", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    const notificationLock = {
+      table_name: "ProgramSettings",
+      column_name: "notificationLocks",
+      udt_name: "jsonb",
+    };
+    for (const columns of [
+      metadata.columns,
+      metadata.identityColumns,
+      metadata.legacyDeclineColumns,
+      metadata.identityLegacyDeclineColumns,
+    ]) {
+      const expected = assertReviewedRecoverySchema(columns, metadata.enums);
+      const beforeHistory = columns.filter(
+        (column) => column.table_name !== "ProgramCalendarPolicyRevision",
+      );
+      const beforePolicy = beforeHistory.filter(
+        (column) =>
+          !(
+            column.table_name === "ProgramCalendarDay" &&
+            column.column_name === "schedulingEffect"
+          ) &&
+          !(
+            column.table_name === "SessionPlanParticipant" &&
+            column.column_name === "tutoringPauseSuppressed"
+          ),
+      );
+      for (const phase of [columns, beforeHistory, beforePolicy])
+        for (const withLabels of [true, false]) {
+          const labeled = withLabels
+            ? phase
+            : phase.filter(
+                (column) =>
+                  column.table_name !== "SchoolHoursSchedule" ||
+                  column.column_name !== "recipientLabels",
+              );
+          for (const notificationColumns of [[], [notificationLock]])
+            for (const provenance of [[], metadata.importProvenanceColumns])
+              expect(
+                assertReviewedRecoverySchema(
+                  [...labeled, ...notificationColumns, ...provenance],
+                  metadata.enums,
+                ),
+              ).toEqual(expected);
+          const combined = [
+            ...labeled,
+            notificationLock,
+            ...metadata.importProvenanceColumns,
+          ];
+          for (const invalid of [
+            [...combined, notificationLock],
+            [
+              ...labeled,
+              { ...notificationLock, udt_name: "text" },
+              ...metadata.importProvenanceColumns,
+            ],
+            [
+              ...labeled,
+              notificationLock,
+              ...metadata.importProvenanceColumns.slice(1),
+            ],
+            [
+              ...combined,
+              {
+                table_name: "ProgramSettings",
+                column_name: "unreviewedPolicy",
+                udt_name: "jsonb",
+              },
+            ],
+          ])
+            expect(() =>
+              assertReviewedRecoverySchema(invalid, metadata.enums),
+            ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+        }
+    }
+  });
   it("composes reviewed policy phases, recipient labels and archive provenance without hiding malformed boundaries", () => {
     const metadata = reviewedRecoverySchemaMetadata;
     for (const columns of [

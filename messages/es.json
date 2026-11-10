@@ -3801,6 +3801,7 @@
         "program_setProfilePolicy": "Cambiar la visualización de nombres y los cursos admitidos",
         "program_setSignupField": "Cambiar los requisitos de un campo de inscripción",
         "program_setEmailNotifications": "Cambiar las notificaciones por correo del programa",
+        "program_setNotificationLocks": "Cambiar las opciones de notificación obligatorias",
         "program_setSecondaryEmailBinding": "Cambiar la disponibilidad de vinculación de correo secundario",
         "program_setTimeZone": "Cambiar la zona horaria del programa",
         "program_prepareNextRecruitment": "Preparar la apertura de inscripciones del próximo período",
@@ -4967,7 +4968,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "Notificaciones por correo",
-    "help": "Activa correos opcionales de mensajes, novedades, solicitudes de revisión y recordatorios. Cada persona elige sus categorías en los ajustes de cuenta.",
+    "help": "Gestiona la entrega de correo y las opciones de notificación obligatorias para todos. Las preferencias personales se aplican a las opciones no bloqueadas.",
     "on": "Activadas",
     "off": "Desactivadas",
     "enable": "Activar notificaciones por correo",
@@ -6017,7 +6018,11 @@
     "program": "Otras novedades del programa",
     "programHelp": "Novedades del programa sin otra categoría.",
     "reminders": "Recordatorios de eventos",
-    "remindersHelp": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas."
+    "remindersHelp": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas.",
+    "locked": "El administrador exige los correos de {category}. Puedes cancelar otras categorías opcionales.",
+    "successRequired": "Se desactivaron los correos opcionales. Los exigidos por el administrador permanecen activados.",
+    "requiredHelp": "Los correos exigidos por el administrador permanecen activados al cancelar todas las categorías opcionales.",
+    "successCategoryRequired": "Se desactivaron los correos opcionales de {category}. Los exigidos por el administrador permanecen activados."
   },
   "participantRecovery": {
     "loading": "Cargando registros…",
@@ -7737,7 +7742,9 @@
       "management": "Propuestas, decisiones de gestión y correcciones de registros.",
       "program": "Novedades del programa sin otra categoría.",
       "reminders": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas."
-    }
+    },
+    "locked": "Obligatorio por el administrador",
+    "lockDemo": "Mostrar correo de mensajes obligatorio"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -8287,5 +8294,22 @@
     "snapshotHelp": "Estos datos se registraron cuando el personal rechazó la solicitud. Los cambios posteriores del perfil no modifican esta copia.",
     "closedHelp": "Esta solicitud está cerrada y no puede asignarse ni reactivarse.",
     "released": "Asignaciones actuales liberadas: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "Configuración de entrega",
+    "requiredTab": "Notificaciones obligatorias",
+    "help": "Exige las opciones seleccionadas para todos. Las opciones bloqueadas permanecen activadas y la preferencia personal guardada se conserva para cuando se desbloqueen.",
+    "badge": "Bloquear indicador de no leídos activado",
+    "email": "Bloquear correo activado",
+    "badgeFor": "{category}: bloquear indicador de no leídos activado",
+    "emailFor": "{category}: bloquear correo activado",
+    "deliveryHelp": "El correo obligatorio sigue sujeto a la activación general, la disponibilidad de entrega y los requisitos del destinatario. Los correos de seguridad siguen siendo obligatorios por separado.",
+    "readOnly": "Solo Admin y Head pueden cambiar estos requisitos.",
+    "save": "Guardar requisitos",
+    "saving": "Guardando…",
+    "saved": "Requisitos guardados.",
+    "loadFailed": "No se pudieron cargar los últimos requisitos. Se conserva el borrador. Reintenta la lectura antes de guardar.",
+    "refreshFailed": "Los requisitos se guardaron, pero no se pudieron cargar los ajustes. Reintenta la lectura; no vuelvas a guardar.",
+    "reload": "Recargar últimos requisitos"
   }
 }

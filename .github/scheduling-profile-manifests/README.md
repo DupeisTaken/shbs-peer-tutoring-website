@@ -12,13 +12,16 @@ the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
 PR #639 uses its integrated main commit
-`7fa85bdf903d9cf7fe03ba4a438f45aeb509a7b9` as its scoped control. This advances its
-`04805306` control to include the recipient-label feature from PR #640, after the
-earlier `dfe9be18` control was advanced to include tutoring pauses from PR #606.
+`3d5dddf39df8c5377ada3c8dd0c7f0fa94425246` as its scoped control. This advances its
+`7fa85bdf` control to include required notification choices from PR #651, after
+earlier controls incorporated recipient labels from PR #640 and tutoring pauses
+from PR #606.
 Recipient labels are staff-only annotations saved through settings review;
 they do not classify archive sources or grant reporting or delivery authority.
+Notification locks govern configured notification choices, without classifying
+archive evidence or changing issued school-report amounts.
 Its manifest pins both schema versions, the unchanged
-dependency lock, all 138 historical migrations and the single
+dependency lock, all 139 historical migrations and the single
 `20261108010000_imported_record_provenance` addition.
 That migration adds server-owned archive provenance and its recovery journal
 trigger; it does not reclassify existing records. The baseline application runs
@@ -51,6 +54,18 @@ native-schema control remains required, and any additional domain evidence or
 procedure-result difference remains subject to the existing comparison rules.
 Missing or changed bytes, an unlisted migration or a changed dependency lock still
 fail closed. No general or other-PR baseline selection is changed.
+
+PR #651 pins its integrated main base `7fa85bdf903d9cf7fe03ba4a438f45aeb509a7b9`
+and all 138 existing migration hashes, including the tutoring-policy and
+school-hours recipient-label migrations already on main. Its sole addition,
+`20261108010000_notification_choice_locks`, adds the default-empty
+`ProgramSettings.notificationLocks` setting and lets the existing email-enqueue
+helper apply required category email choices. Existing scheduling scenarios run
+with that empty setting in both application arms under the candidate schema,
+with the native-schema control retained separately. Required-notification behavior
+has candidate-specific regression evidence; this manifest makes no baseline
+feature parity or speedup claim. Dependency and historical SQL bytes remain fixed,
+and no comparison policy is relaxed.
 
 The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
