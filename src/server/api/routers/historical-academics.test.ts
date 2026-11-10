@@ -945,7 +945,8 @@ it.each(["TUTEE", "TUTOR"] as const)(
 );
 
 it("restores a new participant and its preserved original together even after roster mirrors advanced", async () => {
-  const tutor = await legacyTutor("ACTIVE");
+  // Archive restores inactive participants while preserving independent originals.
+  const tutor = await legacyTutor("ARCHIVED");
   const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
   await caller().historicalAcademics.correctBatch(
     await prepared(await input([recordId])),
@@ -1458,7 +1459,9 @@ it.each(["profile", "status", "reinstate", "undo"] as const)(
           },
         },
       });
-      await expect(caller().admin.undoAudit({ id: entry.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      await expect(
+        caller().admin.undoAudit({ id: entry.id }),
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
       // The old helper still preserves historical evidence, but is no longer a web recovery route.
       expect(await applyUndo(entry.undoData, db)).toBe(true);
     }

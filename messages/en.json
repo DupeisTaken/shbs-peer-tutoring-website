@@ -75,7 +75,6 @@
     "chooseLearner": "Choose a tutee",
     "scopeHelp": "One changes only the selected tutee’s dated session. All requires agreement to the latest time from everyone.",
     "location": "Location",
-    "locationUnavailable": "Room unavailable. Refresh the current details before agreeing.",
     "sameRoom": "Keep the planned room",
     "online": "Online",
     "noRoom": "No physical room",
@@ -148,6 +147,7 @@
     "checkingLocation": "Checking time and location…",
     "allocationFailed": "Could not confirm this time and location. Check the current session, try another time or Online, then review again.",
     "roomReviewHelp": "This room is checked again when you send. If unavailable, review a new assignment.",
+    "locationUnavailable": "Room unavailable. Refresh the current details before agreeing.",
     "tutoringPaused": "Regular tutoring paused",
     "tutoringPausedHelp": "This regular session is paused. Attendance is not required. Arrange an exception only with affirmative agreement from every participant.",
     "arrangeException": "Arrange exception",
@@ -4109,7 +4109,8 @@
         "MonthlyHoursReport": "Monthly service-hours report",
         "SchoolHoursSchedule": "School report schedule",
         "SchoolHoursReport": "Individual school-hours report",
-        "ProgramCalendarPolicyRevision": "Tutoring date policy revision"
+        "ProgramCalendarPolicyRevision": "Tutoring date policy revision",
+        "ImportedRecordProvenance": "Archive import provenance"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Public signup email confirmation",
@@ -4502,7 +4503,8 @@
         "schoolHoursReportId": "School report ID",
         "schoolHoursReport": "School report",
         "schedulingEffect": "Scheduling effect",
-        "tutoringPauseSuppressed": "Regular tutoring paused"
+        "tutoringPauseSuppressed": "Regular tutoring paused",
+        "importedAt": "Imported at"
       },
       "enums": {
         "Role": {
@@ -7791,8 +7793,6 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
-    "tutorTitle": "{period} Tutor Signup",
-    "configuredOpening": "Configured opening (subject to activation and review)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7809,7 +7809,9 @@
     "reviewPeriod": "Review request for {period}",
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
-    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening.",
+    "tutorTitle": "{period} Tutor Signup",
+    "configuredOpening": "Configured opening (subject to activation and review)"
   },
   "signupBanner": {
     "plannedLabel": "Planned opening",
@@ -7821,9 +7823,9 @@
     "plannedHelp": "The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is approved and scheduled. Signup still requires activation and enabled recruitment.",
     "currentClosed": "{period} tutee signup is closed.",
-    "tutorCurrentClosed": "{period} tutor signup is closed.",
     "countdownLabel": "Time until the announced opening",
-    "previewLink": "Preview signup sheet"
+    "previewLink": "Preview signup sheet",
+    "tutorCurrentClosed": "{period} tutor signup is closed."
   },
   "monthlyHours": {
     "emailPreviewsTitle": "Email Previews",
@@ -7971,12 +7973,6 @@
     "baselineSummary": "{review} need review · {committed} saved",
     "baselineIssues": "{count} issues to resolve",
     "baselineHelp": "For each person, enter credit, extras, deductions and Crew hours already reported to school. Current source values are evidence, not suggested balances. Enter zero explicitly where none was reported.",
-    "baselineAttention": "{count} opening balances need review",
-    "baselineSetupRequired": "Opening review needed",
-    "affectedPeople": "{count} affected individuals",
-    "baselineBatchHelp": "Mark each checked person as reviewed in their details. Save a reviewed batch while other drafts remain.",
-    "baselineSelectedCount": "{count} individuals selected for this review",
-    "archivedSources": "{count} imported historical records stay in history and are excluded from school-report changes. Review current sources separately.",
     "mappingHelp": "Check each person's school account. Resolve uncertain identity or ownership before issuing; never match accounts by name alone.",
     "sourceTutoring": "Source tutoring net",
     "sourceCrew": "Source Crew hours",
@@ -8088,13 +8084,19 @@
       "SOURCE_OWNER_CHANGED": "A source changed owner after reporting. Resolve the ownership change before issuing.",
       "ANCESTOR_MONTH": "Only the latest reporting month can receive a corrected edition.",
       "FUTURE_MONTH": "Future reporting months are not available yet.",
-      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "An imported historical source overlaps a reviewed or issued balance. Reconcile its reporting history before issuing; do not silently reverse it.",
-      "SOURCE_VALUE_INVALID": "A source contains invalid hours. Correct the source before issuing."
+      "SOURCE_VALUE_INVALID": "A source contains invalid hours. Correct the source before issuing.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "An imported historical source overlaps a reviewed or issued balance. Reconcile its reporting history before issuing; do not silently reverse it."
     },
     "blocked": "Resolve before issuing",
     "featureOff": "Service hours is disabled. Preview is unavailable.",
     "priorEditionHelp": "Choose only the last edition actually applied to this account. If none was applied, use the corrected full-month amount once. If unsure, ask the program team before posting.",
-    "priorEditionCorrection": "If last applied revision {revision}: apply {hours}"
+    "priorEditionCorrection": "If last applied revision {revision}: apply {hours}",
+    "baselineAttention": "{count} opening balances need review",
+    "baselineSetupRequired": "Opening review needed",
+    "affectedPeople": "{count} affected individuals",
+    "baselineBatchHelp": "Mark each checked person as reviewed in their details. Save a reviewed batch while other drafts remain.",
+    "baselineSelectedCount": "{count} individuals selected for this review",
+    "archivedSources": "{count} imported historical records stay in history and are excluded from school-report changes. Review current sources separately."
   },
   "personHistoryCorrection": {
     "title": "Correct Retired-Account History",

@@ -24,18 +24,24 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({ admin: { auditLog: { invalidate: vi.fn() } } }),
     admin: {
-      tutors: { useQuery: () => ({ data: [] }) },
+      tutors: {
+        _def: () => ({ path: ["admin", "tutors"] }),
+        useQuery: () => ({ data: [] }),
+      },
       sessions: {
+        _def: () => ({ path: ["admin", "sessions"] }),
         useQuery: () => ({
           data: projectManagementRead("admin.sessions", [sessionRow]),
         }),
       },
       auditLog: {
+        _def: () => ({ path: ["admin", "auditLog"] }),
         useQuery: () => ({
           data: projectManagementRead("admin.auditLog", [auditRow]),
         }),
       },
       auditFilterOptions: {
+        _def: () => ({ path: ["admin", "auditFilterOptions"] }),
         useQuery: () => ({
           data: projectManagementRead("admin.auditFilterOptions", {
             users: [
@@ -84,7 +90,11 @@ it.each([
       expect(screen.queryByText("Tutee One")).toBeNull();
       expect(screen.getByText("1.0")).toBeTruthy();
     } else {
-      expect(screen.getByText(messages.approvals.review.operations.student_decideAppeal)).toBeTruthy();
+      expect(
+        screen.getByText(
+          messages.approvals.review.operations.student_decideAppeal,
+        ),
+      ).toBeTruthy();
       expect(screen.getByRole("option", { name: /Staff One/ })).toBeTruthy();
     }
 

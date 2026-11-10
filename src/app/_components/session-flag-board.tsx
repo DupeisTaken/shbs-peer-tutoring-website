@@ -102,6 +102,7 @@ export function SessionFlagBoard() {
   const denied = useSessionAccessDenied({
     ...flags,
     denialKey: "session-flags",
+    queryKey: getQueryKey(api.admin.sessionFlags, { state: filter }, "query"),
   });
   if (accessDenied !== denied) setAccessDenied(denied);
   useEffect(() => {

@@ -317,13 +317,17 @@ vi.mock("~/trpc/react", () => ({
     },
     admin: {
       auditFilterOptions: {
+        _def: () => ({ path: ["admin", "auditFilterOptions"] }),
         useQuery: () => ({
           data: { users: [], operations: [], entities: [] },
           isSuccess: true,
           isFetching: false,
         }),
       },
-      auditLog: { useQuery: () => ({ data: state.audit }) },
+      auditLog: {
+        _def: () => ({ path: ["admin", "auditLog"] }),
+        useQuery: () => ({ data: state.audit }),
+      },
       auditLogDetail: {
         _def: () => ({ path: ["admin", "auditLogDetail"] }),
         useQuery: () => ({ data: state.audit[0] }),
@@ -332,16 +336,21 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutate: state.undo, isPending: false }),
       },
       tutors: {
+        _def: () => ({ path: ["admin", "tutors"] }),
         useQuery: () => ({
           data: [{ id: "tutor-1", englishName: "Alex Tutor" }],
         }),
       },
-      sessions: { useQuery: () => ({ data: state.sessions }) },
+      sessions: {
+        _def: () => ({ path: ["admin", "sessions"] }),
+        useQuery: () => ({ data: state.sessions }),
+      },
       disciplinaryCards: { useQuery: () => ({ data: state.cards }) },
       reviewCard: {
         useMutation: () => ({ mutate: state.review, isPending: false }),
       },
       periodSummary: {
+        _def: () => ({ path: ["admin", "periodSummary"] }),
         useQuery: (input: unknown) => {
           state.summaryInput = input;
           return {
@@ -430,8 +439,14 @@ it("keeps audit payload off the summary and preserves request and recovery links
       .getByRole("link", { name: messages.approvals.viewRequest })
       .getAttribute("href"),
   ).toBe("/admin/approvals?request=approval-1");
-  expect(within(actions).queryByRole("button", { name: messages.admin.audit.undo })).toBeNull();
-  expect(within(actions).getByRole("link", { name: messages.recovery.title }).getAttribute("href")).toBe("/admin/recovery");
+  expect(
+    within(actions).queryByRole("button", { name: messages.admin.audit.undo }),
+  ).toBeNull();
+  expect(
+    within(actions)
+      .getByRole("link", { name: messages.recovery.title })
+      .getAttribute("href"),
+  ).toBe("/admin/recovery");
   expect(state.undo).not.toHaveBeenCalled();
   fireEvent.click(
     within(actions).getByRole("button", { name: /^View details:/ }),
@@ -631,41 +646,44 @@ it("adds a final Details link to every history report while retaining detailed p
   ).toBeTruthy();
 });
 
-it.each(["HEAD", "ADMIN"])("keeps full signup contact and subject columns in %s CSV exports after compacting screen tables", (role) => {
-  state.accountRole = role;
-  Object.defineProperty(URL, "createObjectURL", {
-    configurable: true,
-    value: vi.fn(() => "blob:report"),
-  });
-  Object.defineProperty(URL, "revokeObjectURL", {
-    configurable: true,
-    value: vi.fn(),
-  });
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
-    () => undefined,
-  );
-  render(<HistoryPage />, { wrapper });
-  fireEvent.change(
-    screen.getByRole("combobox", { name: messages.admin.reports.depth }),
-    { target: { value: "full" } },
-  );
-  const section = screen
-    .getByRole("table", { name: messages.admin.reports.sections.signups })
-    .closest("section")!;
-  fireEvent.click(
-    within(section).getByRole("button", { name: messages.admin.reports.csv }),
-  );
-  expect(state.csv).toHaveBeenCalledWith(
-    expect.arrayContaining([
+it.each(["HEAD", "ADMIN"])(
+  "keeps full signup contact and subject columns in %s CSV exports after compacting screen tables",
+  (role) => {
+    state.accountRole = role;
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:report"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+      () => undefined,
+    );
+    render(<HistoryPage />, { wrapper });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: messages.admin.reports.depth }),
+      { target: { value: "full" } },
+    );
+    const section = screen
+      .getByRole("table", { name: messages.admin.reports.sections.signups })
+      .closest("section")!;
+    fireEvent.click(
+      within(section).getByRole("button", { name: messages.admin.reports.csv }),
+    );
+    expect(state.csv).toHaveBeenCalledWith(
       expect.arrayContaining([
-        "Student Signup",
-        "Mathematics",
-        "Physics",
-        "signup@example.test",
+        expect.arrayContaining([
+          "Student Signup",
+          "Mathematics",
+          "Physics",
+          "signup@example.test",
+        ]),
       ]),
-    ]),
-  );
-});
+    );
+  },
+);
 
 it.each(["COORDINATOR", "VIEWER", null])(
   "keeps report detail access without exposing Admin/Head CSV exports for role %s",
@@ -741,7 +759,9 @@ it.each(["en", "zh"] as const)(
     );
     expect(screen.getByRole("dialog").textContent).toContain("08:00–09:00");
     expect(screen.getByRole("dialog").textContent).not.toContain("PRESENT");
-    expect(screen.getByRole("dialog").textContent).not.toContain("EXCUSED_ABSENT");
+    expect(screen.getByRole("dialog").textContent).not.toContain(
+      "EXCUSED_ABSENT",
+    );
     expect(state.correction).not.toHaveBeenCalled();
   },
 );

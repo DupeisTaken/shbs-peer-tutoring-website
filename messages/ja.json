@@ -75,7 +75,6 @@
     "chooseLearner": "学習者を選択",
     "scopeHelp": "1人の場合はその学習者の今回の予定だけを変更します。全員の場合は最新の時間への全員の同意が必要です。",
     "location": "場所",
-    "locationUnavailable": "教室の情報を確認できません。同意する前に最新の詳細を再読み込みしてください。",
     "sameRoom": "予定の教室を維持",
     "online": "オンライン",
     "noRoom": "教室を使用しない",
@@ -148,6 +147,7 @@
     "checkingLocation": "日時と場所を確認中…",
     "allocationFailed": "日時と場所を確認できませんでした。現在のセッションを確認し、別の時間またはオンラインを選んで再確認してください。",
     "roomReviewHelp": "送信時に教室を再確認します。利用できない場合は、新しい割り当てを確認してください。",
+    "locationUnavailable": "教室の情報を確認できません。同意する前に最新の詳細を再読み込みしてください。",
     "tutoringPaused": "通常の指導は休止中",
     "tutoringPausedHelp": "この通常予定は休止中です。出席は不要です。例外の実施には参加者全員の明示的な同意が必要です。",
     "arrangeException": "例外の指導を調整",
@@ -4109,7 +4109,8 @@
         "MonthlyHoursReport": "月次サービス時間レポート",
         "SchoolHoursSchedule": "学校向け報告スケジュール",
         "SchoolHoursReport": "学校向け個人奉仕時間報告",
-        "ProgramCalendarPolicyRevision": "指導日ルールの改訂履歴"
+        "ProgramCalendarPolicyRevision": "指導日ルールの改訂履歴",
+        "ImportedRecordProvenance": "アーカイブ取り込み元の記録"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "公開申込メールの確認日時",
@@ -4502,7 +4503,8 @@
         "schoolHoursReportId": "学校向け報告ID",
         "schoolHoursReport": "学校向け報告",
         "schedulingEffect": "スケジュールへの影響",
-        "tutoringPauseSuppressed": "通常の指導は休止中"
+        "tutoringPauseSuppressed": "通常の指導は休止中",
+        "importedAt": "取り込み日時"
       },
       "enums": {
         "Role": {
@@ -7791,8 +7793,6 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
-    "tutorTitle": "{period} チューター応募",
-    "configuredOpening": "設定された受付開始日時（有効化と審査が必要です）",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7809,7 +7809,9 @@
     "reviewPeriod": "Review request for {period}",
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
-    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening.",
+    "tutorTitle": "{period} チューター応募",
+    "configuredOpening": "設定された受付開始日時（有効化と審査が必要です）"
   },
   "signupBanner": {
     "plannedLabel": "開始予定",
@@ -7821,9 +7823,9 @@
     "plannedHelp": "申し込みを受け付けるには、次の学期区分を有効にする必要があります。",
     "scheduledHelp": "学期区分の更新は承認され、実行予定です。受付には区分の有効化と募集の開始が必要です。",
     "currentClosed": "{period} の学習パートナー申し込みは終了しました。",
-    "tutorCurrentClosed": "{period} のチューター応募は終了しました。",
     "countdownLabel": "案内された開始日時までの時間",
-    "previewLink": "申込フォームをプレビュー"
+    "previewLink": "申込フォームをプレビュー",
+    "tutorCurrentClosed": "{period} のチューター応募は終了しました。"
   },
   "monthlyHours": {
     "emailPreviewsTitle": "メールのプレビュー",
@@ -7977,12 +7979,6 @@
     "baselineSummary": "{review} 人を要確認 · {committed} 人を保存済み",
     "baselineIssues": "解決が必要な問題 {count} 件",
     "baselineHelp": "学校に報告済みの獲得・追加・控除・運営当番時間を個人ごとに入力します。元記録は根拠であり初期値ではありません。未報告は明示的にゼロを入力してください。",
-    "baselineAttention": "{count} 人の開始残高を要確認",
-    "baselineSetupRequired": "開始残高の確認が必要",
-    "affectedPeople": "対象者 {count} 人",
-    "baselineBatchHelp": "確認した人を詳細画面で確認済みにしてください。確認済みの分だけ保存でき、他の下書きは保持されます。",
-    "baselineSelectedCount": "今回の確認対象は {count} 人",
-    "archivedSources": "インポートした過去の記録 {count} 件は履歴に保持され、学校向け報告の増減には含まれません。現在の資料は別に確認してください。",
     "mappingHelp": "各人の学校アカウントを確認し、不明な本人・所有関係は発行前に解決してください。名前だけで対応付けないでください。",
     "sourceTutoring": "元記録の学習支援純時間",
     "sourceCrew": "元記録の運営当番時間",
@@ -8088,13 +8084,19 @@
       "SOURCE_OWNER_CHANGED": "報告後に元記録の所属が変更されました。先に解決してください。",
       "ANCESTOR_MONTH": "修正できるのは最新の報告月のみです。",
       "FUTURE_MONTH": "将来の報告月はまだ利用できません。",
-      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "インポートした過去の資料が確認済みまたは発行済みの残高と重複しています。発行前に報告履歴を照合し、自動で取り消さないでください。",
-      "SOURCE_VALUE_INVALID": "元記録に無効な時間があります。先に修正してください。"
+      "SOURCE_VALUE_INVALID": "元記録に無効な時間があります。先に修正してください。",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "インポートした過去の資料が確認済みまたは発行済みの残高と重複しています。発行前に報告履歴を照合し、自動で取り消さないでください。"
     },
     "blocked": "発行前に解決してください",
     "featureOff": "サービス時間が無効のためプレビューできません。",
     "priorEditionHelp": "このアカウントに実際に最後に反映した版のみを選んでください。未反映なら修正後の月全体を一度反映します。不明な場合は反映前に運営へ確認してください。",
-    "priorEditionCorrection": "最後の反映が第 {revision} 版の場合：{hours} を反映"
+    "priorEditionCorrection": "最後の反映が第 {revision} 版の場合：{hours} を反映",
+    "baselineAttention": "{count} 人の開始残高を要確認",
+    "baselineSetupRequired": "開始残高の確認が必要",
+    "affectedPeople": "対象者 {count} 人",
+    "baselineBatchHelp": "確認した人を詳細画面で確認済みにしてください。確認済みの分だけ保存でき、他の下書きは保持されます。",
+    "baselineSelectedCount": "今回の確認対象は {count} 人",
+    "archivedSources": "インポートした過去の記録 {count} 件は履歴に保持され、学校向け報告の増減には含まれません。現在の資料は別に確認してください。"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",

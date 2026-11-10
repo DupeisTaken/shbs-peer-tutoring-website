@@ -31,6 +31,7 @@ vi.mock("~/trpc/react", () => ({
     useUtils: () => ({ admin: { auditLog: { invalidate: vi.fn() } } }),
     admin: {
       auditFilterOptions: {
+        _def: () => ({ path: ["admin", "auditFilterOptions"] }),
         useQuery: () => ({
           data: { users: [], operations: [], entities: [] },
           isSuccess: true,
@@ -38,6 +39,7 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       auditLog: {
+        _def: () => ({ path: ["admin", "auditLog"] }),
         useQuery: () => ({
           isSuccess: true,
           isFetching: false,

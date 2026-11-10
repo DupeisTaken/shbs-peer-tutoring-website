@@ -6,47 +6,72 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import { SessionViewProvider } from "./session-view-state";
 import type { ServiceHoursRow } from "~/lib/service-hours-view";
+import { createQueryClient } from "~/trpc/query-client";
+import { api } from "~/trpc/react";
 
 vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
+type SummaryInput = { month: string } | undefined;
+type Summary = {
+  scope: { label: string };
+  rows: ServiceHoursRow[];
+  totals: {
+    earned: number;
+    extras: number;
+    punishments: number;
+    total: number;
+  };
+};
+type ReadError = Error & { data?: { code?: string } };
 const query = vi.hoisted(() => ({
-  error: null as null | { data: { code: string } },
-  retry: vi.fn(),
-  loaded: true,
+  error: null as ReadError | null,
+  retry: vi.fn<() => Promise<unknown>>(),
+  read: vi.fn<(input: SummaryInput) => Promise<Summary>>(),
   rows: [] as ServiceHoursRow[],
 }));
-vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["summary"] }));
-vi.mock("~/trpc/react", () => ({
-  api: {
-    admin: {
-      periodSummary: {
-        useQuery: () => ({
-          data: query.loaded
-            ? {
-                scope: { label: "Synthetic semester" },
-                rows: query.rows,
-                totals: { earned: 8, extras: 0, punishments: 3, total: 5 },
-              }
-            : undefined,
-          error: query.error,
-          isSuccess: !query.error && query.loaded,
-          isFetching: false,
-          refetch: query.retry,
-        }),
+vi.mock("~/trpc/react", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  return {
+    api: {
+      admin: {
+        periodSummary: {
+          _def: () => ({ path: ["admin", "periodSummary"] }),
+          useQuery: (input: SummaryInput, options?: { enabled?: boolean }) => {
+            const result = useQuery<Summary, ReadError>({
+              queryKey: summaryKey(input),
+              queryFn: () => query.read(input),
+              ...options,
+            });
+            // Count user Retry calls without replacing Query's actual read result.
+            query.retry.mockImplementation(() => result.refetch());
+            return { ...result, refetch: query.retry };
+          },
+        },
       },
     },
-  },
-}));
+  };
+});
 let client: QueryClient;
+const summaryKey = (input: SummaryInput = undefined) =>
+  getQueryKey(api.admin.periodSummary, input, "query");
+const failure = (code: string): ReadError =>
+  Object.assign(new Error("Synthetic summary read failed"), { data: { code } });
+async function retrySummary() {
+  await act(async () => {
+    await query.retry();
+  });
+}
 const row = (
   tutorId: string,
   overrides: Partial<ServiceHoursRow> = {},
@@ -63,11 +88,23 @@ const row = (
   ...overrides,
 });
 beforeEach(() => {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: { ...defaults.queries, retry: false, gcTime: Infinity },
+  });
   sessionStorage.clear();
   query.error = null;
-  query.loaded = true;
-  query.retry.mockClear();
+  query.retry.mockReset();
+  query.read.mockReset().mockImplementation(async () => {
+    if (query.error) throw query.error;
+    return {
+      scope: { label: "Synthetic semester" },
+      rows: query.rows,
+      totals: { earned: 8, extras: 0, punishments: 3, total: 5 },
+    };
+  });
   query.rows = [
     row("No records"),
     row("Zero credit", { sessions: 1 }),
@@ -123,9 +160,10 @@ const rosterNames = () =>
 
 it.each(["en", "zh"] as const)(
   "filters evidence independently and keeps program totals separate (%s)",
-  (locale) => {
+  async (locale) => {
     const copy = locale === "zh" ? zh.admin.summary : en.admin.summary;
     render(show(locale));
+    await screen.findByRole("table");
     expect(
       screen.getByRole<HTMLSelectElement>("combobox", {
         name: copy.statusLabel,
@@ -155,8 +193,9 @@ it.each(["en", "zh"] as const)(
   },
 );
 
-it("keeps same-name IDs distinct, and retains selected sort and rows across summary/breakdown and navigation", () => {
+it("keeps same-name IDs distinct, and retains selected sort and rows across summary/breakdown and navigation", async () => {
   const view = render(show());
+  await screen.findByRole("table");
   fireEvent.change(
     screen.getByRole("searchbox", { name: en.admin.summary.searchLabel }),
     { target: { value: " same " } },
@@ -209,8 +248,9 @@ it("keeps same-name IDs distinct, and retains selected sort and rows across summ
   expect(rosterNames()).toHaveLength(2);
 });
 
-it("distinguishes no matches, an empty roster and an initial read failure", () => {
-  const view = render(show());
+it("distinguishes no matches, an empty roster and an initial read failure", async () => {
+  render(show());
+  await screen.findByRole("table");
   fireEvent.change(
     screen.getByRole("searchbox", { name: en.admin.summary.searchLabel }),
     { target: { value: "missing" } },
@@ -219,11 +259,22 @@ it("distinguishes no matches, an empty roster and an initial read failure", () =
   expect(screen.queryByText(en.admin.summary.emptyRoster)).toBeNull();
   expect(screen.queryByRole("table")).toBeNull();
   query.rows = [];
-  view.rerender(show());
+  await act(async () => {
+    await client.refetchQueries({ queryKey: summaryKey(), exact: true });
+  });
+  await screen.findByText(en.admin.summary.emptyRoster);
   expect(screen.getByText(en.admin.summary.emptyRoster)).toBeTruthy();
-  query.loaded = false;
-  query.error = { data: { code: "INTERNAL_SERVER_ERROR" } };
-  view.rerender(show());
+  query.error = failure("INTERNAL_SERVER_ERROR");
+  // Reset the real query to its unread state before exercising initial failure.
+  await act(async () => {
+    await client.resetQueries({ queryKey: summaryKey(), exact: true });
+  });
+  await screen.findByText(
+    en.managementRecovery.loadFailed.replace(
+      "{section}",
+      en.admin.summary.title,
+    ),
+  );
   expect(screen.queryByText(en.admin.summary.emptyRoster)).toBeNull();
   expect(
     screen.getByText(
@@ -235,29 +286,44 @@ it("distinguishes no matches, an empty roster and an initial read failure", () =
   ).toBeTruthy();
 });
 
-it("retains filters and totals through refresh failure, but conceals them and clears session choices after denial", () => {
-  const view = render(show());
+it("retains filters and totals through refresh failure, but conceals them and clears session choices after denial", async () => {
+  render(show());
+  await screen.findByRole("table");
   fireEvent.change(
     screen.getByRole("searchbox", { name: en.admin.summary.searchLabel }),
     { target: { value: "Same" } },
   );
-  query.error = { data: { code: "INTERNAL_SERVER_ERROR" } };
-  view.rerender(show());
+  query.error = failure("INTERNAL_SERVER_ERROR");
+  await act(async () => {
+    await client.refetchQueries({ queryKey: summaryKey(), exact: true });
+  });
+  await screen.findByRole("button", {
+    name: en.managementRecovery.retry.replace(
+      "{section}",
+      en.admin.summary.title,
+    ),
+  });
   expect(rosterNames()).toHaveLength(2);
   expect(
     screen.getByRole("region", { name: en.admin.summary.programTotals }),
   ).toBeTruthy();
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: en.managementRecovery.retry.replace(
-        "{section}",
-        en.admin.summary.title,
-      ),
-    }),
-  );
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: en.managementRecovery.retry.replace(
+          "{section}",
+          en.admin.summary.title,
+        ),
+      }),
+    );
+    await query.retry.mock.results.at(-1)?.value;
+  });
   expect(query.retry).toHaveBeenCalledOnce();
-  query.error = { data: { code: "FORBIDDEN" } };
-  view.rerender(show());
+  query.error = failure("FORBIDDEN");
+  await act(async () => {
+    await client.refetchQueries({ queryKey: summaryKey(), exact: true });
+  });
+  await waitFor(() => expect(screen.queryByRole("table")).toBeNull());
   expect(screen.queryByRole("table")).toBeNull();
   expect(
     screen.queryByRole("region", { name: en.admin.summary.programTotals }),
@@ -268,11 +334,12 @@ it("retains filters and totals through refresh failure, but conceals them and cl
       sessionStorage.key(i),
     ).some((key) => key?.includes("service-hours-roster")),
   ).toBe(false);
-  query.error = { data: { code: "INTERNAL_SERVER_ERROR" } };
-  view.rerender(show());
+  query.error = failure("INTERNAL_SERVER_ERROR");
+  await retrySummary();
   expect(screen.queryByText("Same Name")).toBeNull();
   query.error = null;
-  view.rerender(show());
+  await retrySummary();
+  await screen.findByRole("searchbox", { name: en.admin.summary.searchLabel });
   expect(
     screen.getByRole<HTMLInputElement>("searchbox", {
       name: en.admin.summary.searchLabel,

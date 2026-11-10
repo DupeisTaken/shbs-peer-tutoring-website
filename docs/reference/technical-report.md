@@ -618,6 +618,18 @@ rendered value. `useSessionAccessDenied` holds an authoritative query denial thr
 later transport failures until fresh successful reads, while the feature hides its
 cached denied content. Both are presentation helpers; procedure permissions remain
 authoritative.
+
+Bound denial compositions use the per-query-client
+[ordered read receipts](../../src/lib/session-read-receipts.ts), installed before
+the factory exposes its client. Exact query keys and stable logical slots preserve
+failed prerequisites across scope changes. Only a newly admitted successful read
+for the current query, promise and data generation releases that episode. Existing
+pending/retried/paused work stays fenced; manual writes, hydration and state resets
+invalidate unused proof rather than certify access. Ordering is independent of
+`Date.now()` and query timestamps. Retained imperative owners share the pure
+reconciler above disposable rows; ordinary unbound compositions keep their existing
+contract. The ledger stores identity/order metadata, without response copies or
+persisted authority.
 The bounded [storage helpers](../../src/lib/session-view-state.ts) reject nested record
 payloads and long bodies, retain at most 100 presentation entries, and degrade
 gracefully when storage is blocked. These structural limits supplement explicit

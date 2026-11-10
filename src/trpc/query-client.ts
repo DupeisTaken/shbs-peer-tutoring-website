@@ -7,6 +7,7 @@ import { TRPCClientError } from "@trpc/client";
 import type { AppRouter } from "~/server/api/root";
 import SuperJSON from "superjson";
 import { APPROVAL_OPERATIONS } from "~/lib/approval-policy";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
 
 /** Authentication/authorization failures cannot succeed by repeating the same request.
  * Transient network/server failures retain a small bounded retry budget. */
@@ -42,8 +43,8 @@ export function isAdminSaveMutation(key: readonly unknown[] | undefined) {
   );
 }
 
-export const createQueryClient = () =>
-  new QueryClient({
+export const createQueryClient = () => {
+  const client = new QueryClient({
     mutationCache: new MutationCache({
       onSuccess(_data, _variables, _context, mutation) {
         if (
@@ -98,3 +99,8 @@ export const createQueryClient = () =>
       },
     },
   });
+  // Subscribe before consumers can start reads; a later effect cannot replay
+  // denial/admission history. Existing cache callbacks and options stay owned here.
+  installSessionReadReceipts(client);
+  return client;
+};

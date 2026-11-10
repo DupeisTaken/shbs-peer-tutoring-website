@@ -170,12 +170,25 @@ cache eviction and review revocation remain effects owned by the feature. Hide
 cached denied content in that same owner, and drive eviction from the retained
 latch if clearing a filter can change the failed query key before commit.
 When denial resets query inputs, opt that read into a stable named slot, for example
-`useSessionAccessDenied({ ...query, denialKey: "audit-log" }, options)`. Keep the
-name fixed across filter changes and independent of query-array position. With
-query timestamps available, only a success newer than that slot's denial can
-release it; an older cached default scope cannot. Unrelated successful reads need
-no extra refresh, and callers without a named slot retain the ordinary recovery
-contract. The helper never grants permission or replaces server checks.
+`useSessionAccessDenied({ ...query, denialKey: "audit-log", queryKey })`, where
+`queryKey` comes from `getQueryKey` for the actual procedure and current input.
+Keep the name fixed across filter changes and independent of query-array position.
+Bind fixed prerequisites in that composition to their exact keys too. The
+query-client factory installs an ordered read-receipt ledger before exposing the
+client. A newly admitted successful read of the current query and data generation
+can release its denial; an older cached scope, pre-denial pending read, manual
+cache write or hydration cannot. Wall-clock timestamps never establish authority.
+Preserve non-null/domain validity checks and the raw observer/cache projection.
+Unrelated successful reads need no extra refresh, and unbound compositions retain
+their ordinary recovery contract. The helper never grants permission or replaces
+server checks.
+
+An imperative owner that outlives disposable rows can retain
+`SessionAccessAuthority` and use `reconcileSessionAccessDenied` with exact cache
+descriptors. Keep its state above pagination/tab lifetimes and reconcile both
+admission and settlement, including denied errors. Do not mutate a parent from an
+abandoned child render. Receipt recovery does not adopt drafts/versions, release
+accepted mutation leases or replace the feature's explicit Reload.
 
 Apply-only filters save their committed read criteria, not the unfinished input.
 Audit reconstructs timezone-aware query dates from date-control strings; its form

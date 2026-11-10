@@ -75,7 +75,6 @@
     "chooseLearner": "Choisir un participant",
     "scopeHelp": "Le mode individuel ne change que cette séance du participant choisi. Le mode collectif exige l’accord de tous sur le dernier horaire.",
     "location": "Lieu",
-    "locationUnavailable": "Salle indisponible. Actualise les détails avant de donner ton accord.",
     "sameRoom": "Conserver la salle prévue",
     "online": "En ligne",
     "noRoom": "Sans salle physique",
@@ -148,6 +147,7 @@
     "checkingLocation": "Vérification de l’heure et du lieu…",
     "allocationFailed": "Impossible de confirmer l’heure et le lieu. Vérifiez la séance, essayez un autre horaire ou En ligne, puis vérifiez à nouveau.",
     "roomReviewHelp": "La salle est revérifiée à l’envoi. Si elle est indisponible, vérifiez une nouvelle attribution.",
+    "locationUnavailable": "Salle indisponible. Actualise les détails avant de donner ton accord.",
     "tutoringPaused": "Tutorat régulier suspendu",
     "tutoringPausedHelp": "Cette séance régulière est suspendue. Aucune présence n’est requise. Une exception nécessite l’accord explicite de chaque participant.",
     "arrangeException": "Prévoir une exception",
@@ -4109,7 +4109,8 @@
         "MonthlyHoursReport": "Rapport mensuel des heures de service",
         "SchoolHoursSchedule": "Calendrier des rapports scolaires",
         "SchoolHoursReport": "Rapport individuel des heures pour l’école",
-        "ProgramCalendarPolicyRevision": "Révision de la règle des dates de tutorat"
+        "ProgramCalendarPolicyRevision": "Révision de la règle des dates de tutorat",
+        "ImportedRecordProvenance": "Provenance de l’import d’archives"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Confirmation de l’e-mail d’inscription publique",
@@ -4502,7 +4503,8 @@
         "schoolHoursReportId": "Identifiant du rapport scolaire",
         "schoolHoursReport": "Rapport scolaire",
         "schedulingEffect": "Effet sur la planification",
-        "tutoringPauseSuppressed": "Tutorat régulier suspendu"
+        "tutoringPauseSuppressed": "Tutorat régulier suspendu",
+        "importedAt": "Date d’import"
       },
       "enums": {
         "Role": {
@@ -7791,8 +7793,6 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
-    "tutorTitle": "Candidature de tuteur pour {period}",
-    "configuredOpening": "Ouverture configurée (sous réserve d’activation et de vérification)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7809,7 +7809,9 @@
     "reviewPeriod": "Review request for {period}",
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
-    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening.",
+    "tutorTitle": "Candidature de tuteur pour {period}",
+    "configuredOpening": "Ouverture configurée (sous réserve d’activation et de vérification)"
   },
   "signupBanner": {
     "plannedLabel": "Ouverture prévue",
@@ -7821,9 +7823,9 @@
     "plannedHelp": "Le prochain trimestre doit être activé avant que les demandes puissent être acceptées.",
     "scheduledHelp": "Le changement de trimestre est approuvé et programmé. Les inscriptions nécessitent encore son activation et une campagne ouverte.",
     "currentClosed": "Les inscriptions au tutorat pour {period} sont fermées.",
-    "tutorCurrentClosed": "Les candidatures de tuteurs pour {period} sont fermées.",
     "countdownLabel": "Temps avant l’ouverture annoncée",
-    "previewLink": "Aperçu du formulaire"
+    "previewLink": "Aperçu du formulaire",
+    "tutorCurrentClosed": "Les candidatures de tuteurs pour {period} sont fermées."
   },
   "monthlyHours": {
     "emailPreviewsTitle": "Aperçus des E-mails",
@@ -7977,12 +7979,6 @@
     "baselineSummary": "{review} à vérifier · {committed} enregistrés",
     "baselineIssues": "{count} problèmes à résoudre",
     "baselineHelp": "Saisissez les heures, suppléments, déductions et Crew déjà signalés par personne. Les sources sont des justificatifs, pas des soldes suggérés. Saisissez explicitement zéro si rien n'a été signalé.",
-    "baselineAttention": "{count} soldes initiaux à vérifier",
-    "baselineSetupRequired": "Vérification des soldes initiaux requise",
-    "affectedPeople": "{count} personnes concernées",
-    "baselineBatchHelp": "Marquez chaque personne vérifiée dans ses détails. Enregistrez un lot vérifié tout en conservant les autres brouillons.",
-    "baselineSelectedCount": "{count} personnes sélectionnées pour cette vérification",
-    "archivedSources": "{count} enregistrements historiques importés restent dans l’historique et sont exclus des variations du rapport scolaire. Vérifiez les sources actuelles séparément.",
     "mappingHelp": "Vérifiez chaque compte scolaire. Résolvez toute identité ou attribution incertaine avant publication ; ne rapprochez jamais les comptes par le seul nom.",
     "sourceTutoring": "Tutorat net des sources",
     "sourceCrew": "Heures Crew des sources",
@@ -8088,13 +8084,19 @@
       "SOURCE_OWNER_CHANGED": "Une source signalée a changé de personne. Résolvez ce changement.",
       "ANCESTOR_MONTH": "Seul le dernier mois signalé peut recevoir une correction.",
       "FUTURE_MONTH": "Les mois futurs ne sont pas encore disponibles.",
-      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Une source historique importée recoupe un solde vérifié ou publié. Rapprochez son historique avant publication ; aucune annulation silencieuse.",
-      "SOURCE_VALUE_INVALID": "Une source contient des heures invalides. Corrigez la source."
+      "SOURCE_VALUE_INVALID": "Une source contient des heures invalides. Corrigez la source.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Une source historique importée recoupe un solde vérifié ou publié. Rapprochez son historique avant publication ; aucune annulation silencieuse."
     },
     "blocked": "À résoudre avant publication",
     "featureOff": "Les heures de service sont désactivées. Aperçu indisponible.",
     "priorEditionHelp": "Choisissez uniquement la dernière version réellement appliquée à ce compte. Si aucune, appliquez une fois le mois complet corrigé. En cas de doute, consultez l’équipe avant saisie.",
-    "priorEditionCorrection": "Dernière version appliquée {revision} : appliquer {hours}"
+    "priorEditionCorrection": "Dernière version appliquée {revision} : appliquer {hours}",
+    "baselineAttention": "{count} soldes initiaux à vérifier",
+    "baselineSetupRequired": "Vérification des soldes initiaux requise",
+    "affectedPeople": "{count} personnes concernées",
+    "baselineBatchHelp": "Marquez chaque personne vérifiée dans ses détails. Enregistrez un lot vérifié tout en conservant les autres brouillons.",
+    "baselineSelectedCount": "{count} personnes sélectionnées pour cette vérification",
+    "archivedSources": "{count} enregistrements historiques importés restent dans l’historique et sont exclus des variations du rapport scolaire. Vérifiez les sources actuelles séparément."
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",

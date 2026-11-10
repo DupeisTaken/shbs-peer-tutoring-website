@@ -75,7 +75,6 @@
     "chooseLearner": "Lernende Person auswählen",
     "scopeHelp": "Einzeln ändert nur die Sitzung der ausgewählten Person. Alle müssen dem neuesten Gruppenangebot zustimmen.",
     "location": "Ort",
-    "locationUnavailable": "Raum nicht verfügbar. Lade die aktuellen Angaben neu, bevor du zustimmst.",
     "sameRoom": "Geplanten Raum beibehalten",
     "online": "Online",
     "noRoom": "Kein physischer Raum",
@@ -148,6 +147,7 @@
     "checkingLocation": "Zeit und Ort werden geprüft…",
     "allocationFailed": "Zeit und Ort konnten nicht bestätigt werden. Prüfe die aktuelle Sitzung, wähle eine andere Zeit oder Online und prüfe den Vorschlag erneut.",
     "roomReviewHelp": "Der Raum wird beim Senden erneut geprüft. Ist er nicht verfügbar, prüfe eine neue Zuweisung.",
+    "locationUnavailable": "Raum nicht verfügbar. Lade die aktuellen Angaben neu, bevor du zustimmst.",
     "tutoringPaused": "Reguläre Nachhilfe pausiert",
     "tutoringPausedHelp": "Dieser reguläre Termin pausiert. Es besteht keine Anwesenheitspflicht. Eine Ausnahme erfordert die ausdrückliche Zustimmung aller Teilnehmenden.",
     "arrangeException": "Ausnahme vereinbaren",
@@ -4109,7 +4109,8 @@
         "MonthlyHoursReport": "Monatlicher Dienststundenbericht",
         "SchoolHoursSchedule": "Zeitplan für Schulberichte",
         "SchoolHoursReport": "Individueller Schulstundenbericht",
-        "ProgramCalendarPolicyRevision": "Revision der Nachhilfedatumsregel"
+        "ProgramCalendarPolicyRevision": "Revision der Nachhilfedatumsregel",
+        "ImportedRecordProvenance": "Herkunft des Archivimports"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "E-Mail-Bestätigung der öffentlichen Anmeldung",
@@ -4502,7 +4503,8 @@
         "schoolHoursReportId": "Schulberichts-ID",
         "schoolHoursReport": "Schulbericht",
         "schedulingEffect": "Auswirkung auf die Planung",
-        "tutoringPauseSuppressed": "Reguläre Nachhilfe pausiert"
+        "tutoringPauseSuppressed": "Reguläre Nachhilfe pausiert",
+        "importedAt": "Importiert am"
       },
       "enums": {
         "Role": {
@@ -7791,8 +7793,6 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
-    "tutorTitle": "Tutor-Anmeldung für {period}",
-    "configuredOpening": "Konfigurierter Beginn (vorbehaltlich Aktivierung und Prüfung)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7809,7 +7809,9 @@
     "reviewPeriod": "Review request for {period}",
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
-    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening.",
+    "tutorTitle": "Tutor-Anmeldung für {period}",
+    "configuredOpening": "Konfigurierter Beginn (vorbehaltlich Aktivierung und Prüfung)"
   },
   "signupBanner": {
     "plannedLabel": "Geplante Öffnung",
@@ -7821,9 +7823,9 @@
     "plannedHelp": "Das nächste Quartal muss aktiviert sein, bevor Anmeldungen angenommen werden können.",
     "scheduledHelp": "Der Quartalswechsel ist genehmigt und terminiert. Die Anmeldung erfordert weiterhin ein aktives Quartal und eine freigeschaltete Aufnahme.",
     "currentClosed": "Die Anmeldung für Lernpartner im Zeitraum {period} ist geschlossen.",
-    "tutorCurrentClosed": "Die Tutor-Anmeldung für {period} ist geschlossen.",
     "countdownLabel": "Zeit bis zur angekündigten Öffnung",
-    "previewLink": "Anmeldebogen ansehen"
+    "previewLink": "Anmeldebogen ansehen",
+    "tutorCurrentClosed": "Die Tutor-Anmeldung für {period} ist geschlossen."
   },
   "monthlyHours": {
     "emailPreviewsTitle": "E-Mail-Vorschau",
@@ -7977,12 +7979,6 @@
     "baselineSummary": "{review} zu prüfen · {committed} gespeichert",
     "baselineIssues": "{count} Probleme zu klären",
     "baselineHelp": "Bereits gemeldete Stunden, Extras, Abzüge und Crew je Person eingeben. Quelldaten sind Belege, keine Vorgabewerte. Nicht gemeldete Werte ausdrücklich als Null eingeben.",
-    "baselineAttention": "{count} Anfangssalden zu prüfen",
-    "baselineSetupRequired": "Anfangssalden prüfen",
-    "affectedPeople": "{count} betroffene Personen",
-    "baselineBatchHelp": "Geprüfte Personen in ihren Details markieren. Geprüfte Salden können schrittweise gespeichert werden; andere Entwürfe bleiben erhalten.",
-    "baselineSelectedCount": "{count} Personen für diese Prüfung ausgewählt",
-    "archivedSources": "{count} importierte historische Datensätze bleiben im Verlauf und zählen nicht zu Änderungen im Schulbericht. Aktuelle Quellen getrennt prüfen.",
     "mappingHelp": "Schulkonto jeder Person prüfen. Unklare Identität oder Zuordnung vor Ausgabe klären; nie nur nach Namen zuordnen.",
     "sourceTutoring": "Nachhilfe aus Quelldaten, netto",
     "sourceCrew": "Crew-Stunden aus Quelldaten",
@@ -8088,13 +8084,19 @@
       "SOURCE_OWNER_CHANGED": "Eine gemeldete Quelle wechselte die Person. Änderung zuerst klären.",
       "ANCESTOR_MONTH": "Nur der neueste Berichtsmonat darf korrigiert werden.",
       "FUTURE_MONTH": "Künftige Berichtsmonate sind noch nicht verfügbar.",
-      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Eine importierte historische Quelle überschneidet sich mit einem geprüften oder ausgestellten Saldo. Den Berichtsverlauf vor der Ausgabe abgleichen; keine stille Rückbuchung.",
-      "SOURCE_VALUE_INVALID": "Eine Quelle enthält ungültige Stunden. Quelle zuerst korrigieren."
+      "SOURCE_VALUE_INVALID": "Eine Quelle enthält ungültige Stunden. Quelle zuerst korrigieren.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Eine importierte historische Quelle überschneidet sich mit einem geprüften oder ausgestellten Saldo. Den Berichtsverlauf vor der Ausgabe abgleichen; keine stille Rückbuchung."
     },
     "blocked": "Vor Ausgabe klären",
     "featureOff": "Dienststunden sind deaktiviert. Vorschau nicht verfügbar.",
     "priorEditionHelp": "Nur die tatsächlich zuletzt auf diesem Konto gebuchte Ausgabe wählen. Falls keine, korrigierten Gesamtmonat einmal anwenden. Bei Unsicherheit vor der Buchung das Programmteam fragen.",
-    "priorEditionCorrection": "Zuletzt Ausgabe {revision} gebucht: {hours} anwenden"
+    "priorEditionCorrection": "Zuletzt Ausgabe {revision} gebucht: {hours} anwenden",
+    "baselineAttention": "{count} Anfangssalden zu prüfen",
+    "baselineSetupRequired": "Anfangssalden prüfen",
+    "affectedPeople": "{count} betroffene Personen",
+    "baselineBatchHelp": "Geprüfte Personen in ihren Details markieren. Geprüfte Salden können schrittweise gespeichert werden; andere Entwürfe bleiben erhalten.",
+    "baselineSelectedCount": "{count} Personen für diese Prüfung ausgewählt",
+    "archivedSources": "{count} importierte historische Datensätze bleiben im Verlauf und zählen nicht zu Änderungen im Schulbericht. Aktuelle Quellen getrennt prüfen."
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",

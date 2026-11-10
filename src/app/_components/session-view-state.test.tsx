@@ -8,7 +8,10 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { createQueryClient } from "~/trpc/query-client";
 import {
   SessionViewProvider,
   useSessionViewState,
@@ -71,9 +74,10 @@ afterEach(() => {
   document
     .querySelectorAll("[data-scroll-fixture]")
     .forEach((pane) => pane.remove());
+  // Timer spies capture fake functions; restore them before uninstalling the clock.
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
-  vi.restoreAllMocks();
   window.history.replaceState(null, "", "/");
 });
 
@@ -958,55 +962,171 @@ it("changes from the fixed desktop pane to document scroll at the responsive bre
   fixture.remove();
 });
 
-it("keeps named denial freshness with a changing query list without refetching unrelated catalogues", () => {
-  type Query = Parameters<typeof useSessionAccessDenied>[number];
-  function Authority({ queries }: { queries: Query[] }) {
-    const denied = useSessionAccessDenied(...queries);
-    return <p>{denied ? "denied" : "authorized"}</p>;
+it("keeps named denial freshness with a changing query list without refetching unrelated catalogues", async () => {
+  type Scope = "current" | "cached";
+  type PrivateRead = { label: string };
+  type ReadError = Error & { data?: { code?: string } };
+  const readKey = (scope: Scope) => ["named-denial-list", scope] as const;
+  const catalogueKey = ["named-denial-list", "catalogue"] as const;
+  const extraCatalogueKey = ["named-denial-list", "extra-catalogue"] as const;
+  const remote = vi.fn<(scope: Scope) => Promise<PrivateRead>>();
+  const catalogueRemote = vi
+    .fn<() => Promise<string[]>>()
+    .mockResolvedValue(["catalogue"]);
+  const extraCatalogueRemote = vi
+    .fn<() => Promise<string[]>>()
+    .mockResolvedValue(["extra-catalogue"]);
+  const client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      staleTime: 30_000,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  });
+  // Real query completions can share a timestamp; request order owns recovery.
+  vi.spyOn(Date, "now").mockReturnValue(Date.UTC(2026, 10, 9, 12));
+  function Authority({ scope, extra }: { scope: Scope; extra: boolean }) {
+    const read = useQuery<PrivateRead, ReadError>({
+      queryKey: readKey(scope),
+      queryFn: () => remote(scope),
+    });
+    const catalogue = useQuery({
+      queryKey: catalogueKey,
+      queryFn: catalogueRemote,
+    });
+    const extraCatalogue = useQuery({
+      queryKey: extraCatalogueKey,
+      queryFn: extraCatalogueRemote,
+      enabled: extra,
+    });
+    const denied = useSessionAccessDenied(
+      ...(extra ? [{ ...extraCatalogue, queryKey: extraCatalogueKey }] : []),
+      { ...read, queryKey: readKey(scope), denialKey: "filtered-read" },
+      { ...catalogue, queryKey: catalogueKey },
+    );
+    return (
+      <>
+        <output aria-label="Named read observer">
+          {`${scope}:${read.status}:${read.fetchStatus}`}
+        </output>
+        <p>{denied ? "denied" : "authorized"}</p>
+        {!denied && <p>{read.data?.label}</p>}
+      </>
+    );
   }
-  const catalogue = { isSuccess: true, isFetching: false, dataUpdatedAt: 100 };
-  const read = { ...catalogue, denialKey: "filtered-read" };
-  const rendered = render(<Authority queries={[read, catalogue]} />);
-  rendered.rerender(
-    <Authority
-      queries={[
-        {
-          denialKey: read.denialKey,
-          error: { data: { code: "FORBIDDEN" } },
-          errorUpdatedAt: 200,
-        },
-        catalogue,
-      ]}
-    />,
+  const tree = (scope: Scope, extra = false) => (
+    <QueryClientProvider client={client}>
+      <Authority scope={scope} extra={extra} />
+    </QueryClientProvider>
   );
-  // Resetting the input exposes older cached data, and a conditional unrelated
-  // query is inserted ahead of it. Neither can migrate or release this denial.
-  rendered.rerender(<Authority queries={[catalogue, read, catalogue]} />);
-  expect(screen.getByText("denied")).toBeTruthy();
-  rendered.rerender(
-    <Authority
-      queries={[
-        catalogue,
-        {
-          ...read,
-          isSuccess: false,
-          error: { data: { code: "INTERNAL_SERVER_ERROR" } },
-        },
-        catalogue,
-      ]}
-    />,
-  );
-  expect(screen.getByText("denied")).toBeTruthy();
-  const recovered = { ...read, dataUpdatedAt: 300 };
-  rendered.rerender(
-    <Authority
-      queries={[catalogue, { ...recovered, isFetching: true }, catalogue]}
-    />,
-  );
-  expect(screen.getByText("denied")).toBeTruthy();
-  // A successful catalogue needs no new request when the failed read recovers.
-  rendered.rerender(<Authority queries={[catalogue, recovered, catalogue]} />);
-  expect(screen.getByText("authorized")).toBeTruthy();
+  try {
+    remote.mockResolvedValueOnce({ label: "Older cached evidence" });
+    await client.fetchQuery({
+      queryKey: readKey("cached"),
+      queryFn: () => remote("cached"),
+    });
+    await client.fetchQuery({
+      queryKey: catalogueKey,
+      queryFn: catalogueRemote,
+    });
+    await client.fetchQuery({
+      queryKey: extraCatalogueKey,
+      queryFn: extraCatalogueRemote,
+    });
+    remote.mockResolvedValueOnce({ label: "Current private evidence" });
+    const rendered = render(tree("current"));
+    await screen.findByText("Current private evidence");
+    remote.mockRejectedValueOnce(
+      Object.assign(new Error("Access revoked"), {
+        data: { code: "FORBIDDEN" },
+      }),
+    );
+    await act(async () => {
+      await client.refetchQueries({
+        queryKey: readKey("current"),
+        exact: true,
+      });
+    });
+    await screen.findByText("denied");
+    expect(screen.queryByText("Current private evidence")).toBeNull();
+
+    // Resetting the filter inserts a cached catalogue ahead of the named slot.
+    // Neither its position nor a cached successful read can release the denial.
+    rendered.rerender(tree("cached", true));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Named read observer").textContent).toBe(
+        "cached:success:idle",
+      );
+    });
+    expect(screen.getByText("denied")).toBeTruthy();
+    expect(screen.queryByText("Older cached evidence")).toBeNull();
+    expect(remote.mock.calls.map(([scope]) => scope)).toEqual([
+      "cached",
+      "current",
+      "current",
+    ]);
+
+    remote.mockRejectedValueOnce(
+      Object.assign(new Error("Temporarily unavailable"), {
+        data: { code: "INTERNAL_SERVER_ERROR" },
+      }),
+    );
+    await act(async () => {
+      await client.refetchQueries({ queryKey: readKey("cached"), exact: true });
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Named read observer").textContent).toBe(
+        "cached:error:idle",
+      );
+    });
+    expect(screen.getByText("denied")).toBeTruthy();
+
+    let completeRead!: (value: PrivateRead) => void;
+    remote.mockImplementationOnce(
+      () =>
+        new Promise<PrivateRead>((resolve) => {
+          completeRead = resolve;
+        }),
+    );
+    let recovery!: ReturnType<typeof client.refetchQueries>;
+    await act(async () => {
+      recovery = client.refetchQueries({
+        queryKey: readKey("cached"),
+        exact: true,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Named read observer").textContent).toBe(
+        "cached:error:fetching",
+      );
+    });
+    expect(screen.getByText("denied")).toBeTruthy();
+    await act(async () => {
+      completeRead({ label: "Fresh authorized evidence" });
+      await recovery;
+    });
+    await screen.findByText("Fresh authorized evidence");
+    expect(screen.getByText("authorized")).toBeTruthy();
+    expect(remote.mock.calls.map(([scope]) => scope)).toEqual([
+      "cached",
+      "current",
+      "current",
+      "cached",
+      "cached",
+    ]);
+    // Successful catalogue observers retain their original network reads.
+    expect(catalogueRemote).toHaveBeenCalledTimes(1);
+    expect(extraCatalogueRemote).toHaveBeenCalledTimes(1);
+  } finally {
+    cleanup();
+    client.clear();
+  }
 });
 
 it("retains default multi-query recovery when only the failed polling read refreshes", () => {
@@ -1202,7 +1322,6 @@ it("preserves an allowed null choice before verification and across remounts", (
   expect(screen.getByText("No selection")).toBeTruthy();
 });
 
-
 function RenderSelection({
   allowHistory,
   suspended,
@@ -1213,7 +1332,8 @@ function RenderSelection({
   onSetter: (setter: Dispatch<SetStateAction<string>>) => void;
 }) {
   const [tab, setTab, reconcileTab] = useSessionViewState<string>({
-    id: "render-choice", initialState: "current",
+    id: "render-choice",
+    initialState: "current",
     // Deliberately inline: equivalent parser functions must not churn the setter.
     parse: viewEnum(allowHistory ? ["current", "history"] : ["current"]),
   });
@@ -1240,7 +1360,12 @@ it("uses the current parser for guarded render selections without changing the s
   const initialCalls = onSetter.mock.calls.length;
   rendered.rerender(tree(true));
   expect(screen.getByTestId("render-choice").textContent).toBe("history");
-  expect(readViewState(sessionStorage, viewStateKey("head", "/admin/tutees", "render-choice", ""))).toBe("history");
+  expect(
+    readViewState(
+      sessionStorage,
+      viewStateKey("head", "/admin/tutees", "render-choice", ""),
+    ),
+  ).toBe("history");
   rendered.rerender(tree(true));
   expect(onSetter).toHaveBeenCalledTimes(initialCalls);
 });
@@ -1254,16 +1379,24 @@ it("discards render-time selection from an abandoned StrictMode render", async (
     <StrictMode>
       <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
         <Suspense fallback={<p>Waiting for arrival</p>}>
-          <RenderSelection allowHistory={allowHistory} suspended={suspended} onSetter={onSetter} />
+          <RenderSelection
+            allowHistory={allowHistory}
+            suspended={suspended}
+            onSetter={onSetter}
+          />
         </Suspense>
       </SessionViewProvider>
     </StrictMode>
   );
   const rendered = render(tree(false));
-  await act(async () => { rendered.rerender(tree(true, pending)); });
+  await act(async () => {
+    rendered.rerender(tree(true, pending));
+  });
   expect(screen.getByText("Waiting for arrival")).toBeTruthy();
   expect(readViewState(sessionStorage, key)).toBe("current");
-  await act(async () => { rendered.rerender(tree(false)); });
+  await act(async () => {
+    rendered.rerender(tree(false));
+  });
   expect(screen.getByTestId("render-choice").textContent).toBe("current");
   expect(readViewState(sessionStorage, key)).toBe("current");
 });
@@ -1271,26 +1404,55 @@ it("discards render-time selection from an abandoned StrictMode render", async (
 it("applies batched functional choices sequentially and rejects invalid proposals without replacing the accepted value", () => {
   function Counter() {
     const [count, setCount] = useSessionViewState<number>({
-      id: "counter", initialState: 1,
-      parse: (value) => typeof value === "number" && value >= 0 && value <= 10 ? value : undefined,
+      id: "counter",
+      initialState: 1,
+      parse: (value) =>
+        typeof value === "number" && value >= 0 && value <= 10
+          ? value
+          : undefined,
     });
-    return <><p data-testid="counter">{count}</p><button onClick={() => {
-      setCount((current) => current + 1);
-      setCount(999);
-      setCount((current) => current * 2);
-    }}>Batch choices</button></>;
+    return (
+      <>
+        <p data-testid="counter">{count}</p>
+        <button
+          onClick={() => {
+            setCount((current) => current + 1);
+            setCount(999);
+            setCount((current) => current * 2);
+          }}
+        >
+          Batch choices
+        </button>
+      </>
+    );
   }
-  render(<StrictMode><SessionViewProvider identity="head" pathname="/admin/tutees" verified><Counter /></SessionViewProvider></StrictMode>);
+  render(
+    <StrictMode>
+      <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+        <Counter />
+      </SessionViewProvider>
+    </StrictMode>,
+  );
   fireEvent.click(screen.getByRole("button", { name: "Batch choices" }));
   expect(screen.getByTestId("counter").textContent).toBe("4");
-  expect(readViewState(sessionStorage, viewStateKey("head", "/admin/tutees", "counter", ""))).toBe(4);
+  expect(
+    readViewState(
+      sessionStorage,
+      viewStateKey("head", "/admin/tutees", "counter", ""),
+    ),
+  ).toBe(4);
 });
 
 it("uses current scope defaults for guarded selection during the scope's first render", () => {
   function Scoped({ base }: { base: number }) {
     const [value, , reconcileValue] = useSessionViewState<number>({
-      id: "scope-default", scope: String(base), initialState: base,
-      parse: (candidate) => typeof candidate === "number" && candidate >= base ? candidate : undefined,
+      id: "scope-default",
+      scope: String(base),
+      initialState: base,
+      parse: (candidate) =>
+        typeof candidate === "number" && candidate >= base
+          ? candidate
+          : undefined,
     });
     const [previousBase, setPreviousBase] = useState(base);
     if (previousBase !== base) {
@@ -1299,7 +1461,11 @@ it("uses current scope defaults for guarded selection during the scope's first r
     }
     return <p data-testid="scope-default">{value}</p>;
   }
-  const tree = (base: number) => <SessionViewProvider identity="head" pathname="/admin/tutees" verified><Scoped base={base} /></SessionViewProvider>;
+  const tree = (base: number) => (
+    <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+      <Scoped base={base} />
+    </SessionViewProvider>
+  );
   const rendered = render(tree(1));
   rendered.rerender(tree(20));
   expect(screen.getByTestId("scope-default").textContent).toBe("21");
@@ -1310,7 +1476,11 @@ it("preserves an unverified render choice through verification without persistin
   writeViewState(sessionStorage, key, "current");
   const onSetter = vi.fn();
   const tree = (allowHistory: boolean, verified: boolean) => (
-    <SessionViewProvider identity="head" pathname="/admin/tutees" verified={verified}>
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/tutees"
+      verified={verified}
+    >
       <RenderSelection allowHistory={allowHistory} onSetter={onSetter} />
     </SessionViewProvider>
   );

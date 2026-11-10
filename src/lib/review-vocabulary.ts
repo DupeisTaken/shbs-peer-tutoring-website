@@ -13,8 +13,12 @@ type EntitySchema = {
 const schemas = reviewSchema as Readonly<Record<string, EntitySchema>>;
 const fields = new Set<string>(reviewFieldKeys);
 const prefix = "auditEventDetails.presentation";
-const notificationCategoryLabels = Object.fromEntries(notificationCategories.map((category) =>
-  [category, `notificationPreferences.categories.${category}`]));
+const notificationCategoryLabels = Object.fromEntries(
+  notificationCategories.map((category) => [
+    category,
+    `notificationPreferences.categories.${category}`,
+  ]),
+);
 /** These persisted String columns have closed domains owned by their writers,
  * rather than Prisma enums. Keep each mapping scoped to its exact entity/field;
  * an identical token in a name, explanation or unknown object remains text. */
@@ -60,9 +64,12 @@ export const reviewStringDomains = {
   },
   ScheduledProgramRefresh: {
     blockedReason: {
-      SCHEDULED_REFRESH_HEAD_CHANGED: "scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED",
-      SCHEDULED_REFRESH_REVIEW_CHANGED: "scheduledRefresh.errors.SCHEDULED_REFRESH_REVIEW_CHANGED",
-      SCHEDULED_REFRESH_EXECUTION_FAILED: "scheduledRefresh.errors.SCHEDULED_REFRESH_EXECUTION_FAILED",
+      SCHEDULED_REFRESH_HEAD_CHANGED:
+        "scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED",
+      SCHEDULED_REFRESH_REVIEW_CHANGED:
+        "scheduledRefresh.errors.SCHEDULED_REFRESH_REVIEW_CHANGED",
+      SCHEDULED_REFRESH_EXECUTION_FAILED:
+        "scheduledRefresh.errors.SCHEDULED_REFRESH_EXECUTION_FAILED",
     },
   },
   TranslationDraft: {
@@ -143,36 +150,90 @@ const schemaFor = (entity: string | undefined) =>
 // Several names (before/after/result/recordId) are public on unrelated models;
 // exclude them by owner instead of widening or shrinking the global vocabulary.
 const privateIdentityFields: Readonly<Record<string, readonly string[]>> = {
+  // The importer owns this polymorphic/composite boundary, not a display route.
+  ImportedRecordProvenance: ["entity", "recordId"],
   // Recovery source bindings and owner answers require the scoped inspector or
   // authenticated draft reader; schema metadata never authorizes generic display.
-  RecoveryCheckpoint: ["sourceId", "capturedById", "captureTransactionId", "scope"],
-  RecoveryWorkflowDraft: ["sourceSurveyId", "sourceTuteeId", "ownerUserId", "ownerBindingHash", "answers", "submittedSurveyId"],
+  RecoveryCheckpoint: [
+    "sourceId",
+    "capturedById",
+    "captureTransactionId",
+    "scope",
+  ],
+  RecoveryWorkflowDraft: [
+    "sourceSurveyId",
+    "sourceTuteeId",
+    "ownerUserId",
+    "ownerBindingHash",
+    "answers",
+    "submittedSurveyId",
+  ],
   // Original intake and retry evidence stay with the private signup reader.
-  LegacySignupDecline: ["intakeSnapshot", "clientKey", "inputHash", "expectedUpdatedAt"],
+  LegacySignupDecline: [
+    "intakeSnapshot",
+    "clientKey",
+    "inputHash",
+    "expectedUpdatedAt",
+  ],
   // Derived maintenance queues are not scheduling decisions or participant evidence.
   SchedulingMaintenanceState: [
-    "publicationVersion", "settlementVersion", "windowStart", "prepareEnd", "timeZone",
-    "unavailable", "normalized", "settlementBatchActive", "settlementBatchExhausted",
-    "settlementCursor", "settlementEventIds", "settlementRequestIds",
+    "publicationVersion",
+    "settlementVersion",
+    "windowStart",
+    "prepareEnd",
+    "timeZone",
+    "unavailable",
+    "normalized",
+    "settlementBatchActive",
+    "settlementBatchExhausted",
+    "settlementCursor",
+    "settlementEventIds",
+    "settlementRequestIds",
   ],
-  SchedulingDirtyEvent: ["id", "sourceTable", "requestId", "publicationPending", "settlementPending"],
+  SchedulingDirtyEvent: [
+    "id",
+    "sourceTable",
+    "requestId",
+    "publicationPending",
+    "settlementPending",
+  ],
   User: ["historyAccessRevision"],
   Tutor: ["historyIdentityRevision"],
   Tutee: ["historyIdentityRevision"],
   EmailDelivery: ["sourceNotificationId"],
   PersonCombineReceipt: ["inputHash", "retiredUserIds", "ownershipTransfers"],
   PersonPartitionReceipt: ["inputHash", "sources", "subjects"],
-  PersonHistoryCorrectionReceipt: ["inputHash", "sourceUserIds", "before", "after", "subjects"],
-  PersonParticipationTransferReceipt: ["inputHash", "retainedUserId", "selection", "result", "subjects"],
+  PersonHistoryCorrectionReceipt: [
+    "inputHash",
+    "sourceUserIds",
+    "before",
+    "after",
+    "subjects",
+  ],
+  PersonParticipationTransferReceipt: [
+    "inputHash",
+    "retainedUserId",
+    "selection",
+    "result",
+    "subjects",
+  ],
   RetiredHistoryOwnership: ["sourceUserId", "readerUserId", "receiptId"],
-  HistoryRowOwnership: ["recordId", "readerUserId", "quarantineUserIds", "sourceUserIds", "receiptId"],
+  HistoryRowOwnership: [
+    "recordId",
+    "readerUserId",
+    "quarantineUserIds",
+    "sourceUserIds",
+    "receiptId",
+  ],
   ParticipantConsolidation: ["sourceId", "targetId"],
   SessionPlanExecution: ["assignments"],
   SessionParticipantExecution: ["sourceSurveyIds"],
   SessionResponseExecution: ["profileId"],
 };
 const privateIdentityField = (entity: string | undefined, field: string) =>
-  !!entity && Object.hasOwn(privateIdentityFields, entity) && privateIdentityFields[entity]!.includes(field);
+  !!entity &&
+  Object.hasOwn(privateIdentityFields, entity) &&
+  privateIdentityFields[entity]!.includes(field);
 
 /** Fully-qualified message keys are shared by audit and approval readers. Only
  * explicit schema fields/enums receive meaning; user-authored text stays literal. */
@@ -187,7 +248,12 @@ export function auditFieldLabelKey(
   field: string,
 ): string | null {
   const name = reviewEntity(entity);
-  if (!name || privateIdentityField(name, field) || !schemaFor(name)?.fields.includes(field) || !fields.has(field))
+  if (
+    !name ||
+    privateIdentityField(name, field) ||
+    !schemaFor(name)?.fields.includes(field) ||
+    !fields.has(field)
+  )
     return null;
   if (
     field === "action" &&

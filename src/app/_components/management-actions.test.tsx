@@ -84,7 +84,11 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    notification: { reconcileManagementReviews: { useMutation: () => ({ mutateAsync: mocks.reconcileNotices }) } },
+    notification: {
+      reconcileManagementReviews: {
+        useMutation: () => ({ mutateAsync: mocks.reconcileNotices }),
+      },
+    },
     useUtils: () => ({
       tutor: { myInterviews: { invalidate: mocks.invalidateInterviews } },
       interviewManagement: { options: { invalidate: mocks.invalidateOptions } },
@@ -94,7 +98,10 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     approval: {
-      list: { useQuery: mocks.list },
+      list: {
+        _def: () => ({ path: ["approval", "list"] }),
+        useQuery: mocks.list,
+      },
       requesters: { useQuery: mocks.requesters },
       decide: {
         useMutation: (options: { onSuccess: () => void }) => ({
@@ -179,7 +186,9 @@ beforeEach(() => {
   mocks.params = "";
   mocks.decisionState = {};
   mocks.refetch.mockResolvedValue({});
-  mocks.reconcileNotices.mockReset().mockResolvedValue({ pending: 2, created: 1 });
+  mocks.reconcileNotices
+    .mockReset()
+    .mockResolvedValue({ pending: 2, created: 1 });
   for (const invalidate of [
     mocks.invalidateInterviews,
     mocks.invalidateOptions,
@@ -191,37 +200,69 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it.each([false, true])("lets Admin and Head deliberately reconcile notices without deciding requests (Head=%s)", async (headReviewer) => {
-  queue([], true, 0, headReviewer);
-  render(view(true));
-  expect(mocks.reconcileNotices).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: en.approvals.reviewerNoticesRefresh }));
-  await screen.findByText(en.approvals.reviewerNoticesResult.replace("{created}", "1").replace("{pending}", "2"));
-  expect(mocks.reconcileNotices).toHaveBeenCalledExactlyOnceWith();
-  expect(mocks.decide).not.toHaveBeenCalled();
-  expect(mocks.refetch).not.toHaveBeenCalled();
-});
+it.each([false, true])(
+  "lets Admin and Head deliberately reconcile notices without deciding requests (Head=%s)",
+  async (headReviewer) => {
+    queue([], true, 0, headReviewer);
+    render(view(true));
+    expect(mocks.reconcileNotices).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: en.approvals.reviewerNoticesRefresh }),
+    );
+    await screen.findByText(
+      en.approvals.reviewerNoticesResult
+        .replace("{created}", "1")
+        .replace("{pending}", "2"),
+    );
+    expect(mocks.reconcileNotices).toHaveBeenCalledExactlyOnceWith();
+    expect(mocks.decide).not.toHaveBeenCalled();
+    expect(mocks.refetch).not.toHaveBeenCalled();
+  },
+);
 
 it("conceals notification reconciliation from request-only Coordinators", () => {
   queue([], false);
   render(view(false));
-  expect(screen.queryByRole("button", { name: en.approvals.reviewerNoticesRefresh })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.approvals.reviewerNoticesRefresh }),
+  ).toBeNull();
   expect(mocks.reconcileNotices).not.toHaveBeenCalled();
 });
 
 it("admits one reconciliation while pending and permits a deliberate retry after failure", async () => {
   let reject!: (failure: Error) => void;
-  mocks.reconcileNotices.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail; }));
+  mocks.reconcileNotices.mockReturnValueOnce(
+    new Promise((_resolve, fail) => {
+      reject = fail;
+    }),
+  );
   queue([], true);
   render(view(true, "zh"));
-  const button = screen.getByRole("button", { name: zh.approvals.reviewerNoticesRefresh });
-  act(() => { fireEvent.click(button); fireEvent.click(button); });
+  const button = screen.getByRole("button", {
+    name: zh.approvals.reviewerNoticesRefresh,
+  });
+  act(() => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  });
   expect(mocks.reconcileNotices).toHaveBeenCalledOnce();
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: zh.approvals.reviewerNoticesPending }).disabled).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: zh.approvals.reviewerNoticesPending,
+    }).disabled,
+  ).toBe(true);
   await act(async () => reject(new Error("Temporary notification failure")));
-  expect(screen.getByRole("alert").textContent).toBe("Temporary notification failure");
-  fireEvent.click(screen.getByRole("button", { name: zh.approvals.reviewerNoticesRefresh }));
-  await screen.findByText(zh.approvals.reviewerNoticesResult.replace("{created}", "1").replace("{pending}", "2"));
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Temporary notification failure",
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: zh.approvals.reviewerNoticesRefresh }),
+  );
+  await screen.findByText(
+    zh.approvals.reviewerNoticesResult
+      .replace("{created}", "1")
+      .replace("{pending}", "2"),
+  );
   expect(mocks.reconcileNotices).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole("alert")).toBeNull();
 });
@@ -593,7 +634,17 @@ it("requires a nonblank note and explains both proposal outcomes", () => {
 });
 
 it("explains Head-only requests when an Admin cannot decide them", () => {
-  queue([{ ...row(), operation: "admin.refresh", reviewerRoles: ["HEAD"], canDecide: false }], true);
+  queue(
+    [
+      {
+        ...row(),
+        operation: "admin.refresh",
+        reviewerRoles: ["HEAD"],
+        canDecide: false,
+      },
+    ],
+    true,
+  );
   render(view(true));
   expect(screen.getByText(en.approvals.review.headRequired)).toBeTruthy();
   expect(
@@ -723,9 +774,9 @@ it("shows coordinator history and proposed/affected records without privileged r
       .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(
-    within(screen.getByRole("region", { name: "Affected record" })).getAllByText(
-      "Original room",
-    ),
+    within(
+      screen.getByRole("region", { name: "Affected record" }),
+    ).getAllByText("Original room"),
   ).toBeTruthy();
   expect(
     within(screen.getByRole("region", { name: "What is requested" })).getByText(
