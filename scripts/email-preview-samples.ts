@@ -37,7 +37,7 @@ const deadline = {
 const invitationUrl = `${previewOrigin}/register?code=A2B3C`;
 const historyUrl = `${previewOrigin}/history/claim?token=${"synthetic".repeat(10)}`;
 
-export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
+function schoolReportLegacyPreview(revision = 1): SchoolHoursPublicReport {
   const alexMonth = revision === 1 ? 7 : revision === 2 ? 7.5 : 7.75;
   const alexChange = revision === 1 ? 7 : revision === 2 ? 0.5 : 0.25;
   const blairMonth = -revision / 60;
@@ -106,6 +106,68 @@ export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
       monthAmount: alexMonth + blairMonth + 2,
     },
   };
+}
+
+/** 80 min posts as 1.3 h with 2 min retained; another 4 min releases 0.1 h.
+ * Negative and zero-post examples use synthetic school accounts only. */
+export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
+  const report = schoolReportLegacyPreview(revision);
+  const rawAlex = revision === 1 ? 80 / 60 : revision === 2 ? 4 / 60 : 5 / 60;
+  const postedAlex = revision === 1 ? 1.3 : revision === 2 ? 0.1 : 0;
+  const alex = report.rows[0]!;
+  Object.assign(alex, {
+    tutoringChange: rawAlex,
+    crewChange: 0,
+    hoursToAdd: postedAlex,
+    monthAmount: revision === 1 ? 1.3 : 1.4,
+    previousEditionAmount: revision === 1 ? null : revision === 2 ? 1.3 : 1.4,
+    monthComparison: revision === 1 ? -4.7 : -4.6,
+    carryInHours: revision === 2 ? "0.0333333333333333" : "0",
+    carryOutHours:
+      revision === 1
+        ? "0.0333333333333333"
+        : revision === 2
+          ? "0"
+          : "0.0833333333333333",
+    priorEditions:
+      revision > 2
+        ? [
+            { revision: 1, monthAmount: 1.3, correctionToCurrent: 0.1 },
+            { revision: 2, monthAmount: 1.4, correctionToCurrent: 0 },
+          ]
+        : [],
+  });
+  Object.assign(report.rows[1]!, {
+    tutoringChange: -rawAlex,
+    hoursToAdd: -postedAlex,
+    monthAmount: revision === 1 ? -1.3 : -1.4,
+    previousEditionAmount: revision === 1 ? null : revision === 2 ? -1.3 : -1.4,
+    carryInHours: revision === 2 ? "-0.0333333333333333" : "0",
+    carryOutHours:
+      revision === 1
+        ? "-0.0333333333333333"
+        : revision === 2
+          ? "0"
+          : "-0.0833333333333333",
+    unchanged: false,
+    priorEditions:
+      revision > 2
+        ? [
+            { revision: 1, monthAmount: -1.3, correctionToCurrent: -0.1 },
+            { revision: 2, monthAmount: -1.4, correctionToCurrent: 0 },
+          ]
+        : [],
+  });
+  Object.assign(report.rows[2]!, { carryInHours: "0", carryOutHours: "0" });
+  report.postingPolicy = "TENTH_HOUR_CARRY";
+  report.totals = {
+    people: 3,
+    tutoringChange: revision === 1 ? 2 : 0,
+    crewChange: 0,
+    hoursToAdd: revision === 1 ? 2 : 0,
+    monthAmount: 2,
+  };
+  return report;
 }
 
 export function emailPreviewSamples(
@@ -256,6 +318,14 @@ export function emailPreviewSamples(
         reportUrl: `${previewOrigin}/school-report/synthetic`,
       }),
     });
+  samples.push({
+    name: "school-legacy-precision",
+    ...schoolHoursEmailCopy({
+      locale,
+      report: schoolReportLegacyPreview(3),
+      reportUrl: `${previewOrigin}/school-report/synthetic-legacy`,
+    }),
+  });
   for (const verified of [false, true])
     samples.push({
       name: `request-${verified ? "verified" : "unverified"}`,

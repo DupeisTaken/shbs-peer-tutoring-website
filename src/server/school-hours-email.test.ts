@@ -17,6 +17,193 @@ const parse = (html: string) =>
   new DOMParser().parseFromString(html, "text/html");
 const unit = (locale: EmailLocale) => (locale === "zh" ? "小时" : "h");
 
+function carryReport() {
+  const snapshot = schoolHoursTestSnapshot();
+  snapshot.postingPolicy = "TENTH_HOUR_CARRY";
+  snapshot.rows = [
+    {
+      ...snapshot.rows[0]!,
+      tutoringChange: 80 / 60,
+      crewChange: 0,
+      hoursToAdd: 1.3,
+      monthAmount: 1.3,
+      carryInHours: "0",
+      carryOutHours: "0.0333333333333333",
+    },
+  ];
+  snapshot.totals = {
+    people: 1,
+    tutoringChange: 80 / 60,
+    crewChange: 0,
+    hoursToAdd: 1.3,
+    monthAmount: 1.3,
+  };
+  return publicSchoolHoursReport(snapshot);
+}
+
+it.each(["en", "zh"] as const)(
+  "posts exact tenths with one concise %s carry notice",
+  (locale) => {
+    const report = carryReport();
+    const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+    const doc = parse(email.html);
+    expect(email.subject).toBe(
+      locale === "zh"
+        ? "2026年10月学校时数报告 · 第 1 版"
+        : "October 2026 school-hours report · Revision 1",
+    );
+    const legacyHeading = parse(
+      schoolHoursEmailCopy({
+        report: { ...report, postingPolicy: undefined },
+        reportUrl,
+        locale,
+      }).html,
+    ).querySelector("h1")?.textContent;
+    expect(doc.querySelector("h1")?.textContent).toBe(legacyHeading);
+    expect(doc.querySelector(".email-amount")?.textContent).toBe(
+      `+1.3 ${unit(locale)}`,
+    );
+    expect(doc.querySelector(".email-carry-notice")?.textContent).toContain(
+      locale === "zh" ? "0.1 小时（6 分钟）" : "0.1 h (6 min)",
+    );
+    expect(email.text).toContain(
+      locale === "zh" ? "自动保留" : "retained automatically",
+    );
+    expect(doc.querySelector(".person")?.textContent).not.toContain("0.033333");
+    expect(doc.querySelector(".person")?.textContent).toContain(
+      locale === "zh" ? "留待后续：2 分钟" : "Carried forward: 2 min",
+    );
+    expect(email.html).not.toContain("1.333333");
+    expect(email.text).not.toContain("≈");
+    if (locale === "en")
+      expect(doc.querySelector(".email-carry-notice")?.textContent).not.toMatch(
+        /[\u3400-\u9fff]/u,
+      );
+    else
+      expect(
+        doc.querySelector(".email-carry-notice")?.textContent,
+      ).not.toContain("School hours");
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "explains zero posting in %s without exposing a decimal tail",
+  (locale) => {
+    const report = carryReport();
+    Object.assign(report.rows[0]!, { hoursToAdd: 0, monthAmount: 0 });
+    const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+    const card = parse(email.html).querySelector(".person")!;
+    expect(card.textContent).toContain(
+      locale === "zh"
+        ? "本次无需入账。 留待后续：2 分钟"
+        : "Nothing to enter now. Carried forward: 2 min",
+    );
+    expect(card.textContent).not.toContain("0.033333");
+    expect(card.querySelector(".email-amount")?.textContent).toBe(
+      `0 ${unit(locale)}`,
+    );
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "names negative carry as a pending deduction in %s",
+  (locale) => {
+    const report = carryReport();
+    Object.assign(report.rows[0]!, {
+      hoursToAdd: -1.3,
+      carryOutHours: "-0.0333333333333333",
+    });
+    for (const posted of [-1.3, 0]) {
+      report.rows[0]!.hoursToAdd = posted;
+      const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+      const card = parse(email.html).querySelector(".person")!;
+      expect(card.textContent).toContain(
+        locale === "zh"
+          ? "待扣减余量：2 分钟"
+          : "Deduction carried forward: 2 min",
+      );
+      expect(card.textContent).not.toContain("-2 min");
+      expect(card.textContent).not.toContain("-0.033333");
+      if (posted === 0)
+        expect(card.textContent).toContain(
+          locale === "zh" ? "本次无需入账" : "Nothing to enter now",
+        );
+    }
+  },
+);
+
+it.each([1, 2])(
+  "labels a carried zero instruction as nothing to enter in saved revision %s",
+  (revision) => {
+    const report = carryReport();
+    report.revision = revision;
+    Object.assign(report.rows[0]!, { hoursToAdd: 0, monthAmount: 0 });
+    const saved = parse(renderSchoolHoursContent(report)).querySelector(
+      ".person",
+    )!;
+    expect(saved.textContent).toContain("Nothing to enter now");
+    expect(saved.textContent).not.toContain("Hours to add to this account");
+    if (revision > 1) {
+      expect(saved.textContent).toContain("if r1 was last applied");
+      expect(
+        parse(schoolHoursEmailCopy({ report, reportUrl }).html).querySelector(
+          ".person",
+        )?.textContent,
+      ).toContain("if Revision 1 was last entered");
+    }
+  },
+);
+
+it("keeps exact carry in saved evidence and CSV without exposing private projection data", () => {
+  const report = carryReport();
+  expect(report.postingPolicy).toBe("TENTH_HOUR_CARRY");
+  expect(report.rows[0]!.carryOutHours).toBe("0.0333333333333333");
+  const saved = parse(renderSchoolHoursContent(report));
+  expect(
+    saved.querySelector('.person [title="0.0333333333333333 h"]')?.textContent,
+  ).toBe("2 min / 分钟");
+  expect(saved.querySelector(".person")?.textContent).toContain(
+    "Raw tutoring change",
+  );
+  const csv = schoolHoursCsv(report).content;
+  expect(csv).toContain("Carry in (exact hours; informational)");
+  expect(csv).toContain("Carry out (exact hours; retained automatically)");
+  expect(csv).toContain("0.0333333333333333");
+  expect(csv).toContain("never post it separately");
+  expect(JSON.stringify(report)).not.toContain("private-person");
+  expect(JSON.stringify(report)).not.toContain("nameParts");
+});
+
+it("shows the next four minutes releasing one tenth without adding carry as credit", () => {
+  const report = carryReport();
+  report.revision = 2;
+  Object.assign(report.rows[0]!, {
+    tutoringChange: 4 / 60,
+    hoursToAdd: 0.1,
+    monthAmount: 1.4,
+    previousEditionAmount: 1.3,
+    carryInHours: "0.0333333333333333",
+    carryOutHours: "0",
+  });
+  const email = schoolHoursEmailCopy({ report, reportUrl });
+  const card = parse(email.html).querySelector(".person")!;
+  expect(card.querySelector(".email-amount")?.textContent).toBe("+0.1 h");
+  expect(card.textContent).not.toContain("2 min");
+  expect(card.textContent).not.toContain("+1.4");
+  expect(renderSchoolHoursContent(report)).toContain("Carry in / 期初余量");
+});
+
+it("keeps legacy reports free of carry policy, columns and notices", () => {
+  const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
+  expect(report).not.toHaveProperty("postingPolicy");
+  expect(report.rows[0]).not.toHaveProperty("carryOutHours");
+  expect(schoolHoursCsv(report).content).not.toContain("Carry out");
+  expect(renderSchoolHoursContent(report)).not.toContain("Carry in");
+  expect(schoolHoursEmailCopy({ report, reportUrl }).html).not.toContain(
+    "email-carry-notice",
+  );
+});
+
 it("defaults to English and escapes public branding and participant names", () => {
   const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
   const email = schoolHoursEmailCopy({

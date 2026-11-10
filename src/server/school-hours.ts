@@ -19,6 +19,7 @@ import { isSerializationFailure } from "./auth/username-snapshot";
 import { databaseScope } from "./db-scope";
 import {
   schoolHoursBaselineInput,
+  schoolHoursCarrySchema,
   schoolHoursComponentsSchema,
   schoolHoursGenerateInput,
   schoolHoursSettingsInput,
@@ -40,6 +41,10 @@ import {
   schoolHoursTokenMatches,
 } from "./school-hours-link";
 import { schoolHoursEmailCopy } from "./school-hours-email";
+import {
+  quantizeSchoolHours,
+  sumSchoolHoursCarry,
+} from "./school-hours-posting";
 import {
   publicSchoolHoursReport,
   schoolHoursCsv as publicSchoolHoursCsv,
@@ -85,6 +90,7 @@ const personSchema = z.object({
   beneficiaryId: z.string(),
   schoolAccountKey: z.string(),
   components: schoolHoursComponentsSchema,
+  carryHours: schoolHoursCarrySchema.default("0"),
   provenanceUserIds: z.array(z.string()),
   provenanceTutorIds: z.array(z.string()),
 });
@@ -427,6 +433,7 @@ async function accounting(db: DomainDb) {
     if (old) {
       for (const key of keys)
         old.components[key] = sum(old.components[key], person.components[key]);
+      old.carryHours = sumSchoolHoursCarry([old.carryHours, person.carryHours]);
     } else
       previous.set(id, {
         ...person,
@@ -491,6 +498,7 @@ async function accounting(db: DomainDb) {
       schoolAccountKey: old?.schoolAccountKey ?? null,
       current: live?.components ?? zero(),
       alreadyReported: old?.components ?? null,
+      carryHours: old?.carryHours ?? "0",
       needsReview: !old,
       sourceCount: live?.sourceCount ?? 0,
     };
@@ -561,6 +569,7 @@ export async function reviewSchoolHoursBaseline(
           deductions: row.deductions,
           crew: row.crew,
         },
+        carryHours: "0",
         provenanceUserIds: live.provenanceUserIds,
         provenanceTutorIds: live.provenanceTutorIds,
       };
@@ -781,8 +790,14 @@ async function preview(db: DomainDb, month: string) {
         change.extras,
         -change.deductions,
       ),
-      crewChange = change.crew,
-      hoursToAdd = sum(tutoringChange, crewChange);
+      crewChange = change.crew;
+    // The source baseline advances in full, but only whole tenths are posted.
+    // The signed remainder travels with this person's baseline, even across
+    // months and ownership retirement. Preview and mail retries never consume it.
+    const { hoursToAdd, carryOutHours } = quantizeSchoolHours(
+      sum(tutoringChange, crewChange),
+      participant.carryHours,
+    );
     const oldRow = headSnapshot?.rows.filter(
       (row) =>
         state.current.resolve(row.beneficiaryId) === participant.beneficiaryId,
@@ -834,6 +849,8 @@ async function preview(db: DomainDb, month: string) {
       tutoringChange,
       crewChange,
       hoursToAdd,
+      carryInHours: participant.carryHours,
+      carryOutHours,
       monthAmount,
       previousEditionAmount: sameMonth ? oldMonth : null,
       previousMonthAmount,
@@ -841,7 +858,7 @@ async function preview(db: DomainDb, month: string) {
         previousMonthAmount == null
           ? null
           : minus(monthAmount, previousMonthAmount),
-      unchanged: keys.every((key) => change[key] === 0),
+      unchanged: keys.every((key) => change[key] === 0) && hoursToAdd === 0,
       priorEditions: editionCorrections,
     };
   });
@@ -860,6 +877,7 @@ async function preview(db: DomainDb, month: string) {
   }
   const snapshot: SchoolHoursSnapshot = {
     schemaVersion: 1,
+    postingPolicy: "TENTH_HOUR_CARRY",
     month,
     revision: sameMonth ? state.head!.revision + 1 : 1,
     generatedAt: new Date().toISOString(),
@@ -941,6 +959,7 @@ async function createReport(
       beneficiaryId: row.beneficiaryId,
       schoolAccountKey: row.schoolAccountKey,
       components: row.current,
+      carryHours: row.carryOutHours ?? "0",
       provenanceUserIds:
         result.state.current.people.get(row.beneficiaryId)?.provenanceUserIds ??
         result.state.previous.get(row.beneficiaryId)?.provenanceUserIds ??

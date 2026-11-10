@@ -141,6 +141,16 @@ const signedComponents = z.object({
   deductions: z.number().finite(),
   crew: z.number().finite(),
 });
+// Carries are decimal strings: converting them through JSON numbers would lose
+// small retained balances. Older immutable reports omit this presentation data.
+export const schoolHoursCarrySchema = z
+  .string()
+  .max(800)
+  .regex(/^-?\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i)
+  .refine(
+    (value) => Number.isFinite(Number(value)),
+    "Use a finite hour balance.",
+  );
 export const schoolHoursRowSchema = z.object({
   beneficiaryId: z.string(),
   exportName: z.string(),
@@ -159,6 +169,8 @@ export const schoolHoursRowSchema = z.object({
   tutoringChange: z.number(),
   crewChange: z.number(),
   hoursToAdd: z.number(),
+  carryInHours: schoolHoursCarrySchema.optional(),
+  carryOutHours: schoolHoursCarrySchema.optional(),
   monthAmount: z.number(),
   previousEditionAmount: z.number().nullable(),
   previousMonthAmount: z.number().nullable(),
@@ -174,22 +186,36 @@ export const schoolHoursRowSchema = z.object({
     )
     .default([]),
 });
-export const schoolHoursSnapshotSchema = z.object({
-  schemaVersion: z.literal(1),
-  month: schoolHoursMonth,
-  revision: z.number().int().positive(),
-  generatedAt: z.string(),
-  timeZone: z.string(),
-  predecessorId: z.string().nullable(),
-  supersedesId: z.string().nullable(),
-  includeStatistics: z.boolean(),
-  rows: z.array(schoolHoursRowSchema),
-  totals: z.object({
-    people: z.number(),
-    tutoringChange: z.number(),
-    crewChange: z.number(),
-    hoursToAdd: z.number(),
-    monthAmount: z.number(),
-  }),
-});
+export const schoolHoursSnapshotSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    postingPolicy: z.literal("TENTH_HOUR_CARRY").optional(),
+    month: schoolHoursMonth,
+    revision: z.number().int().positive(),
+    generatedAt: z.string(),
+    timeZone: z.string(),
+    predecessorId: z.string().nullable(),
+    supersedesId: z.string().nullable(),
+    includeStatistics: z.boolean(),
+    rows: z.array(schoolHoursRowSchema),
+    totals: z.object({
+      people: z.number(),
+      tutoringChange: z.number(),
+      crewChange: z.number(),
+      hoursToAdd: z.number(),
+      monthAmount: z.number(),
+    }),
+  })
+  .superRefine((snapshot, context) => {
+    if (snapshot.postingPolicy !== "TENTH_HOUR_CARRY") return;
+    snapshot.rows.forEach((row, index) => {
+      for (const field of ["carryInHours", "carryOutHours"] as const)
+        if (row[field] === undefined)
+          context.addIssue({
+            code: "custom",
+            path: ["rows", index, field],
+            message: "A carry-aware report must retain both carry balances.",
+          });
+    });
+  });
 export type SchoolHoursSnapshot = z.infer<typeof schoolHoursSnapshotSchema>;

@@ -9,6 +9,7 @@ import { schoolHoursVisibleRows } from "~/lib/school-hours-visibility";
 import { schoolHoursPriorEditions } from "~/lib/school-hours-corrections";
 import {
   formatSchoolHours as hours,
+  formatSchoolHoursCarryMinutes,
   schoolHoursApproximation,
 } from "~/lib/school-hours-format";
 import { programDateKey } from "~/lib/program-time";
@@ -66,13 +67,25 @@ export function SchoolHoursIndividuals({
   revision,
   includeStatistics = false,
   showEvidence = true,
+  postingPolicy,
 }: {
   rows: SchoolHoursRow[];
   revision: number;
   includeStatistics?: boolean;
   showEvidence?: boolean;
+  postingPolicy?: "TENTH_HOUR_CARRY";
 }) {
   const t = useTranslations("schoolHours");
+  const carryPolicy = postingPolicy === "TENTH_HOUR_CARRY";
+  const carry = (value: string | undefined) =>
+    value === undefined ? (
+      t("none")
+    ) : (
+      <span title={t("exactCarryHours", { hours: value })}>
+        {t("carryMinutes", { minutes: formatSchoolHoursCarryMinutes(value) })}
+        <span className="sr-only">{`; ${t("exactCarryHours", { hours: value })}`}</span>
+      </span>
+    );
   const rows = schoolHoursVisibleRows({ revision, rows: allRows });
   const amount = (row: SchoolHoursRow) => (
     <>
@@ -110,8 +123,16 @@ export function SchoolHoursIndividuals({
         <dd>{hours(row.change.extras, true)}</dd>
         <dt>{t("deductionsChange")}</dt>
         <dd>{hours(row.change.deductions, true)}</dd>
-        <dt>{t("crewChange")}</dt>
+        <dt>{t(carryPolicy ? "rawCrew" : "crewChange")}</dt>
         <dd>{hours(row.crewChange, true)}</dd>
+        {carryPolicy && (
+          <>
+            <dt>{t("carryIn")}</dt>
+            <dd>{carry(row.carryInHours)}</dd>
+            <dt>{t("carryOut")}</dt>
+            <dd>{carry(row.carryOutHours)}</dd>
+          </>
+        )}
         <dt>{t("amountToApply")}</dt>
         <dd className="font-semibold">{hours(row.hoursToAdd, true)}</dd>
         {revision > 1 && (
@@ -132,8 +153,19 @@ export function SchoolHoursIndividuals({
   return (
     <div className="min-w-0 space-y-3">
       <p className="text-sm text-slate-700">
-        {t(revision > 1 ? "revisionInstructions" : "applyInstructions")}
+        {t(
+          revision > 1
+            ? "revisionInstructions"
+            : carryPolicy
+              ? "carryApplyInstructions"
+              : "applyInstructions",
+        )}
       </p>
+      {carryPolicy && (
+        <p className="text-sm text-slate-700">
+          {t("carryPolicyNotice")} {t("carryReconciliation")}
+        </p>
+      )}
       {/* Keep the person and exact credit together on narrow screens, where
           a sticky table action can otherwise cover the amount being applied. */}
       <ul
@@ -160,17 +192,45 @@ export function SchoolHoursIndividuals({
             </dl>
             <dl className="grid grid-cols-2 gap-3">
               <div className="min-w-0">
-                <dt className="muted text-xs">{t("tutoring")}</dt>
+                <dt className="muted text-xs">
+                  {t(carryPolicy ? "rawTutoring" : "tutoring")}
+                </dt>
                 <dd className="mt-1 tabular-nums">
-                  <SchoolHoursValue value={row.tutoringChange} signed />
+                  <SchoolHoursValue
+                    value={row.tutoringChange}
+                    signed
+                    sourceSummary={carryPolicy}
+                  />
                 </dd>
               </div>
               <div className="min-w-0">
-                <dt className="muted text-xs">{t("crew")}</dt>
+                <dt className="muted text-xs">
+                  {t(carryPolicy ? "rawCrew" : "crew")}
+                </dt>
                 <dd className="mt-1 tabular-nums">
-                  <SchoolHoursValue value={row.crewChange} signed />
+                  <SchoolHoursValue
+                    value={row.crewChange}
+                    signed
+                    sourceSummary={carryPolicy}
+                  />
                 </dd>
               </div>
+              {carryPolicy && (
+                <>
+                  <div className="min-w-0">
+                    <dt className="muted text-xs">{t("carryIn")}</dt>
+                    <dd className="mt-1 tabular-nums">
+                      {carry(row.carryInHours)}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="muted text-xs">{t("carryOut")}</dt>
+                    <dd className="mt-1 tabular-nums">
+                      {carry(row.carryOutHours)}
+                    </dd>
+                  </div>
+                </>
+              )}
             </dl>
             {showEvidence && <div className="text-right">{details(row)}</div>}
           </li>
@@ -182,8 +242,18 @@ export function SchoolHoursIndividuals({
             <tr>
               <th>{t("individual")}</th>
               <th className="text-right">{t("amountToApply")}</th>
-              <th className="text-right">{t("tutoring")}</th>
-              <th className="text-right">{t("crew")}</th>
+              <th className="text-right">
+                {t(carryPolicy ? "rawTutoring" : "tutoring")}
+              </th>
+              <th className="text-right">
+                {t(carryPolicy ? "rawCrew" : "crew")}
+              </th>
+              {carryPolicy && (
+                <>
+                  <th className="text-right">{t("carryIn")}</th>
+                  <th className="text-right">{t("carryOut")}</th>
+                </>
+              )}
               {showEvidence && (
                 <th className="table-actions-heading">{t("details")}</th>
               )}
@@ -208,14 +278,38 @@ export function SchoolHoursIndividuals({
                   className="text-right tabular-nums"
                   data-sort-value={row.tutoringChange}
                 >
-                  <SchoolHoursValue value={row.tutoringChange} signed />
+                  <SchoolHoursValue
+                    value={row.tutoringChange}
+                    signed
+                    sourceSummary={carryPolicy}
+                  />
                 </td>
                 <td
                   className="text-right tabular-nums"
                   data-sort-value={row.crewChange}
                 >
-                  <SchoolHoursValue value={row.crewChange} signed />
+                  <SchoolHoursValue
+                    value={row.crewChange}
+                    signed
+                    sourceSummary={carryPolicy}
+                  />
                 </td>
+                {carryPolicy && (
+                  <>
+                    <td
+                      className="text-right tabular-nums"
+                      data-sort-value={Number(row.carryInHours)}
+                    >
+                      {carry(row.carryInHours)}
+                    </td>
+                    <td
+                      className="text-right tabular-nums"
+                      data-sort-value={Number(row.carryOutHours)}
+                    >
+                      {carry(row.carryOutHours)}
+                    </td>
+                  </>
+                )}
                 {showEvidence && <TableActions>{details(row)}</TableActions>}
               </tr>
             ))}
@@ -392,6 +486,7 @@ export function SchoolHoursPreview({ preview }: { preview: SchoolPreview }) {
             rows={preview.rows}
             revision={preview.revision}
             includeStatistics={preview.includeStatistics}
+            postingPolicy={preview.postingPolicy}
           />
         ) : (
           <div className="space-y-3">
@@ -478,7 +573,9 @@ function ReadSchoolPreview({ parentDenied }: { parentDenied: boolean }) {
       client.removeQueries({ queryKey: getQueryKey(api.schoolHours) });
   }, [hidden, client]);
   if (!hidden && settings.data && !initialized) {
-    setMonth(programDateKey(new Date(), settings.data.config.timeZone).slice(0, 7));
+    setMonth(
+      programDateKey(new Date(), settings.data.config.timeZone).slice(0, 7),
+    );
     setInitialized(true);
   }
   const retryRead = async () => {

@@ -223,6 +223,7 @@ function basis(needsReview = false): Basis {
         alreadyReported: needsReview ? null : { ...zero },
         needsReview,
         sourceCount: 2,
+        carryHours: "0",
       },
     ],
   };
@@ -411,6 +412,70 @@ function addRecipient(email: string, label = "") {
     editor.getByRole("button", { name: en.schoolHours.addRecipient }),
   );
 }
+
+it.each(["en", "zh"] as const)(
+  "shows posted tenths, raw changes and retained minute evidence in report previews (%s)",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const snapshot = preview();
+    snapshot.postingPolicy = "TENTH_HOUR_CARRY";
+    snapshot.rows = [
+      {
+        ...row("Alex", 80 / 60, 0),
+        hoursToAdd: 1.3,
+        monthAmount: 1.3,
+        carryInHours: "0",
+        carryOutHours: "0.0333333333333333",
+      },
+    ];
+    render(show(<SchoolHoursPreview preview={snapshot} />, locale));
+    expect(
+      screen.getByText(`${copy.carryPolicyNotice} ${copy.carryReconciliation}`),
+    ).toBeTruthy();
+    for (const role of ["list", "table"]) {
+      const view = within(
+        screen.getByRole(role, { name: copy.individualAmounts }),
+      );
+      expect(view.getByText("+1.3")).toBeTruthy();
+      expect(view.getByText(copy.rawTutoring)).toBeTruthy();
+      expect(view.getByText(copy.rawCrew)).toBeTruthy();
+      const rawSummary = view.getByTitle(
+        copy.exactHours.replace("{hours}", "+1.3333333333333333"),
+      );
+      expect(rawSummary.firstChild?.textContent).toBe(
+        copy.approximateHours.replace("{hours}", "+1.3333"),
+      );
+      const retained = view.getByTitle(
+        copy.exactCarryHours.replace("{hours}", "0.0333333333333333"),
+      );
+      expect(retained.firstChild?.textContent).toBe(
+        copy.carryMinutes.replace("{minutes}", "2"),
+      );
+    }
+    const mobile = within(
+      screen.getByRole("list", { name: copy.individualAmounts }),
+    );
+    fireEvent.click(mobile.getByRole("button"));
+    const detail = within(screen.getByRole("dialog", { name: "Alex" }));
+    expect(detail.getByText("+1.3333333333333333")).toBeTruthy();
+    expect(detail.getByText(copy.carryOut)).toBeTruthy();
+    expect(
+      detail.getByTitle(
+        copy.exactCarryHours.replace("{hours}", "0.0333333333333333"),
+      ),
+    ).toBeTruthy();
+  },
+);
+
+it("preserves the legacy report layout when no carry policy is stored", () => {
+  render(show(<SchoolHoursIndividuals rows={preview().rows} revision={1} />));
+  expect(screen.queryByText(en.schoolHours.carryPolicyNotice)).toBeNull();
+  const table = within(
+    screen.getByRole("table", { name: en.schoolHours.individualAmounts }),
+  );
+  expect(table.queryByText(en.schoolHours.carryIn)).toBeNull();
+  expect(table.getByText(en.schoolHours.tutoring)).toBeTruthy();
+});
 
 it.each(["en", "zh"] as const)(
   "shows individual account instructions without double-counting tutoring/Crew or leading with program totals (%s)",

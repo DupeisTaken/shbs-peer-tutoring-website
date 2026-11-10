@@ -1,8 +1,23 @@
 import { expect, it } from "vitest";
 import {
   formatSchoolHours,
+  formatSchoolHoursCarryMinutes,
   schoolHoursApproximation,
 } from "./school-hours-format";
+
+it.each([
+  ["0", "0"],
+  ["0.0333333333333333", "2"],
+  ["-0.0333333333333333", "-2"],
+  ["1e-2", "0.6"],
+  ["0.0123456789", "≈ 0.7407"],
+  ["-1e-16", "≈ 0"],
+] as const)(
+  "formats retained %s hours as informational %s minutes",
+  (value, label) => {
+    expect(formatSchoolHoursCarryMinutes(value)).toBe(label);
+  },
+);
 
 it("retains fractional account precision, signed corrections and zero without rounding", () => {
   expect(formatSchoolHours(1 / 60)).toBe((1 / 60).toString());

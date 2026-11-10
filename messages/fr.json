@@ -7943,6 +7943,15 @@
     }
   },
   "schoolHours": {
+    "carryPolicyNotice": "School hours are posted in 0.1 h (6 min) increments. Any remainder is retained automatically for a later report; do not enter it separately.",
+    "carryReconciliation": "Carry in + raw changes − posted change = carry out.",
+    "carryApplyInstructions": "Apply the highlighted amount once to the named individual's account. Negative amounts deduct hours. Raw tutoring and Crew changes are for reconciliation; do not enter them separately.",
+    "carryIn": "Carry in",
+    "carryOut": "Carry out",
+    "carryMinutes": "{minutes} min",
+    "exactCarryHours": "Exact carry: {hours} h",
+    "rawTutoring": "Raw tutoring change (h)",
+    "rawCrew": "Raw Crew change (h)",
     "approximateHours": "Env. {hours}",
     "exactHours": "Exact : {hours}",
     "loading": "Chargement des rapports mensuels…",

@@ -27,6 +27,7 @@ export function publicSchoolHoursReport(
     generatedAt: parsed.generatedAt,
     timeZone: parsed.timeZone,
     includeStatistics: parsed.includeStatistics,
+    ...(parsed.postingPolicy ? { postingPolicy: parsed.postingPolicy } : {}),
     rows: visibleRows.map((row) => ({
       exportName: row.exportName,
       schoolAccountKey: row.schoolAccountKey,
@@ -43,6 +44,9 @@ export function publicSchoolHoursReport(
         monthAmount: edition.monthAmount,
         correctionToCurrent: edition.correctionToCurrent,
       })),
+      ...(parsed.postingPolicy === "TENTH_HOUR_CARRY"
+        ? { carryInHours: row.carryInHours, carryOutHours: row.carryOutHours }
+        : {}),
     })),
     totals: {
       people: visibleRows.length,
@@ -137,6 +141,7 @@ export function schoolHoursHtmlResponse(
 }
 
 export function schoolHoursCsv(report: SchoolHoursPublicReport) {
+  const carryPolicy = report.postingPolicy === "TENTH_HOUR_CARRY";
   const visibleRows = schoolHoursVisibleRows(report);
   const priorRevisions = [
     ...new Set(
@@ -156,8 +161,12 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       report.revision > 1
         ? `Correction ONLY if r${report.revision - 1} was last applied (negative = deduct)`
         : "Hours to apply once (negative = deduct)",
-      "Tutoring breakdown",
-      "Crew breakdown",
+      carryPolicy
+        ? "Raw tutoring change (hours; not extra credit)"
+        : "Tutoring breakdown",
+      carryPolicy
+        ? "Raw Crew change (hours; not extra credit)"
+        : "Crew breakdown",
       "If nothing applied: replacement month amount once (alternative)",
       "Previous edition amount",
       "Unchanged since preceding edition",
@@ -168,6 +177,13 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
         (revision) =>
           `If last applied r${revision}: correction to apply now (choose ONE alternative)`,
       ),
+      ...(carryPolicy
+        ? [
+            "Carry in (exact hours; informational)",
+            "Carry out (exact hours; retained automatically)",
+            "Posting policy",
+          ]
+        : []),
     ],
   ];
   for (const row of visibleRows)
@@ -186,13 +202,22 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       row.monthComparison,
       report.revision > 1
         ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team."
-        : "Apply this individual's amount once; the breakdown is not extra credit.",
+        : carryPolicy
+          ? "Apply this individual's amount once. Raw changes and carry are informational; do not enter them separately."
+          : "Apply this individual's amount once; the breakdown is not extra credit.",
       ...priorRevisions.map(
         (revision) =>
           schoolHoursPriorEditions(row, report.revision).find(
             (edition) => edition.revision === revision,
           )?.correctionToCurrent ?? null,
       ),
+      ...(carryPolicy
+        ? [
+            row.carryInHours ?? null,
+            row.carryOutHours ?? null,
+            "Post in 0.1 h (6 min) increments. Carry in + raw changes - posted change = carry out. Carry is retained automatically; never post it separately.",
+          ]
+        : []),
     ]);
   return {
     filename: `program-${report.month}-r${report.revision}.csv`,

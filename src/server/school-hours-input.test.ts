@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { schoolHoursSettingsInput } from "./school-hours-input";
+import {
+  schoolHoursRowSchema,
+  schoolHoursSettingsInput,
+  schoolHoursSnapshotSchema,
+} from "./school-hours-input";
 
 const settings = {
   enabled: false,
@@ -59,6 +63,135 @@ describe("school report recipient labels", () => {
             "",
           ]),
         ),
+      }).success,
+    ).toBe(false);
+  });
+});
+
+const legacyRow = {
+  beneficiaryId: "tutor:synthetic",
+  exportName: "Synthetic Tutor",
+  schoolAccountKey: "school:synthetic",
+  nameParts: {
+    firstName: "Synthetic",
+    lastName: "Tutor",
+    preferredName: null,
+    alternativeNames: null,
+    legacyName: null,
+    confirmed: true,
+  },
+  current: { earned: 1.25, extras: 0, deductions: 0, crew: 0 },
+  previous: { earned: 0, extras: 0, deductions: 0, crew: 0 },
+  change: { earned: 1.25, extras: 0, deductions: 0, crew: 0 },
+  tutoringChange: 1.25,
+  crewChange: 0,
+  hoursToAdd: 1.25,
+  monthAmount: 1.25,
+  previousEditionAmount: null,
+  previousMonthAmount: null,
+  monthComparison: null,
+  unchanged: false,
+};
+const legacySnapshot = {
+  schemaVersion: 1,
+  month: "2013-09",
+  revision: 1,
+  generatedAt: "2013-09-30T04:00:00Z",
+  timeZone: "Asia/Shanghai",
+  predecessorId: null,
+  supersedesId: null,
+  includeStatistics: false,
+  rows: [legacyRow],
+  totals: {
+    people: 1,
+    tutoringChange: 1.25,
+    crewChange: 0,
+    hoursToAdd: 1.25,
+    monthAmount: 1.25,
+  },
+};
+
+describe("school report posting policy compatibility", () => {
+  it("reads old snapshots without inventing carry fields or changing fractional postings", () => {
+    const parsed = schoolHoursSnapshotSchema.parse(legacySnapshot);
+    expect(parsed.postingPolicy).toBeUndefined();
+    expect(parsed.rows[0]).toEqual({ ...legacyRow, priorEditions: [] });
+    expect(parsed.rows[0]).not.toHaveProperty("carryInHours");
+    expect(parsed.rows[0]).not.toHaveProperty("carryOutHours");
+    expect(
+      schoolHoursSnapshotSchema.parse(JSON.parse(JSON.stringify(parsed))),
+    ).toEqual(parsed);
+  });
+
+  it("round-trips signed decimal carry metadata while preserving raw source changes", () => {
+    const report = {
+      ...legacySnapshot,
+      postingPolicy: "TENTH_HOUR_CARRY",
+      rows: [
+        {
+          ...legacyRow,
+          hoursToAdd: 1.2,
+          monthAmount: 1.2,
+          carryInHours: "-0.0000000000000001",
+          carryOutHours: "0.0499999999999999",
+        },
+      ],
+      totals: { ...legacySnapshot.totals, hoursToAdd: 1.2, monthAmount: 1.2 },
+    };
+    const parsed = schoolHoursSnapshotSchema.parse(
+      JSON.parse(JSON.stringify(report)),
+    );
+    expect(parsed).toMatchObject(report);
+    expect(parsed.rows[0]?.tutoringChange).toBe(1.25);
+    expect(
+      schoolHoursRowSchema.parse({
+        ...legacyRow,
+        carryInHours: "1e-16",
+        carryOutHours: "-2e-16",
+      }),
+    ).toMatchObject({
+      carryInHours: "1e-16",
+      carryOutHours: "-2e-16",
+    });
+  });
+
+  it.each([{}, { carryInHours: "0" }, { carryOutHours: "0.05" }])(
+    "requires both carry fields for each row under the posting policy: %j",
+    (carry) => {
+      expect(
+        schoolHoursSnapshotSchema.safeParse({
+          ...legacySnapshot,
+          postingPolicy: "TENTH_HOUR_CARRY",
+          rows: [{ ...legacyRow, ...carry }],
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    0.05,
+    "",
+    "NaN",
+    "Infinity",
+    "-Infinity",
+    "1/30",
+    "1e999",
+    "0.1 hours",
+  ])("rejects invalid carry metadata: %j", (carryOutHours) => {
+    expect(
+      schoolHoursRowSchema.safeParse({
+        ...legacyRow,
+        carryInHours: "0",
+        carryOutHours,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects unknown posting policies", () => {
+    expect(
+      schoolHoursSnapshotSchema.safeParse({
+        ...legacySnapshot,
+        postingPolicy: "ROUND_TO_NEAREST_TENTH",
       }).success,
     ).toBe(false);
   });

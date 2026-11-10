@@ -1041,6 +1041,14 @@ unsent receipts. Sent historical evidence remains intact. Node instrumentation
 starts the school generator at boot and once per minute. PostgreSQL retains the
 cursor, individual baselines, snapshots and receipts across restarts.
 
+Tenth-hour posting stores exact signed carry in the existing report JSON, so it
+needs no additional database columns. Replace the application with the updated
+version before generating new editions. On multiple instances, drain old school
+generators and upgrade every writer together: earlier binaries ignore carry and
+must not generate after the first `TENTH_HOUR_CARRY` edition. Recovery after that
+point requires a release compatible with this persisted carry contract, rather
+than a pre-carry binary rollback. Historical editions remain unchanged and readable.
+
 The reporting recovery migrations preserve compatible existing journal triggers
 and reject disabled or incompatible coverage for operator inspection. They also
 register privacy-safe metadata for preexisting rows connected to unfinished

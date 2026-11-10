@@ -1,8 +1,9 @@
 # Individual school service-hours reports
 
 School reports tell recipients how many previously unreported hours to apply to
-each individual's school account. Tutoring net and Crew hours form the highlighted
-account amount; they are not additional amounts to apply again. Optional program
+each individual's school account. New reports post the combined tutoring net and
+Crew change in 0.1-hour steps and retain the unposted remainder. The source
+breakdown and carried time are not additional amounts to apply. Optional program
 statistics are secondary. The normal tutor roster is unchanged, and the former
 admin monthly overview controls and automatic delivery are retired. Existing
 monthly snapshots remain historical evidence.
@@ -22,20 +23,45 @@ The [school reporting domain](../../src/server/school-hours.ts) owns a serialize
 issue chain. Each individual's baseline freezes earned credit, extra credit,
 deductions and stored Crew credit. Their next amount is the difference in earned
 and extra credit, minus the difference in deductions, plus the difference in Crew
-credit. Opposite changes on different people remain separate even when the
-program-wide net is zero. Stored precision is retained; display rounding never
-becomes a new source value. Lengthy values have an explicitly approximate summary
-using the existing four-decimal display convention. Management and the saved public report keep the exact posting value beside that
-summary; CSV retains the exact numeric value. Email shows each person’s exact signed
-posting amount once, without approximate duplicates, component breakdowns or
-previous/replacement tables. Those details remain in the linked report and CSV.
-Long exact values use smaller type to keep the complete number and unit together;
-ordinary amounts retain their normal emphasis. No value is rounded or truncated.
-Opening-review summaries
+credit, plus their retained carry. Opposite changes on different people remain
+separate even when the program-wide net is zero.
+
+New editions use `TENTH_HOUR_CARRY`: combine the person's source changes and signed
+incoming remainder, truncate toward zero to a whole tenth of an hour, and retain
+the difference. A tenth is six minutes. For example, 80 minutes posts **1.3 hours**
+and retains **2 minutes**; four more minutes in a later report can release another
+**0.1 hour**. Carry follows the person across report months, account retirement and
+explicit ownership merges. It is never pooled between independent people or
+discarded because email is disabled. Source credits and opening component balances
+keep their stored precision.
+
+The [posting helper](../../src/server/school-hours-posting.ts) uses isolated Decimal
+arithmetic and decimal-string carry. A narrowly bounded machine-roundoff allowance
+at a nonzero tenth avoids retaining `0.099999…` forever after minute conversion.
+Any tiny difference remains in the signed carry, so posted plus retained equals
+available; no real tiny source value is discarded. Carries are saved atomically
+with the current source baseline, snapshot and outbox. Preview, download, delivery
+retry and an accepted generation retry never advance carry again.
+
+Deductions use the same signed rule. This is sequential posting, not rounding the
+whole month's net again: after posting +0.1, a later −0.06 change is retained as
+−0.06 until later changes reach another tenth. A reversal can offset positive
+carry before producing a deduction. Smaller changes can therefore wait for a
+later round. Reports distinguish raw tutoring/Crew changes from posted amounts,
+and show incoming and outgoing carry; those values reconcile the difference.
+
+Older snapshots without the policy or carry remain immutable and keep their
+original full-precision instructions. Their missing baseline carry means zero.
+New corrections add tenth-hour increments to the saved monthly amount; they do
+not retroactively quantize an older edition. A replacement total or comparison
+against a legacy edition may consequently retain its historical precision.
+Email shows each person's actual signed posting amount once. The report and CSV
+retain source breakdowns, carry and earlier-edition choices. Long legacy values
+retain the existing readable fallback. Opening-review summaries
 keep exact source amounts in screen-reader text and the evidence dialog, without
-rounding the editable already-reported values. Tiny nonzero amounts never appear
-as zero. Neither repeating fractions nor floating-point tails are silently
-reclassified as accounting errors, and saved snapshots are not rewritten.
+rounding the editable already-reported values. Compact carried-minute summaries
+may be approximate; exact retained hour strings remain in report evidence and CSV.
+Saved snapshots are never rewritten to adopt the new policy.
 
 The report month identifies the reporting occurrence, not a service-date filter.
 Late attendance for earlier dates remains eligible, and school-calendar changes

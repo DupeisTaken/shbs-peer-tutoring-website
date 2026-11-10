@@ -1424,7 +1424,12 @@ records never changes their hours or eligibility.
 
 Open **School reports** on the same page to report each individual's unreported
 hours to school recipients. The highlighted amount is what to add to that person's
-school account; tutoring and Crew are its breakdown. Late submissions and new or
+school account. New reports combine tutoring and Crew changes, post complete
+0.1-hour steps (six minutes), and carry the unposted remainder to the next round,
+including across months. For example, 80 minutes posts 1.3 hours and retains two
+minutes; four later minutes release another 0.1 hour. Deductions carry in the same
+way, and a reversal can cancel carried time before anything is posted. Do not add
+source breakdowns or carried minutes to the highlighted amount. Late submissions and new or
 reversed deductions are reconciled against that person's last reported balance.
 There is no semester reset. The old admin monthly overview has been removed.
 
@@ -1465,7 +1470,9 @@ Optional program statistics summarize rows and are never another account credit.
 
 See the [school reporting contract](../reference/school-hours.md) for source
 accounting, authority, delivery and recovery limits. Legacy saved reports remain
-available as historical evidence.
+available as historical evidence with their original precision. They are not
+rounded again. A new correction to an older edition posts only the new tenth-hour
+increment; its replacement monthly total can still include the older precision.
 
 Use [Attendance Flags](program-configuration.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-configuration.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
 
