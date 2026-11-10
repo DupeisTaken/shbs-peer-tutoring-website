@@ -3,6 +3,8 @@ import "dotenv/config";
 
 // Provides env defaults before any module (env.js / db.ts) is imported by tests.
 // Real values can be provided by the environment or local .env (e.g. DATABASE_URL in CI).
+// The real client rejects the non-test fallback before construction; complete
+// database mocks and pure unit tests can still load env without a live database.
 process.env.SKIP_ENV_VALIDATION ??= "1";
 process.env.AUTH_SECRET ??= "test-secret";
 process.env.DATABASE_URL ??=

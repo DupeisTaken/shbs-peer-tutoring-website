@@ -218,7 +218,7 @@ const db = raw.$extends({
     },
   },
 }) as unknown as typeof raw;
-(globalThis as typeof globalThis & { prisma?: typeof db }).prisma = db;
+Object.assign(globalThis, { prisma: db, prismaDatabaseUrl: process.env.DATABASE_URL });
 const lock = await pool.connect();
 const dbClock = async () =>
   (

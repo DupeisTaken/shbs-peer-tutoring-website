@@ -231,7 +231,10 @@ const client = new PrismaClient({
 });
 // Domain modules that import the application's singleton reuse this same process-
 // local client. That keeps incidental helper SQL on the guarded target and counted.
-(globalThis as typeof globalThis & { prisma?: typeof client }).prisma = client;
+Object.assign(globalThis, {
+  prisma: client,
+  prismaDatabaseUrl: process.env.DATABASE_URL,
+});
 type Metrics = {
   queryEventCount: number;
   queryEventDurationMs: number;

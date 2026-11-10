@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { currentPolicy } from "~/server/policy-acceptance";
 import type { Session } from "next-auth";
 import {
@@ -59,6 +60,7 @@ async function codeOf(fn: () => Promise<unknown>): Promise<string> {
 }
 
 async function cleanup() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.user.deleteMany({
     where: { id: { in: [`user-${TUTOR_A}`, `user-${TUTOR_B}`, "user-none"] } },
   });
@@ -73,6 +75,7 @@ async function cleanup() {
 }
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.policyDocument.upsert({
     where: { slug_locale: { slug: "tutor-policy", locale: "en" } },
     update: {},
@@ -149,8 +152,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("row-level scoping (the critical rule)", () => {

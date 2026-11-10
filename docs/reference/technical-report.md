@@ -2697,6 +2697,15 @@ Use the [deployment runbook](../guides/deployment.md) for bootstrap, SMTP, migra
 commands and isolated database setup. The [CI workflow](../../.github/workflows/docker-build.yml)
 is the current verification pipeline.
 
+In test mode (`NODE_ENV=test` or `VITEST=true`), the shared database module
+checks the adapter's resolved URL before constructing or reusing Prisma. Test
+cache reuse additionally requires the original target binding, so a later
+environment change cannot authorize an old pool. Raw-client tests and cleanup
+hooks use the same policy, preserving narrower fixture allowlists. See the
+[test safety boundary and operator responsibilities](../contributing/local-development.md#5-run-the-tests)
+for configuration requirements and the distinction between synthetic lifecycle
+regressions and live PostgreSQL verification.
+
 Regression tests live beside the owning implementation: identity and intake tests
 cover `student-survey`, `account-profile` and router workflows; content tests cover
 `translation-destination` and `home-slugs`; time and delivery tests cover

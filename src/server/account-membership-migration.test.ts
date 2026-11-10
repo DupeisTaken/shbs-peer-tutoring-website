@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import pg from "pg";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 it("migrates mixed legacy accounts without inventing or altering policy evidence", async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const url = new URL(process.env.DATABASE_URL!);
   if (!["localhost", "127.0.0.1"].includes(url.hostname) || url.pathname !== "/shbs_shipping_test")
     throw new Error("Migration tests require isolated local shbs_shipping_test");

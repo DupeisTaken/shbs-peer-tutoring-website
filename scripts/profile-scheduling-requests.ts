@@ -282,7 +282,7 @@ const client = (scenarios.some((scenario) => scenario === "contention" || isCont
   ? baseClient.$extends({ query: { $executeRaw({ args, query }) {
     return roundWitness ? roundWitness.observeExecuteRaw(args, () => query(args)) : query(args);
   } } }) : baseClient) as typeof baseClient;
-(globalThis as typeof globalThis & { prisma?: typeof client }).prisma = client;
+Object.assign(globalThis, { prisma: client, prismaDatabaseUrl: process.env.DATABASE_URL });
 // Pool.connect has callback and promise overloads; ReturnType selects the final
 // callback overload (void), so name its actual promised client type explicitly.
 let runLock: PoolClient | undefined;

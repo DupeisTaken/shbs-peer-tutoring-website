@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import type { Session } from "next-auth";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,6 +26,7 @@ const publicCaller = () =>
   createCaller({ db, session: null, headers: new Headers() });
 
 async function cleanup() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.approvalRequest.deleteMany({ where: { requesterId: adminSession.user.id } });
   await db.messageOverride.deleteMany({ where: { locale: LANGUAGE } });
   await db.language.deleteMany({ where: { code: LANGUAGE } });
@@ -56,9 +58,13 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
-  await db.user.deleteMany({ where: { id: adminSession.user.id } });
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+    await db.user.deleteMany({ where: { id: adminSession.user.id } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("language publishing", () => {

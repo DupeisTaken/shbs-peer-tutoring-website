@@ -32,8 +32,10 @@ void test("fixed-room transfer journals one later transaction per root and refus
   await admin.connect();
   let created = false;
   let client: PrismaClient | undefined;
-  const globalClient = globalThis as typeof globalThis & { prisma?: PrismaClient };
+  const globalClient = globalThis as typeof globalThis & { prisma?: PrismaClient; prismaDatabaseUrl?: string };
   const previousClient = globalClient.prisma;
+  const previousClientUrl = globalClient.prismaDatabaseUrl;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
   try {
     // Only the generated database is disposable. No migration or cleanup targets
     // the supplied maintenance database, and cleanup never terminates backends.
@@ -56,6 +58,8 @@ void test("fixed-room transfer journals one later transaction per root and refus
     // Legacy helpers importing the shared client also stay inside this owned DB.
     // Import runtime modules only after binding it; no module or journal is mocked.
     globalClient.prisma = database;
+    globalClient.prismaDatabaseUrl = ownedUrl.toString();
+    process.env.DATABASE_URL = ownedUrl.toString();
     const { currentPolicy } = await import("../src/server/policy-acceptance");
     const { approveQualification } = await import("../src/server/qualifications");
     const { previewPersonParticipationTransfer, transferPersonParticipation } = await import("../src/server/person-participation");
@@ -213,6 +217,9 @@ void test("fixed-room transfer journals one later transaction per root and refus
   } finally {
     await client?.$disconnect();
     globalClient.prisma = previousClient;
+    globalClient.prismaDatabaseUrl = previousClientUrl;
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
     try {
       if (created) {
         assert.match(name, /^shbs_transfer_journal_[a-f0-9]{12}_test$/);

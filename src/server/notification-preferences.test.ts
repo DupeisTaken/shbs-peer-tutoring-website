@@ -42,8 +42,12 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
-  await db.user.deleteMany({ where: { id: userId } });
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await db.user.deleteMany({ where: { id: userId } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 it("conceals recovery-withdrawn notices from lists and badges without rewriting original read evidence", async () => {

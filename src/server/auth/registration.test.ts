@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import * as codeHelpers from "./code";
 import type { Session } from "next-auth";
@@ -57,13 +58,18 @@ const publicCaller = () =>
     headers: new Headers({ "x-real-ip": `public-${++ip}` }),
     session: null,
   });
-beforeEach(async () => {
+function assertRegistrationTestDatabase() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const url = new URL(process.env.DATABASE_URL!);
   if (
     !["localhost", "127.0.0.1"].includes(url.hostname) ||
     url.pathname !== "/shbs_shipping_test"
   )
     throw Error("Dedicated local test database required");
+}
+
+beforeEach(async () => {
+  assertRegistrationTestDatabase();
   const tables = await db.$queryRaw<
     { tablename: string }[]
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
@@ -85,9 +91,13 @@ beforeEach(async () => {
   mail.send.mockReset();
 });
 afterAll(async () => {
-  // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
-  await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
-  await db.$disconnect();
+  try {
+    assertRegistrationTestDatabase();
+    // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
+    await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
+  } finally {
+    await db.$disconnect();
+  }
 });
 async function verified(kind: RegistrationKind, email = "new@example.test") {
   const issued = await actor("head").admin.issueRegistrationCode({

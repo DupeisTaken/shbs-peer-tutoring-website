@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import pg from "pg";
 import { expect, it } from "vitest";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 it("migrates exact eligibility and every dependent ID without guessing groups from labels", async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const url = new URL(process.env.DATABASE_URL!);
   if (
     !["localhost", "127.0.0.1"].includes(url.hostname) ||

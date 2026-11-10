@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import type { Session } from "next-auth";
 import {
   afterAll,
@@ -41,6 +42,7 @@ const caller = () =>
   createCaller({ db, session: headSession, headers: new Headers() });
 
 async function cleanup() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.user.deleteMany({ where: { id: headSession.user.id } });
   await db.session.deleteMany({ where: { id: { in: SESSION_IDS } } });
   await db.pairing.deleteMany({ where: { id: PAIRING } });
@@ -99,6 +101,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.session.deleteMany({ where: { id: { in: SESSION_IDS } } });
   await db.timeSlot.update({
     where: { id: SLOT },
@@ -162,8 +165,12 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("time-slot schedule propagation", () => {
