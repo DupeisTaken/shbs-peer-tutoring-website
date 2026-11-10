@@ -16,6 +16,7 @@ import { useActionReview } from "./ui/action-review";
 import { Button } from "./ui/button";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
+import { SchoolHoursFollowups } from "./school-hours-followups";
 
 export function SchoolHoursReport({ id }: { id: string }) {
   const t = useTranslations("schoolHours");
@@ -197,6 +198,21 @@ function SchoolReportReader({ id }: { id: string }) {
       )}
       {data && (
         <>
+          <SchoolHoursFollowups
+            key={`${id}:${settings.data?.canGenerate ?? false}`}
+            id={id}
+            timeZone={data.timeZone}
+            linkVersion={data.linkVersion}
+            recipients={data.recipients}
+            followups={data.followups}
+            canManage={!!canManage}
+            canSchedule={
+              !!data.linkUrl &&
+              !!settings.data?.config.enabled &&
+              !!settings.data?.serviceHoursEnabled
+            }
+            refresh={refresh}
+          />
           <section className="card space-y-4 p-4 sm:p-5">
             <h2 className="section-title">
               {t("reportLabel", { month: data.month, revision: data.revision })}

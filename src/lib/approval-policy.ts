@@ -1,6 +1,8 @@
 /** Explicit management authority inventory. Unknown coordinator writes fail closed.
  * Participant self-service remains owned by its separate account/tutor/student procedures. */
 // program.resendStuckEmails remains immediate ADMIN/HEAD authority: it retries existing delivery evidence.
+// schoolHours.scheduleFollowup/cancelFollowup use adminOnlyProcedure with a live
+// domain actor check. Like report retry, they never admit Coordinator proposals.
 // notification.retryRequestEmail and notification.declineRequestAppeal are immediate
 // ADMIN/HEAD authority. They retain receipt IDs and never bypass an invalidity proposal.
 // recordTransfer.* requires ADMIN/HEAD directly. Imports/exports cannot be proposed or replayed.
@@ -318,10 +320,13 @@ export function classifyApproval(
 ): ApprovalAuthority | null {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation)) return null;
   // Required notifications take effect immediately and never admit Coordinator proposals.
-  if (operation === "program.setNotificationLocks") return {
-    category: "SIGNIFICANT_SETTING", directRoles: ["ADMIN", "HEAD"],
-    requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["ADMIN", "HEAD"],
-  };
+  if (operation === "program.setNotificationLocks")
+    return {
+      category: "SIGNIFICANT_SETTING",
+      directRoles: ["ADMIN", "HEAD"],
+      requesterRoles: ["ADMIN", "HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
+    };
   // Causal admission recovery uses ordinary management review. The domain
   // service still enforces complete evidence and the website's 0/1 event cap.
   if (operation === "recovery.voidAdmission")

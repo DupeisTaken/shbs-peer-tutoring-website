@@ -8311,5 +8311,41 @@
     "loadFailed": "Die aktuellen Vorgaben konnten nicht geladen werden. Ihr Entwurf bleibt erhalten. Laden Sie sie vor dem Speichern erneut.",
     "refreshFailed": "Die Vorgaben wurden gespeichert, aber die aktuellen Einstellungen konnten nicht geladen werden. Wiederholen Sie nur das Laden.",
     "reload": "Aktuelle Vorgaben laden"
+  },
+  "schoolHoursFollowup": {
+    "title": "Erinnerungs-E-Mails",
+    "help": "Planen Sie eine einmalige Erinnerung an die bisherigen Berichtsempfänger. Der Versand beginnt zum gewählten Zeitpunkt, sofern der Server läuft.",
+    "sameReport": "Als Erinnerung wird derselbe gespeicherte Bericht gesendet. Es entsteht keine neue Ausgabe, und die Dienststunden werden nicht erneut hinzugefügt. Empfänger dürfen dieselben Stunden nicht doppelt verbuchen.",
+    "recipients": "Berichtsempfänger",
+    "noRecipients": "Für diesen Bericht gibt es derzeit keine zulässigen Empfänger.",
+    "sendAt": "Datum und Uhrzeit der Erinnerung",
+    "timeHelp": "Zeitzone: {timeZone}. Wählen Sie einen zukünftigen Zeitpunkt. Die Zustellung kann einige Minuten dauern.",
+    "invalidTime": "Wählen Sie ein gültiges zukünftiges Datum mit Uhrzeit in der angezeigten Zeitzone. Durch die Zeitumstellung doppelt vorkommende Uhrzeiten sind nicht zulässig.",
+    "reviewSchedule": "Erinnerung prüfen",
+    "reviewTitle": "Erinnerung zu diesem Bericht planen?",
+    "reviewHelp": "Am {date} ({timeZone}) eine Erinnerung zu diesem gespeicherten Bericht an die unten aufgeführten Empfänger senden.",
+    "schedule": "Erinnerung planen",
+    "scheduled": "Erinnerung geplant. Es wurde noch keine E-Mail gesendet.",
+    "writeFailed": "Die Planung der Erinnerung konnte nicht bestätigt werden. Ihre Uhrzeit bleibt erhalten. Prüfen Sie den aktuellen Berichtslink und die Empfänger und wiederholen Sie dann dieselbe Anfrage.",
+    "history": "Geplante Erinnerungen und Verlauf",
+    "empty": "Für diesen Bericht wurden noch keine Erinnerungen geplant.",
+    "scheduledTime": "{date} ({timeZone})",
+    "cancel": "Ungesendete Erinnerung stornieren",
+    "cancelTitle": "Erinnerung zu diesem Bericht stornieren?",
+    "cancelHelp": "Noch nicht gesendete Erinnerungs-E-Mails für {date} ({timeZone}) stornieren. Bereits gesendete oder gerade versendete E-Mails können nicht zurückgerufen werden.",
+    "cancelled": "Noch nicht gesendete Erinnerungs-E-Mails storniert.",
+    "cancelFailed": "Die Erinnerung konnte nicht storniert werden. Laden Sie den Bericht erneut, um zu prüfen, ob der Versand begonnen hat. Versuchen Sie es erneut, falls die E-Mail noch nicht gesendet wird.",
+    "deliveryHelp": "Einige Zustellungen müssen geprüft werden. Kontrollieren Sie die E-Mail-Einstellungen, bevor Sie fehlgeschlagene oder blockierte Zustellungen erneut versuchen.",
+    "status": {
+      "PENDING": "Geplant / wartet auf Zustellung",
+      "SENDING": "Wird gesendet",
+      "SENT": "Gesendet",
+      "FAILED": "Fehlgeschlagen",
+      "BLOCKED": "Blockiert",
+      "SKIPPED": "Übersprungen",
+      "CANCELLED": "Storniert",
+      "UNCERTAIN": "Zustellergebnis unbekannt",
+      "UNKNOWN": "Unbekannter Status"
+    }
   }
 }

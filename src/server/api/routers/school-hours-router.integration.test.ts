@@ -331,8 +331,8 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
     const report = await api.report({ id: reportId });
     expect(report.id).toBe(reportId);
     expect(JSON.stringify(report)).not.toContain("PRIVATE_ROUTER_BASELINE");
-    expect(JSON.stringify(report)).not.toContain(
-      "private-school-office@example.test",
+    expect(report.recipients).toEqual(
+      value === "COORDINATOR" ? [] : ["private-school-office@example.test"],
     );
     expect((await api.csv({ id: reportId })).content).toContain("Alexander");
     expect(
@@ -639,5 +639,61 @@ it.each(["2026-10-29T12:00", "2026-11-31T12:00"])(
         where: { id: "program" },
       }),
     ).toEqual(before);
+  },
+);
+
+it.each(["COORDINATOR", "VIEWER", "TUTOR", "OBSERVER"] as const)(
+  "rejects %s follow-up scheduling and cancellation without proposals",
+  async (value) => {
+    const input = {
+      id: reportId,
+      requestId: randomUUID(),
+      localTime: "2099-11-12T09:30",
+      expectedLinkVersion: 1,
+    };
+    await expect(
+      caller(value).schoolHours.scheduleFollowup(input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      caller(value).schoolHours.cancelFollowup({
+        id: reportId,
+        batchId: input.requestId,
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(
+      await db.approvalRequest.count({ where: { requesterId: id(value) } }),
+    ).toBe(0);
+  },
+);
+
+it.each(["HEAD", "ADMIN"] as const)(
+  "allows %s to schedule and cancel through the authenticated router",
+  async (value) => {
+    await db.schoolHoursSchedule.update({
+      where: { id: "program" },
+      data: {
+        enabled: true,
+        recipientEmails: ["private-school-office@example.test"],
+      },
+    });
+    const result = await caller(value).schoolHours.scheduleFollowup({
+      id: reportId,
+      requestId: randomUUID(),
+      localTime: "2099-11-12T09:30",
+      expectedLinkVersion: 1,
+    });
+    expect(result.count).toBe(1);
+    expect(
+      (await caller(value).schoolHours.report({ id: reportId })).followups,
+    ).toHaveLength(1);
+    expect(
+      await caller(value).schoolHours.cancelFollowup({
+        id: reportId,
+        batchId: result.batchId,
+      }),
+    ).toEqual({ cancelled: 1 });
+    expect(
+      await db.approvalRequest.count({ where: { requesterId: id(value) } }),
+    ).toBe(0);
   },
 );

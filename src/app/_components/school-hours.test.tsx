@@ -37,6 +37,8 @@ const remote = vi.hoisted(() => ({
   retry: vi.fn(),
   revokeLink: vi.fn(),
   reissueLink: vi.fn(),
+  scheduleFollowup: vi.fn(),
+  cancelFollowup: vi.fn(),
 }));
 vi.mock("@trpc/react-query", () => ({ getQueryKey: () => [["schoolHours"]] }));
 vi.mock("~/trpc/react", async () => {
@@ -71,6 +73,8 @@ vi.mock("~/trpc/react", async () => {
               "retry",
               "revokeLink",
               "reissueLink",
+              "scheduleFollowup",
+              "cancelFollowup",
             ] as const
           ).map((name) => [
             name,
@@ -240,6 +244,8 @@ function report(): RouterOutputs["schoolHours"]["report"] {
     supersededById: null,
     linkUrl:
       "https://school.example.test/reports/service-hours/synthetic-token",
+    recipients: ["school@example.test"],
+    followups: [],
     deliveries: [
       {
         id: "delivery",
@@ -2081,4 +2087,36 @@ it("keeps an accepted issue blocked after its refresh is denied and explicit Ret
   fireEvent.click(issue);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(remote.generate).toHaveBeenCalledTimes(1);
+});
+
+it("retains follow-up draft across reads and drops its review on authoritative role downgrade", async () => {
+  render(show(<SchoolHoursReport id="saved" />));
+  const input = await screen.findByLabelText<HTMLInputElement>(
+    en.schoolHoursFollowup.sendAt,
+  );
+  fireEvent.change(input, { target: { value: "2099-11-12T09:30" } });
+  await act(async () => {
+    await client.refetchQueries({ queryKey: [["schoolHours", "settings"]] });
+  });
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.schoolHoursFollowup.sendAt)
+      .value,
+  ).toBe("2099-11-12T09:30");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolHoursFollowup.reviewSchedule }),
+  );
+  expect(screen.getByRole("dialog").textContent).toContain(
+    en.schoolHoursFollowup.reviewTitle,
+  );
+  remote.settings.mockResolvedValue({
+    ...settings(),
+    canGenerate: false,
+    canApply: false,
+  });
+  await act(async () => {
+    await client.refetchQueries({ queryKey: [["schoolHours", "settings"]] });
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByLabelText(en.schoolHoursFollowup.sendAt)).toBeNull();
+  expect(remote.scheduleFollowup).not.toHaveBeenCalled();
 });

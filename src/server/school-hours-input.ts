@@ -4,6 +4,15 @@ import { isProgramTimeZone } from "~/lib/program-time";
 export const schoolHoursMonth = z
   .string()
   .regex(/^[1-9]\d{3}-(0[1-9]|1[0-2])$/);
+export const schoolHoursFollowupInput = z
+  .object({
+    id: z.string().min(1).max(128),
+    requestId: z.uuid(),
+    localTime: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
+    expectedLinkVersion: z.number().int().positive(),
+  })
+  .strict();
+export type SchoolHoursFollowupInput = z.infer<typeof schoolHoursFollowupInput>;
 export const schoolHoursComponentsSchema = z.object({
   earned: z.number().finite().nonnegative(),
   extras: z.number().finite().nonnegative(),

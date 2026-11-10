@@ -27,16 +27,16 @@ Read **Privacy policy** from the homepage information menu or footer, or open `/
 
 The website supports intake, matching, attendance, hours, interviews, support and reviewed management changes. The operator must configure real email delivery and publish the current school policies before opening public intake. The repository contains [policy drafts](policies/README.md) for adaptation; changing a draft does not publish a school policy.
 
-| Your access                            | Start with                           | Important boundary                                                                                                |
-| ----------------------------------------- | --------- | ---------------------------------------------------------------------------- |
-| Tutee participation (any account role) | Enter Tutee page                     | Your own records and participation                                                                                |
-| Tutor                                  | Dashboard                            | Your linked tutor profile and assignments                                                                         |
-| Crew                                   | Patrol                               | Active crew participation; the crew module must be enabled                                                        |
-| Coordinator                            | Management area / Management Actions | Permitted daily operations, settings, profile edits and reversals wait for Admin/Head review; no management-rank grants or private-message supervision                                                                   |
-| Administrator                          | Management area                      | All non-refresh management; official refresh and leadership transfer remain Head-only                                                        |
-| HEAD                                   | Program Settings / Users & Roles    | Root management authority; all Admin powers plus official refresh, leadership transfer and self-review                                                |
-| Viewer                                 | Read-only management area            | Permitted summaries with personal contact details masked                                                          |
-| Assigned translator                    | Translations                         | Edit interface or website text and follow draft review in one editor; assignment is separate from management rank |
+| Your access                            | Start with                           | Important boundary                                                                                                                                     |
+| -------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tutee participation (any account role) | Enter Tutee page                     | Your own records and participation                                                                                                                     |
+| Tutor                                  | Dashboard                            | Your linked tutor profile and assignments                                                                                                              |
+| Crew                                   | Patrol                               | Active crew participation; the crew module must be enabled                                                                                             |
+| Coordinator                            | Management area / Management Actions | Permitted daily operations, settings, profile edits and reversals wait for Admin/Head review; no management-rank grants or private-message supervision |
+| Administrator                          | Management area                      | All non-refresh management; official refresh and leadership transfer remain Head-only                                                                  |
+| HEAD                                   | Program Settings / Users & Roles     | Root management authority; all Admin powers plus official refresh, leadership transfer and self-review                                                 |
+| Viewer                                 | Read-only management area            | Permitted summaries with personal contact details masked                                                                                               |
+| Assigned translator                    | Translations                         | Edit interface or website text and follow draft review in one editor; assignment is separate from management rank                                      |
 
 A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Active non-Viewer accounts can enter tutee onboarding, including tutors, crew and administrators; a confirmed school departure requires a [reviewed return](#graduation-and-school-transfers) before rejoining. First accept the published tutee policy; acceptance records its exact revision and grants tutee membership. Visiting alone does not grant access or create a tutoring request. Tutee participation and history coexist with other account roles. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
 
@@ -92,14 +92,14 @@ The invitation page, Viewer signup and tutee application remain separate startin
 An invitation authorizes a specific task; verified email ownership proves who is accepting it.
 A staff-visible key or a copied invitation code alone cannot sign in as its recipient.
 
-| Starting point | What happens next | Result after review |
-| ----------------------------------------- | --------- | ---------------------------------------------------------------------------- |
-| Tutor, Crew or management staff key | Enter the key and recipient email, then verify the separate emailed code. | Create missing credentials or add the authorized access to the existing account after review. |
-| Tutee request | Submit the full request and policy agreement, then verify the emailed code. The existing email link remains usable. | The invitation popup continues to shared account review; confirmation preserves original submission priority and assignment remains separate. |
-| Public Viewer request | Submit details and verify the initial email code, then open the invitation popup. | A new address creates a read-only Viewer after review; an existing account signs in and continues without adding Viewer or changing membership. |
-| Public Crew application | Submit details and verify the mailbox to send the application for staff review. After approval, verify the mailbox again to retrieve its invitation popup. | Shared account review creates missing credentials or adds approved Crew participation to the existing account; email verification alone grants no access. |
-| Historical tutee invitation | Verify the exact invited email, then continue from the invitation receipt popup to `/register-account`. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
-| Accountless tutor setup sent by Admin/Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
+| Starting point                             | What happens next                                                                                                                                          | Result after review                                                                                                                                       |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tutor, Crew or management staff key        | Enter the key and recipient email, then verify the separate emailed code.                                                                                  | Create missing credentials or add the authorized access to the existing account after review.                                                             |
+| Tutee request                              | Submit the full request and policy agreement, then verify the emailed code. The existing email link remains usable.                                        | The invitation popup continues to shared account review; confirmation preserves original submission priority and assignment remains separate.             |
+| Public Viewer request                      | Submit details and verify the initial email code, then open the invitation popup.                                                                          | A new address creates a read-only Viewer after review; an existing account signs in and continues without adding Viewer or changing membership.           |
+| Public Crew application                    | Submit details and verify the mailbox to send the application for staff review. After approval, verify the mailbox again to retrieve its invitation popup. | Shared account review creates missing credentials or adds approved Crew participation to the existing account; email verification alone grants no access. |
+| Historical tutee invitation                | Verify the exact invited email, then continue from the invitation receipt popup to `/register-account`.                                                    | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added.                    |
+| Accountless tutor setup sent by Admin/Head | Receive a Tutor invitation.                                                                                                                                | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail.                                              |
 
 A tutor archive with retained historical ownership and no direct login uses its
 existing owner's account recovery. It cannot receive a new accountless setup
@@ -301,15 +301,15 @@ an invented continuation hour; see [opening and rollout rules](program-configura
 
 The tutee page uses the same top bar, account menu, theme and card layout as the tutor page. Choose a section from its navigation:
 
-| Section              | What you can do                                                                                                                    |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard            | See current scheduled sessions and verified open requests, then follow a link to the task you need                                 |
-| My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles                                      |
+| Section              | What you can do                                                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard            | See current scheduled sessions and verified open requests, then follow a link to the task you need                            |
+| My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles                                 |
 | Requests             | Review and edit owned open requests, manage participation and appeal an invalid request; completed requests remain in history |
-| Attendance           | Review recorded sessions across intakes and submit feedback                                                                        |
-| Support              | Review your disciplinary cards and appeals or open a private conversation                                                          |
-| Messages             | Read and send messages within the tutee workspace                                                                                  |
-| Account              | Manage your shared account within the tutee workspace                                                                              |
+| Attendance           | Review recorded sessions across intakes and submit feedback                                                                   |
+| Support              | Review your disciplinary cards and appeals or open a private conversation                                                     |
+| Messages             | Read and send messages within the tutee workspace                                                                             |
+| Account              | Manage your shared account within the tutee workspace                                                                         |
 
 While eligible to participate, **Request a Tutor** appears once in the page header of every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
 
@@ -330,13 +330,13 @@ actions. Each list keeps its own page and navigation state.
 
 ### Manage a request
 
-| What you need                | Action                                    | What happens                                                                                                             |
-| ----------------------------------------- | --------- | ---------------------------------------------------------------------------- |
-| Correct request details      | Open the current request's signup editor | Change names, grade, phone, preferred contact, availability and unassigned subject choices; original priority and signed evidence remain |
-| Change an assigned subject   | Ask Admin/Head to review the assignment        | Owners cannot drop assigned choices; Admin/Head review assignment release and request edits together, retaining recorded sessions |
-| Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
-| Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
-| See the result               | **Current Request** and **Closed**     | Review state and assignment are shown separately                                                                         |
+| What you need                | Action                                    | What happens                                                                                                                             |
+| ---------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Correct request details      | Open the current request's signup editor  | Change names, grade, phone, preferred contact, availability and unassigned subject choices; original priority and signed evidence remain |
+| Change an assigned subject   | Ask Admin/Head to review the assignment   | Owners cannot drop assigned choices; Admin/Head review assignment release and request edits together, retaining recorded sessions        |
+| Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                                  |
+| Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period                 |
+| See the result               | **Current Request** and **Closed**        | Review state and assignment are shown separately                                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
@@ -363,16 +363,16 @@ pending, declined or cleared decision before assuming the invalid flag has chang
 
 Confirmation waits depend on the action:
 
-| Action                                    | Wait      | What you review                                                              |
-| ----------------------------------------- | --------- | ---------------------------------------------------------------------------- |
-| Recall an unmatched request               | 2 seconds | Permanent closure and loss of the original queue priority if you apply again |
-| Request withdrawal for the quarter        | 3 seconds | A reviewed request to end participation; assignments continue until approval |
-| Propose a tutor schedule conflict         | 2 seconds | A reason for management review; the assignment remains active                |
-| Approve a withdrawal or schedule conflict | 3 seconds | The participation or assignment consequences named in the dialog             |
-| Decline a withdrawal or conflict          | 2 seconds | Closing the application while keeping the current participation/assignment   |
-| Assign a tutor                            | 2 seconds | The selected learner, subject, tutor and verification consequences           |
-| Confirm an unqualified assignment         | 2 seconds | The named tutor's missing qualification for the selected subject             |
-| Accept participation policy               | 5 seconds | The current published document and your explicit agreement                   |
+| Action                                                               | Wait      | What you review                                                              |
+| -------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| Recall an unmatched request                                          | 2 seconds | Permanent closure and loss of the original queue priority if you apply again |
+| Request withdrawal for the quarter                                   | 3 seconds | A reviewed request to end participation; assignments continue until approval |
+| Propose a tutor schedule conflict                                    | 2 seconds | A reason for management review; the assignment remains active                |
+| Approve a withdrawal or schedule conflict                            | 3 seconds | The participation or assignment consequences named in the dialog             |
+| Decline a withdrawal or conflict                                     | 2 seconds | Closing the application while keeping the current participation/assignment   |
+| Assign a tutor                                                       | 2 seconds | The selected learner, subject, tutor and verification consequences           |
+| Confirm an unqualified assignment                                    | 2 seconds | The named tutor's missing qualification for the selected subject             |
+| Accept participation policy                                          | 5 seconds | The current published document and your explicit agreement                   |
 | Edit signup answers, release an assignment or decide a signup appeal | 5 seconds | The captured request version and its signup/assignment/priority consequences |
 
 The wait enables the confirmation choice; it never submits automatically. Cancel
@@ -1468,6 +1468,17 @@ sign-in and can retrieve its CSV. Anyone with that link can read the report;
 administrators can revoke or replace it. Report generation and delivery do not
 confirm that the school has entered the hours into its accounts.
 
+On a saved **School Month Report**, Admin/Head can use **Follow-Up Emails** to
+choose a future date/time in the displayed report timezone, then review the
+recipients and confirm. This resends the same saved edition to its original
+recipients; it reminds them not to enter the hours twice. The report link,
+recipient configuration and reporting schedule must remain valid. Delivery is
+checked about once a minute while the site is running and may be delayed by an
+outage. Follow-up history shows each recipient's delivery status. **Cancel unsent
+follow-up** stops pending, blocked or failed follow-up mail; mail already sent or
+being sent cannot be recalled. For blocked/failed follow-ups, fix the mail or
+report settings, cancel the unsent follow-up and schedule a new one.
+
 A correction to the current month's latest edition shows the affected person's
 incremental correction and revised amount. If +7 hours were already credited and
 the revised amount is +7.5, apply only +0.5 more. Do not add both full revisions.
@@ -1665,19 +1676,19 @@ Email confirmation and password recovery pages remain available without a policy
 
 ## Troubleshooting
 
-| What you see                                    | What to do                                                                                                                                     |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Intake has not opened                           | Check the displayed opening time or preview; account creation does not change survey priority                                                  |
-| Confirmation link expired                       | Request a new link; use the most recent successfully sent link                                                                                 |
-| Verification deadline passed                    | Submit a new request if eligible; resending the old link cannot extend the deadline                                                            |
-| A new policy is required                        | Read and accept the displayed revision; history and private support remain accessible                                                          |
-| Change is pending                               | Open Management Actions; live records stay unchanged until approval                                                                            |
-| Affected records changed                        | Reviewer rejects the stale proposal; the authorized requester prepares a new one using current records                                                      |
-| Assignment applied but email failed             | Keep the assignment; resend its verification link and check delivery configuration                                                             |
+| What you see                                    | What to do                                                                                                                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Intake has not opened                           | Check the displayed opening time or preview; account creation does not change survey priority                                                                |
+| Confirmation link expired                       | Request a new link; use the most recent successfully sent link                                                                                               |
+| Verification deadline passed                    | Submit a new request if eligible; resending the old link cannot extend the deadline                                                                          |
+| A new policy is required                        | Read and accept the displayed revision; history and private support remain accessible                                                                        |
+| Change is pending                               | Open Management Actions; live records stay unchanged until approval                                                                                          |
+| Affected records changed                        | Reviewer rejects the stale proposal; the authorized requester prepares a new one using current records                                                       |
+| Assignment applied but email failed             | Keep the assignment; resend its verification link and check delivery configuration                                                                           |
 | Interview decision blocked                      | Check every vote, active panel membership, a selected Admin/Head chair and subject qualification. Ask management to update a missing or demoted legacy chair |
-| A permission/page is missing                    | Check role, linked membership, suspension and enabled module with management                                                                   |
+| A permission/page is missing                    | Check role, linked membership, suspension and enabled module with management                                                                                 |
 | Hours look different from ordinary rounding     | Compare recorded attendance with the [implemented rounding examples](../../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) in the policy draft |
-| A correction did not change the expected record | Check approval state, date/program period and the audit trail; ask management to investigate                                                   |
+| A correction did not change the expected record | Check approval state, date/program period and the audit trail; ask management to investigate                                                                 |
 
 ## Report a problem
 

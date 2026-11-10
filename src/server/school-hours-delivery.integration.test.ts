@@ -30,7 +30,11 @@ vi.mock("~/server/db", async (importOriginal) => {
                 const current: unknown = await delegate.findUnique(input);
                 // Simulate only the dispatcher's stale preflight snapshot. The
                 // actual database and subsequent locked admission stay enabled.
-                if (fixture.staleGlobalOffOnce && current && typeof current === "object") {
+                if (
+                  fixture.staleGlobalOffOnce &&
+                  current &&
+                  typeof current === "object"
+                ) {
                   fixture.staleGlobalOffOnce = false;
                   return { ...current, emailNotificationsEnabled: false };
                 }
@@ -114,7 +118,13 @@ import {
   schoolHoursCsv,
 } from "./school-hours-public";
 import { schoolHoursTestSnapshot } from "./school-hours-test-fixture";
-import { retrySchoolHoursReport } from "./school-hours";
+import {
+  retrySchoolHoursReport,
+  scheduleSchoolHoursFollowup,
+  cancelSchoolHoursFollowup,
+  getSchoolHoursReport,
+} from "./school-hours";
+import { randomUUID } from "node:crypto";
 import { GET as getHtml } from "~/app/reports/service-hours/[token]/route";
 import { GET as getCsv } from "~/app/reports/service-hours/[token]/csv/route";
 
@@ -246,7 +256,11 @@ afterAll(async () => {
 
 async function delivery() {
   return db.emailDelivery.findFirstOrThrow({
-    where: { schoolHoursReportId: reportId, recipient },
+    where: {
+      schoolHoursReportId: reportId,
+      recipient,
+      schoolHoursBatch: "initial",
+    },
   });
 }
 async function claim() {
@@ -259,6 +273,178 @@ async function claim() {
   });
   return admitSchoolHoursDelivery(db, row.id, leaseUntil, row.attemptId);
 }
+
+const followupInput = () => ({
+  id: reportId,
+  requestId: randomUUID(),
+  localTime: "2099-11-12T09:30",
+  expectedLinkVersion: 1,
+});
+async function followupRows(batchId: string) {
+  return db.emailDelivery.findMany({
+    where: { schoolHoursReportId: reportId, schoolHoursBatch: batchId },
+  });
+}
+it("persists a timezone-bound follow-up and deduplicates concurrent retries without changing original evidence", async () => {
+  const input = followupInput(),
+    original = await delivery();
+  const before = await db.schoolHoursReport.findUniqueOrThrow({
+    where: { id: reportId },
+  });
+  const [a, b] = await Promise.all([
+    scheduleSchoolHoursFollowup(db, input, actorId),
+    scheduleSchoolHoursFollowup(db, input, actorId),
+  ]);
+  expect(a).toEqual(b);
+  expect(a.scheduledFor.toISOString()).toBe("2099-11-12T01:30:00.000Z");
+  expect(await followupRows(a.batchId)).toHaveLength(2);
+  expect(await delivery()).toEqual(original);
+  expect(
+    await db.schoolHoursReport.findUniqueOrThrow({ where: { id: reportId } }),
+  ).toEqual(before);
+  const view = await getSchoolHoursReport(db, reportId);
+  expect(view.deliveries).toHaveLength(1);
+  expect(view.followups).toHaveLength(1);
+  await expect(
+    scheduleSchoolHoursFollowup(
+      db,
+      { ...input, localTime: "2099-11-13T09:30" },
+      actorId,
+    ),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await scheduleSchoolHoursFollowup(
+      db,
+      input,
+      actorId,
+      new Date("2100-01-01"),
+    ),
+  ).toEqual(a);
+});
+it.each(["2020-01-01T09:30", "2099-02-30T09:30", "invalid"])(
+  "rejects past or invalid local follow-up %s atomically",
+  async (localTime) => {
+    const input = { ...followupInput(), localTime };
+    await expect(
+      scheduleSchoolHoursFollowup(db, input, actorId),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await followupRows(input.requestId)).toEqual([]);
+  },
+);
+it("does not dispatch a future follow-up, including with an accidentally early retry time", async () => {
+  const result = await scheduleSchoolHoursFollowup(
+    db,
+    followupInput(),
+    actorId,
+  );
+  await deliverNotifications(); // original only
+  expect(fixture.send).toHaveBeenCalledTimes(1);
+  const row = (await followupRows(result.batchId))[0]!;
+  const leaseUntil = new Date(Date.now() + 300000);
+  await db.emailDelivery.update({
+    where: { id: row.id },
+    data: { availableAt: new Date(0), leaseUntil },
+  });
+  expect(
+    await admitSchoolHoursDelivery(db, row.id, leaseUntil, null),
+  ).toBeNull();
+  expect(fixture.send).toHaveBeenCalledTimes(1);
+  expect(
+    (await followupRows(result.batchId)).every(
+      (item) => item.status === "PENDING" && item.attempts === 0,
+    ),
+  ).toBe(true);
+});
+it("sends due follow-ups through the real dispatcher with distinct copy and preserved snapshots", async () => {
+  await deliverNotifications();
+  fixture.send.mockClear();
+  const result = await scheduleSchoolHoursFollowup(
+    db,
+    { ...followupInput(), localTime: "2026-10-31T12:30" },
+    actorId,
+    new Date("2026-10-30"),
+  );
+  await deliverNotifications();
+  expect(fixture.send).toHaveBeenCalledTimes(2);
+  expect(fixture.send.mock.calls[0]![0].subject).toContain("Follow-up");
+  expect(fixture.send.mock.calls[0]![0].text).toContain(
+    "do not apply its hours again",
+  );
+  expect(fixture.send.mock.calls[0]![0].text).toContain("+7 h");
+  expect(
+    (await followupRows(result.batchId)).every(
+      (row) => row.status === "SENT" && row.attempts === 1,
+    ),
+  ).toBe(true);
+});
+it("cancels only the unsent follow-up batch and a stale worker cannot admit it", async () => {
+  const result = await scheduleSchoolHoursFollowup(
+    db,
+    followupInput(),
+    actorId,
+  );
+  const row = (await followupRows(result.batchId))[0]!;
+  const leaseUntil = new Date(Date.now() + 300000);
+  await db.emailDelivery.update({
+    where: { id: row.id },
+    data: { leaseUntil },
+  });
+  expect(
+    await cancelSchoolHoursFollowup(db, reportId, result.batchId, actorId),
+  ).toEqual({ cancelled: 2 });
+  expect(
+    await admitSchoolHoursDelivery(db, row.id, leaseUntil, null),
+  ).toBeNull();
+  expect((await delivery()).status).toBe("PENDING");
+  expect(
+    await cancelSchoolHoursFollowup(db, reportId, result.batchId, actorId),
+  ).toEqual({ cancelled: 0 });
+  expect(
+    (await followupRows(result.batchId)).every(
+      (item) => item.status === "CANCELLED",
+    ),
+  ).toBe(true);
+});
+it.each([
+  "LINK_REVOKED",
+  "REPORT_SUPERSEDED",
+  "RECIPIENT_REMOVED",
+  "SCHEDULE_OFF",
+])("rechecks %s at follow-up transport admission", async (reason) => {
+  const result = await scheduleSchoolHoursFollowup(
+    db,
+    { ...followupInput(), localTime: "2026-10-31T12:30" },
+    actorId,
+    new Date("2026-10-30"),
+  );
+  if (reason === "LINK_REVOKED")
+    await db.schoolHoursReport.update({
+      where: { id: reportId },
+      data: { linkRevokedAt: new Date() },
+    });
+  if (reason === "REPORT_SUPERSEDED")
+    await db.schoolHoursReport.update({
+      where: { id: reportId },
+      data: { supersededById: "synthetic-newer-issue" },
+    });
+  if (reason === "RECIPIENT_REMOVED")
+    await db.schoolHoursSchedule.update({
+      where: { id: "program" },
+      data: { recipientEmails: [] },
+    });
+  if (reason === "SCHEDULE_OFF")
+    await db.schoolHoursSchedule.update({
+      where: { id: "program" },
+      data: { enabled: false },
+    });
+  await deliverNotifications();
+  expect(fixture.send).not.toHaveBeenCalled();
+  expect(
+    (await followupRows(result.batchId)).every(
+      (item) => item.status === "SKIPPED" && item.lastError === reason,
+    ),
+  ).toBe(true);
+});
 
 it("dispatches an external-account-free report with one scoped link and frozen individual instructions", async () => {
   await deliverNotifications();
@@ -286,14 +472,25 @@ it("dispatches an external-account-free report with one scoped link and frozen i
 });
 
 it("a stale global-off preflight cannot block a fresh receipt after mail was enabled", async () => {
-  expect((await db.programSettings.findUniqueOrThrow({ where: { id: "program" } })).emailNotificationsEnabled).toBe(true);
+  expect(
+    (await db.programSettings.findUniqueOrThrow({ where: { id: "program" } }))
+      .emailNotificationsEnabled,
+  ).toBe(true);
   const receipt = await delivery();
   fixture.staleGlobalOffOnce = true;
   await deliverNotifications();
   expect(fixture.staleGlobalOffOnce).toBe(false);
   expect(fixture.send).toHaveBeenCalledTimes(1);
-  expect(await delivery()).toMatchObject({ id: receipt.id, status: "SENT", attempts: 1, lastError: null });
-  expect((await db.programSettings.findUniqueOrThrow({ where: { id: "program" } })).emailNotificationsEnabled).toBe(true);
+  expect(await delivery()).toMatchObject({
+    id: receipt.id,
+    status: "SENT",
+    attempts: 1,
+    lastError: null,
+  });
+  expect(
+    (await db.programSettings.findUniqueOrThrow({ where: { id: "program" } }))
+      .emailNotificationsEnabled,
+  ).toBe(true);
 });
 
 it("blocks global mail-off instead of skipping a school instruction and retries the same receipt", async () => {
@@ -500,5 +697,69 @@ it.each(["invalid", "revoked", "superseded"])(
       expect(response.headers.get("cache-control")).toContain("no-store");
       expect(await response.text()).not.toContain("Alexander");
     }
+  },
+);
+
+it("does not cancel transport already admitted for a follow-up", async () => {
+  const result = await scheduleSchoolHoursFollowup(
+    db,
+    { ...followupInput(), localTime: "2026-10-31T12:30" },
+    actorId,
+    new Date("2026-10-30"),
+  );
+  const row = (await followupRows(result.batchId))[0]!,
+    leaseUntil = new Date(Date.now() + 300000);
+  await db.emailDelivery.update({
+    where: { id: row.id },
+    data: { leaseUntil },
+  });
+  const admitted = await admitSchoolHoursDelivery(db, row.id, leaseUntil, null);
+  expect(admitted?.row.status).toBe("SENDING");
+  await expect(
+    cancelSchoolHoursFollowup(db, reportId, result.batchId, actorId),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(
+    (await followupRows(result.batchId)).every(
+      (item) => item.status !== "CANCELLED",
+    ),
+  ).toBe(true);
+  await finishSchoolHoursDelivery(db, row.id, admitted!.row.attemptId!, false);
+  expect(
+    (await db.emailDelivery.findUniqueOrThrow({ where: { id: row.id } }))
+      .schoolHoursScheduledFor,
+  ).toEqual(result.scheduledFor);
+});
+
+it("keeps future follow-ups untouched when retrying failed original delivery", async () => {
+  const result = await scheduleSchoolHoursFollowup(
+    db,
+    followupInput(),
+    actorId,
+  );
+  const rows = await followupRows(result.batchId);
+  await db.emailDelivery.update({
+    where: { id: (await delivery()).id },
+    data: { status: "FAILED" },
+  });
+  expect(await retrySchoolHoursReport(db, reportId, actorId)).toEqual({
+    retried: 1,
+  });
+  expect(await followupRows(result.batchId)).toEqual(rows);
+});
+
+it.each(["2099-03-08T02:30", "2099-11-01T01:30"])(
+  "rejects nonexistent or ambiguous New York follow-up time %s",
+  async (localTime) => {
+    await db.schoolHoursReport.update({
+      where: { id: reportId },
+      data: { timeZone: "America/New_York" },
+    });
+    await expect(
+      scheduleSchoolHoursFollowup(
+        db,
+        { ...followupInput(), localTime },
+        actorId,
+      ),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   },
 );

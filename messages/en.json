@@ -8311,5 +8311,41 @@
     "loadFailed": "The latest requirements could not be loaded. Your draft is retained. Retry the read before saving.",
     "refreshFailed": "Requirements were saved, but the latest settings could not be loaded. Retry the read; do not save again.",
     "reload": "Reload latest requirements"
+  },
+  "schoolHoursFollowup": {
+    "title": "Follow-Up Emails",
+    "help": "Schedule a one-time follow-up to the existing report recipients. Delivery starts at the selected time while the server is running.",
+    "sameReport": "This sends the same saved report as a reminder. It does not create a new edition or add service hours again. Recipients should not post the same credits twice.",
+    "recipients": "Report recipients",
+    "noRecipients": "No recipients are currently eligible for this report.",
+    "sendAt": "Follow-up date and time",
+    "timeHelp": "Time zone: {timeZone}. Choose a future time. Delivery may take a few minutes.",
+    "invalidTime": "Choose a valid future date and time in the displayed time zone. Ambiguous daylight-saving times cannot be used.",
+    "reviewSchedule": "Review follow-up",
+    "reviewTitle": "Schedule This Report Follow-Up?",
+    "reviewHelp": "Send a reminder for this saved report on {date} ({timeZone}) to the recipients below.",
+    "schedule": "Schedule follow-up",
+    "scheduled": "Follow-up scheduled. No email has been sent yet.",
+    "writeFailed": "The follow-up could not be confirmed. Your time is retained. Check the current report link and recipients, then retry the same request.",
+    "history": "Scheduled follow-ups and history",
+    "empty": "No follow-ups have been scheduled for this report.",
+    "scheduledTime": "{date} ({timeZone})",
+    "cancel": "Cancel unsent follow-up",
+    "cancelTitle": "Cancel This Report Follow-Up?",
+    "cancelHelp": "Cancel unsent reminder emails scheduled for {date} ({timeZone}). Emails already being sent or delivered cannot be recalled.",
+    "cancelled": "Unsent follow-up emails cancelled.",
+    "cancelFailed": "The follow-up could not be cancelled. Reload the report to check whether delivery has started, then try again if it is still unsent.",
+    "deliveryHelp": "Some deliveries need attention. Check email delivery settings before retrying failed or blocked deliveries.",
+    "status": {
+      "PENDING": "Scheduled / awaiting delivery",
+      "SENDING": "Sending",
+      "SENT": "Sent",
+      "FAILED": "Failed",
+      "BLOCKED": "Blocked",
+      "SKIPPED": "Skipped",
+      "CANCELLED": "Cancelled",
+      "UNCERTAIN": "Delivery outcome unknown",
+      "UNKNOWN": "Unknown status"
+    }
   }
 }
