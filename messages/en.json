@@ -1311,7 +1311,7 @@
         "review": "Review appeal",
         "message": "Original appeal",
         "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again.",
-        "restrictionHeading": "Account restriction under review",
+        "restrictionHeading": "Account Restriction Under Review",
         "restricted": "Suspended",
         "active": "Already active",
         "restrictedAt": "Suspended {date}",

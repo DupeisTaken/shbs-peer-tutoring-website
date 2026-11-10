@@ -5,30 +5,66 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 type Mail = { text: string };
-const mail = vi.hoisted(() => ({ send: vi.fn<(message: Mail) => Promise<void>>(), available: vi.fn(() => true) }));
-vi.mock("~/server/email/sender", () => ({ emailSender: { send: mail.send }, isEmailDeliveryAvailable: mail.available }));
+const mail = vi.hoisted(() => ({
+  send: vi.fn<(message: Mail) => Promise<void>>(),
+  available: vi.fn(() => true),
+}));
+vi.mock("~/server/email/sender", () => ({
+  emailSender: { send: mail.send },
+  isEmailDeliveryAvailable: mail.available,
+}));
 
 import { db } from "./db";
 import { createCaller } from "./api/root";
 import { hashPassword } from "./auth/password";
-import { startHistoryAccount, verifyHistoryAccount, completeHistoryAccount } from "./history-account-setup";
-import { issueHistoryAccountInvitation, redeemAccountInvitation } from "./auth/account-invitations";
+import {
+  startHistoryAccount,
+  verifyHistoryAccount,
+  completeHistoryAccount,
+} from "./history-account-setup";
+import {
+  issueHistoryAccountInvitation,
+  redeemAccountInvitation,
+} from "./auth/account-invitations";
 import { historyTokenDigest } from "./tutee-history";
 import { databaseScope } from "./db-scope";
-import { abandonExactHistoryInvitation, inviteExactHistory, type ExactHistorySource } from "./exact-history-invitations";
+import {
+  abandonExactHistoryInvitation,
+  inviteExactHistory,
+  type ExactHistorySource,
+} from "./exact-history-invitations";
 import { lockEntity } from "./transactions";
 import { lockUsernameNamespace } from "./auth/username";
 import { previewTutorHistory, linkTutorHistory } from "./tutor-history";
 
-const sources: ExactHistorySource[] = [{ kind: "TUTOR", id: "tutor" }, { kind: "TUTEE", id: "tutee" }];
+const sources: ExactHistorySource[] = [
+  { kind: "TUTOR", id: "tutor" },
+  { kind: "TUTEE", id: "tutee" },
+];
 const email = "archive-recipient@example.test";
 const password = "Synthetic-history-password-460!";
-const reason = "Reviewed exact archived participant identity with original source evidence";
+const reason =
+  "Reviewed exact archived participant identity with original source evidence";
 let actorId: string;
-const caller = (id = actorId, role: Session["role"] = "ADMIN") => createCaller({ db, headers: new Headers(), session: { user: { id }, role, tutorId: null, expires: "2099-01-01" } });
-const preview = (scope = sources, recipient = email) => caller().tuteeHistory.previewExactInvitation({ sources: scope, email: recipient });
+const caller = (id = actorId, role: Session["role"] = "ADMIN") =>
+  createCaller({
+    db,
+    headers: new Headers(),
+    session: { user: { id }, role, tutorId: null, expires: "2099-01-01" },
+  });
+const preview = (scope = sources, recipient = email) =>
+  caller().tuteeHistory.previewExactInvitation({
+    sources: scope,
+    email: recipient,
+  });
 async function input(scope = sources, recipient = email) {
-  return { sources: scope, email: recipient, fingerprint: (await preview(scope, recipient)).fingerprint, reason, operationId: randomUUID() };
+  return {
+    sources: scope,
+    email: recipient,
+    fingerprint: (await preview(scope, recipient)).fingerprint,
+    reason,
+    operationId: randomUUID(),
+  };
 }
 async function invite(scope = sources, recipient = email) {
   const payload = await input(scope, recipient);
@@ -36,76 +72,210 @@ async function invite(scope = sources, recipient = email) {
 }
 function token() {
   // Keep the captured chronology intact while using the project's ES2022 API set.
-  const message = [...mail.send.mock.calls].reverse().find(([message]) => message.text.includes("token="))?.[0];
-  const value = message ? /token=([a-f0-9]{64})/.exec(message.text)?.[1] : undefined;
+  const message = [...mail.send.mock.calls]
+    .reverse()
+    .find(([message]) => message.text.includes("token="))?.[0];
+  const value = message
+    ? /token=([a-f0-9]{64})/.exec(message.text)?.[1]
+    : undefined;
   if (!value) throw new Error("Missing synthetic invitation token");
   return value;
 }
 const grant = () => db.historicalRecordInvitation.findFirstOrThrow();
 function gate() {
   let open!: () => void;
-  const promise = new Promise<void>((resolve) => { open = resolve; });
+  const promise = new Promise<void>((resolve) => {
+    open = resolve;
+  });
   return { promise, open };
 }
 async function entered(promise: Promise<void>) {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try { await Promise.race([promise, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Synthetic SMTP did not start")), 4000); })]); }
-  finally { clearTimeout(timer); }
+  try {
+    await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Synthetic SMTP did not start")),
+          4000,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
   // These accounts are recreated per test; their in-memory request budgets must
   // follow the same isolation without disabling the actual limiter under test.
-  const limits = (globalThis as { rateLimitStore?: Map<string, unknown> }).rateLimitStore;
+  const limits = (globalThis as { rateLimitStore?: Map<string, unknown> })
+    .rateLimitStore;
   for (const id of ["recipient", "other"]) limits?.delete(`history-link:${id}`);
-  const tables = await db.$queryRaw<{ tablename: string }[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
-  await db.$executeRawUnsafe("TRUNCATE " + tables.map((r) => '"' + r.tablename.replaceAll('"', '""') + '"').join(",") + " CASCADE");
+  const tables = await db.$queryRaw<
+    { tablename: string }[]
+  >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
+  await db.$executeRawUnsafe(
+    "TRUNCATE " +
+      tables
+        .map((r) => '"' + r.tablename.replaceAll('"', '""') + '"')
+        .join(",") +
+      " CASCADE",
+  );
   actorId = `exact-manager-${randomUUID()}`;
   vi.stubEnv("AUTH_URL", "https://history.example.test");
   mail.send.mockReset().mockResolvedValue(undefined);
   mail.available.mockReset().mockReturnValue(true);
-  await db.user.createMany({ data: [
-    { id: actorId, email: `${actorId}@example.test`, name: "Archive Manager", role: "ADMIN", emailVerifiedAt: new Date(), passwordHash: hashPassword(password) },
-    { id: "recipient", email, name: "Archive Recipient", role: "STUDENT", tuteeMember: false, tutorAccessRevoked: true, emailVerifiedAt: new Date(), passwordHash: hashPassword(password) },
-    { id: "other", email: "other@example.test", name: "Other Account", role: "STUDENT", emailVerifiedAt: new Date(), passwordHash: hashPassword(password) },
-  ] });
+  await db.user.createMany({
+    data: [
+      {
+        id: actorId,
+        email: `${actorId}@example.test`,
+        name: "Archive Manager",
+        role: "ADMIN",
+        emailVerifiedAt: new Date(),
+        passwordHash: hashPassword(password),
+      },
+      {
+        id: "recipient",
+        email,
+        name: "Archive Recipient",
+        role: "STUDENT",
+        tuteeMember: false,
+        tutorAccessRevoked: true,
+        emailVerifiedAt: new Date(),
+        passwordHash: hashPassword(password),
+      },
+      {
+        id: "other",
+        email: "other@example.test",
+        name: "Other Account",
+        role: "STUDENT",
+        emailVerifiedAt: new Date(),
+        passwordHash: hashPassword(password),
+      },
+    ],
+  });
   await db.person.create({ data: { id: "archive-group" } });
-  await db.term.createMany({ data: [
-    { id: "past", name: "Archive", schoolYear: "24-25", quarter: "Q1", active: false },
-    { id: "current", name: "Current", schoolYear: "26-27", quarter: "Q1", active: true },
-  ] });
-  await db.tutor.create({ data: { id: "tutor", personId: "archive-group", englishName: "Original Tutor", status: "GRADUATED" } });
-  await db.tutee.create({ data: { id: "tutee", personId: "archive-group", englishName: "Original Learner", status: "INACTIVE", intakeTermId: "past", signedRulebook: false } });
+  await db.term.createMany({
+    data: [
+      {
+        id: "past",
+        name: "Archive",
+        schoolYear: "24-25",
+        quarter: "Q1",
+        active: false,
+      },
+      {
+        id: "current",
+        name: "Current",
+        schoolYear: "26-27",
+        quarter: "Q1",
+        active: true,
+      },
+    ],
+  });
+  await db.tutor.create({
+    data: {
+      id: "tutor",
+      personId: "archive-group",
+      englishName: "Original Tutor",
+      status: "GRADUATED",
+    },
+  });
+  await db.tutee.create({
+    data: {
+      id: "tutee",
+      personId: "archive-group",
+      englishName: "Original Learner",
+      status: "INACTIVE",
+      intakeTermId: "past",
+      signedRulebook: false,
+    },
+  });
 });
 afterEach(() => vi.unstubAllEnvs());
 afterAll(async () => db.$disconnect());
 
 it("claims only the frozen Tutor/Tutee sources and recovers a consumed claim by read without adding participation or consent", async () => {
-  const beforeUser = await db.user.findUniqueOrThrow({ where: { id: "recipient" } });
-  const originalTutor = await db.tutor.findUniqueOrThrow({ where: { id: "tutor" } });
-  const originalTutee = await db.tutee.findUniqueOrThrow({ where: { id: "tutee" } });
+  const beforeUser = await db.user.findUniqueOrThrow({
+    where: { id: "recipient" },
+  });
+  const originalTutor = await db.tutor.findUniqueOrThrow({
+    where: { id: "tutor" },
+  });
+  const originalTutee = await db.tutee.findUniqueOrThrow({
+    where: { id: "tutee" },
+  });
   expect(await preview()).toMatchObject({ canInvite: true, blocked: [] });
   const { receipt } = await invite();
   expect(receipt.status).toBe("PUBLISHED");
   const claimToken = token();
-  const inspected = await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken });
+  const inspected = await caller(
+    "recipient",
+    "STUDENT",
+  ).tuteeHistory.inspectClaim({ token: claimToken });
   expect(inspected.claimed).toBe(false);
-  expect(inspected.sources).toEqual([{ kind: "TUTEE", id: "tutee", name: "Original Learner" }, { kind: "TUTOR", id: "tutor", name: "Original Tutor" }]);
-  await expect(caller("other", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken })).rejects.toThrow("HISTORY_EMAIL_MISMATCH");
-  await caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken });
-  expect(await db.tutorProfileOwnership.findUnique({ where: { tutorId: "tutor" } })).toMatchObject({ userId: "recipient" });
-  expect(await db.studentProfileOwnership.findUnique({ where: { tuteeId: "tutee" } })).toMatchObject({ userId: "recipient" });
-  const recovered = await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken });
+  expect(inspected.sources).toEqual([
+    { kind: "TUTEE", id: "tutee", name: "Original Learner" },
+    { kind: "TUTOR", id: "tutor", name: "Original Tutor" },
+  ]);
+  await expect(
+    caller("other", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken }),
+  ).rejects.toThrow("HISTORY_EMAIL_MISMATCH");
+  await caller("recipient", "STUDENT").tuteeHistory.claim({
+    token: claimToken,
+  });
+  expect(
+    await db.tutorProfileOwnership.findUnique({ where: { tutorId: "tutor" } }),
+  ).toMatchObject({ userId: "recipient" });
+  expect(
+    await db.studentProfileOwnership.findUnique({
+      where: { tuteeId: "tutee" },
+    }),
+  ).toMatchObject({ userId: "recipient" });
+  const recovered = await caller(
+    "recipient",
+    "STUDENT",
+  ).tuteeHistory.inspectClaim({ token: claimToken });
   expect(recovered.claimed).toBe(true);
   expect(recovered.sources).toEqual(inspected.sources);
-  const auditCount = await db.auditLog.count({ where: { operation: "tuteeHistory.claimExact" } });
-  await caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken });
-  expect(await db.auditLog.count({ where: { operation: "tuteeHistory.claimExact" } })).toBe(auditCount);
+  const auditCount = await db.auditLog.count({
+    where: { operation: "tuteeHistory.claimExact" },
+  });
+  await caller("recipient", "STUDENT").tuteeHistory.claim({
+    token: claimToken,
+  });
+  expect(
+    await db.auditLog.count({
+      where: { operation: "tuteeHistory.claimExact" },
+    }),
+  ).toBe(auditCount);
   expect(await db.policyAcceptance.count()).toBe(0);
-  expect(await db.user.findUnique({ where: { id: "recipient" } })).toMatchObject({ role: beforeUser.role, studentId: null, tutorId: null, tuteeMember: false, tutorAccessRevoked: true, passwordHash: beforeUser.passwordHash, emailVerifiedAt: beforeUser.emailVerifiedAt });
-  expect(await db.tutor.findUnique({ where: { id: "tutor" } })).toMatchObject({ updatedAt: originalTutor.updatedAt, englishName: originalTutor.englishName, status: originalTutor.status });
-  expect(await db.tutee.findUnique({ where: { id: "tutee" } })).toMatchObject({ updatedAt: originalTutee.updatedAt, englishName: originalTutee.englishName, status: originalTutee.status, signedRulebook: false, signupSubmittedAt: originalTutee.signupSubmittedAt });
+  expect(
+    await db.user.findUnique({ where: { id: "recipient" } }),
+  ).toMatchObject({
+    role: beforeUser.role,
+    studentId: null,
+    tutorId: null,
+    tuteeMember: false,
+    tutorAccessRevoked: true,
+    passwordHash: beforeUser.passwordHash,
+    emailVerifiedAt: beforeUser.emailVerifiedAt,
+  });
+  expect(await db.tutor.findUnique({ where: { id: "tutor" } })).toMatchObject({
+    updatedAt: originalTutor.updatedAt,
+    englishName: originalTutor.englishName,
+    status: originalTutor.status,
+  });
+  expect(await db.tutee.findUnique({ where: { id: "tutee" } })).toMatchObject({
+    updatedAt: originalTutee.updatedAt,
+    englishName: originalTutee.englishName,
+    status: originalTutee.status,
+    signedRulebook: false,
+    signupSubmittedAt: originalTutee.signupSubmittedAt,
+  });
   expect(mail.send).toHaveBeenCalledTimes(1);
 });
 
@@ -115,126 +285,355 @@ it("creates missing history-only credentials through the existing separate email
   const claimToken = token();
   await startHistoryAccount(db, { token: claimToken, email: recipient });
   const code = / is ([0-9]{4})/.exec(mail.send.mock.calls.at(-1)![0].text)![1]!;
-  await expect(verifyHistoryAccount(db, { token: claimToken, email: recipient, code: "wrong" })).rejects.toThrow("HISTORY_CODE_MISMATCH");
-  const verified = await verifyHistoryAccount(db, { token: claimToken, email: recipient, code });
-  const envelope = await issueHistoryAccountInvitation(db, { token: claimToken, email: recipient, ...verified }, true);
-  await redeemAccountInvitation(db, { invitationId: envelope.invitationId, proof: envelope.proof!, firstName: "", lastName: "", password, reviewed: true });
-  const created = await db.user.findUniqueOrThrow({ where: { email: recipient } });
-  await completeHistoryAccount(db, { token: claimToken, email: recipient, ...verified, password: "Retry-must-not-replace-password-460!" });
-  expect((await db.user.findUniqueOrThrow({ where: { id: created.id } })).passwordHash).toBe(created.passwordHash);
-  expect(created).toMatchObject({ role: "STUDENT", studentId: null, tutorId: null, tuteeMember: false, tutorAccessRevoked: true });
+  await expect(
+    verifyHistoryAccount(db, {
+      token: claimToken,
+      email: recipient,
+      code: "wrong",
+    }),
+  ).rejects.toThrow("HISTORY_CODE_MISMATCH");
+  const verified = await verifyHistoryAccount(db, {
+    token: claimToken,
+    email: recipient,
+    code,
+  });
+  const envelope = await issueHistoryAccountInvitation(
+    db,
+    { token: claimToken, email: recipient, ...verified },
+    true,
+  );
+  await redeemAccountInvitation(db, {
+    invitationId: envelope.invitationId,
+    proof: envelope.proof!,
+    firstName: "",
+    lastName: "",
+    password,
+    reviewed: true,
+  });
+  const created = await db.user.findUniqueOrThrow({
+    where: { email: recipient },
+  });
+  await completeHistoryAccount(db, {
+    token: claimToken,
+    email: recipient,
+    ...verified,
+    password: "Retry-must-not-replace-password-460!",
+  });
+  expect(
+    (await db.user.findUniqueOrThrow({ where: { id: created.id } }))
+      .passwordHash,
+  ).toBe(created.passwordHash);
+  expect(created).toMatchObject({
+    role: "STUDENT",
+    studentId: null,
+    tutorId: null,
+    tuteeMember: false,
+    tutorAccessRevoked: true,
+  });
   expect(typeof created.personId).toBe("string");
   expect(created.personId).not.toBe("");
   expect(await db.tutorProfileOwnership.count()).toBe(0);
   expect(await db.studentProfileOwnership.count()).toBe(0);
-  await caller(created.id, "STUDENT").tuteeHistory.claim({ invitationId: envelope.invitationId });
-  expect(await db.tutorProfileOwnership.findUnique({ where: { tutorId: "tutor" } })).toMatchObject({ userId: created.id });
+  await caller(created.id, "STUDENT").tuteeHistory.claim({
+    invitationId: envelope.invitationId,
+  });
+  expect(
+    await db.tutorProfileOwnership.findUnique({ where: { tutorId: "tutor" } }),
+  ).toMatchObject({ userId: created.id });
   expect(await db.studentProfileOwnership.count()).toBe(0);
-  expect(await caller(created.id, "STUDENT").tuteeHistory.myRecords()).toEqual([]);
-  await expect(caller(created.id, "STUDENT").tuteeHistory.myDetails({ tuteeId: "tutee", page: 0 })).rejects.toThrow("HISTORY_NOT_FOUND");
+  expect(await caller(created.id, "STUDENT").tuteeHistory.myRecords()).toEqual(
+    [],
+  );
+  await expect(
+    caller(created.id, "STUDENT").tuteeHistory.myDetails({
+      tuteeId: "tutee",
+      page: 0,
+    }),
+  ).rejects.toThrow("HISTORY_NOT_FOUND");
   const claimed = await db.tutor.findUniqueOrThrow({ where: { id: "tutor" } });
-  await db.tutor.create({ data: { id: "later-tutor", englishName: "Later Group Member", status: "GRADUATED", personId: claimed.personId } });
-  expect((await caller(created.id, "STUDENT").tuteeHistory.myTutorRecords()).map((row) => row.id)).toEqual(["tutor"]);
-  await expect(caller(created.id, "STUDENT").tuteeHistory.myTutorDetails({ tutorId: "later-tutor", page: 0 })).rejects.toThrow("HISTORY_NOT_FOUND");
+  await db.tutor.create({
+    data: {
+      id: "later-tutor",
+      englishName: "Later Group Member",
+      status: "GRADUATED",
+      personId: claimed.personId,
+    },
+  });
+  expect(
+    (await caller(created.id, "STUDENT").tuteeHistory.myTutorRecords()).map(
+      (row) => row.id,
+    ),
+  ).toEqual(["tutor"]);
+  await expect(
+    caller(created.id, "STUDENT").tuteeHistory.myTutorDetails({
+      tutorId: "later-tutor",
+      page: 0,
+    }),
+  ).rejects.toThrow("HISTORY_NOT_FOUND");
   expect(await db.policyAcceptance.count()).toBe(0);
 });
 
 it("keeps original Tutee invitations and in-flight attempts usable through the explicit legacy adapter", async () => {
   const legacyToken = "e".repeat(64);
   const record = await db.tutee.findUniqueOrThrow({ where: { id: "tutee" } });
-  await db.tuteeHistoryInvitation.create({ data: { tuteeId: record.id, tokenHash: historyTokenDigest(legacyToken), email, expectedUpdatedAt: record.updatedAt, issuedById: actorId, reason, expiresAt: new Date(Date.now() + 86400000) } });
+  await db.tuteeHistoryInvitation.create({
+    data: {
+      tuteeId: record.id,
+      tokenHash: historyTokenDigest(legacyToken),
+      email,
+      expectedUpdatedAt: record.updatedAt,
+      issuedById: actorId,
+      reason,
+      expiresAt: new Date(Date.now() + 86400000),
+    },
+  });
   await invite([{ kind: "TUTOR", id: "tutor" }]);
-  expect(await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: legacyToken })).toMatchObject({ sources: [{ kind: "TUTEE", id: "tutee", name: "Original Learner" }], claimed: false });
-  await caller("recipient", "STUDENT").tuteeHistory.claim({ token: legacyToken });
-  const recovered = await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: legacyToken });
-  expect(recovered).toMatchObject({ claimed: true, sources: [{ kind: "TUTEE", id: "tutee", name: "Original Learner" }] });
-  await expect(caller("recipient", "STUDENT").tuteeHistory.claim({ token: legacyToken })).rejects.toThrow("HISTORY_INVITATION_INVALID");
-  await expect(caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: token() })).rejects.toThrow("HISTORY_STALE");
-  await db.studentProfileOwnership.update({ where: { tuteeId: "tutee" }, data: { userId: "other", revision: { increment: 1 } } });
-  await expect(caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: legacyToken })).rejects.toThrow("HISTORY_INVITATION_INVALID");
+  expect(
+    await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({
+      token: legacyToken,
+    }),
+  ).toMatchObject({
+    sources: [{ kind: "TUTEE", id: "tutee", name: "Original Learner" }],
+    claimed: false,
+  });
+  await caller("recipient", "STUDENT").tuteeHistory.claim({
+    token: legacyToken,
+  });
+  const recovered = await caller(
+    "recipient",
+    "STUDENT",
+  ).tuteeHistory.inspectClaim({ token: legacyToken });
+  expect(recovered).toMatchObject({
+    claimed: true,
+    sources: [{ kind: "TUTEE", id: "tutee", name: "Original Learner" }],
+  });
+  await expect(
+    caller("recipient", "STUDENT").tuteeHistory.claim({ token: legacyToken }),
+  ).rejects.toThrow("HISTORY_INVITATION_INVALID");
+  await expect(
+    caller("recipient", "STUDENT").tuteeHistory.inspectClaim({
+      token: token(),
+    }),
+  ).rejects.toThrow("HISTORY_STALE");
+  await db.studentProfileOwnership.update({
+    where: { tuteeId: "tutee" },
+    data: { userId: "other", revision: { increment: 1 } },
+  });
+  await expect(
+    caller("recipient", "STUDENT").tuteeHistory.inspectClaim({
+      token: legacyToken,
+    }),
+  ).rejects.toThrow("HISTORY_INVITATION_INVALID");
 });
 
 it("reports stable reasons for unrelated groups, current work, nonhistorical records and conflicting or incomplete accounts", async () => {
   await db.person.create({ data: { id: "other-group" } });
-  await db.tutee.update({ where: { id: "tutee" }, data: { personId: "other-group" } });
+  await db.tutee.update({
+    where: { id: "tutee" },
+    data: { personId: "other-group" },
+  });
   expect((await preview()).blocked).toContain("GROUP_REVIEW_REQUIRED");
-  await db.tutee.update({ where: { id: "tutee" }, data: { personId: "archive-group", status: "ACTIVE", intakeTermId: "current" } });
+  await db.tutee.update({
+    where: { id: "tutee" },
+    data: {
+      personId: "archive-group",
+      status: "ACTIVE",
+      intakeTermId: "current",
+    },
+  });
   expect((await preview()).blocked).toContain("NOT_HISTORICAL");
-  await db.pairing.create({ data: { tutorId: "tutor", termId: "current", subject: "Math", dayOfWeek: 1, startMin: 600, endMin: 630 } });
+  await db.pairing.create({
+    data: {
+      tutorId: "tutor",
+      termId: "current",
+      subject: "Math",
+      dayOfWeek: 1,
+      startMin: 600,
+      endMin: 630,
+    },
+  });
   expect((await preview()).blocked).toContain("CURRENT_WORK");
-  await db.tutorProfileOwnership.create({ data: { tutorId: "tutor", userId: "other" } });
+  await db.tutorProfileOwnership.create({
+    data: { tutorId: "tutor", userId: "other" },
+  });
   expect((await preview()).blocked).toContain("ACCOUNT_CONFLICT");
-  await db.user.update({ where: { id: "recipient" }, data: { mustChangePassword: true } });
+  await db.user.update({
+    where: { id: "recipient" },
+    data: { mustChangePassword: true },
+  });
   expect((await preview()).blocked).toContain("ACCOUNT_NOT_READY");
   const pending = await input();
-  await expect(caller().tuteeHistory.inviteExact(pending)).rejects.toThrow("HISTORY_");
+  await expect(caller().tuteeHistory.inviteExact(pending)).rejects.toThrow(
+    "HISTORY_",
+  );
   expect(mail.send).not.toHaveBeenCalled();
 });
 
 it("keeps a pending qualification with its original domain and blocks historical setup until resolved", async () => {
-  await db.subject.create({ data: { id: "qualification-subject", name: "Additional historical subject" } });
-  await db.tutorApplication.create({ data: {
-    id: "qualification", requestedTutorId: "tutor", requestedSubjectId: "qualification-subject",
-    type: "ADDITIONAL_SUBJECT", qualificationReason: "Reviewed request for another subject",
-    name: "Original Tutor", email: "archive@example.test", status: "PENDING",
-  } });
-  expect((await preview([{ kind: "TUTOR", id: "tutor" }])).blocked).toContain("CURRENT_WORK");
-  expect(await db.tutorApplication.findUnique({ where: { id: "qualification" } })).toMatchObject({ status: "PENDING", requestedTutorId: "tutor" });
+  await db.subject.create({
+    data: {
+      id: "qualification-subject",
+      name: "Additional historical subject",
+    },
+  });
+  await db.tutorApplication.create({
+    data: {
+      id: "qualification",
+      requestedTutorId: "tutor",
+      requestedSubjectId: "qualification-subject",
+      type: "ADDITIONAL_SUBJECT",
+      qualificationReason: "Reviewed request for another subject",
+      name: "Original Tutor",
+      email: "archive@example.test",
+      status: "PENDING",
+    },
+  });
+  expect((await preview([{ kind: "TUTOR", id: "tutor" }])).blocked).toContain(
+    "CURRENT_WORK",
+  );
+  expect(
+    await db.tutorApplication.findUnique({ where: { id: "qualification" } }),
+  ).toMatchObject({ status: "PENDING", requestedTutorId: "tutor" });
   expect(mail.send).not.toHaveBeenCalled();
 });
 
 it("preserves school departure and revoked participant/observer capabilities when granting historical reads", async () => {
-  const departure = await db.schoolDeparture.create({ data: { userId: "recipient", reason: "GRADUATED", source: "HEAD", observerRevoked: true, effectiveAt: new Date("2025-06-01") } });
+  const departure = await db.schoolDeparture.create({
+    data: {
+      userId: "recipient",
+      reason: "GRADUATED",
+      source: "HEAD",
+      observerRevoked: true,
+      effectiveAt: new Date("2025-06-01"),
+    },
+  });
   await invite();
   await caller("recipient", "STUDENT").tuteeHistory.claim({ token: token() });
-  expect(await db.schoolDeparture.findUnique({ where: { userId: "recipient" } })).toEqual(departure);
-  expect(await db.user.findUnique({ where: { id: "recipient" } })).toMatchObject({ tuteeMember: false, tutorAccessRevoked: true, tutorId: null, studentId: null });
+  expect(
+    await db.schoolDeparture.findUnique({ where: { userId: "recipient" } }),
+  ).toEqual(departure);
+  expect(
+    await db.user.findUnique({ where: { id: "recipient" } }),
+  ).toMatchObject({
+    tuteeMember: false,
+    tutorAccessRevoked: true,
+    tutorId: null,
+    studentId: null,
+  });
   expect(await db.policyAcceptance.count()).toBe(0);
 });
 
-it.each(["member-add", "member-remove", "member-add-remove", "owner-roundtrip", "source-group-roundtrip", "recipient-password", "issuer-password", "issuer-demotion", "recipient-email"] as const)("invalidates frozen authority after %s without changing ownership", async (change) => {
-  if (change === "member-remove") await db.tutee.create({ data: { id: "sibling", englishName: "Original sibling", status: "INACTIVE", personId: "archive-group" } });
-  await invite();
-  const claimToken = token();
-  if (change === "member-add-remove" || change === "member-add") {
-    await db.tutee.create({ data: { id: "sibling", englishName: "Later sibling", status: "INACTIVE", personId: "archive-group" } });
-  }
-  if (change === "member-add-remove" || change === "member-remove") {
-    await db.tutee.delete({ where: { id: "sibling" } });
-  }
-  if (change === "owner-roundtrip") {
-    await db.tutorProfileOwnership.create({ data: { tutorId: "tutor", userId: "other" } });
-    await db.tutorProfileOwnership.delete({ where: { tutorId: "tutor" } });
-  }
-  if (change === "source-group-roundtrip") {
-    await db.$executeRaw`UPDATE "Tutor" SET "personId"=NULL WHERE id='tutor'`;
-    await db.$executeRaw`UPDATE "Tutor" SET "personId"='archive-group' WHERE id='tutor'`;
-  }
-  if (change === "recipient-password" || change === "issuer-password") {
-    const accountId = change === "recipient-password" ? "recipient" : actorId;
-    const account = await db.user.findUniqueOrThrow({ where: { id: accountId } });
-    await db.user.update({ where: { id: accountId }, data: { passwordHash: hashPassword("Changed-password-460!") } });
-    await db.user.update({ where: { id: accountId }, data: { passwordHash: account.passwordHash } });
-  }
-  if (change === "issuer-demotion") await db.user.update({ where: { id: actorId }, data: { role: "STUDENT" } });
-  if (change === "recipient-email") await db.user.update({ where: { id: "recipient" }, data: { email: "changed@example.test" } });
-  await expect(caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken })).rejects.toBeDefined();
-  expect(await db.tutorProfileOwnership.count()).toBe(0);
-  expect(await db.studentProfileOwnership.count()).toBe(0);
-});
+it.each([
+  "member-add",
+  "member-remove",
+  "member-add-remove",
+  "owner-roundtrip",
+  "source-group-roundtrip",
+  "recipient-password",
+  "issuer-password",
+  "issuer-demotion",
+  "recipient-email",
+] as const)(
+  "invalidates frozen authority after %s without changing ownership",
+  async (change) => {
+    if (change === "member-remove")
+      await db.tutee.create({
+        data: {
+          id: "sibling",
+          englishName: "Original sibling",
+          status: "INACTIVE",
+          personId: "archive-group",
+        },
+      });
+    await invite();
+    const claimToken = token();
+    if (change === "member-add-remove" || change === "member-add") {
+      await db.tutee.create({
+        data: {
+          id: "sibling",
+          englishName: "Later sibling",
+          status: "INACTIVE",
+          personId: "archive-group",
+        },
+      });
+    }
+    if (change === "member-add-remove" || change === "member-remove") {
+      await db.tutee.delete({ where: { id: "sibling" } });
+    }
+    if (change === "owner-roundtrip") {
+      await db.tutorProfileOwnership.create({
+        data: { tutorId: "tutor", userId: "other" },
+      });
+      await db.tutorProfileOwnership.delete({ where: { tutorId: "tutor" } });
+    }
+    if (change === "source-group-roundtrip") {
+      await db.$executeRaw`UPDATE "Tutor" SET "personId"=NULL WHERE id='tutor'`;
+      await db.$executeRaw`UPDATE "Tutor" SET "personId"='archive-group' WHERE id='tutor'`;
+    }
+    if (change === "recipient-password" || change === "issuer-password") {
+      const accountId = change === "recipient-password" ? "recipient" : actorId;
+      const account = await db.user.findUniqueOrThrow({
+        where: { id: accountId },
+      });
+      await db.user.update({
+        where: { id: accountId },
+        data: { passwordHash: hashPassword("Changed-password-460!") },
+      });
+      await db.user.update({
+        where: { id: accountId },
+        data: { passwordHash: account.passwordHash },
+      });
+    }
+    if (change === "issuer-demotion")
+      await db.user.update({
+        where: { id: actorId },
+        data: { role: "STUDENT" },
+      });
+    if (change === "recipient-email")
+      await db.user.update({
+        where: { id: "recipient" },
+        data: { email: "changed@example.test" },
+      });
+    await expect(
+      caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken }),
+    ).rejects.toBeDefined();
+    expect(await db.tutorProfileOwnership.count()).toBe(0);
+    expect(await db.studentProfileOwnership.count()).toBe(0);
+  },
+);
 
 it("accepts a verified secondary address for its reviewed owner and rejects an unverified alias", async () => {
   const alias = "verified-alias@example.test";
-  await db.accountEmail.create({ data: { email: alias, userId: "recipient", verifiedAt: new Date() } });
+  await db.accountEmail.create({
+    data: { email: alias, userId: "recipient", verifiedAt: new Date() },
+  });
   await invite(sources, alias);
   await caller("recipient", "STUDENT").tuteeHistory.claim({ token: token() });
-  await db.accountEmail.create({ data: { email: "unverified@example.test", userId: "other", verifiedAt: null } });
-  expect((await preview([{ kind: "TUTOR", id: "tutor" }], "unverified@example.test")).blocked).toContain("ACCOUNT_NOT_READY");
+  await db.accountEmail.create({
+    data: {
+      email: "unverified@example.test",
+      userId: "other",
+      verifiedAt: null,
+    },
+  });
+  expect(
+    (await preview([{ kind: "TUTOR", id: "tutor" }], "unverified@example.test"))
+      .blocked,
+  ).toContain("ACCOUNT_NOT_READY");
 });
 
 it("keeps a recipient's multiple live logins in reviewed combine even when imported metadata says grouped", async () => {
-  await db.person.create({ data: { id: "recipient-group", primaryUserId: "recipient", resolutionState: "GROUPED" } });
-  await db.user.updateMany({ where: { id: { in: ["recipient", "other"] } }, data: { personId: "recipient-group" } });
+  await db.person.create({
+    data: {
+      id: "recipient-group",
+      primaryUserId: "recipient",
+      resolutionState: "GROUPED",
+    },
+  });
+  await db.user.updateMany({
+    where: { id: { in: ["recipient", "other"] } },
+    data: { personId: "recipient-group" },
+  });
   expect((await preview()).blocked).toContain("ACCOUNT_CONFLICT");
   expect(mail.send).not.toHaveBeenCalled();
 });
@@ -248,24 +647,45 @@ it("keeps a published predecessor and its setup challenge intact when replacemen
   const replacement = await invite(sources, "replacement@example.test");
   expect(replacement.receipt.status).toBe("DELIVERY_FAILED");
   expect(await grant()).toEqual(prior);
-  expect(await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: priorToken })).toMatchObject({ claimed: false });
+  expect(
+    await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({
+      token: priorToken,
+    }),
+  ).toMatchObject({ claimed: false });
 });
 
 it("denies claimed-token receipt reads after exact retained ownership is corrected", async () => {
   await invite([{ kind: "TUTOR", id: "tutor" }]);
   const claimToken = token();
-  await caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken });
-  await db.tutorProfileOwnership.update({ where: { tutorId: "tutor" }, data: { userId: "other", revision: { increment: 1 } } });
-  await expect(caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken })).rejects.toThrow("HISTORY_INVITATION_INVALID");
-  await expect(caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken })).rejects.toThrow("HISTORY_INVITATION_INVALID");
+  await caller("recipient", "STUDENT").tuteeHistory.claim({
+    token: claimToken,
+  });
+  await db.tutorProfileOwnership.update({
+    where: { tutorId: "tutor" },
+    data: { userId: "other", revision: { increment: 1 } },
+  });
+  await expect(
+    caller("recipient", "STUDENT").tuteeHistory.inspectClaim({
+      token: claimToken,
+    }),
+  ).rejects.toThrow("HISTORY_INVITATION_INVALID");
+  await expect(
+    caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken }),
+  ).rejects.toThrow("HISTORY_INVITATION_INVALID");
 });
 
 it("keeps exact claim read recovery durable after a later invitation replaces its mutable grant", async () => {
   await invite();
   const claimToken = token();
-  await caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken });
+  await caller("recipient", "STUDENT").tuteeHistory.claim({
+    token: claimToken,
+  });
   await invite();
-  expect(await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken })).toMatchObject({ claimed: true });
+  expect(
+    await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({
+      token: claimToken,
+    }),
+  ).toMatchObject({ claimed: true });
   expect(await db.historicalRecordClaimReceipt.count()).toBe(1);
   expect((await grant()).tokenHash).not.toBe(historyTokenDigest(claimToken));
 });
@@ -273,7 +693,12 @@ it("keeps exact claim read recovery durable after a later invitation replaces it
 it("retains the predecessor when source evidence changes during accepted delivery", async () => {
   await invite();
   const prior = await grant();
-  mail.send.mockImplementationOnce(async () => { await db.person.update({ where: { id: "archive-group" }, data: { revision: { increment: 1 } } }); });
+  mail.send.mockImplementationOnce(async () => {
+    await db.person.update({
+      where: { id: "archive-group" },
+      data: { revision: { increment: 1 } },
+    });
+  });
   const replacement = await invite();
   expect(replacement.receipt.status).toBe("SUPERSEDED");
   expect(await grant()).toEqual(prior);
@@ -284,33 +709,76 @@ it("recovers actor-bound receipts after later replacements and never resends an 
   const second = await invite();
   expect(first.receipt.status).toBe("PUBLISHED");
   expect(second.receipt.status).toBe("PUBLISHED");
-  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: first.payload.operationId })).toMatchObject({ status: "SUPERSEDED", email });
-  expect(await caller().tuteeHistory.inviteExact(first.payload)).toMatchObject({ status: "SUPERSEDED" });
+  expect(
+    await caller().tuteeHistory.exactInvitationReceipt({
+      operationId: first.payload.operationId,
+    }),
+  ).toMatchObject({ status: "SUPERSEDED", email });
+  expect(await caller().tuteeHistory.inviteExact(first.payload)).toMatchObject({
+    status: "SUPERSEDED",
+  });
   await db.user.update({ where: { id: "other" }, data: { role: "ADMIN" } });
-  expect(await caller("other").tuteeHistory.exactInvitationReceipt({ operationId: first.payload.operationId })).toBeNull();
-  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: randomUUID() })).toBeNull();
+  expect(
+    await caller("other").tuteeHistory.exactInvitationReceipt({
+      operationId: first.payload.operationId,
+    }),
+  ).toBeNull();
+  expect(
+    await caller().tuteeHistory.exactInvitationReceipt({
+      operationId: randomUUID(),
+    }),
+  ).toBeNull();
   expect(mail.send).toHaveBeenCalledTimes(2);
-  await expect(caller().tuteeHistory.inviteExact({ ...first.payload, reason: "Different operation payload must be rejected" })).rejects.toThrow("HISTORY_STALE");
+  await expect(
+    caller().tuteeHistory.inviteExact({
+      ...first.payload,
+      reason: "Different operation payload must be rejected",
+    }),
+  ).rejects.toThrow("HISTORY_STALE");
 });
 
 it("returns the same admitted receipt when an exact replay races an in-flight SMTP delivery", async () => {
   const payload = await input();
   const started = gate();
   const release = gate();
-  mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+  mail.send.mockImplementationOnce(async () => {
+    started.open();
+    await release.promise;
+  });
   const original = caller().tuteeHistory.inviteExact(payload);
   const settled = Promise.allSettled([original]);
   try {
     await entered(started.promise);
-    expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
-    expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
-    await expect(caller().tuteeHistory.inviteExact({ ...payload, reason: "A changed reason must never share the same operation" })).rejects.toThrow("HISTORY_STALE");
+    expect(
+      await caller().tuteeHistory.exactInvitationReceipt({
+        operationId: payload.operationId,
+      }),
+    ).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
+    expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({
+      attemptId: payload.operationId,
+      status: "UNCERTAIN",
+    });
+    await expect(
+      caller().tuteeHistory.inviteExact({
+        ...payload,
+        reason: "A changed reason must never share the same operation",
+      }),
+    ).rejects.toThrow("HISTORY_STALE");
     expect(await db.historicalRecordInvitationAttempt.count()).toBe(1);
     expect(await db.historicalRecordInvitation.count()).toBe(0);
     expect(mail.send).toHaveBeenCalledTimes(1);
-  } finally { release.open(); await settled; }
-  expect(await original).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
-  expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
+  } finally {
+    release.open();
+    await settled;
+  }
+  expect(await original).toMatchObject({
+    attemptId: payload.operationId,
+    status: "PUBLISHED",
+  });
+  expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({
+    attemptId: payload.operationId,
+    status: "PUBLISHED",
+  });
   expect(mail.send).toHaveBeenCalledTimes(1);
 });
 
@@ -321,28 +789,57 @@ it("admits one exact retry after missing receipts and deduplicates the original 
   const release = gate();
   // Model a request held before domain admission rather than treating a missing
   // receipt as proof that it can never reach the server.
-  const original = (async () => { await originalArrival.promise; return caller().tuteeHistory.inviteExact(payload); })();
+  const original = (async () => {
+    await originalArrival.promise;
+    return caller().tuteeHistory.inviteExact(payload);
+  })();
   const settledOriginal = Promise.allSettled([original]);
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
-      expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toBeNull();
+      expect(
+        await caller().tuteeHistory.exactInvitationReceipt({
+          operationId: payload.operationId,
+        }),
+      ).toBeNull();
     }
-    expect(await caller().tuteeHistory.exactInvitationStatus({ sources })).toBeNull();
+    expect(
+      await caller().tuteeHistory.exactInvitationStatus({ sources }),
+    ).toBeNull();
     expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
     expect(mail.send).not.toHaveBeenCalled();
-    mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+    mail.send.mockImplementationOnce(async () => {
+      started.open();
+      await release.promise;
+    });
     const replay = caller().tuteeHistory.inviteExact(payload);
     const settledReplay = Promise.allSettled([replay]);
     try {
       await entered(started.promise);
       originalArrival.open();
-      expect(await original).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
+      expect(await original).toMatchObject({
+        attemptId: payload.operationId,
+        status: "UNCERTAIN",
+      });
       expect(await db.historicalRecordInvitationAttempt.count()).toBe(1);
       expect(mail.send).toHaveBeenCalledTimes(1);
-    } finally { release.open(); await settledReplay; }
-    expect(await replay).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
-  } finally { originalArrival.open(); release.open(); await settledOriginal; }
-  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
+    } finally {
+      release.open();
+      await settledReplay;
+    }
+    expect(await replay).toMatchObject({
+      attemptId: payload.operationId,
+      status: "PUBLISHED",
+    });
+  } finally {
+    originalArrival.open();
+    release.open();
+    await settledOriginal;
+  }
+  expect(
+    await caller().tuteeHistory.exactInvitationReceipt({
+      operationId: payload.operationId,
+    }),
+  ).toMatchObject({ attemptId: payload.operationId, status: "PUBLISHED" });
   expect(await db.historicalRecordInvitationAttempt.count()).toBe(1);
   expect(await db.historicalRecordInvitation.count()).toBe(1);
   expect(mail.send).toHaveBeenCalledTimes(1);
@@ -350,13 +847,32 @@ it("admits one exact retry after missing receipts and deduplicates the original 
 
 it("permanently stops a stale never-admitted operation even after a source is deleted, without creating a delivery or grant", async () => {
   const payload = await input();
-  await db.person.update({ where: { id: "archive-group" }, data: { revision: { increment: 1 } } });
+  await db.person.update({
+    where: { id: "archive-group" },
+    data: { revision: { increment: 1 } },
+  });
   await db.tutee.delete({ where: { id: "tutee" } });
-  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toBeNull();
-  const stopped = { attemptId: payload.operationId, status: "ABANDONED", expiresAt: null };
-  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toEqual(stopped);
-  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toEqual(stopped);
-  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toEqual(stopped);
+  expect(
+    await caller().tuteeHistory.exactInvitationReceipt({
+      operationId: payload.operationId,
+    }),
+  ).toBeNull();
+  const stopped = {
+    attemptId: payload.operationId,
+    status: "ABANDONED",
+    expiresAt: null,
+  };
+  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toEqual(
+    stopped,
+  );
+  expect(
+    await caller().tuteeHistory.exactInvitationReceipt({
+      operationId: payload.operationId,
+    }),
+  ).toEqual(stopped);
+  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toEqual(
+    stopped,
+  );
   // Even unavailable delivery cannot hide the terminal stop or make a late
   // original request acquire a different delivery operation.
   mail.available.mockReturnValue(false);
@@ -364,14 +880,22 @@ it("permanently stops a stale never-admitted operation even after a source is de
   expect(await db.historicalInvitationOperationClosure.count()).toBe(1);
   expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
   expect(await db.historicalRecordInvitation.count()).toBe(0);
-  expect(await db.auditLog.count({ where: {
-    operation: "tuteeHistory.abandonExactInvitation", entity: "HistoricalInvitationOperationClosure", entityId: payload.operationId,
-    AND: [
-      { details: { path: ["outcome"], equals: "ABANDONED" } },
-      { details: { path: ["changeApplied"], equals: true } },
-    ],
-  } })).toBe(1);
-  expect(await caller().tuteeHistory.exactInvitationStatus({ sources })).toBeNull();
+  expect(
+    await db.auditLog.count({
+      where: {
+        operation: "tuteeHistory.abandonExactInvitation",
+        entity: "HistoricalInvitationOperationClosure",
+        entityId: payload.operationId,
+        AND: [
+          { details: { path: ["outcome"], equals: "ABANDONED" } },
+          { details: { path: ["changeApplied"], equals: true } },
+        ],
+      },
+    }),
+  ).toBe(1);
+  expect(
+    await caller().tuteeHistory.exactInvitationStatus({ sources }),
+  ).toBeNull();
   expect(mail.send).not.toHaveBeenCalled();
 });
 
@@ -379,55 +903,111 @@ it("binds stopped operation receipts to the issuing actor and every original inp
   const payload = await input([{ kind: "TUTOR", id: "tutor" }]);
   await caller().tuteeHistory.abandonExactInvitation(payload);
   await db.user.update({ where: { id: "other" }, data: { role: "ADMIN" } });
-  expect(await caller("other").tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toBeNull();
-  await expect(caller("other").tuteeHistory.abandonExactInvitation(payload)).rejects.toThrow("HISTORY_STALE");
-  await expect(caller("other").tuteeHistory.inviteExact(payload)).rejects.toThrow("HISTORY_STALE");
+  expect(
+    await caller("other").tuteeHistory.exactInvitationReceipt({
+      operationId: payload.operationId,
+    }),
+  ).toBeNull();
+  await expect(
+    caller("other").tuteeHistory.abandonExactInvitation(payload),
+  ).rejects.toThrow("HISTORY_STALE");
+  await expect(
+    caller("other").tuteeHistory.inviteExact(payload),
+  ).rejects.toThrow("HISTORY_STALE");
   for (const changed of [
-    { ...payload, reason: "A different justification cannot reuse the stopped operation" },
+    {
+      ...payload,
+      reason: "A different justification cannot reuse the stopped operation",
+    },
     { ...payload, email: "different@example.test" },
     { ...payload, sources: [{ kind: "TUTEE" as const, id: "tutee" }] },
     { ...payload, fingerprint: "b".repeat(64) },
   ]) {
-    await expect(caller().tuteeHistory.abandonExactInvitation(changed)).rejects.toThrow("HISTORY_STALE");
-    await expect(caller().tuteeHistory.inviteExact(changed)).rejects.toThrow("HISTORY_STALE");
+    await expect(
+      caller().tuteeHistory.abandonExactInvitation(changed),
+    ).rejects.toThrow("HISTORY_STALE");
+    await expect(caller().tuteeHistory.inviteExact(changed)).rejects.toThrow(
+      "HISTORY_STALE",
+    );
   }
-  const row = await db.historicalInvitationOperationClosure.findUniqueOrThrow({ where: { operationId: payload.operationId } });
-  expect(Object.keys(row).sort()).toEqual(["createdAt", "inputHash", "issuedById", "operationId", "scopeKey"]);
-  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: payload.operationId })).toEqual({ attemptId: payload.operationId, status: "ABANDONED", expiresAt: null });
+  const row = await db.historicalInvitationOperationClosure.findUniqueOrThrow({
+    where: { operationId: payload.operationId },
+  });
+  expect(Object.keys(row).sort()).toEqual([
+    "createdAt",
+    "inputHash",
+    "issuedById",
+    "operationId",
+    "scopeKey",
+  ]);
+  expect(
+    await caller().tuteeHistory.exactInvitationReceipt({
+      operationId: payload.operationId,
+    }),
+  ).toEqual({
+    attemptId: payload.operationId,
+    status: "ABANDONED",
+    expiresAt: null,
+  });
   expect(mail.send).not.toHaveBeenCalled();
   expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
   await db.user.update({ where: { id: actorId }, data: { role: "STUDENT" } });
-  await expect(inviteExactHistory(db, actorId, payload)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(abandonExactHistoryInvitation(db, actorId, payload)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(inviteExactHistory(db, actorId, payload)).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await expect(
+    abandonExactHistoryInvitation(db, actorId, payload),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it.each([false, true])("serializes a stop winner against a request already past its missing-receipt fast path (different source scope: %s)", async (differentScope) => {
-  const payload = await input([{ kind: "TUTOR", id: "tutor" }]);
-  const originalInput = differentScope
-    ? { ...await input([{ kind: "TUTEE", id: "tutee" }]), operationId: payload.operationId }
-    : payload;
-  const passedFastPath = gate();
-  let original!: ReturnType<typeof inviteExactHistory>;
-  let observed: Promise<PromiseSettledResult<Awaited<ReturnType<typeof inviteExactHistory>>>[]> | undefined;
-  try {
-    await db.$transaction(async (tx) => {
-      // Hold the established period -> namespace order. The original passes
-      // the missing closure read, then waits for this transaction to commit.
-      await lockEntity(tx, "program:period");
-      await lockUsernameNamespace(tx);
-      mail.available.mockImplementationOnce(() => { passedFastPath.open(); return true; });
-      original = inviteExactHistory(db, actorId, originalInput);
-      observed = Promise.allSettled([original]);
-      await entered(passedFastPath.promise);
-      expect(await abandonExactHistoryInvitation(tx, actorId, payload)).toMatchObject({ status: "ABANDONED" });
-    });
-  } finally { if (observed) await observed; }
-  if (differentScope) await expect(original).rejects.toThrow("HISTORY_STALE");
-  else expect(await original).toMatchObject({ attemptId: payload.operationId, status: "ABANDONED" });
-  expect(await db.historicalInvitationOperationClosure.count()).toBe(1);
-  expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
-  expect(mail.send).not.toHaveBeenCalled();
-});
+it.each([false, true])(
+  "serializes a stop winner against a request already past its missing-receipt fast path (different source scope: %s)",
+  async (differentScope) => {
+    const payload = await input([{ kind: "TUTOR", id: "tutor" }]);
+    const originalInput = differentScope
+      ? {
+          ...(await input([{ kind: "TUTEE", id: "tutee" }])),
+          operationId: payload.operationId,
+        }
+      : payload;
+    const passedFastPath = gate();
+    let original!: ReturnType<typeof inviteExactHistory>;
+    let observed:
+      | Promise<
+          PromiseSettledResult<Awaited<ReturnType<typeof inviteExactHistory>>>[]
+        >
+      | undefined;
+    try {
+      await db.$transaction(async (tx) => {
+        // Hold the established period -> namespace order. The original passes
+        // the missing closure read, then waits for this transaction to commit.
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        mail.available.mockImplementationOnce(() => {
+          passedFastPath.open();
+          return true;
+        });
+        original = inviteExactHistory(db, actorId, originalInput);
+        observed = Promise.allSettled([original]);
+        await entered(passedFastPath.promise);
+        expect(
+          await abandonExactHistoryInvitation(tx, actorId, payload),
+        ).toMatchObject({ status: "ABANDONED" });
+      });
+    } finally {
+      if (observed) await observed;
+    }
+    if (differentScope) await expect(original).rejects.toThrow("HISTORY_STALE");
+    else
+      expect(await original).toMatchObject({
+        attemptId: payload.operationId,
+        status: "ABANDONED",
+      });
+    expect(await db.historicalInvitationOperationClosure.count()).toBe(1);
+    expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
+    expect(mail.send).not.toHaveBeenCalled();
+  },
+);
 
 it("returns the original admitted receipt when SMTP admission wins a stop race and leaves its predecessor untouched", async () => {
   await invite();
@@ -435,47 +1015,106 @@ it("returns the original admitted receipt when SMTP admission wins a stop race a
   const payload = await input();
   const started = gate();
   const release = gate();
-  mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+  mail.send.mockImplementationOnce(async () => {
+    started.open();
+    await release.promise;
+  });
   const original = caller().tuteeHistory.inviteExact(payload);
   const observed = Promise.allSettled([original]);
   try {
     await entered(started.promise);
-    expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
-    const differentScope = { ...await input([{ kind: "TUTOR", id: "tutor" }]), operationId: payload.operationId };
-    await expect(caller().tuteeHistory.abandonExactInvitation(differentScope)).rejects.toThrow("HISTORY_STALE");
-    await expect(caller().tuteeHistory.abandonExactInvitation({ ...payload, reason: "A changed stop intent cannot alter an admitted request" })).rejects.toThrow("HISTORY_STALE");
+    expect(
+      await caller().tuteeHistory.abandonExactInvitation(payload),
+    ).toMatchObject({ attemptId: payload.operationId, status: "UNCERTAIN" });
+    const differentScope = {
+      ...(await input([{ kind: "TUTOR", id: "tutor" }])),
+      operationId: payload.operationId,
+    };
+    await expect(
+      caller().tuteeHistory.abandonExactInvitation(differentScope),
+    ).rejects.toThrow("HISTORY_STALE");
+    await expect(
+      caller().tuteeHistory.abandonExactInvitation({
+        ...payload,
+        reason: "A changed stop intent cannot alter an admitted request",
+      }),
+    ).rejects.toThrow("HISTORY_STALE");
     expect(await db.historicalInvitationOperationClosure.count()).toBe(0);
     expect(await grant()).toEqual(predecessor);
-    expect(await db.historicalRecordInvitationAttempt.findUnique({ where: { id: payload.operationId } })).toMatchObject({ status: "ADMITTED" });
+    expect(
+      await db.historicalRecordInvitationAttempt.findUnique({
+        where: { id: payload.operationId },
+      }),
+    ).toMatchObject({ status: "ADMITTED" });
     expect(mail.send).toHaveBeenCalledTimes(2);
-  } finally { release.open(); await observed; }
+  } finally {
+    release.open();
+    await observed;
+  }
   expect(await original).toMatchObject({ status: "PUBLISHED" });
-  expect(await caller().tuteeHistory.abandonExactInvitation(payload)).toMatchObject({ status: "PUBLISHED" });
+  expect(
+    await caller().tuteeHistory.abandonExactInvitation(payload),
+  ).toMatchObject({ status: "PUBLISHED" });
   expect(mail.send).toHaveBeenCalledTimes(2);
 });
 
-it.each(["demoted", "suspended"] as const)("does not create stop authority for a %s issuer", async (change) => {
-  const payload = await input();
-  await db.user.update({ where: { id: actorId }, data: change === "demoted" ? { role: "STUDENT" } : { suspendedAt: new Date() } });
-  await expect(abandonExactHistoryInvitation(db, actorId, payload)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect(await db.historicalInvitationOperationClosure.count()).toBe(0);
-  expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
-  expect(mail.send).not.toHaveBeenCalled();
-});
+it.each(["demoted", "suspended"] as const)(
+  "does not create stop authority for a %s issuer",
+  async (change) => {
+    const payload = await input();
+    await db.user.update({
+      where: { id: actorId },
+      data:
+        change === "demoted"
+          ? { role: "STUDENT" }
+          : { suspendedAt: new Date() },
+    });
+    await expect(
+      abandonExactHistoryInvitation(db, actorId, payload),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.historicalInvitationOperationClosure.count()).toBe(0);
+    expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
+    expect(mail.send).not.toHaveBeenCalled();
+  },
+);
 
 it("commits stop authority atomically with audit and keeps the resulting closure immutable", async () => {
   const payload = await input();
-  await db.$executeRawUnsafe(`CREATE FUNCTION exact_history_stop_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='tuteeHistory.abandonExactInvitation' THEN RAISE EXCEPTION 'Injected stop failure'; END IF; RETURN NEW; END $$`);
+  await db.$executeRawUnsafe(
+    `CREATE FUNCTION exact_history_stop_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='tuteeHistory.abandonExactInvitation' THEN RAISE EXCEPTION 'Injected stop failure'; END IF; RETURN NEW; END $$`,
+  );
   try {
-    await db.$executeRawUnsafe(`CREATE TRIGGER exact_history_stop_failure BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION exact_history_stop_failure()`);
-    try { await expect(caller().tuteeHistory.abandonExactInvitation(payload)).rejects.toBeDefined(); }
-    finally { await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS exact_history_stop_failure ON "AuditLog"`); }
-  } finally { await db.$executeRawUnsafe(`DROP FUNCTION exact_history_stop_failure()`); }
+    await db.$executeRawUnsafe(
+      `CREATE TRIGGER exact_history_stop_failure BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION exact_history_stop_failure()`,
+    );
+    try {
+      await expect(
+        caller().tuteeHistory.abandonExactInvitation(payload),
+      ).rejects.toBeDefined();
+    } finally {
+      await db.$executeRawUnsafe(
+        `DROP TRIGGER IF EXISTS exact_history_stop_failure ON "AuditLog"`,
+      );
+    }
+  } finally {
+    await db.$executeRawUnsafe(`DROP FUNCTION exact_history_stop_failure()`);
+  }
   expect(await db.historicalInvitationOperationClosure.count()).toBe(0);
   await caller().tuteeHistory.abandonExactInvitation(payload);
-  await expect(db.historicalInvitationOperationClosure.delete({ where: { operationId: payload.operationId } })).rejects.toThrow("Historical invitation operation closures are immutable");
-  await expect(db.historicalInvitationOperationClosure.update({ where: { operationId: payload.operationId }, data: { inputHash: "changed" } })).rejects.toThrow("Historical invitation operation closures are immutable");
-  expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({ status: "ABANDONED" });
+  await expect(
+    db.historicalInvitationOperationClosure.delete({
+      where: { operationId: payload.operationId },
+    }),
+  ).rejects.toThrow("Historical invitation operation closures are immutable");
+  await expect(
+    db.historicalInvitationOperationClosure.update({
+      where: { operationId: payload.operationId },
+      data: { inputHash: "changed" },
+    }),
+  ).rejects.toThrow("Historical invitation operation closures are immutable");
+  expect(await caller().tuteeHistory.inviteExact(payload)).toMatchObject({
+    status: "ABANDONED",
+  });
   expect(mail.send).not.toHaveBeenCalled();
 });
 
@@ -484,14 +1123,20 @@ it("lets a newer failed intent supersede a slow accepted send while preserving t
   const before = await grant();
   const started = gate();
   const release = gate();
-  mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+  mail.send.mockImplementationOnce(async () => {
+    started.open();
+    await release.promise;
+  });
   const older = invite();
   const settled = Promise.allSettled([older]);
   try {
     await entered(started.promise);
     mail.send.mockRejectedValueOnce(new Error("Newer synthetic rejection"));
     expect((await invite()).receipt.status).toBe("DELIVERY_FAILED");
-  } finally { release.open(); await settled; }
+  } finally {
+    release.open();
+    await settled;
+  }
   expect((await older).receipt.status).toBe("SUPERSEDED");
   expect(await grant()).toEqual(before);
   expect(mail.send).toHaveBeenCalledTimes(3);
@@ -500,15 +1145,29 @@ it("lets a newer failed intent supersede a slow accepted send while preserving t
 it("cancels a first in-flight delivery before it can publish", async () => {
   const started = gate();
   const release = gate();
-  mail.send.mockImplementationOnce(async () => { started.open(); await release.promise; });
+  mail.send.mockImplementationOnce(async () => {
+    started.open();
+    await release.promise;
+  });
   const pending = invite();
   const settled = Promise.allSettled([pending]);
   try {
     await entered(started.promise);
-    const displayed = await caller().tuteeHistory.exactInvitationStatus({ sources });
-    expect(displayed).toMatchObject({ invitation: null, attempt: { status: "UNCERTAIN" } });
-    await caller().tuteeHistory.cancelExactInvitation({ sources, revision: displayed!.revision });
-  } finally { release.open(); await settled; }
+    const displayed = await caller().tuteeHistory.exactInvitationStatus({
+      sources,
+    });
+    expect(displayed).toMatchObject({
+      invitation: null,
+      attempt: { status: "UNCERTAIN" },
+    });
+    await caller().tuteeHistory.cancelExactInvitation({
+      sources,
+      revision: displayed!.revision,
+    });
+  } finally {
+    release.open();
+    await settled;
+  }
   expect((await pending).receipt.status).toBe("SUPERSEDED");
   expect(await db.historicalRecordInvitation.count()).toBe(0);
 });
@@ -520,7 +1179,11 @@ it("serializes simultaneous claims into one exact ownership transaction", async 
     caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken }),
     caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken }),
   ]);
-  expect(await db.auditLog.count({ where: { operation: "tuteeHistory.claimExact" } })).toBe(1);
+  expect(
+    await db.auditLog.count({
+      where: { operation: "tuteeHistory.claimExact" },
+    }),
+  ).toBe(1);
   expect(await db.tutorProfileOwnership.count()).toBe(1);
   expect(await db.studentProfileOwnership.count()).toBe(1);
 });
@@ -529,26 +1192,54 @@ it("serializes claim against exact staff ownership correction without granting b
   const scope: ExactHistorySource[] = [{ kind: "TUTOR", id: "tutor" }];
   await invite(scope);
   const claimToken = token();
-  const reviewed = await previewTutorHistory(db, { tutorId: "tutor", userId: "other" });
+  const reviewed = await previewTutorHistory(db, {
+    tutorId: "tutor",
+    userId: "other",
+  });
   const results = await Promise.allSettled([
     caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken }),
-    linkTutorHistory(db, actorId, { tutorId: "tutor", userId: "other", fingerprint: reviewed.fingerprint, reason, acknowledged: true }),
+    linkTutorHistory(db, actorId, {
+      tutorId: "tutor",
+      userId: "other",
+      fingerprint: reviewed.fingerprint,
+      reason,
+      acknowledged: true,
+    }),
   ]);
   expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-  const owner = await db.tutorProfileOwnership.findUniqueOrThrow({ where: { tutorId: "tutor" } });
+  const owner = await db.tutorProfileOwnership.findUniqueOrThrow({
+    where: { tutorId: "tutor" },
+  });
   expect(["recipient", "other"]).toContain(owner.userId);
   const excluded = owner.userId === "recipient" ? "other" : "recipient";
-  await expect(caller(excluded, "STUDENT").tuteeHistory.myTutorDetails({ tutorId: "tutor", page: 0 })).rejects.toThrow("HISTORY_NOT_FOUND");
+  await expect(
+    caller(excluded, "STUDENT").tuteeHistory.myTutorDetails({
+      tutorId: "tutor",
+      page: 0,
+    }),
+  ).rejects.toThrow("HISTORY_NOT_FOUND");
   expect(await db.studentProfileOwnership.count()).toBe(0);
 });
 
 it("rejects stale cancellation and cancels only the displayed grant without deleting any account", async () => {
   await invite();
-  const oldStatus = await caller().tuteeHistory.exactInvitationStatus({ sources });
+  const oldStatus = await caller().tuteeHistory.exactInvitationStatus({
+    sources,
+  });
   await invite();
-  await expect(caller().tuteeHistory.cancelExactInvitation({ sources, revision: oldStatus!.revision })).rejects.toThrow("HISTORY_STALE");
+  await expect(
+    caller().tuteeHistory.cancelExactInvitation({
+      sources,
+      revision: oldStatus!.revision,
+    }),
+  ).rejects.toThrow("HISTORY_STALE");
   const status = await caller().tuteeHistory.exactInvitationStatus({ sources });
-  expect(await caller().tuteeHistory.cancelExactInvitation({ sources, revision: status!.revision })).toEqual({ cancelled: true });
+  expect(
+    await caller().tuteeHistory.cancelExactInvitation({
+      sources,
+      revision: status!.revision,
+    }),
+  ).toEqual({ cancelled: true });
   expect(await db.historicalRecordInvitation.count()).toBe(0);
   expect(await db.user.count()).toBe(3);
   expect(await db.tutorProfileOwnership.count()).toBe(0);
@@ -557,29 +1248,64 @@ it("rejects stale cancellation and cancels only the displayed grant without dele
 it("rolls back final publication atomically when audit fails and read recovery does not replay SMTP", async () => {
   await invite();
   const before = await grant();
-  await db.$executeRawUnsafe(`CREATE FUNCTION exact_history_publication_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='tuteeHistory.inviteExactDelivery' AND NEW.details->>'outcome'='PUBLISHED' THEN RAISE EXCEPTION 'Injected publication failure'; END IF; RETURN NEW; END $$`);
+  await db.$executeRawUnsafe(
+    `CREATE FUNCTION exact_history_publication_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='tuteeHistory.inviteExactDelivery' AND NEW.details->>'outcome'='PUBLISHED' THEN RAISE EXCEPTION 'Injected publication failure'; END IF; RETURN NEW; END $$`,
+  );
   let result: Awaited<ReturnType<typeof invite>>;
   try {
-    await db.$executeRawUnsafe(`CREATE TRIGGER exact_history_publication_failure BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION exact_history_publication_failure()`);
-    try { result = await invite(); }
-    finally { await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS exact_history_publication_failure ON "AuditLog"`); }
-  } finally { await db.$executeRawUnsafe(`DROP FUNCTION exact_history_publication_failure()`); }
+    await db.$executeRawUnsafe(
+      `CREATE TRIGGER exact_history_publication_failure BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION exact_history_publication_failure()`,
+    );
+    try {
+      result = await invite();
+    } finally {
+      await db.$executeRawUnsafe(
+        `DROP TRIGGER IF EXISTS exact_history_publication_failure ON "AuditLog"`,
+      );
+    }
+  } finally {
+    await db.$executeRawUnsafe(
+      `DROP FUNCTION exact_history_publication_failure()`,
+    );
+  }
   expect(result!.receipt.status).toBe("UNCERTAIN");
   expect(await grant()).toEqual(before);
-  expect(await caller().tuteeHistory.exactInvitationReceipt({ operationId: result!.payload.operationId })).toMatchObject({ status: "UNCERTAIN" });
-  expect(await caller().tuteeHistory.inviteExact(result!.payload)).toMatchObject({ attemptId: result!.payload.operationId, status: "UNCERTAIN" });
+  expect(
+    await caller().tuteeHistory.exactInvitationReceipt({
+      operationId: result!.payload.operationId,
+    }),
+  ).toMatchObject({ status: "UNCERTAIN" });
+  expect(
+    await caller().tuteeHistory.inviteExact(result!.payload),
+  ).toMatchObject({
+    attemptId: result!.payload.operationId,
+    status: "UNCERTAIN",
+  });
   expect(mail.send).toHaveBeenCalledTimes(2);
 });
 
 it("rolls back the entire exact claim when its audit fails", async () => {
   await invite();
   const before = await grant();
-  await db.$executeRawUnsafe(`CREATE FUNCTION exact_history_claim_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='tuteeHistory.claimExact' THEN RAISE EXCEPTION 'Injected claim failure'; END IF; RETURN NEW; END $$`);
+  await db.$executeRawUnsafe(
+    `CREATE FUNCTION exact_history_claim_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation='tuteeHistory.claimExact' THEN RAISE EXCEPTION 'Injected claim failure'; END IF; RETURN NEW; END $$`,
+  );
   try {
-    await db.$executeRawUnsafe(`CREATE TRIGGER exact_history_claim_failure BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION exact_history_claim_failure()`);
-    try { await expect(caller("recipient", "STUDENT").tuteeHistory.claim({ token: token() })).rejects.toBeDefined(); }
-    finally { await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS exact_history_claim_failure ON "AuditLog"`); }
-  } finally { await db.$executeRawUnsafe(`DROP FUNCTION exact_history_claim_failure()`); }
+    await db.$executeRawUnsafe(
+      `CREATE TRIGGER exact_history_claim_failure BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION exact_history_claim_failure()`,
+    );
+    try {
+      await expect(
+        caller("recipient", "STUDENT").tuteeHistory.claim({ token: token() }),
+      ).rejects.toBeDefined();
+    } finally {
+      await db.$executeRawUnsafe(
+        `DROP TRIGGER IF EXISTS exact_history_claim_failure ON "AuditLog"`,
+      );
+    }
+  } finally {
+    await db.$executeRawUnsafe(`DROP FUNCTION exact_history_claim_failure()`);
+  }
   expect(await db.tutorProfileOwnership.count()).toBe(0);
   expect(await db.studentProfileOwnership.count()).toBe(0);
   expect(await grant()).toEqual(before);
@@ -588,15 +1314,29 @@ it("rolls back the entire exact claim when its audit fails", async () => {
 
 it("requires an actual commit owner before admitting delivery from a caller-owned transaction", async () => {
   const payload = await input();
-  await expect(db.$transaction(async (tx) => databaseScope.run(tx, () => inviteExactHistory(tx, actorId, payload)))).rejects.toThrow("HISTORY_DELIVERY_COMMIT_REQUIRED");
+  await expect(
+    db.$transaction(async (tx) =>
+      databaseScope.run(tx, () => inviteExactHistory(tx, actorId, payload)),
+    ),
+  ).rejects.toThrow("HISTORY_DELIVERY_COMMIT_REQUIRED");
   expect(mail.send).not.toHaveBeenCalled();
   expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
 });
 
 it("denies Coordinator mutation and recipient reads of another source even with its public ID", async () => {
-  await db.user.update({ where: { id: "other" }, data: { role: "COORDINATOR" } });
+  await db.user.update({
+    where: { id: "other" },
+    data: { role: "COORDINATOR" },
+  });
   const payload = await input();
-  await expect(caller("other", "COORDINATOR").tuteeHistory.inviteExact(payload)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(caller("recipient", "STUDENT").tuteeHistory.myTutorDetails({ tutorId: "tutor", page: 0 })).rejects.toBeDefined();
+  await expect(
+    caller("other", "COORDINATOR").tuteeHistory.inviteExact(payload),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller("recipient", "STUDENT").tuteeHistory.myTutorDetails({
+      tutorId: "tutor",
+      page: 0,
+    }),
+  ).rejects.toBeDefined();
   expect(await db.historicalRecordInvitationAttempt.count()).toBe(0);
 });

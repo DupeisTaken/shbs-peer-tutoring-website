@@ -197,16 +197,36 @@ describe("read-only database inspector", () => {
   });
   it("catalogues translation terminal identity without exposing rows or binding existence to website or operator", async () => {
     const { db, client } = fixture();
-    const findMany = vi.fn().mockResolvedValue([{ intentId: "PRIVATE-UUID", inputHash: "PRIVATE-HASH" }]);
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        { intentId: "PRIVATE-UUID", inputHash: "PRIVATE-HASH" },
+      ]);
     Object.assign(db, { translationIntentReceipt: { findMany } });
     for (const authority of [web, operator]) {
       const tables = await listRecordTables(client, authority);
-      const table = tables.find((entry) => entry.name === "TranslationIntentReceipt");
-      expect(table).toMatchObject({ keyFields: ["actorId", "intentId"], available: false });
+      const table = tables.find(
+        (entry) => entry.name === "TranslationIntentReceipt",
+      );
+      expect(table).toMatchObject({
+        keyFields: ["actorId", "intentId"],
+        available: false,
+      });
       expect(table?.fields.every((field) => !field.readable)).toBe(true);
-      for (const key of [undefined, { actorId: "original", intentId: "PRIVATE-UUID" }]) {
-        await expect(inspectRecords(client, authority, { table: "TranslationIntentReceipt", key }))
-          .rejects.toMatchObject({ code: "FORBIDDEN", message: "This table exposes metadata only; no approved row policy is available." });
+      for (const key of [
+        undefined,
+        { actorId: "original", intentId: "PRIVATE-UUID" },
+      ]) {
+        await expect(
+          inspectRecords(client, authority, {
+            table: "TranslationIntentReceipt",
+            key,
+          }),
+        ).rejects.toMatchObject({
+          code: "FORBIDDEN",
+          message:
+            "This table exposes metadata only; no approved row policy is available.",
+        });
       }
     }
     expect(findMany).not.toHaveBeenCalled();

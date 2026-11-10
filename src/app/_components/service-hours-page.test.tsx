@@ -26,7 +26,12 @@ type SummaryInput = { month: string } | undefined;
 type Summary = {
   scope: { label: string };
   rows: ServiceHoursRow[];
-  totals: { earned: number; extras: number; punishments: number; total: number };
+  totals: {
+    earned: number;
+    extras: number;
+    punishments: number;
+    total: number;
+  };
 };
 type ReadError = Error & { data?: { code?: string } };
 const query = vi.hoisted(() => ({
@@ -63,7 +68,9 @@ const summaryKey = (input: SummaryInput = undefined) =>
 const failure = (code: string): ReadError =>
   Object.assign(new Error("Synthetic summary read failed"), { data: { code } });
 async function retrySummary() {
-  await act(async () => { await query.retry(); });
+  await act(async () => {
+    await query.retry();
+  });
 }
 const row = (
   tutorId: string,
@@ -262,7 +269,12 @@ it("distinguishes no matches, an empty roster and an initial read failure", asyn
   await act(async () => {
     await client.resetQueries({ queryKey: summaryKey(), exact: true });
   });
-  await screen.findByText(en.managementRecovery.loadFailed.replace("{section}", en.admin.summary.title));
+  await screen.findByText(
+    en.managementRecovery.loadFailed.replace(
+      "{section}",
+      en.admin.summary.title,
+    ),
+  );
   expect(screen.queryByText(en.admin.summary.emptyRoster)).toBeNull();
   expect(
     screen.getByText(
@@ -286,7 +298,10 @@ it("retains filters and totals through refresh failure, but conceals them and cl
     await client.refetchQueries({ queryKey: summaryKey(), exact: true });
   });
   await screen.findByRole("button", {
-    name: en.managementRecovery.retry.replace("{section}", en.admin.summary.title),
+    name: en.managementRecovery.retry.replace(
+      "{section}",
+      en.admin.summary.title,
+    ),
   });
   expect(rosterNames()).toHaveLength(2);
   expect(

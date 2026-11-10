@@ -123,13 +123,21 @@ const fixture = vi.hoisted(() => {
       affiliation: string | null;
       createdAt: Date;
       userId: string;
-      restriction: { suspendedAt: Date | null; reason: string | null; authorityRevision: number };
+      restriction: {
+        suspendedAt: Date | null;
+        reason: string | null;
+        authorityRevision: number;
+      };
     }[],
     appealError: null as null | { message: string; data?: { code?: string } },
     decisionError: null as null | { message: string; data?: { code?: string } },
     decisionPending: false,
     decision: vi.fn(),
-    decisionResult: { ok: true, coResolvedAppealIds: ["appeal"], accessRestored: true },
+    decisionResult: {
+      ok: true,
+      coResolvedAppealIds: ["appeal"],
+      accessRestored: true,
+    },
     refresh: vi.fn<() => Promise<void>>(),
     refetch: vi.fn(),
     completion: undefined as undefined | (() => Promise<void>),
@@ -245,7 +253,8 @@ function accountsData() {
   };
 }
 vi.mock("~/trpc/react", async () => {
-  const { useMutation, useQuery, useQueryClient } = await import("@tanstack/react-query");
+  const { useMutation, useQuery, useQueryClient } =
+    await import("@tanstack/react-query");
   const { nameFieldPolicyQueries } =
     await import("~/test/name-field-policy-fixtures");
   const mutation = {
@@ -264,14 +273,16 @@ vi.mock("~/trpc/react", async () => {
       },
       useUtils: () => {
         const client = useQueryClient();
-        const invalidate = (queryKey: ReturnType<typeof accountsKey>) => async (
-          _input?: undefined,
-          filters?: Parameters<typeof client.invalidateQueries>[0],
-          options?: Parameters<typeof client.invalidateQueries>[1],
-        ) => {
-          await fixture.refresh();
-          await client.invalidateQueries({ ...filters, queryKey }, options);
-        };
+        const invalidate =
+          (queryKey: ReturnType<typeof accountsKey>) =>
+          async (
+            _input?: undefined,
+            filters?: Parameters<typeof client.invalidateQueries>[0],
+            options?: Parameters<typeof client.invalidateQueries>[1],
+          ) => {
+            await fixture.refresh();
+            await client.invalidateQueries({ ...filters, queryKey }, options);
+          };
         return {
           account: { me: { invalidate: vi.fn() } },
           admin: {
@@ -372,7 +383,8 @@ vi.mock("~/trpc/react", async () => {
                 fixture.accountsRequest = request;
                 const work = read.refetch(options);
                 const clear = () => {
-                  if (fixture.accountsRequest === request) fixture.accountsRequest = undefined;
+                  if (fixture.accountsRequest === request)
+                    fixture.accountsRequest = undefined;
                 };
                 void work.then(clear, clear);
                 return work;
@@ -390,12 +402,15 @@ vi.mock("~/trpc/react", async () => {
             });
             return {
               ...read,
-              refetch: (refetchOptions?: Parameters<typeof read.refetch>[0]) => {
+              refetch: (
+                refetchOptions?: Parameters<typeof read.refetch>[0],
+              ) => {
                 const request = Promise.resolve(fixture.refetch());
                 fixture.appealsRequest = request;
                 const work = read.refetch(refetchOptions);
                 const clear = () => {
-                  if (fixture.appealsRequest === request) fixture.appealsRequest = undefined;
+                  if (fixture.appealsRequest === request)
+                    fixture.appealsRequest = undefined;
                 };
                 void work.then(clear, clear);
                 return work;
@@ -418,11 +433,19 @@ vi.mock("~/trpc/react", async () => {
           useMutation: (options: {
             onSuccess: (
               result: unknown,
-              input: { appealId: string; action: string; expectedAuthorityRevision: number },
+              input: {
+                appealId: string;
+                action: string;
+                expectedAuthorityRevision: number;
+              },
             ) => Promise<void>;
             onSettled: () => void;
           }) => ({
-            mutate: (input: { appealId: string; action: string; expectedAuthorityRevision: number }) => {
+            mutate: (input: {
+              appealId: string;
+              action: string;
+              expectedAuthorityRevision: number;
+            }) => {
               fixture.decision(input);
               fixture.completion = async () => {
                 await options.onSuccess(fixture.decisionResult, input);
@@ -431,7 +454,9 @@ vi.mock("~/trpc/react", async () => {
             },
             isPending: fixture.decisionPending,
             error: fixture.decisionError,
-            reset: () => { fixture.decisionError = null; },
+            reset: () => {
+              fixture.decisionError = null;
+            },
           }),
         },
         sendTutorSetup: {
@@ -460,8 +485,7 @@ vi.mock("~/app/_components/acceptance-records", () => ({
   AcceptanceRecords: () => null,
 }));
 vi.mock("~/app/_components/tutor-details", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof TutorDetailsModule>();
+  const actual = await importOriginal<typeof TutorDetailsModule>();
   return {
     TutorDetailsButton: (
       props: ComponentProps<typeof actual.TutorDetailsButton>,
@@ -476,10 +500,7 @@ vi.mock("~/app/_components/tutor-details", async (importOriginal) => {
   };
 });
 vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof AccountProfileModule
-    >();
+  const actual = await importOriginal<typeof AccountProfileModule>();
   return {
     AccountProfileEditor: (
       props: ComponentProps<typeof actual.AccountProfileEditor>,
@@ -489,16 +510,17 @@ vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
 });
 // Independent profile sections are outside this name-draft/navigation contract.
 vi.mock("~/app/_components/academic-profile", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof AcademicProfileModule
-  >()),
+  ...(await importOriginal<typeof AcademicProfileModule>()),
   AcademicPanel: () => null,
 }));
 vi.mock("~/app/_components/school-departure", () => ({
   SchoolDeparturePanel: () => null,
 }));
 vi.mock("~/app/_components/membership-editor", () => ({
-  MembershipEditor: (props: { isHead?: boolean; canApply?: boolean }) => { fixture.membershipEditor(props); return null; },
+  MembershipEditor: (props: { isHead?: boolean; canApply?: boolean }) => {
+    fixture.membershipEditor(props);
+    return null;
+  },
 }));
 vi.mock("~/app/_components/account-username-editor", () => ({
   AccountUsernameEditor: () => null,
@@ -540,10 +562,14 @@ const currentAccountsError = () => fixture.accountsError;
 async function readAccounts(ignoreRequest = false) {
   if (!ignoreRequest && fixture.accountsRequest) await fixture.accountsRequest;
   if (fixture.accountsError)
-    throw Object.assign(new Error(fixture.accountsError.message), fixture.accountsError);
-  if (fixture.accountsLoading) await new Promise<void>((resolve) => {
-    fixture.releaseAccounts = resolve;
-  });
+    throw Object.assign(
+      new Error(fixture.accountsError.message),
+      fixture.accountsError,
+    );
+  if (fixture.accountsLoading)
+    await new Promise<void>((resolve) => {
+      fixture.releaseAccounts = resolve;
+    });
   const latestError = currentAccountsError();
   if (latestError)
     throw Object.assign(new Error(latestError.message), latestError);
@@ -552,24 +578,38 @@ async function readAccounts(ignoreRequest = false) {
 async function readAppeals(ignoreRequest = false) {
   if (!ignoreRequest && fixture.appealsRequest) await fixture.appealsRequest;
   if (fixture.appealError)
-    throw Object.assign(new Error(fixture.appealError.message), fixture.appealError);
+    throw Object.assign(
+      new Error(fixture.appealError.message),
+      fixture.appealError,
+    );
   return fixture.appeals;
 }
 async function publishRead(kind: "accounts" | "appeals") {
   await act(async () => {
     const queryKey = kind === "accounts" ? accountsKey() : appealsKey();
     const query = queryClient.getQueryCache().find({ queryKey, exact: true });
-    if (!query) throw new Error("Expected the current directory or appeal query");
-    const expectedError = kind === "accounts" ? fixture.accountsError : fixture.appealError;
+    if (!query)
+      throw new Error("Expected the current directory or appeal query");
+    const expectedError =
+      kind === "accounts" ? fixture.accountsError : fixture.appealError;
     // Direct Query.fetch replaces options. Preserve retry:false and the other
     // observer defaults while controlling only this transport read.
-    await query.fetch({ ...query.options, queryKey, queryFn: () => kind === "accounts"
-      ? readAccounts(true) : readAppeals(true) }, {
-      cancelRefetch: true,
-    }).catch((error: unknown) => {
-      if (!expectedError) throw error;
-      expect(error).toMatchObject(expectedError);
-    });
+    await query
+      .fetch(
+        {
+          ...query.options,
+          queryKey,
+          queryFn: () =>
+            kind === "accounts" ? readAccounts(true) : readAppeals(true),
+        },
+        {
+          cancelRefetch: true,
+        },
+      )
+      .catch((error: unknown) => {
+        if (!expectedError) throw error;
+        expect(error).toMatchObject(expectedError);
+      });
   });
 }
 function syncHealthyFixtureData() {
@@ -580,8 +620,11 @@ function syncHealthyFixtureData() {
     [appealsKey(), fixture.appeals, fixture.appealError],
   ] as const) {
     const query = queryClient.getQueryCache().find({ queryKey, exact: true });
-    if (!error && query?.state.status === "success" &&
-      JSON.stringify(query.state.data) !== JSON.stringify(data)) {
+    if (
+      !error &&
+      query?.state.status === "success" &&
+      JSON.stringify(query.state.data) !== JSON.stringify(data)
+    ) {
       queryClient.setQueryData(queryKey, data);
     }
   }
@@ -634,9 +677,14 @@ const openRole = () =>
 beforeEach(() => {
   queryClient = createQueryClient();
   const defaults = queryClient.getDefaultOptions();
-  queryClient.setDefaultOptions({ ...defaults, queries: {
-    ...defaults.queries, retry: false, gcTime: Infinity,
-  } });
+  queryClient.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      gcTime: Infinity,
+    },
+  });
   localStorage.clear();
   sessionStorage.clear();
   window.history.replaceState(null, "", "/admin/users");
@@ -681,7 +729,11 @@ beforeEach(() => {
   fixture.decisionError = null;
   fixture.decisionPending = false;
   fixture.decision.mockClear();
-  fixture.decisionResult = { ok: true, coResolvedAppealIds: ["appeal"], accessRestored: true };
+  fixture.decisionResult = {
+    ok: true,
+    coResolvedAppealIds: ["appeal"],
+    accessRestored: true,
+  };
   fixture.refresh.mockReset().mockResolvedValue(undefined);
   fixture.refetch.mockReset().mockImplementation(async () => {
     fixture.appealError = null;
@@ -991,7 +1043,9 @@ it("waits for the authorized directory before declaring a destination unavailabl
     screen.queryByText(messages.usersDirectory.targetUnavailable),
   ).toBeNull();
   fixture.accountsLoading = false;
-  await act(async () => { page.rerender(<UsersPage />); });
+  await act(async () => {
+    page.rerender(<UsersPage />);
+  });
   // The same display name is present, but an incoming ID must never match by name.
   expect(
     screen.getByText(messages.usersDirectory.targetUnavailable),
@@ -1006,7 +1060,8 @@ it("waits for the authorized directory before declaring a destination unavailabl
     );
     // Settle the actual Query publication, not only the transport spy's promise.
     const request = queryClient.getQueryCache().find({
-      queryKey: accountsKey(), exact: true,
+      queryKey: accountsKey(),
+      exact: true,
     })?.promise;
     if (!request) throw new Error("Expected the directory Retry read");
     await request;
@@ -1022,7 +1077,9 @@ it("focuses a delayed target, preserves user focus on refresh, and handles the s
   const page = mount();
   expect(document.getElementById("tutor-synthetic-tutor")).toBeNull();
   fixture.accountsLoading = false;
-  await act(async () => { page.rerender(<UsersPage />); });
+  await act(async () => {
+    page.rerender(<UsersPage />);
+  });
   const row = document.getElementById("tutor-synthetic-tutor")!;
   expect(document.activeElement).toBe(row);
   const details = within(row).getByRole("button", {
@@ -1269,51 +1326,32 @@ it("preserves a usable focus target chosen as the directory reader closes", asyn
   expect(focus).not.toHaveBeenCalled();
 });
 
-it(
-  "withholds initial accountless provisioning from Coordinators while preserving existing setup resends",
-  () => {
-    fixture.role = "COORDINATOR";
-    fixture.combinedUserId = null;
-    fixture.combinedAccount = "none";
-    directoryArrival("synthetic-tutor");
-    const page = mount();
-    // Hash navigation preserves hidden browsing rows and their editor owners.
-    // Check the accessible source table so its message cannot be satisfied by
-    // the same text retained in the hidden directory.
-    const sourceTable = within(
-      screen.getByRole("table", { name: messages.admin.users.title }),
-    );
-    expect(
-      sourceTable.getByText(messages.usersDirectory.setupHeadRequired),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", {
-        name: messages.admin.tutors.account.sendSetup,
-      }),
-    ).toBeNull();
-    fixture.combinedUserId = "existing-login";
-    fixture.combinedAccount = "setup";
-    page.rerender(<UsersPage />);
-    expect(
-      sourceTable.queryByText(messages.usersDirectory.setupHeadRequired),
-    ).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: messages.admin.tutors.account.sendSetup,
-      }),
-    );
-    expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
-      tutorId: "synthetic-tutor",
-    });
-  },
-);
-
-it.each(["HEAD", "ADMIN"])("lets %s deliberately start accountless setup and retains the target beside a visible failure", (role) => {
-  fixture.role = role;
+it("withholds initial accountless provisioning from Coordinators while preserving existing setup resends", () => {
+  fixture.role = "COORDINATOR";
   fixture.combinedUserId = null;
   fixture.combinedAccount = "none";
   directoryArrival("synthetic-tutor");
   const page = mount();
+  // Hash navigation preserves hidden browsing rows and their editor owners.
+  // Check the accessible source table so its message cannot be satisfied by
+  // the same text retained in the hidden directory.
+  const sourceTable = within(
+    screen.getByRole("table", { name: messages.admin.users.title }),
+  );
+  expect(
+    sourceTable.getByText(messages.usersDirectory.setupHeadRequired),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", {
+      name: messages.admin.tutors.account.sendSetup,
+    }),
+  ).toBeNull();
+  fixture.combinedUserId = "existing-login";
+  fixture.combinedAccount = "setup";
+  page.rerender(<UsersPage />);
+  expect(
+    sourceTable.queryByText(messages.usersDirectory.setupHeadRequired),
+  ).toBeNull();
   fireEvent.click(
     screen.getByRole("button", {
       name: messages.admin.tutors.account.sendSetup,
@@ -1322,13 +1360,32 @@ it.each(["HEAD", "ADMIN"])("lets %s deliberately start accountless setup and ret
   expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
     tutorId: "synthetic-tutor",
   });
-  fixture.sendSetupError = { message: "Synthetic setup delivery failed." };
-  page.rerender(<UsersPage />);
-  expect(screen.getByRole("alert").textContent).toContain(
-    fixture.sendSetupError.message,
-  );
-  expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
 });
+
+it.each(["HEAD", "ADMIN"])(
+  "lets %s deliberately start accountless setup and retains the target beside a visible failure",
+  (role) => {
+    fixture.role = role;
+    fixture.combinedUserId = null;
+    fixture.combinedAccount = "none";
+    directoryArrival("synthetic-tutor");
+    const page = mount();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.admin.tutors.account.sendSetup,
+      }),
+    );
+    expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
+      tutorId: "synthetic-tutor",
+    });
+    fixture.sendSetupError = { message: "Synthetic setup delivery failed." };
+    page.rerender(<UsersPage />);
+    expect(screen.getByRole("alert").textContent).toContain(
+      fixture.sendSetupError.message,
+    );
+    expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
+  },
+);
 
 const fullAppeal =
   "Original appeal first paragraph.\n\n" +
@@ -1439,7 +1496,9 @@ it("evicts denied appeals and does not reveal stale evidence after a network fai
   view.rerender(<UsersPage />);
   expect(screen.queryByRole("button", { name: "Review appeal" })).toBeNull();
   fixture.appealError = null;
-  act(() => { queryClient.setQueryData(appealsKey(), fixture.appeals); });
+  act(() => {
+    queryClient.setQueryData(appealsKey(), fixture.appeals);
+  });
   view.rerender(<UsersPage />);
   expect(screen.queryByRole("button", { name: "Review appeal" })).toBeNull();
   await act(async () => {
@@ -1529,7 +1588,9 @@ it.each(["en", "zh"] as const)(
       expect(
         within(identity).queryByText(text.academics.usernameMissing),
       ).toBeNull();
-      expect(within(identity).queryByText(text.tuteeHistory.noAccount)).toBeNull();
+      expect(
+        within(identity).queryByText(text.tuteeHistory.noAccount),
+      ).toBeNull();
       expect(
         within(row).getByText(
           name === "Verified student"
@@ -1540,7 +1601,9 @@ it.each(["en", "zh"] as const)(
     }
     const student = screen.getByText("Verified student").closest("tr")!;
     expect(
-      within(student).getByRole("button", { name: text.identityUsername.assign }),
+      within(student).getByRole("button", {
+        name: text.identityUsername.assign,
+      }),
     ).toBeTruthy();
   },
 );
@@ -1746,28 +1809,45 @@ it("releases the filter restriction when a role change removes pending combine c
   expect(screen.getByRole("searchbox").matches(":disabled")).toBe(false);
 });
 
-it.each(["HEAD", "ADMIN", "COORDINATOR"])("offers %s the permitted profile action while preserving management-rank authority", (role) => {
-  fixture.role = role;
-  fixture.realDetails = true;
-  mount();
-  const management = screen.getByText("Management account").closest("tr")!;
-  fireEvent.click(within(management).getByRole("button", { name: messages.accountProfile.editProfile }));
-  const dialog = within(screen.getByRole("dialog", { name: messages.accountProfile.editProfile }));
-  expect(dialog.getByRole("button", {
-    name: role === "COORDINATOR" ? messages.approvals.requestAdmin : messages.accountProfile.save,
-  })).toBeTruthy();
-  if (role === "COORDINATOR") {
-    // The production profile form suppresses membership editing for an existing
-    // management rank; opening identity evidence never grants role authority.
-    expect(fixture.membershipEditor).not.toHaveBeenCalled();
-  } else {
-    expect(fixture.membershipEditor).toHaveBeenCalledWith(expect.objectContaining({
-      canApply: true, isHead: role === "HEAD",
-    }));
-  }
-  expect(fixture.profileWrite).not.toHaveBeenCalled();
-  expect(fixture.delete).not.toHaveBeenCalled();
-});
+it.each(["HEAD", "ADMIN", "COORDINATOR"])(
+  "offers %s the permitted profile action while preserving management-rank authority",
+  (role) => {
+    fixture.role = role;
+    fixture.realDetails = true;
+    mount();
+    const management = screen.getByText("Management account").closest("tr")!;
+    fireEvent.click(
+      within(management).getByRole("button", {
+        name: messages.accountProfile.editProfile,
+      }),
+    );
+    const dialog = within(
+      screen.getByRole("dialog", { name: messages.accountProfile.editProfile }),
+    );
+    expect(
+      dialog.getByRole("button", {
+        name:
+          role === "COORDINATOR"
+            ? messages.approvals.requestAdmin
+            : messages.accountProfile.save,
+      }),
+    ).toBeTruthy();
+    if (role === "COORDINATOR") {
+      // The production profile form suppresses membership editing for an existing
+      // management rank; opening identity evidence never grants role authority.
+      expect(fixture.membershipEditor).not.toHaveBeenCalled();
+    } else {
+      expect(fixture.membershipEditor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canApply: true,
+          isHead: role === "HEAD",
+        }),
+      );
+    }
+    expect(fixture.profileWrite).not.toHaveBeenCalled();
+    expect(fixture.delete).not.toHaveBeenCalled();
+  },
+);
 
 it("composes saved identity search with existing roster scope and restores it on clear", () => {
   mount();
@@ -1899,30 +1979,47 @@ it.each(["COORDINATOR", "VIEWER"])(
     ).toBeNull();
   },
 );
-it.each(["HEAD", "ADMIN"])("lets %s review account deletion while requiring a fresh password before any write", (role) => {
-  fixture.role = role;
-  mount();
-  openDeletion();
-  const dialog = within(screen.getByRole("dialog", { name: messages.admin.users.confirm.deleteTitle }));
-  expect(dialog.getByRole<HTMLButtonElement>("button", { name: messages.admin.users.delete }).disabled).toBe(true);
-  expect(dialog.getByLabelText<HTMLInputElement>(messages.admin.users.confirm.passwordLabel).value).toBe("");
-  expect(fixture.delete).not.toHaveBeenCalled();
-});
-it.each([["HEAD", "self"], ["HEAD", "head"], ["ADMIN", "self"], ["ADMIN", "head"]])(
-  "withholds %s account deletion for a %s target",
-  (role, kind) => {
+it.each(["HEAD", "ADMIN"])(
+  "lets %s review account deletion while requiring a fresh password before any write",
+  (role) => {
     fixture.role = role;
-    fixture.targetSelf = kind === "self";
-    fixture.targetRole = kind === "head" ? "HEAD" : "ADMIN";
     mount();
+    openDeletion();
+    const dialog = within(
+      screen.getByRole("dialog", {
+        name: messages.admin.users.confirm.deleteTitle,
+      }),
+    );
     expect(
-      within(screen.getByText("Management account").closest("tr")!).queryByRole(
-        "button",
-        { name: messages.admin.users.delete },
-      ),
-    ).toBeNull();
+      dialog.getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.users.delete,
+      }).disabled,
+    ).toBe(true);
+    expect(
+      dialog.getByLabelText<HTMLInputElement>(
+        messages.admin.users.confirm.passwordLabel,
+      ).value,
+    ).toBe("");
+    expect(fixture.delete).not.toHaveBeenCalled();
   },
 );
+it.each([
+  ["HEAD", "self"],
+  ["HEAD", "head"],
+  ["ADMIN", "self"],
+  ["ADMIN", "head"],
+])("withholds %s account deletion for a %s target", (role, kind) => {
+  fixture.role = role;
+  fixture.targetSelf = kind === "self";
+  fixture.targetRole = kind === "head" ? "HEAD" : "ADMIN";
+  mount();
+  expect(
+    within(screen.getByText("Management account").closest("tr")!).queryByRole(
+      "button",
+      { name: messages.admin.users.delete },
+    ),
+  ).toBeNull();
+});
 
 it("recovers only account reads after accepted deletion followed by refresh failure", async () => {
   const view = mount();
@@ -1954,7 +2051,9 @@ it("recovers only account reads after accepted deletion followed by refresh fail
     fixture.accountsError = null;
   });
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: messages.uiPatterns.retry }));
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
   });
   view.rerender(<UsersPage />);
   expect(fixture.accountsRefetch).toHaveBeenCalledTimes(1);
@@ -2048,7 +2147,9 @@ it("clears remembered directory criteria on denial and waits for a successful re
   expect(sessionStorage.getItem(storageKey)).toBeNull();
   fixture.accountsRefetch.mockRejectedValueOnce(new Error("Network failure"));
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: messages.uiPatterns.retry }));
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
   });
   expect(fixture.accountsRefetch).toHaveBeenCalledOnce();
   fixture.accountsError = { message: "Network failure" };
@@ -2067,137 +2168,309 @@ it("clears remembered directory criteria on denial and waits for a successful re
 it("retains the captured restriction when a newer one arrives and adopts it only after a successful explicit Reload", async () => {
   seedAppeal();
   const view = mount();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.review }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.appeals.review }),
+  );
   const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByText("Captured restriction reason")).toBeTruthy();
-  fixture.appeals = [{ ...fixture.appeals[0]!, restriction: {
-    suspendedAt: new Date("2026-11-08T02:00:00Z"),
-    reason: "New restriction that requires fresh review",
-    authorityRevision: 18,
-  } }];
+  fixture.appeals = [
+    {
+      ...fixture.appeals[0]!,
+      restriction: {
+        suspendedAt: new Date("2026-11-08T02:00:00Z"),
+        reason: "New restriction that requires fresh review",
+        authorityRevision: 18,
+      },
+    },
+  ];
   view.rerender(<UsersPage />);
-  expect(within(dialog).getByText(messages.admin.users.appeals.reviewChanged)).toBeTruthy();
-  expect(within(dialog).queryByText("New restriction that requires fresh review")).toBeNull();
+  expect(
+    within(dialog).getByText(messages.admin.users.appeals.reviewChanged),
+  ).toBeTruthy();
+  expect(
+    within(dialog).queryByText("New restriction that requires fresh review"),
+  ).toBeNull();
   expect(within(dialog).getByText("Captured restriction reason")).toBeTruthy();
-  const approve = within(dialog).getByRole<HTMLButtonElement>("button", { name: messages.admin.users.appeals.approve });
+  const approve = within(dialog).getByRole<HTMLButtonElement>("button", {
+    name: messages.admin.users.appeals.approve,
+  });
   expect(approve.disabled).toBe(true);
   fireEvent.click(approve);
   expect(fixture.decision).not.toHaveBeenCalled();
 
+  const reloadReview = async () => {
+    await act(async () => {
+      fireEvent.click(
+        within(dialog).getByRole("button", {
+          name: messages.admin.users.appeals.reloadReview,
+        }),
+      );
+      const directory = queryClient
+        .getQueryCache()
+        .find({ queryKey: accountsKey(), exact: true })?.promise;
+      const appeals = queryClient
+        .getQueryCache()
+        .find({ queryKey: appealsKey(), exact: true })?.promise;
+      if (!directory || !appeals)
+        throw new Error("Expected both appeal review reads");
+      // Error text can appear before the sibling read and refresh owner settle.
+      await Promise.allSettled([directory, appeals]);
+    });
+  };
   fixture.refetch.mockRejectedValueOnce(new Error("Synthetic reload failure"));
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.reloadReview }));
-  await waitFor(() => expect(within(dialog).getByText(messages.admin.users.appeals.reviewUnavailable)).toBeTruthy());
+  await reloadReview();
+  await waitFor(() =>
+    expect(
+      within(dialog).getByText(messages.admin.users.appeals.reviewUnavailable),
+    ).toBeTruthy(),
+  );
   expect(within(dialog).getByText("Captured restriction reason")).toBeTruthy();
-  expect(within(dialog).queryByText("New restriction that requires fresh review")).toBeNull();
+  expect(
+    within(dialog).queryByText("New restriction that requires fresh review"),
+  ).toBeNull();
   expect(approve.disabled).toBe(true);
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.reloadReview }));
-  await waitFor(() => expect(within(dialog).getByText("New restriction that requires fresh review")).toBeTruthy());
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.users.appeals.reloadReview,
+      }).disabled,
+    ).toBe(false),
+  );
+  await reloadReview();
+  await waitFor(() =>
+    expect(
+      within(dialog).getByText("New restriction that requires fresh review"),
+    ).toBeTruthy(),
+  );
   expect(within(dialog).queryByText("Captured restriction reason")).toBeNull();
-  expect(within(dialog).queryByText(messages.admin.users.appeals.reviewChanged)).toBeNull();
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.approve }));
+  expect(
+    within(dialog).queryByText(messages.admin.users.appeals.reviewChanged),
+  ).toBeNull();
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.appeals.approve,
+    }),
+  );
   expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
-    appealId: "appeal", action: "APPROVE", expectedAuthorityRevision: 18,
+    appealId: "appeal",
+    action: "APPROVE",
+    expectedAuthorityRevision: 18,
   });
 });
 
 it("keeps the captured version while retrying a failed cached read, and fences loading and same-turn writes", async () => {
   seedAppeal();
   mount();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.review }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.appeals.review }),
+  );
   const dialog = screen.getByRole("dialog");
   let rejectCached!: (error: unknown) => void;
   let cachedRead!: Promise<unknown>;
   act(() => {
     cachedRead = queryClient.fetchQuery({
       queryKey: appealsKey(),
-      queryFn: () => new Promise((_, reject) => { rejectCached = reject; }),
+      queryFn: () =>
+        new Promise((_, reject) => {
+          rejectCached = reject;
+        }),
       staleTime: 0,
     });
     void cachedRead.catch(() => undefined);
   });
-  await waitFor(() => expect(within(dialog).getByRole<HTMLButtonElement>("button", {
-    name: messages.admin.users.appeals.approve,
-  }).disabled).toBe(true));
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.users.appeals.approve,
+      }).disabled,
+    ).toBe(true),
+  );
   fixture.appealError = { message: "Synthetic cached read failed" };
   await act(async () => {
     rejectCached(fixture.appealError);
     await cachedRead.catch(() => undefined);
   });
   expect(within(dialog).getByText("Captured restriction reason")).toBeTruthy();
-  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: messages.admin.users.appeals.approve }).disabled).toBe(true);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.users.appeals.approve,
+    }).disabled,
+  ).toBe(true);
   let release!: () => void;
-  fixture.refetch.mockImplementationOnce(() => new Promise((resolve) => {
-    release = () => {
-      fixture.appealError = null;
-      resolve({ isSuccess: true, data: fixture.appeals });
-    };
-  }));
+  fixture.refetch.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = () => {
+          fixture.appealError = null;
+          resolve({ isSuccess: true, data: fixture.appeals });
+        };
+      }),
+  );
   act(() => {
-    fireEvent.click(within(dialog).getByRole("button", { name: messages.uiPatterns.retry }));
-    fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.approve }));
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: messages.uiPatterns.retry }),
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: messages.admin.users.appeals.approve,
+      }),
+    );
   });
   expect(fixture.decision).not.toHaveBeenCalled();
-  await act(async () => { release(); });
-  await waitFor(() => expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: messages.admin.users.appeals.approve }).disabled).toBe(false));
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.approve }));
+  await act(async () => {
+    release();
+  });
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.users.appeals.approve,
+      }).disabled,
+    ).toBe(false),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.appeals.approve,
+    }),
+  );
   expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
-    appealId: "appeal", action: "APPROVE", expectedAuthorityRevision: 17,
+    appealId: "appeal",
+    action: "APPROVE",
+    expectedAuthorityRevision: 17,
   });
 });
 
-it.each(["en", "zh"] as const)("shows truthful active-account cleanup and no Deny action in %s", async (locale) => {
-  seedAppeal();
-  fixture.locale = locale;
-  const text = locale === "zh" ? zhMessages : messages;
-  fixture.appeals = [{ ...fixture.appeals[0]!, restriction: {
-    suspendedAt: null, reason: null, authorityRevision: 29,
-  } }];
-  fixture.decisionResult = { ok: true, coResolvedAppealIds: ["appeal"], accessRestored: false };
-  fixture.refresh.mockRejectedValue(new Error("Synthetic refresh failure"));
-  mount();
-  fireEvent.click(screen.getByRole("button", { name: text.admin.users.appeals.review }));
-  const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByText(text.admin.users.appeals.activeHelp)).toBeTruthy();
-  expect(within(dialog).getByText(/Original appeal first paragraph/).textContent).toBe(fullAppeal);
-  expect(within(dialog).queryByRole("button", { name: text.admin.users.appeals.deny })).toBeNull();
-  fireEvent.click(within(dialog).getByRole("button", { name: text.admin.users.appeals.approveClose }));
-  expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
-    appealId: "appeal", action: "APPROVE", expectedAuthorityRevision: 29,
-  });
-  await act(async () => { await fixture.completion?.(); });
-  expect(within(dialog).getByText(text.admin.users.appeals.closedActive)).toBeTruthy();
-  expect(within(dialog).queryByText(text.admin.users.appeals.accessRestored)).toBeNull();
-  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: text.admin.users.appeals.approveClose }).disabled).toBe(true);
-});
+it.each(["en", "zh"] as const)(
+  "shows truthful active-account cleanup and no Deny action in %s",
+  async (locale) => {
+    seedAppeal();
+    fixture.locale = locale;
+    const text = locale === "zh" ? zhMessages : messages;
+    fixture.appeals = [
+      {
+        ...fixture.appeals[0]!,
+        restriction: {
+          suspendedAt: null,
+          reason: null,
+          authorityRevision: 29,
+        },
+      },
+    ];
+    fixture.decisionResult = {
+      ok: true,
+      coResolvedAppealIds: ["appeal"],
+      accessRestored: false,
+    };
+    fixture.refresh.mockRejectedValue(new Error("Synthetic refresh failure"));
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: text.admin.users.appeals.review }),
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText(text.admin.users.appeals.activeHelp),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Original appeal first paragraph/).textContent,
+    ).toBe(fullAppeal);
+    expect(
+      within(dialog).queryByRole("button", {
+        name: text.admin.users.appeals.deny,
+      }),
+    ).toBeNull();
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: text.admin.users.appeals.approveClose,
+      }),
+    );
+    expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
+      appealId: "appeal",
+      action: "APPROVE",
+      expectedAuthorityRevision: 29,
+    });
+    await act(async () => {
+      await fixture.completion?.();
+    });
+    expect(
+      within(dialog).getByText(text.admin.users.appeals.closedActive),
+    ).toBeTruthy();
+    expect(
+      within(dialog).queryByText(text.admin.users.appeals.accessRestored),
+    ).toBeNull();
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: text.admin.users.appeals.approveClose,
+      }).disabled,
+    ).toBe(true);
+  },
+);
 
 it("reports a successful DENY as a selected-appeal denial without claiming active-account cleanup", async () => {
   seedAppeal();
-  fixture.decisionResult = { ok: true, coResolvedAppealIds: ["appeal"], accessRestored: false };
+  fixture.decisionResult = {
+    ok: true,
+    coResolvedAppealIds: ["appeal"],
+    accessRestored: false,
+  };
   fixture.refresh.mockRejectedValue(new Error("Synthetic refresh failure"));
   mount();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.review }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.appeals.review }),
+  );
   const dialog = screen.getByRole("dialog");
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.deny }));
-  await act(async () => { await fixture.completion?.(); });
-  expect(within(dialog).getByText(messages.admin.users.appeals.deniedReceipt)).toBeTruthy();
-  expect(within(dialog).queryByText(messages.admin.users.appeals.closedActive)).toBeNull();
-  expect(within(dialog).queryByText(messages.admin.users.appeals.accessRestored)).toBeNull();
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.appeals.deny,
+    }),
+  );
+  await act(async () => {
+    await fixture.completion?.();
+  });
+  expect(
+    within(dialog).getByText(messages.admin.users.appeals.deniedReceipt),
+  ).toBeTruthy();
+  expect(
+    within(dialog).queryByText(messages.admin.users.appeals.closedActive),
+  ).toBeNull();
+  expect(
+    within(dialog).queryByText(messages.admin.users.appeals.accessRestored),
+  ).toBeNull();
   expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
-    appealId: "appeal", action: "DENY", expectedAuthorityRevision: 17,
+    appealId: "appeal",
+    action: "DENY",
+    expectedAuthorityRevision: 17,
   });
 });
 
 it("fences every co-resolved sibling after accepted synchronization fails and retries only reads", async () => {
   seedAppeal();
-  fixture.appeals = [fixture.appeals[0]!, { ...fixture.appeals[0]!, id: "older-sibling" }];
-  fixture.decisionResult = { ok: true, coResolvedAppealIds: ["appeal", "older-sibling"], accessRestored: true };
+  fixture.appeals = [
+    fixture.appeals[0]!,
+    { ...fixture.appeals[0]!, id: "older-sibling" },
+  ];
+  fixture.decisionResult = {
+    ok: true,
+    coResolvedAppealIds: ["appeal", "older-sibling"],
+    accessRestored: true,
+  };
   fixture.refresh.mockRejectedValue(new Error("Synthetic refresh failure"));
   mount();
-  fireEvent.click(screen.getAllByRole("button", { name: messages.admin.users.appeals.review })[0]!);
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.approve }));
-  await act(async () => { await fixture.completion?.(); });
-  fireEvent.click(screen.getByRole("button", { name: messages.accountProfile.close }));
-  const reviews = screen.getAllByRole<HTMLButtonElement>("button", { name: messages.admin.users.appeals.review });
+  fireEvent.click(
+    screen.getAllByRole("button", {
+      name: messages.admin.users.appeals.review,
+    })[0]!,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.appeals.approve }),
+  );
+  await act(async () => {
+    await fixture.completion?.();
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.accountProfile.close }),
+  );
+  const reviews = screen.getAllByRole<HTMLButtonElement>("button", {
+    name: messages.admin.users.appeals.review,
+  });
   expect(reviews.every((button) => button.disabled)).toBe(true);
   fireEvent.click(reviews[1]!);
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -2207,48 +2480,95 @@ it("fences every co-resolved sibling after accepted synchronization fails and re
     fireEvent.click(screen.getByRole("button", { name: /Retry.*appeals/i }));
   });
   expect(fixture.decision).toHaveBeenCalledOnce();
-  expect(screen.queryByText(messages.admin.users.appeals.refreshFailed)).toBeNull();
+  expect(
+    screen.queryByText(messages.admin.users.appeals.refreshFailed),
+  ).toBeNull();
 });
 
 it("refuses a stale-version rejection until explicit Reload succeeds", async () => {
   seedAppeal();
   const view = mount();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.review }));
-  fixture.decisionError = { message: "Synthetic restriction version changed", data: { code: "CONFLICT" } };
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.appeals.review }),
+  );
+  fixture.decisionError = {
+    message: "Synthetic restriction version changed",
+    data: { code: "CONFLICT" },
+  };
   view.rerender(<UsersPage />);
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: messages.admin.users.appeals.approve }).disabled).toBe(true);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.users.appeals.approve,
+    }).disabled,
+  ).toBe(true);
   expect(within(dialog).getByText("Captured restriction reason")).toBeTruthy();
   expect(fixture.decision).not.toHaveBeenCalled();
-  fixture.appeals = [{ ...fixture.appeals[0]!, restriction: {
-    ...fixture.appeals[0]!.restriction, authorityRevision: 18,
-  } }];
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.reloadReview }));
-  await waitFor(() => expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: messages.admin.users.appeals.approve }).disabled).toBe(false));
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.approve }));
+  fixture.appeals = [
+    {
+      ...fixture.appeals[0]!,
+      restriction: {
+        ...fixture.appeals[0]!.restriction,
+        authorityRevision: 18,
+      },
+    },
+  ];
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.appeals.reloadReview,
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.users.appeals.approve,
+      }).disabled,
+    ).toBe(false),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.appeals.approve,
+    }),
+  );
   expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
-    appealId: "appeal", action: "APPROVE", expectedAuthorityRevision: 18,
+    appealId: "appeal",
+    action: "APPROVE",
+    expectedAuthorityRevision: 18,
   });
 });
 
 it("does not resurrect a captured review when a Reload finishes after denial", async () => {
   seedAppeal();
   const view = mount();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.review }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.appeals.review }),
+  );
   let finish!: () => void;
-  fixture.refetch.mockImplementationOnce(() => new Promise((resolve) => {
-    finish = () => {
-      fixture.appealError = null;
-      resolve({ isSuccess: true, data: fixture.appeals });
-    };
-  }));
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.reloadReview }));
-  fixture.appealError = { message: "Synthetic denied while reloading", data: { code: "FORBIDDEN" } };
+  fixture.refetch.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () => {
+          fixture.appealError = null;
+          resolve({ isSuccess: true, data: fixture.appeals });
+        };
+      }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.users.appeals.reloadReview,
+    }),
+  );
+  fixture.appealError = {
+    message: "Synthetic denied while reloading",
+    data: { code: "FORBIDDEN" },
+  };
   await publishRead("appeals");
   view.rerender(<UsersPage />);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByText("Captured restriction reason")).toBeNull();
-  await act(async () => { finish(); });
+  await act(async () => {
+    finish();
+  });
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByText(/Original appeal first paragraph/)).toBeNull();
   expect(fixture.decision).not.toHaveBeenCalled();
@@ -2258,17 +2578,39 @@ it("keeps a legacy cached row without restriction authority inert until a fresh 
   seedAppeal();
   const current = fixture.appeals[0]!;
   // Model a pre-deployment cached projection, not an invented revision-zero authority.
-  fixture.appeals = [{ ...current, restriction: undefined } as unknown as typeof current];
+  fixture.appeals = [
+    { ...current, restriction: undefined } as unknown as typeof current,
+  ];
   mount();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.users.appeals.review }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.appeals.review }),
+  );
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: messages.admin.users.appeals.approveClose }).disabled).toBe(true);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.users.appeals.approveClose,
+    }).disabled,
+  ).toBe(true);
   expect(fixture.decision).not.toHaveBeenCalled();
   fixture.appeals = [current];
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.reloadReview }));
-  await waitFor(() => expect(within(dialog).getByText("Captured restriction reason")).toBeTruthy());
-  fireEvent.click(within(dialog).getByRole("button", { name: messages.admin.users.appeals.approve }));
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.appeals.reloadReview,
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      within(dialog).getByText("Captured restriction reason"),
+    ).toBeTruthy(),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.appeals.approve,
+    }),
+  );
   expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
-    appealId: "appeal", action: "APPROVE", expectedAuthorityRevision: 17,
+    appealId: "appeal",
+    action: "APPROVE",
+    expectedAuthorityRevision: 17,
   });
 });

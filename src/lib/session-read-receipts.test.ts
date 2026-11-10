@@ -62,12 +62,14 @@ async function deny(
   key: Key = denialKey,
 ) {
   const error = Object.assign(new Error("Access denied"), { data: { code } });
-  await expect(client.fetchQuery({
-    queryKey: key,
-    queryFn: () => Promise.reject(error),
-    staleTime: 0,
-    networkMode: "always",
-  })).rejects.toBe(error);
+  await expect(
+    client.fetchQuery({
+      queryKey: key,
+      queryFn: () => Promise.reject(error),
+      staleTime: 0,
+      networkMode: "always",
+    }),
+  ).rejects.toBe(error);
   return error;
 }
 
@@ -100,7 +102,9 @@ it("C03: clients do not share query histories or event orders", async () => {
   const secondLedger = installSessionReadReceipts(second);
   await deny(first);
   await fetch(second, async () => ({ label: "Other client" }));
-  expect(firstLedger.read(query(first, denialKey)).denialOrder).toBeGreaterThan(0);
+  expect(firstLedger.read(query(first, denialKey)).denialOrder).toBeGreaterThan(
+    0,
+  );
   expect(secondLedger.read(query(second)).denialOrder).toBe(0);
   expect(secondLedger.read(query(second)).proof).toBeDefined();
   expect(firstLedger.read(query(second)).proof).toBeUndefined();
@@ -119,7 +123,10 @@ it("C04: a real successful fetch publishes immutable scalar proof metadata", asy
   expect(Object.isFrozen(history)).toBe(true);
   expect(Object.isFrozen(history.proof)).toBe(true);
   expect(Object.keys(history.proof ?? {}).sort()).toEqual([
-    "firstDenialFence", "generation", "order", "promise",
+    "firstDenialFence",
+    "generation",
+    "order",
+    "promise",
   ]);
   expect(remote).toHaveBeenCalledTimes(1);
 });
@@ -165,9 +172,11 @@ it("C08: any terminal error invalidates proof without inventing access denial", 
   const ledger = installSessionReadReceipts(client);
   await fetch(client, async () => ({ label: "Read result" }));
   const before = ledger.read(query(client));
-  await expect(fetch(client, async () => {
-    throw new Error("Transport unavailable");
-  })).rejects.toThrow("Transport unavailable");
+  await expect(
+    fetch(client, async () => {
+      throw new Error("Transport unavailable");
+    }),
+  ).rejects.toThrow("Transport unavailable");
   const after = ledger.read(query(client));
   expect(after.generation).not.toBe(before.generation);
   expect(after.denialOrder).toBe(0);
@@ -248,11 +257,18 @@ it("C13: silent replacement changes admission even without another fetch action"
   const meta = {};
   let fetchActions = 0;
   const stop = client.getQueryCache().subscribe((event) => {
-    if (event.type === "updated" && event.query === current && event.action.type === "fetch") {
+    if (
+      event.type === "updated" &&
+      event.query === current &&
+      event.action.type === "fetch"
+    ) {
       fetchActions += 1;
     }
   });
-  const first = current.fetch({ queryKey: mainKey, queryFn: () => old.promise }, { meta });
+  const first = current.fetch(
+    { queryKey: mainKey, queryFn: () => old.promise },
+    { meta },
+  );
   const admitted = current.promise;
   await deny(client);
   const second = current.fetch(
@@ -289,7 +305,8 @@ it("C14: the first fence distinguishes an earlier slot from a later denial", asy
 it("C15: retries keep one retryer identity and publish only terminal success", async () => {
   const client = makeClient();
   const ledger = installSessionReadReceipts(client);
-  const remote = vi.fn<() => Promise<Data>>()
+  const remote = vi
+    .fn<() => Promise<Data>>()
     .mockRejectedValueOnce(new Error("Retryable failure"))
     .mockResolvedValueOnce({ label: "Retry succeeded" });
   const work = client.fetchQuery({
@@ -345,9 +362,13 @@ it("C18: real hydration replaces data generation without preserving proof", asyn
   const before = ledger.read(current);
   const donor = makeClient();
   // Hydration's own newer-data precondition is independent of receipt ordering.
-  donor.setQueryData(mainKey, { label: "Hydrated valid data" }, {
-    updatedAt: current.state.dataUpdatedAt + 1,
-  });
+  donor.setQueryData(
+    mainKey,
+    { label: "Hydrated valid data" },
+    {
+      updatedAt: current.state.dataUpdatedAt + 1,
+    },
+  );
   hydrate(client, dehydrate(donor));
   expect(current.state.data).toEqual({ label: "Hydrated valid data" });
   expect(ledger.read(current).generation).not.toBe(before.generation);
@@ -391,7 +412,12 @@ it("C21: a nested manual success invalidates a pending null-read candidate", asy
   const ledger = installSessionReadReceipts(client);
   let armed = true;
   const stop = client.getQueryCache().subscribe((event) => {
-    if (event.type === "updated" && event.action.type === "success" && !event.action.manual && armed) {
+    if (
+      event.type === "updated" &&
+      event.action.type === "success" &&
+      !event.action.manual &&
+      armed
+    ) {
       armed = false;
       client.setQueryData(mainKey, { label: "Manual replacement" });
     }
@@ -408,7 +434,12 @@ it("C22: a nested state replacement invalidates a pending malformed candidate", 
   const ledger = installSessionReadReceipts(client);
   let armed = true;
   const stop = client.getQueryCache().subscribe((event) => {
-    if (event.type === "updated" && event.action.type === "success" && !event.action.manual && armed) {
+    if (
+      event.type === "updated" &&
+      event.action.type === "success" &&
+      !event.action.manual &&
+      armed
+    ) {
       armed = false;
       event.query.setState({ data: { label: "Replacement state" } });
     }
@@ -464,10 +495,12 @@ it("C24: replacement rejection never publishes an aliased old success", async ()
   let replacementWork: Promise<Data | undefined> | undefined;
   void old.promise.then(() => {
     queueMicrotask(() => {
-      replacementWork = current.fetch(
-        { queryKey: mainKey, queryFn: () => replacement.promise },
-        { cancelRefetch: true },
-      ).catch(() => undefined);
+      replacementWork = current
+        .fetch(
+          { queryKey: mainKey, queryFn: () => replacement.promise },
+          { cancelRefetch: true },
+        )
+        .catch(() => undefined);
     });
   });
   const oldWork = fetch(client, () => old.promise);
@@ -483,11 +516,17 @@ it("C24: replacement rejection never publishes an aliased old success", async ()
 
 it("C25: a post-success terminal callback error invalidates its pending candidate", async () => {
   const failure = new Error("Post-read callback failed");
-  const client = makeClient(new QueryCache({
-    onSuccess: () => { throw failure; },
-  }));
+  const client = makeClient(
+    new QueryCache({
+      onSuccess: () => {
+        throw failure;
+      },
+    }),
+  );
   const ledger = installSessionReadReceipts(client);
-  await expect(fetch(client, async () => ({ label: "Read result" }))).rejects.toBe(failure);
+  await expect(
+    fetch(client, async () => ({ label: "Read result" })),
+  ).rejects.toBe(failure);
   expect(query(client).state.status).toBe("error");
   expect(ledger.read(query(client)).proof).toBeUndefined();
   expect(ledger.read(query(client)).denialOrder).toBe(0);
@@ -500,7 +539,12 @@ it("C26: removal retains old-binding denial while invalidating pending and recre
   const old = query(client);
   const denial = ledger.read(old).denialOrder;
   const stop = client.getQueryCache().subscribe((event) => {
-    if (event.type === "updated" && event.query === old && event.action.type === "success" && !event.action.manual) {
+    if (
+      event.type === "updated" &&
+      event.query === old &&
+      event.action.type === "success" &&
+      !event.action.manual
+    ) {
       client.getQueryCache().remove(old);
     }
   });
@@ -522,7 +566,11 @@ it("C27: proof publication notifies with a new revision but keeps the original o
   let successOrder = 0;
   let successRevision = 0;
   const stopCache = client.getQueryCache().subscribe((event) => {
-    if (event.type === "updated" && event.action.type === "success" && !event.action.manual) {
+    if (
+      event.type === "updated" &&
+      event.action.type === "success" &&
+      !event.action.manual
+    ) {
       successOrder = ledger.getOrder();
       successRevision = ledger.getSnapshot();
       expect(ledger.read(event.query).proof).toBeUndefined();
@@ -551,14 +599,24 @@ it("C28: an observer's manual valid replacement cannot inherit an outer null suc
   let armed = true;
   // Raw observers run before the outer updated event reaches cache listeners.
   const stop = observer.subscribe((result) => {
-    if (!armed || !result.isSuccess || result.isFetching || result.data !== null) return;
+    if (
+      !armed ||
+      !result.isSuccess ||
+      result.isFetching ||
+      result.data !== null
+    )
+      return;
     armed = false;
-    client.setQueryData(mainKey, { label: "Observer's manual valid replacement" });
+    client.setQueryData(mainKey, {
+      label: "Observer's manual valid replacement",
+    });
   });
   try {
     await fetch(client, async () => null);
     expect(armed).toBe(false);
-    expect(query(client).state.data).toEqual({ label: "Observer's manual valid replacement" });
+    expect(query(client).state.data).toEqual({
+      label: "Observer's manual valid replacement",
+    });
     expect(ledger.read(query(client)).denialOrder).toBe(denial);
     expect(ledger.read(query(client)).proof).toBeUndefined();
     await fetch(client, async () => ({ label: "Actual valid recovery" }));
@@ -579,7 +637,13 @@ it("C29: an observer's equal-reference manual write invalidates the outer succes
   });
   let armed = true;
   const stop = observer.subscribe((result) => {
-    if (!armed || !result.isSuccess || result.isFetching || result.data !== payload) return;
+    if (
+      !armed ||
+      !result.isSuccess ||
+      result.isFetching ||
+      result.data !== payload
+    )
+      return;
     armed = false;
     client.setQueryData(mainKey, result.data);
   });
@@ -606,7 +670,13 @@ it("C30: invalidation after an observer's equal-reference write cannot disguise 
   });
   let armed = true;
   const stop = observer.subscribe((result) => {
-    if (!armed || !result.isSuccess || result.isFetching || result.data !== payload) return;
+    if (
+      !armed ||
+      !result.isSuccess ||
+      result.isFetching ||
+      result.data !== payload
+    )
+      return;
     armed = false;
     client.setQueryData(mainKey, result.data);
     // This nonterminal action replaces the state object once more before the
@@ -645,7 +715,9 @@ it("C31: immutable error actions retain denial after an observer clears current 
     client.setQueryData(mainKey, { label: "Observer cleared current error" });
   });
   try {
-    await expect(fetch(client, () => Promise.reject(failure))).rejects.toBe(failure);
+    await expect(fetch(client, () => Promise.reject(failure))).rejects.toBe(
+      failure,
+    );
     expect(armed).toBe(false);
     expect(query(client).state.status).toBe("success");
     expect(query(client).state.error).toBeNull();

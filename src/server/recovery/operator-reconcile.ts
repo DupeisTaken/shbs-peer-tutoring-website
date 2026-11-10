@@ -432,9 +432,15 @@ export async function readReconciliationSnapshot(
   // guards on both databases must refuse automatic restore and rollback alike.
   const receiptGuards: Record<string, unknown>[] = [];
   for (const table of [
-    ...(historicalInvitationOperationClosure ? ["HistoricalInvitationOperationClosure" as const] : []),
+    ...(historicalInvitationOperationClosure
+      ? ["HistoricalInvitationOperationClosure" as const]
+      : []),
     ...(translationIntentReceipt ? ["TranslationIntentReceipt" as const] : []),
-  ]) receiptGuards.push({ table: `${table}:guard`, fingerprint: planHash(await readReceiptGuardMetadata(db, table)) });
+  ])
+    receiptGuards.push({
+      table: `${table}:guard`,
+      fingerprint: planHash(await readReceiptGuardMetadata(db, table)),
+    });
   const trigger =
     await db.query(`SELECT t.tgenabled,t.tgtype,p.proname,pg_get_triggerdef(t.oid) AS definition,pg_get_functiondef(p.oid) AS function
     FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE t.tgrelid='public."User"'::regclass AND t.tgname='account_session_version' AND NOT t.tgisinternal`);

@@ -5,7 +5,10 @@ import { currentAcademicInput, academicSummary } from "~/lib/academics";
 import { confirmCurrentAccountAcademics } from "~/server/academics";
 import { membershipSchema } from "~/lib/account-membership";
 import { queueProposal } from "~/server/approvals";
-import { lockAccountProfile, updateAccountProfile } from "~/server/account-profile";
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 import {
   requestSecondaryEmail,
   confirmSecondaryEmail,
@@ -18,16 +21,27 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
-import { ensureUserUsername, lockUsernameNamespace } from "~/server/auth/username";
+import {
+  ensureUserUsername,
+  lockUsernameNamespace,
+} from "~/server/auth/username";
 import { lockEntity } from "~/server/transactions";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
 import { getFeatures } from "~/server/program/features";
 import { maskEmail } from "~/server/auth/mask";
-import { NEW_PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
+import {
+  NEW_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "~/lib/password-contract";
 import { notifyAdmins } from "~/server/notifications/create";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { eligibleReviewRecipient } from "~/server/email/notification-policy";
-import { notificationCategories, effectiveNotificationPreference, informationCategories, type NotificationCategory } from "~/lib/notification-categories";
+import {
+  notificationCategories,
+  effectiveNotificationPreference,
+  informationCategories,
+  type NotificationCategory,
+} from "~/lib/notification-categories";
 import {
   requestEmailChange,
   confirmEmailChange,
@@ -41,53 +55,135 @@ import {
 export const accountRouter = createTRPCRouter({
   notificationPreferences: protectedProcedure.query(async ({ ctx }) => {
     const [user, program] = await Promise.all([
-      ctx.db.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, include: { notificationPreferences: true } }),
-      ctx.db.programSettings.findUnique({ where: { id: "program" }, select: { emailNotificationsEnabled: true } }),
+      ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+        include: { notificationPreferences: true },
+      }),
+      ctx.db.programSettings.findUnique({
+        where: { id: "program" },
+        select: { emailNotificationsEnabled: true },
+      }),
     ]);
     const emailEnabled = program?.emailNotificationsEnabled ?? false;
     const canReceiveReviewRequests = eligibleReviewRecipient(user);
     return {
       categories: notificationCategories.map((category) => ({
-        ...effectiveNotificationPreference(user, category, user.notificationPreferences),
+        ...effectiveNotificationPreference(
+          user,
+          category,
+          user.notificationPreferences,
+        ),
         badgeAvailable: category !== "reminders",
-        emailEditable: emailEnabled && (category !== "reviews" || canReceiveReviewRequests),
+        emailEditable:
+          emailEnabled && (category !== "reviews" || canReceiveReviewRequests),
       })),
-      emailEnabled, canReceiveReviewRequests, emailSecondaryRecipients: user.emailSecondaryRecipients,
+      emailEnabled,
+      canReceiveReviewRequests,
+      emailSecondaryRecipients: user.emailSecondaryRecipients,
       deliveryAvailable: isEmailDeliveryAvailable("PROGRAM"),
     };
   }),
-  setNotificationPreferences: protectedProcedure.input(z.object({
-    categories: z.array(z.object({ category: z.enum(notificationCategories), badgeEnabled: z.boolean(), emailEnabled: z.boolean() }))
-      .max(notificationCategories.length).refine((rows) => new Set(rows.map((row) => row.category)).size === rows.length, "Each category can be submitted once."),
-    emailSecondaryRecipients: z.boolean().optional(),
-  })).mutation(async ({ ctx, input }) => ctx.db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('email-notifications-setting', 0))`;
-    const user = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, include: { notificationPreferences: true } });
-    const settings = await tx.programSettings.findUnique({ where: { id: "program" } });
-    for (const row of input.categories) {
-      const current = effectiveNotificationPreference(user, row.category, user.notificationPreferences);
-      if (row.category === "reminders" && row.badgeEnabled !== current.badgeEnabled)
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Upcoming reminders are email-only." });
-      if (row.emailEnabled && row.emailEnabled !== current.emailEnabled &&
-        (!settings?.emailNotificationsEnabled || (row.category === "reviews" && !eligibleReviewRecipient(user))))
-        throw new TRPCError({ code: "FORBIDDEN", message: "Email cannot be enabled for this category with your current access and program settings." });
-      await tx.notificationPreference.upsert({
-        where: { userId_category: { userId: user.id, category: row.category } },
-        create: { userId: user.id, ...row }, update: { badgeEnabled: row.badgeEnabled, emailEnabled: row.emailEnabled },
-      });
-    }
-    if (input.emailSecondaryRecipients !== undefined) {
-      if (input.emailSecondaryRecipients && !user.emailSecondaryRecipients && !settings?.emailNotificationsEnabled)
-        throw new TRPCError({ code: "FORBIDDEN", message: "Email notifications are disabled by the program administrator." });
-      await tx.user.update({ where: { id: user.id }, data: { emailSecondaryRecipients: input.emailSecondaryRecipients } });
-    }
-    const disabled = input.categories.filter((row) => !row.emailEnabled).map((row) => row.category);
-    if (disabled.length) await tx.emailDelivery.updateMany({
-      where: { userId: user.id, status: "PENDING", preferenceTopic: { in: disabled } },
-      data: { status: "SKIPPED", completedAt: new Date(), leaseUntil: null },
-    });
-    return { ok: true };
-  })),
+  setNotificationPreferences: protectedProcedure
+    .input(
+      z.object({
+        categories: z
+          .array(
+            z.object({
+              category: z.enum(notificationCategories),
+              badgeEnabled: z.boolean(),
+              emailEnabled: z.boolean(),
+            }),
+          )
+          .max(notificationCategories.length)
+          .refine(
+            (rows) =>
+              new Set(rows.map((row) => row.category)).size === rows.length,
+            "Each category can be submitted once.",
+          ),
+        emailSecondaryRecipients: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      ctx.db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('email-notifications-setting', 0))`;
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: ctx.session.user.id },
+          include: { notificationPreferences: true },
+        });
+        const settings = await tx.programSettings.findUnique({
+          where: { id: "program" },
+        });
+        for (const row of input.categories) {
+          const current = effectiveNotificationPreference(
+            user,
+            row.category,
+            user.notificationPreferences,
+          );
+          if (
+            row.category === "reminders" &&
+            row.badgeEnabled !== current.badgeEnabled
+          )
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Upcoming reminders are email-only.",
+            });
+          if (
+            row.emailEnabled &&
+            row.emailEnabled !== current.emailEnabled &&
+            (!settings?.emailNotificationsEnabled ||
+              (row.category === "reviews" && !eligibleReviewRecipient(user)))
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Email cannot be enabled for this category with your current access and program settings.",
+            });
+          await tx.notificationPreference.upsert({
+            where: {
+              userId_category: { userId: user.id, category: row.category },
+            },
+            create: { userId: user.id, ...row },
+            update: {
+              badgeEnabled: row.badgeEnabled,
+              emailEnabled: row.emailEnabled,
+            },
+          });
+        }
+        if (input.emailSecondaryRecipients !== undefined) {
+          if (
+            input.emailSecondaryRecipients &&
+            !user.emailSecondaryRecipients &&
+            !settings?.emailNotificationsEnabled
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Email notifications are disabled by the program administrator.",
+            });
+          await tx.user.update({
+            where: { id: user.id },
+            data: { emailSecondaryRecipients: input.emailSecondaryRecipients },
+          });
+        }
+        const disabled = input.categories
+          .filter((row) => !row.emailEnabled)
+          .map((row) => row.category);
+        if (disabled.length)
+          await tx.emailDelivery.updateMany({
+            where: {
+              userId: user.id,
+              status: "PENDING",
+              preferenceTopic: { in: disabled },
+            },
+            data: {
+              status: "SKIPPED",
+              completedAt: new Date(),
+              leaseUntil: null,
+            },
+          });
+        return { ok: true };
+      }),
+    ),
   updateAcademics: protectedProcedure
     .input(currentAcademicInput)
     .mutation(({ ctx, input }) =>
@@ -189,7 +285,9 @@ export const accountRouter = createTRPCRouter({
             message:
               "Email notifications are disabled by the program administrator.",
           });
-        const current = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } });
+        const current = await tx.user.findUniqueOrThrow({
+          where: { id: ctx.session.user.id },
+        });
         if (input.emailReviewRequests && !current.emailReviewRequests) {
           if (!eligibleReviewRecipient(current))
             throw new TRPCError({
@@ -214,23 +312,68 @@ export const accountRouter = createTRPCRouter({
         });
         // Old clients submit broad switches on every save. Propagate only a real
         // switch change so unchanged fields cannot erase category-specific choices.
-        const changedTopics: { category: NotificationCategory; enabled: boolean }[] = [];
-        if (input.emailMessages !== current.emailMessages) changedTopics.push({ category: "messages", enabled: input.emailMessages });
-        if (input.emailInfo !== current.emailInfo) changedTopics.push(...informationCategories.map((category) => ({ category, enabled: input.emailInfo })));
-        if (input.emailReviewRequests !== undefined && input.emailReviewRequests !== current.emailReviewRequests) changedTopics.push({ category: "reviews", enabled: input.emailReviewRequests });
-        if (input.emailEventReminders !== undefined && input.emailEventReminders !== current.emailEventReminders) changedTopics.push({ category: "reminders", enabled: input.emailEventReminders });
-        for (const topic of changedTopics) await tx.notificationPreference.upsert({
-          where: { userId_category: { userId: current.id, category: topic.category } },
-          create: { userId: current.id, category: topic.category, emailEnabled: topic.enabled }, update: { emailEnabled: topic.enabled },
-        });
+        const changedTopics: {
+          category: NotificationCategory;
+          enabled: boolean;
+        }[] = [];
+        if (input.emailMessages !== current.emailMessages)
+          changedTopics.push({
+            category: "messages",
+            enabled: input.emailMessages,
+          });
+        if (input.emailInfo !== current.emailInfo)
+          changedTopics.push(
+            ...informationCategories.map((category) => ({
+              category,
+              enabled: input.emailInfo,
+            })),
+          );
+        if (
+          input.emailReviewRequests !== undefined &&
+          input.emailReviewRequests !== current.emailReviewRequests
+        )
+          changedTopics.push({
+            category: "reviews",
+            enabled: input.emailReviewRequests,
+          });
+        if (
+          input.emailEventReminders !== undefined &&
+          input.emailEventReminders !== current.emailEventReminders
+        )
+          changedTopics.push({
+            category: "reminders",
+            enabled: input.emailEventReminders,
+          });
+        for (const topic of changedTopics)
+          await tx.notificationPreference.upsert({
+            where: {
+              userId_category: { userId: current.id, category: topic.category },
+            },
+            create: {
+              userId: current.id,
+              category: topic.category,
+              emailEnabled: topic.enabled,
+            },
+            update: { emailEnabled: topic.enabled },
+          });
         // Opting out cancels existing copies too; a later opt-in must not replay them.
         const stoppedCategories = [
-          ...(input.emailMessages === false && current.emailMessages ? ["messages"] : []),
-          ...(input.emailInfo === false && current.emailInfo ? ["info", "information"] : []),
-          ...(input.emailReviewRequests === false && current.emailReviewRequests ? ["review"] : []),
-          ...(input.emailEventReminders === false && current.emailEventReminders ? ["reminder"] : []),
+          ...(input.emailMessages === false && current.emailMessages
+            ? ["messages"]
+            : []),
+          ...(input.emailInfo === false && current.emailInfo
+            ? ["info", "information"]
+            : []),
+          ...(input.emailReviewRequests === false && current.emailReviewRequests
+            ? ["review"]
+            : []),
+          ...(input.emailEventReminders === false && current.emailEventReminders
+            ? ["reminder"]
+            : []),
         ];
-        const stoppedTopics = changedTopics.filter((topic) => !topic.enabled).map((topic) => topic.category);
+        const stoppedTopics = changedTopics
+          .filter((topic) => !topic.enabled)
+          .map((topic) => topic.category);
         if (stoppedCategories.length || stoppedTopics.length)
           await tx.emailDelivery.updateMany({
             where: {
@@ -400,7 +543,12 @@ export const accountRouter = createTRPCRouter({
       await lockAccountProfile(ctx.db, ctx.session.user.id);
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
-        select: { suspendedAt: true, name: true, mergedIntoId: true, recoveryVoidedAt: true },
+        select: {
+          suspendedAt: true,
+          name: true,
+          mergedIntoId: true,
+          recoveryVoidedAt: true,
+        },
       });
       if (user.mergedIntoId || user.recoveryVoidedAt)
         throw new TRPCError({ code: "UNAUTHORIZED" });
@@ -423,15 +571,19 @@ export const accountRouter = createTRPCRouter({
       await ctx.db.accountAppeal.create({
         data: { userId: ctx.session.user.id, message: input.message },
       });
-      await notifyAdmins({
-        ...notificationInAppEvent("account_appeal_requested", undefined, {
-          en: `${user.name ?? "A suspended user"} submitted an account suspension appeal.`,
-          zh: `${user.name ?? "一位账户被停用的用户"} 提交了账户停用申诉。`,
-        }),
-        title: "Account appeal",
-        body: `${user.name ?? "A suspended user"} submitted an appeal.`,
-        link: "/admin/users",
-      }, undefined, ctx.db);
+      await notifyAdmins(
+        {
+          ...notificationInAppEvent("account_appeal_requested", undefined, {
+            en: `${user.name ?? "A suspended user"} submitted an account suspension appeal.`,
+            zh: `${user.name ?? "一位账户被停用的用户"} 提交了账户停用申诉。`,
+          }),
+          title: "Account appeal",
+          body: `${user.name ?? "A suspended user"} submitted an appeal.`,
+          link: "/admin/users",
+        },
+        undefined,
+        ctx.db,
+      );
       return { ok: true };
     }),
 
@@ -558,7 +710,10 @@ export const accountRouter = createTRPCRouter({
     .input(
       z.object({
         currentPassword: z.string().min(1).max(1024),
-        newPassword: z.string().min(NEW_PASSWORD_MIN_LENGTH, "Use at least 8 characters.").max(PASSWORD_MAX_LENGTH),
+        newPassword: z
+          .string()
+          .min(NEW_PASSWORD_MIN_LENGTH, "Use at least 8 characters.")
+          .max(PASSWORD_MAX_LENGTH),
         code: z.string().trim().optional(),
       }),
     )

@@ -88,7 +88,11 @@ export function EmailChange({ embedded = false }: { embedded?: boolean }) {
     },
   });
   const denied = useSessionAccessDenied(
-    { ...settings, denialKey: "primary-email-settings", queryKey: getQueryKey(api.account.emailSettings, undefined, "query") },
+    {
+      ...settings,
+      denialKey: "primary-email-settings",
+      queryKey: getQueryKey(api.account.emailSettings, undefined, "query"),
+    },
     {
       error: request.error ?? confirm.error,
       isSuccess: !request.error && !confirm.error,

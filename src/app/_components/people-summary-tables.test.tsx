@@ -9,7 +9,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import UsersPage from "../(admin)/admin/users/page";
 import TutorsPage from "../(admin)/admin/tutors/page";
@@ -283,7 +287,10 @@ vi.mock("~/trpc/react", async () => ({
       backfillStudentUsernames: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
       },
-      appeals: { _def: () => ({ path: ["admin", "appeals"] }), useQuery: () => ({ data: state.empty }) },
+      appeals: {
+        _def: () => ({ path: ["admin", "appeals"] }),
+        useQuery: () => ({ data: state.empty }),
+      },
       deleteUser: {
         useMutation: () => ({
           mutate: state.deleteUser,
@@ -432,7 +439,9 @@ describe("people summary tables", () => {
     await screen.findByText(en.combineRecords.noResults);
     expect(state.combineCandidates).toHaveBeenCalledOnce();
     expect(state.combineCandidates).toHaveBeenCalledWith({ search: "" });
-    fireEvent.click(screen.getByRole("button", { name: en.combineRecords.close }));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.combineRecords.close }),
+    );
     expect(state.combine).not.toHaveBeenCalled();
     expect(state.combinePreview).not.toHaveBeenCalled();
     expect(state.combineReceipt).not.toHaveBeenCalled();
