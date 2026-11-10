@@ -362,6 +362,9 @@ const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
   ...REVIEWED_IDENTITY_COLUMNS,
   ...LEGACY_DECLINE_COLUMNS,
 ].sort();
+// This additive preference policy grants no bearer or identity authority. Retain
+// every reviewed older backup shape while requiring its exact PostgreSQL type.
+const NOTIFICATION_LOCK_COLUMN = "ProgramSettings|notificationLocks|jsonb";
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -374,6 +377,15 @@ const PRISMA_METADATA = [
 ].sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  notificationLockColumns: [
+    ...REVIEWED_IDENTITY_DECLINE_COLUMNS,
+    NOTIFICATION_LOCK_COLUMN,
+  ]
+    .sort()
+    .map((line) => {
+      const [table_name, column_name, udt_name] = line.split("|");
+      return { table_name, column_name, udt_name };
+    }),
   legacyDeclineColumns: REVIEWED_DECLINE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -409,6 +421,13 @@ export function assertReviewedRecoverySchema(
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
     )
     .sort();
+  // Strip only the exact, singleton additive notification column before applying
+  // the independently reviewed tutoring-policy and recipient-label backup rules.
+  // Wrong types and duplicates remain visible and fail the complete comparison.
+  const notificationDomain =
+    domain.filter((column) => column === NOTIFICATION_LOCK_COLUMN).length === 1
+      ? domain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
+      : domain;
   // Both additive policy columns are reviewed together. Older complete backups
   // remain readable; a partial upgrade is never silently accepted.
   const policyColumns = [
@@ -418,15 +437,17 @@ export function assertReviewedRecoverySchema(
   const historyColumns = REVIEWED_COLUMNS.filter((column) =>
     column.startsWith("ProgramCalendarPolicyRevision|"),
   );
-  const hasHistory = domain.some((column) =>
+  const hasHistory = notificationDomain.some((column) =>
     column.startsWith("ProgramCalendarPolicyRevision|"),
   );
   const comparedDomain = hasHistory
-    ? domain
+    ? notificationDomain
     : [
-        ...domain,
+        ...notificationDomain,
         ...historyColumns,
-        ...(policyColumns.every((column) => !domain.includes(column))
+        ...(policyColumns.every(
+          (column) => !notificationDomain.includes(column),
+        )
           ? policyColumns
           : []),
       ].sort();

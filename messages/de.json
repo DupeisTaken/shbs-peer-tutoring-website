@@ -3801,6 +3801,7 @@
         "program_setProfilePolicy": "Namensanzeige und angebotene Jahrgangsstufen ändern",
         "program_setSignupField": "Anforderung an ein Anmeldefeld ändern",
         "program_setEmailNotifications": "E-Mail-Benachrichtigungen des Programms ändern",
+        "program_setNotificationLocks": "Erforderliche Benachrichtigungsoptionen ändern",
         "program_setSecondaryEmailBinding": "Verfügbarkeit der Verknüpfung weiterer E-Mail-Adressen ändern",
         "program_setTimeZone": "Programmzeitzone ändern",
         "program_prepareNextRecruitment": "Aufnahmeöffnung des nächsten Zeitraums vorbereiten",
@@ -4965,7 +4966,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "E-Mail-Benachrichtigungen",
-    "help": "Optionale Nachrichten, Programmmitteilungen, Prüfanfragen und Terminerinnerungen aktivieren. Jede Person wählt ihre Kategorien in den Kontoeinstellungen.",
+    "help": "Verwalten Sie den E-Mail-Versand und die für alle verpflichtenden Benachrichtigungsoptionen. Für nicht gesperrte Optionen gelten die persönlichen Einstellungen.",
     "on": "Aktiviert",
     "off": "Deaktiviert",
     "enable": "E-Mail-Benachrichtigungen aktivieren",
@@ -6015,7 +6016,11 @@
     "program": "Weitere Programmmitteilungen",
     "programHelp": "Programmmitteilungen ohne andere Kategorie.",
     "reminders": "Terminerinnerungen",
-    "remindersHelp": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe."
+    "remindersHelp": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe.",
+    "locked": "E-Mails für {category} sind vom Programmadministrator vorgeschrieben. Andere optionale Kategorien können Sie weiterhin abbestellen.",
+    "successRequired": "Optionale E-Mails sind ausgeschaltet. Vom Administrator vorgeschriebene E-Mails bleiben aktiviert.",
+    "requiredHelp": "Vom Administrator vorgeschriebene E-Mails bleiben beim Abbestellen aller optionalen Kategorien aktiviert.",
+    "successCategoryRequired": "Optionale E-Mails für {category} sind jetzt ausgeschaltet. Vom Administrator vorgeschriebene E-Mails bleiben aktiviert."
   },
   "participantRecovery": {
     "loading": "Einträge werden geladen…",
@@ -7735,7 +7740,9 @@
       "management": "Verwaltungsvorschläge, Entscheidungen und Korrekturen.",
       "program": "Programmmitteilungen ohne andere Kategorie.",
       "reminders": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe."
-    }
+    },
+    "locked": "Vom Administrator vorgeschrieben",
+    "lockDemo": "Erforderliche Nachrichten-E-Mail demonstrieren"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -8278,5 +8285,22 @@
     "snapshotHelp": "Diese Quelldaten wurden bei der Ablehnung erfasst. Spätere Profiländerungen ändern diese Momentaufnahme nicht.",
     "closedHelp": "Diese Anmeldung ist geschlossen und kann weder zugewiesen noch reaktiviert werden.",
     "released": "Aufgehobene aktuelle Zuweisungen: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "Zustellung",
+    "requiredTab": "Erforderliche Benachrichtigungen",
+    "help": "Ausgewählte Optionen für alle verpflichtend einschalten. Gespeicherte persönliche Einstellungen bleiben erhalten und gelten nach dem Entsperren wieder.",
+    "badge": "Ungelesen-Anzeige einschalten und sperren",
+    "email": "E-Mail einschalten und sperren",
+    "badgeFor": "{category}: Ungelesen-Anzeige einschalten und sperren",
+    "emailFor": "{category}: E-Mail einschalten und sperren",
+    "deliveryHelp": "Erforderliche E-Mails hängen weiterhin von der allgemeinen E-Mail-Aktivierung, der Zustellbarkeit und der Empfängerberechtigung ab. Sicherheits-E-Mails bleiben separat verpflichtend.",
+    "readOnly": "Nur Admin und Head können diese Vorgaben ändern.",
+    "save": "Vorgaben speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Vorgaben gespeichert.",
+    "loadFailed": "Die aktuellen Vorgaben konnten nicht geladen werden. Ihr Entwurf bleibt erhalten. Laden Sie sie vor dem Speichern erneut.",
+    "refreshFailed": "Die Vorgaben wurden gespeichert, aber die aktuellen Einstellungen konnten nicht geladen werden. Wiederholen Sie nur das Laden.",
+    "reload": "Aktuelle Vorgaben laden"
   }
 }

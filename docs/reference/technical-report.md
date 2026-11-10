@@ -2151,6 +2151,24 @@ notices fall outside the latest thirty displayed records. Saving invalidates bot
 counts and the list; an accepted save followed by a failed
 refresh offers read-only recovery rather than repeating the write.
 
+`ProgramSettings.notificationLocks` stores sparse per-category `badgeLocked` and
+`emailLocked` flags, defaulting to no requirements. The Admin/Head-only
+`program.setNotificationLocks` mutation compares a complete expected snapshot
+under the shared `email-notifications-setting` lock before saving; Coordinators
+cannot propose or apply a change. Effective preferences OR each personal channel
+with its lock. Account saves, legacy broad switches and unsubscribe preserve the
+underlying personal value of a locked channel. Badge counts ignore personal mutes
+for locked categories. The email SQL helper, delivery worker and reminder candidate
+selection apply email locks while retaining program availability and current
+reviewer, address and event eligibility. Secondary-address inclusion and the
+dedicated School Month Report consent rules remain separate.
+
+New personal preference saves retain the draft's expected lock snapshot and reject
+a changed policy before writing. This prevents an older forced-on display from
+becoming a personal opt-in after an administrator unlocks it. Legacy broad
+information opt-outs materialize locked topic values before changing their fallback,
+so unlocked historical mail can stop while the preserved choice returns on unlock.
+
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.
 
 Secondary-email requests and confirmations first acquire the `secondary-email-binding-setting` transaction lock, shared with the Admin/Head-applied availability mutation (Coordinators submit changes for review), and reject when `ProgramSettings.secondaryEmailBindingEnabled` is false. This independent flag defaults true for compatibility. Existing addresses, pending state, primary-email changes and authentication remain intact. Verification rechecks availability and claims the address atomically. An address lock serializes competing confirmations; the unique registry key also arbitrates races with primary-account writers. Verified aliases resolve the same account. Recovery grants bind to their exact destination and recheck ownership on redemption; address removal and password rotation revoke grants. Never infer participant ownership from an alias or change the account's ID/history when promoting it.
@@ -2195,7 +2213,10 @@ Optional notification delivery adds a signed, 90-day unsubscribe link to HTML an
 When a receipt records a preference topic, unsubscribe disables only that exact
 topic and cancels its pending copies without changing badge settings or sibling
 topics. Legacy null-topic receipts retain their broad messages/information/review/
-reminder behavior. All-optional unsubscribe covers all eleven topics; security and
+reminder behavior. Both scopes preserve locked topic choices and queued copies;
+all-optional unsubscribe changes only unlocked topics. A fully locked linked
+category returns a required state, while a successful partial unsubscribe reports
+whether required categories remain. Security and
 essential request-service transport never grants an unsubscribe capability.
 
 ### Public-request invalidity notices and appeals

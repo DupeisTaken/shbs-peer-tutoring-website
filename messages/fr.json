@@ -3801,6 +3801,7 @@
         "program_setProfilePolicy": "Modifier l’affichage des noms et les niveaux scolaires proposés",
         "program_setSignupField": "Modifier les exigences d’un champ d’inscription",
         "program_setEmailNotifications": "Modifier les notifications par e-mail du programme",
+        "program_setNotificationLocks": "Modifier les choix de notification obligatoires",
         "program_setSecondaryEmailBinding": "Modifier la disponibilité de l’association d’une adresse e-mail secondaire",
         "program_setTimeZone": "Modifier le fuseau horaire du programme",
         "program_prepareNextRecruitment": "Préparer l’ouverture du recrutement de la prochaine période",
@@ -4965,7 +4966,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "Notifications e-mail",
-    "help": "Activer les emails facultatifs de messages, informations, demandes à examiner et rappels. Chaque personne choisit ses catégories dans les paramètres du compte.",
+    "help": "Gérez l’envoi des e-mails et les options de notification obligatoires pour tous. Les préférences personnelles s’appliquent aux options non verrouillées.",
     "on": "Activées",
     "off": "Désactivées",
     "enable": "Activer les notifications e-mail",
@@ -6015,7 +6016,11 @@
     "program": "Autres informations du programme",
     "programHelp": "Informations du programme sans autre catégorie.",
     "reminders": "Rappels des événements",
-    "remindersHelp": "Email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées."
+    "remindersHelp": "Email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées.",
+    "locked": "Les e-mails de {category} sont exigés par l’administrateur. Vous pouvez désactiver les autres catégories facultatives.",
+    "successRequired": "Les e-mails facultatifs sont désactivés. Ceux exigés par l’administrateur restent activés.",
+    "requiredHelp": "Les e-mails exigés par l’administrateur restent activés lorsque vous désactivez toutes les catégories facultatives.",
+    "successCategoryRequired": "Les e-mails facultatifs de {category} sont désactivés. Ceux exigés par l’administrateur restent activés."
   },
   "participantRecovery": {
     "loading": "Chargement des données…",
@@ -7735,7 +7740,9 @@
       "management": "Propositions, décisions de gestion et corrections de dossiers.",
       "program": "Informations du programme sans autre catégorie.",
       "reminders": "Email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées."
-    }
+    },
+    "locked": "Exigé par l’administrateur",
+    "lockDemo": "Illustrer les e-mails de messages obligatoires"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -8278,5 +8285,22 @@
     "snapshotHelp": "Ces données ont été enregistrées lors du refus. Les modifications ultérieures du profil ne changent pas cet instantané.",
     "closedHelp": "Cette demande est fermée et ne peut être ni affectée ni réactivée.",
     "released": "Affectations actuelles libérées : {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "Paramètres d’envoi",
+    "requiredTab": "Notifications obligatoires",
+    "help": "Imposez les options sélectionnées à tous. Les options verrouillées restent activées et les préférences personnelles sont conservées pour le déverrouillage.",
+    "badge": "Verrouiller l’indicateur de non-lus activé",
+    "email": "Verrouiller l’e-mail activé",
+    "badgeFor": "{category} : verrouiller l’indicateur de non-lus activé",
+    "emailFor": "{category} : verrouiller l’e-mail activé",
+    "deliveryHelp": "Les e-mails obligatoires dépendent toujours de l’activation générale, de la disponibilité d’envoi et de l’éligibilité du destinataire. Les e-mails de sécurité restent obligatoires séparément.",
+    "readOnly": "Seuls Admin et Head peuvent modifier ces exigences.",
+    "save": "Enregistrer les exigences",
+    "saving": "Enregistrement…",
+    "saved": "Exigences enregistrées.",
+    "loadFailed": "Impossible de charger les dernières exigences. Votre brouillon est conservé. Réessayez la lecture avant d’enregistrer.",
+    "refreshFailed": "Les exigences ont été enregistrées, mais les paramètres n’ont pas pu être chargés. Réessayez la lecture sans enregistrer à nouveau.",
+    "reload": "Recharger les dernières exigences"
   }
 }

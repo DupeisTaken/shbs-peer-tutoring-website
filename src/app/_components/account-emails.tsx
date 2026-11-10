@@ -8,6 +8,7 @@ import { QueryFeedback } from "./ui/query-feedback";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import type { NotificationLockValue } from "~/lib/notification-categories";
 import {
   NotificationPreferenceFields,
   type NotificationPreferenceChoice,
@@ -295,12 +296,14 @@ export function AccountEmails() {
 type PreferenceDraft = {
   categories: NotificationPreferenceChoice[];
   emailSecondaryRecipients: boolean;
+  expectedLocks: NotificationLockValue[];
 };
 
 /** A dirty draft owns its choices. Background reads can change availability,
  * but only Cancel or a successful post-save read replaces the draft. */
 export function EmailPreferences() {
   const t = useTranslations("notificationPreferences");
+  const locks = useTranslations("notificationLocks");
   const emailText = useTranslations("emailPreferences");
   const recovery = useTranslations("participantRecovery");
   const ui = useTranslations("uiPatterns");
@@ -322,8 +325,10 @@ export function EmailPreferences() {
       setDraft(null);
       setCommitted(false);
       setRefreshFailed(false);
+      return true;
     } catch {
       setRefreshFailed(true);
+      return false;
     } finally {
       setRefreshing(false);
     }
@@ -381,8 +386,20 @@ export function EmailPreferences() {
       }),
     ),
     emailSecondaryRecipients: data.emailSecondaryRecipients,
+    expectedLocks: data.categories.map(
+      ({ category, badgeLocked, emailLocked }) => ({
+        category,
+        badgeLocked: badgeLocked ?? false,
+        emailLocked: emailLocked ?? false,
+      }),
+    ),
   };
-  const blocked = !!settings.error || save.isPending || committed || refreshing;
+  const blocked =
+    !!settings.error ||
+    save.isPending ||
+    committed ||
+    refreshing ||
+    refreshFailed;
   return (
     <section
       id="notification-preferences"
@@ -408,6 +425,9 @@ export function EmailPreferences() {
           // A gate/role change must not enable an email choice retained in an
           // older draft. Badge changes remain available with email disabled.
           save.mutate({
+            // Keep the policy captured when this draft began. An admin unlock
+            // must not turn an old forced-on display into a personal opt-in.
+            expectedLocks: preferences.expectedLocks,
             categories: data.categories.map((row) => {
               const choice =
                 preferences.categories.find(
@@ -415,12 +435,12 @@ export function EmailPreferences() {
                 ) ?? row;
               return {
                 category: row.category,
-                badgeEnabled: row.badgeAvailable
-                  ? choice.badgeEnabled
-                  : row.badgeEnabled,
-                emailEnabled: row.emailEditable
-                  ? choice.emailEnabled
-                  : row.emailEnabled,
+                badgeEnabled:
+                  row.badgeLocked ||
+                  (row.badgeAvailable ? choice.badgeEnabled : row.badgeEnabled),
+                emailEnabled:
+                  row.emailLocked ||
+                  (row.emailEditable ? choice.emailEnabled : row.emailEnabled),
               };
             }),
             ...(data.emailEnabled
@@ -501,6 +521,19 @@ export function EmailPreferences() {
             {save.error.message}
           </p>
         )}
+        {save.error?.data?.code === "CONFLICT" && (
+          <Button
+            disabled={blocked}
+            onClick={() => {
+              setSaved(false);
+              void refreshSaved().then((refreshed) => {
+                if (refreshed) save.reset();
+              });
+            }}
+          >
+            {locks("reload")}
+          </Button>
+        )}
       </form>
       {saved && (
         <p role="status" className="text-sm text-green-700">
@@ -517,7 +550,7 @@ export function EmailPreferences() {
             </Button>
           }
         >
-          {recovery("refreshFailed")}
+          {committed ? recovery("refreshFailed") : locks("loadFailed")}
         </InlineNotice>
       )}
     </section>

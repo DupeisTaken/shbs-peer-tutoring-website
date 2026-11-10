@@ -22,6 +22,7 @@ export function NotificationPreferencesRecipe() {
   const ui = useTranslations("uiPatterns");
   const program = useTranslations("programEmail");
   const [emailEnabled, setEmailEnabled] = useState(true);
+  const [messageEmailLocked, setMessageEmailLocked] = useState(false);
   const [saved, setSaved] = useState<NotificationPreferenceChoice[]>(initial);
   const [draft, setDraft] = useState(initial);
   const [notice, setNotice] = useState(false);
@@ -39,6 +40,14 @@ export function NotificationPreferencesRecipe() {
           onChange={(event) => setEmailEnabled(event.target.checked)}
         />
         {program("enable")}
+      </label>
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={messageEmailLocked}
+          onChange={(event) => setMessageEmailLocked(event.target.checked)}
+        />
+        {t("lockDemo")}
       </label>
       {!emailEnabled && (
         <InlineNotice tone="info">{t("disabled")}</InlineNotice>
@@ -63,6 +72,7 @@ export function NotificationPreferencesRecipe() {
             ...row,
             badgeAvailable: row.category !== "reminders",
             emailEditable: emailEnabled,
+            emailLocked: messageEmailLocked && row.category === "messages",
           }))}
           choices={draft}
           disabled={false}
