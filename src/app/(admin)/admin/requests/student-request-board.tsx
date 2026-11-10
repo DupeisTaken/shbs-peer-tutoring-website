@@ -859,7 +859,7 @@ function RequestCard({
                 </span>
               )}
               {row.editedAt && (
-                <span className="badge-amber">{t("edited")}</span>
+                <span className="badge-slate">{t("edited")}</span>
               )}
             </div>
             <div id={detailsId} hidden={collapsed} className="space-y-2">

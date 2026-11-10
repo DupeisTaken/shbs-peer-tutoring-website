@@ -14,7 +14,7 @@
     "oneFlow": "单人协商依次为首次提议、学习伙伴的替代时间、辅导伙伴的最终时间。最终拒绝仅取消该学习伙伴的本次辅导。",
     "allFlow": "所有人须同意最新时间。每人可拒绝一次并提出替代时间；旧时间的接受不适用于新时间。用完拒绝机会后，可申请单独改期。",
     "viewSessions": "查看具体日期的辅导",
-    "explicitBy": "必须在 {deadline} 前获得明确同意。临近开始的改期不会因未回复而自动生效。",
+    "explicitBy": "必须在 {deadline} 前获得明确同意。此提议不会因未回复而自动生效。",
     "reload": "重新加载最新详情并放弃此草稿",
     "messageUnavailable": "此辅导暂不支持直接消息。请检查消息权限或联系管理人员。",
     "calendarSubscription": "订阅日历",
@@ -75,6 +75,7 @@
     "chooseLearner": "选择学习伙伴",
     "scopeHelp": "单人改期仅影响所选学习伙伴的本次辅导。全体改期要求所有人同意最新时间。",
     "location": "地点",
+    "locationUnavailable": "教室信息不可用。请先刷新当前详情，再作出同意决定。",
     "sameRoom": "保留计划教室",
     "online": "线上",
     "noRoom": "无需实体教室",
@@ -146,7 +147,14 @@
     "automaticRoom": "线下 — 自动分配教室",
     "checkingLocation": "正在检查时间和地点…",
     "allocationFailed": "无法确认该时间和地点。请核对本次辅导安排，尝试其他时间或选择线上辅导，然后重新预览。",
-    "roomReviewHelp": "发送时会再次检查教室。如不可用，请重新预览分配结果。"
+    "roomReviewHelp": "发送时会再次检查教室。如不可用，请重新预览分配结果。",
+    "tutoringPaused": "常规辅导已暂停",
+    "tutoringPausedHelp": "此常规辅导已暂停，无出勤要求。例外安排必须获得每位参加者明确同意。",
+    "arrangeException": "安排例外辅导",
+    "requiresExplicit": "须明确同意；未回复不会视为接受此提议。",
+    "explicitExceptionHelp": "此例外安排须由辅导伙伴及每位参加的学习伙伴明确同意。未回复即未同意。",
+    "tutoringPauseProposal": "此日期的常规辅导已暂停。此提议仅可作为明确同意的例外安排继续。",
+    "exceptionScheduled": "已同意的例外安排"
   },
   "nextRecruitment": {
     "savedForTarget": "已为 {name} 保存开放时间。",
@@ -2790,7 +2798,7 @@
       "label": "退出登录"
     },
     "userMenu": {
-      "settings": "设置",
+      "settings": "账户设置",
       "enterTutor": "进入辅导伙伴主页",
       "enterAdmin": "进入管理区",
       "enterTutee": "进入学习伙伴主页",
@@ -3940,6 +3948,7 @@
         "QUARANTINED": "隔离待审核"
       },
       "entities": {
+        "ImportedRecordProvenance": "导入历史记录来源",
         "SchedulingMaintenanceState": "排期维护状态",
         "SchedulingDirtyEvent": "排期失效事件",
         "PersonPartitionReceipt": "身份分离回执",
@@ -4100,9 +4109,11 @@
         "MonthlyHoursSchedule": "月度报告计划",
         "MonthlyHoursReport": "月度服务时数报告",
         "SchoolHoursSchedule": "学校报告计划",
-        "SchoolHoursReport": "个人学校服务时数报告"
+        "SchoolHoursReport": "个人学校服务时数报告",
+        "ProgramCalendarPolicyRevision": "辅导日期规则修订记录"
       },
       "fields": {
+        "importedAt": "导入时间",
         "publicSignupEmailConfirmedAt": "公开报名邮箱确认时间",
         "signupOpeningStateSince": "报名状态生效时间",
         "signupFirstOpenedAt": "首次开放报名时间",
@@ -4491,7 +4502,9 @@
         "linkVersion": "报告链接版本",
         "linkRevokedAt": "报告链接撤销时间",
         "schoolHoursReportId": "学校报告编号",
-        "schoolHoursReport": "学校报告"
+        "schoolHoursReport": "学校报告",
+        "schedulingEffect": "排期影响",
+        "tutoringPauseSuppressed": "常规辅导已暂停"
       },
       "enums": {
         "Role": {
@@ -6067,8 +6080,8 @@
     "layout": "保存仅应用于此布局。"
   },
   "programCalendar": {
-    "title": "暂停辅导日期",
-    "informational": "项目日期与原因，仅供参考。这些通知不会限制考勤，也不会改变申诉所用的上课日日历。",
+    "title": "辅导通知与暂停安排",
+    "informational": "每个日期范围可仅作通知，或暂停常规辅导。暂停期间允许明确同意的例外安排，不改变学校日历及申诉期限。",
     "refresh": "刷新",
     "reload": "重新加载草稿",
     "loadFailed": "无法加载辅导通知。",
@@ -6091,7 +6104,23 @@
     "saved": "通知已保存。",
     "saveFailed": "无法保存通知。",
     "refreshFailed": "通知已保存，但无法加载最新列表。请刷新同步，无需再次保存。",
-    "details": "查看详情"
+    "details": "查看详情",
+    "schedulingEffect": "排期影响",
+    "noticeEffect": "仅作通知",
+    "pauseEffect": "暂停常规辅导",
+    "noticeHelp": "展示通知，不改变已排定的辅导安排。",
+    "pauseHelp": "暂停常规辅导。例外安排须由辅导伙伴及每位参加的学习伙伴明确同意；未回复不视为同意。上课日及申诉期限规则保持独立。",
+    "removePauseHelp": "移除此辅导暂停安排。系统检查其他限制及冲突后，可恢复符合条件的未来常规辅导。已开始的辅导及已记录的出勤不变。",
+    "reviewImpact": "查看排期影响",
+    "impactTitle": "查看受影响的安排",
+    "impactFailed": "无法核对排期影响。尚未应用任何更改，请重试核对。",
+    "impactConflict": "此通知已更改。请重新加载当前详情，再核对排期影响。",
+    "impactScope": "预览规则生效后的现有未来学习伙伴安排，包括已暂停的安排。同一课次的不同学习伙伴分别计数；未来的常规辅导也遵循此规则。",
+    "impactPause": "规则生效后暂停的常规安排：{count}",
+    "impactRetain": "保留明确同意的例外安排：{count}",
+    "impactConfirm": "须明确确认：{count}",
+    "impactRestore": "可能恢复的安排：{count}",
+    "impactRule": "保存时会重新检查当前同意记录及冲突。已开始的辅导及已记录的出勤不变。"
   },
   "roomOrder": {
     "title": "教室显示顺序",
@@ -7211,7 +7240,7 @@
   "schoolCalendar": {
     "title": "学校日历",
     "help": "设置停课日期，以及指定日期采用的星期课表。其他日期默认按周一至周五上课。",
-    "noticeDistinction": "不开展辅导日期是独立的信息提示，不会更改学校日历。",
+    "noticeDistinction": "辅导通知及暂停安排不改变上课日状态、课表映射或申诉期限的上课日计算。",
     "add": "添加日期调整",
     "date": "实际日期",
     "timetable": "课表",

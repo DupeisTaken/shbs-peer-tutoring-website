@@ -10,6 +10,7 @@ import {
   finishSchedulingInvalidationBatch,
   prepareSchedulingInvalidationBatch,
   readSchedulingMaintenance,
+  SCHEDULING_MAINTENANCE_VERSION,
 } from "~/server/session-planning/maintenance";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
@@ -320,7 +321,7 @@ it("rebuilds the settlement queue from open requests while preserving the indepe
     const state = await tx.schedulingMaintenanceState.findUniqueOrThrow({
       where: { id: "program" },
     });
-    expect(state.settlementVersion).toBe(1);
+    expect(state.settlementVersion).toBe(SCHEDULING_MAINTENANCE_VERSION);
     expect(state.settlementRequestIds).toEqual(["a-rebuild"]);
     expect(state.settlementEventIds).toContain(BigInt(result.eventId));
     await completeSchedulingInvalidation(tx, "a-rebuild");

@@ -68,7 +68,8 @@ PolicyAcceptance|acceptedAt:timestamp,id:text,revision:text,signature:text,slug:
 PolicyArchive|archivedAt:timestamp,archivedByName:text,body:text,id:text,locale:text,slug:text,title:text,version:text
 PolicyDocument|body:text,id:text,locale:text,slug:text,title:text,updatedAt:timestamp,updatedById:text,version:text
 PolicyFile|id:text,name:text,path:text,uploadedAt:timestamp
-ProgramCalendarDay|active:bool,date:text,endDate:text,reason:text,updatedAt:timestamp,version:int4
+ProgramCalendarDay|active:bool,date:text,endDate:text,reason:text,schedulingEffect:text,updatedAt:timestamp,version:int4
+ProgramCalendarPolicyRevision|active:bool,date:text,effectiveAt:timestamp,endDate:text,id:int8,schedulingEffect:text,version:int4
 ProgramFeature|enabled:bool,key:ProgramFeatureKey,pendingEnabled:bool,revision:int4,updatedAt:timestamp,updatedByName:text
 ProgramSettings|captchaEnabled:bool,captchaVersion:int4,emailNotificationsEnabled:bool,id:text,nameFields:jsonb,nameFieldsVersion:int4,offeredGrades:_int4,requireLatinLegalNames:bool,requireLatinNames:bool,secondaryEmailBindingEnabled:bool,showAlternateNames:bool,signupFields:jsonb,timeZone:text,updatedAt:timestamp,usePreferredNames:bool
 PublicApplicationRateLimit|count:int4,key:text,resetsAt:timestamp
@@ -110,7 +111,7 @@ SessionPlanningReceipt|actorId:text,clientKey:text,createdAt:timestamp,payloadHa
 SessionPlanningRequest|cohortId:text,createdAt:timestamp,currentOfferId:text,id:text,kind:text,parentRequestId:text,participantIds:jsonb,planId:text,rejectionKeys:jsonb,scope:text,stage:int4,status:text,updatedAt:timestamp,version:int4
 SessionPlanningResponse|acceptedBy:text,actorKey:text,actorUserId:text,deadline:timestamp,deliveredAt:timestamp,id:text,offerId:text,respondedAt:timestamp,state:text
 SessionPlanningSuggestion|actorUserId:text,cohortId:text,createdAt:timestamp,date:text,id:text,online:bool,planId:text,roomId:text,sourceVersion:int4,startMin:int4,tuteeId:text,usedAt:timestamp,version:int4
-SessionPlanParticipant|calendarSuppressed:bool,cohortId:text,id:text,planId:text,scheduleOverride:bool,status:text,tuteeId:text,updatedAt:timestamp,version:int4
+SessionPlanParticipant|calendarSuppressed:bool,cohortId:text,id:text,planId:text,scheduleOverride:bool,status:text,tuteeId:text,tutoringPauseSuppressed:bool,updatedAt:timestamp,version:int4
 SessionTutee|absenceReason:text,sessionId:text,status:TuteeAttendanceStatus,tuteeId:text
 SignupLease|expiresAt:timestamp,owner:text,slot:text
 SignupQuota|count:int4,expiresAt:timestamp,key:text
@@ -417,6 +418,27 @@ export function assertReviewedRecoverySchema(
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
     )
     .sort();
+  // Both additive policy columns are reviewed together. Older complete backups
+  // remain readable; a partial upgrade is never silently accepted.
+  const policyColumns = [
+    "ProgramCalendarDay|schedulingEffect|text",
+    "SessionPlanParticipant|tutoringPauseSuppressed|bool",
+  ];
+  const historyColumns = REVIEWED_COLUMNS.filter((column) =>
+    column.startsWith("ProgramCalendarPolicyRevision|"),
+  );
+  const hasHistory = domain.some((column) =>
+    column.startsWith("ProgramCalendarPolicyRevision|"),
+  );
+  const comparedDomain = hasHistory
+    ? domain
+    : [
+        ...domain,
+        ...historyColumns,
+        ...(policyColumns.every((column) => !domain.includes(column))
+          ? policyColumns
+          : []),
+      ].sort();
   const migration = columns
     .filter((row) => row.table_name === "_prisma_migrations")
     .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
@@ -431,7 +453,8 @@ export function assertReviewedRecoverySchema(
       provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
     "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
   );
-  const reviewedDomain = domain.filter(
+  // Compose policy-version normalization with the independent import boundary.
+  const reviewedDomain = comparedDomain.filter(
     (column) => !column.startsWith("ImportedRecordProvenance|"),
   );
   const identityVersion: 0 | 1 | null =

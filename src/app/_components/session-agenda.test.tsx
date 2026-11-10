@@ -168,6 +168,7 @@ const sample = (): Agenda => ({
   canTutorWrite: true,
   rooms: [{ id: "room", name: "A101" }],
   schoolCalendarDays: [],
+  tutoringPauses: [],
   cohorts: [{ ...attendanceOccurrence }],
   requests: [],
   suggestions: [],
@@ -376,6 +377,7 @@ it("stops historical response prompts on a split request while retaining evidenc
       endsAt: new Date("2099-01-04T07:45:00Z"),
       cutoffAt: new Date("2099-01-03T07:00:00Z"),
       schoolClosed: false,
+      requiresExplicitAcceptance: false,
       responses: [
         response,
         {
@@ -642,6 +644,7 @@ it("offers separate rescheduling after an ALL rejection budget is spent, with a 
         endsAt: new Date("2099-01-04T07:45:00Z"),
         cutoffAt: new Date("2099-01-03T07:00:00Z"),
         schoolClosed: false,
+        requiresExplicitAcceptance: false,
         responses: [response],
         myResponse: response,
         canReject: false,
@@ -670,6 +673,145 @@ it("offers separate rescheduling after an ALL rejection budget is spent, with a 
     expectedVersion: 3,
   });
 });
+
+it.each([
+  ["en", true],
+  ["en", false],
+  ["zh", true],
+  ["zh", false],
+] as const)("reviews the exact explicit-only offer location and cutoff before accepting (%s, online=%s)", async (locale, online) => {
+  const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+  const source = state.data!.cohorts[0]!;
+  const learner = source.tutees[0]!;
+  const cutoffAt = new Date("2099-01-03T07:00:00Z");
+  const response = {
+    id: "exact-location-response", actorKey: `tutee:${learner.id}`, name: learner.name,
+    state: "PENDING" as const, deadline: null, deliveredAt: null, acceptedBy: null, isMe: true,
+  };
+  const request: Agenda["requests"][number] = {
+    id: "exact-location-request", version: 7, planId: source.planId, cohortId: source.id,
+    kind: "RESCHEDULE", scope: "ONE", status: "PENDING", stage: 1, participantIds: [learner.id],
+    currentOffer: {
+      id: "captured-location-offer", date: "2099-01-04", startMin: 950, endMin: 995,
+      roomId: online ? null : "offer-room", online,
+      startsAt: new Date("2099-01-04T07:50:00Z"), endsAt: new Date("2099-01-04T08:35:00Z"),
+      cutoffAt, schoolClosed: false, requiresExplicitAcceptance: true,
+      responses: [response], myResponse: response, canReject: true, canRequestSplit: false,
+    },
+  };
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.rooms.push({ id: "offer-room", name: "B202" });
+  state.data!.cohorts = [{ ...source, date: "2099-01-03", startsAt: cutoffAt,
+    endsAt: new Date("2099-01-03T07:45:00Z"), roomId: "room", roomName: "A101",
+    canRecordAttendance: false, needsAttendance: false }];
+  state.data!.tutoringPauses = [{ date: "2099-01-04", endDate: "2099-01-04", active: true, schedulingEffect: "PAUSE_REGULAR" }];
+  state.data!.requests = [request];
+  const view = show("tutee", locale);
+  const accept = screen.getByRole("button", { name: text.accept });
+  const card = accept.closest("article")!;
+  const expectedLocation = `${text.location}: ${online ? text.online : "B202"}`;
+  const formattedCutoff = new Intl.DateTimeFormat(locale, {
+    timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "short",
+  }).format(cutoffAt);
+  const exactRequirement = text.explicitBy.replace("{deadline}", formattedCutoff);
+  function verifyTerms(container: HTMLElement) {
+    expect(within(container).getByText(expectedLocation)).toBeTruthy();
+    const requirement = within(container).getByText(text.requiresExplicit).closest("p")!;
+    expect(requirement.textContent).toContain(exactRequirement);
+    expect(within(container).queryByText(text.deliveryPending)).toBeNull();
+    expect(container.textContent).not.toMatch(/short.notice|临近开始|24.?hour|24\s*小时/i);
+  }
+  verifyTerms(card);
+  expect(state.respond).not.toHaveBeenCalled();
+  fireEvent.click(accept);
+  const dialog = screen.getByRole("dialog", { name: text.accept });
+  verifyTerms(dialog);
+  expect(state.respond).not.toHaveBeenCalled();
+  // A live read can change while the user reviews. Confirmation must submit
+  // exactly the disclosed offer/version, never silently retarget that decision.
+  state.data = { ...state.data!, requests: [{ ...request, version: 8,
+    currentOffer: { ...request.currentOffer!, id: "replacement-location-offer", online: !online,
+      roomId: online ? "room" : null, cutoffAt: new Date("2099-01-05T07:00:00Z") } }] };
+  view.rerender(<NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={locale === "en" ? en : zh}>
+    <SessionAgenda role="tutee" />
+  </NextIntlClientProvider>);
+  verifyTerms(dialog);
+  expect(state.respond).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: text.accept })));
+  expect(state.respond).toHaveBeenCalledOnce();
+  expect(state.respond.mock.calls[0]?.[0]).toMatchObject({
+    requestId: request.id, expectedVersion: 7, offerId: "captured-location-offer", decision: "ACCEPT",
+  });
+});
+
+function pendingPhysicalConsent(roomAvailable: boolean) {
+  const source = state.data!.cohorts[0]!;
+  const learner = source.tutees[0]!;
+  const cutoffAt = new Date("2099-01-03T07:00:00Z");
+  const response = { id: "physical-response", actorKey: `tutee:${learner.id}`, name: learner.name,
+    state: "PENDING" as const, deadline: null, deliveredAt: null, acceptedBy: null, isMe: true };
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.cohorts = [{ ...source, date: "2099-01-03", startsAt: cutoffAt,
+    endsAt: new Date("2099-01-03T07:45:00Z"), roomId: "room", roomName: "A101",
+    canRecordAttendance: false, needsAttendance: false }];
+  if (roomAvailable) state.data!.rooms.push({ id: "requested-room", name: "B202" });
+  state.data!.requests = [{
+    id: "physical-request", version: 2, planId: source.planId, cohortId: source.id,
+    kind: "RESCHEDULE", scope: "ONE", status: "PENDING", stage: 3, participantIds: [learner.id],
+    currentOffer: {
+      id: "physical-offer", date: "2099-01-04", startMin: 950, endMin: 995,
+      roomId: "requested-room", online: false,
+      startsAt: new Date("2099-01-04T07:50:00Z"), endsAt: new Date("2099-01-04T08:35:00Z"),
+      cutoffAt, schoolClosed: false, requiresExplicitAcceptance: true,
+      responses: [response], myResponse: response, canReject: true, canRequestSplit: false,
+    },
+  }];
+}
+
+it.each(["en", "zh"] as const)("does not offer acceptance for an unknown physical room or relabel it Online/roomless (%s)", (locale) => {
+  const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+  pendingPhysicalConsent(false);
+  show("tutee", locale);
+  const accept = screen.getByRole<HTMLButtonElement>("button", { name: text.accept });
+  const card = accept.closest("article")!;
+  expect(within(card).getByText(`${text.location}: ${text.locationUnavailable}`)).toBeTruthy();
+  expect(within(card).queryByText(`${text.location}: ${text.online}`)).toBeNull();
+  expect(within(card).queryByText(`${text.location}: ${text.noRoom}`)).toBeNull();
+  expect(within(card).queryByText(`${text.location}: A101`)).toBeNull();
+  expect(accept.disabled).toBe(true);
+  fireEvent.click(accept);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(state.respond).not.toHaveBeenCalled();
+  const reject = within(card).getByRole<HTMLButtonElement>("button", { name: text.finalReject });
+  expect(reject.disabled).toBe(false);
+  fireEvent.click(reject);
+  expect(within(screen.getByRole("dialog")).getByRole<HTMLButtonElement>("button", { name: text.finalReject }).disabled).toBe(false);
+  expect(state.respond).not.toHaveBeenCalled();
+});
+
+it.each(["en", "zh"] as const)("blocks confirmation if the captured physical room disappears during acceptance review (%s)", (locale) => {
+  const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+  pendingPhysicalConsent(true);
+  const view = show("tutee", locale);
+  fireEvent.click(screen.getByRole("button", { name: text.accept }));
+  const dialog = screen.getByRole("dialog", { name: text.accept });
+  expect(within(dialog).getByText(`${text.location}: B202`)).toBeTruthy();
+  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: text.accept }).disabled).toBe(false);
+  state.data = { ...state.data!, rooms: state.data!.rooms.filter((room) => room.id !== "requested-room") };
+  view.rerender(<NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={locale === "en" ? en : zh}>
+    <SessionAgenda role="tutee" />
+  </NextIntlClientProvider>);
+  expect(within(dialog).getByText(`${text.location}: ${text.locationUnavailable}`)).toBeTruthy();
+  expect(within(dialog).queryByText(`${text.location}: ${text.online}`)).toBeNull();
+  expect(within(dialog).queryByText(`${text.location}: ${text.noRoom}`)).toBeNull();
+  const confirm = within(dialog).getByRole<HTMLButtonElement>("button", { name: text.accept });
+  expect(confirm.disabled).toBe(true);
+  fireEvent.click(confirm);
+  expect(state.respond).not.toHaveBeenCalled();
+});
+
 it.each(["en", "zh"] as const)(
   "keeps a SENT action-required outage visible with exact original/proposed context in %s and no retroactive action",
   (locale) => {
@@ -923,4 +1065,65 @@ it("a denied history read conceals tutoring caches while keeping independent fil
   expect(onViewChange).toHaveBeenCalledWith("all");
   fireEvent.click(screen.getByRole("button", { name: messages.retry }));
   expect(state.historyRetry).toHaveBeenCalledOnce();
+});
+
+it.each(["en", "zh"] as const)("shows a paused source without attendance duty and opens an exception in %s", (locale) => {
+  const catalog = locale === "en" ? en : zh;
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.tutoringPauses = [{ date: "2099-01-01", endDate: "2099-01-14", schedulingEffect: "PAUSE_REGULAR", active: true }];
+  state.data!.cohorts = [{ ...attendanceOccurrence, date: "2099-01-01", status: "CANCELLED", tutoringPaused: true,
+    canArrangeException: true, pausedTutees: attendanceOccurrence.tutees, tutees: [], needsAttendance: false, canRecordAttendance: false,
+    startsAt: new Date("2099-01-01T07:00:00Z"), endsAt: new Date("2099-01-01T07:45:00Z") }];
+  show("tutor", locale);
+  const card = screen.getByRole("article");
+  expect(within(card).getByText(catalog.sessionPlanning.tutoringPausedHelp)).toBeTruthy();
+  expect(within(card).queryByRole("button", { name: catalog.sessionPlanning.record })).toBeNull();
+  fireEvent.click(within(card).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
+  expect(screen.getByRole("dialog").textContent).toContain(catalog.sessionPlanning.tutoringPauseProposal);
+  expect(state.propose).not.toHaveBeenCalled();
+});
+
+it("keeps a mixed cohort attendance roster separate from the paused exception audience", () => {
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.cohorts = [{ ...attendanceOccurrence, date: "2099-01-01", canArrangeException: true,
+    tutees: [{ id: "remaining", name: "Remaining Learner" }],
+    pausedTutees: [{ id: "paused", name: "Paused Learner" }],
+    startsAt: new Date("2099-01-01T07:00:00Z"), endsAt: new Date("2099-01-01T07:45:00Z") }];
+  show();
+  const card = screen.getByRole("article");
+  expect(within(card).getByText("Remaining Learner")).toBeTruthy();
+  expect(within(card).queryByText(messages.tutoringPausedHelp)).toBeNull();
+  expect(within(card).getByRole("button", { name: messages.record })).toBeTruthy();
+  fireEvent.click(within(card).getByRole("button", { name: messages.arrangeException }));
+  expect(screen.getByRole("dialog").textContent).toContain("Paused Learner");
+  expect(screen.getByRole("dialog").textContent).not.toContain("Remaining Learner");
+});
+
+it.each([null, new Date("2099-01-01T00:00:00Z")])("an exception response shows explicit consent before or after delivery (%s)", (deliveredAt) => {
+  const now = new Date("2099-01-01T00:00:00Z");
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <SessionResponseDeadline deliveredAt={deliveredAt} deadline={new Date("2099-01-02T00:00:00Z")} cutoffAt={new Date("2099-01-03T00:00:00Z")} now={now} requiresExplicitAcceptance />
+  </NextIntlClientProvider>);
+  expect(screen.getByText(messages.requiresExplicit)).toBeTruthy();
+  expect(screen.getByText(/Silence does not accept this offer/).textContent)
+    .toMatch(/Jan 3, 2099.*8:00 AM/);
+  expect(screen.queryByText(messages.deliveryPending)).toBeNull();
+  expect(screen.queryByText(/24h/)).toBeNull();
+  expect(screen.queryByText(/remaining/i)).toBeNull();
+});
+
+it("keeps ordinary agenda actions usable when optional pause metadata is absent", () => {
+  delete state.data!.tutoringPauses;
+  for (const cohort of state.data!.cohorts) {
+    delete cohort.tutoringPaused;
+    delete cohort.canArrangeException;
+    delete cohort.pausedTutees;
+  }
+  show();
+  const card = screen.getByRole("article");
+  expect(within(card).getByText(/Remaining Learner/)).toBeTruthy();
+  expect(within(card).getByRole("button", { name: messages.record })).toBeTruthy();
+  expect(within(card).queryByRole("button", { name: messages.arrangeException })).toBeNull();
 });

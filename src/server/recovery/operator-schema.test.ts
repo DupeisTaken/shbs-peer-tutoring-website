@@ -5,6 +5,70 @@ import {
 } from "./operator-schema";
 
 describe("static operator recovery schema review", () => {
+  it("reviews tutoring policy columns together while retaining complete older backups", () => {
+    const { columns, enums } = reviewedRecoverySchemaMetadata;
+    const old = columns.filter(
+      (row) =>
+        row.table_name !== "ProgramCalendarPolicyRevision" &&
+        !(
+          row.table_name === "ProgramCalendarDay" &&
+          row.column_name === "schedulingEffect"
+        ) &&
+        !(
+          row.table_name === "SessionPlanParticipant" &&
+          row.column_name === "tutoringPauseSuppressed"
+        ),
+    );
+    for (const provenance of [
+      [],
+      reviewedRecoverySchemaMetadata.importProvenanceColumns,
+    ]) {
+      expect(() =>
+        assertReviewedRecoverySchema([...old, ...provenance], enums),
+      ).not.toThrow();
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns.filter(
+              (row) => row.table_name !== "ProgramCalendarPolicyRevision",
+            ),
+            ...provenance,
+          ],
+          enums,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns.filter(
+              (row) =>
+                !(
+                  row.table_name === "ProgramCalendarPolicyRevision" &&
+                  row.column_name === "effectiveAt"
+                ),
+            ),
+            ...provenance,
+          ],
+          enums,
+        ),
+      ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns.filter(
+              (row) =>
+                !(
+                  row.table_name === "ProgramCalendarDay" &&
+                  row.column_name === "schedulingEffect"
+                ),
+            ),
+            ...provenance,
+          ],
+          enums,
+        ),
+      ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    }
+  });
   it("accepts complete import-boundary metadata across reviewed schema versions and refuses partial or widened tables", () => {
     const metadata = reviewedRecoverySchemaMetadata;
     for (const columns of [
