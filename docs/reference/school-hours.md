@@ -235,6 +235,62 @@ intact instead of guessing legal parts from display labels. Names and identity
 provenance are frozen with the edition. CSV uses the shared quoting, Unicode and
 formula-protection helper.
 
+## School-recipient reminders and link visits
+
+The emailed report link now uses a recipient-specific `v2` capability from
+[the recipient helper](../../src/server/school-hours-recipient-token.ts). It binds
+the delivery receipt, report, current link version and exact original mailbox
+under a separate HMAC purpose. The URL exposes no mailbox. Shared `v1` report
+links remain readable and cannot authorize a reminder or identify a recipient.
+New personal links support the same report-only HTML and CSV without a site login;
+forwarding a personal link never changes its reminder destination.
+
+On the public report, **Remind me later / 稍后提醒我** opens a native date/time
+form. The review shows the report timezone and masked original mailbox. Only a
+deliberate same-origin POST can schedule or cancel; there is no address field,
+resend-to-all action, management approval or new management scheduling control.
+The request body is streamed with a 2 KiB bound, strict fields and duplicate-key
+rejection. Public report CSP permits same-origin forms only on personal pages;
+scripts, external resources and embedding remain blocked. Explicit HEAD and
+prefetch handling never record an opening or create mail.
+
+The [recipient service](../../src/server/school-hours-recipient.ts) rechecks the
+capability and uses the reporting/transport fence for writes. Each reminder has
+an independent `EmailDelivery` receipt, source receipt, selected UTC instant,
+reviewed link version and intent fingerprint. Exact UUID retries recover the
+same accepted result, even after the selected time; they cannot alter the target
+or selected time. One unfinished reminder per original recipient receipt and at
+most five accepted reminder requests in 24 hours bound deliberate scheduling,
+including cancelled requests. Cancellation stops only that recipient's pending,
+blocked or failed reminder; it cannot interrupt SMTP already admitted as SENDING.
+Original delivery evidence and financial snapshots never change.
+
+The automatic monthly issuance toggle does not govern recipient-requested
+reminders. Current recipient eligibility, global program mail, Service Hours,
+valid report/link state and the transport still govern actual delivery. Revoked,
+replaced or reissued links cannot be used to initiate or send an old reminder.
+The existing dispatcher checks due work every 30 seconds while the app runs;
+outages and bounded transport retries may delay delivery. The selected instant
+survives backoff. A blocked/failed reminder can be cancelled on the personal page,
+then scheduled again. Management Retry continues to affect original deliveries
+only, and original report-list counts exclude recipient reminders.
+
+For valid personal HTML GET requests, the first link visit is recorded on that exact
+email receipt as `schoolHoursLinkOpenedAt`. CSV, HEAD and prefetch do not record
+it. No tracking pixel, IP, user-agent, visit count or claimed reader identity is
+stored. Recording failure does not prevent viewing the saved report. Existing
+authorized **Delivery history** displays **Report link opened** with its timestamp
+or **No report-link opening recorded**, separately from SMTP status. A scanner or
+forwarded link can cause a visit; this is not an email-read receipt or confirmation
+that school hours were posted. The public report displays no other recipient's
+address, reminders or engagement history. Existing links have no invented history.
+
+Apply `20261111020000_school_recipient_reminders` and regenerate Prisma. Existing
+rows retain the `initial` send key; reminder rows use distinct keys while the
+existing school-mail context-null constraint remains intact. This feature layers
+on the single-language notification email and compact report design in PR #653;
+recipient reminders use the same immutable report and brief email layout.
+
 ## Authority and deployment
 
 The settings editor adopts its configuration version and initial reporting month
@@ -250,7 +306,8 @@ Admin, Head and Coordinator can inspect management previews and reports; Viewer
 and participant roles cannot. Admin/Head apply settings directly; Coordinators
 propose settings changes for review. Opening-baseline review, issuance, retry and
 link management require direct Admin/Head authority. Public capabilities confer
-no management or write access.
+no management access. Shared links are read-only; personal links authorize only
+their original mailbox's reminder requests.
 
 Apply the complete reporting migration chain through
 `20261108010000_school_hours_recipient_labels` and the prospective archive-boundary

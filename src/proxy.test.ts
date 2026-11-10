@@ -22,6 +22,7 @@ const event = { waitUntil: () => undefined } as unknown as NextFetchEvent;
 it("leaves only school capability report handlers public, independently of site cookies", async () => {
   for (const path of [
     "/reports/service-hours/sample-token",
+    "/reports/service-hours/v2.recipient-receipt.1.signature",
     "/reports/service-hours/sample-token/csv",
   ]) {
     const response = await proxy(

@@ -668,6 +668,28 @@ it("retains CSV formula protection, frozen names and signed exact values", () =>
   expect(csv.content).not.toContain("private-person");
 });
 
+it("allows native recipient forms without exposing capability referrers cross-site", async () => {
+  const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
+  const personal = schoolHoursHtmlResponse(report, "synthetic-personal", {
+    recipientPanel: "<section>synthetic reminder form</section>",
+  });
+  expect(personal.headers.get("Referrer-Policy")).toBe("same-origin");
+  expect(personal.headers.get("Content-Security-Policy")).toContain(
+    "form-action 'self'",
+  );
+  expect(await personal.text()).toContain(
+    '<meta name="referrer" content="same-origin">',
+  );
+  const shared = schoolHoursHtmlResponse(report, "synthetic-shared");
+  expect(shared.headers.get("Referrer-Policy")).toBe("no-referrer");
+  expect(shared.headers.get("Content-Security-Policy")).toContain(
+    "form-action 'none'",
+  );
+  expect(await shared.text()).toContain(
+    '<meta name="referrer" content="no-referrer">',
+  );
+});
+
 it.each([2, 3])(
   "keeps revision %s exact alternatives wrapping in both columns of full-span Details",
   (revision) => {

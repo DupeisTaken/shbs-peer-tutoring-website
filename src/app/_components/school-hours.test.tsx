@@ -250,6 +250,9 @@ function report(): RouterOutputs["schoolHours"]["report"] {
         lastError: "Safe diagnostic",
         completedAt: null,
         availableAt: timestamp,
+        schoolHoursLinkOpenedAt: null,
+        schoolHoursReminderSourceId: null,
+        schoolHoursScheduledFor: null,
       },
     ],
   };

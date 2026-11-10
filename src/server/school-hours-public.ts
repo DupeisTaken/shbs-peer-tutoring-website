@@ -100,8 +100,12 @@ export const schoolHoursResponseHeaders = {
     "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
 } as const;
 
-function htmlDocument(title: string, content: string) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="no-referrer"><title>${escapeSchoolHours(title)}</title><style>
+function htmlDocument(
+  title: string,
+  content: string,
+  referrerPolicy: "no-referrer" | "same-origin" = "no-referrer",
+) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="${referrerPolicy}"><title>${escapeSchoolHours(title)}</title><style>
 *{box-sizing:border-box}body{margin:0;background:#EAF0F7;color:#0F172A;font-family:Arial,"Microsoft YaHei",sans-serif}main{max-width:960px;margin:auto;padding:32px 20px 56px}h1{font-size:clamp(25px,5vw,32px);line-height:1.2;letter-spacing:-.025em}a.button{display:inline-block;padding:13px 18px;background:#0D59E6;color:white;border-radius:8px;text-decoration:none;font-weight:700}a:focus-visible,summary:focus-visible,.school-table-scroll:focus-visible{outline:3px solid #2563EB;outline-offset:4px}.privacy{font-size:13px;line-height:1.7;color:#475569;border-top:1px solid #CBD5E1;margin-top:28px;padding-top:16px}th,td{font-variant-numeric:tabular-nums}.school-table-scroll{overflow-x:auto;border:1px solid #CBD5E1;border-radius:10px;background:white}.school-hours-table{width:100%;min-width:700px;table-layout:fixed;border-collapse:collapse;font-size:14px;line-height:1.6}.school-hours-table caption{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.school-hours-table th,.school-hours-table td{padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}.school-hours-table thead{background:#F8FAFC}.school-hours-table thead th{font-size:12px;font-weight:600;color:#475569;border-bottom:1px solid #CBD5E1}.school-summary .person-identity{font-weight:650}.school-account{display:block;margin-top:3px;font-size:12px;font-weight:400;color:#475569}.column-note{display:block;font-size:11px;font-weight:400}.school-hours-table .posting{background:#EFF6FF}.school-summary .posting{font-size:18px;font-weight:750}.school-hours-table .person-detail-row>td{padding:0;border-bottom:1px solid #CBD5E1}.person-details{background:#F8FAFC}.person-details summary{position:sticky;left:0;width:min(100%,calc(100vw - 52px));cursor:pointer;min-height:24px;padding:4px 12px;color:#1D4ED8;font-size:13px;font-weight:600;text-align:right;list-style-position:inside}.person-details summary::marker{font-size:11px}.person-details summary::after{content:"";display:block;clear:both}.mobile-row-context{display:none}.person-detail-content{position:sticky;left:0;max-width:min(100%,calc(100vw - 52px));padding:0 12px 12px;font-size:14px;line-height:1.7;overflow-wrap:anywhere}.person-detail-content p{margin:10px 0}.table-scroll-hint{display:none;font-size:12px;line-height:1.6;color:#475569}@media(max-width:1023px){.person-details summary{min-height:44px;padding:11px 12px}}@media(max-width:740px){.table-scroll-hint{display:block}.mobile-row-context{display:block;float:left;max-width:calc(100% - 106px);text-align:left;color:#0F172A;font-weight:400}.mobile-row-context strong{font-weight:750}}@media(max-width:480px){main{padding:20px 12px 40px}}@media print{body{background:white}main{padding:0}.button,.privacy,.table-scroll-hint{display:none}.school-table-scroll{overflow:visible;border:0}.school-hours-table{min-width:0}.person{break-inside:avoid}details{display:none}.person-details{display:block}.person-details::details-content{content-visibility:visible}.person-details>summary{display:none!important}.person-detail-content{position:sticky;left:0;max-width:100%}}
 </style></head><body><main>${content}</main></body></html>`;
 }
@@ -127,16 +131,29 @@ export function schoolHoursUnavailableResponse(
 export function schoolHoursHtmlResponse(
   report: SchoolHoursPublicReport,
   token: string,
+  options: { recipientPanel?: string; status?: number } = {},
 ) {
   const download = `/reports/service-hours/${encodeURIComponent(token)}/csv`;
   return new Response(
     htmlDocument(
       schoolHoursHeading(report.month),
-      `<p style="color:#475569">Individual school-account changes / 个人学校账户时数变化</p><h1>${escapeSchoolHours(schoolHoursHeading(report.month))}</h1>${renderSchoolHoursContent(report)}<p style="margin-top:24px"><a class="button" href="${escapeSchoolHours(download)}" rel="noreferrer">Download CSV / 下载 CSV</a></p><p class="privacy">Anyone possessing this link can view this saved report. Share it only with intended school recipients. Report access grants no account or management access.<br>任何持有此链接的人均可查看本报告。请仅向预期学校收件人分享；此链接不授予账户或管理权限。</p>`,
+      `<p style="color:#475569">Individual school-account changes / 个人学校账户时数变化</p><h1>${escapeSchoolHours(schoolHoursHeading(report.month))}</h1>${options.recipientPanel ?? ""}${renderSchoolHoursContent(report)}<p style="margin-top:24px"><a class="button" href="${escapeSchoolHours(download)}" rel="noreferrer">Download CSV / 下载 CSV</a></p><p class="privacy">Anyone possessing this link can view this saved report. Share it only with intended school recipients. Report access grants no account or management access.<br>任何持有此链接的人均可查看本报告。请仅向预期学校收件人分享；此链接不授予账户或管理权限。</p>`,
+      options.recipientPanel ? "same-origin" : "no-referrer",
     ),
     {
+      status: options.status ?? 200,
       headers: {
         ...schoolHoursResponseHeaders,
+        ...(options.recipientPanel
+          ? {
+              // Native forms need their Origin; cross-site referrers still omit
+              // the capability, while legacy read-only pages keep no-referrer.
+              "Referrer-Policy": "same-origin",
+              "Content-Security-Policy": schoolHoursResponseHeaders[
+                "Content-Security-Policy"
+              ].replace("form-action 'none'", "form-action 'self'"),
+            }
+          : {}),
         "Content-Type": "text/html; charset=utf-8",
       },
     },

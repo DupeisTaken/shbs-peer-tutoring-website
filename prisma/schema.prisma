@@ -2667,11 +2667,22 @@ model EmailDelivery {
   monthlyHoursReport MonthlyHoursReport? @relation(fields: [monthlyHoursReportId], references: [id], onDelete: Restrict)
   schoolHoursReportId String?
   schoolHoursReport SchoolHoursReport? @relation(fields: [schoolHoursReportId], references: [id], onDelete: Restrict)
+  /// Each recipient-requested reminder retains its own durable send receipt.
+  schoolHoursSendKey String @default("initial")
+  schoolHoursReminderSourceId String?
+  schoolHoursReminderSource EmailDelivery? @relation("SchoolHoursReminders", fields: [schoolHoursReminderSourceId], references: [id], onDelete: Restrict)
+  schoolHoursReminders EmailDelivery[] @relation("SchoolHoursReminders")
+  schoolHoursScheduledFor DateTime?
+  schoolHoursReminderLinkVersion Int?
+  schoolHoursReminderIntentHash String?
+  /// First authenticated personal-link GET; not proof of a human reading email.
+  schoolHoursLinkOpenedAt DateTime?
   @@index([status, availableAt])
   @@index([sourceNotificationId])
   @@unique([requestKind, requestId, requestVersion])
   @@unique([monthlyHoursReportId, recipient])
-  @@unique([schoolHoursReportId, recipient])
+  @@unique([schoolHoursReportId, recipient, schoolHoursSendKey], map: "EmailDelivery_school_recipient_send_key")
+  @@index([schoolHoursReminderSourceId, createdAt])
 }
 
 /// Archive evidence is retained without granting current workflow or reporting authority.
