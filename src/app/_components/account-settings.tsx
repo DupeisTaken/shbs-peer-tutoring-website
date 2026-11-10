@@ -1,4 +1,8 @@
 "use client";
+import {
+  NEW_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "~/lib/password-contract";
 import { CodeInput } from "~/app/_components/ui/code-field";
 import {
   ConfiguredPersonNameFields as PersonNameFields,
@@ -219,8 +223,12 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     )
       return;
     setPwError(null);
-    if (next.length < 8) {
+    if (next.length < NEW_PASSWORD_MIN_LENGTH) {
       setPwError(t("tutor.settings.pwTooShort"));
+      return;
+    }
+    if (next.length > PASSWORD_MAX_LENGTH) {
+      setPwError(t("tutor.settings.pwTooLong", { max: PASSWORD_MAX_LENGTH }));
       return;
     }
     if (next !== confirm) {
@@ -247,6 +255,18 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
       !code.trim()
     )
       return;
+    if (next.length < NEW_PASSWORD_MIN_LENGTH) {
+      setPwError(t("tutor.settings.pwTooShort"));
+      return;
+    }
+    if (next.length > PASSWORD_MAX_LENGTH) {
+      setPwError(t("tutor.settings.pwTooLong", { max: PASSWORD_MAX_LENGTH }));
+      return;
+    }
+    if (next !== confirm) {
+      setPwError(t("tutor.settings.pwMismatch"));
+      return;
+    }
     passwordSubmitting.current = true;
     setPwError(null);
     changePassword.mutate({
@@ -541,7 +561,8 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                 onChange={(e) => setNext(e.target.value)}
                 type="password"
                 autoComplete="new-password"
-                minLength={8}
+                minLength={NEW_PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
                 disabled={!!sentTo}
                 className="input"
               />
@@ -558,6 +579,8 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                 onChange={(e) => setConfirm(e.target.value)}
                 type="password"
                 autoComplete="new-password"
+                minLength={NEW_PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
                 disabled={!!sentTo}
                 className="input"
               />

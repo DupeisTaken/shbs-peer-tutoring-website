@@ -5,7 +5,7 @@ import { currentAcademicInput, academicSummary } from "~/lib/academics";
 import { confirmCurrentAccountAcademics } from "~/server/academics";
 import { membershipSchema } from "~/lib/account-membership";
 import { queueProposal } from "~/server/approvals";
-import { updateAccountProfile } from "~/server/account-profile";
+import { lockAccountProfile, updateAccountProfile } from "~/server/account-profile";
 import {
   requestSecondaryEmail,
   confirmSecondaryEmail,
@@ -18,10 +18,12 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
-import { ensureUserUsername } from "~/server/auth/username";
+import { ensureUserUsername, lockUsernameNamespace } from "~/server/auth/username";
+import { lockEntity } from "~/server/transactions";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
 import { getFeatures } from "~/server/program/features";
 import { maskEmail } from "~/server/auth/mask";
+import { NEW_PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "~/lib/password-contract";
 import { notifyAdmins } from "~/server/notifications/create";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { eligibleReviewRecipient } from "~/server/email/notification-policy";
@@ -391,10 +393,17 @@ export const accountRouter = createTRPCRouter({
       z.object({ message: z.string().trim().min(1, "Tell us why.").max(1000) }),
     )
     .mutation(async ({ ctx, input }) => {
+      // The audited transaction keeps this order through notification creation.
+      // The User row also fences reinstatement, suspension and credential writes.
+      await lockUsernameNamespace(ctx.db);
+      await lockEntity(ctx.db, "program:leadership");
+      await lockAccountProfile(ctx.db, ctx.session.user.id);
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
-        select: { suspendedAt: true, name: true },
+        select: { suspendedAt: true, name: true, mergedIntoId: true, recoveryVoidedAt: true },
       });
+      if (user.mergedIntoId || user.recoveryVoidedAt)
+        throw new TRPCError({ code: "UNAUTHORIZED" });
       if (!user.suspendedAt) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -422,7 +431,7 @@ export const accountRouter = createTRPCRouter({
         title: "Account appeal",
         body: `${user.name ?? "A suspended user"} submitted an appeal.`,
         link: "/admin/users",
-      });
+      }, undefined, ctx.db);
       return { ok: true };
     }),
 
@@ -549,7 +558,7 @@ export const accountRouter = createTRPCRouter({
     .input(
       z.object({
         currentPassword: z.string().min(1).max(1024),
-        newPassword: z.string().min(8, "Use at least 8 characters.").max(1024),
+        newPassword: z.string().min(NEW_PASSWORD_MIN_LENGTH, "Use at least 8 characters.").max(PASSWORD_MAX_LENGTH),
         code: z.string().trim().optional(),
       }),
     )

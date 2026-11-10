@@ -60,6 +60,7 @@ COPY --from=build /app/src/lib/notification-events.ts /runtime-output/app/src/li
 COPY --from=build /app/src/lib/notification-facts.ts /runtime-output/app/src/lib/notification-facts.ts
 COPY --from=build /app/src/lib/pairing-group-eligibility.ts /runtime-output/app/src/lib/pairing-group-eligibility.ts
 COPY --from=build /app/src/lib/pairing-groups.ts /runtime-output/app/src/lib/pairing-groups.ts
+COPY --from=build /app/src/lib/password-contract.ts /runtime-output/app/src/lib/password-contract.ts
 COPY --from=build /app/src/lib/period.ts /runtime-output/app/src/lib/period.ts
 COPY --from=build /app/src/lib/person-name.ts /runtime-output/app/src/lib/person-name.ts
 COPY --from=build /app/src/lib/planned-scheduling.ts /runtime-output/app/src/lib/planned-scheduling.ts

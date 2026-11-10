@@ -544,7 +544,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Cargando los ajustes de autenticación de dos factores…",
+        "loadFailed": "No se pudieron cargar los ajustes de autenticación de dos factores.",
+        "refreshFailed": "No se pudieron actualizar los ajustes de autenticación de dos factores. La contraseña introducida se conserva; vuelve a intentarlo antes de cambiar el ajuste.",
+        "refreshing": "Actualizando los ajustes de autenticación de dos factores…",
+        "accessDenied": "El acceso a los ajustes de autenticación de dos factores no está disponible.",
+        "savedRefreshFailed": "El cambio de autenticación de dos factores se guardó, pero no se pudieron actualizar los ajustes. Vuelve a cargar los datos sin guardar de nuevo."
       }
     },
     "forgotPassword": "¿Olvidaste tu contraseña?",
@@ -577,7 +583,8 @@
         "confirmPassword": "Confirmar nueva contraseña"
       },
       "submit": "Establecer nueva contraseña",
-      "saving": "Guardando…"
+      "saving": "Guardando…",
+      "passwordLength": "Usa entre {min} y {max} caracteres."
     },
     "onboarding": {
       "proofRequired": "Abre el enlace enviado al correo de tu cuenta para verificar que te pertenece y establecer una contraseña. Si no puedes acceder a esa dirección, contacta con el equipo del programa. Gestiona la autenticación de dos factores después de iniciar sesión.",
@@ -1295,7 +1302,22 @@
         "deny": "Denegar",
         "review": "Revisar apelación",
         "message": "Apelación original",
-        "refreshFailed": "La decisión se guardó, pero no se pudo actualizar la cuenta o la lista de apelaciones. Vuelve a intentar la actualización sin enviar de nuevo la decisión."
+        "refreshFailed": "La decisión se guardó, pero no se pudo actualizar la cuenta o la lista de apelaciones. Vuelve a intentar la actualización sin enviar de nuevo la decisión.",
+        "restrictionHeading": "Restricción de cuenta en revisión",
+        "restricted": "Suspendida",
+        "active": "Ya está activa",
+        "restrictedAt": "Suspendida el {date}",
+        "submittedAt": "Apelación enviada el {date}",
+        "noReason": "No consta un motivo de suspensión actual.",
+        "coResolveHelp": "Aprobar restablece el acceso y resuelve todas las apelaciones pendientes de esta cuenta con un único aviso de resultado.",
+        "activeHelp": "Esta cuenta ya está activa. Aprobar cierra todas las apelaciones pendientes sin cambiar el acceso. No se puede rechazar.",
+        "reloadReview": "Recargar la restricción actual",
+        "reviewChanged": "Esta apelación o la restricción actual de la cuenta ha cambiado. Recarga la revisión antes de decidir.",
+        "reviewUnavailable": "No se pudieron confirmar los datos actuales de la revisión. La revisión capturada se conserva; vuelve a cargar los datos antes de decidir.",
+        "approveClose": "Aprobar y cerrar apelaciones",
+        "accessRestored": "Se restableció el acceso a la cuenta y se aprobaron todas las apelaciones pendientes.",
+        "closedActive": "Se cerraron todas las apelaciones pendientes. La cuenta ya estaba activa y el acceso no cambió.",
+        "deniedReceipt": "Se rechazó la apelación seleccionada. Esta decisión no levantó la suspensión de la cuenta."
       }
     },
     "submissions": {
@@ -2491,7 +2513,7 @@
       "currentPassword": "Contraseña actual",
       "newPassword": "Nueva contraseña",
       "confirmPassword": "Confirmar nueva contraseña",
-      "pwHelp": "Al menos 8 caracteres.",
+      "pwHelp": "Usa entre 8 y 1024 caracteres.",
       "changePasswordBtn": "Cambiar contraseña",
       "changing": "Cambiando…",
       "passwordChanged": "Contraseña cambiada.",
@@ -2512,7 +2534,8 @@
       "reentryBtn": "Solicitar reincorporación",
       "recall": "Cancelar solicitud",
       "statusNote": "Tu estado como tutor es {status}. Este es acceso de solo lectura — contacta a un administrador para realizar cambios.",
-      "profileSyncFailed": "Tu perfil se guardó, pero no se pudo actualizar la vista. Reintenta la actualización sin volver a enviarlo."
+      "profileSyncFailed": "Tu perfil se guardó, pero no se pudo actualizar la vista. Reintenta la actualización sin volver a enviarlo.",
+      "pwTooLong": "Usa como máximo {max} caracteres."
     },
     "dashboard": {
       "pending": {
@@ -2967,7 +2990,10 @@
     "send": "Enviar código de verificación",
     "code": "Código de verificación por correo",
     "confirm": "Verificar y cambiar correo",
-    "success": "Se ha cambiado tu correo."
+    "success": "Se ha cambiado tu correo.",
+    "sentTo": "Introduce el código de verificación enviado a {email}.",
+    "changeAddress": "Usar otro correo",
+    "savedRefreshFailed": "Tu correo se ha cambiado, pero no se pudieron actualizar los datos de la cuenta. Reintenta la actualización sin volver a enviar el código."
   },
   "profileCorrection": {
     "edit": "Editar detalles",

@@ -642,7 +642,10 @@ docker compose exec -e BOOTSTRAP_ADMIN_EMAIL -e BOOTSTRAP_ADMIN_PASSWORD \
 unset BOOTSTRAP_ADMIN_PASSWORD
 ```
 
-The command requires at least 12 password characters. It creates one HEAD and an active period
+The command requires 12–1,024 password characters and rejects invalid length before
+hashing or opening its database client. Preserve the exact password, including
+intentional leading/trailing spaces. This stronger minimum is separate from ordinary
+password reset/change requirements. It creates one HEAD and an active period
 when missing; rerunning it preserves the HEAD and existing active period while deliberately
 resetting the named account's password. A second account becomes ADMIN. Without period arguments,
 the school year defaults at the August boundary and the initial quarter is Q1. Set them explicitly

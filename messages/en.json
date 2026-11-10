@@ -544,7 +544,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Loading two-factor settings…",
+        "loadFailed": "Two-factor settings could not be loaded.",
+        "refreshFailed": "Two-factor settings could not be refreshed. Your password draft is retained; retry before changing the setting.",
+        "refreshing": "Refreshing two-factor settings…",
+        "accessDenied": "Access to two-factor settings is unavailable.",
+        "savedRefreshFailed": "The two-factor change was saved, but settings could not be refreshed. Retry the reads without saving again."
       }
     },
     "forgotPassword": "Forgot password?",
@@ -577,7 +583,8 @@
         "confirmPassword": "Confirm New Password"
       },
       "submit": "Set New Password",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "passwordLength": "Use {min}–{max} characters."
     },
     "onboarding": {
       "proofRequired": "Open the link sent to your account email to verify ownership and set a password. If you cannot access this address, contact the program team. Manage two-factor authentication after signing in.",
@@ -1303,7 +1310,22 @@
         "deny": "Deny",
         "review": "Review appeal",
         "message": "Original appeal",
-        "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again."
+        "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again.",
+        "restrictionHeading": "Account restriction under review",
+        "restricted": "Suspended",
+        "active": "Already active",
+        "restrictedAt": "Suspended {date}",
+        "submittedAt": "Appeal submitted {date}",
+        "noReason": "No current suspension reason recorded.",
+        "coResolveHelp": "Approve restores access and resolves all pending appeals for this account with one outcome notice.",
+        "activeHelp": "This account is already active. Approve closes all pending appeals without changing access. Deny is unavailable.",
+        "reloadReview": "Reload current restriction review",
+        "reviewChanged": "This appeal or the current account restriction changed. Reload the review before deciding.",
+        "reviewUnavailable": "Current review data could not be confirmed. Your captured review is retained; retry the reads before deciding.",
+        "approveClose": "Approve and close appeals",
+        "accessRestored": "Account access was restored and all pending appeals were approved.",
+        "closedActive": "All pending appeals were closed. Account access was already active and did not change.",
+        "deniedReceipt": "The selected appeal was denied. This decision did not lift the account suspension."
       }
     },
     "registrationCodes": {
@@ -2500,7 +2522,7 @@
       "currentPassword": "Current Password",
       "newPassword": "New Password",
       "confirmPassword": "Confirm New Password",
-      "pwHelp": "At least 8 characters.",
+      "pwHelp": "Use 8–1024 characters.",
       "changePasswordBtn": "Change Password",
       "changing": "Changing…",
       "passwordChanged": "Password changed.",
@@ -2520,7 +2542,8 @@
       "reentryBtn": "Request Reentry",
       "recall": "Recall Request",
       "statusNote": "Your tutor status is {status}. This is read-only access — contact an admin for changes.",
-      "profileSyncFailed": "Your profile was saved, but refreshing failed. Retry refresh without submitting again."
+      "profileSyncFailed": "Your profile was saved, but refreshing failed. Retry refresh without submitting again.",
+      "pwTooLong": "Use no more than {max} characters."
     },
     "dashboard": {
       "pending": {
@@ -2967,7 +2990,10 @@
     "send": "Send Verification Code",
     "code": "Email verification code",
     "confirm": "Verify and Change Email",
-    "success": "Your email has been changed."
+    "success": "Your email has been changed.",
+    "sentTo": "Enter the verification code sent to {email}.",
+    "changeAddress": "Use another email",
+    "savedRefreshFailed": "Your email was changed, but the account details could not be refreshed. Retry refresh without submitting the code again."
   },
   "profileCorrection": {
     "edit": "Edit Details",

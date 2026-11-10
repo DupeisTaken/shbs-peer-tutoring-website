@@ -8,6 +8,8 @@ import { QueryFeedback } from "./ui/query-feedback";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import { DisclosureSection } from "./ui/disclosure-section";
+import { EmailChange } from "./email-change";
 import {
   NotificationPreferenceFields,
   type NotificationPreferenceChoice,
@@ -17,6 +19,7 @@ import {
  * Form actions retain 44px touch targets; compact desktop address actions share 32px rows. */
 export function AccountEmails() {
   const t = useTranslations("accountEmails");
+  const primary = useTranslations("emailChange");
   const utils = api.useUtils();
   const settings = api.account.emailSettings.useQuery();
   const [email, setEmail] = useState("");
@@ -273,6 +276,11 @@ export function AccountEmails() {
             )}
           </>
         )}
+        {/* Primary replacement has independent password/mailbox proof and does
+         * not depend on the optional secondary-address binding gate. */}
+        <DisclosureSection title={primary("title")} lifetime="retained">
+          <EmailChange embedded />
+        </DisclosureSection>
         {notice && (
           <p role="status" className="text-sm text-green-700">
             {notice}

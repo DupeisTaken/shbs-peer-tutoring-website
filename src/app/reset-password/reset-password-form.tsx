@@ -5,10 +5,17 @@ import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { resetPasswordAction } from "./actions";
+import {
+  NEW_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "~/lib/password-contract";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const t = useTranslations();
-  const [state, formAction, pending] = useActionState(resetPasswordAction, undefined);
+  const [state, formAction, pending] = useActionState(
+    resetPasswordAction,
+    undefined,
+  );
   const [valid, setValid] = useState(false);
 
   if (state?.ok) {
@@ -22,7 +29,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
             {state.username ?? state.email}
           </p>
         </div>
-        <Link href="/signin?reason=password-changed" className="btn-primary inline-block">
+        <Link
+          href="/signin?reason=password-changed"
+          className="btn-primary inline-block"
+        >
           {t("auth.reset.goToSignIn")}
         </Link>
       </div>
@@ -43,10 +53,18 @@ export function ResetPasswordForm({ token }: { token: string }) {
           name="password"
           type="password"
           required
-          minLength={8}
+          minLength={NEW_PASSWORD_MIN_LENGTH}
+          maxLength={PASSWORD_MAX_LENGTH}
+          aria-describedby="reset-password-length"
           autoComplete="new-password"
           className="input"
         />
+        <span id="reset-password-length" className="muted block text-xs">
+          {t("auth.reset.passwordLength", {
+            min: NEW_PASSWORD_MIN_LENGTH,
+            max: PASSWORD_MAX_LENGTH,
+          })}
+        </span>
       </label>
 
       <label className="space-y-1">
@@ -55,7 +73,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
           name="confirm"
           type="password"
           required
-          minLength={8}
+          minLength={NEW_PASSWORD_MIN_LENGTH}
+          maxLength={PASSWORD_MAX_LENGTH}
           autoComplete="new-password"
           className="input"
         />
@@ -63,11 +82,20 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
       {state?.error && (
         <p role="alert" className="text-sm text-red-600">
-          {state.error}
+          {state.code === "password-length"
+            ? t("auth.reset.passwordLength", {
+                min: NEW_PASSWORD_MIN_LENGTH,
+                max: PASSWORD_MAX_LENGTH,
+              })
+            : state.error}
         </p>
       )}
 
-      <button type="submit" disabled={pending || !valid} className="btn-primary mt-1 w-full">
+      <button
+        type="submit"
+        disabled={pending || !valid}
+        className="btn-primary mt-1 w-full"
+      >
         {pending ? t("auth.reset.saving") : t("auth.reset.submit")}
       </button>
     </form>

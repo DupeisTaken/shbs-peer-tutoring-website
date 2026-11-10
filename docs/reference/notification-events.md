@@ -756,13 +756,18 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 ### account_appeal_approved
 
 - Recipient: Appealing account.
-- Trigger: Management approves account appeal and reinstates access. [Emitter](../../src/server/api/routers/admin.ts).
+- Trigger: Management approves the currently reviewed account appeal and co-resolves that account's pending appeals. Suspended accounts regain access; already-active accounts close the appeals with access unchanged. Earlier terminal appeals remain unchanged. [Emitter](../../src/server/api/routers/admin.ts).
 - Authorized destination: /.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
 | English | Account Appeal Approved | Your account appeal was approved and account access was restored. Sign in to review your current access. | Open your workspace |
 | 中文 | 账户申诉已批准 | 您的账户申诉已批准，账户访问已恢复。请登录查看当前权限。 | 打开工作区 |
+
+The already-active branch captures one truthful outcome instead: **All pending
+account appeals were approved. Your account was already active; access was unchanged.**
+Its Chinese description records the same closure without a repeated restoration.
+In-app detail and any eligible detailed email use that captured outcome.
 
 ### account_appeal_declined
 

@@ -4,6 +4,8 @@ import { projectManagementRead } from "~/server/management-read-models";
 import { SignupRetry } from "~/server/signup-admission";
 import { accountPolicyIds } from "~/server/policy-acceptance";
 import { ApprovalQueued, queueProposal, proposalAuthority } from "~/server/approvals";
+import { lockAccountAppealDecisionReview, parseAccountAppealDecisionReview } from "~/server/account-appeals";
+import { inTransaction } from "~/server/transactions";
 import { databaseScope, isTranslationPublication } from "~/server/db-scope";
 import { runAuditedMutation, recordAuditAttempt, auditAttemptRecorded } from "~/server/audit/evidence";
 import {
@@ -329,13 +331,23 @@ export const protectedProcedure = t.procedure
     ].includes(path);
     if (type === "mutation" && !translationDraftWrite && Object.hasOwn(APPROVAL_OPERATIONS, path)) {
       const raw = await getRawInput();
+      const appealReview = path === "admin.decideAppeal"
+        ? parseAccountAppealDecisionReview(raw)
+        : null;
       const authority = await proposalAuthority(ctx.db, path, raw);
       if (authority && !authority.directRoles.includes(account.role)) {
         // This check precedes queuing and resolver-specific gates, so a forbidden role
         // cannot turn an inaccessible management mutation into a request/replay loophole.
         if (!authority.requesterRoles.includes(account.role))
           throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot submit this change." });
-        const request = await queueProposal({ ...ctx.session, role: account.role }, path, raw);
+        const request = appealReview
+          ? await inTransaction(ctx.db, (tx) => databaseScope.run(tx, async () => {
+              // Queue the original reviewed evidence while its source fences are
+              // held. Throw ApprovalQueued only after this transaction commits.
+              await lockAccountAppealDecisionReview(tx, appealReview);
+              return queueProposal({ ...session, role: account.role }, path, raw);
+            }))
+          : await queueProposal({ ...session, role: account.role }, path, raw);
         throw new TRPCError({ code: "PRECONDITION_FAILED",
           message: authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN")
             ? "Submitted for Head approval. No live changes have been applied."

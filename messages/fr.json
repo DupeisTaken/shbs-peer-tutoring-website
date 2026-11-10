@@ -544,7 +544,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Chargement des paramètres d’authentification à deux facteurs…",
+        "loadFailed": "Les paramètres d’authentification à deux facteurs n’ont pas pu être chargés.",
+        "refreshFailed": "Les paramètres d’authentification à deux facteurs n’ont pas pu être actualisés. Le mot de passe saisi est conservé ; réessayez avant de modifier le paramètre.",
+        "refreshing": "Actualisation des paramètres d’authentification à deux facteurs…",
+        "accessDenied": "L’accès aux paramètres d’authentification à deux facteurs est indisponible.",
+        "savedRefreshFailed": "La modification de l’authentification à deux facteurs a été enregistrée, mais les paramètres n’ont pas pu être actualisés. Rechargez les données sans enregistrer à nouveau."
       }
     },
     "forgotPassword": "Mot de passe oublié ?",
@@ -577,7 +583,8 @@
         "confirmPassword": "Confirmer le nouveau mot de passe"
       },
       "submit": "Définir le nouveau mot de passe",
-      "saving": "Enregistrement…"
+      "saving": "Enregistrement…",
+      "passwordLength": "Utilisez entre {min} et {max} caractères."
     },
     "onboarding": {
       "proofRequired": "Ouvrez le lien envoyé à l’adresse de votre compte pour la vérifier et définir un mot de passe. Sans accès à cette adresse, contactez l’équipe du programme. Gérez l’authentification à deux facteurs après la connexion.",
@@ -1303,7 +1310,22 @@
         "deny": "Refuser",
         "review": "Examiner le recours",
         "message": "Recours initial",
-        "refreshFailed": "La décision a été enregistrée, mais le compte ou la liste des recours n’a pas pu être actualisé. Réessayez l’actualisation sans soumettre à nouveau la décision."
+        "refreshFailed": "La décision a été enregistrée, mais le compte ou la liste des recours n’a pas pu être actualisé. Réessayez l’actualisation sans soumettre à nouveau la décision.",
+        "restrictionHeading": "Restriction du compte examinée",
+        "restricted": "Suspendu",
+        "active": "Déjà actif",
+        "restrictedAt": "Suspendu le {date}",
+        "submittedAt": "Recours soumis le {date}",
+        "noReason": "Aucun motif de suspension actuel n’est enregistré.",
+        "coResolveHelp": "L’approbation rétablit l’accès et règle tous les recours en attente de ce compte avec une seule notification de résultat.",
+        "activeHelp": "Ce compte est déjà actif. L’approbation clôt tous les recours en attente sans modifier l’accès. Le refus n’est pas disponible.",
+        "reloadReview": "Recharger la restriction actuelle",
+        "reviewChanged": "Ce recours ou la restriction actuelle du compte a changé. Rechargez l’examen avant de décider.",
+        "reviewUnavailable": "Les données actuelles de l’examen n’ont pas pu être confirmées. L’examen capturé est conservé ; rechargez les données avant de décider.",
+        "approveClose": "Approuver et clore les recours",
+        "accessRestored": "L’accès au compte a été rétabli et tous les recours en attente ont été approuvés.",
+        "closedActive": "Tous les recours en attente ont été clos. Le compte était déjà actif et l’accès n’a pas changé.",
+        "deniedReceipt": "Le recours sélectionné a été refusé. Cette décision n’a pas levé la suspension du compte."
       }
     },
     "registrationCodes": {
@@ -2500,7 +2522,7 @@
       "currentPassword": "Mot de passe actuel",
       "newPassword": "Nouveau mot de passe",
       "confirmPassword": "Confirmer le nouveau mot de passe",
-      "pwHelp": "Au moins 8 caractères.",
+      "pwHelp": "Utilisez entre 8 et 1024 caractères.",
       "changePasswordBtn": "Changer le mot de passe",
       "changing": "Modification en cours…",
       "passwordChanged": "Mot de passe modifié.",
@@ -2520,7 +2542,8 @@
       "reentryBtn": "Demander une réintégration",
       "recall": "Révoquer la demande",
       "statusNote": "Votre statut de tuteur est {status}. Accès en lecture seule — contactez un administrateur pour toute modification.",
-      "profileSyncFailed": "Votre profil a été enregistré, mais son actualisation a échoué. Réessayez l’actualisation sans renvoyer les modifications."
+      "profileSyncFailed": "Votre profil a été enregistré, mais son actualisation a échoué. Réessayez l’actualisation sans renvoyer les modifications.",
+      "pwTooLong": "Utilisez au maximum {max} caractères."
     },
     "dashboard": {
       "pending": {
@@ -2967,7 +2990,10 @@
     "send": "Envoyer le code de vérification",
     "code": "Code de vérification par e-mail",
     "confirm": "Vérifier et modifier l’adresse",
-    "success": "Votre adresse e-mail a été modifiée."
+    "success": "Votre adresse e-mail a été modifiée.",
+    "sentTo": "Saisissez le code de vérification envoyé à {email}.",
+    "changeAddress": "Utiliser une autre adresse",
+    "savedRefreshFailed": "Votre adresse a été modifiée, mais les informations du compte n’ont pas pu être actualisées. Réessayez l’actualisation sans renvoyer le code."
   },
   "profileCorrection": {
     "edit": "Modifier les détails",

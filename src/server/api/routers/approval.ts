@@ -187,6 +187,7 @@ export const approvalRouter = createTRPCRouter({
           "admin.updateAccountAcademics",
           "admin.updateTutee",
           "admin.setUserRole",
+          "admin.decideAppeal",
           "program.setProfilePolicy",
           "program.setNameFields",
           // School delivery owns namespace/account before schedule admission.

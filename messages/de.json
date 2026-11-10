@@ -544,7 +544,13 @@
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "saving": "Saving…",
-        "saved": "Two-factor settings updated."
+        "saved": "Two-factor settings updated.",
+        "loading": "Einstellungen zur Zwei-Faktor-Authentifizierung werden geladen…",
+        "loadFailed": "Die Einstellungen zur Zwei-Faktor-Authentifizierung konnten nicht geladen werden.",
+        "refreshFailed": "Die Einstellungen zur Zwei-Faktor-Authentifizierung konnten nicht aktualisiert werden. Das eingegebene Passwort bleibt erhalten. Versuchen Sie es erneut, bevor Sie die Einstellung ändern.",
+        "refreshing": "Einstellungen zur Zwei-Faktor-Authentifizierung werden aktualisiert…",
+        "accessDenied": "Der Zugriff auf die Einstellungen zur Zwei-Faktor-Authentifizierung ist nicht verfügbar.",
+        "savedRefreshFailed": "Die Änderung der Zwei-Faktor-Authentifizierung wurde gespeichert, aber die Einstellungen konnten nicht aktualisiert werden. Laden Sie die Daten erneut, ohne noch einmal zu speichern."
       }
     },
     "forgotPassword": "Passwort vergessen?",
@@ -577,7 +583,8 @@
         "confirmPassword": "Neues Passwort bestätigen"
       },
       "submit": "Neues Passwort setzen",
-      "saving": "Wird gespeichert…"
+      "saving": "Wird gespeichert…",
+      "passwordLength": "Verwende {min}–{max} Zeichen."
     },
     "onboarding": {
       "proofRequired": "Öffne den Link an deine Konto-E-Mail-Adresse, um sie zu bestätigen und ein Passwort festzulegen. Ohne Zugriff auf diese Adresse kontaktiere das Programmteam. Die Zwei-Faktor-Authentifizierung verwaltest du nach der Anmeldung.",
@@ -1303,7 +1310,22 @@
         "deny": "Ablehnen",
         "review": "Einspruch prüfen",
         "message": "Ursprünglicher Einspruch",
-        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden."
+        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden.",
+        "restrictionHeading": "Geprüfte Kontoeinschränkung",
+        "restricted": "Gesperrt",
+        "active": "Bereits aktiv",
+        "restrictedAt": "Gesperrt am {date}",
+        "submittedAt": "Einspruch eingereicht am {date}",
+        "noReason": "Kein aktueller Sperrgrund erfasst.",
+        "coResolveHelp": "Die Genehmigung stellt den Zugriff wieder her und entscheidet alle offenen Einsprüche dieses Kontos mit einer Ergebnisbenachrichtigung.",
+        "activeHelp": "Dieses Konto ist bereits aktiv. Die Genehmigung schließt alle offenen Einsprüche, ohne den Zugriff zu ändern. Eine Ablehnung ist nicht verfügbar.",
+        "reloadReview": "Aktuelle Einschränkung neu laden",
+        "reviewChanged": "Dieser Einspruch oder die aktuelle Kontoeinschränkung hat sich geändert. Laden Sie die Prüfung vor einer Entscheidung neu.",
+        "reviewUnavailable": "Die aktuellen Prüfdaten konnten nicht bestätigt werden. Die erfasste Prüfung bleibt erhalten. Laden Sie die Daten vor einer Entscheidung erneut.",
+        "approveClose": "Genehmigen und Einsprüche schließen",
+        "accessRestored": "Der Kontozugriff wurde wiederhergestellt und alle offenen Einsprüche wurden genehmigt.",
+        "closedActive": "Alle offenen Einsprüche wurden geschlossen. Das Konto war bereits aktiv; der Zugriff wurde nicht geändert.",
+        "deniedReceipt": "Der ausgewählte Einspruch wurde abgelehnt. Diese Entscheidung hat die Kontosperre nicht aufgehoben."
       }
     },
     "registrationCodes": {
@@ -2500,7 +2522,7 @@
       "currentPassword": "Aktuelles Passwort",
       "newPassword": "Neues Passwort",
       "confirmPassword": "Neues Passwort bestätigen",
-      "pwHelp": "Mindestens 8 Zeichen.",
+      "pwHelp": "Verwende 8–1024 Zeichen.",
       "changePasswordBtn": "Passwort ändern",
       "changing": "Wird geändert…",
       "passwordChanged": "Passwort geändert.",
@@ -2520,7 +2542,8 @@
       "reentryBtn": "Wiedereintritt beantragen",
       "recall": "Antrag zurückziehen",
       "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren.",
-      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden."
+      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden.",
+      "pwTooLong": "Verwende höchstens {max} Zeichen."
     },
     "dashboard": {
       "pending": {
@@ -2967,7 +2990,10 @@
     "send": "Bestätigungscode senden",
     "code": "E-Mail-Bestätigungscode",
     "confirm": "Bestätigen und E-Mail ändern",
-    "success": "Deine E-Mail wurde geändert."
+    "success": "Deine E-Mail wurde geändert.",
+    "sentTo": "Gib den an {email} gesendeten Bestätigungscode ein.",
+    "changeAddress": "Andere E-Mail verwenden",
+    "savedRefreshFailed": "Deine E-Mail-Adresse wurde geändert, aber die Kontodaten konnten nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne den Code nochmals abzusenden."
   },
   "profileCorrection": {
     "edit": "Details bearbeiten",

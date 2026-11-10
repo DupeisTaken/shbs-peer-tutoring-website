@@ -1078,6 +1078,16 @@ legacy graduation backfill and [program behavior](../guides/program-configuratio
 
 [Authenticated password confirmations](../../src/server/auth/password-confirmation.ts) share ten attempts per account in a sliding fifteen-minute window across account/tutor settings, email ownership actions, privileged reauthentication and account combination. The server rejects empty or over-1024-character confirmation inputs before hashing. Both correct and incorrect checks consume a slot; a successful password, later MFA failure or rolled-back action does not reset the budget. Blocked calls do not extend it; waiting for attempts to expire restores access. Keys use the caller's stable account ID, so another account on the school network is unaffected. Existing stricter action limits, sign-in limits, MFA codes and live authorization checks remain separate. Like the existing sign-in limiter this store is per process and resets on restart; horizontal scaling requires a shared limiter. Passwords and attempted values are never added to audit payloads.
 
+[The password contract](../../src/lib/password-contract.ts) defines 8–1,024 UTF-16
+code units for new reset/change credentials and the confirmation maximum. Bootstrap
+uses the same maximum with its stronger minimum of 12. Reset validates at both the
+server action and direct domain before token lookup, transaction or hashing; invalid
+length cannot consume a grant or advance session state. Direct verified change
+validates before its conditional old-hash write. Native bounds assist correction;
+server validation authorizes persistence. Raw hashing, verification and sign-in stay
+compatible with retained credentials, and plaintext is never trimmed, normalized or
+truncated. Existing invitation/setup forms keep their narrower 8–200 range.
+
 Account role, linked tutor profile, crew membership and translator assignment are separate capabilities. Protected requests reload current role, linkage and suspension state. Navigation and client controls do not replace server authorization. Student records require explicit account/profile ownership; a matching name or email never grants access.
 
 | Procedure family                          | Intended callers                                                             |
@@ -1262,6 +1272,32 @@ The tutor's qualification history derives status filters and counts from the sel
 Classify every management write in the [approval policy](../../src/lib/approval-policy.ts). Unknown coordinator operations fail closed. An eligible request creates an immutable proposal; it has not applied the change. Head inherits Admin authority. Admin/Head apply non-refresh management directly, including sensitive configuration, corrections and non-Head rank changes. Coordinators propose permitted daily operations, configuration and participant/account corrections to Admin/Head, but cannot propose management-rank changes or private-message supervision. Official refresh alone remains Head-only in the central approval inventory; leadership succession keeps its dedicated Head-only password-confirmed path.
 
 Ordinary pending-review notifications prefer active eligible Admins and fall back to Head only when none can review; this does not remove Head review access. Current-policy reclassification applies to pending requests only. Immutable submitted authority/evidence remains part of the original fingerprint. Decision audits record submitted and current authority-policy versions separately from evidence-capture versions. `notification.reconcileManagementReviews` is the explicit Admin/Head rollout action: it pages pending requests, serializes notification reconciliation and appends missing eligible-reviewer deliveries, returning `{ pending, created }`. Role/membership/succession changes and management invitation/bootstrap grants call the same helper. Existing notifications and request evidence are retained; queries never perform this write. Incompatible requests require rejection/return and resubmission; missing legacy evidence is never invented.
+
+Account appeals use the audited READ COMMITTED boundary and namespace → leadership
+→ target account/User → selected appeal lock order. Submission rechecks suspension
+and pending state there, admitting one pending source and reviewer notice. Decision
+requires PENDING and the captured current `refreshAuthorityRevision`; missing evidence
+requires Reload and a later restriction/role generation conflicts. Every supported
+suspension edit advances that revision, including same-millisecond reason changes.
+Approval co-resolves the account's pending appeals and atomically records their IDs,
+one outcome notice and audit. Already-active cleanup changes appeal rows without
+replaying account/credential restoration and reports access unchanged; denial of an
+active account conflicts. Terminal history remains immutable.
+
+[Shared appeal review validation](../../src/server/account-appeals.ts) also rejects
+missing, stale or terminal evidence before a Coordinator proposal is admitted. A
+valid proposal retains its original captured revision through queue commit and
+execution; replay enters the existing early identity/namespace boundary and never
+substitutes a later restriction version. The [event inventory](notification-events.md#account_appeal_approved)
+distinguishes restoration from already-active closure.
+
+Users & Roles captures original appeal and current restriction separately, sending
+the captured revision without a missing/latest fallback. Background updates cannot
+adopt newer restriction evidence. Explicit Reload needs successful directory and
+appeal reads; denial revokes the private capture until fresh authorization and a new
+selection. Accepted recovery retains all co-resolved IDs plus the exact submitted
+action/access outcome so stale siblings stay fenced and denial is not described as
+already-active cleanup. Failed synchronization performs reads only.
 
 1. Capture validated input, affected records, active period and a fingerprint of review evidence.
 2. Consume the requester's confirmation ticket when queuing a ticketed action.
@@ -2200,9 +2236,30 @@ notices fall outside the latest thirty displayed records. Saving invalidates bot
 counts and the list; an accepted save followed by a failed
 refresh offers read-only recovery rather than repeating the write.
 
+[Two-factor settings](../../src/app/_components/two-factor-settings.tsx) distinguish
+unknown preference/feature reads from known false values. Both dependencies fence
+writes during failed or unsettled reads while ordinary failures retain the password
+draft. Named denial slots conceal cached settings until fresh authorization. A
+synchronous admission guard prevents duplicate toggles. Accepted updates latch
+synchronization before replacing older reads; both fresh reads must succeed before
+another change. Failed synchronization retries reads only. Known program-off or
+delivery-unavailable settings still permit password-confirmed Disable under the
+existing server rules.
+
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.
 
 Secondary-email requests and confirmations first acquire the `secondary-email-binding-setting` transaction lock, shared with the Admin/Head-applied availability mutation (Coordinators submit changes for review), and reject when `ProgramSettings.secondaryEmailBindingEnabled` is false. This independent flag defaults true for compatibility. Existing addresses, pending state, primary-email changes and authentication remain intact. Verification rechecks availability and claims the address atomically. An address lock serializes competing confirmations; the unique registry key also arbitrates races with primary-account writers. Verified aliases resolve the same account. Recovery grants bind to their exact destination and recheck ownership on redemption; address removal and password rotation revoke grants. Never infer participant ownership from an alias or change the account's ID/history when promoting it.
+
+[The shared email manager](../../src/app/_components/account-emails.tsx) exposes
+[primary replacement](../../src/app/_components/email-change.tsx) in a retained
+disclosure on both account routes, independently of optional alias binding or alias
+presence. Its authoritative settings read determines delivery readiness. Request
+retains current-password proof and confirmation consumes existing mailbox proof under
+server ownership locks. The client freezes the code destination, fences same-turn and
+pending writes, and retains rejected drafts. Read/mutation denial conceals cached
+evidence until fresh authorization. Accepted confirmation blocks replay until email
+settings, identity and mounted tutor profile synchronization succeeds; failed recovery
+performs reads only. Read Retry cannot take a pending write's synchronization lease.
 
 Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. The [delivery worker](../../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for account mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications skips only optional pending rows; security and essential request-service notices remain eligible. Previous-primary security notices have the documented ownership exception. Account notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](../guides/deployment.md#optional-notification-delivery).
 

@@ -224,6 +224,7 @@ vi.mock("~/trpc/react", async () => ({
       },
       accountDetails: { useQuery: state.accountDetails },
       accounts: {
+        _def: () => ({ path: ["admin", "accounts"] }),
         useQuery: () => ({
           data: {
             caller: { id: "staff", role: state.callerRole },
@@ -282,7 +283,7 @@ vi.mock("~/trpc/react", async () => ({
       backfillStudentUsernames: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
       },
-      appeals: { useQuery: () => ({ data: state.empty }) },
+      appeals: { _def: () => ({ path: ["admin", "appeals"] }), useQuery: () => ({ data: state.empty }) },
       deleteUser: {
         useMutation: () => ({
           mutate: state.deleteUser,
