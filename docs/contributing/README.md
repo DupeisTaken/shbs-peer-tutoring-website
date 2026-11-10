@@ -13,6 +13,8 @@ operate it. Proposed designs stay in issues until reviewed and delivered.
 2. Read the [architecture map](../reference/technical-report.md#architecture) and
    the current source for the affected feature. Earlier chats, reports and PRs
    provide context, not proof of this revision's behavior.
+   Before creating or triaging an issue, follow [issue conventions](issues.md#triage-and-completion),
+   including the category-label requirement for CLI, API and agent-created issues.
 3. For UI work, read [design conventions](design.md), [interaction patterns](interaction-patterns.md)
    and the [extension recipe](implementation.md#add-an-action-or-feature). Inspect
    the real caller and [gallery recipe](ui-recipes.md) before broadening a component.
