@@ -36,7 +36,12 @@ const state = vi.hoisted(() => ({
   cold: false,
   refetch: vi.fn(),
   gates: ((): Record<string, Promise<unknown> | undefined> => ({}))(),
-  recentRows: [] as { id: string; createdAt: Date; hours: number; observations: { room: { name: string }; headcount: string }[] }[],
+  recentRows: [] as {
+    id: string;
+    createdAt: Date;
+    hours: number;
+    observations: { room: { name: string }; headcount: string }[];
+  }[],
 }));
 const lifecycle = vi.hoisted(() => ({
   onSuccess: () => Promise.resolve(),
@@ -48,14 +53,28 @@ vi.mock("~/trpc/react", async () => {
     const procedure = {
       _def: () => ({ path: ["crew", path] }),
       useQuery: (_input: undefined, options: { enabled: boolean }) => {
-        const query = useQuery({ queryKey: [["crew", path], { type: "query" }], queryFn: async () => {
-          state.refetch(scope);
-          if (state.gates[scope]) return await state.gates[scope];
-          const failure = state.readError[scope];
-          if (failure) throw Object.assign(new Error(failure.message), failure);
-          return scope === "status" ? { status: state.status, pendingRequest: null }
-            : scope === "config" ? { rooms: [{ id: "room", name: "Test room" }], myHours: 0.5, myPatrols: 2 } : state.recentRows;
-        }, staleTime: Infinity, gcTime: Infinity, ...options });
+        const query = useQuery({
+          queryKey: [["crew", path], { type: "query" }],
+          queryFn: async () => {
+            state.refetch(scope);
+            if (state.gates[scope]) return await state.gates[scope];
+            const failure = state.readError[scope];
+            if (failure)
+              throw Object.assign(new Error(failure.message), failure);
+            return scope === "status"
+              ? { status: state.status, pendingRequest: null }
+              : scope === "config"
+                ? {
+                    rooms: [{ id: "room", name: "Test room" }],
+                    myHours: 0.5,
+                    myPatrols: 2,
+                  }
+                : state.recentRows;
+          },
+          staleTime: Infinity,
+          gcTime: Infinity,
+          ...options,
+        });
         return query;
       },
     };
@@ -64,29 +83,29 @@ vi.mock("~/trpc/react", async () => {
     return procedure;
   };
   return {
-  api: {
-    useUtils: () => ({
+    api: {
+      useUtils: () => ({
+        crew: {
+          myStatus: { invalidate: vi.fn() },
+          patrolConfig: { invalidate: state.invalidateConfig },
+          myPatrols: { invalidate: state.invalidateHistory },
+        },
+      }),
       crew: {
-        myStatus: { invalidate: vi.fn() },
-        patrolConfig: { invalidate: state.invalidateConfig },
-        myPatrols: { invalidate: state.invalidateHistory },
-      },
-    }),
-    crew: {
-      myStatus: reader("status", "myStatus"),
-      patrolConfig: reader("config", "patrolConfig"),
-      myPatrols: reader("history", "myPatrols"),
-      requestOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
-      recallOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
-      requestReentry: { useMutation: () => ({ mutate: vi.fn() }) },
-      submitPatrol: {
-        useMutation: (options: typeof lifecycle) => {
-          Object.assign(lifecycle, options);
-          return { ...state, data: { hours: state.hours } };
+        myStatus: reader("status", "myStatus"),
+        patrolConfig: reader("config", "patrolConfig"),
+        myPatrols: reader("history", "myPatrols"),
+        requestOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
+        recallOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
+        requestReentry: { useMutation: () => ({ mutate: vi.fn() }) },
+        submitPatrol: {
+          useMutation: (options: typeof lifecycle) => {
+            Object.assign(lifecycle, options);
+            return { ...state, data: { hours: state.hours } };
+          },
         },
       },
     },
-  },
   };
 });
 let queryClient: QueryClient;
@@ -128,14 +147,31 @@ const view = (locale: "en" | "zh" = "en") => (
   </QueryClientProvider>
 );
 
-const recentEvidence = [{ id: "synthetic-history", createdAt: new Date("2026-11-01T06:30:00Z"), hours: 0.5,
-  observations: [{ room: { name: "Private recent room" }, headcount: "ONE" }] }];
-const freshConfig = { rooms: [{ id: "room", name: "Test room" }], myHours: 0.5, myPatrols: 2 };
+const recentEvidence = [
+  {
+    id: "synthetic-history",
+    createdAt: new Date("2026-11-01T06:30:00Z"),
+    hours: 0.5,
+    observations: [{ room: { name: "Private recent room" }, headcount: "ONE" }],
+  },
+];
+const freshConfig = {
+  rooms: [{ id: "room", name: "Test room" }],
+  myHours: 0.5,
+  myPatrols: 2,
+};
 function privateAbsent(scope: keyof typeof keys) {
-  expect(screen.queryByText(scope === "history" ? /Private recent room/ : "Test room")).toBeNull();
+  expect(
+    screen.queryByText(
+      scope === "history" ? /Private recent room/ : "Test room",
+    ),
+  ).toBeNull();
 }
 async function denyRead(scope: keyof typeof keys) {
-  state.readError[scope] = { message: "Synthetic authority denied", data: { code: "FORBIDDEN" } };
+  state.readError[scope] = {
+    message: "Synthetic authority denied",
+    data: { code: "FORBIDDEN" },
+  };
   await refresh(scope);
   await waitFor(() => privateAbsent(scope));
 }
@@ -143,29 +179,44 @@ async function recoverRead(scope: keyof typeof keys) {
   delete state.readError[scope];
   await retry(scope);
   if (scope === "status") {
-    await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+    await screen.findByRole("button", {
+      name: `Retry ${messages.crew.patrol.title}`,
+    });
     await retry("config");
     await retry("history");
   }
-  await screen.findByText(scope === "history" ? /Private recent room/ : "Test room");
+  await screen.findByText(
+    scope === "history" ? /Private recent room/ : "Test room",
+  );
 }
 
-it.each((["status", "config", "history"] as const).flatMap((scope) =>
-  (["frozen", "backward"] as const).map((clock) => ({ scope, clock }))))(
-  "requires real post-denial $scope proof with a $clock clock despite manual cache replacement", async ({ scope, clock }) => {
+it.each(
+  (["status", "config", "history"] as const).flatMap((scope) =>
+    (["frozen", "backward"] as const).map((clock) => ({ scope, clock })),
+  ),
+)(
+  "requires real post-denial $scope proof with a $clock clock despite manual cache replacement",
+  async ({ scope, clock }) => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-10T08:00:00Z"));
     state.recentRows = recentEvidence;
     show();
     expect(keys.status()).toEqual([["crew", "myStatus"], { type: "query" }]);
-    expect(keys.config()).toEqual([["crew", "patrolConfig"], { type: "query" }]);
+    expect(keys.config()).toEqual([
+      ["crew", "patrolConfig"],
+      { type: "query" },
+    ]);
     expect(keys.history()).toEqual([["crew", "myPatrols"], { type: "query" }]);
     await denyRead(scope);
     state.readError = {};
-    if (clock === "backward") vi.setSystemTime(new Date("2026-11-01T08:00:00Z"));
+    if (clock === "backward")
+      vi.setSystemTime(new Date("2026-11-01T08:00:00Z"));
     const reads = state.refetch.mock.calls.length;
     await act(async () => {
-      queryClient.setQueryData(keys.status(), { status: "ACTIVE", pendingRequest: null });
+      queryClient.setQueryData(keys.status(), {
+        status: "ACTIVE",
+        pendingRequest: null,
+      });
       queryClient.setQueryData(keys.config(), freshConfig);
       queryClient.setQueryData(keys.history(), recentEvidence);
     });
@@ -175,7 +226,9 @@ it.each((["status", "config", "history"] as const).flatMap((scope) =>
     if (scope === "status") {
       // Status alone cannot grant manually replaced dependent evidence.
       await retry("status");
-      await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+      await screen.findByRole("button", {
+        name: `Retry ${messages.crew.patrol.title}`,
+      });
       expect(screen.queryByText("Test room")).toBeNull();
       expect(screen.queryByText(/Private recent room/)).toBeNull();
       await retry("config");
@@ -189,27 +242,39 @@ it.each((["status", "config", "history"] as const).flatMap((scope) =>
   },
 );
 
-it.each(["config", "history"] as const)("does not accept an old in-flight %s completion after status denial and query replacement", async (scope) => {
-  state.recentRows = recentEvidence;
-  show();
-  let finish!: (value: unknown) => void;
-  state.gates[scope] = new Promise((resolve) => { finish = resolve; });
-  let oldRead!: Promise<unknown>;
-  await act(async () => {
-    oldRead = queryClient.fetchQuery({ queryKey: keys[scope](), staleTime: 0 }).catch(() => undefined);
-  });
-  await waitFor(() => expect(state.refetch).toHaveBeenCalledWith(scope));
-  await denyRead("status");
-  delete state.gates[scope];
-  state.readError = {};
-  await act(async () => { finish(scope === "config" ? freshConfig : recentEvidence); await oldRead; });
-  privateAbsent("status");
-  await retry("status");
-  await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
-  privateAbsent(scope);
-  await recoverRead(scope);
-  expect(state.mutate).not.toHaveBeenCalled();
-});
+it.each(["config", "history"] as const)(
+  "does not accept an old in-flight %s completion after status denial and query replacement",
+  async (scope) => {
+    state.recentRows = recentEvidence;
+    show();
+    let finish!: (value: unknown) => void;
+    state.gates[scope] = new Promise((resolve) => {
+      finish = resolve;
+    });
+    let oldRead!: Promise<unknown>;
+    await act(async () => {
+      oldRead = queryClient
+        .fetchQuery({ queryKey: keys[scope](), staleTime: 0 })
+        .catch(() => undefined);
+    });
+    await waitFor(() => expect(state.refetch).toHaveBeenCalledWith(scope));
+    await denyRead("status");
+    delete state.gates[scope];
+    state.readError = {};
+    await act(async () => {
+      finish(scope === "config" ? freshConfig : recentEvidence);
+      await oldRead;
+    });
+    privateAbsent("status");
+    await retry("status");
+    await screen.findByRole("button", {
+      name: `Retry ${messages.crew.patrol.title}`,
+    });
+    privateAbsent(scope);
+    await recoverRead(scope);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
 const keys = {
   status: () => getQueryKey(api.crew.myStatus, undefined, "query"),
   config: () => getQueryKey(api.crew.patrolConfig, undefined, "query"),
@@ -217,18 +282,38 @@ const keys = {
 };
 const show = (locale: "en" | "zh" = "en") => {
   if (!state.cold) {
-    queryClient.setQueryData(keys.status(), { status: state.status, pendingRequest: null });
-    queryClient.setQueryData(keys.config(), { rooms: [{ id: "room", name: "Test room" }], myHours: 0.5, myPatrols: 2 });
+    queryClient.setQueryData(keys.status(), {
+      status: state.status,
+      pendingRequest: null,
+    });
+    queryClient.setQueryData(keys.config(), {
+      rooms: [{ id: "room", name: "Test room" }],
+      myHours: 0.5,
+      myPatrols: 2,
+    });
     queryClient.setQueryData(keys.history(), state.recentRows);
   }
   return render(view(locale));
 };
 async function refresh(scope: keyof typeof keys) {
-  await act(async () => { await queryClient.refetchQueries({ queryKey: keys[scope](), exact: true, type: "all" }); });
+  await act(async () => {
+    await queryClient.refetchQueries({
+      queryKey: keys[scope](),
+      exact: true,
+      type: "all",
+    });
+  });
 }
 async function retry(scope: keyof typeof keys) {
-  const title = scope === "status" ? "Crew status" : scope === "config" ? messages.crew.patrol.title : messages.crew.patrol.recent;
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: `Retry ${title}` })); });
+  const title =
+    scope === "status"
+      ? "Crew status"
+      : scope === "config"
+        ? messages.crew.patrol.title
+        : messages.crew.patrol.recent;
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: `Retry ${title}` }));
+  });
 }
 
 it("announces that evidence was saved without claiming zero-hour submissions earned credit", () => {
@@ -510,7 +595,12 @@ it("keeps a sweep draft beside a failed refresh and disables dependent writes un
   ).toBe("true");
   state.readError = {};
   await retry("config");
-  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: /Submit Patrol/ }).disabled).toBe(false));
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: /Submit Patrol/ })
+        .disabled,
+    ).toBe(false),
+  );
   expect(
     screen.getByRole<HTMLButtonElement>("button", { name: /Submit Patrol/ })
       .disabled,
@@ -530,7 +620,9 @@ it("evicts concealed patrol evidence on revocation and does not restore it on a 
   expect(screen.queryByText("Test room")).toBeNull();
   state.readError = {};
   await retry("status");
-  await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+  await screen.findByRole("button", {
+    name: `Retry ${messages.crew.patrol.title}`,
+  });
   await retry("config");
   await retry("history");
   await screen.findByText("Test room");
@@ -583,7 +675,9 @@ it.each(["status", "config"])(
     state.readError = {};
     await retry(scope as keyof typeof keys);
     if (scope === "status") {
-      await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+      await screen.findByRole("button", {
+        name: `Retry ${messages.crew.patrol.title}`,
+      });
       await retry("config");
       await retry("history");
     }

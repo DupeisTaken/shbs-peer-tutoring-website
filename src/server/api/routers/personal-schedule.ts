@@ -441,7 +441,10 @@ export const personalScheduleRouter = createTRPCRouter({
           message: "Meeting not found.",
         });
       const own = meeting.attendances[0];
-      const selfExcuses = await selfMeetingExcuseIds(ctx.db, meeting.attendances);
+      const selfExcuses = await selfMeetingExcuseIds(
+        ctx.db,
+        meeting.attendances,
+      );
       const excused = !!own && selfExcuses.has(own.id);
       return {
         id: meeting.id,

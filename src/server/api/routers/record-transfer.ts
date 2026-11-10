@@ -21,10 +21,17 @@ class PreviewRollback extends Error {
 
 // Recheck rank inside the transaction and hold the account row against concurrent demotion.
 async function assertManagementActor(tx: TransactionDb, id: string) {
-  const rows = await tx.$queryRaw<{ role: string; suspendedAt: Date | null; mergedIntoId: string | null }[]>(
+  const rows = await tx.$queryRaw<
+    { role: string; suspendedAt: Date | null; mergedIntoId: string | null }[]
+  >(
     Prisma.sql`SELECT role,"suspendedAt","mergedIntoId" FROM "User" WHERE id=${id} FOR SHARE`,
   );
-  if (!rows[0] || !["ADMIN", "HEAD"].includes(rows[0].role) || rows[0].suspendedAt || rows[0].mergedIntoId)
+  if (
+    !rows[0] ||
+    !["ADMIN", "HEAD"].includes(rows[0].role) ||
+    rows[0].suspendedAt ||
+    rows[0].mergedIntoId
+  )
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Administrator access required.",

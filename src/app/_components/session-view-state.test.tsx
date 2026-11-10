@@ -1006,9 +1006,7 @@ it("keeps named denial freshness with a changing query list without refetching u
       enabled: extra,
     });
     const denied = useSessionAccessDenied(
-      ...(extra
-        ? [{ ...extraCatalogue, queryKey: extraCatalogueKey }]
-        : []),
+      ...(extra ? [{ ...extraCatalogue, queryKey: extraCatalogueKey }] : []),
       { ...read, queryKey: readKey(scope), denialKey: "filtered-read" },
       { ...catalogue, queryKey: catalogueKey },
     );
@@ -1050,7 +1048,10 @@ it("keeps named denial freshness with a changing query list without refetching u
       }),
     );
     await act(async () => {
-      await client.refetchQueries({ queryKey: readKey("current"), exact: true });
+      await client.refetchQueries({
+        queryKey: readKey("current"),
+        exact: true,
+      });
     });
     await screen.findByText("denied");
     expect(screen.queryByText("Current private evidence")).toBeNull();
@@ -1321,7 +1322,6 @@ it("preserves an allowed null choice before verification and across remounts", (
   expect(screen.getByText("No selection")).toBeTruthy();
 });
 
-
 function RenderSelection({
   allowHistory,
   suspended,
@@ -1332,7 +1332,8 @@ function RenderSelection({
   onSetter: (setter: Dispatch<SetStateAction<string>>) => void;
 }) {
   const [tab, setTab, reconcileTab] = useSessionViewState<string>({
-    id: "render-choice", initialState: "current",
+    id: "render-choice",
+    initialState: "current",
     // Deliberately inline: equivalent parser functions must not churn the setter.
     parse: viewEnum(allowHistory ? ["current", "history"] : ["current"]),
   });
@@ -1359,7 +1360,12 @@ it("uses the current parser for guarded render selections without changing the s
   const initialCalls = onSetter.mock.calls.length;
   rendered.rerender(tree(true));
   expect(screen.getByTestId("render-choice").textContent).toBe("history");
-  expect(readViewState(sessionStorage, viewStateKey("head", "/admin/tutees", "render-choice", ""))).toBe("history");
+  expect(
+    readViewState(
+      sessionStorage,
+      viewStateKey("head", "/admin/tutees", "render-choice", ""),
+    ),
+  ).toBe("history");
   rendered.rerender(tree(true));
   expect(onSetter).toHaveBeenCalledTimes(initialCalls);
 });
@@ -1373,16 +1379,24 @@ it("discards render-time selection from an abandoned StrictMode render", async (
     <StrictMode>
       <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
         <Suspense fallback={<p>Waiting for arrival</p>}>
-          <RenderSelection allowHistory={allowHistory} suspended={suspended} onSetter={onSetter} />
+          <RenderSelection
+            allowHistory={allowHistory}
+            suspended={suspended}
+            onSetter={onSetter}
+          />
         </Suspense>
       </SessionViewProvider>
     </StrictMode>
   );
   const rendered = render(tree(false));
-  await act(async () => { rendered.rerender(tree(true, pending)); });
+  await act(async () => {
+    rendered.rerender(tree(true, pending));
+  });
   expect(screen.getByText("Waiting for arrival")).toBeTruthy();
   expect(readViewState(sessionStorage, key)).toBe("current");
-  await act(async () => { rendered.rerender(tree(false)); });
+  await act(async () => {
+    rendered.rerender(tree(false));
+  });
   expect(screen.getByTestId("render-choice").textContent).toBe("current");
   expect(readViewState(sessionStorage, key)).toBe("current");
 });
@@ -1390,26 +1404,55 @@ it("discards render-time selection from an abandoned StrictMode render", async (
 it("applies batched functional choices sequentially and rejects invalid proposals without replacing the accepted value", () => {
   function Counter() {
     const [count, setCount] = useSessionViewState<number>({
-      id: "counter", initialState: 1,
-      parse: (value) => typeof value === "number" && value >= 0 && value <= 10 ? value : undefined,
+      id: "counter",
+      initialState: 1,
+      parse: (value) =>
+        typeof value === "number" && value >= 0 && value <= 10
+          ? value
+          : undefined,
     });
-    return <><p data-testid="counter">{count}</p><button onClick={() => {
-      setCount((current) => current + 1);
-      setCount(999);
-      setCount((current) => current * 2);
-    }}>Batch choices</button></>;
+    return (
+      <>
+        <p data-testid="counter">{count}</p>
+        <button
+          onClick={() => {
+            setCount((current) => current + 1);
+            setCount(999);
+            setCount((current) => current * 2);
+          }}
+        >
+          Batch choices
+        </button>
+      </>
+    );
   }
-  render(<StrictMode><SessionViewProvider identity="head" pathname="/admin/tutees" verified><Counter /></SessionViewProvider></StrictMode>);
+  render(
+    <StrictMode>
+      <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+        <Counter />
+      </SessionViewProvider>
+    </StrictMode>,
+  );
   fireEvent.click(screen.getByRole("button", { name: "Batch choices" }));
   expect(screen.getByTestId("counter").textContent).toBe("4");
-  expect(readViewState(sessionStorage, viewStateKey("head", "/admin/tutees", "counter", ""))).toBe(4);
+  expect(
+    readViewState(
+      sessionStorage,
+      viewStateKey("head", "/admin/tutees", "counter", ""),
+    ),
+  ).toBe(4);
 });
 
 it("uses current scope defaults for guarded selection during the scope's first render", () => {
   function Scoped({ base }: { base: number }) {
     const [value, , reconcileValue] = useSessionViewState<number>({
-      id: "scope-default", scope: String(base), initialState: base,
-      parse: (candidate) => typeof candidate === "number" && candidate >= base ? candidate : undefined,
+      id: "scope-default",
+      scope: String(base),
+      initialState: base,
+      parse: (candidate) =>
+        typeof candidate === "number" && candidate >= base
+          ? candidate
+          : undefined,
     });
     const [previousBase, setPreviousBase] = useState(base);
     if (previousBase !== base) {
@@ -1418,7 +1461,11 @@ it("uses current scope defaults for guarded selection during the scope's first r
     }
     return <p data-testid="scope-default">{value}</p>;
   }
-  const tree = (base: number) => <SessionViewProvider identity="head" pathname="/admin/tutees" verified><Scoped base={base} /></SessionViewProvider>;
+  const tree = (base: number) => (
+    <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+      <Scoped base={base} />
+    </SessionViewProvider>
+  );
   const rendered = render(tree(1));
   rendered.rerender(tree(20));
   expect(screen.getByTestId("scope-default").textContent).toBe("21");
@@ -1429,7 +1476,11 @@ it("preserves an unverified render choice through verification without persistin
   writeViewState(sessionStorage, key, "current");
   const onSetter = vi.fn();
   const tree = (allowHistory: boolean, verified: boolean) => (
-    <SessionViewProvider identity="head" pathname="/admin/tutees" verified={verified}>
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/tutees"
+      verified={verified}
+    >
       <RenderSelection allowHistory={allowHistory} onSetter={onSetter} />
     </SessionViewProvider>
   );

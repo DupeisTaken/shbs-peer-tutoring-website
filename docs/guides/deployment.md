@@ -1191,6 +1191,9 @@ the matching Prisma client. Include operation closures in full database backups;
 never prune or edit them as expired invitations. Their immutable deny evidence keeps
 an explicitly stopped request from sending if its original call arrives later.
 Recovery refuses to drop or replace that fence. See the [invitation procedure](historical-participant-transition.md#invite-an-alumnus-without-a-login).
+Every serving instance, including a [corrective application rollback](#retain-current-and-previous-tested-images),
+must retain closure-aware invitation admission and receipt handling. Preserving
+the ledger alone does not make an older writer honor stopped requests.
 
 Apply `20261109020000_translation_intent_receipts` with the same complete migration
 chain and matching generated Prisma client. Its immutable terminal ledger and the

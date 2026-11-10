@@ -3,11 +3,22 @@ import { assertHistoryAccessGeneration } from "~/server/history-access-generatio
 import { projectManagementRead } from "~/server/management-read-models";
 import { SignupRetry } from "~/server/signup-admission";
 import { accountPolicyIds } from "~/server/policy-acceptance";
-import { ApprovalQueued, queueProposal, proposalAuthority } from "~/server/approvals";
-import { lockAccountAppealDecisionReview, parseAccountAppealDecisionReview } from "~/server/account-appeals";
+import {
+  ApprovalQueued,
+  queueProposal,
+  proposalAuthority,
+} from "~/server/approvals";
+import {
+  lockAccountAppealDecisionReview,
+  parseAccountAppealDecisionReview,
+} from "~/server/account-appeals";
 import { inTransaction } from "~/server/transactions";
 import { databaseScope, isTranslationPublication } from "~/server/db-scope";
-import { runAuditedMutation, recordAuditAttempt, auditAttemptRecorded } from "~/server/audit/evidence";
+import {
+  runAuditedMutation,
+  recordAuditAttempt,
+  auditAttemptRecorded,
+} from "~/server/audit/evidence";
 import {
   APPROVAL_OPERATIONS,
   COORDINATOR_DIRECT_OPERATIONS,
@@ -44,7 +55,8 @@ export function validationSummary(error: ZodError): string {
   // Zod 4 leaves a generic field-error map unknown. Only message strings belong
   // in the public summary; never stringify a field object or submitted value.
   const unique = [...new Set(messages)].filter(
-    (message): message is string => typeof message === "string" && message.length > 0,
+    (message): message is string =>
+      typeof message === "string" && message.length > 0,
   );
   if (!unique.length) return "Please review the submitted values.";
   // Preserve a shared translation key for name validation instead of embedding a raw
@@ -77,7 +89,10 @@ export function formatTRPCErrorShape<
         error.cause instanceof ApprovalQueued ? error.cause.approvalId : null,
       zodError: zodError ? zodError.flatten() : null,
       validationSummary: summary,
-      retryAfterSeconds: error.cause instanceof SignupRetry ? error.cause.retryAfterSeconds : null,
+      retryAfterSeconds:
+        error.cause instanceof SignupRetry
+          ? error.cause.retryAfterSeconds
+          : null,
     },
   };
 }
@@ -189,12 +204,29 @@ export const protectedProcedure = t.procedure
     // Authorization failures happen before the application transaction. Attribute only
     // signed-in accounts that still exist, and never report a queued request as a failure.
     const capture = async (error: unknown) => {
-      if (type !== "mutation" || !ctx.session?.user || databaseScope.getStore() || auditAttemptRecorded(error) ||
-          (error instanceof TRPCError && error.cause instanceof ApprovalQueued)) return;
-      const account = await ctx.db.user.findUnique({ where: { id: ctx.session.user.id }, select: { role: true, name: true, username: true } });
+      if (
+        type !== "mutation" ||
+        !ctx.session?.user ||
+        databaseScope.getStore() ||
+        auditAttemptRecorded(error) ||
+        (error instanceof TRPCError && error.cause instanceof ApprovalQueued)
+      )
+        return;
+      const account = await ctx.db.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { role: true, name: true, username: true },
+      });
       if (!account) return;
-      await recordAuditAttempt(ctx.db, { id: ctx.session.user.id,
-        name: account.name ?? account.username ?? null, role: account.role }, path, error);
+      await recordAuditAttempt(
+        ctx.db,
+        {
+          id: ctx.session.user.id,
+          name: account.name ?? account.username ?? null,
+          role: account.role,
+        },
+        path,
+        error,
+      );
     };
     try {
       const result = await next();
@@ -231,13 +263,21 @@ export const protectedProcedure = t.procedure
         username: true,
       },
     });
-    if (!account || account.mergedIntoId || account.recoveryVoidedAt) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (!account || account.mergedIntoId || account.recoveryVoidedAt)
+      throw new TRPCError({ code: "UNAUTHORIZED" });
     if ((session.historyAccessRevision ?? 0) !== account.historyAccessRevision)
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "History access changed. Sign in again before continuing." });
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "History access changed. Sign in again before continuing.",
+      });
     // Legacy undo payloads lack causal closure. Refuse before approval queuing,
     // including replay of an old queued undo; the CLI inspector retains evidence.
     if (type === "mutation" && path === "admin.undoAudit")
-      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Legacy undo has no complete consequence history. Use recovery preview or the database inspector for operator review." });
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message:
+          "Legacy undo has no complete consequence history. Use recovery preview or the database inspector for operator review.",
+      });
     if (
       account.suspendedAt &&
       !["account.me", "account.suspension", "account.submitAppeal"].includes(
@@ -250,8 +290,24 @@ export const protectedProcedure = t.procedure
       });
     }
     const access = portalAccess(account);
-    if (type === "mutation" && access.departed && ["tutor.activateAccount", "tutor.requestReentry", "tutor.setAvailability", "tutor.setInterviewTime", "studentWorkflow.editAvailability", "studentWorkflow.applyAbort", "studentWorkflow.applyLegacyWithdrawal"].includes(path))
-      throw new TRPCError({ code: "FORBIDDEN", message: "School departure is confirmed. Ask Admin or Head to review your return." });
+    if (
+      type === "mutation" &&
+      access.departed &&
+      [
+        "tutor.activateAccount",
+        "tutor.requestReentry",
+        "tutor.setAvailability",
+        "tutor.setInterviewTime",
+        "studentWorkflow.editAvailability",
+        "studentWorkflow.applyAbort",
+        "studentWorkflow.applyLegacyWithdrawal",
+      ].includes(path)
+    )
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "School departure is confirmed. Ask Admin or Head to review your return.",
+      });
     // Participant reads and writes share the same consent boundary as the tutee page.
     // Policy/onboarding and staff inspection remain available before participation is granted.
     const tuteeOperations = new Set([
@@ -266,15 +322,22 @@ export const protectedProcedure = t.procedure
       "studentWorkflow.applyAbort",
     ]);
     if (tuteeOperations.has(path)) {
-      if (account.role === "VIEWER" || (!account.tuteeMember && !access.departed))
+      if (
+        account.role === "VIEWER" ||
+        (!account.tuteeMember && !access.departed)
+      )
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Accept the tutee policy before entering the tutee area.",
         });
       if (
-        account.tutorId && !access.departed &&
+        account.tutorId &&
+        !access.departed &&
         !(await ctx.db.policyAcceptance.findFirst({
-          where: { userId: { in: await accountPolicyIds(ctx.db, ctx.session.user.id) }, slug: "tutee-policy" },
+          where: {
+            userId: { in: await accountPolicyIds(ctx.db, ctx.session.user.id) },
+            slug: "tutee-policy",
+          },
           select: { id: true },
         }))
       )
@@ -305,18 +368,48 @@ export const protectedProcedure = t.procedure
     // Participant requests cannot execute mutations; their eventual reviewer is Admin/Head.
     // Check additional requests before legacy membership/coordinator proposal middleware.
     // A coordinator must not turn a prohibited decision into an approval replay loophole.
-    if (type === "mutation" && ["admin.assignInterviewers", "admin.setApplicationStatus", "admin.deleteApplication", "tutor.decideInterview"].includes(path)) {
+    if (
+      type === "mutation" &&
+      [
+        "admin.assignInterviewers",
+        "admin.setApplicationStatus",
+        "admin.deleteApplication",
+        "tutor.decideInterview",
+      ].includes(path)
+    ) {
       const raw = await getRawInput();
       if (raw && typeof raw === "object") {
-        const id = "applicationId" in raw ? raw.applicationId : "id" in raw ? raw.id : null;
-        const app = typeof id === "string" ? await ctx.db.tutorApplication.findUnique({ where: { id }, select: { type: true, status: true } }) : null;
+        const id =
+          "applicationId" in raw
+            ? raw.applicationId
+            : "id" in raw
+              ? raw.id
+              : null;
+        const app =
+          typeof id === "string"
+            ? await ctx.db.tutorApplication.findUnique({
+                where: { id },
+                select: { type: true, status: true },
+              })
+            : null;
         if (app && app.type !== "INITIAL") {
           if (!["ADMIN", "HEAD"].includes(account.role))
-            throw new TRPCError({ code: "FORBIDDEN", message: "Only Admin or Head may review qualification requests." });
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Only Admin or Head may review qualification requests.",
+            });
           if (path !== "admin.assignInterviewers")
-            throw new TRPCError({ code: "FORBIDDEN", message: "Use the qualification request decision controls. Request history cannot be deleted." });
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Use the qualification request decision controls. Request history cannot be deleted.",
+            });
           if (app.status !== "PENDING")
-            throw new TRPCError({ code: "CONFLICT", message: "This request already has a review or final decision; its panel history must be retained." });
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This request already has a review or final decision; its panel history must be retained.",
+            });
         }
       }
     }
@@ -329,30 +422,48 @@ export const protectedProcedure = t.procedure
       "home.setSectionTranslation",
       "home.setPageTitle",
     ].includes(path);
-    if (type === "mutation" && !translationDraftWrite && Object.hasOwn(APPROVAL_OPERATIONS, path)) {
+    if (
+      type === "mutation" &&
+      !translationDraftWrite &&
+      Object.hasOwn(APPROVAL_OPERATIONS, path)
+    ) {
       const raw = await getRawInput();
-      const appealReview = path === "admin.decideAppeal"
-        ? parseAccountAppealDecisionReview(raw)
-        : null;
+      const appealReview =
+        path === "admin.decideAppeal"
+          ? parseAccountAppealDecisionReview(raw)
+          : null;
       const authority = await proposalAuthority(ctx.db, path, raw);
       if (authority && !authority.directRoles.includes(account.role)) {
         // This check precedes queuing and resolver-specific gates, so a forbidden role
         // cannot turn an inaccessible management mutation into a request/replay loophole.
         if (!authority.requesterRoles.includes(account.role))
-          throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot submit this change." });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Your current role cannot submit this change.",
+          });
         const request = appealReview
-          ? await inTransaction(ctx.db, (tx) => databaseScope.run(tx, async () => {
-              // Queue the original reviewed evidence while its source fences are
-              // held. Throw ApprovalQueued only after this transaction commits.
-              await lockAccountAppealDecisionReview(tx, appealReview);
-              return queueProposal({ ...session, role: account.role }, path, raw);
-            }))
+          ? await inTransaction(ctx.db, (tx) =>
+              databaseScope.run(tx, async () => {
+                // Queue the original reviewed evidence while its source fences are
+                // held. Throw ApprovalQueued only after this transaction commits.
+                await lockAccountAppealDecisionReview(tx, appealReview);
+                return queueProposal(
+                  { ...session, role: account.role },
+                  path,
+                  raw,
+                );
+              }),
+            )
           : await queueProposal({ ...session, role: account.role }, path, raw);
-        throw new TRPCError({ code: "PRECONDITION_FAILED",
-          message: authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN")
-            ? "Submitted for Head approval. No live changes have been applied."
-            : "Submitted for management approval. No live changes have been applied.",
-          cause: new ApprovalQueued(request.id) });
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            authority.reviewerRoles.includes("HEAD") &&
+            !authority.reviewerRoles.includes("ADMIN")
+              ? "Submitted for Head approval. No live changes have been applied."
+              : "Submitted for management approval. No live changes have been applied.",
+          cause: new ApprovalQueued(request.id),
+        });
       }
     }
     if (
@@ -381,7 +492,11 @@ export const protectedProcedure = t.procedure
       });
     }
     const run = async (auditedDb: typeof ctx.db) => {
-      if (type === "mutation") await assertHistoryAccessGeneration(auditedDb, { userId: session.user.id, historyAccessRevision: account.historyAccessRevision });
+      if (type === "mutation")
+        await assertHistoryAccessGeneration(auditedDb, {
+          userId: session.user.id,
+          historyAccessRevision: account.historyAccessRevision,
+        });
       if (type === "mutation" && path === "interviewManagement.complete") {
         const raw = await getRawInput();
         if (
@@ -402,44 +517,85 @@ export const protectedProcedure = t.procedure
         // A slot correction must observe attendance committed while waiting for the
         // schedule barrier. READ COMMITTED plus the same role/slot locks as approval
         // retains authority without a pre-wait Serializable snapshot hiding that work.
-        const { lockAttendanceApproval, lockAttendanceApprovalTarget } = await import("~/server/attendance-approval");
+        const { lockAttendanceApproval, lockAttendanceApprovalTarget } =
+          await import("~/server/attendance-approval");
         await lockAttendanceApproval(auditedDb, path, [session.user.id]);
-        await lockAttendanceApprovalTarget(auditedDb, path, await getRawInput());
-        const currentActor = await auditedDb.user.findUnique({ where: { id: session.user.id },
-          select: { role: true, suspendedAt: true, mergedIntoId: true } });
-        if (!currentActor || currentActor.suspendedAt || currentActor.mergedIntoId || currentActor.role !== account.role)
-          throw new TRPCError({ code: "CONFLICT", message: "Your current authority changed. Reload before editing this slot." });
+        await lockAttendanceApprovalTarget(
+          auditedDb,
+          path,
+          await getRawInput(),
+        );
+        const currentActor = await auditedDb.user.findUnique({
+          where: { id: session.user.id },
+          select: { role: true, suspendedAt: true, mergedIntoId: true },
+        });
+        if (
+          !currentActor ||
+          currentActor.suspendedAt ||
+          currentActor.mergedIntoId ||
+          currentActor.role !== account.role
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Your current authority changed. Reload before editing this slot.",
+          });
       }
-      if (type === "mutation" && !translationDraftWrite && Object.hasOwn(APPROVAL_OPERATIONS, path)) {
+      if (
+        type === "mutation" &&
+        !translationDraftWrite &&
+        Object.hasOwn(APPROVAL_OPERATIONS, path)
+      ) {
         // Conditional direct authority is re-read inside the application transaction.
         // Its Serializable boundary rejects a concurrent first decision/correction too.
-        const currentAuthority = await proposalAuthority(auditedDb, path, await getRawInput());
+        const currentAuthority = await proposalAuthority(
+          auditedDb,
+          path,
+          await getRawInput(),
+        );
         if (!currentAuthority?.directRoles.includes(account.role))
-          throw new TRPCError({ code: "CONFLICT", message: "The action now requires review. Reload and submit a fresh request." });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "The action now requires review. Reload and submit a fresh request.",
+          });
       }
       return next({
-      ctx: {
-        db: auditedDb,
-        portalAccess: access,
-        // infers the `session` as non-nullable
-        session: {
-          ...session,
-          role: account.role,
-          tutorId:
-            account.role === "VIEWER" || account.tutorAccessRevoked
-              ? null
-              : account.tutorId,
-          user: session.user,
+        ctx: {
+          db: auditedDb,
+          portalAccess: access,
+          // infers the `session` as non-nullable
+          session: {
+            ...session,
+            role: account.role,
+            tutorId:
+              account.role === "VIEWER" || account.tutorAccessRevoked
+                ? null
+                : account.tutorId,
+            user: session.user,
+          },
         },
-      },
       });
     };
     // Successful changes and safe before/after evidence share a transaction. Queued
     // proposals have already stopped above, so their durable submission is retained.
-    if (type === "mutation") return runAuditedMutation(ctx.db, { id: ctx.session.user.id,
-      name: account.name ?? account.username ?? null, role: account.role }, path, run);
+    if (type === "mutation")
+      return runAuditedMutation(
+        ctx.db,
+        {
+          id: ctx.session.user.id,
+          name: account.name ?? account.username ?? null,
+          role: account.role,
+        },
+        path,
+        run,
+      );
     const result = await run(ctx.db);
-    if (result.ok) await assertHistoryAccessGeneration(ctx.db, { userId: session.user.id, historyAccessRevision: account.historyAccessRevision });
+    if (result.ok)
+      await assertHistoryAccessGeneration(ctx.db, {
+        userId: session.user.id,
+        historyAccessRevision: account.historyAccessRevision,
+      });
     return result;
   });
 
@@ -655,33 +811,35 @@ export const crewProcedure = protectedProcedure.use(async ({ ctx, next }) => {
  * authorized staff keep their full responses. Own-account/participant reads use
  * their separate ownership guards and are deliberately outside this boundary.
  */
-export const viewerProcedure = protectedProcedure.use(async ({ ctx, next, path, type }) => {
-  const { role } = ctx.session;
-  if (!ctx.portalAccess.canReadManagement || type !== "query") {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Admin access required.",
-    });
-  }
-  // A suspended viewer keeps their login but loses read access (until reinstated / appeal).
-  if (role === "VIEWER") {
-    const me = await ctx.db.user.findUnique({
-      where: { id: ctx.session.user.id },
-      select: { suspendedAt: true },
-    });
-    if (me?.suspendedAt) {
+export const viewerProcedure = protectedProcedure.use(
+  async ({ ctx, next, path, type }) => {
+    const { role } = ctx.session;
+    if (!ctx.portalAccess.canReadManagement || type !== "query") {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Your account is suspended.",
+        message: "Admin access required.",
       });
     }
-  }
-  const result = await next();
-  if (ctx.portalAccess.maskManagementData && result.ok) {
-    return { ...result, data: projectManagementRead(path, result.data) };
-  }
-  return result;
-});
+    // A suspended viewer keeps their login but loses read access (until reinstated / appeal).
+    if (role === "VIEWER") {
+      const me = await ctx.db.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { suspendedAt: true },
+      });
+      if (me?.suspendedAt) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Your account is suspended.",
+        });
+      }
+    }
+    const result = await next();
+    if (ctx.portalAccess.maskManagementData && result.ok) {
+      return { ...result, data: projectManagementRead(path, result.data) };
+    }
+    return result;
+  },
+);
 
 /**
  * Guard for any procedure that accepts a `tutorId` argument: callers may only act on their

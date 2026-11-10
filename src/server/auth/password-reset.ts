@@ -268,7 +268,12 @@ export async function issueTutorSetupLink(
     await import("./registration");
   const { deliverAccountInvitation } = await import("./account-invitations");
   const actor = await db.user.findUnique({ where: { id: actorId } });
-  if (!actor || !["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
+  if (
+    !actor ||
+    !["ADMIN", "HEAD"].includes(actor.role) ||
+    actor.suspendedAt ||
+    actor.mergedIntoId
+  )
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
@@ -284,7 +289,12 @@ export async function issueTutorSetupLink(
       const currentActor = await tx.user.findUnique({
         where: { id: actor.id },
       });
-      if (!currentActor || !["ADMIN", "HEAD"].includes(currentActor.role) || currentActor.suspendedAt || currentActor.mergedIntoId)
+      if (
+        !currentActor ||
+        !["ADMIN", "HEAD"].includes(currentActor.role) ||
+        currentActor.suspendedAt ||
+        currentActor.mergedIntoId
+      )
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only Admin or Head can provision tutor access.",

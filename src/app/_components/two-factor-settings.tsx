@@ -66,8 +66,16 @@ export function TwoFactorSettings() {
     },
   });
   const denied = useSessionAccessDenied(
-    { ...me, denialKey: "two-factor-account", queryKey: getQueryKey(api.account.me, undefined, "query") },
-    { ...features, denialKey: "two-factor-program", queryKey: getQueryKey(api.program.features, undefined, "query") },
+    {
+      ...me,
+      denialKey: "two-factor-account",
+      queryKey: getQueryKey(api.account.me, undefined, "query"),
+    },
+    {
+      ...features,
+      denialKey: "two-factor-program",
+      queryKey: getQueryKey(api.program.features, undefined, "query"),
+    },
     {
       error: update.error,
       isSuccess: !update.error,
@@ -84,8 +92,7 @@ export function TwoFactorSettings() {
   const canToggle = enabled === true || canEnable === true;
   const blocked =
     !hasData || readError || loading || denied || update.isPending || committed;
-  const canSubmit =
-    !blocked && Boolean(currentPassword) && canToggle;
+  const canSubmit = !blocked && Boolean(currentPassword) && canToggle;
   const retryBlocked = loading || update.isPending;
   const retry = () => {
     // A pending write owns the next post-write read. An earlier user retry must

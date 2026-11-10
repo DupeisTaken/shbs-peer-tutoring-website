@@ -15,36 +15,65 @@ export async function selfMeetingExcuseIds(
   db: Pick<TransactionDb, "auditLog">,
   rows: readonly ExcuseAttendance[],
 ): Promise<Set<string>> {
-  const candidates = rows.filter((row) => row.status === "EXCUSED_ABSENT" && row.excusedAt);
+  const candidates = rows.filter(
+    (row) => row.status === "EXCUSED_ABSENT" && row.excusedAt,
+  );
   const owned = new Set(candidates.map((row) => row.id));
   if (!candidates.length) return owned;
-  const markers = new Map(candidates.map((row) => [row.id, row.excusedAt!.toISOString()]));
+  const markers = new Map(
+    candidates.map((row) => [row.id, row.excusedAt!.toISOString()]),
+  );
   const staff = await db.auditLog.findMany({
     where: {
       operation: "admin.recordMeetingAttendance",
       AND: [
         { details: { path: ["outcome"], equals: "APPLIED" } },
-        { OR: candidates.map((row) => ({ details: {
-          path: ["changes"],
-          array_contains: [{ entity: "MeetingAttendance", after: [{
-            id: row.id, excusedAt: markers.get(row.id)!,
-          }] }],
-        } })) },
+        {
+          OR: candidates.map((row) => ({
+            details: {
+              path: ["changes"],
+              array_contains: [
+                {
+                  entity: "MeetingAttendance",
+                  after: [
+                    {
+                      id: row.id,
+                      excusedAt: markers.get(row.id)!,
+                    },
+                  ],
+                },
+              ],
+            },
+          })),
+        },
       ],
     },
     select: { details: true },
   });
   for (const { details } of staff) {
-    if (!details || typeof details !== "object" || Array.isArray(details)) continue;
+    if (!details || typeof details !== "object" || Array.isArray(details))
+      continue;
     const changes = details.changes;
     if (!Array.isArray(changes)) continue;
     for (const change of changes) {
-      if (!change || typeof change !== "object" || Array.isArray(change) ||
-          change.entity !== "MeetingAttendance" || !Array.isArray(change.after)) continue;
+      if (
+        !change ||
+        typeof change !== "object" ||
+        Array.isArray(change) ||
+        change.entity !== "MeetingAttendance" ||
+        !Array.isArray(change.after)
+      )
+        continue;
       for (const row of change.after) {
-        if (row && typeof row === "object" && !Array.isArray(row) &&
-            typeof row.id === "string" && typeof row.excusedAt === "string" &&
-            markers.get(row.id) === row.excusedAt) owned.delete(row.id);
+        if (
+          row &&
+          typeof row === "object" &&
+          !Array.isArray(row) &&
+          typeof row.id === "string" &&
+          typeof row.excusedAt === "string" &&
+          markers.get(row.id) === row.excusedAt
+        )
+          owned.delete(row.id);
       }
     }
   }
@@ -60,27 +89,41 @@ export async function meetingForTutorExcuse(
   await lockEntity(tx, "program:period");
   await lockAccountProfile(tx, input.userId);
   const { meeting } = await lockMeetingExcuseSource(tx, {
-    meetingId: input.meetingId, tutorId: input.tutorId,
+    meetingId: input.meetingId,
+    tutorId: input.tutorId,
   });
   const account = await tx.user.findUnique({
     where: { id: input.userId },
     select: {
-      role: true, tutorId: true, tutorAccessRevoked: true, suspendedAt: true,
-      mergedIntoId: true, recoveryVoidedAt: true, schoolDeparture: true,
+      role: true,
+      tutorId: true,
+      tutorAccessRevoked: true,
+      suspendedAt: true,
+      mergedIntoId: true,
+      recoveryVoidedAt: true,
+      schoolDeparture: true,
       tutor: { select: { status: true } },
     },
   });
-  if (account?.tutorId !== input.tutorId || account.tutorAccessRevoked ||
-      account.recoveryVoidedAt || account.tutor?.status !== "ACTIVE" ||
-      !portalAccess(account).canParticipate)
-    throw new TRPCError({ code: "FORBIDDEN", message: "This action requires an active tutor account." });
+  if (
+    account?.tutorId !== input.tutorId ||
+    account.tutorAccessRevoked ||
+    account.recoveryVoidedAt ||
+    account.tutor?.status !== "ACTIVE" ||
+    !portalAccess(account).canParticipate
+  )
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This action requires an active tutor account.",
+    });
   return meeting;
 }
 
 export function staffMeetingAttendanceConflict(): never {
   throw new TRPCError({
     code: "CONFLICT",
-    message: "Staff recorded attendance for this meeting. Ask staff to correct it.",
+    message:
+      "Staff recorded attendance for this meeting. Ask staff to correct it.",
   });
 }
 

@@ -32,149 +32,344 @@ const at = (catalog: unknown, path: string | null): unknown =>
     );
 
 const identityModels = [
-  "PersonPartitionReceipt", "RetiredHistoryOwnership", "HistoryRowOwnership",
-  "PersonHistoryCorrectionReceipt", "ParticipantConsolidation", "PairingExecutionSuccessor",
-  "SessionPlanExecution", "SessionParticipantExecution", "SessionResponseExecution",
-  "QualificationTransferGrant", "PersonParticipationTransferReceipt", "StudentRequestExecutionAssignment",
+  "PersonPartitionReceipt",
+  "RetiredHistoryOwnership",
+  "HistoryRowOwnership",
+  "PersonHistoryCorrectionReceipt",
+  "ParticipantConsolidation",
+  "PairingExecutionSuccessor",
+  "SessionPlanExecution",
+  "SessionParticipantExecution",
+  "SessionResponseExecution",
+  "QualificationTransferGrant",
+  "PersonParticipationTransferReceipt",
+  "StudentRequestExecutionAssignment",
 ] as const;
 
 it("registers archive import metadata without exposing polymorphic provenance bindings", () => {
-  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
-  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)]
-    .find((match) => match[1] === "ImportedRecordProvenance");
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
+  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find(
+    (match) => match[1] === "ImportedRecordProvenance",
+  );
   expect(model).toBeDefined();
-  const scalarFields = [...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|DateTime)(?:[?\[\]\s])/gm)]
-    .map((match) => match[1]);
-  expect(reviewSchema.ImportedRecordProvenance).toEqual({ fields: scalarFields, references: {}, enums: {} });
-  expect(auditEntityLabelKey("ImportedRecordProvenance"))
-    .toBe("auditEventDetails.presentation.entities.ImportedRecordProvenance");
+  const scalarFields = [
+    ...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|DateTime)(?:[?\[\]\s])/gm),
+  ].map((match) => match[1]);
+  expect(reviewSchema.ImportedRecordProvenance).toEqual({
+    fields: scalarFields,
+    references: {},
+    enums: {},
+  });
+  expect(auditEntityLabelKey("ImportedRecordProvenance")).toBe(
+    "auditEventDetails.presentation.entities.ImportedRecordProvenance",
+  );
   for (const field of ["entity", "recordId"]) {
-    expect(auditFieldLabelKey("ImportedRecordProvenance", field), field).toBeNull();
-    expect(auditEnumLabelKey("ImportedRecordProvenance", field, "Tutor"), field).toBeNull();
-    expect(auditReferenceEntity("ImportedRecordProvenance", field), field).toBeUndefined();
+    expect(
+      auditFieldLabelKey("ImportedRecordProvenance", field),
+      field,
+    ).toBeNull();
+    expect(
+      auditEnumLabelKey("ImportedRecordProvenance", field, "Tutor"),
+      field,
+    ).toBeNull();
+    expect(
+      auditReferenceEntity("ImportedRecordProvenance", field),
+      field,
+    ).toBeUndefined();
   }
-  expect(auditFieldLabelKey("ImportedRecordProvenance", "importedAt"))
-    .toBe("auditEventDetails.presentation.fields.importedAt");
-  expect(auditEnumLabelKey("ImportedRecordProvenance", "importedAt", "ACTIVE")).toBeNull();
-  expect(auditReferenceEntity("ImportedRecordProvenance", "importedAt")).toBeUndefined();
+  expect(auditFieldLabelKey("ImportedRecordProvenance", "importedAt")).toBe(
+    "auditEventDetails.presentation.fields.importedAt",
+  );
+  expect(
+    auditEnumLabelKey("ImportedRecordProvenance", "importedAt", "ACTIVE"),
+  ).toBeNull();
+  expect(
+    auditReferenceEntity("ImportedRecordProvenance", "importedAt"),
+  ).toBeUndefined();
   // Private provenance keys do not narrow unrelated labels or genuine relations.
-  expect(auditFieldLabelKey("AuditLog", "entity")).toBe("auditEventDetails.presentation.fields.entity");
-  expect(auditFieldLabelKey("HistoricalAcademicCorrection", "recordId"))
-    .toBe("auditEventDetails.presentation.fields.recordId");
-  expect(auditReferenceEntity("HistoricalAcademicCorrection", "recordId")).toBe("HistoricalAcademicRecord");
+  expect(auditFieldLabelKey("AuditLog", "entity")).toBe(
+    "auditEventDetails.presentation.fields.entity",
+  );
+  expect(auditFieldLabelKey("HistoricalAcademicCorrection", "recordId")).toBe(
+    "auditEventDetails.presentation.fields.recordId",
+  );
+  expect(auditReferenceEntity("HistoricalAcademicCorrection", "recordId")).toBe(
+    "HistoricalAcademicRecord",
+  );
   expect(auditFieldLabelKey("Tutor", "importedAt")).toBeNull();
 });
 
 it("discovers historical invitation stop metadata with exact scalar-only schema coverage", () => {
-  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
-  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)]
-    .find((match) => match[1] === "HistoricalInvitationOperationClosure");
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
+  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find(
+    (match) => match[1] === "HistoricalInvitationOperationClosure",
+  );
   expect(model).toBeDefined();
-  const scalarFields = [...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|DateTime)(?:[?\[\]\s])/gm)]
-    .map((match) => match[1]);
-  expect(scalarFields).toEqual(["operationId", "issuedById", "inputHash", "scopeKey", "createdAt"]);
-  expect(reviewSchema.HistoricalInvitationOperationClosure).toEqual({ fields: scalarFields, references: {}, enums: {} });
-  expect(auditEntityLabelKey("HistoricalInvitationOperationClosure"))
-    .toBe("auditEventDetails.presentation.entities.HistoricalInvitationOperationClosure");
+  const scalarFields = [
+    ...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|DateTime)(?:[?\[\]\s])/gm),
+  ].map((match) => match[1]);
+  expect(scalarFields).toEqual([
+    "operationId",
+    "issuedById",
+    "inputHash",
+    "scopeKey",
+    "createdAt",
+  ]);
+  expect(reviewSchema.HistoricalInvitationOperationClosure).toEqual({
+    fields: scalarFields,
+    references: {},
+    enums: {},
+  });
+  expect(auditEntityLabelKey("HistoricalInvitationOperationClosure")).toBe(
+    "auditEventDetails.presentation.entities.HistoricalInvitationOperationClosure",
+  );
 });
 
 it("withholds stopped invitation bindings from generic labels and references without changing other owners", () => {
   for (const field of ["operationId", "issuedById", "inputHash", "scopeKey"]) {
-    expect(auditFieldLabelKey("HistoricalInvitationOperationClosure", field), field).toBeNull();
-    expect(auditEnumLabelKey("HistoricalInvitationOperationClosure", field, "ABANDONED"), field).toBeNull();
-    expect(auditReferenceEntity("HistoricalInvitationOperationClosure", field), field).toBeUndefined();
+    expect(
+      auditFieldLabelKey("HistoricalInvitationOperationClosure", field),
+      field,
+    ).toBeNull();
+    expect(
+      auditEnumLabelKey(
+        "HistoricalInvitationOperationClosure",
+        field,
+        "ABANDONED",
+      ),
+      field,
+    ).toBeNull();
+    expect(
+      auditReferenceEntity("HistoricalInvitationOperationClosure", field),
+      field,
+    ).toBeUndefined();
   }
-  expect(auditFieldLabelKey("HistoricalInvitationOperationClosure", "createdAt"))
-    .toBe("auditEventDetails.presentation.fields.createdAt");
-  expect(auditReferenceEntity("HistoricalInvitationOperationClosure", "createdAt")).toBeUndefined();
+  expect(
+    auditFieldLabelKey("HistoricalInvitationOperationClosure", "createdAt"),
+  ).toBe("auditEventDetails.presentation.fields.createdAt");
+  expect(
+    auditReferenceEntity("HistoricalInvitationOperationClosure", "createdAt"),
+  ).toBeUndefined();
   // Issuer labels on the existing invitation and real references are independent.
-  expect(auditFieldLabelKey("TuteeHistoryInvitation", "issuedById"))
-    .toBe("auditEventDetails.presentation.fields.issuedById");
-  expect(auditReferenceEntity("TuteeHistoryInvitation", "tuteeId")).toBe("Tutee");
+  expect(auditFieldLabelKey("TuteeHistoryInvitation", "issuedById")).toBe(
+    "auditEventDetails.presentation.fields.issuedById",
+  );
+  expect(auditReferenceEntity("TuteeHistoryInvitation", "tuteeId")).toBe(
+    "Tutee",
+  );
 });
 
 it("catalogues translation terminal scalars but withholds actor, UUID, hash and result bindings", () => {
-  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
-  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)]
-    .find((match) => match[1] === "TranslationIntentReceipt");
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
+  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find(
+    (match) => match[1] === "TranslationIntentReceipt",
+  );
   expect(model).toBeDefined();
-  const scalarFields = [...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|Int|Boolean|DateTime)(?:[?\[\]\s])/gm)]
-    .map((match) => match[1]);
-  expect(reviewSchema.TranslationIntentReceipt).toEqual({ fields: scalarFields, references: {}, enums: {} });
-  for (const field of ["actorId", "intentId", "protocolVersion", "operation", "mode", "inputHash", "draftId", "cleared"]) {
-    expect(auditFieldLabelKey("TranslationIntentReceipt", field), field).toBeNull();
-    expect(auditEnumLabelKey("TranslationIntentReceipt", field, "DRAFT"), field).toBeNull();
-    expect(auditReferenceEntity("TranslationIntentReceipt", field), field).toBeUndefined();
+  const scalarFields = [
+    ...model![2]!.matchAll(
+      /^\s*(\w+)\s+(?:String|Int|Boolean|DateTime)(?:[?\[\]\s])/gm,
+    ),
+  ].map((match) => match[1]);
+  expect(reviewSchema.TranslationIntentReceipt).toEqual({
+    fields: scalarFields,
+    references: {},
+    enums: {},
+  });
+  for (const field of [
+    "actorId",
+    "intentId",
+    "protocolVersion",
+    "operation",
+    "mode",
+    "inputHash",
+    "draftId",
+    "cleared",
+  ]) {
+    expect(
+      auditFieldLabelKey("TranslationIntentReceipt", field),
+      field,
+    ).toBeNull();
+    expect(
+      auditEnumLabelKey("TranslationIntentReceipt", field, "DRAFT"),
+      field,
+    ).toBeNull();
+    expect(
+      auditReferenceEntity("TranslationIntentReceipt", field),
+      field,
+    ).toBeUndefined();
   }
-  expect(auditReferenceEntity("TranslationIntentReceipt", "actorId")).toBeUndefined();
+  expect(
+    auditReferenceEntity("TranslationIntentReceipt", "actorId"),
+  ).toBeUndefined();
   expect(auditFieldLabelKey("TranslationDraft", "operation")).not.toBeNull();
   expect(auditFieldLabelKey("RecoveryReceipt", "actorId")).not.toBeNull();
 });
 
 it("registers exact identity lifecycle scalar fields without inventing schema enums", () => {
-  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
   for (const entity of identityModels) {
-    const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find((match) => match[1] === entity);
+    const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find(
+      (match) => match[1] === entity,
+    );
     expect(model, entity).toBeDefined();
-    const scalarFields = [...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|Int|Boolean|DateTime|Json)(?:[?\[\]\s])/gm)].map((match) => match[1]);
+    const scalarFields = [
+      ...model![2]!.matchAll(
+        /^\s*(\w+)\s+(?:String|Int|Boolean|DateTime|Json)(?:[?\[\]\s])/gm,
+      ),
+    ].map((match) => match[1]);
     expect(reviewSchema[entity].fields, entity).toEqual(scalarFields);
     expect(reviewSchema[entity].enums).toEqual({});
   }
   expect(reviewSchema.User.fields).toContain("historyAccessRevision");
-  expect(reviewSchema.PersonCombineReceipt.fields).toContain("ownershipTransfers");
+  expect(reviewSchema.PersonCombineReceipt.fields).toContain(
+    "ownershipTransfers",
+  );
   expect(reviewSchema.EmailDelivery.fields).toContain("sourceNotificationId");
 });
 
 it("keeps private identity snapshots, hashes and source arrays outside the display vocabulary", () => {
   const privateFields = {
-    User: ["historyAccessRevision"], Tutor: ["historyIdentityRevision"], Tutee: ["historyIdentityRevision"],
+    User: ["historyAccessRevision"],
+    Tutor: ["historyIdentityRevision"],
+    Tutee: ["historyIdentityRevision"],
     EmailDelivery: ["sourceNotificationId"],
     PersonCombineReceipt: ["inputHash", "retiredUserIds", "ownershipTransfers"],
     PersonPartitionReceipt: ["inputHash", "sources", "subjects"],
-    PersonHistoryCorrectionReceipt: ["inputHash", "sourceUserIds", "before", "after", "subjects"],
-    PersonParticipationTransferReceipt: ["inputHash", "retainedUserId", "selection", "result", "subjects"],
+    PersonHistoryCorrectionReceipt: [
+      "inputHash",
+      "sourceUserIds",
+      "before",
+      "after",
+      "subjects",
+    ],
+    PersonParticipationTransferReceipt: [
+      "inputHash",
+      "retainedUserId",
+      "selection",
+      "result",
+      "subjects",
+    ],
     RetiredHistoryOwnership: ["sourceUserId", "readerUserId", "receiptId"],
-    HistoryRowOwnership: ["recordId", "readerUserId", "sourceUserIds", "quarantineUserIds", "receiptId"],
-    ParticipantConsolidation: ["sourceId", "targetId"], SessionPlanExecution: ["assignments"],
-    SessionParticipantExecution: ["sourceSurveyIds"], SessionResponseExecution: ["profileId"],
+    HistoryRowOwnership: [
+      "recordId",
+      "readerUserId",
+      "sourceUserIds",
+      "quarantineUserIds",
+      "receiptId",
+    ],
+    ParticipantConsolidation: ["sourceId", "targetId"],
+    SessionPlanExecution: ["assignments"],
+    SessionParticipantExecution: ["sourceSurveyIds"],
+    SessionResponseExecution: ["profileId"],
   };
-  for (const [entity, fields] of Object.entries(privateFields)) for (const field of fields) {
-    expect(auditFieldLabelKey(entity, field), `${entity}.${field}`).toBeNull();
-    expect(auditReferenceEntity(entity, field), `${entity}.${field}`).toBeUndefined();
-    expect(auditEnumLabelKey(entity, field, "ASSIGNED"), `${entity}.${field}`).toBeNull();
-  }
+  for (const [entity, fields] of Object.entries(privateFields))
+    for (const field of fields) {
+      expect(
+        auditFieldLabelKey(entity, field),
+        `${entity}.${field}`,
+      ).toBeNull();
+      expect(
+        auditReferenceEntity(entity, field),
+        `${entity}.${field}`,
+      ).toBeUndefined();
+      expect(
+        auditEnumLabelKey(entity, field, "ASSIGNED"),
+        `${entity}.${field}`,
+      ).toBeNull();
+    }
   // Shared names remain usable on their independent, already-supported owners.
-  expect(auditFieldLabelKey("RecoveryChange", "before")).toBe("auditEventDetails.presentation.fields.before");
-  expect(auditFieldLabelKey("RecoveryChange", "after")).toBe("auditEventDetails.presentation.fields.after");
-  expect(auditFieldLabelKey("SessionPlanningReceipt", "result")).toBe("auditEventDetails.presentation.fields.result");
-  expect(auditReferenceEntity("PairingExecutionSuccessor", "sourcePairingId")).toBe("Pairing");
-  expect(auditReferenceEntity("SessionPlanExecution", "planId")).toBe("SessionPlan");
-  expect(auditReferenceEntity("SessionResponseExecution", "responseId")).toBe("SessionPlanningResponse");
-  expect(auditReferenceEntity("QualificationTransferGrant", "subjectId")).toBe("Subject");
-  expect(auditReferenceEntity("HistoryRowOwnership", "recordId")).toBeUndefined();
+  expect(auditFieldLabelKey("RecoveryChange", "before")).toBe(
+    "auditEventDetails.presentation.fields.before",
+  );
+  expect(auditFieldLabelKey("RecoveryChange", "after")).toBe(
+    "auditEventDetails.presentation.fields.after",
+  );
+  expect(auditFieldLabelKey("SessionPlanningReceipt", "result")).toBe(
+    "auditEventDetails.presentation.fields.result",
+  );
+  expect(
+    auditReferenceEntity("PairingExecutionSuccessor", "sourcePairingId"),
+  ).toBe("Pairing");
+  expect(auditReferenceEntity("SessionPlanExecution", "planId")).toBe(
+    "SessionPlan",
+  );
+  expect(auditReferenceEntity("SessionResponseExecution", "responseId")).toBe(
+    "SessionPlanningResponse",
+  );
+  expect(auditReferenceEntity("QualificationTransferGrant", "subjectId")).toBe(
+    "Subject",
+  );
+  expect(
+    auditReferenceEntity("HistoryRowOwnership", "recordId"),
+  ).toBeUndefined();
 });
 
 it("scopes retired-history String states to their actual owner and preserves unknown values", () => {
   for (const value of ["ASSIGNED", "QUARANTINED"])
-    expect(auditEnumLabelKey("RetiredHistoryOwnership", "state", value)).toBe(`auditEventDetails.presentation.historyOwnershipStates.${value}`);
-  expect(auditEnumLabelKey("RetiredHistoryOwnership", "state", "FUTURE_STATE")).toBeNull();
+    expect(auditEnumLabelKey("RetiredHistoryOwnership", "state", value)).toBe(
+      `auditEventDetails.presentation.historyOwnershipStates.${value}`,
+    );
+  expect(
+    auditEnumLabelKey("RetiredHistoryOwnership", "state", "FUTURE_STATE"),
+  ).toBeNull();
   expect(auditEnumLabelKey("User", "state", "ASSIGNED")).toBeNull();
-  expect(auditEnumLabelKey("RetiredHistoryOwnership", "readerUserId", "ASSIGNED")).toBeNull();
+  expect(
+    auditEnumLabelKey("RetiredHistoryOwnership", "readerUserId", "ASSIGNED"),
+  ).toBeNull();
 });
 
 it("labels scheduled-refresh business state without registering private execution evidence for display", () => {
-  expect(auditEntityLabelKey("ScheduledProgramRefresh")).toBe("auditEventDetails.presentation.entities.ScheduledProgramRefresh");
-  expect(auditEnumLabelKey("ScheduledProgramRefresh", "state", "BLOCKED")).toBe("auditEventDetails.presentation.enums.ScheduledRefreshState.BLOCKED");
-  expect(auditEnumLabelKey("ScheduledProgramRefresh", "blockedReason", "SCHEDULED_REFRESH_HEAD_CHANGED")).toBe("scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED");
-  expect(auditFieldLabelKey("ScheduledProgramRefresh", "executeAt")).toBe("auditEventDetails.presentation.fields.executeAt");
-  expect(auditReferenceEntity("ScheduledProgramRefresh", "sourceTermId")).toBe("Term");
-  for (const field of ["expectedPreparation", "authorizedById", "authorizedByName", "authorityRevision"]) {
+  expect(auditEntityLabelKey("ScheduledProgramRefresh")).toBe(
+    "auditEventDetails.presentation.entities.ScheduledProgramRefresh",
+  );
+  expect(auditEnumLabelKey("ScheduledProgramRefresh", "state", "BLOCKED")).toBe(
+    "auditEventDetails.presentation.enums.ScheduledRefreshState.BLOCKED",
+  );
+  expect(
+    auditEnumLabelKey(
+      "ScheduledProgramRefresh",
+      "blockedReason",
+      "SCHEDULED_REFRESH_HEAD_CHANGED",
+    ),
+  ).toBe("scheduledRefresh.errors.SCHEDULED_REFRESH_HEAD_CHANGED");
+  expect(auditFieldLabelKey("ScheduledProgramRefresh", "executeAt")).toBe(
+    "auditEventDetails.presentation.fields.executeAt",
+  );
+  expect(auditReferenceEntity("ScheduledProgramRefresh", "sourceTermId")).toBe(
+    "Term",
+  );
+  for (const field of [
+    "expectedPreparation",
+    "authorizedById",
+    "authorizedByName",
+    "authorityRevision",
+  ]) {
     expect(auditFieldLabelKey("ScheduledProgramRefresh", field)).toBeNull();
-    expect(auditReferenceEntity("ScheduledProgramRefresh", field)).toBeUndefined();
+    expect(
+      auditReferenceEntity("ScheduledProgramRefresh", field),
+    ).toBeUndefined();
   }
   expect(reviewSchema.User.fields).toContain("refreshAuthorityRevision");
   expect(auditFieldLabelKey("User", "refreshAuthorityRevision")).toBeNull();
-  expect(auditEnumLabelKey("User", "blockedReason", "SCHEDULED_REFRESH_HEAD_CHANGED")).toBeNull();
+  expect(
+    auditEnumLabelKey(
+      "User",
+      "blockedReason",
+      "SCHEDULED_REFRESH_HEAD_CHANGED",
+    ),
+  ).toBeNull();
 });
 
 it("labels school-report proposal aliases and delivery references within their owners", () => {
@@ -196,7 +391,9 @@ it("labels school-report proposal aliases and delivery references within their o
   expect(auditReferenceEntity("EmailDelivery", "schoolHoursReportId")).toBe(
     "SchoolHoursReport",
   );
-  expect(auditFieldLabelKey("MonthlyHoursSchedule", "dateOverrides")).toBeNull();
+  expect(
+    auditFieldLabelKey("MonthlyHoursSchedule", "dateOverrides"),
+  ).toBeNull();
   expect(auditFieldLabelKey("User", "sourceBaseline")).toBeNull();
   expect(auditFieldLabelKey("SchoolHoursReport", "linkTokenHash")).toBeNull();
 });
@@ -216,40 +413,87 @@ it("labels recovery evidence only within its known schema owners", () => {
 });
 
 it("registers all five scoped recovery models with exact current scalar fields", () => {
-  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
-  for (const entity of ["RecoveryCheckpoint", "RecoveryDeliveryEffect", "RecoveryDeliveryCancellation",
-    "RecoveryDeliveryCoverage", "RecoveryWorkflowDraft"] as const) {
-    const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)]
-      .find((match) => match[1] === entity);
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
+  for (const entity of [
+    "RecoveryCheckpoint",
+    "RecoveryDeliveryEffect",
+    "RecoveryDeliveryCancellation",
+    "RecoveryDeliveryCoverage",
+    "RecoveryWorkflowDraft",
+  ] as const) {
+    const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].find(
+      (match) => match[1] === entity,
+    );
     expect(model, entity).toBeDefined();
-    const scalarFields = [...model![2]!.matchAll(
-      /^\s*(\w+)\s+(?:String|Int|BigInt|Float|Boolean|DateTime|Json)(?:[?\[\]\s])/gm,
-    )].map((match) => match[1]);
+    const scalarFields = [
+      ...model![2]!.matchAll(
+        /^\s*(\w+)\s+(?:String|Int|BigInt|Float|Boolean|DateTime|Json)(?:[?\[\]\s])/gm,
+      ),
+    ].map((match) => match[1]);
     expect(reviewSchema[entity].fields, entity).toEqual(scalarFields);
     expect(reviewSchema[entity].enums, entity).toEqual({});
     expect(reviewSchema[entity].references, entity).toEqual({});
-    expect(auditEntityLabelKey(entity)).toBe(`auditEventDetails.presentation.entities.${entity}`);
+    expect(auditEntityLabelKey(entity)).toBe(
+      `auditEventDetails.presentation.entities.${entity}`,
+    );
   }
 });
 
 it("withholds checkpoint scope and exact draft identity/answers without narrowing unrelated field owners", () => {
   const withheld = {
-    RecoveryCheckpoint: ["sourceId", "capturedById", "captureTransactionId", "scope"],
-    RecoveryWorkflowDraft: ["sourceSurveyId", "sourceTuteeId", "ownerUserId", "ownerBindingHash", "answers", "submittedSurveyId"],
+    RecoveryCheckpoint: [
+      "sourceId",
+      "capturedById",
+      "captureTransactionId",
+      "scope",
+    ],
+    RecoveryWorkflowDraft: [
+      "sourceSurveyId",
+      "sourceTuteeId",
+      "ownerUserId",
+      "ownerBindingHash",
+      "answers",
+      "submittedSurveyId",
+    ],
   };
-  for (const [entity, fields] of Object.entries(withheld)) for (const field of fields) {
-    expect(auditFieldLabelKey(entity, field), `${entity}.${field}`).toBeNull();
-    expect(auditEnumLabelKey(entity, field, "PENDING_OWNER_REVIEW"), `${entity}.${field}`).toBeNull();
-    expect(auditReferenceEntity(entity, field), `${entity}.${field}`).toBeUndefined();
-  }
-  expect(auditFieldLabelKey("RecoveryCheckpoint", "actionId")).toBe("auditEventDetails.presentation.fields.actionId");
-  expect(auditFieldLabelKey("RecoveryWorkflowDraft", "state")).toBe("auditEventDetails.presentation.fields.state");
-  expect(auditFieldLabelKey("SessionPlanningRequest", "scope")).toBe("auditEventDetails.presentation.fields.scope");
-  expect(auditReferenceEntity("RecoveryCheckpoint", "sourceId")).toBeUndefined();
+  for (const [entity, fields] of Object.entries(withheld))
+    for (const field of fields) {
+      expect(
+        auditFieldLabelKey(entity, field),
+        `${entity}.${field}`,
+      ).toBeNull();
+      expect(
+        auditEnumLabelKey(entity, field, "PENDING_OWNER_REVIEW"),
+        `${entity}.${field}`,
+      ).toBeNull();
+      expect(
+        auditReferenceEntity(entity, field),
+        `${entity}.${field}`,
+      ).toBeUndefined();
+    }
+  expect(auditFieldLabelKey("RecoveryCheckpoint", "actionId")).toBe(
+    "auditEventDetails.presentation.fields.actionId",
+  );
+  expect(auditFieldLabelKey("RecoveryWorkflowDraft", "state")).toBe(
+    "auditEventDetails.presentation.fields.state",
+  );
+  expect(auditFieldLabelKey("SessionPlanningRequest", "scope")).toBe(
+    "auditEventDetails.presentation.fields.scope",
+  );
+  expect(
+    auditReferenceEntity("RecoveryCheckpoint", "sourceId"),
+  ).toBeUndefined();
   // String state names remain literal until their owning workflow registers a
   // deliberate translation. Neither a polymorphic ID nor a token creates a route.
-  expect(auditEnumLabelKey("RecoveryWorkflowDraft", "state", "PENDING_OWNER_REVIEW")).toBeNull();
-  expect(auditEnumLabelKey("RecoveryCheckpoint", "state", "PENDING_OWNER_REVIEW")).toBeNull();
+  expect(
+    auditEnumLabelKey("RecoveryWorkflowDraft", "state", "PENDING_OWNER_REVIEW"),
+  ).toBeNull();
+  expect(
+    auditEnumLabelKey("RecoveryCheckpoint", "state", "PENDING_OWNER_REVIEW"),
+  ).toBeNull();
 });
 
 it("labels continuation evidence and retained-request outcomes only on their owning records", () => {
@@ -272,9 +516,9 @@ it("labels continuation evidence and retained-request outcomes only on their own
     auditFieldLabelKey("SessionPlanContinuationMember", "releasedAt"),
   ).toBe("auditEventDetails.presentation.fields.releasedAt");
   expect(auditFieldLabelKey("StudentSurvey", "signupFirstOpenedAt")).toBeNull();
-  expect(auditFieldLabelKey("StudentSurvey", "publicSignupEmailConfirmedAt")).toBe(
-    "auditEventDetails.presentation.fields.publicSignupEmailConfirmedAt",
-  );
+  expect(
+    auditFieldLabelKey("StudentSurvey", "publicSignupEmailConfirmedAt"),
+  ).toBe("auditEventDetails.presentation.fields.publicSignupEmailConfirmedAt");
   expect(auditFieldLabelKey("User", "publicSignupEmailConfirmedAt")).toBeNull();
   expect(
     auditEnumLabelKey("StudentContinuationAssignment", "status", "UNASSIGNED"),
@@ -291,20 +535,43 @@ it("labels continuation evidence and retained-request outcomes only on their own
 it("labels notification preference schema and scopes closed topics without exposing literal evidence", () => {
   expect(auditReferenceEntity("NotificationPreference", "userId")).toBe("User");
   for (const [entity, field] of [
-    ["User", "emailReviewRequests"], ["User", "emailEventReminders"], ["User", "notificationPreferences"],
-    ["Notification", "category"], ["EmailDelivery", "preferenceTopic"], ["EmailDelivery", "reminderKey"],
-    ["NotificationPreference", "category"], ["NotificationPreference", "badgeEnabled"], ["NotificationPreference", "emailEnabled"],
-  ]) expect(auditFieldLabelKey(entity, field!)).toBe(`auditEventDetails.presentation.fields.${field}`);
+    ["User", "emailReviewRequests"],
+    ["User", "emailEventReminders"],
+    ["User", "notificationPreferences"],
+    ["Notification", "category"],
+    ["EmailDelivery", "preferenceTopic"],
+    ["EmailDelivery", "reminderKey"],
+    ["NotificationPreference", "category"],
+    ["NotificationPreference", "badgeEnabled"],
+    ["NotificationPreference", "emailEnabled"],
+  ])
+    expect(auditFieldLabelKey(entity, field!)).toBe(
+      `auditEventDetails.presentation.fields.${field}`,
+    );
   for (const category of notificationCategories) {
-    for (const [entity, field] of [["Notification", "category"], ["NotificationPreference", "category"], ["EmailDelivery", "preferenceTopic"]])
-      expect(auditEnumLabelKey(entity, field!, category)).toBe(`notificationPreferences.categories.${category}`);
+    for (const [entity, field] of [
+      ["Notification", "category"],
+      ["NotificationPreference", "category"],
+      ["EmailDelivery", "preferenceTopic"],
+    ])
+      expect(auditEnumLabelKey(entity, field!, category)).toBe(
+        `notificationPreferences.categories.${category}`,
+      );
     expect(auditEnumLabelKey("Notification", "body", category)).toBeNull();
   }
   expect(auditEnumLabelKey("EmailDelivery", "category", "reviews")).toBeNull();
-  expect(auditEnumLabelKey("EmailDelivery", "category", "review")).toBe("notificationPreferences.categories.reviews");
-  expect(auditEnumLabelKey("EmailDelivery", "category", "security")).toBe("auditEventDetails.presentation.deliveryCategories.security");
-  expect(auditEnumLabelKey("NotificationPreference", "category", "PRIVATE_SENTINEL")).toBeNull();
-  expect(auditEnumLabelKey("EmailDelivery", "reminderKey", "reminders")).toBeNull();
+  expect(auditEnumLabelKey("EmailDelivery", "category", "review")).toBe(
+    "notificationPreferences.categories.reviews",
+  );
+  expect(auditEnumLabelKey("EmailDelivery", "category", "security")).toBe(
+    "auditEventDetails.presentation.deliveryCategories.security",
+  );
+  expect(
+    auditEnumLabelKey("NotificationPreference", "category", "PRIVATE_SENTINEL"),
+  ).toBeNull();
+  expect(
+    auditEnumLabelKey("EmailDelivery", "reminderKey", "reminders"),
+  ).toBeNull();
 });
 it.each(Object.entries({ en, zh, de, el, es, fr, ja, ko }))(
   "has localized schema vocabulary in %s",

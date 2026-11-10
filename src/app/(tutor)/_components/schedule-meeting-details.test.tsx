@@ -18,7 +18,8 @@ const state = vi.hoisted(() => ({
   writeError: null as Error | null,
   success: false,
   canExcuse: true,
-  status: null as "PRESENT" | "EXEMPT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | null,
+  status: null as
+    "PRESENT" | "EXEMPT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | null,
   excused: false,
   responseMeetingId: null as string | null,
   close: vi.fn(),
@@ -115,7 +116,8 @@ vi.mock("~/trpc/react", () => ({
                           ? "2026-12-10T08:00:00Z"
                           : "2026-10-10T08:00:00Z",
                       ),
-                      status: input.period === "upcomingOutside" ? null : "PRESENT",
+                      status:
+                        input.period === "upcomingOutside" ? null : "PRESENT",
                       reason: null,
                       excused: false,
                       canExcuse: true,
@@ -469,31 +471,47 @@ it.each([
   { status: "EXEMPT", key: "exempt" },
   { status: "EXCUSED_ABSENT", key: "excusedAbsent" },
   { status: "UNEXCUSED_ABSENT", key: "unexcusedAbsent" },
-] as const)("keeps a future staff $status detail read-only without a misleading deadline message", ({ status, key }) => {
-  state.status = status;
-  state.canExcuse = false;
-  render(element());
-  const label = key === "exempt" ? messages.admin.meetings.exempt : messages.admin.meetings.status[key];
-  expect(screen.getByText(label)).toBeTruthy();
-  expect(screen.queryByText(messages.tutor.meetings.tooLate)).toBeNull();
-  expect(screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn })).toBeNull();
-  expect(screen.queryByRole("button", { name: messages.tutor.meetings.cancelExcuse })).toBeNull();
-  expect(screen.getByText("Private own reason")).toBeTruthy();
-  expect(state.mutate).not.toHaveBeenCalled();
-  expect(state.cancel).not.toHaveBeenCalled();
-});
+] as const)(
+  "keeps a future staff $status detail read-only without a misleading deadline message",
+  ({ status, key }) => {
+    state.status = status;
+    state.canExcuse = false;
+    render(element());
+    const label =
+      key === "exempt"
+        ? messages.admin.meetings.exempt
+        : messages.admin.meetings.status[key];
+    expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.queryByText(messages.tutor.meetings.tooLate)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: messages.tutor.meetings.cancelExcuse,
+      }),
+    ).toBeNull();
+    expect(screen.getByText("Private own reason")).toBeTruthy();
+    expect(state.mutate).not.toHaveBeenCalled();
+    expect(state.cancel).not.toHaveBeenCalled();
+  },
+);
 
 it("offers Cancel for an upcoming owned self-excuse while unrecorded meetings keep the self-excuse form", () => {
   state.status = "EXCUSED_ABSENT";
   state.excused = true;
   const view = render(element());
-  fireEvent.click(screen.getByRole("button", { name: messages.tutor.meetings.cancelExcuse }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.meetings.cancelExcuse }),
+  );
   expect(state.cancel).toHaveBeenCalledExactlyOnceWith({ meetingId: "one" });
   view.unmount();
   state.status = null;
   state.excused = false;
   render(element("two"));
   edit("Synthetic unrecorded meeting reason");
-  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("Synthetic unrecorded meeting reason");
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+    "Synthetic unrecorded meeting reason",
+  );
   expect(state.mutate).not.toHaveBeenCalled();
 });

@@ -21,14 +21,20 @@ export function verifyPasswordConfirmation(
 ): passwordHash is string {
   // Enforce at the hashing boundary as well as route schemas: internal callers count too.
   if (!password || password.length > PASSWORD_CONFIRMATION_MAX_LENGTH)
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a password of 1–1024 characters." });
-  if (!rateLimit(`password-confirmation:${userId}`, {
-    max: PASSWORD_CONFIRMATION_MAX_ATTEMPTS,
-    windowMs: PASSWORD_CONFIRMATION_WINDOW_MS,
-  }).ok)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Enter a password of 1–1024 characters.",
+    });
+  if (
+    !rateLimit(`password-confirmation:${userId}`, {
+      max: PASSWORD_CONFIRMATION_MAX_ATTEMPTS,
+      windowMs: PASSWORD_CONFIRMATION_WINDOW_MS,
+    }).ok
+  )
     throw new TRPCError({
       code: "TOO_MANY_REQUESTS",
-      message: "Too many password confirmations. Wait fifteen minutes before trying again.",
+      message:
+        "Too many password confirmations. Wait fifteen minutes before trying again.",
     });
   return !!passwordHash && verifyPassword(password, passwordHash);
 }

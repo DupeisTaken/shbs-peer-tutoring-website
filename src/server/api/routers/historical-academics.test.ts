@@ -1460,7 +1460,9 @@ it.each(["profile", "status", "reinstate", "undo"] as const)(
           },
         },
       });
-      await expect(caller().admin.undoAudit({ id: entry.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      await expect(
+        caller().admin.undoAudit({ id: entry.id }),
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
       // The old helper still preserves historical evidence, but is no longer a web recovery route.
       expect(await applyUndo(entry.undoData, db)).toBe(true);
     }
@@ -1499,7 +1501,10 @@ it("preserves originals when a card correction reinstates an undated tutee", asy
   const { original } = await historicalAcademicSnapshot(db, key(tutee.id));
   // Automatic restoration requires prospective removal provenance. Keep the
   // undated academic source, but apply its real disciplinary lifecycle.
-  await db.tutee.update({ where: { id: tutee.id }, data: { status: "ACTIVE" } });
+  await db.tutee.update({
+    where: { id: tutee.id },
+    data: { status: "ACTIVE" },
+  });
   const card = await db.disciplinaryCard.create({
     data: { tuteeId: tutee.id, color: "RED", reviewStatus: "VALID" },
   });

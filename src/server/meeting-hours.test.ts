@@ -69,11 +69,12 @@ function fixture(
   const matchingOrigins = ({ where }: OriginQuery) => {
     const clauses = "OR" in where ? where.OR : [where];
     return origins.filter((origin) =>
-      clauses.some((clause) =>
-        clause.entity === origin.entity &&
-        (typeof clause.recordId === "string"
-          ? clause.recordId === origin.recordId
-          : clause.recordId.in.includes(origin.recordId)),
+      clauses.some(
+        (clause) =>
+          clause.entity === origin.entity &&
+          (typeof clause.recordId === "string"
+            ? clause.recordId === origin.recordId
+            : clause.recordId.in.includes(origin.recordId)),
       ),
     );
   };
@@ -83,15 +84,18 @@ function fixture(
       findMany: vi.fn(async (_query: unknown) => {
         // This fixture models a database with ordinal ID collation. The pure
         // calculator separately proves it preserves other supplied tie orders.
-        return structuredClone(fixtureRows).sort((left, right) =>
-          left.meeting.date.getTime() - right.meeting.date.getTime() ||
-          (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+        return structuredClone(fixtureRows).sort(
+          (left, right) =>
+            left.meeting.date.getTime() - right.meeting.date.getTime() ||
+            (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
         );
       }),
     },
     serviceHourAdjustment: {
       deleteMany: vi.fn(
-        async ({ where }: {
+        async ({
+          where,
+        }: {
           where: { tutorId: string; id: { in: string[] } };
         }) => {
           // Reject broad cleanup rather than letting a mock hide prefix deletion.
@@ -121,8 +125,8 @@ function fixture(
     },
     importedRecordProvenance: {
       findMany: vi.fn(async (query: OriginQuery) => matchingOrigins(query)),
-      findFirst: vi.fn(async (query: OriginQuery) =>
-        matchingOrigins(query)[0] ?? null,
+      findFirst: vi.fn(
+        async (query: OriginQuery) => matchingOrigins(query)[0] ?? null,
       ),
     },
   };
@@ -237,7 +241,9 @@ it("restores an early absence by creating only the newly required fourth deducti
 
   expect(f.tx.serviceHourAdjustment.deleteMany).not.toHaveBeenCalled();
   expect(f.tx.serviceHourAdjustment.create).toHaveBeenCalledTimes(1);
-  expect(f.adjustments.get(deductionId(rows[3]!))).toMatchObject({ amount: 0.25 });
+  expect(f.adjustments.get(deductionId(rows[3]!))).toMatchObject({
+    amount: 0.25,
+  });
   expect(f.adjustments.get(fifth.id)).toEqual(fifth);
   expect(f.adjustments.size).toBe(2);
 });
@@ -265,7 +271,9 @@ it.each(["MeetingAttendance", "TutorMeeting"] as const)(
 
     expect(f.tx.serviceHourAdjustment.deleteMany).not.toHaveBeenCalled();
     expect(f.tx.serviceHourAdjustment.create).toHaveBeenCalledTimes(1);
-    expect(f.adjustments.get(deductionId(fourth))).toMatchObject({ amount: 0.25 });
+    expect(f.adjustments.get(deductionId(fourth))).toMatchObject({
+      amount: 0.25,
+    });
     expect(f.adjustments.get(retained.id)).toEqual(retained);
     expect(f.adjustments.size).toBe(2);
   },
@@ -296,7 +304,9 @@ it.each([
       f.rows[3]!.meeting.term!.quarter = "Q2";
     }
 
-    const message: unknown = expect.stringMatching(/identifier belongs to imported history/);
+    const message: unknown = expect.stringMatching(
+      /identifier belongs to imported history/,
+    );
     await expect(
       reconcileMeetingHours(f.db, "tutor", before),
     ).rejects.toMatchObject({
@@ -371,7 +381,10 @@ it("rejects another tutor's before snapshot before reading or writing effects", 
 });
 
 it("requires reviewed recovery before native meeting actions change archive evidence", async () => {
-  const f = fixture([], [{ entity: "MeetingAttendance", recordId: "original" }]);
+  const f = fixture(
+    [],
+    [{ entity: "MeetingAttendance", recordId: "original" }],
+  );
   await expect(
     assertMutableProgramRecords(f.db, [
       { entity: "MeetingAttendance", recordId: "original" },

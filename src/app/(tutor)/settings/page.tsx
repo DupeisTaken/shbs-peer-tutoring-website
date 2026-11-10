@@ -123,12 +123,16 @@ export default function SettingsPage() {
     hasFields: editableNames,
     observe: observeNamePolicy,
   } = useNameFieldPresentation();
-  const [originalNames, setOriginalNames] = useState(() => nameDraft(profile.data));
+  const [originalNames, setOriginalNames] = useState(() =>
+    nameDraft(profile.data),
+  );
   const [legacyName, setLegacyName] = useState(() =>
     profile.data ? unsplitLegacyName(profile.data) : undefined,
   );
   const identity = personNameEdit(names, originalNames, legacyName);
-  const [profileVersion, setProfileVersion] = useState(profile.data?.profileVersion);
+  const [profileVersion, setProfileVersion] = useState(
+    profile.data?.profileVersion,
+  );
   const [profileDirty, setProfileDirty] = useState(false);
   const [optOutReason, setOptOutReason] = useState("");
   const [observedProfile, setObservedProfile] = useState(profile.data);

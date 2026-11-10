@@ -88,8 +88,12 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
   const router = useRouter();
   const utils = api.useUtils();
   const readCurrent = async () => {
-    const result = await state.refetch({ throwOnError: true, cancelRefetch: true });
-    if (!result.isSuccess || !result.data) throw new Error("Departure refresh failed");
+    const result = await state.refetch({
+      throwOnError: true,
+      cancelRefetch: true,
+    });
+    if (!result.isSuccess || !result.data)
+      throw new Error("Departure refresh failed");
     return result.data;
   };
   const refreshAccepted = async () => {
@@ -99,8 +103,13 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
     try {
       // Invalidation can resolve with failed queries. Read this exact target too,
       // and wait for every related read before releasing the accepted-write lock.
-      const [, fresh] = await settleRefreshes<Awaited<ReturnType<typeof readCurrent>> | null>([
-        async () => { await invalidateAndReport(utils); return null; },
+      const [, fresh] = await settleRefreshes<Awaited<
+        ReturnType<typeof readCurrent>
+      > | null>([
+        async () => {
+          await invalidateAndReport(utils);
+          return null;
+        },
         readCurrent,
       ]);
       if (!fresh) throw new Error("Departure refresh failed");
@@ -121,7 +130,9 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
   };
   const success = async () => {
     acceptedWrite.current = true;
-    const requested = !(userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? ""));
+    const requested = !(
+      userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")
+    );
     acceptedRequested.current = requested;
     setRequestedOutcome(requested);
     setAccepted(true);
@@ -148,16 +159,28 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
     onSuccess: success,
     onSettled: settled,
   });
-  const error = (save.error?.data?.approvalId ? null : save.error) ?? request.error;
+  const error =
+    (save.error?.data?.approvalId ? null : save.error) ?? request.error;
   const denied = useSessionAccessDenied(
-    { ...state, denialKey: "school-departure", queryKey: getQueryKey(api.departure.state, { userId }, "query") },
+    {
+      ...state,
+      denialKey: "school-departure",
+      queryKey: getQueryKey(api.departure.state, { userId }, "query"),
+    },
     { error, isSuccess: !error, isFetching: readPending },
   );
   // A background read never lends a new version to an existing reason/action.
   // Only the initial authorized read, explicit Reload or accepted-save read adopts it.
-  if (expectedRevision === null && state.data && !state.error && !denied && !accepted)
+  if (
+    expectedRevision === null &&
+    state.data &&
+    !state.error &&
+    !denied &&
+    !accepted
+  )
     setExpectedRevision(state.data.departure?.revision ?? 0);
-  const ownPending = save.isPending || request.isPending || writePending || readPending;
+  const ownPending =
+    save.isPending || request.isPending || writePending || readPending;
   const busy = useDialogPending(ownPending);
   // Keep the nested review mounted through callbacks/refresh and any registered sibling write.
   // Never register the inherited aggregate back into the parent context.
@@ -174,7 +197,10 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
   }
   const retryRead = async (reloadDraft = false) => {
     if (busy || reading.current || submitting.current || completion) return;
-    if (acceptedWrite.current) { await refreshAccepted(); return; }
+    if (acceptedWrite.current) {
+      await refreshAccepted();
+      return;
+    }
     reading.current = true;
     setReadPending(true);
     try {
@@ -199,9 +225,21 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
   const canReview = retired
     ? !!userId && departed && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")
     : !["RETURN", "REVOKE", "RESTORE"].includes(action) || departed;
-  const reloadNeeded = error?.data?.code === "CONFLICT" ||
-    (expectedRevision !== null && !!state.data && expectedRevision !== (state.data.departure?.revision ?? 0));
-  const blocked = busy || accepted || !!completion || denied || !!state.error || state.isFetching || readFailure || reloadNeeded || !state.data;
+  const reloadNeeded =
+    error?.data?.code === "CONFLICT" ||
+    (expectedRevision !== null &&
+      !!state.data &&
+      expectedRevision !== (state.data.departure?.revision ?? 0));
+  const blocked =
+    busy ||
+    accepted ||
+    !!completion ||
+    denied ||
+    !!state.error ||
+    state.isFetching ||
+    readFailure ||
+    reloadNeeded ||
+    !state.data;
   const submit = () => {
     if (
       !canReview ||
@@ -227,29 +265,108 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
     else request.mutate(input);
   };
   const recovery = accepted ? (
-    <InlineNotice tone={refreshFailed ? "error" : "info"} announcement={refreshFailed ? "alert" : "status"}
-      action={refreshFailed && <Button disabled={busy} onClick={() => { void retryRead(); }}>{t("retryRefresh")}</Button>}>
-      <p className="font-medium">{t(requestedOutcome ? "requested" : "saved")}</p>
-      <p className="mt-1">{t(refreshFailed ? "refreshFailed" : "refreshing")}</p>
+    <InlineNotice
+      tone={refreshFailed ? "error" : "info"}
+      announcement={refreshFailed ? "alert" : "status"}
+      action={
+        refreshFailed && (
+          <Button
+            disabled={busy}
+            onClick={() => {
+              void retryRead();
+            }}
+          >
+            {t("retryRefresh")}
+          </Button>
+        )
+      }
+    >
+      <p className="font-medium">
+        {t(requestedOutcome ? "requested" : "saved")}
+      </p>
+      <p className="mt-1">
+        {t(refreshFailed ? "refreshFailed" : "refreshing")}
+      </p>
     </InlineNotice>
   ) : reloadNeeded ? (
-    <InlineNotice tone="warning" action={<Button disabled={busy} onClick={() => { void retryRead(true); }}>{t("reload")}</Button>}>
+    <InlineNotice
+      tone="warning"
+      action={
+        <Button
+          disabled={busy}
+          onClick={() => {
+            void retryRead(true);
+          }}
+        >
+          {t("reload")}
+        </Button>
+      }
+    >
       <p>{t("reloadHelp")}</p>
-      {(error ?? readFailure) && <p className="mt-1">{readFailure ? t("readFailed") : error?.message}</p>}
+      {(error ?? readFailure) && (
+        <p className="mt-1">{readFailure ? t("readFailed") : error?.message}</p>
+      )}
     </InlineNotice>
   ) : state.error || readFailure ? (
-    <InlineNotice tone="error" announcement="alert" action={<Button disabled={busy} onClick={() => { void retryRead(); }}>{t("retryRefresh")}</Button>}>
+    <InlineNotice
+      tone="error"
+      announcement="alert"
+      action={
+        <Button
+          disabled={busy}
+          onClick={() => {
+            void retryRead();
+          }}
+        >
+          {t("retryRefresh")}
+        </Button>
+      }
+    >
       {t("readFailed")}
     </InlineNotice>
   ) : null;
-  if (denied) return <StatePanel kind="denied" title={t("accessDenied")}
-    action={<Button disabled={busy} onClick={() => { void retryRead(); }}>{t("retryRefresh")}</Button>} />;
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={t("accessDenied")}
+        action={
+          <Button
+            disabled={busy}
+            onClick={() => {
+              void retryRead();
+            }}
+          >
+            {t("retryRefresh")}
+          </Button>
+        }
+      />
+    );
   if (!userId && state.data?.role === "VIEWER") return null;
-  if (!state.data) return <StatePanel kind={(state.error ?? readFailure) ? "error" : "loading"}
-    title={t((state.error ?? readFailure) ? "loadFailed" : "loading")}
-    action={(state.error ?? readFailure) && <Button disabled={busy} onClick={() => { void retryRead(); }}>{t("retryRefresh")}</Button>} />;
+  if (!state.data)
+    return (
+      <StatePanel
+        kind={(state.error ?? readFailure) ? "error" : "loading"}
+        title={t((state.error ?? readFailure) ? "loadFailed" : "loading")}
+        action={
+          (state.error ?? readFailure) && (
+            <Button
+              disabled={busy}
+              onClick={() => {
+                void retryRead();
+              }}
+            >
+              {t("retryRefresh")}
+            </Button>
+          )
+        }
+      />
+    );
   return (
-    <section className="mt-5 space-y-4 border-t border-slate-200 pt-5" aria-busy={ownPending}>
+    <section
+      className="mt-5 space-y-4 border-t border-slate-200 pt-5"
+      aria-busy={ownPending}
+    >
       <h3 className="section-title">{t("title")}</h3>
       <p className="muted text-sm">{t("help")}</p>
       {state.data && (
@@ -272,17 +389,31 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
             className="select min-h-11 w-full lg:min-h-10"
             value={action}
             disabled={blocked || (retired && !canReview)}
-            onChange={(e) => { if (!blocked) setAction(e.target.value as typeof selectedAction); }}
+            onChange={(e) => {
+              if (!blocked) setAction(e.target.value as typeof selectedAction);
+            }}
           >
-            {!retired && <option value="TRANSFERRED">{t("transferred")}</option>}
-            {!retired && <option value="GRADUATED">{t("graduated")}</option>}
-            {(departed || retired || selectedAction === "RETURN") && <option value="RETURN" disabled={!departed}>{t("return")}</option>}
-            {userId && !retired && (departed || ["REVOKE", "RESTORE"].includes(selectedAction)) && (
-              <>
-                <option value="REVOKE" disabled={!departed}>{t("revoke")}</option>
-                <option value="RESTORE" disabled={!departed}>{t("restore")}</option>
-              </>
+            {!retired && (
+              <option value="TRANSFERRED">{t("transferred")}</option>
             )}
+            {!retired && <option value="GRADUATED">{t("graduated")}</option>}
+            {(departed || retired || selectedAction === "RETURN") && (
+              <option value="RETURN" disabled={!departed}>
+                {t("return")}
+              </option>
+            )}
+            {userId &&
+              !retired &&
+              (departed || ["REVOKE", "RESTORE"].includes(selectedAction)) && (
+                <>
+                  <option value="REVOKE" disabled={!departed}>
+                    {t("revoke")}
+                  </option>
+                  <option value="RESTORE" disabled={!departed}>
+                    {t("restore")}
+                  </option>
+                </>
+              )}
           </select>
         </label>
         <label className="block">
@@ -293,7 +424,9 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
             maxLength={1000}
             value={explanation}
             disabled={blocked || !canReview}
-            onChange={(e) => { if (!blocked && canReview) setExplanation(e.target.value); }}
+            onChange={(e) => {
+              if (!blocked && canReview) setExplanation(e.target.value);
+            }}
           />
         </label>
       </div>
@@ -313,7 +446,11 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
             setConfirming(true);
         }}
       >
-        {t(userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "") ? "review" : "request")}
+        {t(
+          userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")
+            ? "review"
+            : "request",
+        )}
       </Button>
       {!confirming && recovery}
       {outcome && (
@@ -350,7 +487,9 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
                 <p className="text-sm">
                   {t(
                     action === "RETURN"
-                      ? retired ? "retiredReturnHelp" : "returnHelp"
+                      ? retired
+                        ? "retiredReturnHelp"
+                        : "returnHelp"
                       : action === "REVOKE" || action === "RESTORE"
                         ? "accessHelp"
                         : "consequences",
@@ -362,7 +501,11 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
               </>
             }
             actions={
-              <Button variant="primary" disabled={blocked || !canReview} onClick={submit}>
+              <Button
+                variant="primary"
+                disabled={blocked || !canReview}
+                onClick={submit}
+              >
                 {t("confirm")}
               </Button>
             }

@@ -406,15 +406,21 @@ it.each(["en", "zh"] as const)(
     fireEvent.click(confirm);
     expect(state.mutations.departure).toHaveBeenCalledOnce();
     await act(async () => {
-      fireEvent.click(within(nested).getByRole("button", {
-        name: labels.schoolDeparture.reload,
-      }));
+      fireEvent.click(
+        within(nested).getByRole("button", {
+          name: labels.schoolDeparture.reload,
+        }),
+      );
     });
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(reason.value).toBe("Reviewed departure draft");
     fireEvent.click(review);
-    nested = screen.getByRole("dialog", { name: labels.schoolDeparture.review });
-    confirm = within(nested).getByRole<HTMLButtonElement>("button", { name: labels.schoolDeparture.confirm });
+    nested = screen.getByRole("dialog", {
+      name: labels.schoolDeparture.review,
+    });
+    confirm = within(nested).getByRole<HTMLButtonElement>("button", {
+      name: labels.schoolDeparture.confirm,
+    });
     fireEvent.click(confirm);
     expect(state.mutations.departure).toHaveBeenCalledTimes(2);
     expect(state.mutations.departure!.mock.calls[1]![0]).toEqual({
@@ -440,7 +446,9 @@ it.each(["en", "zh"] as const)(
     });
     expect(screen.getAllByRole("dialog")).toHaveLength(2);
     state.pending.departure = false;
-    act(() => { state.callbacks.departure?.onSettled?.(); });
+    act(() => {
+      state.callbacks.departure?.onSettled?.();
+    });
     view.rerender(ui(locale));
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(reason.value).toBe("");
@@ -472,15 +480,21 @@ it("completes queued departure review after fresh reads without treating the pro
   });
   expect(screen.getAllByRole("dialog")).toHaveLength(2);
   state.pending.departure = false;
-  act(() => { state.callbacks.departure?.onSettled?.(); });
+  act(() => {
+    state.callbacks.departure?.onSettled?.();
+  });
   view.rerender(ui());
   expect(screen.getAllByRole("dialog")).toHaveLength(1);
   expect(reason.value).toBe("");
   expect(screen.getByText(en.schoolDeparture.requested)).toBeTruthy();
   expect(screen.queryByText(en.schoolDeparture.saved)).toBeNull();
-  expect(screen.getByText(new RegExp(en.schoolDeparture.enrolled))).toBeTruthy();
+  expect(
+    screen.getByText(new RegExp(en.schoolDeparture.enrolled)),
+  ).toBeTruthy();
   // A later explicit request starts with the accepted fresh revision.
-  fireEvent.change(reason, { target: { value: "Another deliberate departure request" } });
+  fireEvent.change(reason, {
+    target: { value: "Another deliberate departure request" },
+  });
   fireEvent.click(
     screen.getByRole("button", { name: en.schoolDeparture.request }),
   );
@@ -488,7 +502,10 @@ it("completes queued departure review after fresh reads without treating the pro
     screen.getByRole("button", { name: en.schoolDeparture.confirm }),
   );
   expect(state.mutations.departure).toHaveBeenLastCalledWith(
-    expect.objectContaining({ expectedRevision: 3, explanation: "Another deliberate departure request" }),
+    expect.objectContaining({
+      expectedRevision: 3,
+      explanation: "Another deliberate departure request",
+    }),
   );
 });
 

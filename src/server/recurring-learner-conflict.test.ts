@@ -84,7 +84,10 @@ beforeEach(async () => {
   tutors = [];
   for (const index of [0, 1]) {
     const tutor = await db.tutor.create({
-      data: { englishName: `Synthetic recurring tutor ${index}`, status: "ACTIVE" },
+      data: {
+        englishName: `Synthetic recurring tutor ${index}`,
+        status: "ACTIVE",
+      },
     });
     const user = await db.user.create({
       data: {
@@ -120,12 +123,22 @@ beforeEach(async () => {
   }
   originalSlotId = (
     await db.timeSlot.create({
-      data: { label: "Synthetic shared time", dayOfWeek: 2, startMin: 900, endMin: 945 },
+      data: {
+        label: "Synthetic shared time",
+        dayOfWeek: 2,
+        startMin: 900,
+        endMin: 945,
+      },
     })
   ).id;
   adjacentSlotId = (
     await db.timeSlot.create({
-      data: { label: "Synthetic adjacent time", dayOfWeek: 2, startMin: 945, endMin: 990 },
+      data: {
+        label: "Synthetic adjacent time",
+        dayOfWeek: 2,
+        startMin: 945,
+        endMin: 990,
+      },
     })
   ).id;
 });
@@ -163,15 +176,19 @@ it("keeps overlapping recurring learner intent recoverable without publishing co
   const unavailable = published.find((row) => row.sourceInvalidated)!;
   expect(unavailable).toMatchObject({ status: "CANCELLED", startMin: 900 });
   const blockedPairingId = unavailable.plan.assignments[0]!.pairingId;
-  const blockedTutor = tutors.find((tutor) => tutor.pairingId === blockedPairingId)!;
+  const blockedTutor = tutors.find(
+    (tutor) => tutor.pairingId === blockedPairingId,
+  )!;
 
   // Use the real learner reader, not a query against the stored cancellation alone.
   const agenda = await readSessionAgenda(db, learner, "tutee", now);
-  expect(agenda.cohorts.find((row) => row.id === unavailable.id)).toMatchObject({
-    unavailable: true,
-    status: "CANCELLED",
-    pairingIds: [blockedPairingId],
-  });
+  expect(agenda.cohorts.find((row) => row.id === unavailable.id)).toMatchObject(
+    {
+      unavailable: true,
+      status: "CANCELLED",
+      pairingIds: [blockedPairingId],
+    },
+  );
   expect(
     await db.sessionNotice.count({
       where: {
@@ -184,7 +201,9 @@ it("keeps overlapping recurring learner intent recoverable without publishing co
 
   // Once a dated commitment exists, even another roomless recurring save must
   // respect the learner's reserved time. The normal writer also provides repair.
-  const current = await db.pairing.findUniqueOrThrow({ where: { id: blockedPairingId } });
+  const current = await db.pairing.findUniqueOrThrow({
+    where: { id: blockedPairingId },
+  });
   await expect(
     caller(blockedTutor).tutor.setPairingSlot({
       pairingId: blockedPairingId,
@@ -209,11 +228,13 @@ it("keeps overlapping recurring learner intent recoverable without publishing co
     }),
   ).resolves.toMatchObject({ scheduleConfirmed: true, startMin: 945 });
 
-  const repaired = (await readSessionAgenda(db, learner, "tutee", now)).cohorts.filter(
-    (row) => row.date === date,
-  );
+  const repaired = (
+    await readSessionAgenda(db, learner, "tutee", now)
+  ).cohorts.filter((row) => row.date === date);
   expect(repaired).toHaveLength(2);
-  expect(repaired.every((row) => row.status === "SCHEDULED" && !row.unavailable)).toBe(true);
+  expect(
+    repaired.every((row) => row.status === "SCHEDULED" && !row.unavailable),
+  ).toBe(true);
   expect(repaired.map((row) => [row.startMin, row.endMin])).toEqual([
     [900, 945],
     [945, 990],

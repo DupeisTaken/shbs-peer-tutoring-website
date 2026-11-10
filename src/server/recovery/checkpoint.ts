@@ -571,9 +571,16 @@ async function apply(
           code: "PRECONDITION_FAILED",
           message: "Checkpoint overlap limits exceeded.",
         });
-      const lockedRoots = new Set([checkpoint.actionId, ...roots.map((row) => row.actionId),
-        ...await recoveryDeliveryRootIds(tx, checkpoint.actionId)]);
-      if (lockedRoots.size > 100) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Checkpoint overlap limits exceeded." });
+      const lockedRoots = new Set([
+        checkpoint.actionId,
+        ...roots.map((row) => row.actionId),
+        ...(await recoveryDeliveryRootIds(tx, checkpoint.actionId)),
+      ]);
+      if (lockedRoots.size > 100)
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Checkpoint overlap limits exceeded.",
+        });
       for (const rootId of [...lockedRoots].sort())
         await lockEntity(tx, `recovery:${rootId}`);
       await tx.$executeRaw`INSERT INTO "RecoveryFence"("actionId",revision) VALUES(${checkpoint.actionId},1) ON CONFLICT ("actionId") DO UPDATE SET revision="RecoveryFence".revision+1`;

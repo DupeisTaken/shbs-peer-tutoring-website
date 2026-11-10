@@ -26,10 +26,12 @@ const fixture = vi.hoisted(() => ({
   request: vi.fn(),
   refetch: vi.fn(),
   pending: false,
-  callbacks: undefined as undefined | {
-    onSuccess: () => Promise<void>;
-    onSettled: () => void;
-  },
+  callbacks: undefined as
+    | undefined
+    | {
+        onSuccess: () => Promise<void>;
+        onSettled: () => void;
+      },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("./management-actions", () => ({
@@ -52,7 +54,13 @@ vi.mock("~/trpc/react", () => ({
           refetch: fixture.refetch,
         }),
       },
-      setState: { useMutation: () => ({ mutate: fixture.save, reset: vi.fn(), isPending: false }) },
+      setState: {
+        useMutation: () => ({
+          mutate: fixture.save,
+          reset: vi.fn(),
+          isPending: false,
+        }),
+      },
       request: {
         useMutation: (callbacks: typeof fixture.callbacks) => {
           fixture.callbacks = callbacks;
@@ -76,7 +84,9 @@ beforeEach(() => {
   cleanup();
   fixture.save.mockClear();
   fixture.request.mockClear();
-  fixture.refetch.mockReset().mockImplementation(async () => ({ data: fixture.data, isSuccess: true }));
+  fixture.refetch
+    .mockReset()
+    .mockImplementation(async () => ({ data: fixture.data, isSuccess: true }));
   fixture.callbacks = undefined;
   fixture.pending = false;
   fixture.data.access.canReadManagement = true;
@@ -101,39 +111,77 @@ beforeEach(() => {
   });
 });
 
-it.each(["en", "zh"] as const)("offers only factual RETURN for a retired original to staff in %s", (locale) => {
-  fixture.data.retired = true;
-  fixture.data.role = "HEAD";
-  fixture.data.departure.observerRevoked = true;
-  const copy = locale === "en" ? messages : zhMessages;
-  render(<NextIntlClientProvider locale={locale} messages={copy}><SchoolDeparturePanel userId="retired-original" /></NextIntlClientProvider>);
-  const select = screen.getByRole<HTMLSelectElement>("combobox");
-  expect(Array.from(select.options, (option) => option.value)).toEqual(["RETURN"]);
-  expect(select.value).toBe("RETURN");
-  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Verified factual return; keep login retired" } });
-  fireEvent.click(screen.getByRole("button", { name: copy.schoolDeparture.review }));
-  fireEvent.click(screen.getByRole("button", { name: copy.schoolDeparture.confirm }));
-  expect(fixture.save).toHaveBeenCalledWith({ userId: "retired-original", action: "RETURN", expectedRevision: 2, explanation: "Verified factual return; keep login retired" });
-  expect(fixture.request).not.toHaveBeenCalled();
-});
+it.each(["en", "zh"] as const)(
+  "offers only factual RETURN for a retired original to staff in %s",
+  (locale) => {
+    fixture.data.retired = true;
+    fixture.data.role = "HEAD";
+    fixture.data.departure.observerRevoked = true;
+    const copy = locale === "en" ? messages : zhMessages;
+    render(
+      <NextIntlClientProvider locale={locale} messages={copy}>
+        <SchoolDeparturePanel userId="retired-original" />
+      </NextIntlClientProvider>,
+    );
+    const select = screen.getByRole<HTMLSelectElement>("combobox");
+    expect(Array.from(select.options, (option) => option.value)).toEqual([
+      "RETURN",
+    ]);
+    expect(select.value).toBe("RETURN");
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Verified factual return; keep login retired" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.schoolDeparture.review }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.schoolDeparture.confirm }),
+    );
+    expect(fixture.save).toHaveBeenCalledWith({
+      userId: "retired-original",
+      action: "RETURN",
+      expectedRevision: 2,
+      explanation: "Verified factual return; keep login retired",
+    });
+    expect(fixture.request).not.toHaveBeenCalled();
+  },
+);
 
-it.each(["COORDINATOR", "STUDENT"])("does not let %s submit a retired-source return", (role) => {
-  fixture.data.retired = true;
-  fixture.data.role = role;
-  show(<SchoolDeparturePanel userId="retired-original" />);
-  expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(true);
-  expect(screen.getByRole<HTMLTextAreaElement>("textbox").disabled).toBe(true);
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.schoolDeparture.request }).disabled).toBe(true);
-  expect(fixture.save).not.toHaveBeenCalled();
-});
+it.each(["COORDINATOR", "STUDENT"])(
+  "does not let %s submit a retired-source return",
+  (role) => {
+    fixture.data.retired = true;
+    fixture.data.role = role;
+    show(<SchoolDeparturePanel userId="retired-original" />);
+    expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(true);
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox").disabled).toBe(
+      true,
+    );
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: messages.schoolDeparture.request,
+      }).disabled,
+    ).toBe(true);
+    expect(fixture.save).not.toHaveBeenCalled();
+  },
+);
 
 it("keeps a returned retired source read-only instead of offering another capability change", () => {
   fixture.data.retired = true;
   fixture.data.role = "ADMIN";
   fixture.data.departure.reason = "";
   show(<SchoolDeparturePanel userId="retired-original" />);
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.schoolDeparture.review }).disabled).toBe(true);
-  expect(Array.from(screen.getByRole<HTMLSelectElement>("combobox").options, (option) => option.value)).toEqual(["RETURN"]);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.schoolDeparture.review,
+    }).disabled,
+  ).toBe(true);
+  expect(
+    Array.from(
+      screen.getByRole<HTMLSelectElement>("combobox").options,
+      (option) => option.value,
+    ),
+  ).toEqual(["RETURN"]);
 });
 
 it("keeps the parent editor and reason when cancelling the nested departure review", () => {
@@ -257,18 +305,25 @@ it("keeps a completed review mounted while its write is pending, then clears the
     </NextIntlClientProvider>
   );
   const view = render(content());
-  const reason = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Reason for review" });
+  const reason = () =>
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: "Reason for review",
+    });
   fireEvent.change(reason(), { target: { value: "Moving to a new school" } });
   fireEvent.click(screen.getByRole("button", { name: "Request change" }));
   fireEvent.click(screen.getByRole("button", { name: "Confirm change" }));
   fixture.pending = true;
   view.rerender(content());
   fixture.data.departure.revision = 3;
-  await act(async () => { await fixture.callbacks!.onSuccess(); });
+  await act(async () => {
+    await fixture.callbacks!.onSuccess();
+  });
   expect(screen.getAllByRole("dialog")).toHaveLength(2);
   expect(reason().value).toBe("Moving to a new school");
   fixture.pending = false;
-  act(() => { fixture.callbacks!.onSettled(); });
+  act(() => {
+    fixture.callbacks!.onSettled();
+  });
   view.rerender(content());
   expect(screen.getAllByRole("dialog")).toHaveLength(1);
   expect(reason().value).toBe("");
@@ -295,6 +350,10 @@ it("gives another departure target a fresh reason and review", () => {
   fireEvent.click(screen.getByRole("button", { name: "Request change" }));
   view.rerender(content("second"));
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Reason for review" }).value).toBe("");
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: "Reason for review",
+    }).value,
+  ).toBe("");
   expect(fixture.save).not.toHaveBeenCalled();
 });

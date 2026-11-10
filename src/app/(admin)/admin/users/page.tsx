@@ -225,10 +225,14 @@ export default function UsersPage() {
     onSuccess: async (result, input) => {
       // One account-wide decision can resolve historical duplicate rows. Retain
       // every accepted ID while stale cached siblings survive a failed refresh.
-      setAcceptedAppeals((previous) => new Set([
-        ...previous, input.appealId, ...result.coResolvedAppealIds,
-      ]));
-      setAppealReceipt({ action: input.action, accessRestored: result.accessRestored });
+      setAcceptedAppeals(
+        (previous) =>
+          new Set([...previous, input.appealId, ...result.coResolvedAppealIds]),
+      );
+      setAppealReceipt({
+        action: input.action,
+        accessRestored: result.accessRestored,
+      });
       await refreshAppeals();
     },
     onSettled: () => {
@@ -241,9 +245,21 @@ export default function UsersPage() {
     decideAppeal.error?.data?.code,
   ].some((code) => code === "FORBIDDEN" || code === "UNAUTHORIZED");
   const appealDenied = useSessionAccessDenied(
-    { ...appeals, denialKey: "account-appeal-reviews", queryKey: getQueryKey(api.admin.appeals, undefined, "query") },
-    { ...accounts, denialKey: "account-appeal-directory", queryKey: getQueryKey(api.admin.accounts, undefined, "query") },
-    { error: decideAppeal.error, isSuccess: !decideAppeal.error, isFetching: appealRefreshing },
+    {
+      ...appeals,
+      denialKey: "account-appeal-reviews",
+      queryKey: getQueryKey(api.admin.appeals, undefined, "query"),
+    },
+    {
+      ...accounts,
+      denialKey: "account-appeal-directory",
+      queryKey: getQueryKey(api.admin.accounts, undefined, "query"),
+    },
+    {
+      error: decideAppeal.error,
+      isSuccess: !decideAppeal.error,
+      isFetching: appealRefreshing,
+    },
   );
   if (appealDenial !== appealDenied) setAppealDenial(appealDenied);
   useEffect(() => {
@@ -260,7 +276,12 @@ export default function UsersPage() {
   if (appealReview !== null && (!canReadAppeals || appealDenied))
     setAppealReview(null);
   const readAppealReview = async (adopt = false) => {
-    if (appealAdmission.current || decideAppeal.isPending || appealRefreshInFlight.current) return;
+    if (
+      appealAdmission.current ||
+      decideAppeal.isPending ||
+      appealRefreshInFlight.current
+    )
+      return;
     appealRefreshInFlight.current = true;
     const generation = appealReviewGeneration.current;
     const reviewId = appealReview?.id;
@@ -270,11 +291,19 @@ export default function UsersPage() {
         accounts.refetch({ throwOnError: true, cancelRefetch: true }),
         appeals.refetch({ throwOnError: true, cancelRefetch: true }),
       ] as const);
-      if (directory.status !== "fulfilled" || !directory.value.isSuccess || !directory.value.data ||
-          pending.status !== "fulfilled" || !pending.value.isSuccess || !pending.value.data)
+      if (
+        directory.status !== "fulfilled" ||
+        !directory.value.isSuccess ||
+        !directory.value.data ||
+        pending.status !== "fulfilled" ||
+        !pending.value.isSuccess ||
+        !pending.value.data
+      )
         throw new Error("Appeal review refresh failed");
       if (adopt && generation === appealReviewGeneration.current)
-        setAppealReview(pending.value.data.find((row) => row.id === reviewId) ?? null);
+        setAppealReview(
+          pending.value.data.find((row) => row.id === reviewId) ?? null,
+        );
       setAppealReloadFailed(false);
       if (adopt || appealDenied) decideAppeal.reset();
     } catch {
@@ -285,18 +314,30 @@ export default function UsersPage() {
     }
   };
   const latestAppeal = appeals.data?.find((row) => row.id === appealReview?.id);
-  const hasReviewVersion = !!appealReview?.restriction &&
+  const hasReviewVersion =
+    !!appealReview?.restriction &&
     Number.isSafeInteger(appealReview.restriction.authorityRevision) &&
     appealReview.restriction.authorityRevision >= 0;
-  const appealReviewChanged = !!appealReview && (!hasReviewVersion ||
-    !latestAppeal || latestAppeal.restriction?.authorityRevision !== appealReview.restriction.authorityRevision);
-  const appealReadsBusy = appeals.isFetching || accounts.isFetching || appealRefreshing;
+  const appealReviewChanged =
+    !!appealReview &&
+    (!hasReviewVersion ||
+      !latestAppeal ||
+      latestAppeal.restriction?.authorityRevision !==
+        appealReview.restriction.authorityRevision);
+  const appealReadsBusy =
+    appeals.isFetching || accounts.isFetching || appealRefreshing;
   const appealReadBlocked = appealReadsBusy || decideAppeal.isPending;
-  const appealDecisionNeedsReload = ["CONFLICT", "PRECONDITION_FAILED", "BAD_REQUEST"]
-    .includes(decideAppeal.error?.data?.code ?? "");
-  const appealReceiptMessage = appealReceipt?.action === "DENY"
-    ? "admin.users.appeals.deniedReceipt"
-    : appealReceipt?.accessRestored ? "admin.users.appeals.accessRestored" : "admin.users.appeals.closedActive";
+  const appealDecisionNeedsReload = [
+    "CONFLICT",
+    "PRECONDITION_FAILED",
+    "BAD_REQUEST",
+  ].includes(decideAppeal.error?.data?.code ?? "");
+  const appealReceiptMessage =
+    appealReceipt?.action === "DENY"
+      ? "admin.users.appeals.deniedReceipt"
+      : appealReceipt?.accessRestored
+        ? "admin.users.appeals.accessRestored"
+        : "admin.users.appeals.closedActive";
   const sendSetup = api.admin.sendTutorSetup.useMutation({
     onSuccess: (data, variables) =>
       setSetupInfo({
@@ -311,9 +352,15 @@ export default function UsersPage() {
 
   const callerRole = accounts.data?.caller.role;
   const isHead = !readOnly && !directoryDenied && callerRole === "HEAD";
-  const isAdminTier = !readOnly && !directoryDenied && ["HEAD", "ADMIN"].includes(callerRole ?? "");
+  const isAdminTier =
+    !readOnly &&
+    !directoryDenied &&
+    ["HEAD", "ADMIN"].includes(callerRole ?? "");
   // Profile proposals are permitted to Coordinators; direct security and role grants remain Admin/Head.
-  const canEditProfiles = !readOnly && !directoryDenied && ["HEAD", "ADMIN", "COORDINATOR"].includes(callerRole ?? "");
+  const canEditProfiles =
+    !readOnly &&
+    !directoryDenied &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(callerRole ?? "");
   const sort = useRosterSort(
     "users-sort-v1",
     ["name", "account", "role"],
@@ -582,7 +629,10 @@ export default function UsersPage() {
         // Keep an in-flight review owner alive when a new hash focuses a source.
         // Hidden browsing controls return with their existing recovery state.
         <div hidden={!!linkedTutorId}>
-          <CombineRecords canApply={isAdminTier} onPendingChange={setCombinePending} />
+          <CombineRecords
+            canApply={isAdminTier}
+            onPendingChange={setCombinePending}
+          />
         </div>
       )}
       <fieldset
@@ -758,7 +808,9 @@ export default function UsersPage() {
           <QueryFeedback
             hasData={appeals.data !== undefined}
             loading={appeals.data === undefined}
-            error={(!!appeals.error || appealReloadFailed) && !appealRefreshFailed}
+            error={
+              (!!appeals.error || appealReloadFailed) && !appealRefreshFailed
+            }
             retrying={appealReadBlocked}
             loadingTitle={t("managementRecovery.loading", {
               section: t("admin.users.appeals.heading"),
@@ -796,16 +848,31 @@ export default function UsersPage() {
                 )}
                 <button
                   className="table-action-link ml-auto"
-                  disabled={appealReadBlocked || !!appeals.error || !!accounts.error ||
-                    appealReloadFailed || acceptedAppeals.has(a.id)}
+                  disabled={
+                    appealReadBlocked ||
+                    !!appeals.error ||
+                    !!accounts.error ||
+                    appealReloadFailed ||
+                    acceptedAppeals.has(a.id)
+                  }
                   onClick={() => {
-                    if (appealAdmission.current || appealRefreshInFlight.current ||
-                        appealReadBlocked || appeals.error || accounts.error ||
-                        appealReloadFailed || acceptedAppeals.has(a.id)) return;
+                    if (
+                      appealAdmission.current ||
+                      appealRefreshInFlight.current ||
+                      appealReadBlocked ||
+                      appeals.error ||
+                      accounts.error ||
+                      appealReloadFailed ||
+                      acceptedAppeals.has(a.id)
+                    )
+                      return;
                     decideAppeal.reset();
                     setAppealReceipt(null);
                     appealReviewGeneration.current += 1;
-                    setAppealReview({ ...a, restriction: a.restriction && { ...a.restriction } });
+                    setAppealReview({
+                      ...a,
+                      restriction: a.restriction && { ...a.restriction },
+                    });
                   }}
                 >
                   {t("admin.users.appeals.review")}
@@ -838,20 +905,53 @@ export default function UsersPage() {
                 {t(appealReceiptMessage)}
               </InlineNotice>
             )}
-            <section aria-label={t("admin.users.appeals.restrictionHeading")} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-semibold">{t("admin.users.appeals.restrictionHeading")}</h3>
+            <section
+              aria-label={t("admin.users.appeals.restrictionHeading")}
+              className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4"
+            >
+              <h3 className="font-semibold">
+                {t("admin.users.appeals.restrictionHeading")}
+              </h3>
               {hasReviewVersion ? (
                 <>
-                  <p className="font-medium">{t(appealReview.restriction.suspendedAt ? "admin.users.appeals.restricted" : "admin.users.appeals.active")}</p>
+                  <p className="font-medium">
+                    {t(
+                      appealReview.restriction.suspendedAt
+                        ? "admin.users.appeals.restricted"
+                        : "admin.users.appeals.active",
+                    )}
+                  </p>
                   {appealReview.restriction.suspendedAt && (
-                    <p className="text-sm">{t("admin.users.appeals.restrictedAt", { date: format.dateTime(new Date(appealReview.restriction.suspendedAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>
+                    <p className="text-sm">
+                      {t("admin.users.appeals.restrictedAt", {
+                        date: format.dateTime(
+                          new Date(appealReview.restriction.suspendedAt),
+                          { dateStyle: "medium", timeStyle: "short" },
+                        ),
+                      })}
+                    </p>
                   )}
-                  <p className="text-sm [overflow-wrap:anywhere] whitespace-pre-wrap">{appealReview.restriction.reason ?? t("admin.users.appeals.noReason")}</p>
-                  <p className="text-sm">{t(appealReview.restriction.suspendedAt ? "admin.users.appeals.coResolveHelp" : "admin.users.appeals.activeHelp")}</p>
+                  <p className="text-sm [overflow-wrap:anywhere] whitespace-pre-wrap">
+                    {appealReview.restriction.reason ??
+                      t("admin.users.appeals.noReason")}
+                  </p>
+                  <p className="text-sm">
+                    {t(
+                      appealReview.restriction.suspendedAt
+                        ? "admin.users.appeals.coResolveHelp"
+                        : "admin.users.appeals.activeHelp",
+                    )}
+                  </p>
                 </>
-              ) : <p>{t("admin.users.appeals.reviewUnavailable")}</p>}
+              ) : (
+                <p>{t("admin.users.appeals.reviewUnavailable")}</p>
+              )}
               <Button
-                disabled={appealReadBlocked || appealRefreshFailed || acceptedAppeals.has(appealReview.id)}
+                disabled={
+                  appealReadBlocked ||
+                  appealRefreshFailed ||
+                  acceptedAppeals.has(appealReview.id)
+                }
                 onClick={() => void readAppealReview(true)}
               >
                 {t("admin.users.appeals.reloadReview")}
@@ -861,26 +961,57 @@ export default function UsersPage() {
               <h3 className="font-semibold">
                 {t("admin.users.appeals.message")}
               </h3>
-              <p className="muted mt-1 text-xs">{t("admin.users.appeals.submittedAt", { date: format.dateTime(new Date(appealReview.createdAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>
+              <p className="muted mt-1 text-xs">
+                {t("admin.users.appeals.submittedAt", {
+                  date: format.dateTime(new Date(appealReview.createdAt), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
+                })}
+              </p>
               <p className="mt-2 [overflow-wrap:anywhere] whitespace-pre-wrap">
                 {appealReview.message}
               </p>
             </section>
             {appealReviewChanged && !acceptedAppeals.has(appealReview.id) && (
-              <InlineNotice tone="warning" announcement="alert">{t("admin.users.appeals.reviewChanged")}</InlineNotice>
+              <InlineNotice tone="warning" announcement="alert">
+                {t("admin.users.appeals.reviewChanged")}
+              </InlineNotice>
             )}
-            {appealReadsBusy && !appeals.error && !accounts.error && !appealRefreshFailed && (
-              <p role="status" className="text-sm">{t("managementRecovery.loading", { section: t("admin.users.appeals.heading") })}</p>
-            )}
-            {(!!appeals.error || !!accounts.error || appealReloadFailed) && !appealRefreshFailed && (
-              <InlineNotice tone="error" announcement="alert" action={
-                <Button disabled={appealReadBlocked} onClick={() => void readAppealReview()}>{t("uiPatterns.retry")}</Button>
-              }>{t("admin.users.appeals.reviewUnavailable")}</InlineNotice>
-            )}
+            {appealReadsBusy &&
+              !appeals.error &&
+              !accounts.error &&
+              !appealRefreshFailed && (
+                <p role="status" className="text-sm">
+                  {t("managementRecovery.loading", {
+                    section: t("admin.users.appeals.heading"),
+                  })}
+                </p>
+              )}
+            {(!!appeals.error || !!accounts.error || appealReloadFailed) &&
+              !appealRefreshFailed && (
+                <InlineNotice
+                  tone="error"
+                  announcement="alert"
+                  action={
+                    <Button
+                      disabled={appealReadBlocked}
+                      onClick={() => void readAppealReview()}
+                    >
+                      {t("uiPatterns.retry")}
+                    </Button>
+                  }
+                >
+                  {t("admin.users.appeals.reviewUnavailable")}
+                </InlineNotice>
+              )}
             {/* Decisions stay beside complete original evidence, within the
                 existing server-authorized mutation and its pending lifetime. */}
             <FormActions>
-              {(appealReview.restriction?.suspendedAt ? ["APPROVE", "DENY"] as const : ["APPROVE"] as const).map((action) => (
+              {(appealReview.restriction?.suspendedAt
+                ? (["APPROVE", "DENY"] as const)
+                : (["APPROVE"] as const)
+              ).map((action) => (
                 <Button
                   key={action}
                   variant={action === "APPROVE" ? "primary" : "secondary"}
@@ -912,13 +1043,16 @@ export default function UsersPage() {
                     decideAppeal.mutate({
                       appealId: appealReview.id,
                       action,
-                      expectedAuthorityRevision: appealReview.restriction.authorityRevision,
+                      expectedAuthorityRevision:
+                        appealReview.restriction.authorityRevision,
                     });
                   }}
                 >
                   {t(
                     action === "APPROVE"
-                      ? appealReview.restriction?.suspendedAt ? "admin.users.appeals.approve" : "admin.users.appeals.approveClose"
+                      ? appealReview.restriction?.suspendedAt
+                        ? "admin.users.appeals.approve"
+                        : "admin.users.appeals.approveClose"
                       : "admin.users.appeals.deny",
                   )}
                 </Button>
@@ -937,7 +1071,8 @@ export default function UsersPage() {
                   <Button
                     disabled={appealReadBlocked}
                     onClick={() => {
-                      if (!appealAdmission.current && !decideAppeal.isPending) void refreshAppeals();
+                      if (!appealAdmission.current && !decideAppeal.isPending)
+                        void refreshAppeals();
                     }}
                   >
                     {t("managementRecovery.retry", {
@@ -963,7 +1098,8 @@ export default function UsersPage() {
               <Button
                 disabled={appealReadBlocked}
                 onClick={() => {
-                  if (!appealAdmission.current && !decideAppeal.isPending) void refreshAppeals();
+                  if (!appealAdmission.current && !decideAppeal.isPending)
+                    void refreshAppeals();
                 }}
               >
                 {t("managementRecovery.retry", {
@@ -1088,11 +1224,13 @@ export default function UsersPage() {
                         {t("admin.tutors.account.sendSetup")}
                       </TableAction>
                     )}
-                  {!readOnly && linkedTutor.account === "none" && !isAdminTier && (
-                    <span className="muted max-w-56 text-xs">
-                      {t("usersDirectory.setupHeadRequired")}
-                    </span>
-                  )}
+                  {!readOnly &&
+                    linkedTutor.account === "none" &&
+                    !isAdminTier && (
+                      <span className="muted max-w-56 text-xs">
+                        {t("usersDirectory.setupHeadRequired")}
+                      </span>
+                    )}
                 </TableActions>
               </tr>
             )}
@@ -1261,11 +1399,16 @@ export default function UsersPage() {
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
-                    {canEditProfiles && !u.userId && !u.tutorId && u.tuteeId && (
-                      <TableAction onClick={() => setEditingTuteeId(u.tuteeId)}>
-                        {t("accountProfile.editProfile")}
-                      </TableAction>
-                    )}
+                    {canEditProfiles &&
+                      !u.userId &&
+                      !u.tutorId &&
+                      u.tuteeId && (
+                        <TableAction
+                          onClick={() => setEditingTuteeId(u.tuteeId)}
+                        >
+                          {t("accountProfile.editProfile")}
+                        </TableAction>
+                      )}
                     {isAdminTier &&
                       u.userId &&
                       u.role === "STUDENT" &&
@@ -1291,7 +1434,10 @@ export default function UsersPage() {
                           {t("identityUsername.assign")}
                         </TableAction>
                       )}
-                    {isAdminTier && u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                    {isAdminTier &&
+                    u.userId &&
+                    !u.isSelf &&
+                    u.role !== "HEAD" ? (
                       <TableAction
                         variant="danger"
                         disabled={
@@ -1359,7 +1505,11 @@ function DirectoryTuteeEditor({
       <TuteeEditor
         row={record}
         canApply={canApply}
-        historyPermissions={canApply ? { canLink: true, canCorrectOwnership: canApply } : undefined}
+        historyPermissions={
+          canApply
+            ? { canLink: true, canCorrectOwnership: canApply }
+            : undefined
+        }
         onClose={onClose}
       />
     );

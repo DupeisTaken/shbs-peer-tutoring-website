@@ -50,7 +50,8 @@ describe("calculateMeetingDeductions", () => {
         month: "2026-09",
         schoolYear: "26-27",
         quarter: "Q1",
-        reason: "Unexcused meeting absence beyond the semester allowance of three",
+        reason:
+          "Unexcused meeting absence beyond the semester allowance of three",
       },
     ]);
     expect(rows).toEqual(original);
@@ -68,10 +69,12 @@ describe("calculateMeetingDeductions", () => {
       attendance("fourth", { quarter: "Q2" }),
       attendance("fifth", { quarter: "Q2" }),
     ];
-    expect(calculate(rows).map(({ id, quarter }) => ({ id, quarter }))).toEqual([
-      { id: "mtgabs_meeting-fourth_synthetic-tutor", quarter: "Q2" },
-      { id: "mtgabs_meeting-fifth_synthetic-tutor", quarter: "Q2" },
-    ]);
+    expect(calculate(rows).map(({ id, quarter }) => ({ id, quarter }))).toEqual(
+      [
+        { id: "mtgabs_meeting-fourth_synthetic-tutor", quarter: "Q2" },
+        { id: "mtgabs_meeting-fifth_synthetic-tutor", quarter: "Q2" },
+      ],
+    );
   });
 
   it("starts independent allowances for Q3/Q4 and a different school year", () => {
@@ -113,7 +116,9 @@ describe("calculateMeetingDeductions", () => {
         quarter: "Q2",
       }),
     );
-    expect(calculate(rows)).toMatchObject([{ month: "2026-09", quarter: "Q2" }]);
+    expect(calculate(rows)).toMatchObject([
+      { month: "2026-09", quarter: "Q2" },
+    ]);
   });
 });
 
@@ -171,7 +176,9 @@ describe("diffMeetingDeductions", () => {
       [3, "mtgabs_meeting-four_synthetic-tutor"],
       [4, "mtgabs_meeting-five_synthetic-tutor"],
     ] as const) {
-      const after = calculate(rows.filter((_, index) => index !== removedIndex));
+      const after = calculate(
+        rows.filter((_, index) => index !== removedIndex),
+      );
       expect(diffMeetingDeductions(before, after)).toEqual({
         removed: [expect.objectContaining({ id: deductionId })],
         added: [],

@@ -52,7 +52,8 @@ export function calculateMeetingDeductions(
       month: monthKey(row.meeting.date),
       schoolYear: term.schoolYear,
       quarter: term.quarter,
-      reason: "Unexcused meeting absence beyond the semester allowance of three",
+      reason:
+        "Unexcused meeting absence beyond the semester allowance of three",
     });
   }
   return deductions;

@@ -236,13 +236,14 @@ it.each(["current", "same-semester"] as const)(
       reason: "Synthetic independent manual credit",
     });
     const oldAttendance = await recordedAttendance();
-    const meeting = scope === "current"
-      ? await nativeMeeting(8)
-      : await staff().admin.createMeeting({
-          title: "Synthetic neutral meeting in the recorded old semester",
-          termId: oldTermId,
-          date: new Date("2024-10-01T04:00:00.000Z"),
-        });
+    const meeting =
+      scope === "current"
+        ? await nativeMeeting(8)
+        : await staff().admin.createMeeting({
+            title: "Synthetic neutral meeting in the recorded old semester",
+            termId: oldTermId,
+            date: new Date("2024-10-01T04:00:00.000Z"),
+          });
     await expect(
       staff().admin.recordMeetingAttendance({
         meetingId: meeting.id,
@@ -251,7 +252,9 @@ it.each(["current", "same-semester"] as const)(
     ).resolves.toEqual({ ok: true });
     expect(
       await db.meetingAttendance.findUnique({
-        where: { meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id } },
+        where: {
+          meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id },
+        },
       }),
     ).toMatchObject({ status: "PRESENT" });
     expect(
@@ -306,14 +309,19 @@ it.each(["correction", "deletion"] as const)(
       expect(
         await db.meetingAttendance.findUnique({
           where: {
-            meetingId_tutorId: { meetingId: meetings[0]!.id, tutorId: tutor.id },
+            meetingId_tutorId: {
+              meetingId: meetings[0]!.id,
+              tutorId: tutor.id,
+            },
           },
         }),
       ).toMatchObject({ status: "EXCUSED_ABSENT" });
     } else {
       await staff().admin.deleteMeeting({ id: meetings[0]!.id });
       expect(
-        await db.meetingAttendance.count({ where: { meetingId: meetings[0]!.id } }),
+        await db.meetingAttendance.count({
+          where: { meetingId: meetings[0]!.id },
+        }),
       ).toBe(0);
     }
     expect(await adjustments()).toEqual([fifth]);
@@ -343,7 +351,9 @@ it("[LMA04] treats a duplicate tutor P→UA→P batch as one neutral logical cha
   expect(await adjustments()).toEqual(before);
   expect(
     await db.meetingAttendance.findUnique({
-      where: { meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id } },
+      where: {
+        meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id },
+      },
     }),
   ).toMatchObject({ status: "PRESENT" });
   const audit = await db.auditLog.findFirstOrThrow({
@@ -463,7 +473,10 @@ it("[LMA08] rolls back an earlier tutor's new effect when a later tutor has a re
   const tutors = [await nativeTutor("Alpha"), await nativeTutor("Beta")].sort(
     (a, b) => a.id.localeCompare(b.id),
   );
-  await recordAbsences(tutors.map((tutor) => tutor.id), 3);
+  await recordAbsences(
+    tutors.map((tutor) => tutor.id),
+    3,
+  );
   const meeting = await nativeMeeting(14);
   await staff().admin.recordMeetingAttendance({
     meetingId: meeting.id,
@@ -514,11 +527,15 @@ it("[LMA09] conserves unmarked old evidence through real self-excuse creation an
   });
   await api.excuseMeeting({ meetingId: meeting.id, reason: "Synthetic class" });
   expect(
-    await db.serviceHourAdjustment.findUnique({ where: { id: old.retained.id } }),
+    await db.serviceHourAdjustment.findUnique({
+      where: { id: old.retained.id },
+    }),
   ).toEqual(old.retained);
   expect(
     await db.meetingAttendance.findUnique({
-      where: { meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id } },
+      where: {
+        meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id },
+      },
     }),
   ).toMatchObject({ status: "EXCUSED_ABSENT", reason: "Synthetic class" });
   await api.excuseMeeting({
@@ -527,7 +544,9 @@ it("[LMA09] conserves unmarked old evidence through real self-excuse creation an
   });
   expect(
     await db.meetingAttendance.findUnique({
-      where: { meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id } },
+      where: {
+        meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id },
+      },
     }),
   ).toMatchObject({
     status: "EXCUSED_ABSENT",
@@ -537,7 +556,9 @@ it("[LMA09] conserves unmarked old evidence through real self-excuse creation an
   await api.cancelMeetingExcuse({ meetingId: meeting.id });
   expect(
     await db.meetingAttendance.findUnique({
-      where: { meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id } },
+      where: {
+        meetingId_tutorId: { meetingId: meeting.id, tutorId: tutor.id },
+      },
     }),
   ).toBeNull();
   expect(await adjustments()).toEqual([old.retained]);
@@ -593,11 +614,25 @@ it("[LMA10] preserves exact source values after real 18-row Preview/Import, acti
       })),
     ),
     archiveFile("Tutor", [
-      { id: tutorId, englishName: "Synthetic Archive Tutor", status: "ARCHIVED" },
-      { id: otherTutorId, englishName: "Synthetic Untouched Tutor", status: "ARCHIVED" },
+      {
+        id: tutorId,
+        englishName: "Synthetic Archive Tutor",
+        status: "ARCHIVED",
+      },
+      {
+        id: otherTutorId,
+        englishName: "Synthetic Untouched Tutor",
+        status: "ARCHIVED",
+      },
     ]),
     archiveFile("Term", [
-      { id: termId, schoolYear: "24-25", quarter: "Q1", name: "Synthetic import quarter", active: false },
+      {
+        id: termId,
+        schoolYear: "24-25",
+        quarter: "Q1",
+        name: "Synthetic import quarter",
+        active: false,
+      },
     ]),
   ];
   const preview = await staff().recordTransfer.preview({ files });
@@ -611,10 +646,17 @@ it("[LMA10] preserves exact source values after real 18-row Preview/Import, acti
   expect(await db.tutor.findUnique({ where: { id: tutorId } })).toBeNull();
   expect(await db.meetingAttendance.count()).toBe(0);
   expect(await db.importedRecordProvenance.count()).toBe(0);
-  const imported = await staff().recordTransfer.import({ files, ticket: preview.ticket });
+  const imported = await staff().recordTransfer.import({
+    files,
+    ticket: preview.ticket,
+  });
   expect(imported.summary).toEqual(preview.summary);
-  expect(imported.summary.reduce((total, row) => total + row.created, 0)).toBe(18);
-  expect(await db.auditLog.count({ where: { operation: "recordTransfer.import" } })).toBe(1);
+  expect(imported.summary.reduce((total, row) => total + row.created, 0)).toBe(
+    18,
+  );
+  expect(
+    await db.auditLog.count({ where: { operation: "recordTransfer.import" } }),
+  ).toBe(1);
   const beforeAdjustments = await adjustments();
   const beforeAttendance = await recordedAttendance();
   expect(beforeAdjustments.find((row) => row.id === originalId)).toMatchObject({
@@ -659,12 +701,14 @@ it.each(["parent", "attendance"] as const)(
     if (source === "parent") {
       meetingId = fixtureId();
       await importRecords([
-        archiveFile("TutorMeeting", [{
-          id: meetingId,
-          title: "Synthetic imported parent only",
-          termId: oldTermId,
-          date: "2024-10-01T04:00:00.000Z",
-        }]),
+        archiveFile("TutorMeeting", [
+          {
+            id: meetingId,
+            title: "Synthetic imported parent only",
+            termId: oldTermId,
+            date: "2024-10-01T04:00:00.000Z",
+          },
+        ]),
       ]);
     } else {
       const parent = await staff().admin.createMeeting({
@@ -674,21 +718,27 @@ it.each(["parent", "attendance"] as const)(
       });
       meetingId = parent.id;
       await importRecords([
-        archiveFile("MeetingAttendance", [{
-          id: fixtureId(),
-          meetingId,
-          tutorId: tutor.id,
-          status: "PRESENT",
-        }]),
+        archiveFile("MeetingAttendance", [
+          {
+            id: fixtureId(),
+            meetingId,
+            tutorId: tutor.id,
+            status: "PRESENT",
+          },
+        ]),
       ]);
     }
     const markers = await db.importedRecordProvenance.findMany({
       select: { entity: true },
     });
-    expect(markers).toEqual([{
-      entity: source === "parent" ? "TutorMeeting" : "MeetingAttendance",
-    }]);
-    const roster = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
+    expect(markers).toEqual([
+      {
+        entity: source === "parent" ? "TutorMeeting" : "MeetingAttendance",
+      },
+    ]);
+    const roster = await db.tutor.findUniqueOrThrow({
+      where: { id: tutor.id },
+    });
     await staff().admin.updateTutor({
       id: tutor.id,
       status: "ACTIVE",
@@ -696,14 +746,18 @@ it.each(["parent", "attendance"] as const)(
     });
     const beforeAttendance = await recordedAttendance();
     const beforeAdjustments = await adjustments();
-    await expect(staff().admin.recordMeetingAttendance({
-      meetingId,
-      entries: [{ tutorId: tutor.id, status: "PRESENT" }],
-    })).rejects.toMatchObject({ code: "CONFLICT" });
-    await expect(staff().admin.deleteMeeting({ id: meetingId }))
-      .rejects.toMatchObject({ code: "CONFLICT" });
-    expect(await db.tutorMeeting.findUnique({ where: { id: meetingId } }))
-      .not.toBeNull();
+    await expect(
+      staff().admin.recordMeetingAttendance({
+        meetingId,
+        entries: [{ tutorId: tutor.id, status: "PRESENT" }],
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      staff().admin.deleteMeeting({ id: meetingId }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(
+      await db.tutorMeeting.findUnique({ where: { id: meetingId } }),
+    ).not.toBeNull();
     expect(await recordedAttendance()).toEqual(beforeAttendance);
     expect(await adjustments()).toEqual(beforeAdjustments);
   },

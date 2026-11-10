@@ -112,7 +112,9 @@ vi.mock("~/trpc/react", async () => {
   return {
     api: {
       personCombine: {
-        finalize: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+        finalize: {
+          useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+        },
         candidates: {
           useQuery: () => ({
             data: [],
@@ -723,13 +725,21 @@ it.each(cases)(
       act(() => submit(siblingAction));
       expect(mock.writes.departure).toHaveBeenCalledOnce();
       await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: ui.labels.schoolDeparture.reload }));
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: ui.labels.schoolDeparture.reload,
+          }),
+        );
       });
       expect(siblingAction.field.value).toBe("Independent departure evidence");
-      fireEvent.click(screen.getByRole("button", { name: ui.labels.schoolDeparture.review }));
+      fireEvent.click(
+        screen.getByRole("button", { name: ui.labels.schoolDeparture.review }),
+      );
       retryAction = {
         ...siblingAction,
-        element: screen.getByRole("button", { name: ui.labels.schoolDeparture.confirm }),
+        element: screen.getByRole("button", {
+          name: ui.labels.schoolDeparture.confirm,
+        }),
       };
     } else if (sibling === "link") {
       expect(

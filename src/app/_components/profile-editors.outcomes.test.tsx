@@ -523,17 +523,20 @@ it("keeps the real tutor grouping section closed and read-only until explicitly 
   const open = screen.getByRole("button", { name: en.combineRecords.open });
   expect(open.getAttribute("aria-expanded")).toBe("false");
   // The disabled query exists in the live cache, but its transport has not run.
-  expect(client.getQueryState(["personCombine.candidates", { search: "" }])).toBeTruthy();
+  expect(
+    client.getQueryState(["personCombine.candidates", { search: "" }]),
+  ).toBeTruthy();
   expect(transport.queries).not.toContain("personCombine.candidates");
   expect(transport.requests).toHaveLength(0);
   fireEvent.click(open);
-  await waitFor(() => expect(transport.queries).toContain("personCombine.candidates"));
+  await waitFor(() =>
+    expect(transport.queries).toContain("personCombine.candidates"),
+  );
   expect(await screen.findByText(en.combineRecords.noResults)).toBeTruthy();
   fireEvent.click(
-    within(screen.getByRole("region", { name: en.combineRecords.title })).getByRole(
-      "button",
-      { name: en.combineRecords.close },
-    ),
+    within(
+      screen.getByRole("region", { name: en.combineRecords.title }),
+    ).getByRole("button", { name: en.combineRecords.close }),
   );
   expect(transport.requests).toHaveLength(0);
   expect(transport.commits).toHaveLength(0);

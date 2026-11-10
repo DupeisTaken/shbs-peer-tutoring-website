@@ -123,7 +123,12 @@ async function importArchivedMeetings() {
   const files = [
     file("ServiceHourAdjustment", [
       adjustment(deductionId, tutorId, 1.5, originalReason),
-      adjustment(manualId, tutorId, 0.75, "Synthetic unrelated manual adjustment"),
+      adjustment(
+        manualId,
+        tutorId,
+        0.75,
+        "Synthetic unrelated manual adjustment",
+      ),
       adjustment(
         untouchedDeductionId,
         untouchedTutorId,
@@ -134,11 +139,25 @@ async function importArchivedMeetings() {
     file("MeetingAttendance", attendance),
     file("TutorMeeting", meetings),
     file("Tutor", [
-      { id: tutorId, englishName: "Synthetic Archived Tutor", status: "ARCHIVED" },
-      { id: untouchedTutorId, englishName: "Synthetic Untouched Tutor", status: "ARCHIVED" },
+      {
+        id: tutorId,
+        englishName: "Synthetic Archived Tutor",
+        status: "ARCHIVED",
+      },
+      {
+        id: untouchedTutorId,
+        englishName: "Synthetic Untouched Tutor",
+        status: "ARCHIVED",
+      },
     ]),
     file("Term", [
-      { id: termId, schoolYear: "24-25", quarter: "Q1", name: "Synthetic archive period", active: false },
+      {
+        id: termId,
+        schoolYear: "24-25",
+        quarter: "Q1",
+        name: "Synthetic archive period",
+        active: false,
+      },
     ]),
   ];
   const expectedSummary = [
@@ -153,13 +172,27 @@ async function importArchivedMeetings() {
   expect(await db.tutor.findUnique({ where: { id: tutorId } })).toBeNull();
   expect(await db.term.findUnique({ where: { id: termId } })).toBeNull();
   expect(await db.meetingAttendance.count()).toBe(0);
-  expect(await db.serviceHourAdjustment.findUnique({ where: { id: deductionId } })).toBeNull();
-  const result = await staff().recordTransfer.import({ files, ticket: preview.ticket });
+  expect(
+    await db.serviceHourAdjustment.findUnique({ where: { id: deductionId } }),
+  ).toBeNull();
+  const result = await staff().recordTransfer.import({
+    files,
+    ticket: preview.ticket,
+  });
   expect(result.summary).toEqual(expectedSummary);
   expect(result.summary.reduce((sum, row) => sum + row.created, 0)).toBe(18);
   expect(result.summary.every((row) => row.skipped === 0)).toBe(true);
-  expect(await db.auditLog.count({ where: { operation: "recordTransfer.import" } })).toBe(1);
-  return { tutorId, untouchedTutorId, meetingIds, deductionId, manualId, untouchedDeductionId };
+  expect(
+    await db.auditLog.count({ where: { operation: "recordTransfer.import" } }),
+  ).toBe(1);
+  return {
+    tutorId,
+    untouchedTutorId,
+    meetingIds,
+    deductionId,
+    manualId,
+    untouchedDeductionId,
+  };
 }
 
 it("preserves imported historical meeting amounts and source evidence after an unrelated native attendance save", async () => {
@@ -179,39 +212,74 @@ it("preserves imported historical meeting amounts and source evidence after an u
     where: { meetingId: { in: archived.meetingIds } },
     orderBy: { id: "asc" },
   });
-  const manual = await db.serviceHourAdjustment.findUniqueOrThrow({ where: { id: archived.manualId } });
-  const otherTutor = await db.serviceHourAdjustment.findUniqueOrThrow({ where: { id: archived.untouchedDeductionId } });
-  const roster = await db.tutor.findUniqueOrThrow({ where: { id: archived.tutorId } });
+  const manual = await db.serviceHourAdjustment.findUniqueOrThrow({
+    where: { id: archived.manualId },
+  });
+  const otherTutor = await db.serviceHourAdjustment.findUniqueOrThrow({
+    where: { id: archived.untouchedDeductionId },
+  });
+  const roster = await db.tutor.findUniqueOrThrow({
+    where: { id: archived.tutorId },
+  });
   expect(roster.status).toBe("ARCHIVED");
   // Restore current participation deliberately; importing ARCHIVED is not activation.
-  await expect(staff().admin.updateTutor({
-    id: roster.id,
-    status: "ACTIVE",
-    expectedUpdatedAt: roster.updatedAt,
-  })).resolves.toMatchObject({ id: roster.id, status: "ACTIVE" });
-  expect(await db.serviceHourAdjustment.findUnique({ where: { id: archived.deductionId } })).toEqual(originalDeduction);
+  await expect(
+    staff().admin.updateTutor({
+      id: roster.id,
+      status: "ACTIVE",
+      expectedUpdatedAt: roster.updatedAt,
+    }),
+  ).resolves.toMatchObject({ id: roster.id, status: "ACTIVE" });
+  expect(
+    await db.serviceHourAdjustment.findUnique({
+      where: { id: archived.deductionId },
+    }),
+  ).toEqual(originalDeduction);
 
   const nativeMeeting = await staff().admin.createMeeting({
     title: "Synthetic unrelated current meeting",
     termId: currentTermId,
     date: new Date(Date.now() - 60_000),
   });
-  await expect(staff().admin.recordMeetingAttendance({
-    meetingId: nativeMeeting.id,
-    entries: [{ tutorId: archived.tutorId, status: "PRESENT" }],
-  })).resolves.toEqual({ ok: true });
+  await expect(
+    staff().admin.recordMeetingAttendance({
+      meetingId: nativeMeeting.id,
+      entries: [{ tutorId: archived.tutorId, status: "PRESENT" }],
+    }),
+  ).resolves.toEqual({ ok: true });
   // Prove the real native resolver committed before inspecting archival conservation.
-  expect(await db.meetingAttendance.findUnique({ where: {
-    meetingId_tutorId: { meetingId: nativeMeeting.id, tutorId: archived.tutorId },
-  } })).toMatchObject({ status: "PRESENT" });
-  expect(await db.meetingAttendance.findMany({
-    where: { meetingId: { in: archived.meetingIds } },
-    orderBy: { id: "asc" },
-  })).toEqual(originalAttendance);
-  expect(await db.serviceHourAdjustment.findUnique({ where: { id: archived.manualId } })).toEqual(manual);
-  expect(await db.serviceHourAdjustment.findUnique({ where: { id: archived.untouchedDeductionId } })).toEqual(otherTutor);
+  expect(
+    await db.meetingAttendance.findUnique({
+      where: {
+        meetingId_tutorId: {
+          meetingId: nativeMeeting.id,
+          tutorId: archived.tutorId,
+        },
+      },
+    }),
+  ).toMatchObject({ status: "PRESENT" });
+  expect(
+    await db.meetingAttendance.findMany({
+      where: { meetingId: { in: archived.meetingIds } },
+      orderBy: { id: "asc" },
+    }),
+  ).toEqual(originalAttendance);
+  expect(
+    await db.serviceHourAdjustment.findUnique({
+      where: { id: archived.manualId },
+    }),
+  ).toEqual(manual);
+  expect(
+    await db.serviceHourAdjustment.findUnique({
+      where: { id: archived.untouchedDeductionId },
+    }),
+  ).toEqual(otherTutor);
   // #610's conservation promise covers exact stored source values, not only a total.
-  expect(await db.serviceHourAdjustment.findUnique({ where: { id: archived.deductionId } })).toEqual(originalDeduction);
+  expect(
+    await db.serviceHourAdjustment.findUnique({
+      where: { id: archived.deductionId },
+    }),
+  ).toEqual(originalDeduction);
 });
 
 it("retains the native three-absence semester allowance and unrelated manual adjustments", async () => {
@@ -221,7 +289,12 @@ it("retains the native three-absence semester allowance and unrelated manual adj
     status: "ACTIVE",
   });
   const previousQuarter = await db.term.create({
-    data: { schoolYear: "26-27", quarter: "Q1", name: "Synthetic native previous quarter", active: false },
+    data: {
+      schoolYear: "26-27",
+      quarter: "Q1",
+      name: "Synthetic native previous quarter",
+      active: false,
+    },
   });
   const manual = await staff().admin.createAdjustment({
     tutorId: tutor.id,
@@ -242,13 +315,17 @@ it("retains the native three-absence semester allowance and unrelated manual adj
       meetingId: meeting.id,
       entries: [{ tutorId: tutor.id, status: "UNEXCUSED_ABSENT" }],
     });
-    expect(await db.serviceHourAdjustment.count({
-      where: { tutorId: tutor.id, id: { startsWith: "mtgabs_" } },
-    })).toBe(index < 3 ? 0 : 1);
+    expect(
+      await db.serviceHourAdjustment.count({
+        where: { tutorId: tutor.id, id: { startsWith: "mtgabs_" } },
+      }),
+    ).toBe(index < 3 ? 0 : 1);
   }
-  expect(await db.serviceHourAdjustment.findMany({
-    where: { tutorId: tutor.id, id: { startsWith: "mtgabs_" } },
-  })).toEqual([
+  expect(
+    await db.serviceHourAdjustment.findMany({
+      where: { tutorId: tutor.id, id: { startsWith: "mtgabs_" } },
+    }),
+  ).toEqual([
     expect.objectContaining({
       id: `mtgabs_${meetings[3]!.id}_${tutor.id}`,
       amount: 0.25,
@@ -257,6 +334,12 @@ it("retains the native three-absence semester allowance and unrelated manual adj
       quarter: "Q2",
     }),
   ]);
-  expect(await db.serviceHourAdjustment.findUnique({ where: { id: manual.id } })).toEqual(manual);
-  expect(await db.meetingAttendance.count({ where: { tutorId: tutor.id, status: "UNEXCUSED_ABSENT" } })).toBe(4);
+  expect(
+    await db.serviceHourAdjustment.findUnique({ where: { id: manual.id } }),
+  ).toEqual(manual);
+  expect(
+    await db.meetingAttendance.count({
+      where: { tutorId: tutor.id, status: "UNEXCUSED_ABSENT" },
+    }),
+  ).toBe(4);
 });

@@ -318,51 +318,126 @@ it("keeps task counts upcoming-only and does not infer an absence from a missing
 
 it("keeps staff attendance read-only in both personal meeting reads while retaining self-excuse and cutoff rules", async () => {
   const rows = [
-    { id: "staff-present", status: "PRESENT", marker: past, excused: false, canExcuse: false },
-    { id: "staff-exempt", status: "EXEMPT", marker: past, excused: false, canExcuse: false },
-    { id: "staff-excused", status: "EXCUSED_ABSENT", marker: null, excused: false, canExcuse: false },
-    { id: "legacy-staff-excused", status: "EXCUSED_ABSENT", marker: past, excused: false, canExcuse: false },
-    { id: "staff-unexcused", status: "UNEXCUSED_ABSENT", marker: past, excused: false, canExcuse: false },
-    { id: "self-excused", status: "EXCUSED_ABSENT", marker: past, excused: true, canExcuse: true },
-    { id: "self-inside-cutoff", status: "EXCUSED_ABSENT", marker: past, excused: true, canExcuse: false },
-    { id: "unrecorded", status: null, marker: null, excused: false, canExcuse: true },
+    {
+      id: "staff-present",
+      status: "PRESENT",
+      marker: past,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "staff-exempt",
+      status: "EXEMPT",
+      marker: past,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "staff-excused",
+      status: "EXCUSED_ABSENT",
+      marker: null,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "legacy-staff-excused",
+      status: "EXCUSED_ABSENT",
+      marker: past,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "staff-unexcused",
+      status: "UNEXCUSED_ABSENT",
+      marker: past,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "self-excused",
+      status: "EXCUSED_ABSENT",
+      marker: past,
+      excused: true,
+      canExcuse: true,
+    },
+    {
+      id: "self-inside-cutoff",
+      status: "EXCUSED_ABSENT",
+      marker: past,
+      excused: true,
+      canExcuse: false,
+    },
+    {
+      id: "unrecorded",
+      status: null,
+      marker: null,
+      excused: false,
+      canExcuse: true,
+    },
   ] as const;
   await db.tutorMeeting.createMany({
     data: rows.map((row) => ({
       id: row.id,
       title: `Synthetic ${row.id}`,
       termId: "q2",
-      date: row.id === "self-inside-cutoff" ? new Date(Date.now() + 45 * 60_000) : future,
+      date:
+        row.id === "self-inside-cutoff"
+          ? new Date(Date.now() + 45 * 60_000)
+          : future,
     })),
   });
   for (const row of rows) {
     if (row.status) {
       const attendance = await db.meetingAttendance.create({
-        data: { meetingId: row.id, tutorId: "mine", status: row.status, excusedAt: row.marker },
-      });
-      if (row.id === "legacy-staff-excused") await db.auditLog.create({
         data: {
-          operation: "admin.recordMeetingAttendance",
-          action: "Synthetic legacy staff review",
-          entity: "MeetingAttendance",
-          details: { outcome: "APPLIED", changes: [{ entity: "MeetingAttendance", after: [{ id: attendance.id, excusedAt: past.toISOString() }] }] },
+          meetingId: row.id,
+          tutorId: "mine",
+          status: row.status,
+          excusedAt: row.marker,
         },
       });
+      if (row.id === "legacy-staff-excused")
+        await db.auditLog.create({
+          data: {
+            operation: "admin.recordMeetingAttendance",
+            action: "Synthetic legacy staff review",
+            entity: "MeetingAttendance",
+            details: {
+              outcome: "APPLIED",
+              changes: [
+                {
+                  entity: "MeetingAttendance",
+                  after: [{ id: attendance.id, excusedAt: past.toISOString() }],
+                },
+              ],
+            },
+          },
+        });
     }
   }
   // Another tutor's recorded attendance never owns this tutor's unrecorded row.
   await db.meetingAttendance.create({
-    data: { meetingId: "unrecorded", tutorId: "other", status: "PRESENT", reason: "Private other evidence" },
+    data: {
+      meetingId: "unrecorded",
+      tutorId: "other",
+      status: "PRESENT",
+      reason: "Private other evidence",
+    },
   });
   const api = caller("TUTOR").tutor;
   const records = await api.meetingRecords({ period: "current" });
   const upcoming = await api.myMeetings();
   for (const { id, status, excused, canExcuse } of rows) {
     for (const projection of [records, upcoming]) {
-      expect(projection.find((row) => row.id === id), id).toMatchObject({ status, excused, canExcuse });
+      expect(
+        projection.find((row) => row.id === id),
+        id,
+      ).toMatchObject({ status, excused, canExcuse });
     }
   }
-  expect(JSON.stringify([records, upcoming])).not.toContain("Private other evidence");
+  expect(JSON.stringify([records, upcoming])).not.toContain(
+    "Private other evidence",
+  );
 });
 
 it("preserves viewer masking and denies tutor access to staff period reads", async () => {

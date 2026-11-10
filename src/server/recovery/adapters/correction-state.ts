@@ -100,7 +100,7 @@ export async function correctionParticipantState(
   const restoration =
     latest &&
     previous.success &&
-    await canReinstatePunishmentRemoval(tx, record, latest)
+    (await canReinstatePunishmentRemoval(tx, record, latest))
       ? {
           requestId: latest.id,
           pairingIds: previous.data.pairingIds,

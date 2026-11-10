@@ -52,9 +52,7 @@ const mock = vi.hoisted(() => ({
   refetch: vi.fn(),
   request: undefined as Promise<unknown> | undefined,
   invalidate: vi.fn(),
-  readRows: undefined as
-    | undefined
-    | ((input: { state: string }) => unknown[]),
+  readRows: undefined as undefined | ((input: { state: string }) => unknown[]),
   success: undefined as
     | undefined
     | ((_result: unknown, input: { flagId: string }) => Promise<void>),
@@ -69,91 +67,121 @@ vi.mock("./read-only", () => ({ useReadOnly: () => mock.readOnly }));
 vi.mock("~/trpc/react", async () => {
   const { useQuery, useQueryClient } = await import("@tanstack/react-query");
   return {
-  api: {
-    useUtils: () => {
-      const queryClient = useQueryClient();
-      return { admin: { sessionFlags: {
-        invalidate: async (
-          _input?: undefined,
-          filters?: Parameters<typeof queryClient.invalidateQueries>[0],
-          options?: Parameters<typeof queryClient.invalidateQueries>[1],
-        ) => {
-          await mock.invalidate();
-          await queryClient.invalidateQueries({ ...filters, queryKey: flagKey() }, options);
-        },
-      } } };
-    },
-    admin: {
-      sessionFlags: {
-        _def: () => ({ path: ["admin", "sessionFlags"] }),
-        useQuery: (input: { state: SessionFlagFilter }, options?: { enabled?: boolean }) => {
-          mock.input = input;
-          const read = useQuery({
-            queryKey: flagKey(input),
-            queryFn: () => readFlags(input),
-            enabled: options?.enabled,
-          });
-          return {
-            ...read,
-            refetch: (refetchOptions?: Parameters<typeof read.refetch>[0]) => {
-              const request = Promise.resolve(mock.refetch());
-              mock.request = request;
-              const work = read.refetch(refetchOptions);
-              const clear = () => { if (mock.request === request) mock.request = undefined; };
-              void work.then(clear, clear);
-              return work;
+    api: {
+      useUtils: () => {
+        const queryClient = useQueryClient();
+        return {
+          admin: {
+            sessionFlags: {
+              invalidate: async (
+                _input?: undefined,
+                filters?: Parameters<typeof queryClient.invalidateQueries>[0],
+                options?: Parameters<typeof queryClient.invalidateQueries>[1],
+              ) => {
+                await mock.invalidate();
+                await queryClient.invalidateQueries(
+                  { ...filters, queryKey: flagKey() },
+                  options,
+                );
+              },
             },
-          };
+          },
+        };
+      },
+      admin: {
+        sessionFlags: {
+          _def: () => ({ path: ["admin", "sessionFlags"] }),
+          useQuery: (
+            input: { state: SessionFlagFilter },
+            options?: { enabled?: boolean },
+          ) => {
+            mock.input = input;
+            const read = useQuery({
+              queryKey: flagKey(input),
+              queryFn: () => readFlags(input),
+              enabled: options?.enabled,
+            });
+            return {
+              ...read,
+              refetch: (
+                refetchOptions?: Parameters<typeof read.refetch>[0],
+              ) => {
+                const request = Promise.resolve(mock.refetch());
+                mock.request = request;
+                const work = read.refetch(refetchOptions);
+                const clear = () => {
+                  if (mock.request === request) mock.request = undefined;
+                };
+                void work.then(clear, clear);
+                return work;
+              },
+            };
+          },
+        },
+        decideSessionFlag: {
+          useMutation: (options: {
+            onSuccess: typeof mock.success;
+            onError: typeof mock.failed;
+          }) => {
+            mock.success = options.onSuccess;
+            mock.failed = options.onError;
+            return {
+              mutate: mock.mutate,
+              isPending: mock.pending,
+              error: mock.mutationError,
+              reset: () => {
+                mock.mutationError = null;
+              },
+            };
+          },
         },
       },
-      decideSessionFlag: {
-        useMutation: (options: {
-          onSuccess: typeof mock.success;
-          onError: typeof mock.failed;
-        }) => {
-          mock.success = options.onSuccess;
-          mock.failed = options.onError;
-          return {
-            mutate: mock.mutate,
-            isPending: mock.pending,
-            error: mock.mutationError,
-            reset: () => {
-              mock.mutationError = null;
-            },
-          };
-        },
-      },
     },
-  },
   };
 });
-const flagKey = (input?: { state: SessionFlagFilter }) => input
-  ? getQueryKey(api.admin.sessionFlags, input, "query")
-  : getQueryKey(api.admin.sessionFlags);
+const flagKey = (input?: { state: SessionFlagFilter }) =>
+  input
+    ? getQueryKey(api.admin.sessionFlags, input, "query")
+    : getQueryKey(api.admin.sessionFlags);
 async function readFlags(input: { state: SessionFlagFilter }) {
   if (mock.request) await mock.request;
-  if (mock.error) throw Object.assign(new Error(mock.error.message), mock.error);
+  if (mock.error)
+    throw Object.assign(new Error(mock.error.message), mock.error);
   return mock.readRows?.(input) ?? mock.data;
 }
 async function publishRead(input: { state: SessionFlagFilter }) {
   await act(async () => {
-    const query = client.getQueryCache().find({ queryKey: flagKey(input), exact: true });
+    const query = client
+      .getQueryCache()
+      .find({ queryKey: flagKey(input), exact: true });
     if (!query) throw new Error("Expected the current flag query");
     const expectedError = mock.error;
     // Query.fetch replaces its options; retain the fixture's configured retry
     // policy just as QueryObserver does when it supplies its complete options.
-    await query.fetch({ ...query.options, queryKey: flagKey(input), queryFn: () => readFlags(input) }, {
-      cancelRefetch: true,
-    }).catch((error: unknown) => {
-      if (!expectedError) throw error;
-      expect(error).toMatchObject(expectedError);
-    });
+    await query
+      .fetch(
+        {
+          ...query.options,
+          queryKey: flagKey(input),
+          queryFn: () => readFlags(input),
+        },
+        {
+          cancelRefetch: true,
+        },
+      )
+      .catch((error: unknown) => {
+        if (!expectedError) throw error;
+        expect(error).toMatchObject(expectedError);
+      });
   });
 }
 let client: QueryClient;
 function seedHealthyFlags() {
   for (const state of SESSION_FLAG_FILTERS) {
-    client.setQueryData(flagKey({ state }), mock.readRows?.({ state }) ?? mock.data);
+    client.setQueryData(
+      flagKey({ state }),
+      mock.readRows?.({ state }) ?? mock.data,
+    );
   }
 }
 const show = () => {
@@ -170,9 +198,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   client = createQueryClient();
   const defaults = client.getDefaultOptions();
-  client.setDefaultOptions({ ...defaults, queries: {
-    ...defaults.queries, retry: false, gcTime: Infinity,
-  } });
+  client.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      gcTime: Infinity,
+    },
+  });
   mock.data = [flag];
   mock.error = null;
   mock.mutationError = null;
@@ -209,7 +242,9 @@ it("defaults to Pending and reads resolved state filters without exposing decisi
   mock.data = [
     { ...flag, state: "PENALIZED", decisionNote: "Recorded decision" },
   ];
-  act(() => { client.setQueryData(flagKey({ state: "PENALIZED" }), mock.data); });
+  act(() => {
+    client.setQueryData(flagKey({ state: "PENALIZED" }), mock.data);
+  });
   view.rerender(
     <QueryClientProvider client={client}>
       <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">

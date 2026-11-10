@@ -89,7 +89,9 @@ export function installSessionReadReceipts(
     getOrder: () => order,
     subscribe: (listener: () => void) => {
       listeners.add(listener);
-      return () => { listeners.delete(listener); };
+      return () => {
+        listeners.delete(listener);
+      };
     },
     read: (query: SessionReadQuery) => {
       const record = records.get(query);
@@ -131,8 +133,11 @@ export function installSessionReadReceipts(
     ) {
       if (
         records.get(query)?.history.proof &&
-        (action.type === "fetch" || action.type === "pause" || action.type === "continue")
-      ) notify();
+        (action.type === "fetch" ||
+          action.type === "pause" ||
+          action.type === "continue")
+      )
+        notify();
       return;
     }
 
@@ -174,13 +179,19 @@ export function installSessionReadReceipts(
       // An already-resolved old fetch may dispatch after a replacement retryer
       // was installed. Its event then exposes the replacement's promise. Wait
       // for that promise: its own success/error supersedes this candidate first.
-      void proof.promise.then(() => {
-        if (!eligible(query, proof)) return;
-        const published: SessionReadHistory = Object.freeze({ ...history, proof });
-        records.set(query, { history: published, withoutProof: history });
-        // Publication changes subscribers' snapshot, not the original read order.
-        notify();
-      }, () => undefined);
+      void proof.promise.then(
+        () => {
+          if (!eligible(query, proof)) return;
+          const published: SessionReadHistory = Object.freeze({
+            ...history,
+            proof,
+          });
+          records.set(query, { history: published, withoutProof: history });
+          // Publication changes subscribers' snapshot, not the original read order.
+          notify();
+        },
+        () => undefined,
+      );
     }
     notify();
   });
