@@ -9,7 +9,10 @@ import {
   configuredLegacyIntakeName,
 } from "~/server/program/name-fields";
 import { recordAudit } from "~/server/audit/log";
-import { deliverAccountInvitation } from "~/server/auth/account-invitations";
+import {
+  deliverAccountInvitation,
+  invitationEmailOwner,
+} from "~/server/auth/account-invitations";
 import {
   hashCode,
   freshEmailCode,
@@ -20,7 +23,15 @@ import {
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { codeEmailCopy } from "~/server/email/direct-email-copy";
-import { managementReviewSourceLink, notifyAdmins } from "~/server/notifications/create";
+import {
+  emailText,
+  normalizeEmailLocale,
+  type EmailLocale,
+} from "~/lib/email-locale";
+import {
+  managementReviewSourceLink,
+  notifyAdmins,
+} from "~/server/notifications/create";
 import { getFeatures } from "~/server/program/features";
 import {
   assertOfferedGrade,
@@ -90,6 +101,7 @@ export async function stageCrewVerification(
   emailInput: string,
   draft?: ApplicationInput,
   resend = false,
+  pageLocale: EmailLocale = "en",
 ) {
   if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
@@ -103,6 +115,7 @@ export async function stageCrewVerification(
     const prior = await tx.crewSignupVerification.findUnique({
       where: { email },
     });
+    const owner = await invitationEmailOwner(tx, email);
     let stagedDraft =
       draft ??
       (resend && prior?.draft
@@ -113,7 +126,7 @@ export async function stageCrewVerification(
         ? prior.applicationId
           ? await tx.crewApplication.findUnique({
               where: { id: prior.applicationId },
-              select: { id: true },
+              select: { id: true, emailLocale: true },
             })
           : null
         : await tx.crewApplication.findFirst({
@@ -122,8 +135,14 @@ export async function stageCrewVerification(
               ...(draft ? { status: "PENDING" as const } : {}),
             },
             orderBy: { createdAt: draft ? "asc" : "desc" },
-            select: { id: true },
+            select: { id: true, emailLocale: true },
           });
+    const locale = normalizeEmailLocale(
+      owner?.emailLocale ??
+        prior?.emailLocale ??
+        application?.emailLocale ??
+        pageLocale,
+    );
     if (stagedDraft && !application) {
       if (
         !resend &&
@@ -158,6 +177,7 @@ export async function stageCrewVerification(
       ...keys.map((key) => (key.code ? hashCode(key.code) : null)),
     ]);
     const data = {
+      emailLocale: locale,
       applicationId: application?.id ?? null,
       draft:
         stagedDraft && !application
@@ -185,10 +205,20 @@ export async function stageCrewVerification(
       signup: true,
       to: email,
       ...codeEmailCopy({
-        subject: "Verify your crew application / 验证值勤人员申请",
+        locale,
+        subject: emailText(locale, {
+          en: "Verify your crew application",
+          zh: "验证值勤人员申请",
+        }),
         code,
-        eyebrow: "EMAIL VERIFICATION / 邮箱验证",
-        body: `Enter this code to verify your crew application email. It expires in ${CREW_CODE_TTL_MINUTES} minutes. Crew access still requires approval.\n输入此验证码以验证值勤人员申请邮箱，${CREW_CODE_TTL_MINUTES} 分钟内有效。值勤人员权限仍须审批。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。`,
+        eyebrow: emailText(locale, {
+          en: "EMAIL VERIFICATION",
+          zh: "邮箱验证",
+        }),
+        body: emailText(locale, {
+          en: `Enter this code to verify your crew application email. It expires in ${CREW_CODE_TTL_MINUTES} minutes. Crew access still requires approval.\n\nIf you did not request this, ignore this email.`,
+          zh: `输入此验证码以验证值勤人员申请邮箱，${CREW_CODE_TTL_MINUTES} 分钟内有效。值勤人员权限仍须审批。\n\n如非本人申请，请忽略此邮件。`,
+        }),
       }),
     });
     return { ok: true as const };
@@ -230,6 +260,7 @@ export async function verifyCrewApplication(
             data: {
               ...draft,
               email: acceptedEmail,
+              emailLocale: row!.emailLocale,
               gradeLevel: draft.gradeLevel ?? null,
               preferredContact: optionalText(draft.preferredContact),
               message: optionalText(draft.message),
@@ -258,7 +289,10 @@ export async function verifyCrewApplication(
               }),
               title: "New crew application awaiting management review",
               body: `${draft.name} applied to join the crew.`,
-              link: managementReviewSourceLink("CrewApplication", application.id),
+              link: managementReviewSourceLink(
+                "CrewApplication",
+                application.id,
+              ),
             },
             undefined,
             tx,
@@ -407,7 +441,12 @@ export async function decideCrewApplication(
     // decision rather than assuming the invitation namespace freezes staff authority.
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actor.id} FOR SHARE`;
     const currentActor = await tx.user.findUnique({ where: { id: actor.id } });
-    if (!currentActor || !["ADMIN", "HEAD"].includes(currentActor.role) || currentActor.suspendedAt || currentActor.mergedIntoId)
+    if (
+      !currentActor ||
+      !["ADMIN", "HEAD"].includes(currentActor.role) ||
+      currentActor.suspendedAt ||
+      currentActor.mergedIntoId
+    )
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Only Admin or Head may decide crew participation.",

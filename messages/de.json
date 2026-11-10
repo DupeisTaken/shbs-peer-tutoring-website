@@ -4271,6 +4271,7 @@
         "kind": "Datensatzkategorie",
         "label": "Bezeichnung",
         "languageCode": "Sprachcode",
+        "emailLocale": "E-Mail-Sprache",
         "lastName": "Nachname",
         "levelId": "Fachniveau",
         "locale": "Sprache",
@@ -4943,6 +4944,10 @@
     "bindingDisabled": "Die Programmverwaltung hat das Hinzufügen weiterer E-Mail-Adressen deaktiviert. Vorhandene Adressen bleiben für Anmeldung, Wiederherstellung, die Wahl der primären Adresse und Entfernung verfügbar; neue Adressen können hier nicht hinzugefügt oder bestätigt werden."
   },
   "emailPreferences": {
+    "language": "E-Mail-Sprache",
+    "languageHelp": "Wähle Englisch oder Chinesisch für E-Mails an dieses Konto und seine bestätigten Adressen. Die Website-Sprache bleibt unabhängig.",
+    "english": "English",
+    "chinese": "中文",
     "title": "E-Mail-Einstellungen",
     "help": "Wählen Sie die gewünschten Benachrichtigungen.",
     "disabled": "E-Mail-Benachrichtigungen wurden von der Programmverwaltung deaktiviert. Ihre Einstellungen bleiben gespeichert.",
@@ -7703,7 +7708,7 @@
     "badgeFor": "{category}: Ungelesen-Zähler",
     "emailFor": "{category}: E-Mail",
     "emailOnly": "Nur E-Mail",
-    "disabled": "Optionale E-Mails sind durch die Programmverwaltung deaktiviert. Zählereinstellungen können weiterhin geändert werden.",
+    "disabled": "Optionale E-Mails sind für das Programm deaktiviert. Du kannst weiterhin die E-Mail-Sprache und die Einstellungen für Ungelesen-Badges ändern.",
     "essential": "Bestätigungs-, Anmelde-, Wiederherstellungs-, Sicherheits- und erforderliche Antrags-E-Mails bleiben aktiv. Diese Einstellungen entfernen keine Benachrichtigungen.",
     "manage": "Benachrichtigungen einstellen",
     "save": "Einstellungen speichern",

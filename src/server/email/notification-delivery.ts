@@ -1,4 +1,6 @@
 import { db } from "~/server/db";
+import { normalizeEmailLocale } from "~/lib/email-locale";
+import { verifiedRecipientEmailLocale } from "./recipient-locale";
 import { admitIdentityNotice, finishIdentityNotice } from "./identity-notice-admission";
 import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
@@ -145,11 +147,12 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       if (!admitted?.row.attemptId) continue;
       let accepted = false;
       try {
+        const locale = await verifiedRecipientEmailLocale(db, admitted.row.recipient);
         await emailSender.send({
           category: "PROGRAM",
           to: admitted.row.recipient,
           messageId: `<school-hours-${id}@shbs-notifications>`,
-          ...schoolHoursDeliveryCopy(admitted),
+          ...schoolHoursDeliveryCopy(admitted, locale),
         });
         accepted = true;
       } catch {
@@ -206,6 +209,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
             admitted.row,
             admitted.verified,
             admitted.appealUrl,
+            admitted.locale,
           ),
         });
         accepted = true;
@@ -305,6 +309,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         category: row.category,
         link,
         unsubscribeUrl,
+        locale: normalizeEmailLocale(user.emailLocale),
       });
       if (!essential) {
         transportAttempt = await admitIdentityNotice(db, id, leaseUntil, attemptId);

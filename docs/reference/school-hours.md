@@ -25,9 +25,13 @@ and extra credit, minus the difference in deductions, plus the difference in Cre
 credit. Opposite changes on different people remain separate even when the
 program-wide net is zero. Stored precision is retained; display rounding never
 becomes a new source value. Lengthy values have an explicitly approximate summary
-using the existing four-decimal display convention. School instructions keep the
-exact posting value visible beside that summary in management, public HTML and
-plain-text email; CSV retains the exact numeric value. Opening-review summaries
+using the existing four-decimal display convention. Management and the saved public report keep the exact posting value beside that
+summary; CSV retains the exact numeric value. Email shows each person’s exact signed
+posting amount once, without approximate duplicates, component breakdowns or
+previous/replacement tables. Those details remain in the linked report and CSV.
+Long exact values use smaller type to keep the complete number and unit together;
+ordinary amounts retain their normal emphasis. No value is rounded or truncated.
+Opening-review summaries
 keep exact source amounts in screen-reader text and the evidence dialog, without
 rounding the editable already-reported values. Tiny nonzero amounts never appear
 as zero. Neither repeating fractions nor floating-point tails are silently
@@ -65,7 +69,10 @@ Only the current head month's report can be revised. A revision identifies the
 replaced edition and shows each affected person's incremental correction alongside
 the revised monthly amount. If Alex's original +7 hours were already applied,
 a revision to +7.5 requires only +0.5 more. If not yet applied, use +7.5 once.
-Each revision also lists the correction from every earlier edition of that month.
+The saved report lists the correction from every earlier edition of that month.
+A revision email prominently limits its displayed changes to people whose last
+entered edition was the immediately previous one. Earlier-edition, never-entered
+and unknown-edition recipients must open the report or reconcile before posting.
 If a third edition is +7.7, a recipient who applied the first +7 uses +0.7;
 one who applied the second +7.5 uses +0.2. Select only the comparison matching
 the last applied edition. If that edition is unknown, reconcile before posting.
@@ -94,7 +101,11 @@ chain and outbox across restarts. The shared dispatcher uses fenced attempts and
 bounded retries; no SMTP call runs inside the reporting transaction.
 
 Recipients are explicitly configured school mailboxes and need not have site
-accounts. Each receives a separate consolidated email; recipient addresses are
+accounts. Each receives a separate consolidated email. An exact verified address in the
+account-email registry uses that account’s saved email language; addresses without
+a verified, non-retired account default to English. This presentation-only lookup
+never attributes school hours or grants report access. Both draft languages are
+available from the formatter. Recipient addresses are
 not included in the shared report. The Service Hours module, schedule, global
 program-mail switch and PROGRAM transport govern sending. Mail-off blocks school
 delivery without treating the report as newly unreported; retry the same receipt

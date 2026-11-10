@@ -4271,6 +4271,7 @@
         "kind": "Record category",
         "label": "Label",
         "languageCode": "Language code",
+        "emailLocale": "Email language",
         "lastName": "Last name",
         "levelId": "Subject level",
         "locale": "Language",
@@ -4943,6 +4944,10 @@
     "bindingDisabled": "Secondary-email binding is disabled by the program administrator. Existing addresses remain available for sign-in, recovery, promotion or removal; new addresses cannot be added or verified here."
   },
   "emailPreferences": {
+    "language": "Email language",
+    "languageHelp": "Choose English or Chinese for emails to this account and its verified addresses. This is separate from the website language.",
+    "english": "English",
+    "chinese": "中文",
     "title": "Email Preferences",
     "help": "Choose the updates you want in your inbox.",
     "disabled": "Email notifications are currently disabled by the program administrator. Your preferences are saved.",
@@ -7703,7 +7708,7 @@
     "badgeFor": "{category}: unread badge",
     "emailFor": "{category}: email",
     "emailOnly": "Email only",
-    "disabled": "Optional email is disabled by the program administrator. You can still change unread-badge preferences.",
+    "disabled": "Optional email is disabled for the program. You can still change your email language and unread-badge preferences.",
     "essential": "Verification, sign-in, recovery, account-security and essential request-service emails remain enabled. These preferences never remove notices from your bell list.",
     "manage": "Notification settings",
     "save": "Save preferences",

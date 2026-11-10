@@ -26,8 +26,11 @@ Typed in-app notifications retain localized event headings and show their captur
 change details. [In-app detail formatting](../../src/lib/notification-details.ts)
 selects a bounded English/Chinese snapshot (English for other interface languages),
 then the original nonempty stored body, then the event's generic description.
-Historical notices are never reconstructed from current mutable records. Email includes
-both English and Chinese because no recipient email-language preference is saved.
+Historical notices are never reconstructed from current mutable records. Email selects English or Chinese from the established recipient account’s saved
+email-language preference. This setting is independent of the website language and
+optional delivery categories. Existing accounts and accountless legacy/external
+recipients default to English. Public signups retain their supported page language
+through resends and new-account creation; an established account’s preference wins.
 Old in-app records retain their original title/body; an unknown email event uses the
 safe generic program-update copy, never arbitrary stored titles or bodies.
 

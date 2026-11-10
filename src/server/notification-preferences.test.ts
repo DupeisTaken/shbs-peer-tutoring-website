@@ -46,6 +46,42 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
+it("saves the account's email language independently from delivery consent and other accounts", async () => {
+  const otherId = `${userId}-other`;
+  await db.user.create({ data: { id: otherId, email: "other-language@example.test", emailLocale: "en" } });
+  try {
+    expect((await caller().account.notificationPreferences()).emailLocale).toBe("en");
+    await db.programSettings.update({ where: { id: "program" }, data: { emailNotificationsEnabled: false } });
+    await db.emailDelivery.deleteMany({ where: { userId } });
+    const before = await db.user.findUniqueOrThrow({ where: { id: userId } });
+    await caller().account.setNotificationPreferences({ categories: [], emailLocale: "zh" });
+    expect((await caller().account.notificationPreferences()).emailLocale).toBe("zh");
+    expect(await db.user.findUniqueOrThrow({ where: { id: userId } })).toMatchObject({
+      emailLocale: "zh", emailInfo: before.emailInfo,
+      emailSecondaryRecipients: before.emailSecondaryRecipients,
+      sessionVersion: before.sessionVersion, profileVersion: before.profileVersion,
+    });
+    expect((await db.user.findUniqueOrThrow({ where: { id: otherId } })).emailLocale).toBe("en");
+    expect(await db.emailDelivery.count({ where: { userId } })).toBe(0);
+  } finally {
+    await db.user.delete({ where: { id: otherId } });
+  }
+});
+
+it("preserves saved email language when older clients omit it", async () => {
+  await db.user.update({ where: { id: userId }, data: { emailLocale: "zh" } });
+  await caller().account.setNotificationPreferences({ categories: [] });
+  await caller().account.setEmailPreferences({ emailMessages: false, emailInfo: true, emailSecondaryRecipients: false });
+  expect((await caller().account.notificationPreferences()).emailLocale).toBe("zh");
+});
+
+it("rejects unsupported email languages at the API and database boundaries", async () => {
+  await expect(caller().account.setNotificationPreferences({ categories: [], emailLocale: "fr" as never }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(db.$executeRaw`UPDATE "User" SET "emailLocale"='fr' WHERE id=${userId}`).rejects.toThrow();
+  expect((await caller().account.notificationPreferences()).emailLocale).toBe("en");
+});
+
 it("conceals recovery-withdrawn notices from lists and badges without rewriting original read evidence", async () => {
   const visible = await db.notification.create({
     data: { userId, title: "Synthetic current notice" },

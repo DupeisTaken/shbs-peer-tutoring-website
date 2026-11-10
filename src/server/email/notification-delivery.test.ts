@@ -106,6 +106,23 @@ beforeEach(async () => {
   });
   mail.send.mockReset().mockResolvedValue(undefined);
 });
+
+it.each(["en", "zh"] as const)("uses the account's current %s preference for already queued mail and every verified destination", async (locale) => {
+  await db.user.update({ where: { id: uid }, data: { emailLocale: locale === "en" ? "zh" : "en" } });
+  await db.notification.create({ data: { userId: uid, event: "program_update", title: "PRIVATE TITLE", body: "PRIVATE BODY", link: "/admin" } });
+  expect(await db.emailDelivery.count({ where: { userId: uid } })).toBe(2);
+  await db.user.update({ where: { id: uid }, data: { emailLocale: locale } });
+  await deliverNotifications();
+  expect(mail.send).toHaveBeenCalledTimes(2);
+  for (const [message] of mail.send.mock.calls) {
+    expect(message.presentation?.locale).toBe(locale);
+    expect(message.subject).toBe(locale === "en" ? "Program Update" : "项目通知");
+    expect(message.text).toContain(locale === "en" ? "You have a program update" : "您收到一条项目通知");
+    expect(message.text).not.toContain(locale === "en" ? "您收到一条项目通知" : "You have a program update");
+    expect(renderEmail({ brand: "School", ...message })).toContain(`<html lang="${locale}">`);
+    expect(message.text).not.toContain("PRIVATE");
+  }
+});
 afterAll(async () => {
   await db.user.deleteMany({ where: { id: uid } });
   await db.$disconnect();
@@ -242,7 +259,7 @@ it.each([false, true])(
     ).toBe(true);
     for (const [message] of mail.send.mock.calls) {
       expect(message.presentation?.unsubscribeUrl).toBeDefined();
-      expect(message.text).toContain("Unsubscribe / 取消订阅:");
+      expect(message.text).toContain("Unsubscribe:");
     }
     // An admitted transport failure remains uncertain; it is not an audit failure or permission to retry.
     expect(queue.onFailure).not.toHaveBeenCalled();
@@ -284,14 +301,14 @@ it("persists distinct notification destinations for all verified recipients and 
       ),
     ).toBe(true);
     expect(message.text).toContain(
-      `Unsubscribe / 取消订阅: ${unsubscribe.href}`,
+      `Unsubscribe: ${unsubscribe.href}`,
     );
     expect(message.text).toContain("Asia/Shanghai");
     expect(message.text).not.toContain("do not recognize");
     const html = renderEmail({ brand: "School", ...message });
     expect(html).not.toContain("PRIVATE SENTINEL");
     expect(html).not.toContain("PRIVATE BODY");
-    expect(html).toContain("View program update / 查看项目通知");
+    expect(html).toContain("View program update");
     expect(message.presentation?.body).toContain("Asia/Shanghai");
     // Generic legacy updates still need their maintained sign-in instruction,
     // but must not append the second, generic settings/sign-in footer.
@@ -302,7 +319,7 @@ it("persists distinct notification destinations for all verified recipients and 
     expect(message.presentation?.body).not.toContain(unsubscribe.href);
     // The unsubscribe token belongs in its footer href, never a second raw URL
     // paragraph beside the main action. The complete text alternative keeps it.
-    expect(html).not.toContain("Unsubscribe / 取消订阅:");
+    expect(html).not.toContain("Unsubscribe:");
     expect(html.match(/class="footer-unsubscribe accent"/g)).toHaveLength(1);
   }
   expect(
@@ -329,7 +346,7 @@ it("uses safe home fallback for legacy rows, external links and staff role loss"
   await deliverNotifications(20);
   const messages = mail.send.mock.calls
     .map(([message]) => message)
-    .filter((message) => message.subject === "Program Update / 项目通知");
+    .filter((message) => message.subject === "Program Update");
   expect(messages).toHaveLength(6);
   for (const message of messages)
     expect(

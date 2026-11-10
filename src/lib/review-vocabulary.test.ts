@@ -37,6 +37,16 @@ const identityModels = [
   "SessionPlanExecution", "SessionParticipantExecution", "SessionResponseExecution",
   "QualificationTransferGrant", "PersonParticipationTransferReceipt", "StudentRequestExecutionAssignment",
 ] as const;
+it("labels saved email language within its exact source models without interpreting ordinary text", () => {
+  for (const entity of ["User", "ViewerSignup", "CrewSignupVerification", "CrewApplication", "TutorApplication", "StudentSurvey", "StudentSignupIntent", "AccountInvitation", "TuteeHistoryInvitation", "HistoricalRecordInvitation"] as const) {
+    expect(reviewSchema[entity].fields).toContain("emailLocale");
+    expect(auditFieldLabelKey(entity, "emailLocale")).toBe("auditEventDetails.presentation.fields.emailLocale");
+    expect(auditEnumLabelKey(entity, "emailLocale", "en")).toBe("emailPreferences.english");
+    expect(auditEnumLabelKey(entity, "emailLocale", "zh")).toBe("emailPreferences.chinese");
+    expect(auditEnumLabelKey(entity, "emailLocale", "fr")).toBeNull();
+  }
+  expect(auditEnumLabelKey("User", "name", "zh")).toBeNull();
+});
 
 it("registers exact identity lifecycle scalar fields without inventing schema enums", () => {
   const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");

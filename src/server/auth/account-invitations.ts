@@ -1,6 +1,11 @@
+import { normalizeEmailLocale } from "~/lib/email-locale";
+import { accountEmailLocale } from "~/server/email/recipient-locale";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { invitationPurpose } from "~/server/email/required-notice-details";
-import { invitationEmailCopy, invitationVerificationEmailCopy } from "~/server/email/direct-email-copy";
+import {
+  invitationEmailCopy,
+  invitationVerificationEmailCopy,
+} from "~/server/email/direct-email-copy";
 import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
@@ -395,6 +400,32 @@ async function sourceState(
   return { source, history };
 }
 
+/** Presentation follows the validated source, never the staff issuer's browser language. */
+async function sourceEmailLocale(
+  tx: TransactionDb,
+  state: Awaited<ReturnType<typeof sourceState>>,
+) {
+  if (state.viewer) return normalizeEmailLocale(state.viewer.emailLocale);
+  if (state.survey) return normalizeEmailLocale(state.survey.emailLocale);
+  if (state.signupIntent)
+    return normalizeEmailLocale(state.signupIntent.intent.emailLocale);
+  if (state.history)
+    return normalizeEmailLocale(state.history.invite.emailLocale);
+  const staff = state.staff;
+  const application = staff?.applicationId
+    ? await tx.tutorApplication.findUnique({
+        where: { id: staff.applicationId },
+        select: { emailLocale: true },
+      })
+    : staff?.crewApplicationId
+      ? await tx.crewApplication.findUnique({
+          where: { id: staff.crewApplicationId },
+          select: { emailLocale: true },
+        })
+      : null;
+  return normalizeEmailLocale(application?.emailLocale);
+}
+
 /** SMTP failure rolls back the envelope and leaves the previous usable code intact.
  * Calls require an already validated source; sourceState rechecks it before publishing. */
 export async function deliverAccountInvitation(
@@ -511,6 +542,9 @@ export async function deliverAccountInvitation(
       update: data,
     });
     const state = await sourceState(tx, row);
+    const locale = normalizeEmailLocale(
+      owner?.emailLocale ?? (await sourceEmailLocale(tx, state)),
+    );
     if (input.display && row.verifiedAt)
       await recordPublicInvitationProof(tx, state, row.verifiedAt);
     const sourceExpiry = state.staff
@@ -535,7 +569,7 @@ export async function deliverAccountInvitation(
     const expiresAt = new Date(Math.min(+row.expiresAt, sourceExpiry));
     const issued = await tx.accountInvitation.update({
       where: { id: row.id },
-      data: { expiresAt },
+      data: { expiresAt, emailLocale: locale },
     });
     await recordInvitationLifecycle(
       tx,
@@ -550,6 +584,7 @@ export async function deliverAccountInvitation(
       category: "SECURITY",
       to: email,
       ...invitationVerificationEmailCopy({
+        locale,
         code,
         purpose,
         deadline: { at: expiresAt, timeZone: await getProgramTimeZone(tx) },
@@ -728,9 +763,17 @@ export async function emailDisplayedInvitation(
     category: "SECURITY",
     to: row.email,
     ...invitationEmailCopy({
+      locale: await accountEmailLocale(
+        client,
+        row.accountId,
+        normalizeEmailLocale(row.emailLocale),
+      ),
       code,
       purpose,
-      deadline: { at: row.expiresAt, timeZone: await getProgramTimeZone(client) },
+      deadline: {
+        at: row.expiresAt,
+        timeZone: await getProgramTimeZone(client),
+      },
       url,
     }),
   });
@@ -763,7 +806,7 @@ export async function sendInvitationVerification(
     )
       throw invalid();
     await sourceState(tx, row);
-    await lockedInvitationOwner(tx, row);
+    const owner = await lockedInvitationOwner(tx, row);
     // A replacement must remain distinct from the invitation and the last mailbox code.
     const code = freshEmailCode([row.codeHash, row.emailCodeHash]);
     const expiresAt = new Date(Math.min(+row.expiresAt, Date.now() + TTL));
@@ -772,6 +815,7 @@ export async function sendInvitationVerification(
       category: "SECURITY",
       to: row.email,
       ...invitationVerificationEmailCopy({
+        locale: normalizeEmailLocale(owner?.emailLocale ?? row.emailLocale),
         code,
         purpose,
         deadline: { at: expiresAt, timeZone: await getProgramTimeZone(tx) },
@@ -1181,6 +1225,7 @@ export async function redeemAccountInvitation(
         {
           ...input,
           authenticatedUserId: owner?.id,
+          emailLocale: normalizeEmailLocale(row.emailLocale),
           completionProof: registrationCompletionProof(
             "invitation",
             staff.id,

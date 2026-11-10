@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { expect, it } from "vitest";
-import { schoolHoursEmailCopy } from "./school-hours-email";
+import type { EmailLocale } from "~/lib/email-locale";
+import {
+  renderSchoolHoursContent,
+  schoolHoursEmailCopy,
+} from "./school-hours-email";
 import {
   publicSchoolHoursReport,
   schoolHoursCsv,
@@ -8,156 +12,350 @@ import {
 } from "./school-hours-public";
 import { schoolHoursTestSnapshot } from "./school-hours-test-fixture";
 
-it("uses the caller's public runtime brand without interpreting it as HTML", () => {
+const reportUrl = "https://reports.example.test/saved";
+const parse = (html: string) =>
+  new DOMParser().parseFromString(html, "text/html");
+const unit = (locale: EmailLocale) => (locale === "zh" ? "小时" : "h");
+
+it("defaults to English and escapes public branding and participant names", () => {
+  const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
   const email = schoolHoursEmailCopy({
     brand: "Pilot <School>",
-    report: publicSchoolHoursReport(schoolHoursTestSnapshot()),
-    reportUrl: "https://reports.example.test/saved",
+    report,
+    reportUrl,
   });
+  const doc = parse(email.html);
+  expect(doc.documentElement.lang).toBe("en");
+  expect(doc.querySelector("h1")?.textContent).toBe(
+    "The Program October Report is ready",
+  );
+  expect(doc.querySelector("a")?.textContent).toBe("View Month Report");
   expect(email.html).toContain("Pilot &lt;School&gt;");
   expect(email.html).not.toContain("Pilot <School>");
+  expect(email.html).toContain("Blair &lt;Synthetic&gt;");
+  expect(email.html).not.toContain("Blair <Synthetic>");
+  expect(email.text).toContain('Alexander "Alex" Chen (陈安)');
+  expect(email.html).toContain("background:#EAF0F7");
+  expect(email.html).toContain("background:#F8FAFC");
+  expect(email.html).toContain("background:#0D59E6");
 });
 
+it.each(["en", "zh"] as const)(
+  "uses only %s fixed copy for first issues and both correction editions",
+  (locale) => {
+    for (const revision of [1, 2, 3]) {
+      const report = publicSchoolHoursReport(schoolHoursTestSnapshot(revision));
+      const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+      const doc = parse(email.html);
+      expect(doc.documentElement.lang).toBe(locale);
+      expect(doc.querySelector(".person h2")?.textContent).toBe(
+        report.rows[0]!.exportName,
+      );
+      expect(doc.querySelector(".email-amount")?.textContent).toContain(
+        unit(locale),
+      );
+      expect(doc.querySelector("a")?.textContent).toBe(
+        locale === "zh" ? "查看月度报告" : "View Month Report",
+      );
+      const inboxPreview = doc.querySelector(".email-preheader")!.textContent;
+      expect(inboxPreview).not.toBe(email.subject);
+      expect(inboxPreview).not.toContain(report.rows[0]!.exportName);
+      expect(inboxPreview).not.toContain(report.rows[0]!.schoolAccountKey);
+      const guidance = doc.querySelector(".email-guidance")!.textContent;
+      if (locale === "en") {
+        expect(guidance).not.toMatch(/[\u3400-\u9fff]/u);
+        expect(email.subject).not.toMatch(/[\u3400-\u9fff]/u);
+        expect(email.text).toContain("School account:");
+        expect(email.text).toContain("Issued:");
+        expect(email.text).not.toContain("学校账户");
+      } else {
+        expect(guidance).not.toContain("Revision");
+        expect(email.subject).not.toContain("school-hours");
+        expect(email.text).toContain("学校账户:");
+        expect(email.text).toContain("发出时间:");
+        expect(email.text).not.toContain("School account");
+        expect(email.text).not.toContain("View Month Report");
+      }
+      expect(email.text).toContain("Asia/Shanghai");
+      if (revision > 1) {
+        expect(email.subject).toContain(
+          locale === "zh" ? `第 ${revision} 版` : `Revision ${revision}`,
+        );
+        expect(email.text).toContain(
+          locale === "zh"
+            ? `替代第 ${revision - 1} 版`
+            : `Replaces Revision ${revision - 1}`,
+        );
+        expect(guidance).toContain(
+          locale === "zh"
+            ? `仅适用于最后入账第 ${revision - 1} 版的个人`
+            : `only if Revision ${revision - 1} was last entered for that person`,
+        );
+        expect(guidance).toContain(
+          locale === "zh"
+            ? "若不确定最后入账版本，请先联系项目团队"
+            : "If the last entered edition is unknown, contact the program first",
+        );
+        expect(guidance).toContain(
+          locale === "zh"
+            ? "若入账的是更早版本或从未入账"
+            : "For an earlier edition or no entry",
+        );
+      } else {
+        expect(guidance).toContain(
+          locale === "zh" ? "每人时数仅入账一次" : "Hours to enter once",
+        );
+      }
+      expect(guidance).toContain(
+        locale === "zh" ? "负数表示扣减" : "Negative amounts deduct hours",
+      );
+    }
+  },
+);
+
 it.each([
-  [1.7500000000000002, "+1.75"],
-  [3.5833333333333335, "+3.5833"],
-  [28.041666666666668, "+28.0417"],
-  [4.083333333333334, "+4.0833"],
-  [1 / 12, "+0.0833"],
-  [-1 / 60, "-0.0167"],
-  [1e-16, null],
-  [-1e-16, null],
-] as const)(
-  "retains exact %s posting instructions across HTML, text and CSV beside clearly approximate summaries",
-  async (value, approximation) => {
+  1.7500000000000002,
+  3.5833333333333335,
+  28.041666666666668,
+  4.083333333333334,
+  1 / 12,
+  -1 / 60,
+  1e-16,
+  -1e-16,
+])(
+  "includes the exact %s delta once per person without approximation or snapshot mutation",
+  async (value) => {
     const snapshot = schoolHoursTestSnapshot();
-    const person = snapshot.rows[0]!;
-    person.hoursToAdd = value;
-    person.monthAmount = value;
-    person.tutoringChange = value;
-    person.crewChange = 0;
+    snapshot.rows = [
+      {
+        ...snapshot.rows[0]!,
+        hoursToAdd: value,
+        monthAmount: value,
+        tutoringChange: value,
+        crewChange: 0,
+      },
+    ];
     const frozen = JSON.stringify(snapshot);
     const report = publicSchoolHoursReport(snapshot);
-    const email = schoolHoursEmailCopy({
-      report,
-      reportUrl: "https://reports.example.test/saved",
-    });
-    const html = await schoolHoursHtmlResponse(
+    const exact = `${value > 0 ? "+" : ""}${value}`;
+    for (const locale of ["en", "zh"] as const) {
+      const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+      const doc = parse(email.html);
+      const amount = doc.querySelector<HTMLElement>(".email-amount")!;
+      expect(amount.textContent).toBe(`${exact} ${unit(locale)}`);
+      expect(
+        amount.querySelector<HTMLElement>(".email-value")?.style.whiteSpace,
+      ).toBe("nowrap");
+      expect(email.text.split(`${exact} ${unit(locale)}`)).toHaveLength(2);
+      expect(
+        doc.querySelector(".person")!.textContent.split(exact),
+      ).toHaveLength(2);
+      expect(amount.style.overflowWrap).toBe("anywhere");
+      expect(amount.style.wordBreak).toBe("break-word");
+      expect(email.html).not.toContain("≈");
+      expect(email.text).not.toContain("≈");
+      expect(email.html).not.toContain("approximate");
+      expect(email.html).not.toContain("约数");
+    }
+    const savedHtml = await schoolHoursHtmlResponse(
       report,
       "synthetic-token",
     ).text();
-    const exact = `${value > 0 ? "+" : ""}${value}`;
-    for (const content of [email.html, email.text, html]) {
-      expect(content).toContain(`${exact} h`);
-      if (approximation !== null)
-        expect(content).toContain(`≈ ${approximation} h`);
-      else expect(content).not.toContain("≈");
-    }
-    if (approximation !== null) {
-      expect(email.html).toContain(`Exact / 精确值: ${exact} h`);
-      expect(email.html).toContain("(approximate / 约数)");
-      expect(email.text).toContain("Approximate summary / 约数摘要:");
-    }
-    const csv = schoolHoursCsv(report).content;
-    expect(csv).toContain(`,${value},`);
-    expect(csv).not.toContain("≈");
+    expect(savedHtml).toContain(`${exact} h`);
+    expect(schoolHoursCsv(report).content).toContain(`,${value},`);
     expect(JSON.stringify(snapshot)).toBe(frozen);
   },
 );
 
-it("leads with each individual's signed account instruction and excludes private source evidence", () => {
-  const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
-  const copy = schoolHoursEmailCopy({
-    report,
-    reportUrl: "https://reports.example.test/saved-capability",
-  });
-  expect(copy.subject).toBe("The Program October Report is ready");
-  expect(copy.html).toContain(">View Month Report</a>");
-  expect(copy.text).toContain("+7 h");
-  expect(copy.text).toContain("-0.5 h");
-  expect(copy.text).toContain('Alexander "Alex" Chen (陈安)');
-  expect(copy.html).toContain("Blair &lt;Synthetic&gt;");
-  expect(copy.html).not.toContain("Blair <Synthetic>");
-  expect(copy.text).toContain("not additional amounts to add again");
-  expect(copy.html).not.toContain("Optional program statistics");
-  expect(`${copy.html}${copy.text}`).not.toContain("private-person");
-  expect(`${copy.html}${copy.text}`).not.toContain("private-previous-report");
-  expect(copy.text).not.toContain("sign in");
-});
-it("shows incremental per-person revision corrections and full replacement amounts without instructing duplicate credit", () => {
-  const report = publicSchoolHoursReport(schoolHoursTestSnapshot(2));
-  const copy = schoolHoursEmailCopy({
-    report,
-    reportUrl: "https://reports.example.test/saved",
-  });
-  expect(copy.text).toContain(
-    "apply only each person's highlighted correction",
-  );
-  expect(copy.text).toContain("+0.5 h");
-  expect(copy.text).toContain(
-    "Replacement month amount / 替代月度金额: +7.5 h",
-  );
-  expect(copy.text).toContain("Unchanged since r1");
-  expect(copy.text).toContain("Not an additional account correction");
-  expect(copy.html).toContain("Previous-month comparison");
-});
-it.each([2, 3])(
-  "identifies revision %s in the inbox while retaining the report heading and complete posting choices",
-  (revision) => {
-    const report = publicSchoolHoursReport(schoolHoursTestSnapshot(revision));
-    const copy = schoolHoursEmailCopy({
-      report,
-      reportUrl: "https://reports.example.test/saved",
-    });
-    expect(copy.subject).toBe(
-      `Correction r${revision}: 2026-10 school-hours report / 学校时数报告更正`,
-    );
-    expect(copy.html).toMatch(
-      /<h1[^>]*>The Program October Report is ready<\/h1>/,
-    );
-    expect(copy.html).toContain(">View Month Report</a>");
-    // The full safety rule belongs to the introduction rather than every person.
-    for (const content of [copy.html, copy.text]) {
-      expect(content.match(/never add alternatives/g)).toHaveLength(1);
-      expect(content.match(/If unknown or not listed/g)).toHaveLength(1);
-      expect(
-        content.match(/Negative corrections are deductions/g),
-      ).toHaveLength(1);
-      expect(content).toContain("use the replacement month amount once");
+it.each(["en", "zh"] as const)(
+  "keeps ordinary %s amounts at the legacy size and long exact amounts indivisible",
+  (locale) => {
+    for (const value of [
+      7,
+      -0.5,
+      1 / 60,
+      -1 / 60,
+      1.0000000000000002e-6,
+      -0.0000010000000000000002,
+      -Number.MAX_VALUE,
+      Number.MIN_VALUE,
+    ]) {
+      const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
+      report.rows = [{ ...report.rows[0]!, hoursToAdd: value }];
+      const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+      const doc = parse(email.html);
+      const amount = doc.querySelector<HTMLElement>(".email-amount")!;
+      const exactValue = amount.querySelector<HTMLElement>(".email-value")!;
+      const exact = `${value > 0 ? "+" : ""}${value} ${unit(locale)}`;
+      expect(exactValue.textContent).toBe(exact);
+      expect(exactValue.style.whiteSpace).toBe("nowrap");
+      expect(exactValue.children).toHaveLength(0);
+      expect(doc.querySelectorAll(".email-value")).toHaveLength(1);
+      expect(email.text.split(exact)).toHaveLength(2);
+      const fontSize = Number.parseFloat(amount.style.fontSize);
+      if (value === 7 || value === -0.5 || value === Number.MIN_VALUE)
+        expect(fontSize).toBe(30);
+      else {
+        expect(fontSize).toBeGreaterThanOrEqual(14);
+        expect(fontSize).toBeLessThanOrEqual(16);
+      }
+      expect(exactValue.hasAttribute("title")).toBe(false);
+      expect(amount.style.textOverflow).toBe("");
     }
-    expect(
-      copy.html.match(/Choose one matching row \/ 仅选符合情况的一项/g),
-    ).toHaveLength(report.rows.length);
-    expect(copy.text.match(/\(choose one \/ 仅选一项\)/g)).toHaveLength(
-      report.rows.length,
-    );
-    expect(copy.text.match(/Nothing applied \/ 从未入账 ->/g)).toHaveLength(
-      report.rows.length,
-    );
-    expect(copy.html).toContain("background:#EAF0F7");
-    expect(copy.html).toContain("background:#F8FAFC");
   },
 );
-it("renders previews without navigation, live capabilities or changes to the accounting body", () => {
-  const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
-  const actual = schoolHoursEmailCopy({
+
+it("retains saved-report precision evidence and approximate summaries without copying them into email", async () => {
+  const snapshot = schoolHoursTestSnapshot();
+  const value = 1 / 12;
+  snapshot.rows[0]!.hoursToAdd = value;
+  snapshot.rows[0]!.monthAmount = value;
+  snapshot.rows[0]!.tutoringChange = value;
+  const report = publicSchoolHoursReport(snapshot);
+  const email = schoolHoursEmailCopy({ report, reportUrl });
+  const savedHtml = await schoolHoursHtmlResponse(
     report,
-    reportUrl: "https://reports.example.test/private-token",
-  });
-  const preview = schoolHoursEmailCopy({
-    report,
-    reportUrl: "#preview",
-    preview: true,
-  });
-  expect(preview.subject).toBe(actual.subject);
-  expect(preview.html).not.toMatch(/<a\b|href=/i);
-  expect(preview.html).toContain('aria-disabled="true"');
-  expect(`${preview.html}${preview.text}`).not.toContain("#preview");
-  expect(preview.text.split("\n\nView Month Report")[0]).toBe(
-    actual.text.split("\n\nView Month Report")[0],
-  );
+    "synthetic-token",
+  ).text();
+  expect(email.html).not.toContain("≈");
+  expect(savedHtml).toContain("≈ +0.0833 h");
+  expect(savedHtml).toContain(`Exact / 精确值: +${value} h`);
+  expect(schoolHoursCsv(report).content).toContain(`,${value},`);
 });
-it("exports frozen names, signed numeric instructions and shared CSV formula/control protection", () => {
+
+it.each(["en", "zh"] as const)(
+  "keeps %s email compact while preserving complete r1-to-r3 choices in the saved report and CSV",
+  (locale) => {
+    const snapshot = schoolHoursTestSnapshot(3);
+    const person = snapshot.rows[0]!;
+    person.hoursToAdd = 0.2;
+    person.monthAmount = 7.7;
+    person.previousEditionAmount = 7.5;
+    person.priorEditions = [
+      { revision: 1, monthAmount: 7, correctionToCurrent: 0.7 },
+      { revision: 2, monthAmount: 7.5, correctionToCurrent: 0.2 },
+    ];
+    const report = publicSchoolHoursReport(snapshot);
+    const before = JSON.stringify(report);
+    const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+    const doc = parse(email.html);
+    expect(doc.querySelector(".person .email-amount")?.textContent).toBe(
+      `+0.2 ${unit(locale)}`,
+    );
+    expect(email.text).not.toContain(`+0.7 ${unit(locale)}`);
+    expect(email.text).not.toContain(`+7.7 ${unit(locale)}`);
+    expect(
+      doc.querySelector("table,details,.edition-choices,.month-comparison"),
+    ).toBeNull();
+    expect(email.text).not.toContain("Tutoring net");
+    expect(email.text).not.toContain("辅导净额");
+    const saved = renderSchoolHoursContent(report);
+    expect(saved).toContain("Last applied edition / 最后入账版本");
+    expect(saved).toMatch(/r1 \(\+7 h\)<\/th><td[^>]*>\+0.7 h<\/td>/);
+    expect(saved).toMatch(/r2 \(\+7.5 h\)<\/th><td[^>]*>\+0.2 h<\/td>/);
+    expect(saved).toContain("+7.7 h once / 一次");
+    expect(schoolHoursCsv(report).content).toContain(
+      "If last applied r1: correction to apply now",
+    );
+    expect(schoolHoursCsv(report).content).toContain(
+      "If last applied r2: correction to apply now",
+    );
+    expect(schoolHoursCsv(report).content).toContain("Never add alternatives");
+    expect(JSON.stringify(report)).toBe(before);
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "keeps unchanged revision participants and offsetting zero-net changes explicit in %s",
+  (locale) => {
+    const revision = publicSchoolHoursReport(schoolHoursTestSnapshot(2));
+    const revisionMail = schoolHoursEmailCopy({
+      report: revision,
+      reportUrl,
+      locale,
+    });
+    const revisionDoc = parse(revisionMail.html);
+    expect(revisionDoc.querySelectorAll(".person")).toHaveLength(3);
+    const unchanged = [...revisionDoc.querySelectorAll(".person")].find(
+      (row) => row.querySelector("h2")?.textContent === "Casey Synthetic",
+    )!;
+    expect(unchanged.querySelector(".email-amount")?.textContent).toBe(
+      `0 ${unit(locale)}`,
+    );
+    expect(unchanged.textContent).toContain(
+      locale === "zh" ? "请勿重复入账" : "Do not enter again",
+    );
+    const snapshot = schoolHoursTestSnapshot();
+    const zero = snapshot.rows[2]!;
+    zero.unchanged = false;
+    zero.current = { earned: 3, extras: 0, deductions: 1, crew: 0 };
+    zero.change = { earned: 1, extras: 0, deductions: 1, crew: 0 };
+    const report = publicSchoolHoursReport(snapshot);
+    const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+    const zeroRow = [...parse(email.html).querySelectorAll(".person")].find(
+      (row) => row.querySelector("h2")?.textContent === "Casey Synthetic",
+    )!;
+    expect(zeroRow.querySelector(".email-amount")?.textContent).toBe(
+      `0 ${unit(locale)}`,
+    );
+    expect(zeroRow.textContent).toContain(
+      locale === "zh" ? "净变化为零" : "No net change",
+    );
+    expect(schoolHoursCsv(report).content).toContain("Casey Synthetic");
+  },
+);
+
+it("keeps optional statistics in the saved report, excludes private evidence and omits unchanged first-issue rows", () => {
+  const snapshot = schoolHoursTestSnapshot();
+  snapshot.includeStatistics = true;
+  const report = publicSchoolHoursReport(snapshot);
+  const email = schoolHoursEmailCopy({ report: snapshot, reportUrl });
+  expect(parse(email.html).querySelectorAll(".person")).toHaveLength(2);
+  expect(email.text).not.toContain("Casey Synthetic");
+  expect(email.html).not.toContain("Optional program statistics");
+  expect(renderSchoolHoursContent(report)).toContain(
+    "Optional program statistics",
+  );
+  for (const content of [email.html, email.text]) {
+    expect(content).not.toContain("private-person");
+    expect(content).not.toContain("private-previous-report");
+    expect(content).not.toContain("private-replaced-report");
+  }
+  expect(email.text).toContain("Delivery does not confirm school entry");
+  expect(email.text).toContain("Anyone with the report link");
+});
+
+it.each(["en", "zh"] as const)(
+  "renders safe %s previews with the same compact accounting content",
+  (locale) => {
+    const report = publicSchoolHoursReport(schoolHoursTestSnapshot(2));
+    const actual = schoolHoursEmailCopy({ report, reportUrl, locale });
+    const preview = schoolHoursEmailCopy({
+      report,
+      reportUrl: "#preview",
+      locale,
+      preview: true,
+    });
+    expect(preview.subject).toBe(actual.subject);
+    const actualDoc = parse(actual.html);
+    const previewDoc = parse(preview.html);
+    expect(previewDoc.querySelector("a,[href]")).toBeNull();
+    expect(
+      previewDoc.querySelector('[aria-disabled="true"]')?.textContent,
+    ).toBe(locale === "zh" ? "查看月度报告" : "View Month Report");
+    expect(`${preview.html}${preview.text}`).not.toContain("#preview");
+    expect(
+      [...previewDoc.querySelectorAll(".person")].map((row) => row.outerHTML),
+    ).toEqual(
+      [...actualDoc.querySelectorAll(".person")].map((row) => row.outerHTML),
+    );
+    expect(preview.text).toContain(
+      locale === "zh" ? "仅供预览" : "preview only",
+    );
+  },
+);
+
+it("retains CSV formula protection, frozen names and signed exact values", () => {
   const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
   report.rows[0]!.exportName = '\t＝SUM(1,2) "Synthetic"';
   report.rows[0]!.schoolAccountKey = "@unsafe-account";
@@ -169,99 +367,8 @@ it("exports frozen names, signed numeric instructions and shared CSV formula/con
   expect(csv.content).not.toContain("private-person");
 });
 
-it("normal issues consistently omit fully unchanged accounts from email, public report and CSV without consuming their private baseline", () => {
-  const snapshot = schoolHoursTestSnapshot();
-  snapshot.includeStatistics = true;
-  const report = publicSchoolHoursReport(snapshot);
-  expect(snapshot.rows).toHaveLength(3);
-  expect(report.rows).toHaveLength(2);
-  expect(report.totals.people).toBe(2);
-  const email = schoolHoursEmailCopy({
-    report: snapshot,
-    reportUrl: "https://reports.example.test/saved",
-  });
-  expect(email.text).not.toContain("Casey Synthetic");
-  expect(email.html).not.toContain("Casey Synthetic");
-  expect(email.html).toContain("2 individuals / 人");
-  expect(schoolHoursCsv(report).content).not.toContain("Casey Synthetic");
-  const revision = publicSchoolHoursReport(schoolHoursTestSnapshot(2));
-  expect(revision.rows).toHaveLength(3);
-  expect(
-    schoolHoursEmailCopy({
-      report: revision,
-      reportUrl: "https://reports.example.test/saved",
-    }).text,
-  ).toContain("Casey Synthetic");
-});
-
-it("retains a normal-issue account with offsetting component changes even when its net amount is zero", () => {
-  const snapshot = schoolHoursTestSnapshot();
-  snapshot.rows[2]!.unchanged = false;
-  snapshot.rows[2]!.current = { earned: 3, extras: 0, deductions: 1, crew: 0 };
-  snapshot.rows[2]!.change = { earned: 1, extras: 0, deductions: 1, crew: 0 };
-  const report = publicSchoolHoursReport(snapshot);
-  expect(
-    report.rows.find((row) => row.exportName === "Casey Synthetic")?.hoursToAdd,
-  ).toBe(0);
-  expect(schoolHoursCsv(report).content).toContain("Casey Synthetic");
-  expect(
-    schoolHoursEmailCopy({
-      report,
-      reportUrl: "https://reports.example.test/saved",
-    }).text,
-  ).toContain("Casey Synthetic");
-});
-
-it("lets a recipient who missed r2 choose the complete r1-to-r3 correction instead of only the immediate change", () => {
-  const snapshot = schoolHoursTestSnapshot(3);
-  const person = snapshot.rows[0]!;
-  person.tutoringChange = 0.2;
-  person.current = { earned: 6.7, extras: 0, deductions: 0, crew: 1 };
-  person.previous = { earned: 6.5, extras: 0, deductions: 0, crew: 1 };
-  person.change = { earned: 0.2, extras: 0, deductions: 0, crew: 0 };
-  person.hoursToAdd = 0.2;
-  person.monthAmount = 7.7;
-  person.previousEditionAmount = 7.5;
-  person.monthComparison = 1.7;
-  snapshot.totals = {
-    people: 3,
-    tutoringChange: 0.2,
-    crewChange: 0,
-    hoursToAdd: 0.2,
-    monthAmount: 7.2,
-  };
-  person.priorEditions = [
-    { revision: 1, monthAmount: 7, correctionToCurrent: 0.7 },
-    { revision: 2, monthAmount: 7.5, correctionToCurrent: 0.2 },
-  ];
-  const report = publicSchoolHoursReport(snapshot);
-  expect(report.rows[0]!.priorEditions).toEqual(person.priorEditions);
-  const copy = schoolHoursEmailCopy({
-    report,
-    reportUrl: "https://reports.example.test/saved",
-  });
-  expect(copy.text).toContain("Correction only if r2 was last applied");
-  expect(copy.text).toContain("r1 (+7 h applied) -> +0.7 h");
-  expect(copy.text).toContain("r2 (+7.5 h applied) -> +0.2 h");
-  expect(copy.text).toContain("Nothing applied / 从未入账 -> +7.7 h once");
-  expect(copy.text).toContain(
-    "Choose only one matching row; never add alternatives",
-  );
-  expect(copy.text).toContain("If unknown or not listed, ask the program team");
-  expect(copy.html).toContain("Last applied edition / 最后入账版本");
-  expect(copy.html).toMatch(/r1 \(\+7 h\)<\/th><td[^>]*>\+0.7 h<\/td>/);
-  expect(copy.html).toMatch(/r2 \(\+7.5 h\)<\/th><td[^>]*>\+0.2 h<\/td>/);
-  const csv = schoolHoursCsv(report);
-  expect(csv.content).toContain("If last applied r1: correction to apply now");
-  expect(csv.content).toContain("If last applied r2: correction to apply now");
-  expect(
-    csv.content.split("\r\n").find((line) => line.includes("school-A")),
-  ).toMatch(/,0.7,0.2$/);
-  expect(csv.content).toContain("Never add alternatives");
-});
-
 it.each([2, 3])(
-  "keeps exact revision %s values in wrapping table cells on narrow cards",
+  "keeps full-precision revision %s saved-report choices wrapping in both table columns",
   (revision) => {
     const report = publicSchoolHoursReport(schoolHoursTestSnapshot(revision));
     const person = report.rows[0]!;
@@ -276,16 +383,11 @@ it.each([2, 3])(
         correctionToCurrent: exact,
       },
     ];
-    const copy = schoolHoursEmailCopy({
-      report,
-      reportUrl: "https://reports.example.test/saved",
-    });
-    const doc = new DOMParser().parseFromString(copy.html, "text/html");
+    const doc = parse(renderSchoolHoursContent(report));
     const choices = doc.querySelector<HTMLTableElement>(".edition-choices")!;
     expect(choices.textContent).toContain("r1 (+7.016666666666667 h)");
     expect(choices.textContent).toContain(`+${exact} h`);
     expect(choices.textContent).toContain("+7.233333333333333 h once");
-    expect(copy.text).toContain(`+${exact} h`);
     const tables = doc.querySelectorAll<HTMLTableElement>(
       ".edition-choices,.month-comparison",
     );

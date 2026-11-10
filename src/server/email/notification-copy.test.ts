@@ -16,7 +16,7 @@ it("keeps the issued time and factual update without raw unsubscribe URLs or rep
     category: "messages",
     unsubscribeUrl,
   });
-  expect(content.subject).toBe("New Private Message / 新的私信");
+  expect(content.subject).toBe("New Private Message");
   expect(content.presentation.body).toContain("November 9, 2026");
   expect(content.presentation.body).toContain("Asia/Shanghai");
   expect(content.presentation.body).not.toContain(unsubscribeUrl);
@@ -25,7 +25,7 @@ it("keeps the issued time and factual update without raw unsubscribe URLs or rep
   expect(content.presentation.action.url).toBe(common.link);
   expect(content.presentation.unsubscribeUrl).toBe(unsubscribeUrl);
   expect(content.text).toContain(common.link);
-  expect(content.text).toContain(`Unsubscribe / 取消订阅: ${unsubscribeUrl}`);
+  expect(content.text).toContain(`Unsubscribe: ${unsubscribeUrl}`);
   expect(content.text).not.toContain("Sign in to review the update");
   expect(content.text).not.toContain(
     "optional email notifications in account settings",
@@ -41,9 +41,7 @@ it("retains the security response guidance in both alternatives", () => {
   });
   for (const body of [content.text, content.presentation.body]) {
     expect(body).toContain("Your password was changed.");
-    expect(body).toContain("您的密码已更改。");
     expect(body).toContain("If you do not recognize this activity");
-    expect(body).toContain("如非本人操作");
   }
   expect(content.presentation.eyebrow).toBe("ACCOUNT SECURITY");
   expect(content.presentation.unsubscribeUrl).toBeUndefined();
@@ -56,6 +54,58 @@ it("uses maintained generic copy for unknown legacy events instead of their supp
     context: { title: "PRIVATE TITLE", text: "PRIVATE BODY" },
     category: "info",
   });
-  expect(content.subject).toBe("Program Update / 项目通知");
+  expect(content.subject).toBe("Program Update");
   expect(content.text).not.toMatch(/PRIVATE|UNRECOGNIZED_INTERNAL_EVENT/);
 });
+
+it.each(["en", "zh"] as const)(
+  "selects %s factual snapshots, times, actions and security guidance without recovering private fields",
+  (locale) => {
+    const context = {
+      emailDetail: {
+        en: "Morgan is assigned to Alex.",
+        zh: "Morgan 已分配给 Alex。",
+      },
+      private: "PRIVATE BODY",
+    };
+    const content = notificationEmailContent({
+      ...common,
+      event: "student_assignment_updated",
+      category: "info",
+      context,
+      locale,
+    });
+    expect(content.presentation.locale).toBe(locale);
+    expect(content.presentation.preview).not.toBe(content.subject);
+    expect(content.presentation.preview).not.toMatch(
+      /Morgan|Alex|PRIVATE|https:/,
+    );
+    expect(content.presentation.body).toContain(context.emailDetail[locale]);
+    expect(content.presentation.body).not.toContain(
+      context.emailDetail[locale === "en" ? "zh" : "en"],
+    );
+    expect(content.text).not.toContain("PRIVATE BODY");
+    expect(content.presentation.body).toContain(
+      locale === "en" ? "November 9, 2026" : "2026年11月9日",
+    );
+    const security = notificationEmailContent({
+      ...common,
+      event: "security_changed",
+      category: "security",
+      context: { changedFields: ["password"] },
+      locale,
+    });
+    for (const body of [security.text, security.presentation.body]) {
+      expect(body).toContain(
+        locale === "en" ? "Your password was changed." : "您的密码已更改。",
+      );
+      expect(body).toContain(
+        locale === "en"
+          ? "If you do not recognize this activity"
+          : "如非本人操作",
+      );
+      if (locale === "en") expect(body).not.toMatch(/\p{Script=Han}/u);
+      else expect(body).not.toContain("Your password");
+    }
+  },
+);

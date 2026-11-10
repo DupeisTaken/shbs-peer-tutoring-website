@@ -1,4 +1,6 @@
 import { normalizeEmailCode } from "~/lib/registration-code";
+import { normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
+import { accountEmailLocale } from "./email/recipient-locale";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import type { Prisma, StudentSignupIntent } from "../../generated/prisma";
@@ -113,6 +115,7 @@ export async function stageStudentSignupIntent(
   clientKey: string,
   submittedByUserId?: string,
   recoveryDraft?: z.infer<typeof recoveryDraftReference>,
+  pageLocale: EmailLocale = "en",
 ) {
   if (!isEmailDeliveryAvailable("PROGRAM"))
     throw new TRPCError({
@@ -216,9 +219,13 @@ export async function stageStudentSignupIntent(
           "The policy changed. Read the current policy before submitting.",
       });
     const receivedAt = new Date();
+    const emailLocale = normalizeEmailLocale(
+      account?.emailLocale ?? pageLocale,
+    );
     row ??= await tx.studentSurvey.create({
       data: {
         email: input.email,
+        emailLocale,
         intakeTermId: term.id,
         payload: {
           ...input,
@@ -245,6 +252,7 @@ export async function stageStudentSignupIntent(
         keyHash: hashKey(clientKey),
         inputHash: inputDigest(posted),
         email: input.email,
+        emailLocale,
         submittedByUserId: submittedByUserId ?? null,
         accountId: account?.id ?? null,
         sessionVersion: account?.sessionVersion ?? null,
@@ -299,6 +307,11 @@ async function sendStudentSignupIntent(
       signup: true,
       to: intent.email,
       ...tutoringSignupEmailCopy({
+        locale: await accountEmailLocale(
+          db,
+          intent.accountId,
+          normalizeEmailLocale(intent.emailLocale),
+        ),
         code: surveyEmailCode(intent.tokenHash, intent.emailCodeVersion),
         url,
         deadline: { at: intent.expiresAt, timeZone },
@@ -505,6 +518,7 @@ export async function completeStudentSignupIntent(
       where: { id: row.id },
       data: {
         currentPayload: answers,
+        emailLocale: intent.emailLocale,
         currentVersion: version,
         editedAt: new Date(),
       },

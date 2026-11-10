@@ -2,6 +2,16 @@ import {describe,expect,it} from "vitest";
 import {assertReviewedRecoverySchema,reviewedRecoverySchemaMetadata} from "./operator-schema";
 
 describe("static operator recovery schema review",()=>{
+  it("reviews all email-language columns together while retaining every complete older schema",()=>{
+    const {columns,identityColumns,legacyDeclineColumns,identityLegacyDeclineColumns,emailLocaleColumns,enums}=reviewedRecoverySchemaMetadata;
+    for (const old of [columns,identityColumns,legacyDeclineColumns,identityLegacyDeclineColumns]) {
+      expect(assertReviewedRecoverySchema(old,enums).emailLocale).toBe(false);
+      expect(assertReviewedRecoverySchema([...old,...emailLocaleColumns],enums).emailLocale).toBe(true);
+      for (let index=0;index<emailLocaleColumns.length;index++)
+        expect(()=>assertReviewedRecoverySchema([...old,...emailLocaleColumns.filter((_,position)=>position!==index)],enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    }
+    expect(()=>assertReviewedRecoverySchema([...columns,...emailLocaleColumns.map(row=>row.table_name==="User"?{...row,udt_name:"jsonb"}:row)],enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
   it("reviews tutoring policy columns together while retaining complete older backups",()=>{
     const {columns,enums}=reviewedRecoverySchemaMetadata;
     const old=columns.filter(row=>row.table_name!=="ProgramCalendarPolicyRevision"&&!(row.table_name==="ProgramCalendarDay"&&row.column_name==="schedulingEffect")&&!(row.table_name==="SessionPlanParticipant"&&row.column_name==="tutoringPauseSuppressed"));

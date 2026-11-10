@@ -324,6 +324,7 @@ const ACCOUNT_FIELDS = [
   "emailReviewRequests",
   "emailEventReminders",
   "emailSecondaryRecipients",
+  "emailLocale",
   "mustChangePassword",
   "twoFactorEnabled",
   "emailVerifiedAt",
@@ -415,7 +416,7 @@ export async function readReconciliationSnapshot(
     "SELECT t.typname AS type_name,e.enumlabel AS enum_label FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' ORDER BY t.typname,e.enumsortorder LIMIT 2001",
   );
   operatorAssert(enums.rows.length <= 2000, "SECURITY_SCHEMA_TOO_LARGE");
-  const { identityVersion, legacySignupDecline } = assertReviewedRecoverySchema(
+  const { identityVersion, legacySignupDecline, emailLocale } = assertReviewedRecoverySchema(
     schema.rows,
     enums.rows,
   );
@@ -429,10 +430,10 @@ export async function readReconciliationSnapshot(
       trigger.rows[0]?.proname === "advance_account_session_version",
     "INVALID_SESSION_GENERATION_TRIGGER",
   );
-  const accountFields =
-    identityVersion === 1
-      ? [...ACCOUNT_FIELDS, "historyAccessRevision"]
-      : ACCOUNT_FIELDS;
+  const accountFields = [
+    ...ACCOUNT_FIELDS.filter((field) => field !== "emailLocale" || emailLocale),
+    ...(identityVersion === 1 ? ["historyAccessRevision"] : []),
+  ];
   const accounts = await db.query(
     `SELECT ${accountFields.map(quote).join(",")} FROM public."User" ORDER BY id LIMIT 10001`,
   );
@@ -1110,7 +1111,8 @@ export async function reconcileSecuritySnapshot(
       account,
       ACCOUNT_FIELDS.filter(
         (field) =>
-          field !== "sessionVersion" && field !== "refreshAuthorityRevision",
+          field !== "sessionVersion" && field !== "refreshAuthorityRevision" &&
+          (field !== "emailLocale" || Object.hasOwn(account, field)),
       ),
     );
     await target.query(

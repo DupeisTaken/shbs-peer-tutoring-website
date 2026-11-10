@@ -1,3 +1,4 @@
+import { accountEmailLocale } from "./email/recipient-locale";
 import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -223,7 +224,7 @@ export async function inviteExactHistory(db: DomainDb, actorId: string, input: I
   const deliver = async () => {
     try {
       await emailSender.send({ category: "SECURITY", to: input.email,
-        ...historyInvitationEmailCopy({ scope, url: url.href, exact: true }) });
+        ...historyInvitationEmailCopy({ scope, url: url.href, exact: true, locale: await accountEmailLocale(deliveryDb, admitted.attempt.recipientId) }) });
     } catch {
       try {
         await inTransaction(deliveryDb, async (tx) => {
@@ -246,7 +247,7 @@ export async function inviteExactHistory(db: DomainDb, actorId: string, input: I
           current = !review.source.blocked.size && review.fingerprint === input.fingerprint && attempt.expiresAt > new Date() && (await predecessorFingerprint(tx, predecessor)) === attempt.predecessorFingerprint;
         } catch (error) { if (!(error instanceof TRPCError)) throw error; }
         if (current) {
-          const data = { tokenHash: attempt.tokenHash, sources: exactHistorySources.parse(attempt.sources), scopeFingerprint: attempt.scopeFingerprint, email: attempt.email, recipientId: attempt.recipientId, recipientSessionVersion: attempt.recipientSessionVersion, recipientFingerprint: attempt.recipientFingerprint, issuedById: actorId, issuedBySessionVersion: attempt.issuedBySessionVersion, reason: attempt.reason, expiresAt: attempt.expiresAt, setupCodeHash: null, setupCodeExpiresAt: null, setupAttempts: 0, setupVerifiedAt: null, setupUserId: null, claimedAt: null, claimedUserId: null };
+          const data = { tokenHash: attempt.tokenHash, sources: exactHistorySources.parse(attempt.sources), scopeFingerprint: attempt.scopeFingerprint, email: attempt.email, emailLocale: await accountEmailLocale(tx, attempt.recipientId), recipientId: attempt.recipientId, recipientSessionVersion: attempt.recipientSessionVersion, recipientFingerprint: attempt.recipientFingerprint, issuedById: actorId, issuedBySessionVersion: attempt.issuedBySessionVersion, reason: attempt.reason, expiresAt: attempt.expiresAt, setupCodeHash: null, setupCodeExpiresAt: null, setupAttempts: 0, setupVerifiedAt: null, setupUserId: null, claimedAt: null, claimedUserId: null };
           await tx.historicalRecordInvitation.upsert({ where: { scopeKey: key }, create: { scopeKey: key, ...data }, update: data });
         }
         await tx.historicalRecordInvitationAttempt.update({ where: { id: input.operationId }, data: { status: current ? "PUBLISHED" : "SUPERSEDED", settledAt: new Date() } });

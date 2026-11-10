@@ -5,6 +5,7 @@ import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { rateLimit } from "~/server/rate-limit";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { codeEmailCopy } from "~/server/email/direct-email-copy";
+import { DEFAULT_EMAIL_LOCALE, emailText, normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
 import { verifyPasswordConfirmation } from "./password-confirmation";
 import { hashCode, freshEmailCode } from "./registration";
 import { normalizeEmailCode } from "./code";
@@ -136,9 +137,11 @@ export async function requestSecondaryEmail(
     });
   const email = normalizeEmail(inputEmail);
   let code = "";
+  let emailLocale: EmailLocale = DEFAULT_EMAIL_LOCALE;
   const challenge = await db.$transaction(async (tx) => {
     await requireSecondaryEmailBinding(tx);
     const user = await authenticateEmailAction(tx, userId, password);
+    emailLocale = normalizeEmailLocale(user.emailLocale);
     if (email === user.email)
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -204,10 +207,14 @@ export async function requestSecondaryEmail(
       category: "SECURITY",
       to: email,
       ...codeEmailCopy({
-        subject: "Verify your secondary email / 验证备用邮箱",
+        locale: emailLocale,
+        subject: emailText(emailLocale, { en: "Verify your secondary email", zh: "验证备用邮箱" }),
         code,
-        eyebrow: "EMAIL VERIFICATION / 邮箱验证",
-        body: "Enter this code to add a secondary email address. It expires in 10 minutes. The address is added only after confirmation.\n输入此验证码以添加备用邮箱，10 分钟内有效。确认后才会添加邮箱。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。",
+        eyebrow: emailText(emailLocale, { en: "EMAIL VERIFICATION", zh: "邮箱验证" }),
+        body: emailText(emailLocale, {
+          en: "Enter this code to add a secondary email address. It expires in 10 minutes. The address is added only after confirmation.\n\nIf you did not request this, ignore this email.",
+          zh: "输入此验证码以添加备用邮箱，10 分钟内有效。确认后才会添加邮箱。\n\n如非本人申请，请忽略此邮件。",
+        }),
       }),
     });
   } catch (error) {

@@ -6,6 +6,7 @@
  * login codes for the same user.
  */
 import { timingSafeEqual } from "crypto";
+import { emailText, normalizeEmailLocale } from "~/lib/email-locale";
 
 import { codeEmailCopy } from "~/server/email/direct-email-copy";
 import { db } from "~/server/db";
@@ -48,6 +49,7 @@ export async function issueLoginCode(
       where: { id: userId },
       select: {
         email: true,
+        emailLocale: true,
         name: true,
         sessionVersion: true,
         mergedIntoId: true,
@@ -85,10 +87,20 @@ export async function issueLoginCode(
     category: "SECURITY",
     to: user.email,
     ...codeEmailCopy({
-      subject: "Your sign-in code / 您的登录验证码",
+      locale: normalizeEmailLocale(user.emailLocale),
+      subject: emailText(normalizeEmailLocale(user.emailLocale), {
+        en: "Your sign-in code",
+        zh: "您的登录验证码",
+      }),
       code,
-      eyebrow: "SIGN IN / 登录",
-      body: `Enter this code to finish signing in. It expires in ${CODE_TTL_MINUTES} minutes.\n输入此验证码以完成登录，${CODE_TTL_MINUTES} 分钟内有效。\n\nIf you did not just try to sign in, change your password or contact the program team.\n如非本人尝试登录，请更改密码或联系项目团队。`,
+      eyebrow: emailText(normalizeEmailLocale(user.emailLocale), {
+        en: "SIGN IN",
+        zh: "登录",
+      }),
+      body: emailText(normalizeEmailLocale(user.emailLocale), {
+        en: `Enter this code to finish signing in. It expires in ${CODE_TTL_MINUTES} minutes.\n\nIf you did not just try to sign in, change your password or contact the program team.`,
+        zh: `输入此验证码以完成登录，${CODE_TTL_MINUTES} 分钟内有效。\n\n如非本人尝试登录，请更改密码或联系项目团队。`,
+      }),
     }),
   });
 

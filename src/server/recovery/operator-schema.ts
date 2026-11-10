@@ -373,7 +373,19 @@ const PRISMA_METADATA = [
   "started_at|timestamptz",
 ].sort();
 
+// A complete locale migration is presentation metadata, not a new authority
+// surface. Keep every reviewed older backup valid and reject partial upgrades.
+const EMAIL_LOCALE_COLUMNS = [
+  "User", "ViewerSignup", "CrewSignupVerification", "CrewApplication",
+  "TutorApplication", "StudentSurvey", "StudentSignupIntent", "AccountInvitation",
+  "TuteeHistoryInvitation", "HistoricalRecordInvitation",
+].map((table) => `${table}|emailLocale|text`).sort();
+
 export const reviewedRecoverySchemaMetadata = {
+  emailLocaleColumns: EMAIL_LOCALE_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
   legacyDeclineColumns: REVIEWED_DECLINE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -409,6 +421,10 @@ export function assertReviewedRecoverySchema(
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
     )
     .sort();
+  const emailLocale = EMAIL_LOCALE_COLUMNS.every((column) => domain.includes(column));
+  const knownDomain = emailLocale
+    ? domain.filter((column) => !EMAIL_LOCALE_COLUMNS.includes(column))
+    : domain;
   // Both additive policy columns are reviewed together. Older complete backups
   // remain readable; a partial upgrade is never silently accepted.
   const policyColumns = [
@@ -416,11 +432,11 @@ export function assertReviewedRecoverySchema(
     "SessionPlanParticipant|tutoringPauseSuppressed|bool",
   ];
   const historyColumns = REVIEWED_COLUMNS.filter((column) => column.startsWith("ProgramCalendarPolicyRevision|"));
-  const hasHistory = domain.some((column) => column.startsWith("ProgramCalendarPolicyRevision|"));
-  const comparedDomain = hasHistory ? domain : [
-    ...domain,
+  const hasHistory = knownDomain.some((column) => column.startsWith("ProgramCalendarPolicyRevision|"));
+  const comparedDomain = hasHistory ? knownDomain : [
+    ...knownDomain,
     ...historyColumns,
-    ...(policyColumns.every((column) => !domain.includes(column)) ? policyColumns : []),
+    ...(policyColumns.every((column) => !knownDomain.includes(column)) ? policyColumns : []),
   ].sort();
   const migration = columns
     .filter((row) => row.table_name === "_prisma_migrations")
@@ -448,6 +464,7 @@ export function assertReviewedRecoverySchema(
     "UNREVIEWED_RECOVERY_ENUM_SCHEMA",
   );
   return {
+    emailLocale,
     identityVersion,
     legacySignupDecline: domain.some((column) =>
       column.startsWith("LegacySignupDecline|"),

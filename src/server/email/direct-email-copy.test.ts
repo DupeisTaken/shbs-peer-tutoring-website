@@ -42,12 +42,15 @@ describe("direct delivery copy", () => {
     expect(doc.querySelector(".body")?.textContent).toContain("10 分钟内有效");
   });
 
-  it("formats both languages in the program timezone across a UTC date boundary", () => {
+  it("formats each selected language in the program timezone across a UTC date boundary", () => {
     const text = emailDeadline(deadline);
     expect(text).toContain("November 10, 2026");
     expect(text).toContain("7:30 AM");
-    expect(text).toContain("2026年11月10日");
-    expect(text).toContain("07:30");
+    expect(text).not.toMatch(/\p{Script=Han}/u);
+    const chinese = emailDeadline(deadline, undefined, "zh");
+    expect(chinese).toContain("2026年11月10日");
+    expect(chinese).toContain("07:30");
+    expect(chinese).not.toContain("November");
     expect(text).toContain("Asia/Shanghai");
     expect(text).not.toContain(deadline.at.toISOString());
   });
@@ -74,7 +77,6 @@ describe("direct delivery copy", () => {
     for (const content of [copy.text, copy.presentation.body]) {
       expect(content).toContain("proves mailbox ownership");
       expect(content).toContain("accept any added access separately");
-      expect(content).toContain("新增权限仍须另行确认");
       expect(content).toContain(
         "without changing their password or memberships",
       );
@@ -83,8 +85,8 @@ describe("direct delivery copy", () => {
       );
     }
     expect(copy.subject).toContain(purpose.en);
-    expect(copy.subject).toContain(purpose.zh);
-    expect(copy.subject).toContain("验证邮箱 · ");
+    expect(copy.subject).not.toContain(purpose.zh);
+    expect(copy.subject).toContain("Verify email · ");
   });
 
   it.each(["A2B3C", "012345ABCDEF"])(
@@ -116,7 +118,6 @@ describe("direct delivery copy", () => {
         "finish account review and confirm your request",
       );
       expect(content).toContain("original submission priority is kept");
-      expect(content).toContain("报名尚未完成");
       expect(content).toContain(
         emailDeadline(deadline, { en: "Code expires", zh: "验证码有效期至" }),
       );
@@ -142,7 +143,6 @@ describe("direct delivery copy", () => {
       "existing account without changing its password",
     );
     expect(copy.presentation.body).toContain("review and accept it to finish");
-    expect(copy.presentation.body).toContain("重发不会延长期限");
     expect(copy.text).toContain(
       emailDeadline(deadline, {
         en: "Complete verification by",
@@ -165,9 +165,7 @@ describe("direct delivery copy", () => {
     });
     for (const content of [copy.text, copy.presentation.body]) {
       expect(content).toContain("Code expires: November 10, 2026");
-      expect(content).toContain("验证码有效期至：2026年11月10日");
       expect(content).toContain("Complete verification by: November 17, 2026");
-      expect(content).toContain("完成验证截止时间：2026年11月17日");
       expect(content.indexOf("Code expires")).toBeLessThan(
         content.indexOf("Complete verification by"),
       );
@@ -188,7 +186,7 @@ describe("direct delivery copy", () => {
       const copy = historyInvitationEmailCopy({ scope, url, exact });
       for (const content of [copy.text, copy.presentation.body]) {
         expect(content).toContain(scope.en);
-        expect(content).toContain(scope.zh);
+        expect(content).not.toContain(scope.zh);
         expect(content).toContain("separate email verification code");
         expect(content).toContain("explicitly claim");
         expect(content).toContain("seven days");
@@ -219,11 +217,10 @@ describe("direct delivery copy", () => {
     expect(rejected.text).toContain("request is closed");
     expect(rejected.text).toContain("new priority");
     expect(flagged.text).toContain("current intake period ends");
-    expect(flagged.text).toContain("当前报名周期结束前");
     expect(flagged.presentation.body).not.toContain(url);
     expect(flagged.text).toContain(url);
     expect(flagged.presentation).toHaveProperty("action", {
-      label: "Review and appeal / 核对并申诉",
+      label: "Review and appeal",
       url,
     });
   });
@@ -238,4 +235,139 @@ describe("direct delivery copy", () => {
     expect(copy.presentation.body).not.toContain(url);
     expect(copy.presentation.action.url).toBe(url);
   });
+
+  it.each(["en", "zh"] as const)(
+    "keeps every specific delivery in %s with matching HTML/text navigation and code",
+    (locale) => {
+      const samples = [
+        invitationVerificationEmailCopy({
+          code: "0012",
+          purpose,
+          deadline,
+          url,
+          locale,
+        }),
+        invitationEmailCopy({ code: "A2B3C", purpose, deadline, url, locale }),
+        tutoringSignupEmailCopy({
+          code: "0012",
+          url,
+          deadline,
+          legacy: true,
+          verificationDue: deadline,
+          locale,
+        }),
+        historyInvitationEmailCopy({
+          scope: { en: "Two reviewed records.", zh: "两份已审核记录。" },
+          url,
+          exact: false,
+          locale,
+        }),
+        signupAppealEmailCopy({
+          kind: "INVALID_FLAGGED",
+          appealUrl: url,
+          locale,
+        }),
+        signupAppealEmailCopy({ kind: "APPEAL_ACCEPTED", locale }),
+        signupAppealEmailCopy({ kind: "APPEAL_REJECTED", locale }),
+      ];
+      for (const copy of samples) {
+        const doc = new DOMParser().parseFromString(
+          renderEmail({ brand: "School", ...copy }),
+          "text/html",
+        );
+        expect(doc.documentElement.lang).toBe(locale);
+        expect(copy.presentation.locale).toBe(locale);
+        expect(doc.querySelector("h1")?.textContent).toBe(copy.subject);
+        expect(doc.querySelector(".preheader")?.textContent).toBe(
+          copy.presentation.preview,
+        );
+        expect(copy.presentation.preview).not.toBe(copy.subject);
+        expect(copy.presentation.preview).not.toMatch(
+          /0012|A2B3C|https:|synthetic/,
+        );
+        // HTML expresses paragraph and line breaks structurally. Recover only
+        // those breaks so the assertion catches omitted, duplicated or reordered
+        // prose without expecting literal newlines between DOM text nodes.
+        const renderedParagraphs = [...doc.querySelectorAll(".body > p")].map(
+          (paragraph) =>
+            [...paragraph.childNodes]
+              .map((node) =>
+                node.nodeName === "BR" ? "\n" : (node.textContent ?? ""),
+              )
+              .join(""),
+        );
+        expect(renderedParagraphs).toEqual(
+          copy.presentation.body
+            .split(/\n\n+/)
+            .map((paragraph) => paragraph.trim())
+            .filter(Boolean),
+        );
+        expect(copy.text).toContain(copy.presentation.body);
+        const action =
+          "action" in copy.presentation ? copy.presentation.action : undefined;
+        if (action) {
+          expect(copy.text).toContain(action.url);
+          expect(
+            [...doc.querySelectorAll("a")].map((link) => link.href),
+          ).toEqual([url, url]);
+        }
+        if (locale === "en") {
+          expect(copy.text).not.toMatch(/\p{Script=Han}/u);
+          expect(doc.body.textContent).not.toMatch(/\p{Script=Han}/u);
+        } else {
+          expect(copy.subject).toMatch(/\p{Script=Han}/u);
+          expect(copy.text).not.toMatch(
+            /Your email verification code|Enter this code|This reviewed invitation|Your appeal was/,
+          );
+        }
+      }
+      const paused = tutoringSignupEmailCopy({
+        code: "0012",
+        url,
+        verificationDue: deadline,
+        locale,
+      });
+      expect(paused.text).toContain(
+        locale === "en" ? "Resends do not extend it" : "重发不会延长期限",
+      );
+    },
+  );
+
+  it.each(["en", "zh"] as const)(
+    "does not infer %s generic previews from codes, private prose or token links",
+    (locale) => {
+      const code = codeEmailCopy({
+        locale,
+        subject: "PRIVATE SUBJECT",
+        code: "0012",
+        body: "PRIVATE REASON",
+        action: { label: "Continue", url },
+      });
+      const linked = linkedEmailCopy({
+        locale,
+        subject: "PRIVATE SUBJECT",
+        body: "PRIVATE REASON",
+        action: { label: "Continue", url },
+      });
+      for (const copy of [code, linked]) {
+        expect(copy.presentation.preview).not.toMatch(
+          /PRIVATE|0012|https:|synthetic/,
+        );
+        expect(copy.presentation.preview).toMatch(
+          locale === "en" ? /website/ : /网站/,
+        );
+      }
+      const explicit = codeEmailCopy({
+        locale,
+        subject: "PRIVATE SUBJECT",
+        code: "0012",
+        body: "PRIVATE REASON",
+        preview:
+          locale === "en" ? "Finish mailbox verification." : "请完成邮箱验证。",
+      });
+      expect(explicit.presentation.preview).toBe(
+        locale === "en" ? "Finish mailbox verification." : "请完成邮箱验证。",
+      );
+    },
+  );
 });

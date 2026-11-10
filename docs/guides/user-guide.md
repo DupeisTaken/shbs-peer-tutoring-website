@@ -1604,6 +1604,11 @@ Any verified address can sign in or recover the same account. Recovery requested
 
 ### Optional email notifications
 
+Choose **Email language** in Account Settings to receive account and notification
+emails in English or 中文. Save applies it with your notification preferences; Cancel
+discards the draft. This does not change the website language or enable email.
+Existing accounts default to English until changed.
+
 Email notices include a clear action button and a copyable link, with a plain-text version for mail readers that do not show HTML. Program notices open the relevant workflow; message notices open your role's inbox; account/security notices open account settings. If sign-in or a verification code is needed, you return to the linked page afterward. Older queued program notices may open the home page. Your current permissions still apply, so a removed record or changed role may limit what you can open.
 
 Staff, tutors and tutees can use **Account → Notification preferences**, also linked from the bell, to choose unread-badge and optional-email settings independently. The eleven categories are messages, review requests, applications, tutoring assignments, attendance, membership, account updates, announcements, management, other program updates and upcoming reminders. Reminders are email-only. Save applies your choices; Cancel discards unsaved changes.

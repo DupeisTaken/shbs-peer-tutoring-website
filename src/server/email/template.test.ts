@@ -2,6 +2,102 @@
 import { expect, it } from "vitest";
 import { renderEmail } from "./template";
 
+it.each(["en", "zh"] as const)(
+  "uses a safe %s inbox preview instead of repeating the subject or recovering private body content",
+  (locale) => {
+    const subject = "PRIVATE SUBJECT 0012";
+    const html = renderEmail({
+      brand: "School",
+      subject,
+      text: "PRIVATE REASON https://school.example/?token=SECRET",
+      presentation: { locale, code: "0012" },
+    });
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const preview = doc.querySelector(".preheader")?.textContent;
+    expect(preview).toBe(
+      locale === "en"
+        ? "Details and next steps inside."
+        : "请查看邮件中的详情和后续步骤。",
+    );
+    expect(preview).not.toMatch(/PRIVATE|0012|SECRET|https:/);
+    expect(doc.body.textContent?.split(subject)).toHaveLength(2);
+    expect(doc.querySelector("h1")?.textContent).toBe(subject);
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "escapes an explicit %s preview without creating executable markup",
+  (locale) => {
+    const preview =
+      locale === "en"
+        ? 'Review <img src=x onerror="private()"> & continue.'
+        : '请核对 <img src=x onerror="private()"> 并继续。';
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: "Subject",
+        text: "Body",
+        presentation: { locale, preview },
+      }),
+      "text/html",
+    );
+    expect(doc.querySelector(".preheader")?.textContent).toBe(preview);
+    expect(doc.querySelector("img,[onerror],script")).toBeNull();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "renders all shared boilerplate in %s without changing legacy code styling",
+  (locale) => {
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: locale === "en" ? "Your code" : "您的验证码",
+        text: locale === "en" ? "Enter the code." : "请输入验证码。",
+        iconUrl: "https://school.example/icon.png",
+        presentation: {
+          locale,
+          code: "0012",
+          codePurpose: "verification",
+          action: {
+            label: locale === "en" ? "Continue" : "继续",
+            url: "https://school.example/continue",
+          },
+          unsubscribeUrl: "https://school.example/unsubscribe",
+        },
+      }),
+      "text/html",
+    );
+    expect(doc.documentElement.lang).toBe(locale);
+    expect(doc.querySelector(".footer-unsubscribe")?.textContent).toBe(
+      locale === "en" ? "Unsubscribe" : "取消订阅",
+    );
+    expect(doc.querySelector(".footer-copy")?.textContent).toBe(
+      locale === "en"
+        ? "Automated message. Keep account links and codes private."
+        : "此为自动邮件，请勿分享账户链接和验证码。",
+    );
+    expect(doc.querySelector(".panel")?.textContent).toContain(
+      locale === "en"
+        ? "Copy this link into your browser:"
+        : "复制链接到浏览器：",
+    );
+    expect(doc.querySelector(".code")?.textContent).toBe("0012");
+    expect(doc.querySelector<HTMLElement>(".code")!.style.backgroundColor).toBe(
+      "rgb(23, 47, 73)",
+    );
+    expect(doc.querySelector("img")?.alt).toBe(
+      locale === "en" ? "School icon" : "School图标",
+    );
+    if (locale === "en")
+      expect(doc.body.textContent).not.toMatch(/\p{Script=Han}/u);
+    else
+      expect(doc.body.textContent).not.toMatch(
+        /ACCOUNT & PROGRAM MAIL|Copy this link|Automated message|Unsubscribe/,
+      );
+  },
+);
+
 it("escapes caller text and gives the CTA and fallback exactly the same token URL", () => {
   const url =
     "https://school.example/reset-password?token=synthetic&next=one#confirm";
@@ -267,7 +363,7 @@ it("adds an escaped unsubscribe link after the existing footer with readable inl
   doc.querySelectorAll("style").forEach((style) => style.remove());
   const link = doc.querySelector<HTMLAnchorElement>(".footer-unsubscribe")!;
   expect(link.getAttribute("href")).toBe(unsubscribeUrl);
-  expect(link.textContent).toBe("Unsubscribe / 取消订阅");
+  expect(link.textContent).toBe("Unsubscribe");
   expect(link.style.textDecoration).toBe("underline");
   expect(doc.querySelector("script,private,[onerror],[onload]")).toBeNull();
   expect(html).toContain("&amp;note=&quot;&lt;private&gt;&quot;");
@@ -469,7 +565,7 @@ it("places one accessible 48px site icon above the footer brand and privacy copy
   const footerCopy = footer.querySelector(".footer-copy")!;
   expect(footerBrand.textContent).toBe("SHBS Peer Tutoring");
   expect(footerCopy.textContent).toBe(
-    "Automated message. Keep account links and codes private.此为自动邮件，请勿分享账户链接和验证码。",
+    "Automated message. Keep account links and codes private.",
   );
   expect(footer.contains(icon)).toBe(true);
   expect(

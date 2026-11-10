@@ -1,4 +1,9 @@
 import { TRPCError } from "@trpc/server";
+import {
+  emailText,
+  normalizeEmailLocale,
+  type EmailLocale,
+} from "~/lib/email-locale";
 import { isHistoricalTutee } from "~/lib/tutee-history";
 import {
   hashCode,
@@ -9,6 +14,7 @@ import { hashPassword } from "./auth/password";
 import { lockUsernameNamespace } from "./auth/username";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
 import { codeEmailCopy } from "./email/direct-email-copy";
+import { accountEmailLocale } from "./email/recipient-locale";
 import {
   historyTokenDigest,
   requireHistoryManager,
@@ -17,7 +23,10 @@ import {
   supersedeHistoryInvitationAttempts,
 } from "./tutee-history";
 import { lockAccountProfile } from "./account-profile";
-import { exactSetupInvitation, bindExactHistoryRecipient } from "./exact-history-invitations";
+import {
+  exactSetupInvitation,
+  bindExactHistoryRecipient,
+} from "./exact-history-invitations";
 import { initializePersonSource } from "./person-source-initialization";
 import {
   inTransaction,
@@ -94,17 +103,25 @@ async function updateSetup(
     setupAttempts?: number | { increment: number };
     setupVerifiedAt?: Date | null;
     setupUserId?: string;
+    emailLocale?: EmailLocale;
   },
 ) {
   if (value.kind === "EXACT")
-    await tx.historicalRecordInvitation.update({ where: { scopeKey: value.invite.scopeKey }, data });
+    await tx.historicalRecordInvitation.update({
+      where: { scopeKey: value.invite.scopeKey },
+      data,
+    });
   else
-    await tx.tuteeHistoryInvitation.update({ where: { tuteeId: value.invite.tuteeId }, data });
+    await tx.tuteeHistoryInvitation.update({
+      where: { tuteeId: value.invite.tuteeId },
+      data,
+    });
 }
 
 export async function startHistoryAccount(
   db: DomainDb,
   input: { token: string; email: string },
+  pageLocale: EmailLocale = "en",
 ) {
   if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
@@ -126,21 +143,40 @@ export async function startHistoryAccount(
         message: "HISTORY_RATE_LIMIT",
       });
     const code = freshEmailCode([invite.setupCodeHash]);
+    const fallbackLocale = normalizeEmailLocale(
+      invite.setupCodeHash ? invite.emailLocale : pageLocale,
+    );
+    // Exact grants already establish the recipient ID; presentation must not infer one.
+    const locale =
+      value.kind === "EXACT"
+        ? await accountEmailLocale(tx, value.invite.recipientId, fallbackLocale)
+        : fallbackLocale;
     await emailSender.send({
       category: "SECURITY",
       to: invite.email,
       ...codeEmailCopy({
-        subject: "Verify historical access / 验证历史记录访问",
+        locale,
+        subject: emailText(locale, {
+          en: "Verify historical access",
+          zh: "验证历史记录访问",
+        }),
         code,
-        eyebrow: "EMAIL VERIFICATION / 邮箱验证",
-        body: "Enter this code to set up a personal login for historical records. It expires in 15 minutes. This does not enroll you in the current program.\n输入此验证码以设置历史记录访问账号，15 分钟内有效。此步骤不会加入当前项目。\n\nIf you did not request this, ignore this email.\n如非本人申请，请忽略此邮件。",
+        eyebrow: emailText(locale, {
+          en: "EMAIL VERIFICATION",
+          zh: "邮箱验证",
+        }),
+        body: emailText(locale, {
+          en: "Enter this code to set up a personal login for historical records. It expires in 15 minutes. This does not enroll you in the current program.\n\nIf you did not request this, ignore this email.",
+          zh: "输入此验证码以设置历史记录访问账号，15 分钟内有效。此步骤不会加入当前项目。\n\n如非本人申请，请忽略此邮件。",
+        }),
       }),
     });
     await updateSetup(tx, value, {
-        setupCodeHash: hashCode(code),
-        setupCodeExpiresAt: new Date(Date.now() + 15 * 60000),
-        setupAttempts: 0,
-        setupVerifiedAt: null,
+      emailLocale: locale,
+      setupCodeHash: hashCode(code),
+      setupCodeExpiresAt: new Date(Date.now() + 15 * 60000),
+      setupAttempts: 0,
+      setupVerifiedAt: null,
     });
     return { ok: true };
   });
@@ -168,10 +204,10 @@ export async function verifyHistoryAccount(
     // Repeated successful verification returns the same proof, including after a lost response.
     const verifiedAt = invite.setupVerifiedAt ?? new Date();
     await updateSetup(tx, value, {
-        setupVerifiedAt: verifiedAt,
-        ...(!invite.setupVerifiedAt
-          ? { setupCodeExpiresAt: new Date(+verifiedAt + 15 * 60_000) }
-          : {}),
+      setupVerifiedAt: verifiedAt,
+      ...(!invite.setupVerifiedAt
+        ? { setupCodeExpiresAt: new Date(+verifiedAt + 15 * 60_000) }
+        : {}),
     });
     return {
       completionProof: registrationCompletionProof(
@@ -239,6 +275,7 @@ export async function completeHistoryAccount(
     const user = await tx.user.create({
       data: {
         email: invite.email,
+        emailLocale: normalizeEmailLocale(invite.emailLocale),
         name: record.englishName,
         legacyName: record.englishName,
         passwordHash: hashPassword(input.password),
@@ -265,7 +302,9 @@ export async function completeHistoryAccount(
         operation: "tuteeHistory.completeAccount",
         action: "Created verified history-only login",
         details: {
-          ...(value.kind === "LEGACY" ? { tuteeId: value.invite.tuteeId } : { sources: value.sources }),
+          ...(value.kind === "LEGACY"
+            ? { tuteeId: value.invite.tuteeId }
+            : { sources: value.sources }),
           issuedById: invite.issuedById,
           reason: invite.reason,
         },

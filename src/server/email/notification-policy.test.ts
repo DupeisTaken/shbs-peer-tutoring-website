@@ -42,7 +42,7 @@ describe("review email eligibility", () => {
   });
 });
 
-it("renders approved bilingual facts, without copying arbitrary message/profile fields", () => {
+it.each(["en", "zh"] as const)("renders approved %s facts, without copying arbitrary message/profile fields", (locale) => {
   const copy = notificationEmailCopy("student_assignment_updated", {
     emailDetail: {
       en: "Morgan is assigned to Alex for Mathematics.",
@@ -51,11 +51,8 @@ it("renders approved bilingual facts, without copying arbitrary message/profile 
     body: "Private body sentinel",
     reason: "Private reason sentinel",
     email: "private@example.test",
-  });
-  expect(copy.description).toContain(
-    "Morgan is assigned to Alex for Mathematics.",
-  );
-  expect(copy.description).toContain("Morgan 已分配给 Alex 辅导数学。");
+  }, locale);
+  expect(copy.description).toContain(locale === "en" ? "Morgan is assigned to Alex for Mathematics." : "Morgan 已分配给 Alex 辅导数学。");
   expect(JSON.stringify(copy)).not.toMatch(/sentinel|private@example/);
 });
 

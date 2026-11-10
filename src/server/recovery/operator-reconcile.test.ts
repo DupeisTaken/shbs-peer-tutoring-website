@@ -47,6 +47,34 @@ function fixture(
 }
 
 describe("operator security reconciliation evidence", () => {
+  it("reads the saved language on upgraded accounts without selecting nonexistent columns in older backups", async () => {
+    const read = async (locale: boolean) => {
+      const queries: string[] = [];
+      const db: OperatorSql = {
+        async query(sql) {
+          queries.push(sql);
+          if (sql.includes("information_schema")) return { rows: [
+            ...reviewedRecoverySchemaMetadata.identityColumns,
+            ...(locale ? reviewedRecoverySchemaMetadata.emailLocaleColumns : []),
+          ] };
+          if (sql.includes("pg_enum")) return { rows: reviewedRecoverySchemaMetadata.enums };
+          if (sql.includes("pg_trigger")) return { rows: [{ tgenabled: "O", tgtype: 19, proname: "advance_account_session_version" }] };
+          if (sql.includes("SELECT count(*)::text AS count")) return { rows: [{ count: "0" }] };
+          if (sql.includes("SELECT encode(sha256(")) return { rows: [{ fingerprint: "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945" }] };
+          if (sql.includes('FROM public."User" ORDER BY id')) return { rows: [{ id: "owner", ...(locale ? { emailLocale: "zh" } : {}) }] };
+          return { rows: [] };
+        },
+        async close() { throw new Error("Caller owns the SQL connection"); },
+      };
+      return { state: await readReconciliationSnapshot(db), queries };
+    };
+    const old = await read(false);
+    const upgraded = await read(true);
+    expect(old.queries.some(sql => /SELECT .*"emailLocale".*FROM public\."User"/.test(sql))).toBe(false);
+    expect(upgraded.queries.some(sql => /SELECT .*"emailLocale".*FROM public\."User"/.test(sql))).toBe(true);
+    expect(upgraded.state.accounts[0]?.emailLocale).toBe("zh");
+    expect(old.state.accounts[0]).not.toHaveProperty("emailLocale");
+  });
   it("fingerprints retained decline authority and reads reviewed older backups without a nonexistent table", async () => {
     const snapshot = async (
       known: boolean,

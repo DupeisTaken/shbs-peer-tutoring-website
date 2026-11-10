@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     categories: [] as NotificationPreferenceAvailability[],
     emailEnabled: true,
     emailSecondaryRecipients: false,
+    emailLocale: "en",
   },
   request: vi.fn(),
   confirm: vi.fn(),
@@ -116,6 +117,7 @@ beforeEach(() => {
     })),
     emailEnabled: true,
     emailSecondaryRecipients: false,
+    emailLocale: "en",
   };
   mocks.data = {
     email: "primary@example.test",
@@ -210,6 +212,7 @@ it("saves badge and email categories independently", () => {
   fireEvent.click(screen.getByRole("checkbox", { name: /Include verified/ }));
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
+    emailLocale: "en",
     categories: notificationCategories.map((category) => ({
       category,
       badgeEnabled: category !== "tutoring",
@@ -282,6 +285,7 @@ it("keeps badge preferences editable when optional email is disabled", () => {
   );
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
+    emailLocale: "en",
     categories: notificationCategories.map((category) => ({
       category,
       badgeEnabled: category !== "tutoring",
@@ -340,12 +344,39 @@ it("does not submit a stale email enabling draft after the global gate closes", 
   );
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
+    emailLocale: "en",
     categories: notificationCategories.map((category) => ({
       category,
       badgeEnabled: category !== "reviews",
       emailEnabled: false,
     })),
   });
+});
+it.each(["en", "zh"] as const)("saves the selected email language independently from the %s website language", (locale) => {
+  const catalog = locale === "zh" ? zh : messages;
+  render(<NextIntlClientProvider locale={locale} messages={catalog} timeZone="Asia/Shanghai"><EmailPreferences /></NextIntlClientProvider>);
+  const language = screen.getByRole<HTMLSelectElement>("combobox", { name: catalog.emailPreferences.language });
+  expect(language.value).toBe("en");
+  fireEvent.change(language, { target: { value: "zh" } });
+  expect(mocks.preferences).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: catalog.notificationPreferences.save }));
+  expect(mocks.preferences).toHaveBeenCalledWith(expect.objectContaining({ emailLocale: "zh" }));
+});
+
+it("keeps email language editable when optional email is off and Cancel restores the saved choice", () => {
+  mocks.preferenceData.emailEnabled = false;
+  mocks.preferenceData.categories = mocks.preferenceData.categories.map(row => ({ ...row, emailEditable: false }));
+  view(<EmailPreferences />);
+  const language = screen.getByRole<HTMLSelectElement>("combobox", { name: messages.emailPreferences.language });
+  expect(language.matches(":disabled")).toBe(false);
+  fireEvent.change(language, { target: { value: "zh" } });
+  fireEvent.click(screen.getByRole("button", { name: messages.uiPatterns.cancel }));
+  expect(language.value).toBe("en");
+  expect(mocks.preferences).not.toHaveBeenCalled();
+  fireEvent.change(language, { target: { value: "zh" } });
+  fireEvent.click(screen.getByRole("button", { name: messages.notificationPreferences.save }));
+  expect(mocks.preferences).toHaveBeenCalledWith(expect.objectContaining({ emailLocale: "zh" }));
+  expect(mocks.preferences.mock.calls[0]![0]).not.toHaveProperty("emailSecondaryRecipients");
 });
 it("blocks additions and pending verification while keeping existing addresses manageable", () => {
   mocks.data = { ...mocks.data, secondaryEmailBindingEnabled: false };

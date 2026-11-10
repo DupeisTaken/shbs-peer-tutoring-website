@@ -11,9 +11,14 @@ import { notificationEmailContent } from "../src/server/email/notification-copy"
 import { sessionPlanningNoticeCopy } from "../src/server/session-planning-notice-copy";
 import { requestNoticeEmailCopy } from "../src/server/email/request-notice-copy";
 import {
+  historyInvitationScope,
+  invitationPurpose,
+} from "../src/server/email/required-notice-details";
+import {
   schoolHoursEmailCopy,
   type SchoolHoursPublicReport,
 } from "../src/server/school-hours-email";
+import { emailText, type EmailLocale } from "../src/lib/email-locale";
 import type { EmailPresentation } from "../src/server/email/template";
 
 export type EmailPreviewSample = {
@@ -65,7 +70,7 @@ export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
             : [],
       },
       {
-        exportName: "Blair Example / 示例",
+        exportName: "Blair Example",
         schoolAccountKey: "school-B",
         tutoringChange: blairChange,
         crewChange: 0,
@@ -77,7 +82,7 @@ export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
         unchanged: false,
       },
       {
-        exportName: "Casey Example / 示例",
+        exportName: "Casey Example",
         schoolAccountKey: "school-C",
         tutoringChange: revision === 1 ? 2 : 0,
         crewChange: 0,
@@ -103,24 +108,34 @@ export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
   };
 }
 
-export function emailPreviewSamples(): EmailPreviewSample[] {
+export function emailPreviewSamples(
+  locale: EmailLocale = "en",
+): EmailPreviewSample[] {
   const link = `${previewOrigin}/signin?callbackUrl=%2Fstudent`;
   const unsubscribeUrl = `${previewOrigin}/unsubscribe?token=${"synthetic".repeat(12)}`;
   const samples: EmailPreviewSample[] = [
     {
       name: "code",
       ...codeEmailCopy({
-        subject: "Your sign-in code / 登录验证码",
+        locale,
+        subject: emailText(locale, {
+          en: "Your sign-in code",
+          zh: "登录验证码",
+        }),
         code: "0012",
-        eyebrow: "SIGN IN / 登录",
-        body: "Enter this code to sign in. It expires in 10 minutes.\n输入此验证码以登录，10 分钟内有效。\n\nIf you did not try to sign in, change your password or contact the program team.\n如非本人尝试登录，请更改密码或联系项目团队。",
+        eyebrow: emailText(locale, { en: "SIGN IN", zh: "登录" }),
+        body: emailText(locale, {
+          en: "Enter this code to sign in. It expires in 10 minutes.\n\nIf you did not try to sign in, change your password or contact the program team.",
+          zh: "输入此验证码以登录，10 分钟内有效。\n\n如非本人尝试登录，请更改密码或联系项目团队。",
+        }),
       }),
     },
     {
       name: "invitation-verification",
       ...invitationVerificationEmailCopy({
+        locale,
         code: "0012",
-        purpose: { en: "tutor access", zh: "导师身份" },
+        purpose: invitationPurpose("TUTOR"),
         deadline,
         url: invitationUrl,
       }),
@@ -128,8 +143,9 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
     ...["A2B3C", "012345ABCDEF"].map((code) => ({
       name: code.length === 5 ? "invitation" : "legacy-invitation",
       ...invitationEmailCopy({
+        locale,
         code,
-        purpose: { en: "tutor access", zh: "导师身份" },
+        purpose: invitationPurpose("TUTOR"),
         deadline,
         url: `${previewOrigin}/register?code=${code}`,
       }),
@@ -137,6 +153,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
     {
       name: "signup",
       ...tutoringSignupEmailCopy({
+        locale,
         code: "0012",
         deadline,
         url: `${previewOrigin}/tutee/account?token=${"synthetic".repeat(12)}`,
@@ -145,6 +162,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
     {
       name: "legacy-signup",
       ...tutoringSignupEmailCopy({
+        locale,
         code: "0012",
         legacy: true,
         verificationDue: {
@@ -157,10 +175,12 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
     {
       name: "history",
       ...historyInvitationEmailCopy({
-        scope: {
-          en: "Review two historical tutor profiles and one tutee profile.",
-          zh: "请核对两份历史导师档案和一份学习伙伴档案。",
-        },
+        locale,
+        scope: historyInvitationScope([
+          { kind: "TUTOR" },
+          { kind: "TUTOR" },
+          { kind: "TUTEE" },
+        ]),
         url: historyUrl,
         exact: true,
       }),
@@ -168,6 +188,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
     {
       name: "program",
       ...notificationEmailContent({
+        locale,
         event: "program_update",
         context: {},
         createdAt: new Date("2026-11-09T08:30:00Z"),
@@ -198,6 +219,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
         timeZone: "Asia/Shanghai",
       },
       obsolete,
+      locale,
     );
     samples.push({
       name: `session-${event}${obsolete ? "-obsolete" : ""}`,
@@ -215,6 +237,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
     samples.push({
       name: `school-r${revision}`,
       ...schoolHoursEmailCopy({
+        locale,
         report: schoolReportPreview(revision),
         reportUrl: `${previewOrigin}/school-report/synthetic`,
       }),
@@ -235,6 +258,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
         },
         verified,
         `${previewOrigin}/request-appeal?token=synthetic`,
+        locale,
       ),
     });
   for (const kind of [
@@ -245,6 +269,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
     samples.push({
       name: `appeal-${kind.toLowerCase().replaceAll("_", "-")}`,
       ...signupAppealEmailCopy({
+        locale,
         kind,
         appealUrl: `${previewOrigin}/request-appeal?token=synthetic`,
       }),
@@ -252,6 +277,7 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
   samples.push({
     name: "security",
     ...notificationEmailContent({
+      locale,
       event: "security_changed",
       context: { changedFields: ["password"] },
       createdAt: new Date("2026-11-09T08:30:00Z"),
@@ -260,5 +286,8 @@ export function emailPreviewSamples(): EmailPreviewSample[] {
       link: `${previewOrigin}/signin?callbackUrl=%2Fmy-account`,
     }),
   });
-  return samples;
+  return samples.map((sample) => ({
+    ...sample,
+    name: `${sample.name}-${locale}`,
+  }));
 }

@@ -4271,6 +4271,7 @@
         "kind": "Catégorie du dossier",
         "label": "Libellé",
         "languageCode": "Code de langue",
+        "emailLocale": "Langue des e-mails",
         "lastName": "Nom de famille",
         "levelId": "Niveau de la matière",
         "locale": "Langue",
@@ -4943,6 +4944,10 @@
     "bindingDisabled": "La gestion du programme a désactivé l’ajout d’adresses secondaires. Les adresses existantes restent utilisables pour se connecter, récupérer le compte, devenir principales ou être supprimées ; aucune nouvelle adresse ne peut être ajoutée ou vérifiée ici."
   },
   "emailPreferences": {
+    "language": "Langue des e-mails",
+    "languageHelp": "Choisissez l’anglais ou le chinois pour les e-mails de ce compte et de ses adresses vérifiées. Ce choix est indépendant de la langue du site.",
+    "english": "English",
+    "chinese": "中文",
     "title": "Préférences e-mail",
     "help": "Choisissez les notifications à recevoir.",
     "disabled": "L’administrateur a désactivé les notifications e-mail. Vos préférences sont conservées.",
@@ -7703,7 +7708,7 @@
     "badgeFor": "{category} : compteur non lu",
     "emailFor": "{category} : email",
     "emailOnly": "Email uniquement",
-    "disabled": "Les emails facultatifs sont désactivés par l’administrateur. Vous pouvez toujours modifier les compteurs non lus.",
+    "disabled": "Les e-mails facultatifs sont désactivés pour le programme. Vous pouvez toujours modifier la langue des e-mails et les préférences des pastilles de non-lus.",
     "essential": "Les emails de vérification, connexion, récupération, sécurité et services essentiels des demandes restent actifs. Ces préférences ne suppriment aucune notification.",
     "manage": "Paramètres de notification",
     "save": "Enregistrer les préférences",

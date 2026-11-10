@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { normalizeEmailLocale } from "~/lib/email-locale";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type {
@@ -114,6 +115,9 @@ async function deliveryOwner(tx: DomainDb, row: StudentSurvey) {
     email: row.email,
     accountId: candidate?.id ?? null,
     sessionVersion: candidate?.sessionVersion ?? null,
+    emailLocale: normalizeEmailLocale(
+      candidate?.emailLocale ?? row.emailLocale,
+    ),
   };
 }
 function noticeToken(
@@ -250,7 +254,7 @@ export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
       });
       return null;
     }
-    return tx.studentSignupNotice.update({
+    const admitted = await tx.studentSignupNotice.update({
       where: { id: current.id },
       data: {
         attempts: { increment: 1 },
@@ -258,12 +262,22 @@ export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
         state: "PENDING",
       },
     });
+    return { ...admitted, emailLocale: recipient.emailLocale };
   });
   if (!notice?.recipientEmail) return false;
   const flagged = notice.kind === "INVALID_FLAGGED";
   const copy = signupAppealEmailCopy({
-    kind: flagged ? "INVALID_FLAGGED" : notice.kind === "APPEAL_ACCEPTED" ? "APPEAL_ACCEPTED" : "APPEAL_REJECTED",
-    ...(flagged ? { appealUrl: `${emailOrigin()}/tutee-signup/appeal#token=${noticeToken({ id: notice.id, surveyId: notice.surveyId, invalidityVersion: notice.invalidityVersion, recipientEmail: notice.recipientEmail, accountId: notice.accountId, sessionVersion: notice.sessionVersion })}` } : {}),
+    locale: notice.emailLocale,
+    kind: flagged
+      ? "INVALID_FLAGGED"
+      : notice.kind === "APPEAL_ACCEPTED"
+        ? "APPEAL_ACCEPTED"
+        : "APPEAL_REJECTED",
+    ...(flagged
+      ? {
+          appealUrl: `${emailOrigin()}/tutee-signup/appeal#token=${noticeToken({ id: notice.id, surveyId: notice.surveyId, invalidityVersion: notice.invalidityVersion, recipientEmail: notice.recipientEmail, accountId: notice.accountId, sessionVersion: notice.sessionVersion })}`,
+        }
+      : {}),
   });
   try {
     await emailSender.send({
@@ -456,7 +470,9 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
   });
   if (result.queued) {
     const send = async () => {
-      await (await import("./email/notification-delivery")).deliverNotifications();
+      await (
+        await import("./email/notification-delivery")
+      ).deliverNotifications();
     };
     if (!deferUntilCommit(send)) await send();
   }

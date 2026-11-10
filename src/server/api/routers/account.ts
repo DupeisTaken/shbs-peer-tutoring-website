@@ -6,6 +6,7 @@ import { confirmCurrentAccountAcademics } from "~/server/academics";
 import { membershipSchema } from "~/lib/account-membership";
 import { queueProposal } from "~/server/approvals";
 import { updateAccountProfile } from "~/server/account-profile";
+import { normalizeEmailLocale } from "~/lib/email-locale";
 import {
   requestSecondaryEmail,
   confirmSecondaryEmail,
@@ -51,6 +52,7 @@ export const accountRouter = createTRPCRouter({
         emailEditable: emailEnabled && (category !== "reviews" || canReceiveReviewRequests),
       })),
       emailEnabled, canReceiveReviewRequests, emailSecondaryRecipients: user.emailSecondaryRecipients,
+      emailLocale: normalizeEmailLocale(user.emailLocale),
       deliveryAvailable: isEmailDeliveryAvailable("PROGRAM"),
     };
   }),
@@ -58,6 +60,7 @@ export const accountRouter = createTRPCRouter({
     categories: z.array(z.object({ category: z.enum(notificationCategories), badgeEnabled: z.boolean(), emailEnabled: z.boolean() }))
       .max(notificationCategories.length).refine((rows) => new Set(rows.map((row) => row.category)).size === rows.length, "Each category can be submitted once."),
     emailSecondaryRecipients: z.boolean().optional(),
+    emailLocale: z.enum(["en", "zh"]).optional(),
   })).mutation(async ({ ctx, input }) => ctx.db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('email-notifications-setting', 0))`;
     const user = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, include: { notificationPreferences: true } });
@@ -79,6 +82,10 @@ export const accountRouter = createTRPCRouter({
         throw new TRPCError({ code: "FORBIDDEN", message: "Email notifications are disabled by the program administrator." });
       await tx.user.update({ where: { id: user.id }, data: { emailSecondaryRecipients: input.emailSecondaryRecipients } });
     }
+    // Language controls presentation for essential and optional mail alike. Saving it
+    // never opts into delivery and remains available when optional mail is disabled.
+    if (input.emailLocale !== undefined && input.emailLocale !== user.emailLocale)
+      await tx.user.update({ where: { id: user.id }, data: { emailLocale: input.emailLocale } });
     const disabled = input.categories.filter((row) => !row.emailEnabled).map((row) => row.category);
     if (disabled.length) await tx.emailDelivery.updateMany({
       where: { userId: user.id, status: "PENDING", preferenceTopic: { in: disabled } },
@@ -141,6 +148,7 @@ export const accountRouter = createTRPCRouter({
           suspendedAt: true,
           mergedIntoId: true,
           emailSecondaryRecipients: true,
+          emailLocale: true,
         },
       }),
       ctx.db.programSettings.findUnique({

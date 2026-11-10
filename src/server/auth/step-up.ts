@@ -12,6 +12,7 @@
  * Node runtime only (DB + Node crypto + SMTP).
  */
 import { timingSafeEqual } from "crypto";
+import { emailText, normalizeEmailLocale } from "~/lib/email-locale";
 import type { VerificationPurpose } from "../../../generated/prisma";
 
 import { db } from "~/server/db";
@@ -54,7 +55,13 @@ export async function issueStepUpCode(
     // Serialize with combine; a request accepted before retirement must recheck before issuing.
     await lockAccountProfile(tx, userId);
     const current = await tx.user.findUniqueOrThrow({
-      where: { id: userId }, select: { email: true, name: true, mergedIntoId: true },
+      where: { id: userId },
+      select: {
+        email: true,
+        emailLocale: true,
+        name: true,
+        mergedIntoId: true,
+      },
     });
     if (current.mergedIntoId) throw new Error("This login has been retired.");
     const previous = await tx.emailVerificationCode.findFirst({
@@ -73,14 +80,22 @@ export async function issueStepUpCode(
   });
 
   const action = verificationPurposeLabels[purpose];
+  const locale = normalizeEmailLocale(user.emailLocale);
   await emailSender.send({
     category: "SECURITY",
     to: user.email,
     ...codeEmailCopy({
-      subject: `Verify to ${action.en} / 验证${action.zh}`,
+      locale,
+      subject: emailText(locale, {
+        en: `Verify to ${action.en}`,
+        zh: `验证${action.zh}`,
+      }),
       code,
-      eyebrow: "ACCOUNT SECURITY / 账户安全",
-      body: `Enter this code to ${action.en}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes and verifies only this operation.\n输入此验证码以${action.zh}。验证码 ${STEP_UP_CODE_TTL_MINUTES} 分钟内有效，仅用于此操作。\n\nIssuing this code does not complete the requested action. If you did not request this, ignore this email.\n发送验证码不代表该操作已完成。如非本人申请，请忽略此邮件。`,
+      eyebrow: emailText(locale, { en: "ACCOUNT SECURITY", zh: "账户安全" }),
+      body: emailText(locale, {
+        en: `Enter this code to ${action.en}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes and verifies only this operation.\n\nIssuing this code does not complete the requested action. If you did not request this, ignore this email.`,
+        zh: `输入此验证码以${action.zh}。验证码 ${STEP_UP_CODE_TTL_MINUTES} 分钟内有效，仅用于此操作。\n\n发送验证码不代表该操作已完成。如非本人申请，请忽略此邮件。`,
+      }),
     }),
   });
 

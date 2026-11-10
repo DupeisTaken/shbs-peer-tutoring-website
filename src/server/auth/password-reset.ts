@@ -14,6 +14,7 @@ import {
   isEmailDeliveryAvailable,
 } from "~/server/email/sender";
 import { linkedEmailCopy } from "~/server/email/direct-email-copy";
+import { emailText, normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
 import { emailOrigin } from "~/server/email/urls";
 import { hashPassword } from "./password";
 import { TRPCError } from "@trpc/server";
@@ -26,7 +27,7 @@ export async function issueAccountVerification(
 ): Promise<{ emailed: boolean }> {
   if (!isEmailDeliveryAvailable("SECURITY")) return { emailed: false };
   const token = randomBytes(32).toString("hex");
-  const email = await db.$transaction(async (tx) => {
+  const recipient = await db.$transaction(async (tx) => {
     await lockEntity(tx, `account-verification:${userId}`);
     await lockAccountProfile(tx, userId);
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
@@ -56,17 +57,21 @@ export async function issueAccountVerification(
         expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
       },
     });
-    return user.email;
+    return { email: user.email, locale: normalizeEmailLocale(user.emailLocale) };
   });
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   await emailSender.send({
     category: "SECURITY",
-    to: email,
+    to: recipient.email,
     ...linkedEmailCopy({
-      subject: "Verify and set up your account / 验证并设置账户",
-      eyebrow: "ACCOUNT SETUP / 账户设置",
-      body: "The program team invited you to verify this email and set your password. The link expires in seven days. Your tutor or tutee participation stays unchanged.\n项目团队邀请您验证邮箱并设置密码。链接七天内有效，不会更改辅导伙伴或学习伙伴身份。\n\nIf you did not request an account, ignore this email.\n如未申请账户，请忽略此邮件。",
-      action: { label: "Set up your account / 设置账户", url: link },
+      locale: recipient.locale,
+      subject: emailText(recipient.locale, { en: "Verify and set up your account", zh: "验证并设置账户" }),
+      eyebrow: emailText(recipient.locale, { en: "ACCOUNT SETUP", zh: "账户设置" }),
+      body: emailText(recipient.locale, {
+        en: "The program team invited you to verify this email and set your password. The link expires in seven days. Your tutor or tutee participation stays unchanged.\n\nIf you did not request an account, ignore this email.",
+        zh: "项目团队邀请您验证邮箱并设置密码。链接七天内有效，不会更改辅导伙伴或学习伙伴身份。\n\n如未申请账户，请忽略此邮件。",
+      }),
+      action: { label: emailText(recipient.locale, { en: "Set up your account", zh: "设置账户" }), url: link },
     }),
   });
   return { emailed: isEmailConfigured("SECURITY") };
@@ -133,26 +138,30 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
         expiresAt: new Date(Date.now() + TOKEN_TTL_MINUTES * 60_000),
       },
     });
-    return true;
+    return { locale: normalizeEmailLocale(current.emailLocale) };
   });
-  if (issued) await deliverResetLink(targetEmail, token);
+  if (issued) await deliverResetLink(targetEmail, token, issued.locale);
 }
 
 /**
  * Email the reset link. With a provider configured this sends a real message; otherwise the
  * sender logs it in dev (link included) and warns in production.
  */
-async function deliverResetLink(to: string, token: string): Promise<void> {
+async function deliverResetLink(to: string, token: string, locale: EmailLocale): Promise<void> {
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
 
   await emailSender.send({
     category: "SECURITY",
     to,
     ...linkedEmailCopy({
-      subject: "Reset your password / 重设密码",
-      eyebrow: "ACCOUNT RECOVERY / 账户恢复",
-      body: `Use this link to set a new password within ${TOKEN_TTL_MINUTES} minutes.\n请在 ${TOKEN_TTL_MINUTES} 分钟内通过此链接设置新密码。\n\nIf you did not request this, ignore this email; your password stays unchanged.\n如非本人申请，请忽略此邮件，密码不会更改。`,
-      action: { label: "Reset your password / 重设密码", url: link },
+      locale,
+      subject: emailText(locale, { en: "Reset your password", zh: "重设密码" }),
+      eyebrow: emailText(locale, { en: "ACCOUNT RECOVERY", zh: "账户恢复" }),
+      body: emailText(locale, {
+        en: `Use this link to set a new password within ${TOKEN_TTL_MINUTES} minutes.\n\nIf you did not request this, ignore this email; your password stays unchanged.`,
+        zh: `请在 ${TOKEN_TTL_MINUTES} 分钟内通过此链接设置新密码。\n\n如非本人申请，请忽略此邮件，密码不会更改。`,
+      }),
+      action: { label: emailText(locale, { en: "Reset your password", zh: "重设密码" }), url: link },
     }),
   });
 }

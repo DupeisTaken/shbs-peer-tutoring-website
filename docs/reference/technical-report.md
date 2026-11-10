@@ -2151,6 +2151,12 @@ notices fall outside the latest thirty displayed records. Saving invalidates bot
 counts and the list; an accepted save followed by a failed
 refresh offers read-only recovery rather than repeating the write.
 
+The same Save/Cancel draft includes an English/中文 email-language selector. Language
+can be saved while global optional email is disabled and does not opt into delivery.
+Older clients that omit the field preserve the current choice. The additive source
+columns have database checks for `en`/`zh`; operator recovery accepts complete older
+backups without them and rejects a partially upgraded locale-column bundle.
+
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.
 
 Secondary-email requests and confirmations first acquire the `secondary-email-binding-setting` transaction lock, shared with the Admin/Head-applied availability mutation (Coordinators submit changes for review), and reject when `ProgramSettings.secondaryEmailBindingEnabled` is false. This independent flag defaults true for compatibility. Existing addresses, pending state, primary-email changes and authentication remain intact. Verification rechecks availability and claims the address atomically. An address lock serializes competing confirmations; the unique registry key also arbitrates races with primary-account writers. Verified aliases resolve the same account. Recovery grants bind to their exact destination and recheck ownership on redemption; address removal and password rotation revoke grants. Never infer participant ownership from an alias or change the account's ID/history when promoting it.
@@ -2160,8 +2166,16 @@ Database triggers enqueue `EmailDelivery` in the event transaction for account c
 `Notification.event` and its allowlisted `context` identify the committed action;
 the trigger copies only that safe context into account email receipts, never arbitrary
 titles or bodies. [The shared formatter](../../src/lib/notification-events.ts) drives
-localized in-app copy and bilingual English/Chinese email because recipient language
-is not persisted. Old in-app rows retain their original readable title/body; unknown
+localized in-app copy and single-language English or Chinese email. `User.emailLocale`
+is saved independently from website language and optional notification categories.
+Dispatch reads the current preference for the exact authorized recipient, including
+verified secondary addresses. Public challenge/source rows persist the supported
+`NEXT_LOCALE` page choice across retries and initialize newly created accounts;
+existing preferences are never overwritten by signup. Legacy sources and school addresses without an exact verified account
+default to English. Configured school destinations can use the verified address
+registry solely for language selection; report authorization and hours attribution
+remain independent. Locale affects presentation only, never consent,
+authorization, deduplication keys or response clocks. Old in-app rows retain their original readable title/body; unknown
 email events use the generic program-update description. Count context is limited to
 discipline-card requests and changed historical teaching blocks. Scheduled interviews
 carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
@@ -2227,7 +2241,7 @@ records are not reclassified as public requests.
 bypassing optional program/personal preferences and secondary-recipient expansion.
 Delivery uses the exact submitted address recorded on the source, with no account
 address fallback, and rechecks its exact source/revision.
-The [bilingual copy](../../src/server/email/request-notice-copy.ts) masks unverified
+The [localized copy](../../src/server/email/request-notice-copy.ts) masks unverified
 recipients to request kind and original submission date/time/timezone, plus the
 limited appeal action; no names, original answers or reason appear. Missing historical
 timestamps remain unavailable rather than borrowing row creation time. A reason is

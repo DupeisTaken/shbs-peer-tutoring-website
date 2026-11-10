@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { APP_TITLE } from "~/lib/branding";
+import { DEFAULT_EMAIL_LOCALE, type EmailLocale } from "~/lib/email-locale";
 import { z } from "zod";
 import { lockUsernameNamespace } from "~/server/auth/username-namespace";
 import {
@@ -130,6 +131,7 @@ export async function admitSchoolHoursDelivery(
 
 export function schoolHoursDeliveryCopy(
   admitted: NonNullable<Awaited<ReturnType<typeof admitSchoolHoursDelivery>>>,
+  locale: EmailLocale = DEFAULT_EMAIL_LOCALE,
 ) {
   const { report } = admitted;
   const token = issueSchoolHoursToken(report.id, report.linkVersion);
@@ -139,6 +141,7 @@ export function schoolHoursDeliveryCopy(
     throw new Error("School report link requires reissue.");
   return schoolHoursEmailCopy({
     brand: APP_TITLE,
+    locale,
     report: publicSchoolHoursReport(report.snapshot),
     reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(token)}`,
   });

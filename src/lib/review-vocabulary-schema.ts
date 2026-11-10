@@ -184,6 +184,7 @@ export const reviewSchema = {
       crewStatus: "CrewStatus",
     },
     fields: [
+      "emailLocale",
       "personId",
       "person",
       "primaryForPerson",
@@ -276,6 +277,7 @@ export const reviewSchema = {
     references: {},
     enums: {},
     fields: [
+      "emailLocale",
       "firstName",
       "lastName",
       "preferredName",
@@ -594,6 +596,7 @@ export const reviewSchema = {
     references: {},
     enums: {},
     fields: [
+      "emailLocale",
       "id",
       "kind",
       "email",
@@ -925,6 +928,7 @@ export const reviewSchema = {
       status: "CrewApplicationStatus",
     },
     fields: [
+      "emailLocale",
       "firstName",
       "lastName",
       "preferredName",
@@ -946,6 +950,7 @@ export const reviewSchema = {
     references: {},
     enums: {},
     fields: [
+      "emailLocale",
       "id",
       "email",
       "draft",
@@ -1135,6 +1140,7 @@ export const reviewSchema = {
       status: "TutorApplicationStatus",
     },
     fields: [
+      "emailLocale",
       "identityRevision",
       "invalidReason",
       "invalidatedAt",
@@ -1490,6 +1496,7 @@ export const reviewSchema = {
       state: "StudentSurveyState",
     },
     fields: [
+      "emailLocale",
       "invalidReason",
       "invalidatedAt",
       "invalidatedById",
@@ -1590,6 +1597,7 @@ export const reviewSchema = {
     },
     enums: {},
     fields: [
+      "emailLocale",
       "id",
       "keyHash",
       "inputHash",
@@ -1780,6 +1788,7 @@ export const reviewSchema = {
     },
     enums: {},
     fields: [
+      "emailLocale",
       "tuteeId",
       "tutee",
       "tokenHash",
@@ -1824,6 +1833,7 @@ export const reviewSchema = {
     references: {},
     enums: {},
     fields: [
+      "emailLocale",
       "scopeKey",
       "tokenHash",
       "sources",
@@ -2718,6 +2728,7 @@ export const reviewEnumValues = {
   AcademicStatus: ["REPORTED", "UNKNOWN", "GRADUATED", "NOT_APPLICABLE"],
 } as const;
 export const reviewFieldKeys = [
+  "emailLocale",
   "publicSignupEmailConfirmedAt",
   "signupOpeningStateSince",
   "signupFirstOpenedAt",

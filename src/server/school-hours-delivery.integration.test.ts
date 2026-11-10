@@ -285,6 +285,75 @@ it("dispatches an external-account-free report with one scoped link and frozen i
   });
 });
 
+it.each(["primary", "verified secondary"] as const)("uses the current account language for an already-configured %s recipient without binding report ownership", async (kind) => {
+  const id = `${fixture.prefix}language-recipient`;
+  const before = await db.schoolHoursReport.findUniqueOrThrow({ where: { id: reportId } });
+  await db.user.create({ data: {
+    id, email: kind === "primary" ? recipient : `${id}@example.test`,
+    emailLocale: "zh", emailVerifiedAt: new Date(),
+  } });
+  try {
+    if (kind === "verified secondary")
+      await db.accountEmail.create({ data: { userId: id, email: recipient, verifiedAt: new Date() } });
+    await deliverNotifications();
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+    const message = fixture.send.mock.lastCall![0];
+    expect(message.to).toBe(recipient);
+    expect(message.html).toContain('lang="zh"');
+    expect(message.subject).toContain("月报");
+    expect(message.text).not.toContain("View Month Report");
+    expect(await delivery()).toMatchObject({ status: "SENT", userId: null });
+    const after = await db.schoolHoursReport.findUniqueOrThrow({ where: { id: reportId } });
+    expect(after.snapshot).toEqual(before.snapshot);
+    expect(after.contentHash).toBe(before.contentHash);
+    expect(after.intendedRecipients).toEqual(before.intendedRecipients);
+  } finally {
+    await db.user.delete({ where: { id } });
+  }
+});
+
+it("reads a changed account preference after the report was queued", async () => {
+  const id = `${fixture.prefix}changed-language`;
+  const queued = await delivery();
+  await db.user.create({ data: { id, email: recipient, emailLocale: "zh", emailVerifiedAt: new Date() } });
+  try {
+    await db.user.update({ where: { id }, data: { emailLocale: "en" } });
+    await deliverNotifications();
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+    const message = fixture.send.mock.lastCall![0];
+    expect(message.subject).toBe("The Program October Report is ready");
+    expect(message.html).toContain('lang="en"');
+    expect(await delivery()).toMatchObject({ id: queued.id, userId: null, status: "SENT" });
+  } finally {
+    await db.user.delete({ where: { id } });
+  }
+});
+
+it.each(["unverified primary", "pending secondary", "unrelated account"] as const)("uses English for a configured recipient with only an %s language association", async (kind) => {
+  const id = `${fixture.prefix}unproven-language`;
+  await db.user.create({ data: {
+    id, name: "Synthetic School Office", emailLocale: "zh",
+    email: kind === "unverified primary" ? recipient : `${id}@example.test`,
+    emailVerifiedAt: kind === "unverified primary" ? null : new Date(),
+  } });
+  try {
+    if (kind === "pending secondary")
+      await db.emailVerificationCode.create({ data: {
+        userId: id, purpose: "SECONDARY_EMAIL", targetEmail: recipient,
+        codeHash: "synthetic-pending-language-proof", expiresAt: new Date(Date.now() + 600_000),
+      } });
+    await deliverNotifications();
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+    const message = fixture.send.mock.lastCall![0];
+    expect(message.to).toBe(recipient);
+    expect(message.subject).toBe("The Program October Report is ready");
+    expect(message.html).toContain('lang="en"');
+    expect(await delivery()).toMatchObject({ status: "SENT", userId: null });
+  } finally {
+    await db.user.delete({ where: { id } });
+  }
+});
+
 it("a stale global-off preflight cannot block a fresh receipt after mail was enabled", async () => {
   expect((await db.programSettings.findUniqueOrThrow({ where: { id: "program" } })).emailNotificationsEnabled).toBe(true);
   const receipt = await delivery();

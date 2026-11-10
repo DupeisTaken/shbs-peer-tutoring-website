@@ -4271,6 +4271,7 @@
         "kind": "Categoría del registro",
         "label": "Etiqueta",
         "languageCode": "Código de idioma",
+        "emailLocale": "Idioma del correo",
         "lastName": "Apellidos",
         "levelId": "Nivel de la asignatura",
         "locale": "Idioma",
@@ -4943,6 +4944,10 @@
     "bindingDisabled": "La administración ha desactivado la vinculación de correos secundarios. Los existentes siguen disponibles para iniciar sesión, recuperar la cuenta, establecerlos como principal o eliminarlos; aquí no se pueden añadir ni verificar nuevos correos."
   },
   "emailPreferences": {
+    "language": "Idioma del correo",
+    "languageHelp": "Elige inglés o chino para los correos de esta cuenta y sus direcciones verificadas. El idioma del sitio web es independiente.",
+    "english": "English",
+    "chinese": "中文",
     "title": "Preferencias de correo",
     "help": "Elige las novedades que quieres recibir.",
     "disabled": "El administrador ha desactivado las notificaciones por correo. Tus preferencias se conservan.",
@@ -7703,7 +7708,7 @@
     "badgeFor": "{category}: contador sin leer",
     "emailFor": "{category}: correo",
     "emailOnly": "Solo correo",
-    "disabled": "El administrador ha desactivado los correos opcionales. Puedes seguir cambiando las preferencias del contador.",
+    "disabled": "El programa tiene desactivados los correos opcionales. Puedes seguir cambiando el idioma del correo y las preferencias de los indicadores de notificaciones sin leer.",
     "essential": "Los correos de verificación, acceso, recuperación, seguridad y servicios esenciales de solicitudes siguen activos. Estas preferencias no eliminan notificaciones.",
     "manage": "Ajustes de notificaciones",
     "save": "Guardar preferencias",

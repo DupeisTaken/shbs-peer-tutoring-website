@@ -4271,6 +4271,7 @@
         "kind": "记录类别",
         "label": "标签",
         "languageCode": "语言代码",
+        "emailLocale": "邮件语言",
         "lastName": "姓",
         "levelId": "科目等级",
         "locale": "语言",
@@ -4943,6 +4944,10 @@
     "bindingDisabled": "项目管理员已关闭备用邮箱绑定。现有邮箱仍可用于登录、找回账户、设为主邮箱或移除；无法在此添加或验证新邮箱。"
   },
   "emailPreferences": {
+    "language": "邮件语言",
+    "languageHelp": "选择发送至此账户及其已验证邮箱的邮件语言。此设置独立于网站语言。",
+    "english": "English",
+    "chinese": "中文",
     "title": "邮件偏好设置",
     "help": "选择希望通过邮件接收的更新。",
     "disabled": "项目管理员尚未开启邮件通知。您的偏好设置将保留。",
@@ -7703,7 +7708,7 @@
     "badgeFor": "{category}：未读角标",
     "emailFor": "{category}：邮件",
     "emailOnly": "仅邮件",
-    "disabled": "项目管理员已关闭可选邮件。您仍可更改未读角标偏好。",
+    "disabled": "项目已停用可选邮件通知。您仍可更改邮件语言和未读角标偏好。",
     "essential": "验证、登录、账户恢复、安全及必要的申请服务邮件始终发送。这些偏好不会移除通知列表中的通知。",
     "manage": "通知设置",
     "save": "保存偏好",
