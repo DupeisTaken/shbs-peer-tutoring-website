@@ -4,147 +4,301 @@ import {
   reviewedRecoverySchemaMetadata,
 } from "./operator-schema";
 
+const schemaMetadata = reviewedRecoverySchemaMetadata;
+const optionalNotificationLock = {
+  table_name: "ProgramSettings",
+  column_name: "notificationLocks",
+  udt_name: "jsonb",
+};
+
+function reviewedSchemaPhases() {
+  const versions = [
+    {
+      columns: schemaMetadata.columns,
+      identityVersion: 0,
+      legacySignupDecline: false,
+    },
+    {
+      columns: schemaMetadata.identityColumns,
+      identityVersion: 1,
+      legacySignupDecline: false,
+    },
+    {
+      columns: schemaMetadata.legacyDeclineColumns,
+      identityVersion: 0,
+      legacySignupDecline: true,
+    },
+    {
+      columns: schemaMetadata.identityLegacyDeclineColumns,
+      identityVersion: 1,
+      legacySignupDecline: true,
+    },
+  ];
+  return versions.flatMap(({ columns, ...expected }) => {
+    const beforeHistory = columns.filter(
+      (column) => column.table_name !== "ProgramCalendarPolicyRevision",
+    );
+    const beforePolicy = beforeHistory.filter(
+      (column) =>
+        !(
+          column.table_name === "ProgramCalendarDay" &&
+          column.column_name === "schedulingEffect"
+        ) &&
+        !(
+          column.table_name === "SessionPlanParticipant" &&
+          column.column_name === "tutoringPauseSuppressed"
+        ),
+    );
+    return [columns, beforeHistory, beforePolicy].flatMap((phase) =>
+      [false, true].flatMap((withLabels) =>
+        [false, true].map((withLocks) => ({
+          expected,
+          columns: [
+            ...phase.filter(
+              (column) =>
+                withLabels ||
+                column.table_name !== "SchoolHoursSchedule" ||
+                column.column_name !== "recipientLabels",
+            ),
+            ...(withLocks ? [optionalNotificationLock] : []),
+          ],
+        })),
+      ),
+    );
+  });
+}
+
 describe("static operator recovery schema review", () => {
-  it("never strips partial, duplicated or mistyped language metadata beside optional labels and locks", () => {
+  it("composes complete optional language and import bundles across every reviewed policy and identity phase", () => {
+    expect(schemaMetadata.emailLocaleColumns).toHaveLength(10);
+    expect(schemaMetadata.importProvenanceColumns).toHaveLength(3);
+    for (const { columns, expected } of reviewedSchemaPhases())
+      for (const withLocale of [false, true])
+        for (const withProvenance of [false, true])
+          expect(
+            assertReviewedRecoverySchema(
+              [
+                ...columns,
+                ...(withLocale ? schemaMetadata.emailLocaleColumns : []),
+                ...(withProvenance
+                  ? schemaMetadata.importProvenanceColumns
+                  : []),
+              ],
+              schemaMetadata.enums,
+            ),
+          ).toEqual({ emailLocale: withLocale, ...expected });
+  });
+  it("refuses incomplete, duplicated, mistyped and widened optional bundles in every reviewed phase", () => {
+    const bundles = [
+      schemaMetadata.emailLocaleColumns,
+      schemaMetadata.importProvenanceColumns,
+    ];
+    for (const { columns } of reviewedSchemaPhases())
+      for (const [index, bundle] of bundles.entries()) {
+        const companion = bundles[1 - index]!;
+        const invalidBundles = [
+          ...bundle.map((_, omitted) =>
+            bundle.filter((__, position) => position !== omitted),
+          ),
+          ...bundle.map((_, changed) =>
+            bundle.map((column, position) =>
+              position === changed ? { ...column, udt_name: "jsonb" } : column,
+            ),
+          ),
+          ...bundle.map((column) => [...bundle, column]),
+          [
+            ...bundle,
+            {
+              table_name: "ImportedRecordProvenance",
+              column_name: "liveAuthority",
+              udt_name: "bool",
+            },
+          ],
+          [
+            ...bundle,
+            {
+              table_name: "SchoolHoursSchedule",
+              column_name: "emailLocale",
+              udt_name: "text",
+            },
+          ],
+          [
+            ...bundle,
+            {
+              table_name: "UnreviewedGrant",
+              column_name: "tokenHash",
+              udt_name: "text",
+            },
+          ],
+        ];
+        for (const optionalCompanion of [[], companion])
+          for (const invalid of invalidBundles)
+            expect(() =>
+              assertReviewedRecoverySchema(
+                [...columns, ...optionalCompanion, ...invalid],
+                schemaMetadata.enums,
+              ),
+            ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      }
+  });
+  it("keeps notification-lock compatibility independent from reviewed history, labels and complete archive provenance", () => {
     const metadata = reviewedRecoverySchemaMetadata;
-    expect(metadata.emailLocaleColumns).toHaveLength(10);
-    const lockColumn = {
+    const notificationLock = {
       table_name: "ProgramSettings",
       column_name: "notificationLocks",
       udt_name: "jsonb",
     };
-    for (const base of [
+    for (const columns of [
       metadata.columns,
       metadata.identityColumns,
       metadata.legacyDeclineColumns,
       metadata.identityLegacyDeclineColumns,
-    ])
-      for (const withLabels of [false, true])
-        for (const withLocks of [false, true]) {
-          const columns = [
-            ...base.filter(
-              (row) =>
-                withLabels ||
-                row.table_name !== "SchoolHoursSchedule" ||
-                row.column_name !== "recipientLabels",
-            ),
-            ...(withLocks ? [lockColumn] : []),
+    ]) {
+      const expected = assertReviewedRecoverySchema(columns, metadata.enums);
+      const beforeHistory = columns.filter(
+        (column) => column.table_name !== "ProgramCalendarPolicyRevision",
+      );
+      const beforePolicy = beforeHistory.filter(
+        (column) =>
+          !(
+            column.table_name === "ProgramCalendarDay" &&
+            column.column_name === "schedulingEffect"
+          ) &&
+          !(
+            column.table_name === "SessionPlanParticipant" &&
+            column.column_name === "tutoringPauseSuppressed"
+          ),
+      );
+      for (const phase of [columns, beforeHistory, beforePolicy])
+        for (const withLabels of [true, false]) {
+          const labeled = withLabels
+            ? phase
+            : phase.filter(
+                (column) =>
+                  column.table_name !== "SchoolHoursSchedule" ||
+                  column.column_name !== "recipientLabels",
+              );
+          for (const notificationColumns of [[], [notificationLock]])
+            for (const provenance of [[], metadata.importProvenanceColumns])
+              expect(
+                assertReviewedRecoverySchema(
+                  [...labeled, ...notificationColumns, ...provenance],
+                  metadata.enums,
+                ),
+              ).toEqual(expected);
+          const combined = [
+            ...labeled,
+            notificationLock,
+            ...metadata.importProvenanceColumns,
           ];
-          const invalidBundles = [
-            ...metadata.emailLocaleColumns.map((_, omitted) =>
-              metadata.emailLocaleColumns.filter(
-                (__, index) => index !== omitted,
-              ),
-            ),
-            ...metadata.emailLocaleColumns.map((_, changed) =>
-              metadata.emailLocaleColumns.map((column, index) =>
-                index === changed ? { ...column, udt_name: "jsonb" } : column,
-              ),
-            ),
-            [...metadata.emailLocaleColumns, metadata.emailLocaleColumns[0]!],
+          for (const invalid of [
+            [...combined, notificationLock],
             [
-              ...metadata.emailLocaleColumns,
-              {
-                table_name: "SchoolHoursSchedule",
-                column_name: "emailLocale",
-                udt_name: "text",
-              },
+              ...labeled,
+              { ...notificationLock, udt_name: "text" },
+              ...metadata.importProvenanceColumns,
             ],
             [
-              ...metadata.emailLocaleColumns,
+              ...labeled,
+              notificationLock,
+              ...metadata.importProvenanceColumns.slice(1),
+            ],
+            [
+              ...combined,
               {
-                table_name: "UnreviewedGrant",
-                column_name: "tokenHash",
-                udt_name: "text",
+                table_name: "ProgramSettings",
+                column_name: "unreviewedPolicy",
+                udt_name: "jsonb",
               },
             ],
-          ];
-          for (const bundle of invalidBundles)
+          ])
             expect(() =>
-              assertReviewedRecoverySchema(
-                [...columns, ...bundle],
-                metadata.enums,
-              ),
+              assertReviewedRecoverySchema(invalid, metadata.enums),
             ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
         }
+    }
   });
-  it("rejects a partial locale upgrade even when optional recipient labels are absent", () => {
-    const {
-      columns,
-      identityColumns,
-      legacyDeclineColumns,
-      identityLegacyDeclineColumns,
-      emailLocaleColumns,
-      enums,
-    } = reviewedRecoverySchemaMetadata;
-    for (const base of [
-      columns,
-      identityColumns,
-      legacyDeclineColumns,
-      identityLegacyDeclineColumns,
-    ])
-      for (const withLabels of [true, false]) {
-        const schema = withLabels
-          ? base
-          : base.filter(
-              (row) =>
-                row.table_name !== "SchoolHoursSchedule" ||
-                row.column_name !== "recipientLabels",
-            );
-        for (let omitted = 0; omitted < emailLocaleColumns.length; omitted++)
+  it("composes reviewed policy phases, recipient labels and archive provenance without hiding malformed boundaries", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    for (const columns of [
+      metadata.columns,
+      metadata.identityColumns,
+      metadata.legacyDeclineColumns,
+      metadata.identityLegacyDeclineColumns,
+    ]) {
+      const expected = assertReviewedRecoverySchema(columns, metadata.enums);
+      const beforeHistory = columns.filter(
+        (column) => column.table_name !== "ProgramCalendarPolicyRevision",
+      );
+      const beforePolicy = beforeHistory.filter(
+        (column) =>
+          !(
+            column.table_name === "ProgramCalendarDay" &&
+            column.column_name === "schedulingEffect"
+          ) &&
+          !(
+            column.table_name === "SessionPlanParticipant" &&
+            column.column_name === "tutoringPauseSuppressed"
+          ),
+      );
+      for (const phase of [columns, beforeHistory, beforePolicy]) {
+        for (const withLabels of [true, false]) {
+          const labeled = withLabels
+            ? phase
+            : phase.filter(
+                (column) =>
+                  column.table_name !== "SchoolHoursSchedule" ||
+                  column.column_name !== "recipientLabels",
+              );
+          for (const provenance of [[], metadata.importProvenanceColumns])
+            expect(
+              assertReviewedRecoverySchema(
+                [...labeled, ...provenance],
+                metadata.enums,
+              ),
+            ).toEqual(expected);
+          expect(() =>
+            assertReviewedRecoverySchema(
+              [...labeled, ...metadata.importProvenanceColumns.slice(1)],
+              metadata.enums,
+            ),
+          ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
           expect(() =>
             assertReviewedRecoverySchema(
               [
-                ...schema,
-                ...emailLocaleColumns.filter((_, index) => index !== omitted),
+                ...labeled,
+                ...metadata.importProvenanceColumns,
+                {
+                  table_name: "SchoolHoursSchedule",
+                  column_name: "recipientGrant",
+                  udt_name: "text",
+                },
               ],
-              enums,
+              metadata.enums,
             ),
           ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+          const wrongLabelType = labeled.filter(
+            (column) =>
+              column.table_name !== "SchoolHoursSchedule" ||
+              column.column_name !== "recipientLabels",
+          );
+          expect(() =>
+            assertReviewedRecoverySchema(
+              [
+                ...wrongLabelType,
+                ...metadata.importProvenanceColumns,
+                {
+                  table_name: "SchoolHoursSchedule",
+                  column_name: "recipientLabels",
+                  udt_name: "text",
+                },
+              ],
+              metadata.enums,
+            ),
+          ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+        }
       }
-  });
-  it("reviews all email-language columns together while retaining every complete older schema", () => {
-    const {
-      columns,
-      identityColumns,
-      legacyDeclineColumns,
-      identityLegacyDeclineColumns,
-      emailLocaleColumns,
-      enums,
-    } = reviewedRecoverySchemaMetadata;
-    for (const old of [
-      columns,
-      identityColumns,
-      legacyDeclineColumns,
-      identityLegacyDeclineColumns,
-    ]) {
-      expect(assertReviewedRecoverySchema(old, enums).emailLocale).toBe(false);
-      expect(
-        assertReviewedRecoverySchema([...old, ...emailLocaleColumns], enums)
-          .emailLocale,
-      ).toBe(true);
-      for (let index = 0; index < emailLocaleColumns.length; index++)
-        expect(() =>
-          assertReviewedRecoverySchema(
-            [
-              ...old,
-              ...emailLocaleColumns.filter((_, position) => position !== index),
-            ],
-            enums,
-          ),
-        ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
     }
-    expect(() =>
-      assertReviewedRecoverySchema(
-        [
-          ...columns,
-          ...emailLocaleColumns.map((row) =>
-            row.table_name === "User" ? { ...row, udt_name: "jsonb" } : row,
-          ),
-        ],
-        enums,
-      ),
-    ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
   });
   it("reviews tutoring policy columns together while retaining complete older backups", () => {
     const { columns, enums } = reviewedRecoverySchemaMetadata;
@@ -160,37 +314,89 @@ describe("static operator recovery schema review", () => {
           row.column_name === "tutoringPauseSuppressed"
         ),
     );
-    expect(() => assertReviewedRecoverySchema(old, enums)).not.toThrow();
-    expect(() =>
-      assertReviewedRecoverySchema(
-        columns.filter(
-          (row) => row.table_name !== "ProgramCalendarPolicyRevision",
-        ),
-        enums,
-      ),
-    ).not.toThrow();
-    expect(() =>
-      assertReviewedRecoverySchema(
-        columns.filter(
-          (row) =>
-            !(
-              row.table_name === "ProgramCalendarPolicyRevision" &&
-              row.column_name === "effectiveAt"
+    for (const provenance of [
+      [],
+      reviewedRecoverySchemaMetadata.importProvenanceColumns,
+    ]) {
+      expect(() =>
+        assertReviewedRecoverySchema([...old, ...provenance], enums),
+      ).not.toThrow();
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns.filter(
+              (row) => row.table_name !== "ProgramCalendarPolicyRevision",
             ),
+            ...provenance,
+          ],
+          enums,
         ),
-        enums,
-      ),
-    ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      ).not.toThrow();
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns.filter(
+              (row) =>
+                !(
+                  row.table_name === "ProgramCalendarPolicyRevision" &&
+                  row.column_name === "effectiveAt"
+                ),
+            ),
+            ...provenance,
+          ],
+          enums,
+        ),
+      ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [
+            ...columns.filter(
+              (row) =>
+                !(
+                  row.table_name === "ProgramCalendarDay" &&
+                  row.column_name === "schedulingEffect"
+                ),
+            ),
+            ...provenance,
+          ],
+          enums,
+        ),
+      ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    }
+  });
+  it("accepts complete import-boundary metadata across reviewed schema versions and refuses partial or widened tables", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    for (const columns of [
+      metadata.columns,
+      metadata.identityColumns,
+      metadata.legacyDeclineColumns,
+      metadata.identityLegacyDeclineColumns,
+    ]) {
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [...columns, ...metadata.importProvenanceColumns],
+          metadata.enums,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        assertReviewedRecoverySchema(
+          [...columns, ...metadata.importProvenanceColumns.slice(1)],
+          metadata.enums,
+        ),
+      ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    }
     expect(() =>
       assertReviewedRecoverySchema(
-        columns.filter(
-          (row) =>
-            !(
-              row.table_name === "ProgramCalendarDay" &&
-              row.column_name === "schedulingEffect"
-            ),
-        ),
-        enums,
+        [
+          ...metadata.columns,
+          ...metadata.importProvenanceColumns,
+          {
+            table_name: "ImportedRecordProvenance",
+            column_name: "liveAuthority",
+            udt_name: "bool",
+          },
+        ],
+        metadata.enums,
       ),
     ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
   });

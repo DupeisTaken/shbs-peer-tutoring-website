@@ -181,9 +181,10 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       "Previous month amount (informational)",
       "Month comparison (informational)",
       "Application guidance",
-      ...priorRevisions.map(
-        (revision) =>
-          `If last applied r${revision}: correction to apply now (choose ONE alternative)`,
+      ...priorRevisions.map((revision) =>
+        nonnegativePolicy
+          ? `Comparison from r${revision}: correction to current amount (choose ONE alternative)`
+          : `If last applied r${revision}: correction to apply now (choose ONE alternative)`,
       ),
       ...(carryPolicy
         ? [

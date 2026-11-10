@@ -99,10 +99,22 @@ it.each(["en", "zh"] as const)(
       expect(email.text).not.toContain(
         locale === "zh" ? "负数表示扣减" : "Negative amounts deduct hours",
       );
-      if (example.posted === 0)
+      expect(doc.querySelector(".email-guidance")?.textContent).not.toContain(
+        locale === "zh"
+          ? "0 表示本次无需入账"
+          : "A 0 means nothing to enter now",
+      );
+      if (example.posted === 0) {
         expect(card.textContent).toContain(
           locale === "zh" ? "本次无需入账" : "Nothing to enter now",
         );
+        expect(card.textContent).toContain(
+          locale === "zh"
+            ? `待抵扣余额：${example.minutes} 分钟`
+            : `Balance to offset future earnings: ${example.minutes} min`,
+        );
+        expect(card.textContent).not.toContain("Deduction carried forward");
+      }
       const csv = schoolHoursCsv(report).content;
       expect(csv).toContain("0 = nothing to enter");
       expect(csv).toContain("full negative balance is retained automatically");
@@ -138,9 +150,12 @@ it("retains historical signed-edition alternatives in a nonnegative report", () 
     "contact the program team before posting",
   );
   expect(schoolHoursCsv(report).content).toContain(
-    "If last applied r1: correction to apply now",
+    "Comparison from r1: correction to current amount",
   );
   expect(schoolHoursCsv(report).content).toContain(",-1.3,0,");
+  expect(schoolHoursCsv(report).content).not.toContain(
+    "correction to apply now",
+  );
   const email = schoolHoursEmailCopy({ report, reportUrl });
   expect(parse(email.html).querySelector(".email-amount")?.textContent).toBe(
     "0 h",

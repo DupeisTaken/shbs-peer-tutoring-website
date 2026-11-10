@@ -467,6 +467,11 @@ export async function readReconciliationSnapshot(
     ...DIVERGENCE_AUTHORITIES.filter(
       (table) => table !== "LegacySignupDecline" || legacySignupDecline,
     ),
+    // A security overlay cannot restore historical financial/workflow records
+    // while dropping the operational boundary that keeps them archive-only.
+    ...(schema.rows.some((row) => row.table_name === "ImportedRecordProvenance")
+      ? ["ImportedRecordProvenance"]
+      : []),
     "StudentSurvey",
   ]) {
     const records = await db.query(
@@ -560,15 +565,13 @@ function credentialGenerations(
 ) {
   const now = byId(current.accounts),
     old = byId(restored.accounts);
-  return [...new Set([...now.keys(), ...old.keys()])]
-    .sort()
-    .map((userId) => ({
-      userId,
-      current: now.has(userId) ? Number(now.get(userId)?.sessionVersion) : null,
-      checkpoint: old.has(userId)
-        ? Number(old.get(userId)?.sessionVersion)
-        : null,
-    }));
+  return [...new Set([...now.keys(), ...old.keys()])].sort().map((userId) => ({
+    userId,
+    current: now.has(userId) ? Number(now.get(userId)?.sessionVersion) : null,
+    checkpoint: old.has(userId)
+      ? Number(old.get(userId)?.sessionVersion)
+      : null,
+  }));
 }
 export function validateSecurityIdentityClosure(
   current: OverlaySnapshot,
@@ -891,7 +894,9 @@ export async function applySiteReconciliation(
       maintenanceUrl,
       dependencies,
       async (target) => {
-        const prior = siteReconciliationReceiptSchema.safeParse(await readDatabaseRecoveryMarker(target));
+        const prior = siteReconciliationReceiptSchema.safeParse(
+          await readDatabaseRecoveryMarker(target),
+        );
         if (prior.success && prior.data.planId === plan.id) {
           operatorAssert(
             prior.data.planHash === planHash(plan),

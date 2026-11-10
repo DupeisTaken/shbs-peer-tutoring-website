@@ -2010,6 +2010,23 @@ task counts. Missing attendance is not inferred from present-day membership.
 Period filters do not change excuse deadlines, correction authority or semester-wide
 deduction reconciliation.
 
+Meeting deduction reconciliation distinguishes native attendance from imported
+archive evidence. `ImportedRecordProvenance` marks newly imported meetings,
+attendance and amendments. Imported absences do not consume the native
+semester allowance, and imported `mtgabs_` amendments are never deleted or
+recomputed by a later current attendance edit or self-excuse. Native Q1/Q2 and
+Q3/Q4 attendance still shares its respective semester allowance. A native
+deduction whose identifier collides with a preserved imported amendment fails
+before rebuilding any deductions. Import and native management writers share
+meeting-record then sorted tutor-hour advisory fences so source/provenance
+publication cannot race a deduction rebuild or meeting deletion.
+
+Native meeting attendance changes and deletion reject imported meeting or
+attendance evidence. Corrections to that frozen source require reviewed archive
+recovery; browsing history and changing the displayed period remain reads.
+Existing unclassified rows retain their previous behavior: migration does not
+guess which old records came from an import.
+
 [Disciplinary standing](../../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; restoration requires the removal's status snapshot to remain current and eligible pairings to remain valid.
 
 A catalog time-slot edit releases movable room reservations by reviewed unit, in pairing ID order within each unit. A grouped room update detaches members in their authoritative member
@@ -2024,7 +2041,17 @@ together and increments their versions in pairing ID order. Restoring the
 third or later member therefore gives each affected sibling its original
 single increment and a reproducible position in the recovery journal.
 
-[Catalog-slot attendance propagation](../../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.
+[Catalog-slot attendance propagation](../../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete native merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. An imported Session or SessionTutee freezes its entire attendance block against unrelated catalogue propagation, including mixed-origin siblings. Frozen attendance still participates in overlap checks for a changed native block. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.
+
+Automatic crew comparisons preserve imported attendance blocks, recorded flags and
+logical `flag:` amendments. Imported PatrolObservation rows and observations under
+an imported Patrol do not generate new native discrepancy work. Imports and
+native comparisons share sorted session-flag advisory fences, including each
+merged primary when importing a sibling, before provenance and attendance-roster
+reads. Explicit reviewed source corrections remain separate
+from these automatic comparisons. Valid imported cards still contribute to
+disciplinary standing under the existing policy; an imported approved removal
+receipt cannot automatically restore current enrollment after a later card edit.
 
 Reusable tutor pairing groups are implemented by [pairing-groups](../../src/server/pairing-groups.ts) and the self-scoped [router](../../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. The shared [eligibility helper](../../src/lib/pairing-group-eligibility.ts) requires each distinct tutee's selected subject set to equal the whole group's subject set. It compares stored subject labels exactly because Pairing has no subject ID; case, whitespace and aliases never invent missing assignments. Splitting one subject across roster rows remains valid.
 
@@ -2784,6 +2811,41 @@ The archive allowlist includes original HistoricalAcademicRecord evidence, with 
 `src/server/api/routers/record-transfer.ts` exposes Admin/Head export, preview and import procedures. Each rechecks and locks the active account within its transaction; a stale privileged session cannot authorize a transfer. These procedures are deliberately absent from coordinator approval operations. Export uses a Repeatable Read snapshot and writes export audit evidence. Preview and import use Serializable transactions plus the shared import advisory lock. Tutor and HistoricalAcademicRecord files acquire the username namespace fence before the account lock.
 
 `src/server/record-transfer.ts` declares the domain-table allowlist in dependency order. PostgreSQL metadata supplies column types, nullability, defaults, enums and primary keys. Only allowlisted tables and validated column names enter SQL identifiers; cell values use bound JSON parameters through `jsonb_populate_record`. New columns require security review: User remains restricted to ID/name/email, and survey token hashes remain excluded. `User.csv` validates existing accounts without writing them. Scalar ownership and other live references receive explicit checks in addition to database foreign keys; historical actor snapshots can survive account deletion.
+
+New archive primary keys pass a separate historical admission boundary before insertion.
+Tutor/Tutee rows require explicit inactive membership, workflow records require
+completed outcomes, meetings must be in the past and announcements must be
+inactive. Related-record validation also covers child-only imports: interview
+panels/intents/votes require completed applications, meeting attendance requires
+a past meeting, discipline, signup screening, qualifications and participant
+scheduling preferences require inactive participant targets, and signup
+records/quarter blocks require inactive terms. Legacy signup screening also
+requires an inactive intake term when one is recorded and a real referenced
+tutee. Related parents inserted earlier in the same batch are checked using
+their actual saved state. Schema defaults cannot silently create current work.
+An exact existing-ID match is skipped before these new-row checks, preserving
+repeat exports of native current records without changing them.
+
+Each newly inserted row receives local `ImportedRecordProvenance` in the same
+transaction. A single `id` remains its scalar key; other primary keys use
+canonical sorted key/value pairs with retained value types and normalized dates.
+Only primary-key fields enter this identity. Its entity/record key and
+admission time are neither CSV fields nor an exported/importable archive family.
+An identical retry preserves the original provenance and never reclassifies an
+existing native row. Preview rolls this evidence back with the source inserts.
+Financial reporting uses that boundary as described in the
+[school-hours reference](school-hours.md); a full deployment backup/recovery
+retains the metadata. Older imports have no reliable per-row origin evidence and
+are not inferred from names, dates, inactive terms or table-wide audit counts.
+
+Native interview completion cannot rewrite imported applications or panel rows,
+and initial-admission reconciliation and the grant writer both reject imported
+applications as membership authority. Independent accepted-grant checks exclude
+imported acceptance history while preserving native acceptance. Completion cannot
+clear imported logical interview credits, or recreate a credit whose imported
+provenance remains after source deletion. Exact already-applied completion
+receipts remain read-only, and native historical correction behavior is retained.
+Importers share the application's review fence with these award writers.
 
 Signup archives preserve the original `StudentSurvey` evidence, its current answer
 projection, immutable `StudentSignupRevision` answer/consent evidence and

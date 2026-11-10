@@ -63,8 +63,8 @@ export function schoolHoursHeading(month: string) {
 function editionGuidance(report: SchoolHoursPublicReport) {
   if (report.postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE")
     return report.revision > 1
-      ? `Revision ${report.revision} replaces revision ${report.revision - 1} for ${report.month}. If the immediately preceding edition was applied, apply only each person's highlighted correction. For an earlier applied edition, choose its correction from that person's table. If nothing was applied, use the replacement month amount once. Choose only one matching row; never add alternatives. If unknown or not listed, ask the program team before posting. A highlighted 0 means nothing to enter now. If a correction from an earlier signed edition is negative, contact the program team before posting.\n本修订替代该月上一版本。若上一版已入账，仅应用突出显示的更正额；若更早版本已入账，请选择该人的对应更正额。若从未入账，使用替代月度金额一次。仅选符合情况的一项，切勿相加。若不确定或版本未列出，请先联系项目团队。突出显示为 0 时，本次无需入账。若更早的有正负金额版本对应的更正额为负数，请先联系项目团队。`
-      : "Apply each person's highlighted amount to that person's school account once. A 0 means nothing to enter now. Raw tutoring and Crew changes explain the source activity; they are not extra credit.\n请将每个人突出显示的时数计入对应学校账户一次。0 表示本次无需入账。辅导与执勤的原始变化用于说明来源，并非额外入账时数。";
+      ? `Revision ${report.revision} replaces revision ${report.revision - 1} for ${report.month}. If the immediately preceding edition was applied, apply only each person's highlighted correction. For an earlier applied edition, choose its correction from that person's table. If nothing was applied, use the replacement month amount once. Choose only one matching row; never add alternatives. If unknown or not listed, ask the program team before posting. If a correction from an earlier signed edition is negative, contact the program team before posting.\n本修订替代该月上一版本。若上一版已入账，仅应用突出显示的更正额；若更早版本已入账，请选择该人的对应更正额。若从未入账，使用替代月度金额一次。仅选符合情况的一项，切勿相加。若不确定或版本未列出，请先联系项目团队。若更早的有正负金额版本对应的更正额为负数，请先联系项目团队。`
+      : "Apply each person's highlighted amount to that person's school account once. Raw tutoring and Crew changes explain the source activity; they are not extra credit.\n请将每个人突出显示的时数计入对应学校账户一次。辅导与执勤的原始变化用于说明来源，并非额外入账时数。";
   if (report.revision === 1 && report.postingPolicy === "TENTH_HOUR_CARRY")
     return "Apply each person's highlighted amount to that person's school account once. Negative amounts deduct hours. Raw tutoring and Crew changes explain the source activity; they are not extra credit.\n请将每个人突出显示的时数计入对应学校账户一次。负数表示扣减；辅导与执勤的原始变化用于说明来源，并非额外入账时数。";
   return report.revision > 1
@@ -290,11 +290,11 @@ export function schoolHoursEmailCopy(input: {
     copy.guidance =
       locale === "zh"
         ? revised
-          ? "若入账的是更早版本或从未入账，请在报告中选择该人的金额。若不确定最后入账版本，请先联系项目团队。每项更正仅应用一次。0 表示本次无需入账。若更早的有正负金额版本对应的更正额为负数，请先联系项目团队。"
-          : "请将下方时数计入对应学校账户一次。0 表示本次无需入账。"
+          ? "若入账的是更早版本或从未入账，请在报告中选择该人的金额。若不确定最后入账版本，请先联系项目团队。每项更正仅应用一次。若更早的有正负金额版本对应的更正额为负数，请先联系项目团队。"
+          : "请将下方时数计入对应学校账户一次。"
         : revised
-          ? "For an earlier edition or no entry, choose that person's amount in the saved report. If the last entered edition is unknown, contact the program first. Apply each change once. A 0 means nothing to enter now. If a correction from an earlier signed edition is negative, contact the program team before posting."
-          : "Enter each person's amount once in the named school account. A 0 means nothing to enter now.";
+          ? "For an earlier edition or no entry, choose that person's amount in the saved report. If the last entered edition is unknown, contact the program first. Apply each change once. If a correction from an earlier signed edition is negative, contact the program team before posting."
+          : "Enter each person's amount once in the named school account.";
   const issued = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : locale, {
     dateStyle: "long",
     timeStyle: "short",
@@ -312,7 +312,7 @@ export function schoolHoursEmailCopy(input: {
       carried =
         locale === "zh"
           ? `${negative ? (nonnegativePolicy ? "待抵扣余额" : "待扣减余量") : "留待后续"}：${minutes} 分钟。`
-          : `${negative ? "Deduction carried forward" : "Carried forward"}: ${minutes} min.`;
+          : `${negative ? (nonnegativePolicy ? "Balance to offset future earnings" : "Deduction carried forward") : "Carried forward"}: ${minutes} min.`;
     }
     if (revised && row.unchanged && !nonnegativePolicy)
       return `${copy.unchanged}${carried ? ` ${carried}` : ""}`;

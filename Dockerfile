@@ -92,6 +92,7 @@ COPY --from=build /app/src/server/crew/flags.ts /runtime-output/app/src/server/c
 COPY --from=build /app/src/server/discipline/removal.ts /runtime-output/app/src/server/discipline/removal.ts
 COPY --from=build /app/src/server/historical-academic-snapshot.ts /runtime-output/app/src/server/historical-academic-snapshot.ts
 COPY --from=build /app/src/server/history-row-ownership.ts /runtime-output/app/src/server/history-row-ownership.ts
+COPY --from=build /app/src/server/imported-records.ts /runtime-output/app/src/server/imported-records.ts
 COPY --from=build /app/src/server/notifications/core.ts /runtime-output/app/src/server/notifications/core.ts
 COPY --from=build /app/src/server/participant-execution.ts /runtime-output/app/src/server/participant-execution.ts
 COPY --from=build /app/src/server/participant-source-restrictions.ts /runtime-output/app/src/server/participant-source-restrictions.ts

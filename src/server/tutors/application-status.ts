@@ -4,8 +4,12 @@ import {
   type DomainDb,
 } from "~/server/transactions";
 import { promoteApplicantToTutor } from "./promote";
-import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import {
+  assertRequestProcessable,
+  lockApplicationReview,
+} from "~/server/request-invalidity";
 import { lockUsernameNamespace } from "~/server/auth/username";
+import { assertMutableProgramRecords } from "~/server/imported-records";
 
 /** Reconcile an application's grant and its inverse in the same transaction as its status. */
 export async function reconcileApplication(
@@ -22,6 +26,11 @@ export async function reconcileApplication(
     // Additional qualifications never create/revoke membership, registration codes or pairings.
     // Their approval transaction owns concrete grants and immutable decision evidence.
     if (app.type !== "INITIAL") return;
+    // A terminal archive decision is historical evidence, never a fresh native
+    // admission or revocation receipt when its status is saved again.
+    await assertMutableProgramRecords(tx, [
+      { entity: "TutorApplication", recordId: applicationId },
+    ]);
     assertRequestProcessable(app);
     if (app.status === "ACCEPTED") {
       await promoteApplicantToTutor(applicationId, tx);
@@ -37,13 +46,20 @@ export async function reconcileApplication(
     });
     // Only reverse tutors associated with this application's grant. An independently accepted
     // application is a separate authorization and must not be withdrawn by this reversal.
+    const importedApplications = await tx.importedRecordProvenance.findMany({
+      where: { entity: "TutorApplication" },
+      select: { recordId: true },
+    });
     if (
       await tx.tutorApplication.count({
         where: {
           email: app.email,
           type: "INITIAL",
           status: "ACCEPTED",
-          id: { not: applicationId },
+          id: {
+            not: applicationId,
+            notIn: importedApplications.map((row) => row.recordId),
+          },
         },
       })
     )
@@ -65,10 +81,29 @@ export async function reconcileApplication(
       await tx.tutee.updateMany({
         // Releasing one tutor is not evidence that an independently assigned
         // student stopped participating. Only requeue requests with no survivor.
-        where: { id: { in: links.map((l) => l.tuteeId) }, status: "ACTIVE",
-          pairings: { none: { pairing: { term: { active: true }, tutor: {
-            status: "ACTIVE", OR: [{ user: null }, { user: { tutorAccessRevoked: false, suspendedAt: null, mergedIntoId: null } }],
-          } } } },
+        where: {
+          id: { in: links.map((l) => l.tuteeId) },
+          status: "ACTIVE",
+          pairings: {
+            none: {
+              pairing: {
+                term: { active: true },
+                tutor: {
+                  status: "ACTIVE",
+                  OR: [
+                    { user: null },
+                    {
+                      user: {
+                        tutorAccessRevoked: false,
+                        suspendedAt: null,
+                        mergedIntoId: null,
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
         },
         data: { status: "PENDING" },
       });
