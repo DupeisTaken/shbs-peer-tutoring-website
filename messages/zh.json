@@ -1632,11 +1632,22 @@
         "consequence": "此操作将永久删除该调整并更改辅导伙伴的服务时数总计。请先核对辅导伙伴、月份和时数。",
         "confirm": "删除调整"
       },
-      "create": "新增服务时数调整"
+      "create": "新增服务时数调整",
+      "source": {
+        "label": "来源",
+        "other": "其他时数调整",
+        "interview": "面试来源",
+        "orphaned": "面试记录不可用",
+        "unresolved": "面试来源待核实",
+        "conflicting": "面试来源存在冲突",
+        "correct": "更正面试时数",
+        "help": "这些时数来自已记录的面试服务。请核对面试记录，以更正完成时间、时长或出席情况。",
+        "unavailable": "此记录当前无法打开面试完成更正。"
+      }
     },
     "applications": {
       "title": "辅导伙伴申请",
-      "intro": "审核申请人并分配一个由 {n} 名辅导伙伴组成的面试小组（指定一名组长）。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
+      "intro": "审核申请人并分配由 {n}–{max} 名辅导伙伴组成的面试小组，指定一名组长。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
       "empty": "暂无申请。",
       "status": {
         "PENDING": "待处理",
@@ -1646,7 +1657,7 @@
         "RECALLED": "已撤回"
       },
       "noCourses": "暂无科目",
-      "panelSummary": "面试小组 {n}/{total}",
+      "panelSummary": "面试小组 {n} 人",
       "votesSummary": "投票 {accepts}/{total}",
       "accept": "通过",
       "reject": "拒绝",
@@ -1660,14 +1671,14 @@
         "selfStudied": "自学：{note}"
       },
       "noQualification": "未提供资质说明",
-      "panelHeading": "面试小组（选择 {n} 人，指定一名组长）",
+      "panelHeading": "面试小组（{n}–{max} 人，一名组长）",
       "scheduled": "已安排：{when}（由组长设定）",
       "panelistSlot": "— 面试官 {n} —",
       "head": "组长",
       "saving": "保存中…",
       "savePanel": "保存小组",
       "saved": "已保存。",
-      "pickHint": "请选择 {n} 名辅导伙伴并指定一名组长。",
+      "pickHint": "请至少选择 {n} 名辅导伙伴并指定一名组长。",
       "votesDecisionHeading": "投票与决定",
       "voteTally": "{accepts} 票通过 · {rejects} 票拒绝",
       "noVotes": "暂无投票。",
@@ -1722,7 +1733,21 @@
         "unavailable": "{name}（不可用，请替换）",
         "chairSlot": "选择第 {n} 位面试成员为主席"
       },
-      "setupTargetUnavailable": "关联的辅导伙伴记录不可用。请先刷新此申请，再设置账户。"
+      "setupTargetUnavailable": "关联的辅导伙伴记录不可用。请先刷新此申请，再设置账户。",
+      "panelDraft": {
+        "changed": "编辑期间，面试小组已发生变化。请重新加载并核对当前小组。",
+        "reloadHelp": "重新加载会用当前已保存的面试小组替换此草稿。",
+        "reload": "重新加载面试小组",
+        "loading": "正在加载面试小组…",
+        "retry": "重试加载面试小组",
+        "reloadError": "无法加载当前面试小组。你的草稿保持不变。",
+        "refreshError": "面试小组变更已提交，但无法加载当前小组。请先重试加载，再进行其他更改。"
+      },
+      "panelRepair": {
+        "reason": "修复面试小组的原因",
+        "save": "修复面试小组",
+        "consequence": "替换此未完成的小组会清除其投票。已记录的完成信息和已获服务时数将保留为历史；新成员不会自动获得时数。替换后的小组所有成员都必须重新投票。"
+      }
     },
     "cards": {
       "title": "学习伙伴纪律",
@@ -7019,7 +7044,18 @@
     "reloadEvidence": "重新加载当前凭据（替换草稿）",
     "historyFollowups": "{count} 场已作决定的面试仍需管理人员记录完成与服务时数。",
     "accessDenied": "面试访问权限当前不可用。请重新加载以核实当前权限。",
-    "chairNeedsUpdate": "此小组需要由管理员或负责人担任主席。请联系管理团队更新小组。"
+    "chairNeedsUpdate": "此小组需要由管理员或负责人担任主席。请联系管理团队更新小组。",
+    "correctionEvidence": {
+      "readUnavailable": "请先成功加载当前面试证据，再核对或提交。你的草稿已保留。",
+      "missingEvidence": "请先加载已记录的面试小组成员和当前来源时数，再核对此更改。",
+      "historyHelp": "出席记录和时数属于已记录的面试。更换决策小组不会使新成员成为原面试出席者。",
+      "decisionPanel": "当前决策小组：{names}",
+      "participants": "已记录面试小组的实际出席情况",
+      "formerPanelist": "原小组成员",
+      "loading": "正在加载面试完成证据…",
+      "totalChange": "时数合计：{before} → {after} 小时（变更 {delta}）",
+      "retryArrival": "重试加载面试记录"
+    }
   },
   "applicationAccountSetup": {
     "title": "账号设置 · {name}",
@@ -7056,7 +7092,8 @@
     "reload": "重新加载面试（替换草稿）",
     "unavailable": "你已无法批准此面试。",
     "waitingVotes": "所有评审均须投票后才能批准。",
-    "changed": "面试资料已更改，请重新加载并核对最新信息。"
+    "changed": "面试资料已更改，请重新加载并核对最新信息。",
+    "retainedService": "此次批准将沿用已记录的面试完成、出席和服务时数信息，包括已授权的更正。当前评审小组可能与已记录的出席人员不同。此次批准不会增加或扣除服务时数。"
   },
   "personPartition": {
     "refreshFailed": "拆分已保存，但目录尚未完成刷新。请只重试刷新。",

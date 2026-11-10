@@ -84,11 +84,23 @@ it("imports a composite historical panel into a native terminal interview withou
               .slice(1)
               .map((tutorId) => ({ applicationId, tutorId, attended: true })),
           });
+          await tx.serviceHourAdjustment.createMany({
+            data: tutors.slice(1).map((tutorId) => ({
+              id: `interview_${applicationId}_${tutorId}`,
+              tutorId,
+              type: "EXTRA",
+              reason: "Completed interview service",
+              amount: 0.5,
+              month: "2026-09",
+              schoolYear: "26-27",
+              quarter: "Q1",
+            })),
+          });
           const archivedPanel = {
             applicationId,
             tutorId: tutors[0]!,
             isHead: true,
-            attended: true,
+            attended: false,
           };
           await lockUsernameNamespace(tx);
           await applyRecords(tx, [
@@ -120,6 +132,9 @@ it("imports a composite historical panel into a native terminal interview withou
               },
             }),
           ).toBeNull();
+          const reviewed = await tx.tutorApplication.findUniqueOrThrow({
+            where: { id: applicationId },
+          });
           const api = createCaller({
             db: tx as unknown as typeof db,
             headers: new Headers(),
@@ -133,6 +148,7 @@ it("imports a composite historical panel into a native terminal interview withou
           await expect(
             api.interviewManagement.complete({
               applicationId,
+              expectedUpdatedAt: reviewed.updatedAt,
               completedAt,
               durationMin: 60,
               attendedTutorIds: tutors,
@@ -148,7 +164,7 @@ it("imports a composite historical panel into a native terminal interview withou
             await tx.serviceHourAdjustment.count({
               where: { tutorId: { in: tutors } },
             }),
-          ).toBe(0);
+          ).toBe(2);
           expect(
             await tx.tutorApplication.findUniqueOrThrow({
               where: { id: applicationId },

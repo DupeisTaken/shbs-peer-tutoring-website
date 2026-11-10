@@ -1710,11 +1710,22 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "Νέα προσαρμογή ωρών"
+      "create": "Νέα προσαρμογή ωρών",
+      "source": {
+        "label": "Πηγή",
+        "other": "Άλλη προσαρμογή ωρών",
+        "interview": "Πηγή συνέντευξης",
+        "orphaned": "Η καταγραφή της συνέντευξης δεν είναι διαθέσιμη",
+        "unresolved": "Αδιευκρίνιστη πηγή συνέντευξης",
+        "conflicting": "Αντικρουόμενη πηγή συνέντευξης",
+        "correct": "Διόρθωση ωρών συνέντευξης",
+        "help": "Αυτές οι ώρες προέρχονται από καταγεγραμμένη υπηρεσία συνέντευξης. Ελέγξτε τη συνέντευξη για να διορθώσετε τον χρόνο ολοκλήρωσης, τη διάρκεια ή τις παρουσίες.",
+        "unavailable": "Δεν είναι διαθέσιμη διόρθωση ολοκλήρωσης συνέντευξης για αυτή την εγγραφή."
+      }
     },
     "applications": {
       "title": "Αιτήσεις βοηθών",
-      "intro": "Ελέγξτε τους υποψηφίους και ορίστε επιτροπή συνέντευξης {n} βοηθών (σημειώστε έναν ως υπεύθυνο). Κάντε κλικ σε γραμμή για ανάπτυξη. Ο υπεύθυνος προγραμματίζει τη συνέντευξη και καταγράφει την απόφαση από τον δικό του πίνακα ελέγχου.",
+      "intro": "Ελέγξτε τις αιτήσεις και ορίστε επιτροπή συνέντευξης με {n}–{max} διδάσκοντες και έναν πρόεδρο. Πατήστε μια γραμμή για ανάπτυξη. Ο πρόεδρος προγραμματίζει τη συνέντευξη και καταγράφει την απόφαση από τον δικό του πίνακα ελέγχου.",
       "empty": "Δεν υπάρχουν ακόμη αιτήσεις.",
       "status": {
         "PENDING": "εκκρεμεί",
@@ -1724,7 +1735,7 @@
         "RECALLED": "Recalled"
       },
       "noCourses": "χωρίς μαθήματα",
-      "panelSummary": "επιτροπή {n}/{total}",
+      "panelSummary": "επιτροπή: {n}",
       "votesSummary": "ψήφοι {accepts}/{total}",
       "accept": "Έγκριση",
       "reject": "Απόρριψη",
@@ -1738,14 +1749,14 @@
         "selfStudied": "αυτοδίδακτος: {note}"
       },
       "noQualification": "δεν δόθηκε προσόν",
-      "panelHeading": "Επιτροπή συνέντευξης (επιλέξτε {n}, σημειώστε έναν ως υπεύθυνο)",
+      "panelHeading": "Επιτροπή συνέντευξης ({n}–{max} διδάσκοντες, ένας πρόεδρος)",
       "scheduled": "Προγραμματισμένο: {when} (ορίστηκε από τον υπεύθυνο)",
       "panelistSlot": "— μέλος επιτροπής {n} —",
       "head": "υπεύθυνος",
       "saving": "Αποθήκευση…",
       "savePanel": "Αποθήκευση επιτροπής",
       "saved": "Αποθηκεύτηκε.",
-      "pickHint": "Επιλέξτε {n} βοηθούς και έναν υπεύθυνο.",
+      "pickHint": "Επιλέξτε τουλάχιστον {n} διδάσκοντες και έναν πρόεδρο.",
       "votesDecisionHeading": "Ψήφοι & απόφαση",
       "voteTally": "{accepts} έγκριση · {rejects} απόρριψη",
       "noVotes": "Δεν υπάρχουν ακόμη ψήφοι.",
@@ -1800,7 +1811,21 @@
         "unavailable": "{name} (μη διαθέσιμος — αντικαταστήστε την επιλογή)",
         "chairSlot": "Επιλογή του μέλους {n} ως προέδρου"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "Η επιτροπή άλλαξε όσο επεξεργαζόσασταν αυτό το πρόχειρο. Επαναφορτώστε για να ελέγξετε την τρέχουσα επιτροπή.",
+        "reloadHelp": "Η επαναφόρτωση αντικαθιστά αυτό το πρόχειρο με την τρέχουσα αποθηκευμένη επιτροπή.",
+        "reload": "Επαναφόρτωση επιτροπής",
+        "loading": "Φόρτωση επιτροπής…",
+        "retry": "Νέα προσπάθεια φόρτωσης επιτροπής",
+        "reloadError": "Δεν ήταν δυνατή η φόρτωση της τρέχουσας επιτροπής. Το πρόχειρό σας παραμένει αμετάβλητο.",
+        "refreshError": "Η αλλαγή της επιτροπής υποβλήθηκε, αλλά δεν ήταν δυνατή η φόρτωση της τρέχουσας επιτροπής. Δοκιμάστε ξανά πριν κάνετε άλλη αλλαγή."
+      },
+      "panelRepair": {
+        "reason": "Αιτία διόρθωσης της επιτροπής",
+        "save": "Διόρθωση επιτροπής",
+        "consequence": "Η αντικατάσταση αυτής της ανοιχτής επιτροπής διαγράφει τις ψήφους της. Η καταγεγραμμένη ολοκλήρωση και οι ώρες που έχουν πιστωθεί διατηρούνται ως ιστορικό· τα νέα μέλη δεν λαμβάνουν αυτόματη πίστωση. Όλα τα μέλη της νέας επιτροπής πρέπει να ψηφίσουν ξανά."
+      }
     },
     "cards": {
       "title": "Πειθαρχία μαθητών",
@@ -7019,7 +7044,18 @@
     "reloadEvidence": "Επαναφόρτωση τρεχόντων τεκμηρίων (αντικατάσταση προχείρου)",
     "historyFollowups": "{count, plural, one {Για # οριστικοποιημένη συνέντευξη εκκρεμεί ακόμη} other {Για # οριστικοποιημένες συνεντεύξεις εκκρεμεί ακόμη}} η καταγραφή ολοκλήρωσης και η απόδοση ωρών από τη διαχείριση.",
     "accessDenied": "Η πρόσβαση στις συνεντεύξεις δεν είναι πλέον διαθέσιμη. Επαναφορτώστε για να ελέγξετε τα τρέχοντα δικαιώματά σας.",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "correctionEvidence": {
+      "readUnavailable": "Τα τρέχοντα στοιχεία της συνέντευξης πρέπει να φορτωθούν επιτυχώς πριν από τον έλεγχο ή την υποβολή. Το πρόχειρό σας διατηρείται.",
+      "missingEvidence": "Φορτώστε τους καταγεγραμμένους συμμετέχοντες και τις τρέχουσες πιστώσεις ωρών πριν ελέγξετε αυτή την αλλαγή.",
+      "historyHelp": "Οι παρουσίες και οι ώρες ανήκουν στην καταγεγραμμένη συνέντευξη. Η αλλαγή της επιτροπής απόφασης δεν καθιστά τα νέα μέλη συμμετέχοντες εκείνης της συνέντευξης.",
+      "decisionPanel": "Τρέχουσα επιτροπή απόφασης: {names}",
+      "participants": "Παρουσίες της επιτροπής της καταγεγραμμένης συνέντευξης",
+      "formerPanelist": "Πρώην μέλος επιτροπής",
+      "loading": "Φόρτωση στοιχείων ολοκλήρωσης…",
+      "totalChange": "Συνολική πίστωση: {before} → {after} ώρες (μεταβολή {delta})",
+      "retryArrival": "Νέα προσπάθεια φόρτωσης συνέντευξης"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7056,7 +7092,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "Αυτή η έγκριση διατηρεί την καταγεγραμμένη ολοκλήρωση, την παρουσία και τις ώρες υπηρεσίας, μαζί με τις εγκεκριμένες διορθώσεις. Η τρέχουσα επιτροπή μπορεί να διαφέρει από τους καταγεγραμμένους παρευρισκομένους. Αυτή η έγκριση δεν προσθέτει ούτε αφαιρεί ώρες υπηρεσίας."
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",

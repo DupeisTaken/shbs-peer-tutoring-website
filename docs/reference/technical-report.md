@@ -1356,7 +1356,38 @@ including after a subsequent revocation.
 
 Tutor Applications owns its discovery controls rather than enabling generic table sorting. The complete authorized application projection is filtered locally by search, status, type, subject and recorded completion, then sorted by application/completion date or locale-aware name. Absent completion evidence is independent of acceptance/rejection and sorts last in either date direction. Stable application keys and the retained active-approval union preserve open approval drafts through reordering or filtering. Session preferences accept legacy views without the new keys, reject unsupported choices, and exact application links clear filters before revealing their target. Interview Records uses a separate staff-only query: status intersects the existing completion/search scope, and the server applies explicit date/name ordering with an ID tie-break before its 20-row pagination. Both completed views start with completion-date descending when selected from their default sort. These read controls do not change workflow authorization, completion evidence or writes.
 
-Interview acceptance revalidates panel membership, qualifications, votes and the current chair, then records service hours and admission in one transaction. Admin/Head chair acceptance applies directly; initial-application rejection by the current Admin/Head chair also applies directly with chair authorship preserved. Previously queued legacy acceptance remains an Admin/Head-reviewed decision-only path. Exact approval retries reuse the committed receipt; terminal applications do not display stale pending-decision proposals as their current outcome. The shared [chair role predicate](../../src/lib/interview-chair.ts) accepts only ADMIN or HEAD, independently of other panelists' rank; Coordinators may participate and vote. [Panel validation](../../src/server/interviews.ts) applies that rule to initial, additional-subject and higher-level interviews, including new decisions and first completion. Scheduling checks the selected assignment, current account role and tutor link under the same lock as panel replacement; it does not require the rest of the panel to remain eligible merely to change the schedule. `myInterviews` preserves historical `isHead` assignment while projecting current `canChair` authority for tutor actions. A missing or demoted legacy chair requires a valid Admin/Head chair assignment before scheduling, new decisions or first completion, without automatically deleting history or other panelists' voting access. Already completed interviews use `chairEligibility: "recorded"` for hour corrections and idempotent retries: the recorded chair must still belong to the panel, but today's ADMIN/HEAD role check is skipped. All other current panel/qualification requirements and correction approvals remain; this exception does not authorize a new decision, replace the historical panel or reopen admission. Interview history and completion live in Tutor Applications; legacy interview routes redirect there.
+Interview acceptance revalidates panel membership, qualifications, votes and the
+current chair, then records service and admission in one transaction. Admin/Head
+chair acceptance and initial rejection apply directly with chair authorship retained;
+legacy queued acceptance remains an Admin/Head-reviewed decision-only path. An initial
+decision requires INTERVIEW after exact accepted receipt handling: a fresh version
+cannot reverse acceptance or replace a final rejection note/time. Exact accepted
+retries are read-only for admission, invitation, assignment and service evidence.
+Terminal applications do not display stale pending proposals as current outcomes.
+
+[Panel validation](../../src/server/interviews.ts) requires three to eight distinct
+panelists and one ADMIN/HEAD chair, independently of other panelists' rank;
+Coordinators may participate and vote. Scheduling checks the selected assignment,
+current role and tutor link under the panel-replacement lock without requiring every
+other panelist to remain eligible. `myInterviews` preserves historical `isHead` while
+projecting live `canChair`. A missing/demoted chair needs valid reassignment before
+scheduling, a new decision or first completion; other eligible votes and history stay.
+Completed correction and exact retries use `chairEligibility: "recorded"`: the
+recorded chair must belong to the operational panel, but today's ADMIN/HEAD rank
+check is skipped. Other current panel/qualification checks and correction approvals
+still apply. This cannot authorize a new decision or reopen admission.
+
+An open additional/higher INTERVIEW panel can instead receive reasoned repair from
+an independent current Admin/Head with a captured version. It validates the new
+panel, preserves previous panel/vote evidence, completion, schedule, original period
+and source-owned credits, and clears operational votes so every new panelist votes
+again. New voting membership establishes no earlier physical attendance. Final
+approved/rejected/recalled requests cannot reopen through repair. The panel editor
+owns choices, chair, unavailable labels, repair reason and expected version as one
+application-scoped draft. Background reads and rejected saves retain it; explicit
+successful Reload replaces it after fresh record/account/feature reads. Accepted
+saves whose synchronization fails stay locked and retry reads only. Interview history
+and completion live in Tutor Applications; legacy interview routes redirect there.
 
 Subject Availability has a separate staff route and management procedures, plus self-scoped tutor procedures, independent of interview enablement. `TutorSubjectWillingness` records explicit per-variant intent with no inferred migration backfill: an absent row means not recorded. Admin/Head apply staff willingness changes directly; Coordinators submit them for review. Active tutors can update only their own willingness. `availableSubjectIds` intersects explicit willingness with stored approved qualification grants and active subjects, excluding inactive or access-revoked tutors. Callers must still enforce timetable and capacity constraints. Changing willingness never edits approvals, grants or interview records.
 
@@ -2008,15 +2039,76 @@ Room-block review summaries use immutable payload/target evidence, not current r
 
 Attendance and crew patrol treat room IDs as opaque nonempty strings, including legacy/imported keys; a CUID generation default is not a restriction on stored IDs. The shared [room-reference check](../../src/server/room-references.ts) verifies effective physical rooms inside the write transaction and holds key-share row locks through commit. Unknown/deleted rooms return a room-specific error before attendance, observations or credits are written. Online attendance needs no room, while omitted/null physical-room overrides retain the pairing default. Accepted submission retries return their existing receipt before this check, preserving replay after catalogue changes. No ID migration or frontend change is required.
 
-The [hour calculator](../../src/lib/service-hours.ts) owns session rounding; use the [policy examples](../../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) rather than ordinary nearest-half-hour rounding. Completed interviews credit actual duration. The management completion adapter separates
-editing, credit review and final application, keeps cancelled/failed drafts with their
-captured `updatedAt`, and provides read-only synchronization recovery after successful
-writes. The completion transaction locks the application, rejects recalled/invalid
-requests and stale changed evidence, and uses exact deterministic credit IDs plus
-owner/type/reason checks in [interview hours](../../src/server/interview-hours.ts). Identical
-already-applied evidence is idempotent; panel replacement uses the same source boundary.
-Corrections preserve original school year/quarter while the completion month follows
-the recorded actual datetime. Unrelated manual credits are never prefix-deleted.
+The [hour calculator](../../src/lib/service-hours.ts) owns session rounding; use the
+[policy examples](../../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual)
+rather than ordinary nearest-half-hour rounding. Interview service credits actual
+duration. Its completion adapter separates editing, credit review and application,
+retains draft/version/evidence through background updates and rejected writes, and
+offers read-only recovery after accepted writes. The transaction locks the application,
+rejects recalled/invalid or stale changed evidence, and validates exact deterministic
+credit IDs, owners, types and reasons in [interview hours](../../src/server/interview-hours.ts).
+
+Completion correction uses the original evidenced physical-panel candidate set,
+including former/inactive panelists and originally assigned missed attendees. Current
+voting/chair/qualification rules are checked separately. The private on-demand reader
+validates the complete source ledger before showing actual per-person/total credit
+changes. Summary history remains readable with incomplete legacy service metadata;
+counted review cannot invent amounts. A reason/version-bound correction replaces
+only exact application-owned credits, preserves original school year/quarter and
+derives credit month from actual datetime.
+Unrelated manual prefix matches remain intact. Exact full-ledger retries, including
+Coordinator receipts, are read-only; changed Coordinator corrections still queue.
+
+The shared `reviewInterviewCompletion` checks the validated complete ledger and
+original candidate set before enforcing the optimistic version. Once completion
+exists, every changed correction requires the reviewed application version;
+missing or stale versions conflict before Coordinator proposal admission and again
+under source locks before direct or replayed application. Exact full-ledger receipts
+remain domain no-ops with an omitted or older version. Legacy first-completion
+callers retain optional-version compatibility; a supplied stale version still
+conflicts. Proposal admission retains namespace then application locks through
+source revalidation, target capture and commit, so an advisory classification
+cannot authorize a later source state.
+
+Every authorized service writer records canonical `interviewService.record` effects
+with a monotonic source revision, original eligible IDs, completion and full ledger.
+Panel repair carries that revision/candidate set without awarding service. Revisions
+follow source-lock application order, not transaction-start audit timestamps; the
+latest legitimate correction supplies later repair and retained qualification approval.
+Missing, conflicting or malformed evidence blocks counted review. These structured
+operational receipts must remain in database backups and retention.
+
+Retained additional/higher qualification approval validates the full source ledger,
+including corrected credits of attendees removed from today's voting panel. The
+current panel may contain none of the original attendees; its decision grants the
+qualification without adding, removing or reassigning that service. The private
+`completionEvidence` reader exposes the original candidates and per-person credits
+to authorized management separately from the current panel. Participant projections
+retain only the caller's own actual credit and do not acquire that management ledger.
+
+[Interview adjustment source inspection](../../src/server/interview-adjustment-source.ts)
+uses bounded bulk queries to prove exact canonical credit ownership from typed
+service/repair receipts or completed legacy attendance mappings, independently of
+mutable current owner/type/reason fields. Prefixes and copied reasons alone do not
+prove a live source. Generic deletion refuses proved current source credits and
+conflicting exact claims before proposal admission, during replay and under the
+applying namespace, actor, sorted application and adjustment-row locks. Independent
+adjustments retain their existing deletion authority. Orphaned and unresolved
+sources remain separately classified with their existing authorized generic
+deletion behavior and no invented correction route; this guard neither reconstructs
+missing service nor establishes a new orphan-cleanup policy.
+
+`admin.adjustments` adds only source kind, supported deletion and a verified
+correction href. The observer read-model whitelist reduces these fields to coarse
+`INDEPENDENT` / `INTERVIEW`, false deletion support and a null href, retaining reason
+masking without adding application/claim IDs or private audit evidence. The staff
+Hours page follows this server metadata rather than inferring source from row text.
+Its bounded encoded `#interview-completion-…` destination uses the existing
+`InterviewManagement` owner: an exact ALL-scope record read and fresh completion
+evidence open the existing editor independently of saved list filters, page and
+drafts. An active draft delays arrival, successful arrivals are consumed once, and
+failed reads offer read-only retry. Denial or a superseding fragment invalidates
+late private responses. Arrival, opening and retry do not write service hours.
 
 Management summary reads project application-linked invitation state without revealing codes. The authorized on-demand setup popup can reveal the existing active code. Combined chair acceptance records completion and service credits, reconciles initial admission/code issuance and creates an in-app Admin/Head notification in one transaction. Interviewed qualification approval uses the same completion rules without initial-signup reconciliation. Existing exact completion is reused; changed completion must use the correction route. Standalone completion never triggers admission or provision. Pending decision/completion
 approval metadata is separate from applied evidence. Tutor reads expose completion and
@@ -2590,9 +2682,12 @@ An unchanged pairing catalogue selector is suppressed only when its exact captur
 subject ID/name and original/requested subject text prove the same selection.
 
 Action outcomes follow the owning writer: subject removal archives an offering;
-replacing an interview panel starts a fresh review and clears prior votes,
-completion and service credits; replacing an accepted initial panel also explains
-its admission reconciliation. Course-group saves identify archived omitted
+initial-application panel replacement clears votes, completion and source-owned
+service credits, and accepted initial replacement explains admission reconciliation.
+Open additional/higher panel repair instead clears operational voting while retaining
+previous panel/vote evidence, completion and earned service. A separate authorized
+historical correction changes actual service without reopening a final decision.
+Course-group saves identify archived omitted
 offerings only from a complete captured child collection. Announcement summaries
 include the captured recipient count and localized audience choices. A generic
 before/after payload does not imply that a decision has already been applied.

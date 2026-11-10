@@ -17,7 +17,15 @@ import {
   proposalConfirmation,
 } from "~/lib/approval-policy";
 import { validateInterviewDecision } from "./interviews";
-import { isAppliedInterviewCompletion } from "./interview-hours";
+import {
+  inspectInterviewCompletionReview,
+  interviewCompletionInput,
+  reviewInterviewCompletion,
+} from "./interview-hours";
+import {
+  assertAdjustmentDeletionAllowed,
+  lockAdjustmentDeletion,
+} from "./interview-adjustment-source";
 import { validateRoomBlockProposal } from "./room-block-proposals";
 import {
   historicalApplyInput,
@@ -108,12 +116,16 @@ export async function proposalAuthority(
       checkpointRequiresHead: checkpoint.adapter === "PROGRAM_REFRESH",
     });
   }
+  // A generic reversal cannot sever a live interview's source ledger. Keep this
+  // inspection read-only; queue admission and application retain their own locks.
+  if (operation === "admin.deleteAdjustment" && typeof input.id === "string")
+    await assertAdjustmentDeletionAllowed(client, input.id);
   // Reading an exact completion receipt makes no live change. Admin lost-response
   // retries and Coordinator retries after review must not create correction proposals.
   // The API rechecks this classification under the application's review lock.
   if (
     operation === "interviewManagement.complete" &&
-    (await isAppliedInterviewCompletion(client, value))
+    (await inspectInterviewCompletionReview(client, value)) === "EXACT_RECEIPT"
   )
     return {
       category: "DAILY_OPERATION",
@@ -764,6 +776,30 @@ export async function proposalTargets(
       Object.entries(value).forEach(([k, v]) => collect(v, k));
   };
   collect(input);
+  if (includeAuthorityContext && operation === "interviewManagement.complete") {
+    const applicationId = z.string().parse(fields.applicationId);
+    const application = await client.tutorApplication.findUniqueOrThrow({
+      where: { id: applicationId },
+      include: { interviewers: true },
+    });
+    const { interviewServiceContext } = await import("./interview-hours");
+    const service = await interviewServiceContext(
+      client,
+      applicationId,
+      application,
+    );
+    reviewInterviewCompletion(
+      application,
+      service,
+      interviewCompletionInput.parse(fields),
+    );
+    // Removed recipients still belong to the proposed correction's before
+    // evidence. Capture their identities/source rows, even when absent from both
+    // the new attendance selection and the current voting panel.
+    const tutors = ids.get("Tutor") ?? new Set<string>();
+    for (const tutorId of service.eligibleTutorIds) tutors.add(tutorId);
+    ids.set("Tutor", tutors);
+  }
   if (
     includeReviewPresentation &&
     operation === "corrections.correctAttendance"
@@ -897,15 +933,48 @@ export async function proposalTargets(
     // A pending participation review or publication can appear without changing
     // roster.updatedAt. Approval must review the same exact decline boundary.
     const id = fields.id;
-    const [reviews, removals, surveys, consolidations, attendance, publication] = await Promise.all([
-      client.studentRequestReview.findMany({ where: { legacyTuteeId: id, state: "PENDING" }, select: { id: true, kind: true, state: true }, orderBy: { id: "asc" } }),
-      client.tuteeRemovalRequest.findMany({ where: { tuteeId: id, state: "PENDING" }, select: { id: true, kind: true, state: true }, orderBy: { id: "asc" } }),
-      client.studentSurvey.findMany({ where: { tuteeId: id }, select: { id: true, state: true }, orderBy: { id: "asc" } }),
-      client.participantConsolidation.findMany({ where: { kind: "TUTEE", active: true, OR: [{ sourceId: id }, { targetId: id }] }, orderBy: { sourceId: "asc" } }),
+    const [
+      reviews,
+      removals,
+      surveys,
+      consolidations,
+      attendance,
+      publication,
+    ] = await Promise.all([
+      client.studentRequestReview.findMany({
+        where: { legacyTuteeId: id, state: "PENDING" },
+        select: { id: true, kind: true, state: true },
+        orderBy: { id: "asc" },
+      }),
+      client.tuteeRemovalRequest.findMany({
+        where: { tuteeId: id, state: "PENDING" },
+        select: { id: true, kind: true, state: true },
+        orderBy: { id: "asc" },
+      }),
+      client.studentSurvey.findMany({
+        where: { tuteeId: id },
+        select: { id: true, state: true },
+        orderBy: { id: "asc" },
+      }),
+      client.participantConsolidation.findMany({
+        where: {
+          kind: "TUTEE",
+          active: true,
+          OR: [{ sourceId: id }, { targetId: id }],
+        },
+        orderBy: { sourceId: "asc" },
+      }),
       client.sessionTutee.count({ where: { tuteeId: id } }),
       client.sessionPlanParticipant.count({ where: { tuteeId: id } }),
     ]);
-    targets.legacySignupDeclineContext = { reviews, removals, surveys, consolidations, attendance, publication };
+    targets.legacySignupDeclineContext = {
+      reviews,
+      removals,
+      surveys,
+      consolidations,
+      attendance,
+      publication,
+    };
   }
   // New captures opt in; replay selects this exact shape only when the immutable
   // request has the version marker. Old proposals retain their original digest
@@ -943,12 +1012,14 @@ export async function proposalTargets(
     });
     // Backfilled single-day rows keep pre-migration approval fingerprints. A real
     // range retains its endpoint; every later edit also advances the row version.
-    targets.programCalendar = notices.map(({ endDate, schedulingEffect, ...notice }) => ({
-      ...notice,
-      ...(endDate === notice.date ? {} : { endDate }),
-      // Additive default preserves unchanged pre-policy approval fingerprints.
-      ...(schedulingEffect === "NOTICE" ? {} : { schedulingEffect }),
-    }));
+    targets.programCalendar = notices.map(
+      ({ endDate, schedulingEffect, ...notice }) => ({
+        ...notice,
+        ...(endDate === notice.date ? {} : { endDate }),
+        // Additive default preserves unchanged pre-policy approval fingerprints.
+        ...(schedulingEffect === "NOTICE" ? {} : { schedulingEffect }),
+      }),
+    );
   }
   if (operation === "admin.reorderRooms")
     targets.roomOrder = await client.room.findMany({
@@ -1213,12 +1284,15 @@ export async function proposalTargets(
         child === "LegacySignupDecline"
           ? "to_jsonb(t) - ARRAY['clientKey','inputHash']::text[]"
           : child === "Pairing"
-          ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
-          : "to_jsonb(t)";
+            ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
+            : "to_jsonb(t)";
       const rows = await client.$queryRaw<unknown[]>(
         Prisma.sql`SELECT ${Prisma.raw(childFields)} AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
       );
-      if (!["TuteeRequestInvalidity", "LegacySignupDecline"].includes(child) || rows.length)
+      if (
+        !["TuteeRequestInvalidity", "LegacySignupDecline"].includes(child) ||
+        rows.length
+      )
         targets[`${parent}.${child}`] = rows;
     }
   }
@@ -1292,7 +1366,72 @@ export async function queueProposal(
     operation === "admin.correctApplicationIdentity"
       ? applicationIdentityCorrectionInput.parse(value)
       : null;
+  const interviewCompletion =
+    operation === "interviewManagement.complete"
+      ? interviewCompletionInput.parse(value)
+      : null;
   return inTransaction(db, async (tx) => {
+    if (operation === "admin.deleteAdjustment") {
+      const deletion = z.object({ id: z.string().min(1) }).parse(value);
+      // Retain fresh ownership through capture/commit, before the proposal lock.
+      // A formerly missing/manual row may become an owned source while waiting.
+      await lockAdjustmentDeletion(tx, deletion.id, async () => {
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;
+        const current = await tx.user.findUnique({
+          where: { id: session.user.id },
+          select: {
+            role: true,
+            suspendedAt: true,
+            mergedIntoId: true,
+            recoveryVoidedAt: true,
+          },
+        });
+        if (
+          !current ||
+          current.suspendedAt ||
+          current.mergedIntoId ||
+          current.recoveryVoidedAt ||
+          current.role !== session.role ||
+          !["HEAD", "ADMIN", "COORDINATOR"].includes(current.role)
+        )
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Admin access required.",
+          });
+      });
+    }
+    if (interviewCompletion) {
+      // Source evidence cannot change between classification and immutable
+      // proposal capture. Match the writer's namespace-before-application order
+      // before taking the proposal fingerprint lock, and retain both to commit.
+      try {
+        await lockUsernameNamespace(tx);
+      } catch (cause) {
+        const { isSerializationFailure } =
+          await import("./auth/username-snapshot");
+        if (isSerializationFailure(cause))
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Interview service changed while this review waited. Reload the current evidence.",
+            cause,
+          });
+        throw cause;
+      }
+      const { lockApplicationReview } = await import("./request-invalidity");
+      await lockApplicationReview(tx, interviewCompletion.applicationId);
+      if (
+        (await inspectInterviewCompletionReview(tx, value)) === "EXACT_RECEIPT"
+      )
+        // An identical writer may finish after the outer classification chose
+        // the proposal path. A fresh retry takes its normal direct receipt path;
+        // never queue an already-applied action or invent an approval receipt.
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This interview service is already recorded. Retry against the current evidence to read its receipt.",
+        });
+    }
     if (identityCorrection) {
       await lockUsernameNamespace(tx);
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;

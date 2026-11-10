@@ -552,6 +552,19 @@ Staff can narrow **Tutor Applications** by name or email, application status, re
 
 When selecting interviewers, **Group panelists by subject** puts tutors with recorded qualifications first, using the same grouped selector as tutee assignment. Choose any requested subject or focus on one; qualification labels list the requested subjects each tutor covers. Changing the focus preserves current selections. Other available tutors remain selectable as panelists; only Admin or Head panelists can chair, regardless of other panelists' rank. Coordinators may participate and vote. Tutors must have active, non-suspended accounts and cannot review their own additional qualification request. Unavailable existing panelists stay labelled until replaced. A missing chair or a saved chair who is no longer Admin/Head needs a valid chair assignment before scheduling, new decisions or first completion; ask management to update the panel. This does not remove other eligible panelists' voting access. Hour corrections for an already completed interview preserve its recorded chair, including a legacy Coordinator chair. Select three to eight distinct panelists and a chair, then **Save Panel**; the server still checks qualification and chair requirements.
 
+For an additional-subject or higher-level request already under interview, an
+independent Admin or Head can select a valid replacement panel, enter **Reason for
+panel repair**, then choose **Repair panel**. The reason and previous panel/votes
+remain in audit history; every replacement panelist must vote again. Recorded
+completion and earned hours remain unchanged. New voting-panel members do not
+automatically receive earlier hours. Approved, rejected and recalled requests
+cannot reopen through repair.
+
+Panel choices, chair and repair reason retain the version originally reviewed.
+Background updates and rejected saves keep that draft. **Reload panel** replaces it
+only after fresh record and eligibility reads succeed; failed Reload keeps it.
+An accepted save whose refresh fails stays locked until read-only recovery finishes.
+
 ### Correct an initial tutor application's name
 
 In **Tutor Applications**, open an initial request's details and choose **Edit signup
@@ -598,6 +611,15 @@ The application explains loading failures and offers a retry. Intake needs confi
 
 The assigned Admin or Head chair selects **Approve** after every panelist has voted. Enter the actual completion time, duration in minutes and attending panelists, then review and confirm **Approve & award hours**. The panel majority still applies; the chair resolves a tie. The same transaction accepts the application, awards each attendee `minutes / 60` hours, prepares the initial applicant’s registration code (or links an existing verified account), and notifies active Admin and Head accounts. Initial acceptance no longer waits for a second Head approval. Codes appear in **Registration Codes**. Interviewed additional-subject and higher-level approvals award hours and qualifications without creating a registration code. Previously recorded completion is reused exactly; correct it through management before approving if necessary.
 
+Completed additional/higher approval explicitly reuses the recorded completion,
+attendance and service credits, including authorized corrections, even when none
+of the physical attendees remain on the current voting panel. It grants the
+qualification without changing those hours. Missing or inconsistent source credits
+stop approval for management review; replacement panelists do not receive the earlier
+attendees' hours. Once an initial interview is accepted or rejected, a fresh
+application version cannot authorize a new decision or final note. An exact accepted
+retry only reads its existing receipt.
+
 For rejected interviews, legacy records or separate completion entry, management records actual interview completion through **Tutor Applications → Interview Records**
 in the Tutors navigation group. Expand a record and select **Record completion & award hours**.
 Enter the actual completion time, duration, explicitly attending panelists and required
@@ -607,18 +629,37 @@ For example, 45 minutes gives each selected attendee 0.75 hours; three attendees
 2.25 hours. Initial completion applies directly for Admin/Head; a Coordinator submits
 it for Admin/Head approval. A queued request has not awarded new hours.
 
-For an existing completion, **Correct completion & hours** previews each change,
-including removed attendees. It replaces that interview’s automatic credits while
-preserving unrelated manual adjustments and its original school year/quarter; Admin/Head
-apply corrections and Coordinator proposals await Admin/Head review. Failed saves
-retain the draft. An already completed interview keeps its historical chair for hour
-corrections and repeated completion submissions, including a legacy Coordinator or
-subsequently demoted chair. The other panel and qualification checks still apply;
-correcting hours does not reopen admission. **Reload current evidence (replace draft)** explicitly replaces a
-stale draft only after a successful read. If a successful award fails to refresh,
-**Refresh view** performs reads only and must not repeat the award. If permissions
-change, private review details are hidden; the same read-only recovery restores the
-list only after a successful fresh authorization check.
+For an existing completion, **Correct completion & hours** loads the original
+physical-panel candidates and their recorded credits separately from the current
+decision panel. Former and inactive panelists remain labelled. Retain or remove an
+earlier attendee, or correct missed attendance for someone on that original panel;
+later voting-only replacements are not candidates for the earlier service. Correct
+the actual date, duration and attendance, enter the reason, then review each
+recipient's credit and the total before/after/change before confirming. The correction
+replaces only this interview's automatic credits, preserving unrelated manual
+adjustments and its original school year/quarter. Admin/Head apply corrections;
+Coordinator proposals await review. It does not reopen a final application decision.
+
+Completed interviews retain their recorded chair, including a legacy Coordinator
+or subsequently demoted chair; current operational panel and qualification checks
+still apply separately. Failed reads or saves retain the draft and reviewed version.
+**Reload current evidence (replace draft)** replaces them only after a successful
+read. If an accepted award fails to refresh, **Refresh view** reads without repeating
+it. Missing or inconsistent source evidence blocks counted review. Permission loss
+hides private details until a fresh authorized read succeeds.
+
+Corrections use the completion version you reviewed. If another manager has saved
+a newer record, your correction is refused before a new Coordinator review request
+is submitted. Reload current evidence, review the updated attendance and credits,
+then submit again. Recovering the exact already-applied completion preserves its
+evidence and does not repeat its credits.
+
+**Hour Adjustments** labels credits from interview service. Where available,
+**Correct interview hours** opens the exact source interview through a fresh read,
+even when the saved **Interview Records** filters hide it. Those filters stay
+unchanged. An open completion draft stays intact before the source record opens;
+a failed source read offers **Retry interview record**. Opening the link awards or
+deletes no hours; correction still requires the existing review and approval.
 
 The review also shows the applied application decision, pending approval and existing
 registration/setup status. Authorized staff follow the contextual Registration Codes
@@ -828,8 +869,10 @@ field changes. An empty text value is distinguished from a field that was not se
 or was never captured.
 
 Read the stated consequence as well as the values. Removing a subject archives it
-and preserves its history. Replacing an interview panel starts a fresh review and
-clears previous votes, completion and credited interview hours. Course-group
+and preserves its history. Initial-application panel replacement starts a fresh
+review and clears previous votes, completion and credited interview hours. Repairing
+an open additional/higher panel clears operational votes while retaining previous
+panel/vote evidence, completion and earned service. Course-group
 changes explain which omitted offerings will be archived when that complete
 original list was captured. Announcement reviews show the fixed recipient count
 and the selected audience rules.
@@ -1171,7 +1214,7 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - Maintain subjects, slots, rooms, rosters and assignments; check current intake and availability before matching. Use the [program configuration guide](program-configuration.md) for schedules, timezones, announcements and contact permissions.
 - Use **Tutee Support** for feedback visibility and disciplinary-card appeals. Staff see pending appeals first, can switch to resolved history, and each list has its own page navigation. Follow its school-calendar link to **Program Settings**, then open **Recruitment and Refresh**; calendar overrides affect the five-school-day disciplinary appeal window. Signup-invalidity appeals use the request's invalidity review instead.
 - In **Users & Roles**, open a person's **User details** to read their policy acceptance status and history. Expand an acceptance to read its original title, version, signature, time and exact text in each recorded language. This works for linked accounts with missing email; unlinked contacts have no account acceptance history. Only HEAD, administrators and coordinators can access these records.
-- Assign interview panels with at least three active tutors and staff-confirmed qualification in an applicant subject. Select an Admin or Head panelist as chair, regardless of other panelists' rank; Coordinators may participate and vote but cannot chair. Missing or demoted legacy chairs need a valid chair assignment before scheduling, new decisions or first completion. Use **Subject Availability**, immediately below Tutor Roster, to review subject groups and variants, direct approval status, recorded inherited qualifications and independent willingness to tutor. Missing willingness means not recorded; approving a subject never records willingness. Expand a tutor to approve a subject, remove an approval source or record willingness. Approving an advanced variant records the lower offered levels of its group at that time; later catalogue reordering does not change those grants. Removing one source does not remove qualifications granted by other sources. This screen remains available when interviews are disabled. Use **Tutor Applications** for panel assignment, votes, decisions, completion, duration and attendees. Applicant summaries show status, panel, chair, schedule and completion without expanding. Search applicants, panelists or subjects and switch between open, completed and all records. Filter by application status and sort all matching records by completion date, application date or name; newest and oldest first are available, and history sorting applies before pagination. Expand an interview record and follow its panel link to the applicant editor on the same page. Interview history remains readable when interviews are disabled; completion and panel writes are disabled. Correcting an already completed interview replaces earlier automatic credits and allows Admin/Head application; eligible Coordinator corrections wait for review. Historical hour corrections retain the recorded chair without checking today's management rank; other panel and qualification checks remain.
+- Assign interview panels with three to eight distinct active tutors and staff-confirmed qualification in an applicant subject. Select an Admin or Head panelist as chair, regardless of other panelists' rank; Coordinators may participate and vote but cannot chair. Missing or demoted legacy chairs need a valid chair assignment before scheduling, new decisions or first completion. Use **Subject Availability**, immediately below Tutor Roster, to review subject groups and variants, direct approval status, recorded inherited qualifications and independent willingness to tutor. Missing willingness means not recorded; approving a subject never records willingness. Expand a tutor to approve a subject, remove an approval source or record willingness. Approving an advanced variant records the lower offered levels of its group at that time; later catalogue reordering does not change those grants. Removing one source does not remove qualifications granted by other sources. This screen remains available when interviews are disabled. Use **Tutor Applications** for panel assignment, votes, decisions, completion, duration and attendees. Applicant summaries show status, panel, chair, schedule and completion without expanding. Search applicants, panelists or subjects and switch between open, completed and all records. Filter by application status and sort all matching records by completion date, application date or name; newest and oldest first are available, and history sorting applies before pagination. Expand an interview record and follow its panel link to the applicant editor on the same page. Interview history remains readable when interviews are disabled; completion and panel writes are disabled. Correcting an already completed interview replaces earlier automatic credits and allows Admin/Head application; eligible Coordinator corrections wait for review. Historical hour corrections retain the recorded chair without checking today's management rank; other panel and qualification checks remain.
 - Interview acceptance does not restore restricted participation. Management-revoked tutoring access requires explicit Admin/Head restoration in **Users & Roles** before the chair retries approval. Suspended or retired accounts and confirmed school departures also require review. A historical archive alone does not prevent an otherwise eligible returning applicant from being accepted.
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee Policy** and **Tutor Policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.

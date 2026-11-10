@@ -1,28 +1,40 @@
 // @vitest-environment jsdom
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import {
   InterviewPanelEditor,
   type PanelTutor,
 } from "./interview-panel-editor";
 
-const mocks = vi.hoisted(() => ({
-  loading: false,
-  error: null as Error | null,
-  pending: false,
-  mutate: vi.fn(),
-  refetch: vi.fn(),
-  saved: false,
-  saveError: null as Error | null,
-}));
+const mocks = vi.hoisted(() => {
+  const callbacks: {
+    onSuccess?: () => Promise<void> | void;
+    onError?: () => Promise<void> | void;
+  } = {};
+  return {
+    loading: false,
+    error: null as Error | null,
+    pending: false,
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    refetch: vi.fn(),
+    saved: false,
+    saveError: null as Error | null,
+    callbacks,
+  };
+});
 vi.mock("~/trpc/react", () => ({
   api: {
     admin: {
@@ -38,12 +50,16 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       assignInterviewers: {
-        useMutation: () => ({
-          mutate: mocks.mutate,
-          isPending: mocks.pending,
-          isSuccess: mocks.saved,
-          error: mocks.saveError,
-        }),
+        useMutation: (callbacks: typeof mocks.callbacks) => {
+          mocks.callbacks = callbacks;
+          return {
+            mutate: mocks.mutate,
+            isPending: mocks.pending,
+            isSuccess: mocks.saved,
+            error: mocks.saveError,
+            reset: mocks.reset,
+          };
+        },
       },
     },
   },
@@ -76,7 +92,9 @@ const props = {
   tutors,
   onChanged: vi.fn(),
 };
-function show(overrides: Partial<typeof props> = {}) {
+function show(
+  overrides: Partial<ComponentProps<typeof InterviewPanelEditor>> = {},
+) {
   return render(
     <NextIntlClientProvider locale="en" messages={en}>
       <InterviewPanelEditor {...props} {...overrides} />
@@ -94,6 +112,11 @@ beforeEach(() => {
   mocks.pending = false;
   mocks.saved = false;
   mocks.saveError = null;
+  mocks.callbacks = {};
+  mocks.reset.mockImplementation(() => {
+    mocks.saveError = null;
+    mocks.saved = false;
+  });
 });
 afterEach(cleanup);
 
@@ -129,15 +152,30 @@ it("requires three distinct panelists and a chair and sends the original concurr
   );
   expect(save().disabled).toBe(true);
   fireEvent.click(screen.getByLabelText("Choose panelist 3 as chair"));
-  fireEvent.click(save());
+  fireEvent.change(slot(3), { target: { value: "d" } });
+  expect(save().disabled).toBe(true);
+  fireEvent.change(slot(3), { target: { value: "c" } });
+  expect(save().disabled).toBe(true);
+  fireEvent.click(screen.getByLabelText("Choose panelist 3 as chair"));
+  const saveButton = save();
+  fireEvent.click(saveButton);
+  expect(mocks.mutate).toHaveBeenCalledTimes(1);
   expect(mocks.mutate).toHaveBeenCalledWith({
     applicationId: "app",
     tutorIds: ["a", "b", "c"],
     headTutorId: "c",
     expectedUpdatedAt: updatedAt,
   });
-  fireEvent.change(slot(3), { target: { value: "d" } });
-  expect(save().disabled).toBe(true);
+  expect(saveButton.textContent).toBe(en.admin.applications.saving);
+  expect(saveButton.disabled).toBe(true);
+  [1, 2, 3].forEach((index) => {
+    expect((slot(index) as HTMLSelectElement).disabled).toBe(true);
+    expect(
+      screen.getByRole<HTMLInputElement>("radio", {
+        name: `Choose panelist ${index} as chair`,
+      }).disabled,
+    ).toBe(true);
+  });
 });
 it("allows an Admin chair alongside Head while keeping Coordinators as ordinary panelists", () => {
   show({
@@ -296,4 +334,371 @@ it("disables edits while saving and exposes server errors", () => {
   show();
   expect((slot(1) as HTMLSelectElement).disabled).toBe(true);
   expect(screen.getByRole("alert").textContent).toBe("Panel changed; reload");
+});
+
+const panel = (ids: string[], chair: string) =>
+  ids.map((id) => ({
+    isHead: id === chair,
+    tutor: { id, englishName: `Tutor ${id.toUpperCase()}` },
+  }));
+
+it.each(["en", "zh"] as const)(
+  "keeps a retained panel and its original version together after background refresh (%s)",
+  (locale) => {
+    const messages = locale === "en" ? en : zh;
+    const refreshedVersion = new Date("2026-09-01T00:01:00Z");
+    const view = (version: Date, ids: string[], chair: string) => (
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <InterviewPanelEditor
+          {...props}
+          updatedAt={version}
+          interviewers={panel(ids, chair)}
+        />
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(view(updatedAt, ["a", "b", "c"], "a"));
+    // The retained editor owns panel A. A background read of saved panel B must
+    // not authorize overwriting B with A by lending A the new concurrency token.
+    rerender(view(refreshedVersion, ["c", "d", "e"], "c"));
+    const selectedIds = screen
+      .getAllByRole<HTMLSelectElement>("combobox")
+      .slice(1)
+      .map((select) => select.value);
+    expect(selectedIds).toEqual(["a", "b", "c"]);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.admin.applications.savePanel,
+      }),
+    );
+    expect(mocks.mutate).toHaveBeenCalledWith({
+      applicationId: props.applicationId,
+      tutorIds: ["a", "b", "c"],
+      headTutorId: "a",
+      expectedUpdatedAt: updatedAt,
+    });
+  },
+);
+
+it("retains edited selections and their version after a rejected save and refresh", async () => {
+  const initial = { ...props, interviewers: panel(["a", "b", "c"], "a") };
+  const view = (version: Date) => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <InterviewPanelEditor {...initial} updatedAt={version} />
+    </NextIntlClientProvider>
+  );
+  const { rerender } = render(view(updatedAt));
+  fireEvent.change(slot(3), { target: { value: "d" } });
+  fireEvent.click(save());
+  mocks.saveError = new Error("Panel changed; reload");
+  await act(async () => mocks.callbacks.onError?.());
+  rerender(view(new Date("2026-09-01T00:01:00Z")));
+  expect((slot(3) as HTMLSelectElement).value).toBe("d");
+  fireEvent.click(save());
+  expect(mocks.mutate).toHaveBeenLastCalledWith({
+    applicationId: "app",
+    tutorIds: ["a", "b", "d"],
+    headTutorId: "a",
+    expectedUpdatedAt: updatedAt,
+  });
+});
+
+it("admits one panel save before the pending render", () => {
+  show({ interviewers: panel(["a", "b", "c"], "a") });
+  const button = save();
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(mocks.mutate).toHaveBeenCalledOnce();
+});
+
+it("starts a separate draft and captured version when the application identity changes", () => {
+  const view = (applicationId: string, version: Date, ids: string[]) => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <InterviewPanelEditor
+        {...props}
+        applicationId={applicationId}
+        updatedAt={version}
+        interviewers={panel(ids, ids[0]!)}
+      />
+    </NextIntlClientProvider>
+  );
+  const nextVersion = new Date("2026-09-01T00:01:00Z");
+  const { rerender } = render(view("first", updatedAt, ["a", "b", "c"]));
+  fireEvent.change(slot(3), { target: { value: "d" } });
+  rerender(view("second", nextVersion, ["c", "d", "e"]));
+  expect((slot(1) as HTMLSelectElement).value).toBe("c");
+  fireEvent.click(save());
+  expect(mocks.mutate).toHaveBeenLastCalledWith({
+    applicationId: "second",
+    tutorIds: ["c", "d", "e"],
+    headTutorId: "c",
+    expectedUpdatedAt: nextVersion,
+  });
+});
+
+it("replaces selections and their version together only after an explicit successful reload", async () => {
+  const freshVersion = new Date("2026-09-01T00:02:00Z");
+  const onReload = vi.fn().mockResolvedValue({
+    applicationId: "app",
+    updatedAt: freshVersion,
+    interviewers: panel(["c", "d", "e"], "c"),
+  });
+  mocks.saveError = new Error("Panel changed; reload");
+  show({ interviewers: panel(["a", "b", "c"], "a"), onReload });
+  fireEvent.change(slot(3), { target: { value: "d" } });
+  fireEvent.click(screen.getByRole("button", { name: "Reload panel" }));
+  await waitFor(() => expect((slot(1) as HTMLSelectElement).value).toBe("c"));
+  expect(onReload).toHaveBeenCalledOnce();
+  expect((slot(3) as HTMLSelectElement).value).toBe("e");
+  fireEvent.click(save());
+  expect(mocks.mutate).toHaveBeenCalledWith({
+    applicationId: "app",
+    tutorIds: ["c", "d", "e"],
+    headTutorId: "c",
+    expectedUpdatedAt: freshVersion,
+  });
+});
+
+it.each(["failed read", "different application"] as const)(
+  "retains the complete draft and token after reload returns a %s",
+  async (scenario) => {
+    const onReload = vi.fn();
+    if (scenario === "failed read")
+      onReload.mockRejectedValue(new Error("offline"));
+    else
+      onReload.mockResolvedValue({
+        applicationId: "different-app",
+        updatedAt: new Date("2026-09-01T00:02:00Z"),
+        interviewers: panel(["c", "d", "e"], "c"),
+      });
+    mocks.saveError = new Error("Panel changed; reload");
+    show({ interviewers: panel(["a", "b", "c"], "a"), onReload });
+    fireEvent.change(slot(3), { target: { value: "d" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reload panel" }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "The current panel could not be loaded. Your draft is unchanged.",
+        ),
+      ).toBeTruthy(),
+    );
+    expect((slot(1) as HTMLSelectElement).value).toBe("a");
+    expect((slot(3) as HTMLSelectElement).value).toBe("d");
+    fireEvent.click(save());
+    expect(mocks.mutate).toHaveBeenCalledWith({
+      applicationId: "app",
+      tutorIds: ["a", "b", "d"],
+      headTutorId: "a",
+      expectedUpdatedAt: updatedAt,
+    });
+  },
+);
+
+it("keeps an accepted save locked after refresh failure and recovers through reads only", async () => {
+  const freshVersion = new Date("2026-09-01T00:02:00Z");
+  const onChanged = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValue(undefined);
+  const onReload = vi.fn().mockResolvedValue({
+    applicationId: "app",
+    updatedAt: freshVersion,
+    interviewers: panel(["a", "b", "d"], "a"),
+  });
+  show({ interviewers: panel(["a", "b", "c"], "a"), onChanged, onReload });
+  fireEvent.change(slot(3), { target: { value: "d" } });
+  fireEvent.click(save());
+  await act(async () => mocks.callbacks.onSuccess?.());
+  expect(save().disabled).toBe(true);
+  expect((slot(3) as HTMLSelectElement).disabled).toBe(true);
+  fireEvent.click(save());
+  expect(mocks.mutate).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "Retry loading panel" }));
+  await waitFor(() => expect(save().disabled).toBe(false));
+  expect(onChanged).toHaveBeenCalledTimes(2);
+  expect(onReload).toHaveBeenCalledOnce();
+  expect(mocks.mutate).toHaveBeenCalledOnce();
+  fireEvent.click(save());
+  expect(mocks.mutate).toHaveBeenLastCalledWith({
+    applicationId: "app",
+    tutorIds: ["a", "b", "d"],
+    headTutorId: "a",
+    expectedUpdatedAt: freshVersion,
+  });
+});
+
+it("requires a nonblank repair reason and submits its trimmed value with the captured version", () => {
+  show({ repairRequired: true, interviewers: panel(["a", "b", "c"], "a") });
+  const button = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Repair panel",
+  });
+  const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: "Reason for panel repair",
+  });
+  expect(reason.required).toBe(true);
+  expect(reason.maxLength).toBe(1000);
+  expect(button.disabled).toBe(true);
+  expect(
+    screen.getByText(
+      "Replacing this open panel clears its votes. Recorded completion and earned hours stay as history; new panelists receive no automatic credit. Every replacement panelist must vote again.",
+    ),
+  ).toBeTruthy();
+  fireEvent.change(reason, { target: { value: "   " } });
+  expect(button.disabled).toBe(true);
+  fireEvent.change(reason, { target: { value: "x".repeat(1001) } });
+  expect(button.disabled).toBe(true);
+  fireEvent.change(reason, {
+    target: { value: "  Replace unavailable panelist  " },
+  });
+  fireEvent.click(button);
+  expect(mocks.mutate).toHaveBeenCalledWith({
+    applicationId: "app",
+    tutorIds: ["a", "b", "c"],
+    headTutorId: "a",
+    expectedUpdatedAt: updatedAt,
+    repairReason: "Replace unavailable panelist",
+  });
+});
+
+it("retains the repair reason, choices and original token after rejection and background refresh", async () => {
+  const view = (version: Date, ids: string[]) => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <InterviewPanelEditor
+        {...props}
+        repairRequired
+        updatedAt={version}
+        interviewers={panel(ids, ids[0]!)}
+      />
+    </NextIntlClientProvider>
+  );
+  const { rerender } = render(view(updatedAt, ["a", "b", "c"]));
+  const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: "Reason for panel repair",
+  });
+  fireEvent.change(reason, { target: { value: "Keep this explanation" } });
+  fireEvent.change(slot(3), { target: { value: "d" } });
+  fireEvent.click(screen.getByRole("button", { name: "Repair panel" }));
+  mocks.saveError = new Error("Panel changed; reload");
+  await act(async () => mocks.callbacks.onError?.());
+  rerender(view(new Date("2026-09-01T00:01:00Z"), ["c", "d", "e"]));
+  expect(reason.value).toBe("Keep this explanation");
+  expect((slot(1) as HTMLSelectElement).value).toBe("a");
+  expect((slot(3) as HTMLSelectElement).value).toBe("d");
+  fireEvent.click(screen.getByRole("button", { name: "Repair panel" }));
+  expect(mocks.mutate).toHaveBeenLastCalledWith({
+    applicationId: "app",
+    tutorIds: ["a", "b", "d"],
+    headTutorId: "a",
+    expectedUpdatedAt: updatedAt,
+    repairReason: "Keep this explanation",
+  });
+});
+
+it.each(["explicit reload", "accepted save"] as const)(
+  "clears the repair reason only after a successful %s adopts the saved panel",
+  async (scenario) => {
+    const freshVersion = new Date("2026-09-01T00:02:00Z");
+    const onReload = vi.fn().mockResolvedValue({
+      applicationId: "app",
+      updatedAt: freshVersion,
+      repairRequired: true,
+      interviewers: panel(["c", "d", "e"], "c"),
+    });
+    if (scenario === "explicit reload")
+      mocks.saveError = new Error("Panel changed; reload");
+    show({
+      repairRequired: true,
+      interviewers: panel(["a", "b", "c"], "a"),
+      onReload,
+    });
+    const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: "Reason for panel repair",
+    });
+    fireEvent.change(reason, { target: { value: "Original repair reason" } });
+    if (scenario === "explicit reload")
+      fireEvent.click(screen.getByRole("button", { name: "Reload panel" }));
+    else {
+      fireEvent.click(screen.getByRole("button", { name: "Repair panel" }));
+      await act(async () => mocks.callbacks.onSuccess?.());
+    }
+    await waitFor(() => expect(reason.value).toBe(""));
+    expect((slot(1) as HTMLSelectElement).value).toBe("c");
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Repair panel" })
+        .disabled,
+    ).toBe(true);
+    fireEvent.change(reason, { target: { value: "New reviewed reason" } });
+    fireEvent.click(screen.getByRole("button", { name: "Repair panel" }));
+    expect(mocks.mutate).toHaveBeenLastCalledWith({
+      applicationId: "app",
+      tutorIds: ["c", "d", "e"],
+      headTutorId: "c",
+      expectedUpdatedAt: freshVersion,
+      repairReason: "New reviewed reason",
+    });
+  },
+);
+
+it("requires a repair reason after another panel opens without rebasing the original draft", () => {
+  const view = (version: Date, repairRequired: boolean, ids: string[]) => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <InterviewPanelEditor
+        {...props}
+        repairRequired={repairRequired}
+        updatedAt={version}
+        interviewers={panel(ids, ids[0]!)}
+      />
+    </NextIntlClientProvider>
+  );
+  const { rerender } = render(view(updatedAt, false, ["a", "b", "c"]));
+  rerender(view(new Date("2026-09-01T00:01:00Z"), true, ["c", "d", "e"]));
+  const button = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Repair panel",
+  });
+  expect(button.disabled).toBe(true);
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "Reason for panel repair" }),
+    {
+      target: { value: "Review the changed panel" },
+    },
+  );
+  fireEvent.click(button);
+  expect(mocks.mutate).toHaveBeenCalledWith({
+    applicationId: "app",
+    tutorIds: ["a", "b", "c"],
+    headTutorId: "a",
+    expectedUpdatedAt: updatedAt,
+    repairReason: "Review the changed panel",
+  });
+});
+
+it("keeps the repair reason and original version when the explicit reload fails", async () => {
+  mocks.saveError = new Error("Panel changed; reload");
+  show({
+    repairRequired: true,
+    interviewers: panel(["a", "b", "c"], "a"),
+    onReload: vi.fn().mockRejectedValue(new Error("offline")),
+  });
+  const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: "Reason for panel repair",
+  });
+  fireEvent.change(reason, {
+    target: { value: "Keep the reviewed explanation" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Reload panel" }));
+  await waitFor(() =>
+    expect(
+      screen.getByText(
+        "The current panel could not be loaded. Your draft is unchanged.",
+      ),
+    ).toBeTruthy(),
+  );
+  expect(reason.value).toBe("Keep the reviewed explanation");
+  fireEvent.click(screen.getByRole("button", { name: "Repair panel" }));
+  expect(mocks.mutate).toHaveBeenCalledWith({
+    applicationId: "app",
+    tutorIds: ["a", "b", "c"],
+    headTutorId: "a",
+    expectedUpdatedAt: updatedAt,
+    repairReason: "Keep the reviewed explanation",
+  });
 });

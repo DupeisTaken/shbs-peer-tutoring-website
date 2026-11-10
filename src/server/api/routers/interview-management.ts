@@ -11,15 +11,73 @@ import { inTransaction } from "~/server/transactions";
 import { validatePanel } from "~/server/interviews";
 import { tutorDirectoryHref } from "~/lib/tutor-directory-link";
 import { assertFeatureEnabled } from "~/server/program/features";
-import { staleConflict } from "~/server/concurrency";
+import { lockUsernameNamespace } from "~/server/auth/username";
 import {
   interviewCompletionInput,
-  interviewHourRows,
-  sameInterviewCompletionEvidence,
+  interviewServiceContext,
+  reviewInterviewCompletion,
   writeInterviewCompletion,
 } from "~/server/interview-hours";
 
 export const interviewManagementRouter = createTRPCRouter({
+  // Counts/legacy history stay readable without fabricating service evidence.
+  // Open the exact, authorized service source only when staff request its editor.
+  completionEvidence: adminProcedure
+    .input(z.object({ applicationId: z.string().min(1) }))
+    .query(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockApplicationReview(tx, input.applicationId);
+        const app = await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: input.applicationId },
+          include: {
+            interviewers: {
+              include: { tutor: { select: { englishName: true } } },
+            },
+          },
+        });
+        const service = await interviewServiceContext(tx, app.id, app);
+        const participants = await tx.tutor.findMany({
+          where: { id: { in: service.eligibleTutorIds } },
+          select: { id: true, englishName: true, status: true },
+        });
+        return {
+          id: app.id,
+          name: app.name,
+          type: app.type,
+          status: app.status,
+          updatedAt: app.updatedAt,
+          isInvalid: !!app.invalidatedAt,
+          interviewAt: app.interviewAt,
+          interviewCompletedAt: app.interviewCompletedAt,
+          interviewDurationMin: app.interviewDurationMin,
+          interviewers: app.interviewers.map((person) => ({
+            tutorId: person.tutorId,
+            isHead: person.isHead,
+            attended: person.attended,
+            tutor: { englishName: person.tutor.englishName },
+          })),
+          completionParticipants: service.eligibleTutorIds.map((tutorId) => {
+            const tutor = participants.find((person) => person.id === tutorId);
+            const englishName = tutor?.englishName.trim() ?? "";
+            const credit = service.credits.find(
+              (row) => row.tutorId === tutorId,
+            );
+            return {
+              tutorId,
+              tutor: {
+                englishName: englishName.length > 0 ? englishName : tutorId,
+                status: tutor?.status ?? null,
+              },
+              attended: service.attendedTutorIds.includes(tutorId),
+              creditHours: credit?.amount ?? 0,
+              currentPanel: app.interviewers.some(
+                (person) => person.tutorId === tutorId,
+              ),
+            };
+          }),
+        };
+      }),
+    ),
   options: adminProcedure
     .input(
       z
@@ -383,7 +441,31 @@ export const interviewManagementRouter = createTRPCRouter({
       inTransaction(ctx.db, async (tx) => {
         await assertFeatureEnabled(tx, "INTERVIEWS");
         await assertFeatureEnabled(tx, "SERVICE_HOURS");
+        await lockUsernameNamespace(tx);
         await lockApplicationReview(tx, input.applicationId);
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${ctx.session.user.id} FOR SHARE`;
+        const actor = await tx.user.findUnique({
+          where: { id: ctx.session.user.id },
+          select: {
+            role: true,
+            suspendedAt: true,
+            mergedIntoId: true,
+            recoveryVoidedAt: true,
+          },
+        });
+        if (
+          !actor ||
+          actor.suspendedAt ||
+          actor.mergedIntoId ||
+          actor.recoveryVoidedAt ||
+          !["HEAD", "ADMIN", "COORDINATOR"].includes(actor.role) ||
+          actor.role !== ctx.session.role
+        )
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Your current management authority changed. Reload before correcting interview service.",
+          });
         if (input.completedAt > new Date())
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -415,31 +497,34 @@ export const interviewManagementRouter = createTRPCRouter({
               : "current",
           },
         );
+        const service = await interviewServiceContext(
+          tx,
+          input.applicationId,
+          before,
+        );
         if (
           new Set(input.attendedTutorIds).size !==
             input.attendedTutorIds.length ||
           input.attendedTutorIds.some(
-            (id) => !before.interviewers.some((p) => p.tutorId === id),
+            (id) => !service.eligibleTutorIds.includes(id),
           )
         )
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Attendance must name assigned panelists only.",
+            message: service.eligibleTutorIds.some(
+              (id) =>
+                !before.interviewers.some((person) => person.tutorId === id),
+            )
+              ? "Attendance must name evidenced interview participants only."
+              : "Attendance must name assigned panelists only.",
           });
-        const credits = await interviewHourRows(
-          tx,
-          input.applicationId,
-          before.interviewers.map((p) => p.tutorId),
-        );
-        // Retrying already-applied evidence is read-only, preserving credit identity and
-        // its original period even when the review snapshot has since advanced.
-        if (sameInterviewCompletionEvidence(before, credits, input))
-          return { ok: true };
+        const credits = service.credits;
+        // The same source-aware policy runs before proposal admission. Recheck
+        // under the retained source locks before granting a receipt or writing.
         if (
-          input.expectedUpdatedAt &&
-          input.expectedUpdatedAt.getTime() !== before.updatedAt.getTime()
+          reviewInterviewCompletion(before, service, input) === "EXACT_RECEIPT"
         )
-          staleConflict();
+          return { ok: true };
         // The same source-owned write is used by immediate chair approval.
         await writeInterviewCompletion(
           tx,

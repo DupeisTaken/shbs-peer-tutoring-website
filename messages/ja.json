@@ -1710,11 +1710,22 @@
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
       },
-      "create": "活動時間の調整を追加"
+      "create": "活動時間の調整を追加",
+      "source": {
+        "label": "出典",
+        "other": "その他の時間調整",
+        "interview": "面接の出典",
+        "orphaned": "面接記録を利用できません",
+        "unresolved": "未確認の面接出典",
+        "conflicting": "矛盾する面接出典",
+        "correct": "面接時間を訂正",
+        "help": "この時間は記録された面接活動に基づきます。面接を確認して、完了日時、所要時間、出席を訂正してください。",
+        "unavailable": "この行では面接完了記録の訂正を開けません。"
+      }
     },
     "applications": {
       "title": "チューター応募",
-      "intro": "応募者を審査し、{n}名の面接パネルを割り当てます（代表を1名指定）。行をクリックして展開できます。代表が面接の日程を設定し、自分のダッシュボードから結果を記録します。",
+      "intro": "申請を確認し、{n}～{max} 名のチューターで構成する面接委員会を割り当て、委員長を 1 名指定します。行をクリックすると詳細が開きます。委員長は自身のダッシュボードで面接を設定し、判断を記録します。",
       "empty": "応募はまだありません。",
       "status": {
         "PENDING": "保留中",
@@ -1724,7 +1735,7 @@
         "RECALLED": "Recalled"
       },
       "noCourses": "科目なし",
-      "panelSummary": "パネル {n}/{total}",
+      "panelSummary": "面接委員 {n} 名",
       "votesSummary": "投票 {accepts}/{total}",
       "accept": "合格",
       "reject": "不合格",
@@ -1738,14 +1749,14 @@
         "selfStudied": "独学：{note}"
       },
       "noQualification": "資格情報なし",
-      "panelHeading": "面接パネル（{n}名を選択し、代表を1名指定）",
+      "panelHeading": "面接委員会（{n}～{max} 名、委員長 1 名）",
       "scheduled": "予定日時：{when}（代表が設定）",
       "panelistSlot": "— 審査員 {n} —",
       "head": "代表",
       "saving": "保存中…",
       "savePanel": "パネルを保存",
       "saved": "保存しました。",
-      "pickHint": "{n}名のチューターと代表を選んでください。",
+      "pickHint": "少なくとも {n} 名のチューターを選び、委員長を指定してください。",
       "votesDecisionHeading": "投票と判定",
       "voteTally": "{accepts} 合格 · {rejects} 不合格",
       "noVotes": "まだ投票がありません。",
@@ -1800,7 +1811,21 @@
         "unavailable": "{name}（選択不可・変更してください）",
         "chairSlot": "面接担当者 {n} を議長に選択"
       },
-      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account."
+      "setupTargetUnavailable": "The linked tutor record is unavailable. Refresh this application before setting up the account.",
+      "panelDraft": {
+        "changed": "この下書きの編集中に面接担当者が変更されました。再読み込みして現在の担当者を確認してください。",
+        "reloadHelp": "再読み込みすると、この下書きは現在保存されている面接担当者に置き換わります。",
+        "reload": "面接担当者を再読み込み",
+        "loading": "面接担当者を読み込み中…",
+        "retry": "面接担当者の読み込みを再試行",
+        "reloadError": "現在の面接担当者を読み込めませんでした。下書きは変更されていません。",
+        "refreshError": "面接担当者の変更は送信されましたが、現在の担当者を読み込めませんでした。次の変更の前に読み込みを再試行してください。"
+      },
+      "panelRepair": {
+        "reason": "面接担当者を修復する理由",
+        "save": "面接担当者を修復",
+        "consequence": "未決定の面接担当者を入れ替えると、投票が消去されます。記録済みの完了情報と獲得した時間は履歴として保持され、新しい担当者に時間が自動付与されることはありません。入れ替え後の担当者は全員、再度投票する必要があります。"
+      }
     },
     "cards": {
       "title": "生徒指導",
@@ -7019,7 +7044,18 @@
     "reloadEvidence": "最新の根拠を再読み込み（下書きを置換）",
     "historyFollowups": "{count, plural, one {終了した面接#件で} other {終了した面接#件で}}、管理担当者による完了記録と奉仕時間の付与がまだ必要です。",
     "accessDenied": "面接へのアクセスは現在利用できません。再読み込みして現在の権限を確認してください。",
-    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
+    "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel.",
+    "correctionEvidence": {
+      "readUnavailable": "確認または送信する前に、現在の面接記録を正常に読み込む必要があります。下書きは保持されます。",
+      "missingEvidence": "この変更を確認する前に、記録された面接参加者と現在の付与時間を読み込んでください。",
+      "historyHelp": "出席と時間は記録された面接に属します。判定担当者を入れ替えても、新しい担当者が元の面接の出席者になるわけではありません。",
+      "decisionPanel": "現在の判定担当者：{names}",
+      "participants": "記録された面接担当者の出席状況",
+      "formerPanelist": "以前の面接担当者",
+      "loading": "面接完了の証拠を読み込み中…",
+      "totalChange": "付与時間の合計：{before} → {after} 時間（変更 {delta}）",
+      "retryArrival": "面接記録の読み込みを再試行"
+    }
   },
   "applicationAccountSetup": {
     "title": "Account Setup · {name}",
@@ -7056,7 +7092,8 @@
     "reload": "Reload interview (replace draft)",
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
-    "changed": "Interview evidence changed. Reload to review current information."
+    "changed": "Interview evidence changed. Reload to review current information.",
+    "retainedService": "この承認では、承認済みの訂正を含む面接完了・出席・活動時間の記録を引き継ぎます。現在の審査員は、記録上の出席者と異なる場合があります。この承認による活動時間の加算や削除はありません。"
   },
   "personPartition": {
     "refreshFailed": "The separation was saved, but the directory has not refreshed. Retry the read only.",

@@ -2111,13 +2111,15 @@ export const tutorRouter = createTRPCRouter({
             )
               return { ok: true };
           }
-          if (before.status !== "INTERVIEW")
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "This interview has already been decided. Reload its current outcome.",
-            });
         }
+        // A fresh version cannot reopen a final outcome. Keep the exact accepted
+        // receipt above read-only, then apply this boundary to both decisions.
+        if (before.status !== "INTERVIEW")
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This interview has already been decided. Reload its current outcome.",
+          });
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
           staleConflict();
         if (input.accept && input.completion) {
