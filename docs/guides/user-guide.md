@@ -565,7 +565,7 @@ When selecting interviewers, **Group panelists by subject** puts tutors with rec
 
 In **Tutor Applications**, open an initial request's details and choose **Edit signup
 request**. Admin/Head apply the correction; Coordinators submit it for review through
-Management Actions. Coordinators and read-only users cannot submit corrections.
+Management Actions. Read-only users cannot submit corrections.
 Confirm the spelling with the applicant, then enter First Name, Last Name,
 Preferred Name and Name in Another Language as appropriate, with a correction
 reason. Never guess a transliteration or divide an old name into guessed parts.
