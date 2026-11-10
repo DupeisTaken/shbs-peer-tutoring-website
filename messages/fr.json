@@ -8311,41 +8311,5 @@
     "loadFailed": "Impossible de charger les dernières exigences. Votre brouillon est conservé. Réessayez la lecture avant d’enregistrer.",
     "refreshFailed": "Les exigences ont été enregistrées, mais les paramètres n’ont pas pu être chargés. Réessayez la lecture sans enregistrer à nouveau.",
     "reload": "Recharger les dernières exigences"
-  },
-  "schoolHoursFollowup": {
-    "title": "E-mails de suivi",
-    "help": "Programmez un rappel unique aux destinataires actuels du rapport. L’envoi commence à l’heure choisie si le serveur est en fonctionnement.",
-    "sameReport": "Le rappel envoie le même rapport enregistré. Il ne crée pas de nouvelle édition et n’ajoute pas à nouveau les heures de service. Les destinataires ne doivent pas comptabiliser deux fois les mêmes heures.",
-    "recipients": "Destinataires du rapport",
-    "noRecipients": "Aucun destinataire n’est actuellement autorisé pour ce rapport.",
-    "sendAt": "Date et heure du suivi",
-    "timeHelp": "Fuseau horaire : {timeZone}. Choisissez une heure future. La distribution peut prendre quelques minutes.",
-    "invalidTime": "Choisissez une date et une heure futures valides dans le fuseau indiqué. Les heures ambiguës dues au changement d’heure ne sont pas acceptées.",
-    "reviewSchedule": "Vérifier le suivi",
-    "reviewTitle": "Programmer un suivi pour ce rapport ?",
-    "reviewHelp": "Envoyer un rappel concernant ce rapport enregistré le {date} ({timeZone}) aux destinataires ci-dessous.",
-    "schedule": "Programmer le suivi",
-    "scheduled": "Suivi programmé. Aucun e-mail n’a encore été envoyé.",
-    "writeFailed": "La programmation du suivi n’a pas pu être confirmée. L’heure choisie est conservée. Vérifiez le lien actuel du rapport et les destinataires, puis réessayez la même demande.",
-    "history": "Suivis programmés et historique",
-    "empty": "Aucun suivi n’a été programmé pour ce rapport.",
-    "scheduledTime": "{date} ({timeZone})",
-    "cancel": "Annuler le suivi non envoyé",
-    "cancelTitle": "Annuler le suivi de ce rapport ?",
-    "cancelHelp": "Annuler les rappels prévus le {date} ({timeZone}) qui n’ont pas encore été envoyés. Les e-mails en cours d’envoi ou déjà distribués ne peuvent pas être rappelés.",
-    "cancelled": "Les e-mails de suivi non envoyés ont été annulés.",
-    "cancelFailed": "Le suivi n’a pas pu être annulé. Rechargez le rapport pour vérifier si l’envoi a commencé, puis réessayez si le message n’a pas encore été envoyé.",
-    "deliveryHelp": "Certaines distributions nécessitent une vérification. Contrôlez les paramètres de messagerie avant de réessayer les envois en échec ou bloqués.",
-    "status": {
-      "PENDING": "Programmé / en attente de distribution",
-      "SENDING": "En cours d’envoi",
-      "SENT": "Envoyé",
-      "FAILED": "Échec",
-      "BLOCKED": "Bloqué",
-      "SKIPPED": "Ignoré",
-      "CANCELLED": "Annulé",
-      "UNCERTAIN": "Résultat de distribution inconnu",
-      "UNKNOWN": "Statut inconnu"
-    }
   }
 }

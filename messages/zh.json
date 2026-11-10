@@ -8311,41 +8311,5 @@
     "loadFailed": "无法加载最新通知要求。草稿已保留；请重试读取后再保存。",
     "refreshFailed": "通知要求已保存，但无法加载最新设置。请重试读取，不要再次保存。",
     "reload": "重新加载最新要求"
-  },
-  "schoolHoursFollowup": {
-    "title": "跟进提醒邮件",
-    "help": "为本报告的现有收件人安排一次跟进提醒。服务器运行期间，将于指定时间开始投递。",
-    "sameReport": "提醒邮件发送的是同一份已保存报告，不会生成新版本，也不会再次增加服务时数。收件人请勿重复登记同一笔时数。",
-    "recipients": "报告收件人",
-    "noRecipients": "本报告目前没有符合条件的收件人。",
-    "sendAt": "跟进提醒日期和时间",
-    "timeHelp": "时区：{timeZone}。请选择未来的时间，投递可能需要几分钟。",
-    "invalidTime": "请选择所示时区内有效的未来日期和时间。无法使用夏令时切换时存在歧义的时间。",
-    "reviewSchedule": "核对跟进提醒",
-    "reviewTitle": "安排本报告的跟进提醒？",
-    "reviewHelp": "于 {date}（{timeZone}）向以下收件人发送本已保存报告的提醒邮件。",
-    "schedule": "安排跟进提醒",
-    "scheduled": "已安排跟进提醒，目前尚未发送邮件。",
-    "writeFailed": "无法确认跟进提醒是否已安排。已保留您选择的时间。请检查报告当前链接和收件人，然后重试同一请求。",
-    "history": "已安排的跟进提醒与历史记录",
-    "empty": "本报告尚未安排跟进提醒。",
-    "scheduledTime": "{date}（{timeZone}）",
-    "cancel": "取消尚未发送的提醒",
-    "cancelTitle": "取消本报告的跟进提醒？",
-    "cancelHelp": "取消安排于 {date}（{timeZone}）发送且尚未发出的提醒邮件。正在发送或已送达的邮件无法撤回。",
-    "cancelled": "已取消尚未发送的跟进提醒邮件。",
-    "cancelFailed": "无法取消跟进提醒。请重新加载报告，检查是否已开始投递；若尚未发送，可再次尝试。",
-    "deliveryHelp": "部分投递需要处理。重试失败或受阻的投递前，请检查邮件投递设置。",
-    "status": {
-      "PENDING": "已安排／等待投递",
-      "SENDING": "发送中",
-      "SENT": "已发送",
-      "FAILED": "发送失败",
-      "BLOCKED": "投递受阻",
-      "SKIPPED": "已跳过",
-      "CANCELLED": "已取消",
-      "UNCERTAIN": "投递结果未知",
-      "UNKNOWN": "状态未知"
-    }
   }
 }

@@ -6,7 +6,6 @@ import {
   schoolHoursGenerateInput,
   schoolHoursMonth,
   schoolHoursSettingsInput,
-  schoolHoursFollowupInput,
 } from "~/server/school-hours-input";
 import {
   changeSchoolHoursLink,
@@ -19,8 +18,6 @@ import {
   saveSchoolHoursSettings,
   schoolHoursBaselinePreview,
   schoolHoursCsv,
-  scheduleSchoolHoursFollowup,
-  cancelSchoolHoursFollowup,
 } from "~/server/school-hours";
 
 const reportId = z.object({ id: z.string().min(1).max(128) });
@@ -31,21 +28,6 @@ const linkInput = reportId.extend({
 /** Retained reports are staff-readable even while service hours is disabled.
  * Only save participates in Coordinator proposals; financial commits never do. */
 export const schoolHoursRouter = createTRPCRouter({
-  scheduleFollowup: adminOnlyProcedure
-    .input(schoolHoursFollowupInput)
-    .mutation(({ ctx, input }) =>
-      scheduleSchoolHoursFollowup(ctx.db, input, ctx.session.user.id),
-    ),
-  cancelFollowup: adminOnlyProcedure
-    .input(reportId.extend({ batchId: z.uuid() }))
-    .mutation(({ ctx, input }) =>
-      cancelSchoolHoursFollowup(
-        ctx.db,
-        input.id,
-        input.batchId,
-        ctx.session.user.id,
-      ),
-    ),
   settings: adminProcedure.query(({ ctx }) =>
     getSchoolHoursSettings(ctx.db, ctx.session.role),
   ),
@@ -75,9 +57,7 @@ export const schoolHoursRouter = createTRPCRouter({
     ),
   report: adminProcedure
     .input(reportId)
-    .query(({ ctx, input }) =>
-      getSchoolHoursReport(ctx.db, input.id, ctx.session.role),
-    ),
+    .query(({ ctx, input }) => getSchoolHoursReport(ctx.db, input.id)),
   csv: adminProcedure
     .input(reportId)
     .query(({ ctx, input }) => schoolHoursCsv(ctx.db, input.id)),

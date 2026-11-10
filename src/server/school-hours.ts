@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Prisma, type SchoolHoursSchedule } from "../../generated/prisma";
 import { schoolHoursExportName } from "~/lib/school-hours-name";
-import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
+import { programDateTimeInput } from "~/lib/program-time";
 import { getProgramTimeZone } from "./program/time-zone";
 import { getFeatures } from "./program/features";
 import { isEmailDeliveryAvailable } from "./email/sender";
@@ -27,7 +27,6 @@ import {
   type SchoolHoursGenerateInput,
   type SchoolHoursSettingsInput,
   type SchoolHoursSnapshot,
-  type SchoolHoursFollowupInput,
 } from "./school-hours-input";
 import {
   nextSchoolHoursOccurrence,
@@ -1265,12 +1264,7 @@ export async function getSchoolHoursSettings(db: DomainDb, role: string) {
     db.schoolHoursReport.findMany({
       orderBy: { generatedAt: "desc" },
       take: 24,
-      include: {
-        deliveries: {
-          where: { schoolHoursBatch: "initial" },
-          select: { status: true, attempts: true },
-        },
-      },
+      include: { deliveries: { select: { status: true, attempts: true } } },
     }),
     getProgramTimeZone(db),
     getFeatures(db),
@@ -1308,11 +1302,7 @@ export async function getSchoolHoursSettings(db: DomainDb, role: string) {
     })),
   };
 }
-export async function getSchoolHoursReport(
-  db: DomainDb,
-  id: string,
-  role = "ADMIN",
-) {
+export async function getSchoolHoursReport(db: DomainDb, id: string) {
   const report = await db.schoolHoursReport.findUnique({
     where: { id },
     include: {
@@ -1325,8 +1315,6 @@ export async function getSchoolHoursReport(
           lastError: true,
           completedAt: true,
           availableAt: true,
-          schoolHoursBatch: true,
-          schoolHoursScheduledFor: true,
         },
       },
     },
@@ -1349,38 +1337,7 @@ export async function getSchoolHoursReport(
     configVersion: report.configVersion,
     baselineVersion: report.baselineVersion,
     reason: report.reason,
-    deliveries: report.deliveries
-      .filter((row) => row.schoolHoursBatch === "initial")
-      .map((row) => ({
-        id: row.id,
-        recipient: row.recipient,
-        status: row.status,
-        attempts: row.attempts,
-        lastError: row.lastError,
-        completedAt: row.completedAt,
-        availableAt: row.availableAt,
-      })),
-    recipients: ["ADMIN", "HEAD"].includes(role)
-      ? report.intendedRecipients
-      : [],
-    followups: [
-      ...new Set(
-        report.deliveries
-          .filter((row) => row.schoolHoursBatch !== "initial")
-          .map((row) => row.schoolHoursBatch),
-      ),
-    ]
-      .map((batchId) => {
-        const deliveries = report.deliveries.filter(
-          (row) => row.schoolHoursBatch === batchId,
-        );
-        return {
-          batchId,
-          scheduledFor: deliveries[0]!.schoolHoursScheduledFor!,
-          deliveries,
-        };
-      })
-      .sort((a, b) => b.scheduledFor.getTime() - a.scheduledFor.getTime()),
+    deliveries: report.deliveries,
     linkVersion: report.linkVersion,
     revokedAt: report.linkRevokedAt,
     supersededById: report.supersededById,
@@ -1421,7 +1378,6 @@ export async function retrySchoolHoursReport(
     const result = await tx.emailDelivery.updateMany({
       where: {
         schoolHoursReportId: id,
-        schoolHoursBatch: "initial",
         recipient: { in: config.recipientEmails },
         status: { in: ["FAILED", "BLOCKED"] },
       },
@@ -1438,143 +1394,6 @@ export async function retrySchoolHoursReport(
     return { retried: result.count };
   });
 }
-/** One intent UUID owns one batch. Outbox rows are the durable schedule; the
- * immutable selected instant is separate from mutable transport retry times.
- * Neither scheduling nor cancelling changes the financial reporting chain. */
-export async function scheduleSchoolHoursFollowup(
-  db: DomainDb,
-  input: SchoolHoursFollowupInput,
-  actorId: string,
-  now = new Date(),
-) {
-  return snapshotTransaction(db, async (tx) => {
-    await fence(tx);
-    await actor(tx, actorId);
-    await lockEntity(tx, schoolHoursLock);
-    const intentHash = digest({ ...input, actorId });
-    const existing = await tx.emailDelivery.findMany({
-      where: {
-        schoolHoursReportId: input.id,
-        schoolHoursBatch: input.requestId,
-      },
-    });
-    // Recover an accepted request before checking a now-past date or live state.
-    if (existing.length) {
-      if (existing.some((row) => row.schoolHoursIntentHash !== intentHash))
-        throw conflict();
-      return {
-        batchId: input.requestId,
-        scheduledFor: existing[0]!.schoolHoursScheduledFor!,
-        count: existing.length,
-      };
-    }
-    const report = await tx.schoolHoursReport.findUnique({
-      where: { id: input.id },
-    });
-    const config = await tx.schoolHoursSchedule.findUnique({
-      where: { id: "program" },
-    });
-    if (!report) throw new TRPCError({ code: "NOT_FOUND" });
-    if (report.linkVersion !== input.expectedLinkVersion) throw conflict();
-    if (
-      !config?.enabled ||
-      report.linkRevokedAt ||
-      report.supersededById ||
-      !(await getFeatures(tx)).SERVICE_HOURS
-    )
-      throw invalid(
-        "This report cannot be sent. Check its current link and schedule.",
-      );
-    const recipients = report.intendedRecipients;
-    if (
-      !recipients.length ||
-      recipients.some((email) => !config.recipientEmails.includes(email))
-    )
-      throw invalid(
-        "Report recipients changed. Review the current report recipients before scheduling.",
-      );
-    let scheduledFor: Date;
-    try {
-      scheduledFor = parseProgramDateTime(input.localTime, report.timeZone);
-    } catch {
-      throw invalid(
-        "Choose a valid, unambiguous date and time in the report timezone.",
-      );
-    }
-    if (scheduledFor.getTime() <= now.getTime())
-      throw invalid("Choose a future follow-up time.");
-    const pending = await tx.emailDelivery.findMany({
-      where: {
-        schoolHoursReportId: input.id,
-        schoolHoursBatch: { not: "initial" },
-        status: { in: ["PENDING", "SENDING", "BLOCKED", "FAILED"] },
-      },
-      distinct: ["schoolHoursBatch"],
-      select: { schoolHoursBatch: true },
-      take: 20,
-    });
-    if (pending.length >= 20)
-      throw invalid("Cancel an existing follow-up before scheduling another.");
-    await tx.emailDelivery.createMany({
-      data: recipients.map((recipient) => ({
-        category: schoolHoursCategory,
-        event: "school_hours_followup",
-        recipient,
-        schoolHoursReportId: report.id,
-        schoolHoursBatch: input.requestId,
-        schoolHoursScheduledFor: scheduledFor,
-        availableAt: scheduledFor,
-        schoolHoursIntentHash: intentHash,
-        destination: `/admin/service-hours/school-reports/${report.id}`,
-      })),
-    });
-    await audit(tx, actorId, "scheduleFollowup", report.id, {
-      batchId: input.requestId,
-      scheduledFor: scheduledFor.toISOString(),
-      timeZone: report.timeZone,
-      recipientCount: recipients.length,
-    });
-    return { batchId: input.requestId, scheduledFor, count: recipients.length };
-  });
-}
-
-export async function cancelSchoolHoursFollowup(
-  db: DomainDb,
-  id: string,
-  batchId: string,
-  actorId: string,
-) {
-  return snapshotTransaction(db, async (tx) => {
-    await fence(tx);
-    await actor(tx, actorId);
-    await lockEntity(tx, schoolHoursLock);
-    const where = { schoolHoursReportId: id, schoolHoursBatch: batchId };
-    const rows = await tx.emailDelivery.findMany({ where });
-    if (!rows.length) throw new TRPCError({ code: "NOT_FOUND" });
-    // Admission takes the same chain fence. A claimed but not admitted row can
-    // be cancelled; SMTP already admitted as SENDING must finish its own receipt.
-    if (rows.some((row) => row.status === "SENDING"))
-      throw invalid(
-        "A follow-up is being sent. Refresh its delivery status before cancelling.",
-      );
-    const result = await tx.emailDelivery.updateMany({
-      where: { ...where, status: { in: ["PENDING", "BLOCKED", "FAILED"] } },
-      data: {
-        status: "CANCELLED",
-        completedAt: new Date(),
-        leaseUntil: null,
-        lastError: null,
-      },
-    });
-    if (result.count)
-      await audit(tx, actorId, "cancelFollowup", id, {
-        batchId,
-        cancelled: result.count,
-      });
-    return { cancelled: result.count };
-  });
-}
-
 export async function changeSchoolHoursLink(
   db: DomainDb,
   id: string,

@@ -165,40 +165,6 @@ intact instead of guessing legal parts from display labels. Names and identity
 provenance are frozen with the edition. CSV uses the shared quoting, Unicode and
 formula-protection helper.
 
-## Scheduled follow-up emails
-
-From a saved School Month Report, Admin/Head can choose a future local date/time,
-review the original recipient list and confirm a one-time follow-up. It sends the
-same saved edition with a bilingual reminder not to apply hours twice. This does
-not generate another report, change a baseline or confirm school posting. Only
-the report's original recipients are eligible, and they must remain configured.
-
-The existing mail dispatcher owns due work, normally checked every 30 seconds.
-`EmailDelivery.schoolHoursBatch` identifies the original send (`initial`) or a
-follow-up intent UUID. The unique report/recipient/batch key preserves original
-delivery evidence while allowing deliberate follow-ups. The selected UTC instant
-in `schoolHoursScheduledFor` survives transport backoff; `availableAt` owns retry
-timing. The input/actor fingerprint in `schoolHoursIntentHash` recovers exact
-retries without allowing a reused intent to schedule different work. Report mail
-still has null request context. The report timezone resolves local input;
-nonexistent/ambiguous daylight-saving times and past dates are rejected.
-
-Scheduling and cancellation take the existing reporting fence and recheck the
-actor. Cancellation affects only pending, blocked or failed follow-up deliveries;
-it cannot recall sent mail or interrupt an admitted send. A revoked or superseded
-report, disabled schedule, removed recipient or unavailable feature/transport is
-checked again at delivery admission. Restarted workers resume persisted due work;
-outages can delay mail. The original report Retry action affects only its original
-deliveries. For a blocked/failed follow-up, repair the configuration, cancel its
-unsent batch and deliberately schedule another. At most 20 unfinished batches per
-report may be retained at once. Accepted UI writes recover failed refreshes with
-reads only; exact transport retries retain their intent UUID.
-
-Apply `20261111010000_school_hours_followups` and regenerate Prisma before running
-this feature. Existing receipts retain the `initial` discriminator and their
-original unique-delivery behavior. Follow-up history is separate from the report
-list's original delivery counts.
-
 ## Authority and deployment
 
 The settings editor adopts its configuration version and initial reporting month

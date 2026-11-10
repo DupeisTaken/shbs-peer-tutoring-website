@@ -2647,17 +2647,11 @@ model EmailDelivery {
   monthlyHoursReport MonthlyHoursReport? @relation(fields: [monthlyHoursReportId], references: [id], onDelete: Restrict)
   schoolHoursReportId String?
   schoolHoursReport SchoolHoursReport? @relation(fields: [schoolHoursReportId], references: [id], onDelete: Restrict)
-  /// Each deliberate follow-up has separate immutable delivery evidence.
-  schoolHoursBatch String @default("initial")
-  /// Original selected instant survives transport backoff and manual retries.
-  schoolHoursScheduledFor DateTime?
-  /// Exact schedule input and actor fingerprint, with no request payload context.
-  schoolHoursIntentHash String?
   @@index([status, availableAt])
   @@index([sourceNotificationId])
   @@unique([requestKind, requestId, requestVersion])
   @@unique([monthlyHoursReportId, recipient])
-  @@unique([schoolHoursReportId, recipient, schoolHoursBatch])
+  @@unique([schoolHoursReportId, recipient])
 }
 
 /// Archive evidence is retained without granting current workflow or reporting authority.

@@ -8311,41 +8311,5 @@
     "loadFailed": "No se pudieron cargar los últimos requisitos. Se conserva el borrador. Reintenta la lectura antes de guardar.",
     "refreshFailed": "Los requisitos se guardaron, pero no se pudieron cargar los ajustes. Reintenta la lectura; no vuelvas a guardar.",
     "reload": "Recargar últimos requisitos"
-  },
-  "schoolHoursFollowup": {
-    "title": "Correos de seguimiento",
-    "help": "Programa un único recordatorio para los destinatarios actuales del informe. El envío comienza a la hora elegida mientras el servidor esté en funcionamiento.",
-    "sameReport": "Se envía el mismo informe guardado como recordatorio. No se crea una nueva edición ni se vuelven a añadir horas de servicio. Los destinatarios no deben registrar las mismas horas dos veces.",
-    "recipients": "Destinatarios del informe",
-    "noRecipients": "Actualmente no hay destinatarios autorizados para este informe.",
-    "sendAt": "Fecha y hora del seguimiento",
-    "timeHelp": "Zona horaria: {timeZone}. Elige una hora futura. La entrega puede tardar unos minutos.",
-    "invalidTime": "Elige una fecha y hora futuras válidas en la zona horaria indicada. No se admiten horas ambiguas por el cambio de horario de verano.",
-    "reviewSchedule": "Revisar seguimiento",
-    "reviewTitle": "¿Programar un seguimiento de este informe?",
-    "reviewHelp": "Enviar un recordatorio de este informe guardado el {date} ({timeZone}) a los destinatarios indicados a continuación.",
-    "schedule": "Programar seguimiento",
-    "scheduled": "Seguimiento programado. Todavía no se ha enviado ningún correo.",
-    "writeFailed": "No se pudo confirmar el seguimiento. Se conserva la hora elegida. Comprueba el enlace actual del informe y los destinatarios y vuelve a intentar la misma solicitud.",
-    "history": "Seguimientos programados e historial",
-    "empty": "No se han programado seguimientos para este informe.",
-    "scheduledTime": "{date} ({timeZone})",
-    "cancel": "Cancelar seguimiento sin enviar",
-    "cancelTitle": "¿Cancelar el seguimiento de este informe?",
-    "cancelHelp": "Cancelar los recordatorios programados para el {date} ({timeZone}) que aún no se han enviado. Los correos que ya se están enviando o se han entregado no se pueden retirar.",
-    "cancelled": "Correos de seguimiento sin enviar cancelados.",
-    "cancelFailed": "No se pudo cancelar el seguimiento. Vuelve a cargar el informe para comprobar si el envío ha comenzado e inténtalo de nuevo si todavía no se ha enviado.",
-    "deliveryHelp": "Algunas entregas necesitan atención. Comprueba la configuración de correo antes de reintentar las entregas fallidas o bloqueadas.",
-    "status": {
-      "PENDING": "Programado / pendiente de entrega",
-      "SENDING": "Enviando",
-      "SENT": "Enviado",
-      "FAILED": "Error de envío",
-      "BLOCKED": "Bloqueado",
-      "SKIPPED": "Omitido",
-      "CANCELLED": "Cancelado",
-      "UNCERTAIN": "Resultado de entrega desconocido",
-      "UNKNOWN": "Estado desconocido"
-    }
   }
 }

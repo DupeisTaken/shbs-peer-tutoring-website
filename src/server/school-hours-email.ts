@@ -147,7 +147,6 @@ export function schoolHoursEmailCopy(input: {
   report: SchoolHoursPublicReport;
   reportUrl: string;
   preview?: boolean;
-  followup?: boolean;
 }) {
   const { report: sourceReport, reportUrl, preview } = input;
   const rows = schoolHoursVisibleRows(sourceReport);
@@ -156,10 +155,7 @@ export function schoolHoursEmailCopy(input: {
     rows,
     totals: { ...sourceReport.totals, people: rows.length },
   };
-  const subject = `${input.followup ? "Follow-up / 跟进提醒 · " : ""}${schoolHoursHeading(report.month)}`;
-  const followupNotice = input.followup
-    ? "Follow-up reminder: this is a copy of the same saved edition. If already posted, do not apply its hours again. / 跟进提醒：这是同一已保存版本的副本。若已入账，请勿重复计入时数。"
-    : "";
+  const subject = schoolHoursHeading(report.month);
   const textRows = report.rows
     .map(
       (row) =>
@@ -176,14 +172,5 @@ export function schoolHoursEmailCopy(input: {
     ? '<span aria-disabled="true" style="display:inline-block;background:#0D59E6;color:white;padding:12px 18px;border-radius:7px;font-weight:700">View Month Report</span>'
     : `<a href="${escapeSchoolHours(reportUrl)}" style="display:inline-block;background:#0D59E6;color:white;padding:12px 18px;border-radius:7px;font-weight:700;text-decoration:none">View Month Report</a>`;
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeSchoolHours(subject)}</title></head><body style="margin:0;background:#EAF0F7;color:#0F172A;font-family:Arial,sans-serif"><main style="max-width:760px;margin:0 auto;padding:24px 16px"><p style="color:#475569;font-size:14px">${escapeSchoolHours(APP_TITLE)}</p><h1 style="font-size:28px;line-height:1.25">${escapeSchoolHours(subject)}</h1>${renderSchoolHoursContent(report)}<p style="margin:24px 0">${action}</p><p style="font-size:13px;line-height:1.7;color:#475569">${escapeSchoolHours(capabilityNotice).replaceAll("\n", "<br>")}</p></main></body></html>`;
-  return {
-    subject,
-    text: followupNotice ? `${followupNotice}\n\n${text}` : text,
-    html: followupNotice
-      ? html.replace(
-          "<h1 ",
-          `<p style="padding:16px;background:#EFF6FF;font-weight:700">${escapeSchoolHours(followupNotice)}</p><h1 `,
-        )
-      : html,
-  };
+  return { subject, text, html };
 }

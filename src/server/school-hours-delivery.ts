@@ -94,8 +94,6 @@ export async function admitSchoolHoursDelivery(
     const row = await tx.emailDelivery.findUniqueOrThrow({ where: { id } });
     if (
       !["PENDING", "SENDING"].includes(row.status) ||
-      (row.schoolHoursScheduledFor &&
-        row.schoolHoursScheduledFor.getTime() > Date.now()) ||
       !leaseUntil ||
       leaseUntil.getTime() <= Date.now() ||
       row.leaseUntil?.getTime() !== leaseUntil.getTime() ||
@@ -141,7 +139,6 @@ export function schoolHoursDeliveryCopy(
   return schoolHoursEmailCopy({
     report: publicSchoolHoursReport(report.snapshot),
     reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(token)}`,
-    followup: admitted.row.schoolHoursBatch !== "initial",
   });
 }
 
