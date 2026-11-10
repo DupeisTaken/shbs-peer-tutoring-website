@@ -1,12 +1,15 @@
 /** @vitest-environment jsdom */
 import { useState, type ComponentProps } from "react";
 import {
-  QueryClient,
   QueryClientProvider,
   QueryObserver,
+  type QueryClient,
   type InvalidateOptions,
   type InvalidateQueryFilters,
 } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { createQueryClient } from "~/trpc/query-client";
+import { api } from "~/trpc/react";
 import {
   act,
   cleanup,
@@ -63,9 +66,17 @@ vi.mock("~/trpc/react", async () => {
   });
   function query(path: string, data: () => unknown) {
     return {
+      _def: () => ({ path: path.split(".") }),
       useQuery(input?: unknown, options?: { enabled?: boolean }) {
         return useQuery({
-          queryKey: [path, input ?? null],
+          queryKey:
+            path === "departure.state"
+              ? getQueryKey(
+                  api.departure.state,
+                  input as { userId?: string } | undefined,
+                  "query",
+                )
+              : [path, input ?? null],
           queryFn: async () => {
             transport.queries.push(path);
             return data();
@@ -132,7 +143,15 @@ vi.mock("~/trpc/react", async () => {
           // Match the installed tRPC adapter: forward both filter and error options,
           // and constrain invalidation to the procedure/router prefix it represents.
           await client.invalidateQueries(
-            { ...filters, queryKey: path === "*" ? undefined : [path] },
+            {
+              ...filters,
+              queryKey:
+                path === "*"
+                  ? undefined
+                  : path === "departure.state"
+                    ? getQueryKey(api.departure.state)
+                    : [path],
+            },
             options,
           );
         };
@@ -267,11 +286,17 @@ beforeEach(() => {
   transport.invalidations = [];
   transport.queries = [];
   transport.routerRefresh.mockClear();
-  client = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, staleTime: 30_000, gcTime: Infinity },
-      mutations: { retry: false },
+  client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      staleTime: 30_000,
+      gcTime: Infinity,
     },
+    mutations: { ...defaults.mutations, retry: false },
   });
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
@@ -498,17 +523,20 @@ it("keeps the real tutor grouping section closed and read-only until explicitly 
   const open = screen.getByRole("button", { name: en.combineRecords.open });
   expect(open.getAttribute("aria-expanded")).toBe("false");
   // The disabled query exists in the live cache, but its transport has not run.
-  expect(client.getQueryState(["personCombine.candidates", { search: "" }])).toBeTruthy();
+  expect(
+    client.getQueryState(["personCombine.candidates", { search: "" }]),
+  ).toBeTruthy();
   expect(transport.queries).not.toContain("personCombine.candidates");
   expect(transport.requests).toHaveLength(0);
   fireEvent.click(open);
-  await waitFor(() => expect(transport.queries).toContain("personCombine.candidates"));
+  await waitFor(() =>
+    expect(transport.queries).toContain("personCombine.candidates"),
+  );
   expect(await screen.findByText(en.combineRecords.noResults)).toBeTruthy();
   fireEvent.click(
-    within(screen.getByRole("region", { name: en.combineRecords.title })).getByRole(
-      "button",
-      { name: en.combineRecords.close },
-    ),
+    within(
+      screen.getByRole("region", { name: en.combineRecords.title }),
+    ).getByRole("button", { name: en.combineRecords.close }),
   );
   expect(transport.requests).toHaveLength(0);
   expect(transport.commits).toHaveLength(0);

@@ -5672,7 +5672,16 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "loading": "Φόρτωση στοιχείων αποχώρησης από το σχολείο…",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση των στοιχείων αποχώρησης.",
+    "readFailed": "Τα στοιχεία αποχώρησης δεν ανανεώθηκαν. Η αιτιολογία και η επιλεγμένη αλλαγή διατηρούνται. Δοκιμάστε ξανά την ανάγνωση για να συνεχίσετε.",
+    "reload": "Επαναφόρτωση στοιχείων αποχώρησης",
+    "reloadHelp": "Τα στοιχεία αποχώρησης άλλαξαν. Φορτώστε την τρέχουσα έκδοση και ελέγξτε την αιτιολογία και την επιλογή που διατηρήθηκαν πριν επιβεβαιώσετε.",
+    "retryRefresh": "Επανάληψη ανανέωσης",
+    "refreshing": "Η αλλαγή έγινε δεκτή. Ανανέωση στοιχείων αποχώρησης…",
+    "refreshFailed": "Η αλλαγή έγινε δεκτή, αλλά ορισμένα στοιχεία δεν ανανεώθηκαν. Η επανάληψη διαβάζει μόνο το αποτέλεσμα, χωρίς νέα υποβολή.",
+    "accessDenied": "Η πρόσβαση σε αυτά τα στοιχεία αποχώρησης δεν είναι διαθέσιμη. Επαναλάβετε την ανανέωση για να ελέγξετε τα τρέχοντα δικαιώματά σας."
   },
   "personName": {
     "firstName": "Όνομα",

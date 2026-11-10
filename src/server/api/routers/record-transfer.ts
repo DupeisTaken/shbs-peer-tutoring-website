@@ -21,10 +21,17 @@ class PreviewRollback extends Error {
 
 // Recheck rank inside the transaction and hold the account row against concurrent demotion.
 async function assertManagementActor(tx: TransactionDb, id: string) {
-  const rows = await tx.$queryRaw<{ role: string; suspendedAt: Date | null; mergedIntoId: string | null }[]>(
+  const rows = await tx.$queryRaw<
+    { role: string; suspendedAt: Date | null; mergedIntoId: string | null }[]
+  >(
     Prisma.sql`SELECT role,"suspendedAt","mergedIntoId" FROM "User" WHERE id=${id} FOR SHARE`,
   );
-  if (!rows[0] || !["ADMIN", "HEAD"].includes(rows[0].role) || rows[0].suspendedAt || rows[0].mergedIntoId)
+  if (
+    !rows[0] ||
+    !["ADMIN", "HEAD"].includes(rows[0].role) ||
+    rows[0].suspendedAt ||
+    rows[0].mergedIntoId
+  )
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Administrator access required.",
@@ -63,8 +70,9 @@ export const recordTransferRouter = createTRPCRouter({
       try {
         await ctx.db.$transaction(
           async (tx) => {
-            // Imports may initialize any User/Tutor/Tutee source identity. Take
-            // the shared namespace fence before the actor/source row locks.
+            // Match native meeting writers: period precedes identity/actor,
+            // then applyRecords owns sorted meeting-parent and tutor-hours locks.
+            await lockEntity(tx, "program:period");
             await lockUsernameNamespace(tx);
             await assertManagementActor(tx, ctx.session.user.id);
             await lockEntity(tx, "program-record-transfer");
@@ -92,6 +100,7 @@ export const recordTransferRouter = createTRPCRouter({
       verifyPreviewTicket(input.files, ctx.session.user.id, input.ticket);
       return ctx.db.$transaction(
         async (tx) => {
+          await lockEntity(tx, "program:period");
           await lockUsernameNamespace(tx);
           await assertManagementActor(tx, ctx.session.user.id);
           await lockEntity(tx, "program-record-transfer");

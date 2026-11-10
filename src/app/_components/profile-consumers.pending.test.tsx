@@ -63,7 +63,10 @@ vi.mock("~/trpc/react", async () => {
         mutate: state.mutations[operation],
         isPending: !!state.pending[operation],
         error: state.errors[operation] ?? null,
-        reset: vi.fn(),
+        reset: vi.fn(() => {
+          if (operation === "departure" || operation === "requestDeparture")
+            delete state.errors[operation];
+        }),
       };
     },
   });
@@ -86,6 +89,16 @@ vi.mock("~/trpc/react", async () => {
       },
     }),
   };
+  const departureData = () => ({
+    departure: {
+      reason: null,
+      revision: state.revision,
+      observerRevoked: false,
+    },
+    role: state.role,
+    access: { canReadManagement: true },
+    events: [],
+  });
   return {
     api: {
       useUtils: () => ({
@@ -131,17 +144,14 @@ vi.mock("~/trpc/react", async () => {
       },
       departure: {
         state: {
+          _def: () => ({ path: ["departure", "state"] }),
           useQuery: () => ({
-            data: {
-              departure: {
-                reason: null,
-                revision: state.revision,
-                observerRevoked: false,
-              },
-              role: state.role,
-              access: { canReadManagement: true },
-              events: [],
-            },
+            data: departureData(),
+            isSuccess: true,
+            isFetching: false,
+            dataUpdatedAt: 1,
+            errorUpdatedAt: 0,
+            refetch: async () => ({ data: departureData(), isSuccess: true }),
           }),
         },
         setState: mutation("departure"),
@@ -344,7 +354,7 @@ it("registers self-service membership requests without treating queued intent as
 });
 
 it.each(["en", "zh"] as const)(
-  "retains the real nested %s departure review and original revision through failure and retry",
+  "retains the real nested %s departure draft through failure and requires Reload before adopting a changed revision",
   async (locale) => {
     const labels = locale === "en" ? en : zh;
     const view = render(ui(locale));
@@ -369,9 +379,7 @@ it.each(["en", "zh"] as const)(
     nested = screen.getByRole("dialog", {
       name: labels.schoolDeparture.review,
     });
-    state.revision = 3;
-    view.rerender(ui(locale));
-    const confirm = within(nested).getByRole("button", {
+    let confirm = within(nested).getByRole<HTMLButtonElement>("button", {
       name: labels.schoolDeparture.confirm,
     });
     fireEvent.click(confirm);
@@ -390,14 +398,35 @@ it.each(["en", "zh"] as const)(
       screen.getByLabelText(labels.membership.password).matches(":disabled"),
     ).toBe(true);
     await fail("departure");
+    state.revision = 3;
     view.rerender(ui(locale));
-    expect(within(nested).getByRole("alert").textContent).toBe("Write failed");
+    expect(within(nested).getByText("Write failed")).toBeTruthy();
     expect(reason.value).toBe("Reviewed departure draft");
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(state.mutations.departure).toHaveBeenCalledOnce();
+    await act(async () => {
+      fireEvent.click(
+        within(nested).getByRole("button", {
+          name: labels.schoolDeparture.reload,
+        }),
+      );
+    });
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(reason.value).toBe("Reviewed departure draft");
+    fireEvent.click(review);
+    nested = screen.getByRole("dialog", {
+      name: labels.schoolDeparture.review,
+    });
+    confirm = within(nested).getByRole<HTMLButtonElement>("button", {
+      name: labels.schoolDeparture.confirm,
+    });
     fireEvent.click(confirm);
     expect(state.mutations.departure).toHaveBeenCalledTimes(2);
-    expect(state.mutations.departure!.mock.calls[1]![0]).toEqual(
-      state.mutations.departure!.mock.calls[0]![0],
-    );
+    expect(state.mutations.departure!.mock.calls[1]![0]).toEqual({
+      ...(state.mutations.departure!.mock.calls[0]![0] as object),
+      expectedRevision: 3,
+    });
     state.pending.departure = true;
     view.rerender(ui(locale));
     let finishRefresh!: () => void;
@@ -417,7 +446,9 @@ it.each(["en", "zh"] as const)(
     });
     expect(screen.getAllByRole("dialog")).toHaveLength(2);
     state.pending.departure = false;
-    state.callbacks.departure?.onSettled?.();
+    act(() => {
+      state.callbacks.departure?.onSettled?.();
+    });
     view.rerender(ui(locale));
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(reason.value).toBe("");
@@ -426,7 +457,7 @@ it.each(["en", "zh"] as const)(
   },
 );
 
-it("retains queued departure evidence and closes review only after the actual write settles", async () => {
+it("completes queued departure review after fresh reads without treating the proposal as a grant", async () => {
   state.role = "COORDINATOR";
   const view = render(ui());
   const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
@@ -443,20 +474,27 @@ it("retains queued departure evidence and closes review only after the actual wr
   view.rerender(ui());
   const error = { message: "Queued", data: { approvalId: "approval" } };
   state.errors.departure = error;
+  state.revision = 3;
   await act(async () => {
     await state.callbacks.departure?.onError?.(error);
   });
   expect(screen.getAllByRole("dialog")).toHaveLength(2);
   state.pending.departure = false;
-  state.callbacks.departure?.onSettled?.();
+  act(() => {
+    state.callbacks.departure?.onSettled?.();
+  });
   view.rerender(ui());
   expect(screen.getAllByRole("dialog")).toHaveLength(1);
-  expect(reason.value).toBe("Queued departure evidence");
+  expect(reason.value).toBe("");
   expect(screen.getByText(en.schoolDeparture.requested)).toBeTruthy();
   expect(screen.queryByText(en.schoolDeparture.saved)).toBeNull();
-  // Reopening queued evidence keeps its original revision even after a query refresh.
-  state.revision = 3;
-  view.rerender(ui());
+  expect(
+    screen.getByText(new RegExp(en.schoolDeparture.enrolled)),
+  ).toBeTruthy();
+  // A later explicit request starts with the accepted fresh revision.
+  fireEvent.change(reason, {
+    target: { value: "Another deliberate departure request" },
+  });
   fireEvent.click(
     screen.getByRole("button", { name: en.schoolDeparture.request }),
   );
@@ -464,7 +502,10 @@ it("retains queued departure evidence and closes review only after the actual wr
     screen.getByRole("button", { name: en.schoolDeparture.confirm }),
   );
   expect(state.mutations.departure).toHaveBeenLastCalledWith(
-    expect.objectContaining({ expectedRevision: 2 }),
+    expect.objectContaining({
+      expectedRevision: 3,
+      explanation: "Another deliberate departure request",
+    }),
   );
 });
 

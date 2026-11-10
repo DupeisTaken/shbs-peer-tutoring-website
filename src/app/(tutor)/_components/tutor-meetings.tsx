@@ -218,7 +218,8 @@ export function useTutorMeetingController() {
               </div>
 
               <div className="min-w-0 sm:shrink-0">
-                {history || !m.upcoming ? (
+                {/* Staff attendance stays read-only even before the excuse cutoff. */}
+                {history || !m.upcoming || (!!m.status && !m.excused) ? (
                   <span className="badge-slate">
                     {m.status
                       ? t(

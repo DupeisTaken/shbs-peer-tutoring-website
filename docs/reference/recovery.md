@@ -473,6 +473,16 @@ patrol discrepancy review. Card recovery records a new attributed review and
 recomputes standing from current cards. Punishment-related roster restoration
 requires the exact captured assignment and current participant eligibility.
 
+Automatic punishment reversal uses prospective `RecoveryChange` evidence, not generic
+timestamps or a backfill. The exact owning event/checkpoint must prove request approval,
+its ACTIVE→INACTIVE transition and removed memberships. Later independent status,
+origin, restriction or assignment decisions remain effective, including away-and-back
+writes. Compensation receipts, missing/malformed/ambiguous proof or exceeded inspection
+bounds withhold automatic reinstatement for management participation review. Harmless
+profile edits do not establish a new status decision. A valid appeal/correction may
+commit while current restrictions withhold restoration. The ordinary writer and
+CARD/ATTENDANCE consequence projection share this provenance predicate.
+
 Current learner eligibility counts valid disciplinary cards from every exact
 source contributing to the canonical execution participant, matching the ordinary
 removal writer. This execution scope does not extend account ownership, consent

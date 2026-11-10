@@ -17,6 +17,7 @@ import {
 } from "~/server/meeting-periods";
 import { assertFeatureEnabled, getFeatures } from "~/server/program/features";
 import { getProgramTimeZone } from "~/server/program/time-zone";
+import { selfMeetingExcuseIds } from "~/server/meeting-excuse";
 
 /** Independent reads keep one unavailable source from hiding the other sources.
  * Summaries deliberately omit the evidence/private fields owned by detail views. */
@@ -326,7 +327,7 @@ export const personalScheduleRouter = createTRPCRouter({
         date: true,
         attendances: {
           where: { tutorId: ctx.session.tutorId },
-          select: { status: true, excusedAt: true },
+          select: { id: true, status: true, excusedAt: true },
         },
       } as const;
       const [meetings, actionable] = await Promise.all([
@@ -374,19 +375,26 @@ export const personalScheduleRouter = createTRPCRouter({
         at: row.date,
         id: row.id,
       }));
+      const selfExcuses = await selfMeetingExcuseIds(
+        ctx.db,
+        meetings.flatMap((meeting) => meeting.attendances),
+      );
       return {
         window,
-        appointments: events.items.map(({ attendances, ...meeting }) => ({
-          ...meeting,
-          status: attendances[0]?.status ?? null,
-          excused:
-            attendances[0]?.status === "EXCUSED_ABSENT" &&
-            attendances[0].excusedAt != null,
-          upcoming: meeting.date >= now,
-          canExcuse: canExcusePersonalMeeting(meeting.date, now),
-          startsAt: meeting.date,
-          sortAt: meeting.date,
-        })),
+        appointments: events.items.map(({ attendances, ...meeting }) => {
+          const own = attendances[0];
+          const excused = !!own && selfExcuses.has(own.id);
+          return {
+            ...meeting,
+            status: own?.status ?? null,
+            excused,
+            upcoming: meeting.date >= now,
+            canExcuse:
+              (!own || excused) && canExcusePersonalMeeting(meeting.date, now),
+            startsAt: meeting.date,
+            sortAt: meeting.date,
+          };
+        }),
         pageInfo: events.pageInfo,
         tasks: [],
         taskPageInfo: { hasMore: false, nextCursor: null },
@@ -423,7 +431,7 @@ export const personalScheduleRouter = createTRPCRouter({
           date: true,
           attendances: {
             where: { tutorId: ctx.session.tutorId },
-            select: { status: true, reason: true, excusedAt: true },
+            select: { id: true, status: true, reason: true, excusedAt: true },
           },
         },
       });
@@ -433,15 +441,21 @@ export const personalScheduleRouter = createTRPCRouter({
           message: "Meeting not found.",
         });
       const own = meeting.attendances[0];
+      const selfExcuses = await selfMeetingExcuseIds(
+        ctx.db,
+        meeting.attendances,
+      );
+      const excused = !!own && selfExcuses.has(own.id);
       return {
         id: meeting.id,
         title: meeting.title,
         date: meeting.date,
         status: own?.status ?? null,
         reason: own?.reason ?? null,
-        excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
+        excused,
         upcoming: meeting.date >= now,
-        canExcuse: canExcusePersonalMeeting(meeting.date, now),
+        canExcuse:
+          (!own || excused) && canExcusePersonalMeeting(meeting.date, now),
       };
     }),
 });

@@ -5672,7 +5672,16 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "loading": "離校記録を読み込み中…",
+    "loadFailed": "離校記録を読み込めませんでした。",
+    "readFailed": "離校記録を更新できませんでした。入力した理由と選択した変更は保持されています。再度読み込んで続行してください。",
+    "reload": "離校記録を再読み込み",
+    "reloadHelp": "離校記録が変更されました。現在の内容を再読み込みし、保持された理由と選択した変更を確認してから確定してください。",
+    "retryRefresh": "更新を再試行",
+    "refreshing": "変更が受け付けられました。離校記録を更新中…",
+    "refreshFailed": "変更は受け付けられましたが、一部の記録を更新できませんでした。再試行では結果のみを読み込み、再送信はしません。",
+    "accessDenied": "これらの離校記録には現在アクセスできません。更新を再試行して現在の権限を確認してください。"
   },
   "personName": {
     "firstName": "名",

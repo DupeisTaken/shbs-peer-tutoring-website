@@ -1368,8 +1368,8 @@ model MeetingAttendance {
   status MeetingAttendanceStatus
   /// Optional note — the tutor's reason when they self-excuse, or an admin note.
   reason String?
-  /// Set when the tutor self-excused (pre-meeting, ≥30 min before) from their dashboard. Non-null
-  /// ⟺ a tutor-submitted excuse; lets the coordination page flag it. Admin-set attendance leaves it null.
+  /// Set for a tutor's own excuse at least 60 minutes before the meeting.
+  /// Every staff attendance write clears this marker, including an unchanged status.
   excusedAt DateTime?
 
   meetingId String

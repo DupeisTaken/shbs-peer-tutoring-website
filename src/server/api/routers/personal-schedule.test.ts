@@ -383,6 +383,129 @@ it("keeps meeting eligibility identical to personal source history and never pro
   expect(await db.meetingAttendance.count()).toBe(4);
 });
 
+it("keeps staff meeting status read-only in Schedule summaries and details without changing self-excuse ownership", async () => {
+  const rows = [
+    {
+      id: "staff-present",
+      status: "PRESENT",
+      marker: now,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "staff-exempt",
+      status: "EXEMPT",
+      marker: now,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "staff-excused",
+      status: "EXCUSED_ABSENT",
+      marker: null,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "legacy-staff-excused",
+      status: "EXCUSED_ABSENT",
+      marker: now,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "staff-unexcused",
+      status: "UNEXCUSED_ABSENT",
+      marker: now,
+      excused: false,
+      canExcuse: false,
+    },
+    {
+      id: "self-excused",
+      status: "EXCUSED_ABSENT",
+      marker: now,
+      excused: true,
+      canExcuse: true,
+    },
+    {
+      id: "self-inside-cutoff",
+      status: "EXCUSED_ABSENT",
+      marker: now,
+      excused: true,
+      canExcuse: false,
+    },
+    {
+      id: "unrecorded",
+      status: null,
+      marker: null,
+      excused: false,
+      canExcuse: true,
+    },
+  ] as const;
+  await db.tutorMeeting.createMany({
+    data: rows.map((row) => ({
+      id: row.id,
+      title: `Synthetic ${row.id}`,
+      date: new Date(
+        row.id === "self-inside-cutoff"
+          ? "2026-10-28T08:45:00Z"
+          : "2026-10-28T11:00:00Z",
+      ),
+    })),
+  });
+  for (const row of rows) {
+    if (row.status) {
+      const attendance = await db.meetingAttendance.create({
+        data: {
+          meetingId: row.id,
+          tutorId: "mine",
+          status: row.status,
+          excusedAt: row.marker,
+          reason: "Private own meeting evidence",
+        },
+      });
+      if (row.id === "legacy-staff-excused")
+        await db.auditLog.create({
+          data: {
+            operation: "admin.recordMeetingAttendance",
+            action: "Synthetic legacy staff review",
+            entity: "MeetingAttendance",
+            details: {
+              outcome: "APPLIED",
+              changes: [
+                {
+                  entity: "MeetingAttendance",
+                  after: [{ id: attendance.id, excusedAt: now.toISOString() }],
+                },
+              ],
+            },
+          },
+        });
+    }
+  }
+  await db.meetingAttendance.create({
+    data: {
+      meetingId: "unrecorded",
+      tutorId: "other",
+      status: "PRESENT",
+      reason: "Private other meeting evidence",
+    },
+  });
+  const result = await caller().meetings();
+  for (const { id, status, excused, canExcuse } of rows) {
+    const expected = { status, excused, canExcuse };
+    expect(
+      result.appointments.find((row) => row.id === id),
+      id,
+    ).toMatchObject(expected);
+    expect(await caller().meetingDetail({ meetingId: id }), id).toMatchObject(
+      expected,
+    );
+  }
+  expect(result.actionableTasks.map((row) => row.id)).toEqual(["unrecorded"]);
+  expect(JSON.stringify(result)).not.toMatch(/Private|reason|excusedAt/);
+});
+
 it("uses the newly saved school timezone for both independent reads", async () => {
   vi.setSystemTime(new Date("2026-11-01T23:00:00Z"));
   await db.programSettings.create({ data: { timeZone: "America/New_York" } });
