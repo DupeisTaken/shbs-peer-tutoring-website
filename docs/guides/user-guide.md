@@ -1177,9 +1177,16 @@ the exact archived document in its recorded language, with Close available while
 reading. If a save succeeds but the document or history cannot refresh, use the
 read-only refresh action before editing again.
 
-In **Users & Roles**, choose **Review appeal** to read the complete account appeal
-before approving or denying it. A saved decision whose list refresh fails offers
-refresh recovery; it must not be submitted a second time.
+In **Users & Roles**, choose **Review appeal** to read the original appeal alongside
+the current account restriction and reason. An account can have one pending appeal;
+concurrent submissions retain one source and one reviewer notice. Approve resolves
+all still-pending appeals for that account while retaining earlier decisions; Deny
+resolves the selected appeal. If another reviewer or a newer restriction changed
+the account, choose **Reload current restriction review** before deciding. Failed
+Reload retains the earlier snapshot but pauses decisions. An already-active account
+offers **Approve and close appeals** without changing access; Deny is unavailable.
+Deny on a suspended account decides only the selected appeal without lifting suspension. A saved decision
+whose list refresh fails offers read-only recovery and must not be resubmitted.
 
 In **Audit Log → Actions → Details**, Head, Admin and Coordinator can inspect the
 recorded actor and account ID, event and target IDs, operation, exact timestamp
@@ -1532,7 +1539,7 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 ### Management username editing
 
-In **Users & Roles → Edit profile**, Admin/Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admin can submit a username request for Head approval; the current handle remains active until Head applies it. Coordinators cannot submit account username edits. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op. A version conflict requires an explicit **Reload** before retrying; a failed read keeps the username draft and original version. After a successful save, the username section automatically refreshes its current value and version so you can make another change in the same editor. Other sections retain their unsaved drafts; only their own Save submits them.
+In **Users & Roles → Edit profile**, Admin/Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admin/Head apply username changes directly. Coordinators may submit username changes for Admin/Head review; the current handle remains active until approval applies the change. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op. A version conflict requires an explicit **Reload** before retrying; a failed read keeps the username draft and original version. After a successful save, the username section automatically refreshes its current value and version so you can make another change in the same editor. Other sections retain their unsaved drafts; only their own Save submits them.
 
 ## Viewers
 
@@ -1585,11 +1592,18 @@ it does not send the profile again. A conflict **Reload** replaces a draft only
 after a successful fresh read. Security and membership controls distinguish an
 unavailable setting or request from a known disabled or empty state.
 
+The **Two-factor authentication** card distinguishes loading or failed reads from
+**Disabled**. A failed background refresh retains your password draft but pauses
+changes. **Try again** reads the settings; after a saved change it never saves the
+toggle again. You can disable an already-enabled account with your current password
+when the program switch is off or email delivery is unavailable. Denied access keeps
+cached settings hidden until a fresh read confirms access.
+
 Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Account Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
 
 Signed-in password confirmations share a limit of ten checks per account within fifteen minutes, including successful checks. This covers password and two-factor settings, email-address changes and privileged confirmations. Switching pages or signing in again does not provide more attempts. If you see **Too many password confirmations**, wait fifteen minutes before retrying; blocked retries do not extend the wait. Other accounts have their own allowance. Sign-in and email verification codes retain their separate limits, and email changes may reach a stricter action limit first.
 
-Password confirmations accept up to 1,024 characters. If an older password exceeds this limit, use **Forgot Password** to choose a replacement of 8–1,024 characters before changing account settings.
+New or replacement passwords use 8–1,024 characters; account setup and invitation forms retain their existing 8–200 range. Password confirmations accept up to 1,024 characters. An oversized reset is rejected without using the reset link, so correct the password and reuse that link while it remains valid. Existing longer passwords can still sign in; use **Forgot Password** to choose a replacement within the current range before changing account settings. Passwords are never trimmed or shortened automatically.
 
 Legacy accounts that need email verification or a new password receive a setup link at their existing account email. Open that link to prove mailbox ownership and set the password. The setup page shows your current email address; it cannot be changed there. If you cannot access the address, contact the program team. Two-factor preferences stay unchanged and can be managed after sign-in.
 
@@ -1611,6 +1625,15 @@ On the Tutee page, **Messages** and **Account** open inside the same navigation 
 ### Associated email addresses
 
 **Account Settings** and tutor **Account Settings** share the **Associated Emails** controls. Only the primary email is required for signup, account setup and normal site use; secondary addresses are optional. An account may have up to five secondary addresses, counting pending requests. Admin/Head can disable **Secondary-Email Binding** in **Program Settings → Deployment Configurations**; Coordinators request Admin/Head review. While disabled, adding, resending and confirming secondary addresses is blocked in settings and on the server; existing verified addresses remain usable and removable, and pending requests can be cancelled. Primary-email changes remain available and preserve the previous verified primary. Enter your current password to add an address, resend its code, promote a verified address or remove a secondary. Codes last ten minutes, allow five attempts and have a one-minute resend interval. Expired requests remain visible for resend or cancellation. Pending requests do not reserve an address or prevent its actual owner from registering; ownership is checked again when you verify.
+
+To replace the primary with a new address, open **Change Account Email** in
+**Associated Emails**, enter the new address and current password, then verify the
+code sent there. This remains available when secondary binding is off, including
+accounts with only one address. The code step displays its fixed destination;
+**Use another email** returns to password-confirmed entry. Failed requests or
+verification retain the draft. Loading or failed settings reads pause changes;
+denied access hides the form until a fresh authorized read. If the change succeeds
+but account refresh fails, Retry reads the result without submitting the code again.
 
 Any verified address can sign in or recover the same account. Recovery requested with a secondary address goes to that address; recovery by username goes to the primary. Login 2FA and password-change codes still go to the primary, so aliases do not bypass 2FA. Changing primary retains the previous verified primary as a secondary and updates only explicitly linked current tutor/tutee contact rows. Account identity, roles, history and signed agreements remain unchanged. Removing an address revokes its outstanding grants; adding it again does not revive them. Select another verified primary before removing the current one.
 

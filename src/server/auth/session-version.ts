@@ -1,6 +1,7 @@
 import type { DomainDb } from "~/server/transactions";
 import { TRPCError } from "@trpc/server";
 import { hashPassword } from "./password";
+import { newPasswordLengthError } from "../../lib/password-contract";
 
 /** Both Auth.js and the HTTP cookie-cleanup boundary use the same fail-closed comparison.
  * A missing version is a pre-migration session, not generation zero. Never cache this check. */
@@ -9,8 +10,20 @@ export async function isSessionCurrent(
   token: { sub?: string; sessionVersion?: unknown },
 ): Promise<boolean> {
   if (!token.sub || !Number.isSafeInteger(token.sessionVersion)) return false;
-  const user = await db.user.findUnique({ where: { id: token.sub }, select: { sessionVersion: true, mergedIntoId: true, recoveryVoidedAt: true } });
-  return !!user && !user.mergedIntoId && !user.recoveryVoidedAt && user.sessionVersion === token.sessionVersion;
+  const user = await db.user.findUnique({
+    where: { id: token.sub },
+    select: {
+      sessionVersion: true,
+      mergedIntoId: true,
+      recoveryVoidedAt: true,
+    },
+  });
+  return (
+    !!user &&
+    !user.mergedIntoId &&
+    !user.recoveryVoidedAt &&
+    user.sessionVersion === token.sessionVersion
+  );
 }
 
 /** A verified current password authorizes exactly one password update. The conditional write
@@ -22,10 +35,20 @@ export async function changeVerifiedPassword(
   verifiedHash: string,
   newPassword: string,
 ) {
+  const passwordError = newPasswordLengthError(newPassword);
+  if (passwordError)
+    throw new TRPCError({ code: "BAD_REQUEST", message: passwordError });
   const changed = await db.user.updateMany({
     where: { id: userId, passwordHash: verifiedHash, recoveryVoidedAt: null },
-    data: { passwordHash: hashPassword(newPassword), mustChangePassword: false },
+    data: {
+      passwordHash: hashPassword(newPassword),
+      mustChangePassword: false,
+    },
   });
   if (changed.count !== 1)
-    throw new TRPCError({ code: "CONFLICT", message: "Your credentials changed. Sign in again before changing your password." });
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "Your credentials changed. Sign in again before changing your password.",
+    });
 }

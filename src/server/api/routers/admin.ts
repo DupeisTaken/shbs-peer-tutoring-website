@@ -1,5 +1,10 @@
 import { cardReviewInput, reviewCard } from "~/server/corrections/card";
 import {
+  accountAppealDecisionInput,
+  lockAccountAppealDecisionReview,
+  parseAccountAppealDecisionReview,
+} from "~/server/account-appeals";
+import {
   assertOperationalPairing,
   executionParticipantId,
   supersededPairingIds,
@@ -73,7 +78,10 @@ import {
 } from "~/server/request-invalidity";
 import { synchronizeStudentSignupAnswers } from "~/server/student-signup-revisions";
 import { assertHeadDiscretionarySignupChange } from "~/server/student-signup-management";
-import { declineLegacySignup, legacySignupDeclineInput } from "~/server/legacy-signup-decline";
+import {
+  declineLegacySignup,
+  legacySignupDeclineInput,
+} from "~/server/legacy-signup-decline";
 import { legacySignupDeclineView } from "~/lib/legacy-signup-decline";
 import { hasReadyCredentials } from "~/lib/account-readiness";
 import {
@@ -621,22 +629,35 @@ export const adminRouter = createTRPCRouter({
       else if (g.status === "EXCUSED_ABSENT") e.excused += n;
       else e.unexcused += n;
     }
-    const cardExecution = new Map(await Promise.all([...new Set(cardGroups.map((row) => row.tuteeId))].map(async (sourceId) => [sourceId, await executionParticipantId(ctx.db, "TUTEE", sourceId)] as const)));
+    const cardExecution = new Map(
+      await Promise.all(
+        [...new Set(cardGroups.map((row) => row.tuteeId))].map(
+          async (sourceId) =>
+            [
+              sourceId,
+              await executionParticipantId(ctx.db, "TUTEE", sourceId),
+            ] as const,
+        ),
+      ),
+    );
     for (const g of cardGroups) {
       // Attendance stays with its original evidence actor. Current discipline
       // aggregates exact execution sources and retains the source's own display.
       const currentId = cardExecution.get(g.tuteeId)!;
-      const recipients = currentId === g.tuteeId ? [get(g.tuteeId)] : [get(g.tuteeId), get(currentId)];
+      const recipients =
+        currentId === g.tuteeId
+          ? [get(g.tuteeId)]
+          : [get(g.tuteeId), get(currentId)];
       for (const e of recipients) {
-      const n = g._count._all;
-      if (g.reviewStatus === "VALID") {
-        if (g.color === "YELLOW") e.validYellow += n;
-        else e.validRed += n;
-      } else if (g.reviewStatus === "PENDING") {
-        if (g.color === "YELLOW") e.pendingYellow += n;
-        else e.pendingRed += n;
-      }
-      // INVALID cards are ignored (don't count toward standing).
+        const n = g._count._all;
+        if (g.reviewStatus === "VALID") {
+          if (g.color === "YELLOW") e.validYellow += n;
+          else e.validRed += n;
+        } else if (g.reviewStatus === "PENDING") {
+          if (g.color === "YELLOW") e.pendingYellow += n;
+          else e.pendingRed += n;
+        }
+        // INVALID cards are ignored (don't count toward standing).
       }
     }
 
@@ -812,10 +833,14 @@ export const adminRouter = createTRPCRouter({
     );
     // Decision snapshots include private intake and ownership evidence. Observers
     // receive no property or query for this management-only retained lifecycle.
-    const declines = isViewer ? [] : await ctx.db.legacySignupDecline.findMany({
-      where: { tuteeId: { in: tutees.map((row) => row.id) } },
-    });
-    const declinesByTutee = new Map(declines.map((row) => [row.tuteeId, legacySignupDeclineView(row)]));
+    const declines = isViewer
+      ? []
+      : await ctx.db.legacySignupDecline.findMany({
+          where: { tuteeId: { in: tutees.map((row) => row.id) } },
+        });
+    const declinesByTutee = new Map(
+      declines.map((row) => [row.tuteeId, legacySignupDeclineView(row)]),
+    );
     // Only current flag generations can move a legacy signup into Needs review.
     // Observers receive no appeal evidence or pending-review signal.
     const flagged = invalidities.filter((row) => row.invalidatedAt);
@@ -1039,7 +1064,10 @@ export const adminRouter = createTRPCRouter({
   pairings: viewerProcedure.query(async ({ ctx }) => {
     const isViewer = ctx.portalAccess.maskManagementData;
     const pairings = await ctx.db.pairing.findMany({
-      where: { id: { notIn: await supersededPairingIds(ctx.db) }, term: { active: true } },
+      where: {
+        id: { notIn: await supersededPairingIds(ctx.db) },
+        term: { active: true },
+      },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
         tutor: true,
@@ -1294,7 +1322,11 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, "program:period");
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.id, AND: [{ id: { notIn: await supersededPairingIds(tx) } }], term: { active: true } },
+          where: {
+            id: input.id,
+            AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
+            term: { active: true },
+          },
           include: roomUnitInclude,
         });
         if (!pairing)
@@ -1319,7 +1351,11 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, "program:period");
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.id, AND: [{ id: { notIn: await supersededPairingIds(tx) } }], term: { active: true } },
+          where: {
+            id: input.id,
+            AND: [{ id: { notIn: await supersededPairingIds(tx) } }],
+            term: { active: true },
+          },
           include: roomUnitInclude,
         });
         if (!pairing)
@@ -2469,7 +2505,11 @@ export const adminRouter = createTRPCRouter({
               before.status !== input.status &&
               ["ACTIVE", "PENDING"].includes(input.status)
             )
-              await requireParticipantSourceParticipation(tx, "TUTOR", input.id);
+              await requireParticipantSourceParticipation(
+                tx,
+                "TUTOR",
+                input.id,
+              );
             if (account && before.status !== input.status) {
               if (["ACTIVE", "PENDING"].includes(input.status))
                 await requireSchoolParticipation(tx, account.id);
@@ -3272,7 +3312,9 @@ export const adminRouter = createTRPCRouter({
 
   declineSignup: adminProcedure
     .input(legacySignupDeclineInput)
-    .mutation(({ ctx, input }) => declineLegacySignup(ctx.db, ctx.session.user.id, input)),
+    .mutation(({ ctx, input }) =>
+      declineLegacySignup(ctx.db, ctx.session.user.id, input),
+    ),
 
   deleteTutee: adminProcedure
     .input(z.object({ id: cuid }))
@@ -3287,8 +3329,16 @@ export const adminRouter = createTRPCRouter({
           input,
         );
         await assertTuteeInvalidityCleared(tx, input.id);
-        if (await tx.legacySignupDecline.findUnique({ where: { tuteeId: input.id } }))
-          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This signup has a retained decline decision and cannot be deleted." });
+        if (
+          await tx.legacySignupDecline.findUnique({
+            where: { tuteeId: input.id },
+          })
+        )
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "This signup has a retained decline decision and cannot be deleted.",
+          });
         await assertNoPublishedTuteeDeletion(tx, input.id);
         const sessions = await tx.sessionTutee.count({
           where: { tuteeId: input.id },
@@ -6011,6 +6061,9 @@ export const adminRouter = createTRPCRouter({
         data: {
           suspendedAt: new Date(),
           suspendedReason: input.reason?.trim() ? input.reason.trim() : null,
+          // The DB trigger assigns OLD + 1 when the timestamp changes; the
+          // explicit increment also fences a same-millisecond reason edit.
+          refreshAuthorityRevision: { increment: 1 },
         },
       });
       await notifyUsers([target.id], {
@@ -6080,7 +6133,15 @@ export const adminRouter = createTRPCRouter({
           message: true,
           createdAt: true,
           user: {
-            select: { id: true, name: true, username: true, affiliation: true },
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              affiliation: true,
+              suspendedAt: true,
+              suspendedReason: true,
+              refreshAuthorityRevision: true,
+            },
           },
         },
       })
@@ -6092,67 +6153,124 @@ export const adminRouter = createTRPCRouter({
           userId: r.user.id,
           name: r.user.name ?? r.user.username ?? "—",
           affiliation: r.user.affiliation,
+          restriction: {
+            suspendedAt: r.user.suspendedAt,
+            reason: r.user.suspendedReason,
+            authorityRevision: r.user.refreshAuthorityRevision,
+          },
         })),
       ),
   ),
 
   /** Decide an appeal: APPROVE reinstates the account; DENY keeps it suspended. User notified. */
   decideAppeal: adminProcedure
-    .input(z.object({ appealId: cuid, action: z.enum(["APPROVE", "DENY"]) }))
+    .input(accountAppealDecisionInput)
     .mutation(async ({ ctx, input }) => {
-      const appeal = await ctx.db.accountAppeal.findUniqueOrThrow({
-        where: { id: input.appealId },
-        select: { id: true, state: true, userId: true, createdAt: true },
-      });
-      if (appeal.state !== "PENDING") {
+      const review = parseAccountAppealDecisionReview(input);
+      // Match identity/role writers before taking the account and appeal rows.
+      // Re-read terminal state only after the account fence shared with submit.
+      await lockUsernameNamespace(ctx.db);
+      await lockEntity(ctx.db, "program:leadership");
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      const { appeal, account } = await lockAccountAppealDecisionReview(
+        ctx.db,
+        review,
+      );
+      // Approval reconciles legacy duplicate requests at the account boundary,
+      // preserving each original and every already-terminal historical decision.
+      const coResolvedAppealIds =
+        input.action === "APPROVE"
+          ? (
+              await ctx.db.accountAppeal.findMany({
+                where: { userId: appeal.userId, state: "PENDING" },
+                orderBy: { id: "asc" },
+                select: { id: true },
+              })
+            ).map((row) => row.id)
+          : [appeal.id];
+      if (!coResolvedAppealIds.includes(appeal.id))
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "This appeal is already decided.",
         });
-      }
-      await ctx.db.$transaction(async (tx) => {
-        await tx.accountAppeal.update({
-          where: { id: appeal.id },
-          data: {
-            state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
-            decidedByName: ctx.session.user.name,
-            decidedAt: new Date(),
-          },
+      const accessRestored =
+        input.action === "APPROVE" && !!account.suspendedAt;
+      const decided = await ctx.db.accountAppeal.updateMany({
+        where: {
+          id: { in: coResolvedAppealIds },
+          userId: appeal.userId,
+          state: "PENDING",
+        },
+        data: {
+          state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
+          decidedByName: ctx.session.user.name,
+          decidedAt: new Date(),
+        },
+      });
+      if (decided.count !== coResolvedAppealIds.length)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This appeal is already decided.",
         });
-        if (input.action === "APPROVE") {
-          await tx.user.update({
-            where: { id: appeal.userId },
-            data: { suspendedAt: null, suspendedReason: null },
-          });
-        }
-      });
-      await notifyUsers([appeal.userId], {
-        title:
-          input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
-        ...notificationInAppEvent(
-          input.action === "APPROVE"
-            ? "account_appeal_approved"
-            : "account_appeal_declined",
-          undefined,
-          {
-            en: `Your account appeal submitted on ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} was ${input.action === "APPROVE" ? "approved; account access was restored" : "declined; account access remains suspended"}.`,
-            zh: `您于 ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} 提交的账户申诉${input.action === "APPROVE" ? "已批准，账户访问权限已恢复" : "未获批准，账户访问权限仍被暂停"}。`,
-          },
-        ),
-        body:
-          input.action === "APPROVE"
-            ? "Your account access has been restored."
-            : "Your appeal was declined; your account stays suspended.",
-        link: "/",
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `${input.action === "APPROVE" ? "Approved" : "Denied"} an account appeal`,
-        entity: "AccountAppeal",
-        entityId: appeal.id,
-      });
-      return { ok: true };
+      if (accessRestored) {
+        await ctx.db.user.update({
+          where: { id: appeal.userId },
+          data: { suspendedAt: null, suspendedReason: null },
+        });
+      }
+      const submittedOn = programDateKey(
+        appeal.createdAt,
+        await getProgramTimeZone(ctx.db),
+      );
+      const detail =
+        input.action === "DENY"
+          ? {
+              en: `Your account appeal submitted on ${submittedOn} was declined; account access remains suspended.`,
+              zh: `您于 ${submittedOn} 提交的账户申诉未获批准，账户访问权限仍被暂停。`,
+            }
+          : accessRestored
+            ? {
+                en: `Your account appeal submitted on ${submittedOn} was approved with all pending account appeals; account access was restored.`,
+                zh: `您于 ${submittedOn} 提交的账户申诉及其他待处理账户申诉均已批准，账户访问权限已恢复。`,
+              }
+            : {
+                en: `Your account appeal submitted on ${submittedOn} was approved with all pending account appeals; your account was already active and access was unchanged.`,
+                zh: `您于 ${submittedOn} 提交的账户申诉及其他待处理账户申诉均已批准；您的账户原已启用，访问权限未作更改。`,
+              };
+      await notifyUsers(
+        [appeal.userId],
+        {
+          title:
+            input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
+          ...notificationInAppEvent(
+            input.action === "APPROVE"
+              ? "account_appeal_approved"
+              : "account_appeal_declined",
+            undefined,
+            detail,
+          ),
+          body:
+            input.action === "APPROVE"
+              ? accessRestored
+                ? "All pending account appeals were approved and account access was restored."
+                : "All pending account appeals were approved. Your account was already active; access was unchanged."
+              : "Your appeal was declined; your account stays suspended.",
+          link: "/",
+        },
+        ctx.db,
+      );
+      await recordAudit(
+        {
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: `${input.action === "APPROVE" ? "Approved" : "Denied"} an account appeal`,
+          entity: "AccountAppeal",
+          entityId: appeal.id,
+          effects: { coResolvedAppealIds, accessRestored },
+        },
+        ctx.db,
+      );
+      return { ok: true, coResolvedAppealIds, accessRestored };
     }),
 
   /**

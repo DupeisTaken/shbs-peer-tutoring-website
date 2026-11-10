@@ -66,14 +66,20 @@ function requestAuthority(request: {
   } | null;
   // Pending proposals adopt current governance without rewriting their original
   // authority or fingerprint. Completed decisions retain their historical policy.
-  if (request.state !== "PENDING" && targets?.reviewAuthority) return targets.reviewAuthority;
+  if (request.state !== "PENDING" && targets?.reviewAuthority)
+    return targets.reviewAuthority;
   const current = classifyApproval(
-      request.operation,
-      superjson.deserialize(
-        request.payload as Parameters<typeof superjson.deserialize>[0],
-      ),
-    );
-  return current && { ...current, category: targets?.reviewAuthority?.category ?? current.category };
+    request.operation,
+    superjson.deserialize(
+      request.payload as Parameters<typeof superjson.deserialize>[0],
+    ),
+  );
+  return (
+    current && {
+      ...current,
+      category: targets?.reviewAuthority?.category ?? current.category,
+    }
+  );
 }
 
 /** Approval is a single atomic transition: revalidation, live change, decision, audit,
@@ -187,6 +193,7 @@ export const approvalRouter = createTRPCRouter({
           "admin.updateAccountAcademics",
           "admin.updateTutee",
           "admin.setUserRole",
+          "admin.decideAppeal",
           "program.setProfilePolicy",
           "program.setNameFields",
           // School delivery owns namespace/account before schedule admission.
@@ -202,9 +209,12 @@ export const approvalRouter = createTRPCRouter({
         ].includes(initial.operation);
       const nextRecruitmentApproval =
         !!initial &&
-        ["program.prepareNextRecruitment", "admin.refresh", "admin.scheduleRefresh", "admin.cancelRefresh"].includes(
-          initial.operation,
-        );
+        [
+          "program.prepareNextRecruitment",
+          "admin.refresh",
+          "admin.scheduleRefresh",
+          "admin.cancelRefresh",
+        ].includes(initial.operation);
       const runDecision = () =>
         ctx.db.$transaction(
           async (tx) =>
@@ -241,7 +251,9 @@ export const approvalRouter = createTRPCRouter({
                   await lockUsernameNamespace(tx);
                   // Freeze both actors after the shared identity barrier. This also
                   // rejects a Serializable snapshot taken before their role changed.
-                  for (const id of [...new Set([ctx.session.user.id, initial.requesterId])].sort())
+                  for (const id of [
+                    ...new Set([ctx.session.user.id, initial.requesterId]),
+                  ].sort())
                     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${id} FOR SHARE`;
                 }
                 if (attendanceApproval)
@@ -414,7 +426,8 @@ export const approvalRouter = createTRPCRouter({
                     if (evidence.participantSelfService)
                       targets.participantSelfService = true;
                     if (evidence.reviewPolicyVersion !== undefined)
-                      targets.reviewPolicyVersion = evidence.reviewPolicyVersion as number;
+                      targets.reviewPolicyVersion =
+                        evidence.reviewPolicyVersion as number;
                   }
                   if (fingerprint(targets) !== request.fingerprint)
                     throw new TRPCError({
@@ -514,7 +527,9 @@ export const approvalRouter = createTRPCRouter({
                       reviewerRole: currentReviewer.role,
                       category: authority.category,
                       reviewPolicyVersion: APPROVAL_POLICY_VERSION,
-                      submittedPolicyVersion: (request.targets as { reviewPolicyVersion?: number }).reviewPolicyVersion ?? 1,
+                      submittedPolicyVersion:
+                        (request.targets as { reviewPolicyVersion?: number })
+                          .reviewPolicyVersion ?? 1,
                     },
                   },
                 });

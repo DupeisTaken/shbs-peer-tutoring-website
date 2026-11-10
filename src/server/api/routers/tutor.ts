@@ -1,4 +1,8 @@
-import { executionAssignments, executionSourceIds, supersededPairingIds } from "~/server/participant-execution";
+import {
+  executionAssignments,
+  executionSourceIds,
+  supersededPairingIds,
+} from "~/server/participant-execution";
 import {
   sessionAttendanceContext,
   markSessionCohortRecorded,
@@ -15,6 +19,10 @@ import {
   notificationInstant,
 } from "~/lib/notification-facts";
 import { notificationInAppEvent } from "~/lib/notification-details";
+import {
+  NEW_PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "~/lib/password-contract";
 import { isInterviewChairRole } from "~/lib/interview-chair";
 import {
   meetingPeriodInput,
@@ -158,7 +166,11 @@ export const tutorRouter = createTRPCRouter({
   /** The signed-in tutor's *current* pairings (active program period), with tutees/room/term. */
   myPairings: tutorProcedure.query(async ({ ctx }) => {
     return ctx.db.pairing.findMany({
-      where: { id: { notIn: await supersededPairingIds(ctx.db) }, tutorId: ctx.session.tutorId, term: { active: true } },
+      where: {
+        id: { notIn: await supersededPairingIds(ctx.db) },
+        tutorId: ctx.session.tutorId,
+        term: { active: true },
+      },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
         room: true,
@@ -190,7 +202,11 @@ export const tutorRouter = createTRPCRouter({
    */
   myTuteeDiscipline: tutorProcedure.query(async ({ ctx }) => {
     const pairings = await ctx.db.pairing.findMany({
-      where: { id: { notIn: await supersededPairingIds(ctx.db) }, tutorId: ctx.session.tutorId, term: { active: true } },
+      where: {
+        id: { notIn: await supersededPairingIds(ctx.db) },
+        tutorId: ctx.session.tutorId,
+        term: { active: true },
+      },
       select: {
         tutees: {
           select: {
@@ -218,7 +234,9 @@ export const tutorRouter = createTRPCRouter({
     if (tuteeIds.length === 0) return [];
 
     const cardSources = new Map<string, string>();
-    for (const tuteeId of tuteeIds) for (const sourceId of await executionSourceIds(ctx.db, "TUTEE", tuteeId)) cardSources.set(sourceId, tuteeId);
+    for (const tuteeId of tuteeIds)
+      for (const sourceId of await executionSourceIds(ctx.db, "TUTEE", tuteeId))
+        cardSources.set(sourceId, tuteeId);
     // VALID + PENDING cards remain on their original source, but follow current execution standing.
     const cards = await ctx.db.disciplinaryCard.findMany({
       where: {
@@ -520,10 +538,20 @@ export const tutorRouter = createTRPCRouter({
       const features = await getFeatures(ctx.db);
       // Dated attendance derives its subject set from the immutable lesson snapshot.
       // A split cohort can contain only part of a recurring pairing's roster.
-      const executedPlanIds = input.cohortId ? (await ctx.db.sessionPlanExecution.findMany({ where: { tutorId }, select: { planId: true } })).map((row) => row.planId) : [];
+      const executedPlanIds = input.cohortId
+        ? (
+            await ctx.db.sessionPlanExecution.findMany({
+              where: { tutorId },
+              select: { planId: true },
+            })
+          ).map((row) => row.planId)
+        : [];
       const planned = input.cohortId
         ? await ctx.db.sessionPlanCohort.findFirst({
-            where: { id: input.cohortId, plan: { OR: [{ tutorId }, { id: { in: executedPlanIds } }] } },
+            where: {
+              id: input.cohortId,
+              plan: { OR: [{ tutorId }, { id: { in: executedPlanIds } }] },
+            },
             include: {
               participants: true,
               plan: {
@@ -549,10 +577,20 @@ export const tutorRouter = createTRPCRouter({
           ),
         ),
       );
-      const execution = planned ? await ctx.db.sessionPlanExecution.findUnique({ where: { planId: planned.planId } }) : null;
+      const execution = planned
+        ? await ctx.db.sessionPlanExecution.findUnique({
+            where: { planId: planned.planId },
+          })
+        : null;
       if (execution && plannedAssignments) {
-        const pairingMap = new Map(executionAssignments.parse(execution.assignments).map((row) => [row.sourcePairingId, row.targetPairingId]));
-        for (const assignment of plannedAssignments) assignment.pairingId = pairingMap.get(assignment.pairingId) ?? assignment.pairingId;
+        const pairingMap = new Map(
+          executionAssignments
+            .parse(execution.assignments)
+            .map((row) => [row.sourcePairingId, row.targetPairingId]),
+        );
+        for (const assignment of plannedAssignments)
+          assignment.pairingId =
+            pairingMap.get(assignment.pairingId) ?? assignment.pairingId;
       }
       if (
         planned &&
@@ -715,7 +753,11 @@ export const tutorRouter = createTRPCRouter({
             // writes cannot bypass a pause that governed the actual lesson;
             // later policy edits never retroactively impose consent on history.
             if (await readRegularTutoringPausedAt(tx, dateKey, startsAt))
-              throw new TRPCError({ code: "CONFLICT", message: "This tutoring date required explicit agreement. Record the agreed dated session from the schedule." });
+              throw new TRPCError({
+                code: "CONFLICT",
+                message:
+                  "This tutoring date required explicit agreement. Record the agreed dated session from the schedule.",
+              });
           }
           const plannedContext = input.cohortId
             ? await sessionAttendanceContext(
@@ -1181,7 +1223,11 @@ export const tutorRouter = createTRPCRouter({
         )
           throw new TRPCError({ code: "FORBIDDEN" });
         await requireSchoolParticipation(tx, account.id);
-        await requireParticipantSourceParticipation(tx, "TUTOR", ctx.session.tutorId);
+        await requireParticipantSourceParticipation(
+          tx,
+          "TUTOR",
+          ctx.session.tutorId,
+        );
         const valid = await tx.timeSlot.findMany({
           where: { id: { in: slotIds }, active: true },
           select: { id: true },
@@ -1386,7 +1432,10 @@ export const tutorRouter = createTRPCRouter({
     .input(
       z.object({
         currentPassword: z.string().min(1).max(1024),
-        newPassword: z.string().min(8, "Use at least 8 characters.").max(1024),
+        newPassword: z
+          .string()
+          .min(NEW_PASSWORD_MIN_LENGTH, "Use at least 8 characters.")
+          .max(PASSWORD_MAX_LENGTH),
         code: z.string().trim().optional(),
       }),
     )
@@ -1646,8 +1695,19 @@ export const tutorRouter = createTRPCRouter({
       }),
     ]);
     // Retained predecessors are attendance evidence, not additional occupied slots.
-    const superseded = new Set(await supersededPairingIds(ctx.db, pairings.map((row) => row.id)));
-    return { rooms, slots, pairings: pairings.filter((row) => !superseded.has(row.id)), blocks, myTutorId: ctx.session.tutorId };
+    const superseded = new Set(
+      await supersededPairingIds(
+        ctx.db,
+        pairings.map((row) => row.id),
+      ),
+    );
+    return {
+      rooms,
+      slots,
+      pairings: pairings.filter((row) => !superseded.has(row.id)),
+      blocks,
+      myTutorId: ctx.session.tutorId,
+    };
   }),
 
   // --------------------------------------------------------------------------
@@ -2407,7 +2467,11 @@ export const tutorRouter = createTRPCRouter({
         }
         await requireSchoolParticipation(tx, ctx.session.user.id);
         if (input.available) {
-          await requireParticipantSourceParticipation(tx, "TUTOR", ctx.session.tutorId);
+          await requireParticipantSourceParticipation(
+            tx,
+            "TUTOR",
+            ctx.session.tutorId,
+          );
           await requireAcademicConfirmation(tx, ctx.session.user.id);
         }
         const status = input.available

@@ -215,3 +215,47 @@ it.each([AccountSettings, TutorSettings])(
     expect(mocks.redirect).toHaveBeenCalledOnce();
   },
 );
+
+it.each([AccountSettings, TutorSettings])(
+  "bounds new credentials before requesting email proof (%s)",
+  (Component) => {
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale="en" messages={en}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const password = screen.getByLabelText<HTMLInputElement>((name) =>
+      name.startsWith(en.tutor.settings.newPassword),
+    );
+    const confirmation = screen.getByLabelText<HTMLInputElement>(
+      en.tutor.settings.confirmPassword,
+    );
+    for (const field of [password, confirmation]) {
+      expect(field.minLength).toBe(8);
+      expect(field.maxLength).toBe(1024);
+      // A scripted value can bypass native maxlength. The handler must still
+      // reject it before requesting proof or submitting a credential write.
+      fireEvent.change(field, { target: { value: "x".repeat(1025) } });
+    }
+    fireEvent.change(screen.getByLabelText(en.tutor.settings.currentPassword), {
+      target: { value: "CurrentPassword123!" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: en.account.password.sendCode }),
+    );
+    expect(screen.getByRole("alert").textContent).toBe(
+      en.tutor.settings.pwTooLong.replace("{max}", "1024"),
+    );
+    expect(
+      document.querySelector('input[autocomplete="one-time-code"]'),
+    ).toBeNull();
+    expect(mocks.change).not.toHaveBeenCalled();
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  },
+);

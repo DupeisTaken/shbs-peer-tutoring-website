@@ -12,13 +12,14 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma";
 import { utcDatabaseUrl } from "../src/server/database-url";
 import { hashPassword } from "../src/server/auth/password";
+import { newPasswordLengthError } from "../src/lib/password-contract";
 import { initializeProgram } from "../src/server/program/bootstrap";
 import { initializePersonSource } from "../src/server/person-source-initialization";
 import { lockUsernameNamespace } from "../src/server/auth/username-namespace";
 
 const connectionString = process.env.DATABASE_URL;
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+const password = process.env.BOOTSTRAP_ADMIN_PASSWORD ?? "";
 function bootstrapName(): string {
   const candidate = process.env.BOOTSTRAP_ADMIN_NAME?.trim();
   if (candidate) return candidate;
@@ -30,9 +31,15 @@ if (!connectionString) throw new Error("DATABASE_URL is required.");
 if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
   throw new Error("BOOTSTRAP_ADMIN_EMAIL must be a valid email address.");
 }
-if (!password || password.length < 12) {
+// Bootstrap keeps its stronger minimum, while every new credential must remain
+// usable by bounded account confirmations. Reject before hashing or connecting.
+const passwordError = newPasswordLengthError(password, 12);
+if (passwordError) {
   throw new Error(
-    "BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters.",
+    passwordError.replace(
+      "Password must be",
+      "BOOTSTRAP_ADMIN_PASSWORD must contain",
+    ),
   );
 }
 const passwordHash = hashPassword(password);
@@ -55,7 +62,9 @@ try {
     // Leadership locking serializes this check with combination: recovery must never revive
     // a retired identity or silently assign an inaccessible replacement Head.
     if (existing?.mergedIntoId)
-      throw new Error("This email belongs to a retired login. Use the surviving account for administrator recovery.");
+      throw new Error(
+        "This email belongs to a retired login. Use the surviving account for administrator recovery.",
+      );
     const role = existing?.role === "HEAD" || !headExists ? "HEAD" : "ADMIN";
     const today = new Date();
     const year = today.getUTCFullYear() - (today.getUTCMonth() < 7 ? 1 : 0);

@@ -18,6 +18,7 @@ import { emailOrigin } from "~/server/email/urls";
 import { hashPassword } from "./password";
 import { TRPCError } from "@trpc/server";
 import { lockEntity } from "~/server/transactions";
+import { newPasswordLengthError } from "~/lib/password-contract";
 
 /** Staff can resend setup to an existing account ID, never to a client-supplied address.
  * Uses the existing email-proof/password setup flow and does not alter any participation link. */
@@ -168,6 +169,11 @@ export async function resetPassword(
   token: string,
   newPassword: string,
 ): Promise<{ username: string | null; email: string } | null> {
+  // Reject before even inspecting the grant: invalid new credentials must not
+  // consume proof, rotate a session, or incur password hashing work.
+  const passwordError = newPasswordLengthError(newPassword);
+  if (passwordError)
+    throw new TRPCError({ code: "BAD_REQUEST", message: passwordError });
   const tokenHash = hashToken(token.trim());
 
   const record = await db.passwordResetToken.findUnique({
@@ -262,7 +268,12 @@ export async function issueTutorSetupLink(
     await import("./registration");
   const { deliverAccountInvitation } = await import("./account-invitations");
   const actor = await db.user.findUnique({ where: { id: actorId } });
-  if (!actor || !["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
+  if (
+    !actor ||
+    !["ADMIN", "HEAD"].includes(actor.role) ||
+    actor.suspendedAt ||
+    actor.mergedIntoId
+  )
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
@@ -278,7 +289,12 @@ export async function issueTutorSetupLink(
       const currentActor = await tx.user.findUnique({
         where: { id: actor.id },
       });
-      if (!currentActor || !["ADMIN", "HEAD"].includes(currentActor.role) || currentActor.suspendedAt || currentActor.mergedIntoId)
+      if (
+        !currentActor ||
+        !["ADMIN", "HEAD"].includes(currentActor.role) ||
+        currentActor.suspendedAt ||
+        currentActor.mergedIntoId
+      )
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only Admin or Head can provision tutor access.",
