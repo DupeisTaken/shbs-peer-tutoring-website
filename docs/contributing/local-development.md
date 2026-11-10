@@ -467,6 +467,16 @@ Application tests live under `src/**/*.test.{ts,tsx}`:
   (`fileParallelism: false`) and need a reachable `DATABASE_URL` with the schema applied.
 - **UI render tests** exercise interactive controls in jsdom without starting the website.
 
+[Recovery checkpoint fixtures](../../src/server/recovery/correction-checkpoints.integration.test.ts)
+reset and seed in one transaction before exercising
+the real application client. Their 1-second acquisition wait, 4-second transaction
+limit and 2-second statement limit leave room for an in-flight statement to drain
+before rollback, inside the unchanged 10-second setup hook. Lock waits are capped
+at 1 second. A blocked reset rolls back and
+must settle before the next case starts; do not replace these bounds with a
+longer global hook timeout. The checkpoint integration suite exercises a real
+blocking lock and verifies that a subsequent reset starts cleanly.
+
 [`src/test/setup.ts`](../../src/test/setup.ts) loads `.env` and supplies fallback
 `AUTH_SECRET`/`DATABASE_URL` values for tests that need no live database. It does
 not create a database or make that fallback safe for integration tests. Set an
