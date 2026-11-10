@@ -11,6 +11,26 @@ scheduling scenarios compare the baseline application under this candidate schem
 the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
+PR #639 uses its integrated main commit
+`3d5dddf39df8c5377ada3c8dd0c7f0fa94425246` as its scoped control. This advances its
+`7fa85bdf` control to include required notification choices from PR #651, after
+earlier controls incorporated recipient labels from PR #640 and tutoring pauses
+from PR #606.
+Recipient labels are staff-only annotations saved through settings review;
+they do not classify archive sources or grant reporting or delivery authority.
+Notification locks govern configured notification choices, without classifying
+archive evidence or changing issued school-report amounts.
+Its manifest pins both schema versions, the unchanged
+dependency lock, all 139 historical migrations and the single
+`20261108010000_imported_record_provenance` addition.
+That migration adds server-owned archive provenance and its recovery journal
+trigger; it does not reclassify existing records. The baseline application runs
+under the candidate schema for the existing scheduling scenarios, with the
+separate native-schema cold control retained. New archive-import, reporting and
+admission behavior has separate candidate regression coverage and establishes no
+baseline support, semantic parity or speedup claim for those new paths. This
+PR-scoped selection changes no comparison or harness guard.
+
 PR #606 uses its integrated pre-feature main commit
 `64d55753608e064205fc5788e08687fe99dc5c9a` as both scheduling controls.
 This advances the earlier `dfe9be18` pin for upstream account-menu wording,

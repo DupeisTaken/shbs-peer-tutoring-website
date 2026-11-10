@@ -375,8 +375,17 @@ const PRISMA_METADATA = [
   "rolled_back_at|timestamptz",
   "started_at|timestamptz",
 ].sort();
+const IMPORT_PROVENANCE_COLUMNS = [
+  "ImportedRecordProvenance|entity|text",
+  "ImportedRecordProvenance|importedAt|timestamp",
+  "ImportedRecordProvenance|recordId|text",
+].sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  importProvenanceColumns: IMPORT_PROVENANCE_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
   notificationLockColumns: [
     ...REVIEWED_IDENTITY_DECLINE_COLUMNS,
     NOTIFICATION_LOCK_COLUMN,
@@ -455,12 +464,27 @@ export function assertReviewedRecoverySchema(
     .filter((row) => row.table_name === "_prisma_migrations")
     .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
     .sort();
+  // Accept only the complete reviewed archive boundary. Its removal or partial
+  // restoration must not widen the authority of an otherwise reviewed backup.
+  const provenance = domain.filter((column) =>
+    column.startsWith("ImportedRecordProvenance|"),
+  );
+  operatorAssert(
+    provenance.length === 0 ||
+      provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
+    "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
+  );
+  // Compose reviewed policy phases with the independent archive boundary before
+  // normalizing the optional staff-only recipient labels on older backups.
+  const withoutProvenance = comparedDomain.filter(
+    (column) => !column.startsWith("ImportedRecordProvenance|"),
+  );
   // Labels add no authority or bearer state. Keep the previously reviewed
   // backups readable while requiring the exact JSONB type when this field exists.
   const recipientLabelColumn = "SchoolHoursSchedule|recipientLabels|jsonb";
-  const reviewedDomain = comparedDomain.includes(recipientLabelColumn)
-    ? comparedDomain
-    : [...comparedDomain, recipientLabelColumn].sort();
+  const reviewedDomain = withoutProvenance.includes(recipientLabelColumn)
+    ? withoutProvenance
+    : [...withoutProvenance, recipientLabelColumn].sort();
   const identityVersion: 0 | 1 | null =
     reviewedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
     reviewedDomain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")

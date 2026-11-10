@@ -1,6 +1,12 @@
 // This explicit schema vocabulary is derived from prisma/schema.prisma; update it with schema changes.
 // It labels recorded evidence only and never fetches or changes a record.
 export const reviewSchema = {
+  ImportedRecordProvenance: {
+    // The imported record ID is polymorphic; labels never infer a live reference.
+    references: {},
+    enums: {},
+    fields: ["entity", "recordId", "importedAt"],
+  },
   SchedulingMaintenanceState: {
     references: {},
     enums: {},
@@ -2719,6 +2725,7 @@ export const reviewEnumValues = {
   AcademicStatus: ["REPORTED", "UNKNOWN", "GRADUATED", "NOT_APPLICABLE"],
 } as const;
 export const reviewFieldKeys = [
+  "importedAt",
   "publicSignupEmailConfirmedAt",
   "signupOpeningStateSince",
   "signupFirstOpenedAt",

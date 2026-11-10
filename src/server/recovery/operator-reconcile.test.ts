@@ -47,6 +47,69 @@ function fixture(
 }
 
 describe("operator security reconciliation evidence", () => {
+  it("fingerprints archive boundaries and refuses an overlay that loses provenance", async () => {
+    const snapshot = async (
+      known: boolean,
+      records: Record<string, unknown>[],
+    ) => {
+      const queries: string[] = [];
+      const db: OperatorSql = {
+        async query(sql) {
+          queries.push(sql);
+          if (sql.includes("information_schema"))
+            return {
+              rows: [
+                ...reviewedRecoverySchemaMetadata.identityColumns,
+                ...(known
+                  ? reviewedRecoverySchemaMetadata.importProvenanceColumns
+                  : []),
+              ],
+            };
+          if (sql.includes("pg_enum"))
+            return { rows: reviewedRecoverySchemaMetadata.enums };
+          if (sql.includes("pg_trigger"))
+            return {
+              rows: [
+                {
+                  tgenabled: "O",
+                  tgtype: 19,
+                  proname: "advance_account_session_version",
+                },
+              ],
+            };
+          if (sql.includes('FROM public."ImportedRecordProvenance"'))
+            return { rows: records.map((row) => ({ row })) };
+          if (sql.includes("count(*)")) return { rows: [{ count: "0" }] };
+          return { rows: [] };
+        },
+        async close() {
+          throw new Error("Caller owns the SQL connection");
+        },
+      };
+      return { state: await readReconciliationSnapshot(db), queries };
+    };
+    const current = await snapshot(true, [
+      {
+        entity: "Session",
+        recordId: "archived-session",
+        importedAt: "2026-11-08T00:00:00Z",
+      },
+    ]);
+    const restored = await snapshot(true, []);
+    expect(current.state.authorityFingerprints).not.toEqual(
+      restored.state.authorityFingerprints,
+    );
+    expect(() =>
+      validateSecurityIdentityClosure(current.state, restored.state),
+    ).toThrow("CURRENT_AUTHORITY_REQUIRES_DOMAIN_RECONCILIATION");
+    const old = await snapshot(false, []);
+    expect(
+      old.queries.some((sql) =>
+        sql.includes('FROM public."ImportedRecordProvenance"'),
+      ),
+    ).toBe(false);
+    expect(JSON.stringify(current.state)).not.toContain("archived-session");
+  });
   it("fingerprints retained decline authority and reads reviewed older backups without a nonexistent table", async () => {
     const snapshot = async (
       known: boolean,

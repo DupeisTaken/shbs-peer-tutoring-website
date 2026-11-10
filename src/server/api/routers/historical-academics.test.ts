@@ -950,9 +950,11 @@ it("restores a new participant and its preserved original together even after ro
   await caller().historicalAcademics.correctBatch(
     await prepared(await input([recordId])),
   );
+  // Retain the advanced roster mirror as archive evidence without restoring
+  // current participation through the historical record importer.
   await db.tutor.update({
     where: { id: tutor.id },
-    data: { gradeLevel: 11, gradeSchoolYear: "26-27" },
+    data: { gradeLevel: 11, gradeSchoolYear: "26-27", status: "ARCHIVED" },
   });
   const archive = await caller().recordTransfer.export({});
   const files = archive.files.filter((row) =>
@@ -970,6 +972,7 @@ it("restores a new participant and its preserved original together even after ro
   expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
     gradeLevel: 11,
     gradeSchoolYear: "26-27",
+    status: "ARCHIVED",
   });
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });
@@ -1458,7 +1461,9 @@ it.each(["profile", "status", "reinstate", "undo"] as const)(
           },
         },
       });
-      await expect(caller().admin.undoAudit({ id: entry.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      await expect(
+        caller().admin.undoAudit({ id: entry.id }),
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
       // The old helper still preserves historical evidence, but is no longer a web recovery route.
       expect(await applyUndo(entry.undoData, db)).toBe(true);
     }

@@ -38,6 +38,42 @@ const identityModels = [
   "QualificationTransferGrant", "PersonParticipationTransferReceipt", "StudentRequestExecutionAssignment",
 ] as const;
 
+it("labels exact archive-import metadata without inventing a live record reference", () => {
+  const schema = readFileSync(
+    new URL("../../prisma/schema.prisma", import.meta.url),
+    "utf8",
+  );
+  const model = /^model ImportedRecordProvenance \{([\s\S]*?)^\}/m.exec(schema);
+  expect(model).not.toBeNull();
+  const fields = [...model![1]!.matchAll(/^\s*(\w+)\s+\w+[?\[\]\s]/gm)].map(
+    (field) => field[1]!,
+  );
+  expect(reviewSchema.ImportedRecordProvenance.fields).toEqual(fields);
+  expect(reviewSchema.ImportedRecordProvenance.enums).toEqual({});
+  expect(reviewSchema.ImportedRecordProvenance.references).toEqual({});
+  const entityKey = auditEntityLabelKey("ImportedRecordProvenance");
+  expect(entityKey).toBe(
+    "auditEventDetails.presentation.entities.ImportedRecordProvenance",
+  );
+  expect(at(en, entityKey)).toBe("Imported historical record provenance");
+  expect(at(zh, entityKey)).toBe("导入历史记录来源");
+  for (const field of fields) {
+    expect(auditFieldLabelKey("ImportedRecordProvenance", field)).toBe(
+      `auditEventDetails.presentation.fields.${field}`,
+    );
+    expect(
+      auditReferenceEntity("ImportedRecordProvenance", field),
+    ).toBeUndefined();
+    expect(
+      auditEnumLabelKey("ImportedRecordProvenance", field, "Session"),
+    ).toBeNull();
+  }
+  const timeKey = auditFieldLabelKey("ImportedRecordProvenance", "importedAt");
+  expect(at(en, timeKey)).toBe("Import time");
+  expect(at(zh, timeKey)).toBe("导入时间");
+  expect(auditFieldLabelKey("Session", "importedAt")).toBeNull();
+});
+
 it("registers exact identity lifecycle scalar fields without inventing schema enums", () => {
   const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
   for (const entity of identityModels) {

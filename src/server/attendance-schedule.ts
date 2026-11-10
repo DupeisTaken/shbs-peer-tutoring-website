@@ -4,6 +4,7 @@ import type { Prisma } from "../../generated/prisma";
 import { shCount } from "~/lib/service-hours";
 import { reconsiderSessionFlag } from "~/server/crew/flags";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
+import { importedRecordKey } from "~/server/imported-records";
 
 export { lockAttendanceSchedule } from "~/server/attendance-schedule-lock";
 
@@ -44,31 +45,79 @@ export async function propagateSlotAttendance(
     },
     orderBy: { id: "asc" },
   });
-  const blocks = blockIds.map((id) => {
-    const primary = sessions.find((session) => session.id === id);
-    if (!primary)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message:
-          "An attendance block is missing its primary record. Correct its history before changing this slot.",
-      });
-    const members = sessions.filter(
-      (session) => (session.mergeGroupId ?? session.id) === id,
-    );
-    if (
-      members.some(
-        (session) =>
-          session.tutorId !== primary.tutorId ||
-          session.date.getTime() !== primary.date.getTime(),
-      )
-    )
-      throw new TRPCError({
-        code: "CONFLICT",
-        message:
-          "A combined attendance block has inconsistent tutor or date records. Correct it before changing this slot.",
-      });
-    return { id, primary, members };
+  // Import uses this same fence for attendance, flags and their amendments.
+  // Hold it before origin/roster reads, including blocks that may stay frozen.
+  for (const id of sessions.map((session) => session.id).sort())
+    await lockEntity(tx, `session-flag:${id}`);
+  const attendance = await tx.sessionTutee.findMany({
+    where: { sessionId: { in: sessions.map((session) => session.id) } },
+    select: { sessionId: true, tuteeId: true },
   });
+  const attendanceKeys = new Map(
+    attendance.map((row) => [
+      importedRecordKey(row, ["sessionId", "tuteeId"]),
+      row.sessionId,
+    ]),
+  );
+  const imported = await tx.importedRecordProvenance.findMany({
+    where: {
+      OR: [
+        {
+          entity: "Session",
+          recordId: { in: sessions.map((session) => session.id) },
+        },
+        {
+          entity: "SessionTutee",
+          recordId: { in: [...attendanceKeys.keys()] },
+        },
+      ],
+    },
+    select: { entity: true, recordId: true },
+  });
+  const importedIds = new Set(
+    imported.map((row) =>
+      row.entity === "Session"
+        ? row.recordId
+        : attendanceKeys.get(row.recordId),
+    ),
+  );
+  // A catalogue edit changes native attendance under its own policy. Imported
+  // blocks keep their original clock/credit, including any mixed-origin sibling.
+  const frozenBlocks = new Set(
+    sessions
+      .filter((session) => importedIds.has(session.id))
+      .map((session) => session.mergeGroupId ?? session.id),
+  );
+  const nativeSessions = sessions.filter(
+    (session) => !frozenBlocks.has(session.mergeGroupId ?? session.id),
+  );
+  const blocks = blockIds
+    .filter((id) => !frozenBlocks.has(id))
+    .map((id) => {
+      const primary = sessions.find((session) => session.id === id);
+      if (!primary)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "An attendance block is missing its primary record. Correct its history before changing this slot.",
+        });
+      const members = sessions.filter(
+        (session) => (session.mergeGroupId ?? session.id) === id,
+      );
+      if (
+        members.some(
+          (session) =>
+            session.tutorId !== primary.tutorId ||
+            session.date.getTime() !== primary.date.getTime(),
+        )
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "A combined attendance block has inconsistent tutor or date records. Correct it before changing this slot.",
+        });
+      return { id, primary, members };
+    });
   const changed = blocks.filter((block) =>
     block.members.some(
       (session) =>
@@ -76,8 +125,8 @@ export async function propagateSlotAttendance(
         session.endMin !== window.endMin,
     ),
   );
-  if (!changed.length) return sessions.length;
-  const affectedIds = sessions.map((session) => session.id);
+  if (!changed.length) return nativeSessions.length;
+  const affectedIds = nativeSessions.map((session) => session.id);
   const days = [
     ...new Map(
       blocks.map(({ primary }) => [
@@ -118,12 +167,8 @@ export async function propagateSlotAttendance(
       });
   }
 
-  // Flag reviews can run independently of timetable writes. Hold their locks while capturing
-  // the old decision/deduction so the audit evidence matches exactly what is invalidated.
-  for (const block of changed) {
-    for (const session of block.members)
-      await lockEntity(tx, `session-flag:${session.id}`);
-  }
+  // The source locks also keep the old decision/deduction snapshot stable while
+  // recording which native flag evidence is being reconsidered.
   const changedIds = changed.flatMap((block) =>
     block.members.map((session) => session.id),
   );
@@ -180,7 +225,9 @@ export async function propagateSlotAttendance(
       action: "Updated historical attendance through catalogue slot change",
       details: JSON.parse(
         JSON.stringify({
-          before: sessions.filter((session) => changedIds.includes(session.id)),
+          before: nativeSessions.filter((session) =>
+            changedIds.includes(session.id),
+          ),
           previousFlags: flags,
           removedFlagAdjustments: adjustments,
           after: {
@@ -193,24 +240,32 @@ export async function propagateSlotAttendance(
       ) as Prisma.InputJsonValue,
     },
   });
-  const heads = await managementNotificationRecipients(tx, "attendance_history_updated");
+  const heads = await managementNotificationRecipients(
+    tx,
+    "attendance_history_updated",
+  );
   if (heads.length)
     await tx.notification.createMany({
       data: heads.map(({ id }) => ({
         userId: id,
         title: "Catalogue change updated historical attendance",
-        ...notificationInAppEvent("attendance_history_updated", {
-          count: changed.length,
-        }, {
-          en: `${changed.length} historical teaching block(s) changed from ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} to ${clock(window.startMin)}–${clock(window.endMin)}. Attendance flags and linked deductions were reconsidered.`,
-          zh: `${changed.length} 个历史教学时段由 ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} 改为 ${clock(window.startMin)}–${clock(window.endMin)}，考勤标记及关联扣分已重新核算。`,
-        }),
+        ...notificationInAppEvent(
+          "attendance_history_updated",
+          {
+            count: changed.length,
+          },
+          {
+            en: `${changed.length} historical teaching block(s) changed from ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} to ${clock(window.startMin)}–${clock(window.endMin)}. Attendance flags and linked deductions were reconsidered.`,
+            zh: `${changed.length} 个历史教学时段由 ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} 改为 ${clock(window.startMin)}–${clock(window.endMin)}，考勤标记及关联扣分已重新核算。`,
+          },
+        ),
         body: `${changed.length} teaching block(s) were updated. Changed attendance flags and linked deductions were reconsidered.`,
         link: "/admin/audit",
       })),
     });
-  return sessions.length;
+  return nativeSessions.length;
 }
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { notificationList } from "~/lib/notification-facts";
-const clock = (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+const clock = (minute: number) =>
+  `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
