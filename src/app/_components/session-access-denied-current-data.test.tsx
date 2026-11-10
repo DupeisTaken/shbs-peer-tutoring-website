@@ -21,7 +21,10 @@ type ProbeOptions = {
 };
 
 const privateKey = ["session-denial-current-data", "private"] as const;
-const prerequisiteKey = ["session-denial-current-data", "prerequisite"] as const;
+const prerequisiteKey = [
+  "session-denial-current-data",
+  "prerequisite",
+] as const;
 const remote = vi.fn<() => Promise<ReadData>>();
 const prerequisiteRemote = vi.fn<() => Promise<ReadData>>();
 const invalidResponses: { name: string; value: ReadData }[] = [
@@ -152,7 +155,8 @@ function expectConcealed() {
 
 async function startDenied(options: ProbeOptions = {}) {
   remote.mockResolvedValueOnce({ label: "Private initial evidence" });
-  if (options.requirePrerequisite) prerequisiteRemote.mockResolvedValueOnce(null);
+  if (options.requirePrerequisite)
+    prerequisiteRemote.mockResolvedValueOnce(null);
   render(
     <QueryClientProvider client={client}>
       <PrivateReadProbe {...options} />
@@ -162,9 +166,9 @@ async function startDenied(options: ProbeOptions = {}) {
   await waitFor(() => expect(privateQuery().state.status).toBe("success"));
   if (options.requirePrerequisite) {
     await waitFor(() => {
-      expect(screen.getByLabelText("Prerequisite query observer").textContent).toBe(
-        `success:idle:invalid:${epoch}`,
-      );
+      expect(
+        screen.getByLabelText("Prerequisite query observer").textContent,
+      ).toBe(`success:idle:invalid:${epoch}`);
     });
   } else {
     await screen.findByText("Private initial evidence");
@@ -270,14 +274,18 @@ it.each(invalidResponses)(
     clock += 100;
     const donor = makeClient();
     donors.push(donor);
-    donor.setQueryData<ReadData>(privateKey, (): ReadData => ({ label: "Hydrated private evidence" }));
+    donor.setQueryData<ReadData>(privateKey, (): ReadData => ({
+      label: "Hydrated private evidence",
+    }));
     const snapshot = dehydrate(donor);
     expect(snapshot.queries).toHaveLength(1);
     await act(async () => {
       hydrate(client, snapshot);
     });
     await waitForPrivateCommit();
-    expect(privateQuery().state.data).toEqual({ label: "Hydrated private evidence" });
+    expect(privateQuery().state.data).toEqual({
+      label: "Hydrated private evidence",
+    });
     expect(privateQuery().state.dataUpdatedAt).toBe(clock);
     expect(privateQuery().promise).toBe(invalidPromise);
     expect(remote).toHaveBeenCalledTimes(3);
@@ -301,14 +309,16 @@ it.each(invalidResponses)(
         event.type !== "updated" ||
         event.query !== target ||
         event.action.type !== "success"
-      ) return;
+      )
+        return;
       if (event.action.manual) {
         if (injecting) actions.push("manual-valid-success");
         return;
       }
       // Classify the immutable success action, since nested setQueryData will
       // replace query.state before this outer notification has finished.
-      if (!armed || validPrivateRead(event.action.data as ReadData | undefined)) return;
+      if (!armed || validPrivateRead(event.action.data as ReadData | undefined))
+        return;
       armed = false;
       actions.push("invalid-fetch-success");
       injecting = true;
@@ -322,7 +332,10 @@ it.each(invalidResponses)(
     });
     try {
       const { promise: invalidPromise } = await freshPrivateRead(value);
-      expect(actions).toEqual(["invalid-fetch-success", "manual-valid-success"]);
+      expect(actions).toEqual([
+        "invalid-fetch-success",
+        "manual-valid-success",
+      ]);
       expect(armed).toBe(false);
       expect(privateQuery().state.data).toEqual({
         label: "Manual private evidence during fetch notification",
@@ -373,7 +386,8 @@ it.each(["same reference", "equal value"] as const)(
     // private read's valid proof has not legitimately released the denial.
     expectConcealed();
     const fetched = privateQuery().state.data;
-    if (!validPrivateRead(fetched)) throw new Error("Expected valid fetched data");
+    if (!validPrivateRead(fetched))
+      throw new Error("Expected valid fetched data");
 
     clock += 100;
     await act(async () => {
@@ -396,9 +410,9 @@ it.each(["same reference", "equal value"] as const)(
       await client.refetchQueries({ queryKey: prerequisiteKey, exact: true });
     });
     await waitFor(() => {
-      expect(screen.getByLabelText("Prerequisite query observer").textContent).toBe(
-        `success:idle:valid:${clock}`,
-      );
+      expect(
+        screen.getByLabelText("Prerequisite query observer").textContent,
+      ).toBe(`success:idle:valid:${clock}`);
     });
     expect(prerequisiteRemote).toHaveBeenCalledTimes(2);
     expect(remote).toHaveBeenCalledTimes(3);

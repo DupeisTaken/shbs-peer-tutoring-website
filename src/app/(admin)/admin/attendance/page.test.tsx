@@ -1,7 +1,19 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { dehydrate, hydrate, QueryClientProvider, type QueryClient } from "@tanstack/react-query";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  dehydrate,
+  hydrate,
+  QueryClientProvider,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../messages/en.json";
@@ -73,12 +85,20 @@ vi.mock("~/app/_components/attendance-correction", () => ({
 vi.mock("~/app/_components/read-only", () => ({ useReadOnly: () => false }));
 let queryClient: QueryClient;
 const tutorsKey = () => getQueryKey(api.admin.tutors, undefined, "query");
-const sessionsKey = (input = state.input) => getQueryKey(api.admin.sessions, input, "query");
+const sessionsKey = (input = state.input) =>
+  getQueryKey(api.admin.sessions, input, "query");
 const failure = (message: string, code?: string): ReadError =>
   Object.assign(new Error(message), code ? { data: { code } } : {});
-const tutorRows = () => state.tutorIds.map((id) => ({ id, englishName: "Tutor name", status: "ACTIVE" }));
+const tutorRows = () =>
+  state.tutorIds.map((id) => ({
+    id,
+    englishName: "Tutor name",
+    status: "ACTIVE",
+  }));
 async function refetchSessions() {
-  await act(async () => { await state.refetch(); });
+  await act(async () => {
+    await state.refetch();
+  });
 }
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
@@ -141,7 +161,9 @@ const row = {
 it("labels both filters and distinguishes initial error from loaded empty results", async () => {
   state.error = failure("Read failed");
   render(<AttendancePage />, { wrapper });
-  await screen.findByRole("button", { name: `Retry ${messages.admin.submissions.title}` });
+  await screen.findByRole("button", {
+    name: `Retry ${messages.admin.submissions.title}`,
+  });
   expect(screen.getByLabelText("Month")).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Tutor" })).toBeTruthy();
   expect(screen.queryByText(messages.admin.submissions.empty)).toBeNull();
@@ -196,9 +218,7 @@ it("evicts denied sessions and waits for successful permission recovery", async 
   await refetchSessions();
   await waitFor(() => expect(screen.queryByRole("table")).toBeNull());
   expect(screen.queryByRole("table")).toBeNull();
-  expect(
-    queryClient.getQueryData(sessionsKey()),
-  ).toBeUndefined();
+  expect(queryClient.getQueryData(sessionsKey())).toBeUndefined();
   state.error = failure("Network failure");
   await refetchSessions();
   expect(screen.queryByRole("table")).toBeNull();
@@ -219,11 +239,21 @@ it("waits for tutor options then restores month/visibility and removes obsolete 
   writeViewState(sessionStorage, key, saved);
   state.data = [];
   let tutorsReady!: (value: Tutor[]) => void;
-  state.tutorsRead.mockReturnValueOnce(new Promise<Tutor[]>((resolve) => { tutorsReady = resolve; }));
+  state.tutorsRead.mockReturnValueOnce(
+    new Promise<Tutor[]>((resolve) => {
+      tutorsReady = resolve;
+    }),
+  );
   render(<AttendancePage />, { wrapper });
   expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual(saved);
-  await act(async () => { tutorsReady(tutorRows()); });
-  await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>("Month").value).toBe("2026-08"));
+  await act(async () => {
+    tutorsReady(tutorRows());
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText<HTMLInputElement>("Month").value).toBe(
+      "2026-08",
+    ),
+  );
   expect(screen.getByLabelText<HTMLInputElement>("Month").value).toBe(
     "2026-08",
   );
@@ -259,9 +289,16 @@ it("clears saved filters and every cached month when attendance access is revoke
   state.data = [row];
   render(<AttendancePage />, { wrapper });
   await screen.findByRole("table");
-  await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>("Month").value).toBe("2026-08"));
+  await waitFor(() =>
+    expect(screen.getByLabelText<HTMLInputElement>("Month").value).toBe(
+      "2026-08",
+    ),
+  );
   await act(async () => {
-    await queryClient.fetchQuery({ queryKey: sessionsKey({ month: "2026-09" }), queryFn: () => state.read({ month: "2026-09" }) });
+    await queryClient.fetchQuery({
+      queryKey: sessionsKey({ month: "2026-09" }),
+      queryFn: () => state.read({ month: "2026-09" }),
+    });
   });
   state.error = failure("Denied", "FORBIDDEN");
   await refetchSessions();
@@ -284,7 +321,9 @@ it("does not release a denied month for an older cached success after filters re
   fireEvent.change(screen.getByLabelText("Month"), {
     target: { value: "2026-08" },
   });
-  await waitFor(() => expect(queryClient.getQueryState(sessionsKey())?.status).toBe("success"));
+  await waitFor(() =>
+    expect(queryClient.getQueryState(sessionsKey())?.status).toBe("success"),
+  );
   await screen.findByRole("table");
   state.error = failure("Denied", "FORBIDDEN");
   await refetchSessions();

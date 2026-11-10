@@ -96,81 +96,183 @@ const intent = (
 });
 
 it("restoring an older manual checkpoint stops shared correction notices and preserves independent mail", async () => {
-  await db.programSettings.upsert({ where: { id: "program" },
+  await db.programSettings.upsert({
+    where: { id: "program" },
     create: { id: "program", emailNotificationsEnabled: true },
-    update: { emailNotificationsEnabled: true } });
-  await db.user.update({ where: { id: actor.id },
-    data: { emailVerifiedAt: new Date(), emailInfo: true } });
+    update: { emailNotificationsEnabled: true },
+  });
+  await db.user.update({
+    where: { id: actor.id },
+    data: { emailVerifiedAt: new Date(), emailInfo: true },
+  });
   const original = await attendance();
-  const manual = await captureRecoveryCheckpoint(db,
-    { adapter: "ATTENDANCE", sourceId: original.id }, actor);
-  const stoppedSource = await db.tutee.create({ data: {
-    id: "stopped-invitation-source", englishName: "Synthetic stopped source", status: "INACTIVE",
-  } });
-  const closure = await db.historicalInvitationOperationClosure.create({ data: {
-    operationId: randomUUID(), issuedById: actor.id, inputHash: "c".repeat(64),
-    scopeKey: "synthetic-unadmitted-invitation-scope",
-  } });
-  const independent = await db.notification.create({ data: {
-    userId: actor.id, title: "Synthetic independent notice", link: "/admin/audit",
-  } });
-  const independentMail = await db.emailDelivery.findMany({ where: {
-    userId: actor.id, status: "PENDING",
-  }, select: { id: true } });
+  const manual = await captureRecoveryCheckpoint(
+    db,
+    { adapter: "ATTENDANCE", sourceId: original.id },
+    actor,
+  );
+  const stoppedSource = await db.tutee.create({
+    data: {
+      id: "stopped-invitation-source",
+      englishName: "Synthetic stopped source",
+      status: "INACTIVE",
+    },
+  });
+  const closure = await db.historicalInvitationOperationClosure.create({
+    data: {
+      operationId: randomUUID(),
+      issuedById: actor.id,
+      inputHash: "c".repeat(64),
+      scopeKey: "synthetic-unadmitted-invitation-scope",
+    },
+  });
+  const independent = await db.notification.create({
+    data: {
+      userId: actor.id,
+      title: "Synthetic independent notice",
+      link: "/admin/audit",
+    },
+  });
+  const independentMail = await db.emailDelivery.findMany({
+    where: {
+      userId: actor.id,
+      status: "PENDING",
+    },
+    select: { id: true },
+  });
   expect(independentMail.length).toBeGreaterThan(0);
-  await correctAttendance(db, { ...original, expectedUpdatedAt: original.updatedAt,
-    endMin: 990, reason: "Synthetic mistaken duration",
-    tutees: [{ tuteeId: "learner", status: "PRESENT", absenceReason: null }],
-  }, actor);
-  const automatic = await db.recoveryCheckpoint.findFirstOrThrow({ where: {
-    adapter: "ATTENDANCE", sourceId: original.id, id: { not: manual.checkpointId },
-  } });
+  await correctAttendance(
+    db,
+    {
+      ...original,
+      expectedUpdatedAt: original.updatedAt,
+      endMin: 990,
+      reason: "Synthetic mistaken duration",
+      tutees: [{ tuteeId: "learner", status: "PRESENT", absenceReason: null }],
+    },
+    actor,
+  );
+  const automatic = await db.recoveryCheckpoint.findFirstOrThrow({
+    where: {
+      adapter: "ATTENDANCE",
+      sourceId: original.id,
+      id: { not: manual.checkpointId },
+    },
+  });
   const manualPlan = await inspectRecoveryCheckpoint(db, manual);
-  const automaticPlan = await inspectRecoveryCheckpoint(db, { checkpointId: automatic.id });
+  const automaticPlan = await inspectRecoveryCheckpoint(db, {
+    checkpointId: automatic.id,
+  });
   expect(manualPlan.blockers).toEqual([]);
   expect(manualPlan.dependentEventCount).toBe(1);
   expect(automaticPlan.blockers).toEqual([]);
-  expect(await db.historicalInvitationOperationClosure.findUnique({ where: { operationId: closure.operationId } }))
-    .toEqual(closure);
-  const physical = (plan: typeof manualPlan) => plan.delivery.effects.map((effect) =>
-    `${effect.notificationId ?? ""}:${effect.deliveryId ?? ""}`).sort();
-  expect(manualPlan.delivery.effects.some((effect) => !!effect.deliveryId)).toBe(true);
+  expect(
+    await db.historicalInvitationOperationClosure.findUnique({
+      where: { operationId: closure.operationId },
+    }),
+  ).toEqual(closure);
+  const physical = (plan: typeof manualPlan) =>
+    plan.delivery.effects
+      .map(
+        (effect) => `${effect.notificationId ?? ""}:${effect.deliveryId ?? ""}`,
+      )
+      .sort();
+  expect(
+    manualPlan.delivery.effects.some((effect) => !!effect.deliveryId),
+  ).toBe(true);
   expect(physical(manualPlan)).toEqual(physical(automaticPlan));
   const restored = await applyRecoveryCheckpoint(db, intent(manualPlan), actor);
-  expect((await db.session.findUniqueOrThrow({ where: { id: original.id } })).endMin).toBe(960);
-  expect(await db.historicalInvitationOperationClosure.findUnique({ where: { operationId: closure.operationId } }))
-    .toEqual(closure);
-  expect((await db.tutee.findUniqueOrThrow({ where: { id: stoppedSource.id } })).status).toBe("INACTIVE");
-  expect(await db.pairingTutee.count({ where: { tuteeId: stoppedSource.id } })).toBe(0);
-  const mailIds = manualPlan.delivery.effects.flatMap((effect) => effect.deliveryId ? [effect.deliveryId] : []);
-  expect(await db.emailDelivery.count({ where: { id: { in: mailIds }, status: "CANCELLED" } }))
-    .toBe(new Set(mailIds).size);
-  for (const effect of manualPlan.delivery.effects.filter((effect) => !effect.deliveryId)) {
+  expect(
+    (await db.session.findUniqueOrThrow({ where: { id: original.id } })).endMin,
+  ).toBe(960);
+  expect(
+    await db.historicalInvitationOperationClosure.findUnique({
+      where: { operationId: closure.operationId },
+    }),
+  ).toEqual(closure);
+  expect(
+    (await db.tutee.findUniqueOrThrow({ where: { id: stoppedSource.id } }))
+      .status,
+  ).toBe("INACTIVE");
+  expect(
+    await db.pairingTutee.count({ where: { tuteeId: stoppedSource.id } }),
+  ).toBe(0);
+  const mailIds = manualPlan.delivery.effects.flatMap((effect) =>
+    effect.deliveryId ? [effect.deliveryId] : [],
+  );
+  expect(
+    await db.emailDelivery.count({
+      where: { id: { in: mailIds }, status: "CANCELLED" },
+    }),
+  ).toBe(new Set(mailIds).size);
+  for (const effect of manualPlan.delivery.effects.filter(
+    (effect) => !effect.deliveryId,
+  )) {
     expect(effect.notificationId).not.toBeNull();
-    expect((await db.notification.findUniqueOrThrow({ where: { id: effect.notificationId! } })).recoveryWithdrawnAt)
-      .not.toBeNull();
+    expect(
+      (
+        await db.notification.findUniqueOrThrow({
+          where: { id: effect.notificationId! },
+        })
+      ).recoveryWithdrawnAt,
+    ).not.toBeNull();
   }
-  expect((await db.notification.findUniqueOrThrow({ where: { id: independent.id } })).recoveryWithdrawnAt).toBeNull();
-  expect(await db.emailDelivery.count({ where: { id: { in: independentMail.map((row) => row.id) }, status: "PENDING" } }))
-    .toBe(independentMail.length);
+  expect(
+    (await db.notification.findUniqueOrThrow({ where: { id: independent.id } }))
+      .recoveryWithdrawnAt,
+  ).toBeNull();
+  expect(
+    await db.emailDelivery.count({
+      where: {
+        id: { in: independentMail.map((row) => row.id) },
+        status: "PENDING",
+      },
+    }),
+  ).toBe(independentMail.length);
   const receipt = await readRecoveryReceipt(db, restored.receiptId);
   expect(receipt.deliveries?.effects.length).toBeGreaterThan(0);
-  await expect(applyRecoveryCheckpoint(db, intent(automaticPlan), actor))
-    .rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    applyRecoveryCheckpoint(db, intent(automaticPlan), actor),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
 });
 
 it("card preview reflects the current discipline feature instead of advertising an apply the writer forbids", async () => {
-  const card = await db.disciplinaryCard.create({ data: { id: "feature-card", tuteeId: "learner", color: "YELLOW", reviewStatus: "PENDING" } });
-  await reviewCard(db, { id: card.id, expectedUpdatedAt: card.updatedAt, reviewStatus: "VALID" }, actor);
-  const checkpoint = await db.recoveryCheckpoint.findFirstOrThrow({ where: { adapter: "CARD", sourceId: card.id } });
-  const before = await inspectRecoveryCheckpoint(db, { checkpointId: checkpoint.id });
+  const card = await db.disciplinaryCard.create({
+    data: {
+      id: "feature-card",
+      tuteeId: "learner",
+      color: "YELLOW",
+      reviewStatus: "PENDING",
+    },
+  });
+  await reviewCard(
+    db,
+    { id: card.id, expectedUpdatedAt: card.updatedAt, reviewStatus: "VALID" },
+    actor,
+  );
+  const checkpoint = await db.recoveryCheckpoint.findFirstOrThrow({
+    where: { adapter: "CARD", sourceId: card.id },
+  });
+  const before = await inspectRecoveryCheckpoint(db, {
+    checkpointId: checkpoint.id,
+  });
   expect(before.blockers).toEqual([]);
-  await db.programFeature.update({ where: { key: "DISCIPLINE" }, data: { enabled: false } });
-  const after = await inspectRecoveryCheckpoint(db, { checkpointId: checkpoint.id });
+  await db.programFeature.update({
+    where: { key: "DISCIPLINE" },
+    data: { enabled: false },
+  });
+  const after = await inspectRecoveryCheckpoint(db, {
+    checkpointId: checkpoint.id,
+  });
   expect(after.blockers.join(" ")).toContain("discipline module");
   expect(after.fingerprint).not.toBe(before.fingerprint);
-  await expect(applyRecoveryCheckpoint(db, intent(after), actor)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect((await db.disciplinaryCard.findUniqueOrThrow({ where: { id: card.id } })).reviewStatus).toBe("VALID");
+  await expect(
+    applyRecoveryCheckpoint(db, intent(after), actor),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    (await db.disciplinaryCard.findUniqueOrThrow({ where: { id: card.id } }))
+      .reviewStatus,
+  ).toBe("VALID");
   expect(await db.recoveryReceipt.count()).toBe(0);
 });
 

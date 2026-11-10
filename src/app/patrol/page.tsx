@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useId, useSyncExternalStore } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useId,
+  useSyncExternalStore,
+} from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -10,7 +16,10 @@ import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { AcademicError } from "~/app/_components/academic-error";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { StatePanel } from "~/app/_components/ui/patterns";
-import { createSessionAccessAuthority, reconcileSessionAccessDenied } from "~/app/_components/session-view-state";
+import {
+  createSessionAccessAuthority,
+  reconcileSessionAccessDenied,
+} from "~/app/_components/session-view-state";
 import { getSessionReadReceipts } from "~/lib/session-read-receipts";
 
 const noSubscription = () => () => undefined;
@@ -41,11 +50,14 @@ export default function PatrolPage() {
     config: createSessionAccessAuthority(),
     history: createSessionAccessAuthority(),
   }));
-  const [dependentFences, setDependentFences] = useState<{ config?: number; history?: number }>({});
+  const [dependentFences, setDependentFences] = useState<{
+    config?: number;
+    history?: number;
+  }>({});
   const receipts = getSessionReadReceipts(queryClient);
   useSyncExternalStore(
-    (listener) => receipts ? receipts.subscribe(listener) : noSubscription(),
-    () => receipts ? receipts.getSnapshot() : emptySnapshot(),
+    (listener) => (receipts ? receipts.subscribe(listener) : noSubscription()),
+    () => (receipts ? receipts.getSnapshot() : emptySnapshot()),
     emptySnapshot,
   );
   const utils = api.useUtils();
@@ -57,9 +69,17 @@ export default function PatrolPage() {
   ) =>
     error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED";
   const statusDenied = unauthorized(myStatus.error);
-  const statusRead = { ...myStatus, denialKey: "crew-status", queryKey: getQueryKey(api.crew.myStatus, undefined, "query"),
-    isSuccess: myStatus.isSuccess && myStatus.data != null };
-  const nextStatus = reconcileSessionAccessDenied(authority.status, [statusRead], queryClient);
+  const statusRead = {
+    ...myStatus,
+    denialKey: "crew-status",
+    queryKey: getQueryKey(api.crew.myStatus, undefined, "query"),
+    isSuccess: myStatus.isSuccess && myStatus.data != null,
+  };
+  const nextStatus = reconcileSessionAccessDenied(
+    authority.status,
+    [statusRead],
+    queryClient,
+  );
   const statusHidden = nextStatus.denied;
 
   const status = myStatus.data?.status ?? null;
@@ -72,54 +92,110 @@ export default function PatrolPage() {
     (status === "ACTIVE" || status === null);
 
   const config = api.crew.patrolConfig.useQuery(undefined, {
-    enabled: canPatrol && !authority.config.denied && dependentFences.config === undefined,
+    enabled:
+      canPatrol &&
+      !authority.config.denied &&
+      dependentFences.config === undefined,
   });
   const history = api.crew.myPatrols.useQuery(undefined, {
-    enabled: canPatrol && !authority.history.denied && dependentFences.history === undefined,
+    enabled:
+      canPatrol &&
+      !authority.history.denied &&
+      dependentFences.history === undefined,
   });
   const configDenied = unauthorized(config.error);
   const historyDenied = unauthorized(history.error);
   // Status is a prerequisite in both retained episodes: a fresh status alone
   // cannot authorize config/history cached before that denial.
-  const nextConfig = reconcileSessionAccessDenied(authority.config, [statusRead, {
-    ...config, denialKey: "crew-patrol-config", queryKey: getQueryKey(api.crew.patrolConfig, undefined, "query"),
-    isSuccess: config.isSuccess && Array.isArray(config.data?.rooms),
-  }], queryClient);
-  const nextHistory = reconcileSessionAccessDenied(authority.history, [statusRead, {
-    ...history, denialKey: "crew-patrol-history", queryKey: getQueryKey(api.crew.myPatrols, undefined, "query"),
-    isSuccess: history.isSuccess && Array.isArray(history.data),
-  }], queryClient);
-  const statusQuery = queryClient.getQueryCache().find({ queryKey: statusRead.queryKey, exact: true });
-  const recordedStatusDenial = statusQuery ? receipts?.read(statusQuery).denialOrder : undefined;
+  const nextConfig = reconcileSessionAccessDenied(
+    authority.config,
+    [
+      statusRead,
+      {
+        ...config,
+        denialKey: "crew-patrol-config",
+        queryKey: getQueryKey(api.crew.patrolConfig, undefined, "query"),
+        isSuccess: config.isSuccess && Array.isArray(config.data?.rooms),
+      },
+    ],
+    queryClient,
+  );
+  const nextHistory = reconcileSessionAccessDenied(
+    authority.history,
+    [
+      statusRead,
+      {
+        ...history,
+        denialKey: "crew-patrol-history",
+        queryKey: getQueryKey(api.crew.myPatrols, undefined, "query"),
+        isSuccess: history.isSuccess && Array.isArray(history.data),
+      },
+    ],
+    queryClient,
+  );
+  const statusQuery = queryClient
+    .getQueryCache()
+    .find({ queryKey: statusRead.queryKey, exact: true });
+  const recordedStatusDenial = statusQuery
+    ? receipts?.read(statusQuery).denialOrder
+    : undefined;
   // Capture a fallback only on admission to the episode. A rebound cache may
   // lack the old receipt; unrelated ledger events must not advance its fence.
   const statusFence = statusDenied
     ? recordedStatusDenial !== undefined && recordedStatusDenial > 0
       ? recordedStatusDenial
-      : !authority.status.denied ? receipts?.getOrder() ?? 0 : undefined
+      : !authority.status.denied
+        ? (receipts?.getOrder() ?? 0)
+        : undefined
     : undefined;
   const fences = {
-    config: statusFence === undefined ? dependentFences.config : Math.max(dependentFences.config ?? 0, statusFence),
-    history: statusFence === undefined ? dependentFences.history : Math.max(dependentFences.history ?? 0, statusFence),
+    config:
+      statusFence === undefined
+        ? dependentFences.config
+        : Math.max(dependentFences.config ?? 0, statusFence),
+    history:
+      statusFence === undefined
+        ? dependentFences.history
+        : Math.max(dependentFences.history ?? 0, statusFence),
   };
   const freshDependent = (key: QueryKey, fence: number | undefined) => {
     if (fence === undefined) return true;
-    const query = queryClient.getQueryCache().find({ queryKey: key, exact: true });
+    const query = queryClient
+      .getQueryCache()
+      .find({ queryKey: key, exact: true });
     const proof = query && receipts?.read(query).proof;
-    return !!proof && proof.order > fence &&
-      (proof.firstDenialFence === undefined || proof.firstDenialFence > fence);
+    return (
+      !!proof &&
+      proof.order > fence &&
+      (proof.firstDenialFence === undefined || proof.firstDenialFence > fence)
+    );
   };
   // A status rejection revokes both dependents even if their own transport did
   // not reject. Manual cache success cannot replace either required network proof.
-  const configFresh = freshDependent(getQueryKey(api.crew.patrolConfig, undefined, "query"), fences.config);
-  const historyFresh = freshDependent(getQueryKey(api.crew.myPatrols, undefined, "query"), fences.history);
+  const configFresh = freshDependent(
+    getQueryKey(api.crew.patrolConfig, undefined, "query"),
+    fences.config,
+  );
+  const historyFresh = freshDependent(
+    getQueryKey(api.crew.myPatrols, undefined, "query"),
+    fences.history,
+  );
   const configHidden = statusHidden || nextConfig.denied || !configFresh;
   const historyHidden = statusHidden || nextHistory.denied || !historyFresh;
   const nextFences = {
-    config: !statusHidden && !nextConfig.denied && configFresh ? undefined : fences.config,
-    history: !statusHidden && !nextHistory.denied && historyFresh ? undefined : fences.history,
+    config:
+      !statusHidden && !nextConfig.denied && configFresh
+        ? undefined
+        : fences.config,
+    history:
+      !statusHidden && !nextHistory.denied && historyFresh
+        ? undefined
+        : fences.history,
   };
-  if (nextFences.config !== dependentFences.config || nextFences.history !== dependentFences.history)
+  if (
+    nextFences.config !== dependentFences.config ||
+    nextFences.history !== dependentFences.history
+  )
     setDependentFences(nextFences);
   const canEditPatrol =
     canPatrol &&
@@ -127,8 +203,16 @@ export default function PatrolPage() {
     config.data != null &&
     !configHidden &&
     !config.error;
-  if (nextStatus !== authority.status || nextConfig !== authority.config || nextHistory !== authority.history)
-    setAuthority({ status: nextStatus, config: nextConfig, history: nextHistory });
+  if (
+    nextStatus !== authority.status ||
+    nextConfig !== authority.config ||
+    nextHistory !== authority.history
+  )
+    setAuthority({
+      status: nextStatus,
+      config: nextConfig,
+      history: nextHistory,
+    });
   useEffect(() => {
     if (statusDenied)
       queryClient.removeQueries({

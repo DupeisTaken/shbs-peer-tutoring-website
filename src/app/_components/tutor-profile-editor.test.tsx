@@ -24,6 +24,7 @@ const state = vi.hoisted(() => ({
   invitationStatus: vi.fn(),
   invite: vi.fn(),
   cancelInvitation: vi.fn(),
+  stopInvitation: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useMutation, useQuery } = await import("@tanstack/react-query");
@@ -57,7 +58,9 @@ vi.mock("~/trpc/react", async () => {
       },
       tutorHistory: {
         permissions: {
-          useQuery: () => ({ data: { canLink: true, canCorrectOwnership: state.isHead } }),
+          useQuery: () => ({
+            data: { canLink: true, canCorrectOwnership: state.isHead },
+          }),
         },
       },
       personCombine: {
@@ -96,6 +99,7 @@ vi.mock("~/trpc/react", async () => {
         },
         inviteExact: mutation(state.invite),
         cancelExactInvitation: mutation(state.cancelInvitation),
+        abandonExactInvitation: mutation(state.stopInvitation),
       },
       program: {
         ...(
@@ -138,7 +142,11 @@ function mount(isHead = true, tutor = row) {
   render(
     <QueryClientProvider client={queryClient}>
       <NextIntlClientProvider locale="en" messages={messages}>
-        <TutorProfileEditor row={tutor} canEditUsername={isHead} onClose={vi.fn()} />
+        <TutorProfileEditor
+          row={tutor}
+          canEditUsername={isHead}
+          onClose={vi.fn()}
+        />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
@@ -152,6 +160,7 @@ beforeEach(() => {
   state.invitationStatus.mockReset().mockResolvedValue(null);
   state.invite.mockReset();
   state.cancelInvitation.mockReset();
+  state.stopInvitation.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -205,6 +214,7 @@ it("opens exact historical invitation inspection without grouping, finalizing or
   expect(state.finalize).not.toHaveBeenCalled();
   expect(state.invite).not.toHaveBeenCalled();
   expect(state.cancelInvitation).not.toHaveBeenCalled();
+  expect(state.stopInvitation).not.toHaveBeenCalled();
 });
 it("keeps exact historical-owner correction unavailable to ordinary staff", () => {
   mount(false);

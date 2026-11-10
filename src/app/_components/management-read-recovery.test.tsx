@@ -432,7 +432,9 @@ it("retains pairing edits, identifies the failed prerequisite and preserves an a
   expect(remote.write).toHaveBeenCalledWith(
     expect.objectContaining({ id: "pair", overrideTicket: "existing-ticket" }),
   );
-  expect(await screen.findByText(en.roomAllocation.outcome.RETAINED)).toBeTruthy();
+  expect(
+    await screen.findByText(en.roomAllocation.outcome.RETAINED),
+  ).toBeTruthy();
 });
 it("retains recorded service-hour totals beside background recovery", async () => {
   mount(<ServiceHoursPage />);
