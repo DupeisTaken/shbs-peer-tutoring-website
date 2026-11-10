@@ -398,7 +398,27 @@ const EMAIL_LOCALE_COLUMNS = [
   .map((table) => `${table}|emailLocale|text`)
   .sort();
 
+// Personal report links are signed with the rotated application key, and all
+// school report links and unsent outbox work are invalidated during recovery.
+// Accept this reviewed bundle only in full, preserving older backup schemas.
+const SCHOOL_RECIPIENT_REMINDER_COLUMNS = [
+  "schoolHoursSendKey|text",
+  "schoolHoursReminderSourceId|text",
+  "schoolHoursScheduledFor|timestamp",
+  "schoolHoursReminderLinkVersion|int4",
+  "schoolHoursReminderIntentHash|text",
+  "schoolHoursLinkOpenedAt|timestamp",
+]
+  .map((column) => `EmailDelivery|${column}`)
+  .sort();
+
 export const reviewedRecoverySchemaMetadata = {
+  schoolRecipientReminderColumns: SCHOOL_RECIPIENT_REMINDER_COLUMNS.map(
+    (line) => {
+      const [table_name, column_name, udt_name] = line.split("|");
+      return { table_name, column_name, udt_name };
+    },
+  ),
   emailLocaleColumns: EMAIL_LOCALE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -451,14 +471,24 @@ export function assertReviewedRecoverySchema(
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
     )
     .sort();
+  // Unknown, partial, duplicated or mistyped reminder metadata must still fail
+  // the exact catalog check, even when both databases contain the same shape.
+  const reminderDomain = SCHOOL_RECIPIENT_REMINDER_COLUMNS.every(
+    (column) => domain.filter((actual) => actual === column).length === 1,
+  )
+    ? domain.filter(
+        (column) => !SCHOOL_RECIPIENT_REMINDER_COLUMNS.includes(column),
+      )
+    : domain;
   // Strip only complete, singleton locale metadata; duplicates, partial bundles
   // and changed types remain visible to the exact reviewed-catalog comparison.
   const emailLocale = EMAIL_LOCALE_COLUMNS.every(
-    (column) => domain.filter((actual) => actual === column).length === 1,
+    (column) =>
+      reminderDomain.filter((actual) => actual === column).length === 1,
   );
   const localeDomain = emailLocale
-    ? domain.filter((column) => !EMAIL_LOCALE_COLUMNS.includes(column))
-    : domain;
+    ? reminderDomain.filter((column) => !EMAIL_LOCALE_COLUMNS.includes(column))
+    : reminderDomain;
   // Notification requirements are an independent, optional JSONB addition.
   const knownDomain =
     localeDomain.filter((column) => column === NOTIFICATION_LOCK_COLUMN)
