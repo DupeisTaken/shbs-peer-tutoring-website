@@ -75,7 +75,6 @@
     "chooseLearner": "Επιλογή εκπαιδευόμενου",
     "scopeHelp": "Η ατομική αλλαγή αφορά μόνο τη συγκεκριμένη συνάντηση του επιλεγμένου ατόμου. Η ομαδική απαιτεί συμφωνία όλων στην τελευταία ώρα.",
     "location": "Τοποθεσία",
-    "locationUnavailable": "Η αίθουσα δεν είναι διαθέσιμη. Ανανέωσε τα στοιχεία πριν συμφωνήσεις.",
     "sameRoom": "Διατήρηση προγραμματισμένης αίθουσας",
     "online": "Διαδικτυακά",
     "noRoom": "Χωρίς φυσική αίθουσα",
@@ -148,6 +147,7 @@
     "checkingLocation": "Έλεγχος ώρας και τοποθεσίας…",
     "allocationFailed": "Δεν επιβεβαιώθηκαν η ώρα και η τοποθεσία. Ελέγξτε τη συνεδρία, δοκιμάστε άλλη ώρα ή διαδικτυακά και ελέγξτε ξανά.",
     "roomReviewHelp": "Η αίθουσα ελέγχεται ξανά κατά την αποστολή. Αν δεν είναι διαθέσιμη, ελέγξτε νέα ανάθεση.",
+    "locationUnavailable": "Η αίθουσα δεν είναι διαθέσιμη. Ανανέωσε τα στοιχεία πριν συμφωνήσεις.",
     "tutoringPaused": "Παύση τακτικής διδασκαλίας",
     "tutoringPausedHelp": "Αυτή η τακτική συνάντηση έχει παύσει. Δεν απαιτείται παρουσία. Η εξαίρεση απαιτεί ρητή συμφωνία όλων των συμμετεχόντων.",
     "arrangeException": "Ορισμός εξαίρεσης",
@@ -4109,7 +4109,8 @@
         "MonthlyHoursReport": "Μηνιαία αναφορά ωρών υπηρεσίας",
         "SchoolHoursSchedule": "Πρόγραμμα αναφορών σχολείου",
         "SchoolHoursReport": "Ατομική αναφορά ωρών προς το σχολείο",
-        "ProgramCalendarPolicyRevision": "Αναθεώρηση πολιτικής ημερομηνιών διδασκαλίας"
+        "ProgramCalendarPolicyRevision": "Αναθεώρηση πολιτικής ημερομηνιών διδασκαλίας",
+        "ImportedRecordProvenance": "Προέλευση εισαγωγής αρχειακών δεδομένων"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Επιβεβαίωση email δημόσιας εγγραφής",
@@ -4502,7 +4503,8 @@
         "schoolHoursReportId": "Αναγνωριστικό αναφοράς σχολείου",
         "schoolHoursReport": "Αναφορά σχολείου",
         "schedulingEffect": "Επίδραση στον προγραμματισμό",
-        "tutoringPauseSuppressed": "Παύση τακτικής διδασκαλίας"
+        "tutoringPauseSuppressed": "Παύση τακτικής διδασκαλίας",
+        "importedAt": "Χρόνος εισαγωγής"
       },
       "enums": {
         "Role": {
@@ -7791,8 +7793,6 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
-    "tutorTitle": "Εγγραφή βοηθών για {period}",
-    "configuredOpening": "Καθορισμένη έναρξη (υπόκειται σε ενεργοποίηση και έλεγχο)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7809,7 +7809,9 @@
     "reviewPeriod": "Review request for {period}",
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
-    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening.",
+    "tutorTitle": "Εγγραφή βοηθών για {period}",
+    "configuredOpening": "Καθορισμένη έναρξη (υπόκειται σε ενεργοποίηση και έλεγχο)"
   },
   "signupBanner": {
     "plannedLabel": "Προγραμματιζόμενο άνοιγμα",
@@ -7821,9 +7823,9 @@
     "plannedHelp": "Το επόμενο τρίμηνο πρέπει να ενεργοποιηθεί πριν γίνουν δεκτές αιτήσεις.",
     "scheduledHelp": "Η αλλαγή τριμήνου έχει εγκριθεί και προγραμματιστεί. Οι εγγραφές απαιτούν ενεργοποίηση και ανοικτή περίοδο αιτήσεων.",
     "currentClosed": "Οι εγγραφές μαθητευομένων για {period} έχουν κλείσει.",
-    "tutorCurrentClosed": "Οι εγγραφές βοηθών για {period} έχουν κλείσει.",
     "countdownLabel": "Χρόνος έως το ανακοινωμένο άνοιγμα",
-    "previewLink": "Προεπισκόπηση φόρμας εγγραφής"
+    "previewLink": "Προεπισκόπηση φόρμας εγγραφής",
+    "tutorCurrentClosed": "Οι εγγραφές βοηθών για {period} έχουν κλείσει."
   },
   "monthlyHours": {
     "emailPreviewsTitle": "Προεπισκοπήσεις Email",
@@ -7977,12 +7979,6 @@
     "baselineSummary": "{review} για έλεγχο · {committed} αποθηκευμένα",
     "baselineIssues": "{count} ζητήματα προς επίλυση",
     "baselineHelp": "Εισαγάγετε ανά άτομο ήδη αναφερθείσες ώρες, πρόσθετα, αφαιρέσεις και Crew. Οι πηγές είναι τεκμήρια, όχι προτεινόμενα υπόλοιπα. Γράψτε ρητά μηδέν όπου δεν υπήρχε αναφορά.",
-    "baselineAttention": "{count} αρχικά υπόλοιπα για έλεγχο",
-    "baselineSetupRequired": "Απαιτείται έλεγχος αρχικών υπολοίπων",
-    "affectedPeople": "{count} επηρεαζόμενα άτομα",
-    "baselineBatchHelp": "Σημειώστε τα ελεγμένα άτομα στις λεπτομέρειές τους. Αποθηκεύστε όσα ελέγξατε· τα υπόλοιπα προσχέδια διατηρούνται.",
-    "baselineSelectedCount": "Επιλέχθηκαν {count} άτομα για αυτόν τον έλεγχο",
-    "archivedSources": "{count} εισαγμένες ιστορικές εγγραφές παραμένουν στο ιστορικό και εξαιρούνται από τις αλλαγές της σχολικής αναφοράς. Ελέγξτε χωριστά τις τρέχουσες πηγές.",
     "mappingHelp": "Ελέγξτε κάθε σχολικό λογαριασμό. Επιλύστε αβέβαιη ταυτότητα ή ιδιοκτησία πριν την έκδοση· μη συνδέετε μόνο με το όνομα.",
     "sourceTutoring": "Καθαρές ώρες υποστήριξης πηγών",
     "sourceCrew": "Ώρες Crew πηγών",
@@ -8088,13 +8084,19 @@
       "SOURCE_OWNER_CHANGED": "Μία αναφερθείσα πηγή άλλαξε ιδιοκτήτη. Επιλύστε την αλλαγή πρώτα.",
       "ANCESTOR_MONTH": "Μόνο ο πιο πρόσφατος μήνας αναφοράς μπορεί να διορθωθεί.",
       "FUTURE_MONTH": "Οι μελλοντικοί μήνες δεν είναι ακόμη διαθέσιμοι.",
-      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Εισαγμένη ιστορική πηγή επικαλύπτει ελεγμένο ή εκδοθέν υπόλοιπο. Συμφωνήστε το ιστορικό αναφορών πριν την έκδοση· μην κάνετε σιωπηρή αντιστροφή.",
-      "SOURCE_VALUE_INVALID": "Μία πηγή περιέχει μη έγκυρες ώρες. Διορθώστε την πηγή πρώτα."
+      "SOURCE_VALUE_INVALID": "Μία πηγή περιέχει μη έγκυρες ώρες. Διορθώστε την πηγή πρώτα.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Εισαγμένη ιστορική πηγή επικαλύπτει ελεγμένο ή εκδοθέν υπόλοιπο. Συμφωνήστε το ιστορικό αναφορών πριν την έκδοση· μην κάνετε σιωπηρή αντιστροφή."
     },
     "blocked": "Επίλυση πριν την έκδοση",
     "featureOff": "Οι ώρες υπηρεσίας είναι απενεργοποιημένες. Η προεπισκόπηση δεν είναι διαθέσιμη.",
     "priorEditionHelp": "Επιλέξτε μόνο την τελευταία έκδοση που πράγματι καταχωρίστηκε σε αυτόν τον λογαριασμό. Αν καμία, εφαρμόστε τον πλήρη διορθωμένο μήνα μία φορά. Αν αμφιβάλλετε, ρωτήστε την ομάδα πριν την καταχώριση.",
-    "priorEditionCorrection": "Αν τελευταία εφαρμόστηκε η έκδοση {revision}: καταχωρίστε {hours}"
+    "priorEditionCorrection": "Αν τελευταία εφαρμόστηκε η έκδοση {revision}: καταχωρίστε {hours}",
+    "baselineAttention": "{count} αρχικά υπόλοιπα για έλεγχο",
+    "baselineSetupRequired": "Απαιτείται έλεγχος αρχικών υπολοίπων",
+    "affectedPeople": "{count} επηρεαζόμενα άτομα",
+    "baselineBatchHelp": "Σημειώστε τα ελεγμένα άτομα στις λεπτομέρειές τους. Αποθηκεύστε όσα ελέγξατε· τα υπόλοιπα προσχέδια διατηρούνται.",
+    "baselineSelectedCount": "Επιλέχθηκαν {count} άτομα για αυτόν τον έλεγχο",
+    "archivedSources": "{count} εισαγμένες ιστορικές εγγραφές παραμένουν στο ιστορικό και εξαιρούνται από τις αλλαγές της σχολικής αναφοράς. Ελέγξτε χωριστά τις τρέχουσες πηγές."
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",

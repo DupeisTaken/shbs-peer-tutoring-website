@@ -75,7 +75,6 @@
     "chooseLearner": "选择学习伙伴",
     "scopeHelp": "单人改期仅影响所选学习伙伴的本次辅导。全体改期要求所有人同意最新时间。",
     "location": "地点",
-    "locationUnavailable": "教室信息不可用。请先刷新当前详情，再作出同意决定。",
     "sameRoom": "保留计划教室",
     "online": "线上",
     "noRoom": "无需实体教室",
@@ -148,6 +147,7 @@
     "checkingLocation": "正在检查时间和地点…",
     "allocationFailed": "无法确认该时间和地点。请核对本次辅导安排，尝试其他时间或选择线上辅导，然后重新预览。",
     "roomReviewHelp": "发送时会再次检查教室。如不可用，请重新预览分配结果。",
+    "locationUnavailable": "教室信息不可用。请先刷新当前详情，再作出同意决定。",
     "tutoringPaused": "常规辅导已暂停",
     "tutoringPausedHelp": "此常规辅导已暂停，无出勤要求。例外安排必须获得每位参加者明确同意。",
     "arrangeException": "安排例外辅导",
@@ -4109,7 +4109,8 @@
         "MonthlyHoursReport": "月度服务时数报告",
         "SchoolHoursSchedule": "学校报告计划",
         "SchoolHoursReport": "个人学校服务时数报告",
-        "ProgramCalendarPolicyRevision": "辅导日期规则修订记录"
+        "ProgramCalendarPolicyRevision": "辅导日期规则修订记录",
+        "ImportedRecordProvenance": "档案导入来源记录"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "公开报名邮箱确认时间",
@@ -4502,7 +4503,8 @@
         "schoolHoursReportId": "学校报告编号",
         "schoolHoursReport": "学校报告",
         "schedulingEffect": "排期影响",
-        "tutoringPauseSuppressed": "常规辅导已暂停"
+        "tutoringPauseSuppressed": "常规辅导已暂停",
+        "importedAt": "导入时间"
       },
       "enums": {
         "Role": {
@@ -7791,8 +7793,6 @@
   "signupTransition": {
     "currentClosed": "{period} 的学习伙伴报名已关闭。下方显示下一季度的报名安排。",
     "nextTitle": "{period} 学习伙伴报名",
-    "tutorTitle": "{period} 辅导伙伴报名",
-    "configuredOpening": "已配置的开放时间（仍需启用季度并通过审核）",
     "plannedTitle": "{period} 学习伙伴报名：计划于 {time} 开放",
     "plannedHelp": "这是计划开放时间。必须先启用下一季度，才能接受报名。",
     "scheduledHelp": "季度切换已安排。完成切换且报名开关开启后，才会接受报名。",
@@ -7809,7 +7809,9 @@
     "reviewPeriod": "查看 {period} 的报名申请",
     "periodChanged": "此草稿开始于 {period}，当前阶段现已变更。填写内容已保留；请查看新阶段并同意其政策后再提交。",
     "reviewFailed": "无法加载最新阶段或政策。草稿已保留，请重试。",
-    "unverified": "暂时无法确认报名安排，之前的公告可能已变更。请点击下方重试，确认最新开放时间。"
+    "unverified": "暂时无法确认报名安排，之前的公告可能已变更。请点击下方重试，确认最新开放时间。",
+    "tutorTitle": "{period} 辅导伙伴报名",
+    "configuredOpening": "已配置的开放时间（仍需启用季度并通过审核）"
   },
   "signupBanner": {
     "plannedLabel": "计划开放",
@@ -7821,9 +7823,9 @@
     "plannedHelp": "必须先启用下一季度，才能接受报名。",
     "scheduledHelp": "季度更新已获批准并安排执行。报名仍需等待季度启用，且招募处于开放状态。",
     "currentClosed": "{period} 的学习伙伴报名已关闭。",
-    "tutorCurrentClosed": "{period} 的辅导伙伴报名已关闭。",
     "countdownLabel": "距离公布的开放时间",
-    "previewLink": "预览报名表"
+    "previewLink": "预览报名表",
+    "tutorCurrentClosed": "{period} 的辅导伙伴报名已关闭。"
   },
   "monthlyHours": {
     "emailPreviewsTitle": "邮件预览",
@@ -7971,12 +7973,6 @@
     "baselineSummary": "{review} 人待核查 · {committed} 人已保存",
     "baselineIssues": "{count} 项问题待解决",
     "baselineHelp": "请逐人填写此前已向学校报告的辅导、额外、扣减及执勤时数。当前来源值仅为核对依据，不会自动作为起始余额；未报告的项目请明确填写零。",
-    "baselineAttention": "{count} 人的期初余额待核查",
-    "baselineSetupRequired": "需要核查期初余额",
-    "affectedPeople": "涉及 {count} 人",
-    "baselineBatchHelp": "在个人详情中将已核查的人员标记为已核查。可分批保存，其他草稿会保留。",
-    "baselineSelectedCount": "本次已选择 {count} 人",
-    "archivedSources": "{count} 条导入的历史记录保留在历史中，不计入学校报告的新增变动。请单独核查当前来源。",
     "mappingHelp": "请核对每人的学校账户。身份或归属不清时须先处理阻止事项，不得仅凭姓名匹配账户。",
     "sourceTutoring": "来源辅导净时数",
     "sourceCrew": "来源执勤时数",
@@ -8088,13 +8084,19 @@
       "SOURCE_OWNER_CHANGED": "已报告的来源记录改变了归属，请先处理该变化。",
       "ANCESTOR_MONTH": "仅最新报告月份可生成修订版。",
       "FUTURE_MONTH": "暂不能生成未来月份的报告。",
-      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "导入的历史来源与已核查或已出具的余额重叠。出具前须核对报送历史，不可自动冲回。",
-      "SOURCE_VALUE_INVALID": "来源时数无效，请先更正来源记录。"
+      "SOURCE_VALUE_INVALID": "来源时数无效，请先更正来源记录。",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "导入的历史来源与已核查或已出具的余额重叠。出具前须核对报送历史，不可自动冲回。"
     },
     "blocked": "生成前须处理",
     "featureOff": "服务时数已关闭，暂无法预览。",
     "priorEditionHelp": "仅选择此账户实际最后入账的版本。若从未入账，则计入修订后完整月份金额一次；不确定时请先联系项目团队。",
-    "priorEditionCorrection": "若最后入账为第 {revision} 版：计入 {hours}"
+    "priorEditionCorrection": "若最后入账为第 {revision} 版：计入 {hours}",
+    "baselineAttention": "{count} 人的期初余额待核查",
+    "baselineSetupRequired": "需要核查期初余额",
+    "affectedPeople": "涉及 {count} 人",
+    "baselineBatchHelp": "在个人详情中将已核查的人员标记为已核查。可分批保存，其他草稿会保留。",
+    "baselineSelectedCount": "本次已选择 {count} 人",
+    "archivedSources": "{count} 条导入的历史记录保留在历史中，不计入学校报告的新增变动。请单独核查当前来源。"
   },
   "personHistoryCorrection": {
     "title": "更正已停用账号的历史归属",

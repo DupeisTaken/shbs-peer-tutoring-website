@@ -8,7 +8,10 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { createQueryClient } from "~/trpc/query-client";
 import {
   SessionViewProvider,
   useSessionViewState,
@@ -71,9 +74,10 @@ afterEach(() => {
   document
     .querySelectorAll("[data-scroll-fixture]")
     .forEach((pane) => pane.remove());
+  // Timer spies capture fake functions; restore them before uninstalling the clock.
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
-  vi.restoreAllMocks();
   window.history.replaceState(null, "", "/");
 });
 
@@ -958,55 +962,170 @@ it("changes from the fixed desktop pane to document scroll at the responsive bre
   fixture.remove();
 });
 
-it("keeps named denial freshness with a changing query list without refetching unrelated catalogues", () => {
-  type Query = Parameters<typeof useSessionAccessDenied>[number];
-  function Authority({ queries }: { queries: Query[] }) {
-    const denied = useSessionAccessDenied(...queries);
-    return <p>{denied ? "denied" : "authorized"}</p>;
+it("keeps named denial freshness with a changing query list without refetching unrelated catalogues", async () => {
+  type Scope = "current" | "cached";
+  type PrivateRead = { label: string };
+  type ReadError = Error & { data?: { code?: string } };
+  const readKey = (scope: Scope) => ["named-denial-list", scope] as const;
+  const catalogueKey = ["named-denial-list", "catalogue"] as const;
+  const extraCatalogueKey = ["named-denial-list", "extra-catalogue"] as const;
+  const remote = vi.fn<(scope: Scope) => Promise<PrivateRead>>();
+  const catalogueRemote = vi
+    .fn<() => Promise<string[]>>()
+    .mockResolvedValue(["catalogue"]);
+  const extraCatalogueRemote = vi
+    .fn<() => Promise<string[]>>()
+    .mockResolvedValue(["extra-catalogue"]);
+  const client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      staleTime: 30_000,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  });
+  // Real query completions can share a timestamp; request order owns recovery.
+  vi.spyOn(Date, "now").mockReturnValue(Date.UTC(2026, 10, 9, 12));
+  function Authority({ scope, extra }: { scope: Scope; extra: boolean }) {
+    const read = useQuery<PrivateRead, ReadError>({
+      queryKey: readKey(scope),
+      queryFn: () => remote(scope),
+    });
+    const catalogue = useQuery({
+      queryKey: catalogueKey,
+      queryFn: catalogueRemote,
+    });
+    const extraCatalogue = useQuery({
+      queryKey: extraCatalogueKey,
+      queryFn: extraCatalogueRemote,
+      enabled: extra,
+    });
+    const denied = useSessionAccessDenied(
+      ...(extra
+        ? [{ ...extraCatalogue, queryKey: extraCatalogueKey }]
+        : []),
+      { ...read, queryKey: readKey(scope), denialKey: "filtered-read" },
+      { ...catalogue, queryKey: catalogueKey },
+    );
+    return (
+      <>
+        <output aria-label="Named read observer">
+          {`${scope}:${read.status}:${read.fetchStatus}`}
+        </output>
+        <p>{denied ? "denied" : "authorized"}</p>
+        {!denied && <p>{read.data?.label}</p>}
+      </>
+    );
   }
-  const catalogue = { isSuccess: true, isFetching: false, dataUpdatedAt: 100 };
-  const read = { ...catalogue, denialKey: "filtered-read" };
-  const rendered = render(<Authority queries={[read, catalogue]} />);
-  rendered.rerender(
-    <Authority
-      queries={[
-        {
-          denialKey: read.denialKey,
-          error: { data: { code: "FORBIDDEN" } },
-          errorUpdatedAt: 200,
-        },
-        catalogue,
-      ]}
-    />,
+  const tree = (scope: Scope, extra = false) => (
+    <QueryClientProvider client={client}>
+      <Authority scope={scope} extra={extra} />
+    </QueryClientProvider>
   );
-  // Resetting the input exposes older cached data, and a conditional unrelated
-  // query is inserted ahead of it. Neither can migrate or release this denial.
-  rendered.rerender(<Authority queries={[catalogue, read, catalogue]} />);
-  expect(screen.getByText("denied")).toBeTruthy();
-  rendered.rerender(
-    <Authority
-      queries={[
-        catalogue,
-        {
-          ...read,
-          isSuccess: false,
-          error: { data: { code: "INTERNAL_SERVER_ERROR" } },
-        },
-        catalogue,
-      ]}
-    />,
-  );
-  expect(screen.getByText("denied")).toBeTruthy();
-  const recovered = { ...read, dataUpdatedAt: 300 };
-  rendered.rerender(
-    <Authority
-      queries={[catalogue, { ...recovered, isFetching: true }, catalogue]}
-    />,
-  );
-  expect(screen.getByText("denied")).toBeTruthy();
-  // A successful catalogue needs no new request when the failed read recovers.
-  rendered.rerender(<Authority queries={[catalogue, recovered, catalogue]} />);
-  expect(screen.getByText("authorized")).toBeTruthy();
+  try {
+    remote.mockResolvedValueOnce({ label: "Older cached evidence" });
+    await client.fetchQuery({
+      queryKey: readKey("cached"),
+      queryFn: () => remote("cached"),
+    });
+    await client.fetchQuery({
+      queryKey: catalogueKey,
+      queryFn: catalogueRemote,
+    });
+    await client.fetchQuery({
+      queryKey: extraCatalogueKey,
+      queryFn: extraCatalogueRemote,
+    });
+    remote.mockResolvedValueOnce({ label: "Current private evidence" });
+    const rendered = render(tree("current"));
+    await screen.findByText("Current private evidence");
+    remote.mockRejectedValueOnce(
+      Object.assign(new Error("Access revoked"), {
+        data: { code: "FORBIDDEN" },
+      }),
+    );
+    await act(async () => {
+      await client.refetchQueries({ queryKey: readKey("current"), exact: true });
+    });
+    await screen.findByText("denied");
+    expect(screen.queryByText("Current private evidence")).toBeNull();
+
+    // Resetting the filter inserts a cached catalogue ahead of the named slot.
+    // Neither its position nor a cached successful read can release the denial.
+    rendered.rerender(tree("cached", true));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Named read observer").textContent).toBe(
+        "cached:success:idle",
+      );
+    });
+    expect(screen.getByText("denied")).toBeTruthy();
+    expect(screen.queryByText("Older cached evidence")).toBeNull();
+    expect(remote.mock.calls.map(([scope]) => scope)).toEqual([
+      "cached",
+      "current",
+      "current",
+    ]);
+
+    remote.mockRejectedValueOnce(
+      Object.assign(new Error("Temporarily unavailable"), {
+        data: { code: "INTERNAL_SERVER_ERROR" },
+      }),
+    );
+    await act(async () => {
+      await client.refetchQueries({ queryKey: readKey("cached"), exact: true });
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Named read observer").textContent).toBe(
+        "cached:error:idle",
+      );
+    });
+    expect(screen.getByText("denied")).toBeTruthy();
+
+    let completeRead!: (value: PrivateRead) => void;
+    remote.mockImplementationOnce(
+      () =>
+        new Promise<PrivateRead>((resolve) => {
+          completeRead = resolve;
+        }),
+    );
+    let recovery!: ReturnType<typeof client.refetchQueries>;
+    await act(async () => {
+      recovery = client.refetchQueries({
+        queryKey: readKey("cached"),
+        exact: true,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Named read observer").textContent).toBe(
+        "cached:error:fetching",
+      );
+    });
+    expect(screen.getByText("denied")).toBeTruthy();
+    await act(async () => {
+      completeRead({ label: "Fresh authorized evidence" });
+      await recovery;
+    });
+    await screen.findByText("Fresh authorized evidence");
+    expect(screen.getByText("authorized")).toBeTruthy();
+    expect(remote.mock.calls.map(([scope]) => scope)).toEqual([
+      "cached",
+      "current",
+      "current",
+      "cached",
+      "cached",
+    ]);
+    // Successful catalogue observers retain their original network reads.
+    expect(catalogueRemote).toHaveBeenCalledTimes(1);
+    expect(extraCatalogueRemote).toHaveBeenCalledTimes(1);
+  } finally {
+    cleanup();
+    client.clear();
+  }
 });
 
 it("retains default multi-query recovery when only the failed polling read refreshes", () => {

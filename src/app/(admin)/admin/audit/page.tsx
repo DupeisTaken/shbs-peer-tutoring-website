@@ -4,6 +4,7 @@ import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { getQueryKey } from "@trpc/react-query";
 import {
   AuditFilters,
   type AuditFilterInput,
@@ -94,15 +95,17 @@ function AuditLog() {
       : undefined,
   };
   const [cursors, setCursors] = useState<string[]>([]);
-  const log = api.admin.auditLog.useQuery({
+  const logInput = {
     ...filters,
     approvalId,
     cursor: cursors.at(-1),
-  });
-  const denied = useSessionAccessDenied(
-    { ...log, denialKey: "audit-log" },
-    options,
-  );
+  };
+  const log = api.admin.auditLog.useQuery(logInput);
+  const denied =
+    useSessionAccessDenied(
+      { ...log, denialKey: "audit-log", queryKey: getQueryKey(api.admin.auditLog, logInput, "query") },
+      { ...options, queryKey: getQueryKey(api.admin.auditFilterOptions, undefined, "query") },
+    );
   // The read key depends on the view, so synchronize its denial bridge before commit.
   if (accessDenied !== denied) setAccessDenied(denied);
   useSessionPageScroll({

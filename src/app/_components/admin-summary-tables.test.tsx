@@ -317,13 +317,14 @@ vi.mock("~/trpc/react", () => ({
     },
     admin: {
       auditFilterOptions: {
+        _def: () => ({ path: ["admin", "auditFilterOptions"] }),
         useQuery: () => ({
           data: { users: [], operations: [], entities: [] },
           isSuccess: true,
           isFetching: false,
         }),
       },
-      auditLog: { useQuery: () => ({ data: state.audit }) },
+      auditLog: { _def: () => ({ path: ["admin", "auditLog"] }), useQuery: () => ({ data: state.audit }) },
       auditLogDetail: {
         _def: () => ({ path: ["admin", "auditLogDetail"] }),
         useQuery: () => ({ data: state.audit[0] }),
@@ -332,16 +333,18 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutate: state.undo, isPending: false }),
       },
       tutors: {
+        _def: () => ({ path: ["admin", "tutors"] }),
         useQuery: () => ({
           data: [{ id: "tutor-1", englishName: "Alex Tutor" }],
         }),
       },
-      sessions: { useQuery: () => ({ data: state.sessions }) },
+      sessions: { _def: () => ({ path: ["admin", "sessions"] }), useQuery: () => ({ data: state.sessions }) },
       disciplinaryCards: { useQuery: () => ({ data: state.cards }) },
       reviewCard: {
         useMutation: () => ({ mutate: state.review, isPending: false }),
       },
       periodSummary: {
+        _def: () => ({ path: ["admin", "periodSummary"] }),
         useQuery: (input: unknown) => {
           state.summaryInput = input;
           return {

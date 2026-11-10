@@ -94,7 +94,7 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     approval: {
-      list: { useQuery: mocks.list },
+      list: { _def: () => ({ path: ["approval", "list"] }), useQuery: mocks.list },
       requesters: { useQuery: mocks.requesters },
       decide: {
         useMutation: (options: { onSuccess: () => void }) => ({

@@ -38,6 +38,33 @@ const identityModels = [
   "QualificationTransferGrant", "PersonParticipationTransferReceipt", "StudentRequestExecutionAssignment",
 ] as const;
 
+it("registers archive import metadata without exposing polymorphic provenance bindings", () => {
+  const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
+  const model = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)]
+    .find((match) => match[1] === "ImportedRecordProvenance");
+  expect(model).toBeDefined();
+  const scalarFields = [...model![2]!.matchAll(/^\s*(\w+)\s+(?:String|DateTime)(?:[?\[\]\s])/gm)]
+    .map((match) => match[1]);
+  expect(reviewSchema.ImportedRecordProvenance).toEqual({ fields: scalarFields, references: {}, enums: {} });
+  expect(auditEntityLabelKey("ImportedRecordProvenance"))
+    .toBe("auditEventDetails.presentation.entities.ImportedRecordProvenance");
+  for (const field of ["entity", "recordId"]) {
+    expect(auditFieldLabelKey("ImportedRecordProvenance", field), field).toBeNull();
+    expect(auditEnumLabelKey("ImportedRecordProvenance", field, "Tutor"), field).toBeNull();
+    expect(auditReferenceEntity("ImportedRecordProvenance", field), field).toBeUndefined();
+  }
+  expect(auditFieldLabelKey("ImportedRecordProvenance", "importedAt"))
+    .toBe("auditEventDetails.presentation.fields.importedAt");
+  expect(auditEnumLabelKey("ImportedRecordProvenance", "importedAt", "ACTIVE")).toBeNull();
+  expect(auditReferenceEntity("ImportedRecordProvenance", "importedAt")).toBeUndefined();
+  // Private provenance keys do not narrow unrelated labels or genuine relations.
+  expect(auditFieldLabelKey("AuditLog", "entity")).toBe("auditEventDetails.presentation.fields.entity");
+  expect(auditFieldLabelKey("HistoricalAcademicCorrection", "recordId"))
+    .toBe("auditEventDetails.presentation.fields.recordId");
+  expect(auditReferenceEntity("HistoricalAcademicCorrection", "recordId")).toBe("HistoricalAcademicRecord");
+  expect(auditFieldLabelKey("Tutor", "importedAt")).toBeNull();
+});
+
 it("registers exact identity lifecycle scalar fields without inventing schema enums", () => {
   const schema = readFileSync(new URL("../../prisma/schema.prisma", import.meta.url), "utf8");
   for (const entity of identityModels) {

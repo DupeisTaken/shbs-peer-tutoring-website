@@ -143,6 +143,8 @@ const schemaFor = (entity: string | undefined) =>
 // Several names (before/after/result/recordId) are public on unrelated models;
 // exclude them by owner instead of widening or shrinking the global vocabulary.
 const privateIdentityFields: Readonly<Record<string, readonly string[]>> = {
+  // The importer owns this polymorphic/composite boundary, not a display route.
+  ImportedRecordProvenance: ["entity", "recordId"],
   // Recovery source bindings and owner answers require the scoped inspector or
   // authenticated draft reader; schema metadata never authorizes generic display.
   RecoveryCheckpoint: ["sourceId", "capturedById", "captureTransactionId", "scope"],

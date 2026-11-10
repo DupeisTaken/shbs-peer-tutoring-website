@@ -5,6 +5,7 @@ import {
 } from "~/lib/approval-policy";
 
 import Link from "next/link";
+import { getQueryKey } from "@trpc/react-query";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -464,15 +465,17 @@ function ApprovalQueue({
     router.replace(`/admin/approvals?${search.toString()}`, { scroll: false });
   };
   const utils = api.useUtils();
-  const queue = api.approval.list.useQuery({
+  const queueInput = {
     state: requestId ? undefined : state || undefined,
     page: requestId ? 0 : page,
     requesterId: requestId ? undefined : requesterId || undefined,
     requestId,
-  });
+  };
+  const queue = api.approval.list.useQuery(queueInput);
   const denied = useSessionAccessDenied({
     ...queue,
     denialKey: "approval-queue",
+    queryKey: getQueryKey(api.approval.list, queueInput, "query"),
   });
   if (accessDenied !== denied) setAccessDenied(denied);
   const requesterKey = queue.data

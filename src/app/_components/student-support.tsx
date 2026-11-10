@@ -5,46 +5,20 @@ import { SectionTabs } from "./ui/section-tabs";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
+import { getQueryKey } from "@trpc/react-query";
 import { api } from "~/trpc/react";
 import { useDialog } from "./confirm-dialog";
 import { Pager } from "./student-portal";
 import {
   useSessionPageScroll,
   useSessionViewState,
+  useSessionAccessDenied,
 } from "./session-view-state";
 import { viewEnum, viewPage } from "~/lib/session-view-state";
 
-/** A reset page/filter can have older successful cached data. Only a completed
- * read newer than the denial episode may restore that feed's private content. */
-function supportReadFence(
-  fence: number | null,
-  denied: boolean,
-  query: {
-    error: unknown;
-    isSuccess: boolean;
-    isFetching: boolean;
-    dataUpdatedAt: number;
-    errorUpdatedAt: number;
-  },
-): number | null {
-  if (denied)
-    return Math.max(fence ?? 0, query.errorUpdatedAt, query.dataUpdatedAt);
-  if (
-    fence !== null &&
-    query.isSuccess &&
-    !query.isFetching &&
-    !query.error &&
-    query.dataUpdatedAt > fence
-  )
-    return null;
-  return fence;
-}
-
 export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
-  const [deniedViews, setDeniedViews] = useState<{
-    feedback: number | null;
-    appeals: number | null;
-  }>({ feedback: null, appeals: null });
+  const [feedbackViewDenied, setFeedbackViewDenied] = useState(false);
+  const [appealsViewDenied, setAppealsViewDenied] = useState(false);
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const recovery = useTranslations("participantRecovery");
@@ -63,7 +37,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     scope: viewScope,
     initialState: "feedback",
     parse: viewEnum(me.data && !staff ? ["feedback"] : ["feedback", "appeals"]),
-    enabled: !accountDenied && deniedViews.appeals === null,
+    enabled: !accountDenied && !appealsViewDenied,
   });
   const [feedbackPage, setFeedbackPage] = useSessionViewState({
     id: "support-feedback-page-v1",
@@ -72,7 +46,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     parse: viewPage,
     enabled:
       !accountDenied &&
-      deniedViews.feedback === null &&
+      !feedbackViewDenied &&
       !(!staff && setting.data === false),
   });
   const [appealPage, setAppealPage] = useSessionViewState({
@@ -80,8 +54,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     scope: viewScope,
     initialState: 0,
     parse: viewPage,
-    enabled:
-      !accountDenied && deniedViews.appeals === null && !(me.data && !staff),
+    enabled: !accountDenied && !appealsViewDenied && !(me.data && !staff),
   });
   const [appealState, setAppealState] = useSessionViewState<
     "PENDING" | "RESOLVED"
@@ -90,42 +63,32 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
     scope: viewScope,
     initialState: "PENDING",
     parse: viewEnum(["PENDING", "RESOLVED"]),
-    enabled:
-      !accountDenied && deniedViews.appeals === null && !(me.data && !staff),
+    enabled: !accountDenied && !appealsViewDenied && !(me.data && !staff),
   });
-  const feedback = api.student.feedbackList.useQuery(
-    { page: feedbackPage },
-    { enabled: !!staff || setting.data === true },
-  );
-  const appeals = api.student.appeals.useQuery(
-    { page: appealPage, state: appealState },
-    { enabled: !!staff },
-  );
-  const feedbackDenied =
-    feedback.error?.data?.code === "FORBIDDEN" ||
-    feedback.error?.data?.code === "UNAUTHORIZED";
-  const appealsDenied =
-    appeals.error?.data?.code === "FORBIDDEN" ||
-    appeals.error?.data?.code === "UNAUTHORIZED";
-  // Keep the denial timestamp across navigation resets and transport failures.
-  // Cached success on a different query key cannot release this episode's fence.
-  const feedbackFence = supportReadFence(
-    deniedViews.feedback,
-    feedbackDenied,
-    feedback,
-  );
-  const appealsFence = supportReadFence(
-    deniedViews.appeals,
-    appealsDenied,
-    appeals,
-  );
-  if (
-    deniedViews.feedback !== feedbackFence ||
-    deniedViews.appeals !== appealsFence
-  )
-    setDeniedViews({ feedback: feedbackFence, appeals: appealsFence });
-  const nextFeedbackDenied = feedbackFence !== null;
-  const nextAppealsDenied = appealsFence !== null;
+  const feedbackInput = { page: feedbackPage };
+  const appealsInput = { page: appealPage, state: appealState };
+  const feedback = api.student.feedbackList.useQuery(feedbackInput, {
+    enabled: !!staff || setting.data === true,
+  });
+  const appeals = api.student.appeals.useQuery(appealsInput, {
+    enabled: !!staff,
+  });
+  const nextFeedbackDenied = useSessionAccessDenied({
+    ...feedback,
+    queryKey: getQueryKey(api.student.feedbackList, feedbackInput, "query"),
+    denialKey: "support-feedback",
+  });
+  const nextAppealsDenied = useSessionAccessDenied({
+    ...appeals,
+    queryKey: getQueryKey(api.student.appeals, appealsInput, "query"),
+    denialKey: "support-appeals",
+  });
+  // Independent bridges reset each feed's earlier navigation hooks before commit;
+  // completed reads, rather than cached page/filter timestamps, own recovery.
+  if (feedbackViewDenied !== nextFeedbackDenied)
+    setFeedbackViewDenied(nextFeedbackDenied);
+  if (appealsViewDenied !== nextAppealsDenied)
+    setAppealsViewDenied(nextAppealsDenied);
   const canReadFeedback =
     !accountDenied &&
     !nextFeedbackDenied &&

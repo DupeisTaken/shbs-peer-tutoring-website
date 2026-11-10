@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useId } from "react";
+import { useState, useRef, useEffect, useId, useSyncExternalStore } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 
 import { api, type RouterInputs } from "~/trpc/react";
@@ -10,6 +10,11 @@ import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { AcademicError } from "~/app/_components/academic-error";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { StatePanel } from "~/app/_components/ui/patterns";
+import { createSessionAccessAuthority, reconcileSessionAccessDenied } from "~/app/_components/session-view-state";
+import { getSessionReadReceipts } from "~/lib/session-read-receipts";
+
+const noSubscription = () => () => undefined;
+const emptySnapshot = () => 0;
 
 type Headcount = "ZERO" | "ONE" | "TWO" | "THREE" | "FOUR_PLUS";
 const BUCKETS: { value: Headcount; label: string }[] = [
@@ -31,92 +36,99 @@ export default function PatrolPage() {
   const t = useTranslations();
   const fieldId = useId();
   const queryClient = useQueryClient();
-  const [denied, setDenied] = useState({
-    status: false,
-    config: false,
-    history: false,
-  });
+  const [authority, setAuthority] = useState(() => ({
+    status: createSessionAccessAuthority(),
+    config: createSessionAccessAuthority(),
+    history: createSessionAccessAuthority(),
+  }));
+  const [dependentFences, setDependentFences] = useState<{ config?: number; history?: number }>({});
+  const receipts = getSessionReadReceipts(queryClient);
+  useSyncExternalStore(
+    (listener) => receipts ? receipts.subscribe(listener) : noSubscription(),
+    () => receipts ? receipts.getSnapshot() : emptySnapshot(),
+    emptySnapshot,
+  );
   const utils = api.useUtils();
   const myStatus = api.crew.myStatus.useQuery(undefined, {
-    enabled: !denied.status,
+    enabled: !authority.status.denied,
   });
   const unauthorized = (
     error: { data?: { code?: string } | null } | null | undefined,
   ) =>
     error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED";
   const statusDenied = unauthorized(myStatus.error);
-  const statusHidden = denied.status || statusDenied;
+  const statusRead = { ...myStatus, denialKey: "crew-status", queryKey: getQueryKey(api.crew.myStatus, undefined, "query"),
+    isSuccess: myStatus.isSuccess && myStatus.data != null };
+  const nextStatus = reconcileSessionAccessDenied(authority.status, [statusRead], queryClient);
+  const statusHidden = nextStatus.denied;
 
   const status = myStatus.data?.status ?? null;
   const pending = myStatus.data?.pendingRequest ?? null;
   // ACTIVE crew patrol; elevated admins (no crewStatus) also reach here and may patrol.
   // A missing read is not an elevated administrator. Keep authority explicit even with cache.
   const canPatrol =
-    myStatus.data !== undefined &&
+    myStatus.data != null &&
     !statusHidden &&
     (status === "ACTIVE" || status === null);
 
   const config = api.crew.patrolConfig.useQuery(undefined, {
-    enabled: canPatrol && !denied.config,
+    enabled: canPatrol && !authority.config.denied && dependentFences.config === undefined,
   });
   const history = api.crew.myPatrols.useQuery(undefined, {
-    enabled: canPatrol && !denied.history,
+    enabled: canPatrol && !authority.history.denied && dependentFences.history === undefined,
   });
   const configDenied = unauthorized(config.error);
   const historyDenied = unauthorized(history.error);
-  const configHidden = statusHidden || denied.config || configDenied;
-  const historyHidden = statusHidden || denied.history || historyDenied;
+  // Status is a prerequisite in both retained episodes: a fresh status alone
+  // cannot authorize config/history cached before that denial.
+  const nextConfig = reconcileSessionAccessDenied(authority.config, [statusRead, {
+    ...config, denialKey: "crew-patrol-config", queryKey: getQueryKey(api.crew.patrolConfig, undefined, "query"),
+    isSuccess: config.isSuccess && Array.isArray(config.data?.rooms),
+  }], queryClient);
+  const nextHistory = reconcileSessionAccessDenied(authority.history, [statusRead, {
+    ...history, denialKey: "crew-patrol-history", queryKey: getQueryKey(api.crew.myPatrols, undefined, "query"),
+    isSuccess: history.isSuccess && Array.isArray(history.data),
+  }], queryClient);
+  const statusQuery = queryClient.getQueryCache().find({ queryKey: statusRead.queryKey, exact: true });
+  const recordedStatusDenial = statusQuery ? receipts?.read(statusQuery).denialOrder : undefined;
+  // Capture a fallback only on admission to the episode. A rebound cache may
+  // lack the old receipt; unrelated ledger events must not advance its fence.
+  const statusFence = statusDenied
+    ? recordedStatusDenial !== undefined && recordedStatusDenial > 0
+      ? recordedStatusDenial
+      : !authority.status.denied ? receipts?.getOrder() ?? 0 : undefined
+    : undefined;
+  const fences = {
+    config: statusFence === undefined ? dependentFences.config : Math.max(dependentFences.config ?? 0, statusFence),
+    history: statusFence === undefined ? dependentFences.history : Math.max(dependentFences.history ?? 0, statusFence),
+  };
+  const freshDependent = (key: QueryKey, fence: number | undefined) => {
+    if (fence === undefined) return true;
+    const query = queryClient.getQueryCache().find({ queryKey: key, exact: true });
+    const proof = query && receipts?.read(query).proof;
+    return !!proof && proof.order > fence &&
+      (proof.firstDenialFence === undefined || proof.firstDenialFence > fence);
+  };
+  // A status rejection revokes both dependents even if their own transport did
+  // not reject. Manual cache success cannot replace either required network proof.
+  const configFresh = freshDependent(getQueryKey(api.crew.patrolConfig, undefined, "query"), fences.config);
+  const historyFresh = freshDependent(getQueryKey(api.crew.myPatrols, undefined, "query"), fences.history);
+  const configHidden = statusHidden || nextConfig.denied || !configFresh;
+  const historyHidden = statusHidden || nextHistory.denied || !historyFresh;
+  const nextFences = {
+    config: !statusHidden && !nextConfig.denied && configFresh ? undefined : fences.config,
+    history: !statusHidden && !nextHistory.denied && historyFresh ? undefined : fences.history,
+  };
+  if (nextFences.config !== dependentFences.config || nextFences.history !== dependentFences.history)
+    setDependentFences(nextFences);
   const canEditPatrol =
     canPatrol &&
     !myStatus.error &&
-    config.data !== undefined &&
+    config.data != null &&
     !configHidden &&
     !config.error;
-  // Each reader keeps its denial until a completed authorized read. Resolve
-  // these local transitions before rendering; evict external caches separately.
-  const sources = [
-    {
-      name: "status" as const,
-      revoked: statusDenied,
-      query: myStatus,
-    },
-    {
-      name: "config" as const,
-      revoked: configDenied || statusDenied,
-      query: config,
-    },
-    {
-      name: "history" as const,
-      revoked: historyDenied || statusDenied,
-      query: history,
-    },
-  ];
-  const next = { ...denied };
-  for (const source of sources) {
-    if (source.revoked) {
-      next[source.name] = true;
-    } else if (
-      source.query.isSuccess &&
-      !source.query.isFetching &&
-      !statusHidden
-    )
-      next[source.name] = false;
-    // An explicit status Retry is the only way to establish authority after revocation.
-    if (
-      source.name === "status" &&
-      myStatus.isSuccess &&
-      !myStatus.isFetching &&
-      !statusDenied
-    )
-      next.status = false;
-  }
-  if (
-    Object.keys(next).some(
-      (key) =>
-        next[key as keyof typeof next] !== denied[key as keyof typeof denied],
-    )
-  )
-    setDenied(next);
+  if (nextStatus !== authority.status || nextConfig !== authority.config || nextHistory !== authority.history)
+    setAuthority({ status: nextStatus, config: nextConfig, history: nextHistory });
   useEffect(() => {
     if (statusDenied)
       queryClient.removeQueries({

@@ -75,7 +75,6 @@
     "chooseLearner": "Seleccionar participante",
     "scopeHelp": "Individual solo cambia esta sesión del participante elegido. Todos requiere el acuerdo de cada persona con la última hora.",
     "location": "Lugar",
-    "locationUnavailable": "Aula no disponible. Actualiza los detalles antes de aceptar.",
     "sameRoom": "Mantener el aula prevista",
     "online": "En línea",
     "noRoom": "Sin aula física",
@@ -148,6 +147,7 @@
     "checkingLocation": "Comprobando hora y lugar…",
     "allocationFailed": "No se pudieron confirmar la hora y el lugar. Revisa la sesión actual, prueba otra hora o En línea y vuelve a revisar.",
     "roomReviewHelp": "El aula se comprueba de nuevo al enviar. Si no está disponible, revisa una nueva asignación.",
+    "locationUnavailable": "Aula no disponible. Actualiza los detalles antes de aceptar.",
     "tutoringPaused": "Tutoría regular pausada",
     "tutoringPausedHelp": "Esta sesión regular está pausada. No se exige asistencia. Una excepción requiere el acuerdo expreso de todos los participantes.",
     "arrangeException": "Acordar excepción",
@@ -4109,7 +4109,8 @@
         "MonthlyHoursReport": "Informe mensual de horas de servicio",
         "SchoolHoursSchedule": "Calendario de informes escolares",
         "SchoolHoursReport": "Informe individual de horas para la escuela",
-        "ProgramCalendarPolicyRevision": "Revisión de la política de fechas de tutoría"
+        "ProgramCalendarPolicyRevision": "Revisión de la política de fechas de tutoría",
+        "ImportedRecordProvenance": "Procedencia de la importación de archivo"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Confirmación del correo de inscripción pública",
@@ -4502,7 +4503,8 @@
         "schoolHoursReportId": "ID del informe escolar",
         "schoolHoursReport": "Informe escolar",
         "schedulingEffect": "Efecto en la programación",
-        "tutoringPauseSuppressed": "Tutoría regular pausada"
+        "tutoringPauseSuppressed": "Tutoría regular pausada",
+        "importedAt": "Fecha de importación"
       },
       "enums": {
         "Role": {
@@ -7791,8 +7793,6 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
-    "tutorTitle": "Inscripción de tutores para {period}",
-    "configuredOpening": "Apertura configurada (sujeta a activación y revisión)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7809,7 +7809,9 @@
     "reviewPeriod": "Review request for {period}",
     "periodChanged": "Your draft was started for {period}. The active period has changed. Your answers are retained; review the new period and accept its policy before submitting.",
     "reviewFailed": "The latest period or policy could not be loaded. Your draft is retained. Try reviewing again.",
-    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening."
+    "unverified": "The signup schedule could not be checked. The previous announcement may have changed. Retry below to confirm the latest opening.",
+    "tutorTitle": "Inscripción de tutores para {period}",
+    "configuredOpening": "Apertura configurada (sujeta a activación y revisión)"
   },
   "signupBanner": {
     "plannedLabel": "Apertura prevista",
@@ -7821,9 +7823,9 @@
     "plannedHelp": "El próximo trimestre debe activarse antes de aceptar solicitudes.",
     "scheduledHelp": "El cambio de trimestre está aprobado y programado. La inscripción aún requiere la activación y que la convocatoria esté habilitada.",
     "currentClosed": "La inscripción para recibir tutoría en {period} está cerrada.",
-    "tutorCurrentClosed": "La inscripción de tutores para {period} está cerrada.",
     "countdownLabel": "Tiempo hasta la apertura anunciada",
-    "previewLink": "Ver formulario de inscripción"
+    "previewLink": "Ver formulario de inscripción",
+    "tutorCurrentClosed": "La inscripción de tutores para {period} está cerrada."
   },
   "monthlyHours": {
     "emailPreviewsTitle": "Vistas Previas de Correo",
@@ -7977,12 +7979,6 @@
     "baselineSummary": "{review} por revisar · {committed} guardados",
     "baselineIssues": "{count} problemas por resolver",
     "baselineHelp": "Introduce crédito, extras, deducciones y Crew ya reportados por persona. Los valores de origen son pruebas, no valores sugeridos. Introduce cero explícitamente si no se reportó nada.",
-    "baselineAttention": "{count} saldos iniciales por revisar",
-    "baselineSetupRequired": "Se deben revisar los saldos iniciales",
-    "affectedPeople": "{count} personas afectadas",
-    "baselineBatchHelp": "Marque a cada persona revisada en sus detalles. Guarde un grupo revisado mientras se conservan los demás borradores.",
-    "baselineSelectedCount": "{count} personas seleccionadas para esta revisión",
-    "archivedSources": "{count} registros históricos importados se conservan en el historial y se excluyen de los cambios del informe escolar. Revise las fuentes actuales por separado.",
     "mappingHelp": "Comprueba cada cuenta escolar. Resuelve identidades o titularidades inciertas antes de emitir; no asocies solo por nombre.",
     "sourceTutoring": "Tutoría neta de origen",
     "sourceCrew": "Horas de Crew de origen",
@@ -8088,13 +8084,19 @@
       "SOURCE_OWNER_CHANGED": "Una fuente cambió de titular después de reportarse. Resuelve el cambio.",
       "ANCESTOR_MONTH": "Solo se puede corregir el último mes reportado.",
       "FUTURE_MONTH": "Los meses futuros aún no están disponibles.",
-      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Una fuente histórica importada coincide con un saldo revisado o emitido. Concilie su historial antes de emitir; no lo revierta automáticamente.",
-      "SOURCE_VALUE_INVALID": "Una fuente contiene horas no válidas. Corrige primero el origen."
+      "SOURCE_VALUE_INVALID": "Una fuente contiene horas no válidas. Corrige primero el origen.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Una fuente histórica importada coincide con un saldo revisado o emitido. Concilie su historial antes de emitir; no lo revierta automáticamente."
     },
     "blocked": "Resuelve antes de emitir",
     "featureOff": "Las horas de servicio están desactivadas. Vista previa no disponible.",
     "priorEditionHelp": "Elige solo la última edición realmente aplicada a esta cuenta. Si ninguna, aplica el mes completo corregido una vez. Si hay dudas, consulta al equipo antes de registrar.",
-    "priorEditionCorrection": "Si la última revisión aplicada fue {revision}: aplica {hours}"
+    "priorEditionCorrection": "Si la última revisión aplicada fue {revision}: aplica {hours}",
+    "baselineAttention": "{count} saldos iniciales por revisar",
+    "baselineSetupRequired": "Se deben revisar los saldos iniciales",
+    "affectedPeople": "{count} personas afectadas",
+    "baselineBatchHelp": "Marque a cada persona revisada en sus detalles. Guarde un grupo revisado mientras se conservan los demás borradores.",
+    "baselineSelectedCount": "{count} personas seleccionadas para esta revisión",
+    "archivedSources": "{count} registros históricos importados se conservan en el historial y se excluyen de los cambios del informe escolar. Revise las fuentes actuales por separado."
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",

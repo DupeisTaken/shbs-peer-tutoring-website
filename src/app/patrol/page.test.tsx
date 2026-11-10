@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
@@ -13,6 +14,9 @@ import messages from "../../../messages/en.json";
 import chinese from "../../../messages/zh.json";
 import PatrolPage from "./page";
 import type { RouterInputs } from "~/trpc/react";
+import { api } from "~/trpc/react";
+import { getQueryKey } from "@trpc/react-query";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
 
 type PatrolInput = RouterInputs["crew"]["submitPatrol"];
 
@@ -31,12 +35,35 @@ const state = vi.hoisted(() => ({
   > => ({}))(),
   cold: false,
   refetch: vi.fn(),
+  gates: ((): Record<string, Promise<unknown> | undefined> => ({}))(),
+  recentRows: [] as { id: string; createdAt: Date; hours: number; observations: { room: { name: string }; headcount: string }[] }[],
 }));
 const lifecycle = vi.hoisted(() => ({
   onSuccess: () => Promise.resolve(),
   onSettled: (): void => undefined,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  const reader = (scope: string, path: string) => {
+    const procedure = {
+      _def: () => ({ path: ["crew", path] }),
+      useQuery: (_input: undefined, options: { enabled: boolean }) => {
+        const query = useQuery({ queryKey: [["crew", path], { type: "query" }], queryFn: async () => {
+          state.refetch(scope);
+          if (state.gates[scope]) return await state.gates[scope];
+          const failure = state.readError[scope];
+          if (failure) throw Object.assign(new Error(failure.message), failure);
+          return scope === "status" ? { status: state.status, pendingRequest: null }
+            : scope === "config" ? { rooms: [{ id: "room", name: "Test room" }], myHours: 0.5, myPatrols: 2 } : state.recentRows;
+        }, staleTime: Infinity, gcTime: Infinity, ...options });
+        return query;
+      },
+    };
+    // getQueryKey uses this real _def path; cache, hook and production bindings
+    // therefore all refer to the same tRPC-shaped exact query.
+    return procedure;
+  };
+  return {
   api: {
     useUtils: () => ({
       crew: {
@@ -46,44 +73,9 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     crew: {
-      myStatus: {
-        name: "status",
-        useQuery: () => ({
-          data: state.cold
-            ? undefined
-            : { status: state.status, pendingRequest: null },
-          error: state.readError.status,
-          isSuccess: !state.cold && !state.readError.status,
-          isFetching: false,
-          refetch: state.refetch,
-        }),
-      },
-      patrolConfig: {
-        name: "config",
-        useQuery: () => ({
-          data: state.cold
-            ? undefined
-            : {
-                rooms: [{ id: "room", name: "Test room" }],
-                myHours: 0.5,
-                myPatrols: 2,
-              },
-          error: state.readError.config,
-          isSuccess: !state.cold && !state.readError.config,
-          isFetching: false,
-          refetch: state.refetch,
-        }),
-      },
-      myPatrols: {
-        name: "history",
-        useQuery: () => ({
-          data: state.cold ? undefined : [],
-          error: state.readError.history,
-          isSuccess: !state.cold && !state.readError.history,
-          isFetching: false,
-          refetch: state.refetch,
-        }),
-      },
+      myStatus: reader("status", "myStatus"),
+      patrolConfig: reader("config", "patrolConfig"),
+      myPatrols: reader("history", "myPatrols"),
       requestOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
       recallOptOut: { useMutation: () => ({ mutate: vi.fn() }) },
       requestReentry: { useMutation: () => ({ mutate: vi.fn() }) },
@@ -95,13 +87,12 @@ vi.mock("~/trpc/react", () => ({
       },
     },
   },
-}));
-vi.mock("@trpc/react-query", () => ({
-  getQueryKey: (procedure: { name: string }) => [procedure.name],
-}));
+  };
+});
 let queryClient: QueryClient;
 afterEach(() => {
   cleanup();
+  queryClient.clear();
   vi.useRealTimers();
 });
 beforeEach(() => {
@@ -114,10 +105,13 @@ beforeEach(() => {
   });
   state.readError = {};
   state.cold = false;
+  state.gates = {};
+  state.recentRows = [];
   state.refetch.mockReset();
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  installSessionReadReceipts(queryClient);
   state.mutate.mockReset();
   state.invalidateConfig.mockReset().mockResolvedValue(undefined);
   state.invalidateHistory.mockReset().mockResolvedValue(undefined);
@@ -133,7 +127,109 @@ const view = (locale: "en" | "zh" = "en") => (
     </NextIntlClientProvider>
   </QueryClientProvider>
 );
-const show = (locale: "en" | "zh" = "en") => render(view(locale));
+
+const recentEvidence = [{ id: "synthetic-history", createdAt: new Date("2026-11-01T06:30:00Z"), hours: 0.5,
+  observations: [{ room: { name: "Private recent room" }, headcount: "ONE" }] }];
+const freshConfig = { rooms: [{ id: "room", name: "Test room" }], myHours: 0.5, myPatrols: 2 };
+function privateAbsent(scope: keyof typeof keys) {
+  expect(screen.queryByText(scope === "history" ? /Private recent room/ : "Test room")).toBeNull();
+}
+async function denyRead(scope: keyof typeof keys) {
+  state.readError[scope] = { message: "Synthetic authority denied", data: { code: "FORBIDDEN" } };
+  await refresh(scope);
+  await waitFor(() => privateAbsent(scope));
+}
+async function recoverRead(scope: keyof typeof keys) {
+  delete state.readError[scope];
+  await retry(scope);
+  if (scope === "status") {
+    await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+    await retry("config");
+    await retry("history");
+  }
+  await screen.findByText(scope === "history" ? /Private recent room/ : "Test room");
+}
+
+it.each((["status", "config", "history"] as const).flatMap((scope) =>
+  (["frozen", "backward"] as const).map((clock) => ({ scope, clock }))))(
+  "requires real post-denial $scope proof with a $clock clock despite manual cache replacement", async ({ scope, clock }) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-10T08:00:00Z"));
+    state.recentRows = recentEvidence;
+    show();
+    expect(keys.status()).toEqual([["crew", "myStatus"], { type: "query" }]);
+    expect(keys.config()).toEqual([["crew", "patrolConfig"], { type: "query" }]);
+    expect(keys.history()).toEqual([["crew", "myPatrols"], { type: "query" }]);
+    await denyRead(scope);
+    state.readError = {};
+    if (clock === "backward") vi.setSystemTime(new Date("2026-11-01T08:00:00Z"));
+    const reads = state.refetch.mock.calls.length;
+    await act(async () => {
+      queryClient.setQueryData(keys.status(), { status: "ACTIVE", pendingRequest: null });
+      queryClient.setQueryData(keys.config(), freshConfig);
+      queryClient.setQueryData(keys.history(), recentEvidence);
+    });
+    privateAbsent(scope);
+    expect(state.refetch).toHaveBeenCalledTimes(reads);
+    expect(state.mutate).not.toHaveBeenCalled();
+    if (scope === "status") {
+      // Status alone cannot grant manually replaced dependent evidence.
+      await retry("status");
+      await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+      expect(screen.queryByText("Test room")).toBeNull();
+      expect(screen.queryByText(/Private recent room/)).toBeNull();
+      await retry("config");
+      await screen.findByText("Test room");
+      expect(screen.queryByText(/Private recent room/)).toBeNull();
+      await retry("history");
+      await screen.findByText(/Private recent room/);
+    } else await recoverRead(scope);
+    expect(state.refetch.mock.calls.length).toBeGreaterThan(reads);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["config", "history"] as const)("does not accept an old in-flight %s completion after status denial and query replacement", async (scope) => {
+  state.recentRows = recentEvidence;
+  show();
+  let finish!: (value: unknown) => void;
+  state.gates[scope] = new Promise((resolve) => { finish = resolve; });
+  let oldRead!: Promise<unknown>;
+  await act(async () => {
+    oldRead = queryClient.fetchQuery({ queryKey: keys[scope](), staleTime: 0 }).catch(() => undefined);
+  });
+  await waitFor(() => expect(state.refetch).toHaveBeenCalledWith(scope));
+  await denyRead("status");
+  delete state.gates[scope];
+  state.readError = {};
+  await act(async () => { finish(scope === "config" ? freshConfig : recentEvidence); await oldRead; });
+  privateAbsent("status");
+  await retry("status");
+  await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+  privateAbsent(scope);
+  await recoverRead(scope);
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+const keys = {
+  status: () => getQueryKey(api.crew.myStatus, undefined, "query"),
+  config: () => getQueryKey(api.crew.patrolConfig, undefined, "query"),
+  history: () => getQueryKey(api.crew.myPatrols, undefined, "query"),
+};
+const show = (locale: "en" | "zh" = "en") => {
+  if (!state.cold) {
+    queryClient.setQueryData(keys.status(), { status: state.status, pendingRequest: null });
+    queryClient.setQueryData(keys.config(), { rooms: [{ id: "room", name: "Test room" }], myHours: 0.5, myPatrols: 2 });
+    queryClient.setQueryData(keys.history(), state.recentRows);
+  }
+  return render(view(locale));
+};
+async function refresh(scope: keyof typeof keys) {
+  await act(async () => { await queryClient.refetchQueries({ queryKey: keys[scope](), exact: true, type: "all" }); });
+}
+async function retry(scope: keyof typeof keys) {
+  const title = scope === "status" ? "Crew status" : scope === "config" ? messages.crew.patrol.title : messages.crew.patrol.recent;
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: `Retry ${title}` })); });
+}
 
 it("announces that evidence was saved without claiming zero-hour submissions earned credit", () => {
   state.hours = 0;
@@ -376,28 +472,31 @@ it.each(["INACTIVE", "OPTED_OUT"])(
   },
 );
 
-it("does not mistake a failed initial status read for admin access or loaded zero totals", () => {
+it("does not mistake a failed initial status read for admin access or loaded zero totals", async () => {
   state.cold = true;
   state.readError.status = { message: "Offline" };
   show();
+  await screen.findByRole("alert");
   expect(screen.getByRole("alert").textContent).toContain(
     "Could not load Crew status",
   );
   expect(screen.queryByText("0.0 h")).toBeNull();
   expect(screen.queryByText(messages.crew.patrol.noRooms)).toBeNull();
   expect(screen.queryByRole("button", { name: /Submit Patrol/ })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Retry Crew status" }));
-  expect(state.refetch).toHaveBeenCalledOnce();
+  state.refetch.mockClear();
+  await retry("status");
+  expect(state.refetch).toHaveBeenCalledExactlyOnceWith("status");
 });
-it("keeps a sweep draft beside a failed refresh and disables dependent writes until recovery", () => {
+it("keeps a sweep draft beside a failed refresh and disables dependent writes until recovery", async () => {
   state.isSuccess = false;
-  const rendered = show();
+  show();
   fireEvent.click(screen.getByRole("button", { name: "1" }));
   fireEvent.change(screen.getByLabelText(messages.crew.patrol.noteLabel), {
     target: { value: "Retained sweep" },
   });
   state.readError.config = { message: "Offline" };
-  rendered.rerender(view());
+  await refresh("config");
+  await screen.findByRole("alert");
   expect(
     screen.getByLabelText<HTMLTextAreaElement>(messages.crew.patrol.noteLabel)
       .value,
@@ -410,27 +509,31 @@ it("keeps a sweep draft beside a failed refresh and disables dependent writes un
     screen.getByRole("button", { name: "1" }).getAttribute("aria-pressed"),
   ).toBe("true");
   state.readError = {};
-  rendered.rerender(view());
+  await retry("config");
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: /Submit Patrol/ }).disabled).toBe(false));
   expect(
     screen.getByRole<HTMLButtonElement>("button", { name: /Submit Patrol/ })
       .disabled,
   ).toBe(false);
 });
-it("evicts concealed patrol evidence on revocation and does not restore it on a network failure", () => {
-  const rendered = show();
-  queryClient.setQueryData(["status"], { status: "ACTIVE" });
-  queryClient.setQueryData(["config"], { private: true });
+it("evicts concealed patrol evidence on revocation and does not restore it on a network failure", async () => {
+  show();
   fireEvent.click(screen.getByRole("button", { name: "1" }));
   state.readError.status = { message: "Denied", data: { code: "FORBIDDEN" } };
-  rendered.rerender(view());
+  await refresh("status");
+  await waitFor(() => expect(screen.queryByText("Test room")).toBeNull());
   expect(screen.queryByText("Test room")).toBeNull();
-  expect(queryClient.getQueryData(["status"])).toBeUndefined();
-  expect(queryClient.getQueryData(["config"])).toBeUndefined();
+  expect(queryClient.getQueryData(keys.status())).toBeUndefined();
+  expect(queryClient.getQueryData(keys.config())).toBeUndefined();
   state.readError.status = { message: "Offline" };
-  rendered.rerender(view());
+  await retry("status");
   expect(screen.queryByText("Test room")).toBeNull();
   state.readError = {};
-  rendered.rerender(view());
+  await retry("status");
+  await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+  await retry("config");
+  await retry("history");
+  await screen.findByText("Test room");
   expect(screen.getByText("Test room")).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "1" }).getAttribute("aria-pressed"),
@@ -455,11 +558,11 @@ it.each(["en", "zh"] as const)(
 
 it.each(["status", "config"])(
   "starts a fresh intent after %s revocation clears an uncertain submission",
-  (scope) => {
-    vi.useFakeTimers();
+  async (scope) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-02T01:00:00Z"));
     state.isSuccess = false;
-    const rendered = show();
+    show();
     fireEvent.click(screen.getByRole("button", { name: "1" }));
     fireEvent.change(screen.getByLabelText(messages.crew.patrol.noteLabel), {
       target: { value: "Synthetic private note" },
@@ -471,13 +574,20 @@ it.each(["status", "config"])(
       message: "Revoked",
       data: { code: "FORBIDDEN" },
     };
-    rendered.rerender(view());
+    await refresh(scope as keyof typeof keys);
+    await waitFor(() => expect(screen.queryByText("Test room")).toBeNull());
     expect(screen.queryByText("Test room")).toBeNull();
     state.readError[scope] = { message: "Offline" };
-    rendered.rerender(view());
+    await retry(scope as keyof typeof keys);
     expect(screen.queryByText("Test room")).toBeNull();
     state.readError = {};
-    rendered.rerender(view());
+    await retry(scope as keyof typeof keys);
+    if (scope === "status") {
+      await screen.findByRole("button", { name: `Retry ${messages.crew.patrol.title}` });
+      await retry("config");
+      await retry("history");
+    }
+    await screen.findByLabelText(messages.crew.patrol.noteLabel);
     expect(
       screen.getByLabelText<HTMLTextAreaElement>(messages.crew.patrol.noteLabel)
         .value,

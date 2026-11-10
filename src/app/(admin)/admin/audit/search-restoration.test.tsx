@@ -20,8 +20,9 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({ admin: { auditLog: { invalidate: vi.fn() } } }),
     admin: {
-      auditLog: { useQuery: mocks.log },
+      auditLog: { _def: () => ({ path: ["admin", "auditLog"] }), useQuery: mocks.log },
       auditFilterOptions: {
+        _def: () => ({ path: ["admin", "auditFilterOptions"] }),
         useQuery: () => ({
           data: mocks.options,
           isSuccess: true,
