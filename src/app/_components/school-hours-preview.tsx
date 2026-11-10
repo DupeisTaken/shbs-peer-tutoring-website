@@ -9,7 +9,9 @@ import { schoolHoursVisibleRows } from "~/lib/school-hours-visibility";
 import { schoolHoursPriorEditions } from "~/lib/school-hours-corrections";
 import {
   formatSchoolHours as hours,
+  formatSchoolHoursCarryMinutes,
   schoolHoursApproximation,
+  schoolHoursRoundedDuration,
 } from "~/lib/school-hours-format";
 import { programDateKey } from "~/lib/program-time";
 import { useReadOnly } from "./read-only";
@@ -59,83 +61,183 @@ export function SchoolHoursValue({
   );
 }
 
-/** The highlighted incremental instruction belongs to this individual only.
- * Tutoring/Crew explain it; optional aggregate statistics never award credit. */
+/** Keep the posting instruction distinct from rounded source reconciliation.
+ * Revision choices and exact source values belong to the individual's details. */
 export function SchoolHoursIndividuals({
   rows: allRows,
   revision,
   includeStatistics = false,
   showEvidence = true,
+  postingPolicy,
 }: {
   rows: SchoolHoursRow[];
   revision: number;
   includeStatistics?: boolean;
   showEvidence?: boolean;
+  postingPolicy?: "TENTH_HOUR_CARRY" | "TENTH_HOUR_CARRY_NONNEGATIVE";
 }) {
   const t = useTranslations("schoolHours");
+  const nonnegativePolicy = postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE";
+  const carryPolicy = postingPolicy === "TENTH_HOUR_CARRY" || nonnegativePolicy;
+  const carry = (value: string | undefined) =>
+    !carryPolicy ? (
+      <span aria-label={t("carryUnavailable")} title={t("carryUnavailable")}>
+        —
+      </span>
+    ) : value === undefined ? (
+      t("none")
+    ) : (
+      <span title={t("exactCarryHours", { hours: value })}>
+        {t("carryMinutes", { minutes: formatSchoolHoursCarryMinutes(value) })}
+        <span className="sr-only">{`; ${t("exactCarryHours", { hours: value })}`}</span>
+      </span>
+    );
   const rows = schoolHoursVisibleRows({ revision, rows: allRows });
+  const rawChange = (row: SchoolHoursRow) => (
+    <span className="whitespace-nowrap" title={t("rawChangeHelp")}>
+      {t(
+        "rawChangeDuration",
+        schoolHoursRoundedDuration(row.tutoringChange + row.crewChange, true),
+      )}
+    </span>
+  );
+  const sourceEvidence = (value: number) => (
+    <>
+      {t("rawChangeDuration", schoolHoursRoundedDuration(value, true))}
+      <span className="block text-xs text-slate-700">
+        {t("exactHours", { hours: hours(value, true) })}
+      </span>
+    </>
+  );
   const amount = (row: SchoolHoursRow) => (
     <>
       <SchoolHoursValue value={row.hoursToAdd} signed />
       {revision > 1 && (
-        <>
-          <span className="block text-xs font-normal text-slate-700">
-            {t("priorEditionCorrection", {
-              revision: revision - 1,
-              hours: hours(row.hoursToAdd, true),
-            })}
-          </span>
-          <span className="block text-xs font-normal text-slate-700">
-            {t("correctedMonth", {
-              hours: hours(row.monthAmount, true),
-            })}
-          </span>
-          {row.unchanged && (
-            <span className="block text-xs font-normal text-slate-700">
-              {t("unchanged")}
-            </span>
-          )}
-        </>
+        <span className="mt-1 block text-xs font-normal text-slate-700">
+          {t("revisionAmountCondition", { revision: revision - 1 })}
+        </span>
+      )}
+      {row.hoursToAdd === 0 && (
+        <span className="mt-1 block text-xs font-normal text-slate-700">
+          {t("zeroAmount")}
+        </span>
       )}
     </>
   );
-  const details = (row: SchoolHoursRow) => (
-    <TableDetails title={row.exportName}>
-      <dl className="grid grid-cols-2 gap-3 text-sm">
-        <dt>{t("schoolAccount")}</dt>
-        <dd>{row.schoolAccountKey}</dd>
-        <dt>{t("earnedChange")}</dt>
-        <dd>{hours(row.change.earned, true)}</dd>
-        <dt>{t("extrasChange")}</dt>
-        <dd>{hours(row.change.extras, true)}</dd>
-        <dt>{t("deductionsChange")}</dt>
-        <dd>{hours(row.change.deductions, true)}</dd>
-        <dt>{t("crewChange")}</dt>
-        <dd>{hours(row.crewChange, true)}</dd>
-        <dt>{t("amountToApply")}</dt>
-        <dd className="font-semibold">{hours(row.hoursToAdd, true)}</dd>
+  const details = (row: SchoolHoursRow) => {
+    const editions = schoolHoursPriorEditions(row, revision);
+    return (
+      <TableDetails title={row.exportName} longReader>
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <dt>{t("schoolAccount")}</dt>
+          <dd>{row.schoolAccountKey}</dd>
+          <dt>{t("rawChange")}</dt>
+          <dd>{sourceEvidence(row.tutoringChange + row.crewChange)}</dd>
+          <dt>{t(carryPolicy ? "rawTutoring" : "tutoring")}</dt>
+          <dd>{sourceEvidence(row.tutoringChange)}</dd>
+          <dt>{t("earnedChange")}</dt>
+          <dd>{hours(row.change.earned, true)}</dd>
+          <dt>{t("extrasChange")}</dt>
+          <dd>{hours(row.change.extras, true)}</dd>
+          <dt>{t("deductionsChange")}</dt>
+          <dd>{hours(row.change.deductions, true)}</dd>
+          <dt>{t(carryPolicy ? "rawCrew" : "crewChange")}</dt>
+          <dd>{sourceEvidence(row.crewChange)}</dd>
+          {carryPolicy && (
+            <>
+              <dt>{t("carryIn")}</dt>
+              <dd>{carry(row.carryInHours)}</dd>
+              <dt>{t("carryOut")}</dt>
+              <dd>{carry(row.carryOutHours)}</dd>
+            </>
+          )}
+          <dt>{t("hours")}</dt>
+          <dd className="font-semibold">{hours(row.hoursToAdd, true)}</dd>
+          <dt>{t("previousMonth")}</dt>
+          <dd>
+            {row.previousMonthAmount === null
+              ? t("none")
+              : hours(row.previousMonthAmount, true)}
+          </dd>
+          <dt>{t("correctedMonthLabel")}</dt>
+          <dd>{hours(row.monthAmount, true)}</dd>
+          <dt>{t("monthDifference")}</dt>
+          <dd>
+            {row.monthComparison === null
+              ? t("none")
+              : hours(row.monthComparison, true)}
+          </dd>
+          {revision > 1 && (
+            <>
+              <dt>{t("previousEdition")}</dt>
+              <dd>
+                {row.previousEditionAmount === null
+                  ? t("none")
+                  : hours(row.previousEditionAmount, true)}
+              </dd>
+            </>
+          )}
+        </dl>
+        <p className="text-sm text-slate-700">{t("comparisonHelp")}</p>
         {revision > 1 && (
-          <>
-            <dt>{t("previousEdition")}</dt>
-            <dd>
-              {row.previousEditionAmount === null
-                ? t("none")
-                : hours(row.previousEditionAmount, true)}
-            </dd>
-            <dt>{t("correctedMonthLabel")}</dt>
-            <dd>{hours(row.monthAmount, true)}</dd>
-          </>
+          <section className="space-y-3" aria-label={t("comparisons")}>
+            <p>{t("priorEditionHelp")}</p>
+            {row.unchanged && <p>{t("unchanged")}</p>}
+            {editions.length > 0 && (
+              <ul className="list-disc space-y-2 pl-5">
+                {editions.map((edition) => (
+                  <li key={edition.revision}>
+                    {t(
+                      nonnegativePolicy
+                        ? "priorEditionComparison"
+                        : "priorEditionCorrection",
+                      {
+                        revision: edition.revision,
+                        hours: hours(edition.correctionToCurrent, true),
+                      },
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="font-semibold">
+              {t("correctedMonth", { hours: hours(row.monthAmount, true) })}
+            </p>
+          </section>
         )}
-      </dl>
-    </TableDetails>
-  );
+      </TableDetails>
+    );
+  };
   return (
     <div className="min-w-0 space-y-3">
       <p className="text-sm text-slate-700">
-        {t(revision > 1 ? "revisionInstructions" : "applyInstructions")}
+        {t(
+          nonnegativePolicy
+            ? revision > 1
+              ? "nonnegativeRevisionInstructions"
+              : "nonnegativeApplyInstructions"
+            : revision > 1
+              ? "revisionInstructions"
+              : carryPolicy
+                ? "carryApplyInstructions"
+                : "applyInstructions",
+        )}
       </p>
-      {/* Keep the person and exact credit together on narrow screens, where
-          a sticky table action can otherwise cover the amount being applied. */}
+      {carryPolicy && (
+        <p className="text-sm text-slate-700">
+          {t(
+            nonnegativePolicy
+              ? "nonnegativeCarryPolicyNotice"
+              : "carryPolicyNotice",
+          )}{" "}
+          {t("carryReconciliation")}
+        </p>
+      )}
+      {!carryPolicy && (
+        <p className="text-xs text-slate-700">{t("carryUnavailable")}</p>
+      )}
+      <p className="text-xs text-slate-700">{t("rawChangeHelp")}</p>
+      {/* Both responsive views preserve the same reconciliation order. */}
       <ul
         aria-label={t("individualAmounts")}
         role="list"
@@ -152,23 +254,25 @@ export function SchoolHoursIndividuals({
                 {t("schoolAccount")}: {row.schoolAccountKey}
               </p>
             </div>
-            <dl className="bg-accent-50 text-accent-700 rounded-md p-3">
-              <dt className="text-xs font-medium">{t("amountToApply")}</dt>
-              <dd className="mt-1 text-lg font-semibold tabular-nums">
-                {amount(row)}
-              </dd>
-            </dl>
             <dl className="grid grid-cols-2 gap-3">
-              <div className="min-w-0">
-                <dt className="muted text-xs">{t("tutoring")}</dt>
-                <dd className="mt-1 tabular-nums">
-                  <SchoolHoursValue value={row.tutoringChange} signed />
+              <div className="min-w-0 p-3">
+                <dt className="text-xs text-slate-700">{t("carryIn")}</dt>
+                <dd className="mt-1 tabular-nums">{carry(row.carryInHours)}</dd>
+              </div>
+              <div className="min-w-0 p-3">
+                <dt className="text-xs text-slate-700">{t("rawChange")}</dt>
+                <dd className="mt-1 tabular-nums">{rawChange(row)}</dd>
+              </div>
+              <div className="bg-accent-50 text-accent-700 min-w-0 rounded-md p-3">
+                <dt className="text-xs font-medium">{t("hours")}</dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums">
+                  {amount(row)}
                 </dd>
               </div>
-              <div className="min-w-0">
-                <dt className="muted text-xs">{t("crew")}</dt>
+              <div className="min-w-0 p-3">
+                <dt className="text-xs text-slate-700">{t("carryOut")}</dt>
                 <dd className="mt-1 tabular-nums">
-                  <SchoolHoursValue value={row.crewChange} signed />
+                  {carry(row.carryOutHours)}
                 </dd>
               </div>
             </dl>
@@ -181,9 +285,10 @@ export function SchoolHoursIndividuals({
           <thead>
             <tr>
               <th>{t("individual")}</th>
-              <th className="text-right">{t("amountToApply")}</th>
-              <th className="text-right">{t("tutoring")}</th>
-              <th className="text-right">{t("crew")}</th>
+              <th className="text-right">{t("carryIn")}</th>
+              <th className="text-right">{t("rawChange")}</th>
+              <th className="text-right">{t("hours")}</th>
+              <th className="text-right">{t("carryOut")}</th>
               {showEvidence && (
                 <th className="table-actions-heading">{t("details")}</th>
               )}
@@ -199,6 +304,20 @@ export function SchoolHoursIndividuals({
                   </span>
                 </td>
                 <td
+                  className="text-right tabular-nums"
+                  data-sort-value={
+                    carryPolicy ? Number(row.carryInHours) : undefined
+                  }
+                >
+                  {carry(row.carryInHours)}
+                </td>
+                <td
+                  className="text-right tabular-nums"
+                  data-sort-value={row.tutoringChange + row.crewChange}
+                >
+                  {rawChange(row)}
+                </td>
+                <td
                   className="bg-accent-50 text-accent-700 text-right font-semibold tabular-nums"
                   data-sort-value={row.hoursToAdd}
                 >
@@ -206,15 +325,11 @@ export function SchoolHoursIndividuals({
                 </td>
                 <td
                   className="text-right tabular-nums"
-                  data-sort-value={row.tutoringChange}
+                  data-sort-value={
+                    carryPolicy ? Number(row.carryOutHours) : undefined
+                  }
                 >
-                  <SchoolHoursValue value={row.tutoringChange} signed />
-                </td>
-                <td
-                  className="text-right tabular-nums"
-                  data-sort-value={row.crewChange}
-                >
-                  <SchoolHoursValue value={row.crewChange} signed />
+                  {carry(row.carryOutHours)}
                 </td>
                 {showEvidence && <TableActions>{details(row)}</TableActions>}
               </tr>
@@ -223,71 +338,6 @@ export function SchoolHoursIndividuals({
         </SummaryTable>
       </div>
       {rows.length === 0 && <p className="muted text-sm">{t("noChanges")}</p>}
-      <DisclosureSection title={t("comparisons")} lifetime="lazy">
-        <p className="muted mb-3 text-sm">{t("comparisonHelp")}</p>
-        <SummaryTable label={t("comparisons")}>
-          <thead>
-            <tr>
-              <th>{t("individual")}</th>
-              <th className="text-right">{t("previousMonth")}</th>
-              <th className="text-right">{t("correctedMonthLabel")}</th>
-              <th className="text-right">{t("monthDifference")}</th>
-              <th className="text-right">{t("editionCorrection")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.beneficiaryId}>
-                <td>{row.exportName}</td>
-                <td className="text-right tabular-nums">
-                  {row.previousMonthAmount === null
-                    ? t("none")
-                    : hours(row.previousMonthAmount, true)}
-                </td>
-                <td className="text-right tabular-nums">
-                  {hours(row.monthAmount, true)}
-                </td>
-                <td className="text-right tabular-nums">
-                  {row.monthComparison === null
-                    ? t("none")
-                    : hours(row.monthComparison, true)}
-                </td>
-                <td className="text-right tabular-nums">
-                  {revision > 1 ? hours(row.hoursToAdd, true) : t("none")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </SummaryTable>
-        {revision > 1 &&
-          rows.map((row) => {
-            const editions = schoolHoursPriorEditions(row, revision);
-            return (
-              editions.length > 0 && (
-                <div key={row.beneficiaryId} className="mt-3">
-                  <DisclosureSection title={row.exportName} lifetime="lazy">
-                    <p className="mb-3 text-sm">{t("priorEditionHelp")}</p>
-                    <ul className="list-disc space-y-2 pl-5 text-sm">
-                      {editions.map((edition) => (
-                        <li key={edition.revision}>
-                          {t("priorEditionCorrection", {
-                            revision: edition.revision,
-                            hours: hours(edition.correctionToCurrent, true),
-                          })}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-3 text-sm font-semibold">
-                      {t("correctedMonth", {
-                        hours: hours(row.monthAmount, true),
-                      })}
-                    </p>
-                  </DisclosureSection>
-                </div>
-              )
-            );
-          })}
-      </DisclosureSection>
       {includeStatistics && (
         <DisclosureSection title={t("statistics")} lifetime="lazy">
           <p className="text-sm">
@@ -427,6 +477,7 @@ export function SchoolHoursPreview({ preview }: { preview: SchoolPreview }) {
             rows={preview.rows}
             revision={preview.revision}
             includeStatistics={preview.includeStatistics}
+            postingPolicy={preview.postingPolicy}
           />
         ) : (
           <div className="space-y-3">

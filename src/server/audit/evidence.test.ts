@@ -5,6 +5,10 @@ import { inTransaction } from "~/server/transactions";
 import { runAuditedMutation, safeAuditSnapshot } from "./evidence";
 
 const actor = { id: "head", name: "Head", role: "HEAD" };
+it("records the nonsecret email language without admitting account secrets", () => {
+  expect(safeAuditSnapshot({ id: "account", emailLocale: "zh", passwordHash: "PRIVATE", code: "PRIVATE" }, "User"))
+    .toEqual({ id: "account", emailLocale: "zh" });
+});
 type State = { status: string; reviewNote: string | null; attempts: number; consumedAt: Date | null; audits: Array<Record<string, unknown>> };
 
 /** A rollback-capable double, rather than a no-op transaction mock, proves the

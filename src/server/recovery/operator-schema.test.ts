@@ -4,7 +4,143 @@ import {
   reviewedRecoverySchemaMetadata,
 } from "./operator-schema";
 
+const schemaMetadata = reviewedRecoverySchemaMetadata;
+const optionalNotificationLock = {
+  table_name: "ProgramSettings",
+  column_name: "notificationLocks",
+  udt_name: "jsonb",
+};
+
+function reviewedSchemaPhases() {
+  const versions = [
+    {
+      columns: schemaMetadata.columns,
+      identityVersion: 0,
+      legacySignupDecline: false,
+    },
+    {
+      columns: schemaMetadata.identityColumns,
+      identityVersion: 1,
+      legacySignupDecline: false,
+    },
+    {
+      columns: schemaMetadata.legacyDeclineColumns,
+      identityVersion: 0,
+      legacySignupDecline: true,
+    },
+    {
+      columns: schemaMetadata.identityLegacyDeclineColumns,
+      identityVersion: 1,
+      legacySignupDecline: true,
+    },
+  ];
+  return versions.flatMap(({ columns, ...expected }) => {
+    const beforeHistory = columns.filter(
+      (column) => column.table_name !== "ProgramCalendarPolicyRevision",
+    );
+    const beforePolicy = beforeHistory.filter(
+      (column) =>
+        !(
+          column.table_name === "ProgramCalendarDay" &&
+          column.column_name === "schedulingEffect"
+        ) &&
+        !(
+          column.table_name === "SessionPlanParticipant" &&
+          column.column_name === "tutoringPauseSuppressed"
+        ),
+    );
+    return [columns, beforeHistory, beforePolicy].flatMap((phase) =>
+      [false, true].flatMap((withLabels) =>
+        [false, true].map((withLocks) => ({
+          expected,
+          columns: [
+            ...phase.filter(
+              (column) =>
+                withLabels ||
+                column.table_name !== "SchoolHoursSchedule" ||
+                column.column_name !== "recipientLabels",
+            ),
+            ...(withLocks ? [optionalNotificationLock] : []),
+          ],
+        })),
+      ),
+    );
+  });
+}
+
 describe("static operator recovery schema review", () => {
+  it("composes complete optional language and import bundles across every reviewed policy and identity phase", () => {
+    expect(schemaMetadata.emailLocaleColumns).toHaveLength(10);
+    expect(schemaMetadata.importProvenanceColumns).toHaveLength(3);
+    for (const { columns, expected } of reviewedSchemaPhases())
+      for (const withLocale of [false, true])
+        for (const withProvenance of [false, true])
+          expect(
+            assertReviewedRecoverySchema(
+              [
+                ...columns,
+                ...(withLocale ? schemaMetadata.emailLocaleColumns : []),
+                ...(withProvenance
+                  ? schemaMetadata.importProvenanceColumns
+                  : []),
+              ],
+              schemaMetadata.enums,
+            ),
+          ).toEqual({ emailLocale: withLocale, ...expected });
+  });
+  it("refuses incomplete, duplicated, mistyped and widened optional bundles in every reviewed phase", () => {
+    const bundles = [
+      schemaMetadata.emailLocaleColumns,
+      schemaMetadata.importProvenanceColumns,
+    ];
+    for (const { columns } of reviewedSchemaPhases())
+      for (const [index, bundle] of bundles.entries()) {
+        const companion = bundles[1 - index]!;
+        const invalidBundles = [
+          ...bundle.map((_, omitted) =>
+            bundle.filter((__, position) => position !== omitted),
+          ),
+          ...bundle.map((_, changed) =>
+            bundle.map((column, position) =>
+              position === changed ? { ...column, udt_name: "jsonb" } : column,
+            ),
+          ),
+          ...bundle.map((column) => [...bundle, column]),
+          [
+            ...bundle,
+            {
+              table_name: "ImportedRecordProvenance",
+              column_name: "liveAuthority",
+              udt_name: "bool",
+            },
+          ],
+          [
+            ...bundle,
+            {
+              table_name: "SchoolHoursSchedule",
+              column_name: "emailLocale",
+              udt_name: "text",
+            },
+          ],
+          [
+            ...bundle,
+            {
+              table_name: "UnreviewedGrant",
+              column_name: "tokenHash",
+              udt_name: "text",
+            },
+          ],
+        ];
+        for (const optionalCompanion of [[], companion])
+          for (const invalid of invalidBundles)
+            expect(() =>
+              assertReviewedRecoverySchema(
+                [...columns, ...optionalCompanion, ...invalid],
+                schemaMetadata.enums,
+              ),
+            ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      }
+  });
   it("keeps notification-lock compatibility independent from reviewed history, labels and complete archive provenance", () => {
     const metadata = reviewedRecoverySchemaMetadata;
     const notificationLock = {

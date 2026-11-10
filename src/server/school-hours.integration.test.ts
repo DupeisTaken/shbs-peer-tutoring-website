@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
-import { Prisma, type SchoolHoursSchedule } from "../../generated/prisma";
+import {
+  Prisma,
+  PrismaClient,
+  type SchoolHoursSchedule,
+} from "../../generated/prisma";
 import { db } from "./db";
+import { utcDatabaseUrl } from "./database-url";
+import { schedulingPgOptions } from "./database-options";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import type { DomainDb } from "./transactions";
 import {
@@ -18,6 +25,10 @@ import {
 } from "./school-hours";
 import { issueSchoolHoursToken } from "./school-hours-link";
 import { retrieveSchoolHoursReport } from "./school-hours-public";
+import {
+  schoolHoursSnapshotSchema,
+  type SchoolHoursSnapshot,
+} from "./school-hours-input";
 
 vi.mock("~/server/email/sender", () => ({
   isEmailDeliveryAvailable: () => true,
@@ -93,6 +104,11 @@ async function session(key: string, amount: number) {
     },
   });
 }
+const participantRow = (
+  report: Pick<SchoolHoursSnapshot, "rows">,
+  beneficiaryId = `tutor:${id("B")}`,
+) => report.rows.find((row) => row.beneficiaryId === beneficiaryId)!;
+
 async function reviewOpening(client: DomainDb = db) {
   const preview = await schoolHoursBaselinePreview(client);
   await reviewSchoolHoursBaseline(
@@ -382,7 +398,7 @@ it("retains imported archive hours without adding opening-review identities or s
   ).toBe(false);
 });
 
-it("keeps imports after a committed issue separate from native late credits and signed reversals", async () => {
+it("keeps imports after a committed issue separate from native late credits and carried source-withdrawal debt", async () => {
   await reviewOpening();
   await enable();
   await issue();
@@ -395,14 +411,34 @@ it("keeps imports after a committed issue separate from native late credits and 
   const next = await previewSchoolHours(db, "2013-10");
   expect(next.archivedSourceCount).toBe(1);
   expect(next.blockers).toEqual([]);
-  expect(
-    next.rows.find((row) => row.beneficiaryId === `tutor:${id("A")}`)
-      ?.hoursToAdd,
-  ).toBe(0.25);
-  expect(
-    next.rows.find((row) => row.beneficiaryId === `tutor:${id("B")}`)
-      ?.hoursToAdd,
-  ).toBe(-2);
+  expect(participantRow(next, `tutor:${id("A")}`)).toMatchObject({
+    tutoringChange: 0.25,
+    hoursToAdd: 0.2,
+    carryOutHours: "0.05",
+  });
+  expect(participantRow(next)).toMatchObject({
+    tutoringChange: -2,
+    hoursToAdd: 0,
+    carryOutHours: "-2",
+  });
+  await issue("2013-10");
+  await adjustment("archive-does-not-repay-debt", "B", 100);
+  await db.importedRecordProvenance.create({
+    data: {
+      entity: "ServiceHourAdjustment",
+      recordId: id("archive-does-not-repay-debt"),
+    },
+  });
+  const afterImport = await previewSchoolHours(db, "2013-11");
+  expect(afterImport.archivedSourceCount).toBe(2);
+  expect(afterImport.blockers).toEqual([]);
+  expect(participantRow(afterImport)).toMatchObject({
+    tutoringChange: 0,
+    hoursToAdd: 0,
+    carryInHours: "-2",
+    carryOutHours: "-2",
+    unchanged: true,
+  });
 });
 
 it.each(["opening", "committed"] as const)(
@@ -542,7 +578,9 @@ it("does not repeat standing deductions or recreated logical adjustment records;
     deductions: 0,
     crew: 0,
   });
-  expect(row.hoursToAdd).toBe(1.25);
+  expect(row.hoursToAdd).toBe(1.2);
+  expect(row.carryInHours).toBe("0");
+  expect(row.carryOutHours).toBe("0.05");
   expect(row.previousMonthAmount).toBe(7);
   const next = await previewSchoolHours(db, "2013-11");
   expect(
@@ -551,6 +589,632 @@ it("does not repeat standing deductions or recreated logical adjustment records;
       .every((item) => item.hoursToAdd === 0),
   ).toBe(true);
 });
+
+it("posts eighty minutes as 1.3 hours, persists the remainder and posts it once with the next four minutes", async () => {
+  await db.serviceHourAdjustment.update({
+    where: { id: id("extra-B") },
+    data: { amount: 80 / 60 },
+  });
+  await reviewOpening();
+  await enable();
+  const first = await issue();
+  const firstRow = participantRow(first.report);
+  expect(first.report.postingPolicy).toBe("TENTH_HOUR_CARRY_NONNEGATIVE");
+  expect(firstRow).toMatchObject({
+    current: { extras: 80 / 60 },
+    previous: { extras: 0 },
+    change: { extras: 80 / 60 },
+    tutoringChange: 80 / 60,
+    crewChange: 0,
+    hoursToAdd: 1.3,
+    monthAmount: 1.3,
+    carryInHours: "0",
+  });
+  expect(
+    new Prisma.Decimal(firstRow.carryOutHours!).times(60).toNumber(),
+  ).toBeCloseTo(2, 12);
+  const stored = await db.schoolHoursReport.findUniqueOrThrow({
+    where: { id: first.receipt.reportId },
+  });
+  const storedPeople = (stored.sourceBaseline as Prisma.JsonObject)
+    .people as Prisma.JsonObject[];
+  expect(
+    storedPeople.find(
+      (person) => person.beneficiaryId === firstRow.beneficiaryId,
+    ),
+  ).toMatchObject({
+    beneficiaryId: firstRow.beneficiaryId,
+    carryHours: firstRow.carryOutHours,
+    components: { extras: 80 / 60 },
+  });
+  expect(schoolHoursSnapshotSchema.parse(stored.snapshot).rows).toEqual(
+    first.report.rows,
+  );
+  const before = await previewSchoolHours(db, "2013-10");
+  const repeated = await previewSchoolHours(db, "2013-10");
+  expect(repeated.contentHash).toBe(before.contentHash);
+  expect(participantRow(repeated)).toMatchObject({
+    hoursToAdd: 0,
+    unchanged: true,
+    carryInHours: firstRow.carryOutHours,
+    carryOutHours: firstRow.carryOutHours,
+  });
+  expect(await generateSchoolHours(db, first.input, actorId)).toMatchObject({
+    reportId: first.receipt.reportId,
+  });
+  await retrySchoolHoursReport(db, first.receipt.reportId, actorId);
+  expect(
+    (await db.schoolHoursReport.findUniqueOrThrow({ where: { id: stored.id } }))
+      .sourceBaseline,
+  ).toEqual(stored.sourceBaseline);
+  await adjustment("next-four-minutes", "B", 4 / 60);
+  const second = await issue("2013-10");
+  const secondRow = participantRow(second.report);
+  expect(secondRow).toMatchObject({
+    hoursToAdd: 0.1,
+    monthAmount: 0.1,
+    previousMonthAmount: 1.3,
+    carryInHours: firstRow.carryOutHours,
+  });
+  expect(secondRow.change.extras).toBeCloseTo(4 / 60, 12);
+  expect(
+    new Prisma.Decimal(secondRow.carryOutHours!).abs().toNumber(),
+  ).toBeLessThan(1e-12);
+  expect(participantRow(await previewSchoolHours(db, "2013-11"))).toMatchObject(
+    {
+      hoursToAdd: 0,
+      unchanged: true,
+      carryInHours: secondRow.carryOutHours,
+      carryOutHours: secondRow.carryOutHours,
+    },
+  );
+  expect(
+    await db.schoolHoursReport.count({ where: { generatedById: actorId } }),
+  ).toBe(2);
+});
+
+it("keeps the full debt through deductions, sign crossings and source removal", async () => {
+  await db.serviceHourAdjustment.update({
+    where: { id: id("extra-B") },
+    data: { amount: 0.15 },
+  });
+  await reviewOpening();
+  await enable();
+  expect(participantRow((await issue()).report)).toMatchObject({
+    hoursToAdd: 0.1,
+    carryOutHours: "0.05",
+  });
+  await adjustment("carry-penalty", "B", 0.08, "PUNISHMENT");
+  const reversal = participantRow((await issue("2013-10")).report);
+  expect(reversal).toMatchObject({
+    tutoringChange: -0.08,
+    hoursToAdd: 0,
+    carryInHours: "0.05",
+    carryOutHours: "-0.03",
+    unchanged: false,
+  });
+  await db.serviceHourAdjustment.update({
+    where: { id: id("carry-penalty") },
+    data: { amount: 0.17 },
+  });
+  expect(participantRow((await issue("2013-11")).report)).toMatchObject({
+    hoursToAdd: 0,
+    carryInHours: "-0.03",
+    carryOutHours: "-0.12",
+  });
+  await db.serviceHourAdjustment.delete({ where: { id: id("carry-penalty") } });
+  expect(participantRow((await issue("2013-12")).report)).toMatchObject({
+    tutoringChange: 0.17,
+    hoursToAdd: 0,
+    carryInHours: "-0.12",
+    carryOutHours: "0.05",
+  });
+  await db.serviceHourAdjustment.delete({ where: { id: id("extra-B") } });
+  expect(participantRow((await issue("2014-01")).report)).toMatchObject({
+    tutoringChange: -0.15,
+    hoursToAdd: 0,
+    carryInHours: "0.05",
+    carryOutHours: "-0.1",
+  });
+});
+
+it("persists eighty minutes of debt across unchanged issues, retry and a fresh client before later credits repay it", async () => {
+  await reviewOpening();
+  await enable();
+  await issue();
+  await adjustment("eighty-minute-debt", "B", 80 / 60, "PUNISHMENT");
+  const debt = await issue("2013-10");
+  const debtRow = participantRow(debt.report);
+  expect(debtRow).toMatchObject({
+    tutoringChange: -(80 / 60),
+    hoursToAdd: 0,
+    monthAmount: 0,
+    carryInHours: "0",
+    carryOutHours: "-1.3333333333333333",
+    unchanged: false,
+  });
+  const saved = await db.schoolHoursReport.findUniqueOrThrow({
+    where: { id: debt.receipt.reportId },
+  });
+  const baseline = saved.sourceBaseline as Prisma.JsonObject;
+  const people = baseline.people as Prisma.JsonObject[];
+  expect(
+    people.find((person) => person.beneficiaryId === debtRow.beneficiaryId),
+  ).toMatchObject({ carryHours: debtRow.carryOutHours });
+  const before = await previewSchoolHours(db, "2013-11");
+  expect(participantRow(before)).toMatchObject({
+    change: { earned: 0, extras: 0, deductions: 0, crew: 0 },
+    hoursToAdd: 0,
+    carryInHours: debtRow.carryOutHours,
+    carryOutHours: debtRow.carryOutHours,
+    unchanged: true,
+  });
+  expect((await previewSchoolHours(db, "2013-11")).contentHash).toBe(
+    before.contentHash,
+  );
+  expect(await generateSchoolHours(db, debt.input, actorId)).toMatchObject({
+    reportId: debt.receipt.reportId,
+  });
+  await retrySchoolHoursReport(db, debt.receipt.reportId, actorId);
+  const retried = await db.schoolHoursReport.findUniqueOrThrow({
+    where: { id: saved.id },
+  });
+  expect(retried.snapshot).toEqual(saved.snapshot);
+  expect(retried.sourceBaseline).toEqual(saved.sourceBaseline);
+
+  // A separate client models a restarted service: all carry comes from storage.
+  const restarted = new PrismaClient({
+    adapter: new PrismaPg(
+      { connectionString: utcDatabaseUrl(process.env.DATABASE_URL!) },
+      schedulingPgOptions,
+    ),
+  });
+  try {
+    const unchanged = await issue("2013-11", undefined, restarted);
+    expect(participantRow(unchanged.report)).toMatchObject({
+      hoursToAdd: 0,
+      carryInHours: debtRow.carryOutHours,
+      carryOutHours: debtRow.carryOutHours,
+      unchanged: true,
+    });
+    await adjustment("forty-minute-repayment", "B", 40 / 60);
+    const partial = participantRow(
+      (await issue("2013-12", undefined, restarted)).report,
+    );
+    expect(partial).toMatchObject({
+      hoursToAdd: 0,
+      monthAmount: 0,
+      carryInHours: debtRow.carryOutHours,
+      unchanged: false,
+    });
+    expect(partial.tutoringChange).toBeCloseTo(40 / 60, 12);
+    expect(
+      new Prisma.Decimal(partial.carryOutHours!).times(60).toNumber(),
+    ).toBeCloseTo(-40, 12);
+    await adjustment("fifty-minute-repayment", "B", 50 / 60);
+    const repaid = participantRow(
+      (await issue("2014-01", undefined, restarted)).report,
+    );
+    expect(repaid).toMatchObject({
+      hoursToAdd: 0.1,
+      monthAmount: 0.1,
+      carryInHours: partial.carryOutHours,
+    });
+    expect(repaid.tutoringChange).toBeCloseTo(50 / 60, 12);
+    expect(
+      new Prisma.Decimal(repaid.carryOutHours!).times(60).toNumber(),
+    ).toBeCloseTo(4, 12);
+    expect(
+      participantRow(await previewSchoolHours(restarted, "2014-02")),
+    ).toMatchObject({
+      hoursToAdd: 0,
+      carryInHours: repaid.carryOutHours,
+      carryOutHours: repaid.carryOutHours,
+      unchanged: true,
+    });
+  } finally {
+    await restarted.$disconnect();
+  }
+});
+
+it("keeps a same-month source withdrawal as debt without reducing already-posted month amounts", async () => {
+  await reviewOpening();
+  await enable();
+  const first = await issue();
+  await db.serviceHourAdjustment.delete({ where: { id: id("extra-B") } });
+  const second = await issue(
+    month,
+    "Withdraw a source after its credit posted",
+  );
+  expect(participantRow(second.report)).toMatchObject({
+    change: { extras: -2 },
+    tutoringChange: -2,
+    hoursToAdd: 0,
+    monthAmount: 2,
+    previousEditionAmount: 2,
+    carryInHours: "0",
+    carryOutHours: "-2",
+    priorEditions: [{ revision: 1, monthAmount: 2, correctionToCurrent: 0 }],
+  });
+  await adjustment("withdrawal-partial-repayment", "B", 1);
+  const third = await issue(month, "A later credit partially repays the debt");
+  expect(participantRow(third.report)).toMatchObject({
+    tutoringChange: 1,
+    hoursToAdd: 0,
+    monthAmount: 2,
+    carryInHours: "-2",
+    carryOutHours: "-1",
+    priorEditions: [
+      { revision: 1, monthAmount: 2, correctionToCurrent: 0 },
+      { revision: 2, monthAmount: 2, correctionToCurrent: 0 },
+    ],
+  });
+  expect(
+    participantRow(await getSchoolHoursReport(db, first.receipt.reportId)),
+  ).toMatchObject({ hoursToAdd: 2, monthAmount: 2, carryOutHours: "0" });
+});
+
+it("retains an exact tiny negative carry instead of rounding it away", async () => {
+  await reviewOpening();
+  await enable();
+  await issue();
+  await adjustment("tiny-deficit", "B", 1e-16, "PUNISHMENT");
+  const deficit = participantRow((await issue("2013-10")).report);
+  expect(deficit).toMatchObject({
+    tutoringChange: -1e-16,
+    hoursToAdd: 0,
+    carryInHours: "0",
+  });
+  expect(new Prisma.Decimal(deficit.carryOutHours!).equals("-1e-16")).toBe(
+    true,
+  );
+  const unchanged = participantRow(await previewSchoolHours(db, "2013-11"));
+  expect(unchanged).toMatchObject({
+    hoursToAdd: 0,
+    carryInHours: deficit.carryOutHours,
+    carryOutHours: deficit.carryOutHours,
+    unchanged: true,
+  });
+});
+
+it("commits an unchanged issue without consuming or posting its carried fraction twice", async () => {
+  await db.serviceHourAdjustment.update({
+    where: { id: id("extra-B") },
+    data: { amount: 0.15 },
+  });
+  await reviewOpening();
+  await enable();
+  await issue();
+  const unchanged = await issue("2013-10");
+  expect(participantRow(unchanged.report)).toMatchObject({
+    change: { earned: 0, extras: 0, deductions: 0, crew: 0 },
+    hoursToAdd: 0,
+    monthAmount: 0,
+    carryInHours: "0.05",
+    carryOutHours: "0.05",
+    unchanged: true,
+  });
+  await adjustment("complete-carried-tenth", "B", 0.05);
+  expect(participantRow((await issue("2013-11")).report)).toMatchObject({
+    hoursToAdd: 0.1,
+    carryInHours: "0.05",
+    carryOutHours: "0",
+  });
+  expect(participantRow(await previewSchoolHours(db, "2013-12"))).toMatchObject(
+    {
+      hoursToAdd: 0,
+      carryInHours: "0",
+      carryOutHours: "0",
+    },
+  );
+});
+
+it("adds only posted increments to same-month editions while keeping raw component changes", async () => {
+  await db.serviceHourAdjustment.update({
+    where: { id: id("extra-B") },
+    data: { amount: 0.15 },
+  });
+  await reviewOpening();
+  await enable();
+  const first = await issue();
+  await adjustment("same-month-four-hundredths", "B", 0.04);
+  const second = await issue(
+    month,
+    "Small correction retained until a tenth is available",
+  );
+  expect(participantRow(second.report)).toMatchObject({
+    change: { extras: 0.04 },
+    tutoringChange: 0.04,
+    hoursToAdd: 0,
+    monthAmount: 0.1,
+    previousEditionAmount: 0.1,
+    carryInHours: "0.05",
+    carryOutHours: "0.09",
+    priorEditions: [{ revision: 1, monthAmount: 0.1, correctionToCurrent: 0 }],
+  });
+  await adjustment("same-month-two-hundredths", "B", 0.02);
+  const third = await issue(
+    month,
+    "Accumulated correction reaches the next tenth",
+  );
+  expect(participantRow(third.report)).toMatchObject({
+    hoursToAdd: 0.1,
+    monthAmount: 0.2,
+    previousEditionAmount: 0.1,
+    carryInHours: "0.09",
+    carryOutHours: "0.01",
+    priorEditions: [
+      { revision: 1, monthAmount: 0.1, correctionToCurrent: 0.1 },
+      { revision: 2, monthAmount: 0.1, correctionToCurrent: 0.1 },
+    ],
+  });
+  expect(
+    participantRow(await getSchoolHoursReport(db, first.receipt.reportId)),
+  ).toEqual(participantRow(first.report));
+  expect(participantRow(await previewSchoolHours(db, "2013-10"))).toMatchObject(
+    {
+      hoursToAdd: 0,
+      carryInHours: "0.01",
+      carryOutHours: "0.01",
+    },
+  );
+});
+
+it("grandfathers an immutable legacy edition and starts its missing carry at zero", async () => {
+  await expect(
+    db.$transaction(
+      async (tx) => {
+        await tx.serviceHourAdjustment.update({
+          where: { id: id("extra-B") },
+          data: { amount: 2.05 },
+        });
+        await reviewOpening(tx);
+        await enable(tx);
+        const first = await issue(month, undefined, tx);
+        const saved = await tx.schoolHoursReport.findUniqueOrThrow({
+          where: { id: first.receipt.reportId },
+        });
+        // Synthetic persisted pre-policy edition, confined to this rollback.
+        const legacy = schoolHoursSnapshotSchema.parse(saved.snapshot);
+        delete legacy.postingPolicy;
+        for (const row of legacy.rows) {
+          delete row.carryInHours;
+          delete row.carryOutHours;
+        }
+        participantRow(legacy).hoursToAdd = 2.05;
+        participantRow(legacy).monthAmount = 2.05;
+        legacy.totals.hoursToAdd = 11.55;
+        legacy.totals.monthAmount = 11.55;
+        const baseline = JSON.parse(JSON.stringify(saved.sourceBaseline)) as {
+          people: { beneficiaryId: string; carryHours?: string }[];
+        };
+        for (const person of baseline.people) delete person.carryHours;
+        await tx.schoolHoursReport.update({
+          where: { id: saved.id },
+          data: { snapshot: legacy, sourceBaseline: baseline },
+        });
+        const legacySaved = await tx.schoolHoursReport.findUniqueOrThrow({
+          where: { id: saved.id },
+        });
+        await tx.serviceHourAdjustment.update({
+          where: { id: id("extra-B") },
+          data: { amount: 2.12 },
+        });
+        const second = await issue(
+          month,
+          "First correction under carry posting",
+          tx,
+        );
+        expect(participantRow(second.report)).toMatchObject({
+          hoursToAdd: 0,
+          monthAmount: 2.05,
+          previousEditionAmount: 2.05,
+          carryInHours: "0",
+          carryOutHours: "0.07",
+          priorEditions: [
+            { revision: 1, monthAmount: 2.05, correctionToCurrent: 0 },
+          ],
+        });
+        await tx.serviceHourAdjustment.update({
+          where: { id: id("extra-B") },
+          data: { amount: 2.16 },
+        });
+        const third = await issue(
+          month,
+          "Carried correction reaches a tenth",
+          tx,
+        );
+        expect(participantRow(third.report)).toMatchObject({
+          hoursToAdd: 0.1,
+          monthAmount: 2.15,
+          carryInHours: "0.07",
+          carryOutHours: "0.01",
+          priorEditions: [
+            { revision: 1, monthAmount: 2.05, correctionToCurrent: 0.1 },
+            { revision: 2, monthAmount: 2.05, correctionToCurrent: 0.1 },
+          ],
+        });
+        const retained = await tx.schoolHoursReport.findUniqueOrThrow({
+          where: { id: saved.id },
+        });
+        expect(retained.snapshot).toEqual(legacySaved.snapshot);
+        expect(retained.sourceBaseline).toEqual(legacySaved.sourceBaseline);
+        expect(
+          participantRow(await getSchoolHoursReport(tx, saved.id)),
+        ).toMatchObject({
+          hoursToAdd: 2.05,
+          monthAmount: 2.05,
+        });
+        throw new Error("rollback synthetic legacy carry fixture");
+      },
+      { timeout: 20000 },
+    ),
+  ).rejects.toThrow("rollback synthetic legacy carry fixture");
+});
+
+it("preserves an immutable negative instruction from the earlier signed-carry policy when issuing a nonnegative correction", async () => {
+  await expect(
+    db.$transaction(
+      async (tx) => {
+        await reviewOpening(tx);
+        await enable(tx);
+        const first = await issue(month, undefined, tx);
+        const saved = await tx.schoolHoursReport.findUniqueOrThrow({
+          where: { id: first.receipt.reportId },
+        });
+        const legacy = schoolHoursSnapshotSchema.parse(saved.snapshot);
+        legacy.postingPolicy = "TENTH_HOUR_CARRY";
+        participantRow(legacy).hoursToAdd = -2;
+        participantRow(legacy).monthAmount = -2;
+        legacy.totals.hoursToAdd -= 4;
+        legacy.totals.monthAmount -= 4;
+        // This rollback-only fixture models an already-issued signed instruction.
+        await tx.schoolHoursReport.update({
+          where: { id: saved.id },
+          data: { snapshot: legacy },
+        });
+        await tx.serviceHourAdjustment.update({
+          where: { id: id("extra-B") },
+          data: { amount: 2.07 },
+        });
+        const correction = await issue(
+          month,
+          "Retain the earlier signed instruction while carrying a new credit",
+          tx,
+        );
+        expect(correction.report.postingPolicy).toBe(
+          "TENTH_HOUR_CARRY_NONNEGATIVE",
+        );
+        expect(participantRow(correction.report)).toMatchObject({
+          hoursToAdd: 0,
+          monthAmount: -2,
+          previousEditionAmount: -2,
+          carryInHours: "0",
+          carryOutHours: "0.07",
+          priorEditions: [
+            { revision: 1, monthAmount: -2, correctionToCurrent: 0 },
+          ],
+        });
+        const retained = await tx.schoolHoursReport.findUniqueOrThrow({
+          where: { id: saved.id },
+        });
+        expect(retained.snapshot).toEqual(legacy);
+        expect(retained.sourceBaseline).toEqual(saved.sourceBaseline);
+        expect(await getSchoolHoursReport(tx, saved.id)).toMatchObject({
+          postingPolicy: "TENTH_HOUR_CARRY",
+        });
+        expect(
+          participantRow(await getSchoolHoursReport(tx, saved.id)),
+        ).toMatchObject({ hoursToAdd: -2, monthAmount: -2 });
+        throw new Error("rollback synthetic signed-carry legacy edition");
+      },
+      { timeout: 20000 },
+    ),
+  ).rejects.toThrow("rollback synthetic signed-carry legacy edition");
+});
+
+it.each([false, true])(
+  "preserves both merged owners' carry and enforces school-account conflicts (reviewed mapping: %s)",
+  async (reviewedMapping) => {
+    await expect(
+      db.$transaction(
+        async (tx) => {
+          const retiredId = id("carry-merge-retired");
+          await tx.user.create({
+            data: {
+              id: retiredId,
+              email: `${retiredId}@example.test`,
+              role: "CREW",
+            },
+          });
+          await tx.patrol.update({
+            where: { id: id("patrol") },
+            data: { hours: 0.56 },
+          });
+          await tx.patrol.create({
+            data: {
+              id: id("carry-merge-patrol"),
+              crewUserId: retiredId,
+              hours: 0.26,
+            },
+          });
+          await reviewOpening(tx);
+          await enable(tx);
+          const first = await issue(month, undefined, tx);
+          const survivorId = `user:${id("crew")}`;
+          expect(participantRow(first.report, survivorId).carryOutHours).toBe(
+            "0.06",
+          );
+          expect(
+            participantRow(first.report, `user:${retiredId}`).carryOutHours,
+          ).toBe("0.06");
+          await tx.user.update({
+            where: { id: retiredId },
+            data: { mergedIntoId: id("crew") },
+          });
+          if (reviewedMapping) {
+            // Fixture for an already reviewed shared ledger identifier, not an
+            // application reconciliation operation. Real independent mappings below
+            // retain the normal conflict; all synthetic mutations roll back.
+            const saved = await tx.schoolHoursReport.findUniqueOrThrow({
+              where: { id: first.receipt.reportId },
+            });
+            const baseline = JSON.parse(
+              JSON.stringify(saved.sourceBaseline),
+            ) as {
+              people: { beneficiaryId: string; schoolAccountKey: string }[];
+            };
+            const survivor = baseline.people.find(
+              (person) => person.beneficiaryId === survivorId,
+            )!;
+            baseline.people.find(
+              (person) => person.beneficiaryId === `user:${retiredId}`,
+            )!.schoolAccountKey = survivor.schoolAccountKey;
+            await tx.schoolHoursReport.update({
+              where: { id: saved.id },
+              data: { sourceBaseline: baseline },
+            });
+          }
+          const preview = await previewSchoolHours(tx, "2013-10");
+          expect(participantRow(preview, survivorId)).toMatchObject({
+            change: { earned: 0, extras: 0, deductions: 0, crew: 0 },
+            tutoringChange: 0,
+            crewChange: 0,
+            hoursToAdd: 0.1,
+            carryInHours: "0.12",
+            carryOutHours: "0.02",
+            unchanged: false,
+          });
+          expect(
+            preview.blockers.some(
+              (row) => row.code === "ACCOUNT_MAPPING_CONFLICT",
+            ),
+          ).toBe(!reviewedMapping);
+          if (reviewedMapping) {
+            expect(preview.blockers).toEqual([]);
+            const second = await issue("2013-10", undefined, tx);
+            expect(participantRow(second.report, survivorId).hoursToAdd).toBe(
+              0.1,
+            );
+            expect(
+              participantRow(
+                await previewSchoolHours(tx, "2013-11"),
+                survivorId,
+              ),
+            ).toMatchObject({
+              hoursToAdd: 0,
+              carryInHours: "0.02",
+              carryOutHours: "0.02",
+              unchanged: true,
+            });
+          }
+          throw new Error("rollback synthetic merged carry fixture");
+        },
+        { timeout: 20000 },
+      ),
+    ).rejects.toThrow("rollback synthetic merged carry fixture");
+  },
+);
 
 it("preserves opposite individual changes and component changes whose net is zero", async () => {
   await reviewOpening();
@@ -570,7 +1234,8 @@ it("preserves opposite individual changes and component changes whose net is zer
   const c = result.rows.find(
     (row) => row.beneficiaryId === `tutor:${id("C")}`,
   )!;
-  expect([a.hoursToAdd, b.hoursToAdd, c.hoursToAdd]).toEqual([-2, 2, 0]);
+  expect([a.hoursToAdd, b.hoursToAdd, c.hoursToAdd]).toEqual([0, 2, 0]);
+  expect(a).toMatchObject({ tutoringChange: -2, carryOutHours: "-2" });
   expect(c.unchanged).toBe(false);
 });
 
@@ -614,6 +1279,14 @@ it("retains credited precision through the entire aggregation before converting 
     first.report.rows.find((row) => row.beneficiaryId === `tutor:${id("B")}`)
       ?.current.extras,
   ).toBe(1.0000000000000002);
+  expect(participantRow(first.report)).toMatchObject({
+    hoursToAdd: 1,
+  });
+  expect(
+    new Prisma.Decimal(participantRow(first.report).carryOutHours!).equals(
+      "0.0000000000000002",
+    ),
+  ).toBe(true);
   await db.serviceHourAdjustment.deleteMany({
     where: { id: { in: [id("precision-one"), id("precision-two")] } },
   });
@@ -623,9 +1296,18 @@ it("retains credited precision through the entire aggregation before converting 
     unchanged.rows.find((row) => row.beneficiaryId === `tutor:${id("B")}`)
       ?.hoursToAdd,
   ).toBe(0);
+  expect(
+    new Prisma.Decimal(participantRow(unchanged).carryOutHours!).equals(
+      "0.0000000000000002",
+    ),
+  ).toBe(true);
 });
 
-it("keeps tutoring and Crew on one explicit account without collapsing equal display names", async () => {
+it("combines tutoring and Crew before posting one tenth on the explicit account without collapsing equal display names", async () => {
+  await db.serviceHourAdjustment.update({
+    where: { id: id("extra-B") },
+    data: { amount: 0.06 },
+  });
   await db.user.create({
     data: {
       id: id("linked"),
@@ -637,7 +1319,7 @@ it("keeps tutoring and Crew on one explicit account without collapsing equal dis
     },
   });
   await db.patrol.create({
-    data: { id: id("linked-patrol"), crewUserId: id("linked"), hours: 0.5 },
+    data: { id: id("linked-patrol"), crewUserId: id("linked"), hours: 0.06 },
   });
   await reviewOpening();
   await enable();
@@ -646,8 +1328,9 @@ it("keeps tutoring and Crew on one explicit account without collapsing equal dis
     (row) => row.beneficiaryId === `user:${id("linked")}`,
   )!;
   expect([linked.tutoringChange, linked.crewChange, linked.hoursToAdd]).toEqual(
-    [2, 0.5, 2.5],
+    [0.06, 0.06, 0.1],
   );
+  expect(linked.carryOutHours).toBe("0.02");
   expect(linked.exportName).toBe("Legal B");
   expect(
     result.report.rows.some((row) => row.beneficiaryId === `tutor:${id("C")}`),
@@ -661,7 +1344,53 @@ it("keeps tutoring and Crew on one explicit account without collapsing equal dis
   await db.user.delete({ where: { id: id("linked") } });
 });
 
-it("allows signed reversals for source removal under an existing owner and retains the frozen export name", async () => {
+it("combines tutoring debt and Crew credits on one explicit account before posting after repayment", async () => {
+  await adjustment("linked-debt-penalty", "B", 2.2, "PUNISHMENT");
+  await db.user.create({
+    data: {
+      id: id("debt-linked"),
+      email: `${id("debt-linked")}@example.test`,
+      tutorId: id("B"),
+      role: "TUTOR",
+    },
+  });
+  await db.patrol.create({
+    data: {
+      id: id("debt-linked-patrol"),
+      crewUserId: id("debt-linked"),
+      hours: 0.06,
+    },
+  });
+  await reviewOpening();
+  await enable();
+  const beneficiary = `user:${id("debt-linked")}`;
+  expect(participantRow((await issue()).report, beneficiary)).toMatchObject({
+    tutoringChange: -0.2,
+    crewChange: 0.06,
+    hoursToAdd: 0,
+    carryInHours: "0",
+    carryOutHours: "-0.14",
+  });
+  await adjustment("linked-debt-repayment", "B", 0.2);
+  await db.patrol.create({
+    data: {
+      id: id("debt-linked-second-patrol"),
+      crewUserId: id("debt-linked"),
+      hours: 0.06,
+    },
+  });
+  expect(
+    participantRow((await issue("2013-10")).report, beneficiary),
+  ).toMatchObject({
+    tutoringChange: 0.2,
+    crewChange: 0.06,
+    hoursToAdd: 0.1,
+    carryInHours: "-0.14",
+    carryOutHours: "0.02",
+  });
+});
+
+it("carries source-removal debt under the existing owner and retains the frozen export name", async () => {
   await reviewOpening();
   await enable();
   await issue();
@@ -670,7 +1399,12 @@ it("allows signed reversals for source removal under an existing owner and retai
   const row = result.rows.find(
     (item) => item.beneficiaryId === `tutor:${id("B")}`,
   )!;
-  expect(row.hoursToAdd).toBe(-2);
+  expect(row).toMatchObject({
+    tutoringChange: -2,
+    hoursToAdd: 0,
+    carryInHours: "0",
+    carryOutHours: "-2",
+  });
   expect(row.exportName).toBe("Legal B");
   expect(
     result.blockers.some((item) => item.beneficiaryId === row.beneficiaryId),
@@ -724,7 +1458,12 @@ it("retains factual credits after login recovery retirement and reports only sub
           next.report.rows.find(
             (row) => row.beneficiaryId === `user:${ownerId}`,
           )?.hoursToAdd,
-        ).toBe(0.25);
+        ).toBe(0.2);
+        expect(
+          next.report.rows.find(
+            (row) => row.beneficiaryId === `user:${ownerId}`,
+          )?.carryOutHours,
+        ).toBe("0.05");
         const repeated = await previewSchoolHours(tx, "2013-11");
         expect(
           repeated.rows.find((row) => row.beneficiaryId === `user:${ownerId}`)

@@ -998,6 +998,14 @@ Outgoing mail includes a shared branded HTML layout plus the original plain-text
 
 Generate synthetic, offline previews with `npx tsx scripts/preview-emails.ts`; output defaults to `.validation/email-previews`. These files never use the database or live SMTP. Browser previews supplement, but do not replace, the real-inbox checks below.
 
+The preview gallery uses production copy builders and includes plain-text siblings,
+code and legacy invitations, signup deadlines, historical claims, appeals, request
+status, session changes and school-report corrections. HTML shows codes in one panel
+and links as named actions; text-only copies retain complete codes and URLs. Check
+the distinct code-expiry and request-verification deadlines, proposed versus confirmed
+session times, bilingual wording, and the version in a correction email's subject.
+School reports retain their separate light layout and **View Month Report** action.
+
 Optional notification mail includes an **Unsubscribe** footer link and a plain-text equivalent. `/unsubscribe` is a public confirmation page: link scanners and GET requests do not change preferences. The signed link expires after 90 days and permits only disabling its notification category or all optional categories for the account, including included secondary destinations. Security alerts and essential direct mail never include this control; student signup confirmation is essential even though it uses the PROGRAM sender. No SMTP provider subscription list is involved. Treat unsubscribe URLs as private capabilities and do not add them to logs or analytics. Verify confirmation, expired/invalid links, category-only and all-optional changes, and continued security delivery before rollout.
 
 Apply `20261108010000_notification_choice_locks` and regenerate Prisma with the
@@ -1032,6 +1040,15 @@ outbox relation, disables the legacy monthly overview schedule and retires its
 unsent receipts. Sent historical evidence remains intact. Node instrumentation
 starts the school generator at boot and once per minute. PostgreSQL retains the
 cursor, individual baselines, snapshots and receipts across restarts.
+
+Tenth-hour posting stores exact signed carry in the existing report JSON, so it
+needs no additional database columns. Replace the application with the updated
+version before generating new editions. On multiple instances, drain old school
+generators and upgrade every writer together: earlier binaries ignore carry or
+apply the superseded signed-posting rule. They must not generate after the first
+`TENTH_HOUR_CARRY_NONNEGATIVE` edition. Recovery after that
+point requires a release compatible with this persisted carry contract, rather
+than a pre-carry binary rollback. Historical editions remain unchanged and readable.
 
 The reporting recovery migrations preserve compatible existing journal triggers
 and reject disabled or incompatible coverage for operator inspection. They also

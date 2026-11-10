@@ -14,7 +14,8 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { withSignupAdmission, signupMetric } from "~/server/signup-admission";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
-import { APP_TITLE } from "~/lib/branding";
+import { codeEmailCopy } from "~/server/email/direct-email-copy";
+import { emailLocaleFromHeaders, emailText, normalizeEmailLocale } from "~/lib/email-locale";
 import { getFeatures } from "~/server/program/features";
 import { normalizeEmailCode } from "~/server/auth/code";
 import {
@@ -24,7 +25,7 @@ import {
 } from "~/server/auth/viewer-signup";
 import type { db as dbClient } from "~/server/db";
 import { inTransaction } from "~/server/transactions";
-import { issueViewerAccountInvitation } from "~/server/auth/account-invitations";
+import { invitationEmailOwner, issueViewerAccountInvitation } from "~/server/auth/account-invitations";
 
 async function assertEnabled(db: typeof dbClient): Promise<void> {
   const features = await getFeatures(db);
@@ -67,19 +68,29 @@ export const viewerRouter = createTRPCRouter({
 
           try {
             await inTransaction(ctx.db, async (tx) => {
-              const res = await startViewerSignup(input, tx);
+              const sourceLocale = emailLocaleFromHeaders(ctx.headers);
+              const res = await startViewerSignup({ ...input, emailLocale: sourceLocale }, tx);
               if (!res.ok) throw new Error("Could not stage mailbox challenge");
+              const owner = await invitationEmailOwner(tx, input.email.trim().toLowerCase());
+              const staged = await tx.viewerSignup.findUniqueOrThrow({
+                where: { email: input.email.trim().toLowerCase() },
+                select: { emailLocale: true },
+              });
+              const locale = normalizeEmailLocale(owner?.emailLocale ?? staged.emailLocale);
               await emailSender.send({
                 category: "SECURITY",
                 signup: true,
                 to: input.email.trim().toLowerCase(),
-                subject: `${APP_TITLE}: verify Viewer signup / 验证观察员注册`,
-                text: `Verify your email to continue signing up for read-only Viewer access. This code does not enroll you as a tutor or tutee.\n验证邮箱后可继续申请只读观察员权限；此验证码不会将您登记为辅导伙伴或学习伙伴。\n\nYour email verification code (4 digits) / 邮箱验证码（4 位数字） is ${res.code}.\n\nIt expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.\n验证码将在 ${VIEWER_CODE_TTL_MINUTES} 分钟后失效。如非本人申请，请忽略此邮件。`,
-                presentation: {
+                ...codeEmailCopy({
+                  locale,
+                  subject: emailText(locale, { en: "Verify Viewer signup", zh: "验证观察员注册" }),
                   code: res.code,
-                  codePurpose: "verification",
-                  eyebrow: "EMAIL VERIFICATION",
-                },
+                  eyebrow: emailText(locale, { en: "EMAIL VERIFICATION", zh: "邮箱验证" }),
+                  body: emailText(locale, {
+                    en: `Enter this code to continue signing up for read-only Viewer access. It expires in ${VIEWER_CODE_TTL_MINUTES} minutes. This does not enroll you as a tutor or tutee.\n\nIf you did not request this, ignore this email.`,
+                    zh: `输入此验证码以继续申请只读观察员权限，${VIEWER_CODE_TTL_MINUTES} 分钟内有效。此步骤不会将您登记为辅导伙伴或学习伙伴。\n\n如非本人申请，请忽略此邮件。`,
+                  }),
+                }),
               });
             });
           } catch (error) {

@@ -315,7 +315,7 @@ it.each(["messages", "info", "information"])(
     expect(verifyUnsubscribeToken(url.searchParams.get("token")!)).toBe(
       "notice-1",
     );
-    expect(message.text).toContain(`Unsubscribe / 取消订阅: ${url.href}`);
+    expect(message.text).toContain(`Unsubscribe: ${url.href}`);
     expect(url.href).not.toContain("recipient");
   },
 );

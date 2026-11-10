@@ -1,8 +1,9 @@
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
+import type { EmailMessage } from "~/server/email/sender";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const mail = vi.hoisted(() => ({
-  send: vi.fn(),
+  send: vi.fn<(message: EmailMessage) => Promise<void>>().mockResolvedValue(undefined),
   available: vi.fn(() => true),
 }));
 vi.mock("~/server/email/sender", () => ({
@@ -177,6 +178,19 @@ beforeEach(async () => {
 });
 afterEach(() => vi.unstubAllEnvs());
 afterAll(() => db.$disconnect());
+it.each(["en", "zh"] as const)("keeps the selected %s history proof language on resend without implying current enrollment", async (locale) => {
+  await startHistoryAccount(db, { token, email }, locale);
+  const message = mail.send.mock.lastCall![0];
+  expect(message.presentation?.locale).toBe(locale);
+  expect(message.subject).toBe(locale === "zh" ? "验证历史记录访问" : "Verify historical access");
+  expect(message.text).toContain(locale === "zh" ? "15 分钟内有效" : "15 minutes");
+  expect(message.text).toContain(locale === "zh" ? "不会加入当前项目" : "does not enroll you in the current program");
+  expect(message.text).not.toContain(locale === "zh" ? "Enter this code" : "输入此验证码");
+  await db.tuteeHistoryInvitation.update({ where: { tuteeId: "past" }, data: { setupCodeExpiresAt: new Date(Date.now() + 1000) } });
+  await startHistoryAccount(db, { token, email }, locale === "zh" ? "en" : "zh");
+  expect(mail.send.mock.lastCall![0].presentation?.locale).toBe(locale);
+  expect((await db.tuteeHistoryInvitation.findUniqueOrThrow({ where: { tuteeId: "past" } })).emailLocale).toBe(locale);
+});
 async function evidence() {
   return {
     tutor: await db.tutor.findMany(),
