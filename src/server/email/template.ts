@@ -18,6 +18,8 @@ export interface EmailPresentation {
   codePurpose?: "invitation" | "verification";
   /** Optional-notification preference link; essential account mail omits it. */
   unsubscribeUrl?: string;
+  /** A required category links to preference management without promising an opt-out. */
+  unsubscribeLabel?: string;
 }
 
 const escape = (value: string) =>
@@ -75,6 +77,10 @@ export function renderEmail(input: {
         ? "#18342C"
         : "#172F49";
   const unsubscribeUrl = presentation.unsubscribeUrl;
+  const explicitUnsubscribeLabel = presentation.unsubscribeLabel?.trim();
+  const unsubscribeLabel = explicitUnsubscribeLabel?.length
+    ? explicitUnsubscribeLabel
+    : chrome.unsubscribe;
   if (unsubscribeUrl !== undefined) {
     let unsubscribe: URL;
     try {
@@ -141,7 +147,7 @@ ${action ? `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td b
 </td></tr>
 ${action ? `<tr><td class="inside panel" bgcolor="#22272E" style="padding:22px 40px 26px;background:#22272E;border-top:1px solid #414A58"><p class="muted" style="margin:0 0 8px;font-size:12px;line-height:20px;color:#C5CDDA">${escape(chrome.fallback)}</p><a class="ink accent" href="${escape(action.url)}" style="font-size:12px;line-height:20px;color:#ADC9FF;text-decoration:underline;word-break:break-all;overflow-wrap:anywhere">${escape(action.url)}</a></td></tr>` : ""}
 </table></td></tr>
-<tr><td class="footer rule muted" align="center" style="padding:28px 40px 0;color:#C5CDDA;font-size:12px;line-height:20px;text-align:center">${iconUrl ? `<img class="footer-icon" src="${escape(iconUrl)}" alt="${escape(chrome.icon)}" width="48" height="48" style="display:block;width:48px;height:48px;margin:0 auto 14px;border:0;border-radius:12px;color:#C5CDDA;font-size:10px">` : ""}<p class="footer-brand ink" style="margin:0 0 10px;color:#F4F7FC;font-size:14px;font-weight:700;line-height:22px;overflow-wrap:anywhere;word-break:break-word">${escape(brand)}</p><p class="footer-copy" style="margin:0">${escape(chrome.privacy)}</p>${unsubscribeUrl ? `<p style="margin:8px 0 0"><a class="footer-unsubscribe accent" href="${escape(unsubscribeUrl)}" style="display:inline-block;padding:12px 8px;font-size:12px;line-height:20px;color:#ADC9FF;text-decoration:underline;overflow-wrap:anywhere;word-break:break-word">${escape(chrome.unsubscribe)}</a></p>` : ""}</td></tr></table>
+<tr><td class="footer rule muted" align="center" style="padding:28px 40px 0;color:#C5CDDA;font-size:12px;line-height:20px;text-align:center">${iconUrl ? `<img class="footer-icon" src="${escape(iconUrl)}" alt="${escape(chrome.icon)}" width="48" height="48" style="display:block;width:48px;height:48px;margin:0 auto 14px;border:0;border-radius:12px;color:#C5CDDA;font-size:10px">` : ""}<p class="footer-brand ink" style="margin:0 0 10px;color:#F4F7FC;font-size:14px;font-weight:700;line-height:22px;overflow-wrap:anywhere;word-break:break-word">${escape(brand)}</p><p class="footer-copy" style="margin:0">${escape(chrome.privacy)}</p>${unsubscribeUrl ? `<p style="margin:8px 0 0"><a class="footer-unsubscribe accent" href="${escape(unsubscribeUrl)}" style="display:inline-block;padding:12px 8px;font-size:12px;line-height:20px;color:#ADC9FF;text-decoration:underline;overflow-wrap:anywhere;word-break:break-word">${escape(unsubscribeLabel)}</a></p>` : ""}</td></tr></table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr></table></body></html>`;
 }

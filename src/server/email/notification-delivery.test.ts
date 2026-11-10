@@ -84,7 +84,11 @@ beforeEach(async () => {
   await db.programSettings.upsert({
     where: { id: "program" },
     create: { id: "program", emailNotificationsEnabled: true },
-    update: { emailNotificationsEnabled: true, timeZone: "Asia/Shanghai" },
+    update: {
+      emailNotificationsEnabled: true,
+      timeZone: "Asia/Shanghai",
+      notificationLocks: {},
+    },
   });
   await db.user.create({
     data: {
@@ -107,26 +111,137 @@ beforeEach(async () => {
   mail.send.mockReset().mockResolvedValue(undefined);
 });
 
-it.each(["en", "zh"] as const)("uses the account's current %s preference for already queued mail and every verified destination", async (locale) => {
-  await db.user.update({ where: { id: uid }, data: { emailLocale: locale === "en" ? "zh" : "en" } });
-  await db.notification.create({ data: { userId: uid, event: "program_update", title: "PRIVATE TITLE", body: "PRIVATE BODY", link: "/admin" } });
-  expect(await db.emailDelivery.count({ where: { userId: uid } })).toBe(2);
-  await db.user.update({ where: { id: uid }, data: { emailLocale: locale } });
-  await deliverNotifications();
-  expect(mail.send).toHaveBeenCalledTimes(2);
-  for (const [message] of mail.send.mock.calls) {
-    expect(message.presentation?.locale).toBe(locale);
-    expect(message.subject).toBe(locale === "en" ? "Program Update" : "项目通知");
-    expect(message.text).toContain(locale === "en" ? "You have a program update" : "您收到一条项目通知");
-    expect(message.text).not.toContain(locale === "en" ? "您收到一条项目通知" : "You have a program update");
-    expect(renderEmail({ brand: "School", ...message })).toContain(`<html lang="${locale}">`);
-    expect(message.text).not.toContain("PRIVATE");
-  }
-});
+it.each(["en", "zh"] as const)(
+  "uses the account's current %s preference for already queued mail and every verified destination",
+  async (locale) => {
+    await db.user.update({
+      where: { id: uid },
+      data: { emailLocale: locale === "en" ? "zh" : "en" },
+    });
+    await db.notification.create({
+      data: {
+        userId: uid,
+        event: "program_update",
+        title: "PRIVATE TITLE",
+        body: "PRIVATE BODY",
+        link: "/admin",
+      },
+    });
+    expect(await db.emailDelivery.count({ where: { userId: uid } })).toBe(2);
+    await db.user.update({ where: { id: uid }, data: { emailLocale: locale } });
+    await deliverNotifications();
+    expect(mail.send).toHaveBeenCalledTimes(2);
+    for (const [message] of mail.send.mock.calls) {
+      expect(message.presentation?.locale).toBe(locale);
+      expect(message.subject).toBe(
+        locale === "en" ? "Program Update" : "项目通知",
+      );
+      expect(message.text).toContain(
+        locale === "en" ? "You have a program update" : "您收到一条项目通知",
+      );
+      expect(message.text).not.toContain(
+        locale === "en" ? "您收到一条项目通知" : "You have a program update",
+      );
+      expect(renderEmail({ brand: "School", ...message })).toContain(
+        `<html lang="${locale}">`,
+      );
+      expect(message.text).not.toContain("PRIVATE");
+    }
+  },
+);
 afterAll(async () => {
   await db.user.deleteMany({ where: { id: uid } });
   await db.$disconnect();
 });
+
+it.each(["en", "zh"] as const)(
+  "keeps %s delivery and saved personal choices separate from administrator email requirements",
+  async (locale) => {
+    await db.user.update({
+      where: { id: uid },
+      data: { emailLocale: locale, emailMessages: false },
+    });
+    await db.notificationPreference.create({
+      data: {
+        userId: uid,
+        category: "messages",
+        emailEnabled: false,
+        badgeEnabled: false,
+      },
+    });
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: { notificationLocks: { messages: { emailLocked: true } } },
+    });
+    const createMessage = () =>
+      db.notification.create({
+        data: {
+          userId: uid,
+          event: "message_received",
+          title: "PRIVATE TITLE",
+          body: "PRIVATE BODY",
+          link: "/messages",
+        },
+      });
+    await createMessage();
+    expect(
+      await db.emailDelivery.count({
+        where: { userId: uid, category: "messages", status: "PENDING" },
+      }),
+    ).toBe(2);
+    await deliverNotifications();
+    expect(mail.send).toHaveBeenCalledTimes(2);
+    for (const [message] of mail.send.mock.calls) {
+      expect(message.category).toBe("PROGRAM");
+      expect(message.presentation?.locale).toBe(locale);
+      expect(message.subject).toBe(
+        locale === "en" ? "New Private Message" : "新的私信",
+      );
+      const guidance =
+        locale === "en"
+          ? "administrator requires"
+          : "项目管理员要求接收此类别通知";
+      expect(message.text.split(guidance)).toHaveLength(2);
+      expect(message.presentation?.body?.split(guidance)).toHaveLength(2);
+      expect(message.presentation?.unsubscribeLabel).toBe(
+        locale === "en" ? "Manage email preferences" : "管理邮件偏好",
+      );
+      expect(message.text).not.toContain(
+        locale === "en" ? "Unsubscribe:" : "取消订阅:",
+      );
+      expect(message.text).not.toContain(
+        locale === "en" ? "项目管理员" : "administrator requires",
+      );
+      expect(message.text).not.toContain("PRIVATE");
+    }
+    const saved = await db.notificationPreference.findUniqueOrThrow({
+      where: { userId_category: { userId: uid, category: "messages" } },
+    });
+    expect(saved).toMatchObject({ emailEnabled: false, badgeEnabled: false });
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: uid } })).emailMessages,
+    ).toBe(false);
+    await createMessage();
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: { notificationLocks: {} },
+    });
+    await deliverNotifications();
+    expect(mail.send).toHaveBeenCalledTimes(2);
+    expect(
+      await db.emailDelivery.count({
+        where: { userId: uid, category: "messages", status: "SKIPPED" },
+      }),
+    ).toBe(2);
+    expect(
+      (
+        await db.notificationPreference.findUniqueOrThrow({
+          where: { userId_category: { userId: uid, category: "messages" } },
+        })
+      ).emailEnabled,
+    ).toBe(false);
+  },
+);
 
 it("does not replay a failed admitted causal SMTP attempt", async () => {
   const delivery = await causalNotice();
@@ -300,9 +415,7 @@ it("persists distinct notification destinations for all verified recipients and 
           verifyUnsubscribeToken(unsubscribe.searchParams.get("token")!),
       ),
     ).toBe(true);
-    expect(message.text).toContain(
-      `Unsubscribe: ${unsubscribe.href}`,
-    );
+    expect(message.text).toContain(`Unsubscribe: ${unsubscribe.href}`);
     expect(message.text).toContain("Asia/Shanghai");
     expect(message.text).not.toContain("do not recognize");
     const html = renderEmail({ brand: "School", ...message });
@@ -312,7 +425,9 @@ it("persists distinct notification destinations for all verified recipients and 
     expect(message.presentation?.body).toContain("Asia/Shanghai");
     // Generic legacy updates still need their maintained sign-in instruction,
     // but must not append the second, generic settings/sign-in footer.
-    expect(message.presentation?.body?.match(/Sign in to review/g)).toHaveLength(1);
+    expect(
+      message.presentation?.body?.match(/Sign in to review/g),
+    ).toHaveLength(1);
     expect(message.text.match(/Sign in to review/g)).toHaveLength(1);
     expect(message.text).not.toContain("account settings");
     expect(message.presentation?.body).not.toContain("account settings");

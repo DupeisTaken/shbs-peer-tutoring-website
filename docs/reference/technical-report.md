@@ -2156,6 +2156,26 @@ can be saved while global optional email is disabled and does not opt into deliv
 Older clients that omit the field preserve the current choice. The additive source
 columns have database checks for `en`/`zh`; operator recovery accepts complete older
 backups without them and rejects a partially upgraded locale-column bundle.
+Language remains available under notification requirements; category choices still
+use the existing expected-lock snapshot and stored-personal-choice safeguards.
+
+`ProgramSettings.notificationLocks` stores sparse per-category `badgeLocked` and
+`emailLocked` flags, defaulting to no requirements. The Admin/Head-only
+`program.setNotificationLocks` mutation compares a complete expected snapshot
+under the shared `email-notifications-setting` lock before saving; Coordinators
+cannot propose or apply a change. Effective preferences OR each personal channel
+with its lock. Account saves, legacy broad switches and unsubscribe preserve the
+underlying personal value of a locked channel. Badge counts ignore personal mutes
+for locked categories. The email SQL helper, delivery worker and reminder candidate
+selection apply email locks while retaining program availability and current
+reviewer, address and event eligibility. Secondary-address inclusion and the
+dedicated School Month Report consent rules remain separate.
+
+New personal preference saves retain the draft's expected lock snapshot and reject
+a changed policy before writing. This prevents an older forced-on display from
+becoming a personal opt-in after an administrator unlocks it. Legacy broad
+information opt-outs materialize locked topic values before changing their fallback,
+so unlocked historical mail can stop while the preserved choice returns on unlock.
 
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.
 
@@ -2222,8 +2242,16 @@ Optional notification delivery adds a signed, 90-day unsubscribe link to HTML an
 When a receipt records a preference topic, unsubscribe disables only that exact
 topic and cancels its pending copies without changing badge settings or sibling
 topics. Legacy null-topic receipts retain their broad messages/information/review/
-reminder behavior. All-optional unsubscribe covers all eleven topics; security and
+reminder behavior. Both scopes preserve locked topic choices and queued copies;
+all-optional unsubscribe changes only unlocked topics. A fully locked linked
+category returns a required state, while a successful partial unsubscribe reports
+whether required categories remain. Security and
 essential request-service transport never grants an unsubscribe capability.
+Required-category receipts explain the administrator requirement once in the
+recipient's email language and label the same scoped link “Manage email
+preferences” / “管理邮件偏好”; ordinary optional receipts retain “Unsubscribe”.
+Saving email language leaves stored personal channel choices unchanged beneath
+administrator requirements, including when program optional delivery is off.
 
 ### Public-request invalidity notices and appeals
 

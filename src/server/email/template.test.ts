@@ -3,6 +3,32 @@ import { expect, it } from "vitest";
 import { renderEmail } from "./template";
 
 it.each(["en", "zh"] as const)(
+  "escapes an explicit %s preference-management label without changing its capability or footer styling",
+  (locale) => {
+    const label =
+      locale === "en"
+        ? "Manage <script>private()</script> & preferences"
+        : "管理 <script>private()</script> 与邮件偏好";
+    const url = "https://school.example/unsubscribe?token=synthetic";
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: "Notice",
+        text: "Details",
+        presentation: { locale, unsubscribeUrl: url, unsubscribeLabel: label },
+      }),
+      "text/html",
+    );
+    const link = doc.querySelector<HTMLAnchorElement>(".footer-unsubscribe")!;
+    expect(link.textContent).toBe(label);
+    expect(link.href).toBe(url);
+    expect(link.style.lineHeight).toBe("20px");
+    expect(link.style.textDecoration).toBe("underline");
+    expect(doc.querySelector("script,[onerror],[onmouseover]")).toBeNull();
+  },
+);
+
+it.each(["en", "zh"] as const)(
   "uses a safe %s inbox preview instead of repeating the subject or recovering private body content",
   (locale) => {
     const subject = "PRIVATE SUBJECT 0012";

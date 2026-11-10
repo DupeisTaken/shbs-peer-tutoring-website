@@ -78,6 +78,10 @@ list is not proof that its implementation is still missing. Inspect the current 
    save boundary, and queries that become stale. Describe the user-visible result
    for applied, queued, rejected and accepted-but-refresh-failed outcomes. Classify
    management writes in the existing approval policy; UI visibility is not authorization.
+   Register new management operations in the [semantic summary inventory](../../src/lib/approval-summary.ts),
+   add authored review titles to every [message catalog](../../messages), and keep
+   expected snapshots in the [technical review fields](../../src/lib/approval-review.ts)
+   so they do not appear as business changes.
 2. **Choose the interaction by effect.** A destination is a link; a local panel is
    `SectionTabs`; a filter is `ChoiceButton` in `FilterToolbar`. A reversible
    immediate setting uses `SettingRow` with feature-owned pending/error state.

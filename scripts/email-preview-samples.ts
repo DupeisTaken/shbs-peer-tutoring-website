@@ -198,6 +198,20 @@ export function emailPreviewSamples(
         unsubscribeUrl,
       }),
     },
+    {
+      name: "program-required",
+      ...notificationEmailContent({
+        locale,
+        event: "program_update",
+        context: {},
+        createdAt: new Date("2026-11-09T08:30:00Z"),
+        timeZone: "Asia/Shanghai",
+        category: "info",
+        link,
+        unsubscribeUrl,
+        requiredByProgram: true,
+      }),
+    },
   ];
   for (const [event, obsolete] of [
     ["proposed", false],

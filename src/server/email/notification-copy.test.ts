@@ -1,6 +1,59 @@
 import { expect, it } from "vitest";
 import { notificationEmailContent } from "./notification-copy";
 
+it.each(["en", "zh"] as const)(
+  "uses one accurate %s management footer for required mail and leaves optional opt-out copy intact",
+  (locale) => {
+    const unsubscribeUrl = "https://school.example/unsubscribe?token=synthetic";
+    const input = {
+      ...common,
+      event: "message_received",
+      context: {},
+      category: "messages",
+      locale,
+      unsubscribeUrl,
+    };
+    const required = notificationEmailContent({
+      ...input,
+      requiredByProgram: true,
+    });
+    const optional = notificationEmailContent(input);
+    const guidance =
+      locale === "en"
+        ? "administrator requires"
+        : "项目管理员要求接收此类别通知";
+    const managementLabel =
+      locale === "en" ? "Manage email preferences" : "管理邮件偏好";
+    const optionalLabel = locale === "en" ? "Unsubscribe" : "取消订阅";
+    expect(required.text.split(guidance)).toHaveLength(2);
+    expect(required.presentation.body.split(guidance)).toHaveLength(2);
+    expect(required.presentation.unsubscribeLabel).toBe(managementLabel);
+    expect(required.text).toContain(`${managementLabel}: ${unsubscribeUrl}`);
+    expect(required.text).not.toContain(`${optionalLabel}:`);
+    expect(required.presentation.unsubscribeUrl).toBe(
+      optional.presentation.unsubscribeUrl,
+    );
+    expect(required.presentation.action).toEqual(optional.presentation.action);
+    expect(optional.presentation.unsubscribeLabel).toBe(optionalLabel);
+    expect(optional.text).toContain(`${optionalLabel}: ${unsubscribeUrl}`);
+    expect(optional.text).not.toContain(guidance);
+    expect(optional.presentation.body).not.toContain(guidance);
+  },
+);
+
+it("does not reclassify essential security copy as an administrator-required category", () => {
+  const content = notificationEmailContent({
+    ...common,
+    event: "security_changed",
+    category: "security",
+    context: { changedFields: ["password"] },
+    requiredByProgram: true,
+  });
+  expect(content.text).toContain("If you do not recognize this activity");
+  expect(content.text).not.toContain("administrator requires");
+  expect(content.presentation.unsubscribeUrl).toBeUndefined();
+});
+
 const common = {
   createdAt: new Date("2026-11-09T01:30:00.000Z"),
   timeZone: "Asia/Shanghai",

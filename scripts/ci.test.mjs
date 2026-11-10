@@ -12,6 +12,40 @@ const workflow = yaml.load(
 );
 const { checks, tests, image, verify, publish } = workflow.jobs;
 
+test("typed lint has a bounded step-only heap without weakening the full check", () => {
+  const staticSteps = checks.steps.filter(
+    (step) => step.name === "Generate route types, lint and type-check",
+  );
+  assert.equal(staticSteps.length, 1);
+  const [staticStep] = staticSteps;
+  assert.equal(staticStep.run, "npm run check");
+  assert.deepEqual(staticStep.env, {
+    NODE_OPTIONS: "--max-old-space-size=6144",
+  });
+  assert.equal(staticStep.if, undefined);
+  assert.equal(staticStep["continue-on-error"], undefined);
+  assert.equal(checks["continue-on-error"], undefined);
+  const packageJson = JSON.parse(
+    readFileSync(path.join(root, "package.json"), "utf8"),
+  );
+  assert.equal(
+    packageJson.scripts.check,
+    "next typegen && eslint . --max-warnings=0 && tsc --noEmit",
+  );
+  assert.equal(workflow.env?.NODE_OPTIONS, undefined);
+  for (const [name, job] of Object.entries(workflow.jobs)) {
+    assert.equal(job.env?.NODE_OPTIONS, undefined, `${name} job heap scope`);
+    for (const step of job.steps) {
+      if (step === staticStep) continue;
+      assert.equal(
+        step.env?.NODE_OPTIONS,
+        undefined,
+        `${name}: ${step.name} heap scope`,
+      );
+    }
+  }
+});
+
 test("the stable verify gate rejects failure, cancellation, skips and missing jobs", () => {
   assert.deepEqual(verify.needs, ["checks", "tests", "image", "image-storage"]);
   assert.equal(verify.if, "${{ always() }}");

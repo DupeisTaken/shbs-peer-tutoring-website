@@ -362,6 +362,9 @@ const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
   ...REVIEWED_IDENTITY_COLUMNS,
   ...LEGACY_DECLINE_COLUMNS,
 ].sort();
+// This additive preference policy grants no bearer or identity authority. Retain
+// every reviewed older backup shape while requiring its exact PostgreSQL type.
+const NOTIFICATION_LOCK_COLUMN = "ProgramSettings|notificationLocks|jsonb";
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -376,16 +379,34 @@ const PRISMA_METADATA = [
 // A complete locale migration is presentation metadata, not a new authority
 // surface. Keep every reviewed older backup valid and reject partial upgrades.
 const EMAIL_LOCALE_COLUMNS = [
-  "User", "ViewerSignup", "CrewSignupVerification", "CrewApplication",
-  "TutorApplication", "StudentSurvey", "StudentSignupIntent", "AccountInvitation",
-  "TuteeHistoryInvitation", "HistoricalRecordInvitation",
-].map((table) => `${table}|emailLocale|text`).sort();
+  "User",
+  "ViewerSignup",
+  "CrewSignupVerification",
+  "CrewApplication",
+  "TutorApplication",
+  "StudentSurvey",
+  "StudentSignupIntent",
+  "AccountInvitation",
+  "TuteeHistoryInvitation",
+  "HistoricalRecordInvitation",
+]
+  .map((table) => `${table}|emailLocale|text`)
+  .sort();
 
 export const reviewedRecoverySchemaMetadata = {
   emailLocaleColumns: EMAIL_LOCALE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
   }),
+  notificationLockColumns: [
+    ...REVIEWED_IDENTITY_DECLINE_COLUMNS,
+    NOTIFICATION_LOCK_COLUMN,
+  ]
+    .sort()
+    .map((line) => {
+      const [table_name, column_name, udt_name] = line.split("|");
+      return { table_name, column_name, udt_name };
+    }),
   legacyDeclineColumns: REVIEWED_DECLINE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -421,12 +442,20 @@ export function assertReviewedRecoverySchema(
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
     )
     .sort();
-  // Remove only the complete reviewed language bundle before recognizing older
-  // policy/history and recipient-label phases. Partial or unknown columns remain visible.
-  const emailLocale = EMAIL_LOCALE_COLUMNS.every((column) => domain.includes(column));
-  const knownDomain = emailLocale
+  // Strip only complete, singleton locale metadata; duplicates, partial bundles
+  // and changed types remain visible to the exact reviewed-catalog comparison.
+  const emailLocale = EMAIL_LOCALE_COLUMNS.every(
+    (column) => domain.filter((actual) => actual === column).length === 1,
+  );
+  const localeDomain = emailLocale
     ? domain.filter((column) => !EMAIL_LOCALE_COLUMNS.includes(column))
     : domain;
+  // Notification requirements are an independent, optional JSONB addition.
+  const knownDomain =
+    localeDomain.filter((column) => column === NOTIFICATION_LOCK_COLUMN)
+      .length === 1
+      ? localeDomain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
+      : localeDomain;
   // Both additive policy columns are reviewed together. Older complete backups
   // remain readable; a partial upgrade is never silently accepted.
   const policyColumns = [

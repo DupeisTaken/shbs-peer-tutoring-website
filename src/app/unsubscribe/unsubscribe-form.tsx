@@ -18,26 +18,44 @@ type Category = NotificationCategory | "info" | "review" | "reminder";
 type Scope = "category" | "all";
 type State =
   | { status: "loading" | "error" | "invalid" }
-  | { status: "ready" | "already-unsubscribed"; category: Category }
-  | { status: "unsubscribed"; scope: Scope; category: Category };
+  | {
+      status: "ready" | "already-unsubscribed" | "locked";
+      category: Category;
+      requiredRemaining?: boolean;
+    }
+  | {
+      status: "unsubscribed";
+      scope: Scope;
+      category: Category;
+      requiredRemaining?: boolean;
+    };
 
-function readResult(
-  value: unknown,
-):
+function readResult(value: unknown):
   | { status: "invalid" }
-  | { status: "ready" | "already-unsubscribed"; category: Category }
+  | {
+      status: "ready" | "already-unsubscribed" | "locked";
+      category: Category;
+      requiredRemaining?: boolean;
+    }
   | null {
   if (!value || typeof value !== "object") return null;
   const data = value as Record<string, unknown>;
   if (data.status === "invalid") return { status: "invalid" };
   if (
-    (data.status === "ready" || data.status === "already-unsubscribed") &&
+    (data.status === "ready" ||
+      data.status === "already-unsubscribed" ||
+      data.status === "locked") &&
     (isNotificationCategory(data.category) ||
       data.category === "info" ||
       data.category === "review" ||
       data.category === "reminder")
   )
-    return { status: data.status, category: data.category };
+    return {
+      status: data.status,
+      category: data.category,
+      requiredRemaining:
+        data.status === "locked" || data.requiredRemaining === true,
+    };
   return null;
 }
 
@@ -91,8 +109,11 @@ function UnsubscribeDraft({ token }: { token?: string }) {
     if (
       !token ||
       write.current ||
-      (state.status !== "ready" && state.status !== "already-unsubscribed") ||
-      (state.status === "already-unsubscribed" && scope === "category")
+      (state.status !== "ready" &&
+        state.status !== "already-unsubscribed" &&
+        state.status !== "locked") ||
+      ((state.status === "already-unsubscribed" || state.status === "locked") &&
+        scope === "category")
     )
       return;
     // The ref excludes duplicate submissions in the same event turn, before the
@@ -117,8 +138,23 @@ function UnsubscribeDraft({ token }: { token?: string }) {
           ? result.status
           : null;
       if (status === "invalid") setState({ status: "invalid" });
-      else if (response.ok && status === "unsubscribed") {
-        setState({ status: "unsubscribed", scope, category: state.category });
+      else if (response.ok && status === "locked") {
+        setState({
+          status: "locked",
+          category: state.category,
+          requiredRemaining: true,
+        });
+      } else if (response.ok && status === "unsubscribed") {
+        setState({
+          status: "unsubscribed",
+          scope,
+          category: state.category,
+          requiredRemaining:
+            typeof result === "object" &&
+            result !== null &&
+            "requiredRemaining" in result &&
+            result.requiredRemaining === true,
+        });
       } else throw new Error("Unavailable");
     } catch {
       if (!controller.signal.aborted) setSaveError(true);
@@ -180,8 +216,13 @@ function UnsubscribeDraft({ token }: { token?: string }) {
           </h2>
           <p className="text-sm leading-6 text-slate-600">
             {state.scope === "all"
-              ? t("successAll")
-              : t("successCategory", { category: t(state.category) })}
+              ? t(state.requiredRemaining ? "successRequired" : "successAll")
+              : t(
+                  state.requiredRemaining
+                    ? "successCategoryRequired"
+                    : "successCategory",
+                  { category: t(state.category) },
+                )}
           </p>
         </div>
         <SafetyNote />
@@ -191,9 +232,14 @@ function UnsubscribeDraft({ token }: { token?: string }) {
 
   // All non-form states returned above; this explicit check also keeps the
   // category-narrowing contract clear when new remote states are introduced.
-  if (state.status !== "ready" && state.status !== "already-unsubscribed")
+  if (
+    state.status !== "ready" &&
+    state.status !== "already-unsubscribed" &&
+    state.status !== "locked"
+  )
     return null;
   const already = state.status === "already-unsubscribed";
+  const locked = state.status === "locked";
   return (
     <form
       className="space-y-6"
@@ -207,6 +253,14 @@ function UnsubscribeDraft({ token }: { token?: string }) {
           {t("already", { category: t(state.category) })}
         </InlineNotice>
       )}
+      {locked && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("locked", { category: t(state.category) })}
+        </InlineNotice>
+      )}
+      {!locked && state.requiredRemaining && (
+        <InlineNotice tone="info">{t("requiredHelp")}</InlineNotice>
+      )}
       <FormSection
         title={t("choiceTitle")}
         description={t("choiceHelp")}
@@ -215,7 +269,7 @@ function UnsubscribeDraft({ token }: { token?: string }) {
           <Button
             type="submit"
             variant="primary"
-            disabled={already && scope === "category"}
+            disabled={(already || locked) && scope === "category"}
             className="w-full"
           >
             {pending
@@ -228,14 +282,14 @@ function UnsubscribeDraft({ token }: { token?: string }) {
           {(["category", "all"] as const).map((value) => (
             <label
               key={value}
-              className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${scope === value ? "border-accent-500 bg-accent-50" : "border-slate-200 bg-white"} ${already && value === "category" ? "cursor-default" : "hover:border-accent-500"}`}
+              className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${scope === value ? "border-accent-500 bg-accent-50" : "border-slate-200 bg-white"} ${(already || locked) && value === "category" ? "cursor-default" : "hover:border-accent-500"}`}
             >
               <input
                 type="radio"
                 name="scope"
                 value={value}
                 checked={scope === value}
-                disabled={already && value === "category"}
+                disabled={(already || locked) && value === "category"}
                 onChange={() => setScope(value)}
                 className="accent-accent-700 mt-1 h-4 w-4 shrink-0"
                 aria-describedby={`scope-${value}-help`}

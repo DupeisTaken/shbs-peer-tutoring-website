@@ -1,7 +1,10 @@
 import { db } from "~/server/db";
 import { normalizeEmailLocale } from "~/lib/email-locale";
 import { verifiedRecipientEmailLocale } from "./recipient-locale";
-import { admitIdentityNotice, finishIdentityNotice } from "./identity-notice-admission";
+import {
+  admitIdentityNotice,
+  finishIdentityNotice,
+} from "./identity-notice-admission";
 import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
@@ -11,6 +14,9 @@ import { requestNoticeEmailCopy } from "./request-notice-copy";
 import {
   effectiveNotificationPreference,
   isNotificationCategory,
+  legacyNotificationTopic,
+  notificationCategory,
+  notificationLockFor,
 } from "~/lib/notification-categories";
 import {
   eligibleReviewRecipient,
@@ -55,14 +61,29 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
   // worker returned it to PENDING after transport or abandoned its lease.
   await db.emailDelivery.updateMany({
     where: {
-      category: { notIn: ["security", requestServiceCategory, monthlyHoursCategory, schoolHoursCategory] },
+      category: {
+        notIn: [
+          "security",
+          requestServiceCategory,
+          monthlyHoursCategory,
+          schoolHoursCategory,
+        ],
+      },
       attemptStartedAt: { not: null },
       OR: [
         { status: "PENDING" },
-        { status: "SENDING", OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }] },
+        {
+          status: "SENDING",
+          OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }],
+        },
       ],
     },
-    data: { status: "UNCERTAIN", leaseUntil: null, lastError: "Transport admission ended without a recorded delivery outcome." },
+    data: {
+      status: "UNCERTAIN",
+      leaseUntil: null,
+      lastError:
+        "Transport admission ended without a recorded delivery outcome.",
+    },
   });
   const settings = await db.programSettings.findUnique({
     where: { id: "program" },
@@ -147,7 +168,10 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       if (!admitted?.row.attemptId) continue;
       let accepted = false;
       try {
-        const locale = await verifiedRecipientEmailLocale(db, admitted.row.recipient);
+        const locale = await verifiedRecipientEmailLocale(
+          db,
+          admitted.row.recipient,
+        );
         await emailSender.send({
           category: "PROGRAM",
           to: admitted.row.recipient,
@@ -228,21 +252,28 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       const user = row.user;
       const review = row.category === "review";
       const reminder = row.category === "reminder";
+      const topic = isNotificationCategory(row.preferenceTopic)
+        ? row.preferenceTopic
+        : (legacyNotificationTopic(row.category) ??
+          notificationCategory(row.event, undefined, row.destination));
       const preference = essential
         ? true
         : user && isNotificationCategory(row.preferenceTopic)
           ? effectiveNotificationPreference(
               user,
-              row.preferenceTopic,
+              topic,
               user.notificationPreferences,
+              current?.notificationLocks,
             ).emailEnabled
-          : review
-            ? user?.emailReviewRequests
-            : reminder
-              ? user?.emailEventReminders
-              : row.category === "messages"
-                ? user?.emailMessages
-                : user?.emailInfo;
+          : notificationLockFor(current?.notificationLocks, topic)
+              .emailLocked ||
+            (review
+              ? user?.emailReviewRequests
+              : reminder
+                ? user?.emailEventReminders
+                : row.category === "messages"
+                  ? user?.emailMessages
+                  : user?.emailInfo);
       const owned = user?.emails.some(
         (address) =>
           address.email === row.recipient &&
@@ -291,7 +322,12 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         ),
       );
       const timeZone = current?.timeZone ?? "Asia/Shanghai";
-      // Only optional notification classes receive this narrowly scoped account capability.
+      const requiredEmail =
+        !essential &&
+        notificationLockFor(current?.notificationLocks, topic).emailLocked;
+      const locale = normalizeEmailLocale(user.emailLocale);
+      // Only account notification classes receive this scoped preference capability;
+      // the unsubscribe handler retains the administrator's category requirements.
       const unsubscribeUrl = [
         "messages",
         "info",
@@ -309,10 +345,16 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         category: row.category,
         link,
         unsubscribeUrl,
-        locale: normalizeEmailLocale(user.emailLocale),
+        locale,
+        requiredByProgram: requiredEmail,
       });
       if (!essential) {
-        transportAttempt = await admitIdentityNotice(db, id, leaseUntil, attemptId);
+        transportAttempt = await admitIdentityNotice(
+          db,
+          id,
+          leaseUntil,
+          attemptId,
+        );
         if (!transportAttempt) continue;
       }
       const send = () =>

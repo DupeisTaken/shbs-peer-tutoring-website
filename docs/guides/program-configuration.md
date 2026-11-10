@@ -179,6 +179,23 @@ continue to operate. If saving succeeds but reloading settings fails, use
 
 Admin/Head can enable **Email Notifications** in **Program Settings → Deployment Configurations**; Coordinators submit the change for Admin/Head review. The setting takes effect when applied, defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
+In the email card's **Required notifications** tab, Admin/Head can require selected
+notification choices to stay on for every account. Select **Lock unread badge on**
+or **Lock email on** for the relevant category, then **Save requirements**. Each
+category has independent badge and email locks; upcoming reminders
+are email-only. For example, locking message email keeps message notifications
+enabled even for an account whose personal message-email choice is off. These
+locks take effect when saved and cannot be submitted by Coordinators. A stale
+settings snapshot must be refreshed before another administrator's changes can
+be replaced.
+
+Locked controls appear on and unavailable in personal preferences, with an
+administrator-required explanation. Locking preserves each person's saved choice,
+so unlocking restores it. An email lock still requires the program email switch,
+verified recipient addresses and current recipient eligibility; it does not grant
+review access, enable secondary-email copies or change reminder timing. Security
+mail and the separate School Month Report delivery rules retain their own gates.
+
 Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts and essential public-request invalidity/clear notices remain mandatory. Request-status mail uses the PROGRAM sender but bypasses optional switches and personal preferences, goes only to the request's recorded address, and has no unsubscribe link.
 
 New event notices explain the actual action and next step in the selected interface

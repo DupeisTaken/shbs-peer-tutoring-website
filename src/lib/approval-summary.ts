@@ -41,6 +41,7 @@ export const approvalSummaryContexts: Record<string, readonly string[]> = {
   "program.setProfilePolicy": [],
   "program.setSignupField": ["form", "field"],
   "program.setEmailNotifications": [],
+  "program.setNotificationLocks": [],
   "program.setSecondaryEmailBinding": [],
   "program.setTimeZone": [],
   "schoolHours.save": [],

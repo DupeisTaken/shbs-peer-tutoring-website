@@ -59,10 +59,12 @@ export function notificationEmailContent(input: {
   link: string;
   unsubscribeUrl?: string;
   locale?: EmailLocale;
+  requiredByProgram?: boolean;
 }) {
   const locale = normalizeEmailLocale(input.locale);
   const { category, timeZone, link, unsubscribeUrl } = input;
   const essential = category === "security";
+  const requiredByProgram = !essential && input.requiredByProgram === true;
   const copy = notificationEmailCopy(input.event, input.context, locale);
   const time = new Intl.DateTimeFormat(locale, {
     dateStyle: "long",
@@ -78,10 +80,21 @@ export function notificationEmailContent(input: {
         en: "If you do not recognize this activity, contact the program team through private support.",
         zh: "如非本人操作，请通过私密支持联系项目团队。",
       })
-    : "";
+    : requiredByProgram
+      ? emailText(locale, {
+          en: "The program administrator requires this notification category. Other optional email notifications can be managed in account settings.",
+          zh: "项目管理员要求接收此类别通知。您可在账户设置中管理其他可选邮件通知。",
+        })
+      : "";
+  const preferenceLabel = emailText(
+    locale,
+    requiredByProgram
+      ? { en: "Manage email preferences", zh: "管理邮件偏好" }
+      : { en: "Unsubscribe", zh: "取消订阅" },
+  );
   return {
     subject: copy.subject,
-    text: `${copy.description}\n\n${issued}${footer ? `\n\n${footer}` : ""}\n\n${link}${unsubscribeUrl ? `\n\n${emailText(locale, { en: "Unsubscribe", zh: "取消订阅" })}: ${unsubscribeUrl}` : ""}`,
+    text: `${copy.description}\n\n${issued}${footer ? `\n\n${footer}` : ""}\n\n${link}${unsubscribeUrl ? `\n\n${preferenceLabel}: ${unsubscribeUrl}` : ""}`,
     presentation: {
       locale,
       // Inbox previews use only a maintained category instruction, never details,
@@ -113,8 +126,10 @@ export function notificationEmailContent(input: {
                     zh: "请打开网站查看通知和后续步骤。",
                   },
       ),
-      body: `${copy.description}\n\n${issued}${essential ? `\n\n${footer}` : ""}`,
-      ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
+      body: `${copy.description}\n\n${issued}${footer ? `\n\n${footer}` : ""}`,
+      ...(unsubscribeUrl
+        ? { unsubscribeUrl, unsubscribeLabel: preferenceLabel }
+        : {}),
       eyebrow: emailText(
         locale,
         essential

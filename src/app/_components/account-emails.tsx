@@ -9,6 +9,7 @@ import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
 import { normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
+import type { NotificationLockValue } from "~/lib/notification-categories";
 import {
   NotificationPreferenceFields,
   type NotificationPreferenceChoice,
@@ -297,12 +298,14 @@ type PreferenceDraft = {
   categories: NotificationPreferenceChoice[];
   emailSecondaryRecipients: boolean;
   emailLocale: EmailLocale;
+  expectedLocks: NotificationLockValue[];
 };
 
 /** A dirty draft owns its choices. Background reads can change availability,
  * but only Cancel or a successful post-save read replaces the draft. */
 export function EmailPreferences() {
   const t = useTranslations("notificationPreferences");
+  const locks = useTranslations("notificationLocks");
   const emailText = useTranslations("emailPreferences");
   const recovery = useTranslations("participantRecovery");
   const ui = useTranslations("uiPatterns");
@@ -324,8 +327,10 @@ export function EmailPreferences() {
       setDraft(null);
       setCommitted(false);
       setRefreshFailed(false);
+      return true;
     } catch {
       setRefreshFailed(true);
+      return false;
     } finally {
       setRefreshing(false);
     }
@@ -384,8 +389,20 @@ export function EmailPreferences() {
     ),
     emailSecondaryRecipients: data.emailSecondaryRecipients,
     emailLocale: normalizeEmailLocale(data.emailLocale),
+    expectedLocks: data.categories.map(
+      ({ category, badgeLocked, emailLocked }) => ({
+        category,
+        badgeLocked: badgeLocked ?? false,
+        emailLocked: emailLocked ?? false,
+      }),
+    ),
   };
-  const blocked = !!settings.error || save.isPending || committed || refreshing;
+  const blocked =
+    !!settings.error ||
+    save.isPending ||
+    committed ||
+    refreshing ||
+    refreshFailed;
   return (
     <section
       id="notification-preferences"
@@ -412,6 +429,9 @@ export function EmailPreferences() {
           // older draft. Badge changes remain available with email disabled.
           save.mutate({
             emailLocale: preferences.emailLocale,
+            // Keep the policy captured when this draft began. An admin unlock
+            // must not turn an old forced-on display into a personal opt-in.
+            expectedLocks: preferences.expectedLocks,
             categories: data.categories.map((row) => {
               const choice =
                 preferences.categories.find(
@@ -419,12 +439,12 @@ export function EmailPreferences() {
                 ) ?? row;
               return {
                 category: row.category,
-                badgeEnabled: row.badgeAvailable
-                  ? choice.badgeEnabled
-                  : row.badgeEnabled,
-                emailEnabled: row.emailEditable
-                  ? choice.emailEnabled
-                  : row.emailEnabled,
+                badgeEnabled:
+                  row.badgeLocked ||
+                  (row.badgeAvailable ? choice.badgeEnabled : row.badgeEnabled),
+                emailEnabled:
+                  row.emailLocked ||
+                  (row.emailEditable ? choice.emailEnabled : row.emailEnabled),
               };
             }),
             ...(data.emailEnabled
@@ -441,7 +461,9 @@ export function EmailPreferences() {
           className="divide-y divide-slate-100 disabled:opacity-60"
         >
           <label className="block space-y-1 py-3">
-            <span id="email-language-label" className="label">{emailText("language")}</span>
+            <span id="email-language-label" className="label">
+              {emailText("language")}
+            </span>
             <select
               className="select min-h-11 w-full sm:max-w-xs lg:min-h-10"
               value={preferences.emailLocale}
@@ -449,7 +471,10 @@ export function EmailPreferences() {
               aria-describedby="email-language-help"
               onChange={(event) => {
                 setSaved(false);
-                setDraft({ ...preferences, emailLocale: normalizeEmailLocale(event.target.value) });
+                setDraft({
+                  ...preferences,
+                  emailLocale: normalizeEmailLocale(event.target.value),
+                });
               }}
             >
               <option value="en">{emailText("english")}</option>
@@ -524,6 +549,19 @@ export function EmailPreferences() {
             {save.error.message}
           </p>
         )}
+        {save.error?.data?.code === "CONFLICT" && (
+          <Button
+            disabled={blocked}
+            onClick={() => {
+              setSaved(false);
+              void refreshSaved().then((refreshed) => {
+                if (refreshed) save.reset();
+              });
+            }}
+          >
+            {locks("reload")}
+          </Button>
+        )}
       </form>
       {saved && (
         <p role="status" className="text-sm text-green-700">
@@ -540,7 +578,7 @@ export function EmailPreferences() {
             </Button>
           }
         >
-          {recovery("refreshFailed")}
+          {committed ? recovery("refreshFailed") : locks("loadFailed")}
         </InlineNotice>
       )}
     </section>
