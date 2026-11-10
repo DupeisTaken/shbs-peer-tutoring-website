@@ -2904,7 +2904,8 @@
     "addLanguageName": "名称（如 Français）",
     "addLanguageBtn": "添加语言",
     "newLanguageHint": "新语言默认隐藏，翻译准备就绪后即可启用。",
-    "back": "返回"
+    "back": "返回",
+    "languagesReadFailed": "无法读取语言设置。已缓存的设置和未完成的内容均已保留，请先重试再更改。"
   },
   "account": {
     "title": "账户",
@@ -3004,7 +3005,17 @@
     "empty": "暂无巡查记录。",
     "newer": "较新记录",
     "older": "较早记录",
-    "details": "变更详情"
+    "details": "变更详情",
+    "patrolRooms": "巡查教室选项",
+    "reloadPatrol": "重新加载巡查草稿",
+    "patrolReloadFailed": "无法加载最新巡查记录和教室选项。已保留草稿及其原始版本。",
+    "patrolUnavailable": "刷新后的历史记录页中未找到此巡查。已保留草稿。",
+    "patrolSaved": "更正已保存。正在刷新巡查历史记录…",
+    "patrolSavedRefreshFailed": "更正已保存，但无法刷新巡查历史记录。请重试刷新，无需再次保存。",
+    "patrolQueuedRefreshFailed": "更正已提交审核，但无法刷新巡查历史记录。请重试刷新，无需再次提交。",
+    "invalidPatrolTime": "请输入有效的观察时间。",
+    "patrolRoomUnavailable": "{room}（不可用）",
+    "patrolRoomRequired": "保存前，请为每条观察记录选择可用的教室。"
   },
   "emailChange": {
     "title": "更改账户邮箱",
@@ -4560,6 +4571,7 @@
         "linkRevokedAt": "报告链接撤销时间",
         "schoolHoursReportId": "学校报告编号",
         "schoolHoursReport": "学校报告",
+        "patrolOrder": "巡查顺序",
         "schedulingEffect": "排期影响",
         "tutoringPauseSuppressed": "常规辅导已暂停",
         "importedAt": "导入时间"
@@ -4858,7 +4870,12 @@
       "ATTEMPT": "未应用的操作尝试"
     },
     "unnamedAccount": "未命名账户",
-    "formerAccount": "已删除账户"
+    "formerAccount": "已删除账户",
+    "retryReads": "重试读取审计记录",
+    "loadingReads": "正在加载审计记录和筛选选项…",
+    "loadFailed": "无法加载审计记录或筛选选项。",
+    "refreshFailed": "无法刷新审计记录或筛选选项。未应用的筛选草稿已保留，请重试读取，无需应用草稿。",
+    "accessDenied": "目前无法访问审计记录。请重试读取以确认当前权限。"
   },
   "userMultiFilters": {
     "all": "全部",
@@ -5259,7 +5276,13 @@
     "importTooLarge": "请选择不超过 1 MB 的文件。",
     "importEmpty": "文件中没有科目。",
     "importFileType": "请选择 .json 或 .csv 文件。",
-    "importInvalid": "无法导入文件：{detail}"
+    "importInvalid": "无法导入文件：{detail}",
+    "retry": "重试读取科目目录",
+    "loadFailed": "无法加载科目目录。",
+    "refreshFailed": "无法刷新科目目录。草稿已保留，请重试读取后再修改。",
+    "accessDenied": "目前无法访问科目目录。",
+    "savedRefreshing": "修改已保存，正在等待科目目录刷新。",
+    "savedRefreshFailed": "修改已保存，但无法刷新科目目录。请重试读取，无需再次保存。"
   },
   "recruitment": {
     "preview": "只读表单预览",

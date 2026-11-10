@@ -1,12 +1,21 @@
 /** @vitest-environment jsdom */
-import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as renderDom,
+  screen,
+} from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { PatrolCorrections } from "./patrol-corrections";
 
 const { mutate, row, state } = vi.hoisted(() => ({
-  mutate: vi.fn(),
+  mutate: vi.fn().mockRejectedValue(new Error("Synthetic rejected correction")),
   state: {
     loaded: true,
     count: 1,
@@ -32,39 +41,68 @@ const { mutate, row, state } = vi.hoisted(() => ({
     ],
   },
 }));
-vi.mock("~/trpc/react", () => ({
-  api: {
-    useUtils: () => ({}),
-    admin: {
-      rooms: {
-        useQuery: () => ({ data: [{ id: "room", name: "Synthetic room" }] }),
-      },
-    },
-    corrections: {
-      patrols: {
-        useQuery: (input: unknown) => {
-          state.input = input;
-          return {
-            data: state.loaded
-              ? Array.from({ length: state.count }, (_, index) =>
-                  index === 0
-                    ? row
-                    : { ...row, id: `synthetic-patrol-${index}` },
-                )
-              : undefined,
-            error: state.error,
-            isSuccess: state.loaded && !state.error,
-            isFetching: false,
-            refetch: state.refetch,
-          };
+vi.mock("~/trpc/react", () => {
+  const rooms = [{ id: "room", name: "Synthetic room" }];
+  let rows: (typeof row)[] = [];
+  let count = -1;
+  return {
+    api: {
+      useUtils: () => ({}),
+      admin: {
+        rooms: {
+          _def: () => ({ path: ["admin", "rooms"] }),
+          useQuery: () => ({ data: rooms }),
         },
       },
-      correctPatrol: { useMutation: () => ({ mutate, isPending: false }) },
+      corrections: {
+        patrolById: { _def: () => ({ path: ["corrections", "patrolById"] }) },
+        patrols: {
+          _def: () => ({ path: ["corrections", "patrols"] }),
+          useQuery: (input: unknown) => {
+            state.input = input;
+            if (count !== state.count) {
+              count = state.count;
+              rows = Array.from({ length: state.count }, (_, index) =>
+                index === 0 ? row : { ...row, id: `synthetic-patrol-${index}` },
+              );
+            }
+            return {
+              data: state.loaded ? rows : undefined,
+              error: state.error,
+              isSuccess: state.loaded && !state.error,
+              isFetching: false,
+              refetch: state.refetch,
+            };
+          },
+        },
+        correctPatrol: {
+          useMutation: () => ({
+            mutateAsync: mutate,
+            reset: vi.fn(),
+            isPending: false,
+          }),
+        },
+      },
     },
-  },
-}));
+  };
+});
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  installSessionReadReceipts(client);
+});
+function render(ui: ReactNode) {
+  return renderDom(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
 afterEach(() => {
   cleanup();
+  client.clear();
   state.loaded = true;
   state.count = 1;
   state.error = null;
@@ -97,7 +135,7 @@ it.each([
   },
 );
 
-it("labels a stored repeated-hour instant correctly and updates the offset when editing its date", () => {
+it("labels a stored repeated-hour instant correctly and updates the offset when editing its date", async () => {
   const { container } = render(
     <NextIntlClientProvider
       locale="en"
@@ -112,7 +150,9 @@ it("labels a stored repeated-hour instant correctly and updates the offset when 
   fireEvent(details, new Event("toggle"));
   const input = screen.getByLabelText<HTMLInputElement>(/EST \(GMT-05:00\)/);
   expect(input.value).toBe("2026-11-01T01:30");
-  fireEvent.submit(container.querySelector("form")!);
+  await act(async () => {
+    fireEvent.submit(container.querySelector("form")!);
+  });
   expect(mutate).toHaveBeenLastCalledWith(
     expect.objectContaining({
       observations: [
@@ -124,7 +164,9 @@ it("labels a stored repeated-hour instant correctly and updates the offset when 
   );
   fireEvent.change(input, { target: { value: "2026-07-15T09:00" } });
   expect(screen.getByLabelText(/EDT \(GMT-04:00\)/)).toBe(input);
-  fireEvent.submit(container.querySelector("form")!);
+  await act(async () => {
+    fireEvent.submit(container.querySelector("form")!);
+  });
   expect(mutate).toHaveBeenLastCalledWith(
     expect.objectContaining({
       observations: [

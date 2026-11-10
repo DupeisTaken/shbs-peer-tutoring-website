@@ -9,7 +9,7 @@ import { parse } from "@formatjs/icu-messageformat-parser";
 
 import { createTRPCRouter, translatorProcedure } from "~/server/api/trpc";
 import { LOCALES } from "~/i18n/config";
-import { listLanguages } from "~/server/i18n/languages";
+import { listManagedLanguages } from "~/server/i18n/languages";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import esMessages from "../../../../messages/es.json";
@@ -54,7 +54,7 @@ const isBuiltin = (code: string) =>
 /** Resolve to a known language (built-in or translator-added); unknown codes fall back to English. */
 async function resolveLocale(locale: string): Promise<string> {
   if (isBuiltin(locale)) return locale;
-  const langs = await listLanguages({ includeDisabled: true });
+  const langs = await listManagedLanguages();
   return langs.some((l) => l.code === locale) ? locale : "en";
 }
 

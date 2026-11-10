@@ -2904,7 +2904,8 @@
     "addLanguageName": "Nom (ex. Français)",
     "addLanguageBtn": "Ajouter une langue",
     "newLanguageHint": "Les nouvelles langues sont d’abord masquées et peuvent être activées lorsque leurs traductions sont prêtes.",
-    "back": "Retour"
+    "back": "Retour",
+    "languagesReadFailed": "Les paramètres de langue n’ont pas pu être chargés. Les paramètres en cache et les saisies inachevées sont conservés. Réessayez avant de les modifier."
   },
   "account": {
     "title": "Compte",
@@ -3004,7 +3005,17 @@
     "empty": "Aucune ronde enregistrée.",
     "newer": "Plus récents",
     "older": "Plus anciens",
-    "details": "Détails du changement"
+    "details": "Détails du changement",
+    "patrolRooms": "choix des salles de ronde",
+    "reloadPatrol": "Recharger le brouillon de ronde",
+    "patrolReloadFailed": "La dernière ronde et les choix de salles n’ont pas pu être chargés. Votre brouillon et sa version d’origine sont conservés.",
+    "patrolUnavailable": "Cette ronde est introuvable dans la page d’historique actualisée. Votre brouillon est conservé.",
+    "patrolSaved": "La correction a été enregistrée. Actualisation de l’historique des rondes…",
+    "patrolSavedRefreshFailed": "La correction a été enregistrée, mais l’historique des rondes n’a pas pu être actualisé. Réessayez l’actualisation sans enregistrer à nouveau.",
+    "patrolQueuedRefreshFailed": "La correction a été soumise pour examen, mais l’historique des rondes n’a pas pu être actualisé. Réessayez l’actualisation sans soumettre à nouveau.",
+    "invalidPatrolTime": "Saisissez une heure d’observation valide.",
+    "patrolRoomUnavailable": "{room} (indisponible)",
+    "patrolRoomRequired": "Choisissez une salle disponible pour chaque observation avant d’enregistrer."
   },
   "emailChange": {
     "title": "Modifier l’adresse du compte",
@@ -4560,6 +4571,7 @@
         "linkRevokedAt": "Date de révocation du lien du rapport",
         "schoolHoursReportId": "Identifiant du rapport scolaire",
         "schoolHoursReport": "Rapport scolaire",
+        "patrolOrder": "Ordre de ronde",
         "schedulingEffect": "Effet sur la planification",
         "tutoringPauseSuppressed": "Tutorat régulier suspendu",
         "importedAt": "Date d’import"
@@ -4858,7 +4870,12 @@
       "ATTEMPT": "Tentative sans modification appliquée"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "retryReads": "Recharger les données d’audit",
+    "loadingReads": "Chargement de l’historique d’audit et des options de filtre…",
+    "loadFailed": "L’historique d’audit ou les options de filtre n’ont pas pu être chargés.",
+    "refreshFailed": "L’historique d’audit ou les options de filtre n’ont pas pu être actualisés. Vos filtres non appliqués sont conservés ; rechargez les données sans les appliquer.",
+    "accessDenied": "L’accès à l’historique d’audit est indisponible. Rechargez les données pour vérifier vos droits actuels."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5259,7 +5276,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Recharger le catalogue",
+    "loadFailed": "Le catalogue des matières n’a pas pu être chargé.",
+    "refreshFailed": "Le catalogue des matières n’a pas pu être actualisé. Vos brouillons sont conservés ; rechargez les données avant de modifier le catalogue.",
+    "accessDenied": "L’accès au catalogue des matières est indisponible.",
+    "savedRefreshing": "La modification a été enregistrée. L’actualisation du catalogue est en attente.",
+    "savedRefreshFailed": "La modification a été enregistrée, mais le catalogue des matières n’a pas pu être actualisé. Rechargez les données sans enregistrer à nouveau."
   },
   "recruitment": {
     "preview": "Aperçu du formulaire en lecture seule",

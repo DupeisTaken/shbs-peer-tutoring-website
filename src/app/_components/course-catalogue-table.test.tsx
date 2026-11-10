@@ -72,23 +72,39 @@ const rows = () =>
     .map((row) => row.textContent);
 
 it("restores only view filters, waits for levels, and drops a removed level or denied view", () => {
-  const key = viewStateKey("head", "/admin/subjects", "course-catalogue.level.v1", "");
+  const key = viewStateKey(
+    "head",
+    "/admin/subjects",
+    "course-catalogue.level.v1",
+    "",
+  );
   writeViewState(window.sessionStorage, key, "ap");
   const onApply = vi.fn();
   const tree = (ready: boolean, available = levels, enabled = true) => (
     <SessionViewProvider identity="head" pathname="/admin/subjects" verified>
       <NextIntlClientProvider locale="en" messages={en}>
-        <CourseCatalogueTable subjects={subjects} levels={available} readOnly={false} pending={false}
-          onApply={onApply} viewReady={ready} viewEnabled={enabled} />
+        <CourseCatalogueTable
+          subjects={subjects}
+          levels={available}
+          readOnly={false}
+          pending={false}
+          onApply={onApply}
+          viewReady={ready}
+          viewEnabled={enabled}
+        />
       </NextIntlClientProvider>
     </SessionViewProvider>
   );
   const first = render(tree(false, []));
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Level" }).value).toBe("all");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Level" }).value,
+  ).toBe("all");
   expect(window.sessionStorage.getItem(key)).toBe('"ap"');
   first.rerender(tree(true));
   expect(rows()).toHaveLength(2);
-  const select = screen.getAllByRole<HTMLInputElement>("checkbox").find((input) => !input.disabled)!;
+  const select = screen
+    .getAllByRole<HTMLInputElement>("checkbox")
+    .find((input) => !input.disabled)!;
   fireEvent.click(select);
   change("Search course names", "Biology");
   expect(JSON.stringify(window.sessionStorage)).not.toContain("selected");
@@ -96,9 +112,15 @@ it("restores only view filters, waits for levels, and drops a removed level or d
   first.unmount();
   const second = render(tree(true));
   expect(rows()).toEqual([expect.stringContaining("AP Biology")]);
-  expect(screen.getAllByRole<HTMLInputElement>("checkbox").every((input) => !input.checked)).toBe(true);
+  expect(
+    screen
+      .getAllByRole<HTMLInputElement>("checkbox")
+      .every((input) => !input.checked),
+  ).toBe(true);
   second.rerender(tree(true, [levels[0]!]));
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Level" }).value).toBe("all");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Level" }).value,
+  ).toBe("all");
   second.rerender(tree(true, levels, false));
   expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
   expect(window.sessionStorage.getItem(key)).toBeNull();
@@ -259,4 +281,15 @@ it("opens read-only catalogue details without enabling batch changes", () => {
   expect(screen.getByRole("dialog", { name: "AP Biology" })).toBeTruthy();
   expect(screen.queryByRole("checkbox")).toBeNull();
   expect(onApply).not.toHaveBeenCalled();
+});
+
+it("does not describe unavailable catalogue data as an empty result", () => {
+  const { rerender, props } = show({ subjects: [], viewReady: false });
+  expect(screen.queryByText(en.courseCatalogue.empty)).toBeNull();
+  rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <CourseCatalogueTable {...props} viewReady />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByText(en.courseCatalogue.empty)).toBeTruthy();
 });

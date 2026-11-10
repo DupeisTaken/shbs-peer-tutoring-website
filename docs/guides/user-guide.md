@@ -828,7 +828,18 @@ To check an application, enter its email on the same page and verify a fresh mai
 
 Active crew members use **Patrol** to record each visited room once with the actual observation time and student headcount: 0, 1, 2, 3 or 4+. Submit at least one observation. Observation times cannot be in the future; a one-minute allowance accommodates differences between your device clock and the server. This also applies to management corrections. An eligible sweep earns **0.5 crew service hours**, separately from tutoring credit, at most once every **20 minutes per crew member**, measured by the server. All observations must be from the last 20 minutes (with the same one-minute clock allowance). Older observations and additional sweeps during the cooldown are still saved with **0 hours**, and the success message states that no hours were added. A long sweep or offline submission with any observation older than 20 minutes therefore retains its evidence but receives no automatic credit; do not change observation times to claim freshness. A sweep reserves every 20-minute observation interval it covers, across all rooms; changing notes, counts or a request key does not reopen those intervals. An identical retry returns the original record. Combined-account history shares the same allowance; corrections retain hours and prevent reuse of both original and corrected evidence. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; Admin/Head apply corrections; eligible Coordinators request review.
 
+An opened correction keeps its original patrol and draft while you browse older
+history. If another manager changes that patrol, use **Reload** deliberately to
+review its latest saved values and available rooms. Recovery reads that exact
+patrol even when new submissions move it to another history page. A failed or
+denied read keeps the draft; an accepted correction retries refresh only. A queued
+Coordinator proposal remains a request for review until the reviewed action applies.
+
 Crew access depends on membership and the program's crew module. A crew-only account does not automatically receive tutor assignments or management powers. Opt-out requires a seven-day wait and staff approval; reentry requires approval without that wait. A pending opt-out can be recalled. Check the decision before assuming membership has changed. Observations can flag an apparent attendance mismatch for [management review](program-configuration.md#review-attendance-flags); a flag alone does not impose a penalty.
+
+Management configures patrol room order in **Crew**. New order changes retain each
+room's previous and saved numeric rank in Audit details. Older events may lack the
+original ranks; viewing today's order does not fill that historical gap.
 
 ## Coordinators
 
@@ -1218,7 +1229,7 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - Interview acceptance does not restore restricted participation. Management-revoked tutoring access requires explicit Admin/Head restoration in **Users & Roles** before the chair retries approval. Suspended or retired accounts and confirmed school departures also require review. A historical archive alone does not prevent an otherwise eligible returning applicant from being accepted.
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee Policy** and **Tutor Policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
-- Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
+- Use **Audit Log** to filter by actor, event, operation, record or program-local date. The date controls show the configured program timezone and endpoint offsets; stored event instants remain in UTC. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
 
 In **Policies**, switching the document's editing language retains each opened
 language's unsaved draft during that page visit. Save each language explicitly;
@@ -1247,6 +1258,11 @@ Missing detailed evidence is explicitly identified: older events and generic
 operation summaries may never have recorded it. Details do not reconstruct past
 values from current profiles. Observers retain the restricted summary. If a detail
 read fails, use Retry; this only reloads the event and never repeats its action.
+
+If history or filter choices fail to load, choose **Retry audit reads**. Applied
+filters and unfinished edits remain separate: Retry reloads data without applying
+your draft or repeating an action. Apply, Clear and pagination wait for the required
+reads. Denied private evidence stays hidden until fresh reads authorize it again.
 
 Open **Recovery** to preview a captured initial admission and its consequences.
 Admin/Head can apply a complete plan with at most one later dependent action;
@@ -1463,6 +1479,16 @@ Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out a
 ### Review records and reports
 
 Corrections to tutoring attendance, patrol observations, recorded meeting attendance and completed interviews may reverse reviewed flags, deductions or earned credits. Admin/Head apply the whole correction and its dependent consequences; eligible Coordinator submissions wait for review. Restoring hidden messages, archived news or announcements, reinstating participation and overturning a reviewed discipline decision follow the same Admin/Head authority. Initial attendance entries and other eligible daily operations retain Admin/Head direct authority and Coordinator requests. Withdrawing an unapplied request is distinct from reversing an applied action.
+
+In **Crew → Patrol**, failed history or room-choice reads offer **Retry**. Loaded
+records and correction drafts remain, but saving waits for trustworthy reads.
+Closing a correction, changing pages or switching Crew panels retains its draft
+while the page remains mounted. Background reads preserve its original record
+version and timezone. **Reload patrol draft** replaces it only after fresh room
+choices and the matching patrol load successfully. A patrol missing from its loaded
+history page retains its draft and a recovery notice; this does not prove deletion.
+Accepted corrections recover through reads only. A queued correction is a proposal,
+not an applied change.
 
 **Service Hours** starts with currently **Active** tutors. Choose **Inactive** or
 **All** to see other current statuses; these labels do not describe a tutor's
@@ -1716,6 +1742,11 @@ On the tutor dashboard, select **current policy** in the accepted-policy message
 For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.
 
 When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the five-second confirmation. Use **Refresh** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
+
+If the consent card or policy reader cannot load, **Refresh** reads the current
+publication and acceptance status without signing or accepting it. A typed signature
+survives a temporary read failure. Content requiring acceptance remains unavailable
+until the read recovers.
 
 Email confirmation and password recovery pages remain available without a policy reminder; current acceptance is still required before participating.
 

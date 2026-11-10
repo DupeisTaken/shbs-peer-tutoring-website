@@ -113,3 +113,44 @@ it("shows both offsets across a DST range while submitting the same program-day 
     expect.objectContaining({ from: "2026-03-07", until: "2026-03-09" }),
   );
 });
+
+it("retains an unfinished draft while read availability blocks Apply and Clear", () => {
+  const apply = vi.fn();
+  const tree = (unavailable: boolean) => (
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      <AuditFilters
+        appliedView={emptyAuditView}
+        onApply={apply}
+        unavailable={unavailable}
+      />
+    </NextIntlClientProvider>
+  );
+  const view = render(tree(false));
+  const search = screen.getByLabelText<HTMLInputElement>(
+    messages.auditFilters.search,
+  );
+  fireEvent.change(search, {
+    target: { value: "Unfinished read-recovery draft" },
+  });
+  view.rerender(tree(true));
+  expect(search.disabled).toBe(true);
+  fireEvent.submit(search.closest("form")!);
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.auditFilters.clear }),
+  );
+  expect(apply).not.toHaveBeenCalled();
+  expect(search.value).toBe("Unfinished read-recovery draft");
+  view.rerender(tree(false));
+  expect(search.disabled).toBe(false);
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.auditFilters.apply }),
+  );
+  expect(apply).toHaveBeenCalledWith(
+    expect.objectContaining({ search: "Unfinished read-recovery draft" }),
+    expect.anything(),
+  );
+});

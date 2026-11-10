@@ -26,6 +26,9 @@ const safeFields = new Set([
   "roomNeedsAssignment",
   "roomVersion",
   "programOrder",
+  // Numeric patrol ranks are nonprivate Room evidence, including submitted writes.
+  // Keep missing legacy ranks absent; never reconstruct them from today's rooms.
+  "patrolOrder",
   "preferredAssignedBlocks",
   "workloadPreferenceVersion",
   "version",
@@ -245,7 +248,8 @@ const modelEvidence = new Map(
         model.fields
           .filter(
             (field) =>
-              (RECORD_PRIMARY_KEYS[model.name]?.includes(field.name) ?? false) ||
+              (RECORD_PRIMARY_KEYS[model.name]?.includes(field.name) ??
+                false) ||
               (safeFields.has(field.name) &&
                 (field.kind === "scalar" || field.kind === "enum") &&
                 field.type !== "Json" &&

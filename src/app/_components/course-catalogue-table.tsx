@@ -353,7 +353,7 @@ export function CourseCatalogueTable({
           ))}
         </tbody>
       </SummaryTable>
-      {!visible.length && (
+      {viewReady && !visible.length && (
         <div className="py-6 text-center">
           <p className="font-medium">
             {t(subjects.length ? "noMatches" : "empty")}
