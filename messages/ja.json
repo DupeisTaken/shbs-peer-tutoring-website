@@ -7791,6 +7791,8 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
+    "tutorTitle": "{period} チューター応募",
+    "configuredOpening": "設定された受付開始日時（有効化と審査が必要です）",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7819,6 +7821,7 @@
     "plannedHelp": "申し込みを受け付けるには、次の学期区分を有効にする必要があります。",
     "scheduledHelp": "学期区分の更新は承認され、実行予定です。受付には区分の有効化と募集の開始が必要です。",
     "currentClosed": "{period} の学習パートナー申し込みは終了しました。",
+    "tutorCurrentClosed": "{period} のチューター応募は終了しました。",
     "countdownLabel": "案内された開始日時までの時間",
     "previewLink": "申込フォームをプレビュー"
   },

@@ -318,7 +318,10 @@ bounds retries to five. Review conflicts block immediately. Node instrumentation
 starts a 30-second worker and startup sweep; elapsed valid schedules catch up.
 
 The [public projection](../../src/server/program/public-signup-transition.ts) reads
-allowlisted current/future intake metadata under the period barrier. Its
+allowlisted current/future intake metadata under the period barrier for the
+selected audience, defaulting to tutees. Tutor application options use the tutor
+projection, including that audience's current window and prepared or destination
+opening. The submission gates still check the active period's own window. The
 [view resolver](../../src/lib/public-signup-transition.ts) selects Q1→Q2 or Q3→Q4
 after pause/closure. The live form owns the badge, countdown and read recovery;
 zero never grants eligibility. The announcement uses the public form's standard
@@ -327,7 +330,14 @@ program timezone, a quiet grouped timer and a single eligibility explanation.
 Closed-current-period context stays inside the next-period card. The form below
 owns preview/disabled-field guidance; the timer does not repeat it. At zero the
 clock disappears while server confirmation is pending, without enabling fields.
-Fresh public submissions require `expectedTermId`.
+Blocked, cancelled and unavailable next-period states retain saved dates bound to
+the current next-period target as configured openings, with an activation/review
+qualification and no countdown or opening promise. Missing, explicitly cleared
+and stale-target dates remain absent. The schedule
+state and the stored opening are distinct facts: drift anywhere in the full
+refresh evidence can legitimately block activation while leaving the configured
+opening unchanged. The public display never bypasses renewed Head review.
+Fresh public tutee submissions require `expectedTermId`.
 The intent service checks it under the period barrier after recovering an exact
 accepted receipt. The shared field remains optional for retained legacy intents.
 

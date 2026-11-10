@@ -7791,6 +7791,8 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
+    "tutorTitle": "{period} 튜터 지원",
+    "configuredOpening": "설정된 신청 시작 시간 (활성화 및 검토 필요)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7819,6 +7821,7 @@
     "plannedHelp": "신청을 받으려면 다음 분기를 먼저 활성화해야 합니다.",
     "scheduledHelp": "분기 전환이 승인되어 실행 예정입니다. 신청하려면 분기가 활성화되고 모집이 열려 있어야 합니다.",
     "currentClosed": "{period} 학습 파트너 신청이 마감되었습니다.",
+    "tutorCurrentClosed": "{period} 튜터 지원이 마감되었습니다.",
     "countdownLabel": "안내된 시작 시간까지 남은 시간",
     "previewLink": "신청서 미리 보기"
   },
