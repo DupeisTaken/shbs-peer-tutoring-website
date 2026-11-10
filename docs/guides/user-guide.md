@@ -1436,6 +1436,22 @@ source breakdowns or carried minutes to the highlighted amount. Late submissions
 reversed deductions are reconciled against that person's last reported balance.
 There is no semester reset. The old admin monthly overview has been removed.
 
+The saved report and staff preview show each person's **Carry In → Raw Change →
+Hours → Carry Out**, alongside their name and school-account reference. **Raw
+Change** combines tutoring and Crew, displayed in hours and minutes rounded to
+the nearest minute. **Hours** is the exact amount to enter once. The other values
+explain the balance and must not be entered separately. Open that person's
+**Details** for separate tutoring/Crew values, exact decimals, previous-month
+comparisons and the correction matching the last edition actually entered.
+Historical reports with no recorded carry show it as unavailable.
+
+School notification emails stay brief and use the recipient's email language.
+**View Month Report** opens the saved public report, where **Details / 详情**
+expands inline. Staff use **Details** on the school-report management page to
+open a dialog. The light boxes identify individual people; the blue guidance
+explains how to apply that edition. Screenshots and framed HTML previews in a
+local review report demonstrate these locations and are not email attachments.
+
 Before the first report, Admin/Head review each person's school-account reference
 and already-reported opening amounts. Confirm zero explicitly when no hours were
 previously reported. Resolve missing or conflicting identities before issuance;

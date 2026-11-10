@@ -12,10 +12,22 @@ and pending legacy configuration proposals cannot reactivate it. Legacy delivery
 admission retires unsent receipts even if an old configuration is still enabled.
 
 Management previews and saved reports use a sortable table on wider screens and
-individual cards on narrow screens. Each card keeps the person's name, account
-reference and exact amount together, with tutoring/Crew breakdowns and the same
-details dialog. Both layouts share correction instructions; printed output uses
-only the table.
+individual cards on narrow screens. Each summary keeps the person's name and
+school-account reference, then **Carry In → Raw Change → Hours → Carry Out**.
+**Hours** is the exact amount to enter once; revision conditions and zero-entry
+guidance stay beside it. **Raw Change** combines tutoring net and Crew change,
+displayed as hours and minutes rounded to the nearest minute (half-minutes round
+away from zero). This changes presentation only. Per-person Details retains the
+exact source values, separate tutoring/Crew components, previous-month/revision
+comparisons and alternative posting instructions. Missing historical carry is
+shown as unavailable, never inferred as zero. Both layouts share correction
+instructions; printed management output uses only the table.
+
+The saved public report uses the same four-field order, with a native Details
+disclosure per person. The recipient email stays concise: each person's posting
+and retained balance, plus a link to that report. Email cards, the saved-report
+cards and staff-management cards are separate views of the same saved edition;
+review screenshots of those views are evidence, not images attached to emails.
 
 ## Source accounting and opening review
 

@@ -4,6 +4,7 @@ import {
   formatSchoolHours,
   formatSchoolHoursCarryMinutes,
   schoolHoursApproximation,
+  schoolHoursRoundedDuration,
 } from "~/lib/school-hours-format";
 import { schoolHoursVisibleRows } from "~/lib/school-hours-visibility";
 import {
@@ -76,13 +77,13 @@ function editionGuidance(report: SchoolHoursPublicReport) {
         }
       : { en: "", zh: "" };
     return report.revision > 1
-      ? `If r${report.revision - 1} was last entered for that person, apply only the highlighted correction once. Otherwise choose ONE matching row in that person's table. If the last entered edition is unknown, contact the program team before posting.${negativeGuard.en}\n若该人最后入账的是 r${report.revision - 1}，仅应用突出显示的更正额一次。其他情况请在该人的表格中仅选一项；若不确定最后入账版本，请先联系项目团队。${negativeGuard.zh}`
+      ? `If r${report.revision - 1} was last entered for that person, apply only the highlighted correction once. Otherwise open that person's Details and choose ONE matching row. If the last entered edition is unknown, contact the program team before posting.${negativeGuard.en}\n若该人最后入账的是 r${report.revision - 1}，仅应用突出显示的更正额一次。其他情况请打开该人的详情并仅选符合情况的一项；若不确定最后入账版本，请先联系项目团队。${negativeGuard.zh}`
       : "Apply each person's highlighted amount to that person's school account once. Raw tutoring and Crew changes explain the source activity; they are not extra credit.\n请将每个人突出显示的时数计入对应学校账户一次。辅导与执勤的原始变化用于说明来源，并非额外入账时数。";
   }
   if (report.revision === 1 && report.postingPolicy === "TENTH_HOUR_CARRY")
     return "Apply each person's highlighted amount to that person's school account once. Negative amounts deduct hours. Raw tutoring and Crew changes explain the source activity; they are not extra credit.\n请将每个人突出显示的时数计入对应学校账户一次。负数表示扣减；辅导与执勤的原始变化用于说明来源，并非额外入账时数。";
   return report.revision > 1
-    ? `Revision ${report.revision} replaces revision ${report.revision - 1} for ${report.month}. If the immediately preceding edition was applied, apply only each person's highlighted correction. For an earlier applied edition, choose its correction from that person's table. If nothing was applied, use the replacement month amount once. Choose only one matching row; never add alternatives. If unknown or not listed, ask the program team before posting. Negative corrections are deductions.\n本修订替代该月上一版本。若上一版已入账，仅应用突出显示的更正额；若更早版本已入账，请选择该人的对应更正额。若从未入账，使用替代月度时数一次。仅选符合情况的一项，切勿相加。若不确定或版本未列出，请先联系项目团队。负数更正应扣除。`
+    ? `Revision ${report.revision} replaces revision ${report.revision - 1} for ${report.month}. If the immediately preceding edition was applied, apply only each person's highlighted correction. For an earlier applied edition, open that person's Details and choose its correction. If nothing was applied, use the replacement month amount once. Choose only one matching row; never add alternatives. If unknown or not listed, ask the program team before posting. Negative corrections are deductions.\n本修订替代该月上一版本。若上一版已入账，仅应用突出显示的更正额；若更早版本已入账，请打开该人的详情选择对应更正额。若从未入账，使用替代月度时数一次。仅选符合情况的一项，切勿相加。若不确定或版本未列出，请先联系项目团队。负数更正应扣除。`
     : "Apply each person's highlighted amount to that person's school account once. A negative amount is a correction to deduct. Tutoring and Crew are the breakdown, not additional amounts to add again.\n请将每个人突出显示的时数计入该人的学校账户一次。负数表示应扣除的更正额；辅导与执勤仅为总额明细，不应再次相加。";
 }
 
@@ -101,13 +102,11 @@ const nonnegativePublicCarryNotice = {
   zh: "按 0.1 小时（6 分钟）入账；0 表示无需入账。正余量保留，全部负数余额自动抵扣今后获得的时数。请勿另行计入余量。",
 };
 
-function carryDetailsHtml(row: SchoolHoursPublicRow) {
+function carryValueHtml(hours: string | undefined) {
   const e = escapeSchoolHours;
-  const value = (hours: string | undefined) =>
-    hours === undefined
-      ? "—"
-      : `<span title="${e(hours)} h">${e(formatSchoolHoursCarryMinutes(hours))} min / 分钟</span>`;
-  return `<p style="font-size:14px;margin:12px 0 0;line-height:1.7">Carry in / 期初余量: <strong>${value(row.carryInHours)}</strong><br>Carry out / 留待后续: <strong>${value(row.carryOutHours)}</strong></p>`;
+  return hours === undefined
+    ? '<span title="Not recorded in this earlier report / 此历史报告未记录余量">—</span>'
+    : `<span title="${e(hours)} h">${e(formatSchoolHoursCarryMinutes(hours))} min / 分钟</span>`;
 }
 
 export function schoolHoursIssuedTime(report: SchoolHoursPublicReport) {
@@ -163,6 +162,11 @@ function schoolHoursValueHtml(value: number) {
   return `<span style="display:block">≈ ${escapeSchoolHours(approximation)} h <span style="font-size:12px;font-weight:400">(approximate / 约数)</span></span><span style="display:block;font-size:13px;font-weight:400;overflow-wrap:anywhere">Exact / 精确值: ${exact} h</span>`;
 }
 
+function durationLabel(value: number) {
+  const duration = schoolHoursRoundedDuration(value, true);
+  return `${duration.sign}${duration.hours} h ${duration.minutes} min`;
+}
+
 /** This view accepts only the public hours projection. It cannot accidentally
  * recover source evidence, private reasons or the intended recipient list. */
 export function renderSchoolHoursContent(
@@ -194,7 +198,12 @@ export function renderSchoolHoursContent(
         report.revision,
         carryPolicy,
       );
-      return `<section class="person" style="background:#F8FAFC;border:1px solid #CBD5E1;border-radius:12px;padding:18px;margin:14px 0;color:#0F172A"><h2 style="font-size:19px;margin:0 0 6px;overflow-wrap:anywhere">${e(row.exportName)}</h2><p style="font-size:13px;color:#475569;margin:0 0 12px;overflow-wrap:anywhere">School account / 学校账户: ${e(row.schoolAccountKey)}</p><p style="margin:0;font-size:30px;font-weight:750;font-variant-numeric:tabular-nums;color:${row.hoursToAdd < 0 ? "#B42318" : "#115E59"}">${schoolHoursValueHtml(row.hoursToAdd)}</p><p style="margin:5px 0 14px;font-weight:600">${e(instruction)}</p><p style="font-size:14px;margin:0;line-height:1.7">${e(tutoringLabel)}: <strong>${schoolHoursValueHtml(row.tutoringChange)}</strong><br>${e(crewLabel)}: <strong>${schoolHoursValueHtml(row.crewChange)}</strong></p>${carryPolicy ? carryDetailsHtml(row) : ""}${report.revision > 1 ? `<p style="font-size:14px;border-top:1px solid #CBD5E1;margin:12px 0 0;padding-top:12px">Previous edition amount / 上版时数: ${e(row.previousEditionAmount === null ? "—" : `${formatSchoolHours(row.previousEditionAmount, true)} h`)}<br>Replacement month amount / 替代月度时数: <strong>${e(formatSchoolHours(row.monthAmount, true))} h</strong></p>${editionChoicesHtml(row, report.revision, nonnegativePolicy)}` : ""}</section>`;
+      const rawChange = row.tutoringChange + row.crewChange;
+      const duration = schoolHoursRoundedDuration(rawChange, true);
+      const rawDuration = `${duration.sign}${duration.hours} h ${duration.minutes} min`;
+      // The four summary fields explain the balance; source precision and
+      // alternative revision instructions remain in this person's disclosure.
+      return `<section class="person" style="background:#F8FAFC;border:1px solid #CBD5E1;border-radius:12px;padding:18px;margin:14px 0;color:#0F172A"><h2 style="font-size:19px;margin:0 0 6px;overflow-wrap:anywhere">${e(row.exportName)}</h2><p style="font-size:13px;color:#475569;margin:0 0 12px;overflow-wrap:anywhere">School account / 学校账户: ${e(row.schoolAccountKey)}</p><dl class="school-summary"><div><dt>Carry In / 期初余量</dt><dd>${carryValueHtml(carryPolicy ? row.carryInHours : undefined)}</dd></div><div><dt>Raw Change / 原始变化<span style="display:block;font-size:11px">Rounded to min / 四舍五入至分钟</span></dt><dd class="raw-duration" title="Rounded to nearest minute / 四舍五入至分钟">${e(rawDuration)}</dd></div><div class="posting"><dt>Hours / 入账时数</dt><dd style="font-size:24px;font-weight:750;color:${row.hoursToAdd < 0 ? "#B42318" : row.hoursToAdd === 0 ? "#475569" : "#115E59"}">${schoolHoursValueHtml(row.hoursToAdd)}</dd><p style="margin:5px 0 0;font-size:13px;line-height:1.6">${e(instruction)}</p></div><div><dt>Carry Out / 留待后续</dt><dd>${carryValueHtml(carryPolicy ? row.carryOutHours : undefined)}</dd></div></dl><details class="person-details"><summary style="cursor:pointer;min-height:44px;padding:12px 0;font-weight:650">Details / 详情</summary><p style="font-size:14px;line-height:1.7">Raw Change combines tutoring and Crew; its summary is rounded to the nearest minute. Exact hours below and in CSV are unchanged.<br>原始变化合计辅导与执勤，摘要四舍五入至分钟；下方及 CSV 中的精确时数保持不变。</p><p style="font-size:14px;margin:0;line-height:1.7">${e(tutoringLabel)}: <strong>${e(durationLabel(row.tutoringChange))}</strong><br>Exact tutoring hours / 精确辅导时数: ${e(formatSchoolHours(row.tutoringChange, true))} h<br>${e(crewLabel)}: <strong>${e(durationLabel(row.crewChange))}</strong><br>Exact Crew hours / 精确执勤时数: ${e(formatSchoolHours(row.crewChange, true))} h<br>Exact Raw Change / 精确原始变化: <strong>${e(formatSchoolHours(rawChange, true))} h</strong>${carryPolicy ? `<br>Exact Carry In / 精确期初余量: ${e(row.carryInHours ?? "—")} h<br>Exact Carry Out / 精确期末余量: ${e(row.carryOutHours ?? "—")} h` : ""}</p>${report.revision > 1 ? `<p style="font-size:14px;border-top:1px solid #CBD5E1;margin:12px 0 0;padding-top:12px">Previous edition amount / 上版时数: ${e(row.previousEditionAmount === null ? "—" : `${formatSchoolHours(row.previousEditionAmount, true)} h`)}<br>Replacement month amount / 替代月度时数: <strong>${e(formatSchoolHours(row.monthAmount, true))} h</strong></p>${editionChoicesHtml(row, report.revision, nonnegativePolicy)}` : ""}</details></section>`;
     })
     .join("");
   const comparisons = rows

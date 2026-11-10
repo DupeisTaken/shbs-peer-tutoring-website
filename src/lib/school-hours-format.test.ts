@@ -3,7 +3,42 @@ import {
   formatSchoolHours,
   formatSchoolHoursCarryMinutes,
   schoolHoursApproximation,
+  schoolHoursRoundedDuration,
 } from "./school-hours-format";
+
+it.each([
+  [80 / 60, { hours: 1, minutes: 20, sign: "+" }],
+  [-80 / 60, { hours: 1, minutes: 20, sign: "-" }],
+  [59.5 / 60, { hours: 1, minutes: 0, sign: "+" }],
+  [-59.5 / 60, { hours: 1, minutes: 0, sign: "-" }],
+  [29 / 3600, { hours: 0, minutes: 0, sign: "" }],
+  [-29 / 3600, { hours: 0, minutes: 0, sign: "" }],
+  [30 / 3600, { hours: 0, minutes: 1, sign: "+" }],
+  [-30 / 3600, { hours: 0, minutes: 1, sign: "-" }],
+  [1 + 30 / 3600, { hours: 1, minutes: 1, sign: "+" }],
+  [-(1 + 30 / 3600), { hours: 1, minutes: 1, sign: "-" }],
+  [2 + 59.5 / 60, { hours: 3, minutes: 0, sign: "+" }],
+  [-0, { hours: 0, minutes: 0, sign: "" }],
+  [Number.MAX_VALUE, { hours: Number.MAX_VALUE, minutes: 0, sign: "+" }],
+] as const)(
+  "rounds source %s to minute duration without changing stored hours",
+  (value, duration) => {
+    expect(schoolHoursRoundedDuration(value, true)).toEqual(duration);
+    expect(formatSchoolHours(value)).toBe(
+      Object.is(value, -0) ? "0" : value.toString(),
+    );
+  },
+);
+
+it("formats unsigned positive summaries and rejects nonfinite durations", () => {
+  expect(schoolHoursRoundedDuration(1.5)).toEqual({
+    hours: 1,
+    minutes: 30,
+    sign: "",
+  });
+  for (const value of [NaN, Infinity, -Infinity])
+    expect(() => schoolHoursRoundedDuration(value)).toThrow(RangeError);
+});
 
 it.each([
   ["0", "0"],

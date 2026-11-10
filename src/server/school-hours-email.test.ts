@@ -44,6 +44,41 @@ function carryReport(
   return publicSchoolHoursReport(snapshot);
 }
 
+it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
+  "summarizes %s as carry, rounded combined raw change, exact Hours, carry",
+  (policy) => {
+    const report = carryReport(policy);
+    report.revision = 2;
+    Object.assign(report.rows[0]!, {
+      tutoringChange: 65.4 / 60,
+      crewChange: 15 / 60,
+      previousEditionAmount: 0,
+    });
+    const before = JSON.stringify(report);
+    const doc = parse(renderSchoolHoursContent(report));
+    expect(
+      [...doc.querySelectorAll(".school-summary dt")].map((n) => n.textContent),
+    ).toEqual([
+      "Carry In / 期初余量",
+      "Raw Change / 原始变化Rounded to min / 四舍五入至分钟",
+      "Hours / 入账时数",
+      "Carry Out / 留待后续",
+    ]);
+    expect(doc.querySelector(".raw-duration")?.textContent).toBe("+1 h 20 min");
+    expect(doc.querySelector(".posting dd")?.textContent).toBe("+1.3 h");
+    const details = doc.querySelector<HTMLDetailsElement>(".person-details")!;
+    expect(details.open).toBe(false);
+    expect(details.textContent).toContain("Exact Raw Change");
+    expect(details.textContent).toContain("+1.09 h");
+    expect(details.textContent).toContain("+0.25 h");
+    expect(details.querySelector(".edition-choices")).not.toBeNull();
+    expect(doc.querySelector(".school-summary .edition-choices")).toBeNull();
+    expect(doc.querySelector(".posting p")?.textContent).toContain("r1");
+    expect(JSON.stringify(report)).toBe(before);
+    expect(schoolHoursCsv(report).content).toContain("1.09");
+  },
+);
+
 it.each(["en", "zh"] as const)(
   "keeps full debt pending until future earnings offset it in %s deliveries",
   (locale) => {
@@ -161,10 +196,10 @@ it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
         "earlier-edition correction or replacement amount is negative",
       );
       expect(doc.querySelector(".person")?.textContent).toContain(
-        "Carry in / 期初余量",
+        "Carry In / 期初余量",
       );
       expect(doc.querySelector(".person")?.textContent).toContain(
-        "Carry out / 留待后续",
+        "Carry Out / 留待后续",
       );
     } else {
       expect(explanation).toBeNull();
@@ -361,15 +396,19 @@ it("shows the next four minutes releasing one tenth without adding carry as cred
   expect(card.querySelector(".email-amount")?.textContent).toBe("+0.1 h");
   expect(card.textContent).not.toContain("2 min");
   expect(card.textContent).not.toContain("+1.4");
-  expect(renderSchoolHoursContent(report)).toContain("Carry in / 期初余量");
+  expect(renderSchoolHoursContent(report)).toContain("Carry In / 期初余量");
 });
 
-it("keeps legacy reports free of carry policy, columns and notices", () => {
+it("keeps legacy posting values and marks unrecorded carry unavailable", () => {
   const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
   expect(report).not.toHaveProperty("postingPolicy");
   expect(report.rows[0]).not.toHaveProperty("carryOutHours");
   expect(schoolHoursCsv(report).content).not.toContain("Carry out");
-  expect(renderSchoolHoursContent(report)).not.toContain("Carry in");
+  const legacy = parse(renderSchoolHoursContent(report));
+  expect(
+    legacy.querySelectorAll('.school-summary [title^="Not recorded"]'),
+  ).toHaveLength(report.rows.length * 2);
+  expect(legacy.querySelector(".carry-explanation")).toBeNull();
   expect(schoolHoursEmailCopy({ report, reportUrl }).html).not.toContain(
     "email-carry-notice",
   );
