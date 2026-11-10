@@ -1637,6 +1637,21 @@ survive search, group collapse and language changes. A successful submission fol
 by failed synchronization offers read-only Retry; it does not submit the text again.
 Leaving or reloading the editor ends these local draft lifetimes.
 
+If a submission's response is unconfirmed, **Recover translation requests**
+blocks replacement submissions. Use **Check result**, retry the retained original
+request when available, or **Stop unresolved request** before making a deliberate
+new edit. Stop and result lookup remain available while another recovery read is
+pending. An accepted request offers a separate refresh; refreshing never submits
+the text again.
+
+This tab retains only the original account, request reference, destination type
+and requested draft/publication mode. Reloading does not restore submitted text
+or offer an invented retry. A retained-request link leads back to recovery even
+after management or Translator access is removed. Recovery verifies your own
+account and permits checking or stopping its requests; it does not grant editor
+access. Accepted receipts describe the original outcome, independently of later
+review, deletion or publication changes.
+
 Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
 
 ## Account settings and private support

@@ -8,6 +8,7 @@ import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { TEAM_TITLE } from "~/lib/branding";
 import { translationAccess } from "~/lib/translation-access";
+import { TranslationIntentRecoveryEntry } from "~/app/_components/translation-intent-recovery";
 
 /**
  * The integrated editor admits assigned translators and management reviewers separately.
@@ -35,7 +36,10 @@ export default async function LocalizationLayout({
   if (!me) redirect("/signin");
   if (me.suspendedAt) redirect("/suspended");
   const access = translationAccess(me);
-  if (!access.enter) redirect("/");
+  // Losing editor access must not strand this account's metadata-only receipts.
+  // The private page never mounts in this branch; GET/Stop retain their own live
+  // session and original-actor authorization on the server.
+  const content = access.enter ? children : <TranslationIntentRecoveryEntry />;
   const elevated = access.publish || access.request;
 
   const t = await getTranslations();
@@ -87,11 +91,11 @@ export default async function LocalizationLayout({
             tabIndex={0}
             className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 lg:overflow-y-auto lg:overscroll-contain lg:pr-3"
           >
-            {children}
+            {content}
           </main>
         </div>
       ) : (
-        <main className="mx-auto max-w-5xl px-4 py-6 lg:px-6">{children}</main>
+        <main className="mx-auto max-w-5xl px-4 py-6 lg:px-6">{content}</main>
       )}
     </div>
   );

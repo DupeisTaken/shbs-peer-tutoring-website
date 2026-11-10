@@ -512,7 +512,8 @@
     "close": "Cerrar",
     "collapseAll": "Contraer todo",
     "expandAll": "Expandir todo",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Intentar de nuevo"
   },
   "auth": {
     "signinTitle": "Iniciar sesión",
@@ -3088,7 +3089,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "Se aceptó el cambio, pero no se pudo actualizar el texto. Vuelve a intentar la actualización sin enviar el cambio de nuevo."
+    "refreshFailed": "Se aceptó el cambio, pero no se pudo actualizar el texto. Vuelve a intentar la actualización sin enviar el cambio de nuevo.",
+    "acceptedRefreshFailed": "El envío fue aceptado, pero no se pudieron cargar los datos actuales. Reintenta la actualización sin volver a enviar.",
+    "readFailed": "No se pudieron cargar los datos de traducción actuales. Tu borrador se conserva; reintenta antes de enviarlo.",
+    "retryRead": "Reintentar actualización",
+    "identityReadFailed": "No se pudo cargar el acceso de la cuenta. Reintenta antes de editar traducciones."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -8376,5 +8381,46 @@
     "snapshotHelp": "Estos datos se registraron cuando el personal rechazó la solicitud. Los cambios posteriores del perfil no modifican esta copia.",
     "closedHelp": "Esta solicitud está cerrada y no puede asignarse ni reactivarse.",
     "released": "Asignaciones actuales liberadas: {count}"
+  },
+  "translationIntent": {
+    "title": "Recuperar solicitudes de traducción",
+    "help": "Una solicitud sin confirmar bloquea nuevas traducciones. Consulte su resultado, reintente la solicitud original conservada o deténgala antes de una nueva edición.",
+    "pending": "Solicitud en curso.",
+    "unknown": "El resultado no está confirmado. No envíe una solicitud de reemplazo.",
+    "notRecorded": "Aún no consta un resultado definitivo. Detenga esta solicitud antes de reemplazarla.",
+    "acceptedDraft": "Esta solicitud envió un borrador. Aquí no se muestra una revisión o eliminación posterior.",
+    "acceptedPublished": "Esta solicitud se publicó al aceptarse. El texto actual puede haber cambiado.",
+    "stopped": "Esta solicitud está detenida y no podrá aplicarse después.",
+    "restoreOnly": "Volver aquí no restaura el texto enviado. Consulte el resultado o detenga la solicitud.",
+    "lookup": "Consultar resultado",
+    "stop": "Detener solicitud pendiente",
+    "retryExact": "Reintentar solicitud original",
+    "refreshAccepted": "Actualizar resultado aceptado",
+    "dismiss": "Ocultar comprobante",
+    "storageFailed": "El almacenamiento de recuperación no está disponible. Los nuevos envíos están bloqueados; vuelva a intentarlo.",
+    "retryStorage": "Reintentar almacenamiento",
+    "signIn": "Verifique su cuenta para recuperar sus solicitudes.",
+    "reference": "Solicitud {id}",
+    "submitFailed": "No se confirmó la respuesta. Consulte el resultado guardado antes de volver a intentarlo.",
+    "refreshFailed": "La solicitud se aceptó, pero falló la actualización. Actualice sin volver a enviarla.",
+    "readFailed": "No se pudo verificar el resultado guardado. Vuelva a consultarlo.",
+    "refreshAuthority": "Revisar acceso de la cuenta",
+    "modes": {
+      "DRAFT": "Envío de borrador",
+      "PUBLISH": "Publicación"
+    },
+    "operations": {
+      "localization": {
+        "setString": "Texto de la interfaz"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "Revise el acceso de la cuenta antes de reintentar la solicitud original, o deténgala.",
+    "noRequests": "No hay solicitudes de traducción conservadas para esta cuenta."
   }
 }

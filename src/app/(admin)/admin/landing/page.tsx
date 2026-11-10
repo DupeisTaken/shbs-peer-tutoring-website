@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { authorizeHomeEditor } from "~/server/home/images";
 import { StatePanel } from "~/app/_components/ui/patterns";
-import LandingEditor from "./landing-editor";
+import LandingEditor, { LandingIntentRecovery } from "./landing-editor";
 
 /** Entry and Preview share the same live permission gate; no editor queries run on denial. */
 export default async function LandingPage() {
@@ -25,6 +25,7 @@ export default async function LandingPage() {
       >
         {t("uiPatterns.editorDeniedHelp")}
       </StatePanel>
+      <LandingIntentRecovery />
     </div>
   );
 }

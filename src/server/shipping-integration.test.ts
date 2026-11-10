@@ -19,11 +19,22 @@ import { requestEmailChange, confirmEmailChange } from "./auth/email-change";
 import { resolveTutorLink } from "./auth/tutor-link";
 
 // These tests exercise the merged routers against PostgreSQL, not parallel branch mocks.
-const actor = (id: string, role: Session["role"] = "STUDENT", tutorId: string | null = null) =>
+const actor = (
+  id: string,
+  role: Session["role"] = "STUDENT",
+  tutorId: string | null = null,
+) =>
   createCaller({
     db,
     headers: new Headers(),
-    session: { user: { id }, role, tutorId, expires: "2099-01-01" },
+    session: {
+      user: { id },
+      role,
+      tutorId,
+      sessionVersion: 0,
+      historyAccessRevision: 0,
+      expires: "2099-01-01",
+    },
   });
 const admin = () => actor("shipping-admin", "ADMIN");
 const head = () => actor("shipping-head", "HEAD");
@@ -97,7 +108,11 @@ beforeEach(async () => {
   send.mockReset().mockResolvedValue(undefined);
   await db.user.createMany({
     data: [
-      { id: "shipping-head", email: "shipping-head@example.test", role: "HEAD" },
+      {
+        id: "shipping-head",
+        email: "shipping-head@example.test",
+        role: "HEAD",
+      },
       {
         id: "shipping-admin",
         email: "shipping-admin@example.test",
@@ -364,7 +379,12 @@ it("keeps history, feedback and appeals after a new intake profile and verified 
     submitSurvey(db, signup("changed-shipping@example.test")),
   ).rejects.toMatchObject({ code: "CONFLICT" });
   await db.user.create({
-    data: { id: "outsider", email: "outsider@example.test", role: "STUDENT", tuteeMember: true },
+    data: {
+      id: "outsider",
+      email: "outsider@example.test",
+      role: "STUDENT",
+      tuteeMember: true,
+    },
   });
   expect(
     (await actor("outsider").student.me({ page: 0 })).sessions,
@@ -497,7 +517,10 @@ it("requires just one admin approval for a coordinator's translation review and 
       expectedUpdatedAt: next.updatedAt,
     }),
   );
-  await db.user.update({ where: { id: "shipping-admin" }, data: { canTranslate: true } });
+  await db.user.update({
+    where: { id: "shipping-admin" },
+    data: { canTranslate: true },
+  });
   await admin().localization.setString({
     locale: "en",
     key: "approvals.title",
@@ -521,15 +544,24 @@ it("queues Coordinator calendar and feedback visibility changes for Admin withou
   );
   expect(await db.schoolCalendarDay.count()).toBe(0);
   expect(await db.studentSettings.count()).toBe(0);
-  expect(calendar).toMatchObject({ requesterId: "shipping-coordinator", state: "PENDING" });
-  expect(feedback).toMatchObject({ requesterId: "shipping-coordinator", state: "PENDING" });
+  expect(calendar).toMatchObject({
+    requesterId: "shipping-coordinator",
+    state: "PENDING",
+  });
+  expect(feedback).toMatchObject({
+    requesterId: "shipping-coordinator",
+    state: "PENDING",
+  });
   await admin().approval.decide({
     id: calendar.id,
     approve: true,
     note: "School calendar checked",
   });
   expect(await db.studentSettings.count()).toBe(0);
-  expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: feedback.id } })).state).toBe("PENDING");
+  expect(
+    (await db.approvalRequest.findUniqueOrThrow({ where: { id: feedback.id } }))
+      .state,
+  ).toBe("PENDING");
   await admin().approval.decide({
     id: feedback.id,
     approve: true,
@@ -644,28 +676,63 @@ it("queues a historical correction and applies it atomically under the reviewer'
 });
 
 it("consolidates current tutee schedules for admin and tutor accounts using explicit ownership only", async () => {
-  await db.term.create({data:{id:"past-term",name:"Past",schoolYear:"25-26",quarter:"Q4",active:false}});
-  await db.tutee.createMany({data:[
-    {id:"owned-a",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
-    {id:"owned-b",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
-    {id:"foreign",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
-    {id:"inactive-owned",englishName:"Shared Name",status:"INACTIVE",intakeTermId:"shipping-term"},
-  ]});
-  await db.user.update({where:{id:"shipping-admin"},data:{studentId:"owned-a",tuteeMember:true}});
-  await db.studentProfileOwnership.createMany({data:[
-    {userId:"shipping-admin",tuteeId:"owned-b"},
-    {userId:"shipping-admin",tuteeId:"inactive-owned"},
-  ]});
-  for (const [id,tuteeId,termId,startMin] of [
-    ["schedule-a","owned-a","shipping-term",600],
-    ["schedule-b","owned-b","shipping-term",660],
-    ["not-owned","foreign","shipping-term",720],
-    ["past-schedule","owned-a","past-term",780],
-    ["inactive-schedule","inactive-owned","shipping-term",840],
+  await db.term.create({
+    data: {
+      id: "past-term",
+      name: "Past",
+      schoolYear: "25-26",
+      quarter: "Q4",
+      active: false,
+    },
+  });
+  await db.tutee.createMany({
+    data: [
+      {
+        id: "owned-a",
+        englishName: "Shared Name",
+        status: "ACTIVE",
+        intakeTermId: "shipping-term",
+      },
+      {
+        id: "owned-b",
+        englishName: "Shared Name",
+        status: "ACTIVE",
+        intakeTermId: "shipping-term",
+      },
+      {
+        id: "foreign",
+        englishName: "Shared Name",
+        status: "ACTIVE",
+        intakeTermId: "shipping-term",
+      },
+      {
+        id: "inactive-owned",
+        englishName: "Shared Name",
+        status: "INACTIVE",
+        intakeTermId: "shipping-term",
+      },
+    ],
+  });
+  await db.user.update({
+    where: { id: "shipping-admin" },
+    data: { studentId: "owned-a", tuteeMember: true },
+  });
+  await db.studentProfileOwnership.createMany({
+    data: [
+      { userId: "shipping-admin", tuteeId: "owned-b" },
+      { userId: "shipping-admin", tuteeId: "inactive-owned" },
+    ],
+  });
+  for (const [id, tuteeId, termId, startMin] of [
+    ["schedule-a", "owned-a", "shipping-term", 600],
+    ["schedule-b", "owned-b", "shipping-term", 660],
+    ["not-owned", "foreign", "shipping-term", 720],
+    ["past-schedule", "owned-a", "past-term", 780],
+    ["inactive-schedule", "inactive-owned", "shipping-term", 840],
   ] as const) {
     await db.pairing.create({
       data: {
-      scheduleConfirmed: true,
+        scheduleConfirmed: true,
         id,
         subject: id,
         termId,
@@ -681,11 +748,35 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
   await db.pairingTutee.create({
     data: { pairingId: "schedule-a", tuteeId: "owned-b" },
   });
-  await db.pairing.create({ data: { id: "original-a", tutorId: "shipping-tutor", termId: "shipping-term", subject: "retained-original", scheduleConfirmed: true, dayOfWeek: 1, startMin: 600, endMin: 630, tutees: { create: { tuteeId: "owned-a" } } } });
-  await db.pairingExecutionSuccessor.create({ data: { sourcePairingId: "original-a", targetPairingId: "schedule-a", receiptId: "synthetic-transfer", effectiveAt: new Date() } });
+  await db.pairing.create({
+    data: {
+      id: "original-a",
+      tutorId: "shipping-tutor",
+      termId: "shipping-term",
+      subject: "retained-original",
+      scheduleConfirmed: true,
+      dayOfWeek: 1,
+      startMin: 600,
+      endMin: 630,
+      tutees: { create: { tuteeId: "owned-a" } },
+    },
+  });
+  await db.pairingExecutionSuccessor.create({
+    data: {
+      sourcePairingId: "original-a",
+      targetPairingId: "schedule-a",
+      receiptId: "synthetic-transfer",
+      effectiveAt: new Date(),
+    },
+  });
   const current = await admin().student.me({ page: 0 });
-  expect(current.schedule.map((row) => row.id)).toEqual(["schedule-a", "schedule-b"]);
-  expect(current.student?.pairings.map((row) => row.pairing.subject)).toEqual(["schedule-a"]);
+  expect(current.schedule.map((row) => row.id)).toEqual([
+    "schedule-a",
+    "schedule-b",
+  ]);
+  expect(current.student?.pairings.map((row) => row.pairing.subject)).toEqual([
+    "schedule-a",
+  ]);
   await db.user.update({
     where: { id: "shipping-admin" },
     data: { role: "TUTOR", tutorId: "shipping-tutor" },
@@ -707,7 +798,11 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
   await expect(coordinator().student.me({ page: 0 })).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
-  const grid = await actor("shipping-admin", "TUTOR", "shipping-tutor").tutor.schedule();
+  const grid = await actor(
+    "shipping-admin",
+    "TUTOR",
+    "shipping-tutor",
+  ).tutor.schedule();
   expect(grid.pairings.map((row) => row.id)).toContain("schedule-a");
   expect(grid.pairings.map((row) => row.id)).not.toContain("original-a");
 });

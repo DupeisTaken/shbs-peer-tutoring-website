@@ -512,7 +512,8 @@
     "close": "Close",
     "collapseAll": "Collapse All",
     "expandAll": "Expand All",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Try again"
   },
   "auth": {
     "signinTitle": "Sign In",
@@ -3088,7 +3089,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "Your change was accepted, but the updated text could not be refreshed. Retry refresh without submitting again."
+    "refreshFailed": "Your change was accepted, but the updated text could not be refreshed. Retry refresh without submitting again.",
+    "acceptedRefreshFailed": "The submission was accepted, but the latest data could not be loaded. Retry refresh without submitting again.",
+    "readFailed": "The current translation data could not be loaded. Your draft is retained; retry before submitting.",
+    "retryRead": "Retry refresh",
+    "identityReadFailed": "Account access could not be loaded. Retry before editing translations."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -8376,5 +8381,46 @@
     "snapshotHelp": "These source details were recorded when staff declined the signup. Later profile edits do not change this snapshot.",
     "closedHelp": "This signup is closed and cannot be assigned or reactivated.",
     "released": "Current assignments released: {count}"
+  },
+  "translationIntent": {
+    "title": "Recover Translation Requests",
+    "help": "An unconfirmed request blocks new translations. Check its result, retry the retained original request, or stop it before a deliberate new edit.",
+    "pending": "Request in progress.",
+    "unknown": "The result is unconfirmed. Do not submit a replacement request.",
+    "notRecorded": "No terminal result is recorded yet. Stop this request before replacing it.",
+    "acceptedDraft": "This request submitted a draft. Later review or deletion is not shown here.",
+    "acceptedPublished": "This request was published when accepted. Current text may have changed.",
+    "stopped": "This request is stopped and cannot apply later.",
+    "restoreOnly": "Returning here does not restore submitted text. Check the result or stop the request.",
+    "lookup": "Check result",
+    "stop": "Stop unresolved request",
+    "retryExact": "Retry original request",
+    "refreshAccepted": "Refresh accepted result",
+    "dismiss": "Dismiss receipt",
+    "storageFailed": "Recovery storage is unavailable. New submissions are blocked; retry storage.",
+    "retryStorage": "Retry recovery storage",
+    "signIn": "Verify your account to recover its requests.",
+    "reference": "Request {id}",
+    "submitFailed": "The response was not confirmed. Check the saved result before trying again.",
+    "refreshFailed": "The request was accepted, but refreshing failed. Refresh without submitting it again.",
+    "readFailed": "The saved result could not be verified. Try checking it again.",
+    "refreshAuthority": "Recheck account access",
+    "modes": {
+      "DRAFT": "Draft submission",
+      "PUBLISH": "Publication"
+    },
+    "operations": {
+      "localization": {
+        "setString": "Interface text"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "Recheck account access before retrying the original request, or stop it.",
+    "noRequests": "No retained translation requests for this account."
   }
 }

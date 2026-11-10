@@ -13,7 +13,20 @@ import {
   parseAccountAppealDecisionReview,
 } from "~/server/account-appeals";
 import { inTransaction } from "~/server/transactions";
-import { databaseScope, isTranslationPublication } from "~/server/db-scope";
+import {
+  lockTranslationReviewDecision,
+  parseTranslationReviewDecision,
+} from "~/server/translation-review-preflight";
+import {
+  captureTranslationReviewAuthority,
+  lockTranslationReviewAuthority,
+} from "~/server/translation-review-authority";
+import { withTranslationWrite } from "~/server/translation-destination";
+import {
+  databaseScope,
+  isTranslationPublication,
+  translationPublicationScope,
+} from "~/server/db-scope";
 import {
   runAuditedMutation,
   recordAuditAttempt,
@@ -346,6 +359,17 @@ export const protectedProcedure = t.procedure
           message: "Accept the tutee policy before participating.",
         });
     }
+    // An internal publication must retain its matching management authority.
+    // Never reinterpret a stale/mismatched scope as an ordinary Translator draft.
+    if (
+      translationPublicationScope.getStore() &&
+      !isTranslationPublication(session.user.id, account.role, path)
+    )
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Translation publication authority changed. Reload the current review.",
+      });
     // A rank never substitutes for an explicit translator assignment, including queued writes.
     if (
       (path.startsWith("localization.") ||
@@ -456,20 +480,53 @@ export const protectedProcedure = t.procedure
             code: "FORBIDDEN",
             message: "Your current role cannot submit this change.",
           });
-        const request = appealReview
-          ? await inTransaction(ctx.db, (tx) =>
+        const translationReview =
+          path === "translationReview.decide"
+            ? {
+                input: parseTranslationReviewDecision(raw),
+                authority: captureTranslationReviewAuthority(session),
+              }
+            : null;
+        const request = translationReview
+          ? await withTranslationWrite(ctx.db, (tx) =>
               databaseScope.run(tx, async () => {
-                // Queue the original reviewed evidence while its source fences are
-                // held. Throw ApprovalQueued only after this transaction commits.
-                await lockAccountAppealDecisionReview(tx, appealReview);
+                // Approval requests capture valid, current intent under the same
+                // source locks as publication; queue writes share this transaction.
+                const requester = await lockTranslationReviewAuthority(
+                  tx,
+                  translationReview.authority,
+                  "PROPOSE",
+                  translationReview.input,
+                );
+                await lockTranslationReviewDecision(
+                  tx,
+                  translationReview.input,
+                );
                 return queueProposal(
-                  { ...session, role: account.role },
+                  { ...session, role: requester.role },
                   path,
                   raw,
                 );
               }),
             )
-          : await queueProposal({ ...session, role: account.role }, path, raw);
+          : appealReview
+            ? await inTransaction(ctx.db, (tx) =>
+                databaseScope.run(tx, async () => {
+                  // Queue the original reviewed evidence while its source fences are
+                  // held. Throw ApprovalQueued only after this transaction commits.
+                  await lockAccountAppealDecisionReview(tx, appealReview);
+                  return queueProposal(
+                    { ...session, role: account.role },
+                    path,
+                    raw,
+                  );
+                }),
+              )
+            : await queueProposal(
+                { ...session, role: account.role },
+                path,
+                raw,
+              );
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:

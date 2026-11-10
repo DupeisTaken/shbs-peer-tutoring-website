@@ -13,7 +13,10 @@ import { getMessageFallback, onIntlError } from "./fallback";
  * /messages/<locale>.json. An optional `MESSAGES_OVERRIDE` env (deep-merged JSON) lets an
  * org white-label any string without editing the locale files.
  */
-const LOADERS: Record<Locale, () => Promise<{ default: Record<string, unknown> }>> = {
+const LOADERS: Record<
+  Locale,
+  () => Promise<{ default: Record<string, unknown> }>
+> = {
   en: () => import("../../messages/en.json"),
   zh: () => import("../../messages/zh.json"),
   es: () => import("../../messages/es.json"),
@@ -54,7 +57,11 @@ function deepMerge(
 }
 
 /** Deep-set a dot-path key (e.g. "admin.users.title") to a string value, creating objects. */
-function setByPath(obj: Record<string, unknown>, path: string, value: string): void {
+function setByPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: string,
+): void {
   const parts = path.split(".");
   let node = obj;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -93,7 +100,8 @@ function loadOverride(): Record<string, unknown> {
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
+    if (parsed && typeof parsed === "object")
+      return parsed as Record<string, unknown>;
   } catch {
     // ignore malformed override
   }
@@ -107,12 +115,15 @@ export default getRequestConfig(async () => {
   // The active locale must be a known language (built-in or translator-added); else fall back.
   const languages = await listLanguages();
   const known = new Set(languages.map((l) => l.code));
-  const locale: string = cookieLocale && known.has(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
+  const locale: string =
+    cookieLocale && known.has(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
 
   // Built-ins load their bundled JSON; added languages use English as the base (then DB overrides).
   const loader = isLocale(locale) ? LOADERS[locale] : LOADERS[DEFAULT_LOCALE];
   const base = (await loader()).default;
-  const messages = deepMerge(base, loadOverride());
+  // JSON modules are cached across requests, and custom locales share the English base.
+  // Own every nested namespace before applying overrides with the mutating path setter.
+  const messages = deepMerge(structuredClone(base), loadOverride());
   await applyDbOverrides(messages, locale);
 
   // Missing keys render as a highlighted placeholder of their original key (see ./fallback).

@@ -512,7 +512,8 @@
     "close": "Fermer",
     "collapseAll": "Tout réduire",
     "expandAll": "Tout développer",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Réessayer"
   },
   "auth": {
     "signinTitle": "Connexion",
@@ -3088,7 +3089,11 @@
       "id": "Content to Translate",
       "other": "Content to Translate"
     },
-    "refreshFailed": "Votre modification a été acceptée, mais le texte mis à jour n’a pas pu être rechargé. Réessayez l’actualisation sans soumettre à nouveau la modification."
+    "refreshFailed": "Votre modification a été acceptée, mais le texte mis à jour n’a pas pu être rechargé. Réessayez l’actualisation sans soumettre à nouveau la modification.",
+    "acceptedRefreshFailed": "L’envoi a été accepté, mais les dernières données n’ont pas pu être chargées. Réessayez l’actualisation sans envoyer à nouveau.",
+    "readFailed": "Les données de traduction actuelles n’ont pas pu être chargées. Votre brouillon est conservé ; réessayez avant de l’envoyer.",
+    "retryRead": "Réessayer l’actualisation",
+    "identityReadFailed": "Les droits du compte n’ont pas pu être chargés. Réessayez avant de modifier les traductions."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -8376,5 +8381,46 @@
     "snapshotHelp": "Ces données ont été enregistrées lors du refus. Les modifications ultérieures du profil ne changent pas cet instantané.",
     "closedHelp": "Cette demande est fermée et ne peut être ni affectée ni réactivée.",
     "released": "Affectations actuelles libérées : {count}"
+  },
+  "translationIntent": {
+    "title": "Récupérer les demandes de traduction",
+    "help": "Une demande non confirmée bloque les nouvelles traductions. Consultez son résultat, réessayez la demande originale conservée ou arrêtez-la avant une nouvelle modification.",
+    "pending": "Demande en cours.",
+    "unknown": "Le résultat n’est pas confirmé. N’envoyez pas de demande de remplacement.",
+    "notRecorded": "Aucun résultat définitif n’est encore enregistré. Arrêtez cette demande avant de la remplacer.",
+    "acceptedDraft": "Cette demande a soumis un brouillon. Une révision ou suppression ultérieure n’est pas affichée ici.",
+    "acceptedPublished": "Cette demande a été publiée lors de son acceptation. Le texte actuel peut avoir changé.",
+    "stopped": "Cette demande est arrêtée et ne pourra plus être appliquée.",
+    "restoreOnly": "Revenir ici ne restaure pas le texte soumis. Consultez le résultat ou arrêtez la demande.",
+    "lookup": "Consulter le résultat",
+    "stop": "Arrêter la demande non résolue",
+    "retryExact": "Réessayer la demande originale",
+    "refreshAccepted": "Actualiser le résultat accepté",
+    "dismiss": "Masquer le reçu",
+    "storageFailed": "Le stockage de récupération est indisponible. Les nouveaux envois sont bloqués ; réessayez.",
+    "retryStorage": "Réessayer le stockage",
+    "signIn": "Vérifiez votre compte pour récupérer ses demandes.",
+    "reference": "Demande {id}",
+    "submitFailed": "La réponse n’a pas été confirmée. Consultez le résultat enregistré avant de réessayer.",
+    "refreshFailed": "La demande a été acceptée, mais l’actualisation a échoué. Actualisez sans l’envoyer à nouveau.",
+    "readFailed": "Le résultat enregistré n’a pas pu être vérifié. Consultez-le à nouveau.",
+    "refreshAuthority": "Revérifier l’accès au compte",
+    "modes": {
+      "DRAFT": "Soumission de brouillon",
+      "PUBLISH": "Publication"
+    },
+    "operations": {
+      "localization": {
+        "setString": "Texte de l’interface"
+      },
+      "home": {
+        "setNewsTranslation": "News",
+        "setPageTitle": "Page Titles",
+        "setContent": "Landing Text",
+        "setSectionTranslation": "Website Sections"
+      }
+    },
+    "authorityRequired": "Revérifiez les autorisations du compte avant de réessayer la demande originale, ou arrêtez-la.",
+    "noRequests": "Aucune demande de traduction conservée pour ce compte."
   }
 }

@@ -22,6 +22,8 @@ import {
   layoutSchema,
 } from "~/server/home/blocks";
 import { pageOwnerKey } from "~/server/home/pages";
+import { translationSetterInputs } from "~/lib/translation-intent";
+import { dispatchTranslationWrite } from "~/server/translation-intents";
 
 const NEWS_STATUS = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
 
@@ -67,45 +69,52 @@ export const homeRouter = createTRPCRouter({
 
   /** Set an override; blank — or text equal to the bundled default — clears it (revert). */
   setContent: translatorProcedure
-    .input(
-      z.object({
-        locale: z.string().min(1),
-        key: z.string().min(1),
-        value: z.string(),
-      }),
-    )
-    .mutation(({ ctx, input }) =>
-      withTranslationWrite(ctx.db, async (tx) => {
-        if (await proposeTranslation(tx, ctx.session, "home.setContent", input))
-          return { ok: true, cleared: false };
-        if (!isHomeFieldKey(input.key)) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Unknown content key.",
+    .input(translationSetterInputs["home.setContent"])
+    .mutation(({ ctx, input: parsed }) => {
+      const { intent, ...input } = parsed;
+      return dispatchTranslationWrite({
+        db: ctx.db,
+        session: ctx.session,
+        operation: "home.setContent",
+        intent,
+        business: input,
+        work: async (tx, actorSession) => {
+          const draftId = await proposeTranslation(
+            tx,
+            actorSession,
+            "home.setContent",
+            input,
+          );
+          if (draftId) return { result: { ok: true, cleared: false }, draftId };
+          if (!isHomeFieldKey(input.key)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Unknown content key.",
+            });
+          }
+          const locale = storageLocale(input.key, input.locale);
+          const value = input.value;
+          const def = landingDefault(input.locale, input.key);
+          if (!value.trim() || value === def) {
+            await tx.homeContent.deleteMany({
+              where: { key: input.key, locale },
+            });
+            return { result: { ok: true, cleared: true } };
+          }
+          await tx.homeContent.upsert({
+            where: { key_locale: { key: input.key, locale } },
+            update: { value, updatedByName: actorSession.user.name },
+            create: {
+              key: input.key,
+              locale,
+              value,
+              updatedByName: actorSession.user.name,
+            },
           });
-        }
-        const locale = storageLocale(input.key, input.locale);
-        const value = input.value;
-        const def = landingDefault(input.locale, input.key);
-        if (!value.trim() || value === def) {
-          await tx.homeContent.deleteMany({
-            where: { key: input.key, locale },
-          });
-          return { ok: true, cleared: true };
-        }
-        await tx.homeContent.upsert({
-          where: { key_locale: { key: input.key, locale } },
-          update: { value, updatedByName: ctx.session.user.name },
-          create: {
-            key: input.key,
-            locale,
-            value,
-            updatedByName: ctx.session.user.name,
-          },
-        });
-        return { ok: true, cleared: false };
-      }),
-    ),
+          return { result: { ok: true, cleared: false } };
+        },
+      });
+    }),
 
   // ---- Program news ---------------------------------------------------------
 
@@ -196,40 +205,39 @@ export const homeRouter = createTRPCRouter({
 
   /** Add or edit one locale's title + body. */
   setNewsTranslation: translatorProcedure
-    .input(
-      z.object({
-        postId: z.string(),
-        locale: z.string().trim().min(2),
-        title: z.string().trim().min(1).max(200),
-        body: z.string().max(20_000),
-      }),
-    )
-    .mutation(({ ctx, input }) =>
-      withTranslationWrite(ctx.db, async (tx) => {
-        if (
-          await proposeTranslation(
+    .input(translationSetterInputs["home.setNewsTranslation"])
+    .mutation(({ ctx, input: parsed }) => {
+      const { intent, ...input } = parsed;
+      return dispatchTranslationWrite({
+        db: ctx.db,
+        session: ctx.session,
+        operation: "home.setNewsTranslation",
+        intent,
+        business: input,
+        work: async (tx, actorSession) => {
+          const draftId = await proposeTranslation(
             tx,
-            ctx.session,
+            actorSession,
             "home.setNewsTranslation",
             input,
-          )
-        )
-          return { ok: true };
-        await tx.newsTranslation.upsert({
-          where: {
-            postId_locale: { postId: input.postId, locale: input.locale },
-          },
-          update: { title: input.title, body: input.body },
-          create: {
-            postId: input.postId,
-            locale: input.locale,
-            title: input.title,
-            body: input.body,
-          },
-        });
-        return { ok: true };
-      }),
-    ),
+          );
+          if (draftId) return { result: { ok: true }, draftId };
+          await tx.newsTranslation.upsert({
+            where: {
+              postId_locale: { postId: input.postId, locale: input.locale },
+            },
+            update: { title: input.title, body: input.body },
+            create: {
+              postId: input.postId,
+              locale: input.locale,
+              title: input.title,
+              body: input.body,
+            },
+          });
+          return { result: { ok: true } };
+        },
+      });
+    }),
 
   /** Remove a translation. The `en` fallback can't be removed. */
   removeNewsTranslation: adminProcedure
@@ -449,43 +457,42 @@ export const homeRouter = createTRPCRouter({
     }),
 
   setSectionTranslation: translatorProcedure
-    .input(
-      z.object({
-        sectionId: z.string(),
-        locale: z.string().trim().min(2),
-        title: z.string().trim().min(1).max(200),
-        body: z.string().max(20_000),
-      }),
-    )
-    .mutation(({ ctx, input }) =>
-      withTranslationWrite(ctx.db, async (tx) => {
-        if (
-          await proposeTranslation(
+    .input(translationSetterInputs["home.setSectionTranslation"])
+    .mutation(({ ctx, input: parsed }) => {
+      const { intent, ...input } = parsed;
+      return dispatchTranslationWrite({
+        db: ctx.db,
+        session: ctx.session,
+        operation: "home.setSectionTranslation",
+        intent,
+        business: input,
+        work: async (tx, actorSession) => {
+          const draftId = await proposeTranslation(
             tx,
-            ctx.session,
+            actorSession,
             "home.setSectionTranslation",
             input,
-          )
-        )
-          return { ok: true };
-        await tx.landingSectionTranslation.upsert({
-          where: {
-            sectionId_locale: {
+          );
+          if (draftId) return { result: { ok: true }, draftId };
+          await tx.landingSectionTranslation.upsert({
+            where: {
+              sectionId_locale: {
+                sectionId: input.sectionId,
+                locale: input.locale,
+              },
+            },
+            update: { title: input.title, body: input.body },
+            create: {
               sectionId: input.sectionId,
               locale: input.locale,
+              title: input.title,
+              body: input.body,
             },
-          },
-          update: { title: input.title, body: input.body },
-          create: {
-            sectionId: input.sectionId,
-            locale: input.locale,
-            title: input.title,
-            body: input.body,
-          },
-        });
-        return { ok: true };
-      }),
-    ),
+          });
+          return { result: { ok: true } };
+        },
+      });
+    }),
 
   removeSectionTranslation: adminProcedure
     .input(z.object({ sectionId: z.string(), locale: z.string() }))
@@ -629,34 +636,39 @@ export const homeRouter = createTRPCRouter({
 
   /** Set one locale of a page's title (blank clears it; en is the fallback). */
   setPageTitle: translatorProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        locale: z.string().min(2),
-        value: z.string().max(200),
-      }),
-    )
-    .mutation(({ ctx, input }) =>
-      withTranslationWrite(ctx.db, async (tx) => {
-        if (
-          await proposeTranslation(tx, ctx.session, "home.setPageTitle", input)
-        )
-          return { ok: true };
-        const page = await tx.customPage.findUnique({
-          where: { id: input.id },
-          select: { title: true },
-        });
-        if (!page) throw new TRPCError({ code: "NOT_FOUND" });
-        const title = { ...(page.title as Record<string, string>) };
-        if (input.value.trim()) title[input.locale] = input.value.trim();
-        else delete title[input.locale];
-        await tx.customPage.update({
-          where: { id: input.id },
-          data: { title },
-        });
-        return { ok: true };
-      }),
-    ),
+    .input(translationSetterInputs["home.setPageTitle"])
+    .mutation(({ ctx, input: parsed }) => {
+      const { intent, ...input } = parsed;
+      return dispatchTranslationWrite({
+        db: ctx.db,
+        session: ctx.session,
+        operation: "home.setPageTitle",
+        intent,
+        business: input,
+        work: async (tx, actorSession) => {
+          const draftId = await proposeTranslation(
+            tx,
+            actorSession,
+            "home.setPageTitle",
+            input,
+          );
+          if (draftId) return { result: { ok: true }, draftId };
+          const page = await tx.customPage.findUnique({
+            where: { id: input.id },
+            select: { title: true },
+          });
+          if (!page) throw new TRPCError({ code: "NOT_FOUND" });
+          const title = { ...(page.title as Record<string, string>) };
+          if (input.value.trim()) title[input.locale] = input.value.trim();
+          else delete title[input.locale];
+          await tx.customPage.update({
+            where: { id: input.id },
+            data: { title },
+          });
+          return { result: { ok: true } };
+        },
+      });
+    }),
 
   /** Persist page order (ids in the desired order) — drives nav order. */
   reorderPages: adminProcedure
