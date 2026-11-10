@@ -1,4 +1,5 @@
 import { expect, vi } from "vitest";
+import type * as Pg from "pg";
 
 // Hard interlock: even a broken db mock must never reach a real adapter/socket.
 vi.mock("@prisma/adapter-pg", () => ({
@@ -37,7 +38,7 @@ vi.mock("~/server/db", async () => {
 // Raw-pg-only migration tests bypass the shared singleton. Preserve parser
 // exports used by imported application modules while blocking client creation.
 vi.mock("pg", async (importOriginal) => {
-  const original = await importOriginal<typeof import("pg")>();
+  const original = await importOriginal<typeof Pg>();
   const { appendFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   class ForbiddenClient {

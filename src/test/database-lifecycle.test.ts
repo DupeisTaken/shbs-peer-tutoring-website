@@ -267,15 +267,15 @@ function expectRefused(
   expect(
     result.errors.modules.map(({ file }) => relativeFile(file)).sort(),
   ).toEqual([...files].sort());
-  for (const module of result.errors.modules) {
-    const file = relativeFile(module.file);
+  for (const testModule of result.errors.modules) {
+    const file = relativeFile(testModule.file);
     const expected =
       typeof messages === "string" ? messages : messages.get(file);
     if (!expected) throw new Error(`Missing expected guard for ${file}`);
     const errors = [
-      ...module.errors,
-      ...module.suites.flatMap((suite) => suite.errors),
-      ...module.tests.flatMap((test) => test.errors),
+      ...testModule.errors,
+      ...testModule.suites.flatMap((suite) => suite.errors),
+      ...testModule.tests.flatMap((test) => test.errors),
     ];
     expect(errors.length, file).toBeGreaterThan(0);
     for (const error of errors) {
@@ -310,17 +310,17 @@ function expectRefused(
   expect(result.ledger.map(({ file }) => relativeFile(file)).sort()).toEqual(
     disconnects ? [...files].sort() : [],
   );
-  for (const module of result.errors.modules) {
+  for (const testModule of result.errors.modules) {
     // beforeEach failures belong to cases; afterAll failures belong to the
     // module. These two suites also fail beforeAll, so both hook errors must
     // survive reporting. Setup guard text alone never proves safe teardown.
     const beforeAll = [
       "src/server/api/routers/scoping.test.ts",
       "src/server/api/routers/time-slots.test.ts",
-    ].includes(relativeFile(module.file));
+    ].includes(relativeFile(testModule.file));
     expect(
-      module.errors.length,
-      `Missing teardown guard evidence: ${module.file}`,
+      testModule.errors.length,
+      `Missing teardown guard evidence: ${testModule.file}`,
     ).toBe(disconnects ? (beforeAll ? 2 : 1) : 0);
   }
 }
@@ -374,10 +374,10 @@ it("real failed-setup/teardown lifecycles preserve refused targets, while permit
   expect(permitted.exitCode).toBe(0);
   expect(permitted.errors.reason).toBe("passed");
   expect(permitted.errors.unhandledErrors).toEqual([]);
-  for (const module of permitted.errors.modules) {
-    expect(module.errors).toEqual([]);
-    expect(module.suites.flatMap((suite) => suite.errors)).toEqual([]);
-    expect(module.tests.flatMap((test) => test.errors)).toEqual([]);
+  for (const testModule of permitted.errors.modules) {
+    expect(testModule.errors).toEqual([]);
+    expect(testModule.suites.flatMap((suite) => suite.errors)).toEqual([]);
+    expect(testModule.tests.flatMap((test) => test.errors)).toEqual([]);
   }
   expect(permitted.report.success).toBe(true);
   expect(permitted.report.testResults).toHaveLength(1);
