@@ -189,7 +189,9 @@ export const schoolHoursRowSchema = z.object({
 export const schoolHoursSnapshotSchema = z
   .object({
     schemaVersion: z.literal(1),
-    postingPolicy: z.literal("TENTH_HOUR_CARRY").optional(),
+    postingPolicy: z
+      .enum(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"])
+      .optional(),
     month: schoolHoursMonth,
     revision: z.number().int().positive(),
     generatedAt: z.string(),
@@ -207,8 +209,17 @@ export const schoolHoursSnapshotSchema = z
     }),
   })
   .superRefine((snapshot, context) => {
-    if (snapshot.postingPolicy !== "TENTH_HOUR_CARRY") return;
+    if (snapshot.postingPolicy === undefined) return;
     snapshot.rows.forEach((row, index) => {
+      if (
+        snapshot.postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE" &&
+        row.hoursToAdd < 0
+      )
+        context.addIssue({
+          code: "custom",
+          path: ["rows", index, "hoursToAdd"],
+          message: "Negative balances must be carried instead of posted.",
+        });
       for (const field of ["carryInHours", "carryOutHours"] as const)
         if (row[field] === undefined)
           context.addIssue({

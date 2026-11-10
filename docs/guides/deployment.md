@@ -1044,8 +1044,9 @@ cursor, individual baselines, snapshots and receipts across restarts.
 Tenth-hour posting stores exact signed carry in the existing report JSON, so it
 needs no additional database columns. Replace the application with the updated
 version before generating new editions. On multiple instances, drain old school
-generators and upgrade every writer together: earlier binaries ignore carry and
-must not generate after the first `TENTH_HOUR_CARRY` edition. Recovery after that
+generators and upgrade every writer together: earlier binaries ignore carry or
+apply the superseded signed-posting rule. They must not generate after the first
+`TENTH_HOUR_CARRY_NONNEGATIVE` edition. Recovery after that
 point requires a release compatible with this persisted carry contract, rather
 than a pre-carry binary rollback. Historical editions remain unchanged and readable.
 

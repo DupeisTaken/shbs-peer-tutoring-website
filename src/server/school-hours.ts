@@ -791,7 +791,7 @@ async function preview(db: DomainDb, month: string) {
         -change.deductions,
       ),
       crewChange = change.crew;
-    // The source baseline advances in full, but only whole tenths are posted.
+    // The source baseline advances in full, but only positive whole tenths are posted.
     // The signed remainder travels with this person's baseline, even across
     // months and ownership retirement. Preview and mail retries never consume it.
     const { hoursToAdd, carryOutHours } = quantizeSchoolHours(
@@ -877,7 +877,7 @@ async function preview(db: DomainDb, month: string) {
   }
   const snapshot: SchoolHoursSnapshot = {
     schemaVersion: 1,
-    postingPolicy: "TENTH_HOUR_CARRY",
+    postingPolicy: "TENTH_HOUR_CARRY_NONNEGATIVE",
     month,
     revision: sameMonth ? state.head!.revision + 1 : 1,
     generatedAt: new Date().toISOString(),

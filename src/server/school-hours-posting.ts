@@ -37,17 +37,26 @@ export function sumSchoolHoursCarry(values: readonly string[]): string {
   return total.isZero() ? "0" : total.toString();
 }
 
-/** Each issue posts complete tenths toward zero and retains the exact residual.
- * This is sequential accounting: a later reversal first offsets retained carry.
- * Near a nonzero tenth, a few machine-roundoff units may advance that tenth;
- * the opposite-signed residual remains owed, so no source precision is lost. */
+/** Each issue posts only positive complete tenths and retains the exact balance.
+ * Negative balances are carried in full: later earnings repay that debt before
+ * any further credit posts. Near a positive tenth, machine roundoff may advance
+ * that tenth; its exact residual remains owed, so no source precision is lost. */
 export function quantizeSchoolHours(rawChange: number, carryIn = "0") {
   if (!Number.isFinite(rawChange))
     throw new RangeError("School-hours changes must be finite.");
   const available = new PostingDecimal(rawChange).plus(carryDecimal(carryIn));
+  if (available.lte(0)) {
+    // Never truncate a reversal to tenths or clamp away its outstanding debt.
+    if (available.abs().gt(maximum))
+      throw new RangeError("School-hours carry exceeds supported precision.");
+    return {
+      hoursToAdd: 0,
+      carryOutHours: available.isZero() ? "0" : available.toString(),
+    };
+  }
   let posted = available.toDecimalPlaces(1, PostingDecimal.ROUND_DOWN);
   if (!available.eq(posted)) {
-    const next = posted.plus(available.isNegative() ? tenth.negated() : tenth);
+    const next = posted.plus(tenth);
     const deficit = next.minus(available).abs();
     // Decimal inputs originated as JS numbers (including fractional durations).
     // Two relative machine epsilons cover the 80/60 then 4/60 boundary tail.

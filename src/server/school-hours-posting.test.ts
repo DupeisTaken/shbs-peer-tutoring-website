@@ -9,6 +9,7 @@ const ExactDecimal = Prisma.Decimal.clone({ precision: 700 });
 
 function expectConservation(rawChange: number, carryIn = "0") {
   const result = quantizeSchoolHours(rawChange, carryIn);
+  expect(result.hoursToAdd).toBeGreaterThanOrEqual(0);
   expect(
     new ExactDecimal(result.hoursToAdd)
       .plus(result.carryOutHours)
@@ -33,19 +34,44 @@ describe("school posting tenths and exact carry", () => {
     });
   });
 
-  it("handles negative changes symmetrically, retaining a snapped boundary's exact debt", () => {
+  it("posts zero for negative 80 minutes and carries the entire signed debt through further reductions", () => {
     const first = expectConservation(-80 / 60);
     expect(first).toEqual({
-      hoursToAdd: -1.3,
-      carryOutHours: "-0.0333333333333333",
+      hoursToAdd: 0,
+      carryOutHours: "-1.3333333333333333",
     });
-    expect(expectConservation(-4 / 60, first.carryOutHours)).toEqual({
-      hoursToAdd: -0.1,
-      carryOutHours: "3e-17",
+    const next = expectConservation(-4 / 60, first.carryOutHours);
+    expect(next).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "-1.39999999999999997",
     });
+    expect(expectConservation(0, next.carryOutHours)).toEqual(next);
     expect(expectConservation(-0.19)).toEqual({
-      hoursToAdd: -0.1,
-      carryOutHours: "-0.09",
+      hoursToAdd: 0,
+      carryOutHours: "-0.19",
+    });
+  });
+
+  it("repays debt partially or exactly before posting any new credit", () => {
+    expect(expectConservation(0.4, "-1.3")).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "-0.9",
+    });
+    expect(expectConservation(0.9, "-0.9")).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "0",
+    });
+    expect(expectConservation(0.13, "-0.14")).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "-0.01",
+    });
+    expect(expectConservation(0.19, "-0.14")).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "0.05",
+    });
+    expect(expectConservation(0.25, "-0.14")).toEqual({
+      hoursToAdd: 0.1,
+      carryOutHours: "0.01",
     });
   });
 
@@ -55,8 +81,8 @@ describe("school posting tenths and exact carry", () => {
       carryOutHours: "-0.02",
     });
     expect(expectConservation(-0.11, "-0.02")).toEqual({
-      hoursToAdd: -0.1,
-      carryOutHours: "-0.03",
+      hoursToAdd: 0,
+      carryOutHours: "-0.13",
     });
     expect(expectConservation(0.04, "-0.03")).toEqual({
       hoursToAdd: 0,
@@ -65,7 +91,9 @@ describe("school posting tenths and exact carry", () => {
   });
 
   it("conserves every exact stored decimal across a sequence of issues", () => {
-    const changes = [80 / 60, 4 / 60, 0, -0.09, 1e-16, 0.23, -0.7, -2 / 60];
+    const changes = [
+      80 / 60, 4 / 60, 0, -0.09, 1e-16, 0.23, -0.7, -2 / 60, 0, 0.5, 0.3,
+    ];
     let carry = "0";
     let posted = new ExactDecimal(0);
     let earned = new ExactDecimal(0);
@@ -90,6 +118,18 @@ describe("school posting tenths and exact carry", () => {
     expect(expectConservation(-1e-16)).toEqual({
       hoursToAdd: 0,
       carryOutHours: "-1e-16",
+    });
+    expect(expectConservation(-0.09999999999999997)).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "-0.09999999999999997",
+    });
+    expect(expectConservation(0, "-1e-324")).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "-1e-324",
+    });
+    expect(expectConservation(1e-16, "-1e-16")).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "0",
     });
     expect(expectConservation(1e-16, "0.03").carryOutHours).toBe(
       "0.0300000000000001",
@@ -126,19 +166,48 @@ describe("school posting tenths and exact carry", () => {
     expect(sumSchoolHoursCarry(["0.03", "-0.03"])).toBe("0");
   });
 
+  it("combines positive residuals and full negative debts before releasing credit", () => {
+    const combinedDebt = sumSchoolHoursCarry(["0.06", "-0.19", "0.02"]);
+    expect(combinedDebt).toBe("-0.11");
+    expect(expectConservation(0, combinedDebt)).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "-0.11",
+    });
+    expect(expectConservation(0.2, combinedDebt)).toEqual({
+      hoursToAdd: 0,
+      carryOutHours: "0.09",
+    });
+    const combinedCredit = sumSchoolHoursCarry(["0.16", "-0.03"]);
+    expect(expectConservation(0, combinedCredit)).toEqual({
+      hoursToAdd: 0.1,
+      carryOutHours: "0.03",
+    });
+  });
+
   it("retains tiny carry across the finite JS-number range without changing shared Decimal precision", () => {
     const originalPrecision = Prisma.Decimal.precision;
+    const originalRounding = Prisma.Decimal.rounding;
     const carry = "1e-324";
     expect(expectConservation(1e308, carry)).toEqual({
       hoursToAdd: 1e308,
       carryOutHours: carry,
     });
     expect(expectConservation(Number.MIN_VALUE).carryOutHours).toBe("5e-324");
+    const debt = expectConservation(-1e308, "-1e-324");
+    expect(debt.hoursToAdd).toBe(0);
+    expect(
+      new ExactDecimal(debt.carryOutHours).eq(
+        new ExactDecimal(-1e308).minus("1e-324"),
+      ),
+    ).toBe(true);
+    expect(expectConservation(-Number.MIN_VALUE).carryOutHours).toBe("-5e-324");
     expect(Prisma.Decimal.precision).toBe(originalPrecision);
+    expect(Prisma.Decimal.rounding).toBe(originalRounding);
   });
 
   it("rejects unsupported inputs instead of silently losing decimal conservation", () => {
     expect(() => quantizeSchoolHours(Infinity)).toThrow(RangeError);
+    expect(() => quantizeSchoolHours(-Infinity)).toThrow(RangeError);
     expect(() => quantizeSchoolHours(NaN)).toThrow(RangeError);
     for (const carry of [
       "NaN",
@@ -148,8 +217,14 @@ describe("school posting tenths and exact carry", () => {
       "1e-325",
       "1e309",
       "1e-10000000000000000",
-    ])
+    ]) {
       expect(() => quantizeSchoolHours(0, carry)).toThrow(RangeError);
+      expect(() => sumSchoolHoursCarry([carry])).toThrow(RangeError);
+    }
+    expect(() => quantizeSchoolHours(-Number.MAX_VALUE, "-1e308")).toThrow(
+      RangeError,
+    );
+    expect(() => sumSchoolHoursCarry(["1e308", "1e308"])).toThrow(RangeError);
     expect(() => quantizeSchoolHours(9007199254740992, "0.1")).toThrow(
       RangeError,
     );

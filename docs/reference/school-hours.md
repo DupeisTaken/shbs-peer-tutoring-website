@@ -26,9 +26,10 @@ and extra credit, minus the difference in deductions, plus the difference in Cre
 credit, plus their retained carry. Opposite changes on different people remain
 separate even when the program-wide net is zero.
 
-New editions use `TENTH_HOUR_CARRY`: combine the person's source changes and signed
-incoming remainder, truncate toward zero to a whole tenth of an hour, and retain
-the difference. A tenth is six minutes. For example, 80 minutes posts **1.3 hours**
+New editions use `TENTH_HOUR_CARRY_NONNEGATIVE`: combine the person's source changes
+and signed incoming balance. A negative balance posts **0 hours** and is retained
+in full. A positive balance posts complete tenths of an hour and retains the
+difference. A tenth is six minutes. For example, 80 minutes posts **1.3 hours**
 and retains **2 minutes**; four more minutes in a later report can release another
 **0.1 hour**. Carry follows the person across report months, account retirement and
 explicit ownership merges. It is never pooled between independent people or
@@ -43,19 +44,20 @@ available; no real tiny source value is discarded. Carries are saved atomically
 with the current source baseline, snapshot and outbox. Preview, download, delivery
 retry and an accepted generation retry never advance carry again.
 
-Deductions use the same signed rule. This is sequential posting, not rounding the
-whole month's net again: after posting +0.1, a later −0.06 change is retained as
-−0.06 until later changes reach another tenth. A reversal can offset positive
-carry before producing a deduction. Smaller changes can therefore wait for a
-later round. Reports distinguish raw tutoring/Crew changes from posted amounts,
-and show incoming and outgoing carry; those values reconcile the difference.
+Deductions never become a new negative posting. For example, −80 minutes posts
+**0 hours** and carries an 80-minute deficit. Forty later positive minutes still
+post zero and leave a 40-minute deficit; another 50 minutes repay it, post
+**0.1 hour**, and retain **4 minutes**. Reports therefore add no hours until future
+credit has covered the carried deficit. A source reversal does not reduce an
+already issued month's posting; it becomes carry. Raw tutoring/Crew changes and
+signed carry remain visible as accounting evidence and are not entry instructions.
 
-Older snapshots without the policy or carry remain immutable and keep their
-original full-precision instructions. Their missing baseline carry means zero.
+Older snapshots, including the earlier signed `TENTH_HOUR_CARRY` policy, remain
+immutable and retain their original instructions. A missing baseline carry means zero.
 New corrections add tenth-hour increments to the saved monthly amount; they do
 not retroactively quantize an older edition. A replacement total or comparison
 against a legacy edition may consequently retain its historical precision.
-Email shows each person's actual signed posting amount once. The report and CSV
+Email shows each person's actual posting amount once. The report and CSV
 retain source breakdowns, carry and earlier-edition choices. Long legacy values
 retain the existing readable fallback. Opening-review summaries
 keep exact source amounts in screen-reader text and the evidence dialog, without

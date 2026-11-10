@@ -44,7 +44,8 @@ export function publicSchoolHoursReport(
         monthAmount: edition.monthAmount,
         correctionToCurrent: edition.correctionToCurrent,
       })),
-      ...(parsed.postingPolicy === "TENTH_HOUR_CARRY"
+      ...(parsed.postingPolicy === "TENTH_HOUR_CARRY" ||
+      parsed.postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE"
         ? { carryInHours: row.carryInHours, carryOutHours: row.carryOutHours }
         : {}),
     })),
@@ -141,7 +142,10 @@ export function schoolHoursHtmlResponse(
 }
 
 export function schoolHoursCsv(report: SchoolHoursPublicReport) {
-  const carryPolicy = report.postingPolicy === "TENTH_HOUR_CARRY";
+  const nonnegativePolicy =
+    report.postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE";
+  const carryPolicy =
+    report.postingPolicy === "TENTH_HOUR_CARRY" || nonnegativePolicy;
   const visibleRows = schoolHoursVisibleRows(report);
   const priorRevisions = [
     ...new Set(
@@ -158,9 +162,13 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       "Revision",
       "Individual",
       "School account",
-      report.revision > 1
-        ? `Correction ONLY if r${report.revision - 1} was last applied (negative = deduct)`
-        : "Hours to apply once (negative = deduct)",
+      nonnegativePolicy
+        ? report.revision > 1
+          ? `Correction ONLY if r${report.revision - 1} was last applied (0 = nothing to enter)`
+          : "Hours to apply once (0 = nothing to enter)"
+        : report.revision > 1
+          ? `Correction ONLY if r${report.revision - 1} was last applied (negative = deduct)`
+          : "Hours to apply once (negative = deduct)",
       carryPolicy
         ? "Raw tutoring change (hours; not extra credit)"
         : "Tutoring breakdown",
@@ -200,11 +208,15 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       row.unchanged ? "Yes" : "No",
       row.previousMonthAmount,
       row.monthComparison,
-      report.revision > 1
-        ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team."
-        : carryPolicy
-          ? "Apply this individual's amount once. Raw changes and carry are informational; do not enter them separately."
-          : "Apply this individual's amount once; the breakdown is not extra credit.",
+      nonnegativePolicy
+        ? report.revision > 1
+          ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team. A highlighted 0 means nothing to enter now. If a correction from an earlier signed edition is negative, contact the program team before posting."
+          : "Apply this individual's amount once. A 0 means nothing to enter now. Raw changes and carry are informational; do not enter them separately."
+        : report.revision > 1
+          ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team."
+          : carryPolicy
+            ? "Apply this individual's amount once. Raw changes and carry are informational; do not enter them separately."
+            : "Apply this individual's amount once; the breakdown is not extra credit.",
       ...priorRevisions.map(
         (revision) =>
           schoolHoursPriorEditions(row, report.revision).find(
@@ -215,7 +227,9 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
         ? [
             row.carryInHours ?? null,
             row.carryOutHours ?? null,
-            "Post in 0.1 h (6 min) increments. Carry in + raw changes - posted change = carry out. Carry is retained automatically; never post it separately.",
+            nonnegativePolicy
+              ? "Post in 0.1 h (6 min) increments. A 0 means nothing to enter now. Carry in + raw changes - posted change = carry out. The full negative balance is retained automatically and automatically offsets future earned hours; never post it separately."
+              : "Post in 0.1 h (6 min) increments. Carry in + raw changes - posted change = carry out. Carry is retained automatically; never post it separately.",
           ]
         : []),
     ]);

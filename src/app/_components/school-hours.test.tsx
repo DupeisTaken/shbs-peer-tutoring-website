@@ -413,12 +413,17 @@ function addRecipient(email: string, label = "") {
   );
 }
 
-it.each(["en", "zh"] as const)(
-  "shows posted tenths, raw changes and retained minute evidence in report previews (%s)",
-  (locale) => {
+it.each([
+  ["en", "TENTH_HOUR_CARRY"],
+  ["zh", "TENTH_HOUR_CARRY"],
+  ["en", "TENTH_HOUR_CARRY_NONNEGATIVE"],
+  ["zh", "TENTH_HOUR_CARRY_NONNEGATIVE"],
+] as const)(
+  "shows posted tenths, raw changes and retained minute evidence in report previews (%s, %s)",
+  (locale, postingPolicy) => {
     const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
     const snapshot = preview();
-    snapshot.postingPolicy = "TENTH_HOUR_CARRY";
+    snapshot.postingPolicy = postingPolicy;
     snapshot.rows = [
       {
         ...row("Alex", 80 / 60, 0),
@@ -430,7 +435,9 @@ it.each(["en", "zh"] as const)(
     ];
     render(show(<SchoolHoursPreview preview={snapshot} />, locale));
     expect(
-      screen.getByText(`${copy.carryPolicyNotice} ${copy.carryReconciliation}`),
+      screen.getByText(
+        `${postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE" ? copy.nonnegativeCarryPolicyNotice : copy.carryPolicyNotice} ${copy.carryReconciliation}`,
+      ),
     ).toBeTruthy();
     for (const role of ["list", "table"]) {
       const view = within(
@@ -464,6 +471,43 @@ it.each(["en", "zh"] as const)(
         copy.exactCarryHours.replace("{hours}", "0.0333333333333333"),
       ),
     ).toBeTruthy();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "explains a zero instruction and full carried debt in the nonnegative %s preview",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const snapshot = preview();
+    snapshot.postingPolicy = "TENTH_HOUR_CARRY_NONNEGATIVE";
+    snapshot.rows = [
+      {
+        ...row("Blair", -80 / 60, 0),
+        hoursToAdd: 0,
+        monthAmount: 0,
+        carryInHours: "0",
+        carryOutHours: "-1.3333333333333333",
+      },
+    ];
+    render(show(<SchoolHoursPreview preview={snapshot} />, locale));
+    expect(screen.getByText(copy.nonnegativeApplyInstructions)).toBeTruthy();
+    expect(
+      screen.getByText(
+        `${copy.nonnegativeCarryPolicyNotice} ${copy.carryReconciliation}`,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(copy.carryApplyInstructions)).toBeNull();
+    for (const role of ["list", "table"]) {
+      const view = within(
+        screen.getByRole(role, { name: copy.individualAmounts }),
+      );
+      expect(view.getAllByText("0").length).toBeGreaterThan(0);
+      expect(
+        view.getByTitle(
+          copy.exactCarryHours.replace("{hours}", "-1.3333333333333333"),
+        ).firstChild?.textContent,
+      ).toBe(copy.carryMinutes.replace("{minutes}", "-80"));
+    }
   },
 );
 

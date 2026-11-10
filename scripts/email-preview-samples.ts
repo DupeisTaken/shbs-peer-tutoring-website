@@ -109,7 +109,8 @@ function schoolReportLegacyPreview(revision = 1): SchoolHoursPublicReport {
 }
 
 /** 80 min posts as 1.3 h with 2 min retained; another 4 min releases 0.1 h.
- * Negative and zero-post examples use synthetic school accounts only. */
+ * Blair carries 80 min of debt, offsets 40 min, then earns 50 min: 0.1 h posts
+ * and 4 min remains. All examples use synthetic school accounts only. */
 export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
   const report = schoolReportLegacyPreview(revision);
   const rawAlex = revision === 1 ? 80 / 60 : revision === 2 ? 4 / 60 : 5 / 60;
@@ -138,34 +139,43 @@ export function schoolReportPreview(revision = 1): SchoolHoursPublicReport {
         : [],
   });
   Object.assign(report.rows[1]!, {
-    tutoringChange: -rawAlex,
-    hoursToAdd: -postedAlex,
-    monthAmount: revision === 1 ? -1.3 : -1.4,
-    previousEditionAmount: revision === 1 ? null : revision === 2 ? -1.3 : -1.4,
-    carryInHours: revision === 2 ? "-0.0333333333333333" : "0",
+    tutoringChange:
+      revision === 1 ? -80 / 60 : revision === 2 ? 40 / 60 : 50 / 60,
+    hoursToAdd: revision < 3 ? 0 : 0.1,
+    monthAmount: revision < 3 ? 0 : 0.1,
+    previousEditionAmount: revision === 1 ? null : 0,
+    carryInHours:
+      revision === 1
+        ? "0"
+        : revision === 2
+          ? "-1.3333333333333333"
+          : "-0.6666666666666667",
     carryOutHours:
       revision === 1
-        ? "-0.0333333333333333"
+        ? "-1.3333333333333333"
         : revision === 2
-          ? "0"
-          : "-0.0833333333333333",
-    unchanged: false,
+          ? "-0.6666666666666667"
+          : "0.0666666666666666",
+    unchanged: revision === 2,
     priorEditions:
       revision > 2
         ? [
-            { revision: 1, monthAmount: -1.3, correctionToCurrent: -0.1 },
-            { revision: 2, monthAmount: -1.4, correctionToCurrent: 0 },
+            { revision: 1, monthAmount: 0, correctionToCurrent: 0.1 },
+            { revision: 2, monthAmount: 0, correctionToCurrent: 0.1 },
           ]
         : [],
   });
   Object.assign(report.rows[2]!, { carryInHours: "0", carryOutHours: "0" });
-  report.postingPolicy = "TENTH_HOUR_CARRY";
+  report.postingPolicy = "TENTH_HOUR_CARRY_NONNEGATIVE";
   report.totals = {
     people: 3,
-    tutoringChange: revision === 1 ? 2 : 0,
+    tutoringChange: report.rows.reduce(
+      (total, row) => total + row.tutoringChange,
+      0,
+    ),
     crewChange: 0,
-    hoursToAdd: revision === 1 ? 2 : 0,
-    monthAmount: 2,
+    hoursToAdd: report.rows.reduce((total, row) => total + row.hoursToAdd, 0),
+    monthAmount: report.rows.reduce((total, row) => total + row.monthAmount, 0),
   };
   return report;
 }

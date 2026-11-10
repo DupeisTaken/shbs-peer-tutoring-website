@@ -7943,6 +7943,9 @@
     }
   },
   "schoolHours": {
+    "nonnegativeCarryPolicyNotice": "School hours are posted in 0.1 h (6 min) increments. A 0 means nothing to enter now. Any remainder is retained automatically. The full negative balance automatically offsets future earned hours; do not enter carry separately.",
+    "nonnegativeApplyInstructions": "Apply the highlighted amount once to the named individual's account. A 0 means nothing to enter now. Raw tutoring and Crew changes are for reconciliation; do not enter them separately.",
+    "nonnegativeRevisionInstructions": "Choose the correction for the last edition actually applied. If none was applied, use the corrected full-month amount once. Never apply both. The highlighted change is relative to the immediately previous edition. A highlighted 0 means nothing to enter now. If a correction from an earlier signed edition is negative, contact the program team before posting.",
     "carryPolicyNotice": "School hours are posted in 0.1 h (6 min) increments. Any remainder is retained automatically for a later report; do not enter it separately.",
     "carryReconciliation": "Carry in + raw changes − posted change = carry out.",
     "carryApplyInstructions": "Apply the highlighted amount once to the named individual's account. Negative amounts deduct hours. Raw tutoring and Crew changes are for reconciliation; do not enter them separately.",

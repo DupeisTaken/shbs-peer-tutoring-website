@@ -17,9 +17,12 @@ const parse = (html: string) =>
   new DOMParser().parseFromString(html, "text/html");
 const unit = (locale: EmailLocale) => (locale === "zh" ? "小时" : "h");
 
-function carryReport() {
+function carryReport(
+  postingPolicy:
+    "TENTH_HOUR_CARRY" | "TENTH_HOUR_CARRY_NONNEGATIVE" = "TENTH_HOUR_CARRY",
+) {
   const snapshot = schoolHoursTestSnapshot();
-  snapshot.postingPolicy = "TENTH_HOUR_CARRY";
+  snapshot.postingPolicy = postingPolicy;
   snapshot.rows = [
     {
       ...snapshot.rows[0]!,
@@ -40,6 +43,110 @@ function carryReport() {
   };
   return publicSchoolHoursReport(snapshot);
 }
+
+it.each(["en", "zh"] as const)(
+  "keeps full debt pending until future earnings offset it in %s deliveries",
+  (locale) => {
+    const report = carryReport("TENTH_HOUR_CARRY_NONNEGATIVE");
+    const cases = [
+      {
+        raw: -80 / 60,
+        carryIn: "0",
+        carryOut: "-1.3333333333333333",
+        posted: 0,
+        minutes: "80",
+      },
+      {
+        raw: 40 / 60,
+        carryIn: "-1.3333333333333333",
+        carryOut: "-0.6666666666666667",
+        posted: 0,
+        minutes: "40",
+      },
+      {
+        raw: 50 / 60,
+        carryIn: "-0.6666666666666667",
+        carryOut: "0.0666666666666666",
+        posted: 0.1,
+        minutes: "4",
+      },
+    ];
+    for (const [index, example] of cases.entries()) {
+      report.revision = index + 1;
+      Object.assign(report.rows[0]!, {
+        tutoringChange: example.raw,
+        hoursToAdd: example.posted,
+        monthAmount: example.posted,
+        previousEditionAmount: index === 0 ? null : 0,
+        unchanged: index === 1,
+        carryInHours: example.carryIn,
+        carryOutHours: example.carryOut,
+      });
+      const email = schoolHoursEmailCopy({ report, reportUrl, locale });
+      const doc = parse(email.html);
+      const card = doc.querySelector(".person")!;
+      expect(card.querySelector(".email-amount")?.textContent).toBe(
+        `${example.posted === 0 ? "0" : "+0.1"} ${unit(locale)}`,
+      );
+      expect(card.textContent).toContain(
+        locale === "zh" ? `${example.minutes} 分钟` : `${example.minutes} min`,
+      );
+      expect(email.text).toContain(
+        locale === "zh"
+          ? "负数余额全额结转，自动抵扣今后获得的时数"
+          : "full negative balance automatically offsets future earned hours",
+      );
+      expect(email.text).not.toContain(
+        locale === "zh" ? "负数表示扣减" : "Negative amounts deduct hours",
+      );
+      if (example.posted === 0)
+        expect(card.textContent).toContain(
+          locale === "zh" ? "本次无需入账" : "Nothing to enter now",
+        );
+      const csv = schoolHoursCsv(report).content;
+      expect(csv).toContain("0 = nothing to enter");
+      expect(csv).toContain("full negative balance is retained automatically");
+      expect(csv).toContain(example.carryOut);
+      expect(csv).not.toContain("negative = deduct");
+      const saved = renderSchoolHoursContent(report);
+      expect(saved).toContain(
+        "full negative balance automatically offsets future earned hours",
+      );
+      expect(saved).not.toContain("Negative corrections are deductions");
+    }
+  },
+);
+
+it("retains historical signed-edition alternatives in a nonnegative report", () => {
+  const report = carryReport("TENTH_HOUR_CARRY_NONNEGATIVE");
+  report.revision = 3;
+  Object.assign(report.rows[0]!, {
+    hoursToAdd: 0,
+    monthAmount: 0,
+    previousEditionAmount: 0,
+    priorEditions: [
+      { revision: 1, monthAmount: 1.3, correctionToCurrent: -1.3 },
+      { revision: 2, monthAmount: 0, correctionToCurrent: 0 },
+    ],
+    carryOutHours: "-1.3333333333333333",
+  });
+  const saved = parse(renderSchoolHoursContent(report));
+  expect(saved.querySelector(".edition-choices")?.textContent).toContain(
+    "-1.3 h",
+  );
+  expect(saved.body.textContent).toContain(
+    "contact the program team before posting",
+  );
+  expect(schoolHoursCsv(report).content).toContain(
+    "If last applied r1: correction to apply now",
+  );
+  expect(schoolHoursCsv(report).content).toContain(",-1.3,0,");
+  const email = schoolHoursEmailCopy({ report, reportUrl });
+  expect(parse(email.html).querySelector(".email-amount")?.textContent).toBe(
+    "0 h",
+  );
+  expect(email.text).not.toContain("-1.3 h");
+});
 
 it.each(["en", "zh"] as const)(
   "posts exact tenths with one concise %s carry notice",

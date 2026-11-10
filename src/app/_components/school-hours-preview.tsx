@@ -73,10 +73,11 @@ export function SchoolHoursIndividuals({
   revision: number;
   includeStatistics?: boolean;
   showEvidence?: boolean;
-  postingPolicy?: "TENTH_HOUR_CARRY";
+  postingPolicy?: "TENTH_HOUR_CARRY" | "TENTH_HOUR_CARRY_NONNEGATIVE";
 }) {
   const t = useTranslations("schoolHours");
-  const carryPolicy = postingPolicy === "TENTH_HOUR_CARRY";
+  const nonnegativePolicy = postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE";
+  const carryPolicy = postingPolicy === "TENTH_HOUR_CARRY" || nonnegativePolicy;
   const carry = (value: string | undefined) =>
     value === undefined ? (
       t("none")
@@ -154,16 +155,25 @@ export function SchoolHoursIndividuals({
     <div className="min-w-0 space-y-3">
       <p className="text-sm text-slate-700">
         {t(
-          revision > 1
-            ? "revisionInstructions"
-            : carryPolicy
-              ? "carryApplyInstructions"
-              : "applyInstructions",
+          nonnegativePolicy
+            ? revision > 1
+              ? "nonnegativeRevisionInstructions"
+              : "nonnegativeApplyInstructions"
+            : revision > 1
+              ? "revisionInstructions"
+              : carryPolicy
+                ? "carryApplyInstructions"
+                : "applyInstructions",
         )}
       </p>
       {carryPolicy && (
         <p className="text-sm text-slate-700">
-          {t("carryPolicyNotice")} {t("carryReconciliation")}
+          {t(
+            nonnegativePolicy
+              ? "nonnegativeCarryPolicyNotice"
+              : "carryPolicyNotice",
+          )}{" "}
+          {t("carryReconciliation")}
         </p>
       )}
       {/* Keep the person and exact credit together on narrow screens, where

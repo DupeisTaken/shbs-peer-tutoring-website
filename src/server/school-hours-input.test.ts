@@ -123,50 +123,85 @@ describe("school report posting policy compatibility", () => {
     ).toEqual(parsed);
   });
 
-  it("round-trips signed decimal carry metadata while preserving raw source changes", () => {
+  it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"])(
+    "round-trips %s signed decimal carry metadata while preserving raw source changes",
+    (postingPolicy) => {
+      const report = {
+        ...legacySnapshot,
+        postingPolicy,
+        rows: [
+          {
+            ...legacyRow,
+            hoursToAdd: 1.2,
+            monthAmount: 1.2,
+            carryInHours: "-0.0000000000000001",
+            carryOutHours: "0.0499999999999999",
+          },
+        ],
+        totals: { ...legacySnapshot.totals, hoursToAdd: 1.2, monthAmount: 1.2 },
+      };
+      const parsed = schoolHoursSnapshotSchema.parse(
+        JSON.parse(JSON.stringify(report)),
+      );
+      expect(parsed).toMatchObject(report);
+      expect(parsed.rows[0]?.tutoringChange).toBe(1.25);
+      expect(
+        schoolHoursRowSchema.parse({
+          ...legacyRow,
+          carryInHours: "1e-16",
+          carryOutHours: "-2e-16",
+        }),
+      ).toMatchObject({
+        carryInHours: "1e-16",
+        carryOutHours: "-2e-16",
+      });
+    },
+  );
+
+  it.each(
+    ["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"].flatMap(
+      (postingPolicy) =>
+        [{}, { carryInHours: "0" }, { carryOutHours: "0.05" }].map(
+          (carry) => ({ postingPolicy, carry }),
+        ),
+    ),
+  )(
+    "requires both carry fields for each row under $postingPolicy: $carry",
+    ({ postingPolicy, carry }) => {
+      expect(
+        schoolHoursSnapshotSchema.safeParse({
+          ...legacySnapshot,
+          postingPolicy,
+          rows: [{ ...legacyRow, ...carry }],
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it("preserves an earlier signed-posting policy's negative immutable instruction", () => {
     const report = {
       ...legacySnapshot,
       postingPolicy: "TENTH_HOUR_CARRY",
       rows: [
         {
           ...legacyRow,
-          hoursToAdd: 1.2,
-          monthAmount: 1.2,
-          carryInHours: "-0.0000000000000001",
-          carryOutHours: "0.0499999999999999",
+          tutoringChange: -2,
+          hoursToAdd: -2,
+          monthAmount: -2,
+          carryInHours: "0",
+          carryOutHours: "-0.03",
         },
       ],
-      totals: { ...legacySnapshot.totals, hoursToAdd: 1.2, monthAmount: 1.2 },
+      totals: { ...legacySnapshot.totals, hoursToAdd: -2, monthAmount: -2 },
     };
-    const parsed = schoolHoursSnapshotSchema.parse(
-      JSON.parse(JSON.stringify(report)),
-    );
-    expect(parsed).toMatchObject(report);
-    expect(parsed.rows[0]?.tutoringChange).toBe(1.25);
+    expect(schoolHoursSnapshotSchema.parse(report)).toMatchObject(report);
     expect(
-      schoolHoursRowSchema.parse({
-        ...legacyRow,
-        carryInHours: "1e-16",
-        carryOutHours: "-2e-16",
-      }),
-    ).toMatchObject({
-      carryInHours: "1e-16",
-      carryOutHours: "-2e-16",
-    });
+      schoolHoursSnapshotSchema.safeParse({
+        ...report,
+        postingPolicy: "TENTH_HOUR_CARRY_NONNEGATIVE",
+      }).success,
+    ).toBe(false);
   });
-
-  it.each([{}, { carryInHours: "0" }, { carryOutHours: "0.05" }])(
-    "requires both carry fields for each row under the posting policy: %j",
-    (carry) => {
-      expect(
-        schoolHoursSnapshotSchema.safeParse({
-          ...legacySnapshot,
-          postingPolicy: "TENTH_HOUR_CARRY",
-          rows: [{ ...legacyRow, ...carry }],
-        }).success,
-      ).toBe(false);
-    },
-  );
 
   it.each([
     0.05,

@@ -1427,8 +1427,11 @@ hours to school recipients. The highlighted amount is what to add to that person
 school account. New reports combine tutoring and Crew changes, post complete
 0.1-hour steps (six minutes), and carry the unposted remainder to the next round,
 including across months. For example, 80 minutes posts 1.3 hours and retains two
-minutes; four later minutes release another 0.1 hour. Deductions carry in the same
-way, and a reversal can cancel carried time before anything is posted. Do not add
+minutes; four later minutes release another 0.1 hour. A negative balance posts
+zero hours and carries in full. Future earned hours first cover that deficit:
+−80 minutes followed by +40 still posts zero and carries −40 minutes; another
++50 minutes then posts 0.1 hour and carries +4 minutes. A reversal can offset
+carried time without reducing an already issued posting. Do not add
 source breakdowns or carried minutes to the highlighted amount. Late submissions and new or
 reversed deductions are reconciled against that person's last reported balance.
 There is no semester reset. The old admin monthly overview has been removed.
