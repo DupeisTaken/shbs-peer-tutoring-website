@@ -58,7 +58,8 @@ import { requestMembership, recallMembership } from "~/server/membership";
 import { approvalScope } from "~/server/db-scope";
 import { requirePolicy } from "~/server/policy-acceptance";
 import { validateInterviewDecision } from "~/server/interviews";
-import { reconcileMeetingHours } from "~/server/meeting-hours";
+import { captureMeetingHours, reconcileMeetingHours } from "~/server/meeting-hours";
+import { meetingForTutorExcuse, selfMeetingExcuseIds, staffMeetingAttendanceConflict } from "~/server/meeting-excuse";
 import { TRPCError } from "@trpc/server";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
@@ -2361,27 +2362,47 @@ export const tutorRouter = createTRPCRouter({
   /** Recall (cancel) the caller's own pending opt-out while it's still in the recall window. */
   recallTuteeRemoval: tutorProcedure
     .input(z.object({ requestId: z.string().cuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const res = await ctx.db.tuteeRemovalRequest.updateMany({
-        where: {
-          id: input.requestId,
-          requestedByTutorId: ctx.session.tutorId,
-          state: "PENDING",
-        },
-        data: {
-          state: "RECALLED",
-          resolvedAt: new Date(),
-          resolvedByName: "self",
-        },
-      });
-      if (res.count === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No open request to recall.",
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Take the period fence before the participant, matching finalization
+        // and recovery. The winner holds it through its pending-state write.
+        await lockEntity(tx, "program:period");
+        const request = await tx.tuteeRemovalRequest.findFirst({
+          where: {
+            id: input.requestId,
+            requestedByTutorId: ctx.session.tutorId,
+            state: "PENDING",
+          },
+          select: { tuteeId: true },
         });
-      }
-      return { ok: true };
-    }),
+        if (!request) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No open request to recall.",
+          });
+        }
+        await lockEntity(tx, `tutee:${request.tuteeId}`);
+        const res = await tx.tuteeRemovalRequest.updateMany({
+          where: {
+            id: input.requestId,
+            requestedByTutorId: ctx.session.tutorId,
+            state: "PENDING",
+          },
+          data: {
+            state: "RECALLED",
+            resolvedAt: new Date(),
+            resolvedByName: "self",
+          },
+        });
+        if (res.count === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No open request to recall.",
+          });
+        }
+        return { ok: true };
+      }),
+    ),
 
   /**
    * Start-of-term activation. After a semester refresh a continuing tutor is PENDING and must
@@ -2475,12 +2496,17 @@ export const tutorRouter = createTRPCRouter({
           date: true,
           attendances: {
             where: { tutorId: ctx.session.tutorId },
-            select: { status: true, reason: true, excusedAt: true },
+            select: { id: true, status: true, reason: true, excusedAt: true },
           },
         },
       });
+      const selfExcuses = await selfMeetingExcuseIds(
+        ctx.db,
+        meetings.flatMap((meeting) => meeting.attendances),
+      );
       return meetings.map((meeting) => {
         const own = meeting.attendances[0];
+        const excused = !!own && selfExcuses.has(own.id);
         return {
           id: meeting.id,
           title: meeting.title,
@@ -2488,9 +2514,10 @@ export const tutorRouter = createTRPCRouter({
           status: own?.status ?? null,
           reason: own?.reason ?? null,
           upcoming: meeting.date >= now,
-          excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
+          excused,
           canExcuse:
             !historical &&
+            (!own || excused) &&
             now.getTime() <=
               meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
         };
@@ -2509,20 +2536,27 @@ export const tutorRouter = createTRPCRouter({
         date: true,
         attendances: {
           where: { tutorId: ctx.session.tutorId },
-          select: { status: true, reason: true, excusedAt: true },
+          select: { id: true, status: true, reason: true, excusedAt: true },
         },
       },
     });
+    const selfExcuses = await selfMeetingExcuseIds(
+      ctx.db,
+      meetings.flatMap((meeting) => meeting.attendances),
+    );
     return meetings.map((m) => {
       const mine = m.attendances[0] ?? null;
+      const excused = !!mine && selfExcuses.has(mine.id);
       return {
         id: m.id,
         title: m.title,
         date: m.date,
+        status: mine?.status ?? null,
         reason: mine?.reason ?? null,
-        excused: mine?.status === "EXCUSED_ABSENT" && mine.excusedAt != null,
-        // True until the cutoff (60 min before the meeting) passes.
+        excused,
+        // Staff attendance requires staff correction, even before the cutoff.
         canExcuse:
+          (!mine || excused) &&
           now.getTime() <=
           m.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
       };
@@ -2532,8 +2566,8 @@ export const tutorRouter = createTRPCRouter({
   /**
    * Self-excuse an absence from an upcoming meeting (sets the tutor's attendance to EXCUSED_ABSENT
    * with a reason + timestamp). Allowed only until 60 min before the meeting; an active tutor only.
-   * Surfaces to coordinators on /admin/meetings (panel + notification). Clears any stray
-   * unexcused-absence deduction for this meeting.
+   * Surfaces to coordinators on /admin/meetings (panel + notification). Applies
+   * only the logical deduction changes caused by this attendance change.
    */
   excuseMeeting: activeTutorProcedure
     .input(
@@ -2543,45 +2577,43 @@ export const tutorRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "MEETINGS");
-      const meeting = await ctx.db.tutorMeeting.findUnique({
-        where: { id: input.meetingId },
-        select: { id: true, title: true, date: true },
-      });
-      if (!meeting)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Meeting not found.",
-        });
-      if (
-        Date.now() >
-        meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Too late to excuse — this meeting is within 60 minutes.",
-        });
-      }
       const reason = input.reason?.trim() ? input.reason.trim() : null;
-      await ctx.db.$transaction(async (tx) => {
-        await lockEntity(tx, `meeting-hours:${ctx.session.tutorId}`);
-        await tx.meetingAttendance.upsert({
+      const meeting = await inTransaction(ctx.db, async (tx) => {
+        const currentMeeting = await meetingForTutorExcuse(tx, {
+          userId: ctx.session.user.id, tutorId: ctx.session.tutorId, meetingId: input.meetingId,
+        });
+        if (Date.now() > currentMeeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Too late to excuse — this meeting is within 60 minutes.",
+          });
+        const current = await tx.meetingAttendance.findUnique({
           where: {
             meetingId_tutorId: {
               meetingId: input.meetingId,
               tutorId: ctx.session.tutorId,
             },
           },
-          update: { status: "EXCUSED_ABSENT", reason, excusedAt: new Date() },
-          create: {
-            meetingId: input.meetingId,
-            tutorId: ctx.session.tutorId,
-            status: "EXCUSED_ABSENT",
-            reason,
-            excusedAt: new Date(),
-          },
         });
-        await reconcileMeetingHours(tx, ctx.session.tutorId);
+        const before = await captureMeetingHours(tx, ctx.session.tutorId);
+        const excusedAt = new Date();
+        if (current) {
+          if (!(await selfMeetingExcuseIds(tx, [current])).has(current.id))
+            staffMeetingAttendanceConflict();
+          // Keep source ownership in the write predicate as well as the fenced read.
+          const changed = await tx.meetingAttendance.updateMany({
+            where: { id: current.id, status: "EXCUSED_ABSENT", excusedAt: current.excusedAt },
+            data: { reason, excusedAt },
+          });
+          if (changed.count !== 1) staffMeetingAttendanceConflict();
+        } else {
+          await tx.meetingAttendance.create({ data: {
+            meetingId: input.meetingId, tutorId: ctx.session.tutorId,
+            status: "EXCUSED_ABSENT", reason, excusedAt,
+          } });
+        }
+        await reconcileMeetingHours(tx, ctx.session.tutorId, before);
+        return currentMeeting;
       });
       const tutor = await ctx.db.tutor.findUnique({
         where: { id: ctx.session.tutorId },
@@ -2602,34 +2634,29 @@ export const tutorRouter = createTRPCRouter({
   /** Cancel a self-excuse (only one the tutor submitted, and only while still >60 min out). */
   cancelMeetingExcuse: activeTutorProcedure
     .input(z.object({ meetingId: z.string().cuid() }))
-    .mutation(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "MEETINGS");
-      const meeting = await ctx.db.tutorMeeting.findUnique({
-        where: { id: input.meetingId },
-        select: { date: true },
-      });
-      if (!meeting)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Meeting not found.",
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const meeting = await meetingForTutorExcuse(tx, {
+          userId: ctx.session.user.id, tutorId: ctx.session.tutorId, meetingId: input.meetingId,
         });
-      if (
-        Date.now() >
-        meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Too late to change — this meeting is within 60 minutes.",
-        });
-      }
-      // Only remove a tutor-submitted excuse (excusedAt set), never an admin-recorded status.
-      await ctx.db.meetingAttendance.deleteMany({
-        where: {
-          meetingId: input.meetingId,
-          tutorId: ctx.session.tutorId,
-          excusedAt: { not: null },
-        },
-      });
-      return { ok: true };
-    }),
+        if (Date.now() > meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Too late to change — this meeting is within 60 minutes.",
+          });
+        const current = await tx.meetingAttendance.findUnique({ where: {
+          meetingId_tutorId: { meetingId: input.meetingId, tutorId: ctx.session.tutorId },
+        } });
+        if (!current) return { ok: true };
+        if (!(await selfMeetingExcuseIds(tx, [current])).has(current.id))
+          staffMeetingAttendanceConflict();
+        const before = await captureMeetingHours(tx, ctx.session.tutorId);
+        const removed = await tx.meetingAttendance.deleteMany({ where: {
+          id: current.id, status: "EXCUSED_ABSENT", excusedAt: current.excusedAt,
+        } });
+        if (removed.count !== 1) staffMeetingAttendanceConflict();
+        await reconcileMeetingHours(tx, ctx.session.tutorId, before);
+        return { ok: true };
+      }),
+    ),
 });

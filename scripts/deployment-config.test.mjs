@@ -98,6 +98,7 @@ test("CLI packaging guard catches omitted recovery acceptance descendants", () =
     "src/server/recovery/operator-cutover.ts",
     "src/server/recovery/operator-next.ts",
     "src/server/recovery/receipt-guard-metadata.ts",
+    "src/server/discipline/punishment-restoration.ts",
     "src/lib/session-identity.ts",
     "src/lib/tutoring-policy.ts",
     "src/server/program/calendar-policy-history.ts",

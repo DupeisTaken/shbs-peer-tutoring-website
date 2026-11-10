@@ -151,7 +151,11 @@ import {
   stampStudentAssignment,
 } from "~/server/student-request-state";
 import { validatePanel } from "~/server/interviews";
-import { reconcileMeetingHours } from "~/server/meeting-hours";
+import {
+  captureMeetingHours,
+  reconcileMeetingHours,
+  type MeetingHoursSnapshot,
+} from "~/server/meeting-hours";
 import { assertMutableProgramRecords } from "~/server/imported-records";
 import {
   createRoomBlockSchema,
@@ -3812,6 +3816,8 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await assertFeatureEnabled(ctx.db, "MEETINGS");
       return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await assertFeatureEnabled(tx, "MEETINGS");
         await lockEntity(tx, `meeting-record:${input.id}`);
         const participants = await tx.meetingAttendance.findMany({
           where: { meetingId: input.id },
@@ -3824,15 +3830,19 @@ export const adminRouter = createTRPCRouter({
             recordId: row.id,
           })),
         ]);
-        for (const id of [
+        const tutorIds = [
           ...new Set(participants.map((p) => p.tutorId)),
-        ].sort())
-          await lockEntity(tx, `meeting-hours:${id}`);
+        ].sort();
+        for (const id of tutorIds) await lockEntity(tx, `meeting-hours:${id}`);
+        await tx.$queryRaw`SELECT id FROM "TutorMeeting" WHERE id=${input.id} FOR SHARE`;
+        const before = new Map<string, MeetingHoursSnapshot>();
+        for (const id of tutorIds)
+          before.set(id, await captureMeetingHours(tx, id));
         const removed = await tx.tutorMeeting.delete({
           where: { id: input.id },
         });
-        for (const p of participants)
-          await reconcileMeetingHours(tx, p.tutorId);
+        for (const id of tutorIds)
+          await reconcileMeetingHours(tx, id, before.get(id)!);
         return removed;
       });
     }),
@@ -3847,27 +3857,24 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "MEETINGS");
-      const meeting = await ctx.db.tutorMeeting.findUnique({
-        where: { id: input.meetingId },
-        select: {
-          date: true,
-          term: { select: { schoolYear: true, quarter: true } },
-        },
-      });
-      if (!meeting)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Meeting not found.",
-        });
-      // Deductions land in the meeting's month, scoped to its term (or the active period).
-
-      await ctx.db.$transaction(async (tx) => {
+      await inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await assertFeatureEnabled(tx, "MEETINGS");
         await lockEntity(tx, `meeting-record:${input.meetingId}`);
-        for (const id of [
+        const tutorIds = [
           ...new Set(input.entries.map((e) => e.tutorId)),
-        ].sort())
-          await lockEntity(tx, `meeting-hours:${id}`);
+        ].sort();
+        for (const id of tutorIds) await lockEntity(tx, `meeting-hours:${id}`);
+        await tx.$queryRaw`SELECT id FROM "TutorMeeting" WHERE id=${input.meetingId} FOR SHARE`;
+        const meeting = await tx.tutorMeeting.findUnique({
+          where: { id: input.meetingId },
+          select: { id: true },
+        });
+        if (!meeting)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Meeting not found.",
+          });
         const recorded = await tx.meetingAttendance.findMany({
           where: {
             meetingId: input.meetingId,
@@ -3882,7 +3889,21 @@ export const adminRouter = createTRPCRouter({
             recordId: row.id,
           })),
         ]);
+        // Capture once before the whole batch. Duplicate tutor entries retain
+        // last-entry behavior without exposing transient deduction changes.
+        const before = new Map<string, MeetingHoursSnapshot>();
+        for (const id of tutorIds)
+          before.set(id, await captureMeetingHours(tx, id));
         for (const e of input.entries) {
+          const previous = await tx.meetingAttendance.findUnique({
+            where: {
+              meetingId_tutorId: {
+                meetingId: input.meetingId,
+                tutorId: e.tutorId,
+              },
+            },
+            select: { excusedAt: true },
+          });
           await tx.meetingAttendance.upsert({
             where: {
               meetingId_tutorId: {
@@ -3890,16 +3911,23 @@ export const adminRouter = createTRPCRouter({
                 tutorId: e.tutorId,
               },
             },
-            update: { status: e.status },
+            // A staff save adopts the row even when its status did not change.
+            // Superseded self-service text must not become a staff audit note.
+            update: {
+              status: e.status,
+              excusedAt: null,
+              ...(previous?.excusedAt ? { reason: null } : {}),
+            },
             create: {
               meetingId: input.meetingId,
               tutorId: e.tutorId,
               status: e.status,
+              excusedAt: null,
             },
           });
-
-          await reconcileMeetingHours(tx, e.tutorId);
         }
+        for (const id of tutorIds)
+          await reconcileMeetingHours(tx, id, before.get(id)!);
       });
       return { ok: true };
     }),

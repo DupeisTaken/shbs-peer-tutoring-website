@@ -5706,7 +5706,16 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "loading": "Loading departure records…",
+    "loadFailed": "Unable to load departure records.",
+    "readFailed": "Departure records could not refresh. Your reason and selected change are retained; retry the read to continue.",
+    "reload": "Reload departure record",
+    "reloadHelp": "The departure record changed. Reload its current version, then review your retained reason and selected change before confirming.",
+    "retryRefresh": "Retry refresh",
+    "refreshing": "The change was accepted. Refreshing departure records…",
+    "refreshFailed": "The change was accepted, but some records could not refresh. Retry refresh reads the result without submitting again.",
+    "accessDenied": "Access to these departure records is unavailable. Retry refresh to check your current permissions."
   },
   "personName": {
     "firstName": "First Name",

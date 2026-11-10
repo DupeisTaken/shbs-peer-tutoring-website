@@ -5672,7 +5672,16 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "loading": "Schulabgangsdaten werden geladen…",
+    "loadFailed": "Die Schulabgangsdaten konnten nicht geladen werden.",
+    "readFailed": "Die Schulabgangsdaten konnten nicht aktualisiert werden. Ihre Begründung und die gewählte Änderung bleiben erhalten. Wiederholen Sie den Lesevorgang, um fortzufahren.",
+    "reload": "Schulabgangsdaten neu laden",
+    "reloadHelp": "Die Schulabgangsdaten wurden geändert. Laden Sie die aktuelle Version und prüfen Sie Ihre gespeicherte Begründung und Auswahl vor der Bestätigung.",
+    "retryRefresh": "Aktualisierung wiederholen",
+    "refreshing": "Die Änderung wurde angenommen. Schulabgangsdaten werden aktualisiert…",
+    "refreshFailed": "Die Änderung wurde angenommen, aber einige Daten konnten nicht aktualisiert werden. Ein erneuter Versuch liest nur das Ergebnis und sendet die Änderung nicht erneut.",
+    "accessDenied": "Der Zugriff auf diese Schulabgangsdaten ist nicht verfügbar. Aktualisieren Sie erneut, um Ihre aktuellen Berechtigungen zu prüfen."
   },
   "personName": {
     "firstName": "Vorname",

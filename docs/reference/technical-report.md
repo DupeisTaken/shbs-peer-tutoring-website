@@ -1073,6 +1073,14 @@ layouts reload this state; Viewer masking applies equally to departure-based obs
 [Departure transitions](../../src/server/school-departure.ts) serialize with period refresh
 and account changes, close current participation, and preserve historical records.
 Self-service and Coordinator decisions use the Admin/Head approval queue; stale revisions fail.
+The [departure editor](../../src/app/_components/school-departure.tsx) captures the
+target, original revision and reason/action together. Background reads and ordinary
+Retry cannot rebase them. A conflict or newer revision blocks writes until explicit
+successful Reload, which retains the reason/action for renewed review. Accepted
+writes and queued proposals remain read-only until related reads and an exact-target
+departure refetch settle successfully. Initial/cached read failures pause dependent
+actions; denial conceals evidence until fresh authorization. Each form registers only
+its own pending work with the enclosing dialog.
 See [migration instructions](../guides/deployment.md#school-departure-migration) for the explicit
 legacy graduation backfill and [program behavior](../guides/program-configuration.md) for access rules.
 
@@ -1652,6 +1660,12 @@ Tutor and crew requests lock the member, recheck current membership and change o
 
 These requests differ from non-survey tutee opt-outs relayed by a tutor: [removal processing](../../src/server/discipline/removal.ts) finalizes those after their seven-day recall window when a workflow enforces due requests. Survey/account-linked whole-period withdrawals instead require staff review and impose the period signup block. Do not merge these lifecycle rules.
 
+Voluntary recall and automatic finalization take `program:period` before the learner
+fence and recheck original ownership/PENDING state inside the transaction. The first
+committed decision wins; finalization cannot overwrite a committed recall. An inactive
+original tutor may still recall a pending relay. Closed requests stay closed, and
+recovery journaling remains active.
+
 Application locks protect supported API writes. Do not import directly into request tables assuming a unique pending-request index exists. Validate membership and pending-request invariants when designing import tooling, and preserve decision history.
 
 ### Assigned-block workload and advisory preference
@@ -1861,7 +1875,8 @@ missing tutoring attendance or the assigned tutor's missing INTERVIEW vote; a
 recorded vote on an open interview shows Vote recorded / Awaiting decision rather
 than Completed. Meetings do not create tutor attendance duties. Excused for Absence
 uses EXCUSED_ABSENT status, including staff-recorded excuses without excusedAt;
-excusedAt continues to govern the separate self-excuse cancellation workflow.
+the [ownership predicate](../../src/server/meeting-excuse.ts) distinguishes genuine
+self excuses from exact accepted staff review evidence before offering cancellation.
 
 Panelist detail opens lazily into one retained controller and reuses the existing
 vote operation. Each deliberately opened interview keeps its draft across Close and
@@ -1874,7 +1889,8 @@ registration follow-up remain in Applications; initial admission stays in chair 
 Meeting details and the period/history browser share one retained excuse controller.
 Drafts are keyed by meeting, pending writes block dismissal, and accepted-write refresh
 failures offer reads without repeating the mutation. The existing sixty-minute cutoff
-and server eligibility checks remain authoritative. Session-specific attendance stays
+and server eligibility checks remain authoritative. Staff-owned upcoming attendance
+shows its actual recorded status without self-service controls. Session-specific attendance stays
 with its dated agenda controller and records actual duration. Known session fragments
 reveal the loaded card without opening a form or moving focus out of an active dialog.
 
@@ -2011,7 +2027,16 @@ history by decision/update descending and stable IDs. The tutor section keeps a 
 list mounted through collapse, history toggles and reorder, and shares the same query cache
 as task counts; only applied server outcomes move records between groups.
 
-Meeting deductions use the semester allowance in [meeting-hours.ts](../../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
+Meeting deductions use the semester allowance in [meeting-hours.ts](../../src/server/meeting-hours.ts); corrections apply only their logical before/after difference while preserving unchanged deductions and manual adjustments. Self
+excuse/cancel and staff attendance share `meeting-hours:<tutorId>`; multi-tutor staff
+writes acquire sorted fences. Self writes recheck linked active eligibility, source,
+cutoff and exact attendance generation after waiting, then conditionally update/delete
+only self-owned EXCUSED_ABSENT evidence. Staff writes clear `excusedAt` even for an
+unchanged status and clear a superseded self reason without erasing existing staff
+notes. Exact accepted staff audit snapshots identify legacy row/marker takeover;
+missing legacy evidence retains the schema's marker convention without a backfill.
+Readers use the same ownership predicate. A Serializable staff waiter may require a
+fresh retry, which rechecks authority before taking ownership.
 
 The [service-hours summary](../../src/server/service-hours-summary.ts) aggregates
 stored session credits and adjustments for an exact month or recorded program
@@ -2074,10 +2099,25 @@ attendance and amendments. Imported absences do not consume the native
 semester allowance, and imported `mtgabs_` amendments are never deleted or
 recomputed by a later current attendance edit or self-excuse. Native Q1/Q2 and
 Q3/Q4 attendance still shares its respective semester allowance. A native
-deduction whose identifier collides with a preserved imported amendment fails
-before rebuilding any deductions. Import and native management writers share
-meeting-record then sorted tutor-hour advisory fences so source/provenance
-publication cannot race a deduction rebuild or meeting deletion.
+deduction whose changed identifier collides with a preserved imported amendment
+fails before any deduction write, even when the reserved target is absent.
+An unchanged reserved identifier does not block a financially neutral save.
+Import and native management writers take the period fence before their
+authority/identity prefix, then meeting-record and sorted tutor-hour advisory
+fences, so source/provenance publication cannot race meeting maintenance or deletion.
+
+The pure [logical calculator](../../src/server/meeting-hours-calculation.ts)
+retains database date/attendance-ID ordering. Callers capture its pre-state under
+the same fences before any attendance upsert, self-excuse deletion or parent
+cascade, and compare with the final post-state. A staff batch captures and applies
+once per distinct tutor, retaining last-entry behavior for duplicates without
+transient deductions. Only changed logical keys are deleted/inserted; added-key
+collisions fail instead of overwriting an existing source. Stored adjustment
+values are never inputs to a repair calculation: unchanged noncanonical rows,
+missing targets, unrelated orphan deductions and manual adjustments stay intact.
+This narrows maintenance side effects without proving the origin or original
+amount of pretracking history. Directly affected ambiguous corrections and
+evidenced repair remain separate reviewed work.
 
 Native meeting attendance changes and deletion reject imported meeting or
 attendance evidence. Corrections to that frozen source require reviewed archive
@@ -2085,7 +2125,18 @@ recovery; browsing history and changing the displayed period remain reads.
 Existing unclassified rows retain their previous behavior: migration does not
 guess which old records came from an import.
 
-[Disciplinary standing](../../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; restoration requires the removal's status snapshot to remain current and eligible pairings to remain valid.
+[Disciplinary standing](../../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; automatic restoration requires exact removal provenance and current participant/assignment eligibility.
+
+The [shared restoration predicate](../../src/server/discipline/punishment-restoration.ts)
+binds request approval, the owning recovery event's ACTIVE→INACTIVE transition and
+original deleted memberships, then checks later journal decisions and current period,
+enrollment, consent, account and source restrictions. General `Tutee.updatedAt` is
+not status provenance: name/contact/notes changes alone do not prevent restoration.
+Independent status/origin/assignment decisions, including away-and-back writes, remain
+effective. Compensated, absent, malformed, ambiguous or over-bound evidence withholds
+automatic restoration for manual review. A valid card appeal/correction can still
+commit. CARD/ATTENDANCE consequence projection uses the same predicate so eligible
+restoration remains subject to recovery assignment checks.
 
 A catalog time-slot edit releases movable room reservations by reviewed unit, in pairing ID order within each unit. A grouped room update detaches members in their authoritative member
 order. Each member update consumes the preceding update's returned row in the same

@@ -24,6 +24,7 @@ const fixture = vi.hoisted(() => ({
   },
   save: vi.fn(),
   request: vi.fn(),
+  refetch: vi.fn(),
   pending: false,
   callbacks: undefined as undefined | {
     onSuccess: () => Promise<void>;
@@ -38,14 +39,27 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({ invalidate: vi.fn() }),
     departure: {
-      state: { useQuery: () => ({ data: fixture.data }) },
-      setState: { useMutation: () => ({ mutate: fixture.save }) },
+      state: {
+        _def: () => ({ path: ["departure", "state"] }),
+        useQuery: () => ({
+          data: fixture.data,
+          error: null,
+          isLoading: false,
+          isFetching: false,
+          isSuccess: true,
+          dataUpdatedAt: 1,
+          errorUpdatedAt: 0,
+          refetch: fixture.refetch,
+        }),
+      },
+      setState: { useMutation: () => ({ mutate: fixture.save, reset: vi.fn(), isPending: false }) },
       request: {
         useMutation: (callbacks: typeof fixture.callbacks) => {
           fixture.callbacks = callbacks;
           return {
             mutate: fixture.request,
             isPending: fixture.pending,
+            reset: vi.fn(),
           };
         },
       },
@@ -62,6 +76,8 @@ beforeEach(() => {
   cleanup();
   fixture.save.mockClear();
   fixture.request.mockClear();
+  fixture.refetch.mockReset().mockImplementation(async () => ({ data: fixture.data, isSuccess: true }));
+  fixture.callbacks = undefined;
   fixture.pending = false;
   fixture.data.access.canReadManagement = true;
   fixture.data.departure.revision = 2;
@@ -252,7 +268,7 @@ it("keeps a completed review mounted while its write is pending, then clears the
   expect(screen.getAllByRole("dialog")).toHaveLength(2);
   expect(reason().value).toBe("Moving to a new school");
   fixture.pending = false;
-  fixture.callbacks!.onSettled();
+  act(() => { fixture.callbacks!.onSettled(); });
   view.rerender(content());
   expect(screen.getAllByRole("dialog")).toHaveLength(1);
   expect(reason().value).toBe("");

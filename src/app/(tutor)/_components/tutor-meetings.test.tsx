@@ -23,6 +23,7 @@ const state = vi.hoisted(() => ({
   error: "",
   success: false,
   excused: false,
+  status: null as "PRESENT" | "EXEMPT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | null,
   cancelError: "",
   canExcuse: true,
   onSuccess: async (): Promise<void> => undefined,
@@ -73,7 +74,7 @@ vi.mock("~/trpc/react", () => ({
                       excused: state.excused,
                       canExcuse: state.canExcuse,
                       upcoming: true,
-                      status: null,
+                      status: state.status,
                     },
                   ],
           };
@@ -109,6 +110,7 @@ afterEach(() => {
   state.error = "";
   state.success = false;
   state.excused = false;
+  state.status = null;
   state.cancelError = "";
   state.canExcuse = true;
 });
@@ -219,6 +221,44 @@ it("retains the server's meeting cutoff instead of offering a forbidden excuse",
     screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn }),
   ).toBeNull();
   expect(screen.getByText(messages.tutor.meetings.tooLate)).toBeTruthy();
+});
+
+it.each([
+  { status: "PRESENT", key: "present" },
+  { status: "EXEMPT", key: "exempt" },
+  { status: "EXCUSED_ABSENT", key: "excusedAbsent" },
+  { status: "UNEXCUSED_ABSENT", key: "unexcusedAbsent" },
+] as const)("shows upcoming staff $status as read-only attendance instead of a missed cutoff", ({ status, key }) => {
+  state.status = status;
+  state.canExcuse = false;
+  const view = render(element());
+  const label = key === "exempt" ? messages.admin.meetings.exempt : messages.admin.meetings.status[key];
+  expect(screen.getByText(label)).toBeTruthy();
+  expect(screen.queryByText(messages.tutor.meetings.tooLate)).toBeNull();
+  expect(screen.queryByText(messages.tutor.meetings.excused)).toBeNull();
+  expect(screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn })).toBeNull();
+  expect(screen.queryByRole("button", { name: messages.tutor.meetings.cancelExcuse })).toBeNull();
+  // A stale eligibility flag cannot turn a staff status into self-owned evidence.
+  state.canExcuse = true;
+  view.rerender(element());
+  expect(screen.getByText(label)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn })).toBeNull();
+  expect(screen.queryByRole("button", { name: messages.tutor.meetings.cancelExcuse })).toBeNull();
+  expect(state.mutate).not.toHaveBeenCalled();
+  expect(state.cancel).not.toHaveBeenCalled();
+});
+
+it("keeps cancellation available only for the current self-excuse before the cutoff", () => {
+  state.status = "EXCUSED_ABSENT";
+  state.excused = true;
+  const view = render(element());
+  fireEvent.click(screen.getByRole("button", { name: messages.tutor.meetings.cancelExcuse }));
+  expect(state.cancel).toHaveBeenCalledExactlyOnceWith({ meetingId: "meeting" });
+  state.canExcuse = false;
+  view.rerender(element());
+  expect(screen.queryByRole("button", { name: messages.tutor.meetings.cancelExcuse })).toBeNull();
+  expect(screen.getByText(messages.tutor.meetings.excusedBadge)).toBeTruthy();
+  expect(state.mutate).not.toHaveBeenCalled();
 });
 
 it("uses standard controls for the reason draft and both row actions", () => {

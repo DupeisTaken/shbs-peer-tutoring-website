@@ -10,6 +10,7 @@ import { lockCatalogue } from "~/server/qualifications";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
 import { lockSessionPlanning } from "~/server/session-planning";
 import { standingFromCounts } from "~/lib/discipline";
+import { canReinstatePunishmentRemoval } from "~/server/discipline/punishment-restoration";
 import {
   executionParticipantId,
   executionSourceIds,
@@ -99,8 +100,7 @@ export async function correctionParticipantState(
   const restoration =
     latest &&
     previous.success &&
-    record.status === "INACTIVE" &&
-    latest.resolvedAt?.getTime() === record.updatedAt.getTime()
+    await canReinstatePunishmentRemoval(tx, record, latest)
       ? {
           requestId: latest.id,
           pairingIds: previous.data.pairingIds,

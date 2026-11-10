@@ -5,6 +5,7 @@ import { createCaller } from "../root";
 import { db } from "~/server/db";
 import { recordCsv } from "~/lib/record-transfer";
 import { applyUndo } from "~/server/audit/log";
+import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import {
   legacyAcademicRecordId,
   type HistoricalCorrectionInput,
@@ -1496,18 +1497,16 @@ it("preserves originals when a card correction reinstates an undated tutee", asy
     data: { intakeTermId: null },
   });
   const { original } = await historicalAcademicSnapshot(db, key(tutee.id));
-  await db.tuteeRemovalRequest.create({
-    data: {
-      tuteeId: tutee.id,
-      kind: "PUNISHMENT",
-      state: "APPROVED",
-      resolvedAt: tutee.updatedAt,
-      pairingSnapshot: { pairingIds: [], status: "ACTIVE" },
-    },
-  });
+  // Automatic restoration requires prospective removal provenance. Keep the
+  // undated academic source, but apply its real disciplinary lifecycle.
+  await db.tutee.update({ where: { id: tutee.id }, data: { status: "ACTIVE" } });
   const card = await db.disciplinaryCard.create({
     data: { tuteeId: tutee.id, color: "RED", reviewStatus: "VALID" },
   });
+  await db.disciplinaryCard.create({
+    data: { tuteeId: tutee.id, color: "RED", reviewStatus: "VALID" },
+  });
+  expect(await syncPunishmentRemoval(db, tutee.id)).toEqual({ removed: true });
   await caller().admin.reviewCard({
     id: card.id,
     expectedUpdatedAt: card.updatedAt,

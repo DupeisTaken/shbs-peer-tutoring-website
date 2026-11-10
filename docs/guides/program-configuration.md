@@ -444,6 +444,9 @@ access. Staff can also open **Users & Roles → Edit Profile → School Departur
 apply the reviewed change directly; Coordinators submit a proposal.
 Academic self-reports and imported roster records do not grant observer access.
 
+The departure editor retains its reviewed version until explicit successful Reload;
+accepted changes recover through reads only. Follow the [departure recovery controls](user-guide.md#graduation-and-school-transfers).
+
 Confirmation ends tutoring and tutee participation, removes current assignments and requeues
 affected learners. Historical attendance, pairings and service hours remain. School transfer
 does not change academic graduation or grade reports. Separately assigned crew, translator

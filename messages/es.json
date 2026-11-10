@@ -5672,7 +5672,16 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "loading": "Cargando los registros de salida del centro…",
+    "loadFailed": "No se pudieron cargar los registros de salida.",
+    "readFailed": "No se pudieron actualizar los registros de salida. Se conservan el motivo y el cambio seleccionado; vuelva a intentar la lectura para continuar.",
+    "reload": "Recargar el registro de salida",
+    "reloadHelp": "El registro de salida ha cambiado. Recargue la versión actual y revise el motivo y el cambio conservados antes de confirmar.",
+    "retryRefresh": "Reintentar la actualización",
+    "refreshing": "Se ha aceptado el cambio. Actualizando los registros de salida…",
+    "refreshFailed": "Se ha aceptado el cambio, pero algunos registros no se pudieron actualizar. Reintentar solo lee el resultado, sin volver a enviarlo.",
+    "accessDenied": "El acceso a estos registros de salida no está disponible. Reintente la actualización para comprobar sus permisos actuales."
   },
   "personName": {
     "firstName": "Nombre",

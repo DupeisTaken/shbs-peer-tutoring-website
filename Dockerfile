@@ -89,6 +89,7 @@ COPY --from=build /app/src/server/corrections/attendance.ts /runtime-output/app/
 COPY --from=build /app/src/server/corrections/card.ts /runtime-output/app/src/server/corrections/card.ts
 COPY --from=build /app/src/server/crew/flags.ts /runtime-output/app/src/server/crew/flags.ts
 COPY --from=build /app/src/server/discipline/removal.ts /runtime-output/app/src/server/discipline/removal.ts
+COPY --from=build /app/src/server/discipline/punishment-restoration.ts /runtime-output/app/src/server/discipline/punishment-restoration.ts
 COPY --from=build /app/src/server/historical-academic-snapshot.ts /runtime-output/app/src/server/historical-academic-snapshot.ts
 COPY --from=build /app/src/server/history-row-ownership.ts /runtime-output/app/src/server/history-row-ownership.ts
 COPY --from=build /app/src/server/imported-records.ts /runtime-output/app/src/server/imported-records.ts

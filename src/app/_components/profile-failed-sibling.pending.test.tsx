@@ -99,6 +99,16 @@ vi.mock("~/trpc/react", async () => {
       refetch: mock.refetch,
     }),
   };
+  const departureData = () => ({
+    departure: {
+      reason: null,
+      revision: mock.departureRevision,
+      observerRevoked: false,
+    },
+    role: mock.role,
+    access: { canReadManagement: true },
+    events: [],
+  });
   return {
     api: {
       personCombine: {
@@ -203,17 +213,14 @@ vi.mock("~/trpc/react", async () => {
       },
       departure: {
         state: {
+          _def: () => ({ path: ["departure", "state"] }),
           useQuery: () => ({
-            data: {
-              departure: {
-                reason: null,
-                revision: mock.departureRevision,
-                observerRevoked: false,
-              },
-              role: mock.role,
-              access: { canReadManagement: true },
-              events: [],
-            },
+            data: departureData(),
+            isSuccess: true,
+            isFetching: false,
+            dataUpdatedAt: 1,
+            errorUpdatedAt: 0,
+            refetch: async () => ({ data: departureData(), isSuccess: true }),
           }),
         },
         setState: mutation("departure"),
@@ -561,7 +568,7 @@ function retained(
   labels: typeof en | typeof zh,
 ) {
   expect(action.field.isConnected).toBe(true);
-  expect(action.field.matches(":disabled")).toBe(false);
+  expect(action.field.matches(":disabled")).toBe(operation === "departure");
   if (operation === "academic") {
     expect(action.field.value).toBe("Independent academic reason");
     expect(
@@ -578,6 +585,10 @@ function retained(
     expect(action.field.value).toBe("Independent departure evidence");
   else if (operation === "accountProfile")
     expect(action.field.value).toBe("Retained");
+  if (operation === "departure") {
+    expect(screen.getByText(failureText)).toBeTruthy();
+    return;
+  }
   expect(
     screen
       .getAllByRole("alert")
@@ -706,7 +717,21 @@ it.each(cases)(
     act(() => submit(primaryAction));
     expect(mock.writes[primary]).toHaveBeenCalledOnce();
     let retryAction = siblingAction;
-    if (sibling === "link") {
+    if (sibling === "departure") {
+      // The failed draft keeps revision 2 until an explicit fresh Reload allows
+      // another review; a sibling's background refresh cannot authorize it.
+      act(() => submit(siblingAction));
+      expect(mock.writes.departure).toHaveBeenCalledOnce();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: ui.labels.schoolDeparture.reload }));
+      });
+      expect(siblingAction.field.value).toBe("Independent departure evidence");
+      fireEvent.click(screen.getByRole("button", { name: ui.labels.schoolDeparture.review }));
+      retryAction = {
+        ...siblingAction,
+        element: screen.getByRole("button", { name: ui.labels.schoolDeparture.confirm }),
+      };
+    } else if (sibling === "link") {
       expect(
         screen.queryByRole("button", { name: ui.labels.tuteeHistory.link }),
       ).toBeNull();
@@ -747,11 +772,13 @@ it.each(cases)(
     expect(retryInput).toEqual(
       sibling === "link"
         ? { ...siblingInput, fingerprint: "b".repeat(64) }
-        : siblingInput,
+        : sibling === "departure"
+          ? { ...siblingInput, expectedRevision: 3 }
+          : siblingInput,
     );
     if (sibling === "academic" || sibling === "accountProfile")
       expect(retryInput.expectedProfileVersion).toBe(7);
-    if (sibling === "departure") expect(retryInput.expectedRevision).toBe(2);
+    if (sibling === "departure") expect(retryInput.expectedRevision).toBe(3);
     await act(async () => retry.resolve({}));
     await idle();
     expect(ui.close).not.toHaveBeenCalled();

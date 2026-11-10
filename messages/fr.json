@@ -5672,7 +5672,16 @@
     "confirm": "Confirm change",
     "requests": "My requests and decisions",
     "history": "Departure history",
-    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged."
+    "retiredReturnHelp": "Record the original source’s factual return only. Its login remains retired; participation, assignments and observer restrictions remain unchanged.",
+    "loading": "Chargement des dossiers de départ de l’établissement…",
+    "loadFailed": "Impossible de charger les dossiers de départ.",
+    "readFailed": "Les dossiers de départ n’ont pas pu être actualisés. Votre motif et la modification choisie sont conservés ; réessayez la lecture pour continuer.",
+    "reload": "Recharger le dossier de départ",
+    "reloadHelp": "Le dossier de départ a changé. Rechargez sa version actuelle, puis vérifiez le motif et la modification conservés avant de confirmer.",
+    "retryRefresh": "Réessayer l’actualisation",
+    "refreshing": "La modification a été acceptée. Actualisation des dossiers de départ…",
+    "refreshFailed": "La modification a été acceptée, mais certains dossiers n’ont pas pu être actualisés. Réessayer lit uniquement le résultat, sans nouvel envoi.",
+    "accessDenied": "L’accès à ces dossiers de départ est indisponible. Réessayez l’actualisation pour vérifier vos autorisations actuelles."
   },
   "personName": {
     "firstName": "Prénom",

@@ -63,8 +63,9 @@ export const recordTransferRouter = createTRPCRouter({
       try {
         await ctx.db.$transaction(
           async (tx) => {
-            // Imports may initialize any User/Tutor/Tutee source identity. Take
-            // the shared namespace fence before the actor/source row locks.
+            // Match native meeting writers: period precedes identity/actor,
+            // then applyRecords owns sorted meeting-parent and tutor-hours locks.
+            await lockEntity(tx, "program:period");
             await lockUsernameNamespace(tx);
             await assertManagementActor(tx, ctx.session.user.id);
             await lockEntity(tx, "program-record-transfer");
@@ -92,6 +93,7 @@ export const recordTransferRouter = createTRPCRouter({
       verifyPreviewTicket(input.files, ctx.session.user.id, input.ticket);
       return ctx.db.$transaction(
         async (tx) => {
+          await lockEntity(tx, "program:period");
           await lockUsernameNamespace(tx);
           await assertManagementActor(tx, ctx.session.user.id);
           await lockEntity(tx, "program-record-transfer");

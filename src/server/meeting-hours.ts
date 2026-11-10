@@ -1,26 +1,28 @@
-import type { TransactionDb } from "~/server/transactions";
-import { lockEntity } from "~/server/transactions";
-import { DEDUCTION, monthKey } from "~/lib/service-hours";
 import { TRPCError } from "@trpc/server";
+import { lockEntity, type TransactionDb } from "~/server/transactions";
+import {
+  calculateMeetingDeductions,
+  diffMeetingDeductions,
+  type MeetingDeduction,
+} from "./meeting-hours-calculation";
 
-/** Rebuild only system-owned meeting deductions. Counting across Q1/Q2 or Q3/Q4 makes
- * corrections to early meetings move the threshold consistently, even across refreshes. */
-export async function reconcileMeetingHours(
+export type MeetingHoursSnapshot = {
+  tutorId: string;
+  deductions: readonly MeetingDeduction[];
+};
+
+/** Capture before the source mutation, while the caller owns its parent fence
+ * and the tutor-hours fence. Stored amounts are deliberately never normalized. */
+export async function captureMeetingHours(
   tx: TransactionDb,
   tutorId: string,
-) {
+): Promise<MeetingHoursSnapshot> {
   await lockEntity(tx, `meeting-hours:${tutorId}`);
-  const [rows, adjustments] = await Promise.all([
-    tx.meetingAttendance.findMany({
-      where: { tutorId },
-      include: { meeting: { include: { term: true } } },
-      orderBy: [{ meeting: { date: "asc" } }, { id: "asc" }],
-    }),
-    tx.serviceHourAdjustment.findMany({
-      where: { tutorId, id: { startsWith: "mtgabs_" } },
-      select: { id: true },
-    }),
-  ]);
+  const rows = await tx.meetingAttendance.findMany({
+    where: { tutorId },
+    include: { meeting: { include: { term: true } } },
+    orderBy: [{ meeting: { date: "asc" } }, { id: "asc" }],
+  });
   const provenance = await tx.importedRecordProvenance.findMany({
     where: {
       OR: [
@@ -32,17 +34,6 @@ export async function reconcileMeetingHours(
           entity: "MeetingAttendance",
           recordId: { in: rows.map((row) => row.id) },
         },
-        {
-          entity: "ServiceHourAdjustment",
-          recordId: {
-            in: [
-              ...new Set([
-                ...adjustments.map((row) => row.id),
-                ...rows.map((row) => `mtgabs_${row.meetingId}_${tutorId}`),
-              ]),
-            ],
-          },
-        },
       ],
     },
     select: { entity: true, recordId: true },
@@ -50,53 +41,53 @@ export async function reconcileMeetingHours(
   const imported = new Set(
     provenance.map((row) => `${row.entity}:${row.recordId}`),
   );
-  const frozenAdjustments = provenance
-    .filter((row) => row.entity === "ServiceHourAdjustment")
-    .map((row) => row.recordId);
-  const counts = new Map<string, number>();
-  const deductions: Parameters<typeof tx.serviceHourAdjustment.create>[0][] =
-    [];
-  for (const row of rows) {
-    // An imported absence is evidence under its original policy. A current
-    // attendance edit must neither consume its allowance nor recreate its debt.
-    if (
-      imported.has(`MeetingAttendance:${row.id}`) ||
-      imported.has(`TutorMeeting:${row.meetingId}`)
-    )
-      continue;
-    const term = row.meeting.term;
-    if (!term || row.status !== "UNEXCUSED_ABSENT") continue;
-    const key = `${term.schoolYear}:${["Q1", "Q2"].includes(term.quarter) ? 1 : 2}`;
-    const count = (counts.get(key) ?? 0) + 1;
-    counts.set(key, count);
-    if (count <= 3) continue;
-    const id = `mtgabs_${row.meetingId}_${tutorId}`;
-    if (imported.has(`ServiceHourAdjustment:${id}`))
-      throw new TRPCError({
-        code: "CONFLICT",
-        message:
-          "A meeting deduction identifier belongs to imported history. Review the archive before changing current meeting credit.",
-      });
-    deductions.push({
-      data: {
-        id,
-        tutorId,
-        month: monthKey(row.meeting.date),
-        schoolYear: term.schoolYear,
-        quarter: term.quarter,
-        type: "PUNISHMENT",
-        amount: DEDUCTION.MISSED_MEETING_UNEXCUSED,
-        reason:
-          "Unexcused meeting absence beyond the semester allowance of three",
-      },
-    });
-  }
-  await tx.serviceHourAdjustment.deleteMany({
-    where: {
+  return {
+    tutorId,
+    deductions: calculateMeetingDeductions(
       tutorId,
-      id: { startsWith: "mtgabs_", notIn: frozenAdjustments },
-    },
+      rows.filter(
+        (row) =>
+          !imported.has(`TutorMeeting:${row.meetingId}`) &&
+          !imported.has(`MeetingAttendance:${row.id}`),
+      ),
+    ),
+  };
+}
+
+/** Apply only the logical change caused by this mutation. Unchanged deductions,
+ * including missing/noncanonical legacy targets, authorize no adjustment write.
+ * This is conservation of unrelated effects, not retrospective origin proof. */
+export async function reconcileMeetingHours(
+  tx: TransactionDb,
+  tutorId: string,
+  before: MeetingHoursSnapshot,
+) {
+  if (before.tutorId !== tutorId)
+    throw new Error("Meeting-hours snapshot belongs to another tutor.");
+  const after = await captureMeetingHours(tx, tutorId);
+  const delta = diffMeetingDeductions(before.deductions, after.deductions);
+  const removed = [...delta.removed, ...delta.changed.map((row) => row.before)];
+  const added = [...delta.added, ...delta.changed.map((row) => row.after)];
+  const affectedIds = [...new Set([...removed, ...added].map((row) => row.id))];
+  if (!affectedIds.length) return;
+
+  // Markers reserve logical keys even when their source row is absent. Check
+  // only actual deltas: a neutral save must not disturb an unchanged reservation.
+  const reserved = await tx.importedRecordProvenance.findFirst({
+    where: { entity: "ServiceHourAdjustment", recordId: { in: affectedIds } },
+    select: { recordId: true },
   });
-  for (const deduction of deductions)
-    await tx.serviceHourAdjustment.create(deduction);
+  if (reserved)
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "A meeting deduction identifier belongs to imported history. Review the archive before changing current meeting credit.",
+    });
+  if (removed.length)
+    await tx.serviceHourAdjustment.deleteMany({
+      where: { tutorId, id: { in: removed.map((row) => row.id) } },
+    });
+  // Use INSERT, never upsert: an added logical key cannot overwrite an unrelated
+  // existing row. A collision rolls back the caller's source mutation as well.
+  for (const data of added) await tx.serviceHourAdjustment.create({ data });
 }
