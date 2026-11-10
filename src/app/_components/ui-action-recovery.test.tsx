@@ -9,7 +9,12 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { createQueryClient } from "~/trpc/query-client";
+import { api } from "~/trpc/react";
+import type { SessionFlagFilter } from "~/lib/session-flag-state";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import SessionFlagsPage from "../(admin)/admin/session-flags/page";
@@ -19,13 +24,13 @@ import { ReadOnlyProvider } from "./read-only";
 vi.mock("./school-hours-panel", () => ({ SchoolHoursPanel: () => null }));
 
 const state = vi.hoisted(() => ({
-  loaded: true,
-  loading: false,
   empty: false,
   pending: false,
   readError: null as null | { message: string; data?: { code: string } },
   writeError: null as null | { message: string; data?: { approvalId: string } },
-  retry: vi.fn(),
+  retry: vi.fn<() => Promise<unknown>>(),
+  request: undefined as Promise<unknown> | undefined,
+  lastRefetch: undefined as Promise<unknown> | undefined,
   decide: vi.fn(),
   summary: vi.fn(),
   failed: undefined as
@@ -35,72 +40,130 @@ const state = vi.hoisted(() => ({
         input: { flagId: string },
       ) => void),
 }));
-vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["flags"] }));
-vi.mock("~/trpc/react", () => ({
-  api: {
-    useUtils: () => ({ admin: { sessionFlags: { invalidate: vi.fn() } } }),
-    admin: {
-      periodSummary: {
-        useQuery: (input: unknown) => {
-          state.summary(input);
-          return {
-            data: {
-              scope: { label: "Synthetic semester" },
-              rows: [],
-              totals: { earned: 0, extras: 0, punishments: 0, total: 0 },
-            },
-          };
+vi.mock("~/trpc/react", async () => {
+  const { useQuery } = await import("@tanstack/react-query");
+  return {
+    api: {
+      useUtils: () => ({ admin: { sessionFlags: { invalidate: vi.fn() } } }),
+      admin: {
+        periodSummary: {
+          _def: () => ({ path: ["admin", "periodSummary"] }),
+          useQuery: (input: unknown) => {
+            state.summary(input);
+            return {
+              data: {
+                scope: { label: "Synthetic semester" },
+                rows: [],
+                totals: { earned: 0, extras: 0, punishments: 0, total: 0 },
+              },
+            };
+          },
         },
-      },
-      sessionFlags: {
-        useQuery: () => ({
-          data: !state.loaded
-            ? undefined
-            : state.empty
-              ? []
-              : [
-                  {
-                    id: "flag",
-                    tutor: "Synthetic Tutor",
-                    subject: "Synthetic Subject",
-                    observed: 1,
-                    expected: 2,
-                    room: "Synthetic Room",
-                    date: new Date("2026-10-01T00:00:00Z"),
-                    startMin: 900,
-                    endMin: 960,
-                    state: "PENDING",
-                    decisionNote: null,
-                    resolvedAt: null,
-                    resolvedByName: null,
-                  },
-                ],
-          isLoading: state.loading,
-          isSuccess: state.loaded && !state.readError,
-          isFetching: state.loading,
-          error: state.readError,
-          refetch: state.retry,
-        }),
-      },
-      decideSessionFlag: {
-        useMutation: (options: { onError: typeof state.failed }) => {
-          state.failed = options.onError;
-          return {
-            mutate: state.decide,
-            isPending: state.pending,
-            error: state.writeError,
-            reset: () => {
-              state.writeError = null;
-            },
-          };
+        sessionFlags: {
+          _def: () => ({ path: ["admin", "sessionFlags"] }),
+          useQuery: (
+            input: { state: SessionFlagFilter },
+            options?: { enabled?: boolean },
+          ) => {
+            const read = useQuery({
+              queryKey: flagKey(input),
+              queryFn: readFlags,
+              ...options,
+            });
+            return {
+              ...read,
+              refetch: (
+                refetchOptions?: Parameters<typeof read.refetch>[0],
+              ) => {
+                const request = state.retry();
+                state.request = request;
+                const work = read.refetch(refetchOptions);
+                state.lastRefetch = work;
+                const clear = () => {
+                  if (state.request === request) state.request = undefined;
+                };
+                void work.then(clear, clear);
+                return work;
+              },
+            };
+          },
+        },
+        decideSessionFlag: {
+          useMutation: (options: { onError: typeof state.failed }) => {
+            state.failed = options.onError;
+            return {
+              mutate: state.decide,
+              isPending: state.pending,
+              error: state.writeError,
+              reset: () => {
+                state.writeError = null;
+              },
+            };
+          },
         },
       },
     },
-  },
-}));
+  };
+});
+const flagKey = (input: { state: SessionFlagFilter } = { state: "PENDING" }) =>
+  getQueryKey(api.admin.sessionFlags, input, "query");
+function flagData() {
+  return state.empty
+    ? []
+    : [
+        {
+          id: "flag",
+          tutor: "Synthetic Tutor",
+          subject: "Synthetic Subject",
+          observed: 1,
+          expected: 2,
+          room: "Synthetic Room",
+          date: new Date("2026-10-01T00:00:00Z"),
+          startMin: 900,
+          endMin: 960,
+          state: "PENDING",
+          decisionNote: null,
+          resolvedAt: null,
+          resolvedByName: null,
+        },
+      ];
+}
+async function readFlags() {
+  if (state.request) await state.request;
+  if (state.readError)
+    throw Object.assign(new Error(state.readError.message), state.readError);
+  return flagData();
+}
+async function publishFlags() {
+  await act(async () => {
+    await client
+      .fetchQuery({ queryKey: flagKey(), queryFn: readFlags, staleTime: 0 })
+      .catch((error: unknown) => {
+        if (!state.readError) throw error;
+        expect(error).toMatchObject(state.readError);
+      });
+  });
+}
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 let client: QueryClient;
 beforeEach(() => {
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({
+    ...defaults,
+    queries: {
+      ...defaults.queries,
+      retry: false,
+      staleTime: Infinity,
+      gcTime: Infinity,
+    },
+  });
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -115,13 +178,16 @@ beforeEach(() => {
       },
     },
   });
-  state.loaded = true;
-  state.loading = false;
   state.empty = false;
   state.pending = false;
   state.readError = null;
   state.writeError = null;
   vi.clearAllMocks();
+  state.retry.mockReset().mockResolvedValue(undefined);
+  state.request = undefined;
+  state.lastRefetch = undefined;
+  // Healthy presentation cases need no read; this seed never issues proof.
+  client.setQueryData(flagKey(), flagData());
 });
 afterEach(() => {
   cleanup();
@@ -138,38 +204,59 @@ const flags = (readOnly = false) => (
   </QueryClientProvider>
 );
 
-it("separates unknown, failed, denied and successfully empty flag reads", () => {
-  state.loaded = false;
-  state.loading = true;
+it("separates unknown, failed, denied and successfully empty flag reads", async () => {
+  const initial = deferred();
+  state.request = initial.promise;
+  client.removeQueries({ queryKey: flagKey(), exact: true });
+  const initialRead = client.fetchQuery({
+    queryKey: flagKey(),
+    queryFn: readFlags,
+    staleTime: 0,
+  });
+  void initialRead.catch(() => undefined);
   const view = render(flags());
   expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
   expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
-  state.loading = false;
-  state.readError = { message: "Synthetic read failure" };
+  const initialFailure = { message: "Synthetic read failure" };
+  state.readError = initialFailure;
+  await act(async () => {
+    initial.resolve();
+    await expect(initialRead).rejects.toMatchObject(initialFailure);
+  });
+  state.request = undefined;
   view.rerender(flags());
   expect(screen.getByRole("alert").textContent).toContain(
     "Synthetic read failure",
   );
   expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
+  const denial = deferred();
+  state.retry.mockReturnValueOnce(denial.promise);
   fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
   expect(state.retry).toHaveBeenCalledOnce();
   state.readError = {
     message: "Synthetic access denial",
     data: { code: "FORBIDDEN" },
   };
+  await act(async () => {
+    denial.resolve();
+    await state.lastRefetch;
+  });
+  // The feature evicts its first denied Query. A real denied read on the
+  // replacement keeps the original detailed-error assertion meaningful.
+  await publishFlags();
   view.rerender(flags());
   expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("false");
   expect(screen.getByRole("status").textContent).toContain(
     "Synthetic access denial",
   );
   state.readError = null;
-  state.loaded = true;
   state.empty = true;
+  await publishFlags();
   view.rerender(flags());
   expect(screen.getByText(en.admin.sessionFlags.empty)).toBeTruthy();
 });
 
-it("retains review inputs through pending writes and read/write failures, then retries the same decision", () => {
+it("retains review inputs through pending writes and read/write failures, then retries the same decision", async () => {
   const view = render(flags());
   // Drafts now belong to the on-demand decision dialog; opening is read-only.
   fireEvent.click(
@@ -202,12 +289,14 @@ it("retains review inputs through pending writes and read/write failures, then r
   state.writeError = { message: "Synthetic rejected write" };
   act(() => state.failed?.(state.writeError!, { flagId: "flag" }));
   state.readError = { message: "Synthetic failed refresh" };
+  await publishFlags();
   view.rerender(flags());
   expect(note.value).toBe("Synthetic review note");
   expect(hours.value).toBe("1.25");
   expect(note.matches(":disabled")).toBe(true);
   expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
   state.readError = null;
+  await publishFlags();
   view.rerender(flags());
   expect(note.matches(":disabled")).toBe(false);
   fireEvent.click(
@@ -255,7 +344,7 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     const messages = locale === "en" ? en : zh;
     render(
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={client}>
         <NextIntlClientProvider
           locale={locale}
           timeZone="Asia/Shanghai"

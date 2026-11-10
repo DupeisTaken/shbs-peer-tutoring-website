@@ -101,11 +101,17 @@ function AuditLog() {
     cursor: cursors.at(-1),
   };
   const log = api.admin.auditLog.useQuery(logInput);
-  const denied =
-    useSessionAccessDenied(
-      { ...log, denialKey: "audit-log", queryKey: getQueryKey(api.admin.auditLog, logInput, "query") },
-      { ...options, queryKey: getQueryKey(api.admin.auditFilterOptions, undefined, "query") },
-    );
+  const denied = useSessionAccessDenied(
+    {
+      ...log,
+      denialKey: "audit-log",
+      queryKey: getQueryKey(api.admin.auditLog, logInput, "query"),
+    },
+    {
+      ...options,
+      queryKey: getQueryKey(api.admin.auditFilterOptions, undefined, "query"),
+    },
+  );
   // The read key depends on the view, so synchronize its denial bridge before commit.
   if (accessDenied !== denied) setAccessDenied(denied);
   useSessionPageScroll({

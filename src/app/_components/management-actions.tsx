@@ -163,7 +163,10 @@ function RequestCard({
                 className="hover:underline"
                 href={`/admin/approvals?request=${encodeURIComponent(request.id)}`}
               >
-                {eventTitle(titles, { operation: request.operation, kind: "SUBMISSION" })}
+                {eventTitle(titles, {
+                  operation: request.operation,
+                  kind: "SUBMISSION",
+                })}
               </Link>
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -578,7 +581,9 @@ function ApprovalQueue({
           >
             {t("refresh")}
           </Button>
-          {queue.data?.canReview && !queue.error && <ReviewerNotificationRefresh />}
+          {queue.data?.canReview && !queue.error && (
+            <ReviewerNotificationRefresh />
+          )}
           {requestId && (
             <Link className="link" href="/admin/approvals?status=all">
               {t("allRequests")}
@@ -677,27 +682,50 @@ function ReviewerNotificationRefresh() {
   const reconcile = api.notification.reconcileManagementReviews.useMutation();
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
-  const [result, setResult] = useState<{ pending: number; created: number } | null>(null);
+  const [result, setResult] = useState<{
+    pending: number;
+    created: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  return <div className="space-y-2">
-    <Button size="compact" disabled={pending} onClick={async () => {
-      if (inFlight.current) return;
-      inFlight.current = true;
-      setPending(true);
-      setResult(null);
-      setError(null);
-      try {
-        setResult(await reconcile.mutateAsync());
-      } catch (failure) {
-        setError(failure instanceof Error ? failure.message : t("reviewerNoticesFailed"));
-      } finally {
-        inFlight.current = false;
-        setPending(false);
-      }
-    }}>{t(pending ? "reviewerNoticesPending" : "reviewerNoticesRefresh")}</Button>
-    {result && <p role="status" className="max-w-xl text-sm text-slate-700">{t("reviewerNoticesResult", result)}</p>}
-    {error && <p role="alert" className="max-w-xl text-sm text-red-700">{error}</p>}
-  </div>;
+  return (
+    <div className="space-y-2">
+      <Button
+        size="compact"
+        disabled={pending}
+        onClick={async () => {
+          if (inFlight.current) return;
+          inFlight.current = true;
+          setPending(true);
+          setResult(null);
+          setError(null);
+          try {
+            setResult(await reconcile.mutateAsync());
+          } catch (failure) {
+            setError(
+              failure instanceof Error
+                ? failure.message
+                : t("reviewerNoticesFailed"),
+            );
+          } finally {
+            inFlight.current = false;
+            setPending(false);
+          }
+        }}
+      >
+        {t(pending ? "reviewerNoticesPending" : "reviewerNoticesRefresh")}
+      </Button>
+      {result && (
+        <p role="status" className="max-w-xl text-sm text-slate-700">
+          {t("reviewerNoticesResult", result)}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="max-w-xl text-sm text-red-700">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function LinkedQueue({ reviewer }: { reviewer: boolean }) {

@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render as renderView, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render as renderView,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import type { ReactNode } from "react";
@@ -31,26 +38,31 @@ type AppealRead = {
 const state = vi.hoisted(() => {
   const appealsData: AppealRead = { rows: [], total: 0 };
   return {
-  appealsUseQuery: vi.fn<(input: AppealInput, options?: { enabled?: boolean }) => void>(),
-  feedbackUseQuery: vi.fn<(input: FeedbackInput) => void>(),
-  feedbackRefetch: vi.fn<() => Promise<unknown>>(),
-  appealsRefetch: vi.fn<() => Promise<unknown>>(),
-  refetch: vi.fn(),
-  settings: vi.fn(),
-  role: "HEAD",
-  feedbackError: null as Error | null,
-  feedbackBody: "",
-  appealsError: null as Error | null,
-  appealsData,
-  feedbackRows: undefined as ((input: FeedbackInput) => FeedbackRow[]) | undefined,
-  appealsRows: undefined as ((input: AppealInput) => AppealRead) | undefined,
-  feedbackRequest: undefined as Promise<unknown> | undefined,
-  appealsRequest: undefined as Promise<unknown> | undefined,
-  saveError: null as { message: string; data?: { approvalId?: string } } | null,
-  decideError: null as {
-    message: string;
-    data?: { approvalId?: string };
-  } | null,
+    appealsUseQuery:
+      vi.fn<(input: AppealInput, options?: { enabled?: boolean }) => void>(),
+    feedbackUseQuery: vi.fn<(input: FeedbackInput) => void>(),
+    feedbackRefetch: vi.fn<() => Promise<unknown>>(),
+    appealsRefetch: vi.fn<() => Promise<unknown>>(),
+    refetch: vi.fn(),
+    settings: vi.fn(),
+    role: "HEAD",
+    feedbackError: null as Error | null,
+    feedbackBody: "",
+    appealsError: null as Error | null,
+    appealsData,
+    feedbackRows: undefined as
+      ((input: FeedbackInput) => FeedbackRow[]) | undefined,
+    appealsRows: undefined as ((input: AppealInput) => AppealRead) | undefined,
+    feedbackRequest: undefined as Promise<unknown> | undefined,
+    appealsRequest: undefined as Promise<unknown> | undefined,
+    saveError: null as {
+      message: string;
+      data?: { approvalId?: string };
+    } | null,
+    decideError: null as {
+      message: string;
+      data?: { approvalId?: string };
+    } | null,
   };
 });
 
@@ -71,72 +83,82 @@ vi.mock("next/link", () => ({
 vi.mock("~/trpc/react", async () => {
   const { useQuery } = await import("@tanstack/react-query");
   return {
-  api: {
-    account: { me: { useQuery: () => ({ data: { role: state.role } }) } },
-    student: {
-      feedbackSettings: { useQuery: state.settings },
-      feedbackList: {
-        _def: () => ({ path: ["student", "feedbackList"] }),
-        useQuery: (input: FeedbackInput, options?: { enabled?: boolean }) => {
-          state.feedbackUseQuery(input);
-          const read = useQuery({
-            queryKey: feedbackKey(input),
-            queryFn: () => readFeedback(input),
-            initialData: () => feedbackData(input),
-            ...options,
-          });
-          return {
-            ...read,
-            refetch: (refetchOptions?: Parameters<typeof read.refetch>[0]) => {
-              const barrier = Promise.resolve(state.feedbackRefetch());
-              state.feedbackRequest = barrier;
-              const work = read.refetch(refetchOptions);
-              const clear = () => { if (state.feedbackRequest === barrier) state.feedbackRequest = undefined; };
-              void work.then(clear, clear);
-              return work;
-            },
-          };
+    api: {
+      account: { me: { useQuery: () => ({ data: { role: state.role } }) } },
+      student: {
+        feedbackSettings: { useQuery: state.settings },
+        feedbackList: {
+          _def: () => ({ path: ["student", "feedbackList"] }),
+          useQuery: (input: FeedbackInput, options?: { enabled?: boolean }) => {
+            state.feedbackUseQuery(input);
+            const read = useQuery({
+              queryKey: feedbackKey(input),
+              queryFn: () => readFeedback(input),
+              initialData: () => feedbackData(input),
+              ...options,
+            });
+            return {
+              ...read,
+              refetch: (
+                refetchOptions?: Parameters<typeof read.refetch>[0],
+              ) => {
+                const barrier = Promise.resolve(state.feedbackRefetch());
+                state.feedbackRequest = barrier;
+                const work = read.refetch(refetchOptions);
+                const clear = () => {
+                  if (state.feedbackRequest === barrier)
+                    state.feedbackRequest = undefined;
+                };
+                void work.then(clear, clear);
+                return work;
+              },
+            };
+          },
         },
-      },
-      appeals: {
-        _def: () => ({ path: ["student", "appeals"] }),
-        useQuery: (input: AppealInput, options?: { enabled?: boolean }) => {
-          state.appealsUseQuery(input, options);
-          const read = useQuery({
-            queryKey: appealsKey(input),
-            queryFn: () => readAppeals(input),
-            initialData: () => appealData(input),
-            ...options,
-          });
-          return {
-            ...read,
-            refetch: (refetchOptions?: Parameters<typeof read.refetch>[0]) => {
-              const barrier = Promise.resolve(state.appealsRefetch());
-              state.appealsRequest = barrier;
-              const work = read.refetch(refetchOptions);
-              const clear = () => { if (state.appealsRequest === barrier) state.appealsRequest = undefined; };
-              void work.then(clear, clear);
-              return work;
-            },
-          };
+        appeals: {
+          _def: () => ({ path: ["student", "appeals"] }),
+          useQuery: (input: AppealInput, options?: { enabled?: boolean }) => {
+            state.appealsUseQuery(input, options);
+            const read = useQuery({
+              queryKey: appealsKey(input),
+              queryFn: () => readAppeals(input),
+              initialData: () => appealData(input),
+              ...options,
+            });
+            return {
+              ...read,
+              refetch: (
+                refetchOptions?: Parameters<typeof read.refetch>[0],
+              ) => {
+                const barrier = Promise.resolve(state.appealsRefetch());
+                state.appealsRequest = barrier;
+                const work = read.refetch(refetchOptions);
+                const clear = () => {
+                  if (state.appealsRequest === barrier)
+                    state.appealsRequest = undefined;
+                };
+                void work.then(clear, clear);
+                return work;
+              },
+            };
+          },
         },
-      },
-      setFeedbackSettings: {
-        useMutation: () => ({
-          mutate: vi.fn(),
-          isPending: false,
-          error: state.saveError,
-        }),
-      },
-      decideAppeal: {
-        useMutation: () => ({
-          mutate: vi.fn(),
-          isPending: false,
-          error: state.decideError,
-        }),
+        setFeedbackSettings: {
+          useMutation: () => ({
+            mutate: vi.fn(),
+            isPending: false,
+            error: state.saveError,
+          }),
+        },
+        decideAppeal: {
+          useMutation: () => ({
+            mutate: vi.fn(),
+            isPending: false,
+            error: state.decideError,
+          }),
+        },
       },
     },
-  },
   };
 });
 vi.mock("./acceptance-records", () => ({ AcceptanceRecords: () => null }));
@@ -172,13 +194,26 @@ import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 let client: QueryClient;
-const feedbackKey = (input: FeedbackInput) => getQueryKey(api.student.feedbackList, input, "query");
-const appealsKey = (input: AppealInput) => getQueryKey(api.student.appeals, input, "query");
+const feedbackKey = (input: FeedbackInput) =>
+  getQueryKey(api.student.feedbackList, input, "query");
+const appealsKey = (input: AppealInput) =>
+  getQueryKey(api.student.appeals, input, "query");
 function feedbackData(input: FeedbackInput): FeedbackRow[] {
-  return state.feedbackRows?.(input) ?? (state.feedbackBody ? [{
-    id: "review", studentName: "Recorded learner", subject: "Math", rating: 5,
-    body: state.feedbackBody, updatedAt: new Date("2026-10-01T00:00:00Z"),
-  }] : []);
+  return (
+    state.feedbackRows?.(input) ??
+    (state.feedbackBody
+      ? [
+          {
+            id: "review",
+            studentName: "Recorded learner",
+            subject: "Math",
+            rating: 5,
+            body: state.feedbackBody,
+            updatedAt: new Date("2026-10-01T00:00:00Z"),
+          },
+        ]
+      : [])
+  );
 }
 function appealData(input: AppealInput): AppealRead {
   return state.appealsRows?.(input) ?? state.appealsData;
@@ -194,13 +229,20 @@ async function readAppeals(input: AppealInput): Promise<AppealRead> {
   return appealData(input);
 }
 function render(children: ReactNode) {
-  return renderView(children, { wrapper: ({ children: content }) =>
-    <QueryClientProvider client={client}>{content}</QueryClientProvider>,
+  return renderView(children, {
+    wrapper: ({ children: content }) => (
+      <QueryClientProvider client={client}>{content}</QueryClientProvider>
+    ),
   });
 }
 async function publishFeedback(input: FeedbackInput) {
   await act(async () => {
-    await client.fetchQuery({ queryKey: feedbackKey(input), queryFn: () => readFeedback(input), staleTime: 0 })
+    await client
+      .fetchQuery({
+        queryKey: feedbackKey(input),
+        queryFn: () => readFeedback(input),
+        staleTime: 0,
+      })
       .catch((error: unknown) => {
         if (!state.feedbackError) throw error;
         expect(error).toBe(state.feedbackError);
@@ -209,7 +251,12 @@ async function publishFeedback(input: FeedbackInput) {
 }
 async function publishAppeals(input: AppealInput) {
   await act(async () => {
-    await client.fetchQuery({ queryKey: appealsKey(input), queryFn: () => readAppeals(input), staleTime: 0 })
+    await client
+      .fetchQuery({
+        queryKey: appealsKey(input),
+        queryFn: () => readAppeals(input),
+        staleTime: 0,
+      })
       .catch((error: unknown) => {
         if (!state.appealsError) throw error;
         expect(error).toBe(state.appealsError);
@@ -218,7 +265,9 @@ async function publishAppeals(input: AppealInput) {
 }
 function deferred() {
   let resolve!: () => void;
-  const promise = new Promise<void>((done) => { resolve = done; });
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
@@ -246,7 +295,10 @@ beforeEach(() => {
     ...defaults,
     queries: {
       ...defaults.queries,
-      retry: false, staleTime: Infinity, gcTime: Infinity, refetchOnWindowFocus: false,
+      retry: false,
+      staleTime: Infinity,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
     },
   });
 });
@@ -373,17 +425,17 @@ it.each(["PENDING", "RESOLVED"])(
   "labels %s appeal records without leaking server states",
   (stateValue) => {
     state.appealsData = {
-        rows: [
-          {
-            id: "appeal",
-            studentName: "Synthetic student",
-            state: stateValue,
-            cardReason: "Reason",
-            body: "Body",
-          },
-        ],
-        total: 1,
-      };
+      rows: [
+        {
+          id: "appeal",
+          studentName: "Synthetic student",
+          state: stateValue,
+          cardReason: "Reason",
+          body: "Body",
+        },
+      ],
+      total: 1,
+    };
     render(<StudentSupport />);
     expect(
       screen.getByText(
@@ -451,22 +503,25 @@ it("keeps queued appeal approval feedback visible after leaving Appeals", () => 
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-
 it("keeps denied appeal evidence concealed through transport failures until a successful read", async () => {
   const data = {
-    rows: [{
-      id: "appeal",
-      studentName: "Synthetic student",
-      state: "RESOLVED",
-      cardReason: "Synthetic card reason",
-      body: "Private appeal evidence",
-    }],
+    rows: [
+      {
+        id: "appeal",
+        studentName: "Synthetic student",
+        state: "RESOLVED",
+        cardReason: "Synthetic card reason",
+        body: "Private appeal evidence",
+      },
+    ],
     total: 1,
   };
   state.appealsData = data;
   render(<StudentSupport />);
   expect(screen.getByText("Private appeal evidence")).toBeTruthy();
-  state.appealsError = Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } });
+  state.appealsError = Object.assign(new Error("Denied"), {
+    data: { code: "FORBIDDEN" },
+  });
   await publishAppeals({ page: 0, state: "PENDING" });
   expect(screen.queryByText("Private appeal evidence")).toBeNull();
   state.appealsError = new Error("Network unavailable");
@@ -477,27 +532,39 @@ it("keeps denied appeal evidence concealed through transport failures until a su
   expect(screen.getByText("Private appeal evidence")).toBeTruthy();
 });
 
-
 it("keeps feedback concealed when denial resets its page to an older successful cache entry", async () => {
-  state.feedbackRows = ({ page }) => [{
+  state.feedbackRows = ({ page }) => [
+    {
       id: `feedback-${page}`,
       studentName: "Synthetic learner",
       subject: "Math",
       rating: 5,
       body: page === 1 ? "Second-page feedback" : "First-page feedback",
       updatedAt: new Date("2026-10-01T00:00:00Z"),
-    }];
+    },
+  ];
   client.setQueryData(feedbackKey({ page: 0 }), feedbackData({ page: 0 }));
-  const key = viewStateKey("head", "/admin/student-support", "support-feedback-page-v1", "");
+  const key = viewStateKey(
+    "head",
+    "/admin/student-support",
+    "support-feedback-page-v1",
+    "",
+  );
   writeViewState(window.sessionStorage, key, 1);
   const content = () => (
-    <SessionViewProvider identity="head" pathname="/admin/student-support" verified>
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/student-support"
+      verified
+    >
       <StudentSupport />
     </SessionViewProvider>
   );
   render(content());
   expect(screen.getByText("Second-page feedback")).toBeTruthy();
-  state.feedbackError = Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } });
+  state.feedbackError = Object.assign(new Error("Denied"), {
+    data: { code: "FORBIDDEN" },
+  });
   await publishFeedback({ page: 1 });
   expect(state.feedbackUseQuery).toHaveBeenLastCalledWith({ page: 0 });
   expect(window.sessionStorage.getItem(key)).toBeNull();
@@ -515,44 +582,67 @@ it("keeps feedback concealed when denial resets its page to an older successful 
     client.setQueryData(feedbackKey({ page: 0 }), feedbackData({ page: 0 }));
   });
   expect(screen.queryByText("First-page feedback")).toBeNull();
-  await act(async () => { await Promise.resolve(); });
+  await act(async () => {
+    await Promise.resolve();
+  });
   expect(screen.queryByText("First-page feedback")).toBeNull();
-  expect(screen.getByRole<HTMLButtonElement>("button", {
-    name: "feedback · retry",
-  }).disabled).toBe(true);
-  await act(async () => { recovery.resolve(); });
-  await waitFor(() => expect(screen.getByText("First-page feedback")).toBeTruthy());
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: "feedback · retry",
+    }).disabled,
+  ).toBe(true);
+  await act(async () => {
+    recovery.resolve();
+  });
+  await waitFor(() =>
+    expect(screen.getByText("First-page feedback")).toBeTruthy(),
+  );
   expect(state.feedbackUseQuery).toHaveBeenLastCalledWith({ page: 0 });
 });
 
 it("keeps appeals concealed when denial resets page and filter to an older successful cache entry", async () => {
   state.appealsRows = ({ page, state: filter }) => {
     return {
-        rows: [{
+      rows: [
+        {
           id: `appeal-${filter}-${page}`,
           studentName: "Synthetic learner",
           state: filter,
           cardReason: "Synthetic card reason",
           body: `${filter} appeal evidence`,
-        }],
-        total: 21,
+        },
+      ],
+      total: 21,
     };
   };
-  client.setQueryData(appealsKey({ page: 0, state: "PENDING" }), appealData({ page: 0, state: "PENDING" }));
+  client.setQueryData(
+    appealsKey({ page: 0, state: "PENDING" }),
+    appealData({ page: 0, state: "PENDING" }),
+  );
   for (const [id, value] of [
     ["support-panel-v1", "appeals"],
     ["support-appeal-page-v1", 1],
     ["support-appeal-filter-v1", "RESOLVED"],
   ] as const)
-    writeViewState(window.sessionStorage, viewStateKey("head", "/admin/student-support", id, ""), value);
+    writeViewState(
+      window.sessionStorage,
+      viewStateKey("head", "/admin/student-support", id, ""),
+      value,
+    );
   const content = () => (
-    <SessionViewProvider identity="head" pathname="/admin/student-support" verified>
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/student-support"
+      verified
+    >
       <StudentSupport />
     </SessionViewProvider>
   );
   render(content());
   expect(screen.getByText("RESOLVED appeal evidence")).toBeTruthy();
-  state.appealsError = Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } });
+  state.appealsError = Object.assign(new Error("Denied"), {
+    data: { code: "FORBIDDEN" },
+  });
   await publishAppeals({ page: 1, state: "RESOLVED" });
   expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
     { page: 0, state: "PENDING" },
@@ -568,8 +658,12 @@ it("keeps appeals concealed when denial resets page and filter to an older succe
   expect(state.appealsRefetch).toHaveBeenCalledOnce();
   expect(state.feedbackRefetch).not.toHaveBeenCalled();
   expect(screen.queryByText("PENDING appeal evidence")).toBeNull();
-  await act(async () => { recovery.resolve(); });
-  await waitFor(() => expect(screen.getByText("PENDING appeal evidence")).toBeTruthy());
+  await act(async () => {
+    recovery.resolve();
+  });
+  await waitFor(() =>
+    expect(screen.getByText("PENDING appeal evidence")).toBeTruthy(),
+  );
   expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
     { page: 0, state: "PENDING" },
     { enabled: true },

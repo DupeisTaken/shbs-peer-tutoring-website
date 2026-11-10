@@ -13,7 +13,15 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/app/_components/audit-filters", () => ({
   AuditFilters: () => null,
-  emptyAuditView: { userId: "", kind: "", operation: "", entity: "", search: "", from: "", until: "" },
+  emptyAuditView: {
+    userId: "",
+    kind: "",
+    operation: "",
+    entity: "",
+    search: "",
+    from: "",
+    until: "",
+  },
 }));
 vi.mock("~/app/_components/audit-event-details", () => ({
   AuditEventDetails: ({ id }: { id: string }) => (
@@ -24,9 +32,13 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({ admin: { auditLog: { invalidate: vi.fn() } } }),
     admin: {
-      auditFilterOptions: { useQuery: () => ({ data: { users: [], operations: [], entities: [] } }) },
+      auditFilterOptions: {
+        _def: () => ({ path: ["admin", "auditFilterOptions"] }),
+        useQuery: () => ({ data: { users: [], operations: [], entities: [] } }),
+      },
       undoAudit: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       auditLog: {
+        _def: () => ({ path: ["admin", "auditLog"] }),
         useQuery: () => ({
           data: [
             {

@@ -118,25 +118,29 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
       {[
         { denied: nextFeedbackDenied, label: t("feedback"), query: feedback },
         { denied: nextAppealsDenied, label: t("staffAppeals"), query: appeals },
-      ].filter((read) => read.denied).map(({ label, query }) => (
-        <InlineNotice
-          key={label}
-          tone="warning"
-          announcement="status"
-          action={
-            <Button
-              size="compact"
-              disabled={query.isFetching}
-              onClick={() => void query.refetch()}
-            >
-              {label} · {recovery("retry")}
-            </Button>
-          }
-        >
-          <p className="font-semibold">{label} · {recovery("accessDenied")}</p>
-          <p>{recovery("accessDeniedHelp")}</p>
-        </InlineNotice>
-      ))}
+      ]
+        .filter((read) => read.denied)
+        .map(({ label, query }) => (
+          <InlineNotice
+            key={label}
+            tone="warning"
+            announcement="status"
+            action={
+              <Button
+                size="compact"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+              >
+                {label} · {recovery("retry")}
+              </Button>
+            }
+          >
+            <p className="font-semibold">
+              {label} · {recovery("accessDenied")}
+            </p>
+            <p>{recovery("accessDeniedHelp")}</p>
+          </InlineNotice>
+        ))}
       <SupportPanels
         staff={!!staff}
         label={t("support")}
@@ -166,12 +170,16 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
                         save.isPending ||
                         !setting.isSuccess ||
                         !!me.error ||
-                        !["HEAD", "ADMIN", "COORDINATOR"].includes(me.data?.role ?? "")
+                        !["HEAD", "ADMIN", "COORDINATOR"].includes(
+                          me.data?.role ?? "",
+                        )
                       }
                       onChange={(e) => {
                         if (
                           !me.error &&
-                          ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data?.role ?? "")
+                          ["HEAD", "ADMIN", "COORDINATOR"].includes(
+                            me.data?.role ?? "",
+                          )
                         )
                           save.mutate({ share: e.target.checked });
                       }}
