@@ -11,6 +11,50 @@ const lockColumn = {
 };
 
 describe("notification-lock recovery schema compatibility", () => {
+  it.each([
+    ["original", reviewedRecoverySchemaMetadata.columns, 0, false],
+    ["identity", reviewedRecoverySchemaMetadata.identityColumns, 1, false],
+    [
+      "legacy decline",
+      reviewedRecoverySchemaMetadata.legacyDeclineColumns,
+      0,
+      true,
+    ],
+    [
+      "identity and legacy decline",
+      reviewedRecoverySchemaMetadata.identityLegacyDeclineColumns,
+      1,
+      true,
+    ],
+  ] as const)(
+    "retains %s backups before, during and after tutoring-policy history with notification requirements",
+    (_label, columns, identityVersion, legacySignupDecline) => {
+      const beforeHistory = columns.filter(
+        (row) => row.table_name !== "ProgramCalendarPolicyRevision",
+      );
+      const beforePauses = beforeHistory.filter(
+        (row) =>
+          !(
+            row.table_name === "ProgramCalendarDay" &&
+            row.column_name === "schedulingEffect"
+          ) &&
+          !(
+            row.table_name === "SessionPlanParticipant" &&
+            row.column_name === "tutoringPauseSuppressed"
+          ),
+      );
+      for (const backup of [beforePauses, beforeHistory, columns]) {
+        for (const shape of [backup, [...backup, lockColumn]])
+          expect(
+            assertReviewedRecoverySchema(
+              shape,
+              reviewedRecoverySchemaMetadata.enums,
+            ),
+          ).toEqual({ identityVersion, legacySignupDecline });
+      }
+    },
+  );
+
   it("accepts the additive policy column with every reviewed backup shape", () => {
     const metadata = reviewedRecoverySchemaMetadata;
     for (const columns of [
@@ -48,5 +92,73 @@ describe("notification-lock recovery schema compatibility", () => {
       expect(() =>
         assertReviewedRecoverySchema([...columns, ...additions], enums),
       ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
+
+  it("rejects partial tutoring upgrades and malformed core columns in the combined schema", () => {
+    const { identityLegacyDeclineColumns: columns, enums } =
+      reviewedRecoverySchemaMetadata;
+    const combined = [...columns, lockColumn];
+    const missingEffect = combined.filter(
+      (row) =>
+        !(
+          row.table_name === "ProgramCalendarDay" &&
+          row.column_name === "schedulingEffect"
+        ),
+    );
+    const missingSuppression = combined.filter(
+      (row) =>
+        !(
+          row.table_name === "SessionPlanParticipant" &&
+          row.column_name === "tutoringPauseSuppressed"
+        ),
+    );
+    const partialHistory = combined.filter(
+      (row) =>
+        !(
+          row.table_name === "ProgramCalendarPolicyRevision" &&
+          row.column_name === "effectiveAt"
+        ),
+    );
+    const beforeHistory = combined.filter(
+      (row) => row.table_name !== "ProgramCalendarPolicyRevision",
+    );
+    const suppression = columns.find(
+      (row) =>
+        row.table_name === "SessionPlanParticipant" &&
+        row.column_name === "tutoringPauseSuppressed",
+    )!;
+    for (const invalid of [
+      missingEffect,
+      missingSuppression,
+      partialHistory,
+      missingEffect.filter(
+        (row) => row.table_name !== "ProgramCalendarPolicyRevision",
+      ),
+      missingSuppression.filter(
+        (row) => row.table_name !== "ProgramCalendarPolicyRevision",
+      ),
+      [...beforeHistory, suppression],
+      combined.slice(1),
+      combined.map((row) =>
+        row.table_name === "User" && row.column_name === "passwordHash"
+          ? { ...row, udt_name: "jsonb" }
+          : row,
+      ),
+      combined.map((row) =>
+        row === lockColumn ? { ...row, udt_name: "text" } : row,
+      ),
+      [...combined, lockColumn],
+      [
+        ...combined,
+        {
+          table_name: "UnreviewedGrant",
+          column_name: "tokenHash",
+          udt_name: "text",
+        },
+      ],
+    ])
+      expect(() => assertReviewedRecoverySchema(invalid, enums)).toThrow(
+        "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
+      );
   });
 });

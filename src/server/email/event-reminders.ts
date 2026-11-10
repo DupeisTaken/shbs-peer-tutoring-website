@@ -162,12 +162,15 @@ async function tutoringAllowed(
   client: DomainDb,
   startsAt: Date,
   timeZone: string,
+  dated = false,
 ) {
   const date = programDateKey(startsAt, timeZone);
-  if (!(await schoolDay(client, date)).isSchoolDay) return false;
-  // These notices suppress reminder email only; attendance/appeal policy is unchanged.
+  if (!dated && !(await schoolDay(client, date)).isSchoolDay) return false;
+  // Dated commitments already pass the exact affirmative exception gate. Legacy
+  // recurrence has no consent evidence and stays suppressed by any active range.
   return !(await client.programCalendarDay.count({
-    where: { active: true, date: { lte: date }, endDate: { gte: date } },
+    where: { active: true, date: { lte: date }, endDate: { gte: date },
+      ...(dated ? { schedulingEffect: "NOTICE" } : {}) },
   }));
 }
 
@@ -418,7 +421,7 @@ async function occurrence(
       },
     };
   }
-  if (!(await tutoringAllowed(client, startsAt, timeZone))) return null;
+  if (!(await tutoringAllowed(client, startsAt, timeZone, kind === "tutoring_cohort"))) return null;
   if (kind === "tutoring_cohort")
     return datedOccurrence(client, sourceId, startsAt, timeZone);
   const pairings = await client.pairing.findMany({

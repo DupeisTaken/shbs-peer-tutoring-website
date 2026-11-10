@@ -2041,7 +2041,12 @@ export const reviewSchema = {
   ProgramCalendarDay: {
     references: {},
     enums: {},
-    fields: ["date", "endDate", "reason", "active", "version", "updatedAt"],
+    fields: ["date", "endDate", "reason", "active", "version", "updatedAt", "schedulingEffect"],
+  },
+  ProgramCalendarPolicyRevision: {
+    references: {},
+    enums: {},
+    fields: ["id", "date", "endDate", "schedulingEffect", "active", "version", "effectiveAt"],
   },
   ProgramSettings: {
     references: {},
@@ -2397,6 +2402,7 @@ export const reviewSchema = {
       "status",
       "scheduleOverride",
       "calendarSuppressed",
+      "tutoringPauseSuppressed",
       "version",
       "updatedAt",
     ],
@@ -3101,4 +3107,6 @@ export const reviewFieldKeys = [
   "willing",
   "windowStart",
   "workloadPreferenceVersion",
+  "schedulingEffect",
+  "tutoringPauseSuppressed",
 ] as const;

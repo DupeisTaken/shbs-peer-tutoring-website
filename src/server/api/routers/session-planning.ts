@@ -41,6 +41,7 @@ export const sessionPlanningRouter = createTRPCRouter({
         scope: z.enum(["ONE", "ALL"]),
         tuteeId: z.string().optional(),
         kind: z.enum(["RESCHEDULE", "EXTRA"]),
+        pausedOnly: z.boolean().optional(),
         requestId: z.string().optional(),
         requestVersion: z.number().int().positive().optional(),
         offerId: z.string().optional(),
@@ -106,6 +107,7 @@ export const sessionPlanningRouter = createTRPCRouter({
         tuteeId: z.string().optional(),
         kind: z.enum(["RESCHEDULE", "EXTRA"]),
         suggestionId: z.string().optional(),
+        pausedOnly: z.boolean().optional(),
       }),
     )
     .mutation(({ ctx, input }) =>

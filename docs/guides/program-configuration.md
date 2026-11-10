@@ -168,7 +168,7 @@ continue to operate. If saving succeeds but reloading settings fails, use
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows                                                                                                                                                                                                                                                 |
 | Policy versions                   | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it                                                                                                                                                                                                    |
 | School calendar                   | Admin/Head apply date-specific school closures, make-up school days and timetable weekdays; Coordinators request Admin/Head review. Defaults are Monday–Friday school days. School-day status affects appeal deadlines; a timetable mapping alone does not. See [school calendar](#school-calendar-and-timetable-dates) |
-| No-tutoring dates                 | Admin/Head apply inclusive start/end date ranges with a reason; Coordinators request review. Protected tutor/tutee schedules display this informational context. It does not restrict attendance, cancel sessions, change recurrence, alter appeal deadlines or modify school-day rules |
+| No-tutoring dates                 | Admin/Head apply inclusive ranges with a reason and explicit scheduling effect; Coordinators request review. Notice only preserves existing behavior. Pause regular tutoring suppresses future ordinary commitments while allowing expressly agreed exceptions through the dated scheduler. School-day rules and appeal deadlines stay independent |
 | Name field requirements           | Admin/Head configure Required/Optional/Hidden for each field and account type; Coordinators request review. New signup uses its intake type; later shared-profile edits use the current account role. Hidden originals remain visible in authorized management editors; active labels exclude them and use username fallback when needed |
 | Feedback visibility               | Management-only by default; configured sharing also affects earlier feedback                                                                                                                                                                                                                                                  |
 | Announcements                     | Filters combine across groups; alternatives within a group match any choice; explicit exclusions win. Published recipients are fixed                                                                                                                                                                                          |
@@ -675,8 +675,10 @@ the program switch and the recipient's preference. Copy includes the actual date
 and school-day/timetable facts, never the staff note. Delivery rechecks the current
 calendar revision and participant eligibility; SMTP already accepted cannot be
 recalled. No external calendar provider is modified. The separate **No-tutoring
-dates** control remains informational: its inclusive ranges do not cancel sessions,
-change recurrence, restrict attendance or alter school-day appeal counting.
+dates** control has an explicit scheduling effect. **Notice only** is informational;
+**Pause regular tutoring** suppresses future ordinary dated commitments and preserves
+individually agreed exceptions under the dated scheduler. Neither mode changes
+school-day appeal counting or the recurring assignment itself.
 
 ### Configure recruitment windows
 
@@ -735,7 +737,37 @@ does not automatically reassign them. Review the retained request through
 
 ### Current-period access and submissions
 
-Coordinator and Viewer recruitment controls are read-only. Missing editing eligibility never grants a write affordance. Informational no-tutoring summaries show an inclusive date range and a brief reason preview; authorized readers open **View details** for the complete reason. A single-day notice has equal starting and ending dates. There is one notice per starting date; overlapping notices with different starts remain independent. Editing changes the ending date and reason; moving the start requires removal and recreation. Editing and removing notices keep their own permissions and reviewed versions.
+Coordinator and Viewer recruitment controls are read-only. Missing editing eligibility never grants a write affordance. No-tutoring summaries show the selected scheduling effect, an inclusive date range and a brief reason preview; authorized readers open **View details** for the complete reason. A single-day notice has equal starting and ending dates. There is one notice per starting date; overlapping notices with different starts remain independent. Editing changes the ending date and reason; moving the start requires removal and recreation. Editing and removing notices keep their own permissions and reviewed versions.
+
+Select **Notice only** for context that leaves scheduling unchanged, or **Pause regular
+tutoring** to remove automatic ordinary commitments on actual dates in the inclusive
+range. Review the affected published future commitments before applying a pause,
+changing its dates/effect or removing it. The preview counts participant commitments,
+not unique people or sessions, and does not count unpublished future recurrence.
+Coordinator proposals have no scheduling effect until applied by an authorized reviewer.
+
+Pauses remain independent when ranges overlap: removing one does not lift another.
+Applying/removing a pause reconciles future commitments in the same transaction;
+ordinary suppression is reversible but removal does not revive user cancellations,
+overwrite school closures, duplicate moved lessons or bypass new conflicts. Started
+lessons, historical attendance, discipline and service hours remain actual evidence.
+Optional sessions use dated exception proposals and affirmative participation; silence
+must not opt a learner into a paused date. An agreed exception retains normal room,
+participant, permission, reminder and calendar checks.
+
+Existing records and older queued requests retain **Notice only**. An older client
+editing an existing pause without sending a scheduling effect preserves that pause;
+changing its effect requires an explicit selection. The additive migration is
+`20261108010000_tutoring_pause_policy`; deploy it before the application. It adds a
+distinct participant pause-suppression marker and extends the scheduler's strict
+invalidation dependency graph without rewriting attendance or school-calendar rows.
+Apply the following `20261108011000_tutoring_pause_recovery` migration as well;
+it preserves the separate suppression cause in safe recovery journal snapshots
+without including notice reasons, message bodies or delivery capabilities.
+Apply the complete subsequent migration chain, including semantic policy history
+and the exact-offer consent lookup index. The index adds storage/write overhead
+to bound notice-history lookups; it does not change scheduling policy.
+
 
 Observers can read the public current-period and recruitment values. Private settings tabs explain that access is unavailable without starting protected settings reads. While account identity is unknown they show loading; identity read failures offer recovery rather than assuming authorization or displaying an empty panel.
 
