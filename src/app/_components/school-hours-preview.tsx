@@ -109,21 +109,25 @@ export function SchoolHoursIndividuals({
       </span>
     </>
   );
-  const amount = (row: SchoolHoursRow) => (
-    <>
-      <SchoolHoursValue value={row.hoursToAdd} signed />
-      {revision > 1 && (
-        <span className="mt-1 block text-xs font-normal text-slate-700">
-          {t("revisionAmountCondition", { revision: revision - 1 })}
-        </span>
-      )}
-      {row.hoursToAdd === 0 && (
-        <span className="mt-1 block text-xs font-normal text-slate-700">
-          {t("zeroAmount")}
-        </span>
-      )}
-    </>
-  );
+  const amount = (row: SchoolHoursRow) =>
+    row.hoursToAdd === 0 ? (
+      <span
+        className="text-slate-700"
+        aria-label={t("zeroAmount")}
+        title={t("zeroAmount")}
+      >
+        —
+      </span>
+    ) : (
+      <>
+        <SchoolHoursValue value={row.hoursToAdd} signed />
+        {revision > 1 && (
+          <span className="mt-1 block text-xs font-normal text-slate-700">
+            {t("revisionAmountCondition", { revision: revision - 1 })}
+          </span>
+        )}
+      </>
+    );
   const details = (row: SchoolHoursRow) => {
     const editions = schoolHoursPriorEditions(row, revision);
     return (
@@ -236,7 +240,9 @@ export function SchoolHoursIndividuals({
       {!carryPolicy && (
         <p className="text-xs text-slate-700">{t("carryUnavailable")}</p>
       )}
-      <p className="text-xs text-slate-700">{t("rawChangeHelp")}</p>
+      <p className="text-xs text-slate-700">
+        <span>{t("rawChangeHelp")}</span> <span>{t("hoursDashLegend")}</span>
+      </p>
       {/* Both responsive views preserve the same reconciliation order. */}
       <ul
         aria-label={t("individualAmounts")}

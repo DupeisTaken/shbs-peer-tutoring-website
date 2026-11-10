@@ -11,11 +11,15 @@ Stale clients cannot issue, preview, retry or reconfigure the retired workflow,
 and pending legacy configuration proposals cannot reactivate it. Legacy delivery
 admission retires unsent receipts even if an old configuration is still enabled.
 
-Management previews and saved reports use a sortable table on wider screens and
-individual cards on narrow screens. Each summary keeps the person's name and
+Management previews use a sortable table on wider screens and individual cards
+on narrow screens. The saved public report uses a compact semantic table, with
+local horizontal scrolling on narrow screens. A sticky Details strip keeps each
+name and exact Hours together during scrolling; desktop hides that extra context.
+Semantic headers identify table cells for screen readers. Each summary keeps the person's name and
 school-account reference, then **Carry In → Raw Change → Hours → Carry Out**.
-**Hours** is the exact amount to enter once; revision conditions and zero-entry
-guidance stay beside it. **Raw Change** combines tutoring net and Crew change,
+**Hours** is the exact amount to enter once. A dash (**—**) replaces a zero posting
+and repeated no-entry prose; a single legend and accessible labels explain it.
+Revision applicability remains explicit. **Raw Change** combines tutoring net and Crew change,
 displayed as hours and minutes rounded to the nearest minute (half-minutes round
 away from zero). This changes presentation only. Per-person Details retains the
 exact source values, separate tutoring/Crew components, previous-month/revision
@@ -23,10 +27,12 @@ comparisons and alternative posting instructions. Missing historical carry is
 shown as unavailable, never inferred as zero. Both layouts share correction
 instructions; printed management output uses only the table.
 
-The saved public report uses the same four-field order, with a native Details
-disclosure per person. The recipient email stays concise: each person's posting
-and retained balance, plus a link to that report. Email cards, the saved-report
-cards and staff-management cards are separate views of the same saved edition;
+The saved public report uses the same four-field order, with a full-width native
+Details disclosure per person. The recipient email is a notification only:
+month/revision metadata and the link to the report, with no individual hour amounts,
+carry balances, participant lists or source breakdowns. The viewed report is the
+posting instruction. Notification emails, the saved-report table and staff views
+are separate presentations of the same saved edition;
 review screenshots of those views are evidence, not images attached to emails.
 
 ## Source accounting and opening review
@@ -69,8 +75,10 @@ immutable and retain their original instructions. A missing baseline carry means
 New corrections add tenth-hour increments to the saved monthly amount; they do
 not retroactively quantize an older edition. A replacement total or comparison
 against a legacy edition may consequently retain its historical precision.
-Email shows each person's actual posting amount once. The report and CSV
-retain source breakdowns, carry and earlier-edition choices. Long legacy values
+Email announces the saved edition without copying its hour report. The report
+and CSV retain the posting amounts, source breakdowns, carry and earlier-edition
+choices. The dash is presentation only: exact numeric zero remains in Details,
+saved snapshots and CSV. Long legacy values
 retain the existing readable fallback. Opening-review summaries
 keep exact source amounts in screen-reader text and the evidence dialog, without
 rounding the editable already-reported values. Compact carried-minute summaries
@@ -145,9 +153,10 @@ replaced edition and shows each affected person's incremental correction alongsi
 the revised monthly amount. If Alex's original +7 hours were already applied,
 a revision to +7.5 requires only +0.5 more. If not yet applied, use +7.5 once.
 The saved report lists the correction from every earlier edition of that month.
-A revision email prominently limits its displayed changes to people whose last
+The viewed report prominently limits its displayed Hours to people whose last
 entered edition was the immediately previous one. Earlier-edition, never-entered
-and unknown-edition recipients must open the report or reconcile before posting.
+and unknown-edition recipients must use Details or reconcile before posting.
+Revision emails only announce the updated report and link to it.
 If a third edition is +7.7, a recipient who applied the first +7 uses +0.7;
 one who applied the second +7.5 uses +0.2. Select only the comparison matching
 the last applied edition. If that edition is unknown, reconcile before posting.
@@ -176,7 +185,7 @@ chain and outbox across restarts. The shared dispatcher uses fenced attempts and
 bounded retries; no SMTP call runs inside the reporting transaction.
 
 Recipients are explicitly configured school mailboxes and need not have site
-accounts. Each receives a separate consolidated email. An exact verified address in the
+accounts. Each receives a separate notification email. An exact verified address in the
 account-email registry uses that account’s saved email language; addresses without
 a verified, non-retired account default to English. This presentation-only lookup
 never attributes school hours or grants report access. Both draft languages are
@@ -196,11 +205,13 @@ editions are not silently retargeted or resent as current.
 
 ## Link-only retrieval and names
 
-Delivery keeps the existing light email layout, **The Program [month] Report is
-ready** heading and **View Month Report** action. Correction subjects identify the
-report month and revision. Complete posting/unknown-edition safeguards appear once
-above the individual cards; each person’s exact conditional change appears once.
-Full correction choices and comparison tables remain in the saved report, where
+Delivery keeps the existing light email layout and **View Month Report** action,
+with a concise **Your monthly report is ready** heading. Correction subjects identify the
+report month and revision. Emails include edition metadata, the report link and
+privacy/receipt guidance, with no individual hour report in HTML, plain text or
+the inbox preview. Complete posting/unknown-edition safeguards and each person's
+exact conditional Hours appear in the viewed report. Full correction choices
+and comparison tables remain in its per-person Details, where
 full-precision values wrap within their columns without rounding or truncation.
 Runtime callers supply the public brand to the pure email builder so offline
 previews do not load server configuration.
