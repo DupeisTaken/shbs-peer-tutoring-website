@@ -13,6 +13,10 @@ use `accent-*` utilities backed by the six palettes in
 Keep semantic error, warning and success colors independent of the selected accent.
 Reuse existing utilities and components before adding tokens.
 
+Use the neutral gray `badge-slate` treatment for Edited metadata, including
+translation overrides. Edit history is informational; warning/review states retain
+their existing semantic colors.
+
 ### Accessible controls
 
 Give form controls persistent visible labels, using `htmlFor`/`id` or a wrapping

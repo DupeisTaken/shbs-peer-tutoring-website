@@ -138,6 +138,7 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     QualificationGrant: ["tutorId", "sourceSubjectId", "subjectId"],
     SchoolCalendarDay: ["date"],
     ProgramCalendarDay: ["date"],
+    ProgramCalendarPolicyRevision: ["id"],
     ProgramSettings: ["id"],
     AccountEmail: ["email"],
     EmailDelivery: ["id"],
