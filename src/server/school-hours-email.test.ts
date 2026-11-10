@@ -129,6 +129,55 @@ it.each(["en", "zh"] as const)(
   },
 );
 
+it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
+  "keeps public carry explanation appropriate to the frozen %s policy",
+  (postingPolicy) => {
+    const report = carryReport(postingPolicy);
+    report.revision = 2;
+    Object.assign(report.rows[0]!, {
+      hoursToAdd: 0.1,
+      monthAmount: 1.4,
+      previousEditionAmount: 1.3,
+      priorEditions: [
+        { revision: 1, monthAmount: 1.3, correctionToCurrent: 0.1 },
+      ],
+    });
+    const doc = parse(renderSchoolHoursContent(report));
+    const explanation =
+      doc.querySelector<HTMLDetailsElement>(".carry-explanation");
+    if (postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE") {
+      expect(explanation?.open).toBe(false);
+      expect(explanation?.querySelector("summary")?.textContent).toBe(
+        "How carry works / 余量计算方式",
+      );
+      expect(explanation?.textContent).toContain(
+        "Carry in + raw changes − posted change = carry out",
+      );
+      const introduction = doc.body.querySelector("div")!.textContent;
+      expect(introduction).toContain("If r1 was last entered for that person");
+      expect(introduction).toContain("choose ONE matching row");
+      expect(introduction).toContain("If the last entered edition is unknown");
+      expect(introduction).not.toContain(
+        "earlier-edition correction or replacement amount is negative",
+      );
+      expect(doc.querySelector(".person")?.textContent).toContain(
+        "Carry in / 期初余量",
+      );
+      expect(doc.querySelector(".person")?.textContent).toContain(
+        "Carry out / 留待后续",
+      );
+    } else {
+      expect(explanation).toBeNull();
+      expect(doc.body.textContent).toContain(
+        "Negative corrections are deductions",
+      );
+      expect(doc.body.textContent).toContain(
+        "Carry in + raw changes − posted change = carry out",
+      );
+    }
+  },
+);
+
 it("retains historical signed-edition alternatives in a nonnegative report", () => {
   const report = carryReport("TENTH_HOUR_CARRY_NONNEGATIVE");
   report.revision = 3;
@@ -147,7 +196,7 @@ it("retains historical signed-edition alternatives in a nonnegative report", () 
     "-1.3 h",
   );
   expect(saved.body.textContent).toContain(
-    "contact the program team before posting",
+    "If an earlier-edition correction or replacement amount is negative, contact the program team before posting",
   );
   expect(schoolHoursCsv(report).content).toContain(
     "Comparison from r1: correction to current amount",

@@ -211,7 +211,7 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       row.monthComparison,
       nonnegativePolicy
         ? report.revision > 1
-          ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team. A highlighted 0 means nothing to enter now. If a correction from an earlier signed edition is negative, contact the program team before posting."
+          ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team. A highlighted 0 means nothing to enter now. If an earlier-edition correction is negative, contact the program team before posting."
           : "Apply this individual's amount once. A 0 means nothing to enter now. Raw changes and carry are informational; do not enter them separately."
         : report.revision > 1
           ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team."

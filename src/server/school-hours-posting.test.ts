@@ -119,9 +119,10 @@ describe("school posting tenths and exact carry", () => {
       hoursToAdd: 0,
       carryOutHours: "-1e-16",
     });
-    expect(expectConservation(-0.09999999999999997)).toEqual({
+    const negativeBoundary = -0.09999999999999997;
+    expect(expectConservation(negativeBoundary)).toEqual({
       hoursToAdd: 0,
-      carryOutHours: "-0.09999999999999997",
+      carryOutHours: negativeBoundary.toString(),
     });
     expect(expectConservation(0, "-1e-324")).toEqual({
       hoursToAdd: 0,
