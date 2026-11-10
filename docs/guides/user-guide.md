@@ -1424,9 +1424,38 @@ records never changes their hours or eligibility.
 
 Open **School reports** on the same page to report each individual's unreported
 hours to school recipients. The highlighted amount is what to add to that person's
-school account; tutoring and Crew are its breakdown. Late submissions and new or
+school account. New reports combine tutoring and Crew changes, post complete
+0.1-hour steps (six minutes), and carry the unposted remainder to the next round,
+including across months. For example, 80 minutes posts 1.3 hours and retains two
+minutes; four later minutes release another 0.1 hour. A negative balance posts
+zero hours and carries in full. Future earned hours first cover that deficit:
+−80 minutes followed by +40 still posts zero and carries −40 minutes; another
++50 minutes then posts 0.1 hour and carries +4 minutes. A reversal can offset
+carried time without reducing an already issued posting. Do not add
+source breakdowns or carried minutes to the highlighted amount. Late submissions and new or
 reversed deductions are reconciled against that person's last reported balance.
 There is no semester reset. The old admin monthly overview has been removed.
+
+The saved report and staff preview show each person's **Carry In → Raw Change →
+Hours → Carry Out**, alongside their name and school-account reference. **Raw
+Change** combines tutoring and Crew, displayed in hours and minutes rounded to
+the nearest minute. **Hours** is the exact amount to enter once; **—** means no
+entry for that instruction. The dash replaces zero and repeated no-entry text
+in the summary. The other values
+explain the balance and must not be entered separately. Open that person's
+**Details** for separate tutoring/Crew values, exact decimals, previous-month
+comparisons and the correction matching the last edition actually entered.
+Historical reports with no recorded carry show it as unavailable.
+
+School notification emails use the recipient's email language and contain only
+the report-ready notice, month/revision metadata and report link. Hour amounts,
+carry balances and participant breakdowns appear only in the viewed report.
+**View Month Report** opens the saved public report, where **Details / 详情**
+expands below the person's compact table row. On narrow screens, scroll the
+report table horizontally to see all columns. Staff use **Details** on the school-report management page to
+open a dialog. The light boxes identify individual people; the blue guidance
+explains how to apply that edition. Screenshots and framed HTML previews in a
+local review report demonstrate these locations and are not email attachments.
 
 Before the first report, Admin/Head review each person's school-account reference
 and already-reported opening amounts. Confirm zero explicitly when no hours were
@@ -1477,7 +1506,9 @@ Optional program statistics summarize rows and are never another account credit.
 
 See the [school reporting contract](../reference/school-hours.md) for source
 accounting, authority, delivery and recovery limits. Legacy saved reports remain
-available as historical evidence.
+available as historical evidence with their original precision. They are not
+rounded again. A new correction to an older edition posts only the new tenth-hour
+increment; its replacement monthly total can still include the older precision.
 
 Use [Attendance Flags](program-configuration.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-configuration.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
 
@@ -1620,6 +1651,11 @@ On the Tutee page, **Messages** and **Account** open inside the same navigation 
 Any verified address can sign in or recover the same account. Recovery requested with a secondary address goes to that address; recovery by username goes to the primary. Login 2FA and password-change codes still go to the primary, so aliases do not bypass 2FA. Changing primary retains the previous verified primary as a secondary and updates only explicitly linked current tutor/tutee contact rows. Account identity, roles, history and signed agreements remain unchanged. Removing an address revokes its outstanding grants; adding it again does not revive them. Select another verified primary before removing the current one.
 
 ### Optional email notifications
+
+Choose **Email language** in Account Settings to receive account and notification
+emails in English or 中文. Save applies it with your notification preferences; Cancel
+discards the draft. This does not change the website language or enable email.
+Existing accounts default to English until changed.
 
 Email notices include a clear action button and a copyable link, with a plain-text version for mail readers that do not show HTML. Program notices open the relevant workflow; message notices open your role's inbox; account/security notices open account settings. If sign-in or a verification code is needed, you return to the linked page afterward. Older queued program notices may open the home page. Your current permissions still apply, so a removed record or changed role may limit what you can open.
 

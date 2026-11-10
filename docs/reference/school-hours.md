@@ -1,8 +1,9 @@
 # Individual school service-hours reports
 
 School reports tell recipients how many previously unreported hours to apply to
-each individual's school account. Tutoring net and Crew hours form the highlighted
-account amount; they are not additional amounts to apply again. Optional program
+each individual's school account. New reports post the combined tutoring net and
+Crew change in 0.1-hour steps and retain the unposted remainder. The source
+breakdown and carried time are not additional amounts to apply. Optional program
 statistics are secondary. The normal tutor roster is unchanged, and the former
 admin monthly overview controls and automatic delivery are retired. Existing
 monthly snapshots remain historical evidence.
@@ -10,11 +11,29 @@ Stale clients cannot issue, preview, retry or reconfigure the retired workflow,
 and pending legacy configuration proposals cannot reactivate it. Legacy delivery
 admission retires unsent receipts even if an old configuration is still enabled.
 
-Management previews and saved reports use a sortable table on wider screens and
-individual cards on narrow screens. Each card keeps the person's name, account
-reference and exact amount together, with tutoring/Crew breakdowns and the same
-details dialog. Both layouts share correction instructions; printed output uses
-only the table.
+Management previews use a sortable table on wider screens and individual cards
+on narrow screens. The saved public report uses a compact semantic table, with
+local horizontal scrolling on narrow screens. A sticky Details strip keeps each
+name and exact Hours together during scrolling; desktop hides that extra context.
+Semantic headers identify table cells for screen readers. Each summary keeps the person's name and
+school-account reference, then **Carry In → Raw Change → Hours → Carry Out**.
+**Hours** is the exact amount to enter once. A dash (**—**) replaces a zero posting
+and repeated no-entry prose; a single legend and accessible labels explain it.
+Revision applicability remains explicit. **Raw Change** combines tutoring net and Crew change,
+displayed as hours and minutes rounded to the nearest minute (half-minutes round
+away from zero). This changes presentation only. Per-person Details retains the
+exact source values, separate tutoring/Crew components, previous-month/revision
+comparisons and alternative posting instructions. Missing historical carry is
+shown as unavailable, never inferred as zero. Both layouts share correction
+instructions; printed management output uses only the table.
+
+The saved public report uses the same four-field order, with a full-width native
+Details disclosure per person. The recipient email is a notification only:
+month/revision metadata and the link to the report, with no individual hour amounts,
+carry balances, participant lists or source breakdowns. The viewed report is the
+posting instruction. Notification emails, the saved-report table and staff views
+are separate presentations of the same saved edition;
+review screenshots of those views are evidence, not images attached to emails.
 
 ## Source accounting and opening review
 
@@ -22,16 +41,49 @@ The [school reporting domain](../../src/server/school-hours.ts) owns a serialize
 issue chain. Each individual's baseline freezes earned credit, extra credit,
 deductions and stored Crew credit. Their next amount is the difference in earned
 and extra credit, minus the difference in deductions, plus the difference in Crew
-credit. Opposite changes on different people remain separate even when the
-program-wide net is zero. Stored precision is retained; display rounding never
-becomes a new source value. Lengthy values have an explicitly approximate summary
-using the existing four-decimal display convention. School instructions keep the
-exact posting value visible beside that summary in management, public HTML and
-plain-text email; CSV retains the exact numeric value. Opening-review summaries
+credit, plus their retained carry. Opposite changes on different people remain
+separate even when the program-wide net is zero.
+
+New editions use `TENTH_HOUR_CARRY_NONNEGATIVE`: combine the person's source changes
+and signed incoming balance. A negative balance posts **0 hours** and is retained
+in full. A positive balance posts complete tenths of an hour and retains the
+difference. A tenth is six minutes. For example, 80 minutes posts **1.3 hours**
+and retains **2 minutes**; four more minutes in a later report can release another
+**0.1 hour**. Carry follows the person across report months, account retirement and
+explicit ownership merges. It is never pooled between independent people or
+discarded because email is disabled. Source credits and opening component balances
+keep their stored precision.
+
+The [posting helper](../../src/server/school-hours-posting.ts) uses isolated Decimal
+arithmetic and decimal-string carry. A narrowly bounded machine-roundoff allowance
+at a nonzero tenth avoids retaining `0.099999…` forever after minute conversion.
+Any tiny difference remains in the signed carry, so posted plus retained equals
+available; no real tiny source value is discarded. Carries are saved atomically
+with the current source baseline, snapshot and outbox. Preview, download, delivery
+retry and an accepted generation retry never advance carry again.
+
+Deductions never become a new negative posting. For example, −80 minutes posts
+**0 hours** and carries an 80-minute deficit. Forty later positive minutes still
+post zero and leave a 40-minute deficit; another 50 minutes repay it, post
+**0.1 hour**, and retain **4 minutes**. Reports therefore add no hours until future
+credit has covered the carried deficit. A source reversal does not reduce an
+already issued month's posting; it becomes carry. Raw tutoring/Crew changes and
+signed carry remain visible as accounting evidence and are not entry instructions.
+
+Older snapshots, including the earlier signed `TENTH_HOUR_CARRY` policy, remain
+immutable and retain their original instructions. A missing baseline carry means zero.
+New corrections add tenth-hour increments to the saved monthly amount; they do
+not retroactively quantize an older edition. A replacement total or comparison
+against a legacy edition may consequently retain its historical precision.
+Email announces the saved edition without copying its hour report. The report
+and CSV retain the posting amounts, source breakdowns, carry and earlier-edition
+choices. The dash is presentation only: exact numeric zero remains in Details,
+saved snapshots and CSV. Long legacy values
+retain the existing readable fallback. Opening-review summaries
 keep exact source amounts in screen-reader text and the evidence dialog, without
-rounding the editable already-reported values. Tiny nonzero amounts never appear
-as zero. Neither repeating fractions nor floating-point tails are silently
-reclassified as accounting errors, and saved snapshots are not rewritten.
+rounding the editable already-reported values. Compact carried-minute summaries
+may be approximate; exact retained hour strings remain in report evidence and CSV.
+Saved snapshots are never rewritten to adopt the new policy.
 
 The report month identifies the reporting occurrence, not a service-date filter.
 Late attendance for earlier dates remains eligible, and school-calendar changes
@@ -100,7 +152,11 @@ Only the current head month's report can be revised. A revision identifies the
 replaced edition and shows each affected person's incremental correction alongside
 the revised monthly amount. If Alex's original +7 hours were already applied,
 a revision to +7.5 requires only +0.5 more. If not yet applied, use +7.5 once.
-Each revision also lists the correction from every earlier edition of that month.
+The saved report lists the correction from every earlier edition of that month.
+The viewed report prominently limits its displayed Hours to people whose last
+entered edition was the immediately previous one. Earlier-edition, never-entered
+and unknown-edition recipients must use Details or reconcile before posting.
+Revision emails only announce the updated report and link to it.
 If a third edition is +7.7, a recipient who applied the first +7 uses +0.7;
 one who applied the second +7.5 uses +0.2. Select only the comparison matching
 the last applied edition. If that edition is unknown, reconcile before posting.
@@ -129,15 +185,18 @@ chain and outbox across restarts. The shared dispatcher uses fenced attempts and
 bounded retries; no SMTP call runs inside the reporting transaction.
 
 Recipients are explicitly configured school mailboxes and need not have site
-accounts. Each receives a separate consolidated email; recipient addresses are
-not included in the shared report. The schedule's recipient list supports an
-optional editable label beside each email, such as “School office”. Labels are
-staff-only schedule metadata, limited to 80 characters, and save through the same
-versioned settings review as the addresses. They do not select an account, alter
-delivery, establish archive provenance or appear in reports, exports or emails.
-Clearing a label removes it;
-removing a recipient also removes its label. Older clients that omit labels retain
-the labels of unchanged recipients.
+accounts. Each receives a separate notification email. An exact verified address in the
+account-email registry uses that account’s saved email language; addresses without
+a verified, non-retired account default to English. This presentation-only lookup
+never attributes school hours or grants report access. Both draft languages are
+available from the formatter. Recipient addresses are not included in the shared
+report. The schedule’s recipient list supports an optional editable label beside
+each email, such as “School office”. Labels are staff-only schedule metadata,
+limited to 80 characters, and save through the same versioned settings review as
+the addresses. Labels do not select an account, affect language or delivery,
+establish archive provenance, or appear in reports, exports or emails. Clearing a label removes it; removing a
+recipient also removes its label. Older clients that omit labels retain the
+labels of unchanged recipients.
 The Service Hours module, schedule, global
 program-mail switch and PROGRAM transport govern sending. Mail-off blocks school
 delivery without treating the report as newly unreported; retry the same receipt
@@ -145,6 +204,17 @@ after restoring availability. Removed recipients, revoked links and superseded
 editions are not silently retargeted or resent as current.
 
 ## Link-only retrieval and names
+
+Delivery keeps the existing light email layout and **View Month Report** action,
+with a concise **Your monthly report is ready** heading. Correction subjects identify the
+report month and revision. Emails include edition metadata, the report link and
+privacy/receipt guidance, with no individual hour report in HTML, plain text or
+the inbox preview. Complete posting/unknown-edition safeguards and each person's
+exact conditional Hours appear in the viewed report. Full correction choices
+and comparison tables remain in its per-person Details, where
+full-precision values wrap within their columns without rounding or truncation.
+Runtime callers supply the public brand to the pure email builder so offline
+previews do not load server configuration.
 
 The [link helper](../../src/server/school-hours-link.ts) creates a purpose-separated
 capability from the report ID, link version and AUTH_SECRET. Only its digest is

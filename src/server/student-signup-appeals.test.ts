@@ -220,11 +220,15 @@ const staff = (role: "HEAD" | "ADMIN" | "COORDINATOR") =>
     },
   });
 
-it("delivers participant-facing reason only to the verified request owner and keeps its appeal processing-blocked", async () => {
+it.each(["en", "zh"] as const)("delivers a %s participant-facing reason only to the verified request owner and keeps its appeal processing-blocked", async (locale) => {
   await fixture();
+  await db.user.update({ where: { id: "owner" }, data: { emailLocale: locale } });
   await flag();
   expect(send).toHaveBeenCalledTimes(1);
   expect(send.mock.calls[0]![0].text).toContain("SECRET STAFF NOTE");
+  expect(send.mock.calls[0]![0].presentation?.locale).toBe(locale);
+  expect(send.mock.calls[0]![0].text).toContain(locale === "zh" ? "申请处理暂停" : "Processing is paused");
+  expect(send.mock.calls[0]![0].text).not.toContain(locale === "zh" ? "Processing is paused" : "申请处理暂停");
   const token = proof();
   const inspected = await inspectSignupAppeal(db, token);
   expect(inspected).toMatchObject({ canAppeal: true, invalidityVersion: 1 });
@@ -246,10 +250,13 @@ it("delivers participant-facing reason only to the verified request owner and ke
     appeal: { id: receipt.appealId, state: "PENDING", reason: input.reason },
   });
 });
-it("unverified flag mail supports source-specific appeal without creating an account", async () => {
+it.each(["en", "zh"] as const)("unverified %s flag mail supports source-specific appeal without creating an account", async (locale) => {
   await fixture(false);
+  await db.studentSurvey.update({ where: { id: "source" }, data: { emailLocale: locale } });
   await flag();
   expect(send.mock.calls[0]![0].text).not.toContain("SECRET STAFF NOTE");
+  expect(send.mock.calls[0]![0].presentation?.locale).toBe(locale);
+  expect(send.mock.calls[0]![0].text).toContain(locale === "zh" ? "申请处理暂停" : "Processing is paused");
   await appealStudentSignup(db, {
     token: proof(),
     reason: "This is my genuine request",

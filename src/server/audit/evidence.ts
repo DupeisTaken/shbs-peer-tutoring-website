@@ -207,6 +207,7 @@ const safeFields = new Set([
   "builtIn",
   "slug",
   "languageCode",
+  "emailLocale",
   "locale",
   "pinned",
 ]);

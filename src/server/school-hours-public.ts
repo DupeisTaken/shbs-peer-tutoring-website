@@ -27,6 +27,7 @@ export function publicSchoolHoursReport(
     generatedAt: parsed.generatedAt,
     timeZone: parsed.timeZone,
     includeStatistics: parsed.includeStatistics,
+    ...(parsed.postingPolicy ? { postingPolicy: parsed.postingPolicy } : {}),
     rows: visibleRows.map((row) => ({
       exportName: row.exportName,
       schoolAccountKey: row.schoolAccountKey,
@@ -43,6 +44,10 @@ export function publicSchoolHoursReport(
         monthAmount: edition.monthAmount,
         correctionToCurrent: edition.correctionToCurrent,
       })),
+      ...(parsed.postingPolicy === "TENTH_HOUR_CARRY" ||
+      parsed.postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE"
+        ? { carryInHours: row.carryInHours, carryOutHours: row.carryOutHours }
+        : {}),
     })),
     totals: {
       people: visibleRows.length,
@@ -96,7 +101,9 @@ export const schoolHoursResponseHeaders = {
 } as const;
 
 function htmlDocument(title: string, content: string) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="no-referrer"><title>${escapeSchoolHours(title)}</title><style>*{box-sizing:border-box}body{margin:0;background:#F1F5F9;color:#0F172A;font-family:Arial,"Microsoft YaHei",sans-serif}main{max-width:840px;margin:auto;padding:32px 20px 56px}h1{font-size:clamp(25px,5vw,36px);line-height:1.2;letter-spacing:-.025em}a.button{display:inline-block;padding:13px 18px;background:#0D59E6;color:white;border-radius:8px;text-decoration:none;font-weight:700}a:focus-visible,summary:focus-visible{outline:3px solid #2563EB;outline-offset:4px}.privacy{font-size:13px;line-height:1.7;color:#475569;border-top:1px solid #CBD5E1;margin-top:28px;padding-top:16px}th,td{font-variant-numeric:tabular-nums}@media(max-width:480px){main{padding:20px 12px 40px}.person{padding:14px!important}td,th{min-width:90px}}@media print{body{background:white}main{padding:0}.button,.privacy{display:none}.person{break-inside:avoid}details{display:none}}</style></head><body><main>${content}</main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="no-referrer"><title>${escapeSchoolHours(title)}</title><style>
+*{box-sizing:border-box}body{margin:0;background:#EAF0F7;color:#0F172A;font-family:Arial,"Microsoft YaHei",sans-serif}main{max-width:960px;margin:auto;padding:32px 20px 56px}h1{font-size:clamp(25px,5vw,32px);line-height:1.2;letter-spacing:-.025em}a.button{display:inline-block;padding:13px 18px;background:#0D59E6;color:white;border-radius:8px;text-decoration:none;font-weight:700}a:focus-visible,summary:focus-visible,.school-table-scroll:focus-visible{outline:3px solid #2563EB;outline-offset:4px}.privacy{font-size:13px;line-height:1.7;color:#475569;border-top:1px solid #CBD5E1;margin-top:28px;padding-top:16px}th,td{font-variant-numeric:tabular-nums}.school-table-scroll{overflow-x:auto;border:1px solid #CBD5E1;border-radius:10px;background:white}.school-hours-table{width:100%;min-width:700px;table-layout:fixed;border-collapse:collapse;font-size:14px;line-height:1.6}.school-hours-table caption{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.school-hours-table th,.school-hours-table td{padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}.school-hours-table thead{background:#F8FAFC}.school-hours-table thead th{font-size:12px;font-weight:600;color:#475569;border-bottom:1px solid #CBD5E1}.school-summary .person-identity{font-weight:650}.school-account{display:block;margin-top:3px;font-size:12px;font-weight:400;color:#475569}.column-note{display:block;font-size:11px;font-weight:400}.school-hours-table .posting{background:#EFF6FF}.school-summary .posting{font-size:18px;font-weight:750}.school-hours-table .person-detail-row>td{padding:0;border-bottom:1px solid #CBD5E1}.person-details{background:#F8FAFC}.person-details summary{position:sticky;left:0;width:min(100%,calc(100vw - 52px));cursor:pointer;min-height:24px;padding:4px 12px;color:#1D4ED8;font-size:13px;font-weight:600;text-align:right;list-style-position:inside}.person-details summary::marker{font-size:11px}.person-details summary::after{content:"";display:block;clear:both}.mobile-row-context{display:none}.person-detail-content{position:sticky;left:0;max-width:min(100%,calc(100vw - 52px));padding:0 12px 12px;font-size:14px;line-height:1.7;overflow-wrap:anywhere}.person-detail-content p{margin:10px 0}.table-scroll-hint{display:none;font-size:12px;line-height:1.6;color:#475569}@media(max-width:1023px){.person-details summary{min-height:44px;padding:11px 12px}}@media(max-width:740px){.table-scroll-hint{display:block}.mobile-row-context{display:block;float:left;max-width:calc(100% - 106px);text-align:left;color:#0F172A;font-weight:400}.mobile-row-context strong{font-weight:750}}@media(max-width:480px){main{padding:20px 12px 40px}}@media print{body{background:white}main{padding:0}.button,.privacy,.table-scroll-hint{display:none}.school-table-scroll{overflow:visible;border:0}.school-hours-table{min-width:0}.person{break-inside:avoid}details{display:none}.person-details{display:block}.person-details::details-content{content-visibility:visible}.person-details>summary{display:none!important}.person-detail-content{position:sticky;left:0;max-width:100%}}
+</style></head><body><main>${content}</main></body></html>`;
 }
 
 export function schoolHoursUnavailableResponse(
@@ -137,6 +144,10 @@ export function schoolHoursHtmlResponse(
 }
 
 export function schoolHoursCsv(report: SchoolHoursPublicReport) {
+  const nonnegativePolicy =
+    report.postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE";
+  const carryPolicy =
+    report.postingPolicy === "TENTH_HOUR_CARRY" || nonnegativePolicy;
   const visibleRows = schoolHoursVisibleRows(report);
   const priorRevisions = [
     ...new Set(
@@ -153,21 +164,37 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       "Revision",
       "Individual",
       "School account",
-      report.revision > 1
-        ? `Correction ONLY if r${report.revision - 1} was last applied (negative = deduct)`
-        : "Hours to apply once (negative = deduct)",
-      "Tutoring breakdown",
-      "Crew breakdown",
+      nonnegativePolicy
+        ? report.revision > 1
+          ? `Correction ONLY if r${report.revision - 1} was last applied (0 = nothing to enter)`
+          : "Hours to apply once (0 = nothing to enter)"
+        : report.revision > 1
+          ? `Correction ONLY if r${report.revision - 1} was last applied (negative = deduct)`
+          : "Hours to apply once (negative = deduct)",
+      carryPolicy
+        ? "Raw tutoring change (hours; not extra credit)"
+        : "Tutoring breakdown",
+      carryPolicy
+        ? "Raw Crew change (hours; not extra credit)"
+        : "Crew breakdown",
       "If nothing applied: replacement month amount once (alternative)",
       "Previous edition amount",
       "Unchanged since preceding edition",
       "Previous month amount (informational)",
       "Month comparison (informational)",
       "Application guidance",
-      ...priorRevisions.map(
-        (revision) =>
-          `If last applied r${revision}: correction to apply now (choose ONE alternative)`,
+      ...priorRevisions.map((revision) =>
+        nonnegativePolicy
+          ? `Comparison from r${revision}: correction to current amount (choose ONE alternative)`
+          : `If last applied r${revision}: correction to apply now (choose ONE alternative)`,
       ),
+      ...(carryPolicy
+        ? [
+            "Carry in (exact hours; informational)",
+            "Carry out (exact hours; retained automatically)",
+            "Posting policy",
+          ]
+        : []),
     ],
   ];
   for (const row of visibleRows)
@@ -184,15 +211,30 @@ export function schoolHoursCsv(report: SchoolHoursPublicReport) {
       row.unchanged ? "Yes" : "No",
       row.previousMonthAmount,
       row.monthComparison,
-      report.revision > 1
-        ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team."
-        : "Apply this individual's amount once; the breakdown is not extra credit.",
+      nonnegativePolicy
+        ? report.revision > 1
+          ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team. A highlighted 0 means nothing to enter now. If an earlier-edition correction is negative, contact the program team before posting."
+          : "Apply this individual's amount once. A 0 means nothing to enter now. Raw changes and carry are informational; do not enter them separately."
+        : report.revision > 1
+          ? "Choose only the last applied edition's correction OR the replacement amount if nothing applied. Never add alternatives. If unknown or not listed, ask the program team."
+          : carryPolicy
+            ? "Apply this individual's amount once. Raw changes and carry are informational; do not enter them separately."
+            : "Apply this individual's amount once; the breakdown is not extra credit.",
       ...priorRevisions.map(
         (revision) =>
           schoolHoursPriorEditions(row, report.revision).find(
             (edition) => edition.revision === revision,
           )?.correctionToCurrent ?? null,
       ),
+      ...(carryPolicy
+        ? [
+            row.carryInHours ?? null,
+            row.carryOutHours ?? null,
+            nonnegativePolicy
+              ? "Post in 0.1 h (6 min) increments. A 0 means nothing to enter now. Carry in + raw changes - posted change = carry out. The full negative balance is retained automatically and automatically offsets future earned hours; never post it separately."
+              : "Post in 0.1 h (6 min) increments. Carry in + raw changes - posted change = carry out. Carry is retained automatically; never post it separately.",
+          ]
+        : []),
     ]);
   return {
     filename: `program-${report.month}-r${report.revision}.csv`,

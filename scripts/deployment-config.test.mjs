@@ -97,6 +97,7 @@ test("CLI packaging guard catches omitted recovery acceptance descendants", () =
   for (const omitted of [
     "src/server/recovery/operator-cutover.ts",
     "src/server/recovery/operator-next.ts",
+    "src/lib/email-locale.ts",
     "src/lib/session-identity.ts",
     "src/lib/tutoring-policy.ts",
     "src/server/program/calendar-policy-history.ts",

@@ -37,6 +37,8 @@ enum Role {
 }
 
 model User {
+  /// Saved account delivery language, independent of the website locale and email opt-in.
+  emailLocale String @default("en")
   sessionNotices SessionNotice[]
   sessionCalendarTokens SessionCalendarToken[]
   personId String?
@@ -238,6 +240,8 @@ model ProgramFeature {
 /// password it becomes a read-only VIEWER login. Rate-limited at the router. One row per email.
 /// See src/server/auth/viewer-signup.ts.
 model ViewerSignup {
+  /// Request language retained for verification, retries and the later invitation.
+  emailLocale String @default("en")
   firstName        String?
   lastName         String?
   preferredName    String?
@@ -724,6 +728,8 @@ model RegistrationCode {
 /// Recipient-only invitation envelope. Staff authorization stays in its original source;
 /// this separate, hashed secret proves mailbox ownership and can never be redisplayed to staff.
 model AccountInvitation {
+  /// Captured source language; a current account's saved choice takes precedence at delivery.
+  emailLocale String @default("en")
   id String @id @default(cuid())
   kind String
   email String
@@ -1174,6 +1180,8 @@ enum CrewApplicationStatus {
 /// A public application to join the crew (no login is created — mirrors /signup & /tutor-signup).
 /// An admin reviews it on /admin/crew; accepting issues a CREW registration code bound to the email.
 model CrewApplication {
+  /// Captured application language for later staff-issued invitations.
+  emailLocale String @default("en")
   firstName        String?
   lastName         String?
   preferredName    String?
@@ -1196,6 +1204,8 @@ model CrewApplication {
 /// Mailbox-owned public crew draft/status challenge; never itself authorizes participation.
 /// Drafts become durable CrewApplications only after successful recipient verification.
 model CrewSignupVerification {
+  /// Request language retained for verification and the resulting application.
+  emailLocale String @default("en")
   id String @id @default(cuid())
   email String @unique
   draft Json?
@@ -1424,6 +1434,8 @@ enum TutorApplicationType {
 }
 
 model TutorApplication {
+  /// Captured application language for later staff-issued invitations.
+  emailLocale String @default("en")
   /// Advances only for audited name corrections; zero keeps untouched review fingerprints compatible.
   identityRevision Int @default(0)
   /// Reversible staff screening metadata; never an interview outcome or membership change.
@@ -1929,6 +1941,8 @@ model StudentContinuationReceipt {
 }
 
 model StudentSurvey {
+  /// Request language retained for retries, notices and the later invitation.
+  emailLocale String @default("en")
   /// Staff-only screening metadata is separate from immutable intake and lifecycle evidence.
   invalidReason String?
   invalidatedAt DateTime?
@@ -1997,6 +2011,8 @@ model StudentSignupRevision {
 /// Public answers are staged under an independent exact mailbox challenge. An email match
 /// identifies a candidate account/request but never authorizes replacing its current answers.
 model StudentSignupIntent {
+  /// Captured request language; does not alter an existing account's saved choice.
+  emailLocale String @default("en")
   id String @id @default(cuid())
   keyHash String @unique
   inputHash String
@@ -2260,6 +2276,8 @@ model TutorProfileOwnership {
 /// Exact-record invitations establish historical ownership only, never participation.
 /// Tokens are hashed, single-use and excluded from program-record exports/imports.
 model TuteeHistoryInvitation {
+  /// Captured invitation language for recipients who do not yet have an account.
+  emailLocale String @default("en")
   tuteeId String @id
   tutee Tutee @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
   tokenHash String @unique
@@ -2310,6 +2328,8 @@ model TuteeHistoryInvitationAttempt {
 /// Additive typed-history envelope. Legacy Tutee grants retain their original table/proofs.
 /// Frozen sources are never expanded through subsequent Person membership changes.
 model HistoricalRecordInvitation {
+  /// Captured invitation language for recipients who do not yet have an account.
+  emailLocale String @default("en")
   scopeKey String @id
   tokenHash String @unique
   sources Json

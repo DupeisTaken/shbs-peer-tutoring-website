@@ -2,7 +2,6 @@ import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 import type { EmailMessage } from "./sender";
 import en from "../../../messages/en.json";
-import zh from "../../../messages/zh.json";
 
 const transport = vi.hoisted(() => ({ send: vi.fn(), available: vi.fn() }));
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
@@ -19,6 +18,7 @@ import { deliverNotifications } from "./notification-delivery";
 import {
   admitRequestDelivery,
   currentRequestNotice,
+  requestNoticeLocale,
   finishRequestDelivery,
   requestNoticeStatus,
   retryRequestNotice,
@@ -168,7 +168,7 @@ it.each([
     const mail = transport.send.mock.calls[0]![0] as EmailMessage;
     expect(JSON.stringify(mail)).not.toContain("sentinel");
     expect(mail.subject).toBe(
-      `${en.notificationEvents[event].title} / ${zh.notificationEvents[event].title}`,
+      en.notificationEvents[event].title,
     );
     expect(
       (await db.emailDelivery.findUniqueOrThrow({ where: { id: outbox.id } }))
@@ -180,6 +180,7 @@ it.each([
 async function source(
   kind: RequestNoticeSource["kind"] = "application",
   email: string | null = mailbox,
+  academicAccountId?: string,
 ): Promise<RequestNoticeSource> {
   if (kind === "application") {
     const row = await db.tutorApplication.create({
@@ -205,6 +206,7 @@ async function source(
         payload: {
           englishName: "Original private student",
           answer: "answer-sentinel",
+          ...(academicAccountId ? { academicAccountId } : {}),
         },
         policySnapshot: { original: true },
         policyRevision: "original-policy",
@@ -242,8 +244,8 @@ function latest(row: RequestNoticeSource) {
     orderBy: { requestVersion: "desc" },
   });
 }
-async function marked(kind: RequestNoticeSource["kind"] = "application") {
-  const row = await source(kind);
+async function marked(kind: RequestNoticeSource["kind"] = "application", academicAccountId?: string) {
+  const row = await source(kind, mailbox, academicAccountId);
   await apply(row);
   return { source: row, notice: await latest(row) };
 }
@@ -538,6 +540,65 @@ it.each(["application", "survey", "signup"] as const)(
     );
   },
 );
+
+it.each(["application", "survey"] as const)("uses stored %s language rather than an unrelated matching account preference", async (kind) => {
+  const { notice, source: row } = await marked(kind);
+  await verifiedAddress("service-student");
+  await db.user.update({ where: { id: "service-student" }, data: { emailLocale: "zh" } });
+  expect(await requestNoticeLocale(db, notice)).toBe("en");
+  if (kind === "application") await db.tutorApplication.update({ where: { id: row.id }, data: { emailLocale: "zh" } });
+  else await db.studentSurvey.update({ where: { id: row.id }, data: { emailLocale: "zh" } });
+  expect(await requestNoticeLocale(db, notice)).toBe("zh");
+  expect((await currentRequestNotice(db, notice)).verified).toBe(false);
+});
+
+it("uses the still-bound explicit legacy survey account without promoting its reason-disclosure proof", async () => {
+  const { notice } = await marked("survey", "service-student");
+  await db.user.update({ where: { id: "service-student" }, data: { emailLocale: "zh" } });
+  await verifiedAddress("service-student");
+  expect(await requestNoticeLocale(db, notice)).toBe("zh");
+  expect((await currentRequestNotice(db, notice)).verified).toBe(false);
+  await db.accountEmail.update({ where: { email: mailbox }, data: { verifiedAt: null } });
+  expect(await requestNoticeLocale(db, notice)).toBe("en");
+  await verifiedAddress("service-viewer");
+  expect(await requestNoticeLocale(db, notice)).toBe("en");
+  expect((await currentRequestNotice(db, notice)).verified).toBe(false);
+});
+
+it.each([
+  { kind: "application", suspended: false },
+  { kind: "application", suspended: true },
+  { kind: "survey", suspended: false },
+  { kind: "survey", suspended: true },
+] as const)("keeps an explicitly bound unverified primary's current language for $kind (suspended=$suspended) without granting reason proof", async ({ kind, suspended }) => {
+  const row = await source(kind, "student@example.test", kind === "survey" ? "service-student" : undefined);
+  if (kind === "application") {
+    await db.registrationCode.create({ data: { applicationId: row.id, pendingEmail: "student@example.test", expiresAt: new Date("2099-01-01"), usedByUserId: "service-student", usedAt: new Date(), emailVerifiedAt: null } });
+  }
+  await apply(row);
+  const notice = await latest(row);
+  expect((await db.accountEmail.findUniqueOrThrow({ where: { email: "student@example.test" } })).verifiedAt).toBeNull();
+  await db.user.update({ where: { id: "service-student" }, data: { emailLocale: "zh", suspendedAt: suspended ? new Date() : null } });
+  expect(await requestNoticeLocale(db, notice)).toBe("zh");
+  expect((await currentRequestNotice(db, notice)).verified).toBe(false);
+  expect(requestNoticeEmailCopy(notice, false, undefined, "zh").text).not.toContain(privateReason);
+  await db.user.update({ where: { id: "service-student" }, data: { emailLocale: "en" } });
+  expect(await requestNoticeLocale(db, notice)).toBe("en");
+});
+
+it("takes the current bound application owner's preference after queueing while preserving mailbox proof", async () => {
+  const { notice, source: row } = await marked();
+  await db.registrationCode.create({ data: { applicationId: row.id, pendingEmail: mailbox, expiresAt: new Date("2099-01-01"), emailVerifiedAt: new Date(), usedByUserId: "service-student", usedAt: new Date() } });
+  await verifiedAddress("service-student");
+  await db.user.update({ where: { id: "service-student" }, data: { emailLocale: "zh" } });
+  expect(await requestNoticeLocale(db, notice)).toBe("zh");
+  await deliverNotifications();
+  const mail = transport.send.mock.calls[0]![0] as EmailMessage;
+  expect(mail.presentation?.locale).toBe("zh");
+  expect(mail.subject).toBe("辅导伙伴申请已标记为无效");
+  expect(mail.text).toContain(privateReason);
+  expect((await currentRequestNotice(db, notice)).verified).toBe(true);
+});
 
 it("accepts source-bound registration proof, rechecks a redeemed owner's exact address and masks removed proof", async () => {
   const { notice, source: row } = await marked();

@@ -47,6 +47,100 @@ function fixture(
 }
 
 describe("operator security reconciliation evidence", () => {
+  it("reads the saved language on upgraded accounts without selecting nonexistent columns in older backups", async () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    const read = async (
+      columns: typeof metadata.columns,
+      locale: boolean,
+      provenance: boolean,
+    ) => {
+      const queries: string[] = [];
+      const db: OperatorSql = {
+        async query(sql) {
+          queries.push(sql);
+          if (sql.includes("information_schema"))
+            return {
+              rows: [
+                ...columns,
+                ...(locale ? metadata.emailLocaleColumns : []),
+                ...(provenance ? metadata.importProvenanceColumns : []),
+              ],
+            };
+          if (sql.includes("pg_enum")) return { rows: metadata.enums };
+          if (sql.includes("pg_trigger"))
+            return {
+              rows: [
+                {
+                  tgenabled: "O",
+                  tgtype: 19,
+                  proname: "advance_account_session_version",
+                },
+              ],
+            };
+          if (sql.includes("SELECT count(*)::text AS count"))
+            return { rows: [{ count: "0" }] };
+          if (sql.includes("SELECT encode(sha256("))
+            return {
+              rows: [
+                {
+                  fingerprint:
+                    "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+                },
+              ],
+            };
+          if (sql.includes('FROM public."User" ORDER BY id'))
+            return {
+              rows: [{ id: "owner", ...(locale ? { emailLocale: "zh" } : {}) }],
+            };
+          return { rows: [] };
+        },
+        async close() {
+          throw new Error("Caller owns the SQL connection");
+        },
+      };
+      return { state: await readReconciliationSnapshot(db), queries };
+    };
+    for (const columns of [
+      metadata.columns,
+      metadata.identityColumns,
+      metadata.legacyDeclineColumns,
+      metadata.identityLegacyDeclineColumns,
+    ])
+      for (const locale of [false, true])
+        for (const provenance of [false, true]) {
+          const result = await read(columns, locale, provenance);
+          expect(
+            result.queries.some((sql) =>
+              /SELECT .*"emailLocale".*FROM public\."User"/.test(sql),
+            ),
+          ).toBe(locale);
+          if (locale) expect(result.state.accounts[0]?.emailLocale).toBe("zh");
+          else
+            expect(result.state.accounts[0]).not.toHaveProperty("emailLocale");
+          expect(result.state.identityVersion).toBe(
+            columns.some(
+              (column) => column.table_name === "HistoryRowOwnership",
+            )
+              ? 1
+              : 0,
+          );
+          expect(
+            result.queries.some((sql) =>
+              sql.includes('FROM public."LegacySignupDecline"'),
+            ),
+          ).toBe(
+            columns.some(
+              (column) => column.table_name === "LegacySignupDecline",
+            ),
+          );
+          expect(
+            result.queries.some((sql) =>
+              sql.includes('FROM public."ImportedRecordProvenance"'),
+            ),
+          ).toBe(provenance);
+        }
+  });
+
   it("fingerprints archive boundaries and refuses an overlay that loses provenance", async () => {
     const snapshot = async (
       known: boolean,

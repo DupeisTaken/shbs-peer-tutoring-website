@@ -53,6 +53,7 @@ COPY --from=build /app/src/lib/approval-policy.ts /runtime-output/app/src/lib/ap
 COPY --from=build /app/src/lib/course-catalogue.ts /runtime-output/app/src/lib/course-catalogue.ts
 COPY --from=build /app/src/lib/csv.ts /runtime-output/app/src/lib/csv.ts
 COPY --from=build /app/src/lib/discipline.ts /runtime-output/app/src/lib/discipline.ts
+COPY --from=build /app/src/lib/email-locale.ts /runtime-output/app/src/lib/email-locale.ts
 COPY --from=build /app/src/lib/historical-academics.ts /runtime-output/app/src/lib/historical-academics.ts
 COPY --from=build /app/src/lib/name-field-policy.ts /runtime-output/app/src/lib/name-field-policy.ts
 COPY --from=build /app/src/lib/notification-categories.ts /runtime-output/app/src/lib/notification-categories.ts

@@ -59,12 +59,18 @@ describe("notification-lock recovery schema compatibility", () => {
       for (const backup of [beforePauses, beforeHistory, columns]) {
         for (const labels of [backup, withoutRecipientLabels(backup)])
           for (const shape of [labels, [...labels, lockColumn]])
-            expect(
-              assertReviewedRecoverySchema(
-                shape,
-                reviewedRecoverySchemaMetadata.enums,
-              ),
-            ).toEqual({ identityVersion, legacySignupDecline });
+            for (const emailLocale of [false, true])
+              expect(
+                assertReviewedRecoverySchema(
+                  [
+                    ...shape,
+                    ...(emailLocale
+                      ? reviewedRecoverySchemaMetadata.emailLocaleColumns
+                      : []),
+                  ],
+                  reviewedRecoverySchemaMetadata.enums,
+                ),
+              ).toEqual({ emailLocale, identityVersion, legacySignupDecline });
       }
     },
   );
@@ -86,7 +92,11 @@ describe("notification-lock recovery schema compatibility", () => {
         metadata.notificationLockColumns,
         metadata.enums,
       ),
-    ).toEqual({ identityVersion: 1, legacySignupDecline: true });
+    ).toEqual({
+      emailLocale: false,
+      identityVersion: 1,
+      legacySignupDecline: true,
+    });
   });
 
   it("still refuses changed types, duplicate policy columns and unknown schema additions", () => {

@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { normalizeEmailLocale } from "~/lib/email-locale";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type {
@@ -26,6 +27,7 @@ import {
 } from "./student-signup-answers";
 import { recordDomainAudit } from "./audit/evidence";
 import { emailSender } from "./email/sender";
+import { signupAppealEmailCopy } from "./email/direct-email-copy";
 import { emailOrigin } from "./email/urls";
 import { env } from "~/env";
 import { queueRequestNotice } from "./email/request-notice";
@@ -113,6 +115,9 @@ async function deliveryOwner(tx: DomainDb, row: StudentSurvey) {
     email: row.email,
     accountId: candidate?.id ?? null,
     sessionVersion: candidate?.sessionVersion ?? null,
+    emailLocale: normalizeEmailLocale(
+      candidate?.emailLocale ?? row.emailLocale,
+    ),
   };
 }
 function noticeToken(
@@ -249,7 +254,7 @@ export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
       });
       return null;
     }
-    return tx.studentSignupNotice.update({
+    const admitted = await tx.studentSignupNotice.update({
       where: { id: current.id },
       data: {
         attempts: { increment: 1 },
@@ -257,22 +262,28 @@ export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
         state: "PENDING",
       },
     });
+    return { ...admitted, emailLocale: recipient.emailLocale };
   });
   if (!notice?.recipientEmail) return false;
   const flagged = notice.kind === "INVALID_FLAGGED";
-  const text = flagged
-    ? `Please confirm whether your peer tutoring request is genuine. If it is, explain why it should be reviewed again. Processing stays paused until staff review your appeal. Appeals are available until the current intake period ends. / 请确认您的同伴辅导申请是否真实。如需重新审核，请填写申诉理由。审核期间申请暂不处理。\n${emailOrigin()}/tutee-signup/appeal#token=${noticeToken({ id: notice.id, surveyId: notice.surveyId, invalidityVersion: notice.invalidityVersion, recipientEmail: notice.recipientEmail, accountId: notice.accountId, sessionVersion: notice.sessionVersion })}`
-    : notice.kind === "APPEAL_ACCEPTED"
-      ? "Your appeal was accepted. Your request keeps its original priority. / 您的申诉已通过，原申请优先顺序保持不变。"
-      : "Your appeal was rejected. This request is closed. Submit a fresh request to rejoin the queue with new priority. / 您的申诉被驳回，原申请已关闭。重新申请将获得新的排队顺序。";
+  const copy = signupAppealEmailCopy({
+    locale: notice.emailLocale,
+    kind: flagged
+      ? "INVALID_FLAGGED"
+      : notice.kind === "APPEAL_ACCEPTED"
+        ? "APPEAL_ACCEPTED"
+        : "APPEAL_REJECTED",
+    ...(flagged
+      ? {
+          appealUrl: `${emailOrigin()}/tutee-signup/appeal#token=${noticeToken({ id: notice.id, surveyId: notice.surveyId, invalidityVersion: notice.invalidityVersion, recipientEmail: notice.recipientEmail, accountId: notice.accountId, sessionVersion: notice.sessionVersion })}`,
+        }
+      : {}),
+  });
   try {
     await emailSender.send({
       category: "PROGRAM",
       to: notice.recipientEmail,
-      subject: flagged
-        ? "Confirm your peer tutoring request / 确认辅导申请"
-        : "Peer tutoring appeal reviewed / 辅导申请申诉结果",
-      text,
+      ...copy,
       messageId: `<signup-notice-${notice.id}@shbs-notifications>`,
     });
     await db.studentSignupNotice.updateMany({
@@ -459,7 +470,9 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
   });
   if (result.queued) {
     const send = async () => {
-      await (await import("./email/notification-delivery")).deliverNotifications();
+      await (
+        await import("./email/notification-delivery")
+      ).deliverNotifications();
     };
     if (!deferUntilCommit(send)) await send();
   }

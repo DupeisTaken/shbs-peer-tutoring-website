@@ -35,6 +35,7 @@ function fixture() {
     offer: { requestId: "request-1", date: "2026-11-02", cutoffAt: new Date("2026-11-02T04:00:00Z"), request: { status: "PENDING", currentOfferId: "offer-1" } },
   };
   const user = {
+    emailLocale: "en",
     id: "user-1", email: notice.recipientEmail, role: "STUDENT", tuteeMember: true,
     tutorId: null as string | null, tutor: null as { status: string } | null,
     tutorAccessRevoked: false, suspendedAt: null, mergedIntoId: null, schoolDeparture: null,
@@ -63,6 +64,17 @@ function fixture() {
   };
   return { notice, response, user, update, responseExecutions, participantExecutions, raw: database, database: database as unknown as DomainDb };
 }
+
+it.each(["en", "zh"] as const)("composes queued essential notices using the current recipient %s preference without changing acceptance clocks", async (locale) => {
+  const f = fixture();
+  f.user.emailLocale = locale;
+  await deliverSessionNotices(10, f.database);
+  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({
+    subject: locale === "en" ? "Reply to a tutoring time proposal" : "请回复辅导时间提议",
+    presentation: expect.objectContaining({ locale, action: expect.objectContaining({ label: locale === "en" ? "Respond to proposal" : "回复时间提议" }) as unknown }) as unknown,
+  }));
+  expect(transport.mark).toHaveBeenCalledWith(f.database, "response-1", now, false);
+});
 
 it("records SMTP acceptance before qualifying a responder, despite optional mail being off", async () => {
   const f = fixture();
@@ -207,7 +219,13 @@ it("never qualifies a cancelled proposal, before admission or during an admitted
   const before = fixture();
   before.response.offer.request.status = "CANCELLED";
   await deliverSessionNotices(10, before.database);
-  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({ subject: expect.stringContaining("Earlier update") as unknown }));
+  expect(transport.send).toHaveBeenCalledWith(expect.objectContaining({
+    subject: expect.stringContaining("Earlier tutoring update") as unknown,
+    text: expect.stringContaining("no longer an actionable offer") as unknown,
+    presentation: expect.objectContaining({
+      action: expect.objectContaining({ label: "View current schedule" }) as unknown,
+    }) as unknown,
+  }));
   expect(transport.mark).not.toHaveBeenCalled();
   transport.send.mockClear();
   const during = fixture();

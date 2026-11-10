@@ -9,6 +9,8 @@ import { rateLimit } from "~/server/rate-limit";
 import { db } from "~/server/db";
 import { inTransaction, lockEntity } from "~/server/transactions";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import { codeEmailCopy } from "~/server/email/direct-email-copy";
+import { emailText, normalizeEmailLocale } from "~/lib/email-locale";
 import { hashCode, freshEmailCode } from "./registration";
 import { verifyPasswordConfirmation } from "./password-confirmation";
 
@@ -42,13 +44,18 @@ export async function requestEmailChange(
     });
   const targetEmail = email.trim().toLowerCase();
   let code = "";
+  let locale = normalizeEmailLocale(user.emailLocale);
   await inTransaction(db, async (tx) => {
     await lockAccountProfile(tx, userId);
     // Password verification before the transaction is only an early rejection. Recheck the
     // locked identity so an in-flight request cannot issue proof after retirement/rotation.
     const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    locale = normalizeEmailLocale(current.emailLocale);
     if (current.mergedIntoId || current.passwordHash !== user.passwordHash)
-      throw new TRPCError({ code: "FORBIDDEN", message: "Account changed. Sign in again before requesting a code." });
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Account changed. Sign in again before requesting a code.",
+      });
     await lockEntity(tx, `email-change:${userId}`);
     await available(tx, userId, targetEmail);
     const recent = await tx.emailVerificationCode.findFirst({
@@ -86,13 +93,19 @@ export async function requestEmailChange(
   await emailSender.send({
     category: "SECURITY",
     to: targetEmail,
-    subject: "Verify your new account email",
-    presentation: {
+    ...codeEmailCopy({
+      locale,
+      subject: emailText(locale, {
+        en: "Verify your new primary email",
+        zh: "验证新主邮箱",
+      }),
       code,
-      codePurpose: "verification",
-      eyebrow: "EMAIL VERIFICATION",
-    },
-    text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ten minutes.`,
+      eyebrow: emailText(locale, { en: "EMAIL VERIFICATION", zh: "邮箱验证" }),
+      body: emailText(locale, {
+        en: "Enter this code to change your primary email address. It expires in 10 minutes. Your email changes only after confirmation.\n\nIf you did not request this, ignore this email.",
+        zh: "输入此验证码以更改主邮箱，10 分钟内有效。确认后才会更改邮箱。\n\n如非本人申请，请忽略此邮件。",
+      }),
+    }),
   });
 }
 
