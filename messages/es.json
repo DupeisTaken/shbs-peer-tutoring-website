@@ -4503,7 +4503,8 @@
         "schoolHoursReportId": "ID del informe escolar",
         "schoolHoursReport": "Informe escolar",
         "schedulingEffect": "Efecto en la programación",
-        "tutoringPauseSuppressed": "Tutoría regular pausada"
+        "tutoringPauseSuppressed": "Tutoría regular pausada",
+        "recipientLabels": "Etiquetas de destinatarios"
       },
       "enums": {
         "Role": {
@@ -8004,7 +8005,7 @@
     "enable": "Activar informes mensuales escolares",
     "activationHelp": "Antes de activar, revisa los saldos iniciales y activa horas de servicio, correo opcional y entrega.",
     "recipients": "Correos de destinatarios escolares",
-    "recipientsHelp": "Una dirección por línea. Cada destinatario recibe el enlace guardado por separado. No requiere acceso escolar ni verificar el correo.",
+    "recipientsHelp": "Cada destinatario recibe un correo por separado con el enlace al informe guardado. No requiere cuenta escolar ni verificación del correo. Añada hasta 100 destinatarios.",
     "scheduleHelp": "Predeterminado: último día del mes a las 12:00 en la zona guardada. Cada excepción afecta un envío. La asistencia tardía queda para el siguiente informe.",
     "overrideMonth": "Mes de envío",
     "addOverride": "Establecer fecha excepcional",
@@ -8091,7 +8092,23 @@
     "blocked": "Resuelve antes de emitir",
     "featureOff": "Las horas de servicio están desactivadas. Vista previa no disponible.",
     "priorEditionHelp": "Elige solo la última edición realmente aplicada a esta cuenta. Si ninguna, aplica el mes completo corregido una vez. Si hay dudas, consulta al equipo antes de registrar.",
-    "priorEditionCorrection": "Si la última revisión aplicada fue {revision}: aplica {hours}"
+    "priorEditionCorrection": "Si la última revisión aplicada fue {revision}: aplica {hours}",
+    "addRecipient": "Añadir destinatario",
+    "editRecipient": "Editar",
+    "removeRecipient": "Quitar",
+    "recipientEmail": "Correo electrónico",
+    "recipientLabel": "Etiqueta (opcional)",
+    "recipientLabelHelp": "Por ejemplo, Secretaría o Dirección. Las etiquetas son notas internas y no se incluyen en los correos.",
+    "noRecipients": "Aún no hay destinatarios",
+    "noRecipientsHelp": "Añada a las personas que deben recibir el informe escolar.",
+    "recipientInvalid": "Introduzca una dirección de correo válida.",
+    "recipientDuplicate": "Este correo ya está en la lista.",
+    "updateRecipient": "Actualizar destinatario",
+    "cancelRecipient": "Cancelar",
+    "editRecipientEmail": "Editar destinatario {email}",
+    "removeRecipientEmail": "Quitar destinatario {email}",
+    "finishRecipient": "Termine o cancele la edición del destinatario antes de guardar la programación.",
+    "noRecipientLabel": "Sin etiqueta"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",

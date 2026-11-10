@@ -9,6 +9,19 @@ const lockColumn = {
   column_name: "notificationLocks",
   udt_name: "jsonb",
 };
+const recipientLabelColumn = {
+  table_name: "SchoolHoursSchedule",
+  column_name: "recipientLabels",
+  udt_name: "jsonb",
+};
+const withoutRecipientLabels = (columns: Record<string, unknown>[]) =>
+  columns.filter(
+    (row) =>
+      !(
+        row.table_name === "SchoolHoursSchedule" &&
+        row.column_name === "recipientLabels"
+      ),
+  );
 
 describe("notification-lock recovery schema compatibility", () => {
   it.each([
@@ -27,7 +40,7 @@ describe("notification-lock recovery schema compatibility", () => {
       true,
     ],
   ] as const)(
-    "retains %s backups before, during and after tutoring-policy history with notification requirements",
+    "retains %s backups across tutoring-policy history with optional notification requirements and recipient labels",
     (_label, columns, identityVersion, legacySignupDecline) => {
       const beforeHistory = columns.filter(
         (row) => row.table_name !== "ProgramCalendarPolicyRevision",
@@ -44,13 +57,14 @@ describe("notification-lock recovery schema compatibility", () => {
           ),
       );
       for (const backup of [beforePauses, beforeHistory, columns]) {
-        for (const shape of [backup, [...backup, lockColumn]])
-          expect(
-            assertReviewedRecoverySchema(
-              shape,
-              reviewedRecoverySchemaMetadata.enums,
-            ),
-          ).toEqual({ identityVersion, legacySignupDecline });
+        for (const labels of [backup, withoutRecipientLabels(backup)])
+          for (const shape of [labels, [...labels, lockColumn]])
+            expect(
+              assertReviewedRecoverySchema(
+                shape,
+                reviewedRecoverySchemaMetadata.enums,
+              ),
+            ).toEqual({ identityVersion, legacySignupDecline });
       }
     },
   );
@@ -148,6 +162,30 @@ describe("notification-lock recovery schema compatibility", () => {
         row === lockColumn ? { ...row, udt_name: "text" } : row,
       ),
       [...combined, lockColumn],
+      [...combined, recipientLabelColumn],
+      combined.map((row) =>
+        row.table_name === "SchoolHoursSchedule" &&
+        row.column_name === "recipientLabels"
+          ? { ...row, udt_name: "text" }
+          : row,
+      ),
+      withoutRecipientLabels(partialHistory),
+      withoutRecipientLabels(missingEffect),
+      withoutRecipientLabels([...combined, lockColumn]),
+      withoutRecipientLabels(
+        combined.map((row) =>
+          row === lockColumn ? { ...row, udt_name: "text" } : row,
+        ),
+      ),
+      withoutRecipientLabels(combined.slice(1)),
+      [
+        ...combined,
+        {
+          table_name: "SchoolHoursSchedule",
+          column_name: "recipientGrant",
+          udt_name: "text",
+        },
+      ],
       [
         ...combined,
         {

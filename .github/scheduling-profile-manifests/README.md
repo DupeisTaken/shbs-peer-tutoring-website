@@ -35,9 +35,9 @@ procedure-result difference remains subject to the existing comparison rules.
 Missing or changed bytes, an unlisted migration or a changed dependency lock still
 fail closed. No general or other-PR baseline selection is changed.
 
-PR #651 pins its integrated main base `04805306b7d049de5ff735b9ba218d80957f61d6`
-and all 137 existing migration hashes, including the four tutoring-policy
-migrations already on main. Its sole addition,
+PR #651 pins its integrated main base `7fa85bdf903d9cf7fe03ba4a438f45aeb509a7b9`
+and all 138 existing migration hashes, including the tutoring-policy and
+school-hours recipient-label migrations already on main. Its sole addition,
 `20261108010000_notification_choice_locks`, adds the default-empty
 `ProgramSettings.notificationLocks` setting and lets the existing email-enqueue
 helper apply required category email choices. Existing scheduling scenarios run

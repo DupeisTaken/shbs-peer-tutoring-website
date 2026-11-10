@@ -94,7 +94,7 @@ SchoolCalendarDay|active:bool,date:text,isSchoolDay:bool,note:text,scheduleRevis
 SchoolDeparture|confirmedAt:timestamp,confirmedById:text,effectiveAt:timestamp,observerRevoked:bool,reason:text,revision:int4,source:text,tutorDerived:bool,userId:text
 SchoolDepartureEvent|action:text,actorId:text,createdAt:timestamp,explanation:text,id:text,revision:int4,source:text,userId:text
 SchoolHoursReport|baselineVersion:int4,configVersion:int4,contentHash:text,dueAt:timestamp,generatedAt:timestamp,generatedById:text,generationHash:text,generationKey:text,id:text,intendedRecipients:_text,linkRevokedAt:timestamp,linkTokenHash:text,linkVersion:int4,month:text,predecessorId:text,reason:text,revision:int4,scheduleId:text,snapshot:jsonb,sourceBaseline:jsonb,supersededById:text,supersedesId:text,timeZone:text
-SchoolHoursSchedule|baselineVersion:int4,dateOverrides:jsonb,enabled:bool,headReportId:text,id:text,includeStatistics:bool,lastGenerationError:text,nextDueAt:timestamp,nextMonth:text,openingBaseline:jsonb,openingReviewedAt:timestamp,recipientEmails:_text,timeZone:text,updatedAt:timestamp,version:int4
+SchoolHoursSchedule|baselineVersion:int4,dateOverrides:jsonb,enabled:bool,headReportId:text,id:text,includeStatistics:bool,lastGenerationError:text,nextDueAt:timestamp,nextMonth:text,openingBaseline:jsonb,openingReviewedAt:timestamp,recipientEmails:_text,recipientLabels:jsonb,timeZone:text,updatedAt:timestamp,version:int4
 ServiceHourAdjustment|amount:float8,createdAt:timestamp,id:text,month:text,quarter:Quarter,reason:text,schoolYear:text,tutorId:text,type:AdjustmentType
 Session|actualRoomId:text,comments:text,createdAt:timestamp,date:timestamp,durationMin:int4,endMin:int4,id:text,mergeGroupId:text,month:text,online:bool,pairingId:text,planningCohortId:text,quarter:Quarter,ratingBehavior:int4,ratingParticipation:int4,ratingPreparedness:int4,ratingProgress:int4,ratingUnderstanding:int4,schoolYear:text,shCount:float8,shFactor:int4,startMin:int4,submissionKey:text,submissionPayloadHash:text,timeSlotId:text,tutorAbsentReason:text,tutorId:text,tutorStatus:SessionTutorStatus,updatedAt:timestamp
 SessionCalendarToken|createdAt:timestamp,id:text,revokedAt:timestamp,tokenHash:text,userId:text
@@ -422,9 +422,9 @@ export function assertReviewedRecoverySchema(
     )
     .sort();
   // Strip only the exact, singleton additive notification column before applying
-  // the independently reviewed tutoring-policy history compatibility rules.
+  // the independently reviewed tutoring-policy and recipient-label backup rules.
   // Wrong types and duplicates remain visible and fail the complete comparison.
-  const reviewedDomain =
+  const notificationDomain =
     domain.filter((column) => column === NOTIFICATION_LOCK_COLUMN).length === 1
       ? domain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
       : domain;
@@ -437,15 +437,17 @@ export function assertReviewedRecoverySchema(
   const historyColumns = REVIEWED_COLUMNS.filter((column) =>
     column.startsWith("ProgramCalendarPolicyRevision|"),
   );
-  const hasHistory = reviewedDomain.some((column) =>
+  const hasHistory = notificationDomain.some((column) =>
     column.startsWith("ProgramCalendarPolicyRevision|"),
   );
   const comparedDomain = hasHistory
-    ? reviewedDomain
+    ? notificationDomain
     : [
-        ...reviewedDomain,
+        ...notificationDomain,
         ...historyColumns,
-        ...(policyColumns.every((column) => !reviewedDomain.includes(column))
+        ...(policyColumns.every(
+          (column) => !notificationDomain.includes(column),
+        )
           ? policyColumns
           : []),
       ].sort();
@@ -453,12 +455,18 @@ export function assertReviewedRecoverySchema(
     .filter((row) => row.table_name === "_prisma_migrations")
     .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
     .sort();
+  // Labels add no authority or bearer state. Keep the previously reviewed
+  // backups readable while requiring the exact JSONB type when this field exists.
+  const recipientLabelColumn = "SchoolHoursSchedule|recipientLabels|jsonb";
+  const reviewedDomain = comparedDomain.includes(recipientLabelColumn)
+    ? comparedDomain
+    : [...comparedDomain, recipientLabelColumn].sort();
   const identityVersion: 0 | 1 | null =
-    comparedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
-    comparedDomain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
+    reviewedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
+    reviewedDomain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
       ? 0
-      : comparedDomain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
-          comparedDomain.join("\n") ===
+      : reviewedDomain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
+          reviewedDomain.join("\n") ===
             REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
         ? 1
         : null;

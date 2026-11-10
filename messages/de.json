@@ -4503,7 +4503,8 @@
         "schoolHoursReportId": "Schulberichts-ID",
         "schoolHoursReport": "Schulbericht",
         "schedulingEffect": "Auswirkung auf die Planung",
-        "tutoringPauseSuppressed": "Reguläre Nachhilfe pausiert"
+        "tutoringPauseSuppressed": "Reguläre Nachhilfe pausiert",
+        "recipientLabels": "Empfängerbezeichnungen"
       },
       "enums": {
         "Role": {
@@ -8004,7 +8005,7 @@
     "enable": "Schulmonatsberichte aktivieren",
     "activationHelp": "Vor Aktivierung Anfangswerte prüfen sowie Dienststunden, optionale E-Mail und Mailzustellung aktivieren.",
     "recipients": "E-Mail-Adressen der Schulempfänger",
-    "recipientsHelp": "Eine Adresse pro Zeile. Einzelne E-Mails enthalten den gespeicherten Berichtslink. Kein Schullogin oder E-Mail-Nachweis nötig.",
+    "recipientsHelp": "Jede Person erhält eine separate E-Mail mit dem Link zum gespeicherten Bericht. Schulkonto und E-Mail-Verifizierung sind nicht erforderlich. Fügen Sie bis zu 100 Empfänger hinzu.",
     "scheduleHelp": "Standard: letzter Monatstag um 12:00 Uhr in gespeicherter Zeitzone. Ausnahmen gelten nur für einen Termin. Späte Anwesenheit bleibt für den nächsten Bericht offen.",
     "overrideMonth": "Berichtsmonat",
     "addOverride": "Abweichenden Termin festlegen",
@@ -8091,7 +8092,23 @@
     "blocked": "Vor Ausgabe klären",
     "featureOff": "Dienststunden sind deaktiviert. Vorschau nicht verfügbar.",
     "priorEditionHelp": "Nur die tatsächlich zuletzt auf diesem Konto gebuchte Ausgabe wählen. Falls keine, korrigierten Gesamtmonat einmal anwenden. Bei Unsicherheit vor der Buchung das Programmteam fragen.",
-    "priorEditionCorrection": "Zuletzt Ausgabe {revision} gebucht: {hours} anwenden"
+    "priorEditionCorrection": "Zuletzt Ausgabe {revision} gebucht: {hours} anwenden",
+    "addRecipient": "Empfänger hinzufügen",
+    "editRecipient": "Bearbeiten",
+    "removeRecipient": "Entfernen",
+    "recipientEmail": "E-Mail-Adresse",
+    "recipientLabel": "Bezeichnung (optional)",
+    "recipientLabelHelp": "Zum Beispiel Schulbüro oder Schulleitung. Bezeichnungen sind interne Notizen und erscheinen nicht in E-Mails.",
+    "noRecipients": "Noch keine Empfänger",
+    "noRecipientsHelp": "Fügen Sie die Personen hinzu, die den Schulbericht erhalten sollen.",
+    "recipientInvalid": "Geben Sie eine gültige E-Mail-Adresse ein.",
+    "recipientDuplicate": "Diese E-Mail-Adresse steht bereits auf der Liste.",
+    "updateRecipient": "Empfänger aktualisieren",
+    "cancelRecipient": "Abbrechen",
+    "editRecipientEmail": "Empfänger {email} bearbeiten",
+    "removeRecipientEmail": "Empfänger {email} entfernen",
+    "finishRecipient": "Beenden oder verwerfen Sie die Empfängerbearbeitung, bevor Sie den Zeitplan speichern.",
+    "noRecipientLabel": "Ohne Bezeichnung"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",
