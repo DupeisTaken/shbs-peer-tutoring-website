@@ -27,7 +27,10 @@ For an enhancement, identify the existing feature and explain how it works today
 
 ## Triage and completion
 
-Each guided form automatically applies one category label when the issue is submitted:
+Every issue needs one category label from the table below. Guided forms apply
+their category automatically when submitted. Blank issues and issues created
+through the CLI, API or an agent must have the label added explicitly; creating
+an issue outside a guided form does not apply that form's `labels` setting.
 
 | Form | Label | Color |
 | --- | --- | --- |
@@ -36,7 +39,23 @@ Each guided form automatically applies one category label when the issue is subm
 | Feature suggestion | `feature` | Green (`#2DA44E`) |
 | Documentation update | `documentation` | Blue (`#0075CA`) |
 
-Keep these labels present in the repository: [GitHub requires form labels to already exist](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms). The form's `labels` setting controls categorization; the title prefix alone does not assign a label. Blank issues need manual categorization. If triage changes an issue's category, replace its category label while retaining any unrelated workflow labels.
+Keep these labels present in the repository: [GitHub requires form labels to already exist](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms).
+Choose the category by the primary requested outcome in the issue body as well
+as its title. For example, correcting misleading instructions is `documentation`
+even if its title starts with `[Bug]`. The title prefix alone does not assign a label.
+
+When creating an issue through the CLI, API or an agent, supply the appropriate
+existing label in the creation request (for example, `gh issue create --label documentation`).
+Verify the saved issue has that label. If you lack labeling permission, state that
+limitation so a maintainer can finish triage.
+
+To find open issues that need categorization, use
+[`is:issue is:open no:label`](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues?q=is%3Aissue%20is%3Aopen%20no%3Alabel).
+The `is:issue` filter excludes pull requests. Read each issue before adding its
+category. If triage changes an issue's category, replace its category label.
+Preserve unrelated workflow labels in either case.
+The `code:` and `docs:` [size labels](pull-requests.md#pull-request-size-labels)
+apply to pull requests, not issue categories.
 
 Maintainers confirm scope, ask for missing reproduction details, and link duplicate issues. A fix should reference its issue and include a regression check when behavior changes. Policy/mechanics questions need an explicit product decision before implementation. Update the technical and user documentation together when the change affects both audiences.
 
