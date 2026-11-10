@@ -4059,8 +4059,8 @@ export const adminRouter = createTRPCRouter({
       applicationIdentitySnapshot(ctx.db, input.applicationId),
     ),
 
-  // Classification denies Coordinator before proposal interception. The domain helper
-  // rechecks the live reviewer under the same locks used by promotion and review replay.
+  // Coordinator proposals are intercepted before the Admin/Head application gate.
+  // The domain helper rechecks live authority under promotion and review replay locks.
   correctApplicationIdentity: adminOnlyProcedure
     .input(applicationIdentityCorrectionInput)
     .mutation(({ ctx, input }) =>
