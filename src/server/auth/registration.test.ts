@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import * as codeHelpers from "./code";
 import type { Session } from "next-auth";
@@ -57,13 +58,18 @@ const publicCaller = () =>
     headers: new Headers({ "x-real-ip": `public-${++ip}` }),
     session: null,
   });
-beforeEach(async () => {
+function assertRegistrationTestDatabase() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const url = new URL(process.env.DATABASE_URL!);
   if (
     !["localhost", "127.0.0.1"].includes(url.hostname) ||
     url.pathname !== "/shbs_shipping_test"
   )
     throw Error("Dedicated local test database required");
+}
+
+beforeEach(async () => {
+  assertRegistrationTestDatabase();
   const tables = await db.$queryRaw<
     { tablename: string }[]
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
@@ -85,9 +91,13 @@ beforeEach(async () => {
   mail.send.mockReset();
 });
 afterAll(async () => {
-  // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
-  await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
-  await db.$disconnect();
+  try {
+    assertRegistrationTestDatabase();
+    // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
+    await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
+  } finally {
+    await db.$disconnect();
+  }
 });
 async function verified(kind: RegistrationKind, email = "new@example.test") {
   const issued = await actor("head").admin.issueRegistrationCode({
@@ -122,36 +132,71 @@ it("blocks every unfinished application invitation step and restores the existin
   const application = await db.tutorApplication.create({
     data: { name: "New Person", email: "new@example.test", status: "ACCEPTED" },
   });
-  const issued = await issueRegistrationCode({ applicationId: application.id, email: application.email });
-  let row = await db.registrationCode.findUniqueOrThrow({ where: { id: issued.id } });
+  const issued = await issueRegistrationCode({
+    applicationId: application.id,
+    email: application.email,
+  });
+  let row = await db.registrationCode.findUniqueOrThrow({
+    where: { id: issued.id },
+  });
   const staged = await setEmailVerification(row, application.email);
   if (!staged.ok) throw Error("Expected verification challenge");
   row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
   const change = (invalid: boolean, expectedInvalidityVersion: number) =>
-    setApplicationInvalidity(db, {
-      id: application.id, invalid, expectedInvalidityVersion,
-      reason: invalid ? "Private duplicate evidence" : "Verified original request",
-    }, { id: "admin", name: "Admin" });
+    setApplicationInvalidity(
+      db,
+      {
+        id: application.id,
+        invalid,
+        expectedInvalidityVersion,
+        reason: invalid
+          ? "Private duplicate evidence"
+          : "Verified original request",
+      },
+      { id: "admin", name: "Admin" },
+    );
   await change(true, 0);
-  expect(await resolveUsableCode(issued.code)).toEqual({ ok: false, error: "not-found" });
-  await expect(issueRegistrationCode({ applicationId: application.id })).rejects.toThrow("INVITATION_INVALID");
-  await expect(setEmailVerification(row, application.email)).rejects.toThrow("INVITATION_INVALID");
-  await expect(confirmEmailCode(row, staged.emailCode)).rejects.toThrow("INVITATION_INVALID");
+  expect(await resolveUsableCode(issued.code)).toEqual({
+    ok: false,
+    error: "not-found",
+  });
+  await expect(
+    issueRegistrationCode({ applicationId: application.id }),
+  ).rejects.toThrow("INVITATION_INVALID");
+  await expect(setEmailVerification(row, application.email)).rejects.toThrow(
+    "INVITATION_INVALID",
+  );
+  await expect(confirmEmailCode(row, staged.emailCode)).rejects.toThrow(
+    "INVITATION_INVALID",
+  );
   await change(false, 1);
   const confirmed = await confirmEmailCode(row, staged.emailCode);
   if (!confirmed.ok) throw Error("Expected verification after clearing");
   row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
   await change(true, 2);
-  await expect(completeRegistration(row, {
-    ...profile, completionProof: confirmed.completionProof,
-  })).rejects.toThrow("INVITATION_INVALID");
-  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } })).usedAt).toBeNull();
+  await expect(
+    completeRegistration(row, {
+      ...profile,
+      completionProof: confirmed.completionProof,
+    }),
+  ).rejects.toThrow("INVITATION_INVALID");
+  expect(
+    (await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } }))
+      .usedAt,
+  ).toBeNull();
   expect(await db.user.count({ where: { email: application.email } })).toBe(0);
   await change(false, 3);
-  expect(await completeRegistration(row, {
-    ...profile, completionProof: confirmed.completionProof,
-  })).toMatchObject({ ok: true });
-  expect(await db.registrationCode.count({ where: { applicationId: application.id } })).toBe(1);
+  expect(
+    await completeRegistration(row, {
+      ...profile,
+      completionProof: confirmed.completionProof,
+    }),
+  ).toMatchObject({ ok: true });
+  expect(
+    await db.registrationCode.count({
+      where: { applicationId: application.id },
+    }),
+  ).toBe(1);
 });
 
 it("never reuses the staff-visible key or previous OTP as a mailbox challenge", async () => {
@@ -340,9 +385,13 @@ it.each([
     });
     expect(user.role).toBe(kind);
     expect(user.personId).toBeTruthy();
-    expect(await db.person.findUniqueOrThrow({ where: { id: user.personId! } })).toMatchObject({ primaryUserId: user.id });
+    expect(
+      await db.person.findUniqueOrThrow({ where: { id: user.personId! } }),
+    ).toMatchObject({ primaryUserId: user.id });
     if (user.tutorId)
-      expect(await db.tutor.findUniqueOrThrow({ where: { id: user.tutorId } })).toMatchObject({ personId: user.personId });
+      expect(
+        await db.tutor.findUniqueOrThrow({ where: { id: user.tutorId } }),
+      ).toMatchObject({ personId: user.personId });
     expect(user.emailVerifiedAt).not.toBeNull();
     expect(Boolean(user.tutorId)).toBe(kind === "TUTOR");
     expect(user.crewStatus).toBe(kind === "CREW" ? "ACTIVE" : null);
@@ -363,8 +412,9 @@ it.each([
 it.each(["ADMIN", "COORDINATOR"] as const)(
   "allows Admin and Head to issue, inspect and revoke %s codes directly while excluding Coordinator and Viewer",
   async (kind) => {
-    await expect(actor("coordinator").admin.issueRegistrationCode({ kind }))
-      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      actor("coordinator").admin.issueRegistrationCode({ kind }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await db.registrationCode.count()).toBe(0);
     for (const issuer of ["admin", "head"]) {
       const issued = await actor(issuer).admin.issueRegistrationCode({ kind });
@@ -377,11 +427,15 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
       }
       for (const id of ["coordinator", "viewer"])
         expect(await actor(id).admin.registrationCodes()).toHaveLength(0);
-      await expect(actor("coordinator").admin.revokeRegistrationCode({ id: issued.id }))
-        .rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(
+        actor("coordinator").admin.revokeRegistrationCode({ id: issued.id }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
       expect((await resolveUsableCode(issued.code)).ok).toBe(true);
       await actor(issuer).admin.revokeRegistrationCode({ id: issued.id });
-      expect(await resolveUsableCode(issued.code)).toEqual({ ok: false, error: "not-found" });
+      expect(await resolveUsableCode(issued.code)).toEqual({
+        ok: false,
+        error: "not-found",
+      });
       expect(await db.approvalRequest.count()).toBe(0);
     }
   },
@@ -460,24 +514,45 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
   },
 );
 it("rejects Coordinator helper issuance, suspended managers, participation bindings and HEAD codes", async () => {
-  await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: "coordinator" }))
-    .rejects.toMatchObject({ code: "FORBIDDEN" });
-  const tutor = await db.tutor.create({ data: { englishName: "Participation binding fixture" } });
+  await expect(
+    issueRegistrationCode({ kind: "ADMIN", issuedById: "coordinator" }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  const tutor = await db.tutor.create({
+    data: { englishName: "Participation binding fixture" },
+  });
   for (const issuer of ["admin", "head"]) {
-    await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: issuer })).resolves.toMatchObject({
-      id: expect.any(String) as unknown, code: expect.any(String) as unknown,
+    await expect(
+      issueRegistrationCode({ kind: "ADMIN", issuedById: issuer }),
+    ).resolves.toMatchObject({
+      id: expect.any(String) as unknown,
+      code: expect.any(String) as unknown,
     });
-    await expect(actor(issuer).admin.issueRegistrationCode({ kind: "ADMIN", tutorId: tutor.id }))
-      .rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: issuer, tutorId: tutor.id }))
-      .rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(actor(issuer).admin.issueRegistrationCode({ kind: "HEAD" as "ADMIN" }))
-      .rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await db.user.update({ where: { id: issuer }, data: { suspendedAt: new Date() } });
-    await expect(actor(issuer).admin.issueRegistrationCode({ kind: "ADMIN" }))
-      .rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: issuer }))
-      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      actor(issuer).admin.issueRegistrationCode({
+        kind: "ADMIN",
+        tutorId: tutor.id,
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      issueRegistrationCode({
+        kind: "ADMIN",
+        issuedById: issuer,
+        tutorId: tutor.id,
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      actor(issuer).admin.issueRegistrationCode({ kind: "HEAD" as "ADMIN" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await db.user.update({
+      where: { id: issuer },
+      data: { suspendedAt: new Date() },
+    });
+    await expect(
+      actor(issuer).admin.issueRegistrationCode({ kind: "ADMIN" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      issueRegistrationCode({ kind: "ADMIN", issuedById: issuer }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   }
   expect(await db.registrationCode.count()).toBe(2);
 });

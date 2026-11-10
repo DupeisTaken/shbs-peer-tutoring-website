@@ -168,9 +168,13 @@ beforeEach(async () => {
   revision = (await currentPolicy(db, "tutee-policy")).revision;
 });
 afterAll(async () => {
-  // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
-  await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
+    await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("survey-first enrollment", () => {

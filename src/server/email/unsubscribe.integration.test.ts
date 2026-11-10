@@ -27,8 +27,12 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
-  await db.user.deleteMany({ where: { id: userId } });
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await db.user.deleteMany({ where: { id: userId } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 async function delivery(category = "messages", recipient = primary) {
   const row = await db.emailDelivery.create({

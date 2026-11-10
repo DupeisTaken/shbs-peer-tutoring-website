@@ -3,6 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 beforeEach(() => {
   vi.resetModules();
   vi.stubEnv("NODE_ENV", "production");
+  // Model Next's build process outside Vitest; ordinary tests retain its guard.
+  vi.stubEnv("VITEST", undefined);
   vi.stubEnv("AUTH_SECRET", "build-regression-secret-at-least-32-characters");
   vi.stubEnv("DATABASE_URL", undefined);
 });

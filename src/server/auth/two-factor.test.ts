@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailMessage } from "~/server/email/sender";
 
@@ -33,6 +34,7 @@ function extractCode(): string {
 }
 
 async function cleanup() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.emailVerificationCode.deleteMany({ where: { userId: USER_ID } });
   await db.user.deleteMany({ where: { id: USER_ID } });
 }
@@ -51,7 +53,12 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 describe("login 2FA codes", () => {

@@ -483,10 +483,52 @@ the same migration and test commands. Use credentials and a loopback port belong
 to your test PostgreSQL instance, then restore the environment before demo work.
 
 Use a separate loopback database named `shbs_shipping_test` for the complete suite. The shared
-[guard](../../src/test/database-guard.ts) requires a local `_test` database, and individual integration suites apply narrower name
+[guard](../../src/server/database-test-safety.ts) requires a local `_test` database, and individual integration suites apply narrower name
 allowlists; an arbitrary `_test` name does not satisfy every suite. Create the database, set
 `DATABASE_URL` for both `npm run db:migrate` and `npm test -- --maxWorkers=1`, and never point these
 destructive fixtures at a development site or production database.
+
+The [real database client](../../src/server/db.ts) enforces this policy before
+constructing Prisma or reusing its global cache whenever `NODE_ENV=test` or
+`VITEST=true`. It validates the resolved `env.DATABASE_URL` used by the adapter,
+including rejection of connection-target query overrides. A cached test client
+must also have a matching original URL in `globalThis.prismaDatabaseUrl`; changing
+the environment cannot authorize an old pool. The profiling and recovery harnesses
+that deliberately inject a client bind that target alongside `globalThis.prisma`.
+Production and credential-free Docker build imports retain their normal behavior.
+
+Keep defenses at the callers too: raw `pg`/Prisma test clients must invoke the
+shared guard before construction, and fixture cleanup must repeat the same guard
+and any narrower suite allowlist before writes. Vitest runs `afterAll` even when
+setup fails. Disconnect in `finally` so rejection or a failed cleanup does not
+leave an owned pool open. Complete `~/server/db` mocks need no live database;
+wrappers using `importOriginal` still pass through the real client's guard.
+
+These checks validate configuration, not database ownership or disposable contents.
+The operator must still verify the resolved host, port, name and ownership before
+migrations or tests, reserve one serial test lane and keep demo/program data separate.
+Standalone migration/seed/operator commands and independently constructed clients
+do not gain protection merely by importing the shared helper elsewhere.
+
+The [import-boundary regression](../../src/server/database-test-safety.test.ts)
+blocks construction and import-time writes with a replaced driver. The
+[lifecycle regression](../../src/test/database-lifecycle.test.ts) executes the real
+14 affected suites' setup/teardown in serial child runners, using synthetic
+file-backed sentinels, a fully mocked database and driver interlocks. Its allowed
+registration control proves cleanup really executes; these are no-network
+lifecycle checks, distinct from PostgreSQL sentinel-survival verification on a
+new disposable rejected target. Never perform that live refusal check on a retained
+demo or program database. Keep failed reproduction receipts when verifying a repair.
+
+The lifecycle fake executes callback transactions and distinguishes reads from
+writes. A separate final reporter validates every module, nested-suite, test and
+unhandled error; a setup guard must not conceal an unrelated teardown failure.
+Negative controls remove a cleanup guard or inject a second hook error only in
+new temporary source copies, record the transformations and verify the tracked
+original stays unchanged. They must expose real fake writes or the unexpected
+error, rather than pass because a mock method is missing. Set
+`SHBS_TEST_SAFETY_EVIDENCE_DIRECTORY` to a new owned output folder to retain child
+default logs, JSON/all-error reports, ledgers and source-mutation receipts.
 
 For the tutor creation layout regression, run `node scripts/test-tutor-form-layout.mjs`
 against a running loopback site with synthetic data. Set `TEST_BASE_URL`,

@@ -16,6 +16,7 @@ const now = new Date(start.getTime() - 3_600_000);
 const schoolDate = "2096-10-29";
 
 async function cleanup() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.interviewAssignment.deleteMany({
     where: { applicationId: { startsWith: prefix } },
   });
@@ -109,8 +110,12 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
-  await cleanup();
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 async function createPairing() {

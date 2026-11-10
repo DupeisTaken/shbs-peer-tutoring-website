@@ -107,8 +107,12 @@ beforeEach(async () => {
   mail.send.mockReset().mockResolvedValue(undefined);
 });
 afterAll(async () => {
-  await db.user.deleteMany({ where: { id: uid } });
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await db.user.deleteMany({ where: { id: uid } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 it("does not replay a failed admitted causal SMTP attempt", async () => {

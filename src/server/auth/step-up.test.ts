@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EmailMessage } from "~/server/email/sender";
 
@@ -25,6 +26,7 @@ function extractCode(): string {
 }
 
 async function cleanup() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   await db.emailVerificationCode.deleteMany({ where: { userId: USER_ID } });
   await db.user.deleteMany({ where: { id: USER_ID } });
 }
@@ -37,7 +39,14 @@ beforeEach(async () => {
   });
 });
 
-afterAll(cleanup);
+afterAll(async () => {
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await cleanup();
+  } finally {
+    await db.$disconnect();
+  }
+});
 
 describe("step-up verification codes", () => {
   it("allows exactly one concurrent consumer", async () => {

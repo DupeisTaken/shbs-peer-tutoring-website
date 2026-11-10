@@ -1,3 +1,4 @@
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 import type { EmailMessage } from "~/server/email/sender";
@@ -62,13 +63,18 @@ async function verifiedAlias() {
   );
 }
 
-beforeEach(async () => {
+function assertAccountEmailTestDatabase() {
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const url = new URL(process.env.DATABASE_URL!);
   if (
     !["localhost", "127.0.0.1"].includes(url.hostname) ||
     url.pathname !== "/shbs_shipping_test"
   )
     throw new Error("Use the isolated local shbs_shipping_test database.");
+}
+
+beforeEach(async () => {
+  assertAccountEmailTestDatabase();
   userId = `email54-${++serial}`;
   headId = `${userId}-admin`;
   mail.available = true;
@@ -107,35 +113,39 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
-  await db.$transaction(async (tx) => {
-    const fixtureUsers = { id: { startsWith: "email54-" } };
-    const fixturePeople = await tx.person.findMany({
-      where: { primaryUserId: { startsWith: "email54-" } },
-      select: { id: true },
+  try {
+    assertAccountEmailTestDatabase();
+    await db.$transaction(async (tx) => {
+      const fixtureUsers = { id: { startsWith: "email54-" } };
+      const fixturePeople = await tx.person.findMany({
+        where: { primaryUserId: { startsWith: "email54-" } },
+        select: { id: true },
+      });
+      const personIds = fixturePeople.map(({ id }) => id);
+      // Profile writes create a restricted primary-account FK. Release only this
+      // suite's references; production deletion must retain its RESTRICT boundary.
+      await tx.person.updateMany({
+        where: { id: { in: personIds } },
+        data: { primaryUserId: null },
+      });
+      await tx.user.deleteMany({ where: fixtureUsers });
+      // Delete only exclusive fixture metadata after its accounts are gone. Any
+      // surviving participant, receipt or grouped identity keeps its Person row.
+      await tx.person.deleteMany({
+        where: {
+          id: { in: personIds },
+          users: { none: {} },
+          tutors: { none: {} },
+          tutees: { none: {} },
+          receipts: { none: {} },
+          mergedGroups: { none: {} },
+          mergedIntoId: null,
+        },
+      });
     });
-    const personIds = fixturePeople.map(({ id }) => id);
-    // Profile writes create a restricted primary-account FK. Release only this
-    // suite's references; production deletion must retain its RESTRICT boundary.
-    await tx.person.updateMany({
-      where: { id: { in: personIds } },
-      data: { primaryUserId: null },
-    });
-    await tx.user.deleteMany({ where: fixtureUsers });
-    // Delete only exclusive fixture metadata after its accounts are gone. Any
-    // surviving participant, receipt or grouped identity keeps its Person row.
-    await tx.person.deleteMany({
-      where: {
-        id: { in: personIds },
-        users: { none: {} },
-        tutors: { none: {} },
-        tutees: { none: {} },
-        receipts: { none: {} },
-        mergedGroups: { none: {} },
-        mergedIntoId: null,
-      },
-    });
-  });
-  await db.$disconnect();
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 it("requires proof before secondary sign-in; case-normalized aliases resolve the same account", async () => {
@@ -1041,25 +1051,31 @@ it.each(["VIEWER", "COORDINATOR", "TUTOR"] as const)(
   },
 );
 
-it.each(["ADMIN", "HEAD"] as const)("permits %s changes and rejects stale binding writes", async (role) => {
-  await db.user.update({ where: { id: headId }, data: { role } });
-  await caller(headId, role).program.setSecondaryEmailBinding({
-    enabled: false,
-    expectedEnabled: true,
-  });
-  await expect(
-    caller(headId, role).program.setSecondaryEmailBinding({
-      enabled: true,
+it.each(["ADMIN", "HEAD"] as const)(
+  "permits %s changes and rejects stale binding writes",
+  async (role) => {
+    await db.user.update({ where: { id: headId }, data: { role } });
+    await caller(headId, role).program.setSecondaryEmailBinding({
+      enabled: false,
       expectedEnabled: true,
-    }),
-  ).rejects.toThrow("changed");
-  expect(
-    await caller(headId, role).program.emailNotificationSettings(),
-  ).toMatchObject({ enabled: true, secondaryEmailBindingEnabled: false });
-});
+    });
+    await expect(
+      caller(headId, role).program.setSecondaryEmailBinding({
+        enabled: true,
+        expectedEnabled: true,
+      }),
+    ).rejects.toThrow("changed");
+    expect(
+      await caller(headId, role).program.emailNotificationSettings(),
+    ).toMatchObject({ enabled: true, secondaryEmailBindingEnabled: false });
+  },
+);
 
 it("queues Coordinator binding changes for management without disabling live binding", async () => {
-  await db.user.update({ where: { id: userId }, data: { role: "COORDINATOR" } });
+  await db.user.update({
+    where: { id: userId },
+    data: { role: "COORDINATOR" },
+  });
   await expect(
     caller(userId, "COORDINATOR").program.setSecondaryEmailBinding({
       enabled: false,

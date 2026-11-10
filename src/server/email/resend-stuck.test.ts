@@ -26,9 +26,13 @@ beforeEach(async () => {
   available.mockReset().mockReturnValue(true);
 });
 afterAll(async () => {
-  await db.user.deleteMany({ where: { id: uid } });
-  await db.auditLog.deleteMany({ where: { userId: uid } });
-  await db.$disconnect();
+  try {
+    assertIsolatedTestDatabase(process.env.DATABASE_URL);
+    await db.user.deleteMany({ where: { id: uid } });
+    await db.auditLog.deleteMany({ where: { userId: uid } });
+  } finally {
+    await db.$disconnect();
+  }
 });
 
 function row(id: string, overrides: Record<string, unknown> = {}) {
