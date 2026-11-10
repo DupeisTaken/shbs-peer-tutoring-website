@@ -532,6 +532,10 @@ export async function proposalTargets(
         id: true,
         enabled: true,
         recipientEmails: true,
+        // Older queued proposals have no metadata field in their captured target.
+        ...(proposed.recipientLabels !== undefined
+          ? { recipientLabels: true }
+          : {}),
         timeZone: true,
         includeStatistics: true,
         dateOverrides: true,

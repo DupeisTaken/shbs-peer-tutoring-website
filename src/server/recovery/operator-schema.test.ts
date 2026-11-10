@@ -2,6 +2,15 @@ import {describe,expect,it} from "vitest";
 import {assertReviewedRecoverySchema,reviewedRecoverySchemaMetadata} from "./operator-schema";
 
 describe("static operator recovery schema review",()=>{
+  it("rejects a partial locale upgrade even when optional recipient labels are absent",()=>{
+    const {columns,identityColumns,legacyDeclineColumns,identityLegacyDeclineColumns,emailLocaleColumns,enums}=reviewedRecoverySchemaMetadata;
+    for (const base of [columns,identityColumns,legacyDeclineColumns,identityLegacyDeclineColumns])
+      for (const withLabels of [true,false]) {
+        const schema=withLabels?base:base.filter(row=>row.table_name!=="SchoolHoursSchedule"||row.column_name!=="recipientLabels");
+        for (let omitted=0;omitted<emailLocaleColumns.length;omitted++)
+          expect(()=>assertReviewedRecoverySchema([...schema,...emailLocaleColumns.filter((_,index)=>index!==omitted)],enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      }
+  });
   it("reviews all email-language columns together while retaining every complete older schema",()=>{
     const {columns,identityColumns,legacyDeclineColumns,identityLegacyDeclineColumns,emailLocaleColumns,enums}=reviewedRecoverySchemaMetadata;
     for (const old of [columns,identityColumns,legacyDeclineColumns,identityLegacyDeclineColumns]) {

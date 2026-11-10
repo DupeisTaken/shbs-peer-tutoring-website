@@ -105,8 +105,15 @@ accounts. Each receives a separate consolidated email. An exact verified address
 account-email registry uses that account’s saved email language; addresses without
 a verified, non-retired account default to English. This presentation-only lookup
 never attributes school hours or grants report access. Both draft languages are
-available from the formatter. Recipient addresses are
-not included in the shared report. The Service Hours module, schedule, global
+available from the formatter. Recipient addresses are not included in the shared
+report. The schedule’s recipient list supports an optional editable label beside
+each email, such as “School office”. Labels are staff-only schedule metadata,
+limited to 80 characters, and save through the same versioned settings review as
+the addresses. Labels do not select an account, affect language or delivery, or
+appear in reports, exports or emails. Clearing a label removes it; removing a
+recipient also removes its label. Older clients that omit labels retain the
+labels of unchanged recipients.
+The Service Hours module, schedule, global
 program-mail switch and PROGRAM transport govern sending. Mail-off blocks school
 delivery without treating the report as newly unreported; retry the same receipt
 after restoring availability. Removed recipients, revoked links and superseded
@@ -117,9 +124,9 @@ editions are not silently retargeted or resent as current.
 Delivery keeps the existing light email layout, **The Program [month] Report is
 ready** heading and **View Month Report** action. Correction subjects identify the
 report month and revision. Complete posting/unknown-edition safeguards appear once
-above the individual cards; each person still has their exact correction choices.
-Correction and comparison tables wrap full-precision values within their columns
-on narrow screens rather than rounding or truncating posting instructions.
+above the individual cards; each person’s exact conditional change appears once.
+Full correction choices and comparison tables remain in the saved report, where
+full-precision values wrap within their columns without rounding or truncation.
 Runtime callers supply the public brand to the pure email builder so offline
 previews do not load server configuration.
 
@@ -159,7 +166,7 @@ propose settings changes for review. Opening-baseline review, issuance, retry an
 link management require direct Admin/Head authority. Public capabilities confer
 no management or write access.
 
-Apply all five reporting migrations through `20261103020000_hours_recovery_baseline`
+Apply the reporting migrations through `20261108010000_school_hours_recipient_labels`
 and regenerate Prisma before starting the updated application. The first migration
 adds the school reporting tables and outbox relation, disables the replaced
 monthly schedule and retires unsent
@@ -170,7 +177,7 @@ The journal migration registers both legacy and school-reporting tables with the
 recovery change journal. It reuses compatible origin/always coverage and installs
 missing triggers; it refuses disabled, replica-only or otherwise incompatible
 triggers without replacing them. Investigate that database state before retrying.
-The final migration records a present-day `UNSUPPORTED` baseline for existing rows
+The recovery baseline migration records a present-day `UNSUPPORTED` baseline for existing rows
 linked to unfinished recovery actions by the journal's top-level identities. It
 does not update report rows, reconstruct past event order, infer ownership from
 private report contents or reopen completed recoveries. Repeating registration
@@ -179,6 +186,8 @@ schedule identities to completion in one call; a shared schedule conservatively
 connects all its editions. These consequences require manual review,
 not automatic admission compensation. The record inspector exposes only permitted
 metadata; report bodies, opening balances, recipients and link hashes stay private.
+The recipient-label migration adds an empty JSON object to existing schedules;
+it preserves their recipient addresses, report history and delivery receipts.
 Automation starts disabled; review opening balances and configure recipients
 before activation. No new environment secret is required. Persistent Node hosting
 is required for automatic

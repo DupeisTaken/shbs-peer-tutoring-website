@@ -166,6 +166,7 @@ beforeEach(async () => {
   const fields = {
     enabled: false,
     recipientEmails: [],
+    recipientLabels: {},
     version: 0,
     baselineVersion: 0,
     openingBaseline: { people: [], sources: [] },
@@ -213,7 +214,8 @@ afterEach(() => {
 afterAll(async () => {
   await cleanup();
   if (originalSchedule) {
-    const { openingBaseline, dateOverrides, ...fields } = originalSchedule;
+    const { openingBaseline, dateOverrides, recipientLabels, ...fields } =
+      originalSchedule;
     await db.schoolHoursSchedule.update({
       where: { id: "program" },
       data: {
@@ -223,6 +225,7 @@ afterAll(async () => {
             ? Prisma.DbNull
             : (openingBaseline as Prisma.InputJsonObject),
         dateOverrides: dateOverrides as Prisma.InputJsonObject,
+        recipientLabels: recipientLabels as Prisma.InputJsonObject,
       },
     });
   } else await db.schoolHoursSchedule.deleteMany({ where: { id: "program" } });
@@ -359,6 +362,46 @@ it.each(["ADMIN", "HEAD"] as const)(
   },
 );
 
+it("persists recipient labels, preserves them for old callers and removes cleared or deleted entries", async () => {
+  const initial = await caller().schoolHours.save(
+    settings({
+      recipientEmails: ["school-office@example.test", "principal@example.test"],
+      recipientLabels: {
+        " School-Office@Example.Test ": "  School office  ",
+        "principal@example.test": "校长",
+      },
+    }),
+  );
+  expect(initial.config.recipientLabels).toEqual({
+    "school-office@example.test": "School office",
+    "principal@example.test": "校长",
+  });
+  expect(
+    (await caller("COORDINATOR").schoolHours.settings()).config.recipientLabels,
+  ).toEqual(initial.config.recipientLabels);
+  expect(
+    (
+      await db.schoolHoursSchedule.findUniqueOrThrow({
+        where: { id: "program" },
+      })
+    ).recipientLabels,
+  ).toEqual(initial.config.recipientLabels);
+
+  const legacySave = await caller().schoolHours.save(
+    settings({ expectedVersion: 1 }),
+  );
+  expect(legacySave.config.recipientLabels).toEqual({
+    "school-office@example.test": "School office",
+  });
+  const cleared = await caller().schoolHours.save(
+    settings({ expectedVersion: 2, recipientLabels: {} }),
+  );
+  expect(cleared.config.recipientLabels).toEqual({});
+  expect(
+    (await caller().schoolHours.settings()).config.recipientLabels,
+  ).toEqual({});
+});
+
 it.each(["revokeLink", "reissueLink"] as const)(
   "refuses %s without the reviewed link version before changing a saved report",
   async (operation) => {
@@ -384,11 +427,19 @@ it("queues Coordinator settings without live writes and lets Admin apply the exa
   const before = await db.schoolHoursSchedule.findUniqueOrThrow({
     where: { id: "program" },
   });
-  const proposal = await queued();
+  const proposal = await queued(
+    settings({
+      recipientLabels: { "school-office@example.test": "School office" },
+    }),
+  );
   expect(proposal).toMatchObject({
     operation: "schoolHours.save",
     state: "PENDING",
   });
+  expect(proposal.targets).toHaveProperty(
+    "schoolHoursSchedule.recipientLabels",
+    {},
+  );
   expect(
     await db.schoolHoursSchedule.findUniqueOrThrow({
       where: { id: "program" },
@@ -413,18 +464,50 @@ it("queues Coordinator settings without live writes and lets Admin apply the exa
   ).toMatchObject({
     version: 1,
     recipientEmails: ["school-office@example.test"],
+    recipientLabels: { "school-office@example.test": "School office" },
   });
   expect(
     (await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } }))
       .state,
   ).toBe("APPROVED");
 });
-it.each(["configuration", "opening baseline"] as const)(
+it("preserves pre-label proposal evidence and retains existing labels when replaying an older payload", async () => {
+  const recipientLabels = { "school-office@example.test": "School office" };
+  await db.schoolHoursSchedule.update({
+    where: { id: "program" },
+    data: { recipientEmails: ["school-office@example.test"], recipientLabels },
+  });
+  // Old immutable payloads omit the label map; their captured record shape must
+  // remain unchanged at replay rather than acquiring a new fingerprint field.
+  const proposal = await queued(settings({ includeStatistics: true }));
+  expect(proposal.targets).not.toHaveProperty(
+    "schoolHoursSchedule.recipientLabels",
+  );
+  await caller("ADMIN").approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Reviewed the unchanged recipient audience from the older client",
+  });
+  expect(
+    await db.schoolHoursSchedule.findUniqueOrThrow({
+      where: { id: "program" },
+    }),
+  ).toMatchObject({ version: 1, includeStatistics: true, recipientLabels });
+});
+it.each(["configuration", "opening baseline", "recipient labels"] as const)(
   "refuses stale approval replay after %s changes",
   async (change) => {
     const proposal = await queued();
     if (change === "configuration")
       await caller().schoolHours.save(settings({ includeStatistics: true }));
+    else if (change === "recipient labels")
+      await caller().schoolHours.save(
+        settings({
+          recipientLabels: {
+            "school-office@example.test": "Updated school office",
+          },
+        }),
+      );
     else await caller().schoolHours.reviewBaseline(await baselineInput());
     const applied = await db.schoolHoursSchedule.findUniqueOrThrow({
       where: { id: "program" },

@@ -610,6 +610,7 @@ export function schoolHoursConfig(
   return {
     enabled: row?.enabled ?? false,
     recipientEmails: row?.recipientEmails ?? [],
+    recipientLabels: (row?.recipientLabels ?? {}) as Record<string, string>,
     timeZone: row?.timeZone ?? zone,
     includeStatistics: row?.includeStatistics ?? false,
     dateOverrides: (row?.dateOverrides ?? {}) as Record<string, string>,
@@ -669,17 +670,28 @@ export async function saveSchoolHoursSettings(
         : nextSchoolHoursOccurrence(new Date(), input)
       : null;
     const { expectedVersion, ...fields } = input;
+    // Older clients omit labels. Preserve retained mailboxes' labels while
+    // removing labels for deleted recipients; an explicit empty map clears all.
+    const recipientLabels =
+      input.recipientLabels ??
+      Object.fromEntries(
+        Object.entries(
+          schoolHoursConfig(before, input.timeZone).recipientLabels,
+        ).filter(([email]) => input.recipientEmails.includes(email)),
+      );
     const row = await tx.schoolHoursSchedule.upsert({
       where: { id: "program" },
       create: {
         id: "program",
         ...fields,
+        recipientLabels,
         version: expectedVersion + 1,
         nextMonth: next?.month ?? null,
         nextDueAt: next?.dueAt ?? null,
       },
       update: {
         ...fields,
+        recipientLabels,
         version: expectedVersion + 1,
         nextMonth: next?.month ?? null,
         nextDueAt: next?.dueAt ?? null,

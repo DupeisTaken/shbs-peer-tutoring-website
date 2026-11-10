@@ -4503,7 +4503,8 @@
         "schoolHoursReportId": "学校向け報告ID",
         "schoolHoursReport": "学校向け報告",
         "schedulingEffect": "スケジュールへの影響",
-        "tutoringPauseSuppressed": "通常の指導は休止中"
+        "tutoringPauseSuppressed": "通常の指導は休止中",
+        "recipientLabels": "受信者ラベル"
       },
       "enums": {
         "Role": {
@@ -8002,7 +8003,7 @@
     "enable": "学校向け月次報告を有効化",
     "activationHelp": "開始残高を確認し、サービス時間・任意メール・メール配信を有効にしてから開始してください。",
     "recipients": "学校宛先メールアドレス",
-    "recipientsHelp": "1行に1件。宛先ごとに保存済み報告へのリンクを送ります。学校ログイン・メール確認は不要です。",
+    "recipientsHelp": "保存済みレポートへのリンクを含むメールを各受信者に個別送信します。学校アカウントやメール認証は不要です。受信者は100人まで追加できます。",
     "scheduleHelp": "既定は保存時区で毎月最終日の正午です。例外は該当月のみ。発行後の遅れた出席記録は次回報告に含まれます。",
     "overrideMonth": "対象月",
     "addOverride": "日付の例外を設定",
@@ -8089,7 +8090,23 @@
     "blocked": "発行前に解決してください",
     "featureOff": "サービス時間が無効のためプレビューできません。",
     "priorEditionHelp": "このアカウントに実際に最後に反映した版のみを選んでください。未反映なら修正後の月全体を一度反映します。不明な場合は反映前に運営へ確認してください。",
-    "priorEditionCorrection": "最後の反映が第 {revision} 版の場合：{hours} を反映"
+    "priorEditionCorrection": "最後の反映が第 {revision} 版の場合：{hours} を反映",
+    "addRecipient": "受信者を追加",
+    "editRecipient": "編集",
+    "removeRecipient": "削除",
+    "recipientEmail": "メールアドレス",
+    "recipientLabel": "ラベル（任意）",
+    "recipientLabelHelp": "例：学校事務室、校長。ラベルは内部メモで、メールには含まれません。",
+    "noRecipients": "受信者はまだいません",
+    "noRecipientsHelp": "学校レポートを受け取る人を追加してください。",
+    "recipientInvalid": "有効なメールアドレスを入力してください。",
+    "recipientDuplicate": "このメールアドレスはすでに登録されています。",
+    "updateRecipient": "受信者を更新",
+    "cancelRecipient": "キャンセル",
+    "editRecipientEmail": "受信者 {email} を編集",
+    "removeRecipientEmail": "受信者 {email} を削除",
+    "finishRecipient": "受信者の編集を完了またはキャンセルしてから、スケジュールを保存してください。",
+    "noRecipientLabel": "ラベルなし"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",
