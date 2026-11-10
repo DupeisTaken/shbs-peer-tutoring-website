@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "baselineSchemaSha256": "f3e9fd85a837b215e9f9f2624c9c45285f96d81de382a2ac6a909c4eb4627fcc",
-  "candidateSchemaSha256": "b07134f596a9380ad308bfe521eab7888f1558fb2a91955eafa333b031c50c04",
+  "baselineSchemaSha256": "299073deff637d7ccc74efedf7cd174151d8a2ae2fb7eb32eb3220e3ace50768",
+  "candidateSchemaSha256": "3b0753a8e25726c8d9ab9befdcc33c17b2716992297f6e136312e31358e28b45",
   "dependencyLockSha256": "fb4d57ab759a1401ca61ca1b397c7c64a6d21324acfb31129cf4a59113607d0e",
   "addedMigrations": [
     {
@@ -143,6 +143,7 @@
     "prisma/migrations/20261103059000_recovery_late_cancelled_acceptance/migration.sql": "30de81905b24fe8b8f97a401e8f82dc88b3517e81e33e74a1620670635beb822",
     "prisma/migrations/20261103060000_effective_room_occupancy/migration.sql": "318ec5738301911fc148ea69e5b3aa32347cd76ce9f8c5d3452b5037abd466b2",
     "prisma/migrations/20261105010000_legacy_signup_decline/migration.sql": "7d876fe8ff3123930135889e73e74ff7daebdaf3f44cadbcc2696501afab9894",
+    "prisma/migrations/20261108010000_school_hours_recipient_labels/migration.sql": "e6ab90d69878e8131a31ef7f52d33d25fed967581bd2d47319b5cc9d3a52d03f",
     "prisma/migrations/20261108010000_tutoring_pause_policy/migration.sql": "707d6fdd018400310509e00aeb80cb49793bba1afde800f4b36ff973732f19b3",
     "prisma/migrations/20261108011000_tutoring_pause_recovery/migration.sql": "3aca114653b4578a2add09b2af5c9948c9aec3be0410dcdc4b77ca91efed92e4",
     "prisma/migrations/20261108012000_tutoring_policy_history/migration.sql": "4df5bfeab90a61d38ba6e0a4e10bb43d670a77b1bc1dc8991358ef0c45df1121",

@@ -1445,8 +1445,13 @@ reconcile them with the school operator rather than importing or reporting them
 again. A restored archive that overlaps previously reviewed school evidence blocks
 issuance until its reporting boundary is reconciled.
 
-Automation starts off. Add school recipient email addresses, review the timezone
-and save. The default send is noon on the last day of each month; individual
+Automation starts off. Use **Add recipient** to add each school email address and
+an optional label, such as School office or Principal. Labels appear as tags beside
+the emails and are internal schedule notes, not part of the report or email. Use
+**Edit** to change an address or label and **Remove** to remove a recipient. Finish
+or cancel the recipient editor, then review the timezone and save the schedule;
+adding, editing and removing list entries only changes the draft until this save.
+The default send is noon on the last day of each month; individual
 months can have their own send date. Admin/Head apply settings directly;
 Coordinators request review. Saving settings sends nothing. Recipients need no
 site account. The global program-mail and Service Hours switches must remain on.

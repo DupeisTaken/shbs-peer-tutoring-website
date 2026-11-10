@@ -19,6 +19,7 @@ const privateFields = [
   "openingBaseline",
   "sourceBaseline",
   "recipientEmails",
+  "recipientLabels",
   "recipientUserIds",
   "intendedRecipients",
   "linkTokenHash",
@@ -49,6 +50,9 @@ async function createHourRows(
     openingBaseline: { text: "private-opening-balance" },
     sourceBaseline: { text: "private-source-balance" },
     intendedRecipients: ["private-school-recipient@example.test"],
+    recipientLabels: {
+      "private-school-recipient@example.test": "private-school-office-label",
+    },
     linkTokenHash: "private-capability-hash",
     reason: "private-adjustment-reason",
   };
@@ -78,6 +82,7 @@ async function createHourRows(
     data: {
       id: `${prefix}-school-schedule`,
       recipientEmails: privateValues.intendedRecipients,
+      recipientLabels: privateValues.recipientLabels,
       openingBaseline: privateValues.openingBaseline,
     },
   });

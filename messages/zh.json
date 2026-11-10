@@ -4504,7 +4504,8 @@
         "schoolHoursReportId": "学校报告编号",
         "schoolHoursReport": "学校报告",
         "schedulingEffect": "排期影响",
-        "tutoringPauseSuppressed": "常规辅导已暂停"
+        "tutoringPauseSuppressed": "常规辅导已暂停",
+        "recipientLabels": "收件人标签"
       },
       "enums": {
         "Role": {
@@ -7999,7 +8000,7 @@
     "enable": "启用学校月度报告",
     "activationHelp": "启用前请审核所有起始余额，并开启服务时数、可选邮件及邮件投递配置。",
     "recipients": "学校收件人邮箱",
-    "recipientsHelp": "每行一个邮箱。每位收件人分别收到含已保存报告链接的邮件，无需登录或邮箱验证。",
+    "recipientsHelp": "每位收件人会单独收到包含已保存报告链接的邮件，无需学校账号或邮箱验证。最多可添加 100 位收件人。",
     "scheduleHelp": "默认在所存时区每月最后一天中午 12:00 发送。日期覆盖仅影响对应月份；报告生成后的补交出勤仍会纳入下一份报告。",
     "overrideMonth": "报告月份",
     "addOverride": "设置日期覆盖",
@@ -8093,7 +8094,23 @@
     "blocked": "生成前须处理",
     "featureOff": "服务时数已关闭，暂无法预览。",
     "priorEditionHelp": "仅选择此账户实际最后入账的版本。若从未入账，则计入修订后完整月份金额一次；不确定时请先联系项目团队。",
-    "priorEditionCorrection": "若最后入账为第 {revision} 版：计入 {hours}"
+    "priorEditionCorrection": "若最后入账为第 {revision} 版：计入 {hours}",
+    "addRecipient": "添加收件人",
+    "editRecipient": "编辑",
+    "removeRecipient": "移除",
+    "recipientEmail": "邮箱地址",
+    "recipientLabel": "标签（选填）",
+    "recipientLabelHelp": "例如：学校办公室或校长。标签仅供内部备注，不会包含在邮件中。",
+    "noRecipients": "尚无收件人",
+    "noRecipientsHelp": "添加需要接收学校报告的人员。",
+    "recipientInvalid": "请输入有效的邮箱地址。",
+    "recipientDuplicate": "此邮箱已在收件人列表中。",
+    "updateRecipient": "更新收件人",
+    "cancelRecipient": "取消",
+    "editRecipientEmail": "编辑收件人 {email}",
+    "removeRecipientEmail": "移除收件人 {email}",
+    "finishRecipient": "请先完成或取消收件人编辑，再保存报告计划。",
+    "noRecipientLabel": "无标签"
   },
   "personHistoryCorrection": {
     "title": "更正已停用账号的历史归属",

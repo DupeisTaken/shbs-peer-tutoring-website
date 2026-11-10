@@ -130,7 +130,15 @@ bounded retries; no SMTP call runs inside the reporting transaction.
 
 Recipients are explicitly configured school mailboxes and need not have site
 accounts. Each receives a separate consolidated email; recipient addresses are
-not included in the shared report. The Service Hours module, schedule, global
+not included in the shared report. The schedule's recipient list supports an
+optional editable label beside each email, such as “School office”. Labels are
+staff-only schedule metadata, limited to 80 characters, and save through the same
+versioned settings review as the addresses. They do not select an account, alter
+delivery, establish archive provenance or appear in reports, exports or emails.
+Clearing a label removes it;
+removing a recipient also removes its label. Older clients that omit labels retain
+the labels of unchanged recipients.
+The Service Hours module, schedule, global
 program-mail switch and PROGRAM transport govern sending. Mail-off blocks school
 delivery without treating the report as newly unreported; retry the same receipt
 after restoring availability. Removed recipients, revoked links and superseded
@@ -174,10 +182,10 @@ propose settings changes for review. Opening-baseline review, issuance, retry an
 link management require direct Admin/Head authority. Public capabilities confer
 no management or write access.
 
-Apply all five reporting migrations through `20261103020000_hours_recovery_baseline`
-and the prospective archive-boundary migration
-`20261108010000_imported_record_provenance`, then regenerate Prisma before starting
-the updated application. The first migration
+Apply the complete reporting migration chain through
+`20261108010000_school_hours_recipient_labels` and the prospective archive-boundary
+migration `20261108010000_imported_record_provenance`, then regenerate Prisma
+before starting the updated application. The first migration
 adds the school reporting tables and outbox relation, disables the replaced
 monthly schedule and retires unsent
 overview receipts while preserving sent evidence. The two follow-up migrations
@@ -187,7 +195,7 @@ The journal migration registers both legacy and school-reporting tables with the
 recovery change journal. It reuses compatible origin/always coverage and installs
 missing triggers; it refuses disabled, replica-only or otherwise incompatible
 triggers without replacing them. Investigate that database state before retrying.
-The final migration records a present-day `UNSUPPORTED` baseline for existing rows
+The recovery baseline migration records a present-day `UNSUPPORTED` baseline for existing rows
 linked to unfinished recovery actions by the journal's top-level identities. It
 does not update report rows, reconstruct past event order, infer ownership from
 private report contents or reopen completed recoveries. Repeating registration
@@ -196,6 +204,8 @@ schedule identities to completion in one call; a shared schedule conservatively
 connects all its editions. These consequences require manual review,
 not automatic admission compensation. The record inspector exposes only permitted
 metadata; report bodies, opening balances, recipients and link hashes stay private.
+The recipient-label migration adds an empty JSON object to existing schedules;
+it preserves their recipient addresses, report history and delivery receipts.
 Automation starts disabled; review opening balances and configure recipients
 before activation. No new environment secret is required. Persistent Node hosting
 is required for automatic

@@ -5,6 +5,88 @@ import {
 } from "./operator-schema";
 
 describe("static operator recovery schema review", () => {
+  it("composes reviewed policy phases, recipient labels and archive provenance without hiding malformed boundaries", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    for (const columns of [
+      metadata.columns,
+      metadata.identityColumns,
+      metadata.legacyDeclineColumns,
+      metadata.identityLegacyDeclineColumns,
+    ]) {
+      const expected = assertReviewedRecoverySchema(columns, metadata.enums);
+      const beforeHistory = columns.filter(
+        (column) => column.table_name !== "ProgramCalendarPolicyRevision",
+      );
+      const beforePolicy = beforeHistory.filter(
+        (column) =>
+          !(
+            column.table_name === "ProgramCalendarDay" &&
+            column.column_name === "schedulingEffect"
+          ) &&
+          !(
+            column.table_name === "SessionPlanParticipant" &&
+            column.column_name === "tutoringPauseSuppressed"
+          ),
+      );
+      for (const phase of [columns, beforeHistory, beforePolicy]) {
+        for (const withLabels of [true, false]) {
+          const labeled = withLabels
+            ? phase
+            : phase.filter(
+                (column) =>
+                  column.table_name !== "SchoolHoursSchedule" ||
+                  column.column_name !== "recipientLabels",
+              );
+          for (const provenance of [[], metadata.importProvenanceColumns])
+            expect(
+              assertReviewedRecoverySchema(
+                [...labeled, ...provenance],
+                metadata.enums,
+              ),
+            ).toEqual(expected);
+          expect(() =>
+            assertReviewedRecoverySchema(
+              [...labeled, ...metadata.importProvenanceColumns.slice(1)],
+              metadata.enums,
+            ),
+          ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+          expect(() =>
+            assertReviewedRecoverySchema(
+              [
+                ...labeled,
+                ...metadata.importProvenanceColumns,
+                {
+                  table_name: "SchoolHoursSchedule",
+                  column_name: "recipientGrant",
+                  udt_name: "text",
+                },
+              ],
+              metadata.enums,
+            ),
+          ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+          const wrongLabelType = labeled.filter(
+            (column) =>
+              column.table_name !== "SchoolHoursSchedule" ||
+              column.column_name !== "recipientLabels",
+          );
+          expect(() =>
+            assertReviewedRecoverySchema(
+              [
+                ...wrongLabelType,
+                ...metadata.importProvenanceColumns,
+                {
+                  table_name: "SchoolHoursSchedule",
+                  column_name: "recipientLabels",
+                  udt_name: "text",
+                },
+              ],
+              metadata.enums,
+            ),
+          ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+        }
+      }
+    }
+  });
   it("reviews tutoring policy columns together while retaining complete older backups", () => {
     const { columns, enums } = reviewedRecoverySchemaMetadata;
     const old = columns.filter(

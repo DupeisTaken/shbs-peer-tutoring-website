@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { getQueryKey } from "@trpc/react-query";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,11 +22,15 @@ import { Button } from "./ui/button";
 import { DisclosureSection } from "./ui/disclosure-section";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
+import {
+  SchoolHoursRecipients,
+  type SchoolHoursRecipient,
+} from "./school-hours-recipients";
 
 type Config = RouterOutputs["schoolHours"]["settings"]["config"];
 type Draft = {
   enabled: boolean;
-  emails: string;
+  recipients: SchoolHoursRecipient[];
   timeZone: string;
   includeStatistics: boolean;
   dateOverrides: Record<string, string>;
@@ -34,20 +38,15 @@ type Draft = {
 };
 const draftFrom = (config: Config): Draft => ({
   enabled: config.enabled,
-  emails: config.recipientEmails.join("\n"),
+  recipients: config.recipientEmails.map((email) => ({
+    email,
+    label: config.recipientLabels[email] ?? "",
+  })),
   timeZone: config.timeZone,
   includeStatistics: config.includeStatistics,
   dateOverrides: { ...config.dateOverrides },
   version: config.version,
 });
-const recipients = (value: string) => [
-  ...new Set(
-    value
-      .split(/[,;\n]+/)
-      .map((email) => email.trim())
-      .filter(Boolean),
-  ),
-];
 
 export function SchoolHoursPanel() {
   const readOnly = useReadOnly();
@@ -60,7 +59,7 @@ function SchoolHoursController() {
   const format = useFormatter();
   const client = useQueryClient();
   const review = useActionReview();
-  const recipientsId = useId();
+  const [editingRecipient, setEditingRecipient] = useState(false);
   const [open, setOpen] = useState(false);
   const [denied, setDenied] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -102,6 +101,7 @@ function SchoolHoursController() {
   // A denied read ends the private draft session, including a requested preview.
   if (accessDenied && !denied) {
     setDenied(true);
+    setEditingRecipient(false);
     setDraft(null);
     setRequested("");
     setReason("");
@@ -136,7 +136,8 @@ function SchoolHoursController() {
   const dirty =
     !!draft &&
     !!data &&
-    JSON.stringify(draft) !== JSON.stringify(draftFrom(data.config));
+    (editingRecipient ||
+      JSON.stringify(draft) !== JSON.stringify(draftFrom(data.config)));
   const stale = !!draft && !!data && draft.version !== data.config.version;
   const blocked =
     !!settings.error ||
@@ -181,18 +182,27 @@ function SchoolHoursController() {
       !basis.data
     )
       throw new Error("School hours refresh failed");
-    if (acceptConfig) setDraft(draftFrom(fresh.data.config));
+    if (acceptConfig) {
+      setDraft(draftFrom(fresh.data.config));
+      setEditingRecipient(false);
+    }
     setRequested("");
     return basis.data;
   }
   function saveDraft() {
-    if (!data?.canEdit || !draft || blocked || stale) return;
+    if (!data?.canEdit || !draft || blocked || stale || editingRecipient)
+      return;
     try {
       if (!isProgramTimeZone(draft.timeZone))
         throw new Error("Invalid time zone");
       const input = {
         enabled: draft.enabled,
-        recipientEmails: recipients(draft.emails),
+        recipientEmails: draft.recipients.map(({ email }) => email),
+        recipientLabels: Object.fromEntries(
+          draft.recipients
+            .filter(({ label }) => label)
+            .map(({ email, label }) => [email, label]),
+        ),
         timeZone: draft.timeZone,
         includeStatistics: draft.includeStatistics,
         dateOverrides: Object.fromEntries(
@@ -213,7 +223,18 @@ function SchoolHoursController() {
         confirmVariant: "primary",
         approvalId: queuedApprovalId,
         details: (
-          <p>{t("recipientCount", { count: input.recipientEmails.length })}</p>
+          <ul className="space-y-2">
+            {draft.recipients.map(({ email, label }) => (
+              <li key={email} className="flex flex-wrap items-center gap-2">
+                <span className="break-all">{email}</span>
+                {label && (
+                  <span className="bg-accent-100 text-accent-800 rounded-full px-2 py-1 text-xs [overflow-wrap:anywhere]">
+                    {label}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         ),
         commit: () => save.mutateAsync(input),
         refresh: () => refresh(true),
@@ -360,9 +381,10 @@ function SchoolHoursController() {
                     {approvalText("sensitiveHelp")}
                   </p>
                 )}
+                {/* Let long recipient tags wrap instead of widening the fieldset. */}
                 <fieldset
                   disabled={!data.canEdit || blocked}
-                  className="space-y-3"
+                  className="min-w-0 space-y-3"
                 >
                   <label className="flex min-h-11 items-center gap-3 text-sm">
                     <input
@@ -393,25 +415,17 @@ function SchoolHoursController() {
                       {t("activationHelp")}
                     </p>
                   )}
-                  <div className="space-y-1 text-sm">
-                    <label htmlFor={recipientsId} className="block">
-                      {t("recipients")}
-                    </label>
-                    <textarea
-                      id={recipientsId}
-                      aria-describedby={`${recipientsId}-help`}
-                      rows={3}
-                      className="input w-full"
-                      value={draft.emails}
-                      maxLength={16000}
-                      onChange={(event) =>
-                        update({ emails: event.target.value })
-                      }
-                    />
-                    <p id={`${recipientsId}-help`} className="muted">
-                      {t("recipientsHelp")}
+                  <SchoolHoursRecipients
+                    key={draft.version}
+                    value={draft.recipients}
+                    onChange={(recipients) => update({ recipients })}
+                    onEditingChange={setEditingRecipient}
+                  />
+                  {editingRecipient && (
+                    <p className="text-sm text-slate-600">
+                      {t("finishRecipient")}
                     </p>
-                  </div>
+                  )}
                   <label className="block space-y-1 text-sm">
                     <span className="block">{t("zone")}</span>
                     <input
@@ -522,7 +536,8 @@ function SchoolHoursController() {
                       disabled={
                         !dirty ||
                         stale ||
-                        (draft.enabled && !recipients(draft.emails).length) ||
+                        editingRecipient ||
+                        (draft.enabled && !draft.recipients.length) ||
                         review.blocked(`school-settings:${draft.version}`)
                       }
                     >
@@ -540,8 +555,10 @@ function SchoolHoursController() {
                       disabled={blocked}
                       onClick={() =>
                         void settings.refetch().then((result) => {
-                          if (result.isSuccess && result.data)
+                          if (result.isSuccess && result.data) {
                             setDraft(draftFrom(result.data.config));
+                            setEditingRecipient(false);
+                          }
                         })
                       }
                     >

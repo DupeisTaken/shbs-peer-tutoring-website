@@ -255,6 +255,7 @@ beforeEach(async () => {
     update: {
       enabled: false,
       recipientEmails: [],
+      recipientLabels: {},
       version: 0,
       baselineVersion: 0,
       openingBaseline: { people: [], sources: [] },
@@ -285,6 +286,7 @@ afterAll(async () => {
       id: scheduleId,
       openingBaseline,
       dateOverrides,
+      recipientLabels,
       ...fields
     } = originalSchedule;
     await db.schoolHoursSchedule.update({
@@ -292,6 +294,7 @@ afterAll(async () => {
       data: {
         ...fields,
         dateOverrides: dateOverrides as Prisma.InputJsonObject,
+        recipientLabels: recipientLabels as Prisma.InputJsonObject,
         openingBaseline:
           openingBaseline == null
             ? Prisma.DbNull

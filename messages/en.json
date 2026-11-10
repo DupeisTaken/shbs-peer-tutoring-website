@@ -4504,7 +4504,8 @@
         "schoolHoursReportId": "School report ID",
         "schoolHoursReport": "School report",
         "schedulingEffect": "Scheduling effect",
-        "tutoringPauseSuppressed": "Regular tutoring paused"
+        "tutoringPauseSuppressed": "Regular tutoring paused",
+        "recipientLabels": "Recipient labels"
       },
       "enums": {
         "Role": {
@@ -7999,7 +8000,7 @@
     "enable": "Enable school month reports",
     "activationHelp": "Before activation, review opening balances and enable service hours, optional email and mail delivery.",
     "recipients": "School recipient email addresses",
-    "recipientsHelp": "One address per line. Recipients receive separate emails with the saved report link. No school login or email verification is required.",
+    "recipientsHelp": "Recipients receive separate emails with the saved report link. No school login or email verification is required. Add up to 100 recipients.",
     "scheduleHelp": "Default: last day of each month at 12:00 noon in the saved timezone. Overrides affect one occurrence. Post-issue attendance remains eligible for the next report.",
     "overrideMonth": "Occurrence month",
     "addOverride": "Set a date override",
@@ -8093,7 +8094,23 @@
     "blocked": "Resolve before issuing",
     "featureOff": "Service hours is disabled. Preview is unavailable.",
     "priorEditionHelp": "Choose only the last edition actually applied to this account. If none was applied, use the corrected full-month amount once. If unsure, ask the program team before posting.",
-    "priorEditionCorrection": "If last applied revision {revision}: apply {hours}"
+    "priorEditionCorrection": "If last applied revision {revision}: apply {hours}",
+    "addRecipient": "Add recipient",
+    "editRecipient": "Edit",
+    "removeRecipient": "Remove",
+    "recipientEmail": "Email address",
+    "recipientLabel": "Label (optional)",
+    "recipientLabelHelp": "For example, School office or Principal. Labels are internal notes and are not included in emails.",
+    "noRecipients": "No recipients yet",
+    "noRecipientsHelp": "Add the people who should receive the school report.",
+    "recipientInvalid": "Enter a valid email address.",
+    "recipientDuplicate": "This email is already on the recipient list.",
+    "updateRecipient": "Update recipient",
+    "cancelRecipient": "Cancel",
+    "editRecipientEmail": "Edit recipient {email}",
+    "removeRecipientEmail": "Remove recipient {email}",
+    "finishRecipient": "Finish or cancel the recipient editor before saving the schedule.",
+    "noRecipientLabel": "No label"
   },
   "personHistoryCorrection": {
     "title": "Correct Retired-Account History",

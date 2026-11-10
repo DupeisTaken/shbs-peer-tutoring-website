@@ -12,10 +12,13 @@ the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
 PR #639 uses its integrated main commit
-`04805306b7d049de5ff735b9ba218d80957f61d6` as its scoped control. This advances its
-pre-change `dfe9be18` control to include the independently verified tutoring-pause
-feature from PR #606. Its manifest pins both schema versions, the unchanged
-dependency lock, all 137 historical migrations and the single
+`7fa85bdf903d9cf7fe03ba4a438f45aeb509a7b9` as its scoped control. This advances its
+`04805306` control to include the recipient-label feature from PR #640, after the
+earlier `dfe9be18` control was advanced to include tutoring pauses from PR #606.
+Recipient labels are staff-only annotations saved through settings review;
+they do not classify archive sources or grant reporting or delivery authority.
+Its manifest pins both schema versions, the unchanged
+dependency lock, all 138 historical migrations and the single
 `20261108010000_imported_record_provenance` addition.
 That migration adds server-owned archive provenance and its recovery journal
 trigger; it does not reclassify existing records. The baseline application runs
