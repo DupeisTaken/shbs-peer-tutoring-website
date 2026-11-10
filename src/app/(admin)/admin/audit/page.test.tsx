@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
+import type * as AuditFiltersModule from "~/app/_components/audit-filters";
 import AuditPage from "./page";
 
 const state = vi.hoisted(() => ({ undone: false }));
@@ -11,7 +12,8 @@ const state = vi.hoisted(() => ({ undone: false }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("~/app/_components/audit-filters", () => ({
+vi.mock("~/app/_components/audit-filters", async (importOriginal) => ({
+  ...(await importOriginal<typeof AuditFiltersModule>()),
   AuditFilters: () => null,
   emptyAuditView: {
     userId: "",

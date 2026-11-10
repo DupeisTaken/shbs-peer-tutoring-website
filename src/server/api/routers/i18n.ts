@@ -15,7 +15,7 @@ import {
   isLocale,
   LOCALE_LABELS,
 } from "~/i18n/config";
-import { listLanguages } from "~/server/i18n/languages";
+import { listLanguages, listManagedLanguages } from "~/server/i18n/languages";
 import { translationAccess } from "~/lib/translation-access";
 
 /** Catalog reads serve both translators and administrators; text editing stays separately gated. */
@@ -46,12 +46,12 @@ export const i18nRouter = createTRPCRouter({
 
   /** Translators and management can inspect the catalog without granting text-editing access. */
   managedLanguages: languageCatalogProcedure.query(() =>
-    listLanguages({ includeDisabled: true }),
+    listManagedLanguages(),
   ),
 
   /** Coordinators may propose catalog changes; direct application remains Admin/Head. */
-  canManageLanguages: languageCatalogProcedure.query(
-    ({ ctx }) => ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
+  canManageLanguages: languageCatalogProcedure.query(({ ctx }) =>
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
   ),
 
   addLanguage: translatorProcedure

@@ -3,19 +3,37 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { FormActions, InlineNotice } from "./ui/patterns";
+import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { Button } from "./ui/button";
 import { api } from "~/trpc/react";
 import { isProgramTimeZone, programDateTimeInput } from "~/lib/program-time";
 import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
+import { useSessionAccessDenied } from "./session-view-state";
 
 export function ProgramTimeZoneSettings() {
   const settings = api.program.timeZoneSettings.useQuery();
   const t = useTranslations("programTimeZone");
   const common = useTranslations("uiPatterns");
   const [generation, setGeneration] = useState(0);
-  if (settings.error && !settings.data)
-    return <p role="alert">{settings.error.message}</p>;
+  const denied = useSessionAccessDenied({
+    ...settings,
+    isSuccess: settings.isSuccess && settings.data != null,
+  });
+  if (denied || ((settings.error || settings.isSuccess) && !settings.data))
+    return (
+      <StatePanel
+        kind={denied ? "denied" : "error"}
+        title={settings.error?.message ?? common("loadFailed")}
+        action={
+          <Button
+            disabled={settings.isFetching}
+            onClick={() => void settings.refetch()}
+          >
+            {common("retry")}
+          </Button>
+        }
+      />
+    );
   if (!settings.data) return <p className="muted">{t("loading")}</p>;
   return (
     <div className="space-y-3">

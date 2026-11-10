@@ -2904,7 +2904,8 @@
     "addLanguageName": "Name (e.g. Français)",
     "addLanguageBtn": "Add Language",
     "newLanguageHint": "New languages start hidden and can be enabled when their translations are ready.",
-    "back": "Back"
+    "back": "Back",
+    "languagesReadFailed": "Language settings could not be loaded. Cached settings and unfinished entries are retained. Retry before making changes."
   },
   "account": {
     "title": "Account",
@@ -3004,7 +3005,17 @@
     "empty": "No patrols recorded.",
     "newer": "Newer",
     "older": "Older",
-    "details": "Change Details"
+    "details": "Change Details",
+    "patrolRooms": "patrol room choices",
+    "reloadPatrol": "Reload patrol draft",
+    "patrolReloadFailed": "The latest patrol and room choices could not be loaded. Your draft and its original version are retained.",
+    "patrolUnavailable": "This patrol was not found in its refreshed history page. Your draft is retained.",
+    "patrolSaved": "The correction was saved. Refreshing patrol history…",
+    "patrolSavedRefreshFailed": "The correction was saved, but patrol history could not be refreshed. Retry refresh without saving again.",
+    "patrolQueuedRefreshFailed": "The correction was submitted for review, but patrol history could not be refreshed. Retry refresh without submitting again.",
+    "invalidPatrolTime": "Enter a valid observation time.",
+    "patrolRoomUnavailable": "{room} (unavailable)",
+    "patrolRoomRequired": "Choose an available room for each observation before saving."
   },
   "emailChange": {
     "title": "Change Account Email",
@@ -4560,6 +4571,7 @@
         "linkRevokedAt": "Report link revoked at",
         "schoolHoursReportId": "School report ID",
         "schoolHoursReport": "School report",
+        "patrolOrder": "Patrol order",
         "schedulingEffect": "Scheduling effect",
         "tutoringPauseSuppressed": "Regular tutoring paused",
         "importedAt": "Imported at"
@@ -4858,7 +4870,12 @@
       "ATTEMPT": "Unapplied attempt"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "retryReads": "Retry audit reads",
+    "loadingReads": "Loading audit history and filter choices…",
+    "loadFailed": "Audit history or filter choices could not be loaded.",
+    "refreshFailed": "Audit history or filter choices could not be refreshed. Your unfinished filters are retained; retry the reads without applying them.",
+    "accessDenied": "Access to audit history is unavailable. Retry the reads to check current access."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5259,7 +5276,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Retry catalogue reads",
+    "loadFailed": "The subject catalogue could not be loaded.",
+    "refreshFailed": "The subject catalogue could not be refreshed. Your drafts are retained; retry before making changes.",
+    "accessDenied": "Access to the subject catalogue is unavailable.",
+    "savedRefreshing": "The change was saved. Waiting for the catalogue to refresh.",
+    "savedRefreshFailed": "The change was saved, but the subject catalogue could not be refreshed. Retry the reads without saving again."
   },
   "recruitment": {
     "preview": "Read-only form preview",

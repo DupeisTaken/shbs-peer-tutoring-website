@@ -2904,7 +2904,8 @@
     "addLanguageName": "Name (z. B. Français)",
     "addLanguageBtn": "Sprache hinzufügen",
     "newLanguageHint": "Neue Sprachen sind zunächst ausgeblendet und können aktiviert werden, sobald ihre Übersetzungen fertig sind.",
-    "back": "Zurück"
+    "back": "Zurück",
+    "languagesReadFailed": "Die Spracheinstellungen konnten nicht geladen werden. Zwischengespeicherte Einstellungen und unvollständige Eingaben bleiben erhalten. Versuchen Sie es vor Änderungen erneut."
   },
   "account": {
     "title": "Konto",
@@ -3004,7 +3005,17 @@
     "empty": "Keine Kontrollgänge erfasst.",
     "newer": "Neuere",
     "older": "Ältere",
-    "details": "Änderungsdetails"
+    "details": "Änderungsdetails",
+    "patrolRooms": "Raumauswahl für Kontrollgänge",
+    "reloadPatrol": "Kontrollgangentwurf neu laden",
+    "patrolReloadFailed": "Der aktuelle Kontrollgang und die Raumauswahl konnten nicht geladen werden. Ihr Entwurf und seine ursprüngliche Version bleiben erhalten.",
+    "patrolUnavailable": "Dieser Kontrollgang wurde auf der aktualisierten Verlaufsseite nicht gefunden. Ihr Entwurf bleibt erhalten.",
+    "patrolSaved": "Die Korrektur wurde gespeichert. Der Kontrollgangverlauf wird aktualisiert…",
+    "patrolSavedRefreshFailed": "Die Korrektur wurde gespeichert, aber der Kontrollgangverlauf konnte nicht aktualisiert werden. Versuchen Sie die Aktualisierung erneut, ohne nochmals zu speichern.",
+    "patrolQueuedRefreshFailed": "Die Korrektur wurde zur Prüfung eingereicht, aber der Kontrollgangverlauf konnte nicht aktualisiert werden. Versuchen Sie die Aktualisierung erneut, ohne nochmals einzureichen.",
+    "invalidPatrolTime": "Geben Sie eine gültige Beobachtungszeit ein.",
+    "patrolRoomUnavailable": "{room} (nicht verfügbar)",
+    "patrolRoomRequired": "Wählen Sie vor dem Speichern für jede Beobachtung einen verfügbaren Raum."
   },
   "emailChange": {
     "title": "Konto-E-Mail ändern",
@@ -4560,6 +4571,7 @@
         "linkRevokedAt": "Widerrufszeitpunkt des Berichtslinks",
         "schoolHoursReportId": "Schulberichts-ID",
         "schoolHoursReport": "Schulbericht",
+        "patrolOrder": "Kontrollgangreihenfolge",
         "schedulingEffect": "Auswirkung auf die Planung",
         "tutoringPauseSuppressed": "Reguläre Nachhilfe pausiert",
         "importedAt": "Importiert am"
@@ -4858,7 +4870,12 @@
       "ATTEMPT": "Nicht angewendeter Versuch"
     },
     "unnamedAccount": "Unnamed account",
-    "formerAccount": "Former account"
+    "formerAccount": "Former account",
+    "retryReads": "Prüfprotokoll erneut laden",
+    "loadingReads": "Prüfprotokoll und Filteroptionen werden geladen…",
+    "loadFailed": "Prüfprotokoll oder Filteroptionen konnten nicht geladen werden.",
+    "refreshFailed": "Prüfprotokoll oder Filteroptionen konnten nicht aktualisiert werden. Ihre noch nicht angewendeten Filter bleiben erhalten. Laden Sie die Daten erneut, ohne die Filter anzuwenden.",
+    "accessDenied": "Der Zugriff auf das Prüfprotokoll ist derzeit nicht möglich. Laden Sie die Daten erneut, um Ihre aktuellen Zugriffsrechte zu prüfen."
   },
   "userMultiFilters": {
     "all": "All",
@@ -5259,7 +5276,13 @@
     "importTooLarge": "Choose a file smaller than 1 MB.",
     "importEmpty": "The file contains no subjects.",
     "importFileType": "Choose a .json or .csv file.",
-    "importInvalid": "Could not import file: {detail}"
+    "importInvalid": "Could not import file: {detail}",
+    "retry": "Fächerkatalog erneut laden",
+    "loadFailed": "Der Fächerkatalog konnte nicht geladen werden.",
+    "refreshFailed": "Der Fächerkatalog konnte nicht aktualisiert werden. Ihre Entwürfe bleiben erhalten. Laden Sie ihn erneut, bevor Sie Änderungen vornehmen.",
+    "accessDenied": "Der Zugriff auf den Fächerkatalog ist derzeit nicht möglich.",
+    "savedRefreshing": "Die Änderung wurde gespeichert. Die Aktualisierung des Fächerkatalogs steht noch aus.",
+    "savedRefreshFailed": "Die Änderung wurde gespeichert, aber der Fächerkatalog konnte nicht aktualisiert werden. Laden Sie die Daten erneut, ohne noch einmal zu speichern."
   },
   "recruitment": {
     "preview": "Schreibgeschützte Formularvorschau",

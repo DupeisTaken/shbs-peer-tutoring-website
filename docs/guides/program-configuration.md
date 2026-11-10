@@ -325,6 +325,13 @@ The applied **Quarter System** setting controls labels: Q1/Q2 display in semeste
 
 The default demo seed uses **Standard → Honors → AP**, with ranks 0, 1 and 2 respectively. Standard has no display prefix; only AP accepts an AP score. Reseeding the disposable demo restores this order using the same level IDs. This default does not overwrite an existing school's custom ordering during migration or normal startup.
 
+The subject catalogue distinguishes failed reads from an empty catalogue. **Retry
+catalogue reads** reloads groups, levels and offerings without saving. Cached
+evidence and independent drafts remain while changes are paused. After an accepted
+save, Retry reads the result; only successful synchronization clears that new-level
+name or closes that saved group editor. Other drafts remain intact. Coordinator
+proposals show a queued receipt and a link to the approval request.
+
 Staff manage recorded qualifications in **Subject Availability**; application decisions and interviews are in **Tutor Applications**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
 
 Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Ordinary management catalogue and qualification writes require Admin/Head authority; Coordinators submit proposals for review, and viewers cannot write. Removing an existing qualification reverses an applied grant: Admin or Head can apply it directly; Coordinators submit a proposal for Admin or Head review.
@@ -415,6 +422,7 @@ shows the next Q2 or Q4 opening. A quarter awaiting its own initial opening keep
 its current countdown. Reopening recruitment restores current-quarter eligibility.
 The tutor form follows the same handoff using its own recruitment settings and
 prepared opening; a tutee opening never supplies the tutor form's date.
+
 Open pages update at timed boundaries and poll settings every 30 seconds; pending
 activation is checked every five seconds.
 
@@ -433,6 +441,7 @@ the latest refresh review and check the destination, prepared openings, staged
 features, timezone and Head authorization. Head must review a new schedule
 directly or approve an Admin's fresh request; displaying the configured date
 never bypasses that review.
+
 
 Reaching zero does not open signup: the destination must actually be active and
 normal intake prerequisites must hold. Delayed refresh shows pending activation.
@@ -623,9 +632,14 @@ legacy-pairing-001,legacy-tutor-001,legacy-term-001,Mathematics,2,600,630
 
 Head or Admin selects a supported IANA region in **Program Settings → Recruitment and Refresh → Program Time Zone**; Admin/Head apply it and Coordinators request review. The default is Asia/Shanghai. Review the current/proposed time preview before submitting. Reload a stale editor or other open pages after another staff member changes the setting.
 
+If the initial settings cannot load, **Retry** reads them again without changing
+the zone. An ordinary failed background read retains your selected draft; only the
+separate successful **Reload** adopts new saved evidence. Denied access keeps cached
+settings concealed until a fresh authorized read succeeds.
+
 Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
 
-Signup opening notices, opening-time inputs and patrol correction inputs resolve their labels at the event's date. Audit date-range labels show each endpoint's offset when they differ. An empty, skipped or repeated local time shows only the region until it resolves to one instant. The server permits Head to apply timezone changes and Admin to request review; Coordinators can inspect date previews.
+Signup opening notices, opening-time inputs and patrol correction inputs resolve their labels at the event's date. Audit date-range labels show each endpoint's offset when they differ. An empty, skipped or repeated local time shows only the region until it resolves to one instant. Admin or Head can apply timezone changes directly; Coordinators can inspect date previews and submit a change for Admin or Head review.
 
 - Weekly slots keep their wall-clock values: 15:30 stays 15:30.
 - Saved appointments and deadlines keep their instants and display in the selected zone.

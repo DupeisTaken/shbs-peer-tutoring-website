@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -12,18 +13,38 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import SubjectsPage from "../(admin)/admin/subjects/page";
 
+type ImportResult = { created: number; received: number };
+type GroupImportResult = ImportResult & { skipped: number };
+type ImportCallbacks<Result> = {
+  onSuccess: (result: Result) => Promise<void>;
+  onSettled: () => void;
+};
+
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   reorder: vi.fn(),
   readOnly: false,
   importGroups: vi.fn(),
   importSubjects: vi.fn(),
+  pendingGroupImport: null as ImportCallbacks<GroupImportResult> | null,
+  pendingSubjectsImport: null as ImportCallbacks<ImportResult> | null,
   remove: vi.fn(),
 }));
 const levels = [
   { id: "standard", name: "Standard", prefix: "", rank: 0, active: true },
   { id: "ap", name: "AP", prefix: "AP", rank: 2, active: true },
 ];
+const successfulRead = <Data,>(data: Data) => ({
+  data,
+  isSuccess: true,
+  error: null,
+  refetch: async () => ({ data, error: null }),
+});
+const catalogueReads = {
+  groups: successfulRead([]),
+  levels: successfulRead(levels),
+  subjects: successfulRead([]),
+};
 vi.mock("~/app/_components/read-only", () => ({
   useReadOnly: () => mocks.readOnly,
 }));
@@ -38,9 +59,9 @@ vi.mock("~/trpc/react", () => ({
       ),
     }),
     admin: {
-      courseGroups: { useQuery: () => ({ data: [] }) },
-      subjectLevels: { useQuery: () => ({ data: levels }) },
-      subjects: { useQuery: () => ({ data: [] }) },
+      courseGroups: { useQuery: () => catalogueReads.groups },
+      subjectLevels: { useQuery: () => catalogueReads.levels },
+      subjects: { useQuery: () => catalogueReads.subjects },
       batchUpdateSubjects: {
         useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
       },
@@ -52,10 +73,22 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutateAsync: mocks.remove }),
       },
       importSubjects: {
-        useMutation: () => ({ mutate: mocks.importSubjects, reset: vi.fn() }),
+        useMutation: (callbacks: ImportCallbacks<ImportResult>) => ({
+          mutate: (input: unknown) => {
+            mocks.pendingSubjectsImport = callbacks;
+            mocks.importSubjects(input);
+          },
+          reset: vi.fn(),
+        }),
       },
       importCourseGroups: {
-        useMutation: () => ({ mutate: mocks.importGroups, reset: vi.fn() }),
+        useMutation: (callbacks: ImportCallbacks<GroupImportResult>) => ({
+          mutate: (input: unknown) => {
+            mocks.pendingGroupImport = callbacks;
+            mocks.importGroups(input);
+          },
+          reset: vi.fn(),
+        }),
       },
     },
   },
@@ -63,6 +96,8 @@ vi.mock("~/trpc/react", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.readOnly = false;
+  mocks.pendingGroupImport = null;
+  mocks.pendingSubjectsImport = null;
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -158,6 +193,23 @@ const upload = (name: string, text: string, size = text.length) =>
     target: { files: [{ name, size, text: async () => text }] },
   });
 
+const completeImport = async <Result,>(
+  callbacks: ImportCallbacks<Result> | null,
+  result: Result,
+) => {
+  if (!callbacks) throw new Error("Expected a submitted import mutation");
+  // Accepted imports retain admission until their prerequisite reads settle.
+  await act(async () => {
+    await callbacks.onSuccess(result);
+    callbacks.onSettled();
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText<HTMLInputElement>("JSON or CSV file").disabled,
+    ).toBe(false),
+  );
+};
+
 it("uploads grouped JSON and retains the CSV path", async () => {
   show();
   expect(
@@ -172,12 +224,21 @@ it("uploads grouped JSON and retains the CSV path", async () => {
   };
   upload("courses.JSON", JSON.stringify(input));
   await waitFor(() => expect(mocks.importGroups).toHaveBeenCalledWith(input));
+  await completeImport(mocks.pendingGroupImport, {
+    created: 1,
+    received: 1,
+    skipped: 0,
+  });
   upload("courses.csv", "name,level\nScience,AP");
   await waitFor(() =>
     expect(mocks.importSubjects).toHaveBeenCalledWith({
       subjects: [{ name: "Science", level: "AP" }],
     }),
   );
+  await completeImport(mocks.pendingSubjectsImport, {
+    created: 1,
+    received: 1,
+  });
 });
 
 it.each([

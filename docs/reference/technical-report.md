@@ -1423,6 +1423,14 @@ through failed retries until a fresh successful read. Reopening cannot revive
 revoked evidence. The lazy JSON disclosure preserves primitive types and escaping;
 real QueryClient regressions cover the denial/retry/reopen sequence.
 
+Audit history owns recovery for its current list and filter choices. **Retry audit
+reads** refetches both without changing committed filters, approval scope, dates,
+timezone or cursor and performs no write. Permitted cached evidence and unfinished
+filters remain during ordinary failures; Apply, Clear and pagination wait for ready
+reads. Null results remain unavailable. Fallback list snapshots belong to the exact
+read scope; failed choices cannot replace a valid catalogue with empty defaults.
+Authoritative denial conceals and clears cached evidence until fresh authorization.
+
 ## Student lifecycle and ownership
 
 Signup Requests derives its display queue through `signupRequestGroup`: actionable pending review wins, then invalid/non-open requests enter **Closed**, then subject coverage selects Assigned or Needs matching. The internal `processed` key remains stable for saved views. Counts and notification arrivals use the same grouping, and review targets retain their source anchors. Survey appeals require an open, still-invalid request, so clearing a flag or closing its source cannot resurrect an obsolete pending appeal. Current-generation legacy invalidity appeals contribute a staff-only pending flag; stale generations and observers do not. Grouping writes no lifecycle or assignment state.
@@ -2310,6 +2318,26 @@ The patrol page announces credited and evidence-only outcomes as status messages
 
 Attendance and patrol corrections preserve reasons and snapshots, reconcile dependent hours and discipline, and notify eligible Admins with Head fallback. [Crew flag reconciliation](../../src/server/crew/flags.ts) compares exact observations with distinct attendance in shared blocks; `4+` cannot prove an undercount. Flags require a management decision before a penalty. Corrected evidence may reopen review and remove a linked penalty; manual adjustments remain separate.
 
+[Patrol corrections](../../src/app/_components/patrol-corrections.tsx) retain opened
+contexts across paging and hidden Crew panels. Each captures its patrol ID, optimistic
+`expectedUpdatedAt`, observation identities/instants and program timezone; background
+reads cannot rebase it. Initial/cached/null read recovery is distinct from explicit
+Reload, which needs fresh room choices and an authorized exact-ID read of the captured
+patrol. Discovery pages are independent: a newer arrival moving the patrol beyond a
+page boundary cannot strand recovery. A denied or missing exact target retains the
+draft and does not imply deletion. The list owns one
+admission lease and accepted receipts above concealed/disappearing rows. Accepted
+synchronization waits for all active history invalidations, the fresh exact target
+and room choices; Retry never repeats the correction. Queued proposals remain fenced
+until explicit successful Reload. Existing server reason, version, observation,
+authority and stored-credit rules remain authoritative.
+
+Room and exact-target denial episodes live above disposable editors. Their recovery
+requires matching newly admitted successful reads, independently of wall-clock changes;
+another history page, cached/manual data or a child remount cannot release them. Read
+recovery alone never adopts an updated version, clears an accepted-write lease or
+approves a queued proposal.
+
 Program timezone conversion distinguishes instants, calendar dates and weekly wall-clock slots. Use the shared helpers rather than browser-local conversions. [Configuration effects](../guides/program-configuration.md#program-time-zone) explain what changes when the school timezone changes.
 
 Database instant fields currently use PostgreSQL `TIMESTAMP(3)` without time zone, with Prisma reading and writing UTC values. The shared [connection policy](../../src/server/database-url.ts) forces `timezone=UTC` through connection startup options for the application pool, Prisma CLI, seed, demo verification and administrator bootstrap. This keeps database defaults, trigger writes and expiry comparisons consistent even when the database or role defaults to another zone. Existing connection options are preserved, with UTC taking precedence. No rows or column types are migrated; calendar-only dates and weekly clock values retain their existing representation.
@@ -2578,9 +2606,19 @@ cannot release it. Retry performs reads only, and account changes reset drafts.
 
 Acceptance keeps the exact revision, text, signature and timestamp. Participation requires current consent; history, feedback, appeals, account settings and messages stay available during renewal. Student and tutor applicability are checked independently. Client scrolling and confirmation controls assist review but do not replace server revision and action-ticket validation.
 
+The consent card exposes read-only Refresh on initial, cached or null-result failure
+without exposing acceptance-gated children. Its controlled signature survives ordinary
+read failure and locale changes; Retry neither accepts nor prepares an action.
+
 Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
 
 The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
+
+Management language reads use the strict [catalogue reader](../../src/server/i18n/languages.ts):
+storage failure propagates, while successful missing rows merge bundled languages.
+Public rendering and language pickers deliberately retain enabled bundled fallback
+during outages. A custom-language editor falls back to English only after a successful
+catalogue read establishes an unknown language.
 
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
 
@@ -2614,6 +2652,14 @@ previous test totals do not establish verification of the current revision.
 ## Subject groups and qualification snapshots
 
 `CourseGroup` holds offered-group order. `Subject` remains the stable variant referenced by surveys, choices and application intents; `baseName` and `SubjectLevel.prefix` generate its display name. Grouped JSON imports validate the shared `courseImportInput` schema and run through `importCourseGroups` under the catalogue lock and enclosing transaction. Exact repeats are no-ops; conflicts never merge or reactivate variants implicitly. Coordinator proposals snapshot the catalogue, groups and levels for stale-state review. The legacy CSV mutation remains available. All catalogue writers use [course-catalogue.ts](../../src/server/course-catalogue.ts) and preserve archived variants. Pairing labels are synchronized transactionally when a variant name changes. Selection queries share `courseChoices` and `sortCourseChoices` (configured level rank/ID, base name, subject ID). Unlevelled offerings share the configured unprefixed tier; the complete level scale is read even for restricted pickers. Group-oriented displays and historical snapshots retain `subjectOrderBy`.
+
+Subject Offerings owns three prerequisite reads and one pending catalogue-write
+admission. Recovery explicitly refetches groups, levels and offerings, rejects null
+results and waits for every sibling read. Accepted writes retain a page-owned receipt
+and save-specific completion until synchronization succeeds; Retry never invokes the
+mutation. Stable level keys retain unrelated dirty blur fields. Coordinator envelopes
+are queued outcomes with mounted-page exact-payload replay fences. Denial conceals
+cached evidence and revokes deletion review until fresh authorization.
 
 `TutorQualification` records an approval source and its status; `QualificationGrant` stores each concrete granted subject with its source and time. [Qualification helpers](../../src/server/qualifications.ts) snapshot lower offered levels only on approval. Eligibility reads filter the source to `APPROVED`, never derive eligibility from application intent or the current level scale. Catalogue edits, approvals and assignment checks share a transaction lock. Repeated approval is idempotent; deleting one source cascades only its own grants. Historical assignments remain intact, while new assignments require an approved grant.
 
@@ -2762,6 +2808,13 @@ identity. [Identity drift coverage](../../src/server/audit/identity-evidence.tes
 checks every schema model through the audit interceptor; the
 [database regressions](../../src/server/audit/compound-evidence.integration.test.ts)
 cover compound updates, exact affected-row scope, privacy and rollback.
+
+New direct patrol-order events retain each room's original/applied numeric
+`patrolOrder` and submitted safe scalar in the order transaction. Coordinator
+proposals already retain original ranked targets and ordered requested IDs. Missing
+legacy ranks stay unavailable; today's room order cannot reconstruct them. Recorded
+zero is a rank, not a missing-value default, and the positive scalar allowance does
+not admit nested updates, nonfinite values or private fields.
 
 Safe snapshots use an explicit field allowlist; established account/roster contact
 edits are retained for authorized staff, while observer
