@@ -218,7 +218,10 @@ const db = raw.$extends({
     },
   },
 }) as unknown as typeof raw;
-Object.assign(globalThis, { prisma: db, prismaDatabaseUrl: process.env.DATABASE_URL });
+Object.assign(globalThis, {
+  prisma: db,
+  prismaDatabaseUrl: process.env.DATABASE_URL,
+});
 const lock = await pool.connect();
 const dbClock = async () =>
   (

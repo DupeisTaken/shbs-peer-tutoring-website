@@ -1051,25 +1051,31 @@ it.each(["VIEWER", "COORDINATOR", "TUTOR"] as const)(
   },
 );
 
-it.each(["ADMIN", "HEAD"] as const)("permits %s changes and rejects stale binding writes", async (role) => {
-  await db.user.update({ where: { id: headId }, data: { role } });
-  await caller(headId, role).program.setSecondaryEmailBinding({
-    enabled: false,
-    expectedEnabled: true,
-  });
-  await expect(
-    caller(headId, role).program.setSecondaryEmailBinding({
-      enabled: true,
+it.each(["ADMIN", "HEAD"] as const)(
+  "permits %s changes and rejects stale binding writes",
+  async (role) => {
+    await db.user.update({ where: { id: headId }, data: { role } });
+    await caller(headId, role).program.setSecondaryEmailBinding({
+      enabled: false,
       expectedEnabled: true,
-    }),
-  ).rejects.toThrow("changed");
-  expect(
-    await caller(headId, role).program.emailNotificationSettings(),
-  ).toMatchObject({ enabled: true, secondaryEmailBindingEnabled: false });
-});
+    });
+    await expect(
+      caller(headId, role).program.setSecondaryEmailBinding({
+        enabled: true,
+        expectedEnabled: true,
+      }),
+    ).rejects.toThrow("changed");
+    expect(
+      await caller(headId, role).program.emailNotificationSettings(),
+    ).toMatchObject({ enabled: true, secondaryEmailBindingEnabled: false });
+  },
+);
 
 it("queues Coordinator binding changes for management without disabling live binding", async () => {
-  await db.user.update({ where: { id: userId }, data: { role: "COORDINATOR" } });
+  await db.user.update({
+    where: { id: userId },
+    data: { role: "COORDINATOR" },
+  });
   await expect(
     caller(userId, "COORDINATOR").program.setSecondaryEmailBinding({
       enabled: false,
