@@ -14,7 +14,7 @@
     "oneFlow": "Einzelne Abstimmung: erstes Angebot, Alternative der lernenden Person, letztes Angebot des Tutors. Eine letzte Ablehnung sagt nur diese einzelne Sitzung ab.",
     "allFlow": "Alle müssen derselben neuesten Zeit zustimmen. Jede Person darf einmal mit einer Alternative ablehnen. Alte Zustimmung gilt nicht für neue Zeiten. Danach ist getrennte Verschiebung möglich.",
     "viewSessions": "Datierte Sitzungen anzeigen",
-    "explicitBy": "Ausdrückliche Zustimmung ist vor {deadline} erforderlich. Schweigen bestätigt diese kurzfristige Änderung nicht.",
+    "explicitBy": "Ausdrückliche Zustimmung ist vor {deadline} erforderlich. Schweigen bestätigt dieses Angebot nicht.",
     "reload": "Aktuelle Details laden und diesen Entwurf verwerfen",
     "messageUnavailable": "Direktnachrichten sind für diese Sitzung nicht verfügbar. Prüfe deinen Nachrichtenzugriff oder kontaktiere die Verwaltung.",
     "calendarSubscription": "Kalenderabonnement",
@@ -75,6 +75,7 @@
     "chooseLearner": "Lernende Person auswählen",
     "scopeHelp": "Einzeln ändert nur die Sitzung der ausgewählten Person. Alle müssen dem neuesten Gruppenangebot zustimmen.",
     "location": "Ort",
+    "locationUnavailable": "Raum nicht verfügbar. Lade die aktuellen Angaben neu, bevor du zustimmst.",
     "sameRoom": "Geplanten Raum beibehalten",
     "online": "Online",
     "noRoom": "Kein physischer Raum",
@@ -146,7 +147,14 @@
     "automaticRoom": "Vor Ort — Raum automatisch zugewiesen",
     "checkingLocation": "Zeit und Ort werden geprüft…",
     "allocationFailed": "Zeit und Ort konnten nicht bestätigt werden. Prüfe die aktuelle Sitzung, wähle eine andere Zeit oder Online und prüfe den Vorschlag erneut.",
-    "roomReviewHelp": "Der Raum wird beim Senden erneut geprüft. Ist er nicht verfügbar, prüfe eine neue Zuweisung."
+    "roomReviewHelp": "Der Raum wird beim Senden erneut geprüft. Ist er nicht verfügbar, prüfe eine neue Zuweisung.",
+    "tutoringPaused": "Reguläre Nachhilfe pausiert",
+    "tutoringPausedHelp": "Dieser reguläre Termin pausiert. Es besteht keine Anwesenheitspflicht. Eine Ausnahme erfordert die ausdrückliche Zustimmung aller Teilnehmenden.",
+    "arrangeException": "Ausnahme vereinbaren",
+    "requiresExplicit": "Ausdrückliche Zustimmung erforderlich; Schweigen nimmt dieses Angebot nicht an.",
+    "explicitExceptionHelp": "Diese Ausnahme erfordert die ausdrückliche Zustimmung der Lehrperson und aller teilnehmenden Lernenden. Keine Antwort bedeutet keine Zustimmung.",
+    "tutoringPauseProposal": "An diesem Datum pausiert die reguläre Nachhilfe. Der Vorschlag kann nur als ausdrücklich vereinbarte Ausnahme fortgesetzt werden.",
+    "exceptionScheduled": "Vereinbarte Ausnahme"
   },
   "nextRecruitment": {
     "savedForTarget": "Öffnung für {name} gespeichert.",
@@ -2790,7 +2798,7 @@
       "label": "Abmelden"
     },
     "userMenu": {
-      "settings": "Einstellungen",
+      "settings": "Kontoeinstellungen",
       "enterTutor": "Tutor-Seite öffnen",
       "enterAdmin": "Admin-Bereich betreten",
       "enterTutee": "Tutee-Seite öffnen",
@@ -4100,7 +4108,8 @@
         "MonthlyHoursSchedule": "Monatsberichtszeitplan",
         "MonthlyHoursReport": "Monatlicher Dienststundenbericht",
         "SchoolHoursSchedule": "Zeitplan für Schulberichte",
-        "SchoolHoursReport": "Individueller Schulstundenbericht"
+        "SchoolHoursReport": "Individueller Schulstundenbericht",
+        "ProgramCalendarPolicyRevision": "Revision der Nachhilfedatumsregel"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "E-Mail-Bestätigung der öffentlichen Anmeldung",
@@ -4491,7 +4500,9 @@
         "linkVersion": "Version des Berichtslinks",
         "linkRevokedAt": "Widerrufszeitpunkt des Berichtslinks",
         "schoolHoursReportId": "Schulberichts-ID",
-        "schoolHoursReport": "Schulbericht"
+        "schoolHoursReport": "Schulbericht",
+        "schedulingEffect": "Auswirkung auf die Planung",
+        "tutoringPauseSuppressed": "Reguläre Nachhilfe pausiert"
       },
       "enums": {
         "Role": {
@@ -6067,8 +6078,8 @@
     "layout": "Speichern gilt nur für dieses Layout."
   },
   "programCalendar": {
-    "title": "Tage ohne Nachhilfe",
-    "informational": "Hinweise zu Programmdaten und Gründen. Diese Hinweise schränken die Anwesenheitserfassung nicht ein und ändern nicht den Schultagskalender für Einsprüche.",
+    "title": "Nachhilfehinweise und Pausen",
+    "informational": "Ein Zeitraum ist ein Hinweis oder eine Pause regulärer Nachhilfe. Während einer Pause sind ausdrücklich vereinbarte Ausnahmen möglich; Schulkalender und Einspruchsfristen ändern sich nicht.",
     "refresh": "Aktualisieren",
     "reload": "Entwurf neu laden",
     "loadFailed": "Nachhilfehinweise konnten nicht geladen werden.",
@@ -6091,7 +6102,23 @@
     "saved": "Hinweis gespeichert.",
     "saveFailed": "Hinweis konnte nicht gespeichert werden.",
     "refreshFailed": "Der Hinweis wurde gespeichert, aber die aktuelle Liste konnte nicht geladen werden. Aktualisieren Sie sie, ohne erneut zu speichern.",
-    "details": "Details anzeigen"
+    "details": "Details anzeigen",
+    "schedulingEffect": "Auswirkung auf die Planung",
+    "noticeEffect": "Nur Hinweis",
+    "pauseEffect": "Reguläre Nachhilfe pausieren",
+    "noticeHelp": "Zeigt einen Hinweis, ohne datierte Termine zu ändern.",
+    "pauseHelp": "Reguläre Termine pausieren. Ausnahmen benötigen die ausdrückliche Zustimmung der Lehrperson und aller teilnehmenden Lernenden; Schweigen gilt nicht als Zustimmung. Schultage und Einspruchsfristen bleiben unabhängig.",
+    "removePauseHelp": "Diese Nachhilfepause entfernen. Berechtigte zukünftige reguläre Termine können nach Prüfung anderer Einschränkungen und Konflikte wiederhergestellt werden. Bereits begonnene Termine und erfasste Anwesenheit bleiben unverändert.",
+    "reviewImpact": "Planungsauswirkung prüfen",
+    "impactTitle": "Betroffene Termine prüfen",
+    "impactFailed": "Die Planungsänderungen konnten nicht geprüft werden. Es wurde nichts angewendet. Versuche die Prüfung erneut.",
+    "impactConflict": "Dieser Hinweis wurde geändert. Lade die aktuellen Angaben neu, bevor du erneut prüfst.",
+    "impactScope": "Vorschau bestehender zukünftiger Lernendentermine unter der neuen Regel, einschließlich bereits pausierter Termine. Lernende einer gemeinsamen Stunde zählen einzeln; künftige Wiederholungen folgen ebenfalls der Regel.",
+    "impactPause": "Unter der neuen Regel pausierte reguläre Termine: {count}",
+    "impactRetain": "Ausdrücklich vereinbarte Ausnahmen bleiben: {count}",
+    "impactConfirm": "Ausdrückliche Bestätigung erforderlich: {count}",
+    "impactRestore": "Mögliche Wiederherstellungen: {count}",
+    "impactRule": "Beim Speichern werden aktuelle Zustimmungen und Konflikte erneut geprüft. Begonnene Termine und erfasste Anwesenheit bleiben unverändert."
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",
@@ -7211,7 +7238,7 @@
   "schoolCalendar": {
     "title": "Schulkalender",
     "help": "Schulfreie Tage und den geltenden Stundenplan für einzelne Daten festlegen. Sonst gelten Montag bis Freitag als Schultage.",
-    "noticeDistinction": "Hinweise auf unterrichtsfreie Nachhilfetage sind getrennte Informationen und ändern diesen Schulkalender nicht.",
+    "noticeDistinction": "Nachhilfehinweise und Pausen ändern weder Schultagstatus noch Stundenplanzuordnung oder die Zählung der Einspruchstage.",
     "add": "Datumsregel hinzufügen",
     "date": "Tatsächliches Datum",
     "timetable": "Stundenplan",

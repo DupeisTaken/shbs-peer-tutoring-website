@@ -2,6 +2,14 @@ import {describe,expect,it} from "vitest";
 import {assertReviewedRecoverySchema,reviewedRecoverySchemaMetadata} from "./operator-schema";
 
 describe("static operator recovery schema review",()=>{
+  it("reviews tutoring policy columns together while retaining complete older backups",()=>{
+    const {columns,enums}=reviewedRecoverySchemaMetadata;
+    const old=columns.filter(row=>row.table_name!=="ProgramCalendarPolicyRevision"&&!(row.table_name==="ProgramCalendarDay"&&row.column_name==="schedulingEffect")&&!(row.table_name==="SessionPlanParticipant"&&row.column_name==="tutoringPauseSuppressed"));
+    expect(()=>assertReviewedRecoverySchema(old,enums)).not.toThrow();
+    expect(()=>assertReviewedRecoverySchema(columns.filter(row=>row.table_name!=="ProgramCalendarPolicyRevision"),enums)).not.toThrow();
+    expect(()=>assertReviewedRecoverySchema(columns.filter(row=>!(row.table_name==="ProgramCalendarPolicyRevision"&&row.column_name==="effectiveAt")),enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    expect(()=>assertReviewedRecoverySchema(columns.filter(row=>!(row.table_name==="ProgramCalendarDay"&&row.column_name==="schedulingEffect")),enums)).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
   it("accepts the reviewed catalog and refuses a matching-but-unreviewed bearer table or column",()=>{
     const {columns,enums}=reviewedRecoverySchemaMetadata;
     expect(()=>assertReviewedRecoverySchema(columns,enums)).not.toThrow();

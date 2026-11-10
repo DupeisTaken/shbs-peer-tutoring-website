@@ -90,6 +90,7 @@ type SafeContext = {
   timeZone?: string;
   stage?: "A" | "B" | "C";
   isActionable?: boolean;
+  requiresExplicitAcceptance?: boolean;
   outcomeReason?: "MISSED_AUTOMATIC_RESPONSE_WINDOW";
 };
 
@@ -136,6 +137,8 @@ export function sessionNoticeContext(input: unknown): SafeContext {
     result.stage = source.stage as SafeContext["stage"];
   if (typeof source.isActionable === "boolean")
     result.isActionable = source.isActionable;
+  if (typeof source.requiresExplicitAcceptance === "boolean")
+    result.requiresExplicitAcceptance = source.requiresExplicitAcceptance;
   if (source.outcomeReason === "MISSED_AUTOMATIC_RESPONSE_WINDOW")
     result.outcomeReason = source.outcomeReason;
   return result;
@@ -159,7 +162,9 @@ export function sessionPlanningNoticeCopy(
   lines.push(`${copy[0]}\n${copy[1]}`);
   if (!obsolete && safe.isActionable) {
     lines.push(
-      "Respond in the portal. The 24-hour clock starts only after mail-service acceptance; check the exact deadline and short-notice cutoff there. Silence can mean acceptance. Email replies do not decide the offer.\n请登录平台回复。邮件服务接受通知后才开始24小时计时；准确期限及临近开课限制以平台为准。未回复可能视为接受，回复本邮件不能作出决定。",
+      safe.requiresExplicitAcceptance
+        ? "Explicit agreement required: every affected tutor and learner must affirmatively agree to this exact offer before the cutoff. Silence will not accept it. Sign in to respond; replying to this email does not decide.\n必须明确同意：每位受影响的辅导伙伴和学习伙伴须在截止前明确同意同一提议。未回复不会视为接受。请登录平台回复；回复本邮件不能作出决定。"
+        : "Respond in the portal. The 24-hour clock starts only after mail-service acceptance; check the exact deadline and short-notice cutoff there. Silence can mean acceptance. Email replies do not decide the offer.\n请登录平台回复。邮件服务接受通知后才开始24小时计时；准确期限及临近开课限制以平台为准。未回复可能视为接受，回复本邮件不能作出决定。",
     );
   }
 

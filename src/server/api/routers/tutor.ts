@@ -60,7 +60,8 @@ import { validateInterviewDecision } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
 import { getProgramTimeZone } from "~/server/program/time-zone";
-import { programDateKey } from "~/lib/program-time";
+import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
+import { readRegularTutoringPausedAt } from "~/server/program/calendar-policy-history";
 import { z } from "zod";
 import { roomReference } from "~/lib/room-reference";
 import { requireExistingRooms } from "~/server/room-references";
@@ -704,6 +705,18 @@ export const tutorRouter = createTRPCRouter({
           // Preserve immutable receipt replay above, then re-read the selected
           // assignments under the same fence as roster/group/schedule writers.
           await lockPlannedRoomSchedule(tx);
+          await lockSessionPlanning(tx);
+          if (!input.cohortId) {
+            const startsAt = parseProgramDateTime(
+              `${dateKey}T${String(Math.floor(startMin / 60)).padStart(2, "0")}:${String(startMin % 60).padStart(2, "0")}`,
+              await getProgramTimeZone(tx),
+            );
+            // Receipt replay above preserves accepted history. New legacy
+            // writes cannot bypass a pause that governed the actual lesson;
+            // later policy edits never retroactively impose consent on history.
+            if (await readRegularTutoringPausedAt(tx, dateKey, startsAt))
+              throw new TRPCError({ code: "CONFLICT", message: "This tutoring date required explicit agreement. Record the agreed dated session from the schedule." });
+          }
           const plannedContext = input.cohortId
             ? await sessionAttendanceContext(
                 tx,

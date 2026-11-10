@@ -14,7 +14,7 @@
     "oneFlow": "Individual agreement follows the first offer, the tutee’s alternative, then the tutor’s final offer. Final rejection cancels only that tutee’s dated session.",
     "allFlow": "Everyone must agree to the latest time. Each person may reject once with an alternative; acceptance of an earlier time does not carry forward. After using that rejection, request separate rescheduling if needed.",
     "viewSessions": "View dated sessions",
-    "explicitBy": "Explicit agreement is required before {deadline}. Silence does not accept this short-notice change.",
+    "explicitBy": "Explicit agreement is required before {deadline}. Silence does not accept this offer.",
     "reload": "Reload current details and discard this draft",
     "messageUnavailable": "Direct messaging is unavailable for this session. Check your messaging access or contact management.",
     "calendarSubscription": "Calendar subscription",
@@ -75,6 +75,7 @@
     "chooseLearner": "Choose a tutee",
     "scopeHelp": "One changes only the selected tutee’s dated session. All requires agreement to the latest time from everyone.",
     "location": "Location",
+    "locationUnavailable": "Room unavailable. Refresh the current details before agreeing.",
     "sameRoom": "Keep the planned room",
     "online": "Online",
     "noRoom": "No physical room",
@@ -146,7 +147,14 @@
     "automaticRoom": "In person — room assigned automatically",
     "checkingLocation": "Checking time and location…",
     "allocationFailed": "Could not confirm this time and location. Check the current session, try another time or Online, then review again.",
-    "roomReviewHelp": "This room is checked again when you send. If unavailable, review a new assignment."
+    "roomReviewHelp": "This room is checked again when you send. If unavailable, review a new assignment.",
+    "tutoringPaused": "Regular tutoring paused",
+    "tutoringPausedHelp": "This regular session is paused. Attendance is not required. Arrange an exception only with affirmative agreement from every participant.",
+    "arrangeException": "Arrange exception",
+    "requiresExplicit": "Explicit agreement required; silence will not accept this offer.",
+    "explicitExceptionHelp": "This exception requires affirmative agreement from the tutor and every participating learner. No response means no agreement.",
+    "tutoringPauseProposal": "Regular tutoring is paused on this date. This proposal can proceed only as an explicitly agreed exception.",
+    "exceptionScheduled": "Agreed exception"
   },
   "nextRecruitment": {
     "savedForTarget": "Opening saved for {name}.",
@@ -2790,7 +2798,7 @@
       "label": "Sign Out"
     },
     "userMenu": {
-      "settings": "Settings",
+      "settings": "Account Settings",
       "enterTutor": "Enter Tutor Page",
       "enterAdmin": "Enter Admin Area",
       "enterTutee": "Enter Tutee Page",
@@ -4100,7 +4108,8 @@
         "MonthlyHoursSchedule": "Monthly report schedule",
         "MonthlyHoursReport": "Monthly service-hours report",
         "SchoolHoursSchedule": "School report schedule",
-        "SchoolHoursReport": "Individual school-hours report"
+        "SchoolHoursReport": "Individual school-hours report",
+        "ProgramCalendarPolicyRevision": "Tutoring date policy revision"
       },
       "fields": {
         "publicSignupEmailConfirmedAt": "Public signup email confirmation",
@@ -4491,7 +4500,9 @@
         "linkVersion": "Report link version",
         "linkRevokedAt": "Report link revoked at",
         "schoolHoursReportId": "School report ID",
-        "schoolHoursReport": "School report"
+        "schoolHoursReport": "School report",
+        "schedulingEffect": "Scheduling effect",
+        "tutoringPauseSuppressed": "Regular tutoring paused"
       },
       "enums": {
         "Role": {
@@ -6067,8 +6078,8 @@
     "layout": "Save applies to this layout only."
   },
   "programCalendar": {
-    "title": "No-Tutoring Dates",
-    "informational": "Informational program dates and reasons. These notices do not restrict attendance or change the school-day calendar used by appeals.",
+    "title": "Tutoring Notices & Pauses",
+    "informational": "Each range is either a notice or a pause of regular tutoring. Paused dates allow explicitly agreed exceptions and do not change the school calendar or appeal deadlines.",
     "refresh": "Refresh",
     "reload": "Reload draft",
     "loadFailed": "Could not load tutoring notices.",
@@ -6091,7 +6102,23 @@
     "saved": "Notice saved.",
     "saveFailed": "Could not save the notice.",
     "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again.",
-    "details": "View details"
+    "details": "View details",
+    "schedulingEffect": "Scheduling effect",
+    "noticeEffect": "Notice only",
+    "pauseEffect": "Pause regular tutoring",
+    "noticeHelp": "Shows a notice without changing dated commitments.",
+    "pauseHelp": "Regular sessions pause. Exceptions require affirmative agreement from the tutor and every participating learner; silence is not agreement. School-day and appeal rules stay separate.",
+    "removePauseHelp": "Remove this tutoring pause. Eligible future regular commitments may return after checking other restrictions and conflicts. Started sessions and recorded attendance stay unchanged.",
+    "reviewImpact": "Review scheduling effect",
+    "impactTitle": "Review Affected Commitments",
+    "impactFailed": "Could not review scheduling changes. Nothing was applied. Try the review again.",
+    "impactConflict": "This notice changed. Reload the current details before reviewing again.",
+    "impactScope": "Preview of existing future learner commitments under the resulting rule, including those already paused. Learners in one lesson are counted separately; future recurrence follows the rule too.",
+    "impactPause": "Regular commitments paused under the resulting rule: {count}",
+    "impactRetain": "Explicitly agreed exceptions retained: {count}",
+    "impactConfirm": "Need affirmative confirmation: {count}",
+    "impactRestore": "Restoration candidates: {count}",
+    "impactRule": "Save rechecks current agreements and conflicts. Started sessions and recorded attendance stay unchanged."
   },
   "roomOrder": {
     "title": "Room Display Order",
@@ -7211,7 +7238,7 @@
   "schoolCalendar": {
     "title": "School Calendar",
     "help": "Set school closures and the weekday timetable followed on a specific date. Other dates follow the normal Monday–Friday school calendar.",
-    "noticeDistinction": "No-tutoring notices are separate informational dates. They do not change this school calendar.",
+    "noticeDistinction": "Tutoring notices and pauses do not change school-day status, timetable mapping or appeal-day counting.",
     "add": "Add date override",
     "date": "Actual date",
     "timetable": "Timetable",
