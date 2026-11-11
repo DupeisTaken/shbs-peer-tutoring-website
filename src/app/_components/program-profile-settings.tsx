@@ -104,7 +104,9 @@ export function ProfilePolicyEditor({
         <h2 className="section-title">{t("title")}</h2>
         <p className="muted mt-1 text-sm">{t("help")}</p>
       </div>
-      {canEdit && !canApply && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
+      {canEdit && !canApply && (
+        <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+      )}
       {!canEdit && <p className="muted text-sm">{t("readOnly")}</p>}
       <form
         className="space-y-4"
@@ -121,9 +123,10 @@ export function ProfilePolicyEditor({
             });
         }}
       >
+        {/* Anchor the clipped absolute legend here rather than to the document. */}
         <fieldset
           disabled={!canEdit || save.isPending}
-          className="min-w-0 space-y-4"
+          className="relative min-w-0 space-y-4"
         >
           <legend className="sr-only">{t("title")}</legend>
           <div>
@@ -202,11 +205,19 @@ export function ProfilePolicyEditor({
               className="btn-primary min-h-11 lg:min-h-10"
               disabled={!offeredGrades.length}
             >
-              {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestAdmin")}
+              {save.isPending
+                ? t("saving")
+                : canApply
+                  ? t("save")
+                  : approvals("requestAdmin")}
             </button>
           )}
         </fieldset>
-        {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+        {save.error?.data?.approvalId && (
+          <InlineNotice tone="warning" announcement="status">
+            {approvals("queuedBody")}
+          </InlineNotice>
+        )}
         {save.error && !save.error.data?.approvalId && (
           <p role="alert" className="text-sm text-red-700">
             <ProfilePolicyError message={save.error.message} />
