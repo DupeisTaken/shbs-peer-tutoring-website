@@ -89,8 +89,13 @@ approval rules, immutable evidence, query access or profile/policy version owner
   affected reads and their prerequisites; drive cache eviction from the retained
   denial episode, including prerequisites newly denied during recovery.
 - Nested review owns Escape and keyboard focus. Restore the exact opener when it
-  remains usable; otherwise focus the remaining parent dialog. Pending writes block
-  parent dismissal until they settle. Keep long editors' Close header reachable.
+  remains usable; otherwise focus the remaining parent dialog. A top-level owner
+  whose opener may become unavailable can supply `returnFocusFallback` through
+  `ReviewedAction` or `Modal`, returning its current logical recovery control.
+  Resolve it at dismissal, skip unavailable targets, and do not take focus from a
+  connected control outside the closing dialog. Do not guess a page-wide target.
+  Pending writes block parent dismissal until they settle. Keep long editors'
+  Close header reachable.
 - Choose disclosure lifetime deliberately: `lazy` for disposable read details,
   `retained` for drafts mounted on first open, `mounted` for forms that must exist
   from the start. Preserve four-part and legacy names through `PersonNameFields`;

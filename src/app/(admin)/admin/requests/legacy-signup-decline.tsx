@@ -56,6 +56,7 @@ export function LegacySignupDeclineActions({
 }) {
   const t = useTranslations("legacySignupDecline");
   const account = api.account.me.useQuery();
+  const accountRetry = useRef<HTMLButtonElement>(null);
   const role = account.data?.role;
   const declineRole =
     role === "HEAD" || role === "ADMIN" || role === "COORDINATOR" ? role : null;
@@ -118,7 +119,7 @@ export function LegacySignupDeclineActions({
           revoke: review.revoke,
           dialog: (
             <>
-              <DeclineAccountFeedback />
+              <QueryFeedback {...accountFeedback} retryRef={accountRetry} />
               {review.dialog}
             </>
           ),
@@ -143,6 +144,9 @@ export function LegacySignupDeclineActions({
               }),
               description: t(proposal ? "requestConsequence" : "consequence"),
               confirmLabel: t(proposal ? "requestConfirm" : "confirm"),
+              // Only outside recovery owns this ref; frozen details keep their
+              // separate live feedback consumer inside the closing dialog.
+              returnFocusFallback: () => accountRetry.current,
               details: (
                 <div className="space-y-3">
                   <p>{target.name}</p>

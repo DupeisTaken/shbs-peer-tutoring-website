@@ -64,6 +64,12 @@ The receipt acknowledges submission; membership remains active until the separat
 staff decision. Follow the [consequential action inventory](implementation.md#consequential-action-inventory)
 for the activation/request distinction and stronger domain safeguards.
 
+Its access-revocation example also supplies the existing Restore control as a
+feature-owned `returnFocusFallback`. When revocation disables the original opener
+and removes the review, focus reaches Restore. A usable opener or remaining parent
+dialog still takes priority. Check that fallback recovery alongside the real
+Signup Requests account-read failure; the gallery grants no management authority.
+
 The participant form's **Name requirement example → Application correction: retain
 legacy names** case demonstrates the scoped `preserveLegacyRequiredFields` option.
 An unchanged unsplit identity permits an alternate-language-only correction even

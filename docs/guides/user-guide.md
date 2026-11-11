@@ -1365,7 +1365,10 @@ release of its current assignments and retained intake/history. Coordinators see
 Admin/Head review request, leaving the signup and assignments unchanged until
 approval. Admin or Head sees the direct **Decline signup** action. Loading or failed
 account reads block submission. Failed reads offer a read-only retry inside an open
-review, preserving its original signup and submission details. If the account or
+review, preserving its original signup and submission details. If the account
+read remains unavailable when you Cancel or press Escape, keyboard focus returns
+to the page's **Retry account details** control when it is ready. Retrying reads
+account details without submitting a decline. If the account or
 management role changes while a review is open, cancel and open a fresh review.
 Invalid flags and pending participation reviews must be resolved first. Attendance
 or published-session evidence still prevents decline.

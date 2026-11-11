@@ -19,6 +19,8 @@ export type ReviewedAction = {
   /** A successful request may queue work without applying the eventual change. */
   successMessage?: string;
   details?: ReactNode;
+  /** Current feature recovery when the opener and remaining parent are unavailable. */
+  returnFocusFallback?: () => HTMLElement | null;
   /** The feature supplies an authorized mutation with its original payload. */
   commit: () => Promise<unknown>;
   /** Read-only recovery; never put another mutation in this callback. */
@@ -221,6 +223,7 @@ function ActionReview({
       title={action.title}
       description={action.description}
       busy={busy}
+      returnFocusFallback={action.returnFocusFallback}
       onClose={() => {
         if (!busy) close();
       }}

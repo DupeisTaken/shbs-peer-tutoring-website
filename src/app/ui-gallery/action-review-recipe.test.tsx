@@ -31,8 +31,14 @@ it("shows a request receipt without claiming the eventual change was applied", a
       <ActionReviewRecipe />
     </NextIntlClientProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: messages.tutor.settings.optOutBtn }));
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: messages.tutor.settings.optOutBtn }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.settings.optOutBtn }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.tutor.settings.optOutBtn,
+    }),
+  );
   await screen.findByText(messages.tutor.settings.optOutSubmitted);
   expect(screen.queryByText(messages.actionReview.applied)).toBeNull();
 });
@@ -42,9 +48,11 @@ it("conceals revoked example evidence and permits a fresh review after restored 
       <ActionReviewRecipe />
     </NextIntlClientProvider>,
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Open access revocation example" }),
-  );
+  const opener = screen.getByRole("button", {
+    name: "Open access revocation example",
+  });
+  opener.focus();
+  fireEvent.click(opener);
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", {
       name: "Simulate revoked access",
@@ -52,6 +60,9 @@ it("conceals revoked example evidence and permits a fresh review after restored 
   );
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByText(messages.actionReview.galleryRecord)).toBeNull();
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Restore example access" }),
+  );
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
       name: "Open access revocation example",
