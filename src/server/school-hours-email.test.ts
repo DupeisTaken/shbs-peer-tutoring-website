@@ -14,6 +14,10 @@ import { schoolHoursTestSnapshot } from "./school-hours-test-fixture";
 const reportUrl = "https://reports.example.test/saved";
 const parse = (html: string) =>
   new DOMParser().parseFromString(html, "text/html");
+const personDetails = (doc: Document, person: Element) =>
+  doc.getElementById(
+    person.querySelector(".hours-button")!.getAttribute("popovertarget")!,
+  )!;
 
 function carryReport(
   postingPolicy:
@@ -52,8 +56,9 @@ it("keeps escaped school-account references and first-edition posting rules insi
   expect(doc.querySelector(".person-identity")?.textContent).toBe(
     report.rows[0]!.exportName,
   );
-  const details = doc.querySelector<HTMLDetailsElement>(".person-details")!;
-  expect(details.open).toBe(false);
+  const details = doc.querySelector<HTMLElement>(".person-details")!;
+  expect(details.getAttribute("popover")).toBe("auto");
+  expect(details.hasAttribute("open")).toBe(false);
   expect(details.querySelector(".school-account")?.textContent).toBe(
     `School account / 学校账户: ${report.rows[0]!.schoolAccountKey}`,
   );
@@ -75,7 +80,7 @@ it("keeps escaped school-account references and first-edition posting rules insi
 });
 
 it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
-  "renders %s in a compact semantic table with exact Hours and full-span native Details",
+  "renders %s in a compact semantic table with Hours opening native Details outside the table",
   (policy) => {
     const report = carryReport(policy);
     report.revision = 2;
@@ -119,16 +124,47 @@ it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
       "Individual school hours",
     );
     expect(doc.querySelector(".raw-duration")?.textContent).toBe("+1 h 20 min");
-    expect(doc.querySelector(".school-summary .posting")?.textContent).toBe(
-      "+1.3 h",
-    );
-    expect(doc.querySelector("dl,section.person")).toBeNull();
-    const details = doc.querySelector<HTMLDetailsElement>(".person-details")!;
-    expect(details.open).toBe(false);
-    expect(details.parentElement?.getAttribute("colspan")).toBe("5");
     expect(
-      details.querySelector("summary")?.getAttribute("aria-label"),
-    ).toContain(report.rows[0]!.exportName);
+      doc.querySelector(".school-summary .hours-button")?.textContent,
+    ).toBe("+1.3 h");
+    expect(doc.querySelector("dl,section.person")).toBeNull();
+    const details = doc.querySelector<HTMLElement>(".person-details")!;
+    const invoker = table.querySelector<HTMLButtonElement>(".hours-button")!;
+    const fallback = table.querySelector<HTMLAnchorElement>(".hours-fallback")!;
+    expect(invoker.type).toBe("button");
+    expect(invoker.getAttribute("popovertarget")).toBe(details.id);
+    expect(invoker.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(invoker.getAttribute("aria-label")).toBe(
+      `+1.3 h · View details for ${report.rows[0]!.exportName} / 查看${report.rows[0]!.exportName}的详情`,
+    );
+    expect(fallback.getAttribute("href")).toBe(`#${details.id}`);
+    expect(fallback.textContent).toBe(invoker.textContent);
+    expect(fallback.getAttribute("aria-label")).toBe(
+      invoker.getAttribute("aria-label"),
+    );
+    expect(details.getAttribute("popover")).toBe("auto");
+    expect(details.getAttribute("role")).toBe("dialog");
+    expect(details.closest("table")).toBeNull();
+    const title = doc.getElementById(details.getAttribute("aria-labelledby")!)!;
+    expect(title.tagName).toBe("H2");
+    expect(title.textContent).toBe(
+      `${report.rows[0]!.exportName} · Details / 详情`,
+    );
+    const close = details.querySelector<HTMLButtonElement>(
+      ".person-popover-header button",
+    )!;
+    expect(close.getAttribute("popovertarget")).toBe(details.id);
+    expect(close.getAttribute("popovertargetaction")).toBe("hide");
+    expect(close.hasAttribute("autofocus")).toBe(true);
+    expect(close.textContent).toBe("Close / 关闭");
+    expect(table.querySelectorAll("tbody.person > tr")).toHaveLength(
+      report.rows.length,
+    );
+    expect(table.querySelector("tbody.person > tr")?.children).toHaveLength(5);
+    expect(
+      doc.querySelector(".person-detail-row,details.person-details,script"),
+    ).toBeNull();
+    expect(details.querySelector("summary")).toBeNull();
     expect(details.textContent).toContain("Exact Raw Change");
     expect(details.textContent).toContain("+1.09 h");
     expect(details.textContent).toContain("+0.25 h");
@@ -137,6 +173,237 @@ it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
     expect(doc.body.textContent).toContain("r1");
     expect(JSON.stringify(report)).toBe(before);
     expect(schoolHoursCsv(report).content).toContain("1.09");
+  },
+);
+
+it("links every Hours invoker and fallback to one independent evidence popover", () => {
+  const report = publicSchoolHoursReport(schoolHoursTestSnapshot(3));
+  const doc = parse(renderSchoolHoursContent(report));
+  const people = [...doc.querySelectorAll("tbody.person")];
+  const details = [...doc.querySelectorAll(".person-details")];
+  expect(details).toHaveLength(people.length);
+  expect(new Set(details.map((panel) => panel.id)).size).toBe(people.length);
+  people.forEach((person, index) => {
+    const button = person.querySelector(".hours-button")!;
+    const fallback = person.querySelector(".hours-fallback")!;
+    const panel = personDetails(doc, person);
+    expect(panel.id).toBe(`school-hours-person-${index}-details`);
+    expect(person.children).toHaveLength(1);
+    expect(person.querySelector(".school-summary")?.children).toHaveLength(5);
+    expect(fallback.textContent).toBe(button.textContent);
+    expect(fallback.getAttribute("href")).toBe(`#${panel.id}`);
+    expect(panel.querySelector(".school-account")?.textContent).toContain(
+      report.rows[index]!.schoolAccountKey,
+    );
+    expect(panel.closest("table,tbody,tr,td")).toBeNull();
+    expect(doc.querySelectorAll(`[id="${panel.id}"]`)).toHaveLength(1);
+    expect(panel.querySelector(".edition-choices")).not.toBeNull();
+  });
+  expect(
+    doc.querySelector(".person-detail-row,details.person-details,script"),
+  ).toBeNull();
+});
+
+it.each(["en", "zh"] as const)(
+  "renders %s report labels, instructions, exact evidence and metadata in the selected language",
+  (locale) => {
+    for (const policy of [
+      undefined,
+      "TENTH_HOUR_CARRY",
+      "TENTH_HOUR_CARRY_NONNEGATIVE",
+    ] as const) {
+      for (const revision of [1, 3]) {
+        const report = carryReport();
+        report.postingPolicy = policy;
+        report.revision = revision;
+        report.includeStatistics = true;
+        Object.assign(report.rows[0]!, {
+          exportName: 'Synthetic <img src=x onerror="alert(1)"> & "School"',
+          schoolAccountKey: 'Account <script>unsafe</script> & "school"',
+          hoursToAdd: 0,
+          monthAmount: 0,
+          previousEditionAmount: 0.2,
+          previousMonthAmount: 0.1,
+          monthComparison: -0.1,
+          unchanged: revision > 1,
+          carryOutHours: "-1.3333333333333333",
+          priorEditions: [
+            { revision: 1, monthAmount: 1.3, correctionToCurrent: -1.3 },
+            { revision: 2, monthAmount: 0.2, correctionToCurrent: -0.2 },
+          ],
+        });
+        const before = JSON.stringify(report);
+        const csv = schoolHoursCsv(report).content;
+        const html = renderSchoolHoursContent(report, locale);
+        const doc = parse(html);
+        const button = doc.querySelector(".hours-button")!;
+        const panel = doc.querySelector(".person-details")!;
+        const text = doc.body.textContent;
+        expect(button.textContent).toBe("—");
+        expect(button.getAttribute("aria-label")).toBe(
+          locale === "en"
+            ? `No posting · View details for ${report.rows[0]!.exportName}`
+            : `无需入账 · 查看${report.rows[0]!.exportName}的详情`,
+        );
+        expect(
+          button.querySelector(".no-posting")?.getAttribute("aria-label"),
+        ).toBe(locale === "en" ? "No posting" : "无需入账");
+        expect(doc.querySelector(".person-identity")?.textContent).toBe(
+          report.rows[0]!.exportName,
+        );
+        expect(panel.querySelector(".school-account")?.textContent).toBe(
+          `${locale === "en" ? "School account" : "学校账户"}: ${report.rows[0]!.schoolAccountKey}`,
+        );
+        expect(panel.querySelector("h2")?.textContent).toBe(
+          `${report.rows[0]!.exportName} · ${locale === "en" ? "Details" : "详情"}`,
+        );
+        expect(panel.querySelector("button")?.textContent).toBe(
+          locale === "en" ? "Close" : "关闭",
+        );
+        expect(panel.querySelector(".exact-posting")?.textContent).toBe(
+          locale === "en" ? "Exact Hours: 0 h" : "精确入账时数: 0 小时",
+        );
+        expect(doc.querySelector(".raw-duration")?.getAttribute("title")).toBe(
+          locale === "en" ? "Rounded to nearest minute" : "四舍五入至分钟",
+        );
+        expect(text).toContain(
+          new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-GB", {
+            dateStyle: "long",
+            timeStyle: "short",
+            timeZone: report.timeZone,
+          }).format(new Date(report.generatedAt)),
+        );
+        expect(text).toContain(
+          locale === "en" ? "Optional program statistics" : "项目统计（可选）",
+        );
+        expect(text).toContain(
+          locale === "en" ? "Previous-month comparison" : "与上月比较",
+        );
+        if (policy) {
+          expect(doc.querySelector(".carry-out")?.textContent).toBe(
+            locale === "en" ? "-80 min" : "-80 分钟",
+          );
+          expect(
+            doc.querySelector(".carry-out span")?.getAttribute("title"),
+          ).toBe(
+            locale === "en"
+              ? "-1.3333333333333333 h"
+              : "-1.3333333333333333 小时",
+          );
+          expect(panel.textContent).toContain(
+            locale === "en"
+              ? "Exact Carry Out: -1.3333333333333333 h"
+              : "精确期末余量: -1.3333333333333333 小时",
+          );
+          if (policy === "TENTH_HOUR_CARRY_NONNEGATIVE") {
+            expect(
+              doc.querySelector(".carry-explanation summary")?.textContent,
+            ).toBe(locale === "en" ? "How carry works" : "余量计算方式");
+            expect(text).toContain(
+              locale === "en"
+                ? "full negative balance automatically offsets future earned hours"
+                : "全部负数余额自动抵扣今后获得的时数",
+            );
+          }
+        } else {
+          const missing = doc.querySelector(".carry-in span")!;
+          expect(missing.getAttribute("aria-label")).toBe(
+            locale === "en" ? "Carry not recorded" : "未记录余量",
+          );
+          expect(missing.getAttribute("title")).toBe(
+            locale === "en"
+              ? "Not recorded in this earlier report"
+              : "此历史报告未记录余量",
+          );
+        }
+        if (revision > 1) {
+          const choices = panel.querySelector(".edition-choices")!;
+          expect(choices.textContent).toContain(
+            locale === "en" ? "r1 (+1.3 h)" : "r1 (+1.3 小时)",
+          );
+          expect(choices.textContent).toContain(
+            locale === "en" ? "-1.3 h" : "-1.3 小时",
+          );
+          expect(choices.textContent).toContain(
+            locale === "en" ? "Nothing applied" : "从未入账",
+          );
+          expect(choices.textContent).toContain(
+            locale === "en" ? "0 h once" : "0 小时 一次",
+          );
+          expect(panel.textContent).toContain(
+            locale === "en" ? "Unchanged since r2" : "与 r2 相比无变化",
+          );
+          expect(doc.querySelector(".edition-guidance")?.textContent).toContain(
+            locale === "en"
+              ? policy === "TENTH_HOUR_CARRY_NONNEGATIVE"
+                ? "contact the program team before posting"
+                : "Choose only one matching row"
+              : policy === "TENTH_HOUR_CARRY_NONNEGATIVE"
+                ? "请先联系项目团队"
+                : "仅选符合情况的一项",
+          );
+        } else {
+          expect(
+            panel.querySelector(".posting-guidance")?.textContent,
+          ).toContain(
+            locale === "en"
+              ? "Apply each person's highlighted amount"
+              : "请将每个人突出显示的时数",
+          );
+        }
+        if (locale === "en") {
+          expect(html).not.toMatch(/[\u3400-\u9fff]/u);
+        } else {
+          // Participant/account values are saved evidence; UI wording alone changes.
+          expect(text).not.toMatch(
+            /Revision|Details|School account|Exact Hours|Previous month|Optional program statistics|Crew|\bmin\b|\bh\b/,
+          );
+        }
+        expect(html).toContain("&lt;img");
+        expect(html).toContain("&lt;script&gt;");
+        expect(doc.querySelector("script,img,[onerror]")).toBeNull();
+        expect(JSON.stringify(report)).toBe(before);
+        expect(schoolHoursCsv(report).content).toBe(csv);
+      }
+    }
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "preserves saved multilingual names and exact numeric postings in the %s view",
+  (locale) => {
+    const report = carryReport();
+    const row = report.rows[0]!;
+    row.hoursToAdd = 1.7500000000000002;
+    const before = JSON.stringify(report);
+    const doc = parse(renderSchoolHoursContent(report, locale));
+    expect(doc.querySelector(".person-identity")?.textContent).toBe(
+      row.exportName,
+    );
+    expect(doc.querySelector(".hours-button")?.textContent).toBe(
+      locale === "en" ? "+1.7500000000000002 h" : "+1.7500000000000002 小时",
+    );
+    const label =
+      locale === "en"
+        ? `+1.7500000000000002 h · View details for ${row.exportName}`
+        : `+1.7500000000000002 小时 · 查看${row.exportName}的详情`;
+    expect(doc.querySelector(".hours-button")?.getAttribute("aria-label")).toBe(
+      label,
+    );
+    expect(
+      doc.querySelector(".hours-fallback")?.getAttribute("aria-label"),
+    ).toBe(label);
+    expect(doc.querySelector(".hours-fallback")?.textContent).toBe(
+      doc.querySelector(".hours-button")?.textContent,
+    );
+    expect(doc.querySelector(".raw-duration")?.textContent).toBe(
+      locale === "en" ? "+1 h 20 min" : "+1 小时 20 分钟",
+    );
+    expect(doc.querySelector(".carry-out")?.textContent).toBe(
+      locale === "en" ? "2 min" : "2 分钟",
+    );
+    expect(JSON.stringify(report)).toBe(before);
+    expect(schoolHoursCsv(report).content).toContain(",1.7500000000000002,");
   },
 );
 
@@ -176,11 +443,17 @@ it.each([1, 2, 3])(
       });
       const before = JSON.stringify(report);
       const doc = parse(renderSchoolHoursContent(report));
-      const hours = doc.querySelector(".school-summary .posting")!;
+      const hours = doc.querySelector(".school-summary .hours-button")!;
       expect(hours.textContent).toBe("—");
-      expect(doc.querySelector(".mobile-row-context")?.textContent).toBe(
-        `${report.rows[0]!.exportName} · —`,
+      expect(hours.getAttribute("aria-label")).toBe(
+        `No posting / 无需入账 · View details for ${report.rows[0]!.exportName} / 查看${report.rows[0]!.exportName}的详情`,
       );
+      expect(
+        doc.querySelector(".hours-fallback")?.getAttribute("aria-label"),
+      ).toBe(hours.getAttribute("aria-label"));
+      expect(
+        doc.querySelector(".mobile-row-context,.person-detail-row"),
+      ).toBeNull();
       expect(
         hours.querySelector(".no-posting")?.getAttribute("aria-label"),
       ).toBe("No posting / 无需入账");
@@ -260,9 +533,9 @@ it("keeps full debt pending until future earnings offset it in saved reports and
       carryOutHours: example.carryOut,
     });
     const saved = parse(renderSchoolHoursContent(report));
-    expect(saved.querySelector(".school-summary .posting")?.textContent).toBe(
-      example.posted === 0 ? "—" : "+0.1 h",
-    );
+    expect(
+      saved.querySelector(".school-summary .hours-button")?.textContent,
+    ).toBe(example.posted === 0 ? "—" : "+0.1 h");
     expect(saved.querySelector(".carry-out")?.textContent).toBe(
       `${example.minutes} min / 分钟`,
     );
@@ -380,7 +653,7 @@ it("shows four new minutes releasing one tenth with distinct incoming and outgoi
     carryOutHours: "0",
   });
   const doc = parse(renderSchoolHoursContent(report));
-  expect(doc.querySelector(".school-summary .posting")?.textContent).toBe(
+  expect(doc.querySelector(".school-summary .hours-button")?.textContent).toBe(
     "+0.1 h",
   );
   expect(doc.querySelector(".carry-in")?.textContent).toBe("2 min / 分钟");
@@ -417,7 +690,7 @@ it("preserves legacy signed values and distinguishes unrecorded carry from no po
     ),
   );
   expect(
-    [...first.querySelectorAll(".school-summary .posting")].map(
+    [...first.querySelectorAll(".school-summary .hours-button")].map(
       (n) => n.textContent,
     ),
   ).toEqual(["+7 h", "-0.5 h"]);
@@ -621,11 +894,11 @@ it.each([
     const report = publicSchoolHoursReport(snapshot);
     const exact = `${value > 0 ? "+" : ""}${value} h`;
     const doc = parse(renderSchoolHoursContent(report));
-    expect(doc.querySelector(".school-summary .posting")?.textContent).toBe(
-      exact,
-    );
     expect(
-      doc.querySelector(".school-summary .posting")?.textContent,
+      doc.querySelector(".school-summary .hours-button")?.textContent,
+    ).toBe(exact);
+    expect(
+      doc.querySelector(".school-summary .hours-button")?.textContent,
     ).not.toContain("≈");
     expect(
       doc.querySelector(".person-details .exact-posting")?.textContent,
@@ -655,7 +928,7 @@ it("keeps complete r1-to-r3 correction choices behind Details and in numeric CSV
   const before = JSON.stringify(report);
   const saved = renderSchoolHoursContent(report);
   const doc = parse(saved);
-  expect(doc.querySelector(".school-summary .posting")?.textContent).toBe(
+  expect(doc.querySelector(".school-summary .hours-button")?.textContent).toBe(
     "+0.2 h",
   );
   expect(doc.querySelector(".person-details .edition-choices")).not.toBeNull();
@@ -679,8 +952,8 @@ it("retains unchanged revision rows and offsetting zero-net changes with exact D
       .querySelector(".person-identity")
       ?.textContent?.includes("Casey Synthetic"),
   )!;
-  expect(unchanged.querySelector(".posting")?.textContent).toBe("—");
-  expect(unchanged.querySelector(".person-details")?.textContent).toContain(
+  expect(unchanged.querySelector(".hours-button")?.textContent).toBe("—");
+  expect(personDetails(doc, unchanged).textContent).toContain(
     "Unchanged since r1",
   );
   const snapshot = schoolHoursTestSnapshot();
@@ -696,8 +969,8 @@ it("retains unchanged revision rows and offsetting zero-net changes with exact D
       .querySelector(".person-identity")
       ?.textContent?.includes("Casey Synthetic"),
   )!;
-  expect(zeroRow.querySelector(".posting")?.textContent).toBe("—");
-  expect(zeroRow.querySelector(".person-details")?.textContent).toContain(
+  expect(zeroRow.querySelector(".hours-button")?.textContent).toBe("—");
+  expect(personDetails(saved, zeroRow).textContent).toContain(
     "Exact Raw Change / 精确原始变化: 0 h",
   );
   expect(schoolHoursCsv(report).content).toContain("Casey Synthetic");
@@ -779,8 +1052,30 @@ it("retains CSV formula protection, frozen names and signed exact values", () =>
   expect(csv.content).not.toContain("private-person");
 });
 
+it("allows native recipient forms without exposing capability referrers cross-site", async () => {
+  const report = publicSchoolHoursReport(schoolHoursTestSnapshot());
+  const personal = schoolHoursHtmlResponse(report, "synthetic-personal", {
+    recipientPanel: "<section>synthetic reminder form</section>",
+  });
+  expect(personal.headers.get("Referrer-Policy")).toBe("same-origin");
+  expect(personal.headers.get("Content-Security-Policy")).toContain(
+    "form-action 'self'",
+  );
+  expect(await personal.text()).toContain(
+    '<meta name="referrer" content="same-origin">',
+  );
+  const shared = schoolHoursHtmlResponse(report, "synthetic-shared");
+  expect(shared.headers.get("Referrer-Policy")).toBe("no-referrer");
+  expect(shared.headers.get("Content-Security-Policy")).toContain(
+    "form-action 'none'",
+  );
+  expect(await shared.text()).toContain(
+    '<meta name="referrer" content="no-referrer">',
+  );
+});
+
 it.each([2, 3])(
-  "keeps revision %s exact alternatives wrapping in both columns of full-span Details",
+  "keeps revision %s exact alternatives wrapping in both columns of popover Details",
   (revision) => {
     const report = publicSchoolHoursReport(schoolHoursTestSnapshot(revision));
     const person = report.rows[0]!;

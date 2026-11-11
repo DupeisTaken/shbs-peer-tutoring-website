@@ -115,6 +115,7 @@ import {
 } from "./school-hours-public";
 import { schoolHoursTestSnapshot } from "./school-hours-test-fixture";
 import { retrySchoolHoursReport } from "./school-hours";
+import { issueSchoolHoursRecipientToken } from "./school-hours-recipient-token";
 import { GET as getHtml } from "~/app/reports/service-hours/[token]/route";
 import { GET as getCsv } from "~/app/reports/service-hours/[token]/csv/route";
 
@@ -280,7 +281,7 @@ it("dispatches a notification with one scoped link while keeping individual inst
     expect(`${message.html}${message.text}`).not.toContain(person.schoolAccountKey);
   }
   expect(message.text).toContain(
-    `https://reports.example.test/reports/service-hours/${token}`,
+    `https://reports.example.test/reports/service-hours/${issueSchoolHoursRecipientToken({ ...await delivery(), schoolHoursReportId: reportId }, 1)}`,
   );
   expect(message.messageId).toMatch(/^<school-hours-.+@shbs-notifications>$/);
   expect(`${message.html}${message.text}`).not.toContain(secondRecipient);
@@ -521,7 +522,15 @@ it("blocks token reproduction after secret rotation while previously issued link
     retried: 1,
   });
   const admitted = await claim();
-  expect(schoolHoursDeliveryCopy(admitted!).text).toContain(replacement);
+  expect(schoolHoursDeliveryCopy(admitted!).text).toContain(
+    issueSchoolHoursRecipientToken({ ...admitted!.row, schoolHoursReportId: reportId }, 2),
+  );
+  for (const locale of ["en", "zh"] as const) {
+    const text = schoolHoursDeliveryCopy(admitted!, locale).text;
+    const reportLink = /https:\/\/reports\.example\.test\/reports\/service-hours\/\S+/.exec(text)?.[0];
+    expect(reportLink).toBeDefined();
+    expect(new URL(reportLink!).searchParams.get("lang")).toBe(locale);
+  }
 });
 
 it("public HTML and CSV GETs require only the scoped bearer link and never mutate reporting or delivery", async () => {

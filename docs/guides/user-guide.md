@@ -1503,6 +1503,32 @@ sign-in and can retrieve its CSV. Anyone with that link can read the report;
 administrators can revoke or replace it. Report generation and delivery do not
 confirm that the school has entered the hours into its accounts.
 
+The emailed report has an **English / 中文** language toggle. Click a person's
+**Hours / 入账时数** amount (including **—**) to open that person's full details;
+use **Close / 关闭**, Escape or click outside to dismiss them. The report keeps the
+selected language during reminder review and cancellation.
+
+School recipients can open **View Month Report** from their email and choose
+**Email me a reminder / 发送邮件提醒** on that report. Choose a future date/time in the
+displayed report timezone, review the masked original mailbox and confirm.
+The reminder goes only to that mailbox, even if the link was forwarded. It sends
+the same saved report; hours already entered must not be entered again. No site
+account or program-management action is needed. Older shared report links remain
+readable; reminder controls are available through newly emailed personal links.
+
+The personal page shows the recipient's own reminders. **Cancel this reminder email /
+取消此提醒邮件** stops unsent reminders before sending starts. One unfinished reminder
+can be retained at a time, with up to five requests per day. Delivery can be delayed;
+blocked/failed reminders can be cancelled and scheduled again. Turning off
+automatic monthly issuance does not cancel these personal reminders.
+
+In authorized **Delivery history**, **Report link opened** shows the first recorded
+visit to the personal report link, separately from mail delivery status. The
+absence of a recorded visit does not mean an email is unread. Automatic security
+scans and forwarded links can produce visits, so this status does not confirm
+who read the report or whether the school entered its hours. No email-open pixel
+is used.
+
 A correction to the current month's latest edition shows the affected person's
 incremental correction and revised amount. If +7 hours were already credited and
 the revised amount is +7.5, apply only +0.5 more. Do not add both full revisions.

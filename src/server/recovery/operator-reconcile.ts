@@ -21,6 +21,7 @@ import {
   type SiteDependencies,
 } from "./operator-site";
 import { assertReviewedRecoverySchema } from "./operator-schema";
+import { orderReconciledEmailDeliveries } from "./operator-delivery-order";
 import {
   appendIdentityEvidence,
   assertIdentityAuthorityClosure,
@@ -1038,6 +1039,11 @@ export async function reconcileSecuritySnapshot(
   current: OverlaySnapshot,
   restored: OverlaySnapshot,
 ) {
+  // Validate reminder ownership before any target writes, then retain the exact
+  // current receipt fields in a self-FK-safe order.
+  const currentDeliveries = orderReconciledEmailDeliveries(
+    current.tables.EmailDelivery ?? [],
+  );
   // Source-row triggers append dirty metadata. Take normal planning fences
   // before the first DML; final invalidation preserves every event.
   await acquireRecoverySchedulingFences(target);
@@ -1187,7 +1193,11 @@ export async function reconcileSecuritySnapshot(
   }
   for (const table of ["EmailDelivery", "SessionNotice"]) {
     const existing = byId(restored.tables[table] ?? []);
-    for (const row of current.tables[table] ?? []) {
+    const rows =
+      table === "EmailDelivery"
+        ? currentDeliveries
+        : current.tables[table] ?? [];
+    for (const row of rows) {
       if (existing.has(String(row.id)))
         await updateFromRecord(target, table, row, Object.keys(row));
       else

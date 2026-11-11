@@ -377,15 +377,35 @@ function SchoolReportReader({ id }: { id: string }) {
                   className="space-y-1 rounded-lg border border-slate-200 p-3 text-sm"
                 >
                   <p className="break-all">{delivery.recipient}</p>
-                  <MonthlyHoursStatus
-                    status={
-                      delivery.status === "PENDING" && delivery.attempts > 0
-                        ? "RETRYING"
-                        : delivery.status
-                    }
-                  />
+                  {delivery.status === "CANCELLED" ? (
+                    <span className="badge-slate">
+                      {t("reminderCancelled")}
+                    </span>
+                  ) : (
+                    <MonthlyHoursStatus
+                      status={
+                        delivery.status === "PENDING" && delivery.attempts > 0
+                          ? "RETRYING"
+                          : delivery.status
+                      }
+                    />
+                  )}
                   <p className="muted">
                     {t("attempts", { count: delivery.attempts })}
+                  </p>
+                  {delivery.schoolHoursReminderSourceId && (
+                    <p className="muted">
+                      {t("recipientReminder")}
+                      {delivery.schoolHoursScheduledFor &&
+                        ` · ${date(delivery.schoolHoursScheduledFor)}`}
+                    </p>
+                  )}
+                  <p className="text-slate-700">
+                    {delivery.schoolHoursLinkOpenedAt
+                      ? t("linkOpenedAt", {
+                          date: date(delivery.schoolHoursLinkOpenedAt),
+                        })
+                      : t("linkNotRecorded")}
                   </p>
                   {delivery.lastError && (
                     <p className="text-amber-800">{t("deliveryFailed")}</p>
@@ -393,10 +413,13 @@ function SchoolReportReader({ id }: { id: string }) {
                 </li>
               ))}
             </ul>
+            <p className="muted text-xs">{t("linkOpeningHelp")}</p>
             {settings.data?.canGenerate &&
               !data.supersededById &&
-              data.deliveries.some((delivery) =>
-                ["FAILED", "BLOCKED"].includes(delivery.status),
+              data.deliveries.some(
+                (delivery) =>
+                  !delivery.schoolHoursReminderSourceId &&
+                  ["FAILED", "BLOCKED"].includes(delivery.status),
               ) && (
                 <Button
                   size="compact"

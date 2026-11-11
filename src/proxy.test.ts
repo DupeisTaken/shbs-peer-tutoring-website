@@ -19,10 +19,13 @@ function pageRequest(url: string, init?: ConstructorParameters<typeof NextReques
 }
 
 const event = { waitUntil: () => undefined } as unknown as NextFetchEvent;
-it("leaves only school capability report handlers public, independently of site cookies", async () => {
+it("leaves school report handlers and exact licensed assets public independently of site cookies", async () => {
   for (const path of [
     "/reports/service-hours/sample-token",
+    "/reports/service-hours/v2.recipient-receipt.1.signature",
     "/reports/service-hours/sample-token/csv",
+    "/report-assets/geist-sans.woff2",
+    "/report-assets/OFL.txt",
   ]) {
     const response = await proxy(
       pageRequest(`http://localhost:3109${path}`, {
@@ -39,6 +42,10 @@ it("leaves only school capability report handlers public, independently of site 
     "/reports/service-hours/sample-token/admin",
     "/reports/service-hours/sample-token/csv/private",
     "/reports/service-hours-admin/sample-token",
+    "/report-assets",
+    "/report-assets/private.woff2",
+    "/report-assets/geist-sans.woff2/admin",
+    "/report-assets/OFL.txt/private",
   ]) {
     const response = await proxy(
       pageRequest(`http://localhost:3109${path}`),

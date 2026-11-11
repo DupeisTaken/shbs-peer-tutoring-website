@@ -784,9 +784,10 @@ export async function saveSchoolHoursSettings(
       where: {
         category: schoolHoursCategory,
         status: { in: ["PENDING", "FAILED", "BLOCKED"] },
-        ...(input.enabled
-          ? { recipient: { notIn: input.recipientEmails } }
-          : {}),
+        OR: [
+          { recipient: { notIn: input.recipientEmails } },
+          ...(!input.enabled ? [{ schoolHoursReminderSourceId: null }] : []),
+        ],
       },
       data: {
         status: "SKIPPED",
@@ -1287,7 +1288,12 @@ export async function getSchoolHoursSettings(db: DomainDb, role: string) {
     db.schoolHoursReport.findMany({
       orderBy: { generatedAt: "desc" },
       take: 24,
-      include: { deliveries: { select: { status: true, attempts: true } } },
+      include: {
+        deliveries: {
+          where: { schoolHoursReminderSourceId: null },
+          select: { status: true, attempts: true },
+        },
+      },
     }),
     getProgramTimeZone(db),
     getFeatures(db),
@@ -1338,6 +1344,9 @@ export async function getSchoolHoursReport(db: DomainDb, id: string) {
           lastError: true,
           completedAt: true,
           availableAt: true,
+          schoolHoursLinkOpenedAt: true,
+          schoolHoursReminderSourceId: true,
+          schoolHoursScheduledFor: true,
         },
       },
     },
@@ -1401,6 +1410,7 @@ export async function retrySchoolHoursReport(
     const result = await tx.emailDelivery.updateMany({
       where: {
         schoolHoursReportId: id,
+        schoolHoursReminderSourceId: null,
         recipient: { in: config.recipientEmails },
         status: { in: ["FAILED", "BLOCKED"] },
       },
@@ -1448,6 +1458,21 @@ export async function changeSchoolHoursLink(
             linkRevokedAt: null,
           }
         : { linkVersion, linkRevokedAt: new Date() },
+    });
+    // Settle reminders bound to the invalidated capability immediately, so a
+    // fresh personal link never shows an old reminder as still scheduled.
+    await tx.emailDelivery.updateMany({
+      where: {
+        schoolHoursReportId: id,
+        schoolHoursReminderSourceId: { not: null },
+        status: { in: ["PENDING", "BLOCKED", "FAILED"] },
+      },
+      data: {
+        status: "SKIPPED",
+        lastError: reissue ? "LINK_CHANGED" : "LINK_REVOKED",
+        completedAt: new Date(),
+        leaseUntil: null,
+      },
     });
     await audit(tx, actorId, reissue ? "reissueLink" : "revokeLink", id, {
       linkVersion,

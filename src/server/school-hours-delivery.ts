@@ -17,7 +17,8 @@ import {
   schoolHoursTokenMatches,
 } from "./school-hours-link";
 import { publicSchoolHoursReport } from "./school-hours-public";
-import { schoolHoursEmailCopy } from "./school-hours-email";
+import { schoolHoursRecipientEmailCopy } from "./school-hours-recipient-email";
+import { issueSchoolHoursRecipientToken } from "./school-hours-recipient-token";
 
 export const schoolHoursCategory = "school_hours";
 const chainLock = "school-hours-chain";
@@ -27,7 +28,12 @@ const mailbox = z.string().email().max(254);
  * account notification. External recipients need no site account or emailInfo flag. */
 async function deliveryState(
   tx: TransactionDb,
-  row: { recipient: string; schoolHoursReportId: string | null },
+  row: {
+    recipient: string;
+    schoolHoursReportId: string | null;
+    schoolHoursReminderSourceId: string | null;
+    schoolHoursReminderLinkVersion: number | null;
+  },
 ) {
   const [config, settings, features, report] = await Promise.all([
     tx.schoolHoursSchedule.findUnique({ where: { id: "program" } }),
@@ -45,7 +51,13 @@ async function deliveryState(
   if (report.supersededById)
     return { report, failure: skipped("REPORT_SUPERSEDED") };
   if (report.linkRevokedAt) return { report, failure: skipped("LINK_REVOKED") };
-  if (!config?.enabled) return { report, failure: skipped("SCHEDULE_OFF") };
+  if (!config || (!row.schoolHoursReminderSourceId && !config.enabled))
+    return { report, failure: skipped("SCHEDULE_OFF") };
+  if (
+    row.schoolHoursReminderSourceId &&
+    row.schoolHoursReminderLinkVersion !== report.linkVersion
+  )
+    return { report, failure: skipped("LINK_CHANGED") };
   if (!mailbox.safeParse(row.recipient).success)
     return { report, failure: blocked("INVALID_RECIPIENT") };
   if (
@@ -96,6 +108,8 @@ export async function admitSchoolHoursDelivery(
     const row = await tx.emailDelivery.findUniqueOrThrow({ where: { id } });
     if (
       !["PENDING", "SENDING"].includes(row.status) ||
+      (row.schoolHoursScheduledFor &&
+        row.schoolHoursScheduledFor.getTime() > Date.now()) ||
       !leaseUntil ||
       leaseUntil.getTime() <= Date.now() ||
       row.leaseUntil?.getTime() !== leaseUntil.getTime() ||
@@ -139,12 +153,13 @@ export function schoolHoursDeliveryCopy(
   // replacement capability. The existing issued link remains hash-authorized.
   if (!schoolHoursTokenMatches(token, report.linkTokenHash))
     throw new Error("School report link requires reissue.");
-  return schoolHoursEmailCopy({
+  return schoolHoursRecipientEmailCopy({
     brand: APP_TITLE,
     iconUrl: `${emailOrigin()}/icon.png`,
     locale,
     report: publicSchoolHoursReport(report.snapshot),
-    reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(token)}`,
+    reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(issueSchoolHoursRecipientToken({ ...admitted.row, schoolHoursReportId: report.id }, report.linkVersion))}?lang=${locale}`,
+    reminder: !!admitted.row.schoolHoursReminderSourceId,
   });
 }
 
