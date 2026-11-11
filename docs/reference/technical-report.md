@@ -828,6 +828,13 @@ affected private cache; a later transport failure cannot restore that access.
 Feature tests must cover these ownership rules in addition to the shared display
 tests and gallery example.
 
+`InlineNotice` uses a flexible 16rem message basis so its action wraps below the
+guidance when the combined widths do not fit. The action slot bounds direct
+children and descendant buttons/links to its width and permits full labels to
+wrap even in narrow desktop cards. Callers retain wrapping nested groups, control
+target sizes, announcement choices and recovery callbacks. A notice without an
+action renders only its message; the layout adds no announcement or recovery.
+
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
 
 `NativeDialog`, `Modal` and `ReviewedAction` accept an optional
