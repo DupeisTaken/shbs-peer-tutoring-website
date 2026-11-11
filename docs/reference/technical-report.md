@@ -2648,6 +2648,18 @@ cannot release it. Retry performs reads only, and account changes reset drafts.
 
 Acceptance keeps the exact revision, text, signature and timestamp. Participation requires current consent; history, feedback, appeals, account settings and messages stay available during renewal. Student and tutor applicability are checked independently. Client scrolling and confirmation controls assist review but do not replace server revision and action-ticket validation.
 
+The [tutee layout](../../src/app/student/layout.tsx) keeps its existing membership,
+consent and departure rules for the normal page slot and navigation. When that
+branch is unavailable, [TuteePersonalView](../../src/app/student/personal-view.tsx)
+selects only the exact, single `view=account` or `view=messages` parameter on
+`/student`, including direct and saved links. It renders the existing personal
+account or inbox component rather than admitting the opaque page slot. Repeated,
+unknown and participation views retain the policy notice. The client URL reader
+sits under Suspense because layouts do not receive current search parameters
+across navigation. This presentation exception does not record consent, grant
+membership or change account/messaging API authorization; it does not establish
+whether Next.js evaluates nested Server Components in parallel.
+
 The consent card exposes read-only Refresh on initial, cached or null-result failure
 without exposing acceptance-gated children. Its controlled signature survives ordinary
 read failure and locale changes; Retry neither accepts nor prepares an action.
