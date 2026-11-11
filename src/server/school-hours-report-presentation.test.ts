@@ -24,9 +24,9 @@ it("keeps anonymous report reading and CSV in one clear standalone report", asyn
   const doc = parseHTML(await response.text());
   expect(doc.querySelectorAll("h1")).toHaveLength(1);
   expect(doc.querySelector("h1")?.textContent).toBe("School Report");
-  expect(doc.querySelectorAll('a[href$="/csv"]')).toHaveLength(1);
+  expect(doc.querySelectorAll('a[href*="/csv?lang="]')).toHaveLength(1);
   expect(doc.querySelector("header a.button")?.getAttribute("href")).toBe(
-    "/reports/service-hours/synthetic-token/csv",
+    "/reports/service-hours/synthetic-token/csv?lang=en",
   );
   expect(
     doc.querySelector('section[aria-label="Saved school report"] table'),

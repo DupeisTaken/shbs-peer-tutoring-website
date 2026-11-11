@@ -311,7 +311,11 @@ it.each(["en", "zh"] as const)(
       token,
       expect.objectContaining({
         locale,
-        review: expect.objectContaining({ localTime }),
+        review: {
+          requestId,
+          localTime,
+          scheduledFor: new Date("2099-11-12T01:30:00Z"),
+        },
       }),
     );
     expectNoWrite();

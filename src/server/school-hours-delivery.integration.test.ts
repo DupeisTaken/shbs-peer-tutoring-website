@@ -527,7 +527,7 @@ it("blocks token reproduction after secret rotation while previously issued link
   );
   for (const locale of ["en", "zh"] as const) {
     const text = schoolHoursDeliveryCopy(admitted!, locale).text;
-    const reportLink = text.match(/https:\/\/reports\.example\.test\/reports\/service-hours\/\S+/)?.[0];
+    const reportLink = /https:\/\/reports\.example\.test\/reports\/service-hours\/\S+/.exec(text)?.[0];
     expect(reportLink).toBeDefined();
     expect(new URL(reportLink!).searchParams.get("lang")).toBe(locale);
   }

@@ -238,7 +238,7 @@ it.each(["en", "zh"] as const)(
         const doc = parse(html);
         const button = doc.querySelector(".hours-button")!;
         const panel = doc.querySelector(".person-details")!;
-        const text = doc.body.textContent!;
+        const text = doc.body.textContent;
         expect(button.textContent).toBe("—");
         expect(button.getAttribute("aria-label")).toBe(
           locale === "en"

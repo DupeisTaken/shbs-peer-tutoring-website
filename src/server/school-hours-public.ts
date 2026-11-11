@@ -156,7 +156,7 @@ export function schoolHoursHtmlResponse(
   const t = (english: string, chinese: string) =>
     escapeSchoolHours(schoolHoursReportText(locale, english, chinese));
   const path = `/reports/service-hours/${encodeURIComponent(token)}`;
-  const download = `/reports/service-hours/${encodeURIComponent(token)}/csv`;
+  const download = `/reports/service-hours/${encodeURIComponent(token)}/csv?lang=${locale}`;
   // Language is report navigation only. No session or write is required, and
   // the validated choice travels with all recipient form responses.
   const languages = `<nav class="report-language" aria-label="Language / 语言">${(["en", "zh"] as const).map((value) => `<a href="${escapeSchoolHours(`${path}?lang=${value}`)}" lang="${value}" hreflang="${value}"${locale === value ? ' aria-current="page"' : ""}>${value === "en" ? "English" : "中文"}</a>`).join("")}</nav>`;

@@ -5,6 +5,7 @@ vi.mock("~/server/db", () => ({
   db: { schoolHoursReport: { findUnique: fixture.findUnique } },
 }));
 import { GET, HEAD } from "~/app/reports/service-hours/[token]/route";
+import { GET as getCsv } from "~/app/reports/service-hours/[token]/csv/route";
 import {
   issueSchoolHoursToken,
   schoolHoursTokenHash,
@@ -23,6 +24,34 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllEnvs());
+
+it.each(["en", "zh"] as const)(
+  "keeps CSV bytes canonical and localizes its %s unavailable page",
+  async (locale) => {
+    const csvRequest = (lang: string) =>
+      new Request(
+        `https://reports.example.test/reports/service-hours/${token}/csv?lang=${lang}`,
+      );
+    const params = () => ({ params: Promise.resolve({ token }) });
+    const english = await getCsv(csvRequest("en"), params());
+    const chinese = await getCsv(csvRequest("zh"), params());
+    expect(await chinese.text()).toBe(await english.text());
+    expect(chinese.headers.get("Content-Disposition")).toBe(
+      english.headers.get("Content-Disposition"),
+    );
+    fixture.findUnique.mockResolvedValueOnce(null);
+    const unavailable = await getCsv(csvRequest(locale), params());
+    const doc = new DOMParser().parseFromString(
+      await unavailable.text(),
+      "text/html",
+    );
+    expect(unavailable.status).toBe(404);
+    expect(unavailable.headers.get("Content-Language")).toBe(locale);
+    expect(doc.querySelector("h1")?.textContent).toBe(
+      locale === "en" ? "Report unavailable" : "报告不可用",
+    );
+  },
+);
 
 it.each(["en", "zh"] as const)(
   "supports %s on legacy read-only links without a session or forms",
