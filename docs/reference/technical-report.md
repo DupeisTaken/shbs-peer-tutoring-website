@@ -754,6 +754,13 @@ pane and let focus or `scrollIntoView` move the header. The correction retains a
 accessible labels, audience drafts, version evidence and edit/proposal authority;
 it does not alter the shared document overflow or scroll-restoration owner.
 
+Program's Names and Grades editor gives its own fieldset the same local containing
+block for its screen-reader legend. The nested Grades legend stays visible;
+direct, proposal-only, read-only and saving states retain their native fieldset
+disabling, draft/snapshot and approval boundaries. Component regressions compile
+the installed utilities in English and Chinese; native short-viewport/header
+checks remain separate from JSDOM's local containment contract.
+
 Local panel composition leaves authority in existing owners. Program keeps its
 already-mounted settings forms and their independent versions; Crew and Support
 retain draft, review and pagination state when panels change. Review controllers
