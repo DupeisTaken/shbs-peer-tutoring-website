@@ -1,5 +1,7 @@
 /** @vitest-environment jsdom */
 import { useState } from "react";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -124,7 +126,9 @@ it("compiles a nonzero message basis and bounded, locally wrapping controls", as
   ).parentElement!;
   const actions = screen.getByRole("link").parentElement!.parentElement!;
   const row = body.parentElement!;
-  const compiler = await compile("@tailwind utilities;");
+  const require = createRequire(import.meta.url);
+  const theme = readFileSync(require.resolve("tailwindcss/theme.css"), "utf8");
+  const compiler = await compile(`${theme}\n@tailwind utilities;`);
   const output = parse(
     compiler.build([
       ...new Set(
