@@ -135,6 +135,15 @@ Only the code background changes to dark green (`#18342C`) for invitations or bl
 (`#172F49`) for verification, including its dark-mode fallback. The existing body
 instructions identify the code's purpose; the panel adds no label or guidance wrapper.
 
+Crew's issued-code badge positions its own code surface to contain the clipped,
+absolutely positioned label. Its translated code text remains accessible while
+the visible duplicate stays `aria-hidden`; invitation access and redemption retain
+their existing server contracts. EN/ZH component tests check these semantics with
+inert fixtures and installed utilities. This targets the local containment mechanism;
+the recorded before failure is one English 1440×400 state, without deterministic
+or cross-locale native reproduction established. Native viewport checks establish
+the resulting scroll behavior.
+
 Outstanding five-digit, five-character alphanumeric and twelve-character invitation codes remain
 usable until their existing expiry, revocation or consumption. Receipt reconstruction
 checks the persisted hash before selecting the new mixed derivation or an older
@@ -591,6 +600,13 @@ subject adds no layout wrapper. Assignment delivery warnings and read-only refre
 recovery outlive the selector; background reads retain an open review's proof,
 and explicit access revocation discards unsubmitted review state.
 
+The selector positions its workload description group to contain the clipped,
+absolutely positioned helper text. Legacy requests, self-service requests and
+pairing editors retain that accessible description without extending the desktop
+document beyond the management pane. Component tests compile the installed utilities
+and check each local containing block in English and Chinese; native viewport and
+keyboard checks establish actual scrolling.
+
 Information tables opt into sorting in [SummaryTable](../../src/app/_components/ui/summary-table.tsx).
 The [sorting adapter](../../src/app/_components/ui/table-sorting.tsx) reorders keyed React rows,
 without DOM manipulation, changing source arrays, mounting detail readers or issuing queries.
@@ -831,6 +847,13 @@ Account name and management username Reloads exclude their own Save immediately 
 Explicit Reload in discipline review and the account name/username editors bypasses the normal 30-second query freshness window. A still-fresh cached list cannot clear a conflict or replace the draft; the requested server read must succeed first.
 
 Academic Reload requires both the academic record and current profile policy to report successful reads with data before discarding the conflicting snapshot. Cached data in a failed result is insufficient. Both reads start even when one throws synchronously, and the panel waits for both to settle before releasing its own reload guard. Failure retains the mounted grade/reason draft, captured version/year and conflict alongside localized retry feedback. `AcademicPanel` registers only its own mutation/reload work; `AcademicForm` consumes the dialog aggregate for sibling exclusion without registering it again.
+
+`AcademicForm` positions its fieldset to contain the clipped, absolutely positioned
+legend within the form's scroll boundary. The localized legend continues to name
+the academic group in account settings and staff profile editors. Component tests
+compile the installed utilities and check its nearest positioned owner and accessible
+name in English and Chinese, including pending forms; native viewport and keyboard
+checks establish actual scrolling.
 
 Historical or corrected tutee contact saves and historical or preserved tutor profile saves omit grade and graduation fields; those edits belong to Academic Corrections. Historical tutor reactivation preserves the unchanged original before returning to current membership, so status changes cannot reopen generic academic editing. Membership badge saves, requests and leadership transfers register only actual writes and share an immediate submission guard. Departure confirmation keeps its captured revision and draft through failure and waits for registered sibling writes before completing. Historical identity previews remain dismissible reads; link, invitation and cancellation writes register their own pending state. A failed link requires a new preview and acknowledgment. Alumni invitation status and cancellation retain their revision checks independently of historical academic correction evidence.
 
