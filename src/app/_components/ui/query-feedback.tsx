@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Button } from "./button";
 import { InlineNotice, StatePanel } from "./patterns";
 
@@ -14,6 +14,8 @@ export type QueryFeedbackProps = {
   retryLabel: string;
   errorDetail?: ReactNode;
   onRetry: () => void;
+  /** Expose only the existing read-only control to its feature owner. */
+  retryRef?: Ref<HTMLButtonElement>;
 };
 
 /** Read feedback only. The feature owns query execution, empty/denied states,
@@ -28,10 +30,16 @@ export function QueryFeedback({
   retryLabel,
   errorDetail,
   onRetry,
+  retryRef,
 }: QueryFeedbackProps) {
   if (error) {
     const retry = (
-      <Button size="compact" disabled={retrying} onClick={onRetry}>
+      <Button
+        ref={retryRef}
+        size="compact"
+        disabled={retrying}
+        onClick={onRetry}
+      >
         {retryLabel}
       </Button>
     );

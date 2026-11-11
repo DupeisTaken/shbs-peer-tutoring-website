@@ -141,6 +141,109 @@ const confirm = () =>
     screen.getByRole("button", { name: en.legacySignupDecline.confirm }),
   );
 
+it.each(
+  (["en", "zh"] as const).flatMap((locale) =>
+    (["Cancel", "Escape"] as const).flatMap((dismiss) =>
+      ([false, true] as const).map((removed) => ({ locale, dismiss, removed })),
+    ),
+  ),
+)(
+  "returns $locale $dismiss focus to read-only account recovery (removed opener: $removed)",
+  async ({ locale, dismiss, removed }) => {
+    const catalog = locale === "zh" ? zh : en;
+    const view = render(example({}, locale));
+    const opener = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Review decline",
+    });
+    opener.focus();
+    open();
+    const dialog = screen.getByRole("dialog");
+    mocks.account.error = new Error("Synthetic account read failure");
+    view.rerender(example({ removed }, locale));
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(removed ? !opener.isConnected : opener.disabled).toBe(true);
+    expect(
+      within(dialog).getByText(catalog.legacySignupDecline.actorLoadFailed),
+    ).toBeTruthy();
+    if (dismiss === "Cancel") {
+      fireEvent.click(
+        within(dialog).getByRole("button", {
+          name: catalog.actionReview.cancel,
+        }),
+      );
+    } else {
+      fireEvent.keyDown(dialog, { key: "Escape" });
+      // jsdom has no native close watcher; dispatch the browser's cancel request.
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    }
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const retry = screen.getByRole<HTMLButtonElement>("button", {
+      name: catalog.legacySignupDecline.actorRetry,
+    });
+    expect(retry.disabled).toBe(false);
+    expect(document.activeElement).toBe(retry);
+    expect(mocks.accountRead).not.toHaveBeenCalled();
+    expect(mocks.commit).not.toHaveBeenCalled();
+    mocks.accountRead.mockImplementationOnce(async () => {
+      mocks.account.error = null;
+      view.rerender(example({ removed }, locale));
+      return { isSuccess: true };
+    });
+    fireEvent.click(retry);
+    await waitFor(() => expect(mocks.accountRead).toHaveBeenCalledOnce());
+    expect(
+      screen.queryByText(catalog.legacySignupDecline.actorLoadFailed),
+    ).toBeNull();
+    expect(mocks.commit).not.toHaveBeenCalled();
+  },
+);
+
+it("returns to the original opener when the account recovers just before dismissal", () => {
+  const view = render(example());
+  const opener = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Review decline",
+  });
+  opener.focus();
+  open();
+  mocks.account.error = new Error("Synthetic account read failure");
+  view.rerender(example());
+  expect(opener.disabled).toBe(true);
+  mocks.account.error = null;
+  view.rerender(example());
+  expect(opener.disabled).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: en.actionReview.cancel }));
+  expect(document.activeElement).toBe(opener);
+  expect(
+    screen.queryByRole("button", { name: en.legacySignupDecline.actorRetry }),
+  ).toBeNull();
+  expect(mocks.commit).not.toHaveBeenCalled();
+});
+
+it.each(["denial", "unmount"] as const)(
+  "does not focus removed account recovery after owner %s",
+  (teardown) => {
+    const view = render(example());
+    screen.getByRole("button", { name: "Review decline" }).focus();
+    open();
+    const dialog = screen.getByRole("dialog");
+    mocks.account.error = new Error("Synthetic account read failure");
+    view.rerender(example());
+    const retry = screen
+      .getAllByRole<HTMLButtonElement>("button", {
+        name: en.legacySignupDecline.actorRetry,
+      })
+      .find((button) => !dialog.contains(button))!;
+    const focus = vi.spyOn(retry, "focus");
+    if (teardown === "denial") view.rerender(example({ denied: true }));
+    else view.unmount();
+    expect(retry.isConnected).toBe(false);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(focus).not.toHaveBeenCalled();
+    expect(mocks.commit).not.toHaveBeenCalled();
+    focus.mockRestore();
+  },
+);
+
 it("cancels without writing and retains the exact admitted payload through rejection and background source changes", async () => {
   const view = render(example());
   open();

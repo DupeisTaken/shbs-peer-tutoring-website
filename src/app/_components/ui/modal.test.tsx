@@ -19,7 +19,210 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+const outsideRoots: HTMLElement[] = [];
+afterEach(() => {
+  cleanup();
+  outsideRoots.splice(0).forEach((root) => root.remove());
+  vi.restoreAllMocks();
+});
+
+function focusTargets() {
+  const root = document.createElement("section");
+  const opener = document.createElement("button");
+  opener.textContent = "Review signup";
+  const retry = document.createElement("button");
+  retry.textContent = "Retry account details";
+  root.append(opener, retry);
+  document.body.append(root);
+  outsideRoots.push(root);
+  opener.focus();
+  return { root, opener, retry };
+}
+
+it.each(["disabled", "removed"] as const)(
+  "returns top-level dismissal focus to the owner recovery when its opener is %s",
+  (unavailable) => {
+    const { opener, retry } = focusTargets();
+    const fallback = vi.fn(() => retry);
+    const view = render(
+      <Modal
+        title="Review signup"
+        onClose={vi.fn()}
+        returnFocusFallback={fallback}
+        footer={<button data-dialog-autofocus>Cancel</button>}
+      />,
+    );
+    if (unavailable === "disabled") opener.disabled = true;
+    else opener.remove();
+    view.unmount();
+    expect(fallback).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(retry);
+  },
+);
+
+it("prefers the exact usable opener over the owner recovery", () => {
+  const { opener, retry } = focusTargets();
+  const fallback = vi.fn(() => retry);
+  const view = render(
+    <Modal
+      title="Review signup"
+      onClose={vi.fn()}
+      returnFocusFallback={fallback}
+      footer={null}
+    />,
+  );
+  view.unmount();
+  expect(document.activeElement).toBe(opener);
+  expect(fallback).not.toHaveBeenCalled();
+});
+
+it("prefers a remaining open parent over the owner recovery", () => {
+  const { root, opener, retry } = focusTargets();
+  const parent = document.createElement("dialog");
+  parent.open = true;
+  parent.tabIndex = -1;
+  root.prepend(parent);
+  parent.append(opener);
+  opener.focus();
+  const fallback = vi.fn(() => retry);
+  const view = render(
+    <Modal
+      title="Child review"
+      onClose={vi.fn()}
+      returnFocusFallback={fallback}
+      footer={null}
+    />,
+  );
+  opener.disabled = true;
+  view.unmount();
+  expect(document.activeElement).toBe(parent);
+  expect(fallback).not.toHaveBeenCalled();
+});
+
+it.each(["closed", "removed"] as const)(
+  "uses the owner recovery when the captured parent is %s",
+  (unavailable) => {
+    const { root, opener, retry } = focusTargets();
+    const parent = document.createElement("dialog");
+    parent.open = true;
+    parent.tabIndex = -1;
+    root.prepend(parent);
+    parent.append(opener);
+    opener.focus();
+    const view = render(
+      <Modal
+        title="Child review"
+        onClose={vi.fn()}
+        returnFocusFallback={() => retry}
+        footer={null}
+      />,
+    );
+    opener.disabled = true;
+    if (unavailable === "closed") parent.close();
+    else parent.remove();
+    view.unmount();
+    expect(document.activeElement).toBe(retry);
+  },
+);
+
+it("resolves the latest owner recovery without reopening or refocusing the dialog", () => {
+  const { root, opener, retry } = focusTargets();
+  const replacement = document.createElement("button");
+  replacement.textContent = "Retry current account";
+  root.append(replacement);
+  const show = vi.spyOn(HTMLDialogElement.prototype, "showModal");
+  const modal = (fallback: () => HTMLElement | null) => (
+    <Modal
+      title="Review signup"
+      onClose={vi.fn()}
+      returnFocusFallback={fallback}
+      footer={<button data-dialog-autofocus>Cancel</button>}
+    />
+  );
+  const view = render(modal(() => retry));
+  const dialog = screen.getByRole("dialog");
+  const cancel = screen.getByRole("button", { name: "Cancel" });
+  view.rerender(modal(() => replacement));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  expect(document.activeElement).toBe(cancel);
+  expect(show).toHaveBeenCalledOnce();
+  opener.disabled = true;
+  view.unmount();
+  expect(document.activeElement).toBe(replacement);
+  show.mockRestore();
+});
+
+it.each([
+  "missing",
+  "disabled",
+  "disabled fieldset",
+  "removed",
+  "hidden",
+  "inert",
+  "display none",
+  "hidden ancestor",
+  "closed disclosure",
+  "closed dialog",
+  "not focusable",
+] as const)("ignores an unavailable %s owner recovery", (unavailable) => {
+  const { root, opener, retry } = focusTargets();
+  if (unavailable === "disabled") retry.disabled = true;
+  if (unavailable === "removed") retry.remove();
+  if (unavailable === "hidden") retry.hidden = true;
+  if (unavailable === "inert") root.setAttribute("inert", "");
+  if (unavailable === "display none") retry.style.display = "none";
+  if (unavailable === "hidden ancestor") root.style.visibility = "hidden";
+  if (unavailable === "disabled fieldset") {
+    const fieldset = document.createElement("fieldset");
+    fieldset.disabled = true;
+    root.append(fieldset);
+    fieldset.append(retry);
+  }
+  if (unavailable === "closed disclosure") {
+    const details = document.createElement("details");
+    root.append(details);
+    details.append(document.createElement("summary"), retry);
+  }
+  if (unavailable === "closed dialog") {
+    const dialog = document.createElement("dialog");
+    root.append(dialog);
+    dialog.append(retry);
+  }
+  const target = unavailable === "not focusable" ? root : retry;
+  const focus = vi.spyOn(target, "focus");
+  const view = render(
+    <Modal
+      title="Review signup"
+      onClose={vi.fn()}
+      returnFocusFallback={() => (unavailable === "missing" ? null : target)}
+      footer={null}
+    />,
+  );
+  opener.disabled = true;
+  view.unmount();
+  expect(focus).not.toHaveBeenCalled();
+  expect(document.activeElement).not.toBe(target);
+});
+
+it("does not steal owner recovery focus from another connected control", () => {
+  const { root, opener, retry } = focusTargets();
+  const elsewhere = document.createElement("button");
+  root.append(elsewhere);
+  const fallback = vi.fn(() => retry);
+  const view = render(
+    <Modal
+      title="Review signup"
+      onClose={vi.fn()}
+      returnFocusFallback={fallback}
+      footer={null}
+    />,
+  );
+  opener.disabled = true;
+  elsewhere.focus();
+  view.unmount();
+  expect(document.activeElement).toBe(elsewhere);
+  expect(fallback).not.toHaveBeenCalled();
+});
 
 it("suppresses repeated Escape defaults while busy and restores native dismissal afterward", () => {
   const close = vi.fn();
