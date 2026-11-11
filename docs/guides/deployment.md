@@ -1007,7 +1007,10 @@ session times, bilingual wording, and the version in a correction email's subjec
 School notifications retain their light layout and **View Month Report** action,
 but contain no individual hour report. Amounts, carried balances and posting
 instructions are presented in the linked compact monthly report and CSV. Verify
-both HTML and plain text omit participant lists and individual amounts.
+both HTML and plain text omit participant lists and individual amounts. School
+notifications use the shared Graphite push-email renderer, including the canonical
+site-icon footer and copyable report link. Preview-only mail has no active report
+action or URL.
 
 Optional notification mail includes an **Unsubscribe** footer link and a plain-text equivalent. `/unsubscribe` is a public confirmation page: link scanners and GET requests do not change preferences. The signed link expires after 90 days and permits only disabling its notification category or all optional categories for the account, including included secondary destinations. Security alerts and essential direct mail never include this control; student signup confirmation is essential even though it uses the PROGRAM sender. No SMTP provider subscription list is involved. Treat unsubscribe URLs as private capabilities and do not add them to logs or analytics. Verify confirmation, expired/invalid links, category-only and all-optional changes, and continued security delivery before rollout.
 

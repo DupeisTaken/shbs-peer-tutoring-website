@@ -325,9 +325,14 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
     expect((await api.baselinePreview()).participants.length).toBeGreaterThan(
       0,
     );
-    expect(await api.preview({ month: "2011-10" })).toMatchObject({
+    const preview = await api.preview({ month: "2011-10" });
+    expect(preview).toMatchObject({
       configVersion: 0,
     });
+    expect(preview.email.html).toContain('class="canvas"');
+    expect(preview.email.html).toContain('class="footer-icon"');
+    expect(preview.email.html).not.toContain("href=");
+    expect(preview.email.html).not.toContain("#school-report-preview");
     const report = await api.report({ id: reportId });
     expect(report.id).toBe(reportId);
     expect(JSON.stringify(report)).not.toContain("PRIVATE_ROUTER_BASELINE");

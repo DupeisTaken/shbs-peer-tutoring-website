@@ -1437,7 +1437,9 @@ reversed deductions are reconciled against that person's last reported balance.
 There is no semester reset. The old admin monthly overview has been removed.
 
 The saved report and staff preview show each person's **Carry In → Raw Change →
-Hours → Carry Out**, alongside their name and school-account reference. **Raw
+Hours → Carry Out**, alongside their name. The school-account reference and
+first-edition apply/carry instructions are in **Details**, rather than repeated
+below each name or above the summary. **Raw
 Change** combines tutoring and Crew, displayed in hours and minutes rounded to
 the nearest minute. **Hours** is the exact amount to enter once; **—** means no
 entry for that instruction. The dash replaces zero and repeated no-entry text
@@ -1453,8 +1455,8 @@ carry balances and participant breakdowns appear only in the viewed report.
 **View Month Report** opens the saved public report, where **Details / 详情**
 expands below the person's compact table row. On narrow screens, scroll the
 report table horizontally to see all columns. Staff use **Details** on the school-report management page to
-open a dialog. The light boxes identify individual people; the blue guidance
-explains how to apply that edition. Screenshots and framed HTML previews in a
+open a dialog. Revised editions retain the guidance needed to choose the correct
+last-entered edition; carry mechanics and account identifiers remain in Details. Screenshots and framed HTML previews in a
 local review report demonstrate these locations and are not email attachments.
 
 Before the first report, Admin/Head review each person's school-account reference
@@ -1487,9 +1489,10 @@ site account. The global program-mail and Service Hours switches must remain on.
 
 Preview the individual report and HTML/plain-text school email before generation.
 The same read-only preview is available under **Program Settings → Deployment
-Configurations → Email previews**. The email says **The Program October Report
-is ready** for October and links through **View Month Report**. Preview actions
-send nothing. Roster filters do not exclude inactive contributors from reporting.
+Configurations → Email previews**. School notifications use the same Graphite
+template as other push emails, with the report month/revision in the heading and
+**View Month Report** as the action. Preview-only mail shows the action as text,
+with no live report link; previews send nothing. Roster filters do not exclude inactive contributors from reporting.
 
 Admin/Head can review and issue a report, inspect delivery status and retry failed
 delivery using the same saved edition. Recipients open a report-only link without

@@ -15,8 +15,10 @@ Management previews use a sortable table on wider screens and individual cards
 on narrow screens. The saved public report uses a compact semantic table, with
 local horizontal scrolling on narrow screens. A sticky Details strip keeps each
 name and exact Hours together during scrolling; desktop hides that extra context.
-Semantic headers identify table cells for screen readers. Each summary keeps the person's name and
-school-account reference, then **Carry In → Raw Change → Hours → Carry Out**.
+Semantic headers identify table cells for screen readers. Each summary shows the
+person’s name, then **Carry In → Raw Change → Hours → Carry Out**. School-account
+references and first-edition apply/carry instructions remain in Details, removing
+repeated secondary lines from the summary.
 **Hours** is the exact amount to enter once. A dash (**—**) replaces a zero posting
 and repeated no-entry prose; a single legend and accessible labels explain it.
 Revision applicability remains explicit. **Raw Change** combines tutoring net and Crew change,
@@ -205,16 +207,18 @@ editions are not silently retargeted or resent as current.
 
 ## Link-only retrieval and names
 
-Delivery keeps the existing light email layout and **View Month Report** action,
-with a concise **Your monthly report is ready** heading. Correction subjects identify the
-report month and revision. Emails include edition metadata, the report link and
+School notifications use the shared push-email renderer: the Graphite canvas,
+card, subject heading, primary blue **View Month Report** action, copyable-link
+panel and branded icon footer. The subject identifies the report month and
+revision; HTML does not repeat those fields below the heading. Emails include edition metadata, the report link and
 privacy/receipt guidance, with no individual hour report in HTML, plain text or
 the inbox preview. Complete posting/unknown-edition safeguards and each person's
 exact conditional Hours appear in the viewed report. Full correction choices
 and comparison tables remain in its per-person Details, where
 full-precision values wrap within their columns without rounding or truncation.
-Runtime callers supply the public brand to the pure email builder so offline
-previews do not load server configuration.
+Runtime callers supply the public brand and canonical `/icon.png` URL to the pure
+email builder so offline previews do not load server configuration. Preview-only
+mail omits active actions and report URLs, showing the localized action as prose.
 
 The [link helper](../../src/server/school-hours-link.ts) creates a purpose-separated
 capability from the report ID, link version and AUTH_SECRET. Only its digest is
