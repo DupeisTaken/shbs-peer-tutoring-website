@@ -2990,7 +2990,8 @@
     "empty": "Δεν υπάρχουν έλεγχοι.",
     "newer": "Νεότερα",
     "older": "Παλαιότερα",
-    "details": "Λεπτομέρειες αλλαγής"
+    "details": "Λεπτομέρειες αλλαγής",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "Αλλαγή email λογαριασμού",

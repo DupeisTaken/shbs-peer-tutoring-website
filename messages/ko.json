@@ -2990,7 +2990,8 @@
     "empty": "순찰 기록이 없습니다.",
     "newer": "최신 기록",
     "older": "이전 기록",
-    "details": "변경 세부 정보"
+    "details": "변경 세부 정보",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "계정 이메일 변경",

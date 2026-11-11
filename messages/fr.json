@@ -2990,7 +2990,8 @@
     "empty": "Aucune ronde enregistrée.",
     "newer": "Plus récents",
     "older": "Plus anciens",
-    "details": "Détails du changement"
+    "details": "Détails du changement",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "Modifier l’adresse du compte",

@@ -2990,7 +2990,8 @@
     "empty": "巡回記録はありません。",
     "newer": "新しい記録",
     "older": "古い記録",
-    "details": "変更の詳細"
+    "details": "変更の詳細",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "アカウントのメールを変更",

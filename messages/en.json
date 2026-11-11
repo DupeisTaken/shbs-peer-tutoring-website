@@ -2990,7 +2990,8 @@
     "empty": "No patrols recorded.",
     "newer": "Newer",
     "older": "Older",
-    "details": "Change Details"
+    "details": "Change Details",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "Change Account Email",

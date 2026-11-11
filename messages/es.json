@@ -2990,7 +2990,8 @@
     "empty": "No hay rondas registradas.",
     "newer": "Más recientes",
     "older": "Anteriores",
-    "details": "Detalles del cambio"
+    "details": "Detalles del cambio",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "Cambiar correo de la cuenta",

@@ -2990,7 +2990,8 @@
     "empty": "Keine Kontrollgänge erfasst.",
     "newer": "Neuere",
     "older": "Ältere",
-    "details": "Änderungsdetails"
+    "details": "Änderungsdetails",
+    "patrolChanged": "Patrol changed. Reload before correcting it."
   },
   "emailChange": {
     "title": "Konto-E-Mail ändern",

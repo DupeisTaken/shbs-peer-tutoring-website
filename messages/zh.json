@@ -2990,7 +2990,8 @@
     "empty": "暂无巡查记录。",
     "newer": "较新记录",
     "older": "较早记录",
-    "details": "变更详情"
+    "details": "变更详情",
+    "patrolChanged": "巡查记录已变更。请重新加载后再更正。"
   },
   "emailChange": {
     "title": "更改账号邮箱",
