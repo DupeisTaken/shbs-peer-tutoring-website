@@ -1,6 +1,8 @@
 /** @vitest-environment jsdom */
 import { createRef, useImperativeHandle, type Ref } from "react";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
+import en from "../../../messages/en.json";
 import {
   act,
   cleanup,
@@ -24,7 +26,10 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function Harness({ handle }: { handle: Ref<ReturnType<typeof useDialog>> }) {
   const api = useDialog();
@@ -54,6 +59,52 @@ const reason = {
   reasonLabel: "Reason for rejection",
   required: true,
 };
+
+it("waits only for an opted-in confirmation and still allows immediate cancellation", async () => {
+  let now = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => now);
+  const handle = createRef<ReturnType<typeof useDialog>>();
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <Harness handle={handle} />
+    </NextIntlClientProvider>,
+  );
+  let cancelled!: Promise<boolean>;
+  act(() => {
+    cancelled = handle.current!.confirm({
+      ...confirmation,
+      confirmDelayMs: 3_000,
+    });
+  });
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: confirmation.confirmLabel,
+    }).disabled,
+  ).toBe(true);
+  fireEvent.click(
+    screen.getByRole("button", { name: confirmation.cancelLabel }),
+  );
+  await expect(cancelled).resolves.toBe(false);
+  let accepted!: Promise<boolean>;
+  now = 3_000;
+  act(() => {
+    accepted = handle.current!.confirm({
+      ...confirmation,
+      confirmDelayMs: 3_000,
+    });
+  });
+  const confirm = screen.getByRole<HTMLButtonElement>("button", {
+    name: confirmation.confirmLabel,
+  });
+  expect(screen.getByRole("status").textContent).toBe("Confirm in 3s");
+  confirm.disabled = false;
+  fireEvent.click(confirm);
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  now = 6_000;
+  fireEvent.focus(window);
+  fireEvent.click(confirm);
+  await expect(accepted).resolves.toBe(true);
+});
 
 it("focuses the safe cancellation and restores the opener when confirmation is declined", async () => {
   const opener = document.createElement("button");

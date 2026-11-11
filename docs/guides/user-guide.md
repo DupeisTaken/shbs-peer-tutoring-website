@@ -178,7 +178,10 @@ their existing order.
 ## Graduation and school transfers
 
 All student accounts, including students who only receive tutoring, can report graduation
-or transfer in **School Departure** in their account settings. Explain the change and
+or transfer from **Account Settings → Academic Details → I have transferred away**.
+This opens **School Departure**, where graduation, transfer, requests and departure
+history remain available. After a confirmed departure, the same entry is labeled
+**School Departure** and starts with **Return to school**. Explain the change and
 confirm the request. Admin/Head review it through Management Actions. Admin/Head may also apply a staff correction from the account editor; Coordinators submit permitted staff changes for review.
 
 After confirmation, **Enter Viewers Portal** appears on the tutor dashboard or tutee
@@ -1604,6 +1607,14 @@ Use **Account Settings** to edit the name fields available for your current role
 An invitation can finish creating or linking a login while an old or conflicting academic report still needs confirmation. The completion screen directs you to **Account Settings → Academic Details**. After confirming, tutors complete the normal dashboard activation; crew members request reentry from the crew workspace. Crew access remains opted out until that request is approved. Previously inactive crew accounts remain inactive and need staff restoration. Optional unknown or nonstandard grades do not prevent participation. An explicit conflict with a previous **Not Applicable** report does require review.
 
 **Academic Details** is shared across Account Settings, tutor Account Settings and staff **Edit Profile** dialogs. It is available to tutees, tutors, crew, management and accounts with multiple participation types. Choose **Review Academic Details** or **Edit Academic Details**, select one of the program’s offered grades, then confirm. The current program school year is filled automatically and cannot be edited. This is self-reported information: participants can correct their own records. Admin/Head correct other accounts directly; Coordinators submit staff academic corrections for review. Confirmation History records the reported values, date, source and optional correction context.
+
+Account Settings also places **I have transferred away** beside the academic editor.
+Its departure request has its own reason and Admin review; editing a grade does not
+change school departure or portal access. Tutor and Crew opt-out actions use red
+buttons and a three-second pause in their final review. Cancel remains available
+immediately. The pause does not submit automatically or replace the seven-day
+opt-out approval wait. The pending tutor's direct opt-out choice has the same
+short review pause and keeps its existing direct activation behavior.
 
 Expected graduation is the reference school year's ending year plus the remaining grades through Grade 12. For example, Grade 10 in `26-27` gives 2029. It is an estimate, not a separate editable graduation field. Grades do not advance automatically: after a gap, repeated year or new school year, confirm the grade that actually applies in the current program school year. Stale or imported values are marked for review. Choose **Unknown** when the grade is not known; an imported original grade can still be retained without a graduation estimate. Choose **Graduated** when the student has completed school, or **Not Applicable** for a non-student account. Graduated is an academic detail and does not change tutor participation status.
 

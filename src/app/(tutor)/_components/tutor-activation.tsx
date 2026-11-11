@@ -52,7 +52,7 @@ export function TutorActivation() {
           {t("tutor.activate.available")}
         </button>
         <button
-          className="btn-secondary"
+          className="btn-danger"
           disabled={activate.isPending}
           onClick={async () => {
             if (
@@ -62,6 +62,7 @@ export function TutorActivation() {
                 confirmLabel: t("tutor.activate.optOut"),
                 cancelLabel: t("common.cancel"),
                 danger: true,
+                confirmDelayMs: 3_000,
               })
             )
               activate.mutate({ available: false });

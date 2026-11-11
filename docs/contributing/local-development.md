@@ -473,6 +473,24 @@ Application tests live under `src/**/*.test.{ts,tsx}`:
   (`fileParallelism: false`) and need a reachable `DATABASE_URL` with the schema applied.
 - **UI render tests** exercise interactive controls in jsdom without starting the website.
 
+[Recovery checkpoint fixtures](../../src/server/recovery/correction-checkpoints.integration.test.ts)
+reset and seed in one transaction before exercising the real application client.
+Their fixture-specific 20-second hook covers a 1-second acquisition wait,
+10-second transaction and up to 6 seconds draining an active statement before
+rollback. Lock waits remain capped at 1 second. The global Vitest timeouts and
+ordinary test-body limits stay unchanged. Synthetic trigger installation/cleanup
+uses separate bounded transactions; the three failure/delay controls have
+50-second case limits for multiple resets and cleanup.
+
+Keep the single schema-wide `TRUNCATE`: scheduling and calendar policy triggers
+also run on empty tables, so skipping empty tables, substituting `DELETE` or
+disabling triggers changes fixture semantics. The checkpoint suite checks a real
+blocking lock, final-write rollback and a valid reset delayed beyond the former
+two-second statement cap. CI emits catalog, truncate, seed and settlement timings
+after each reset settles, including failures. Set `SHBS_PROFILE_RECOVERY_FIXTURE=1`
+for equivalent local diagnostics. A failed phase includes rollback/drain time;
+logs contain only timings, table counts and SQLSTATE, never fixture rows or URLs.
+
 [`src/test/setup.ts`](../../src/test/setup.ts) loads `.env` and supplies fallback
 `AUTH_SECRET`/`DATABASE_URL` values for tests that need no live database. It does
 not create a database or make that fallback safe for integration tests. Set an

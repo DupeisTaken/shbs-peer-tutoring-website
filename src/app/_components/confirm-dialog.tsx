@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "./ui/modal";
 import { Button } from "./ui/button";
+import { ReviewCountdown, useReviewDelay } from "./use-review-delay";
 
 /**
  * A calm, deliberate confirm / prompt dialog that replaces the native `window.confirm` and
@@ -24,6 +25,8 @@ type ConfirmOpts = {
   cancelLabel: string;
   /** Style the confirm action as destructive (uses .btn-danger). */
   danger?: boolean;
+  /** An opt-in local reading pause, independent of domain/server cooldowns. */
+  confirmDelayMs?: number;
 };
 
 type PromptOpts = ConfirmOpts & {
@@ -106,6 +109,7 @@ function DialogView({
   onConfirm: (reason?: string) => void;
 }) {
   const isPrompt = state.kind === "prompt";
+  const delay = useReviewDelay(state.confirmDelayMs);
   const [value, setValue] = useState(
     isPrompt ? (state.defaultValue ?? "") : "",
   );
@@ -117,6 +121,12 @@ function DialogView({
       onClose={onCancel}
       footer={
         <>
+          {delay.remaining > 0 && (
+            <ReviewCountdown
+              id={delay.descriptionId}
+              remaining={delay.remaining}
+            />
+          )}
           <Button
             data-dialog-autofocus={!isPrompt || undefined}
             onClick={onCancel}
@@ -125,8 +135,14 @@ function DialogView({
           </Button>
           <Button
             variant={state.danger ? "danger" : "primary"}
-            disabled={blocked}
-            onClick={() => onConfirm(isPrompt ? value.trim() : undefined)}
+            disabled={blocked || delay.remaining > 0}
+            aria-describedby={
+              delay.remaining > 0 ? delay.descriptionId : undefined
+            }
+            onClick={() => {
+              if (!blocked && delay.ready())
+                onConfirm(isPrompt ? value.trim() : undefined);
+            }}
           >
             {state.confirmLabel}
           </Button>
