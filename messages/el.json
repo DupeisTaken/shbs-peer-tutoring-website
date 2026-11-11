@@ -8374,6 +8374,7 @@
     "title": "Απόρριψη της αίτησης του/της {name};",
     "consequence": "Η απόρριψη κλείνει οριστικά αυτή την αίτηση και καταργεί τις τρέχουσες αναθέσεις της. Τα αρχικά στοιχεία, οι συνδέσεις λογαριασμού και το ιστορικό διατηρούνται. Μια νέα αίτηση υπόκειται στους συνήθεις όρους συμμετοχής.",
     "confirm": "Απόρριψη αίτησης",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "Απορρίφθηκε",
     "decision": "Απορρίφθηκε στις {when} από {name}",
     "staff": "μέλος του προσωπικού",

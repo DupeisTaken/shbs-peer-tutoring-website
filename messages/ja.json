@@ -8374,6 +8374,7 @@
     "title": "{name} の申込みを却下しますか？",
     "consequence": "却下すると、この申込みは完全に終了し、現在の割当てが解除されます。元の情報、アカウントの関連付け、履歴は保持されます。新たな申込みには通常の参加条件が適用されます。",
     "confirm": "申込みを却下",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "却下済み",
     "decision": "{when} に {name} が却下",
     "staff": "担当者",

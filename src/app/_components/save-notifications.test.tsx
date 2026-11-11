@@ -14,6 +14,7 @@ import { NotificationViewport, SaveNotifications } from "./save-notifications";
 import { ApprovalNotice } from "./approval-notice";
 import { createQueryClient, isAdminSaveMutation } from "~/trpc/query-client";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
+import { PUBLISHED_SESSION_DECLINE_MESSAGE } from "~/lib/legacy-signup-decline-error";
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <NextIntlClientProvider locale="en" messages={messages}>
     {children}
@@ -141,6 +142,118 @@ it.each([
       expect(notices).toContain(catalog.historicalAcademics[code]);
       expect(notices).not.toContain(code);
     }
+  },
+);
+
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "explains a declined-signup publication refusal in %s through the mutation-cache notice",
+  async (locale, catalog) => {
+    const previousHref = window.location.href;
+    window.history.replaceState(null, "", "/admin/requests");
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    const client = createQueryClient();
+    try {
+      const mutation = client.getMutationCache().build(client, {
+        mutationKey: [["admin", "declineSignup"]],
+        mutationFn: () =>
+          Promise.reject(new Error(PUBLISHED_SESSION_DECLINE_MESSAGE)),
+      });
+      await act(async () => {
+        await expect(mutation.execute(undefined)).rejects.toThrow(
+          PUBLISHED_SESSION_DECLINE_MESSAGE,
+        );
+      });
+      expect(screen.getByRole("alert").textContent).toContain(
+        catalog.legacySignupDecline.publishedSessionRecords,
+      );
+      if (locale === "zh")
+        expect(screen.getByRole("alert").textContent).not.toContain(
+          PUBLISHED_SESSION_DECLINE_MESSAGE,
+        );
+      expect(screen.queryByRole("status")).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", { name: catalog.saveNotifications.dismiss }),
+      );
+      expect(screen.queryByRole("alert")).toBeNull();
+    } finally {
+      client.clear();
+      window.history.replaceState(null, "", previousHref);
+    }
+  },
+);
+
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "retains and deduplicates the known %s refusal until dismissal",
+  (locale, catalog) => {
+    vi.useFakeTimers();
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    act(() => {
+      for (let attempt = 0; attempt < 2; attempt++)
+        window.dispatchEvent(
+          new CustomEvent("admin-save-result", {
+            detail: {
+              kind: "error",
+              message: PUBLISHED_SESSION_DECLINE_MESSAGE,
+            },
+          }),
+        );
+    });
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(screen.getByRole("alert").textContent).toContain(
+      catalog.legacySignupDecline.publishedSessionRecords,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.saveNotifications.dismiss }),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  },
+);
+
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "keeps unknown and roster-deletion %s notices raw",
+  (locale, catalog) => {
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    const errors = [
+      "Version conflict: source 42 changed",
+      "Cannot delete a tutee with published dated-session records. Set them inactive and preserve the session history instead.",
+    ];
+    act(() => {
+      for (const message of errors)
+        window.dispatchEvent(
+          new CustomEvent("admin-save-result", {
+            detail: { kind: "error", message },
+          }),
+        );
+    });
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(errors.length);
+    errors.forEach((message, index) => {
+      expect(alerts[index]?.querySelector("p")?.textContent).toBe(message);
+    });
   },
 );
 

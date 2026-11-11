@@ -8374,6 +8374,7 @@
     "title": "Refuser la demande de {name} ?",
     "consequence": "Le refus ferme définitivement cette demande et libère ses affectations actuelles. Les données sources, les liens de compte et l’historique sont conservés. Une nouvelle demande reste soumise aux critères habituels.",
     "confirm": "Refuser la demande",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "Refusée",
     "decision": "Refusée le {when} par {name}",
     "staff": "un membre du personnel",

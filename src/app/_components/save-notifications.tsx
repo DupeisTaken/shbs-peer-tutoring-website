@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
+import { localizedLegacySignupDeclineError } from "~/lib/legacy-signup-decline-error";
 import { ProfilePolicyError } from "./profile-policy-error";
 
 type Result = { kind: "success" | "error"; message?: string; id: number };
@@ -23,6 +24,7 @@ export function SaveNotifications() {
   const t = useTranslations("saveNotifications");
   const historical = useTranslations("historicalAcademics");
   const interview = useTranslations("interviewApproval");
+  const decline = useTranslations("legacySignupDecline");
   const [results, setResults] = useState<Result[]>([]);
   useEffect(() => {
     let sequence = 0;
@@ -87,14 +89,15 @@ export function SaveNotifications() {
         <p className="mt-2 text-sm">
           {/* The page and global notice must describe the same recoverable conflict
               in the active language, never expose a stable server code as UI text. */}
-          {result.message === TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE ? (
-            interview("tutoringAccessRevoked")
-          ) : result.message?.startsWith("HISTORICAL_") &&
-            historical.has(result.message) ? (
-            historical(result.message)
-          ) : (
-            <ProfilePolicyError message={result.message} />
-          )}
+          {localizedLegacySignupDeclineError(result.message, decline) ??
+            (result.message === TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE ? (
+              interview("tutoringAccessRevoked")
+            ) : result.message?.startsWith("HISTORICAL_") &&
+              historical.has(result.message) ? (
+              historical(result.message)
+            ) : (
+              <ProfilePolicyError message={result.message} />
+            ))}
         </p>
       )}
     </aside>

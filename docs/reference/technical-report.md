@@ -508,6 +508,15 @@ staff to review participation controls, while roster deletion keeps its deletion
 guidance. Coordinator proposals preserve the old deletion authority, and
 approval targets include non-scalar review, participation and publication evidence.
 
+The decline review and global save notice share a client-safe
+[known-refusal mapping](../../src/lib/legacy-signup-decline-error.ts) for published
+dated-session records. Both use `legacySignupDecline.publishedSessionRecords` in
+the active catalog; unmatched server messages retain their existing raw fallback.
+The server's English body and publication guard are unchanged. English and Chinese
+have authored guidance; the other bundled catalogs use explicit English fallback
+for this key pending language review. Published message overrides keep their
+existing precedence.
+
 Closed legacy cards use that snapshot rather than live roster/catalog values.
 Observers receive no decision property. The stable management-only review owner
 retains admission above replaceable cards and denied reads; authoritative denial

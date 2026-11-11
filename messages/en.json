@@ -8374,6 +8374,7 @@
     "title": "Decline Signup for {name}?",
     "consequence": "Declining permanently closes this signup and releases its current assignments. The source details, account links and history are retained. A fresh signup follows normal eligibility rules.",
     "confirm": "Decline signup",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "Declined",
     "decision": "Declined {when} by {name}",
     "staff": "a staff member",

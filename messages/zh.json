@@ -8374,6 +8374,7 @@
     "title": "确认拒绝 {name} 的报名？",
     "consequence": "拒绝后，此次报名将永久关闭，并解除当前分配。报名资料、账号关联和历史记录将保留。重新报名仍须符合现有资格规则。",
     "confirm": "拒绝报名",
+    "publishedSessionRecords": "此报名已有已发布的具体日期场次记录，无法拒绝。请改为查看其参与管理选项。",
     "declined": "已拒绝",
     "decision": "{name} 于 {when} 拒绝",
     "staff": "工作人员",
