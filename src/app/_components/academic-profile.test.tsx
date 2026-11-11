@@ -514,3 +514,19 @@ it("waits for the current policy before capturing an academic draft", () => {
   fireEvent.click(edit);
   expect(screen.queryByLabelText(en.academics.grade)).toBeNull();
 });
+
+it("keeps the related account action inside Academic Details alongside its independent editor", () => {
+  render(
+    wrap(<AcademicPanel actions={<button>Report school transfer</button>} />),
+  );
+  const transfer = screen.getByRole("button", {
+    name: "Report school transfer",
+  });
+  expect(transfer.closest("section")?.textContent).toContain(
+    en.academics.title,
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.academics.review }));
+  expect(screen.getByLabelText(en.academics.grade)).toBeTruthy();
+  expect(transfer.isConnected).toBe(true);
+  expect(mock.own).not.toHaveBeenCalled();
+});

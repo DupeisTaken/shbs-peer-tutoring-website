@@ -5648,6 +5648,7 @@
     "recordedDatesUnknown": "辅导日期未记录"
   },
   "schoolDeparture": {
+    "reportTransfer": "我已转学离校",
     "title": "离校状态",
     "eyebrow": "保持联系",
     "graduated": "已毕业",

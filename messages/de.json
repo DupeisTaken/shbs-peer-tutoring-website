@@ -5614,6 +5614,7 @@
     "recordedDatesUnknown": "Session dates not recorded"
   },
   "schoolDeparture": {
+    "reportTransfer": "Ich habe die Schule gewechselt",
     "title": "School Departure",
     "eyebrow": "Stay connected",
     "graduated": "Graduated",

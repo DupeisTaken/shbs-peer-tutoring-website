@@ -24,6 +24,7 @@ export function ActionReviewRecipe() {
       </code>
       <FormActions>
         <Button
+          variant="danger"
           disabled={revoked || review.blocked(`membership-${sequence}`)}
           onClick={() => {
             setSequence((value) => value + 1);
@@ -32,6 +33,7 @@ export function ActionReviewRecipe() {
               title: membership("optOutBtn"),
               description: membership("optOutReviewHelp"),
               confirmLabel: membership("optOutBtn"),
+              confirmDelayMs: 3_000,
               successMessage: membership("optOutSubmitted"),
               details: <p>{t("galleryRecord")}</p>,
               // A receipt can acknowledge a request without claiming its effect happened.

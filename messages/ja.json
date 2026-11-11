@@ -5614,6 +5614,7 @@
     "recordedDatesUnknown": "Session dates not recorded"
   },
   "schoolDeparture": {
+    "reportTransfer": "別の学校に転校しました",
     "title": "School Departure",
     "eyebrow": "Stay connected",
     "graduated": "Graduated",

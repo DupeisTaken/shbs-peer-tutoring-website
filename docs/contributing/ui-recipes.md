@@ -25,6 +25,11 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The named-action opt-out example matches the real Tutor/Crew red actions and
+opt-in three-second review pause. Check immediate Cancel, a fresh pause after
+reopening, and explicit confirmation after zero. The pause is presentation only;
+features keep their server tickets, membership approval and seven-day cooldown.
+
 The management summary recipe also uses the production `RoomAllocationStatus`
 reader. Check fixed and automatic room names followed by their status, long
 translated names wrapping at narrow widths, and distinct shortage, intentional
