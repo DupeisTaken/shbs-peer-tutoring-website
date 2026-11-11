@@ -1501,15 +1501,15 @@ administrators can revoke or replace it. Report generation and delivery do not
 confirm that the school has entered the hours into its accounts.
 
 School recipients can open **View Month Report** from their email and choose
-**Remind me later / 稍后提醒我** on that report. Choose a future date/time in the
+**Email me a reminder / 发送邮件提醒** on that report. Choose a future date/time in the
 displayed report timezone, review the masked original mailbox and confirm.
 The reminder goes only to that mailbox, even if the link was forwarded. It sends
 the same saved report; hours already entered must not be entered again. No site
 account or program-management action is needed. Older shared report links remain
 readable; reminder controls are available through newly emailed personal links.
 
-The personal page shows the recipient's own reminders. **Cancel this reminder /
-取消此提醒** stops unsent reminders before sending starts. One unfinished reminder
+The personal page shows the recipient's own reminders. **Cancel this reminder email /
+取消此提醒邮件** stops unsent reminders before sending starts. One unfinished reminder
 can be retained at a time, with up to five requests per day. Delivery can be delayed;
 blocked/failed reminders can be cancelled and scheduled again. Turning off
 automatic monthly issuance does not cancel these personal reminders.

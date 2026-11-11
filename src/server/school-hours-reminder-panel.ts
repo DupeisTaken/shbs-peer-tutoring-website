@@ -32,8 +32,6 @@ const status: Record<string, string> = {
   SKIPPED: "Not sent / 未发送",
   CANCELLED: "Cancelled / 已取消",
 };
-const button =
-  "display:inline-flex;min-height:44px;align-items:center;justify-content:center;padding:10px 16px;border:1px solid #CBD5E1;border-radius:8px;background:white;color:#174A89;font:inherit;font-weight:700;cursor:pointer;text-decoration:none";
 const hidden = (name: string, value: string) =>
   `<input type="hidden" name="${name}" value="${e(value)}">`;
 const canCancel = (value: string) =>
@@ -59,7 +57,32 @@ export function schoolHoursReminderPanel(
     ["PENDING", "SENDING", "BLOCKED", "FAILED"].includes(row.status),
   );
   const form = options.review
-    ? `<h2 style="font-size:19px;margin:0">Confirm your reminder / 确认提醒</h2><p>Send to / 发送至：<strong>${e(state.mailbox)}</strong></p><p>${e(date(options.review.scheduledFor))}</p><p>${e(sameEdition)}</p><form method="post" action="${e(action)}">${hidden("operation", "schedule")}${hidden("requestId", options.review.requestId)}${hidden("localTime", options.review.localTime)}<div style="display:flex;flex-wrap:wrap;gap:10px"><a href="${e(action)}?reminder=edit#reminder" style="${button}">Cancel / 取消</a><button type="submit" style="${button};background:#0D59E6;color:white;border-color:#0D59E6">Schedule my reminder / 安排提醒</button></div></form>`
-    : `${state.eligible && !active ? `<p>Send a reminder to / 提醒将发送至：<strong>${e(state.mailbox)}</strong></p><form method="post" action="${e(action)}">${hidden("operation", "review")}${hidden("requestId", options.draft?.requestId ?? randomUUID())}<label for="reminder-time" style="display:block;font-weight:700">Reminder date and time / 提醒日期和时间</label><input id="reminder-time" name="localTime" type="datetime-local" required value="${e(options.draft?.localTime ?? "")}" aria-describedby="reminder-time-help" style="display:block;min-height:44px;width:100%;max-width:380px;min-width:0;box-sizing:border-box;border:1px solid #94A3B8;border-radius:7px;padding:10px;font:inherit;margin:8px 0"><p id="reminder-time-help" style="color:#475569">Time zone / 时区：${e(state.report.timeZone)}. Choose a future time. / 请选择未来时间。</p><button type="submit" style="${button};background:#0D59E6;color:white;border-color:#0D59E6">Review reminder / 核对提醒</button></form><p style="font-size:13px;color:#475569">${e(sameEdition)}</p>` : !state.eligible ? `<p>${e(messages.retired)}</p>` : ""}${state.reminders.length ? `<h3 style="font-size:16px;margin:20px 0 10px">Your reminders / 您的提醒</h3><ul style="padding:0;list-style:none">${state.reminders.map((row) => `<li style="border-top:1px solid #CBD5E1;padding:12px 0;overflow-wrap:anywhere"><p style="margin:0 0 8px"><strong>${e(date(row.scheduledFor))}</strong><br>${e(status[row.status] ?? "Status unavailable / 状态暂不可用")}</p>${canCancel(row.status) ? `<form method="post" action="${e(action)}">${hidden("operation", "cancel")}${hidden("reminderId", row.id)}<button type="submit" style="${button};color:#B42318">Cancel this reminder / 取消此提醒</button></form>` : ""}</li>`).join("")}</ul>` : ""}`;
-  return `<section id="reminder" style="margin:20px 0;border:1px solid #CBD5E1;border-radius:12px;background:white;padding:16px;overflow-wrap:anywhere"><details${options.review || options.error || active ? " open" : ""}><summary style="cursor:pointer;min-height:44px;padding:10px 0;font-size:18px;font-weight:700">Remind me later / 稍后提醒我</summary><div style="padding-top:12px">${options.error ? `<p role="alert" style="background:#FEF2F2;color:#991B1B;padding:12px;border-radius:7px">${e(messages[options.error])}</p>` : ""}${form}<p style="font-size:13px;color:#475569">This personal link can request reminders only to the mailbox it was emailed to. Delivery may be delayed; unsent reminders can be cancelled here. / 此专属链接仅能向原收件邮箱发送提醒。投递可能延迟，未发送的提醒可在此取消。</p></div></details><p style="font-size:12px;color:#475569;margin:12px 0 0">The first visit to this personal link is recorded for delivery status. / 此专属链接的首次访问时间会记录于投递状态。</p></section>`;
+    ? `<h3>Review reminder email / 核对提醒邮件</h3>
+       <p>Send to / 发送至：<strong>${e(state.mailbox)}</strong></p>
+       <p class="reminder-selected-time">${e(date(options.review.scheduledFor))}</p>
+       <p class="reminder-notice">${e(sameEdition)}</p>
+       <form method="post" action="${e(action)}" class="reminder-form">
+         ${hidden("operation", "schedule")}${hidden("requestId", options.review.requestId)}${hidden("localTime", options.review.localTime)}
+         <div class="reminder-actions"><a href="${e(action)}?reminder=edit#reminder" class="button">Cancel / 取消</a><button type="submit" class="button button-primary">Schedule reminder email / 安排提醒邮件</button></div>
+       </form>`
+    : `${
+        state.eligible && !active
+          ? `<p>Send a reminder email to / 提醒邮件将发送至：<strong>${e(state.mailbox)}</strong></p>
+       <form method="post" action="${e(action)}" class="reminder-form">
+         ${hidden("operation", "review")}${hidden("requestId", options.draft?.requestId ?? randomUUID())}
+         <label for="reminder-time" class="reminder-label">Reminder date and time / 提醒日期和时间</label>
+         <input id="reminder-time" name="localTime" type="datetime-local" required value="${e(options.draft?.localTime ?? "")}" aria-describedby="reminder-time-help" class="reminder-input">
+         <p id="reminder-time-help" class="reminder-help">Time zone / 时区：${e(state.report.timeZone)}. Choose a future time. / 请选择未来时间。</p>
+         <div class="reminder-actions"><button type="submit" class="button button-primary">Review reminder email / 核对提醒邮件</button></div>
+       </form><p class="reminder-notice">${e(sameEdition)}</p>`
+          : !state.eligible
+            ? `<p>${e(messages.retired)}</p>`
+            : ""
+      }
+       ${state.reminders.length ? `<h3>Your reminder emails / 您的提醒邮件</h3><ul class="reminder-history">${state.reminders.map((row) => `<li><p><strong>${e(date(row.scheduledFor))}</strong><br><span class="reminder-status" data-status="${e(row.status)}">${e(status[row.status] ?? "Status unavailable / 状态暂不可用")}</span></p>${canCancel(row.status) ? `<form method="post" action="${e(action)}">${hidden("operation", "cancel")}${hidden("reminderId", row.id)}<button type="submit" class="button button-danger">Cancel this reminder email / 取消此提醒邮件</button></form>` : ""}</li>`).join("")}</ul>` : ""}`;
+  return `<section id="reminder" class="report-card reminder-panel"><details${options.review || options.error || active ? " open" : ""}>
+    <summary class="reminder-heading"><h2>Email me a reminder / 发送邮件提醒</h2></summary><div class="reminder-content">
+    ${options.error ? `<p role="alert" class="reminder-error">${e(messages[options.error])}</p>` : ""}${form}
+    <p class="reminder-help">This personal link can send reminder emails only to the mailbox it was emailed to. Delivery may be delayed; unsent reminders can be cancelled here. / 此专属链接仅能向原收件邮箱发送提醒邮件。投递可能延迟，未发送的提醒邮件可在此取消。</p>
+    </div></details><p class="reminder-privacy">The first visit to this personal link is recorded for delivery status. / 此专属链接的首次访问时间会记录于投递状态。</p></section>`;
 }

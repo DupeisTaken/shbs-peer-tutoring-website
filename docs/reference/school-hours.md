@@ -249,7 +249,7 @@ links remain readable and cannot authorize a reminder or identify a recipient.
 New personal links support the same report-only HTML and CSV without a site login;
 forwarding a personal link never changes its reminder destination.
 
-On the public report, **Remind me later / 稍后提醒我** opens a native date/time
+On the public report, **Email me a reminder / 发送邮件提醒** opens a native date/time
 form. The review shows the report timezone and masked original mailbox. Only a
 deliberate same-origin POST can schedule or cancel; there is no address field,
 resend-to-all action, management approval or new management scheduling control.
@@ -257,6 +257,14 @@ The request body is streamed with a 2 KiB bound, strict fields and duplicate-key
 rejection. Public report CSP permits same-origin forms only on personal pages;
 scripts, external resources and embedding remain blocked. Explicit HEAD and
 prefetch handling never record an opening or create mail.
+
+The standalone report follows the Management visual tokens: the same licensed
+Geist font, slate surfaces, compact headings, white cards and indigo actions.
+Responsive labelled metric cells become mobile cards while native Details retain
+the complete saved evidence. The font and its OFL notice have exact public asset
+paths; report HTML permits only same-origin font loading. The anonymous report
+keeps its own no-script capability boundary and never mounts Management navigation.
+Printing hides reminder controls and retains the full financial table and details.
 
 The [recipient service](../../src/server/school-hours-recipient.ts) rechecks the
 capability and uses the reporting/transport fence for writes. Each reminder has

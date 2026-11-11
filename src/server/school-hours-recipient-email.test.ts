@@ -1,8 +1,12 @@
+// @vitest-environment jsdom
 import { expect, it } from "vitest";
 import { schoolHoursEmailCopy } from "./school-hours-email";
 import { schoolHoursRecipientEmailCopy } from "./school-hours-recipient-email";
 import { publicSchoolHoursReport } from "./school-hours-public";
 import { schoolHoursTestSnapshot } from "./school-hours-test-fixture";
+
+const parseHTML = (html: string) =>
+  new DOMParser().parseFromString(html, "text/html");
 
 const reportUrl = "https://reports.example.test/personal";
 it.each(["en", "zh"] as const)(
@@ -58,6 +62,12 @@ it.each(["en", "zh"] as const)(
         row.schoolAccountKey,
       );
     }
-    expect(reminder.html).not.toContain("<table");
+    const doc = parseHTML(reminder.html);
+    expect(doc.querySelector("table[role='presentation']")).not.toBeNull();
+    expect(
+      doc.querySelector(
+        "table:not([role='presentation']),.school-hours-table,.person-detail-content",
+      ),
+    ).toBeNull();
   },
 );
