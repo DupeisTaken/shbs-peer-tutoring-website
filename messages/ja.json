@@ -3009,6 +3009,7 @@
     "details": "変更の詳細",
     "patrolRooms": "巡回の教室選択肢",
     "reloadPatrol": "巡回の下書きを再読み込み",
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
     "patrolReloadFailed": "最新の巡回記録と教室の選択肢を読み込めませんでした。下書きと元のバージョンは保持されています。",
     "patrolUnavailable": "更新された履歴ページにこの巡回記録が見つかりません。下書きは保持されています。",
     "patrolSaved": "訂正を保存しました。巡回履歴を更新しています…",

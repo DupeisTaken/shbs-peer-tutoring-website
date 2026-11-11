@@ -35,6 +35,7 @@ import { QueryFeedback } from "./ui/query-feedback";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { localizedPatrolCorrectionError } from "~/lib/patrol-correction-error";
 import { viewAccessDenied } from "~/lib/session-view-state";
 import {
   getSessionReadReceipts,
@@ -575,7 +576,11 @@ function PatrolEditor({
             }}
           >
             <p className="muted">{t("patrolHelp", { zone: draftZone })}</p>
-            {inputError && <p role="alert">{inputError}</p>}
+            {inputError && (
+              <p role="alert">
+                {localizedPatrolCorrectionError(inputError, t) ?? inputError}
+              </p>
+            )}
             <fieldset
               className="min-w-0 space-y-3"
               disabled={busy || !ready || !!accepted}

@@ -3009,6 +3009,7 @@
     "details": "Änderungsdetails",
     "patrolRooms": "Raumauswahl für Kontrollgänge",
     "reloadPatrol": "Kontrollgangentwurf neu laden",
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
     "patrolReloadFailed": "Der aktuelle Kontrollgang und die Raumauswahl konnten nicht geladen werden. Ihr Entwurf und seine ursprüngliche Version bleiben erhalten.",
     "patrolUnavailable": "Dieser Kontrollgang wurde auf der aktualisierten Verlaufsseite nicht gefunden. Ihr Entwurf bleibt erhalten.",
     "patrolSaved": "Die Korrektur wurde gespeichert. Der Kontrollgangverlauf wird aktualisiert…",

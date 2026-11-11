@@ -59,6 +59,7 @@ describe("UI recovery and persistent field labels", () => {
     "managementRecovery.refreshFailed",
     "managementRecovery.retry",
     "managementRecovery.denied",
+    "corrections.patrolChanged",
     "workflows.feedbackVisibilityLoading",
     "workflows.feedbackVisibilityUnavailable",
     "tablePatterns.noRooms",

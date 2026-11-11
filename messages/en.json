@@ -3009,6 +3009,7 @@
     "details": "Change Details",
     "patrolRooms": "patrol room choices",
     "reloadPatrol": "Reload patrol draft",
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
     "patrolReloadFailed": "The latest patrol and room choices could not be loaded. Your draft and its original version are retained.",
     "patrolUnavailable": "This patrol was not found in its refreshed history page. Your draft is retained.",
     "patrolSaved": "The correction was saved. Refreshing patrol history…",

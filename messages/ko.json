@@ -3009,6 +3009,7 @@
     "details": "변경 세부 정보",
     "patrolRooms": "순찰 교실 선택 항목",
     "reloadPatrol": "순찰 초안 다시 불러오기",
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
     "patrolReloadFailed": "최신 순찰 기록과 교실 선택 항목을 불러오지 못했습니다. 초안과 원래 버전은 유지됩니다.",
     "patrolUnavailable": "새로 고친 기록 페이지에서 이 순찰을 찾을 수 없습니다. 초안은 유지됩니다.",
     "patrolSaved": "수정 사항을 저장했습니다. 순찰 기록을 새로 고치는 중…",
