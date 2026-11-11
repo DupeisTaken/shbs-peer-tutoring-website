@@ -1,5 +1,15 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
+import { useSyncExternalStore } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import TuteeLayout from "./layout";
 import AdminLayout from "../(admin)/layout";
@@ -15,6 +25,12 @@ const mocks = vi.hoisted(() => ({
   currentPolicy: vi.fn(),
   acceptance: vi.fn(),
   pastAcceptance: vi.fn(),
+  pathname: "/dashboard",
+  search: "",
+  routeVersion: 0,
+  routeListeners: new Set<() => void>(),
+  privateChild: vi.fn(),
+  navigation: vi.fn(),
 }));
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
 vi.mock("~/server/db", () => ({
@@ -64,8 +80,24 @@ vi.mock("~/app/_components/sign-out-button", () => ({
 vi.mock("~/app/_components/translation-intent-recovery", () => ({
   TranslationIntentRecoveryEntry: () => <p>Own translation receipt recovery</p>,
 }));
+function subscribeRoute(listener: () => void) {
+  mocks.routeListeners.add(listener);
+  return () => {
+    mocks.routeListeners.delete(listener);
+  };
+}
+function getRouteVersion() {
+  return mocks.routeVersion;
+}
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard",
+  usePathname: () => {
+    useSyncExternalStore(subscribeRoute, getRouteVersion, getRouteVersion);
+    return mocks.pathname;
+  },
+  useSearchParams: () => {
+    useSyncExternalStore(subscribeRoute, getRouteVersion, getRouteVersion);
+    return new URLSearchParams(mocks.search);
+  },
   redirect: (path: string) => {
     throw new Error(`redirect:${path}`);
   },
@@ -75,6 +107,7 @@ vi.mock("next-intl/server", () => ({
   getMessages: mocks.messages,
 }));
 vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
   NextIntlClientProvider: ({
     children,
     messages,
@@ -108,9 +141,26 @@ vi.mock("~/app/_components/user-avatar", () => ({
     </nav>
   ),
 }));
-vi.mock("./navigation", () => ({ TuteeNavigation: () => null }));
+vi.mock("./navigation", () => ({
+  TuteeNavigation: () => {
+    mocks.navigation();
+    return <nav aria-label="Tutee navigation" />;
+  },
+}));
+vi.mock("~/app/_components/account-settings", () => ({
+  AccountSettings: ({ embedded }: { embedded?: boolean }) => (
+    <section aria-label="Own account controls" data-embedded={embedded} />
+  ),
+}));
+vi.mock("~/app/_components/message-inbox", () => ({
+  MessageInbox: () => <section aria-label="Own messages" />,
+}));
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.pathname = "/dashboard";
+  mocks.search = "";
+  mocks.routeVersion = 0;
+  mocks.routeListeners.clear();
   mocks.auth.mockResolvedValue({ user: { id: "account" } });
   // Navigation fixtures represent members with personal consent; gate cases override it.
   mocks.currentPolicy.mockResolvedValue({ revision: "published-policy" });
@@ -384,6 +434,283 @@ it.each(["HEAD", "TUTOR"])(
     mocks.acceptance.mockResolvedValue({ revision: "published-policy" });
     render(await TuteeLayout({ children: <p>Private tutee content</p> }));
     expect(screen.getByText("Private tutee content")).toBeTruthy();
+  },
+);
+
+function PrivateStudentContent() {
+  mocks.privateChild();
+  return <p>Private tutee content</p>;
+}
+function navigateTo(href: string) {
+  const destination = new URL(href, "https://example.test");
+  act(() => {
+    mocks.pathname = destination.pathname;
+    mocks.search = destination.search.slice(1);
+    mocks.routeVersion += 1;
+    for (const listener of mocks.routeListeners) listener();
+  });
+}
+function followShellLink(link: HTMLElement) {
+  const href = link.getAttribute("href");
+  if (!href) throw new Error("Expected a shell navigation link");
+  link.addEventListener(
+    "click",
+    (event) => {
+      event.preventDefault();
+      navigateTo(href);
+    },
+    { once: true },
+  );
+  fireEvent.click(link);
+}
+function expectParticipationBlocked() {
+  expect(screen.queryByText("Private tutee content")).toBeNull();
+  expect(
+    screen.queryByRole("navigation", { name: "Tutee navigation" }),
+  ).toBeNull();
+  expect(mocks.privateChild).not.toHaveBeenCalled();
+  expect(mocks.navigation).not.toHaveBeenCalled();
+}
+for (const view of ["account", "messages"] as const) {
+  it.each([
+    {
+      label: "nonmember Head",
+      role: "HEAD",
+      tutor: null,
+      tuteeMember: false,
+    },
+    {
+      label: "nonmember tutor",
+      role: "TUTOR",
+      tutor: { status: "ACTIVE" },
+      tuteeMember: false,
+    },
+    {
+      label: "nonmember student",
+      role: "STUDENT",
+      tutor: null,
+      tuteeMember: false,
+    },
+    {
+      label: "tutor member without consent",
+      role: "TUTOR",
+      tutor: { status: "ACTIVE" },
+      tuteeMember: true,
+    },
+  ])(
+    `opens direct ${view} for $label without admitting the participation page`,
+    async (account) => {
+      mocks.pathname = "/student";
+      mocks.search = `view=${view}`;
+      mocks.user.mockResolvedValue(account);
+      mocks.acceptance.mockResolvedValue(null);
+      render(await TuteeLayout({ children: <PrivateStudentContent /> }));
+      const reader =
+        view === "account" ? "Own account controls" : "Own messages";
+      expect(screen.getByRole("region", { name: reader })).toBeTruthy();
+      if (view === "account")
+        expect(
+          screen
+            .getByRole("region", { name: reader })
+            .getAttribute("data-embedded"),
+        ).toBe("true");
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      expect(screen.queryByText("workflow.policyTitle")).toBeNull();
+      expectParticipationBlocked();
+    },
+  );
+  it(`hydrates a blocked direct ${view} link into its existing personal reader`, async () => {
+    mocks.pathname = "/student";
+    mocks.search = `view=${view}`;
+    mocks.user.mockResolvedValue({
+      role: "HEAD",
+      tutor: null,
+      tuteeMember: false,
+    });
+    mocks.acceptance.mockResolvedValue(null);
+    const layout = await TuteeLayout({ children: <PrivateStudentContent /> });
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(layout);
+    document.body.append(container);
+    let hydrated: ReturnType<typeof hydrateRoot> | undefined;
+    const onRecoverableError = vi.fn();
+    try {
+      await act(async () => {
+        hydrated = hydrateRoot(container, layout, { onRecoverableError });
+      });
+      expect(
+        screen.getByRole("region", {
+          name: view === "account" ? "Own account controls" : "Own messages",
+        }),
+      ).toBeTruthy();
+      expectParticipationBlocked();
+      expect(onRecoverableError).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => hydrated?.unmount());
+      container.remove();
+    }
+  });
+}
+it("follows the rendered identity and account-menu links as the cached layout's URL changes", async () => {
+  mocks.pathname = "/student";
+  mocks.user.mockResolvedValue({
+    name: "Synthetic Head",
+    role: "HEAD",
+    tutor: null,
+    tuteeMember: false,
+  });
+  mocks.acceptance.mockResolvedValue(null);
+  const { container } = render(
+    await TuteeLayout({ children: <PrivateStudentContent /> }),
+  );
+  expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
+  const menu = screen.getByRole("navigation", { name: "Account destinations" });
+  const identity = [...container.querySelectorAll("header a")].find(
+    (link) => !menu.contains(link) && link.textContent === "Synthetic Head",
+  );
+  expect(identity).toBeTruthy();
+  expect(identity!.getAttribute("href")).toBe("/student?view=account");
+  followShellLink(identity! as HTMLElement);
+  expect(
+    screen.getByRole("region", { name: "Own account controls" }),
+  ).toBeTruthy();
+  expectParticipationBlocked();
+
+  const messages = within(menu).getByRole("link", {
+    name: "tuteePortal.messages",
+  });
+  expect(messages.getAttribute("href")).toBe("/student?view=messages");
+  followShellLink(messages);
+  expect(screen.getByRole("region", { name: "Own messages" })).toBeTruthy();
+  expect(
+    screen.queryByRole("region", { name: "Own account controls" }),
+  ).toBeNull();
+  expectParticipationBlocked();
+
+  followShellLink(
+    within(menu).getByRole("link", { name: "tuteePortal.account" }),
+  );
+  expect(
+    screen.getByRole("region", { name: "Own account controls" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "Own messages" })).toBeNull();
+  navigateTo("/student?view=requests");
+  expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
+  expect(
+    screen.queryByRole("region", { name: "Own account controls" }),
+  ).toBeNull();
+  expectParticipationBlocked();
+});
+it.each([
+  "/student",
+  "/student?view=dashboard",
+  "/student?view=schedule",
+  "/student?view=requests",
+  "/student?view=attendance",
+  "/student?view=support",
+  "/student?view=unknown",
+  "/student?view=Account",
+  "/student?view=",
+  "/student?view=account&view=messages",
+  "/student?view=account&view=account",
+  "/student/private?view=account",
+])(
+  "keeps blocked participation at %s behind the existing notice",
+  async (href) => {
+    mocks.user.mockResolvedValue({
+      role: "HEAD",
+      tutor: null,
+      tuteeMember: false,
+    });
+    mocks.acceptance.mockResolvedValue(null);
+    navigateTo(href);
+    render(await TuteeLayout({ children: <PrivateStudentContent /> }));
+    expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
+    expect(
+      screen.queryByRole("region", { name: "Own account controls" }),
+    ).toBeNull();
+    expect(screen.queryByRole("region", { name: "Own messages" })).toBeNull();
+    expectParticipationBlocked();
+  },
+);
+it("retains personal access when no policy is published without opening participation views", async () => {
+  mocks.pathname = "/student";
+  mocks.search = "view=account";
+  mocks.user.mockResolvedValue({
+    role: "TUTOR",
+    tutor: { status: "ACTIVE" },
+    tuteeMember: false,
+  });
+  mocks.currentPolicy.mockResolvedValue(null);
+  mocks.acceptance.mockResolvedValue(null);
+  render(await TuteeLayout({ children: <PrivateStudentContent /> }));
+  expect(
+    screen.getByRole("region", { name: "Own account controls" }),
+  ).toBeTruthy();
+  navigateTo("/student?view=schedule");
+  expect(screen.getByText("workflow.policyLoadError")).toBeTruthy();
+  expectParticipationBlocked();
+});
+it.each([
+  {
+    label: "member",
+    role: "STUDENT",
+    tutor: null,
+    tuteeMember: true,
+    schoolDeparture: null,
+  },
+  {
+    label: "tutor with retained consent",
+    role: "TUTOR",
+    tutor: { status: "ACTIVE" },
+    tuteeMember: true,
+    schoolDeparture: null,
+  },
+  {
+    label: "departed nonmember",
+    role: "STUDENT",
+    tutor: null,
+    tuteeMember: false,
+    schoolDeparture: {
+      reason: "GRADUATED",
+      observerRevoked: false,
+      tutorDerived: false,
+    },
+  },
+])(
+  "keeps the existing page and navigation branch for $label on a personal URL",
+  async (account) => {
+    mocks.pathname = "/student";
+    mocks.search = "view=account";
+    mocks.user.mockResolvedValue(account);
+    mocks.acceptance.mockResolvedValue(null);
+    mocks.pastAcceptance.mockResolvedValue({ revision: "retained-policy" });
+    render(await TuteeLayout({ children: <PrivateStudentContent /> }));
+    expect(screen.getByText("Private tutee content")).toBeTruthy();
+    expect(
+      screen.getByRole("navigation", { name: "Tutee navigation" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("region", { name: "Own account controls" }),
+    ).toBeNull();
+    expect(mocks.privateChild).toHaveBeenCalled();
+    navigateTo("/student?view=messages");
+    expect(screen.getByText("Private tutee content")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Own messages" })).toBeNull();
+  },
+);
+
+it.each(["account", "messages"])(
+  "redirects a missing database account away from direct %s",
+  async (view) => {
+    mocks.pathname = "/student";
+    mocks.search = `view=${view}`;
+    mocks.user.mockResolvedValue(null);
+    await expect(
+      TuteeLayout({ children: <PrivateStudentContent /> }),
+    ).rejects.toThrow("redirect:/signin");
+    expect(mocks.currentPolicy).not.toHaveBeenCalled();
+    expect(mocks.privateChild).not.toHaveBeenCalled();
   },
 );
 it("keeps unauthenticated access behind sign-in", async () => {
