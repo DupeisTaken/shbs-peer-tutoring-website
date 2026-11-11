@@ -147,7 +147,8 @@ export function AcademicForm({
         if (valid && !busy) onSave(draft);
       }}
     >
-      <fieldset disabled={busy} aria-busy={busy} className="space-y-4">
+      {/* Keep the clipped absolute legend inside this form's scroll boundary. */}
+      <fieldset disabled={busy} aria-busy={busy} className="relative space-y-4">
         <legend className="sr-only">{t("edit")}</legend>
         <label className="block">
           <span className="label">{t("status")}</span>

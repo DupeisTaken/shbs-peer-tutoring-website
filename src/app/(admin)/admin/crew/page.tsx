@@ -523,10 +523,11 @@ export default function CrewPage() {
                     className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
                     <span className="font-medium text-slate-800">{c.name}</span>
+                    {/* Keep the clipped absolute code label inside its own surface. */}
                     {c.code && (
                       <span
                         data-code-purpose="invitation"
-                        className="code-surface badge-green font-mono tracking-widest"
+                        className="code-surface badge-green relative font-mono tracking-widest"
                       >
                         <span className="sr-only">
                           {t("admin.crew.codeIssued", { code: c.code })}
