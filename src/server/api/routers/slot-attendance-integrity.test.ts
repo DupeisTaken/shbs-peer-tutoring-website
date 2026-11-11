@@ -10,6 +10,7 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
 import * as flags from "~/server/crew/flags";
+import { importedRecordKey } from "~/server/imported-records";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 const date = new Date("2026-01-05T00:00:00Z");
@@ -195,6 +196,77 @@ it("slot propagation rejects overlap with another block and rolls back every cha
   await expect(editSlot(900, 990)).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await snapshot()).toEqual(before);
 });
+
+it("catalogue clock edits preserve an imported attendance block and its stored credit", async () => {
+  await session();
+  await db.importedRecordProvenance.create({
+    data: { entity: "Session", recordId: "primary" },
+  });
+  const before = await db.session.findUniqueOrThrow({
+    where: { id: "primary" },
+  });
+  expect(await editSlot()).toMatchObject({
+    updatedSessions: 0,
+    updatedPairings: 1,
+  });
+  expect(
+    await db.session.findUniqueOrThrow({ where: { id: "primary" } }),
+  ).toEqual(before);
+  expect(
+    await db.notification.count({
+      where: { title: "Catalogue change updated historical attendance" },
+    }),
+  ).toBe(0);
+});
+
+it.each(["Session", "SessionTutee"])(
+  "an imported merged sibling %s freezes its whole block while native history still propagates",
+  async (entity) => {
+    await db.session.create({
+      data: { ...sessionData("primary"), mergeGroupId: "primary" },
+    });
+    await db.session.create({
+      data: {
+        ...sessionData("sibling", 900, 960, otherSlotId),
+        mergeGroupId: "primary",
+        shFactor: 0,
+        shCount: 0,
+      },
+    });
+    await db.importedRecordProvenance.create({
+      data: {
+        entity,
+        recordId:
+          entity === "Session"
+            ? "sibling"
+            : importedRecordKey({ sessionId: "sibling", tuteeId }, [
+                "sessionId",
+                "tuteeId",
+              ]),
+      },
+    });
+    await db.session.create({
+      data: {
+        ...sessionData("native"),
+        date: new Date("2026-01-06T00:00:00Z"),
+      },
+    });
+    const before = await db.session.findMany({
+      where: { mergeGroupId: "primary" },
+      orderBy: { id: "asc" },
+    });
+    expect(await editSlot()).toMatchObject({ updatedSessions: 1 });
+    expect(
+      await db.session.findMany({
+        where: { mergeGroupId: "primary" },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(before);
+    expect(
+      await db.session.findUniqueOrThrow({ where: { id: "native" } }),
+    ).toMatchObject({ endMin: 990, durationMin: 90, shCount: 3 });
+  },
+);
 
 it("slot propagation checks collisions between two separately submitted blocks linked to the same slot", async () => {
   await session();

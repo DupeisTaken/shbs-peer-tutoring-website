@@ -9,7 +9,7 @@ import {
   programDateTimeInput,
 } from "~/lib/program-time";
 import { portalAccess } from "~/lib/portal-access";
-import { effectiveNotificationPreference } from "~/lib/notification-categories";
+import { effectiveNotificationPreference, notificationLockFor } from "~/lib/notification-categories";
 import { getFeatures } from "~/server/program/features";
 import { resolveSchoolCalendarDay } from "~/lib/school-calendar";
 import { pairingEvidenceIds, supersededPairingIds } from "~/server/participant-execution";
@@ -92,8 +92,8 @@ const accountInclude = {
   tutor: { select: { status: true } },
 } satisfies Prisma.UserInclude;
 type Account = Prisma.UserGetPayload<{ include: typeof accountInclude }>;
-const accountWhere = {
-  AND: [
+function accountWhere(locks?: unknown): Prisma.UserWhereInput { return {
+  AND: notificationLockFor(locks, "reminders").emailLocked ? [] : [
     {
       OR: [
         {
@@ -112,18 +112,19 @@ const accountWhere = {
   mergedIntoId: null,
   role: { not: "VIEWER" },
   OR: [{ schoolDeparture: null }, { schoolDeparture: { reason: null } }],
-} satisfies Prisma.UserWhereInput;
+}; }
 const activeTutor = {
   tutorAccessRevoked: false,
   tutor: { status: "ACTIVE" },
 } satisfies Prisma.UserWhereInput;
 
-function addresses(user: Account) {
+function addresses(user: Account, locks?: unknown) {
   if (
     !effectiveNotificationPreference(
       user,
       "reminders",
       user.notificationPreferences,
+      locks,
     ).emailEnabled ||
     !portalAccess(user).canParticipate
   )
@@ -161,12 +162,15 @@ async function tutoringAllowed(
   client: DomainDb,
   startsAt: Date,
   timeZone: string,
+  dated = false,
 ) {
   const date = programDateKey(startsAt, timeZone);
-  if (!(await schoolDay(client, date)).isSchoolDay) return false;
-  // These notices suppress reminder email only; attendance/appeal policy is unchanged.
+  if (!dated && !(await schoolDay(client, date)).isSchoolDay) return false;
+  // Dated commitments already pass the exact affirmative exception gate. Legacy
+  // recurrence has no consent evidence and stays suppressed by any active range.
   return !(await client.programCalendarDay.count({
-    where: { active: true, date: { lte: date }, endDate: { gte: date } },
+    where: { active: true, date: { lte: date }, endDate: { gte: date },
+      ...(dated ? { schedulingEffect: "NOTICE" } : {}) },
   }));
 }
 
@@ -417,7 +421,7 @@ async function occurrence(
       },
     };
   }
-  if (!(await tutoringAllowed(client, startsAt, timeZone))) return null;
+  if (!(await tutoringAllowed(client, startsAt, timeZone, kind === "tutoring_cohort"))) return null;
   if (kind === "tutoring_cohort")
     return datedOccurrence(client, sourceId, startsAt, timeZone);
   const pairings = await client.pairing.findMany({
@@ -637,6 +641,7 @@ async function enqueueOccurrence(
   startsAt: Date,
   timeZone: string,
   now: Date,
+  locks?: unknown,
 ) {
   const due = REMINDER_LEADS.filter((lead) =>
     reminderIsDue(startsAt, lead, now),
@@ -648,7 +653,7 @@ async function enqueueOccurrence(
   let queued = 0;
   do {
     const users = await client.user.findMany({
-      where: { AND: [accountWhere, current.userWhere] },
+      where: { AND: [accountWhere(locks), current.userWhere] },
       include: accountInclude,
       orderBy: { id: "asc" },
       take: PAGE_SIZE,
@@ -666,7 +671,7 @@ async function enqueueOccurrence(
           ...(current.recurrence ? { recurrence: current.recurrence } : {}),
           emailDetail: detail(kind, recipientLabel(current, user), leadMinutes),
         };
-        return addresses(user).map((recipient) => ({
+        return addresses(user, locks).map((recipient) => ({
           userId: user.id,
           recipient,
           category: "reminder",
@@ -782,6 +787,7 @@ export async function queueEventReminders(
           row.date,
           timeZone,
           now,
+          settings.notificationLocks,
         );
       cursor = rows.length === PAGE_SIZE ? rows.at(-1)!.id : undefined;
     } while (cursor);
@@ -811,6 +817,7 @@ export async function queueEventReminders(
         cohort.startsAt,
         cohort.plan.timeZone,
         now,
+        settings.notificationLocks,
       );
     cohortCursor =
       cohorts.length === PAGE_SIZE ? cohorts.at(-1)!.id : undefined;
@@ -865,6 +872,7 @@ export async function queueEventReminders(
           startsAt,
           timeZone,
           now,
+          settings.notificationLocks,
         );
       }
       cursor = rows.length === PAGE_SIZE ? rows.at(-1)!.id : undefined;
@@ -915,12 +923,12 @@ export async function validateEventReminder(
   if (JSON.stringify(current.recurrence) !== JSON.stringify(context.recurrence))
     return false;
   const user = await client.user.findFirst({
-    where: { AND: [{ id: row.userId }, accountWhere, current.userWhere] },
+    where: { AND: [{ id: row.userId }, accountWhere(settings.notificationLocks), current.userWhere] },
     include: accountInclude,
   });
   return (
     !!user &&
-    addresses(user).includes(row.recipient) &&
+    addresses(user, settings.notificationLocks).includes(row.recipient) &&
     JSON.stringify(context.emailDetail) ===
       JSON.stringify(
         detail(

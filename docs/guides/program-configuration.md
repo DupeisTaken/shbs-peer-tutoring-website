@@ -168,7 +168,7 @@ continue to operate. If saving succeeds but reloading settings fails, use
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows                                                                                                                                                                                                                                                 |
 | Policy versions                   | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it                                                                                                                                                                                                    |
 | School calendar                   | Admin/Head apply date-specific school closures, make-up school days and timetable weekdays; Coordinators request Admin/Head review. Defaults are Monday–Friday school days. School-day status affects appeal deadlines; a timetable mapping alone does not. See [school calendar](#school-calendar-and-timetable-dates) |
-| No-tutoring dates                 | Admin/Head apply inclusive start/end date ranges with a reason; Coordinators request review. Protected tutor/tutee schedules display this informational context. It does not restrict attendance, cancel sessions, change recurrence, alter appeal deadlines or modify school-day rules |
+| No-tutoring dates                 | Admin/Head apply inclusive ranges with a reason and explicit scheduling effect; Coordinators request review. Notice only preserves existing behavior. Pause regular tutoring suppresses future ordinary commitments while allowing expressly agreed exceptions through the dated scheduler. School-day rules and appeal deadlines stay independent |
 | Name field requirements           | Admin/Head configure Required/Optional/Hidden for each field and account type; Coordinators request review. New signup uses its intake type; later shared-profile edits use the current account role. Hidden originals remain visible in authorized management editors; active labels exclude them and use username fallback when needed |
 | Feedback visibility               | Management-only by default; configured sharing also affects earlier feedback                                                                                                                                                                                                                                                  |
 | Announcements                     | Filters combine across groups; alternatives within a group match any choice; explicit exclusions win. Published recipients are fixed                                                                                                                                                                                          |
@@ -178,6 +178,23 @@ continue to operate. If saving succeeds but reloading settings fails, use
 ## Optional email notifications
 
 Admin/Head can enable **Email Notifications** in **Program Settings → Deployment Configurations**; Coordinators submit the change for Admin/Head review. The setting takes effect when applied, defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
+
+In the email card's **Required notifications** tab, Admin/Head can require selected
+notification choices to stay on for every account. Select **Lock unread badge on**
+or **Lock email on** for the relevant category, then **Save requirements**. Each
+category has independent badge and email locks; upcoming reminders
+are email-only. For example, locking message email keeps message notifications
+enabled even for an account whose personal message-email choice is off. These
+locks take effect when saved and cannot be submitted by Coordinators. A stale
+settings snapshot must be refreshed before another administrator's changes can
+be replaced.
+
+Locked controls appear on and unavailable in personal preferences, with an
+administrator-required explanation. Locking preserves each person's saved choice,
+so unlocking restores it. An email lock still requires the program email switch,
+verified recipient addresses and current recipient eligibility; it does not grant
+review access, enable secondary-email copies or change reminder timing. Security
+mail and the separate School Month Report delivery rules retain their own gates.
 
 Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts and essential public-request invalidity/clear notices remain mandatory. Request-status mail uses the PROGRAM sender but bypasses optional switches and personal preferences, goes only to the request's recorded address, and has no unsubscribe link.
 
@@ -505,7 +522,44 @@ old mailbox proof.
 - Use `true`/`false`, numeric quantities, enum values from the application's schema, and ISO timestamps with `Z` or a timezone offset. Use JSON inside a quoted cell for arrays and objects.
 - `\N` means a database null. An empty cell means empty text. Double a literal leading backslash or apostrophe. Exports prefix formula-like text with an apostrophe for spreadsheet safety; the importer reverses that prefix.
 - New terms must have `active=false`. New pairing groups, pairings and sessions must belong to inactive terms. Importing history never changes the active program period. Stored historical service hours are retained, rather than recalculated with a later policy.
+- New tutor rows require an explicit inactive status (`GRADUATED`, `OPTED_OUT`, `ARCHIVED` or `TRANSFERRED`); new tutees require `INACTIVE`. Use the normal signup, roster and reactivation workflows for current participation. Omitting a status does not activate an archived participant.
+- Import completed application, request, appeal, card and flag outcomes only. New meetings and their attendance must be in the past; supplied patrol creation, credit and observation timestamps cannot be in the future. New announcements require `active=false`. Create pending work, upcoming meetings and published notices through their current management pages.
+- Historical interview panels, subject intents and votes require completed applications. Historical cards, signup screening, availability and qualifications require inactive participant targets; signup records and quarter restrictions require inactive terms. Signup screening also requires an inactive intake term when one is recorded. These checks also apply when only a related child file is selected.
 - Select related CSV files together; the importer orders them by dependency. References must point to another selected record or an existing database record. A transfer supports up to **5 MiB of expanded CSV data and 5,000 records**. For larger complete exports, use an operator-managed database backup.
+
+New imported evidence is recorded separately from current operational work. Its
+stored service credit remains visible in history and retained totals; importing
+does not certify that the school has posted it or queue it as new school credit.
+See [school service-hours reporting](user-guide.md#review-records-and-reports)
+for the opening-balance review. An exact existing record is still skipped before
+the new-record checks, so reimporting an unchanged current export does not change
+its origin or membership. Use a full deployment backup for restoring live state;
+the historical CSV importer does not restart pending workflows.
+
+Imported meeting attendance and amendments keep their original policy evidence.
+A later native meeting attendance edit or tutor excuse does not recalculate those
+past deductions or use imported absences to exhaust the current allowance.
+Imported meetings/attendance cannot be edited or deleted through the normal
+meeting editor; ask the operator to review archive recovery for a source
+correction. Original records imported before origin tracking remain unclassified;
+their history is not automatically labelled or declared already reported.
+The new automation exclusions apply only to records with established archive
+provenance. Reviewing school opening balances does not classify older records;
+their existing automation remains until a separate operator origin review.
+
+Imported attendance blocks, flags and crew observations stay separate from
+automatic catalogue and patrol comparisons. Changing a current catalogue slot
+does not change an imported block's stored times or hours, including a combined
+block with one imported attendance row. Imported patrol observations do not raise
+new discrepancy requests against native attendance. The native interview
+completion workflow also preserves imported application, panel and credit
+evidence. Re-saving an imported accepted tutor application cannot create or
+reissue current tutor membership or an invitation; that historical acceptance
+also cannot prevent revocation of a separate native grant. Valid historical
+cards continue to count under the existing discipline
+policy; an imported removal decision does not automatically reinstate a learner
+when a later card correction runs. Deliberate reviewed source corrections remain
+separate from these automatic effects.
 
 For example, import these three files together to add an archived tutor and pairing. IDs are synthetic; replace them with your own stable identifiers. The tutor record does not create a login.
 
@@ -658,8 +712,10 @@ the program switch and the recipient's preference. Copy includes the actual date
 and school-day/timetable facts, never the staff note. Delivery rechecks the current
 calendar revision and participant eligibility; SMTP already accepted cannot be
 recalled. No external calendar provider is modified. The separate **No-tutoring
-dates** control remains informational: its inclusive ranges do not cancel sessions,
-change recurrence, restrict attendance or alter school-day appeal counting.
+dates** control has an explicit scheduling effect. **Notice only** is informational;
+**Pause regular tutoring** suppresses future ordinary dated commitments and preserves
+individually agreed exceptions under the dated scheduler. Neither mode changes
+school-day appeal counting or the recurring assignment itself.
 
 ### Configure recruitment windows
 
@@ -718,7 +774,37 @@ does not automatically reassign them. Review the retained request through
 
 ### Current-period access and submissions
 
-Coordinator and Viewer recruitment controls are read-only. Missing editing eligibility never grants a write affordance. Informational no-tutoring summaries show an inclusive date range and a brief reason preview; authorized readers open **View details** for the complete reason. A single-day notice has equal starting and ending dates. There is one notice per starting date; overlapping notices with different starts remain independent. Editing changes the ending date and reason; moving the start requires removal and recreation. Editing and removing notices keep their own permissions and reviewed versions.
+Coordinator and Viewer recruitment controls are read-only. Missing editing eligibility never grants a write affordance. No-tutoring summaries show the selected scheduling effect, an inclusive date range and a brief reason preview; authorized readers open **View details** for the complete reason. A single-day notice has equal starting and ending dates. There is one notice per starting date; overlapping notices with different starts remain independent. Editing changes the ending date and reason; moving the start requires removal and recreation. Editing and removing notices keep their own permissions and reviewed versions.
+
+Select **Notice only** for context that leaves scheduling unchanged, or **Pause regular
+tutoring** to remove automatic ordinary commitments on actual dates in the inclusive
+range. Review the affected published future commitments before applying a pause,
+changing its dates/effect or removing it. The preview counts participant commitments,
+not unique people or sessions, and does not count unpublished future recurrence.
+Coordinator proposals have no scheduling effect until applied by an authorized reviewer.
+
+Pauses remain independent when ranges overlap: removing one does not lift another.
+Applying/removing a pause reconciles future commitments in the same transaction;
+ordinary suppression is reversible but removal does not revive user cancellations,
+overwrite school closures, duplicate moved lessons or bypass new conflicts. Started
+lessons, historical attendance, discipline and service hours remain actual evidence.
+Optional sessions use dated exception proposals and affirmative participation; silence
+must not opt a learner into a paused date. An agreed exception retains normal room,
+participant, permission, reminder and calendar checks.
+
+Existing records and older queued requests retain **Notice only**. An older client
+editing an existing pause without sending a scheduling effect preserves that pause;
+changing its effect requires an explicit selection. The additive migration is
+`20261108010000_tutoring_pause_policy`; deploy it before the application. It adds a
+distinct participant pause-suppression marker and extends the scheduler's strict
+invalidation dependency graph without rewriting attendance or school-calendar rows.
+Apply the following `20261108011000_tutoring_pause_recovery` migration as well;
+it preserves the separate suppression cause in safe recovery journal snapshots
+without including notice reasons, message bodies or delivery capabilities.
+Apply the complete subsequent migration chain, including semantic policy history
+and the exact-offer consent lookup index. The index adds storage/write overhead
+to bound notice-history lookups; it does not change scheduling policy.
+
 
 Observers can read the public current-period and recruitment values. Private settings tabs explain that access is unavailable without starting protected settings reads. While account identity is unknown they show loading; identity read failures offer recovery rather than assuming authorization or displaying an empty panel.
 

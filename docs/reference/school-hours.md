@@ -45,6 +45,41 @@ reference and already-reported component amounts. Zero must be explicitly
 reviewed; old monthly snapshots are not a sufficient opening baseline. New
 unreviewed identities block issuance until reviewed. Once reports exist, review
 cannot overwrite already committed balances for existing people.
+Opening reviews can be saved in batches. Only explicitly reviewed people advance;
+their source ownership evidence remains anchored while other people are reviewed.
+The narrow-screen review table scrolls horizontally to keep its source headers
+and values readable, with the existing sticky detail actions.
+Unfinished reviews continue to block issuance, rather than turning missing inputs
+into zero or inferring school posting from stored source credit.
+
+New program-record imports retain exact historical hours in rosters and history,
+but do not make those hours eligible for the school issue chain. The importer
+writes server-owned `ImportedRecordProvenance` for newly inserted records in the
+same transaction. School reporting excludes marked Sessions, adjustments and
+Patrols and shows their count as archive evidence. Exact repeats of existing native
+records remain native; CSV cannot supply, remove or export this operational
+classification. A newly imported source therefore cannot silently credit an
+already-reviewed owner or add a new opening-review identity. Native late entries
+and signed corrections retain their existing eligibility.
+
+If a restored imported source ID overlaps previously reviewed or committed school
+evidence, issuance blocks for reconciliation instead of generating an artificial
+negative reversal. The migration does not guess which older records came from an
+import: pretracking evidence retains the explicit school-ledger opening review.
+This release does not add a bulk archive-to-report release action. Intentionally
+unreported historical hours require operator reconciliation with the school
+ledger; importing them alone is not posting authority. Opening-balance review
+does not establish archive provenance. Older unclassified records retain their
+existing automation behavior until a separate operator review establishes their
+origin; this release adds no retrospective classification tool or automatic
+backfill. Normal imported source
+inserts are journaled through their original source references. Simple financial
+provenance keys also link boundary changes to tracked source IDs as unsupported
+recovery consequences. A security-overlay restore fingerprints all provenance and
+refuses divergence rather than dropping the boundary silently. Composite marker
+keys do not independently expand into parent recovery references: this release
+has no marker-release API, and a future standalone reclassification workflow must
+add typed recovery references before it can safely change those boundaries.
 
 Tutoring and Crew sources are attributed through explicit current/retained
 ownership and account-retirement history, never matching names, email or directory
@@ -95,7 +130,15 @@ bounded retries; no SMTP call runs inside the reporting transaction.
 
 Recipients are explicitly configured school mailboxes and need not have site
 accounts. Each receives a separate consolidated email; recipient addresses are
-not included in the shared report. The Service Hours module, schedule, global
+not included in the shared report. The schedule's recipient list supports an
+optional editable label beside each email, such as “School office”. Labels are
+staff-only schedule metadata, limited to 80 characters, and save through the same
+versioned settings review as the addresses. They do not select an account, alter
+delivery, establish archive provenance or appear in reports, exports or emails.
+Clearing a label removes it;
+removing a recipient also removes its label. Older clients that omit labels retain
+the labels of unchanged recipients.
+The Service Hours module, schedule, global
 program-mail switch and PROGRAM transport govern sending. Mail-off blocks school
 delivery without treating the report as newly unreported; retry the same receipt
 after restoring availability. Removed recipients, revoked links and superseded
@@ -139,8 +182,10 @@ propose settings changes for review. Opening-baseline review, issuance, retry an
 link management require direct Admin/Head authority. Public capabilities confer
 no management or write access.
 
-Apply all five reporting migrations through `20261103020000_hours_recovery_baseline`
-and regenerate Prisma before starting the updated application. The first migration
+Apply the complete reporting migration chain through
+`20261108010000_school_hours_recipient_labels` and the prospective archive-boundary
+migration `20261108010000_imported_record_provenance`, then regenerate Prisma
+before starting the updated application. The first migration
 adds the school reporting tables and outbox relation, disables the replaced
 monthly schedule and retires unsent
 overview receipts while preserving sent evidence. The two follow-up migrations
@@ -150,7 +195,7 @@ The journal migration registers both legacy and school-reporting tables with the
 recovery change journal. It reuses compatible origin/always coverage and installs
 missing triggers; it refuses disabled, replica-only or otherwise incompatible
 triggers without replacing them. Investigate that database state before retrying.
-The final migration records a present-day `UNSUPPORTED` baseline for existing rows
+The recovery baseline migration records a present-day `UNSUPPORTED` baseline for existing rows
 linked to unfinished recovery actions by the journal's top-level identities. It
 does not update report rows, reconstruct past event order, infer ownership from
 private report contents or reopen completed recoveries. Repeating registration
@@ -159,6 +204,8 @@ schedule identities to completion in one call; a shared schedule conservatively
 connects all its editions. These consequences require manual review,
 not automatic admission compensation. The record inspector exposes only permitted
 metadata; report bodies, opening balances, recipients and link hashes stay private.
+The recipient-label migration adds an empty JSON object to existing schedules;
+it preserves their recipient addresses, report history and delivery receipts.
 Automation starts disabled; review opening balances and configure recipients
 before activation. No new environment secret is required. Persistent Node hosting
 is required for automatic

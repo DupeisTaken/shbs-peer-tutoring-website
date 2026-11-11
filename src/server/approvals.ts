@@ -532,6 +532,10 @@ export async function proposalTargets(
         id: true,
         enabled: true,
         recipientEmails: true,
+        // Older queued proposals have no metadata field in their captured target.
+        ...(proposed.recipientLabels !== undefined
+          ? { recipientLabels: true }
+          : {}),
         timeZone: true,
         includeStatistics: true,
         dateOverrides: true,
@@ -655,6 +659,9 @@ export async function proposalTargets(
   if (
     ["program.setCalendarDay", "program.removeCalendarDay"].includes(operation)
   ) {
+    await lockEntity(client, "program:period");
+    const { lockSessionPlanning } = await import("./session-planning");
+    await lockSessionPlanning(client);
     await lockEntity(
       client,
       `program-calendar:${z.string().parse(fields.date)}`,
@@ -940,9 +947,12 @@ export async function proposalTargets(
     });
     // Backfilled single-day rows keep pre-migration approval fingerprints. A real
     // range retains its endpoint; every later edit also advances the row version.
-    targets.programCalendar = notices.map(({ endDate, ...notice }) =>
-      endDate === notice.date ? notice : { ...notice, endDate },
-    );
+    targets.programCalendar = notices.map(({ endDate, schedulingEffect, ...notice }) => ({
+      ...notice,
+      ...(endDate === notice.date ? {} : { endDate }),
+      // Additive default preserves unchanged pre-policy approval fingerprints.
+      ...(schedulingEffect === "NOTICE" ? {} : { schedulingEffect }),
+    }));
   }
   if (operation === "admin.reorderRooms")
     targets.roomOrder = await client.room.findMany({

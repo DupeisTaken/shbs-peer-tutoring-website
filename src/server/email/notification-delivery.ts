@@ -9,6 +9,9 @@ import { requestNoticeEmailCopy } from "./request-notice-copy";
 import {
   effectiveNotificationPreference,
   isNotificationCategory,
+  legacyNotificationTopic,
+  notificationCategory,
+  notificationLockFor,
 } from "~/lib/notification-categories";
 import {
   eligibleReviewRecipient,
@@ -224,21 +227,18 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       const user = row.user;
       const review = row.category === "review";
       const reminder = row.category === "reminder";
+      const topic = isNotificationCategory(row.preferenceTopic) ? row.preferenceTopic
+        : legacyNotificationTopic(row.category) ?? notificationCategory(row.event, undefined, row.destination);
       const preference = essential
         ? true
         : user && isNotificationCategory(row.preferenceTopic)
           ? effectiveNotificationPreference(
               user,
-              row.preferenceTopic,
+              topic,
               user.notificationPreferences,
+              current?.notificationLocks,
             ).emailEnabled
-          : review
-            ? user?.emailReviewRequests
-            : reminder
-              ? user?.emailEventReminders
-              : row.category === "messages"
-                ? user?.emailMessages
-                : user?.emailInfo;
+          : notificationLockFor(current?.notificationLocks, topic).emailLocked || (review ? user?.emailReviewRequests : reminder ? user?.emailEventReminders : row.category === "messages" ? user?.emailMessages : user?.emailInfo);
       const owned = user?.emails.some(
         (address) =>
           address.email === row.recipient &&
@@ -293,8 +293,10 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         timeZone,
       }).format(row.createdAt);
       const copy = notificationEmailCopy(row.event, row.context);
+      const requiredEmail = !essential && notificationLockFor(current?.notificationLocks, topic).emailLocked;
       const footer = essential
         ? "If you do not recognize this activity, contact the program team through private support.\n如非本人操作，请通过私密支持联系项目团队。"
+        : requiredEmail ? "The program administrator requires this notification category. Other optional email notifications can be managed in account settings.\n项目管理员要求接收此类别通知。您可在账户设置中管理其他可选邮件通知。"
         : "Sign in to review the update. You can manage optional email notifications in account settings.\n请登录查看通知。您可在账户设置中管理可选邮件通知。";
       // Only optional notification classes receive this narrowly scoped account capability.
       const unsubscribeUrl = [

@@ -16,6 +16,15 @@ the required local/CI gate. Fix their causes before handoff; do not suppress
 diagnostics or lower rule severity to obtain a pass. A focused file check helps
 during development but does not replace the full repository check.
 
+Typed lint can exhaust Node's 4 GiB heap; the complete check has been verified
+with a 6 GiB old-space ceiling. CI sets `NODE_OPTIONS=--max-old-space-size=6144`
+only on the route-type, lint and type-check step. Tests, image builds and other
+steps retain their own memory settings. For local verification, scope this
+override to the check command and restore the prior environment afterward;
+run heavy work serially within the machine's available memory budget. The full
+file coverage, zero-warning rule, type checks, timeouts and required gates remain
+unchanged.
+
 | Change                        | Verify with                                                                                           |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Any commit                    | `npm run check` and relevant tests                                                                    |

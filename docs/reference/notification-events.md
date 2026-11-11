@@ -76,6 +76,13 @@ email controls. The exhaustive [category mapping](../../src/lib/notification-cat
 is shared by settings, badge queries and delivery; the migration's SQL classification
 is checked against it by integration tests.
 
+Admin/Head may lock either channel on for individual categories; reminders have no
+badge channel. A lock overrides a saved personal off choice without replacing it.
+It applies to badge counts and to optional-email enqueue and dispatch. Email locks
+retain the program availability, verified-address and recipient-eligibility gates,
+including active Admin/Head review access. They neither select secondary recipients
+nor turn an intentionally in-app-only event into email.
+
 | Category | Examples | Bell badge | Optional email |
 | --- | --- | --- | --- |
 | Private messages | A message from a named sender | Configurable | Configurable |
@@ -110,8 +117,10 @@ category overrides when an old client submits an unchanged value.
 Only active Admin/Head accounts can enable reviewer email, and Head-only events keep
 their narrower authority. Participant copies of a pending workflow event keep their
 domain category. Dispatch rechecks recipient eligibility, category preferences and
-verified address ownership. Unsubscribe disables the delivery's exact category or all
-optional categories, without changing badge settings. An intentionally in-app-only
+verified address ownership. Unsubscribe disables the delivery's exact unlocked
+category or all unlocked optional categories, without changing badge settings or
+locked personal choices. A locked linked category is explained on the confirmation
+page; stopping all still permits other categories to be disabled. An intentionally in-app-only
 event, such as a room-allocation shortage, still does not produce email merely because
 its category's email preference is enabled.
 

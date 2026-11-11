@@ -14,7 +14,7 @@
     "oneFlow": "개별 협의는 첫 제안, 학습 파트너의 대안, 지도 파트너의 최종 제안 순서입니다. 최종 거절은 해당 학습 파트너의 이번 지도만 취소합니다.",
     "allFlow": "모두 최신 시간에 동의해야 합니다. 각자 한 번 대안을 제시하며 거절할 수 있습니다. 이전 동의는 새 시간에 적용되지 않습니다. 그 이후에는 개별 변경을 요청할 수 있습니다.",
     "viewSessions": "날짜별 지도 보기",
-    "explicitBy": "{deadline} 전까지 명시적 동의가 필요합니다. 임박한 변경은 무응답으로 수락되지 않습니다.",
+    "explicitBy": "{deadline} 전까지 명시적 동의가 필요합니다. 이 제안은 무응답으로 수락되지 않습니다.",
     "reload": "최신 내용을 불러오고 이 초안 버리기",
     "messageUnavailable": "이 일정에서는 직접 메시지를 사용할 수 없습니다. 메시지 권한을 확인하거나 관리자에게 문의하세요.",
     "calendarSubscription": "캘린더 구독",
@@ -75,6 +75,7 @@
     "chooseLearner": "학습 파트너 선택",
     "scopeHelp": "한 명을 선택하면 해당 학습 파트너의 이번 일정만 변경합니다. 전체 변경은 최신 시간에 대한 모든 사람의 동의가 필요합니다.",
     "location": "장소",
+    "locationUnavailable": "교실 정보를 확인할 수 없습니다. 동의하기 전에 최신 정보를 새로 고침하세요.",
     "sameRoom": "계획된 교실 유지",
     "online": "온라인",
     "noRoom": "실제 교실 없음",
@@ -146,7 +147,14 @@
     "automaticRoom": "대면 — 강의실 자동 배정",
     "checkingLocation": "시간과 장소 확인 중…",
     "allocationFailed": "시간과 장소를 확인할 수 없습니다. 현재 수업을 확인하고 다른 시간이나 온라인을 선택한 후 다시 검토하세요.",
-    "roomReviewHelp": "전송할 때 강의실을 다시 확인합니다. 사용할 수 없으면 새 배정을 검토하세요."
+    "roomReviewHelp": "전송할 때 강의실을 다시 확인합니다. 사용할 수 없으면 새 배정을 검토하세요.",
+    "tutoringPaused": "정규 튜터링 일시 중단",
+    "tutoringPausedHelp": "이 정규 일정은 일시 중단되었습니다. 출석 의무가 없습니다. 예외 일정에는 모든 참여자의 명시적인 동의가 필요합니다.",
+    "arrangeException": "예외 일정 조정",
+    "requiresExplicit": "명시적 동의가 필요합니다. 미응답은 이 제안의 수락으로 간주되지 않습니다.",
+    "explicitExceptionHelp": "이 예외 일정에는 튜터와 참여 학생 모두의 명시적인 동의가 필요합니다. 응답이 없으면 동의하지 않은 것입니다.",
+    "tutoringPauseProposal": "이 날짜에는 정규 튜터링이 중단됩니다. 이 제안은 명시적으로 합의된 예외 일정으로만 진행할 수 있습니다.",
+    "exceptionScheduled": "합의된 예외 일정"
   },
   "nextRecruitment": {
     "savedForTarget": "{name}의 시작 시간을 저장했습니다.",
@@ -2790,7 +2798,7 @@
       "label": "로그아웃"
     },
     "userMenu": {
-      "settings": "설정",
+      "settings": "계정 설정",
       "enterTutor": "튜터 페이지로 이동",
       "enterAdmin": "관리자 영역으로 이동",
       "enterTutee": "학습자 페이지로 이동",
@@ -3793,6 +3801,7 @@
         "program_setProfilePolicy": "이름 표시 및 모집 대상 학년 변경",
         "program_setSignupField": "등록 신청 항목 요구 사항 변경",
         "program_setEmailNotifications": "프로그램 이메일 알림 변경",
+        "program_setNotificationLocks": "필수 알림 설정 변경",
         "program_setSecondaryEmailBinding": "보조 이메일 등록 가능 여부 변경",
         "program_setTimeZone": "프로그램 시간대 변경",
         "program_prepareNextRecruitment": "다음 기간 모집 시작 준비",
@@ -3940,6 +3949,7 @@
         "QUARANTINED": "검토를 위해 격리됨"
       },
       "entities": {
+        "ImportedRecordProvenance": "가져온 과거 기록의 출처",
         "SchedulingMaintenanceState": "일정 유지 관리 상태",
         "SchedulingDirtyEvent": "일정 무효화 이벤트",
         "PersonPartitionReceipt": "신원 분리 처리 기록",
@@ -4100,9 +4110,11 @@
         "MonthlyHoursSchedule": "월간 보고서 일정",
         "MonthlyHoursReport": "월간 서비스 시간 보고서",
         "SchoolHoursSchedule": "학교 보고 일정",
-        "SchoolHoursReport": "학교 제출용 개인 봉사시간 보고서"
+        "SchoolHoursReport": "학교 제출용 개인 봉사시간 보고서",
+        "ProgramCalendarPolicyRevision": "튜터링 날짜 정책 변경 기록"
       },
       "fields": {
+        "importedAt": "가져온 시각",
         "publicSignupEmailConfirmedAt": "공개 신청 이메일 확인 시각",
         "signupOpeningStateSince": "신청 상태 적용 시작",
         "signupFirstOpenedAt": "최초 신청 시작",
@@ -4491,7 +4503,10 @@
         "linkVersion": "보고서 링크 버전",
         "linkRevokedAt": "보고서 링크 취소 시각",
         "schoolHoursReportId": "학교 보고서 ID",
-        "schoolHoursReport": "학교 보고서"
+        "schoolHoursReport": "학교 보고서",
+        "schedulingEffect": "일정에 미치는 영향",
+        "tutoringPauseSuppressed": "정규 튜터링 일시 중단",
+        "recipientLabels": "수신자 라벨"
       },
       "enums": {
         "Role": {
@@ -4953,7 +4968,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "이메일 알림",
-    "help": "메시지, 프로그램 소식, 검토 요청 및 일정 알림의 선택적 이메일을 활성화합니다. 각 사용자는 계정 설정에서 수신할 범주를 선택합니다.",
+    "help": "이메일 발송과 모든 사용자에게 필수인 알림 옵션을 관리합니다. 잠기지 않은 옵션에는 개인 환경설정이 적용됩니다.",
     "on": "켜짐",
     "off": "꺼짐",
     "enable": "이메일 알림 켜기",
@@ -6004,7 +6019,11 @@
     "program": "기타 프로그램 소식",
     "programHelp": "다른 범주에 속하지 않는 프로그램 소식입니다.",
     "reminders": "예정된 일정 알림",
-    "remindersHelp": "면접, 회의 및 확정된 튜터링 수업 24시간 전과 1시간 전에 이메일을 보냅니다."
+    "remindersHelp": "면접, 회의 및 확정된 튜터링 수업 24시간 전과 1시간 전에 이메일을 보냅니다.",
+    "locked": "{category} 이메일은 관리자가 필수로 지정했습니다. 다른 선택적 카테고리는 수신 거부할 수 있습니다.",
+    "successRequired": "선택적 이메일이 꺼졌습니다. 관리자가 필수로 지정한 이메일은 계속 켜져 있습니다.",
+    "requiredHelp": "모든 선택적 카테고리를 수신 거부해도 관리자가 필수로 지정한 이메일은 계속 켜져 있습니다.",
+    "successCategoryRequired": "{category}의 선택적 이메일이 꺼졌습니다. 관리자가 필수로 지정한 이메일은 계속 켜져 있습니다."
   },
   "participantRecovery": {
     "loading": "기록을 불러오는 중…",
@@ -6068,8 +6087,8 @@
     "layout": "저장은 이 레이아웃에만 적용됩니다."
   },
   "programCalendar": {
-    "title": "튜터링 휴무일",
-    "informational": "프로그램 날짜와 사유를 알리는 안내입니다. 출석 기록을 제한하거나 이의 신청에 사용하는 수업일 달력을 변경하지 않습니다.",
+    "title": "튜터링 안내 및 일시 중단",
+    "informational": "각 기간은 안내 또는 정규 튜터링 중단으로 설정됩니다. 중단 기간에도 명시적으로 합의한 예외는 허용되며 학교 일정과 이의 신청 기한은 변경되지 않습니다.",
     "refresh": "새로 고침",
     "reload": "초안 다시 불러오기",
     "loadFailed": "튜터링 안내를 불러오지 못했습니다.",
@@ -6092,7 +6111,23 @@
     "saved": "안내가 저장되었습니다.",
     "saveFailed": "안내를 저장하지 못했습니다.",
     "refreshFailed": "안내는 저장되었으나 최신 목록을 불러오지 못했습니다. 다시 저장하지 말고 새로 고침하여 동기화하세요.",
-    "details": "세부 정보 보기"
+    "details": "세부 정보 보기",
+    "schedulingEffect": "일정에 미치는 영향",
+    "noticeEffect": "안내만 표시",
+    "pauseEffect": "정규 튜터링 일시 중단",
+    "noticeHelp": "날짜가 정해진 일정을 변경하지 않고 안내를 표시합니다.",
+    "pauseHelp": "정규 일정을 일시 중단합니다. 예외 일정은 튜터와 참여 학생 모두의 명시적인 동의가 필요하며, 미응답은 동의로 간주하지 않습니다. 등교일 및 이의 신청 기한은 별도로 유지됩니다.",
+    "removePauseHelp": "이 튜터링 중단 설정을 삭제합니다. 다른 제한과 충돌을 확인한 후 조건에 맞는 향후 정규 일정을 복원할 수 있습니다. 시작된 수업과 기록된 출석은 변경하지 않습니다.",
+    "reviewImpact": "일정 영향 검토",
+    "impactTitle": "영향받는 일정 검토",
+    "impactFailed": "일정 변경을 검토할 수 없습니다. 변경 사항은 적용되지 않았습니다. 다시 검토해 주세요.",
+    "impactConflict": "이 알림이 변경되었습니다. 현재 세부 정보를 새로 불러온 뒤 다시 검토해 주세요.",
+    "impactScope": "적용될 규칙에 따른 기존 향후 학생 일정의 미리보기이며 이미 중단된 일정도 포함합니다. 같은 수업의 학생도 각각 계산하며 향후 반복 일정에도 이 규칙이 적용됩니다.",
+    "impactPause": "적용될 규칙에 따라 중단되는 정규 일정: {count}",
+    "impactRetain": "명시적으로 합의된 예외 유지: {count}",
+    "impactConfirm": "명시적 확인 필요: {count}",
+    "impactRestore": "복원 후보: {count}",
+    "impactRule": "저장 시 현재 동의와 충돌을 다시 확인합니다. 시작된 수업과 기록된 출석은 변경하지 않습니다."
   },
   "roomOrder": {
     "title": "교실 표시 순서",
@@ -7212,7 +7247,7 @@
   "schoolCalendar": {
     "title": "학교 일정",
     "help": "휴교일과 특정 날짜에 적용할 요일 시간표를 설정합니다. 나머지 날짜는 월요일부터 금요일까지 등교일입니다.",
-    "noticeDistinction": "튜터링이 없는 날의 안내는 별도 정보이며 학교 일정을 변경하지 않습니다.",
+    "noticeDistinction": "튜터링 안내와 중단은 등교일 상태, 시간표 적용 또는 이의 신청 일수 계산을 변경하지 않습니다.",
     "add": "날짜 예외 추가",
     "date": "실제 날짜",
     "timetable": "시간표",
@@ -7708,7 +7743,9 @@
       "management": "관리 제안, 결정 및 기록 수정입니다.",
       "program": "다른 범주에 속하지 않는 프로그램 소식입니다.",
       "reminders": "면접, 회의 및 확정된 튜터링 수업 24시간 전과 1시간 전에 이메일을 보냅니다."
-    }
+    },
+    "locked": "관리자가 필수로 지정함",
+    "lockDemo": "메시지 이메일 필수 설정 시연"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -7945,16 +7982,22 @@
     "title": "학교 월간 보고서",
     "help": "각 개인의 미보고 변동을 한 번만 보고합니다. 학습 지원과 운영 당번은 그 내역입니다. 발행은 학교 반영을 보장하지 않습니다.",
     "baselineTitle": "보고된 시작 잔액 검토",
-    "baselineSummary": "검토 필요 {review}명 · 확정 {committed}명",
+    "baselineSummary": "{review}명 확인 필요 · {committed}명 저장됨",
     "baselineIssues": "해결할 문제 {count}개",
     "baselineHelp": "각 개인의 이미 보고된 획득·추가·공제·운영 당번 시간을 입력하세요. 원본 값은 근거이며 추천 잔액이 아닙니다. 보고된 값이 없으면 명시적으로 0을 입력하세요.",
+    "baselineAttention": "{count}명의 기초 잔액 확인 필요",
+    "baselineSetupRequired": "기초 잔액 확인 필요",
+    "affectedPeople": "해당 인원 {count}명",
+    "baselineBatchHelp": "확인한 사람의 상세 화면에서 확인됨을 표시하세요. 확인한 항목만 나누어 저장하며 다른 초안은 유지됩니다.",
+    "baselineSelectedCount": "이번 검토에 {count}명 선택됨",
+    "archivedSources": "가져온 과거 기록 {count}개는 이력에 보존되며 학교 보고서의 증감에서 제외됩니다. 현재 출처는 별도로 검토하세요.",
     "mappingHelp": "각 개인의 학교 계정을 확인하세요. 불확실한 신원·소유 관계는 발행 전에 해결하고 이름만으로 연결하지 마세요.",
     "sourceTutoring": "원본 학습 지원 순시간",
     "sourceCrew": "원본 운영 당번 시간",
     "reviewState": "검토 상태",
     "reviewed": "초안 검토 완료",
     "needsReview": "검토 필요",
-    "baselineCommitted": "확정된 기준값",
+    "baselineCommitted": "저장된 기초 잔액",
     "reviewPerson": "개인 시작값 검토",
     "alreadyReported": "학교에 이미 보고됨",
     "sourceEvidence": "현재 원본 자료",
@@ -7963,7 +8006,7 @@
     "personAcknowledgement": "이 개인의 학교 계정 연결과 이미 보고된 값을 확인했습니다.",
     "adminReviewRequired": "시작 잔액은 관리자 또는 책임자가 확정해야 합니다.",
     "baselineReason": "시작 잔액의 사유 및 근거",
-    "baselineAcknowledgement": "목록의 모든 개인과 학교에 이미 보고된 시간을 검토했습니다.",
+    "baselineAcknowledgement": "선택한 사람과 이미 학교에 보고한 값을 확인했습니다.",
     "confirmBaseline": "검토한 시작 잔액 확정",
     "baselineReviewHelp": "개인별 기준을 저장합니다. 발송하거나 원본 시간·학교 계정을 변경하지 않습니다.",
     "baselineCount": "개인 시작 잔액 {count}명 검토됨",
@@ -7971,7 +8014,7 @@
     "enable": "학교 월간 보고서 활성화",
     "activationHelp": "활성화 전에 시작 잔액을 검토하고 봉사 시간·선택 이메일·메일 배달을 활성화하세요.",
     "recipients": "학교 수신자 이메일 주소",
-    "recipientsHelp": "한 줄에 한 주소를 입력하세요. 각 수신자에게 저장된 보고서 링크를 개별 발송합니다. 학교 로그인이나 이메일 인증은 필요 없습니다.",
+    "recipientsHelp": "수신자마다 저장된 보고서 링크가 담긴 이메일을 개별적으로 받습니다. 학교 계정이나 이메일 인증은 필요하지 않습니다. 최대 100명까지 추가할 수 있습니다.",
     "scheduleHelp": "기본값은 저장된 시간대로 매월 마지막 날 정오입니다. 예외는 해당 월에만 적용됩니다. 발행 후 늦게 등록된 출석은 다음 보고서에 포함됩니다.",
     "overrideMonth": "발송 대상 월",
     "addOverride": "예외 날짜 설정",
@@ -8053,12 +8096,29 @@
       "SOURCE_OWNER_CHANGED": "보고 후 원본 소유자가 변경되었습니다. 먼저 변경을 해결하세요.",
       "ANCESTOR_MONTH": "가장 최근 보고 월만 수정판을 발행할 수 있습니다.",
       "FUTURE_MONTH": "미래의 보고 월은 아직 사용할 수 없습니다.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "가져온 과거 출처가 검토되었거나 발행된 잔액과 겹칩니다. 발행 전에 보고 이력을 대조하고 자동으로 취소하지 마세요.",
       "SOURCE_VALUE_INVALID": "원본에 유효하지 않은 시간이 있습니다. 먼저 원본을 수정하세요."
     },
     "blocked": "발행 전에 해결하세요",
     "featureOff": "봉사 시간이 비활성화되어 미리보기를 사용할 수 없습니다.",
     "priorEditionHelp": "이 계정에 실제 마지막 반영된 판만 선택하세요. 아무 판도 반영하지 않았다면 수정된 전체 월을 한 번 반영하세요. 불확실하면 반영 전에 운영팀에 문의하세요.",
-    "priorEditionCorrection": "마지막 반영 판이 {revision}판인 경우: {hours} 반영"
+    "priorEditionCorrection": "마지막 반영 판이 {revision}판인 경우: {hours} 반영",
+    "addRecipient": "수신자 추가",
+    "editRecipient": "편집",
+    "removeRecipient": "제거",
+    "recipientEmail": "이메일 주소",
+    "recipientLabel": "라벨 (선택)",
+    "recipientLabelHelp": "예: 학교 행정실 또는 교장. 라벨은 내부 메모이며 이메일에 포함되지 않습니다.",
+    "noRecipients": "아직 수신자가 없습니다",
+    "noRecipientsHelp": "학교 보고서를 받을 사람을 추가하세요.",
+    "recipientInvalid": "올바른 이메일 주소를 입력하세요.",
+    "recipientDuplicate": "이미 수신자 목록에 있는 이메일입니다.",
+    "updateRecipient": "수신자 업데이트",
+    "cancelRecipient": "취소",
+    "editRecipientEmail": "수신자 {email} 편집",
+    "removeRecipientEmail": "수신자 {email} 제거",
+    "finishRecipient": "수신자 편집을 완료하거나 취소한 뒤 일정을 저장하세요.",
+    "noRecipientLabel": "라벨 없음"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",
@@ -8235,5 +8295,22 @@
     "snapshotHelp": "담당자가 신청을 거절할 당시 기록한 정보입니다. 이후 프로필 변경은 이 기록에 반영되지 않습니다.",
     "closedHelp": "이 신청은 종료되어 배정하거나 다시 활성화할 수 없습니다.",
     "released": "해제된 현재 배정: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "발송 설정",
+    "requiredTab": "필수 알림",
+    "help": "선택한 알림 옵션을 모든 사용자에게 적용합니다. 잠긴 옵션은 켜진 상태를 유지하며 개인의 저장된 환경설정은 잠금 해제 후를 위해 보존됩니다.",
+    "badge": "읽지 않음 배지 켜짐으로 잠금",
+    "email": "이메일 켜짐으로 잠금",
+    "badgeFor": "{category}: 읽지 않음 배지 켜짐으로 잠금",
+    "emailFor": "{category}: 이메일 켜짐으로 잠금",
+    "deliveryHelp": "필수 이메일에도 프로그램 이메일 활성화, 발송 가능 여부 및 수신 자격이 적용됩니다. 보안 이메일은 별도로 필수입니다.",
+    "readOnly": "Admin과 Head만 이 요구사항을 변경할 수 있습니다.",
+    "save": "요구사항 저장",
+    "saving": "저장 중…",
+    "saved": "요구사항이 저장되었습니다.",
+    "loadFailed": "최신 요구사항을 불러오지 못했습니다. 초안은 유지됩니다. 저장하기 전에 읽기를 다시 시도하세요.",
+    "refreshFailed": "요구사항은 저장되었지만 최신 설정을 불러오지 못했습니다. 다시 저장하지 말고 읽기를 다시 시도하세요.",
+    "reload": "최신 요구사항 다시 불러오기"
   }
 }

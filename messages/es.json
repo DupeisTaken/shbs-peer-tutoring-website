@@ -14,7 +14,7 @@
     "oneFlow": "Acuerdo individual: primera propuesta, alternativa del participante y propuesta final del tutor. El rechazo final cancela solo esa sesión del participante.",
     "allFlow": "Todos deben aceptar la última hora. Cada persona puede rechazar una vez proponiendo otra. Aceptar una hora anterior no acepta una nueva. Después se puede solicitar reprogramación individual.",
     "viewSessions": "Ver sesiones con fecha",
-    "explicitBy": "Se exige acuerdo explícito antes del {deadline}. El silencio no acepta este cambio con poca antelación.",
+    "explicitBy": "Se exige acuerdo explícito antes del {deadline}. El silencio no acepta esta propuesta.",
     "reload": "Cargar datos actuales y descartar este borrador",
     "messageUnavailable": "Los mensajes directos no están disponibles para esta sesión. Comprueba tus permisos o contacta con administración.",
     "calendarSubscription": "Suscripción al calendario",
@@ -75,6 +75,7 @@
     "chooseLearner": "Seleccionar participante",
     "scopeHelp": "Individual solo cambia esta sesión del participante elegido. Todos requiere el acuerdo de cada persona con la última hora.",
     "location": "Lugar",
+    "locationUnavailable": "Aula no disponible. Actualiza los detalles antes de aceptar.",
     "sameRoom": "Mantener el aula prevista",
     "online": "En línea",
     "noRoom": "Sin aula física",
@@ -146,7 +147,14 @@
     "automaticRoom": "Presencial — aula asignada automáticamente",
     "checkingLocation": "Comprobando hora y lugar…",
     "allocationFailed": "No se pudieron confirmar la hora y el lugar. Revisa la sesión actual, prueba otra hora o En línea y vuelve a revisar.",
-    "roomReviewHelp": "El aula se comprueba de nuevo al enviar. Si no está disponible, revisa una nueva asignación."
+    "roomReviewHelp": "El aula se comprueba de nuevo al enviar. Si no está disponible, revisa una nueva asignación.",
+    "tutoringPaused": "Tutoría regular pausada",
+    "tutoringPausedHelp": "Esta sesión regular está pausada. No se exige asistencia. Una excepción requiere el acuerdo expreso de todos los participantes.",
+    "arrangeException": "Acordar excepción",
+    "requiresExplicit": "Se requiere acuerdo expreso; el silencio no acepta esta oferta.",
+    "explicitExceptionHelp": "Esta excepción requiere el acuerdo expreso del tutor y de cada estudiante participante. No responder significa no aceptar.",
+    "tutoringPauseProposal": "Las tutorías regulares están pausadas en esta fecha. La propuesta solo puede continuar como excepción acordada expresamente.",
+    "exceptionScheduled": "Excepción acordada"
   },
   "nextRecruitment": {
     "savedForTarget": "Apertura guardada para {name}.",
@@ -2790,7 +2798,7 @@
       "label": "Cerrar sesión"
     },
     "userMenu": {
-      "settings": "Configuración",
+      "settings": "Configuración de la cuenta",
       "enterTutor": "Entrar a la página de tutor",
       "enterAdmin": "Entrar al área de administración",
       "enterTutee": "Entrar a la página de estudiante",
@@ -3793,6 +3801,7 @@
         "program_setProfilePolicy": "Cambiar la visualización de nombres y los cursos admitidos",
         "program_setSignupField": "Cambiar los requisitos de un campo de inscripción",
         "program_setEmailNotifications": "Cambiar las notificaciones por correo del programa",
+        "program_setNotificationLocks": "Cambiar las opciones de notificación obligatorias",
         "program_setSecondaryEmailBinding": "Cambiar la disponibilidad de vinculación de correo secundario",
         "program_setTimeZone": "Cambiar la zona horaria del programa",
         "program_prepareNextRecruitment": "Preparar la apertura de inscripciones del próximo período",
@@ -3940,6 +3949,7 @@
         "QUARANTINED": "Aislado para revisión"
       },
       "entities": {
+        "ImportedRecordProvenance": "Procedencia del registro histórico importado",
         "SchedulingMaintenanceState": "Estado de mantenimiento de horarios",
         "SchedulingDirtyEvent": "Evento de invalidación de horarios",
         "PersonPartitionReceipt": "Comprobante de separación de identidad",
@@ -4100,9 +4110,11 @@
         "MonthlyHoursSchedule": "Programación de informes mensuales",
         "MonthlyHoursReport": "Informe mensual de horas de servicio",
         "SchoolHoursSchedule": "Calendario de informes escolares",
-        "SchoolHoursReport": "Informe individual de horas para la escuela"
+        "SchoolHoursReport": "Informe individual de horas para la escuela",
+        "ProgramCalendarPolicyRevision": "Revisión de la política de fechas de tutoría"
       },
       "fields": {
+        "importedAt": "Hora de importación",
         "publicSignupEmailConfirmedAt": "Confirmación del correo de inscripción pública",
         "signupOpeningStateSince": "Estado de inscripción vigente desde",
         "signupFirstOpenedAt": "Primera apertura de inscripciones",
@@ -4491,7 +4503,10 @@
         "linkVersion": "Versión del enlace del informe",
         "linkRevokedAt": "Fecha de revocación del enlace del informe",
         "schoolHoursReportId": "ID del informe escolar",
-        "schoolHoursReport": "Informe escolar"
+        "schoolHoursReport": "Informe escolar",
+        "schedulingEffect": "Efecto en la programación",
+        "tutoringPauseSuppressed": "Tutoría regular pausada",
+        "recipientLabels": "Etiquetas de destinatarios"
       },
       "enums": {
         "Role": {
@@ -4953,7 +4968,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "Notificaciones por correo",
-    "help": "Activa correos opcionales de mensajes, novedades, solicitudes de revisión y recordatorios. Cada persona elige sus categorías en los ajustes de cuenta.",
+    "help": "Gestiona la entrega de correo y las opciones de notificación obligatorias para todos. Las preferencias personales se aplican a las opciones no bloqueadas.",
     "on": "Activadas",
     "off": "Desactivadas",
     "enable": "Activar notificaciones por correo",
@@ -6004,7 +6019,11 @@
     "program": "Otras novedades del programa",
     "programHelp": "Novedades del programa sin otra categoría.",
     "reminders": "Recordatorios de eventos",
-    "remindersHelp": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas."
+    "remindersHelp": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas.",
+    "locked": "El administrador exige los correos de {category}. Puedes cancelar otras categorías opcionales.",
+    "successRequired": "Se desactivaron los correos opcionales. Los exigidos por el administrador permanecen activados.",
+    "requiredHelp": "Los correos exigidos por el administrador permanecen activados al cancelar todas las categorías opcionales.",
+    "successCategoryRequired": "Se desactivaron los correos opcionales de {category}. Los exigidos por el administrador permanecen activados."
   },
   "participantRecovery": {
     "loading": "Cargando registros…",
@@ -6068,8 +6087,8 @@
     "layout": "Guardar se aplica solo a este diseño."
   },
   "programCalendar": {
-    "title": "Fechas sin tutoría",
-    "informational": "Fechas y motivos informativos del programa. Estos avisos no restringen la asistencia ni cambian el calendario escolar utilizado para las apelaciones.",
+    "title": "Avisos y pausas de tutorías",
+    "informational": "Cada intervalo es un aviso o una pausa de tutorías regulares. Las pausas permiten excepciones acordadas expresamente y no cambian el calendario escolar ni los plazos de apelación.",
     "refresh": "Actualizar",
     "reload": "Recargar borrador",
     "loadFailed": "No se pudieron cargar los avisos de tutoría.",
@@ -6092,7 +6111,23 @@
     "saved": "Aviso guardado.",
     "saveFailed": "No se pudo guardar el aviso.",
     "refreshFailed": "El aviso se guardó, pero no se pudo cargar la lista actualizada. Actualiza para sincronizar sin volver a guardar.",
-    "details": "Ver detalles"
+    "details": "Ver detalles",
+    "schedulingEffect": "Efecto en la programación",
+    "noticeEffect": "Solo aviso",
+    "pauseEffect": "Pausar tutorías regulares",
+    "noticeHelp": "Muestra un aviso sin cambiar las sesiones con fecha.",
+    "pauseHelp": "Se pausan las sesiones regulares. Las excepciones requieren el acuerdo expreso del tutor y de cada estudiante participante; el silencio no equivale a aceptar. Los días lectivos y los plazos de apelación siguen siendo independientes.",
+    "removePauseHelp": "Eliminar esta pausa de tutorías. Las sesiones regulares futuras que cumplan los requisitos podrán restablecerse tras comprobar otras restricciones y conflictos. Las sesiones iniciadas y la asistencia registrada no cambian.",
+    "reviewImpact": "Revisar efecto en la programación",
+    "impactTitle": "Revisar compromisos afectados",
+    "impactFailed": "No se pudieron revisar los cambios de horario. No se aplicó ningún cambio. Intenta la revisión de nuevo.",
+    "impactConflict": "Este aviso ha cambiado. Vuelve a cargar los detalles actuales antes de revisarlo de nuevo.",
+    "impactScope": "Vista previa de los compromisos futuros existentes de estudiantes según la regla resultante, incluidos los ya pausados. Los estudiantes de una misma sesión se cuentan por separado; la regla también rige la recurrencia futura.",
+    "impactPause": "Compromisos regulares pausados según la regla resultante: {count}",
+    "impactRetain": "Excepciones acordadas expresamente que se mantienen: {count}",
+    "impactConfirm": "Necesitan confirmación expresa: {count}",
+    "impactRestore": "Candidatos a restablecimiento: {count}",
+    "impactRule": "Al guardar se vuelven a comprobar los acuerdos y conflictos actuales. Las sesiones iniciadas y la asistencia registrada no cambian."
   },
   "roomOrder": {
     "title": "Orden de las aulas",
@@ -7212,7 +7247,7 @@
   "schoolCalendar": {
     "title": "Calendario escolar",
     "help": "Configura cierres escolares y el horario semanal aplicado a una fecha. Las demás fechas siguen el calendario escolar de lunes a viernes.",
-    "noticeDistinction": "Los avisos de días sin tutoría son información independiente y no cambian este calendario escolar.",
+    "noticeDistinction": "Los avisos y pausas de tutoría no cambian los días lectivos, la asignación de horarios ni el cómputo de días de apelación.",
     "add": "Añadir excepción de fecha",
     "date": "Fecha real",
     "timetable": "Horario",
@@ -7708,7 +7743,9 @@
       "management": "Propuestas, decisiones de gestión y correcciones de registros.",
       "program": "Novedades del programa sin otra categoría.",
       "reminders": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas."
-    }
+    },
+    "locked": "Obligatorio por el administrador",
+    "lockDemo": "Mostrar correo de mensajes obligatorio"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -7945,16 +7982,22 @@
     "title": "Informes mensuales escolares",
     "help": "Comunica una vez el cambio no reportado de cada persona. Tutoría y Crew están incluidos. Emitir no confirma el registro escolar.",
     "baselineTitle": "Revisar saldos iniciales",
-    "baselineSummary": "{review} por revisar · {committed} confirmados",
+    "baselineSummary": "{review} por revisar · {committed} guardados",
     "baselineIssues": "{count} problemas por resolver",
     "baselineHelp": "Introduce crédito, extras, deducciones y Crew ya reportados por persona. Los valores de origen son pruebas, no valores sugeridos. Introduce cero explícitamente si no se reportó nada.",
+    "baselineAttention": "{count} saldos iniciales por revisar",
+    "baselineSetupRequired": "Se deben revisar los saldos iniciales",
+    "affectedPeople": "{count} personas afectadas",
+    "baselineBatchHelp": "Marque a cada persona revisada en sus detalles. Guarde un grupo revisado mientras se conservan los demás borradores.",
+    "baselineSelectedCount": "{count} personas seleccionadas para esta revisión",
+    "archivedSources": "{count} registros históricos importados se conservan en el historial y se excluyen de los cambios del informe escolar. Revise las fuentes actuales por separado.",
     "mappingHelp": "Comprueba cada cuenta escolar. Resuelve identidades o titularidades inciertas antes de emitir; no asocies solo por nombre.",
     "sourceTutoring": "Tutoría neta de origen",
     "sourceCrew": "Horas de Crew de origen",
     "reviewState": "Estado de revisión",
     "reviewed": "Borrador revisado",
     "needsReview": "Requiere revisión",
-    "baselineCommitted": "Base confirmada",
+    "baselineCommitted": "Saldo inicial guardado",
     "reviewPerson": "Revisar valores iniciales",
     "alreadyReported": "Ya comunicado a la escuela",
     "sourceEvidence": "Datos de origen actuales",
@@ -7963,7 +8006,7 @@
     "personAcknowledgement": "He comprobado la cuenta escolar y los valores ya reportados de esta persona.",
     "adminReviewRequired": "Un administrador o responsable debe confirmar los saldos iniciales.",
     "baselineReason": "Motivo y pruebas de los saldos iniciales",
-    "baselineAcknowledgement": "He revisado cada persona y los importes ya comunicados a la escuela.",
+    "baselineAcknowledgement": "He revisado a las personas seleccionadas y los importes ya comunicados a la escuela.",
     "confirmBaseline": "Confirmar saldos iniciales revisados",
     "baselineReviewHelp": "Guarda la base individual. No envía nada ni cambia horas de origen o cuentas escolares.",
     "baselineCount": "{count} saldos iniciales individuales revisados",
@@ -7971,7 +8014,7 @@
     "enable": "Activar informes mensuales escolares",
     "activationHelp": "Antes de activar, revisa los saldos iniciales y activa horas de servicio, correo opcional y entrega.",
     "recipients": "Correos de destinatarios escolares",
-    "recipientsHelp": "Una dirección por línea. Cada destinatario recibe el enlace guardado por separado. No requiere acceso escolar ni verificar el correo.",
+    "recipientsHelp": "Cada destinatario recibe un correo por separado con el enlace al informe guardado. No requiere cuenta escolar ni verificación del correo. Añada hasta 100 destinatarios.",
     "scheduleHelp": "Predeterminado: último día del mes a las 12:00 en la zona guardada. Cada excepción afecta un envío. La asistencia tardía queda para el siguiente informe.",
     "overrideMonth": "Mes de envío",
     "addOverride": "Establecer fecha excepcional",
@@ -8053,12 +8096,29 @@
       "SOURCE_OWNER_CHANGED": "Una fuente cambió de titular después de reportarse. Resuelve el cambio.",
       "ANCESTOR_MONTH": "Solo se puede corregir el último mes reportado.",
       "FUTURE_MONTH": "Los meses futuros aún no están disponibles.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Una fuente histórica importada coincide con un saldo revisado o emitido. Concilie su historial antes de emitir; no lo revierta automáticamente.",
       "SOURCE_VALUE_INVALID": "Una fuente contiene horas no válidas. Corrige primero el origen."
     },
     "blocked": "Resuelve antes de emitir",
     "featureOff": "Las horas de servicio están desactivadas. Vista previa no disponible.",
     "priorEditionHelp": "Elige solo la última edición realmente aplicada a esta cuenta. Si ninguna, aplica el mes completo corregido una vez. Si hay dudas, consulta al equipo antes de registrar.",
-    "priorEditionCorrection": "Si la última revisión aplicada fue {revision}: aplica {hours}"
+    "priorEditionCorrection": "Si la última revisión aplicada fue {revision}: aplica {hours}",
+    "addRecipient": "Añadir destinatario",
+    "editRecipient": "Editar",
+    "removeRecipient": "Quitar",
+    "recipientEmail": "Correo electrónico",
+    "recipientLabel": "Etiqueta (opcional)",
+    "recipientLabelHelp": "Por ejemplo, Secretaría o Dirección. Las etiquetas son notas internas y no se incluyen en los correos.",
+    "noRecipients": "Aún no hay destinatarios",
+    "noRecipientsHelp": "Añada a las personas que deben recibir el informe escolar.",
+    "recipientInvalid": "Introduzca una dirección de correo válida.",
+    "recipientDuplicate": "Este correo ya está en la lista.",
+    "updateRecipient": "Actualizar destinatario",
+    "cancelRecipient": "Cancelar",
+    "editRecipientEmail": "Editar destinatario {email}",
+    "removeRecipientEmail": "Quitar destinatario {email}",
+    "finishRecipient": "Termine o cancele la edición del destinatario antes de guardar la programación.",
+    "noRecipientLabel": "Sin etiqueta"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",
@@ -8235,5 +8295,22 @@
     "snapshotHelp": "Estos datos se registraron cuando el personal rechazó la solicitud. Los cambios posteriores del perfil no modifican esta copia.",
     "closedHelp": "Esta solicitud está cerrada y no puede asignarse ni reactivarse.",
     "released": "Asignaciones actuales liberadas: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "Configuración de entrega",
+    "requiredTab": "Notificaciones obligatorias",
+    "help": "Exige las opciones seleccionadas para todos. Las opciones bloqueadas permanecen activadas y la preferencia personal guardada se conserva para cuando se desbloqueen.",
+    "badge": "Bloquear indicador de no leídos activado",
+    "email": "Bloquear correo activado",
+    "badgeFor": "{category}: bloquear indicador de no leídos activado",
+    "emailFor": "{category}: bloquear correo activado",
+    "deliveryHelp": "El correo obligatorio sigue sujeto a la activación general, la disponibilidad de entrega y los requisitos del destinatario. Los correos de seguridad siguen siendo obligatorios por separado.",
+    "readOnly": "Solo Admin y Head pueden cambiar estos requisitos.",
+    "save": "Guardar requisitos",
+    "saving": "Guardando…",
+    "saved": "Requisitos guardados.",
+    "loadFailed": "No se pudieron cargar los últimos requisitos. Se conserva el borrador. Reintenta la lectura antes de guardar.",
+    "refreshFailed": "Los requisitos se guardaron, pero no se pudieron cargar los ajustes. Reintenta la lectura; no vuelvas a guardar.",
+    "reload": "Recargar últimos requisitos"
   }
 }

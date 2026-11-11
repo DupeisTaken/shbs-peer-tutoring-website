@@ -83,6 +83,31 @@ it("authors a semantic summary contract for every allowed approval operation", (
   }
 });
 
+it("summarizes required notification choices while retaining their expected policy as concurrency evidence", () => {
+  const categories = [
+    { category: "messages", badgeLocked: false, emailLocked: true },
+  ];
+  const payload = {
+    categories,
+    expectedCategories: [
+      { category: "messages", badgeLocked: false, emailLocked: false },
+    ],
+  };
+  const original = structuredClone(payload);
+  const model = approvalPresentation("program.setNotificationLocks", payload, {
+    programSettings: { notificationLocks: {} },
+  });
+  expect(model.summary).toMatchObject({
+    known: true,
+    operationKey: "program_setNotificationLocks",
+    facts: [],
+    changes: [{ key: "categories", requested: categories, hasBefore: false }],
+  });
+  expect(model.changes.map(({ key }) => key)).toEqual(["categories"]);
+  // Presentation must preserve the expected snapshot needed by the real writer.
+  expect(payload).toEqual(original);
+});
+
 it("compares school recipients and monthly dates with the captured schedule", () => {
   const model = approvalPresentation(
     "schoolHours.save",

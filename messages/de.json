@@ -14,7 +14,7 @@
     "oneFlow": "Einzelne Abstimmung: erstes Angebot, Alternative der lernenden Person, letztes Angebot des Tutors. Eine letzte Ablehnung sagt nur diese einzelne Sitzung ab.",
     "allFlow": "Alle müssen derselben neuesten Zeit zustimmen. Jede Person darf einmal mit einer Alternative ablehnen. Alte Zustimmung gilt nicht für neue Zeiten. Danach ist getrennte Verschiebung möglich.",
     "viewSessions": "Datierte Sitzungen anzeigen",
-    "explicitBy": "Ausdrückliche Zustimmung ist vor {deadline} erforderlich. Schweigen bestätigt diese kurzfristige Änderung nicht.",
+    "explicitBy": "Ausdrückliche Zustimmung ist vor {deadline} erforderlich. Schweigen bestätigt dieses Angebot nicht.",
     "reload": "Aktuelle Details laden und diesen Entwurf verwerfen",
     "messageUnavailable": "Direktnachrichten sind für diese Sitzung nicht verfügbar. Prüfe deinen Nachrichtenzugriff oder kontaktiere die Verwaltung.",
     "calendarSubscription": "Kalenderabonnement",
@@ -75,6 +75,7 @@
     "chooseLearner": "Lernende Person auswählen",
     "scopeHelp": "Einzeln ändert nur die Sitzung der ausgewählten Person. Alle müssen dem neuesten Gruppenangebot zustimmen.",
     "location": "Ort",
+    "locationUnavailable": "Raum nicht verfügbar. Lade die aktuellen Angaben neu, bevor du zustimmst.",
     "sameRoom": "Geplanten Raum beibehalten",
     "online": "Online",
     "noRoom": "Kein physischer Raum",
@@ -146,7 +147,14 @@
     "automaticRoom": "Vor Ort — Raum automatisch zugewiesen",
     "checkingLocation": "Zeit und Ort werden geprüft…",
     "allocationFailed": "Zeit und Ort konnten nicht bestätigt werden. Prüfe die aktuelle Sitzung, wähle eine andere Zeit oder Online und prüfe den Vorschlag erneut.",
-    "roomReviewHelp": "Der Raum wird beim Senden erneut geprüft. Ist er nicht verfügbar, prüfe eine neue Zuweisung."
+    "roomReviewHelp": "Der Raum wird beim Senden erneut geprüft. Ist er nicht verfügbar, prüfe eine neue Zuweisung.",
+    "tutoringPaused": "Reguläre Nachhilfe pausiert",
+    "tutoringPausedHelp": "Dieser reguläre Termin pausiert. Es besteht keine Anwesenheitspflicht. Eine Ausnahme erfordert die ausdrückliche Zustimmung aller Teilnehmenden.",
+    "arrangeException": "Ausnahme vereinbaren",
+    "requiresExplicit": "Ausdrückliche Zustimmung erforderlich; Schweigen nimmt dieses Angebot nicht an.",
+    "explicitExceptionHelp": "Diese Ausnahme erfordert die ausdrückliche Zustimmung der Lehrperson und aller teilnehmenden Lernenden. Keine Antwort bedeutet keine Zustimmung.",
+    "tutoringPauseProposal": "An diesem Datum pausiert die reguläre Nachhilfe. Der Vorschlag kann nur als ausdrücklich vereinbarte Ausnahme fortgesetzt werden.",
+    "exceptionScheduled": "Vereinbarte Ausnahme"
   },
   "nextRecruitment": {
     "savedForTarget": "Öffnung für {name} gespeichert.",
@@ -2790,7 +2798,7 @@
       "label": "Abmelden"
     },
     "userMenu": {
-      "settings": "Einstellungen",
+      "settings": "Kontoeinstellungen",
       "enterTutor": "Tutor-Seite öffnen",
       "enterAdmin": "Admin-Bereich betreten",
       "enterTutee": "Tutee-Seite öffnen",
@@ -3793,6 +3801,7 @@
         "program_setProfilePolicy": "Namensanzeige und angebotene Jahrgangsstufen ändern",
         "program_setSignupField": "Anforderung an ein Anmeldefeld ändern",
         "program_setEmailNotifications": "E-Mail-Benachrichtigungen des Programms ändern",
+        "program_setNotificationLocks": "Erforderliche Benachrichtigungsoptionen ändern",
         "program_setSecondaryEmailBinding": "Verfügbarkeit der Verknüpfung weiterer E-Mail-Adressen ändern",
         "program_setTimeZone": "Programmzeitzone ändern",
         "program_prepareNextRecruitment": "Aufnahmeöffnung des nächsten Zeitraums vorbereiten",
@@ -3940,6 +3949,7 @@
         "QUARANTINED": "Zur Prüfung gesperrt"
       },
       "entities": {
+        "ImportedRecordProvenance": "Herkunft importierter historischer Datensätze",
         "SchedulingMaintenanceState": "Wartungsstatus der Terminplanung",
         "SchedulingDirtyEvent": "Invalidierungsereignis der Terminplanung",
         "PersonPartitionReceipt": "Beleg zur Identitätstrennung",
@@ -4100,9 +4110,11 @@
         "MonthlyHoursSchedule": "Monatsberichtszeitplan",
         "MonthlyHoursReport": "Monatlicher Dienststundenbericht",
         "SchoolHoursSchedule": "Zeitplan für Schulberichte",
-        "SchoolHoursReport": "Individueller Schulstundenbericht"
+        "SchoolHoursReport": "Individueller Schulstundenbericht",
+        "ProgramCalendarPolicyRevision": "Revision der Nachhilfedatumsregel"
       },
       "fields": {
+        "importedAt": "Importzeitpunkt",
         "publicSignupEmailConfirmedAt": "E-Mail-Bestätigung der öffentlichen Anmeldung",
         "signupOpeningStateSince": "Anmeldestatus gültig seit",
         "signupFirstOpenedAt": "Erste Anmeldeöffnung",
@@ -4491,7 +4503,10 @@
         "linkVersion": "Version des Berichtslinks",
         "linkRevokedAt": "Widerrufszeitpunkt des Berichtslinks",
         "schoolHoursReportId": "Schulberichts-ID",
-        "schoolHoursReport": "Schulbericht"
+        "schoolHoursReport": "Schulbericht",
+        "schedulingEffect": "Auswirkung auf die Planung",
+        "tutoringPauseSuppressed": "Reguläre Nachhilfe pausiert",
+        "recipientLabels": "Empfängerbezeichnungen"
       },
       "enums": {
         "Role": {
@@ -4953,7 +4968,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "E-Mail-Benachrichtigungen",
-    "help": "Optionale Nachrichten, Programmmitteilungen, Prüfanfragen und Terminerinnerungen aktivieren. Jede Person wählt ihre Kategorien in den Kontoeinstellungen.",
+    "help": "Verwalten Sie den E-Mail-Versand und die für alle verpflichtenden Benachrichtigungsoptionen. Für nicht gesperrte Optionen gelten die persönlichen Einstellungen.",
     "on": "Aktiviert",
     "off": "Deaktiviert",
     "enable": "E-Mail-Benachrichtigungen aktivieren",
@@ -6004,7 +6019,11 @@
     "program": "Weitere Programmmitteilungen",
     "programHelp": "Programmmitteilungen ohne andere Kategorie.",
     "reminders": "Terminerinnerungen",
-    "remindersHelp": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe."
+    "remindersHelp": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe.",
+    "locked": "E-Mails für {category} sind vom Programmadministrator vorgeschrieben. Andere optionale Kategorien können Sie weiterhin abbestellen.",
+    "successRequired": "Optionale E-Mails sind ausgeschaltet. Vom Administrator vorgeschriebene E-Mails bleiben aktiviert.",
+    "requiredHelp": "Vom Administrator vorgeschriebene E-Mails bleiben beim Abbestellen aller optionalen Kategorien aktiviert.",
+    "successCategoryRequired": "Optionale E-Mails für {category} sind jetzt ausgeschaltet. Vom Administrator vorgeschriebene E-Mails bleiben aktiviert."
   },
   "participantRecovery": {
     "loading": "Einträge werden geladen…",
@@ -6068,8 +6087,8 @@
     "layout": "Speichern gilt nur für dieses Layout."
   },
   "programCalendar": {
-    "title": "Tage ohne Nachhilfe",
-    "informational": "Hinweise zu Programmdaten und Gründen. Diese Hinweise schränken die Anwesenheitserfassung nicht ein und ändern nicht den Schultagskalender für Einsprüche.",
+    "title": "Nachhilfehinweise und Pausen",
+    "informational": "Ein Zeitraum ist ein Hinweis oder eine Pause regulärer Nachhilfe. Während einer Pause sind ausdrücklich vereinbarte Ausnahmen möglich; Schulkalender und Einspruchsfristen ändern sich nicht.",
     "refresh": "Aktualisieren",
     "reload": "Entwurf neu laden",
     "loadFailed": "Nachhilfehinweise konnten nicht geladen werden.",
@@ -6092,7 +6111,23 @@
     "saved": "Hinweis gespeichert.",
     "saveFailed": "Hinweis konnte nicht gespeichert werden.",
     "refreshFailed": "Der Hinweis wurde gespeichert, aber die aktuelle Liste konnte nicht geladen werden. Aktualisieren Sie sie, ohne erneut zu speichern.",
-    "details": "Details anzeigen"
+    "details": "Details anzeigen",
+    "schedulingEffect": "Auswirkung auf die Planung",
+    "noticeEffect": "Nur Hinweis",
+    "pauseEffect": "Reguläre Nachhilfe pausieren",
+    "noticeHelp": "Zeigt einen Hinweis, ohne datierte Termine zu ändern.",
+    "pauseHelp": "Reguläre Termine pausieren. Ausnahmen benötigen die ausdrückliche Zustimmung der Lehrperson und aller teilnehmenden Lernenden; Schweigen gilt nicht als Zustimmung. Schultage und Einspruchsfristen bleiben unabhängig.",
+    "removePauseHelp": "Diese Nachhilfepause entfernen. Berechtigte zukünftige reguläre Termine können nach Prüfung anderer Einschränkungen und Konflikte wiederhergestellt werden. Bereits begonnene Termine und erfasste Anwesenheit bleiben unverändert.",
+    "reviewImpact": "Planungsauswirkung prüfen",
+    "impactTitle": "Betroffene Termine prüfen",
+    "impactFailed": "Die Planungsänderungen konnten nicht geprüft werden. Es wurde nichts angewendet. Versuche die Prüfung erneut.",
+    "impactConflict": "Dieser Hinweis wurde geändert. Lade die aktuellen Angaben neu, bevor du erneut prüfst.",
+    "impactScope": "Vorschau bestehender zukünftiger Lernendentermine unter der neuen Regel, einschließlich bereits pausierter Termine. Lernende einer gemeinsamen Stunde zählen einzeln; künftige Wiederholungen folgen ebenfalls der Regel.",
+    "impactPause": "Unter der neuen Regel pausierte reguläre Termine: {count}",
+    "impactRetain": "Ausdrücklich vereinbarte Ausnahmen bleiben: {count}",
+    "impactConfirm": "Ausdrückliche Bestätigung erforderlich: {count}",
+    "impactRestore": "Mögliche Wiederherstellungen: {count}",
+    "impactRule": "Beim Speichern werden aktuelle Zustimmungen und Konflikte erneut geprüft. Begonnene Termine und erfasste Anwesenheit bleiben unverändert."
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",
@@ -7212,7 +7247,7 @@
   "schoolCalendar": {
     "title": "Schulkalender",
     "help": "Schulfreie Tage und den geltenden Stundenplan für einzelne Daten festlegen. Sonst gelten Montag bis Freitag als Schultage.",
-    "noticeDistinction": "Hinweise auf unterrichtsfreie Nachhilfetage sind getrennte Informationen und ändern diesen Schulkalender nicht.",
+    "noticeDistinction": "Nachhilfehinweise und Pausen ändern weder Schultagstatus noch Stundenplanzuordnung oder die Zählung der Einspruchstage.",
     "add": "Datumsregel hinzufügen",
     "date": "Tatsächliches Datum",
     "timetable": "Stundenplan",
@@ -7708,7 +7743,9 @@
       "management": "Verwaltungsvorschläge, Entscheidungen und Korrekturen.",
       "program": "Programmmitteilungen ohne andere Kategorie.",
       "reminders": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe."
-    }
+    },
+    "locked": "Vom Administrator vorgeschrieben",
+    "lockDemo": "Erforderliche Nachrichten-E-Mail demonstrieren"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -7945,16 +7982,22 @@
     "title": "Schulmonatsberichte",
     "help": "Ungemeldete Änderungen je Person einmal melden. Nachhilfe und Crew sind darin enthalten. Die Ausgabe bestätigt keine Schulbuchung.",
     "baselineTitle": "Gemeldete Anfangswerte prüfen",
-    "baselineSummary": "{review} zu prüfen · {committed} bestätigt",
+    "baselineSummary": "{review} zu prüfen · {committed} gespeichert",
     "baselineIssues": "{count} Probleme zu klären",
     "baselineHelp": "Bereits gemeldete Stunden, Extras, Abzüge und Crew je Person eingeben. Quelldaten sind Belege, keine Vorgabewerte. Nicht gemeldete Werte ausdrücklich als Null eingeben.",
+    "baselineAttention": "{count} Anfangssalden zu prüfen",
+    "baselineSetupRequired": "Anfangssalden prüfen",
+    "affectedPeople": "{count} betroffene Personen",
+    "baselineBatchHelp": "Geprüfte Personen in ihren Details markieren. Geprüfte Salden können schrittweise gespeichert werden; andere Entwürfe bleiben erhalten.",
+    "baselineSelectedCount": "{count} Personen für diese Prüfung ausgewählt",
+    "archivedSources": "{count} importierte historische Datensätze bleiben im Verlauf und zählen nicht zu Änderungen im Schulbericht. Aktuelle Quellen getrennt prüfen.",
     "mappingHelp": "Schulkonto jeder Person prüfen. Unklare Identität oder Zuordnung vor Ausgabe klären; nie nur nach Namen zuordnen.",
     "sourceTutoring": "Nachhilfe aus Quelldaten, netto",
     "sourceCrew": "Crew-Stunden aus Quelldaten",
     "reviewState": "Prüfstatus",
     "reviewed": "Entwurf geprüft",
     "needsReview": "Prüfung erforderlich",
-    "baselineCommitted": "Gespeicherte Ausgangsbasis",
+    "baselineCommitted": "Gespeicherter Anfangssaldo",
     "reviewPerson": "Anfangswerte prüfen",
     "alreadyReported": "Bereits an die Schule gemeldet",
     "sourceEvidence": "Aktuelle Quelldaten",
@@ -7963,7 +8006,7 @@
     "personAcknowledgement": "Ich habe Schulkontozuordnung und bereits gemeldete Werte dieser Person geprüft.",
     "adminReviewRequired": "Admin oder Leitung muss die Anfangswerte bestätigen.",
     "baselineReason": "Begründung und Belege für Anfangswerte",
-    "baselineAcknowledgement": "Ich habe jede aufgeführte Person und die bereits an die Schule gemeldeten Werte geprüft.",
+    "baselineAcknowledgement": "Ich habe die ausgewählten Personen und die bereits an die Schule gemeldeten Werte geprüft.",
     "confirmBaseline": "Geprüfte Anfangswerte bestätigen",
     "baselineReviewHelp": "Persönliche Ausgangsbasis speichern. Es wird nichts gesendet und weder Quelldaten noch Schulkonten werden geändert.",
     "baselineCount": "{count} persönliche Anfangswerte geprüft",
@@ -7971,7 +8014,7 @@
     "enable": "Schulmonatsberichte aktivieren",
     "activationHelp": "Vor Aktivierung Anfangswerte prüfen sowie Dienststunden, optionale E-Mail und Mailzustellung aktivieren.",
     "recipients": "E-Mail-Adressen der Schulempfänger",
-    "recipientsHelp": "Eine Adresse pro Zeile. Einzelne E-Mails enthalten den gespeicherten Berichtslink. Kein Schullogin oder E-Mail-Nachweis nötig.",
+    "recipientsHelp": "Jede Person erhält eine separate E-Mail mit dem Link zum gespeicherten Bericht. Schulkonto und E-Mail-Verifizierung sind nicht erforderlich. Fügen Sie bis zu 100 Empfänger hinzu.",
     "scheduleHelp": "Standard: letzter Monatstag um 12:00 Uhr in gespeicherter Zeitzone. Ausnahmen gelten nur für einen Termin. Späte Anwesenheit bleibt für den nächsten Bericht offen.",
     "overrideMonth": "Berichtsmonat",
     "addOverride": "Abweichenden Termin festlegen",
@@ -8053,12 +8096,29 @@
       "SOURCE_OWNER_CHANGED": "Eine gemeldete Quelle wechselte die Person. Änderung zuerst klären.",
       "ANCESTOR_MONTH": "Nur der neueste Berichtsmonat darf korrigiert werden.",
       "FUTURE_MONTH": "Künftige Berichtsmonate sind noch nicht verfügbar.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "Eine importierte historische Quelle überschneidet sich mit einem geprüften oder ausgestellten Saldo. Den Berichtsverlauf vor der Ausgabe abgleichen; keine stille Rückbuchung.",
       "SOURCE_VALUE_INVALID": "Eine Quelle enthält ungültige Stunden. Quelle zuerst korrigieren."
     },
     "blocked": "Vor Ausgabe klären",
     "featureOff": "Dienststunden sind deaktiviert. Vorschau nicht verfügbar.",
     "priorEditionHelp": "Nur die tatsächlich zuletzt auf diesem Konto gebuchte Ausgabe wählen. Falls keine, korrigierten Gesamtmonat einmal anwenden. Bei Unsicherheit vor der Buchung das Programmteam fragen.",
-    "priorEditionCorrection": "Zuletzt Ausgabe {revision} gebucht: {hours} anwenden"
+    "priorEditionCorrection": "Zuletzt Ausgabe {revision} gebucht: {hours} anwenden",
+    "addRecipient": "Empfänger hinzufügen",
+    "editRecipient": "Bearbeiten",
+    "removeRecipient": "Entfernen",
+    "recipientEmail": "E-Mail-Adresse",
+    "recipientLabel": "Bezeichnung (optional)",
+    "recipientLabelHelp": "Zum Beispiel Schulbüro oder Schulleitung. Bezeichnungen sind interne Notizen und erscheinen nicht in E-Mails.",
+    "noRecipients": "Noch keine Empfänger",
+    "noRecipientsHelp": "Fügen Sie die Personen hinzu, die den Schulbericht erhalten sollen.",
+    "recipientInvalid": "Geben Sie eine gültige E-Mail-Adresse ein.",
+    "recipientDuplicate": "Diese E-Mail-Adresse steht bereits auf der Liste.",
+    "updateRecipient": "Empfänger aktualisieren",
+    "cancelRecipient": "Abbrechen",
+    "editRecipientEmail": "Empfänger {email} bearbeiten",
+    "removeRecipientEmail": "Empfänger {email} entfernen",
+    "finishRecipient": "Beenden oder verwerfen Sie die Empfängerbearbeitung, bevor Sie den Zeitplan speichern.",
+    "noRecipientLabel": "Ohne Bezeichnung"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",
@@ -8235,5 +8295,22 @@
     "snapshotHelp": "Diese Quelldaten wurden bei der Ablehnung erfasst. Spätere Profiländerungen ändern diese Momentaufnahme nicht.",
     "closedHelp": "Diese Anmeldung ist geschlossen und kann weder zugewiesen noch reaktiviert werden.",
     "released": "Aufgehobene aktuelle Zuweisungen: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "Zustellung",
+    "requiredTab": "Erforderliche Benachrichtigungen",
+    "help": "Ausgewählte Optionen für alle verpflichtend einschalten. Gespeicherte persönliche Einstellungen bleiben erhalten und gelten nach dem Entsperren wieder.",
+    "badge": "Ungelesen-Anzeige einschalten und sperren",
+    "email": "E-Mail einschalten und sperren",
+    "badgeFor": "{category}: Ungelesen-Anzeige einschalten und sperren",
+    "emailFor": "{category}: E-Mail einschalten und sperren",
+    "deliveryHelp": "Erforderliche E-Mails hängen weiterhin von der allgemeinen E-Mail-Aktivierung, der Zustellbarkeit und der Empfängerberechtigung ab. Sicherheits-E-Mails bleiben separat verpflichtend.",
+    "readOnly": "Nur Admin und Head können diese Vorgaben ändern.",
+    "save": "Vorgaben speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Vorgaben gespeichert.",
+    "loadFailed": "Die aktuellen Vorgaben konnten nicht geladen werden. Ihr Entwurf bleibt erhalten. Laden Sie sie vor dem Speichern erneut.",
+    "refreshFailed": "Die Vorgaben wurden gespeichert, aber die aktuellen Einstellungen konnten nicht geladen werden. Wiederholen Sie nur das Laden.",
+    "reload": "Aktuelle Vorgaben laden"
   }
 }

@@ -68,7 +68,8 @@ PolicyAcceptance|acceptedAt:timestamp,id:text,revision:text,signature:text,slug:
 PolicyArchive|archivedAt:timestamp,archivedByName:text,body:text,id:text,locale:text,slug:text,title:text,version:text
 PolicyDocument|body:text,id:text,locale:text,slug:text,title:text,updatedAt:timestamp,updatedById:text,version:text
 PolicyFile|id:text,name:text,path:text,uploadedAt:timestamp
-ProgramCalendarDay|active:bool,date:text,endDate:text,reason:text,updatedAt:timestamp,version:int4
+ProgramCalendarDay|active:bool,date:text,endDate:text,reason:text,schedulingEffect:text,updatedAt:timestamp,version:int4
+ProgramCalendarPolicyRevision|active:bool,date:text,effectiveAt:timestamp,endDate:text,id:int8,schedulingEffect:text,version:int4
 ProgramFeature|enabled:bool,key:ProgramFeatureKey,pendingEnabled:bool,revision:int4,updatedAt:timestamp,updatedByName:text
 ProgramSettings|captchaEnabled:bool,captchaVersion:int4,emailNotificationsEnabled:bool,id:text,nameFields:jsonb,nameFieldsVersion:int4,offeredGrades:_int4,requireLatinLegalNames:bool,requireLatinNames:bool,secondaryEmailBindingEnabled:bool,showAlternateNames:bool,signupFields:jsonb,timeZone:text,updatedAt:timestamp,usePreferredNames:bool
 PublicApplicationRateLimit|count:int4,key:text,resetsAt:timestamp
@@ -93,7 +94,7 @@ SchoolCalendarDay|active:bool,date:text,isSchoolDay:bool,note:text,scheduleRevis
 SchoolDeparture|confirmedAt:timestamp,confirmedById:text,effectiveAt:timestamp,observerRevoked:bool,reason:text,revision:int4,source:text,tutorDerived:bool,userId:text
 SchoolDepartureEvent|action:text,actorId:text,createdAt:timestamp,explanation:text,id:text,revision:int4,source:text,userId:text
 SchoolHoursReport|baselineVersion:int4,configVersion:int4,contentHash:text,dueAt:timestamp,generatedAt:timestamp,generatedById:text,generationHash:text,generationKey:text,id:text,intendedRecipients:_text,linkRevokedAt:timestamp,linkTokenHash:text,linkVersion:int4,month:text,predecessorId:text,reason:text,revision:int4,scheduleId:text,snapshot:jsonb,sourceBaseline:jsonb,supersededById:text,supersedesId:text,timeZone:text
-SchoolHoursSchedule|baselineVersion:int4,dateOverrides:jsonb,enabled:bool,headReportId:text,id:text,includeStatistics:bool,lastGenerationError:text,nextDueAt:timestamp,nextMonth:text,openingBaseline:jsonb,openingReviewedAt:timestamp,recipientEmails:_text,timeZone:text,updatedAt:timestamp,version:int4
+SchoolHoursSchedule|baselineVersion:int4,dateOverrides:jsonb,enabled:bool,headReportId:text,id:text,includeStatistics:bool,lastGenerationError:text,nextDueAt:timestamp,nextMonth:text,openingBaseline:jsonb,openingReviewedAt:timestamp,recipientEmails:_text,recipientLabels:jsonb,timeZone:text,updatedAt:timestamp,version:int4
 ServiceHourAdjustment|amount:float8,createdAt:timestamp,id:text,month:text,quarter:Quarter,reason:text,schoolYear:text,tutorId:text,type:AdjustmentType
 Session|actualRoomId:text,comments:text,createdAt:timestamp,date:timestamp,durationMin:int4,endMin:int4,id:text,mergeGroupId:text,month:text,online:bool,pairingId:text,planningCohortId:text,quarter:Quarter,ratingBehavior:int4,ratingParticipation:int4,ratingPreparedness:int4,ratingProgress:int4,ratingUnderstanding:int4,schoolYear:text,shCount:float8,shFactor:int4,startMin:int4,submissionKey:text,submissionPayloadHash:text,timeSlotId:text,tutorAbsentReason:text,tutorId:text,tutorStatus:SessionTutorStatus,updatedAt:timestamp
 SessionCalendarToken|createdAt:timestamp,id:text,revokedAt:timestamp,tokenHash:text,userId:text
@@ -110,7 +111,7 @@ SessionPlanningReceipt|actorId:text,clientKey:text,createdAt:timestamp,payloadHa
 SessionPlanningRequest|cohortId:text,createdAt:timestamp,currentOfferId:text,id:text,kind:text,parentRequestId:text,participantIds:jsonb,planId:text,rejectionKeys:jsonb,scope:text,stage:int4,status:text,updatedAt:timestamp,version:int4
 SessionPlanningResponse|acceptedBy:text,actorKey:text,actorUserId:text,deadline:timestamp,deliveredAt:timestamp,id:text,offerId:text,respondedAt:timestamp,state:text
 SessionPlanningSuggestion|actorUserId:text,cohortId:text,createdAt:timestamp,date:text,id:text,online:bool,planId:text,roomId:text,sourceVersion:int4,startMin:int4,tuteeId:text,usedAt:timestamp,version:int4
-SessionPlanParticipant|calendarSuppressed:bool,cohortId:text,id:text,planId:text,scheduleOverride:bool,status:text,tuteeId:text,updatedAt:timestamp,version:int4
+SessionPlanParticipant|calendarSuppressed:bool,cohortId:text,id:text,planId:text,scheduleOverride:bool,status:text,tuteeId:text,tutoringPauseSuppressed:bool,updatedAt:timestamp,version:int4
 SessionTutee|absenceReason:text,sessionId:text,status:TuteeAttendanceStatus,tuteeId:text
 SignupLease|expiresAt:timestamp,owner:text,slot:text
 SignupQuota|count:int4,expiresAt:timestamp,key:text
@@ -361,6 +362,9 @@ const REVIEWED_IDENTITY_DECLINE_COLUMNS = [
   ...REVIEWED_IDENTITY_COLUMNS,
   ...LEGACY_DECLINE_COLUMNS,
 ].sort();
+// This additive preference policy grants no bearer or identity authority. Retain
+// every reviewed older backup shape while requiring its exact PostgreSQL type.
+const NOTIFICATION_LOCK_COLUMN = "ProgramSettings|notificationLocks|jsonb";
 const PRISMA_METADATA = [
   "applied_steps_count|int4",
   "checksum|varchar",
@@ -371,8 +375,26 @@ const PRISMA_METADATA = [
   "rolled_back_at|timestamptz",
   "started_at|timestamptz",
 ].sort();
+const IMPORT_PROVENANCE_COLUMNS = [
+  "ImportedRecordProvenance|entity|text",
+  "ImportedRecordProvenance|importedAt|timestamp",
+  "ImportedRecordProvenance|recordId|text",
+].sort();
 
 export const reviewedRecoverySchemaMetadata = {
+  importProvenanceColumns: IMPORT_PROVENANCE_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
+  notificationLockColumns: [
+    ...REVIEWED_IDENTITY_DECLINE_COLUMNS,
+    NOTIFICATION_LOCK_COLUMN,
+  ]
+    .sort()
+    .map((line) => {
+      const [table_name, column_name, udt_name] = line.split("|");
+      return { table_name, column_name, udt_name };
+    }),
   legacyDeclineColumns: REVIEWED_DECLINE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -408,16 +430,68 @@ export function assertReviewedRecoverySchema(
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
     )
     .sort();
+  // Strip only the exact, singleton additive notification column before applying
+  // the independently reviewed tutoring-policy and recipient-label backup rules.
+  // Wrong types and duplicates remain visible and fail the complete comparison.
+  const notificationDomain =
+    domain.filter((column) => column === NOTIFICATION_LOCK_COLUMN).length === 1
+      ? domain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
+      : domain;
+  // Both additive policy columns are reviewed together. Older complete backups
+  // remain readable; a partial upgrade is never silently accepted.
+  const policyColumns = [
+    "ProgramCalendarDay|schedulingEffect|text",
+    "SessionPlanParticipant|tutoringPauseSuppressed|bool",
+  ];
+  const historyColumns = REVIEWED_COLUMNS.filter((column) =>
+    column.startsWith("ProgramCalendarPolicyRevision|"),
+  );
+  const hasHistory = notificationDomain.some((column) =>
+    column.startsWith("ProgramCalendarPolicyRevision|"),
+  );
+  const comparedDomain = hasHistory
+    ? notificationDomain
+    : [
+        ...notificationDomain,
+        ...historyColumns,
+        ...(policyColumns.every(
+          (column) => !notificationDomain.includes(column),
+        )
+          ? policyColumns
+          : []),
+      ].sort();
   const migration = columns
     .filter((row) => row.table_name === "_prisma_migrations")
     .map((row) => `${String(row.column_name)}|${String(row.udt_name)}`)
     .sort();
+  // Accept only the complete reviewed archive boundary. Its removal or partial
+  // restoration must not widen the authority of an otherwise reviewed backup.
+  const provenance = domain.filter((column) =>
+    column.startsWith("ImportedRecordProvenance|"),
+  );
+  operatorAssert(
+    provenance.length === 0 ||
+      provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
+    "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
+  );
+  // Compose reviewed policy phases with the independent archive boundary before
+  // normalizing the optional staff-only recipient labels on older backups.
+  const withoutProvenance = comparedDomain.filter(
+    (column) => !column.startsWith("ImportedRecordProvenance|"),
+  );
+  // Labels add no authority or bearer state. Keep the previously reviewed
+  // backups readable while requiring the exact JSONB type when this field exists.
+  const recipientLabelColumn = "SchoolHoursSchedule|recipientLabels|jsonb";
+  const reviewedDomain = withoutProvenance.includes(recipientLabelColumn)
+    ? withoutProvenance
+    : [...withoutProvenance, recipientLabelColumn].sort();
   const identityVersion: 0 | 1 | null =
-    domain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
-    domain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
+    reviewedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||
+    reviewedDomain.join("\n") === REVIEWED_DECLINE_COLUMNS.join("\n")
       ? 0
-      : domain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
-          domain.join("\n") === REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
+      : reviewedDomain.join("\n") === REVIEWED_IDENTITY_COLUMNS.join("\n") ||
+          reviewedDomain.join("\n") ===
+            REVIEWED_IDENTITY_DECLINE_COLUMNS.join("\n")
         ? 1
         : null;
   operatorAssert(identityVersion !== null, "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");

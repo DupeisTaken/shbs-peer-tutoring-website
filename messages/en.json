@@ -14,7 +14,7 @@
     "oneFlow": "Individual agreement follows the first offer, the tutee’s alternative, then the tutor’s final offer. Final rejection cancels only that tutee’s dated session.",
     "allFlow": "Everyone must agree to the latest time. Each person may reject once with an alternative; acceptance of an earlier time does not carry forward. After using that rejection, request separate rescheduling if needed.",
     "viewSessions": "View dated sessions",
-    "explicitBy": "Explicit agreement is required before {deadline}. Silence does not accept this short-notice change.",
+    "explicitBy": "Explicit agreement is required before {deadline}. Silence does not accept this offer.",
     "reload": "Reload current details and discard this draft",
     "messageUnavailable": "Direct messaging is unavailable for this session. Check your messaging access or contact management.",
     "calendarSubscription": "Calendar subscription",
@@ -75,6 +75,7 @@
     "chooseLearner": "Choose a tutee",
     "scopeHelp": "One changes only the selected tutee’s dated session. All requires agreement to the latest time from everyone.",
     "location": "Location",
+    "locationUnavailable": "Room unavailable. Refresh the current details before agreeing.",
     "sameRoom": "Keep the planned room",
     "online": "Online",
     "noRoom": "No physical room",
@@ -146,7 +147,14 @@
     "automaticRoom": "In person — room assigned automatically",
     "checkingLocation": "Checking time and location…",
     "allocationFailed": "Could not confirm this time and location. Check the current session, try another time or Online, then review again.",
-    "roomReviewHelp": "This room is checked again when you send. If unavailable, review a new assignment."
+    "roomReviewHelp": "This room is checked again when you send. If unavailable, review a new assignment.",
+    "tutoringPaused": "Regular tutoring paused",
+    "tutoringPausedHelp": "This regular session is paused. Attendance is not required. Arrange an exception only with affirmative agreement from every participant.",
+    "arrangeException": "Arrange exception",
+    "requiresExplicit": "Explicit agreement required; silence will not accept this offer.",
+    "explicitExceptionHelp": "This exception requires affirmative agreement from the tutor and every participating learner. No response means no agreement.",
+    "tutoringPauseProposal": "Regular tutoring is paused on this date. This proposal can proceed only as an explicitly agreed exception.",
+    "exceptionScheduled": "Agreed exception"
   },
   "nextRecruitment": {
     "savedForTarget": "Opening saved for {name}.",
@@ -2790,7 +2798,7 @@
       "label": "Sign Out"
     },
     "userMenu": {
-      "settings": "Settings",
+      "settings": "Account Settings",
       "enterTutor": "Enter Tutor Page",
       "enterAdmin": "Enter Admin Area",
       "enterTutee": "Enter Tutee Page",
@@ -3796,6 +3804,7 @@
         "program_setProfilePolicy": "Change name display and offered grades",
         "program_setSignupField": "Change a signup field requirement",
         "program_setEmailNotifications": "Change program email notifications",
+        "program_setNotificationLocks": "Change required notification choices",
         "program_setSecondaryEmailBinding": "Change secondary email binding availability",
         "program_setTimeZone": "Change the program time zone",
         "program_prepareNextRecruitment": "Prepare next-period recruitment opening",
@@ -3940,6 +3949,7 @@
         "QUARANTINED": "Quarantined for review"
       },
       "entities": {
+        "ImportedRecordProvenance": "Imported historical record provenance",
         "SchedulingMaintenanceState": "Scheduling maintenance state",
         "SchedulingDirtyEvent": "Scheduling invalidation event",
         "PersonPartitionReceipt": "Identity separation receipt",
@@ -4100,9 +4110,11 @@
         "MonthlyHoursSchedule": "Monthly report schedule",
         "MonthlyHoursReport": "Monthly service-hours report",
         "SchoolHoursSchedule": "School report schedule",
-        "SchoolHoursReport": "Individual school-hours report"
+        "SchoolHoursReport": "Individual school-hours report",
+        "ProgramCalendarPolicyRevision": "Tutoring date policy revision"
       },
       "fields": {
+        "importedAt": "Import time",
         "publicSignupEmailConfirmedAt": "Public signup email confirmation",
         "signupOpeningStateSince": "Signup state effective since",
         "signupFirstOpenedAt": "First signup opening",
@@ -4491,7 +4503,10 @@
         "linkVersion": "Report link version",
         "linkRevokedAt": "Report link revoked at",
         "schoolHoursReportId": "School report ID",
-        "schoolHoursReport": "School report"
+        "schoolHoursReport": "School report",
+        "schedulingEffect": "Scheduling effect",
+        "tutoringPauseSuppressed": "Regular tutoring paused",
+        "recipientLabels": "Recipient labels"
       },
       "enums": {
         "Role": {
@@ -4952,7 +4967,7 @@
   },
   "programEmail": {
     "title": "Email Notifications",
-    "help": "Enable optional messages, program updates, review requests and event reminders. Each person chooses their categories in account preferences.",
+    "help": "Manage email delivery and the notification choices required for everyone. Personal preferences apply to unlocked choices.",
     "on": "Enabled",
     "off": "Disabled",
     "enable": "Enable email notifications",
@@ -6038,7 +6053,11 @@
     "program": "Other program updates",
     "programHelp": "Program updates not included in another category.",
     "reminders": "Upcoming reminders",
-    "remindersHelp": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions."
+    "remindersHelp": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions.",
+    "locked": "{category} email is required by the program administrator. You can still unsubscribe from other optional categories.",
+    "successRequired": "Optional email choices are now off. Email required by the administrator remains enabled.",
+    "requiredHelp": "Email required by the administrator stays enabled when you unsubscribe from all optional categories.",
+    "successCategoryRequired": "Optional {category} emails are now off. Email required by the administrator remains enabled."
   },
   "participantRecovery": {
     "loading": "Loading records…",
@@ -6068,8 +6087,8 @@
     "layout": "Save applies to this layout only."
   },
   "programCalendar": {
-    "title": "No-Tutoring Dates",
-    "informational": "Informational program dates and reasons. These notices do not restrict attendance or change the school-day calendar used by appeals.",
+    "title": "Tutoring Notices & Pauses",
+    "informational": "Each range is either a notice or a pause of regular tutoring. Paused dates allow explicitly agreed exceptions and do not change the school calendar or appeal deadlines.",
     "refresh": "Refresh",
     "reload": "Reload draft",
     "loadFailed": "Could not load tutoring notices.",
@@ -6092,7 +6111,23 @@
     "saved": "Notice saved.",
     "saveFailed": "Could not save the notice.",
     "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again.",
-    "details": "View details"
+    "details": "View details",
+    "schedulingEffect": "Scheduling effect",
+    "noticeEffect": "Notice only",
+    "pauseEffect": "Pause regular tutoring",
+    "noticeHelp": "Shows a notice without changing dated commitments.",
+    "pauseHelp": "Regular sessions pause. Exceptions require affirmative agreement from the tutor and every participating learner; silence is not agreement. School-day and appeal rules stay separate.",
+    "removePauseHelp": "Remove this tutoring pause. Eligible future regular commitments may return after checking other restrictions and conflicts. Started sessions and recorded attendance stay unchanged.",
+    "reviewImpact": "Review scheduling effect",
+    "impactTitle": "Review Affected Commitments",
+    "impactFailed": "Could not review scheduling changes. Nothing was applied. Try the review again.",
+    "impactConflict": "This notice changed. Reload the current details before reviewing again.",
+    "impactScope": "Preview of existing future learner commitments under the resulting rule, including those already paused. Learners in one lesson are counted separately; future recurrence follows the rule too.",
+    "impactPause": "Regular commitments paused under the resulting rule: {count}",
+    "impactRetain": "Explicitly agreed exceptions retained: {count}",
+    "impactConfirm": "Need affirmative confirmation: {count}",
+    "impactRestore": "Restoration candidates: {count}",
+    "impactRule": "Save rechecks current agreements and conflicts. Started sessions and recorded attendance stay unchanged."
   },
   "roomOrder": {
     "title": "Room Display Order",
@@ -7212,7 +7247,7 @@
   "schoolCalendar": {
     "title": "School Calendar",
     "help": "Set school closures and the weekday timetable followed on a specific date. Other dates follow the normal Monday–Friday school calendar.",
-    "noticeDistinction": "No-tutoring notices are separate informational dates. They do not change this school calendar.",
+    "noticeDistinction": "Tutoring notices and pauses do not change school-day status, timetable mapping or appeal-day counting.",
     "add": "Add date override",
     "date": "Actual date",
     "timetable": "Timetable",
@@ -7708,7 +7743,9 @@
       "management": "Management proposals, decisions and corrected records.",
       "program": "Program updates not included in another category.",
       "reminders": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions."
-    }
+    },
+    "locked": "Required by administrator",
+    "lockDemo": "Demonstrate required message email"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -7939,16 +7976,22 @@
     "title": "School Month Reports",
     "help": "Report each individual's unreported account change once. Tutoring and Crew explain that amount. Report issuance does not confirm school posting.",
     "baselineTitle": "Review Opening Balances",
-    "baselineSummary": "{review} need review · {committed} committed",
+    "baselineSummary": "{review} need review · {committed} saved",
     "baselineIssues": "{count} issues to resolve",
     "baselineHelp": "For each person, enter credit, extras, deductions and Crew hours already reported to school. Current source values are evidence, not suggested balances. Enter zero explicitly where none was reported.",
+    "baselineAttention": "{count} opening balances need review",
+    "baselineSetupRequired": "Opening review needed",
+    "affectedPeople": "{count} affected individuals",
+    "baselineBatchHelp": "Mark each checked person as reviewed in their details. Save a reviewed batch while other drafts remain.",
+    "baselineSelectedCount": "{count} individuals selected for this review",
+    "archivedSources": "{count} imported historical records stay in history and are excluded from school-report changes. Review current sources separately.",
     "mappingHelp": "Check each person's school account. Resolve uncertain identity or ownership before issuing; never match accounts by name alone.",
     "sourceTutoring": "Source tutoring net",
     "sourceCrew": "Source Crew hours",
     "reviewState": "Review state",
     "reviewed": "Reviewed draft",
     "needsReview": "Needs review",
-    "baselineCommitted": "Committed baseline",
+    "baselineCommitted": "Saved opening balance",
     "reviewPerson": "Review opening values",
     "alreadyReported": "Already reported to school",
     "sourceEvidence": "Current source evidence",
@@ -7957,7 +8000,7 @@
     "personAcknowledgement": "I checked this person's school-account mapping and already-reported values.",
     "adminReviewRequired": "Admin or Head must confirm opening balances.",
     "baselineReason": "Reason and evidence for opening balances",
-    "baselineAcknowledgement": "I reviewed every listed individual and the amounts already reported to school.",
+    "baselineAcknowledgement": "I reviewed the selected individuals and the amounts already reported to school.",
     "confirmBaseline": "Confirm reviewed opening balances",
     "baselineReviewHelp": "Save the per-person baseline. This sends nothing and changes no source hours or school accounts.",
     "baselineCount": "{count} individual opening balances reviewed",
@@ -7965,7 +8008,7 @@
     "enable": "Enable school month reports",
     "activationHelp": "Before activation, review opening balances and enable service hours, optional email and mail delivery.",
     "recipients": "School recipient email addresses",
-    "recipientsHelp": "One address per line. Recipients receive separate emails with the saved report link. No school login or email verification is required.",
+    "recipientsHelp": "Recipients receive separate emails with the saved report link. No school login or email verification is required. Add up to 100 recipients.",
     "scheduleHelp": "Default: last day of each month at 12:00 noon in the saved timezone. Overrides affect one occurrence. Post-issue attendance remains eligible for the next report.",
     "overrideMonth": "Occurrence month",
     "addOverride": "Set a date override",
@@ -8053,12 +8096,29 @@
       "SOURCE_OWNER_CHANGED": "A source changed owner after reporting. Resolve the ownership change before issuing.",
       "ANCESTOR_MONTH": "Only the latest reporting month can receive a corrected edition.",
       "FUTURE_MONTH": "Future reporting months are not available yet.",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "An imported historical source overlaps a reviewed or issued balance. Reconcile its reporting history before issuing; do not silently reverse it.",
       "SOURCE_VALUE_INVALID": "A source contains invalid hours. Correct the source before issuing."
     },
     "blocked": "Resolve before issuing",
     "featureOff": "Service hours is disabled. Preview is unavailable.",
     "priorEditionHelp": "Choose only the last edition actually applied to this account. If none was applied, use the corrected full-month amount once. If unsure, ask the program team before posting.",
-    "priorEditionCorrection": "If last applied revision {revision}: apply {hours}"
+    "priorEditionCorrection": "If last applied revision {revision}: apply {hours}",
+    "addRecipient": "Add recipient",
+    "editRecipient": "Edit",
+    "removeRecipient": "Remove",
+    "recipientEmail": "Email address",
+    "recipientLabel": "Label (optional)",
+    "recipientLabelHelp": "For example, School office or Principal. Labels are internal notes and are not included in emails.",
+    "noRecipients": "No recipients yet",
+    "noRecipientsHelp": "Add the people who should receive the school report.",
+    "recipientInvalid": "Enter a valid email address.",
+    "recipientDuplicate": "This email is already on the recipient list.",
+    "updateRecipient": "Update recipient",
+    "cancelRecipient": "Cancel",
+    "editRecipientEmail": "Edit recipient {email}",
+    "removeRecipientEmail": "Remove recipient {email}",
+    "finishRecipient": "Finish or cancel the recipient editor before saving the schedule.",
+    "noRecipientLabel": "No label"
   },
   "personHistoryCorrection": {
     "title": "Correct Retired-Account History",
@@ -8235,5 +8295,22 @@
     "snapshotHelp": "These source details were recorded when staff declined the signup. Later profile edits do not change this snapshot.",
     "closedHelp": "This signup is closed and cannot be assigned or reactivated.",
     "released": "Current assignments released: {count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "Delivery settings",
+    "requiredTab": "Required notifications",
+    "help": "Require selected notification choices for everyone. Locked choices stay on while the person’s saved preference is preserved for when you unlock them.",
+    "badge": "Lock unread badge on",
+    "email": "Lock email on",
+    "badgeFor": "{category}: lock unread badge on",
+    "emailFor": "{category}: lock email on",
+    "deliveryHelp": "Required email still follows program email enablement, delivery availability and recipient eligibility. Security emails remain required separately.",
+    "readOnly": "Only Admin and Head can change these requirements.",
+    "save": "Save requirements",
+    "saving": "Saving…",
+    "saved": "Requirements saved.",
+    "loadFailed": "The latest requirements could not be loaded. Your draft is retained. Retry the read before saving.",
+    "refreshFailed": "Requirements were saved, but the latest settings could not be loaded. Retry the read; do not save again.",
+    "reload": "Reload latest requirements"
   }
 }

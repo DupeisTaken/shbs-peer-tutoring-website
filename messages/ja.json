@@ -14,7 +14,7 @@
     "oneFlow": "個別の調整は最初の提案、学習者の代替案、チューターの最終提案の順に進みます。最後に断ると、その学習者の今回の予定だけがキャンセルされます。",
     "allFlow": "全員が最新の同じ時間に同意する必要があります。各自1回、代替案を添えて断れます。以前の同意は新しい時間に引き継がれません。その後は個別の変更を申請できます。",
     "viewSessions": "日付別の予定を見る",
-    "explicitBy": "{deadline} までに明示的な同意が必要です。直前の変更は未返答では承認されません。",
+    "explicitBy": "{deadline} までに明示的な同意が必要です。この提案は未返答では承認されません。",
     "reload": "最新情報を読み込み、この下書きを破棄",
     "messageUnavailable": "この予定では直接メッセージを利用できません。権限を確認するか管理者に相談してください。",
     "calendarSubscription": "カレンダー購読",
@@ -75,6 +75,7 @@
     "chooseLearner": "学習者を選択",
     "scopeHelp": "1人の場合はその学習者の今回の予定だけを変更します。全員の場合は最新の時間への全員の同意が必要です。",
     "location": "場所",
+    "locationUnavailable": "教室の情報を確認できません。同意する前に最新の詳細を再読み込みしてください。",
     "sameRoom": "予定の教室を維持",
     "online": "オンライン",
     "noRoom": "教室を使用しない",
@@ -146,7 +147,14 @@
     "automaticRoom": "対面 — 教室を自動割り当て",
     "checkingLocation": "日時と場所を確認中…",
     "allocationFailed": "日時と場所を確認できませんでした。現在のセッションを確認し、別の時間またはオンラインを選んで再確認してください。",
-    "roomReviewHelp": "送信時に教室を再確認します。利用できない場合は、新しい割り当てを確認してください。"
+    "roomReviewHelp": "送信時に教室を再確認します。利用できない場合は、新しい割り当てを確認してください。",
+    "tutoringPaused": "通常の指導は休止中",
+    "tutoringPausedHelp": "この通常予定は休止中です。出席は不要です。例外の実施には参加者全員の明示的な同意が必要です。",
+    "arrangeException": "例外の指導を調整",
+    "requiresExplicit": "明示的な同意が必要です。未返信ではこの提案を受諾したことになりません。",
+    "explicitExceptionHelp": "この例外には担当者と参加する学習者全員の明示的な同意が必要です。未返信は同意とみなしません。",
+    "tutoringPauseProposal": "この日は通常の指導が休止中です。この提案は明示的に合意した例外としてのみ実施できます。",
+    "exceptionScheduled": "合意済みの例外"
   },
   "nextRecruitment": {
     "savedForTarget": "{name} の開始時刻を保存しました。",
@@ -2790,7 +2798,7 @@
       "label": "サインアウト"
     },
     "userMenu": {
-      "settings": "設定",
+      "settings": "アカウント設定",
       "enterTutor": "チューターページへ",
       "enterAdmin": "管理者エリアへ",
       "enterTutee": "学習者ページへ",
@@ -3793,6 +3801,7 @@
         "program_setProfilePolicy": "氏名の表示と募集対象学年を変更",
         "program_setSignupField": "申込み項目の入力要件を変更",
         "program_setEmailNotifications": "プログラムのメール通知を変更",
+        "program_setNotificationLocks": "必須の通知設定を変更",
         "program_setSecondaryEmailBinding": "予備メールアドレスの登録可否を変更",
         "program_setTimeZone": "プログラムのタイムゾーンを変更",
         "program_prepareNextRecruitment": "次の期間の募集開始を準備",
@@ -3940,6 +3949,7 @@
         "QUARANTINED": "確認のため隔離中"
       },
       "entities": {
+        "ImportedRecordProvenance": "インポートした過去の記録の来歴",
         "SchedulingMaintenanceState": "スケジュール保守状態",
         "SchedulingDirtyEvent": "スケジュール無効化イベント",
         "PersonPartitionReceipt": "本人情報の分離記録",
@@ -4100,9 +4110,11 @@
         "MonthlyHoursSchedule": "月次レポートのスケジュール",
         "MonthlyHoursReport": "月次サービス時間レポート",
         "SchoolHoursSchedule": "学校向け報告スケジュール",
-        "SchoolHoursReport": "学校向け個人奉仕時間報告"
+        "SchoolHoursReport": "学校向け個人奉仕時間報告",
+        "ProgramCalendarPolicyRevision": "指導日ルールの改訂履歴"
       },
       "fields": {
+        "importedAt": "インポート日時",
         "publicSignupEmailConfirmedAt": "公開申込メールの確認日時",
         "signupOpeningStateSince": "申込状態の適用開始日時",
         "signupFirstOpenedAt": "最初の申込開始日時",
@@ -4491,7 +4503,10 @@
         "linkVersion": "報告リンクのバージョン",
         "linkRevokedAt": "報告リンクの取り消し日時",
         "schoolHoursReportId": "学校向け報告ID",
-        "schoolHoursReport": "学校向け報告"
+        "schoolHoursReport": "学校向け報告",
+        "schedulingEffect": "スケジュールへの影響",
+        "tutoringPauseSuppressed": "通常の指導は休止中",
+        "recipientLabels": "受信者ラベル"
       },
       "enums": {
         "Role": {
@@ -4953,7 +4968,7 @@
   "programEmail": {
     "uncertain": "Email delivery outcomes needing review: {count}. These emails may already have been sent and will not be retried automatically.",
     "title": "メール通知",
-    "help": "メッセージ、プログラム更新、審査依頼、予定のリマインダーの任意メールを有効にします。各自がアカウント設定で受信する種類を選びます。",
+    "help": "メール配信と全員に必須の通知設定を管理します。ロックされていない項目には個人の設定が適用されます。",
     "on": "有効",
     "off": "無効",
     "enable": "メール通知を有効にする",
@@ -6004,7 +6019,11 @@
     "program": "その他のプログラム更新",
     "programHelp": "他のカテゴリに含まれないプログラム更新。",
     "reminders": "予定のリマインダー",
-    "remindersHelp": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。"
+    "remindersHelp": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。",
+    "locked": "{category}のメールは管理者により必須です。他の任意カテゴリは配信停止できます。",
+    "successRequired": "任意メールを無効にしました。管理者が必須にしたメールは引き続き有効です。",
+    "requiredHelp": "すべての任意カテゴリを配信停止しても、管理者が必須にしたメールは引き続き有効です。",
+    "successCategoryRequired": "{category}の任意メールを無効にしました。管理者が必須にしたメールは引き続き有効です。"
   },
   "participantRecovery": {
     "loading": "記録を読み込み中…",
@@ -6068,8 +6087,8 @@
     "layout": "保存はこのレイアウトにのみ適用されます。"
   },
   "programCalendar": {
-    "title": "チュータリング休止日",
-    "informational": "プログラムの日付と理由を知らせる案内です。出欠の記録を制限したり、異議申立てに使う登校日カレンダーを変更したりするものではありません。",
+    "title": "指導のお知らせと休止",
+    "informational": "各期間はお知らせ、または通常の指導の休止として設定します。休止中も明示的に合意した例外は実施でき、学校カレンダーや異議申立ての期限は変更しません。",
     "refresh": "更新",
     "reload": "下書きを再読み込み",
     "loadFailed": "チュータリングのお知らせを読み込めませんでした。",
@@ -6092,7 +6111,23 @@
     "saved": "お知らせを保存しました。",
     "saveFailed": "お知らせを保存できませんでした。",
     "refreshFailed": "お知らせを保存しましたが、最新の一覧を読み込めませんでした。再保存せずに更新して同期してください。",
-    "details": "詳細を見る"
+    "details": "詳細を見る",
+    "schedulingEffect": "スケジュールへの影響",
+    "noticeEffect": "お知らせのみ",
+    "pauseEffect": "通常の指導を休止",
+    "noticeHelp": "日付の決まった予定を変更せず、お知らせを表示します。",
+    "pauseHelp": "通常の指導を休止します。例外の実施には担当者と参加する学習者全員の明示的な同意が必要です。未返信は同意とみなしません。登校日と異議申立ての期限は別に扱います。",
+    "removePauseHelp": "この休止設定を削除します。他の制限や重複を確認したうえで、条件を満たす今後の通常予定を復元できます。開始済みの指導や記録済みの出欠は変更しません。",
+    "reviewImpact": "スケジュールへの影響を確認",
+    "impactTitle": "影響を受ける予定を確認",
+    "impactFailed": "予定の変更を確認できませんでした。変更は適用されていません。もう一度確認してください。",
+    "impactConflict": "この通知は変更されました。最新の詳細を再読み込みしてから、もう一度確認してください。",
+    "impactScope": "適用後のルールに基づく既存の今後の学習者予定のプレビューです。休止済みの予定も含み、同じ指導に参加する学習者は別々に数えます。今後の繰り返しにもこのルールを適用します。",
+    "impactPause": "適用後のルールで休止する通常予定：{count}",
+    "impactRetain": "明示的に合意済みの例外を維持：{count}",
+    "impactConfirm": "明示的な確認が必要：{count}",
+    "impactRestore": "復元候補：{count}",
+    "impactRule": "保存時に現在の同意と重複を再確認します。開始済みの指導や記録済みの出欠は変更しません。"
   },
   "roomOrder": {
     "title": "教室の表示順",
@@ -7212,7 +7247,7 @@
   "schoolCalendar": {
     "title": "学校カレンダー",
     "help": "休校日と、指定日に適用する曜日の時間割を設定します。その他の日は月曜から金曜が登校日です。",
-    "noticeDistinction": "チュータリングを行わない日の案内は別の情報であり、学校カレンダーは変更しません。",
+    "noticeDistinction": "指導のお知らせや休止は、登校日の設定、時間割の対応付け、異議申立ての日数計算を変更しません。",
     "add": "日付の例外を追加",
     "date": "実際の日付",
     "timetable": "時間割",
@@ -7708,7 +7743,9 @@
       "management": "管理上の提案、決定と記録訂正。",
       "program": "他のカテゴリに含まれないプログラム更新。",
       "reminders": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。"
-    }
+    },
+    "locked": "管理者による必須設定",
+    "lockDemo": "メッセージメールの必須設定を表示"
   },
   "scheduledRefresh": {
     "title": "Schedule the Next Refresh",
@@ -7945,16 +7982,22 @@
     "title": "学校向け月次報告",
     "help": "各個人の未報告変動を一度だけ報告します。学習支援・運営当番はその内訳です。発行は学校への反映を保証しません。",
     "baselineTitle": "報告済み開始残高の確認",
-    "baselineSummary": "要確認 {review} 人 · 確認済み {committed} 人",
+    "baselineSummary": "{review} 人を要確認 · {committed} 人を保存済み",
     "baselineIssues": "解決が必要な問題 {count} 件",
     "baselineHelp": "学校に報告済みの獲得・追加・控除・運営当番時間を個人ごとに入力します。元記録は根拠であり初期値ではありません。未報告は明示的にゼロを入力してください。",
+    "baselineAttention": "{count} 人の開始残高を要確認",
+    "baselineSetupRequired": "開始残高の確認が必要",
+    "affectedPeople": "対象者 {count} 人",
+    "baselineBatchHelp": "確認した人を詳細画面で確認済みにしてください。確認済みの分だけ保存でき、他の下書きは保持されます。",
+    "baselineSelectedCount": "今回の確認対象は {count} 人",
+    "archivedSources": "インポートした過去の記録 {count} 件は履歴に保持され、学校向け報告の増減には含まれません。現在の資料は別に確認してください。",
     "mappingHelp": "各人の学校アカウントを確認し、不明な本人・所有関係は発行前に解決してください。名前だけで対応付けないでください。",
     "sourceTutoring": "元記録の学習支援純時間",
     "sourceCrew": "元記録の運営当番時間",
     "reviewState": "確認状況",
     "reviewed": "下書き確認済み",
     "needsReview": "確認が必要",
-    "baselineCommitted": "確定済み基準値",
+    "baselineCommitted": "保存済みの開始残高",
     "reviewPerson": "個人の開始値を確認",
     "alreadyReported": "学校への報告済み値",
     "sourceEvidence": "現在の元記録",
@@ -7963,7 +8006,7 @@
     "personAcknowledgement": "この人の学校アカウントと報告済み値を確認しました。",
     "adminReviewRequired": "開始残高は管理者または責任者の確認が必要です。",
     "baselineReason": "開始残高の理由と根拠",
-    "baselineAcknowledgement": "一覧の各個人と学校への報告済み時間をすべて確認しました。",
+    "baselineAcknowledgement": "選択した人と、学校に報告済みの金額を確認しました。",
     "confirmBaseline": "確認した開始残高を確定",
     "baselineReviewHelp": "個人別基準を保存します。送信や元記録・学校アカウントの変更は行いません。",
     "baselineCount": "{count} 人の開始残高を確認済み",
@@ -7971,7 +8014,7 @@
     "enable": "学校向け月次報告を有効化",
     "activationHelp": "開始残高を確認し、サービス時間・任意メール・メール配信を有効にしてから開始してください。",
     "recipients": "学校宛先メールアドレス",
-    "recipientsHelp": "1行に1件。宛先ごとに保存済み報告へのリンクを送ります。学校ログイン・メール確認は不要です。",
+    "recipientsHelp": "保存済みレポートへのリンクを含むメールを各受信者に個別送信します。学校アカウントやメール認証は不要です。受信者は100人まで追加できます。",
     "scheduleHelp": "既定は保存時区で毎月最終日の正午です。例外は該当月のみ。発行後の遅れた出席記録は次回報告に含まれます。",
     "overrideMonth": "対象月",
     "addOverride": "日付の例外を設定",
@@ -8053,12 +8096,29 @@
       "SOURCE_OWNER_CHANGED": "報告後に元記録の所属が変更されました。先に解決してください。",
       "ANCESTOR_MONTH": "修正できるのは最新の報告月のみです。",
       "FUTURE_MONTH": "将来の報告月はまだ利用できません。",
+      "IMPORTED_SOURCE_REQUIRES_RECONCILIATION": "インポートした過去の資料が確認済みまたは発行済みの残高と重複しています。発行前に報告履歴を照合し、自動で取り消さないでください。",
       "SOURCE_VALUE_INVALID": "元記録に無効な時間があります。先に修正してください。"
     },
     "blocked": "発行前に解決してください",
     "featureOff": "サービス時間が無効のためプレビューできません。",
     "priorEditionHelp": "このアカウントに実際に最後に反映した版のみを選んでください。未反映なら修正後の月全体を一度反映します。不明な場合は反映前に運営へ確認してください。",
-    "priorEditionCorrection": "最後の反映が第 {revision} 版の場合：{hours} を反映"
+    "priorEditionCorrection": "最後の反映が第 {revision} 版の場合：{hours} を反映",
+    "addRecipient": "受信者を追加",
+    "editRecipient": "編集",
+    "removeRecipient": "削除",
+    "recipientEmail": "メールアドレス",
+    "recipientLabel": "ラベル（任意）",
+    "recipientLabelHelp": "例：学校事務室、校長。ラベルは内部メモで、メールには含まれません。",
+    "noRecipients": "受信者はまだいません",
+    "noRecipientsHelp": "学校レポートを受け取る人を追加してください。",
+    "recipientInvalid": "有効なメールアドレスを入力してください。",
+    "recipientDuplicate": "このメールアドレスはすでに登録されています。",
+    "updateRecipient": "受信者を更新",
+    "cancelRecipient": "キャンセル",
+    "editRecipientEmail": "受信者 {email} を編集",
+    "removeRecipientEmail": "受信者 {email} を削除",
+    "finishRecipient": "受信者の編集を完了またはキャンセルしてから、スケジュールを保存してください。",
+    "noRecipientLabel": "ラベルなし"
   },
   "personHistoryCorrection": {
     "title": "Correct retired-account history",
@@ -8235,5 +8295,22 @@
     "snapshotHelp": "担当者が申込みを却下した時点の情報です。その後のプロフィール変更は、この記録に反映されません。",
     "closedHelp": "この申込みは終了しており、割当てや再有効化はできません。",
     "released": "解除した現在の割当て：{count}"
+  },
+  "notificationLocks": {
+    "deliveryTab": "配信設定",
+    "requiredTab": "必須通知",
+    "help": "選択した通知設定を全員に適用します。ロック中は有効のままとなり、個人の保存済み設定は解除後のために保持されます。",
+    "badge": "未読バッジを有効に固定",
+    "email": "メールを有効に固定",
+    "badgeFor": "{category}：未読バッジを有効に固定",
+    "emailFor": "{category}：メールを有効に固定",
+    "deliveryHelp": "必須メールにもプログラムのメール有効化、配信の可用性、受信資格が適用されます。セキュリティメールは別途必須です。",
+    "readOnly": "この要件を変更できるのはAdminとHeadのみです。",
+    "save": "要件を保存",
+    "saving": "保存中…",
+    "saved": "要件を保存しました。",
+    "loadFailed": "最新の要件を読み込めませんでした。下書きは保持されています。保存する前に読み込みを再試行してください。",
+    "refreshFailed": "要件は保存されましたが、最新の設定を読み込めませんでした。再保存せず、読み込みを再試行してください。",
+    "reload": "最新の要件を再読み込み"
   }
 }

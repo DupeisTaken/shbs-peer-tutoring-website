@@ -69,6 +69,7 @@ type SafeContext = {
   timeZone?: string;
   stage?: "A" | "B" | "C";
   isActionable?: boolean;
+  requiresExplicitAcceptance?: boolean;
   outcomeReason?: "MISSED_AUTOMATIC_RESPONSE_WINDOW";
 };
 
@@ -115,6 +116,8 @@ export function sessionNoticeContext(input: unknown): SafeContext {
     result.stage = source.stage as SafeContext["stage"];
   if (typeof source.isActionable === "boolean")
     result.isActionable = source.isActionable;
+  if (typeof source.requiresExplicitAcceptance === "boolean")
+    result.requiresExplicitAcceptance = source.requiresExplicitAcceptance;
   if (source.outcomeReason === "MISSED_AUTOMATIC_RESPONSE_WINDOW")
     result.outcomeReason = source.outcomeReason;
   return result;
@@ -154,6 +157,11 @@ export function sessionPlanningNoticeCopy(
     lines.push(
       "This notice records an earlier transition. It is no longer an actionable offer; check the current portal state.",
       "此通知记录了较早的变更，已不再是可操作的提议；请查看平台当前状态。",
+    );
+  } else if (safe.isActionable && safe.requiresExplicitAcceptance) {
+    lines.push(
+      "Explicit agreement required: every affected tutor and learner must affirmatively agree to this exact offer before the cutoff. Silence will not accept it. Sign in to respond; replying to this email does not decide.",
+      "必须明确同意：每位受影响的辅导伙伴和学习伙伴须在截止前明确同意同一提议。未回复不会视为接受。请登录平台回复；回复本邮件不能作出决定。",
     );
   } else if (safe.isActionable) {
     lines.push(

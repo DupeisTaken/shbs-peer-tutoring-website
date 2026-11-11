@@ -15,7 +15,7 @@ import { programDateKey } from "~/lib/program-time";
 import { useReadOnly } from "./read-only";
 import { Button } from "./ui/button";
 import { DisclosureSection } from "./ui/disclosure-section";
-import { StatePanel } from "./ui/patterns";
+import { InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
 import { SectionTabs } from "./ui/section-tabs";
 import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
@@ -320,23 +320,53 @@ export function SchoolHoursBlockers({
       .filter((person) => person.exportName.trim().length > 0)
       .map((person) => [person.beneficiaryId, person.exportName.trim()]),
   );
+  const groups = new Map<
+    string,
+    { blocker: SchoolPreview["blockers"][number]; people: Set<string> }
+  >();
+  for (const blocker of blockers) {
+    const key = `${blocker.code}:${t.has(`blockers.${blocker.code}`) ? "" : blocker.message}`;
+    const group = groups.get(key) ?? { blocker, people: new Set<string>() };
+    if (blocker.beneficiaryId) group.people.add(blocker.beneficiaryId);
+    groups.set(key, group);
+  }
+  const openingOnly = blockers.every(
+    (blocker) =>
+      blocker.code === "BASELINE_REQUIRED" ||
+      blocker.code === "OPENING_NOT_REVIEWED",
+  );
   return (
-    <StatePanel kind="error" title={t("blocked")}>
+    <InlineNotice tone={openingOnly ? "warning" : "error"}>
+      <p className="mb-2 font-semibold">
+        {t(openingOnly ? "baselineSetupRequired" : "blocked")}
+      </p>
       <ul className="list-disc space-y-2 pl-5">
-        {blockers.map((blocker, index) => (
-          <li key={`${blocker.code}:${blocker.beneficiaryId ?? index}`}>
+        {[...groups].map(([key, { blocker, people }]) => (
+          <li key={key}>
             {t.has(`blockers.${blocker.code}`)
               ? t(`blockers.${blocker.code}`)
               : blocker.message}
-            {blocker.beneficiaryId && (
+            {people.size === 1 && (
               <span className="block text-xs">
-                {names.get(blocker.beneficiaryId) ?? blocker.beneficiaryId}
+                {names.get([...people][0]!) ?? [...people][0]}
               </span>
+            )}
+            {people.size > 1 && (
+              <DisclosureSection
+                title={t("affectedPeople", { count: people.size })}
+                lifetime="lazy"
+              >
+                <ul className="space-y-1 text-sm">
+                  {[...people].map((id) => (
+                    <li key={id}>{names.get(id) ?? id}</li>
+                  ))}
+                </ul>
+              </DisclosureSection>
             )}
           </li>
         ))}
       </ul>
-    </StatePanel>
+    </InlineNotice>
   );
 }
 
@@ -349,6 +379,11 @@ export function SchoolHoursPreview({ preview }: { preview: SchoolPreview }) {
       <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
         {t("previewOnly")}
       </p>
+      {preview.archivedSourceCount > 0 && (
+        <InlineNotice>
+          {t("archivedSources", { count: preview.archivedSourceCount })}
+        </InlineNotice>
+      )}
       <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <div>
           <dt className="muted">{t("reportMonth")}</dt>
@@ -478,7 +513,9 @@ function ReadSchoolPreview({ parentDenied }: { parentDenied: boolean }) {
       client.removeQueries({ queryKey: getQueryKey(api.schoolHours) });
   }, [hidden, client]);
   if (!hidden && settings.data && !initialized) {
-    setMonth(programDateKey(new Date(), settings.data.config.timeZone).slice(0, 7));
+    setMonth(
+      programDateKey(new Date(), settings.data.config.timeZone).slice(0, 7),
+    );
     setInitialized(true);
   }
   const retryRead = async () => {

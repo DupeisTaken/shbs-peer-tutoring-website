@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SchoolCalendarOverride } from "~/lib/school-calendar";
+import type { TutoringPauseRange } from "~/lib/tutoring-policy";
 import * as programTime from "~/lib/program-time";
 import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import type { TransactionDb } from "~/server/transactions";
@@ -47,12 +48,14 @@ type Request = {
 
 function fixture({
   calendar = [],
+  tutoringPauses = [],
   cohorts = [],
   requests = [],
   successors = [],
   term = { startDate: null, endDate: null },
 }: {
   calendar?: SchoolCalendarOverride[];
+  tutoringPauses?: TutoringPauseRange[];
   cohorts?: ReturnType<typeof booking>[];
   requests?: Request[];
   successors?: { sourcePairingId: string; targetPairingId: string }[];
@@ -61,6 +64,7 @@ function fixture({
   const raw = {
     $executeRaw: vi.fn().mockResolvedValue(1),
     schoolCalendarDay: { findMany: vi.fn().mockResolvedValue(calendar) },
+    programCalendarDay: { findMany: vi.fn().mockResolvedValue(tutoringPauses) },
     term: { findUniqueOrThrow: vi.fn().mockResolvedValue(term) },
     sessionPlanCohort: { findMany: vi.fn().mockResolvedValue(cohorts) },
     sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue(requests) },
@@ -71,6 +75,14 @@ function fixture({
 }
 
 describe("dated recurring room availability", () => {
+  it("ignores paused weekly defaults while explicit dated bookings still prohibit physical blackouts", async () => {
+    const { db } = fixture({
+      cohorts: [booking()],
+      tutoringPauses: [{ date: "2026-11-02", endDate: "2026-11-02", schedulingEffect: "PAUSE_REGULAR" }],
+    });
+    expect(await datedUnavailableRooms(db, schedule, ["room"], now)).toEqual(new Set());
+    await expect(assertDatedRoomBlackoutAvailable(db, { roomId: "room", dayOfWeek: 1, startMin: 900, endMin: 945 }, now)).rejects.toThrow("agreed dated session");
+  });
   it("uses mapped weekdays, reset defaults and inclusive program-zone term bounds", async () => {
     const dates = [
       "2026-11-07",

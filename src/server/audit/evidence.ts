@@ -2,6 +2,7 @@ import { Prisma, type PrismaClient } from "../../../generated/prisma";
 import { humanizeOperation, actionKind } from "~/lib/approval-policy";
 import { SIGNUP_FIELDS } from "~/lib/signup-fields";
 import { nameFieldPolicies } from "~/lib/name-field-policy";
+import { notificationLockCategories } from "~/lib/notification-categories";
 import { RECORD_PRIMARY_KEYS } from "~/server/recovery/record-catalog";
 import {
   approvalScope,
@@ -245,15 +246,19 @@ const modelEvidence = new Map(
         model.fields
           .filter(
             (field) =>
-              (RECORD_PRIMARY_KEYS[model.name]?.includes(field.name) ?? false) ||
+              (RECORD_PRIMARY_KEYS[model.name]?.includes(field.name) ??
+                false) ||
               (safeFields.has(field.name) &&
                 (field.kind === "scalar" || field.kind === "enum") &&
                 field.type !== "Json" &&
                 !field.isList) ||
               (model.name === "ProgramSettings" &&
-                ["signupFields", "offeredGrades", "nameFields"].includes(
-                  field.name,
-                )) ||
+                [
+                  "signupFields",
+                  "offeredGrades",
+                  "nameFields",
+                  "notificationLocks",
+                ].includes(field.name)) ||
               (contactModels.has(model.name) &&
                 contactFields.has(field.name)) ||
               (decisionFields.get(model.name)?.has(field.name) ?? false) ||
@@ -279,6 +284,21 @@ export function safeAuditSnapshot(
     >(([key, item]) => {
       if (entity === "ProgramSettings" && key === "nameFields")
         return [[key, nameFieldPolicies(item)]];
+      if (entity === "ProgramSettings" && key === "notificationLocks")
+        // Policy evidence contains only known categories and boolean channel locks.
+        return [
+          [
+            key,
+            Object.fromEntries(
+              notificationLockCategories(item).map(
+                ({ category, badgeLocked, emailLocked }) => [
+                  category,
+                  { badgeLocked, emailLocked },
+                ],
+              ),
+            ),
+          ],
+        ];
       if (key === "offeredGrades" && Array.isArray(item)) {
         const grades: unknown[] = item;
         return [
