@@ -459,7 +459,9 @@ it.each(["en", "zh"] as const)(
       expect(doc.querySelector("body.canvas")?.getAttribute("style")).toContain(
         "background:#181B20",
       );
-      expect(doc.querySelector(".card")?.getAttribute("bgcolor")).toBe("#272D35");
+      expect(doc.querySelector(".card")?.getAttribute("bgcolor")).toBe(
+        "#272D35",
+      );
       expect(
         doc.querySelectorAll('table[role="presentation"]').length,
       ).toBeGreaterThan(0);
@@ -546,7 +548,9 @@ it("defaults to English, escapes branding, and keeps participant names only in t
   const doc = parse(email.html);
   expect(doc.documentElement.lang).toBe("en");
   expect(doc.querySelector("h1")?.textContent).toBe(email.subject);
-  expect(doc.querySelector(".footer-brand")?.textContent).toBe("Pilot <School>");
+  expect(doc.querySelector(".footer-brand")?.textContent).toBe(
+    "Pilot <School>",
+  );
   expect(email.html).toContain("Pilot &lt;School&gt;");
   expect(email.html).not.toContain("Pilot <School>");
   expect(email.html).not.toContain("Blair");

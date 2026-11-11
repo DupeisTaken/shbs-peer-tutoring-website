@@ -480,7 +480,9 @@ it.each([
       Array.from(list.querySelectorAll("dt")).map((label) => label.textContent),
     ).toEqual([copy.carryIn, copy.rawChange, copy.hours, copy.carryOut]);
     for (const summary of [list, table]) {
-      expect(summary.textContent).not.toContain(snapshot.rows[0]!.schoolAccountKey);
+      expect(summary.textContent).not.toContain(
+        snapshot.rows[0]!.schoolAccountKey,
+      );
     }
     for (const view of [within(list), within(table)]) {
       expect(view.getByText("+1.3")).toBeTruthy();
@@ -1002,7 +1004,9 @@ it.each(["en", "zh"] as const)(
           copy.revisionAmountCondition.replace("{revision}", "1"),
         ),
       ).toHaveLength(1);
-      expect(view.getByLabelText(copy.zeroAmount).textContent?.trim()).toBe("—");
+      expect(view.getByLabelText(copy.zeroAmount).textContent?.trim()).toBe(
+        "—",
+      );
       expect(view.queryByText(copy.zeroAmount)).toBeNull();
       expect(view.queryByText(copy.unchanged)).toBeNull();
       expect(
@@ -1011,7 +1015,9 @@ it.each(["en", "zh"] as const)(
     }
     expect(screen.getByText(copy.revisionInstructions)).toBeTruthy();
     fireEvent.click(
-      within(within(table).getByText("Alex").closest("tr")!).getByRole("button"),
+      within(within(table).getByText("Alex").closest("tr")!).getByRole(
+        "button",
+      ),
     );
     const detail = within(screen.getByRole("dialog", { name: "Alex" }));
     expect(
