@@ -158,7 +158,7 @@ export function schoolHoursDeliveryCopy(
     iconUrl: `${emailOrigin()}/icon.png`,
     locale,
     report: publicSchoolHoursReport(report.snapshot),
-    reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(issueSchoolHoursRecipientToken({ ...admitted.row, schoolHoursReportId: report.id }, report.linkVersion))}`,
+    reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(issueSchoolHoursRecipientToken({ ...admitted.row, schoolHoursReportId: report.id }, report.linkVersion))}?lang=${locale}`,
     reminder: !!admitted.row.schoolHoursReminderSourceId,
   });
 }

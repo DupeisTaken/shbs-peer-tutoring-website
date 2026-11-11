@@ -5,13 +5,16 @@ import { schoolHoursPriorEditions } from "~/lib/school-hours-corrections";
 import { schoolHoursSnapshotSchema } from "./school-hours-input";
 import { publicSchoolHoursReportStyles } from "./school-hours-report-styles";
 import {
+  schoolHoursReportText,
+  type SchoolHoursReportLocale,
+} from "./school-hours-report-locale";
+import {
   parseSchoolHoursToken,
   schoolHoursTokenMatches,
 } from "./school-hours-link";
 import {
   escapeSchoolHours,
   renderSchoolHoursContent,
-  schoolHoursHeading,
   type SchoolHoursPublicReport,
 } from "./school-hours-email";
 
@@ -105,19 +108,28 @@ function htmlDocument(
   title: string,
   content: string,
   referrerPolicy: "no-referrer" | "same-origin" = "no-referrer",
+  locale: SchoolHoursReportLocale = "en",
 ) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="${referrerPolicy}"><title>${escapeSchoolHours(title)}</title><style>
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive,nosnippet"><meta name="referrer" content="${referrerPolicy}"><title>${escapeSchoolHours(title)}</title><style>
 ${publicSchoolHoursReportStyles}
 </style></head><body><main>${content}</main></body></html>`;
 }
 
 export function schoolHoursUnavailableResponse(
   status: "unavailable" | "retired",
+  locale: SchoolHoursReportLocale = "en",
 ) {
+  const title = schoolHoursReportText(
+    locale,
+    "Report unavailable",
+    "报告不可用",
+  );
   return new Response(
     htmlDocument(
-      "Report unavailable / 报告不可用",
-      "<h1>Report unavailable / 报告不可用</h1><p>This link is invalid, revoked or belongs to an edition that has been replaced. Ask the program team for the latest View Month Report link.</p><p>此链接无效、已撤销或属于已被替代的报告版本。请向项目团队索取最新的 View Month Report 链接。</p>",
+      title,
+      `<h1>${title}</h1><p>${schoolHoursReportText(locale, "This link is invalid, revoked or belongs to an edition that has been replaced. Ask the program team for the latest View Month Report link.", "此链接无效、已撤销或属于已被替代的报告版本。请向项目团队索取最新的查看月度报告链接。")}</p>`,
+      "no-referrer",
+      locale,
     ),
     {
       status: status === "retired" ? 410 : 404,
@@ -125,6 +137,7 @@ export function schoolHoursUnavailableResponse(
         ...schoolHoursResponseHeaders,
         "Content-Security-Policy": `${schoolHoursResponseHeaders["Content-Security-Policy"]}; font-src 'self'`,
         "Content-Type": "text/html; charset=utf-8",
+        "Content-Language": locale,
       },
     },
   );
@@ -133,14 +146,26 @@ export function schoolHoursUnavailableResponse(
 export function schoolHoursHtmlResponse(
   report: SchoolHoursPublicReport,
   token: string,
-  options: { recipientPanel?: string; status?: number } = {},
+  options: {
+    recipientPanel?: string;
+    status?: number;
+    locale?: SchoolHoursReportLocale;
+  } = {},
 ) {
+  const locale = options.locale ?? "en";
+  const t = (english: string, chinese: string) =>
+    escapeSchoolHours(schoolHoursReportText(locale, english, chinese));
+  const path = `/reports/service-hours/${encodeURIComponent(token)}`;
   const download = `/reports/service-hours/${encodeURIComponent(token)}/csv`;
+  // Language is report navigation only. No session or write is required, and
+  // the validated choice travels with all recipient form responses.
+  const languages = `<nav class="report-language" aria-label="Language / 语言">${(["en", "zh"] as const).map((value) => `<a href="${escapeSchoolHours(`${path}?lang=${value}`)}" lang="${value}" hreflang="${value}"${locale === value ? ' aria-current="page"' : ""}>${value === "en" ? "English" : "中文"}</a>`).join("")}</nav>`;
   return new Response(
     htmlDocument(
-      schoolHoursHeading(report.month),
-      `<header class="report-page-header"><h1>School Report / 学校报告</h1><div class="report-actions"><a class="button" href="${escapeSchoolHours(download)}" rel="noreferrer">Download CSV / 下载 CSV</a></div></header>${options.recipientPanel ?? ""}<section class="report-card report-content" aria-label="Saved school report / 已保存的学校报告">${renderSchoolHoursContent(report)}</section><p class="privacy">Anyone possessing this link can view this saved report. Share it only with intended school recipients. Report access grants no account or management access.<br>任何持有此链接的人均可查看本报告。请仅向预期学校收件人分享；此链接不授予账户或管理权限。</p>`,
+      `${t("School Report", "学校报告")} · ${report.month}`,
+      `<header class="report-page-header"><h1>${t("School Report", "学校报告")}</h1><div class="report-actions">${languages}<a class="button" href="${escapeSchoolHours(download)}" rel="noreferrer">${t("Download CSV", "下载 CSV")}</a></div></header>${options.recipientPanel ?? ""}<section class="report-card report-content" aria-label="${t("Saved school report", "已保存的学校报告")}">${renderSchoolHoursContent(report, locale)}</section><p class="privacy">${t("Anyone possessing this link can view this saved report. Share it only with intended school recipients. Report access grants no account or management access.", "任何持有此链接的人均可查看本报告。请仅向预期学校收件人分享；此链接不授予账户或管理权限。")}</p>`,
       options.recipientPanel ? "same-origin" : "no-referrer",
+      locale,
     ),
     {
       status: options.status ?? 200,
@@ -161,6 +186,7 @@ export function schoolHoursHtmlResponse(
             }
           : {}),
         "Content-Type": "text/html; charset=utf-8",
+        "Content-Language": locale,
       },
     },
   );

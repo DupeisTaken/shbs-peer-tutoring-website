@@ -288,6 +288,73 @@ it("GET records only a link request and ignores mutation-like query parameters",
   expect(response.headers.get("referrer-policy")).toBe("no-referrer");
 });
 
+it.each(["en", "zh"] as const)(
+  "retains %s through recipient reads, review, validation and PRG",
+  async (locale) => {
+    await getSchoolHoursRecipientResponse(
+      new Request(`${origin}/reports/service-hours/${token}?lang=${locale}`),
+      token,
+    );
+    expect(fixture.panel).toHaveBeenLastCalledWith(state, token, { locale });
+    expect(fixture.html).toHaveBeenLastCalledWith(
+      state.report,
+      token,
+      expect.objectContaining({ locale }),
+    );
+    const url = `${origin}/reports/service-hours/${token}?lang=${locale}`;
+    await postSchoolHoursRecipientResponse(
+      post(fields("review"), { url }),
+      token,
+    );
+    expect(fixture.panel).toHaveBeenLastCalledWith(
+      state,
+      token,
+      expect.objectContaining({
+        locale,
+        review: expect.objectContaining({ localTime }),
+      }),
+    );
+    expectNoWrite();
+    await postSchoolHoursRecipientResponse(
+      post({ ...fields("review"), localTime: "2099-02-30T09:30" }, { url }),
+      token,
+    );
+    expect(fixture.panel).toHaveBeenLastCalledWith(
+      state,
+      token,
+      expect.objectContaining({
+        locale,
+        error: "invalidTime",
+        draft: { requestId, localTime: "2099-02-30T09:30" },
+      }),
+    );
+    expectNoWrite();
+    const scheduled = await postSchoolHoursRecipientResponse(
+      post(fields(), { url }),
+      token,
+    );
+    expect(scheduled.status).toBe(303);
+    expect(scheduled.headers.get("Location")).toBe(`${url}#reminder`);
+    const cancelled = await postSchoolHoursRecipientResponse(
+      post({ operation: "cancel", reminderId: "synthetic-reminder" }, { url }),
+      token,
+    );
+    expect(cancelled.headers.get("Location")).toBe(`${url}#reminder`);
+  },
+);
+
+it("does not reflect an unsupported language or route query into a redirect", async () => {
+  const response = await postSchoolHoursRecipientResponse(
+    post(fields(), {
+      url: `${origin}/reports/service-hours/${token}?lang=javascript:alert(1)&redirect=https://attacker.example.test`,
+    }),
+    token,
+  );
+  expect(response.headers.get("Location")).toBe(
+    `${origin}/reports/service-hours/${token}#reminder`,
+  );
+});
+
 it.each([
   ["purpose", "prefetch"],
   ["sec-purpose", "prefetch;prerender"],
@@ -389,6 +456,7 @@ it("review resolves the timezone and shows confirmation without creating mail or
   expect(response.status).toBe(200);
   expect(fixture.state).toHaveBeenCalledExactlyOnceWith(fixture.db, token);
   expect(fixture.panel).toHaveBeenCalledWith(state, token, {
+    locale: "en",
     review: {
       requestId,
       localTime,
@@ -458,6 +526,7 @@ it("retains date and request identity after an uncertain write without exposing 
   const response = await postSchoolHoursRecipientResponse(post(), token);
   expect(response.status).toBe(503);
   expect(fixture.panel).toHaveBeenCalledWith(state, token, {
+    locale: "en",
     error: "writeFailed",
     draft: { requestId, localTime },
   });
@@ -476,6 +545,7 @@ it("preserves a rejected review draft and never schedules it", async () => {
   );
   expect(response.status).toBe(400);
   expect(fixture.panel).toHaveBeenCalledWith(state, token, {
+    locale: "en",
     error: "invalidTime",
     draft: { requestId, localTime: invalid },
   });
@@ -490,6 +560,7 @@ it("refuses an ineligible reminder review while keeping report reading available
   );
   expect(response.status).toBe(400);
   expect(fixture.panel).toHaveBeenCalledWith(state, token, {
+    locale: "en",
     error: "recipientRemoved",
     draft: { requestId, localTime },
   });

@@ -23,15 +23,13 @@ it("keeps anonymous report reading and CSV in one clear standalone report", asyn
   const response = schoolHoursHtmlResponse(report(), "synthetic-token");
   const doc = parseHTML(await response.text());
   expect(doc.querySelectorAll("h1")).toHaveLength(1);
-  expect(doc.querySelector("h1")?.textContent).toBe("School Report / 学校报告");
+  expect(doc.querySelector("h1")?.textContent).toBe("School Report");
   expect(doc.querySelectorAll('a[href$="/csv"]')).toHaveLength(1);
-  expect(doc.querySelector("header a")?.getAttribute("href")).toBe(
+  expect(doc.querySelector("header a.button")?.getAttribute("href")).toBe(
     "/reports/service-hours/synthetic-token/csv",
   );
   expect(
-    doc.querySelector(
-      'section[aria-label="Saved school report / 已保存的学校报告"] table',
-    ),
+    doc.querySelector('section[aria-label="Saved school report"] table'),
   ).not.toBeNull();
   expect(doc.querySelector('a[href^="/admin"],script')).toBeNull();
   expect(response.headers.get("Content-Security-Policy")).toContain(
@@ -48,6 +46,31 @@ it("keeps anonymous report reading and CSV in one clear standalone report", asyn
     schoolHoursCsvResponse(report()).headers.get("Content-Security-Policy"),
   ).not.toContain("font-src");
 });
+
+it.each(["en", "zh"] as const)(
+  "renders the report shell and language navigation in %s",
+  async (locale) => {
+    const response = schoolHoursHtmlResponse(report(), "synthetic-token", {
+      locale,
+    });
+    const doc = parseHTML(await response.text());
+    expect(doc.documentElement.lang).toBe(locale);
+    expect(response.headers.get("Content-Language")).toBe(locale);
+    expect(doc.querySelector("h1")?.textContent).toBe(
+      locale === "en" ? "School Report" : "学校报告",
+    );
+    const selected = doc.querySelector('nav a[aria-current="page"]');
+    expect(selected?.getAttribute("href")).toBe(
+      `/reports/service-hours/synthetic-token?lang=${locale}`,
+    );
+    expect(doc.querySelectorAll("nav a")).toHaveLength(2);
+    expect(
+      doc.querySelector(".hours-button")?.getAttribute("popovertarget"),
+    ).toBe(doc.querySelector(".person-details")?.id);
+    expect(doc.querySelector(".person-detail-row")).toBeNull();
+    expect(doc.querySelector("script,form")).toBeNull();
+  },
+);
 
 it("names the reminder as email while retaining the fixed-target native review form", () => {
   const doc = parseHTML(schoolHoursReminderPanel(state(), "synthetic-token"));

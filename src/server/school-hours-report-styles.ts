@@ -59,7 +59,11 @@ button, input { font: inherit; }
 .report-page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .report-page-header > :first-child { min-width: 0; }
 .report-actions, .reminder-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.report-eyebrow { margin-bottom: 8px; color: var(--slate-600); font-size: 14px; }
+.report-language { display: inline-flex; padding: 2px; border: 1px solid var(--slate-300); border-radius: 6px; background: white; }
+.report-language a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 6px 12px; border-radius: 4px; color: var(--slate-600); font-weight: 500; text-decoration: none; }
+.report-language a:hover { background: var(--slate-50); }
+.report-language a[aria-current="page"] { background: var(--accent-50); color: var(--accent-700); }
+
 .report-card, .reminder-panel {
   min-width: 0;
   padding: 16px;
@@ -83,7 +87,7 @@ button, input { font: inherit; }
   background: transparent !important;
   color: var(--slate-700);
 }
-.button, a.button {
+.button, a.button, .person-popover-close {
   display: inline-flex;
   min-width: 44px;
   min-height: 44px;
@@ -102,7 +106,7 @@ button, input { font: inherit; }
   text-decoration: none;
   cursor: pointer;
 }
-.button:hover { background: var(--slate-50); color: var(--slate-700); }
+.button:hover, .person-popover-close:hover { background: var(--slate-50); color: var(--slate-700); }
 .report-page-header a.button {
   min-height: 44px;
   padding: 8px 16px;
@@ -114,7 +118,7 @@ button, input { font: inherit; }
   font-weight: 600;
   line-height: 1.5;
 }
-.report-page-header a.button:hover { background: var(--slate-50); color: var(--slate-700); }
+.report-page-header a.button:hover, .person-popover-close:hover { background: var(--slate-50); color: var(--slate-700); }
 .button-primary { border-color: var(--accent-600); background: var(--accent-600); color: white; }
 .button-primary:hover { border-color: var(--accent-700); background: var(--accent-700); color: white; }
 .button-primary:active { background: var(--accent-800); }
@@ -177,39 +181,63 @@ th, td { font-variant-numeric: tabular-nums; }
 /* Change only legacy positive ink. Debit/red inline values retain their meaning. */
 .school-summary .posting[style*="#115E59"] { color: var(--accent-700) !important; }
 .school-summary .posting .no-posting { color: var(--slate-700); }
-.school-hours-table .person-detail-row > td { padding: 0; border-bottom: 1px solid var(--slate-100); }
-.person-details { background: white; }
-.person-details summary { position: sticky; left: 0; width: min(100%, calc(100vw - 66px)); min-height: 24px; padding: 3px 12px; color: var(--accent-700); font-size: 12px; font-weight: 500; text-align: right; cursor: pointer; list-style-position: inside; }
-.person-details summary::marker { font-size: 10px; }
-.person-details summary::after { content: ""; display: block; clear: both; }
-.person-details summary:hover { color: var(--accent-800); text-decoration: underline; }
-.person-details summary:focus-visible { outline: none; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 4px; }
-.person-detail-content { position: sticky; left: 0; max-width: min(100%, calc(100vw - 66px)); padding: 8px 12px 16px; font-size: 14px; line-height: 1.65; text-align: left; overflow-wrap: anywhere; }
+/* Hours is the only row detail entry; the canonical evidence is outside the
+   table so the browser never reparents it or adds an empty summary row. */
+.hours-button, .hours-fallback {
+  min-width: 44px; min-height: 44px; align-items: center; justify-content: center;
+  padding: 4px 8px; border: 0; border-radius: 4px; background: transparent;
+  color: inherit; font: inherit; font-weight: 600; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-style: dotted;
+}
+.hours-button { display: none; }
+.hours-fallback { display: inline-flex; }
+:is(.hours-button, .hours-fallback):hover { background: var(--accent-100); color: inherit; text-decoration-style: solid; }
+.person-details { margin: 24px 0; padding: 16px; border: 1px solid var(--slate-200); border-radius: 12px; background: white; color: var(--slate-900); text-align: left; }
+.person-popover-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.person-popover-header h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.person-popover-header button { display: none; flex-shrink: 0; }
+.person-detail-content { min-width: 0; padding-top: 16px; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
 .person-detail-content p { margin: 0 0 12px; }
 .person-detail-content p:last-child { margin-bottom: 0; }
-.mobile-row-context { display: none; }
+/* Unsupported webviews retain anchor navigation and in-flow evidence. Native
+   popovers use the top layer to escape the table's scroll/clipping boundary. */
+@supports selector(:popover-open) {
+  .hours-fallback { display: none; }
+  .hours-button { display: inline-flex; }
+  .person-details {
+    position: fixed; inset: 16px; width: min(640px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px); margin: auto; padding: 0;
+    overflow: auto; overscroll-behavior: contain;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / .15);
+  }
+  .person-details:popover-open { display: block; }
+  .person-popover-header { position: sticky; top: 0; z-index: 1; padding: 16px; border-bottom: 1px solid var(--slate-200); background: white; }
+  .person-popover-header button { display: inline-flex; }
+  .person-detail-content { padding: 16px; }
+}
 .table-scroll-hint { display: none; color: var(--slate-600); font-size: 12px; line-height: 1.6; }
 @media (min-width: 640px) {
   .report-card, .reminder-panel { padding: 20px; }
   .report-summary-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1024px) {
-  .button, .reminder-input { min-height: 40px; }
+  .button, .reminder-input, .person-popover-close { min-height: 40px; }
+  .report-language a { min-height: 34px; }
   .report-page-header a.button { min-height: 40px; }
   .reminder-heading { min-height: 32px; }
+  .hours-button, .hours-fallback { min-height: 24px; }
 }
 @media (max-width: 1023px) {
-  .person-details summary { min-height: 44px; padding: 12px; }
   .report-content > details > summary { min-height: 44px; }
 }
 @media (max-width: 740px) {
   .table-scroll-hint { display: block; }
-  .mobile-row-context { display: block; float: left; max-width: calc(100% - 106px); color: var(--slate-900); text-align: left; font-weight: 400; }
-  .mobile-row-context strong { font-weight: 600; }
 }
 /* data-label is an additive upstream presentation contract. Until it exists,
    keep the complete accessible horizontal table rather than hiding labels. */
 @media (max-width: 640px) {
+  .report-page-header h1 { flex-basis: 100%; }
   .school-table-scroll:has(.school-summary td[data-label]) { overflow: visible; border: 0; border-radius: 0; background: transparent; }
   .report-content:has(.school-summary td[data-label]) .table-scroll-hint { display: none; }
   .school-hours-table:has(.school-summary td[data-label]) { display: block; min-width: 0; table-layout: auto; }
@@ -222,11 +250,6 @@ th, td { font-variant-numeric: tabular-nums; }
   .school-hours-table:has(.school-summary td[data-label]) .school-summary td[data-label]::before { display: block; margin-bottom: 4px; color: var(--slate-700); font-size: 12px; font-weight: 400; content: attr(data-label); }
   .school-hours-table:has(.school-summary td[data-label]) .school-summary .person-identity::before { display: none; }
   .school-hours-table:has(.school-summary td[data-label]) .school-summary .posting { border-radius: 6px; font-size: 18px; }
-  .school-hours-table:has(.school-summary td[data-label]) .person-detail-row { display: block; }
-  .school-hours-table:has(.school-summary td[data-label]) .person-detail-row > td { display: block; width: 100%; border: 0; }
-  .school-hours-table:has(.school-summary td[data-label]) .person-details summary { position: static; width: 100%; padding: 12px 16px; }
-  .school-hours-table:has(.school-summary td[data-label]) .person-detail-content { position: static; width: 100%; max-width: 100%; padding: 8px 16px 16px; }
-  .school-hours-table:has(.school-summary td[data-label]) .mobile-row-context { display: none; }
 }
 @media print {
   body { background: white; color: black; }
@@ -240,16 +263,17 @@ th, td { font-variant-numeric: tabular-nums; }
   .school-hours-table > colgroup { display: table-column-group !important; }
   .school-hours-table > thead { display: table-header-group !important; }
   .school-hours-table .person { display: table-row-group !important; break-inside: avoid; border: 0 !important; }
-  .school-hours-table :is(.school-summary, .person-detail-row) { display: table-row !important; }
+  .school-hours-table .school-summary { display: table-row !important; }
   .school-hours-table :is(th, td) { display: table-cell !important; padding: 6px !important; font-size: 9pt; }
   .school-hours-table .person-identity { font-weight: 600; }
   .school-hours-table .school-summary > :not(.person-identity) { text-align: right !important; }
   .school-hours-table .school-summary td[data-label]::before { display: none !important; }
-  .school-hours-table .person-detail-row > td { padding: 0 !important; }
   details { display: none; }
-  .person-details { display: block; }
-  .person-details::details-content { content-visibility: visible; }
-  .person-details > summary { display: none !important; }
-  .school-hours-table .person-detail-content { display: block; position: static; width: auto; max-width: none; padding: 8px 0 16px !important; font-size: 9pt; }
+  .hours-fallback, .person-popover-header button { display: none !important; }
+  .hours-button { display: inline; min-width: 0; min-height: 0; padding: 0; text-decoration: none; }
+  .person-details[popover] { display: block !important; position: static; inset: auto; width: auto; max-height: none; margin: 16px 0; padding: 0; overflow: visible; border: 0; box-shadow: none; break-inside: avoid; }
+  .person-popover-header { position: static; padding: 0; border: 0; }
+  .person-detail-content { padding: 8px 0 16px; font-size: 9pt; }
+
 }
 `;

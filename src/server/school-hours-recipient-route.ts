@@ -17,6 +17,11 @@ import {
 } from "./school-hours-recipient";
 import { schoolHoursReminderPanel } from "./school-hours-reminder-panel";
 import { parseSchoolHoursRecipientToken } from "./school-hours-recipient-token";
+import {
+  parseSchoolHoursReportLocale,
+  schoolHoursReportText,
+  type SchoolHoursReportLocale,
+} from "./school-hours-report-locale";
 
 const inputSchema = z.discriminatedUnion("operation", [
   schoolHoursReminderInput.extend({ operation: z.literal("review") }).strict(),
@@ -30,28 +35,30 @@ const inputSchema = z.discriminatedUnion("operation", [
     })
     .strict(),
 ]);
-const temporary = (status = 503) =>
+const temporary = (status = 503, locale: SchoolHoursReportLocale = "en") =>
   new Response(
-    '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Please try again / 请重试</title><p>Please try again shortly. Your saved report has not changed. / 请稍后重试，已保存的报告未改变。</p></html>',
+    `<!doctype html><html lang="${locale}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${schoolHoursReportText(locale, "Please try again", "请重试")}</title><p>${schoolHoursReportText(locale, "Please try again shortly. Your saved report has not changed.", "请稍后重试，已保存的报告未改变。")}</p></html>`,
     {
       status,
       headers: {
         ...schoolHoursResponseHeaders,
         "Content-Type": "text/html; charset=utf-8",
+        "Content-Language": locale,
         ...(status === 429 ? { "Retry-After": "60" } : {}),
       },
     },
   );
 
-function refused(error: unknown) {
+function refused(error: unknown, locale: SchoolHoursReportLocale) {
   if (
     error instanceof SchoolHoursRecipientFault &&
     ["unavailable", "retired"].includes(error.code)
   )
     return schoolHoursUnavailableResponse(
       error.code === "retired" ? "retired" : "unavailable",
+      locale,
     );
-  return temporary();
+  return temporary(503, locale);
 }
 
 export async function getSchoolHoursRecipientResponse(
@@ -59,6 +66,10 @@ export async function getSchoolHoursRecipientResponse(
   token: string,
   head = false,
 ) {
+  const locale =
+    parseSchoolHoursReportLocale(
+      new URL(request.url).searchParams.get("lang"),
+    ) ?? "en";
   const reply = (response: Response) =>
     head
       ? new Response(null, {
@@ -67,11 +78,11 @@ export async function getSchoolHoursRecipientResponse(
         })
       : response;
   if (!parseSchoolHoursRecipientToken(token))
-    return reply(schoolHoursUnavailableResponse("unavailable"));
+    return reply(schoolHoursUnavailableResponse("unavailable", locale));
   if (
     !rateLimit("school-hours-recipient:read", { max: 600, windowMs: 60_000 }).ok
   )
-    return reply(temporary(429));
+    return reply(temporary(429, locale));
   try {
     const prefetch = /prefetch|prerender/i.test(
       `${request.headers.get("purpose") ?? ""} ${request.headers.get("sec-purpose") ?? ""}`,
@@ -82,11 +93,12 @@ export async function getSchoolHoursRecipientResponse(
       !head && !prefetch,
     );
     const response = schoolHoursHtmlResponse(state.report, token, {
-      recipientPanel: schoolHoursReminderPanel(state, token),
+      locale,
+      recipientPanel: schoolHoursReminderPanel(state, token, { locale }),
     });
     return reply(response);
   } catch (error) {
-    const response = refused(error);
+    const response = refused(error, locale);
     return reply(response);
   }
 }
@@ -120,11 +132,16 @@ export async function postSchoolHoursRecipientResponse(
   request: Request,
   token: string,
 ) {
+  const selectedLocale = parseSchoolHoursReportLocale(
+    new URL(request.url).searchParams.get("lang"),
+  );
+  const locale = selectedLocale ?? "en";
   let draft: { requestId: string; localTime: string } | undefined;
   try {
     // These forms use a capability and configured public origin, never a site
     // session or request Host. GET, HEAD, previews and cross-site POST cannot send.
-    if (request.headers.get("origin") !== emailOrigin()) return temporary(403);
+    if (request.headers.get("origin") !== emailOrigin())
+      return temporary(403, locale);
     if (
       request.headers
         .get("content-type")
@@ -132,16 +149,16 @@ export async function postSchoolHoursRecipientResponse(
         ?.trim()
         .toLowerCase() !== "application/x-www-form-urlencoded"
     )
-      return temporary(415);
+      return temporary(415, locale);
     if (!parseSchoolHoursRecipientToken(token))
-      return schoolHoursUnavailableResponse("unavailable");
+      return schoolHoursUnavailableResponse("unavailable", locale);
     if (
       !rateLimit("school-hours-recipient:write", { max: 120, windowMs: 60_000 })
         .ok
     )
-      return temporary(429);
+      return temporary(429, locale);
     const input = await readForm(request);
-    if (!input) return temporary(400);
+    if (!input) return temporary(400, locale);
     const state = await getSchoolHoursRecipientState(db, token);
     const parsed = parseSchoolHoursRecipientToken(token)!;
     if (
@@ -150,7 +167,7 @@ export async function postSchoolHoursRecipientResponse(
         windowMs: 60_000,
       }).ok
     )
-      return temporary(429);
+      return temporary(429, locale);
     if (input.operation !== "cancel")
       draft = { requestId: input.requestId, localTime: input.localTime };
     if (input.operation === "review") {
@@ -165,7 +182,11 @@ export async function postSchoolHoursRecipientResponse(
         ),
       };
       return schoolHoursHtmlResponse(state.report, token, {
-        recipientPanel: schoolHoursReminderPanel(state, token, { review }),
+        locale,
+        recipientPanel: schoolHoursReminderPanel(state, token, {
+          review,
+          locale,
+        }),
       });
     }
     if (input.operation === "schedule")
@@ -179,7 +200,7 @@ export async function postSchoolHoursRecipientResponse(
       status: 303,
       headers: {
         ...schoolHoursResponseHeaders,
-        Location: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(token)}#reminder`,
+        Location: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(token)}${selectedLocale ? `?lang=${selectedLocale}` : ""}#reminder`,
       },
     });
   } catch (error) {
@@ -187,20 +208,22 @@ export async function postSchoolHoursRecipientResponse(
       error instanceof SchoolHoursRecipientFault &&
       ["unavailable", "retired"].includes(error.code)
     )
-      return refused(error);
+      return refused(error, locale);
     try {
       const state = await getSchoolHoursRecipientState(db, token);
       const code =
         error instanceof SchoolHoursRecipientFault ? error.code : "writeFailed";
       return schoolHoursHtmlResponse(state.report, token, {
+        locale,
         recipientPanel: schoolHoursReminderPanel(state, token, {
           error: code,
           draft,
+          locale,
         }),
         status: code === "limit" ? 429 : code === "writeFailed" ? 503 : 400,
       });
     } catch (readError) {
-      return refused(readError);
+      return refused(readError, locale);
     }
   }
 }

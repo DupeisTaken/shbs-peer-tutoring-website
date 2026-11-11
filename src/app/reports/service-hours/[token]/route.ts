@@ -8,6 +8,7 @@ import {
   schoolHoursHtmlResponse,
   schoolHoursUnavailableResponse,
 } from "~/server/school-hours-public";
+import { parseSchoolHoursReportLocale } from "~/server/school-hours-report-locale";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +21,16 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  const locale =
+    parseSchoolHoursReportLocale(
+      new URL(request.url).searchParams.get("lang"),
+    ) ?? "en";
   if (token.startsWith("v2."))
     return getSchoolHoursRecipientResponse(request, token);
   const result = await retrieveSchoolHoursReport(db, token);
   return result.status === "ready"
-    ? schoolHoursHtmlResponse(result.report, token)
-    : schoolHoursUnavailableResponse(result.status);
+    ? schoolHoursHtmlResponse(result.report, token, { locale })
+    : schoolHoursUnavailableResponse(result.status, locale);
 }
 
 /** Next otherwise synthesizes HEAD through GET. Never treat it as an opening. */

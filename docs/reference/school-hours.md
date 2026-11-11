@@ -260,11 +260,17 @@ prefetch handling never record an opening or create mail.
 
 The standalone report follows the Management visual tokens: the same licensed
 Geist font, slate surfaces, compact headings, white cards and indigo actions.
-Responsive labelled metric cells become mobile cards while native Details retain
-the complete saved evidence. The font and its OFL notice have exact public asset
+A report-language toggle selects English or Chinese through a validated URL query;
+new email links carry their existing email language. Reminder review, errors,
+form actions and post/redirect/get retain that choice independently of delivery
+intent. Responsive labelled metric cells become mobile cards. Clicking Hours
+(or the zero dash) opens a labelled native popover with the complete saved
+evidence, without a separate Details row. Keyboard Escape, outside click and
+Close dismiss it. Older webviews retain an anchor and in-flow evidence fallback. The font and its OFL notice have exact public asset
 paths; report HTML permits only same-origin font loading. The anonymous report
 keeps its own no-script capability boundary and never mounts Management navigation.
-Printing hides reminder controls and retains the full financial table and details.
+Printing hides language/reminder controls, keeps one Hours amount and reveals
+the canonical financial details after the table.
 
 The [recipient service](../../src/server/school-hours-recipient.ts) rechecks the
 capability and uses the reporting/transport fence for writes. Each reminder has

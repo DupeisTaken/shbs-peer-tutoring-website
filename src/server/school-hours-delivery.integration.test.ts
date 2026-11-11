@@ -525,6 +525,12 @@ it("blocks token reproduction after secret rotation while previously issued link
   expect(schoolHoursDeliveryCopy(admitted!).text).toContain(
     issueSchoolHoursRecipientToken({ ...admitted!.row, schoolHoursReportId: reportId }, 2),
   );
+  for (const locale of ["en", "zh"] as const) {
+    const text = schoolHoursDeliveryCopy(admitted!, locale).text;
+    const reportLink = text.match(/https:\/\/reports\.example\.test\/reports\/service-hours\/\S+/)?.[0];
+    expect(reportLink).toBeDefined();
+    expect(new URL(reportLink!).searchParams.get("lang")).toBe(locale);
+  }
 });
 
 it("public HTML and CSV GETs require only the scoped bearer link and never mutate reporting or delivery", async () => {

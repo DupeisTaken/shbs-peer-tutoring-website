@@ -1500,6 +1500,11 @@ sign-in and can retrieve its CSV. Anyone with that link can read the report;
 administrators can revoke or replace it. Report generation and delivery do not
 confirm that the school has entered the hours into its accounts.
 
+The emailed report has an **English / 中文** language toggle. Click a person's
+**Hours / 入账时数** amount (including **—**) to open that person's full details;
+use **Close / 关闭**, Escape or click outside to dismiss them. The report keeps the
+selected language during reminder review and cancellation.
+
 School recipients can open **View Month Report** from their email and choose
 **Email me a reminder / 发送邮件提醒** on that report. Choose a future date/time in the
 displayed report timezone, review the masked original mailbox and confirm.
