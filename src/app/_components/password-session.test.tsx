@@ -26,7 +26,10 @@ vi.mock("~/lib/password-session", () => ({
   signInAfterPasswordChange: mocks.redirect,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
+vi.mock("./school-departure", () => ({
+  SchoolDeparturePanel: () => null,
+  SchoolDepartureAction: () => null,
+}));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
 // Password/profile flows retain their own fixtures; the independent advisory

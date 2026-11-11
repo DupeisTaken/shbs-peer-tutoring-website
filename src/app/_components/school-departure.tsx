@@ -11,6 +11,7 @@ import { useDialogPending } from "./ui/modal";
 import { Button } from "./ui/button";
 import { ChangeReview } from "./ui/patterns";
 import { DisclosureSection } from "./ui/disclosure-section";
+import { QueryFeedback } from "./ui/query-feedback";
 const ManagementActions = dynamic(() =>
   import("./management-actions").then((module) => module.ManagementActions),
 );
@@ -44,18 +45,89 @@ export function DepartureBanner() {
   );
 }
 
-/** One editor serves self-service proposals and management decisions. A confirmation shows
- * assignment consequences; the API rechecks the revision rather than trusting this preview. */
-export function SchoolDeparturePanel({ userId }: { userId?: string }) {
-  return <SchoolDepartureEditor key={userId ?? "self"} userId={userId} />;
+/** Self-service entry belongs to the academic card; the existing domain editor still
+ * owns departure requests, their separate revision, review and history. */
+export function SchoolDepartureAction() {
+  const t = useTranslations("schoolDeparture");
+  const recovery = useTranslations("participantRecovery");
+  const state = api.departure.state.useQuery({});
+  const [open, setOpen] = useState(false);
+  const [denied, setDenied] = useState(false);
+  const deniedNow =
+    state.error?.data?.code === "FORBIDDEN" ||
+    state.error?.data?.code === "UNAUTHORIZED";
+  if (deniedNow && !denied) setDenied(true);
+  if (state.data?.role === "VIEWER") return null;
+  const feedback = (
+    <QueryFeedback
+      hasData={!!state.data && !denied}
+      loading={!state.data && !state.error}
+      error={!!state.error || denied}
+      retrying={state.isFetching}
+      loadingTitle={recovery("loading")}
+      errorTitle={recovery("loadFailed")}
+      retryLabel={recovery("retry")}
+      onRetry={() =>
+        void state.refetch().then((result) => {
+          if (result.isSuccess && result.data) setDenied(false);
+        })
+      }
+    />
+  );
+  if (!state.data || denied || deniedNow) return feedback;
+  const departed = !!state.data.departure?.reason;
+  return (
+    <>
+      {!open && feedback}
+      <Button
+        variant={departed ? "secondary" : "danger"}
+        disabled={!!state.error}
+        onClick={() => setOpen(true)}
+      >
+        {t(departed ? "title" : "reportTransfer")}
+      </Button>
+      {open && (
+        <ProfileDialog title={t("title")} onClose={() => setOpen(false)}>
+          <SchoolDeparturePanel
+            initialAction={departed ? "RETURN" : "TRANSFERRED"}
+          />
+        </ProfileDialog>
+      )}
+    </>
+  );
 }
 
-function SchoolDepartureEditor({ userId }: { userId?: string }) {
+/** One editor serves self-service proposals and management decisions. A confirmation shows
+ * assignment consequences; the API rechecks the revision rather than trusting this preview. */
+export function SchoolDeparturePanel({
+  userId,
+  initialAction = "TRANSFERRED",
+}: {
+  userId?: string;
+  initialAction?: "TRANSFERRED" | "RETURN";
+}) {
+  return (
+    <SchoolDepartureEditor
+      key={userId ?? "self"}
+      userId={userId}
+      initialAction={initialAction}
+    />
+  );
+}
+
+function SchoolDepartureEditor({
+  userId,
+  initialAction,
+}: {
+  userId?: string;
+  initialAction: "TRANSFERRED" | "RETURN";
+}) {
   const t = useTranslations("schoolDeparture");
+  const recovery = useTranslations("participantRecovery");
   const state = api.departure.state.useQuery({ userId });
   const [selectedAction, setAction] = useState<
     "GRADUATED" | "TRANSFERRED" | "RETURN" | "REVOKE" | "RESTORE"
-  >("TRANSFERRED");
+  >(initialAction);
   const [explanation, setExplanation] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [outcome, setOutcome] = useState<string | null>(null);
@@ -75,7 +147,9 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
     router.refresh();
     setCompletion({
       clearDraft: true,
-      requested: !(userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")),
+      requested: !(
+        userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")
+      ),
     });
   };
   const settled = () => {
@@ -95,9 +169,7 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
     onSettled: settled,
   });
   const error =
-    (save.error?.data?.approvalId ? null : save.error) ??
-    request.error ??
-    state.error;
+    (save.error?.data?.approvalId ? null : save.error) ?? request.error;
   const ownPending = save.isPending || request.isPending;
   const busy = useDialogPending(ownPending);
   // Keep the nested review mounted through callbacks/refresh and any registered sibling write.
@@ -116,7 +188,13 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
   const departed = !!state.data?.departure?.reason;
   const retired = !!state.data?.retired;
   const action = retired ? "RETURN" : selectedAction;
-  const canReview = !retired || (!!userId && departed && ["HEAD", "ADMIN"].includes(state.data?.role ?? ""));
+  const canReview =
+    !!state.data &&
+    !state.error &&
+    (!retired ||
+      (!!userId &&
+        departed &&
+        ["HEAD", "ADMIN"].includes(state.data?.role ?? "")));
   const submit = () => {
     if (
       !canReview ||
@@ -137,11 +215,24 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
     if (userId) save.mutate({ ...input, userId });
     else request.mutate(input);
   };
+  const readFeedback = (
+    <QueryFeedback
+      hasData={!!state.data}
+      loading={!state.data && !state.error}
+      error={!!state.error}
+      retrying={state.isFetching}
+      loadingTitle={recovery("loading")}
+      errorTitle={recovery("loadFailed")}
+      retryLabel={recovery("retry")}
+      onRetry={() => void state.refetch()}
+    />
+  );
   if (!userId && state.data?.role === "VIEWER") return null;
   return (
     <section className="mt-5 space-y-4 border-t border-slate-200 pt-5">
       <h3 className="section-title">{t("title")}</h3>
       <p className="muted text-sm">{t("help")}</p>
+      {!confirming && readFeedback}
       {state.data && (
         <p className="text-sm font-medium">
           {t("current")}:{" "}
@@ -164,9 +255,13 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
             disabled={busy || !canReview}
             onChange={(e) => setAction(e.target.value as typeof selectedAction)}
           >
-            {!retired && <option value="TRANSFERRED">{t("transferred")}</option>}
+            {!retired && (
+              <option value="TRANSFERRED">{t("transferred")}</option>
+            )}
             {!retired && <option value="GRADUATED">{t("graduated")}</option>}
-            {(departed || retired) && <option value="RETURN">{t("return")}</option>}
+            {(departed || retired) && (
+              <option value="RETURN">{t("return")}</option>
+            )}
             {departed && userId && !retired && (
               <>
                 <option value="REVOKE">{t("revoke")}</option>
@@ -201,7 +296,11 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
             setConfirming(true);
         }}
       >
-        {t(userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "") ? "review" : "request")}
+        {t(
+          userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")
+            ? "review"
+            : "request",
+        )}
       </Button>
       {outcome && (
         <p role="status" className="text-sm text-teal-800">
@@ -219,6 +318,7 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
           pending={ownPending}
           onClose={() => setConfirming(false)}
         >
+          {readFeedback}
           <ChangeReview
             title={t(
               action === "TRANSFERRED"
@@ -237,7 +337,9 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
                 <p className="text-sm">
                   {t(
                     action === "RETURN"
-                      ? retired ? "retiredReturnHelp" : "returnHelp"
+                      ? retired
+                        ? "retiredReturnHelp"
+                        : "returnHelp"
                       : action === "REVOKE" || action === "RESTORE"
                         ? "accessHelp"
                         : "consequences",
@@ -249,7 +351,11 @@ function SchoolDepartureEditor({ userId }: { userId?: string }) {
               </>
             }
             actions={
-              <Button variant="primary" disabled={busy || !canReview} onClick={submit}>
+              <Button
+                variant="primary"
+                disabled={busy || !canReview}
+                onClick={submit}
+              >
                 {t("confirm")}
               </Button>
             }

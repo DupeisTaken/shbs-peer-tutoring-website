@@ -5619,6 +5619,7 @@
     "recordedDatesUnknown": "Session dates not recorded"
   },
   "schoolDeparture": {
+    "reportTransfer": "Έχω μετεγγραφεί σε άλλο σχολείο",
     "title": "School Departure",
     "eyebrow": "Stay connected",
     "graduated": "Graduated",
