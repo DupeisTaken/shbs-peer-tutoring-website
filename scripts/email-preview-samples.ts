@@ -324,6 +324,7 @@ export function emailPreviewSamples(
       name: `school-r${revision}`,
       ...schoolHoursEmailCopy({
         locale,
+        iconUrl: `${previewOrigin}/icon.png`,
         report: schoolReportPreview(revision),
         reportUrl: `${previewOrigin}/school-report/synthetic`,
       }),
@@ -332,6 +333,7 @@ export function emailPreviewSamples(
     name: "school-legacy-precision",
     ...schoolHoursEmailCopy({
       locale,
+      iconUrl: `${previewOrigin}/icon.png`,
       report: schoolReportLegacyPreview(3),
       reportUrl: `${previewOrigin}/school-report/synthetic-legacy`,
     }),

@@ -61,8 +61,8 @@ export function SchoolHoursValue({
   );
 }
 
-/** Keep the posting instruction distinct from rounded source reconciliation.
- * Revision choices and exact source values belong to the individual's details. */
+/** Keep the summary focused on amounts, with posting rules and exact evidence
+ * in Details. Revised reports retain their last-applied-edition safeguard. */
 export function SchoolHoursIndividuals({
   rows: allRows,
   revision,
@@ -132,6 +132,27 @@ export function SchoolHoursIndividuals({
     const editions = schoolHoursPriorEditions(row, revision);
     return (
       <TableDetails title={row.exportName} longReader>
+        {revision === 1 && (
+          <p className="text-sm text-slate-700">
+            {t(
+              nonnegativePolicy
+                ? "nonnegativeApplyInstructions"
+                : carryPolicy
+                  ? "carryApplyInstructions"
+                  : "applyInstructions",
+            )}
+          </p>
+        )}
+        {carryPolicy && (
+          <p className="text-sm text-slate-700">
+            {t(
+              nonnegativePolicy
+                ? "nonnegativeCarryPolicyNotice"
+                : "carryPolicyNotice",
+            )}{" "}
+            {t("carryReconciliation")}
+          </p>
+        )}
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <dt>{t("schoolAccount")}</dt>
           <dd>{row.schoolAccountKey}</dd>
@@ -214,27 +235,13 @@ export function SchoolHoursIndividuals({
   };
   return (
     <div className="min-w-0 space-y-3">
-      <p className="text-sm text-slate-700">
-        {t(
-          nonnegativePolicy
-            ? revision > 1
-              ? "nonnegativeRevisionInstructions"
-              : "nonnegativeApplyInstructions"
-            : revision > 1
-              ? "revisionInstructions"
-              : carryPolicy
-                ? "carryApplyInstructions"
-                : "applyInstructions",
-        )}
-      </p>
-      {carryPolicy && (
+      {revision > 1 && (
         <p className="text-sm text-slate-700">
           {t(
             nonnegativePolicy
-              ? "nonnegativeCarryPolicyNotice"
-              : "carryPolicyNotice",
-          )}{" "}
-          {t("carryReconciliation")}
+              ? "nonnegativeRevisionInstructions"
+              : "revisionInstructions",
+          )}
         </p>
       )}
       {!carryPolicy && (
@@ -254,12 +261,7 @@ export function SchoolHoursIndividuals({
             key={row.beneficiaryId}
             className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-white p-4 text-sm [overflow-wrap:anywhere]"
           >
-            <div>
-              <p className="font-medium">{row.exportName}</p>
-              <p className="muted mt-1 text-xs">
-                {t("schoolAccount")}: {row.schoolAccountKey}
-              </p>
-            </div>
+            <p className="font-medium">{row.exportName}</p>
             <dl className="grid grid-cols-2 gap-3">
               <div className="min-w-0 p-3">
                 <dt className="text-xs text-slate-700">{t("carryIn")}</dt>
@@ -305,9 +307,6 @@ export function SchoolHoursIndividuals({
               <tr key={row.beneficiaryId}>
                 <td data-sort-value={row.exportName}>
                   <span className="font-medium">{row.exportName}</span>
-                  <span className="muted block text-xs [overflow-wrap:anywhere]">
-                    {t("schoolAccount")}: {row.schoolAccountKey}
-                  </span>
                 </td>
                 <td
                   className="text-right tabular-nums"

@@ -8,6 +8,7 @@ import { programDateTimeInput } from "~/lib/program-time";
 import { getProgramTimeZone } from "./program/time-zone";
 import { getFeatures } from "./program/features";
 import { isEmailDeliveryAvailable } from "./email/sender";
+import { emailOrigin } from "./email/urls";
 import {
   inTransaction,
   lockEntity,
@@ -980,6 +981,7 @@ async function preview(db: DomainDb, month: string) {
     blockers,
     email: schoolHoursEmailCopy({
       brand: APP_TITLE,
+      iconUrl: `${emailOrigin()}/icon.png`,
       report: snapshot,
       reportUrl: "#school-report-preview",
       preview: true,

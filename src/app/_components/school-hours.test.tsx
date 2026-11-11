@@ -451,6 +451,20 @@ it.each([
       },
     ];
     render(show(<SchoolHoursPreview preview={snapshot} />, locale));
+    const applyInstructions =
+      postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE"
+        ? copy.nonnegativeApplyInstructions
+        : copy.carryApplyInstructions;
+    const carryPolicyNotice =
+      postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE"
+        ? copy.nonnegativeCarryPolicyNotice
+        : copy.carryPolicyNotice;
+    expect(screen.queryByText(applyInstructions)).toBeNull();
+    expect(
+      screen.queryByText(`${carryPolicyNotice} ${copy.carryReconciliation}`),
+    ).toBeNull();
+    expect(screen.queryByText(copy.schoolAccount)).toBeNull();
+    expect(screen.queryByText(snapshot.rows[0]!.schoolAccountKey)).toBeNull();
     const table = screen.getByRole("table", { name: copy.individualAmounts });
     const headers = within(table).getAllByRole("columnheader");
     for (const [index, label] of [
@@ -468,6 +482,9 @@ it.each([
     expect(
       Array.from(list.querySelectorAll("dt")).map((label) => label.textContent),
     ).toEqual([copy.carryIn, copy.rawChange, copy.hours, copy.carryOut]);
+    for (const summary of [list, table]) {
+      expect(summary.textContent).not.toContain(snapshot.rows[0]!.schoolAccountKey);
+    }
     for (const view of [within(list), within(table)]) {
       expect(view.getByText("+1.3")).toBeTruthy();
       expect(view.getByText(duration(copy, 1, 20))).toBeTruthy();
@@ -482,6 +499,13 @@ it.each([
     expect(screen.getByText(copy.rawChangeHelp)).toBeTruthy();
     fireEvent.click(within(list).getByRole("button"));
     const detail = within(screen.getByRole("dialog", { name: "Alex" }));
+    expect(detail.getByText(applyInstructions)).toBeTruthy();
+    expect(
+      detail.getByText(`${carryPolicyNotice} ${copy.carryReconciliation}`),
+    ).toBeTruthy();
+    expect(
+      detail.getByText(copy.schoolAccount).nextElementSibling?.textContent,
+    ).toBe(snapshot.rows[0]!.schoolAccountKey);
     for (const [label, value] of [
       [copy.rawTutoring, String(70 / 60)],
       [copy.rawCrew, String(10 / 60)],
@@ -532,7 +556,7 @@ it.each(["en", "zh"] as const)(
         ).firstChild?.textContent,
       ).toBe(copy.carryMinutes.replace("{minutes}", "-80"));
     }
-    expect(screen.getByText(copy.nonnegativeApplyInstructions)).toBeTruthy();
+    expect(screen.queryByText(copy.nonnegativeApplyInstructions)).toBeNull();
     expect(screen.getAllByText(copy.hoursDashLegend)).toHaveLength(1);
   },
 );
@@ -571,9 +595,23 @@ it.each(["en", "zh"] as const)(
     expect(screen.queryByText(condition)).toBeNull();
     expect(screen.getAllByLabelText(copy.zeroAmount)).toHaveLength(2);
     expect(screen.getByText(copy.nonnegativeRevisionInstructions)).toBeTruthy();
+    expect(screen.queryByText(person.schoolAccountKey)).toBeNull();
+    expect(
+      screen.queryByText(
+        `${copy.nonnegativeCarryPolicyNotice} ${copy.carryReconciliation}`,
+      ),
+    ).toBeNull();
     const list = screen.getByRole("list", { name: copy.individualAmounts });
     fireEvent.click(within(list).getByRole("button"));
     const detail = within(screen.getByRole("dialog", { name: "Blair" }));
+    expect(
+      detail.getByText(copy.schoolAccount).nextElementSibling?.textContent,
+    ).toBe(person.schoolAccountKey);
+    expect(
+      detail.getByText(
+        `${copy.nonnegativeCarryPolicyNotice} ${copy.carryReconciliation}`,
+      ),
+    ).toBeTruthy();
     expect(
       detail.getByText(
         copy.priorEditionComparison
@@ -646,13 +684,18 @@ it.each(["en", "zh"] as const)(
     expect(screen.getByText(copy.statistics).closest("details")!.open).toBe(
       false,
     );
-    expect(screen.getByText(copy.applyInstructions)).toBeTruthy();
+    expect(screen.queryByText(copy.applyInstructions)).toBeNull();
   },
 );
 
-it.each(["en", "zh"] as const)(
-  "keeps mobile identity, rounded combined change and exact posting visible with source breakdown in Details (%s)",
-  (locale) => {
+it.each([
+  ["en", "list"],
+  ["en", "table"],
+  ["zh", "list"],
+  ["zh", "table"],
+] as const)(
+  "keeps identity and amounts in the summary with account and exact sources in Details (%s, %s)",
+  (locale, role) => {
     const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
     const person = {
       ...row('Alexandra "Alex" Anderson (艾力克斯)', 0.5, 0.25),
@@ -673,21 +716,25 @@ it.each(["en", "zh"] as const)(
     expect(cards).toHaveLength(2);
     const card = cards[0]!;
     expect(within(card).getByText(person.exportName)).toBeTruthy();
-    expect(
-      within(card).getByText(
-        `${copy.schoolAccount}: ${person.schoolAccountKey}`,
-      ),
-    ).toBeTruthy();
+    expect(screen.queryByText(person.schoolAccountKey)).toBeNull();
+    expect(screen.queryByText(copy.schoolAccount)).toBeNull();
+    expect(screen.queryByText(copy.applyInstructions)).toBeNull();
     expect(
       within(card).getByText(copy.hours).nextElementSibling?.textContent,
     ).toBe("+0.75");
     expect(within(card).getByText(duration(copy, 0, 45))).toBeTruthy();
     expect(within(cards[1]!).getByText(duration(copy, 0, 1, "-"))).toBeTruthy();
     expect(within(list).queryByText("NoChange")).toBeNull();
-    fireEvent.click(within(card).getByRole("button"));
+    const summary = screen.getByRole(role, { name: copy.individualAmounts });
+    const personSummary = within(summary)
+      .getByText(person.exportName)
+      .closest(role === "list" ? "li" : "tr")!;
+    expect(personSummary.textContent).not.toContain(person.schoolAccountKey);
+    fireEvent.click(within(personSummary).getByRole("button"));
     const detail = within(
       screen.getByRole("dialog", { name: person.exportName }),
     );
+    expect(detail.getByText(copy.applyInstructions)).toBeTruthy();
     for (const [label, value] of [
       [copy.schoolAccount, person.schoolAccountKey],
       [copy.tutoring, "+0.5"],
@@ -921,59 +968,67 @@ it("preserves offsetting and fractional component changes while filtering only t
   expect(screen.queryByText(en.schoolHours.noChanges)).toBeNull();
 });
 
-it("keeps each revision instruction conditional and moves prior-month/revision values into individual Details", () => {
-  const corrected = {
-    ...row("Alex", 0.5, 0),
-    monthAmount: 7.5,
-    previousEditionAmount: 7,
-    previousMonthAmount: 10,
-    monthComparison: -2.5,
-  };
-  const unchanged = {
-    ...row("Blair", 0, 0),
-    monthAmount: 2,
-    previousEditionAmount: 2,
-  };
-  render(
-    show(<SchoolHoursIndividuals rows={[corrected, unchanged]} revision={2} />),
-  );
-  const table = screen.getByRole("table", {
-    name: en.schoolHours.individualAmounts,
-  });
-  const cards = screen.getByRole("list", {
-    name: en.schoolHours.individualAmounts,
-  });
-  for (const view of [within(table), within(cards)]) {
-    expect(
-      view.getAllByText(
-        en.schoolHours.revisionAmountCondition.replace("{revision}", "1"),
+it.each(["en", "zh"] as const)(
+  "keeps revision safeguards visible with account and historical amounts in Details (%s)",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const corrected = {
+      ...row("Alex", 0.5, 0),
+      monthAmount: 7.5,
+      previousEditionAmount: 7,
+      previousMonthAmount: 10,
+      monthComparison: -2.5,
+    };
+    const unchanged = {
+      ...row("Blair", 0, 0),
+      monthAmount: 2,
+      previousEditionAmount: 2,
+    };
+    render(
+      show(
+        <SchoolHoursIndividuals rows={[corrected, unchanged]} revision={2} />,
+        locale,
       ),
-    ).toHaveLength(1);
+    );
+    const table = screen.getByRole("table", {
+      name: copy.individualAmounts,
+    });
+    const cards = screen.getByRole("list", {
+      name: copy.individualAmounts,
+    });
+    for (const summary of [table, cards]) {
+      expect(summary.textContent).not.toContain(corrected.schoolAccountKey);
+    }
+    for (const view of [within(table), within(cards)]) {
+      expect(
+        view.getAllByText(
+          copy.revisionAmountCondition.replace("{revision}", "1"),
+        ),
+      ).toHaveLength(1);
+      expect(view.getByLabelText(copy.zeroAmount).textContent?.trim()).toBe("—");
+      expect(view.queryByText(copy.zeroAmount)).toBeNull();
+      expect(view.queryByText(copy.unchanged)).toBeNull();
+      expect(
+        view.queryByText(copy.correctedMonth.replace("{hours}", "+7.5")),
+      ).toBeNull();
+    }
+    expect(screen.getByText(copy.revisionInstructions)).toBeTruthy();
+    fireEvent.click(
+      within(within(table).getByText("Alex").closest("tr")!).getByRole("button"),
+    );
+    const detail = within(screen.getByRole("dialog", { name: "Alex" }));
     expect(
-      view.getByLabelText(en.schoolHours.zeroAmount).textContent?.trim(),
-    ).toBe("—");
-    expect(view.queryByText(en.schoolHours.zeroAmount)).toBeNull();
-    expect(view.queryByText(en.schoolHours.unchanged)).toBeNull();
+      detail.getByText(copy.schoolAccount).nextElementSibling?.textContent,
+    ).toBe(corrected.schoolAccountKey);
     expect(
-      view.queryByText(
-        en.schoolHours.correctedMonth.replace("{hours}", "+7.5"),
-      ),
-    ).toBeNull();
-  }
-  expect(screen.getByText(en.schoolHours.revisionInstructions)).toBeTruthy();
-  fireEvent.click(
-    within(within(table).getByText("Alex").closest("tr")!).getByRole("button"),
-  );
-  const detail = within(screen.getByRole("dialog", { name: "Alex" }));
-  expect(
-    detail.getByText(en.schoolHours.monthDifference).nextElementSibling
-      ?.textContent,
-  ).toBe("-2.5");
-  expect(
-    detail.getByText(en.schoolHours.correctedMonth.replace("{hours}", "+7.5")),
-  ).toBeTruthy();
-  expect(detail.getByText(en.schoolHours.comparisonHelp)).toBeTruthy();
-});
+      detail.getByText(copy.monthDifference).nextElementSibling?.textContent,
+    ).toBe("-2.5");
+    expect(
+      detail.getByText(copy.correctedMonth.replace("{hours}", "+7.5")),
+    ).toBeTruthy();
+    expect(detail.getByText(copy.comparisonHelp)).toBeTruthy();
+  },
+);
 
 it("lets each individual choose exactly one correction inside Details when an intermediate revision was missed", () => {
   const alex = {

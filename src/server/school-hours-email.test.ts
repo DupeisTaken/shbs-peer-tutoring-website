@@ -42,6 +42,38 @@ function carryReport(
   return publicSchoolHoursReport(snapshot);
 }
 
+it("keeps escaped school-account references and first-edition posting rules inside each person's Details", () => {
+  const report = carryReport("TENTH_HOUR_CARRY_NONNEGATIVE");
+  report.rows[0]!.schoolAccountKey = 'account <synthetic> & "school"';
+  const before = JSON.stringify(report);
+  const html = renderSchoolHoursContent(report);
+  const doc = parse(html);
+  expect(doc.querySelector(".school-summary .school-account")).toBeNull();
+  expect(doc.querySelector(".person-identity")?.textContent).toBe(
+    report.rows[0]!.exportName,
+  );
+  const details = doc.querySelector<HTMLDetailsElement>(".person-details")!;
+  expect(details.open).toBe(false);
+  expect(details.querySelector(".school-account")?.textContent).toBe(
+    `School account / 学校账户: ${report.rows[0]!.schoolAccountKey}`,
+  );
+  expect(html).toContain("account &lt;synthetic&gt; &amp; &quot;school&quot;");
+  expect(html).not.toContain("account <synthetic>");
+  expect(details.querySelector(".posting-guidance")?.textContent).toContain(
+    "Apply each person's highlighted amount",
+  );
+  expect(doc.querySelector(".edition-guidance")).toBeNull();
+  const carry = doc.querySelector<HTMLDetailsElement>(".carry-explanation")!;
+  expect(carry.open).toBe(false);
+  expect(carry.textContent).toContain("Post in 0.1 h (6 min) increments");
+  expect(carry.textContent).toContain("Never enter carry separately");
+  expect(doc.body.querySelectorAll(".posting-legend")).toHaveLength(1);
+  expect(JSON.stringify(report)).toBe(before);
+  expect(schoolHoursCsv(report).content).toContain(
+    '"account <synthetic> & ""school"""',
+  );
+});
+
 it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
   "renders %s in a compact semantic table with exact Hours and full-span native Details",
   (policy) => {
@@ -63,6 +95,17 @@ it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
       "Carry Out / 留待后续",
     ]);
     expect(table.tHead!.querySelectorAll('th[scope="col"]')).toHaveLength(5);
+    expect(
+      [...table.querySelector(".school-summary")!.children].map((cell) =>
+        cell.getAttribute("data-label"),
+      ),
+    ).toEqual([
+      "Individual / 个人",
+      "Carry In / 期初余量",
+      "Raw Change / 原始变化",
+      "Hours / 入账时数",
+      "Carry Out / 留待后续",
+    ]);
     expect(table.querySelector('tbody th[scope="row"]')?.textContent).toContain(
       report.rows[0]!.exportName,
     );
@@ -261,7 +304,7 @@ it.each(["TENTH_HOUR_CARRY", "TENTH_HOUR_CARRY_NONNEGATIVE"] as const)(
       expect(explanation?.textContent).toContain(
         "Carry in + raw changes − posted change = carry out",
       );
-      const introduction = doc.body.querySelector("div")!.textContent;
+      const introduction = doc.querySelector(".edition-guidance")!.textContent;
       expect(introduction).toContain("If r1 was last entered for that person");
       expect(introduction).toContain("choose ONE matching row");
       expect(introduction).toContain("If the last entered edition is unknown");
@@ -381,7 +424,7 @@ it("preserves legacy signed values and distinguishes unrecorded carry from no po
 });
 
 it.each(["en", "zh"] as const)(
-  "sends a %s ready notification with edition metadata, one CTA and no report data",
+  "sends a %s shared-template notification with edition metadata, a CTA and fallback, and no report data",
   (locale) => {
     for (const revision of [1, 2, 3]) {
       const report = publicSchoolHoursReport(schoolHoursTestSnapshot(revision));
@@ -393,11 +436,30 @@ it.each(["en", "zh"] as const)(
           ? `2026年10月学校时数报告${revision > 1 ? "更新" : ""} · 第 ${revision} 版`
           : `October 2026 school-hours report${revision > 1 ? " updated" : ""} · Revision ${revision}`,
       );
-      expect(doc.querySelectorAll("a")).toHaveLength(1);
-      expect(doc.querySelector("a")?.textContent).toBe(
+      expect(doc.querySelectorAll("a")).toHaveLength(2);
+      const action = doc.querySelector(".body a");
+      const fallback = doc.querySelector(".panel a");
+      expect(action?.textContent).toBe(
         locale === "zh" ? "查看月度报告" : "View Month Report",
       );
-      expect(doc.querySelector("a")?.getAttribute("href")).toBe(reportUrl);
+      expect(action?.getAttribute("href")).toBe(reportUrl);
+      expect(fallback?.getAttribute("href")).toBe(reportUrl);
+      expect(fallback?.textContent).toBe(reportUrl);
+      expect(doc.querySelector("h1")?.textContent).toBe(email.subject);
+      expect(doc.querySelector(".body")?.textContent).not.toContain(
+        locale === "zh" ? "2026年10月" : "October 2026",
+      );
+      expect(doc.querySelector(".body")?.textContent).toContain(
+        locale === "zh" ? "发出时间:" : "Issued:",
+      );
+      expect(doc.querySelector("body.canvas")?.getAttribute("style")).toContain(
+        "background:#181B20",
+      );
+      expect(doc.querySelector(".card")?.getAttribute("bgcolor")).toBe("#272D35");
+      expect(
+        doc.querySelectorAll('table[role="presentation"]').length,
+      ).toBeGreaterThan(0);
+      expect(doc.querySelector(".footer-brand")?.textContent).toBeTruthy();
       expect(email.text).toContain(reportUrl);
       expect(email.text).toContain(locale === "zh" ? "发出时间:" : "Issued:");
       expect(email.text).toContain(
@@ -412,10 +474,10 @@ it.each(["en", "zh"] as const)(
         );
       expect(
         doc.querySelector(
-          ".person,table,details,.email-amount,.email-carry-notice",
+          ".person,table:not([role='presentation']),details,.email-amount,.email-carry-notice,.code,pre",
         ),
       ).toBeNull();
-      const inbox = doc.querySelector(".email-preheader")!.textContent;
+      const inbox = doc.querySelector(".preheader")!.textContent;
       expect(inbox).not.toBe(email.subject);
       for (const content of [email.html, email.text, inbox]) {
         for (const row of report.rows) {
@@ -479,9 +541,8 @@ it("defaults to English, escapes branding, and keeps participant names only in t
   });
   const doc = parse(email.html);
   expect(doc.documentElement.lang).toBe("en");
-  expect(doc.querySelector("h1")?.textContent).toBe(
-    "Your monthly report is ready",
-  );
+  expect(doc.querySelector("h1")?.textContent).toBe(email.subject);
+  expect(doc.querySelector(".footer-brand")?.textContent).toBe("Pilot <School>");
   expect(email.html).toContain("Pilot &lt;School&gt;");
   expect(email.html).not.toContain("Pilot <School>");
   expect(email.html).not.toContain("Blair");
@@ -492,9 +553,40 @@ it("defaults to English, escapes branding, and keeps participant names only in t
   expect(parse(saved).querySelector(".person-identity")?.textContent).toContain(
     'Alexander "Alex" Chen (陈安)',
   );
-  expect(email.html).toContain("background:#EAF0F7");
-  expect(email.html).toContain("background:#FFFFFF");
+  expect(email.html).toContain("background:#181B20");
+  expect(email.html).toContain("background:#272D35");
   expect(email.html).toContain("background:#0D59E6");
+});
+
+it("escapes the shared-template action and optional canonical footer icon without adding code panels", () => {
+  const report = carryReport();
+  const url = `${reportUrl}?first=1&note=%22synthetic%22`;
+  const iconUrl = "https://school.example.test/icon.png?first=1&second=2";
+  const email = schoolHoursEmailCopy({
+    brand: 'Pilot <School> & "Program"',
+    iconUrl,
+    report,
+    reportUrl: url,
+  });
+  const doc = parse(email.html);
+  expect(doc.querySelector(".footer-icon")?.getAttribute("src")).toBe(iconUrl);
+  expect(doc.querySelector(".footer-icon")?.getAttribute("alt")).toBe(
+    'Pilot <School> & "Program" icon',
+  );
+  for (const link of doc.querySelectorAll("a"))
+    expect(link.getAttribute("href")).toBe(url);
+  expect(email.html).toContain("first=1&amp;note=%22synthetic%22");
+  expect(email.html).toContain("first=1&amp;second=2");
+  expect(doc.querySelector(".code,pre,script")).toBeNull();
+  expect(email.text).toContain(url);
+  expect(
+    parse(schoolHoursEmailCopy({ report, reportUrl }).html).querySelector(
+      ".footer-icon",
+    ),
+  ).toBeNull();
+  expect(() =>
+    schoolHoursEmailCopy({ report, reportUrl: "javascript:alert(1)" }),
+  ).toThrow("Email actions require an HTTP(S) URL.");
 });
 
 it.each([
@@ -631,10 +723,11 @@ it.each(["en", "zh"] as const)(
   "renders safe %s notification previews with the same metadata and no active link",
   (locale) => {
     const report = publicSchoolHoursReport(schoolHoursTestSnapshot(2));
+    const previewUrl = `${reportUrl}?token=synthetic-preview-secret`;
     const actual = schoolHoursEmailCopy({ report, reportUrl, locale });
     const preview = schoolHoursEmailCopy({
       report,
-      reportUrl: "#preview",
+      reportUrl: previewUrl,
       locale,
       preview: true,
     });
@@ -642,14 +735,24 @@ it.each(["en", "zh"] as const)(
     const actualDoc = parse(actual.html);
     const previewDoc = parse(preview.html);
     expect(previewDoc.querySelector("a,[href]")).toBeNull();
-    expect(
-      previewDoc.querySelector('[aria-disabled="true"]')?.textContent,
-    ).toBe(locale === "zh" ? "查看月度报告" : "View Month Report");
-    expect(`${preview.html}${preview.text}`).not.toContain("#preview");
+    const previewAction =
+      locale === "zh"
+        ? "查看月度报告 (仅供预览)"
+        : "View Month Report (preview only)";
+    expect(previewDoc.querySelector(".body")?.textContent).toContain(
+      previewAction,
+    );
+    expect(previewDoc.querySelector(".panel a,.code,pre")).toBeNull();
+    expect(`${preview.html}${preview.text}`).not.toContain(previewUrl);
+    expect(`${preview.html}${preview.text}`).not.toContain(
+      "synthetic-preview-secret",
+    );
     expect(previewDoc.querySelector("h1")?.textContent).toBe(
       actualDoc.querySelector("h1")?.textContent,
     );
-    expect(previewDoc.querySelector(".person,table")).toBeNull();
+    expect(
+      previewDoc.querySelector(".person,table:not([role='presentation'])"),
+    ).toBeNull();
     expect(preview.text).toContain(
       locale === "zh" ? "仅供预览" : "preview only",
     );

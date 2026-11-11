@@ -155,6 +155,7 @@ export function schoolHoursDeliveryCopy(
     throw new Error("School report link requires reissue.");
   return schoolHoursRecipientEmailCopy({
     brand: APP_TITLE,
+    iconUrl: `${emailOrigin()}/icon.png`,
     locale,
     report: publicSchoolHoursReport(report.snapshot),
     reportUrl: `${emailOrigin()}/reports/service-hours/${encodeURIComponent(issueSchoolHoursRecipientToken({ ...admitted.row, schoolHoursReportId: report.id }, report.linkVersion))}`,
