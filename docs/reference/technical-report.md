@@ -508,6 +508,22 @@ staff to review participation controls, while roster deletion keeps its deletion
 guidance. Coordinator proposals preserve the old deletion authority, and
 approval targets include non-scalar review, participation and publication evidence.
 
+The feature-owned decline controller reads the existing shared `account.me` query
+before admitting a review. A known, error-free, settled Head/Admin read selects
+the direct copy; Coordinator selects request-oriented title, consequence and
+confirmation copy. Unknown, fetching, failed or non-management actor information
+blocks admission. The review retains its target, source version, client receipt
+key and actor identity/role; the commit checks the latest committed actor read.
+An observed identity or role change requires a new deliberate review even if the
+old identity/role later returns. Temporary read failure retains the frozen review.
+A feature-owned context consumer inside its native modal receives the owning
+account query's current feedback and read-only Retry, without adding another query
+or replacing the captured intent. Accepted-write synchronization recovery also
+remains read-only. This client disclosure guard does not replace the server's
+live approval and decline authority checks. English and Chinese have authored
+request/recovery copy; the six other bundled catalogs carry explicit English
+fallback leaves pending language review.
+
 The decline review and global save notice share a client-safe
 [known-refusal mapping](../../src/lib/legacy-signup-decline-error.ts) for published
 dated-session records. Both use `legacySignupDecline.publishedSessionRecords` in

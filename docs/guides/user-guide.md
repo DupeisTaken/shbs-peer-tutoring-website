@@ -1358,10 +1358,15 @@ the original request, appeal and review history.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes valid empty or partially assigned requests; Assigned contains valid requests whose requested subjects all have tutors. Sources keep their original submission order. Pending decisions, including invalidity appeals, take precedence in Needs review. Closed groups closed or declined requests, invalid entries and completed review history. This is a general queue status, not a permanent-closure action: clearing an invalid flag returns an open request to matching or assigned without changing assignments, original priority or verification deadlines. Requests move automatically when refreshed; staff keep their selected tab. The validity filter initially shows all entries, so Closed includes invalid requests immediately. Its **Not flagged invalid** choice describes validity, not whether a request is still open.
 
-For an older signup without a survey, **Decline** now retains a decision
-instead of deleting the source. The review names the signup and explains that its
-current assignments will be released. Existing management approval rules still
-apply: Coordinators submit a proposal; Admin or Head applies the decision.
+For an older signup without a survey, **Decline** retains a decision instead of
+deleting the source. The review names the signup and explains permanent closure,
+release of its current assignments and retained intake/history. Coordinators see
+**Request Signup Decline** and **Submit decline request**: submission creates an
+Admin/Head review request, leaving the signup and assignments unchanged until
+approval. Admin or Head sees the direct **Decline signup** action. Loading or failed
+account reads block submission. Failed reads offer a read-only retry inside an open
+review, preserving its original signup and submission details. If the account or
+management role changes while a review is open, cancel and open a fresh review.
 Invalid flags and pending participation reviews must be resolved first. Attendance
 or published-session evidence still prevents decline.
 

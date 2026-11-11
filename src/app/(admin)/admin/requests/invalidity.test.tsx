@@ -215,7 +215,9 @@ vi.mock("~/trpc/react", () => ({
         },
       },
     }),
-    account: { me: { useQuery: () => ({ data: { role: mocks.role } }) } },
+    account: {
+      me: { useQuery: () => ({ data: { id: "staff-1", role: mocks.role } }) },
+    },
     studentWorkflow: {
       headUnassign: { useMutation: () => ({ mutateAsync: mocks.unassign }) },
       resolveReview: { useMutation: () => ({ mutateAsync: vi.fn() }) },
