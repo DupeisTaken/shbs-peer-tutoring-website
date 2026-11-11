@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { compile } from "tailwindcss";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import {
@@ -140,6 +141,78 @@ beforeEach(() => {
   mock.policyLoaded = true;
 });
 afterEach(cleanup);
+
+it.each([
+  { chinese: false, pending: false },
+  { chinese: true, pending: false },
+  { chinese: false, pending: true },
+  { chinese: true, pending: true },
+])(
+  "contains the academic legend locally (Chinese=$chinese, pending=$pending)",
+  async ({ chinese, pending }) => {
+    const messages = chinese ? zh : en;
+    render(
+      wrap(
+        <AcademicForm
+          snapshot={{
+            academic,
+            profileVersion: 3,
+            currentSchoolYear: "26-27",
+          }}
+          pending={pending}
+          onSave={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+        chinese,
+      ),
+    );
+    const fieldset = screen.getByRole<HTMLFieldSetElement>("group", {
+      name: messages.academics.edit,
+    });
+    const legend = screen.getByText(messages.academics.edit, {
+      selector: "legend",
+    });
+    expect(legend.parentElement).toBe(fieldset);
+    expect(fieldset.disabled).toBe(pending);
+    expect(fieldset.getAttribute("aria-busy")).toBe(String(pending));
+    expect(
+      screen.getByLabelText(messages.academics.status).matches(":disabled"),
+    ).toBe(pending);
+
+    // Exercise installed utilities and local containment. JSDOM does not
+    // establish document scroll geometry; real-page verification covers that.
+    const compiler = await compile("@tailwind utilities;");
+    const stylesheet = document.createElement("style");
+    stylesheet.textContent = compiler.build([
+      ...fieldset.classList,
+      ...legend.classList,
+    ]);
+    document.head.append(stylesheet);
+    try {
+      expect(getComputedStyle(fieldset).position).toBe("relative");
+      const style = getComputedStyle(legend);
+      expect(style.position).toBe("absolute");
+      expect(style.width).toBe("1px");
+      expect(style.height).toBe("1px");
+      expect(style.overflow).toBe("hidden");
+      expect(style.clipPath).toBe("inset(50%)");
+      let owner = legend.parentElement;
+      while (
+        owner &&
+        !/^(relative|absolute|fixed|sticky)$/.test(
+          getComputedStyle(owner).position,
+        )
+      )
+        owner = owner.parentElement;
+      expect(owner).toBe(fieldset);
+      expect(screen.getByRole("group", { name: messages.academics.edit })).toBe(
+        fieldset,
+      );
+    } finally {
+      stylesheet.remove();
+    }
+  },
+);
 
 it.each([false, true])(
   "shows grade, reference, graduation and stale confirmation together (Chinese=%s)",
