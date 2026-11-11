@@ -84,6 +84,15 @@ describe("UI recovery and persistent field labels", () => {
     "actionReview.galleryRevoked",
     "actionReview.galleryRestore",
     "legacySignupDecline.publishedSessionRecords",
+    "legacySignupDecline.requestTitle",
+    "legacySignupDecline.requestConsequence",
+    "legacySignupDecline.requestConfirm",
+    "legacySignupDecline.actorLoading",
+    "legacySignupDecline.actorLoadFailed",
+    "legacySignupDecline.actorRetry",
+    "legacySignupDecline.actorUnavailable",
+    "legacySignupDecline.actorChanged",
+    "legacySignupDecline.actorDenied",
     "admin.announcements.messageLabel",
     "crew.patrol.statusLabel",
     "crew.patrol.noteLabel",
@@ -110,6 +119,31 @@ describe("UI recovery and persistent field labels", () => {
   });
 });
 
+it("keeps Coordinator decline requests distinct from direct decisions in every bundled catalog", () => {
+  for (const locale of LOCALES) {
+    const copy = bundledMessages[locale].legacySignupDecline;
+    expect(copy.requestTitle, `${locale}: named request`).toContain("{name}");
+    expect(copy.requestTitle, `${locale}: request title`).not.toBe(copy.title);
+    expect(copy.requestConfirm, `${locale}: request action`).not.toBe(
+      copy.confirm,
+    );
+    if (locale !== "zh") {
+      expect(copy.requestConsequence).toContain("Admin or Head review");
+      expect(copy.requestConsequence).toContain(
+        "stay unchanged until approval",
+      );
+      expect(copy.requestConsequence).toContain("permanently closes");
+      expect(copy.requestConsequence).toContain("history are retained");
+    } else {
+      expect(copy.requestConsequence).toContain("管理员或总负责人审核");
+      expect(copy.requestConsequence).toContain(
+        "获批前，此次报名和当前分配均保持不变",
+      );
+      expect(copy.requestConsequence).toContain("永久关闭");
+      expect(copy.requestConsequence).toContain("历史记录将保留");
+    }
+  }
+});
 describe("bundled header translations", () => {
   it("provides every creation-risk gate and gallery message in all bundled locales", () => {
     // Bundled locales have no English fallback: the gate's safeguards and the

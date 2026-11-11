@@ -21,20 +21,38 @@ import {
   useLegacySignupDecline,
 } from "./legacy-signup-decline";
 
-const mocks = vi.hoisted(() => ({
-  commit:
-    vi.fn<
-      (input: {
-        id: string;
-        expectedUpdatedAt: Date;
-        clientKey: string;
-      }) => Promise<unknown>
-    >(),
-  read: vi.fn<() => Promise<void>>(),
-  workloads: vi.fn<() => Promise<void>>(),
-}));
+const mocks = vi.hoisted(() => {
+  const account: {
+    data: { id: string; role: string } | undefined;
+    error: Error | null;
+    isFetching: boolean;
+  } = {
+    data: { id: "staff-1", role: "HEAD" },
+    error: null,
+    isFetching: false,
+  };
+  return {
+    account,
+    accountRead: vi.fn<() => Promise<unknown>>(),
+    commit:
+      vi.fn<
+        (input: {
+          id: string;
+          expectedUpdatedAt: Date;
+          clientKey: string;
+        }) => Promise<unknown>
+      >(),
+    read: vi.fn<() => Promise<void>>(),
+    workloads: vi.fn<() => Promise<void>>(),
+  };
+});
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: {
+      me: {
+        useQuery: () => ({ ...mocks.account, refetch: mocks.accountRead }),
+      },
+    },
     admin: {
       declineSignup: { useMutation: () => ({ mutateAsync: mocks.commit }) },
     },
@@ -59,10 +77,12 @@ function Entry({
   denied = false,
   removed = false,
   updatedAt = version,
+  bypassBlocked = false,
 }: {
   denied?: boolean;
   removed?: boolean;
   updatedAt?: Date;
+  bypassBlocked?: boolean;
 }) {
   const actions = useLegacySignupDecline()!;
   const revoke = actions.revoke;
@@ -74,7 +94,9 @@ function Entry({
     <>
       {!removed && (
         <button
-          disabled={actions.blocked({ id: "source", updatedAt })}
+          disabled={
+            !bypassBlocked && actions.blocked({ id: "source", updatedAt })
+          }
           onClick={() =>
             actions.open({ id: "source", updatedAt, name: "Captured source" })
           }
@@ -101,6 +123,12 @@ function example(props: Parameters<typeof Entry>[0] = {}, locale = "en") {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.account = {
+    data: { id: "staff-1", role: "HEAD" },
+    error: null,
+    isFetching: false,
+  };
+  mocks.accountRead.mockResolvedValue({ isSuccess: true });
   mocks.commit.mockResolvedValue({ ok: true });
   mocks.read.mockResolvedValue(undefined);
   mocks.workloads.mockResolvedValue(undefined);
@@ -180,10 +208,13 @@ it("conceals a denied review while its admitted write settles and retains the ac
 });
 
 it("shows a queued management proposal without claiming a decline was applied", async () => {
+  mocks.account.data = { id: "staff-1", role: "COORDINATOR" };
   mocks.commit.mockRejectedValue({ data: { approvalId: "proposal-1" } });
   render(example());
   open();
-  confirm();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.legacySignupDecline.requestConfirm }),
+  );
   await screen.findByText(en.actionReview.queued);
   expect(screen.queryByText(en.actionReview.applied)).toBeNull();
   expect(
@@ -297,6 +328,444 @@ it.each([
   },
 );
 
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "discloses direct and proposed declines in %s before submission",
+  (locale, catalog) => {
+    for (const role of ["HEAD", "ADMIN", "COORDINATOR"] as const) {
+      mocks.account.data = { id: "staff-1", role };
+      const view = render(example({}, locale));
+      open();
+      const proposal = role === "COORDINATOR";
+      const copy = catalog.legacySignupDecline;
+      const dialog = screen.getByRole("dialog");
+      expect(
+        within(dialog).getByRole("heading", {
+          name: (proposal ? copy.requestTitle : copy.title).replace(
+            "{name}",
+            "Captured source",
+          ),
+        }),
+      ).toBeTruthy();
+      expect(
+        within(dialog).getByText(
+          proposal ? copy.requestConsequence : copy.consequence,
+        ),
+      ).toBeTruthy();
+      expect(
+        within(dialog).getByRole("button", {
+          name: proposal ? copy.requestConfirm : copy.confirm,
+        }),
+      ).toBeTruthy();
+      expect(
+        within(dialog).queryByRole("button", {
+          name: proposal ? copy.confirm : copy.requestConfirm,
+        }),
+      ).toBeNull();
+      expect(mocks.commit).not.toHaveBeenCalled();
+      view.unmount();
+    }
+  },
+);
+
+it.each([
+  ["unknown", undefined, false, false],
+  ["loading", undefined, true, false],
+  ["refreshing", { id: "staff-1", role: "HEAD" }, true, false],
+  ["failed initial read", undefined, false, true],
+  ["failed cached direct read", { id: "staff-1", role: "HEAD" }, false, true],
+  [
+    "failed cached proposal read",
+    { id: "staff-1", role: "COORDINATOR" },
+    false,
+    true,
+  ],
+  ["non-management account", { id: "staff-1", role: "VIEWER" }, false, false],
+] as const)(
+  "blocks decline admission for %s actor information",
+  (_case, data, isFetching, failed) => {
+    mocks.account = {
+      data,
+      error: failed ? new Error("Synthetic account read failure") : null,
+      isFetching,
+    };
+    const view = render(example());
+    expect(
+      screen
+        .getByRole("button", { name: "Review decline" })
+        .matches(":disabled"),
+    ).toBe(true);
+    // A caller cannot bypass the feature-owned readiness gate by omitting disabled.
+    view.rerender(example({ bypassBlocked: true }));
+    open();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mocks.commit).not.toHaveBeenCalled();
+  },
+);
+
+it("recovers the actor read through reads only before admitting a Coordinator request", async () => {
+  mocks.account = {
+    data: undefined,
+    error: new Error("Synthetic account read failure"),
+    isFetching: false,
+  };
+  const view = render(example());
+  expect(screen.getByText(en.legacySignupDecline.actorLoadFailed)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.legacySignupDecline.actorRetry }),
+  );
+  await waitFor(() => expect(mocks.accountRead).toHaveBeenCalledOnce());
+  expect(mocks.commit).not.toHaveBeenCalled();
+  mocks.account = {
+    data: { id: "staff-1", role: "COORDINATOR" },
+    error: null,
+    isFetching: false,
+  };
+  view.rerender(example());
+  open();
+  expect(
+    screen.getByRole("button", { name: en.legacySignupDecline.requestConfirm }),
+  ).toBeTruthy();
+  expect(mocks.commit).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "recovers failed actor reads inside the same %s Coordinator review and retains its original intent",
+  async (locale, catalog) => {
+    const clientKey = "00000000-0000-4000-8000-000000000697";
+    const uuid = vi.spyOn(crypto, "randomUUID").mockReturnValue(clientKey);
+    try {
+      mocks.account.data = { id: "staff-1", role: "COORDINATOR" };
+      const view = render(example({}, locale));
+      open();
+      const dialog = screen.getByRole("dialog");
+      const copy = catalog.legacySignupDecline;
+      const changedSourceVersion = new Date("2026-11-05T00:00:00Z");
+      const rerender = () =>
+        view.rerender(example({ updatedAt: changedSourceVersion }, locale));
+      const holdAccountRead = () => {
+        let settle!: (next: typeof mocks.account) => void;
+        mocks.accountRead.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              mocks.account = { ...mocks.account, isFetching: true };
+              rerender();
+              settle = (next) => {
+                mocks.account = next;
+                rerender();
+                resolve({ isSuccess: !next.error });
+              };
+            }),
+        );
+        return (next: typeof mocks.account) => act(async () => settle(next));
+      };
+      expect(uuid).toHaveBeenCalledOnce();
+      expect(
+        within(dialog).queryByRole("button", { name: copy.actorRetry }),
+      ).toBeNull();
+      mocks.account.error = new Error("Synthetic account read failure");
+      rerender();
+      expect(within(dialog).getByText(copy.actorLoadFailed)).toBeTruthy();
+      const failRead = holdAccountRead();
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: copy.actorRetry }),
+      );
+      expect(mocks.accountRead).toHaveBeenCalledOnce();
+      expect(mocks.commit).not.toHaveBeenCalled();
+      expect(
+        within(dialog)
+          .getByRole("button", { name: copy.actorRetry })
+          .matches(":disabled"),
+      ).toBe(true);
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: copy.requestConfirm }),
+      );
+      await within(dialog).findByText(copy.actorUnavailable);
+      expect(mocks.commit).not.toHaveBeenCalled();
+      await failRead({
+        data: { id: "staff-1", role: "COORDINATOR" },
+        error: new Error("Synthetic failed retry"),
+        isFetching: false,
+      });
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      expect(within(dialog).getByText(copy.actorLoadFailed)).toBeTruthy();
+      expect(
+        within(dialog)
+          .getByRole("button", { name: copy.actorRetry })
+          .matches(":disabled"),
+      ).toBe(false);
+      expect(mocks.commit).not.toHaveBeenCalled();
+      const recoverRead = holdAccountRead();
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: copy.actorRetry }),
+      );
+      expect(mocks.accountRead).toHaveBeenCalledTimes(2);
+      expect(mocks.commit).not.toHaveBeenCalled();
+      expect(
+        within(dialog)
+          .getByRole("button", { name: copy.actorRetry })
+          .matches(":disabled"),
+      ).toBe(true);
+      await recoverRead({
+        data: { id: "staff-1", role: "COORDINATOR" },
+        error: null,
+        isFetching: false,
+      });
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      expect(
+        within(dialog).queryByRole("button", { name: copy.actorRetry }),
+      ).toBeNull();
+      expect(within(dialog).getByText("Captured source")).toBeTruthy();
+      expect(uuid).toHaveBeenCalledOnce();
+      mocks.commit.mockRejectedValueOnce(
+        new Error("Synthetic write rejection"),
+      );
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: copy.requestConfirm }),
+      );
+      await within(dialog).findByText("Synthetic write rejection");
+      const captured = mocks.commit.mock.calls[0]?.[0];
+      expect(captured).toEqual({
+        id: "source",
+        expectedUpdatedAt: version,
+        clientKey,
+      });
+      mocks.commit.mockRejectedValueOnce({
+        data: { approvalId: "recovered-original-intent" },
+      });
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: copy.requestConfirm }),
+      );
+      await within(dialog).findByText(catalog.actionReview.queued);
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      expect(mocks.commit).toHaveBeenCalledTimes(2);
+      expect(mocks.commit.mock.calls[1]?.[0]).toBe(captured);
+      expect(uuid).toHaveBeenCalledOnce();
+      expect(mocks.read).not.toHaveBeenCalled();
+    } finally {
+      uuid.mockRestore();
+    }
+  },
+);
+
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "keeps a recovered non-management actor from reviving the original %s review",
+  async (locale, catalog) => {
+    mocks.account.data = { id: "staff-1", role: "COORDINATOR" };
+    const view = render(example({}, locale));
+    open();
+    const dialog = screen.getByRole("dialog");
+    const copy = catalog.legacySignupDecline;
+    mocks.account.error = new Error("Synthetic account read failure");
+    view.rerender(example({}, locale));
+    mocks.accountRead.mockImplementationOnce(async () => {
+      mocks.account = {
+        data: { id: "staff-1", role: "VIEWER" },
+        error: null,
+        isFetching: false,
+      };
+      view.rerender(example({}, locale));
+      return { isSuccess: true };
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: copy.actorRetry }),
+    );
+    await within(dialog).findByText(copy.actorDenied);
+    expect(mocks.accountRead).toHaveBeenCalledOnce();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: copy.requestConfirm }),
+    );
+    await within(dialog).findByText(copy.actorChanged);
+    expect(mocks.commit).not.toHaveBeenCalled();
+    mocks.accountRead.mockImplementationOnce(async () => {
+      mocks.account = {
+        data: { id: "staff-1", role: "COORDINATOR" },
+        error: null,
+        isFetching: false,
+      };
+      view.rerender(example({}, locale));
+      return { isSuccess: true };
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: copy.actorRetry }),
+    );
+    await waitFor(() => {
+      expect(
+        within(dialog).queryByRole("button", { name: copy.actorRetry }),
+      ).toBeNull();
+    });
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: copy.requestConfirm }),
+    );
+    await within(dialog).findByText(copy.actorChanged);
+    expect(mocks.accountRead).toHaveBeenCalledTimes(2);
+    expect(mocks.commit).not.toHaveBeenCalled();
+  },
+);
+it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
+  "retains the %s review but blocks its write while the actor read is unknown, pending or failed",
+  async (role) => {
+    mocks.account.data = { id: "staff-1", role };
+    const view = render(example());
+    open();
+    const dialog = screen.getByRole("dialog");
+    const label =
+      role === "COORDINATOR"
+        ? en.legacySignupDecline.requestConfirm
+        : en.legacySignupDecline.confirm;
+    for (const next of [
+      { data: undefined, error: null, isFetching: false },
+      { data: { id: "staff-1", role }, error: null, isFetching: true },
+      {
+        data: { id: "staff-1", role },
+        error: new Error("Synthetic read failure"),
+        isFetching: false,
+      },
+    ]) {
+      mocks.account = next;
+      view.rerender(example());
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: label }));
+      await within(dialog).findByText(en.legacySignupDecline.actorUnavailable);
+      expect(mocks.commit).not.toHaveBeenCalled();
+    }
+    mocks.account = {
+      data: { id: "staff-1", role },
+      error: null,
+      isFetching: false,
+    };
+    view.rerender(example());
+    if (role === "COORDINATOR") {
+      mocks.commit.mockRejectedValueOnce({
+        data: { approvalId: "recovered-proposal" },
+      });
+    }
+    fireEvent.click(within(dialog).getByRole("button", { name: label }));
+    await screen.findByText(
+      role === "COORDINATOR" ? en.actionReview.queued : en.actionReview.applied,
+    );
+    expect(mocks.commit).toHaveBeenCalledOnce();
+  },
+);
+
+it.each([
+  { id: "staff-1", role: "ADMIN" },
+  { id: "another-staff", role: "COORDINATOR" },
+  { id: "staff-1", role: "VIEWER" },
+])(
+  "requires a new review after observed actor drift to $id / $role, including a later return",
+  async (changed) => {
+    mocks.account.data = { id: "staff-1", role: "COORDINATOR" };
+    const view = render(example());
+    open();
+    const dialog = screen.getByRole("dialog");
+    mocks.account.data = changed;
+    view.rerender(example());
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: en.legacySignupDecline.requestConfirm,
+      }),
+    );
+    await within(dialog).findByText(en.legacySignupDecline.actorChanged);
+    expect(mocks.commit).not.toHaveBeenCalled();
+    // Returning to the original actor/role does not revive its old authority episode.
+    mocks.account.data = { id: "staff-1", role: "COORDINATOR" };
+    view.rerender(example());
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: en.legacySignupDecline.requestConfirm,
+      }),
+    );
+    await within(dialog).findByText(en.legacySignupDecline.actorChanged);
+    expect(mocks.commit).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: en.actionReview.cancel }),
+    );
+    open();
+    mocks.commit.mockRejectedValueOnce({
+      data: { approvalId: "fresh-proposal" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: en.legacySignupDecline.requestConfirm,
+      }),
+    );
+    await screen.findByText(en.actionReview.queued);
+    expect(mocks.commit).toHaveBeenCalledOnce();
+  },
+);
+
+it("retains a Coordinator's captured target, version and client key after an ordinary rejection", async () => {
+  mocks.account.data = { id: "staff-1", role: "COORDINATOR" };
+  mocks.commit.mockRejectedValueOnce(new Error("Version conflict"));
+  const view = render(example());
+  open();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.legacySignupDecline.requestConfirm }),
+  );
+  await screen.findByText("Version conflict");
+  const captured = mocks.commit.mock.calls[0]?.[0];
+  expect(captured).toMatchObject({ id: "source", expectedUpdatedAt: version });
+  expect(typeof captured?.clientKey).toBe("string");
+  view.rerender(example({ updatedAt: new Date("2026-11-05T00:00:00Z") }));
+  mocks.commit.mockRejectedValueOnce({
+    data: { approvalId: "retained-proposal" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.legacySignupDecline.requestConfirm }),
+  );
+  await screen.findByText(en.actionReview.queued);
+  expect(mocks.commit.mock.calls[1]?.[0]).toBe(captured);
+  expect(mocks.read).not.toHaveBeenCalled();
+});
+
+it("keeps accepted-write refresh recovery read-only when the actor read later fails", async () => {
+  mocks.read.mockRejectedValueOnce(new Error("Read unavailable"));
+  const view = render(example());
+  open();
+  confirm();
+  await screen.findByText(en.actionReview.refreshFailed);
+  const dialog = screen.getByRole("dialog");
+  mocks.account.error = new Error("Synthetic account read failure");
+  view.rerender(example({ removed: true }));
+  mocks.accountRead.mockImplementationOnce(async () => {
+    mocks.account.error = null;
+    view.rerender(example({ removed: true }));
+    return { isSuccess: true };
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: en.legacySignupDecline.actorRetry,
+    }),
+  );
+  await waitFor(() => {
+    expect(
+      within(dialog).queryByRole("button", {
+        name: en.legacySignupDecline.actorRetry,
+      }),
+    ).toBeNull();
+  });
+  expect(mocks.accountRead).toHaveBeenCalledOnce();
+  expect(mocks.commit).toHaveBeenCalledOnce();
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: en.actionReview.close }),
+  );
+  const reads = mocks.read.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: en.actionReview.retry }));
+  await screen.findByText(en.actionReview.applied);
+  expect(mocks.read.mock.calls.length).toBeGreaterThan(reads);
+  expect(mocks.commit).toHaveBeenCalledOnce();
+});
 const decline: LegacySignupDeclineView = {
   state: "DECLINED",
   termId: "period",
