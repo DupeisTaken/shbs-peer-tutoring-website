@@ -73,6 +73,14 @@ to every wrapper or repeat the active tab name as an otherwise empty section tit
 Essential evidence and instructions must remain readable; do not fade an entire
 historical record or truncate the text needed to make a decision.
 
+`InlineNotice` gives guidance a flexible 16rem basis so recovery moves below it
+when their combined widths do not fit. This follows the notice's available width,
+including narrow cards in a desktop workspace. Its action slot bounds buttons,
+links and wrapping groups and lets long labels wrap locally at every breakpoint;
+keep a caller's nested action groups wrapping. A short message may also stack
+when the remaining space is below that basis. Preserve control targets and full
+labels rather than truncating recovery or changing global button styles.
+
 Start a page with its task title and only the context needed to act, followed by
 local navigation/filters and the working content. Use specific section names such
 as “Availability” or “Email addresses” instead of generic “Management” or “Details”

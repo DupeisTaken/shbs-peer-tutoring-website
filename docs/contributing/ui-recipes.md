@@ -25,6 +25,15 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The inline-feedback recipe includes [narrow notice examples](../../src/app/ui-gallery/notice-layout-examples.tsx)
+with long shared/native buttons, a navigation link, a wrapping action group and
+no action. Check every tone, explicit alert/status or no announcement, and pending
+controls in English and Chinese. Its bounded card checks a narrow container at
+desktop breakpoints; resize the real viewport separately for mobile targets and
+enlarged text. Recovery changes only a local counter. Verify the actual Patrol
+History and Corrections recovery as well; the example establishes no feature read,
+draft, version or write behavior.
+
 The management summary recipe also uses the production `RoomAllocationStatus`
 reader. Check fixed and automatic room names followed by their status, long
 translated names wrapping at narrow widths, and distinct shortage, intentional
