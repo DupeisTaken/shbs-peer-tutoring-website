@@ -433,7 +433,7 @@ it.each(["en", "zh"] as const)(
       expect(doc.documentElement.lang).toBe(locale);
       expect(email.subject).toBe(
         locale === "zh"
-          ? `2026年10月学校时数报告${revision > 1 ? "更新" : ""} · 第 ${revision} 版`
+          ? `2026年10月学校时数报告${revision > 1 ? "更新" : ""} · 第\u00a0${revision}\u00a0版`
           : `October 2026 school-hours report${revision > 1 ? " updated" : ""} · Revision ${revision}`,
       );
       expect(doc.querySelectorAll("a")).toHaveLength(2);
@@ -450,7 +450,7 @@ it.each(["en", "zh"] as const)(
       // Only the separate report-period/revision metadata would duplicate H1.
       expect(doc.querySelector(".body")?.textContent).not.toContain(
         locale === "zh"
-          ? `2026年10月 · 第 ${revision} 版`
+          ? `2026年10月 · 第\u00a0${revision}\u00a0版`
           : `October 2026 · Revision ${revision}`,
       );
       expect(doc.querySelector(".body")?.textContent).toContain(

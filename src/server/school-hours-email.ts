@@ -215,7 +215,8 @@ export function schoolHoursEmailCopy(input: {
     locale === "zh"
       ? {
           heading: "月度报告已就绪",
-          revision: `第 ${report.revision} 版`,
+          // Keep the short revision phrase together in the shared subject heading.
+          revision: `第\u00a0${report.revision}\u00a0版`,
           replaces: `替代第 ${report.revision - 1} 版`,
           issued: "发出时间",
           action: "查看月度报告",
