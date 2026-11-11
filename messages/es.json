@@ -8374,6 +8374,7 @@
     "title": "¿Rechazar la solicitud de {name}?",
     "consequence": "El rechazo cierra esta solicitud de forma permanente y libera sus asignaciones actuales. Se conservan los datos de origen, los vínculos de cuenta y el historial. Una nueva solicitud debe cumplir los requisitos habituales.",
     "confirm": "Rechazar solicitud",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "Rechazada",
     "decision": "Rechazada el {when} por {name}",
     "staff": "un miembro del equipo",

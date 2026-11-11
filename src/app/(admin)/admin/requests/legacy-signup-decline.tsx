@@ -8,6 +8,7 @@ import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { invalidateWorkloads } from "~/lib/workload-cache";
 import type { LegacySignupDeclineView } from "~/lib/legacy-signup-decline";
+import { localizedLegacySignupDeclineError } from "~/lib/legacy-signup-decline-error";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { ParticipantName } from "~/app/_components/participant-name";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
@@ -69,6 +70,8 @@ export function LegacySignupDeclineActions({
             commit: () => mutation.mutateAsync(input),
             refresh,
             approvalId: queuedApprovalId,
+            renderError: (message) =>
+              localizedLegacySignupDeclineError(message, t) ?? message,
           });
         },
       }}

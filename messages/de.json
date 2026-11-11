@@ -8374,6 +8374,7 @@
     "title": "Anmeldung von {name} ablehnen?",
     "consequence": "Die Ablehnung schließt diese Anmeldung dauerhaft und hebt ihre aktuellen Zuweisungen auf. Quelldaten, Kontoverknüpfungen und Verlauf bleiben erhalten. Für eine neue Anmeldung gelten die üblichen Voraussetzungen.",
     "confirm": "Anmeldung ablehnen",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "Abgelehnt",
     "decision": "Am {when} von {name} abgelehnt",
     "staff": "einem Teammitglied",

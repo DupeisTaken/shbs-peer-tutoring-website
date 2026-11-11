@@ -8374,6 +8374,7 @@
     "title": "{name}님의 신청을 거절하시겠습니까?",
     "consequence": "거절하면 이 신청이 영구적으로 종료되고 현재 배정이 해제됩니다. 원본 정보, 계정 연결 및 기록은 유지됩니다. 새 신청에는 기존 자격 요건이 적용됩니다.",
     "confirm": "신청 거절",
+    "publishedSessionRecords": "Cannot decline a signup with published dated-session records. Review its participation controls instead.",
     "declined": "거절됨",
     "decision": "{when}에 {name}님이 거절",
     "staff": "담당자",

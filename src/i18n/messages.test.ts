@@ -83,6 +83,7 @@ describe("UI recovery and persistent field labels", () => {
     "actionReview.galleryRevoke",
     "actionReview.galleryRevoked",
     "actionReview.galleryRestore",
+    "legacySignupDecline.publishedSessionRecords",
     "admin.announcements.messageLabel",
     "crew.patrol.statusLabel",
     "crew.patrol.noteLabel",

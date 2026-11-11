@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useEffect } from "react";
@@ -13,6 +14,7 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import type { LegacySignupDeclineView } from "~/lib/legacy-signup-decline";
+import { PUBLISHED_SESSION_DECLINE_MESSAGE } from "~/lib/legacy-signup-decline-error";
 import {
   DeclinedLegacySignupCard,
   LegacySignupDeclineActions,
@@ -84,9 +86,13 @@ function Entry({
     </>
   );
 }
-function example(props: Parameters<typeof Entry>[0] = {}) {
+function example(props: Parameters<typeof Entry>[0] = {}, locale = "en") {
   return (
-    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "zh" ? zh : en}
+      timeZone="UTC"
+    >
       <LegacySignupDeclineActions>
         <Entry {...props} />
       </LegacySignupDeclineActions>
@@ -187,6 +193,109 @@ it("shows a queued management proposal without claiming a decline was applied", 
   ).toContain("proposal-1");
   expect(mocks.read).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "retains the %s publication refusal review and captured input through pending and rejected writes",
+  async (locale, catalog) => {
+    let reject!: (reason: Error) => void;
+    mocks.commit.mockImplementationOnce(
+      () =>
+        new Promise((_, rejectWrite) => {
+          reject = rejectWrite;
+        }),
+    );
+    const view = render(example({}, locale));
+    const opener = screen.getByRole("button", { name: "Review decline" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = screen.getByRole("dialog");
+    const confirmButton = within(dialog).getByRole("button", {
+      name: catalog.legacySignupDecline.confirm,
+    });
+    act(() => {
+      fireEvent.click(confirmButton);
+      fireEvent.click(confirmButton);
+    });
+    expect(mocks.commit).toHaveBeenCalledTimes(1);
+    const captured = mocks.commit.mock.calls[0]?.[0];
+    expect(captured).toMatchObject({
+      id: "source",
+      expectedUpdatedAt: version,
+    });
+    expect(typeof captured?.clientKey).toBe("string");
+    const cancelButton = within(dialog).getByRole("button", {
+      name: catalog.actionReview.cancel,
+    });
+    expect(cancelButton.matches(":disabled")).toBe(true);
+    fireEvent.click(cancelButton);
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(screen.queryByRole("alert")).toBeNull();
+    await act(async () => reject(new Error(PUBLISHED_SESSION_DECLINE_MESSAGE)));
+    expect(within(dialog).getByRole("alert").textContent).toBe(
+      catalog.legacySignupDecline.publishedSessionRecords,
+    );
+    expect(within(dialog).getByText("Captured source")).toBeTruthy();
+    expect(screen.queryByText(catalog.actionReview.applied)).toBeNull();
+    expect(mocks.read).not.toHaveBeenCalled();
+    expect(mocks.workloads).not.toHaveBeenCalled();
+    view.rerender(
+      example({ updatedAt: new Date("2026-11-05T00:00:00Z") }, locale),
+    );
+    mocks.commit.mockRejectedValueOnce(
+      new Error(PUBLISHED_SESSION_DECLINE_MESSAGE),
+    );
+    fireEvent.click(confirmButton);
+    await screen.findByText(
+      catalog.legacySignupDecline.publishedSessionRecords,
+    );
+    expect(mocks.commit).toHaveBeenCalledTimes(2);
+    expect(mocks.commit.mock.calls[1]?.[0]).toBe(captured);
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: catalog.actionReview.cancel }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    fireEvent.click(opener);
+    fireEvent(
+      screen.getByRole("dialog"),
+      new Event("cancel", { cancelable: true }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    expect(mocks.commit).toHaveBeenCalledTimes(2);
+  },
+);
+
+it.each([
+  ["en", "Version conflict: source 42 changed"],
+  ["zh", "Version conflict: source 42 changed"],
+  [
+    "en",
+    "Cannot delete a tutee with published dated-session records. Set them inactive and preserve the session history instead.",
+  ],
+  [
+    "zh",
+    "Cannot delete a tutee with published dated-session records. Set them inactive and preserve the session history instead.",
+  ],
+] as const)(
+  "keeps unmatched %s inline refusal details raw: %s",
+  async (locale, message) => {
+    const catalog = locale === "zh" ? zh : en;
+    mocks.commit.mockRejectedValueOnce(new Error(message));
+    render(example({}, locale));
+    open();
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.legacySignupDecline.confirm }),
+    );
+    expect((await screen.findByRole("alert")).textContent).toBe(message);
+    expect(mocks.read).not.toHaveBeenCalled();
+  },
+);
 
 const decline: LegacySignupDeclineView = {
   state: "DECLINED",
