@@ -25,6 +25,27 @@ import {
 const USER_ID = "test-login-2fa-user";
 const EMAIL = "login-2fa@example.com";
 
+it("uses the established recipient's Chinese preference for sign-in mail", async () => {
+  await db.user.update({ where: { id: USER_ID }, data: { emailLocale: "zh" } });
+  await issueLoginCode(USER_ID, 0);
+  const message = send.mock.calls.at(-1)![0];
+  expect(message.presentation?.locale).toBe("zh");
+  expect(message.subject).toBe("您的登录验证码");
+  expect(message.text).toContain("10 分钟");
+  expect(message.text).not.toContain("Enter this code");
+  expect(message.text).toContain("请更改密码或联系项目团队");
+});
+
+it("uses English alone by default for sign-in instructions and unexpected-activity guidance", async () => {
+  await issueLoginCode(USER_ID, 0);
+  const message = send.mock.calls.at(-1)![0];
+  expect(message.presentation?.locale).toBe("en");
+  expect(message.subject).toBe("Your sign-in code");
+  expect(message.text).toContain("10 minutes");
+  expect(message.text).toContain("change your password or contact the program team");
+  expect(message.text).not.toContain("验证码");
+});
+
 function extractCode(): string {
   const message = send.mock.calls.at(-1)?.[0];
   const code = message?.presentation?.code;

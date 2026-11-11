@@ -1,3 +1,4 @@
+import { accountEmailLocale } from "./email/recipient-locale";
 import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -9,6 +10,7 @@ import { lockUsernameNamespace } from "./auth/username";
 import { afterCommitDatabase, afterCommitScope, databaseScope, deferUntilCommit } from "./db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
 import { historyInvitationScope } from "./email/required-notice-details";
+import { historyInvitationEmailCopy } from "./email/direct-email-copy";
 import { personGraph, syncParticipantPerson } from "./person-identity";
 import { historyInvitationReceipt, historyTokenDigest as digest, requireHistoryManager, supersedeHistoryInvitationAttempts, type HistoryInvitationReceipt } from "./tutee-history";
 import { inTransaction, lockEntity, type DomainDb, type TransactionDb } from "./transactions";
@@ -222,8 +224,7 @@ export async function inviteExactHistory(db: DomainDb, actorId: string, input: I
   const deliver = async () => {
     try {
       await emailSender.send({ category: "SECURITY", to: input.email,
-        subject: "Link your historical tutoring records / 关联历史辅导记录",
-        text: `${scope.en}\n${scope.zh}\n\nThe program team has reviewed an exact set of your historical Tutor/Tutee records:\n${url.href}\n\nSign in with your verified account, or create a history-only account using the separate email verification code. Review and explicitly claim the listed records. This invitation expires in seven days. It does not enroll you, grant current participation, or accept policies for you.\n\n项目团队已核实指定的历史辅导伙伴／学习伙伴记录。请使用已验证账号登录，或通过单独的邮箱验证码创建仅供历史访问的账号，然后核对并确认关联列出的记录。邀请七天内有效，不会加入当前项目或代为接受政策。` });
+        ...historyInvitationEmailCopy({ scope, url: url.href, exact: true, locale: await accountEmailLocale(deliveryDb, admitted.attempt.recipientId) }) });
     } catch {
       try {
         await inTransaction(deliveryDb, async (tx) => {
@@ -246,7 +247,7 @@ export async function inviteExactHistory(db: DomainDb, actorId: string, input: I
           current = !review.source.blocked.size && review.fingerprint === input.fingerprint && attempt.expiresAt > new Date() && (await predecessorFingerprint(tx, predecessor)) === attempt.predecessorFingerprint;
         } catch (error) { if (!(error instanceof TRPCError)) throw error; }
         if (current) {
-          const data = { tokenHash: attempt.tokenHash, sources: exactHistorySources.parse(attempt.sources), scopeFingerprint: attempt.scopeFingerprint, email: attempt.email, recipientId: attempt.recipientId, recipientSessionVersion: attempt.recipientSessionVersion, recipientFingerprint: attempt.recipientFingerprint, issuedById: actorId, issuedBySessionVersion: attempt.issuedBySessionVersion, reason: attempt.reason, expiresAt: attempt.expiresAt, setupCodeHash: null, setupCodeExpiresAt: null, setupAttempts: 0, setupVerifiedAt: null, setupUserId: null, claimedAt: null, claimedUserId: null };
+          const data = { tokenHash: attempt.tokenHash, sources: exactHistorySources.parse(attempt.sources), scopeFingerprint: attempt.scopeFingerprint, email: attempt.email, emailLocale: await accountEmailLocale(tx, attempt.recipientId), recipientId: attempt.recipientId, recipientSessionVersion: attempt.recipientSessionVersion, recipientFingerprint: attempt.recipientFingerprint, issuedById: actorId, issuedBySessionVersion: attempt.issuedBySessionVersion, reason: attempt.reason, expiresAt: attempt.expiresAt, setupCodeHash: null, setupCodeExpiresAt: null, setupAttempts: 0, setupVerifiedAt: null, setupUserId: null, claimedAt: null, claimedUserId: null };
           await tx.historicalRecordInvitation.upsert({ where: { scopeKey: key }, create: { scopeKey: key, ...data }, update: data });
         }
         await tx.historicalRecordInvitationAttempt.update({ where: { id: input.operationId }, data: { status: current ? "PUBLISHED" : "SUPERSEDED", settledAt: new Date() } });

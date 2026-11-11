@@ -2193,6 +2193,14 @@ notices fall outside the latest thirty displayed records. Saving invalidates bot
 counts and the list; an accepted save followed by a failed
 refresh offers read-only recovery rather than repeating the write.
 
+The same Save/Cancel draft includes an English/中文 email-language selector. Language
+can be saved while global optional email is disabled and does not opt into delivery.
+Older clients that omit the field preserve the current choice. The additive source
+columns have database checks for `en`/`zh`; operator recovery accepts complete older
+backups without them and rejects a partially upgraded locale-column bundle.
+Language remains available under notification requirements; category choices still
+use the existing expected-lock snapshot and stored-personal-choice safeguards.
+
 `ProgramSettings.notificationLocks` stores sparse per-category `badgeLocked` and
 `emailLocked` flags, defaulting to no requirements. The Admin/Head-only
 `program.setNotificationLocks` mutation compares a complete expected snapshot
@@ -2220,8 +2228,16 @@ Database triggers enqueue `EmailDelivery` in the event transaction for account c
 `Notification.event` and its allowlisted `context` identify the committed action;
 the trigger copies only that safe context into account email receipts, never arbitrary
 titles or bodies. [The shared formatter](../../src/lib/notification-events.ts) drives
-localized in-app copy and bilingual English/Chinese email because recipient language
-is not persisted. Old in-app rows retain their original readable title/body; unknown
+localized in-app copy and single-language English or Chinese email. `User.emailLocale`
+is saved independently from website language and optional notification categories.
+Dispatch reads the current preference for the exact authorized recipient, including
+verified secondary addresses. Public challenge/source rows persist the supported
+`NEXT_LOCALE` page choice across retries and initialize newly created accounts;
+existing preferences are never overwritten by signup. Legacy sources and school addresses without an exact verified account
+default to English. Configured school destinations can use the verified address
+registry solely for language selection; report authorization and hours attribution
+remain independent. Locale affects presentation only, never consent,
+authorization, deduplication keys or response clocks. Old in-app rows retain their original readable title/body; unknown
 email events use the generic program-update description. Count context is limited to
 discipline-card requests and changed historical teaching blocks. Scheduled interviews
 carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
@@ -2246,6 +2262,19 @@ details use bounded bilingual snapshots. Account secrets and profile field value
 are excluded; request-status reason disclosure retains its separate mailbox-proof
 rule. Historical rows are not reconstructed from mutable current records.
 
+[Direct-mail copy builders](../../src/server/email/direct-email-copy.ts) keep full
+codes and URLs in plain text and supply escaped `presentation.body` prose for HTML.
+The shared code panel and named action carry those values once in the HTML body;
+the separate copyable-link fallback remains available. Legacy callers without an
+explicit body retain their text, with only an exact standalone action-URL paragraph
+removed. The renderer never deletes URLs embedded in sentences or interprets
+caller prose as HTML or Markdown. Expiry labels distinguish verification codes,
+invitations and permanent request deadlines. Session subjects use maintained
+bilingual outcomes instead of event IDs; proposed/confirmed times and response
+warnings retain their scheduling meaning. Request reasons appear once and still
+require request-specific mailbox proof. Optional notification HTML puts unsubscribe
+in the footer; plain text retains its full link.
+
 The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
@@ -2260,6 +2289,11 @@ all-optional unsubscribe changes only unlocked topics. A fully locked linked
 category returns a required state, while a successful partial unsubscribe reports
 whether required categories remain. Security and
 essential request-service transport never grants an unsubscribe capability.
+Required-category receipts explain the administrator requirement once in the
+recipient's email language and label the same scoped link “Manage email
+preferences” / “管理邮件偏好”; ordinary optional receipts retain “Unsubscribe”.
+Saving email language leaves stored personal channel choices unchanged beneath
+administrator requirements, including when program optional delivery is off.
 
 ### Public-request invalidity notices and appeals
 
@@ -2277,7 +2311,7 @@ records are not reclassified as public requests.
 bypassing optional program/personal preferences and secondary-recipient expansion.
 Delivery uses the exact submitted address recorded on the source, with no account
 address fallback, and rechecks its exact source/revision.
-The [bilingual copy](../../src/server/email/request-notice-copy.ts) masks unverified
+The [localized copy](../../src/server/email/request-notice-copy.ts) masks unverified
 recipients to request kind and original submission date/time/timezone, plus the
 limited appeal action; no names, original answers or reason appear. Missing historical
 timestamps remain unavailable rather than borrowing row creation time. A reason is

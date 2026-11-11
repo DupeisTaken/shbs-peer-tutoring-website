@@ -61,9 +61,15 @@ describe("recipient label recovery schema compatibility", () => {
                   column.table_name !== "SchoolHoursSchedule" ||
                   column.column_name !== "recipientLabels",
               );
-          expect(assertReviewedRecoverySchema(actual, metadata.enums)).toEqual(
-            expected,
-          );
+          // Labels, complete delivery-language metadata and tutoring-policy
+          // phases are independent reviewed additions, never alternative authorities.
+          for (const withLocale of [false, true])
+            expect(
+              assertReviewedRecoverySchema(
+                [...actual, ...(withLocale ? metadata.emailLocaleColumns : [])],
+                metadata.enums,
+              ),
+            ).toEqual({ ...expected, emailLocale: withLocale });
         }
     }
   });
@@ -100,9 +106,18 @@ describe("recipient label recovery schema compatibility", () => {
           ),
       ),
     ]) {
-      expect(() => assertReviewedRecoverySchema(incomplete, enums)).toThrow(
-        "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
-      );
+      for (const withLocale of [false, true])
+        expect(() =>
+          assertReviewedRecoverySchema(
+            [
+              ...incomplete,
+              ...(withLocale
+                ? reviewedRecoverySchemaMetadata.emailLocaleColumns
+                : []),
+            ],
+            enums,
+          ),
+        ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
     }
   });
 
@@ -132,5 +147,79 @@ describe("recipient label recovery schema compatibility", () => {
         enums,
       ),
     ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
+
+  it("keeps label types and unknown-field rejection strict alongside the complete language migration", () => {
+    const { identityLegacyDeclineColumns, emailLocaleColumns, enums } =
+      reviewedRecoverySchemaMetadata;
+    const upgraded = [...identityLegacyDeclineColumns, ...emailLocaleColumns];
+    expect(() =>
+      assertReviewedRecoverySchema(
+        upgraded.map((column) =>
+          column.table_name === "SchoolHoursSchedule" &&
+          column.column_name === "recipientLabels"
+            ? { ...column, udt_name: "text" }
+            : column,
+        ),
+        enums,
+      ),
+    ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+    expect(() =>
+      assertReviewedRecoverySchema(
+        [
+          ...upgraded,
+          {
+            table_name: "SchoolHoursSchedule",
+            column_name: "recipientGrant",
+            udt_name: "text",
+          },
+        ],
+        enums,
+      ),
+    ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+  });
+
+  it("does not relax label JSONB storage when notification requirements and delivery languages coexist", () => {
+    const metadata = reviewedRecoverySchemaMetadata;
+    const lock = {
+      table_name: "ProgramSettings",
+      column_name: "notificationLocks",
+      udt_name: "jsonb",
+    };
+    for (const withLocale of [false, true])
+      for (const base of [
+        metadata.columns,
+        metadata.identityColumns,
+        metadata.legacyDeclineColumns,
+        metadata.identityLegacyDeclineColumns,
+      ]) {
+        const combined = [
+          ...base,
+          lock,
+          ...(withLocale ? metadata.emailLocaleColumns : []),
+        ];
+        const label = base.find(
+          (row) =>
+            row.table_name === "SchoolHoursSchedule" &&
+            row.column_name === "recipientLabels",
+        )!;
+        for (const invalid of [
+          combined.map((row) =>
+            row === label ? { ...row, udt_name: "text" } : row,
+          ),
+          [...combined, label],
+          [
+            ...combined,
+            {
+              table_name: "SchoolHoursSchedule",
+              column_name: "recipientGrant",
+              udt_name: "text",
+            },
+          ],
+        ])
+          expect(() =>
+            assertReviewedRecoverySchema(invalid, metadata.enums),
+          ).toThrow("UNREVIEWED_PUBLIC_RECOVERY_SCHEMA");
+      }
   });
 });

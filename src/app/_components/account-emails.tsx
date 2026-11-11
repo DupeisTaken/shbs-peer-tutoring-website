@@ -8,6 +8,7 @@ import { QueryFeedback } from "./ui/query-feedback";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import { normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
 import type { NotificationLockValue } from "~/lib/notification-categories";
 import {
   NotificationPreferenceFields,
@@ -296,6 +297,7 @@ export function AccountEmails() {
 type PreferenceDraft = {
   categories: NotificationPreferenceChoice[];
   emailSecondaryRecipients: boolean;
+  emailLocale: EmailLocale;
   expectedLocks: NotificationLockValue[];
 };
 
@@ -386,6 +388,7 @@ export function EmailPreferences() {
       }),
     ),
     emailSecondaryRecipients: data.emailSecondaryRecipients,
+    emailLocale: normalizeEmailLocale(data.emailLocale),
     expectedLocks: data.categories.map(
       ({ category, badgeLocked, emailLocked }) => ({
         category,
@@ -425,6 +428,7 @@ export function EmailPreferences() {
           // A gate/role change must not enable an email choice retained in an
           // older draft. Badge changes remain available with email disabled.
           save.mutate({
+            emailLocale: preferences.emailLocale,
             // Keep the policy captured when this draft began. An admin unlock
             // must not turn an old forced-on display into a personal opt-in.
             expectedLocks: preferences.expectedLocks,
@@ -456,6 +460,30 @@ export function EmailPreferences() {
           disabled={blocked}
           className="divide-y divide-slate-100 disabled:opacity-60"
         >
+          <label className="block space-y-1 py-3">
+            <span id="email-language-label" className="label">
+              {emailText("language")}
+            </span>
+            <select
+              className="select min-h-11 w-full sm:max-w-xs lg:min-h-10"
+              value={preferences.emailLocale}
+              aria-labelledby="email-language-label"
+              aria-describedby="email-language-help"
+              onChange={(event) => {
+                setSaved(false);
+                setDraft({
+                  ...preferences,
+                  emailLocale: normalizeEmailLocale(event.target.value),
+                });
+              }}
+            >
+              <option value="en">{emailText("english")}</option>
+              <option value="zh">{emailText("chinese")}</option>
+            </select>
+            <span id="email-language-help" className="muted block text-xs">
+              {emailText("languageHelp")}
+            </span>
+          </label>
           <NotificationPreferenceFields
             rows={data.categories}
             choices={preferences.categories}

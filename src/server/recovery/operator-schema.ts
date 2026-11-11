@@ -381,7 +381,28 @@ const IMPORT_PROVENANCE_COLUMNS = [
   "ImportedRecordProvenance|recordId|text",
 ].sort();
 
+// A complete locale migration is presentation metadata, not a new authority
+// surface. Keep every reviewed older backup valid and reject partial upgrades.
+const EMAIL_LOCALE_COLUMNS = [
+  "User",
+  "ViewerSignup",
+  "CrewSignupVerification",
+  "CrewApplication",
+  "TutorApplication",
+  "StudentSurvey",
+  "StudentSignupIntent",
+  "AccountInvitation",
+  "TuteeHistoryInvitation",
+  "HistoricalRecordInvitation",
+]
+  .map((table) => `${table}|emailLocale|text`)
+  .sort();
+
 export const reviewedRecoverySchemaMetadata = {
+  emailLocaleColumns: EMAIL_LOCALE_COLUMNS.map((line) => {
+    const [table_name, column_name, udt_name] = line.split("|");
+    return { table_name, column_name, udt_name };
+  }),
   importProvenanceColumns: IMPORT_PROVENANCE_COLUMNS.map((line) => {
     const [table_name, column_name, udt_name] = line.split("|");
     return { table_name, column_name, udt_name };
@@ -430,13 +451,20 @@ export function assertReviewedRecoverySchema(
         `${String(row.table_name)}|${String(row.column_name)}|${String(row.udt_name)}`,
     )
     .sort();
-  // Strip only the exact, singleton additive notification column before applying
-  // the independently reviewed tutoring-policy and recipient-label backup rules.
-  // Wrong types and duplicates remain visible and fail the complete comparison.
-  const notificationDomain =
-    domain.filter((column) => column === NOTIFICATION_LOCK_COLUMN).length === 1
-      ? domain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
-      : domain;
+  // Strip only complete, singleton locale metadata; duplicates, partial bundles
+  // and changed types remain visible to the exact reviewed-catalog comparison.
+  const emailLocale = EMAIL_LOCALE_COLUMNS.every(
+    (column) => domain.filter((actual) => actual === column).length === 1,
+  );
+  const localeDomain = emailLocale
+    ? domain.filter((column) => !EMAIL_LOCALE_COLUMNS.includes(column))
+    : domain;
+  // Notification requirements are an independent, optional JSONB addition.
+  const knownDomain =
+    localeDomain.filter((column) => column === NOTIFICATION_LOCK_COLUMN)
+      .length === 1
+      ? localeDomain.filter((column) => column !== NOTIFICATION_LOCK_COLUMN)
+      : localeDomain;
   // Both additive policy columns are reviewed together. Older complete backups
   // remain readable; a partial upgrade is never silently accepted.
   const policyColumns = [
@@ -446,17 +474,15 @@ export function assertReviewedRecoverySchema(
   const historyColumns = REVIEWED_COLUMNS.filter((column) =>
     column.startsWith("ProgramCalendarPolicyRevision|"),
   );
-  const hasHistory = notificationDomain.some((column) =>
+  const hasHistory = knownDomain.some((column) =>
     column.startsWith("ProgramCalendarPolicyRevision|"),
   );
   const comparedDomain = hasHistory
-    ? notificationDomain
+    ? knownDomain
     : [
-        ...notificationDomain,
+        ...knownDomain,
         ...historyColumns,
-        ...(policyColumns.every(
-          (column) => !notificationDomain.includes(column),
-        )
+        ...(policyColumns.every((column) => !knownDomain.includes(column))
           ? policyColumns
           : []),
       ].sort();
@@ -508,6 +534,7 @@ export function assertReviewedRecoverySchema(
     "UNREVIEWED_RECOVERY_ENUM_SCHEMA",
   );
   return {
+    emailLocale,
     identityVersion,
     legacySignupDecline: domain.some((column) =>
       column.startsWith("LegacySignupDecline|"),

@@ -225,6 +225,7 @@ function basis(needsReview = false): Basis {
         alreadyReported: needsReview ? null : { ...zero },
         needsReview,
         sourceCount: 2,
+        carryHours: "0",
       },
     ],
   };
@@ -414,8 +415,241 @@ function addRecipient(email: string, label = "") {
   );
 }
 
+function duration(
+  copy: typeof en.schoolHours | typeof zh.schoolHours,
+  hours: number,
+  minutes: number,
+  sign = "+",
+) {
+  return copy.rawChangeDuration
+    .replace("{sign}", sign)
+    .replace("{hours}", String(hours))
+    .replace("{minutes}", String(minutes));
+}
+
+it.each([
+  ["en", "TENTH_HOUR_CARRY"],
+  ["zh", "TENTH_HOUR_CARRY"],
+  ["en", "TENTH_HOUR_CARRY_NONNEGATIVE"],
+  ["zh", "TENTH_HOUR_CARRY_NONNEGATIVE"],
+] as const)(
+  "orders the four summary metrics and keeps combined rounded change distinct from exact evidence (%s, %s)",
+  (locale, postingPolicy) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const snapshot = preview();
+    snapshot.postingPolicy = postingPolicy;
+    snapshot.rows = [
+      {
+        ...row("Alex", 70 / 60, 10 / 60),
+        hoursToAdd: 1.3,
+        monthAmount: 1.3,
+        carryInHours: "0",
+        carryOutHours: "0.0333333333333333",
+      },
+    ];
+    render(show(<SchoolHoursPreview preview={snapshot} />, locale));
+    const applyInstructions =
+      postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE"
+        ? copy.nonnegativeApplyInstructions
+        : copy.carryApplyInstructions;
+    const carryPolicyNotice =
+      postingPolicy === "TENTH_HOUR_CARRY_NONNEGATIVE"
+        ? copy.nonnegativeCarryPolicyNotice
+        : copy.carryPolicyNotice;
+    expect(screen.queryByText(applyInstructions)).toBeNull();
+    expect(
+      screen.queryByText(`${carryPolicyNotice} ${copy.carryReconciliation}`),
+    ).toBeNull();
+    expect(screen.queryByText(copy.schoolAccount)).toBeNull();
+    expect(screen.queryByText(snapshot.rows[0]!.schoolAccountKey)).toBeNull();
+    const table = screen.getByRole("table", { name: copy.individualAmounts });
+    const headers = within(table).getAllByRole("columnheader");
+    for (const [index, label] of [
+      copy.carryIn,
+      copy.rawChange,
+      copy.hours,
+      copy.carryOut,
+    ].entries())
+      expect(
+        within(headers[index + 1]!).getByRole("button", {
+          name: label,
+        }),
+      ).toBeTruthy();
+    const list = screen.getByRole("list", { name: copy.individualAmounts });
+    expect(
+      Array.from(list.querySelectorAll("dt")).map((label) => label.textContent),
+    ).toEqual([copy.carryIn, copy.rawChange, copy.hours, copy.carryOut]);
+    for (const summary of [list, table]) {
+      expect(summary.textContent).not.toContain(
+        snapshot.rows[0]!.schoolAccountKey,
+      );
+    }
+    for (const view of [within(list), within(table)]) {
+      expect(view.getByText("+1.3")).toBeTruthy();
+      expect(view.getByText(duration(copy, 1, 20))).toBeTruthy();
+      expect(view.queryByText(copy.rawTutoring)).toBeNull();
+      expect(view.queryByText(copy.rawCrew)).toBeNull();
+      expect(
+        view.getByTitle(
+          copy.exactCarryHours.replace("{hours}", "0.0333333333333333"),
+        ).firstChild?.textContent,
+      ).toBe(copy.carryMinutes.replace("{minutes}", "2"));
+    }
+    expect(screen.getByText(copy.rawChangeHelp)).toBeTruthy();
+    fireEvent.click(within(list).getByRole("button"));
+    const detail = within(screen.getByRole("dialog", { name: "Alex" }));
+    expect(detail.getByText(applyInstructions)).toBeTruthy();
+    expect(
+      detail.getByText(`${carryPolicyNotice} ${copy.carryReconciliation}`),
+    ).toBeTruthy();
+    expect(
+      detail.getByText(copy.schoolAccount).nextElementSibling?.textContent,
+    ).toBe(snapshot.rows[0]!.schoolAccountKey);
+    for (const [label, value] of [
+      [copy.rawTutoring, String(70 / 60)],
+      [copy.rawCrew, String(10 / 60)],
+    ]) {
+      expect(
+        detail.getByText(label!).nextElementSibling?.textContent,
+      ).toContain(copy.exactHours.replace("{hours}", "+" + value));
+    }
+    expect(
+      detail.getByText(copy.rawChange).nextElementSibling?.textContent,
+    ).toContain(
+      copy.exactHours.replace("{hours}", "+" + String(70 / 60 + 10 / 60)),
+    );
+    expect(detail.getByText(copy.hours).nextElementSibling?.textContent).toBe(
+      "+1.3",
+    );
+  },
+);
+
 it.each(["en", "zh"] as const)(
-  "shows individual account instructions without double-counting tutoring/Crew or leading with program totals (%s)",
+  "uses a dash for zero Hours while preserving full nonnegative carried debt (%s)",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const snapshot = preview();
+    snapshot.postingPolicy = "TENTH_HOUR_CARRY_NONNEGATIVE";
+    snapshot.rows = [
+      {
+        ...row("Blair", -80 / 60, 0),
+        hoursToAdd: 0,
+        monthAmount: 0,
+        carryInHours: "0",
+        carryOutHours: "-1.3333333333333333",
+      },
+    ];
+    render(show(<SchoolHoursPreview preview={snapshot} />, locale));
+    for (const role of ["list", "table"]) {
+      const view = within(
+        screen.getByRole(role, { name: copy.individualAmounts }),
+      );
+      expect(view.getByText(duration(copy, 1, 20, "-"))).toBeTruthy();
+      expect(view.getByLabelText(copy.zeroAmount).textContent?.trim()).toBe(
+        "—",
+      );
+      expect(view.queryByText(copy.zeroAmount)).toBeNull();
+      expect(
+        view.getByTitle(
+          copy.exactCarryHours.replace("{hours}", "-1.3333333333333333"),
+        ).firstChild?.textContent,
+      ).toBe(copy.carryMinutes.replace("{minutes}", "-80"));
+    }
+    expect(screen.queryByText(copy.nonnegativeApplyInstructions)).toBeNull();
+    expect(screen.getAllByText(copy.hoursDashLegend)).toHaveLength(1);
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "keeps historical negative comparisons neutral and exact in individual nonnegative Details (%s)",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const correction = -0.23333333333333334;
+    const person = {
+      ...row("Blair", 0, 0),
+      monthAmount: 0,
+      previousEditionAmount: 0,
+      carryInHours: "0",
+      carryOutHours: "-1.3333333333333333",
+      priorEditions: [
+        {
+          revision: 1,
+          monthAmount: -correction,
+          correctionToCurrent: correction,
+        },
+        { revision: 2, monthAmount: 0, correctionToCurrent: 0 },
+      ],
+    };
+    render(
+      show(
+        <SchoolHoursIndividuals
+          rows={[person]}
+          revision={3}
+          postingPolicy="TENTH_HOUR_CARRY_NONNEGATIVE"
+        />,
+        locale,
+      ),
+    );
+    const condition = copy.revisionAmountCondition.replace("{revision}", "2");
+    expect(screen.queryByText(condition)).toBeNull();
+    expect(screen.getAllByLabelText(copy.zeroAmount)).toHaveLength(2);
+    expect(screen.getByText(copy.nonnegativeRevisionInstructions)).toBeTruthy();
+    expect(screen.queryByText(person.schoolAccountKey)).toBeNull();
+    expect(
+      screen.queryByText(
+        `${copy.nonnegativeCarryPolicyNotice} ${copy.carryReconciliation}`,
+      ),
+    ).toBeNull();
+    const list = screen.getByRole("list", { name: copy.individualAmounts });
+    fireEvent.click(within(list).getByRole("button"));
+    const detail = within(screen.getByRole("dialog", { name: "Blair" }));
+    expect(
+      detail.getByText(copy.schoolAccount).nextElementSibling?.textContent,
+    ).toBe(person.schoolAccountKey);
+    expect(
+      detail.getByText(
+        `${copy.nonnegativeCarryPolicyNotice} ${copy.carryReconciliation}`,
+      ),
+    ).toBeTruthy();
+    expect(
+      detail.getByText(
+        copy.priorEditionComparison
+          .replace("{revision}", "1")
+          .replace("{hours}", String(correction)),
+      ),
+    ).toBeTruthy();
+    expect(
+      detail.queryByText(
+        copy.priorEditionCorrection
+          .replace("{revision}", "1")
+          .replace("{hours}", String(correction)),
+      ),
+    ).toBeNull();
+    expect(remote.generate).not.toHaveBeenCalled();
+  },
+);
+
+it("shows explicitly unavailable carry for legacy reports without inventing accounting values", () => {
+  render(show(<SchoolHoursIndividuals rows={preview().rows} revision={1} />));
+  expect(screen.queryByText(en.schoolHours.carryPolicyNotice)).toBeNull();
+  const table = screen.getByRole("table", {
+    name: en.schoolHours.individualAmounts,
+  });
+  expect(
+    within(table).getAllByLabelText(en.schoolHours.carryUnavailable),
+  ).toHaveLength(8);
+  const alex = within(table).getByText("Alex").closest("tr")!;
+  const cells = within(alex).getAllByRole("cell");
+  expect(cells.slice(1, 5).map((cell) => cell.textContent)).toEqual([
+    "—",
+    duration(en.schoolHours, 7, 0),
+    "+7",
+    "—",
+  ]);
+});
+
+it.each(["en", "zh"] as const)(
+  "shows only four per-person metrics before Details and keeps optional totals collapsed (%s)",
   (locale) => {
     const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
     const view = render(
@@ -429,32 +663,38 @@ it.each(["en", "zh"] as const)(
       ),
     );
     const table = screen.getByRole("table", { name: copy.individualAmounts });
-    for (const [name, amount, tutoring, crew] of [
-      ["Alex", "+7", "+6", "+1"],
-      ["Blair", "+2", "+2", "0"],
-      ["Casey", "+2", "+1", "+1"],
-      ["Drew", "+0.5", "+0.5", "0"],
+    for (const [name, amount, raw] of [
+      ["Alex", "+7", duration(copy, 7, 0)],
+      ["Blair", "+2", duration(copy, 2, 0)],
+      ["Casey", "+2", duration(copy, 2, 0)],
+      ["Drew", "+0.5", duration(copy, 0, 30)],
     ]) {
       const cells = within(
         within(table).getByText(name!).closest("tr")!,
       ).getAllByRole("cell");
-      expect(cells.slice(1, 4).map((cell) => cell.textContent)).toEqual([
+      expect(cells.slice(1, 5).map((cell) => cell.textContent)).toEqual([
+        "—",
+        raw,
         amount,
-        tutoring,
-        crew,
+        "—",
       ]);
     }
     expect(view.container.textContent).not.toContain("11.5");
     expect(screen.getByText(copy.statistics).closest("details")!.open).toBe(
       false,
     );
-    expect(screen.getByText(copy.applyInstructions)).toBeTruthy();
+    expect(screen.queryByText(copy.applyInstructions)).toBeNull();
   },
 );
 
-it.each(["en", "zh"] as const)(
-  "keeps the full person, exact amount, tutoring/Crew and evidence together in mobile cards (%s)",
-  (locale) => {
+it.each([
+  ["en", "list"],
+  ["en", "table"],
+  ["zh", "list"],
+  ["zh", "table"],
+] as const)(
+  "keeps identity and amounts in the summary with account and exact sources in Details (%s, %s)",
+  (locale, role) => {
     const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
     const person = {
       ...row('Alexandra "Alex" Anderson (艾力克斯)', 0.5, 0.25),
@@ -475,47 +715,43 @@ it.each(["en", "zh"] as const)(
     expect(cards).toHaveLength(2);
     const card = cards[0]!;
     expect(within(card).getByText(person.exportName)).toBeTruthy();
+    expect(screen.queryByText(person.schoolAccountKey)).toBeNull();
+    expect(screen.queryByText(copy.schoolAccount)).toBeNull();
+    expect(screen.queryByText(copy.applyInstructions)).toBeNull();
     expect(
-      within(card).getByText(
-        `${copy.schoolAccount}: ${person.schoolAccountKey}`,
-      ),
-    ).toBeTruthy();
-    for (const [label, value] of [
-      [copy.amountToApply, "+0.75"],
-      [copy.tutoring, "+0.5"],
-      [copy.crew, "+0.25"],
-    ]) {
-      expect(
-        within(card).getByText(label!).nextElementSibling?.textContent,
-      ).toBe(value);
-    }
-    expect(
-      within(cards[1]!).getByText(copy.amountToApply).nextElementSibling
-        ?.textContent,
-    ).toBe(
-      copy.approximateHours.replace("{hours}", "-0.0167") +
-        copy.exactHours.replace("{hours}", "-0.016666666666666666"),
-    );
+      within(card).getByText(copy.hours).nextElementSibling?.textContent,
+    ).toBe("+0.75");
+    expect(within(card).getByText(duration(copy, 0, 45))).toBeTruthy();
+    expect(within(cards[1]!).getByText(duration(copy, 0, 1, "-"))).toBeTruthy();
     expect(within(list).queryByText("NoChange")).toBeNull();
-    fireEvent.click(within(card).getByRole("button"));
-    const dialog = screen.getByRole("dialog", { name: person.exportName });
+    const summary = screen.getByRole(role, { name: copy.individualAmounts });
+    const personSummary = within(summary)
+      .getByText(person.exportName)
+      .closest(role === "list" ? "li" : "tr")!;
+    expect(personSummary.textContent).not.toContain(person.schoolAccountKey);
+    fireEvent.click(within(personSummary).getByRole("button"));
+    const detail = within(
+      screen.getByRole("dialog", { name: person.exportName }),
+    );
+    expect(detail.getByText(copy.applyInstructions)).toBeTruthy();
     for (const [label, value] of [
       [copy.schoolAccount, person.schoolAccountKey],
+      [copy.tutoring, "+0.5"],
       [copy.earnedChange, "+1"],
       [copy.extrasChange, "+0.25"],
       [copy.deductionsChange, "+0.75"],
       [copy.crewChange, "+0.25"],
-      [copy.amountToApply, "+0.75"],
+      [copy.hours, "+0.75"],
     ]) {
       expect(
-        within(dialog).getByText(label!).nextElementSibling?.textContent,
-      ).toBe(value);
+        detail.getByText(label!).nextElementSibling?.textContent,
+      ).toContain(value);
     }
   },
 );
 
 it.each(["en", "zh"] as const)(
-  "keeps exact posting values visible beside approximate summaries without evidence controls (%s)",
+  "preserves exact legacy posting amounts when evidence controls are disabled (%s)",
   (locale) => {
     const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
     render(
@@ -539,22 +775,18 @@ it.each(["en", "zh"] as const)(
       for (const [approximate, exact] of [
         ["+1.75", "+1.7500000000000002"],
         ["+4.0833", "+4.083333333333334"],
-      ] as const) {
+      ]) {
         expect(
-          individuals.getAllByText(
-            copy.approximateHours.replace("{hours}", approximate),
-          ).length,
-        ).toBeGreaterThan(0);
+          individuals.getByText(
+            copy.approximateHours.replace("{hours}", approximate!),
+          ),
+        ).toBeTruthy();
         expect(
-          individuals.getAllByText(copy.exactHours.replace("{hours}", exact))
-            .length,
-        ).toBeGreaterThan(0);
+          individuals.getByText(copy.exactHours.replace("{hours}", exact!)),
+        ).toBeTruthy();
       }
-      expect(individuals.getAllByText("-1e-16")).toHaveLength(2);
-      expect(
-        individuals.queryByText(copy.approximateHours.replace("{hours}", "0")),
-      ).toBeNull();
-      // Sorting remains available; only private evidence controls are omitted.
+      expect(individuals.getByText("-1e-16")).toBeTruthy();
+      expect(individuals.getByText(duration(copy, 0, 0, ""))).toBeTruthy();
       expect(
         individuals.queryByRole("button", { name: /View details:|查看详情:/ }),
       ).toBeNull();
@@ -730,56 +962,78 @@ it("preserves offsetting and fractional component changes while filtering only t
     within(table).getAllByText(
       en.schoolHours.exactHours.replace("{hours}", "-0.016666666666666666"),
     ),
-  ).toHaveLength(2);
+  ).toHaveLength(1);
   expect(within(table).queryByText("NoChange")).toBeNull();
   expect(screen.queryByText(en.schoolHours.noChanges)).toBeNull();
 });
 
-it("distinguishes revision corrections from the corrected full month and keeps unchanged revision rows", async () => {
-  const corrected = {
-    ...row("Alex", 0.5, 0),
-    monthAmount: 7.5,
-    previousEditionAmount: 7,
-    previousMonthAmount: 10,
-    monthComparison: -2.5,
-  };
-  const unchanged = {
-    ...row("Blair", 0, 0),
-    monthAmount: 2,
-    previousEditionAmount: 2,
-  };
-  render(
-    show(<SchoolHoursIndividuals rows={[corrected, unchanged]} revision={2} />),
-  );
-  const table = screen.getByRole("table", {
-    name: en.schoolHours.individualAmounts,
-  });
-  expect(within(table).getAllByText("+0.5")).toHaveLength(2);
-  expect(
-    within(table).getByText(
-      en.schoolHours.correctedMonth.replace("{hours}", "+7.5"),
-    ),
-  ).toBeTruthy();
-  expect(within(table).getByText(en.schoolHours.unchanged)).toBeTruthy();
-  const cards = screen.getByRole("list", {
-    name: en.schoolHours.individualAmounts,
-  });
-  expect(within(cards).getByText(en.schoolHours.unchanged)).toBeTruthy();
-  expect(
-    within(cards).getByText(
-      en.schoolHours.correctedMonth.replace("{hours}", "+7.5"),
-    ),
-  ).toBeTruthy();
-  expect(screen.getByText(en.schoolHours.revisionInstructions)).toBeTruthy();
-  await openDisclosure(en.schoolHours.comparisons);
-  const comparison = screen.getByRole("table", {
-    name: en.schoolHours.comparisons,
-  });
-  expect(within(comparison).getByText("-2.5")).toBeTruthy();
-  expect(screen.getByText(en.schoolHours.comparisonHelp)).toBeTruthy();
-});
+it.each(["en", "zh"] as const)(
+  "keeps revision safeguards visible with account and historical amounts in Details (%s)",
+  (locale) => {
+    const copy = locale === "zh" ? zh.schoolHours : en.schoolHours;
+    const corrected = {
+      ...row("Alex", 0.5, 0),
+      monthAmount: 7.5,
+      previousEditionAmount: 7,
+      previousMonthAmount: 10,
+      monthComparison: -2.5,
+    };
+    const unchanged = {
+      ...row("Blair", 0, 0),
+      monthAmount: 2,
+      previousEditionAmount: 2,
+    };
+    render(
+      show(
+        <SchoolHoursIndividuals rows={[corrected, unchanged]} revision={2} />,
+        locale,
+      ),
+    );
+    const table = screen.getByRole("table", {
+      name: copy.individualAmounts,
+    });
+    const cards = screen.getByRole("list", {
+      name: copy.individualAmounts,
+    });
+    for (const summary of [table, cards]) {
+      expect(summary.textContent).not.toContain(corrected.schoolAccountKey);
+    }
+    for (const view of [within(table), within(cards)]) {
+      expect(
+        view.getAllByText(
+          copy.revisionAmountCondition.replace("{revision}", "1"),
+        ),
+      ).toHaveLength(1);
+      expect(view.getByLabelText(copy.zeroAmount).textContent?.trim()).toBe(
+        "—",
+      );
+      expect(view.queryByText(copy.zeroAmount)).toBeNull();
+      expect(view.queryByText(copy.unchanged)).toBeNull();
+      expect(
+        view.queryByText(copy.correctedMonth.replace("{hours}", "+7.5")),
+      ).toBeNull();
+    }
+    expect(screen.getByText(copy.revisionInstructions)).toBeTruthy();
+    fireEvent.click(
+      within(within(table).getByText("Alex").closest("tr")!).getByRole(
+        "button",
+      ),
+    );
+    const detail = within(screen.getByRole("dialog", { name: "Alex" }));
+    expect(
+      detail.getByText(copy.schoolAccount).nextElementSibling?.textContent,
+    ).toBe(corrected.schoolAccountKey);
+    expect(
+      detail.getByText(copy.monthDifference).nextElementSibling?.textContent,
+    ).toBe("-2.5");
+    expect(
+      detail.getByText(copy.correctedMonth.replace("{hours}", "+7.5")),
+    ).toBeTruthy();
+    expect(detail.getByText(copy.comparisonHelp)).toBeTruthy();
+  },
+);
 
-it("lets each individual choose exactly one correction when an intermediate revision was missed", async () => {
+it("lets each individual choose exactly one correction inside Details when an intermediate revision was missed", () => {
   const alex = {
     ...row("Alex", 0.2, 0),
     monthAmount: 7.7,
@@ -795,28 +1049,29 @@ it("lets each individual choose exactly one correction when an intermediate revi
   });
   expect(
     within(table).getByText(
-      en.schoolHours.priorEditionCorrection
-        .replace("{revision}", "2")
-        .replace("{hours}", "+0.2"),
+      en.schoolHours.revisionAmountCondition.replace("{revision}", "2"),
     ),
   ).toBeTruthy();
-  await openDisclosure(en.schoolHours.comparisons);
-  await openDisclosure("Alex");
-  expect(screen.getByText(en.schoolHours.priorEditionHelp)).toBeTruthy();
+  expect(screen.queryByText(en.schoolHours.priorEditionHelp)).toBeNull();
+  fireEvent.click(
+    within(within(table).getByText("Alex").closest("tr")!).getByRole("button"),
+  );
+  const detail = within(screen.getByRole("dialog", { name: "Alex" }));
+  expect(detail.getByText(en.schoolHours.priorEditionHelp)).toBeTruthy();
+  for (const [revision, hours] of [
+    ["1", "+0.7"],
+    ["2", "+0.2"],
+  ]) {
+    expect(
+      detail.getByText(
+        en.schoolHours.priorEditionCorrection
+          .replace("{revision}", revision!)
+          .replace("{hours}", hours!),
+      ),
+    ).toBeTruthy();
+  }
   expect(
-    screen.getByText(
-      en.schoolHours.priorEditionCorrection
-        .replace("{revision}", "1")
-        .replace("{hours}", "+0.7"),
-    ),
-  ).toBeTruthy();
-  const correctedMonthDisclosure = screen
-    .getByText(en.schoolHours.priorEditionHelp)
-    .closest("details")!;
-  expect(
-    within(correctedMonthDisclosure).getByText(
-      en.schoolHours.correctedMonth.replace("{hours}", "+7.7"),
-    ),
+    detail.getByText(en.schoolHours.correctedMonth.replace("{hours}", "+7.7")),
   ).toBeTruthy();
   expect(remote.generate).not.toHaveBeenCalled();
 });

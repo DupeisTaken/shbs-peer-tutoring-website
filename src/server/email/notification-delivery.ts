@@ -1,10 +1,15 @@
 import { db } from "~/server/db";
-import { admitIdentityNotice, finishIdentityNotice } from "./identity-notice-admission";
+import { normalizeEmailLocale } from "~/lib/email-locale";
+import { verifiedRecipientEmailLocale } from "./recipient-locale";
+import {
+  admitIdentityNotice,
+  finishIdentityNotice,
+} from "./identity-notice-admission";
 import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
-import { notificationEmailCopy } from "./notification-copy";
+import { notificationEmailContent } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
 import {
   effectiveNotificationPreference,
@@ -56,14 +61,29 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
   // worker returned it to PENDING after transport or abandoned its lease.
   await db.emailDelivery.updateMany({
     where: {
-      category: { notIn: ["security", requestServiceCategory, monthlyHoursCategory, schoolHoursCategory] },
+      category: {
+        notIn: [
+          "security",
+          requestServiceCategory,
+          monthlyHoursCategory,
+          schoolHoursCategory,
+        ],
+      },
       attemptStartedAt: { not: null },
       OR: [
         { status: "PENDING" },
-        { status: "SENDING", OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }] },
+        {
+          status: "SENDING",
+          OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }],
+        },
       ],
     },
-    data: { status: "UNCERTAIN", leaseUntil: null, lastError: "Transport admission ended without a recorded delivery outcome." },
+    data: {
+      status: "UNCERTAIN",
+      leaseUntil: null,
+      lastError:
+        "Transport admission ended without a recorded delivery outcome.",
+    },
   });
   const settings = await db.programSettings.findUnique({
     where: { id: "program" },
@@ -148,11 +168,15 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       if (!admitted?.row.attemptId) continue;
       let accepted = false;
       try {
+        const locale = await verifiedRecipientEmailLocale(
+          db,
+          admitted.row.recipient,
+        );
         await emailSender.send({
           category: "PROGRAM",
           to: admitted.row.recipient,
           messageId: `<school-hours-${id}@shbs-notifications>`,
-          ...schoolHoursDeliveryCopy(admitted),
+          ...schoolHoursDeliveryCopy(admitted, locale),
         });
         accepted = true;
       } catch {
@@ -209,6 +233,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
             admitted.row,
             admitted.verified,
             admitted.appealUrl,
+            admitted.locale,
           ),
         });
         accepted = true;
@@ -227,8 +252,10 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       const user = row.user;
       const review = row.category === "review";
       const reminder = row.category === "reminder";
-      const topic = isNotificationCategory(row.preferenceTopic) ? row.preferenceTopic
-        : legacyNotificationTopic(row.category) ?? notificationCategory(row.event, undefined, row.destination);
+      const topic = isNotificationCategory(row.preferenceTopic)
+        ? row.preferenceTopic
+        : (legacyNotificationTopic(row.category) ??
+          notificationCategory(row.event, undefined, row.destination));
       const preference = essential
         ? true
         : user && isNotificationCategory(row.preferenceTopic)
@@ -238,7 +265,15 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
               user.notificationPreferences,
               current?.notificationLocks,
             ).emailEnabled
-          : notificationLockFor(current?.notificationLocks, topic).emailLocked || (review ? user?.emailReviewRequests : reminder ? user?.emailEventReminders : row.category === "messages" ? user?.emailMessages : user?.emailInfo);
+          : notificationLockFor(current?.notificationLocks, topic)
+              .emailLocked ||
+            (review
+              ? user?.emailReviewRequests
+              : reminder
+                ? user?.emailEventReminders
+                : row.category === "messages"
+                  ? user?.emailMessages
+                  : user?.emailInfo);
       const owned = user?.emails.some(
         (address) =>
           address.email === row.recipient &&
@@ -287,18 +322,12 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         ),
       );
       const timeZone = current?.timeZone ?? "Asia/Shanghai";
-      const time = new Intl.DateTimeFormat("en", {
-        dateStyle: "long",
-        timeStyle: "short",
-        timeZone,
-      }).format(row.createdAt);
-      const copy = notificationEmailCopy(row.event, row.context);
-      const requiredEmail = !essential && notificationLockFor(current?.notificationLocks, topic).emailLocked;
-      const footer = essential
-        ? "If you do not recognize this activity, contact the program team through private support.\n如非本人操作，请通过私密支持联系项目团队。"
-        : requiredEmail ? "The program administrator requires this notification category. Other optional email notifications can be managed in account settings.\n项目管理员要求接收此类别通知。您可在账户设置中管理其他可选邮件通知。"
-        : "Sign in to review the update. You can manage optional email notifications in account settings.\n请登录查看通知。您可在账户设置中管理可选邮件通知。";
-      // Only optional notification classes receive this narrowly scoped account capability.
+      const requiredEmail =
+        !essential &&
+        notificationLockFor(current?.notificationLocks, topic).emailLocked;
+      const locale = normalizeEmailLocale(user.emailLocale);
+      // Only account notification classes receive this scoped preference capability;
+      // the unsubscribe handler retains the administrator's category requirements.
       const unsubscribeUrl = [
         "messages",
         "info",
@@ -308,33 +337,32 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       ].includes(row.category)
         ? notificationUnsubscribeUrl(id)
         : undefined;
+      const content = notificationEmailContent({
+        event: row.event,
+        context: row.context,
+        createdAt: row.createdAt,
+        timeZone,
+        category: row.category,
+        link,
+        unsubscribeUrl,
+        locale,
+        requiredByProgram: requiredEmail,
+      });
       if (!essential) {
-        transportAttempt = await admitIdentityNotice(db, id, leaseUntil, attemptId);
+        transportAttempt = await admitIdentityNotice(
+          db,
+          id,
+          leaseUntil,
+          attemptId,
+        );
         if (!transportAttempt) continue;
       }
       const send = () =>
         emailSender.send({
           category,
           to: row.recipient,
-          subject: copy.subject,
           messageId: `<account-notice-${id}@shbs-notifications>`,
-          text: `${copy.description}\n\nNotice issued: ${time} (${timeZone}) / 通知发出时间\n\n${footer}\n\n${link}${unsubscribeUrl ? `\n\nUnsubscribe / 取消订阅: ${unsubscribeUrl}` : ""}`,
-          presentation: {
-            ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
-            eyebrow: essential
-              ? "ACCOUNT SECURITY"
-              : row.category === "messages"
-                ? "PRIVATE MESSAGES"
-                : review
-                  ? "REVIEW REQUEST"
-                  : reminder
-                    ? "UPCOMING EVENT"
-                    : "PROGRAM UPDATE",
-            action: {
-              label: copy.action,
-              url: link,
-            },
-          },
+          ...content,
         });
       if (transportAttempt) {
         // Record provider acceptance separately from completion failure. A failed

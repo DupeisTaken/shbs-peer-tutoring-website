@@ -260,15 +260,25 @@ async function claim() {
   return admitSchoolHoursDelivery(db, row.id, leaseUntil, row.attemptId);
 }
 
-it("dispatches an external-account-free report with one scoped link and frozen individual instructions", async () => {
+it("dispatches a notification with one scoped link while keeping individual instructions in the report", async () => {
   await deliverNotifications();
   expect(fixture.send).toHaveBeenCalledTimes(1);
   const message = fixture.send.mock.calls[0]![0];
   expect(message.to).toBe(recipient);
-  expect(message.subject).toBe("The Program October Report is ready");
+  expect(message.subject).toBe("October 2026 school-hours report · Revision 1");
   expect(message.html).toContain(">View Month Report</a>");
-  expect(message.text).toContain("+7 h");
-  expect(message.text).toContain("-0.5 h");
+  expect(message.html).toContain('class="canvas"');
+  expect(message.html).toContain('class="footer-icon"');
+  expect(message.html).toContain('src="https://reports.example.test/icon.png"');
+  expect(message.html).toContain("Copy this link into your browser:");
+  expect(message.text).not.toContain("+7 h");
+  expect(message.text).not.toContain("-0.5 h");
+  expect(message.html).not.toContain('class="person"');
+  expect(message.text).not.toContain("Carry in");
+  for (const person of schoolHoursTestSnapshot().rows) {
+    expect(`${message.html}${message.text}`).not.toContain(person.exportName);
+    expect(`${message.html}${message.text}`).not.toContain(person.schoolAccountKey);
+  }
   expect(message.text).toContain(
     `https://reports.example.test/reports/service-hours/${token}`,
   );
@@ -283,6 +293,75 @@ it("dispatches an external-account-free report with one scoped link and frozen i
     userId: null,
     attempts: 1,
   });
+});
+
+it.each(["primary", "verified secondary"] as const)("uses the current account language for an already-configured %s recipient without binding report ownership", async (kind) => {
+  const id = `${fixture.prefix}language-recipient`;
+  const before = await db.schoolHoursReport.findUniqueOrThrow({ where: { id: reportId } });
+  await db.user.create({ data: {
+    id, email: kind === "primary" ? recipient : `${id}@example.test`,
+    emailLocale: "zh", emailVerifiedAt: new Date(),
+  } });
+  try {
+    if (kind === "verified secondary")
+      await db.accountEmail.create({ data: { userId: id, email: recipient, verifiedAt: new Date() } });
+    await deliverNotifications();
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+    const message = fixture.send.mock.lastCall![0];
+    expect(message.to).toBe(recipient);
+    expect(message.html).toContain('lang="zh"');
+    expect(message.subject).toContain("学校时数报告");
+    expect(message.text).not.toContain("View Month Report");
+    expect(await delivery()).toMatchObject({ status: "SENT", userId: null });
+    const after = await db.schoolHoursReport.findUniqueOrThrow({ where: { id: reportId } });
+    expect(after.snapshot).toEqual(before.snapshot);
+    expect(after.contentHash).toBe(before.contentHash);
+    expect(after.intendedRecipients).toEqual(before.intendedRecipients);
+  } finally {
+    await db.user.delete({ where: { id } });
+  }
+});
+
+it("reads a changed account preference after the report was queued", async () => {
+  const id = `${fixture.prefix}changed-language`;
+  const queued = await delivery();
+  await db.user.create({ data: { id, email: recipient, emailLocale: "zh", emailVerifiedAt: new Date() } });
+  try {
+    await db.user.update({ where: { id }, data: { emailLocale: "en" } });
+    await deliverNotifications();
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+    const message = fixture.send.mock.lastCall![0];
+    expect(message.subject).toBe("October 2026 school-hours report · Revision 1");
+    expect(message.html).toContain('lang="en"');
+    expect(await delivery()).toMatchObject({ id: queued.id, userId: null, status: "SENT" });
+  } finally {
+    await db.user.delete({ where: { id } });
+  }
+});
+
+it.each(["unverified primary", "pending secondary", "unrelated account"] as const)("uses English for a configured recipient with only an %s language association", async (kind) => {
+  const id = `${fixture.prefix}unproven-language`;
+  await db.user.create({ data: {
+    id, name: "Synthetic School Office", emailLocale: "zh",
+    email: kind === "unverified primary" ? recipient : `${id}@example.test`,
+    emailVerifiedAt: kind === "unverified primary" ? null : new Date(),
+  } });
+  try {
+    if (kind === "pending secondary")
+      await db.emailVerificationCode.create({ data: {
+        userId: id, purpose: "SECONDARY_EMAIL", targetEmail: recipient,
+        codeHash: "synthetic-pending-language-proof", expiresAt: new Date(Date.now() + 600_000),
+      } });
+    await deliverNotifications();
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+    const message = fixture.send.mock.lastCall![0];
+    expect(message.to).toBe(recipient);
+    expect(message.subject).toBe("October 2026 school-hours report · Revision 1");
+    expect(message.html).toContain('lang="en"');
+    expect(await delivery()).toMatchObject({ status: "SENT", userId: null });
+  } finally {
+    await db.user.delete({ where: { id } });
+  }
 });
 
 it("a stale global-off preflight cannot block a fresh receipt after mail was enabled", async () => {
@@ -461,6 +540,7 @@ it("public HTML and CSV GETs require only the scoped bearer link and never mutat
   );
   const body = await html.text();
   expect(body).toContain("+7 h");
+  expect(body).toContain("-0.5 h");
   expect(body).not.toContain("synthetic-private-baseline");
   expect(body).not.toContain(recipient);
   expect(body).not.toContain("private-person-a");

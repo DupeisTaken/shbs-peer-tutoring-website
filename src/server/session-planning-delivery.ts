@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { normalizeEmailLocale } from "~/lib/email-locale";
 import { TRPCError } from "@trpc/server";
 import type { SessionNotice } from "../../generated/prisma";
 import { db } from "~/server/db";
@@ -105,7 +106,7 @@ export async function admitSessionNotice(
     const admitted = await tx.sessionNotice.update({
       where: { id }, data: { status: "SENDING", attemptId: randomUUID(), attemptStartedAt: new Date(), attempts: { increment: 1 }, lastError: null, context: admittedContext },
     });
-    return { row: admitted, obsolete: context.isActionable === true && !state.current,
+    return { row: admitted, locale: normalizeEmailLocale(user.emailLocale), obsolete: context.isActionable === true && !state.current,
       destination: state.response?.actorKey.startsWith("tutor:") || (!state.response && user.tutorId)
         ? "/schedule#sessions" : "/student?view=schedule#sessions" };
   });
@@ -159,7 +160,7 @@ export async function deliverSessionNotices(limit = 10, database: DomainDb = db)
     if (!admitted?.row.attemptId) continue;
     let acceptedAt: Date | null = null;
     try {
-      const copy = sessionPlanningNoticeCopy(admitted.row.event, admitted.row.context, admitted.obsolete);
+      const copy = sessionPlanningNoticeCopy(admitted.row.event, admitted.row.context, admitted.obsolete, admitted.locale);
       const link = emailUrl(admitted.destination);
       await emailSender.send({
         category: "PROGRAM", to: admitted.row.recipientEmail,

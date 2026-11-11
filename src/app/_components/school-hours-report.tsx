@@ -234,6 +234,7 @@ function SchoolReportReader({ id }: { id: string }) {
             )}
             <SchoolHoursIndividuals
               rows={data.rows}
+              postingPolicy={data.postingPolicy}
               revision={data.revision}
               includeStatistics={data.includeStatistics}
             />

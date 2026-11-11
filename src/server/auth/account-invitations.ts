@@ -1,5 +1,12 @@
+import { normalizeEmailLocale } from "~/lib/email-locale";
+import { accountEmailLocale } from "~/server/email/recipient-locale";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { invitationPurpose } from "~/server/email/required-notice-details";
+import {
+  invitationEmailCopy,
+  invitationVerificationEmailCopy,
+} from "~/server/email/direct-email-copy";
+import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { currentStudentSignupPayload } from "~/server/student-signup-answers";
@@ -393,6 +400,32 @@ async function sourceState(
   return { source, history };
 }
 
+/** Presentation follows the validated source, never the staff issuer's browser language. */
+async function sourceEmailLocale(
+  tx: TransactionDb,
+  state: Awaited<ReturnType<typeof sourceState>>,
+) {
+  if (state.viewer) return normalizeEmailLocale(state.viewer.emailLocale);
+  if (state.survey) return normalizeEmailLocale(state.survey.emailLocale);
+  if (state.signupIntent)
+    return normalizeEmailLocale(state.signupIntent.intent.emailLocale);
+  if (state.history)
+    return normalizeEmailLocale(state.history.invite.emailLocale);
+  const staff = state.staff;
+  const application = staff?.applicationId
+    ? await tx.tutorApplication.findUnique({
+        where: { id: staff.applicationId },
+        select: { emailLocale: true },
+      })
+    : staff?.crewApplicationId
+      ? await tx.crewApplication.findUnique({
+          where: { id: staff.crewApplicationId },
+          select: { emailLocale: true },
+        })
+      : null;
+  return normalizeEmailLocale(application?.emailLocale);
+}
+
 /** SMTP failure rolls back the envelope and leaves the previous usable code intact.
  * Calls require an already validated source; sourceState rechecks it before publishing. */
 export async function deliverAccountInvitation(
@@ -509,6 +542,9 @@ export async function deliverAccountInvitation(
       update: data,
     });
     const state = await sourceState(tx, row);
+    const locale = normalizeEmailLocale(
+      owner?.emailLocale ?? (await sourceEmailLocale(tx, state)),
+    );
     if (input.display && row.verifiedAt)
       await recordPublicInvitationProof(tx, state, row.verifiedAt);
     const sourceExpiry = state.staff
@@ -533,7 +569,7 @@ export async function deliverAccountInvitation(
     const expiresAt = new Date(Math.min(+row.expiresAt, sourceExpiry));
     const issued = await tx.accountInvitation.update({
       where: { id: row.id },
-      data: { expiresAt },
+      data: { expiresAt, emailLocale: locale },
     });
     await recordInvitationLifecycle(
       tx,
@@ -547,14 +583,13 @@ export async function deliverAccountInvitation(
     await emailSender.send({
       category: "SECURITY",
       to: email,
-      subject: `Verify your email for ${purpose.en} / ${purpose.zh}邮箱验证`,
-      text: `Invitation purpose: ${purpose.en}. Verify your mailbox before reviewing this invitation; the invitation does not itself apply the access change.\n邀请用途：${purpose.zh}。请先验证邮箱，再审核邀请；邀请本身不会自动更改权限。\n\nYour email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires at ${expiresAt.toISOString()} (UTC). Enter it at ${url}. If you already have an account, this signs you in without changing your password or memberships. Review any added access separately.\n\n您的邮箱验证码是 ${code}，有效期至 ${expiresAt.toISOString()}（UTC）。请前往 ${url} 输入。已有账号可登录，密码和身份不会改变；新增权限须另行确认。`,
-      presentation: {
+      ...invitationVerificationEmailCopy({
+        locale,
         code,
-        codePurpose: "verification",
-        eyebrow: "EMAIL VERIFICATION",
-        action: { label: "Review invitation / 查看邀请", url },
-      },
+        purpose,
+        deadline: { at: expiresAt, timeZone: await getProgramTimeZone(tx) },
+        url,
+      }),
     });
     return invitationReceipt(row);
   });
@@ -727,13 +762,20 @@ export async function emailDisplayedInvitation(
   await emailSender.send({
     category: "SECURITY",
     to: row.email,
-    subject: `Invitation to review ${purpose.en} / ${purpose.zh}邀请`,
-    text: `You are invited to review ${purpose.en}. Opening this invitation does not apply new access or replace existing memberships.\n邀请您审核${purpose.zh}。打开邀请不会自动授予新权限或替换已有身份。\n\nYour invitation code / 邀请码: ${code}.\n\n${/^(?=.*[A-Z])(?=.*[0-9])[0-9A-Z]{5}$/.test(code) ? "5 letters and numbers. / 5 位字母与数字组合。" : "Previously issued code: enter the complete code as shown. / 此为此前签发的邀请码，请按显示内容完整输入。"}\n\nContinue at ${url}. Expires ${row.expiresAt.toISOString()} (UTC). / 请通过链接继续注册，有效期至 ${row.expiresAt.toISOString()}（UTC）。`,
-    presentation: {
+    ...invitationEmailCopy({
+      locale: await accountEmailLocale(
+        client,
+        row.accountId,
+        normalizeEmailLocale(row.emailLocale),
+      ),
       code,
-      codePurpose: "invitation",
-      action: { label: "Continue to signup / 继续注册", url },
-    },
+      purpose,
+      deadline: {
+        at: row.expiresAt,
+        timeZone: await getProgramTimeZone(client),
+      },
+      url,
+    }),
   });
   return { ok: true };
 }
@@ -764,7 +806,7 @@ export async function sendInvitationVerification(
     )
       throw invalid();
     await sourceState(tx, row);
-    await lockedInvitationOwner(tx, row);
+    const owner = await lockedInvitationOwner(tx, row);
     // A replacement must remain distinct from the invitation and the last mailbox code.
     const code = freshEmailCode([row.codeHash, row.emailCodeHash]);
     const expiresAt = new Date(Math.min(+row.expiresAt, Date.now() + TTL));
@@ -772,9 +814,12 @@ export async function sendInvitationVerification(
     await emailSender.send({
       category: "SECURITY",
       to: row.email,
-      subject: `Verify your mailbox for ${purpose.en} / ${purpose.zh}邮箱验证`,
-      text: `Verify your mailbox before reviewing the invitation for ${purpose.en}. This code confirms mailbox ownership; added access still requires your separate review.\n请先验证邮箱，再审核${purpose.zh}邀请。此验证码仅确认邮箱归属，新增权限仍须另行确认。\n\nYour email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires at ${expiresAt.toISOString()} (UTC).\n您的邮箱验证码是 ${code}，有效期至 ${expiresAt.toISOString()}（UTC）。如非本人申请，请忽略此邮件。`,
-      presentation: { code, codePurpose: "verification" },
+      ...invitationVerificationEmailCopy({
+        locale: normalizeEmailLocale(owner?.emailLocale ?? row.emailLocale),
+        code,
+        purpose,
+        deadline: { at: expiresAt, timeZone: await getProgramTimeZone(tx) },
+      }),
     });
     const challenged = await tx.accountInvitation.update({
       where: { id: row.id },
@@ -1180,6 +1225,7 @@ export async function redeemAccountInvitation(
         {
           ...input,
           authenticatedUserId: owner?.id,
+          emailLocale: normalizeEmailLocale(row.emailLocale),
           completionProof: registrationCompletionProof(
             "invitation",
             staff.id,

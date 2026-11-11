@@ -1,3 +1,8 @@
+import {
+  emailText,
+  normalizeEmailLocale,
+  type EmailLocale,
+} from "~/lib/email-locale";
 import { fullPersonName } from "~/lib/person-name";
 import {
   configuredNewNames,
@@ -9,6 +14,11 @@ import { currentStudentSignupPayload } from "./student-signup-answers";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
 import { signupMetric } from "~/server/signup-admission";
+import {
+  linkedEmailCopy,
+  tutoringSignupEmailCopy,
+} from "./email/direct-email-copy";
+import { getProgramTimeZone } from "./program/time-zone-reader";
 import { surveyInput } from "~/lib/student-signup";
 export { surveyInput, surveyToken } from "~/lib/student-signup";
 import { normalizeGrade } from "~/lib/academics";
@@ -164,27 +174,79 @@ async function activeIntake(tx: TransactionDb) {
 }
 
 /** Mail failures must not erase a successfully reserved place. Resending only rotates the token. */
+export async function surveyDeliveryLocale(
+  db: Pick<DomainDb, "user" | "studentProfileOwnership">,
+  row: {
+    tuteeId: string | null;
+    emailLocale: string;
+    email: string;
+    payload?: Prisma.JsonValue;
+  },
+) {
+  const owner = row.tuteeId
+    ? await db.studentProfileOwnership.findUnique({
+        where: { tuteeId: row.tuteeId },
+        select: { userId: true },
+      })
+    : null;
+  const payload =
+    row.payload &&
+    typeof row.payload === "object" &&
+    !Array.isArray(row.payload)
+      ? row.payload
+      : null;
+  // Unconfirmed requests have no roster yet. Use only their captured account ID,
+  // and recheck the destination so an address transfer cannot pick another person's preference.
+  const userId =
+    owner?.userId ??
+    (typeof payload?.academicAccountId === "string"
+      ? payload.academicAccountId
+      : null);
+  const fallback = normalizeEmailLocale(row.emailLocale);
+  if (!userId) return fallback;
+  const destination = row.email.trim().toLowerCase();
+  const account = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      email: true,
+      emailLocale: true,
+      mergedIntoId: true,
+      emails: {
+        where: { email: destination, verifiedAt: { not: null } },
+        select: { email: true },
+      },
+    },
+  });
+  if (
+    !account ||
+    account.mergedIntoId ||
+    (account.email.toLowerCase() !== destination && !account.emails.length)
+  )
+    return fallback;
+  return normalizeEmailLocale(account.emailLocale);
+}
+
 async function deliver(
+  db: DomainDb,
   to: string,
   token: string,
   origin: string,
   deadline?: Date | null,
+  locale: EmailLocale = "en",
 ) {
   try {
+    const timeZone = await getProgramTimeZone(db);
     await emailSender.send({
       category: "PROGRAM",
       signup: true,
       to,
-      subject: "Tutoring signup received — confirm your email",
-      presentation: {
+      ...tutoringSignupEmailCopy({
+        locale,
         code: surveyEmailCode(digest(token)),
-        codePurpose: "verification",
-        action: {
-          label: "Confirm your tutoring request",
-          url: `${origin}/tutee/account?token=${token}`,
-        },
-      },
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${surveyEmailCode(digest(token))}. / 您的邮箱验证码是 ${surveyEmailCode(digest(token))}。\n\n${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/tutee/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
+        url: `${origin}/tutee/account?token=${token}`,
+        legacy: true,
+        ...(deadline ? { verificationDue: { at: deadline, timeZone } } : {}),
+      }),
     });
     return true;
   } catch {
@@ -207,7 +269,12 @@ export async function assertIntakeEligibility(
       intakeTermId,
       OR: [
         { email },
-        ...(account ? [await quarterBlockAccountWhere(tx, account.id), { email: account.email }] : []),
+        ...(account
+          ? [
+              await quarterBlockAccountWhere(tx, account.id),
+              { email: account.email },
+            ]
+          : []),
       ],
     },
   });
@@ -240,6 +307,7 @@ export async function assertIntakeEligibility(
 export async function submitSurvey(
   db: DomainDb,
   input: z.infer<typeof surveyInput>,
+  pageLocale: EmailLocale = "en",
 ) {
   surveyLimit(input.email);
   await expireStudentRequests(db);
@@ -276,6 +344,7 @@ export async function submitSurvey(
         id: true,
         profileVersion: true,
         email: true,
+        emailLocale: true,
         name: true,
         mergedIntoId: true,
       },
@@ -354,6 +423,7 @@ export async function submitSurvey(
       data: {
         email: input.email,
         intakeTermId: term.id,
+        emailLocale: normalizeEmailLocale(account?.emailLocale ?? pageLocale),
         submittedAt: new Date(),
         payload: {
           ...input,
@@ -373,7 +443,14 @@ export async function submitSurvey(
   });
   const emailSent = result.duplicate
     ? await resendSurvey(db, input.email, false)
-    : await deliver(input.email, token, origin);
+    : await deliver(
+        db,
+        input.email,
+        token,
+        origin,
+        undefined,
+        normalizeEmailLocale(result.row.emailLocale),
+      );
   if (emailSent && !result.duplicate)
     await db.studentSurvey.updateMany({
       where: { id: result.row.id },
@@ -445,18 +522,32 @@ async function sendSurveyReplacement(
       orderBy: { submittedAt: "desc" },
     });
     if (existing?.invalidatedAt) return "missing";
-    if (existing?.confirmedAt) return "confirmed";
+    if (existing?.confirmedAt) return { confirmed: existing };
     return existing ?? "missing";
   });
-  if (updated === "confirmed") {
+  if (typeof updated === "object" && "confirmed" in updated) {
+    const locale = await surveyDeliveryLocale(db, updated.confirmed);
     try {
       await emailSender.send({
         category: "PROGRAM",
         signup: true,
         to: email,
-        subject: "Your tutoring request is already confirmed",
-        presentation: { action: { label: "Sign in", url: `${origin}/signin` } },
-        text: `Your original tutoring request is already confirmed. Its submission time has not changed. Sign in here:\n${origin}/signin\n\nContact the team if you need to change your request.`,
+        ...linkedEmailCopy({
+          locale,
+          subject: emailText(locale, {
+            en: "Tutoring request already confirmed",
+            zh: "辅导申请已确认",
+          }),
+          eyebrow: emailText(locale, { en: "TUTORING SIGNUP", zh: "辅导报名" }),
+          body: emailText(locale, {
+            en: "Your original tutoring request is already confirmed. Its submission time is unchanged. Contact the team if you need to change your request.",
+            zh: "原辅导申请已确认，提交时间不变。如需更改申请，请联系项目团队。",
+          }),
+          action: {
+            label: emailText(locale, { en: "Sign in", zh: "登录" }),
+            url: `${origin}/signin`,
+          },
+        }),
       });
       return true;
     } catch {
@@ -466,7 +557,14 @@ async function sendSurveyReplacement(
   // Give the same public response for unknown addresses to avoid exposing accounts.
   if (updated === "missing") return missingIsSuccess;
   const token = freshSurveyToken(updated.tokenHash, updated.emailCodeVersion);
-  const sent = await deliver(email, token, origin, updated.verificationDueAt);
+  const sent = await deliver(
+    db,
+    email,
+    token,
+    origin,
+    updated.verificationDueAt,
+    await surveyDeliveryLocale(db, updated),
+  );
   if (sent) {
     // Publish only successfully delivered replacements. Failed/concurrent retries cannot
     // invalidate the previous link, and confirmation during delivery cannot resurrect it.
@@ -699,6 +797,7 @@ export async function confirmSurvey(
       user = await tx.user.create({
         data: {
           email: row.email,
+          emailLocale: normalizeEmailLocale(row.emailLocale),
           firstName: input.firstName,
           lastName: input.lastName,
           preferredName: input.preferredName,

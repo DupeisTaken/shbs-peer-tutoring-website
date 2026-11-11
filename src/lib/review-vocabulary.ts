@@ -15,10 +15,21 @@ const fields = new Set<string>(reviewFieldKeys);
 const prefix = "auditEventDetails.presentation";
 const notificationCategoryLabels = Object.fromEntries(notificationCategories.map((category) =>
   [category, `notificationPreferences.categories.${category}`]));
+const emailLocaleLabels = { en: "emailPreferences.english", zh: "emailPreferences.chinese" };
 /** These persisted String columns have closed domains owned by their writers,
  * rather than Prisma enums. Keep each mapping scoped to its exact entity/field;
  * an identical token in a name, explanation or unknown object remains text. */
 export const reviewStringDomains = {
+  User: { emailLocale: emailLocaleLabels },
+  ViewerSignup: { emailLocale: emailLocaleLabels },
+  CrewSignupVerification: { emailLocale: emailLocaleLabels },
+  CrewApplication: { emailLocale: emailLocaleLabels },
+  TutorApplication: { emailLocale: emailLocaleLabels },
+  StudentSurvey: { emailLocale: emailLocaleLabels },
+  StudentSignupIntent: { emailLocale: emailLocaleLabels },
+  AccountInvitation: { emailLocale: emailLocaleLabels },
+  TuteeHistoryInvitation: { emailLocale: emailLocaleLabels },
+  HistoricalRecordInvitation: { emailLocale: emailLocaleLabels },
   ProgramCalendarDay: {
     schedulingEffect: {
       NOTICE: "programCalendar.noticeEffect",

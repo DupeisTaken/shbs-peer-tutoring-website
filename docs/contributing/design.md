@@ -305,8 +305,9 @@ When every name field is Hidden, the self-profile shows a read-only explanation 
 Invitation codes and emailed verification challenges have separate
 [generation, display and compatibility contracts](../reference/technical-report.md#opaque-invitation-codes).
 Use the shared purpose-specific code field/display for site entry and receipts;
-email callers declare `presentation.codePurpose` and provide matching bilingual
-plaintext instructions. New invitations mix letters and numbers in five characters;
+email callers declare `presentation.codePurpose` and provide matching single-language
+plaintext instructions. Select maintained English/Chinese copy before composition;
+never split assembled bilingual prose or remove characters heuristically. New invitations mix letters and numbers in five characters;
 emailed challenges contain four digits, preserving leading zeros. Keep the legacy
 single wide site input, gray `XXXXX`/`XXXX` placeholders and neutral text/borders;
 change only the box background to green for invitations or blue for verification.
