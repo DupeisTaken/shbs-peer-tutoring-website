@@ -518,7 +518,11 @@ An observed identity or role change requires a new deliberate review even if the
 old identity/role later returns. Temporary read failure retains the frozen review.
 A feature-owned context consumer inside its native modal receives the owning
 account query's current feedback and read-only Retry, without adding another query
-or replacing the captured intent. Accepted-write synchronization recovery also
+or replacing the captured intent. The owner nominates only the outside account
+Retry as its dialog focus fallback: Cancel or Escape reaches that recovery when
+the original opener is unavailable and no parent remains. A read recovered before
+dismissal restores the usable original opener instead; pending or removed Retry
+controls receive no fallback focus. Accepted-write synchronization recovery also
 remains read-only. This client disclosure guard does not replace the server's
 live approval and decline authority checks. English and Chinese have authored
 request/recovery copy; the six other bundled catalogs carry explicit English
@@ -825,6 +829,16 @@ Feature tests must cover these ownership rules in addition to the shared display
 tests and gallery example.
 
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
+
+`NativeDialog`, `Modal` and `ReviewedAction` accept an optional
+`returnFocusFallback` target getter. Dismissal prefers the usable exact opener,
+then the remaining open parent; only then can the owner nominate a connected,
+visible, enabled focus target. The latest committed getter is resolved during
+cleanup without restarting the dialog lifetime or scheduling delayed focus.
+Fallback does not take focus from another connected control. `QueryFeedback`'s
+optional `retryRef` lets an owner nominate its existing recovery button without
+adding query or permission behavior. The named-action gallery demonstrates this
+contract with its existing Restore example access control.
 
 Management pairing, tutee and tutor creation first presents a shared risk dialog
 with a fresh unchecked acknowledgement, Cancel and Continue. Continue only admits

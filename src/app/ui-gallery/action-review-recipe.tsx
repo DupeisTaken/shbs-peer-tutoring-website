@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "~/app/_components/ui/button";
 import { useActionReview } from "~/app/_components/ui/action-review";
@@ -15,6 +15,7 @@ export function ActionReviewRecipe() {
   const review = useActionReview();
   const [sequence, setSequence] = useState(0);
   const [revoked, setRevoked] = useState(false);
+  const restoreRef = useRef<HTMLButtonElement>(null);
   return (
     <section className="card space-y-4 p-5">
       <h2 className="section-title">{t("galleryTitle")}</h2>
@@ -98,6 +99,7 @@ export function ActionReviewRecipe() {
             review.open({
               key: `revocation-${sequence}`,
               title: t("galleryRevokeScenario"),
+              returnFocusFallback: () => restoreRef.current,
               description: t("galleryHelp"),
               confirmLabel: t("galleryOpen"),
               details: (
@@ -126,7 +128,7 @@ export function ActionReviewRecipe() {
           kind="denied"
           title={t("galleryRevoked")}
           action={
-            <Button onClick={() => setRevoked(false)}>
+            <Button ref={restoreRef} onClick={() => setRevoked(false)}>
               {t("galleryRestore")}
             </Button>
           }
