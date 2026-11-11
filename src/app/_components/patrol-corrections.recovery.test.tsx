@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   QueryClient,
@@ -15,8 +16,12 @@ import {
 } from "@tanstack/react-query";
 import type { QueryFilters } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
+import { TRPCClientError } from "@trpc/client";
 import messages from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { installSessionReadReceipts } from "~/lib/session-read-receipts";
+import { createQueryClient } from "~/trpc/query-client";
+import type { AppRouter } from "~/server/api/root";
 
 type Patrol = {
   id: string;
@@ -157,6 +162,7 @@ vi.mock("~/trpc/react", async () => {
 
 import { PatrolCorrections } from "./patrol-corrections";
 import { ReadOnlyProvider } from "./read-only";
+import { SaveNotifications } from "./save-notifications";
 
 let client: QueryClient;
 const originalVersion = new Date("2026-11-01T06:30:00Z");
@@ -298,6 +304,135 @@ afterEach(() => {
   cleanup();
   client.clear();
 });
+
+it.each(["en", "zh"] as const)(
+  "localizes both retained stale-patrol errors in %s without replacing the draft or replaying its save",
+  async (locale) => {
+    const previousHref = window.location.href;
+    const wireMessage = "Patrol changed. Reload before correcting it.";
+    const localizedMessage = {
+      en: wireMessage,
+      zh: "巡查记录已变更。请重新加载后再更正。",
+    };
+    const catalogs = { en: messages, zh };
+    client.clear();
+    client = createQueryClient();
+    client.setDefaultOptions({
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false },
+    });
+    const write = deferred<{ ok: true }>();
+    fixture.save.mockImplementation(() => write.promise);
+    const show = (language: "en" | "zh") => (
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider
+          locale={language}
+          messages={catalogs[language]}
+          timeZone="Asia/Shanghai"
+        >
+          <ReadOnlyProvider value={false}>
+            <PatrolCorrections />
+            <SaveNotifications />
+          </ReadOnlyProvider>
+        </NextIntlClientProvider>
+      </QueryClientProvider>
+    );
+    window.history.replaceState(null, "", "/admin/crew");
+    try {
+      const view = render(show(locale));
+      await waitFor(() =>
+        expect(view.container.querySelector("article")).toBeTruthy(),
+      );
+      await expand(view.container);
+      const article = view.container.querySelector("article")!;
+      const catalog = catalogs[locale];
+      const form = article.querySelector("form")!;
+      const note = within(article).getByLabelText<HTMLTextAreaElement>(
+        catalog.corrections.comments,
+      );
+      const reason = within(article).getByLabelText<HTMLTextAreaElement>(
+        catalog.corrections.reason,
+      );
+      const room = within(article).getByLabelText<HTMLSelectElement>(
+        catalog.corrections.room,
+      );
+      const count = within(article).getByLabelText<HTMLSelectElement>(
+        catalog.corrections.count,
+      );
+      const time = form.querySelector<HTMLInputElement>(
+        "input[type='datetime-local']",
+      )!;
+      fireEvent.change(note, { target: { value: "Unsaved synthetic note" } });
+      fireEvent.change(reason, {
+        target: { value: "Unsaved synthetic reason" },
+      });
+      fireEvent.change(room, { target: { value: "other-room" } });
+      fireEvent.change(count, { target: { value: "THREE" } });
+      fireEvent.change(time, { target: { value: "2026-11-01T15:00" } });
+      act(() => {
+        fireEvent.submit(form);
+        fireEvent.submit(form);
+      });
+      await waitFor(() => expect(fixture.save).toHaveBeenCalledOnce());
+      expect(form.querySelector("fieldset")?.disabled).toBe(true);
+      await act(async () => {
+        write.reject(
+          TRPCClientError.from<AppRouter>({
+            error: {
+              code: -32009,
+              message: wireMessage,
+              data: {
+                code: "CONFLICT",
+                path: "corrections.correctPatrol",
+                httpStatus: 409,
+              },
+            },
+          }),
+        );
+      });
+      const expectRetained = (language: "en" | "zh") => {
+        expect(within(article).getByRole("alert").textContent).toBe(
+          localizedMessage[language],
+        );
+        const notice = view.container.querySelector("aside[role='alert']")!;
+        expect(notice.querySelector("p")?.textContent).toBe(
+          localizedMessage[language],
+        );
+        expect(screen.getAllByRole("alert")).toHaveLength(2);
+        expect(note.value).toBe("Unsaved synthetic note");
+        expect(reason.value).toBe("Unsaved synthetic reason");
+        expect(room.value).toBe("other-room");
+        expect(count.value).toBe("THREE");
+        expect(time.value).toBe("2026-11-01T15:00");
+        expect(fixture.save).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            expectedUpdatedAt: originalVersion,
+            note: note.value,
+            reason: reason.value,
+            observations: [
+              expect.objectContaining({
+                roomId: room.value,
+                headcount: count.value,
+                observedAt: new Date("2026-11-01T07:00:00Z"),
+              }),
+            ],
+          }),
+          expect.anything(),
+        );
+        expect(fixture.readTarget).not.toHaveBeenCalled();
+        expect(screen.queryByRole("status")).toBeNull();
+      };
+      await waitFor(() => expectRetained(locale));
+      const otherLocale = locale === "en" ? "zh" : "en";
+      view.rerender(show(otherLocale));
+      expectRetained(otherLocale);
+      view.rerender(show(locale));
+      expectRetained(locale);
+    } finally {
+      window.history.replaceState(null, "", previousHref);
+    }
+  },
+);
 
 it("offers a named read-only Retry for an initial patrol history failure", async () => {
   fixture.readHistory.mockRejectedValue(

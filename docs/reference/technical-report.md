@@ -2404,6 +2404,12 @@ and room choices; Retry never repeats the correction. Queued proposals remain fe
 until explicit successful Reload. Existing server reason, version, observation,
 authority and stored-credit rules remain authoritative.
 
+The exact known stale-patrol refusal is localized during rendering in both the
+editor and persistent save notice. Both retain the original wire text, so changing
+languages updates an existing refusal without resubmitting or replacing the draft.
+Unrecognized errors keep their existing fallback; server error contracts and
+version checks are unchanged.
+
 Room and exact-target denial episodes live above disposable editors. Their recovery
 requires matching newly admitted successful reads, independently of wall-clock changes;
 another history page, cached/manual data or a child remount cannot release them. Read

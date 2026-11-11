@@ -3009,6 +3009,7 @@
     "details": "Detalles del cambio",
     "patrolRooms": "opciones de aulas de ronda",
     "reloadPatrol": "Recargar borrador de ronda",
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
     "patrolReloadFailed": "No se pudieron cargar la ronda actual y las opciones de aulas. Se conservan el borrador y su versión original.",
     "patrolUnavailable": "Esta ronda no se encontró en la página de historial actualizada. Se conserva el borrador.",
     "patrolSaved": "La corrección se guardó. Actualizando el historial de rondas…",

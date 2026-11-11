@@ -3009,6 +3009,7 @@
     "details": "变更详情",
     "patrolRooms": "巡查教室选项",
     "reloadPatrol": "重新加载巡查草稿",
+    "patrolChanged": "巡查记录已变更。请重新加载后再更正。",
     "patrolReloadFailed": "无法加载最新巡查记录和教室选项。已保留草稿及其原始版本。",
     "patrolUnavailable": "刷新后的历史记录页中未找到此巡查。已保留草稿。",
     "patrolSaved": "更正已保存。正在刷新巡查历史记录…",

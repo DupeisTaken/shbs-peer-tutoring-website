@@ -3009,6 +3009,7 @@
     "details": "Détails du changement",
     "patrolRooms": "choix des salles de ronde",
     "reloadPatrol": "Recharger le brouillon de ronde",
+    "patrolChanged": "Patrol changed. Reload before correcting it.",
     "patrolReloadFailed": "La dernière ronde et les choix de salles n’ont pas pu être chargés. Votre brouillon et sa version d’origine sont conservés.",
     "patrolUnavailable": "Cette ronde est introuvable dans la page d’historique actualisée. Votre brouillon est conservé.",
     "patrolSaved": "La correction a été enregistrée. Actualisation de l’historique des rondes…",
