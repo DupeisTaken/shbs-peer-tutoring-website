@@ -493,7 +493,10 @@ typed snapshot contains the known source at decision time, not an inferred prist
 original submission. The write retains the Tutee and ownership, sets it inactive,
 and releases only current-period links atomically. Survey-backed or consolidated
 sources, pending participation reviews, invalidity, attendance and published work
-remain guarded. Coordinator proposals preserve the old deletion authority, and
+remain guarded. The shared publication guard checks all retained participant
+records, regardless of status or date; decline names the signup action and directs
+staff to review participation controls, while roster deletion keeps its deletion
+guidance. Coordinator proposals preserve the old deletion authority, and
 approval targets include non-scalar review, participation and publication evidence.
 
 Closed legacy cards use that snapshot rather than live roster/catalog values.
