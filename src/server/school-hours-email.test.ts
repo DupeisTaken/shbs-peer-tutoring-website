@@ -433,7 +433,7 @@ it.each(["en", "zh"] as const)(
       expect(doc.documentElement.lang).toBe(locale);
       expect(email.subject).toBe(
         locale === "zh"
-          ? `2026年10月学校时数报告${revision > 1 ? "更新" : ""} · 第 ${revision} 版`
+          ? `2026年10月学校时数报告${revision > 1 ? "更新" : ""} · 第\u00a0${revision}\u00a0版`
           : `October 2026 school-hours report${revision > 1 ? " updated" : ""} · Revision ${revision}`,
       );
       expect(doc.querySelectorAll("a")).toHaveLength(2);
@@ -450,7 +450,7 @@ it.each(["en", "zh"] as const)(
       // Only the separate report-period/revision metadata would duplicate H1.
       expect(doc.querySelector(".body")?.textContent).not.toContain(
         locale === "zh"
-          ? `2026年10月 · 第 ${revision} 版`
+          ? `2026年10月 · 第\u00a0${revision}\u00a0版`
           : `October 2026 · Revision ${revision}`,
       );
       expect(doc.querySelector(".body")?.textContent).toContain(
@@ -459,7 +459,9 @@ it.each(["en", "zh"] as const)(
       expect(doc.querySelector("body.canvas")?.getAttribute("style")).toContain(
         "background:#181B20",
       );
-      expect(doc.querySelector(".card")?.getAttribute("bgcolor")).toBe("#272D35");
+      expect(doc.querySelector(".card")?.getAttribute("bgcolor")).toBe(
+        "#272D35",
+      );
       expect(
         doc.querySelectorAll('table[role="presentation"]').length,
       ).toBeGreaterThan(0);
@@ -546,7 +548,9 @@ it("defaults to English, escapes branding, and keeps participant names only in t
   const doc = parse(email.html);
   expect(doc.documentElement.lang).toBe("en");
   expect(doc.querySelector("h1")?.textContent).toBe(email.subject);
-  expect(doc.querySelector(".footer-brand")?.textContent).toBe("Pilot <School>");
+  expect(doc.querySelector(".footer-brand")?.textContent).toBe(
+    "Pilot <School>",
+  );
   expect(email.html).toContain("Pilot &lt;School&gt;");
   expect(email.html).not.toContain("Pilot <School>");
   expect(email.html).not.toContain("Blair");
