@@ -446,8 +446,12 @@ it.each(["en", "zh"] as const)(
       expect(fallback?.getAttribute("href")).toBe(reportUrl);
       expect(fallback?.textContent).toBe(reportUrl);
       expect(doc.querySelector("h1")?.textContent).toBe(email.subject);
+      // The issued timestamp may legitimately include the reporting month.
+      // Only the separate report-period/revision metadata would duplicate H1.
       expect(doc.querySelector(".body")?.textContent).not.toContain(
-        locale === "zh" ? "2026年10月" : "October 2026",
+        locale === "zh"
+          ? `2026年10月 · 第 ${revision} 版`
+          : `October 2026 · Revision ${revision}`,
       );
       expect(doc.querySelector(".body")?.textContent).toContain(
         locale === "zh" ? "发出时间:" : "Issued:",
