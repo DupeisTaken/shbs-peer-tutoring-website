@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { parse } from "postcss";
+import { compile } from "tailwindcss";
 import en from "../../../../messages/en.json";
 import zh from "../../../../messages/zh.json";
 import { CodeDisplay, CodeInput } from "./code-field";
@@ -164,4 +168,134 @@ describe("purpose-specific code entry", () => {
     expect(screen.getByText(en.codes.invitationLabel)).toBeTruthy();
     expect(screen.queryByText(en.codes.invitationHelp)).toBeNull();
   });
+});
+
+/** The installed palette is OKLCH; purpose backgrounds are opaque hex colors.
+ * Convert both to linear sRGB before applying WCAG relative-luminance weights. */
+function luminance(color: string) {
+  const hex = /^#([a-f\d]{6})$/i.exec(color)?.[1];
+  let linear: number[];
+  if (hex) {
+    linear = [0, 2, 4].map((offset) => {
+      const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return channel <= 0.04045
+        ? channel / 12.92
+        : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+  } else {
+    const match = /^oklch\(([\d.]+)% ([\d.]+) ([\d.]+)\)$/.exec(color);
+    if (!match)
+      throw new Error(`Expected opaque hex or OKLCH, received ${color}`);
+    const lightness = Number(match[1]) / 100;
+    const chroma = Number(match[2]);
+    const angle = (Number(match[3]) * Math.PI) / 180;
+    const a = chroma * Math.cos(angle);
+    const b = chroma * Math.sin(angle);
+    const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3;
+    linear = [
+      4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+      -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+      -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+    ];
+  }
+  // These neutral colors are in gamut; fail rather than silently clip a new one.
+  expect(linear.every((channel) => channel >= 0 && channel <= 1)).toBe(true);
+  return linear.reduce(
+    (sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index]!,
+    0,
+  );
+}
+
+describe("purpose-specific code display contrast", () => {
+  let compiler: Awaited<ReturnType<typeof compile>>;
+  beforeAll(async () => {
+    const require = createRequire(import.meta.url);
+    const stylesheet = parse(
+      readFileSync(require.resolve("../../../styles/globals.css"), "utf8"),
+    );
+    const fragments = stylesheet.nodes.filter(
+      (node) =>
+        (node.type === "atrule" && node.name === "theme") ||
+        (node.type === "rule" &&
+          (node.selectors.includes(".code-display") ||
+            node.selectors.some((selector) =>
+              selector.startsWith("[data-code-purpose="),
+            ))),
+    );
+    const theme = readFileSync(
+      require.resolve("tailwindcss/theme.css"),
+      "utf8",
+    );
+    compiler = await compile(
+      `${theme}\n${fragments.join("\n")}\n@tailwind utilities;`,
+    );
+  });
+
+  it.each([
+    ["en", "invitation"],
+    ["zh", "invitation"],
+    ["en", "email"],
+    ["zh", "email"],
+  ] as const)(
+    "keeps the %s %s label above 4.5:1 on its purpose background",
+    (locale, purpose) => {
+      const messages = locale === "en" ? en : zh;
+      const code = purpose === "email" ? "0123" : "A1B2C3D4E5F6";
+      render(
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <CodeDisplay purpose={purpose} code={code} />
+        </NextIntlClientProvider>,
+      );
+      const label = screen.getByText(messages.codes[`${purpose}Label`]);
+      const surface = label.parentElement!;
+      expect(surface.getAttribute("data-code-purpose")).toBe(purpose);
+      const output = parse(
+        compiler.build([...label.classList, ...surface.classList]),
+      );
+      const variables: Record<string, string> = {};
+      output.walkDecls(/^--color-/, (declaration) => {
+        variables[declaration.prop] = declaration.value;
+      });
+      function declarations(element: Element) {
+        const values: Record<string, string> = {};
+        output.walkRules((rule) => {
+          if (
+            rule.parent?.type !== "root" ||
+            rule.selector.includes(":host") ||
+            !element.matches(rule.selector)
+          )
+            return;
+          for (const node of rule.nodes) {
+            if (node.type === "decl") values[node.prop] = node.value;
+          }
+        });
+        return values;
+      }
+      const background = declarations(surface);
+      const foreground = declarations(label);
+      const values = { ...variables, ...background, ...foreground };
+      function resolvedColor(value: string | undefined) {
+        expect(value).toBeDefined();
+        const variable = /^var\((--[\w-]+)\)$/.exec(value!)?.[1];
+        const color = variable ? values[variable] : value;
+        expect(color).toBeDefined();
+        return color!;
+      }
+      // Compile the actual rendered leaf classes and production purpose rules.
+      // This checks color contrast, not class spelling; native paint remains a gate.
+      const labelLuminance = luminance(resolvedColor(foreground.color));
+      const backgroundLuminance = luminance(
+        resolvedColor(
+          foreground["background-color"] ?? background["background-color"],
+        ),
+      );
+      expect(
+        (Math.max(labelLuminance, backgroundLuminance) + 0.05) /
+          (Math.min(labelLuminance, backgroundLuminance) + 0.05),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(screen.getByText(code).textContent).toBe(code);
+    },
+  );
 });

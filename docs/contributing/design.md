@@ -311,6 +311,8 @@ never split assembled bilingual prose or remove characters heuristically. New in
 emailed challenges contain four digits, preserving leading zeros. Keep the legacy
 single wide site input, gray `XXXXX`/`XXXX` placeholders and neutral text/borders;
 change only the box background to green for invitations or blue for verification.
+Display labels use neutral `slate-600` text to meet normal-text contrast on both
+purpose backgrounds; retain the same readable label treatment for each purpose.
 Email keeps the legacy single code panel's layout, typography and border, with dark
 green (`#18342C`) or blue (`#172F49`) backgrounds and no added label/guidance wrapper.
 Never infer authorization from this presentation metadata. Include old-format
