@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { parse } from "postcss";
+import { parse, type AnyNode, type Rule } from "postcss";
 import { compile } from "tailwindcss";
 import en from "../../../../messages/en.json";
 import zh from "../../../../messages/zh.json";
@@ -173,7 +173,11 @@ describe("purpose-specific code entry", () => {
 /** The installed palette is OKLCH; purpose backgrounds are opaque hex colors.
  * Convert both to linear sRGB before applying WCAG relative-luminance weights. */
 function luminance(color: string) {
-  const hex = /^#([a-f\d]{6})$/i.exec(color)?.[1];
+  const rawHex = /^#([a-f\d]{3}|[a-f\d]{6})$/i.exec(color)?.[1];
+  const hex =
+    rawHex?.length === 3
+      ? [...rawHex].map((channel) => channel.repeat(2)).join("")
+      : rawHex;
   let linear: number[];
   if (hex) {
     linear = [0, 2, 4].map((offset) => {
@@ -296,6 +300,213 @@ describe("purpose-specific code display contrast", () => {
           (Math.min(labelLuminance, backgroundLuminance) + 0.05),
       ).toBeGreaterThanOrEqual(4.5);
       expect(screen.getByText(code).textContent).toBe(code);
+    },
+  );
+});
+
+type PlaceholderCase = {
+  name: string;
+  tag: "input" | "textarea";
+  purpose?: "invitation" | "email";
+  fontSize: number;
+};
+const placeholderCases: PlaceholderCase[] = [
+  { name: "ordinary input", tag: "input", fontSize: 14 },
+  { name: "ordinary textarea", tag: "textarea", fontSize: 14 },
+  {
+    name: "invitation code",
+    tag: "input",
+    purpose: "invitation",
+    fontSize: 24,
+  },
+  { name: "email code", tag: "input", purpose: "email", fontSize: 24 },
+];
+
+function placeholderControl(row: PlaceholderCase) {
+  if (row.purpose) mount(row.purpose);
+  else {
+    render(
+      <label>
+        Ordinary field
+        {row.tag === "textarea" ? (
+          <textarea className="textarea" placeholder="Example text" />
+        ) : (
+          <input className="input" placeholder="Example text" />
+        )}
+      </label>,
+    );
+  }
+  const control = screen.getByRole<HTMLInputElement | HTMLTextAreaElement>(
+    "textbox",
+  );
+  expect(control.value).toBe("");
+  expect(control.disabled).toBe(false);
+  return control;
+}
+
+function emittedSelectors(rule: Rule): string[] {
+  if (rule.parent?.type !== "rule") return rule.selectors;
+  return emittedSelectors(rule.parent).flatMap((parent) =>
+    rule.selectors.map((selector) => selector.replaceAll("&", parent)),
+  );
+}
+
+/** Resolve the selected production rules at rest, including their actual layers.
+ * Purpose backgrounds are unlayered; placeholder color belongs to its pseudo leaf. */
+function emittedDeclarations(
+  output: ReturnType<typeof parse>,
+  element: Element,
+  pseudo = "",
+) {
+  const matches: { layer: number; values: Record<string, string> }[] = [];
+  output.walkRules((rule) => {
+    let layer = 2;
+    for (
+      let parent: AnyNode | undefined = rule.parent;
+      parent;
+      parent = parent.parent
+    ) {
+      if (parent.type !== "atrule") continue;
+      if (parent.name !== "layer") return;
+      layer = parent.params === "utilities" ? 1 : 0;
+    }
+    const applies = emittedSelectors(rule).some((selector) => {
+      if (selector.includes(":host")) return false;
+      if (pseudo) {
+        return (
+          selector.endsWith(pseudo) &&
+          element.matches(selector.slice(0, -pseudo.length))
+        );
+      }
+      return !selector.includes("::") && element.matches(selector);
+    });
+    if (!applies) return;
+    const values: Record<string, string> = {};
+    for (const node of rule.nodes) {
+      if (node.type === "decl") values[node.prop] = node.value;
+    }
+    matches.push({ layer, values });
+  });
+  const declarations: Record<string, string> = {};
+  for (const match of matches.sort((left, right) => left.layer - right.layer)) {
+    Object.assign(declarations, match.values);
+  }
+  return declarations;
+}
+
+function placeholderContrast(
+  compiler: Awaited<ReturnType<typeof compile>>,
+  control: HTMLInputElement | HTMLTextAreaElement,
+) {
+  const output = parse(compiler.build([...control.classList]));
+  const variables: Record<string, string> = {};
+  output.walkDecls(/^--(?:color|text)-/, (declaration) => {
+    variables[declaration.prop] = declaration.value;
+  });
+  // Inherit only matching ancestor declarations: the other purpose must not win.
+  const ancestors: Element[] = [];
+  for (
+    let parent = control.parentElement;
+    parent;
+    parent = parent.parentElement
+  ) {
+    ancestors.unshift(parent);
+  }
+  for (const ancestor of ancestors) {
+    for (const [property, value] of Object.entries(
+      emittedDeclarations(output, ancestor),
+    )) {
+      if (property.startsWith("--")) variables[property] = value;
+    }
+  }
+  const normal = emittedDeclarations(output, control);
+  const placeholder = emittedDeclarations(output, control, "::placeholder");
+  Object.assign(variables, normal, placeholder);
+  function resolved(value: string | undefined): string {
+    expect(value).toBeDefined();
+    for (let depth = 0; depth < 10; depth += 1) {
+      const variable = /^var\((--[\w-]+)\)$/.exec(value!)?.[1];
+      if (!variable) return value!;
+      value = variables[variable];
+      expect(value).toBeDefined();
+    }
+    throw new Error("Unexpected cyclic style variable");
+  }
+  const size = resolved(normal["font-size"]);
+  expect(size).toMatch(/^[\d.]+rem$/);
+  const fontSize = Number.parseFloat(size) * 16;
+  const foreground = luminance(resolved(placeholder.color));
+  const background = luminance(resolved(normal["background-color"]));
+  return {
+    fontSize,
+    minimum: fontSize >= 24 ? 3 : 4.5,
+    ratio:
+      (Math.max(foreground, background) + 0.05) /
+      (Math.min(foreground, background) + 0.05),
+  };
+}
+
+describe("shared enabled placeholder contrast", () => {
+  let current: Awaited<ReturnType<typeof compile>>;
+  let legacy: Awaited<ReturnType<typeof compile>>;
+  beforeAll(async () => {
+    const require = createRequire(import.meta.url);
+    const stylesheet = parse(
+      readFileSync(require.resolve("../../../styles/globals.css"), "utf8"),
+    );
+    const shared: Rule[] = [];
+    stylesheet.walkRules((rule) => {
+      if (rule.selectors.includes(".input")) shared.push(rule);
+    });
+    expect(shared).toHaveLength(1);
+    const fragments = stylesheet.nodes.filter(
+      (node) =>
+        (node.type === "atrule" && node.name === "theme") ||
+        (node.type === "rule" &&
+          (node.selectors.includes(".code-native") ||
+            node.selectors.some((selector) =>
+              selector.startsWith("[data-code-purpose="),
+            ))),
+    );
+    const theme = readFileSync(
+      require.resolve("tailwindcss/theme.css"),
+      "utf8",
+    );
+    const previous = shared[0]!.clone();
+    let replacements = 0;
+    previous.walkAtRules("apply", (rule) => {
+      rule.params = rule.params.replace(
+        /placeholder:text-slate-\d{3}\b/g,
+        () => {
+          replacements += 1;
+          return "placeholder:text-slate-400";
+        },
+      );
+    });
+    expect(replacements).toBe(1);
+    const compileShared = (rule: Rule) =>
+      compile(
+        `${theme}\n${fragments.join("\n")}\n@layer components {${rule.toString()}}\n@layer utilities {@tailwind utilities;}`,
+      );
+    current = await compileShared(shared[0]!);
+    legacy = await compileShared(previous);
+  });
+
+  it.each(placeholderCases)(
+    "keeps the $name placeholder readable on its actual surface",
+    (row) => {
+      const measurement = placeholderContrast(current, placeholderControl(row));
+      expect(measurement.fontSize).toBe(row.fontSize);
+      expect(measurement.ratio).toBeGreaterThanOrEqual(measurement.minimum);
+    },
+  );
+
+  it.each(placeholderCases)(
+    "rejects the former shared token for the $name placeholder",
+    (row) => {
+      const measurement = placeholderContrast(legacy, placeholderControl(row));
+      expect(measurement.fontSize).toBe(row.fontSize);
+      expect(measurement.ratio).toBeLessThan(measurement.minimum);
     },
   );
 });
