@@ -27,8 +27,11 @@ Measure the interactive target separately from its artwork against the
 [control-height hierarchy](#control-height-hierarchy), including 44 px narrow-screen
 targets. Normal-size text needs at least 4.5:1 contrast against its actual rendered
 background, including muted metadata, inactive records and zero values. Check the
-painted leaf rather than assuming a parent color applies. Translate every rendered
-enum/status value in every bundled catalog, including hidden languages; follow the
+painted leaf rather than assuming a parent color applies. Enabled placeholders
+need the same text contrast: at least 4.5:1 at normal size, or 3:1 for regular text
+24 px and larger. Check the actual control background, including purpose tints.
+Translate every rendered enum/status value in every bundled catalog, including
+hidden languages; follow the
 [catalog checks](verification.md#required-checks) and verify the displayed states.
 
 ## Compose a page by its purpose
