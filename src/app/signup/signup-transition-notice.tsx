@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
+import type { RecruitmentAudience } from "~/lib/recruitment";
+import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
 import {
   publicSignupView,
   type PublicSignupTransition,
@@ -31,12 +33,16 @@ export function SignupTransitionNotice({
   now,
   refresh,
   verified = true,
+  audience = "tutee",
 }: {
   data: PublicSignupTransition;
   now: number;
   refresh: () => void;
   verified?: boolean;
+  audience?: RecruitmentAudience;
 }) {
+  const format = useFormatter();
+  const locale = useLocale();
   const t = useTranslations("signupTransition");
   const banner = useTranslations("signupBanner");
   const currentText = useTranslations("public.signup");
@@ -92,6 +98,7 @@ export function SignupTransitionNotice({
       )}
       {timed && view.opensAt && view.label ? (
         <SignupOpeningNotice
+          audience={audience}
           periodLabel={view.label}
           currentPeriodLabel={view.next ? data.current?.label : undefined}
           opensAt={view.opensAt}
@@ -113,14 +120,42 @@ export function SignupTransitionNotice({
       ) : view.next && view.label ? (
         <section className="card space-y-2 p-5 sm:p-6" aria-live="polite">
           <h2 className="section-title">
-            {t("nextTitle", { period: view.label })}
+            {t(audience === "tutor" ? "tutorTitle" : "nextTitle", {
+              period: view.label,
+            })}
           </h2>
           {data.current && (
             <p className="text-sm text-slate-600">
-              {banner("currentClosed", { period: data.current.label })}
+              {banner(
+                audience === "tutor" ? "tutorCurrentClosed" : "currentClosed",
+                { period: data.current.label },
+              )}
             </p>
           )}
           <p className="text-sm leading-6 text-slate-700">{t(view.state)}</p>
+          {/* Saved configuration is useful even when activation needs review. Only
+              timed states above receive a countdown or an opening promise. */}
+          {view.opensAt && (
+            <div className="space-y-1 border-t border-slate-100 pt-3">
+              <p className="text-xs text-slate-600">{t("configuredOpening")}</p>
+              <p className="font-medium text-slate-900">
+                <time dateTime={view.opensAt}>
+                  {format.dateTime(new Date(view.opensAt), {
+                    dateStyle: "long",
+                    timeStyle: "short",
+                    timeZone: data.timeZone,
+                  })}
+                </time>
+              </p>
+              <p className="text-xs leading-5 break-words text-slate-600">
+                {programTimeZoneLabel(
+                  data.timeZone,
+                  new Date(view.opensAt),
+                  locale,
+                )}
+              </p>
+            </div>
+          )}
         </section>
       ) : null}
     </div>

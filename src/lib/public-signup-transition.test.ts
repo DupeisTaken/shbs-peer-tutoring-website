@@ -81,7 +81,7 @@ describe("public next-quarter signup projection", () => {
     );
   });
   it.each(["CANCELLED", "BLOCKED", "FAILED"] as const)(
-    "removes an opening promise when refresh is %s",
+    "retains the configured date without promising availability when refresh is %s",
     (state) => {
       const data = projection();
       data.next!.refresh = {
@@ -91,27 +91,63 @@ describe("public next-quarter signup projection", () => {
       };
       expect(publicSignupView(data, now)).toMatchObject({
         state: state === "CANCELLED" ? "cancelled" : "needsReview",
-        opensAt: null,
+        opensAt: data.next!.opensAt,
+        next: true,
       });
+      expect(
+        publicSignupView(data, Date.parse(data.next!.opensAt!)).state,
+      ).toBe(state === "CANCELLED" ? "cancelled" : "needsReview");
     },
   );
   it("does not invent unset dates or use stale target preparation", () => {
     const data = projection();
     data.next!.opensAt = null;
-    expect(publicSignupView(data, now).state).toBe("awaitingSchedule");
+    expect(publicSignupView(data, now)).toMatchObject({
+      state: "awaitingSchedule",
+      opensAt: null,
+    });
     data.next!.preparationValid = false;
-    expect(publicSignupView(data, now).state).toBe("needsReview");
+    expect(publicSignupView(data, now)).toMatchObject({
+      state: "needsReview",
+      opensAt: null,
+    });
   });
-  it("does not advertise a disabled, ended or impossible next window", () => {
+  it("retains the configured date for a disabled, ended or impossible next window", () => {
     const data = projection();
     data.next!.enabled = false;
-    expect(publicSignupView(data, now).state).toBe("unavailable");
+    expect(publicSignupView(data, now)).toMatchObject({
+      state: "unavailable",
+      opensAt: data.next!.opensAt,
+    });
     data.next!.enabled = true;
     data.next!.closesAt = new Date(now).toISOString();
-    expect(publicSignupView(data, now).state).toBe("unavailable");
+    expect(publicSignupView(data, now)).toMatchObject({
+      state: "unavailable",
+      opensAt: data.next!.opensAt,
+    });
     data.next!.closesAt = data.next!.opensAt;
-    expect(publicSignupView(data, now).state).toBe("needsReview");
+    expect(publicSignupView(data, now)).toMatchObject({
+      state: "needsReview",
+      opensAt: data.next!.opensAt,
+    });
   });
+  it.each([null, "CANCELLED", "BLOCKED", "FAILED"] as const)(
+    "does not relabel a stale target's date when refresh is %s",
+    (state) => {
+      const data = projection();
+      data.next!.preparationValid = false;
+      if (state)
+        data.next!.refresh = {
+          executeAt: "2026-11-01T01:00:00Z",
+          state,
+          valid: false,
+        };
+      expect(publicSignupView(data, now)).toMatchObject({
+        state: "needsReview",
+        opensAt: null,
+      });
+    },
+  );
   it("does not move the announced date to hide a later activation", () => {
     const data = projection();
     data.next!.refresh = {
@@ -121,7 +157,7 @@ describe("public next-quarter signup projection", () => {
     };
     expect(publicSignupView(data, now)).toMatchObject({
       state: "needsReview",
-      opensAt: null,
+      opensAt: data.next!.opensAt,
     });
   });
   it("does not invent a next-quarter handoff outside the supplied eligible target", () => {

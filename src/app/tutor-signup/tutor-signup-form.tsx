@@ -13,7 +13,12 @@ import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import {
+  SignupTransitionNotice,
+  useSignupClock,
+} from "~/app/signup/signup-transition-notice";
+import { publicSignupView } from "~/lib/public-signup-transition";
 import Link from "next/link";
 import {
   RecruitmentNotice,
@@ -65,6 +70,15 @@ export function TutorSignupForm() {
   });
   const policy = api.application.policy.useQuery({ locale });
   const submit = api.application.submit.useMutation();
+  const transition = options.data?.transition;
+  const transitionNow = useSignupClock(transition?.serverNow);
+  const signupView = transition
+    ? publicSignupView(transition, transitionNow)
+    : null;
+  const { refetch: refetchOptions } = options;
+  const refreshRecruitment = useCallback(() => {
+    void refetchOptions();
+  }, [refetchOptions]);
 
   const [names, setNames] = useState(() => nameDraft());
   const {
@@ -204,12 +218,34 @@ export function TutorSignupForm() {
         </InlineNotice>
       )}
       {readOnly && (
-        <RecruitmentNotice
-          status={status}
-          missing={missing}
-          window={options.data?.recruitment}
-          policy={policy.data}
-        />
+        <>
+          {transition && (
+            <SignupTransitionNotice
+              audience="tutor"
+              data={transition}
+              now={transitionNow}
+              refresh={refreshRecruitment}
+              verified={!options.isError}
+            />
+          )}
+          <RecruitmentNotice
+            status={status}
+            missing={missing}
+            window={
+              signupView?.next
+                ? undefined
+                : signupView?.state === "currentScheduled" &&
+                    options.data?.recruitment
+                  ? {
+                      ...options.data.recruitment,
+                      opensAt: null,
+                      previewUrl: null,
+                    }
+                  : options.data?.recruitment
+            }
+            policy={policy.data}
+          />
+        </>
       )}
       <form
         className="card p-6"

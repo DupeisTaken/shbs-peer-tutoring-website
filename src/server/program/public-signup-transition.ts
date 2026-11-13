@@ -1,5 +1,5 @@
 import { getPeriodDisplay } from "~/lib/period";
-import { recruitmentWindow } from "~/lib/recruitment";
+import { recruitmentWindow, type RecruitmentAudience } from "~/lib/recruitment";
 import type { PublicSignupTransition } from "~/lib/public-signup-transition";
 import { inTransaction, type DomainDb } from "~/server/transactions";
 import { lockNextRecruitment, readNextRecruitment } from "./next-recruitment";
@@ -10,6 +10,7 @@ import { getProgramTimeZone } from "./time-zone";
  * This allowlist deliberately excludes Head identity, approvals and refresh evidence. */
 export async function readPublicSignupTransition(
   db: DomainDb,
+  audience: RecruitmentAudience = "tutee",
 ): Promise<PublicSignupTransition> {
   return inTransaction(db, async (tx) => {
     await lockNextRecruitment(tx);
@@ -32,7 +33,7 @@ export async function readPublicSignupTransition(
     const current = {
       termId: term.id,
       ...getPeriodDisplay(term, quarterSystem),
-      window: recruitmentWindow(term, "tutee"),
+      window: recruitmentWindow(term, audience),
     };
     let next: PublicSignupTransition["next"] = null;
     // Only the confirmed same-semester handoffs advertise the next quarter.
@@ -43,8 +44,9 @@ export async function readPublicSignupTransition(
       (term.quarter === "Q1" || term.quarter === "Q3")
     ) {
       const snapshot = await readNextRecruitment(tx);
-      const prepared = snapshot.preparations.tutee;
-      const destination = snapshot.refreshEvidence.destination?.tutee;
+      // Each form advertises only its audience's independently prepared opening.
+      const prepared = snapshot.preparations[audience];
+      const destination = snapshot.refreshEvidence.destination?.[audience];
       const schedule = await readPublicRefreshSchedule(tx, term.id);
       const matchesSchedule =
         !schedule ||

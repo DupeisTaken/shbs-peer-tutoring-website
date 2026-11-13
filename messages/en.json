@@ -7807,6 +7807,8 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
+    "tutorTitle": "{period} Tutor Signup",
+    "configuredOpening": "Configured opening (subject to activation and review)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7835,6 +7837,7 @@
     "plannedHelp": "The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is approved and scheduled. Signup still requires activation and enabled recruitment.",
     "currentClosed": "{period} tutee signup is closed.",
+    "tutorCurrentClosed": "{period} tutor signup is closed.",
     "countdownLabel": "Time until the announced opening",
     "previewLink": "Preview signup sheet"
   },

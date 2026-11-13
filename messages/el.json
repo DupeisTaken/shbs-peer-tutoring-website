@@ -7807,6 +7807,8 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
+    "tutorTitle": "Εγγραφή βοηθών για {period}",
+    "configuredOpening": "Καθορισμένη έναρξη (υπόκειται σε ενεργοποίηση και έλεγχο)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7835,6 +7837,7 @@
     "plannedHelp": "Το επόμενο τρίμηνο πρέπει να ενεργοποιηθεί πριν γίνουν δεκτές αιτήσεις.",
     "scheduledHelp": "Η αλλαγή τριμήνου έχει εγκριθεί και προγραμματιστεί. Οι εγγραφές απαιτούν ενεργοποίηση και ανοικτή περίοδο αιτήσεων.",
     "currentClosed": "Οι εγγραφές μαθητευομένων για {period} έχουν κλείσει.",
+    "tutorCurrentClosed": "Οι εγγραφές βοηθών για {period} έχουν κλείσει.",
     "countdownLabel": "Χρόνος έως το ανακοινωμένο άνοιγμα",
     "previewLink": "Προεπισκόπηση φόρμας εγγραφής"
   },

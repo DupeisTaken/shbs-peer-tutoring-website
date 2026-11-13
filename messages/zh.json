@@ -7807,6 +7807,8 @@
   "signupTransition": {
     "currentClosed": "{period} 的学习伙伴报名已关闭。下方显示下一季度的报名安排。",
     "nextTitle": "{period} 学习伙伴报名",
+    "tutorTitle": "{period} 辅导伙伴报名",
+    "configuredOpening": "已配置的开放时间（仍需启用季度并通过审核）",
     "plannedTitle": "{period} 学习伙伴报名：计划于 {time} 开放",
     "plannedHelp": "这是计划开放时间。必须先启用下一季度，才能接受报名。",
     "scheduledHelp": "季度切换已安排。完成切换且报名开关开启后，才会接受报名。",
@@ -7835,6 +7837,7 @@
     "plannedHelp": "必须先启用下一季度，才能接受报名。",
     "scheduledHelp": "季度更新已获批准并安排执行。报名仍需等待季度启用，且招募处于开放状态。",
     "currentClosed": "{period} 的学习伙伴报名已关闭。",
+    "tutorCurrentClosed": "{period} 的辅导伙伴报名已关闭。",
     "countdownLabel": "距离公布的开放时间",
     "previewLink": "预览报名表"
   },

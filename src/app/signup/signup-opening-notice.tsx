@@ -12,11 +12,13 @@ import {
 import { signupCountdown } from "~/lib/signup-window";
 import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
+import type { RecruitmentAudience } from "~/lib/recruitment";
 
 /** Retry a failed/stale server refresh without hammering the route once the gate reaches zero. */
 const OPENING_REFRESH_RETRY_MS = 5_000;
 
 interface SignupOpeningNoticeProps {
+  audience?: RecruitmentAudience;
   periodLabel: string;
   /** Closed current intake is context for a next-period announcement, not a second banner. */
   currentPeriodLabel?: string;
@@ -36,6 +38,7 @@ interface SignupOpeningNoticeProps {
  * this small client timer is only responsible for the live countdown and refreshing at zero.
  */
 export function SignupOpeningNotice({
+  audience = "tutee",
   periodLabel,
   currentPeriodLabel,
   opensAt,
@@ -122,7 +125,9 @@ export function SignupOpeningNotice({
     <section aria-labelledby="signup-opening-title" className="card p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 id="signup-opening-title" className="section-title">
-          {transition("nextTitle", { period: periodLabel })}
+          {transition(audience === "tutor" ? "tutorTitle" : "nextTitle", {
+            period: periodLabel,
+          })}
         </h2>
         <span className="badge-slate">
           {banner(
@@ -170,7 +175,12 @@ export function SignupOpeningNotice({
 
       <div className="mt-4 space-y-1 border-t border-slate-100 pt-3 text-sm leading-6 text-slate-600">
         {currentPeriodLabel && (
-          <p>{banner("currentClosed", { period: currentPeriodLabel })}</p>
+          <p>
+            {banner(
+              audience === "tutor" ? "tutorCurrentClosed" : "currentClosed",
+              { period: currentPeriodLabel },
+            )}
+          </p>
         )}
         <p role="status">{status}</p>
         {!hasReachedOpening && previewUrl && (
