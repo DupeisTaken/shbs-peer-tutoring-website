@@ -4,6 +4,7 @@ import { LanguageSwitcher } from "./language-switcher";
 import { NotificationBell } from "./notification-bell";
 import { ThemeSwitcher } from "./theme-switcher";
 import { WorkspaceLinks, type WorkspaceLink } from "./workspace-links";
+import { WorkspaceHeaderFrame } from "./workspace-header-frame";
 
 /** One responsive header for all workspaces. Mobile rows keep language with the
  * brand, menu opposite global controls, and workspace switches together below.
@@ -25,10 +26,7 @@ export function WorkspaceHeader({
   navigation?: ReactNode;
 }) {
   return (
-    <header
-      data-sticky-header
-      className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white"
-    >
+    <WorkspaceHeaderFrame>
       <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 px-4 py-4 lg:flex lg:gap-2 lg:px-6 lg:py-3">
         <Link
           href={href}
@@ -64,6 +62,6 @@ export function WorkspaceHeader({
           <div className="shrink-0 lg:order-7">{account}</div>
         </div>
       </div>
-    </header>
+    </WorkspaceHeaderFrame>
   );
 }
