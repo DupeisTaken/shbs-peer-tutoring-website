@@ -265,6 +265,14 @@ weight, not an arbitrary height difference.
 - At desktop widths retain a single compact row, 18 px branding, and 32 px workspace
   buttons/language selector. Keep only one instance of each interactive control.
 
+`WorkspaceHeaderFrame` measures the rendered header for native document scroll
+padding, including translated wrapping and enlarged text. After ordinary focus
+scrolling, it reveals a covered control through its actual vertical scroll owner
+without focusing it again. Management's desktop content pane already starts below
+the header; do not add the header height to that pane's inset. Preserve visible
+large tabpanels, header utilities and dialog-owned scrolling/focus. Verify native
+Tab and Shift+Tab through date controls as well as ordinary links and fields.
+
 ## Table summaries and detail submenus
 
 - Use one table language throughout the application: columns contain brief names,
