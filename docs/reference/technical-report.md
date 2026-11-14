@@ -943,6 +943,19 @@ Stacked card grids should declare their narrow layout explicitly, such as `grid-
 
 `PublicHeader` composes the shared `PublicHeaderFrame` with real preference controls; the gallery supplies local controls without changing preferences. It shares one responsive brand/language/navigation/theme arrangement across public pages; `WorkspaceHeader` also serves patrol, localization and standalone workflows. `SectionLinks` keeps route destinations as native links with `aria-current`; tutee browser history stays native. Translation and supervision panels use manually activated `SectionTabs`, mounting on first access and retaining drafts in React `Activity` while hidden. Capability checks sit outside retained panels so revocation unmounts them. Cached identity refresh errors retain drafts but disable editing until Retry succeeds.
 
+`WorkspaceHeaderFrame` keeps the header's server-rendered content inside its existing
+sticky element. It measures responsive height for document scroll padding and
+checks ordinary focus after native scrolling settles. Remaining occlusion is
+corrected in the nearest usable vertical scroll owner, falling back outward when
+an inner pane cannot reveal itself or an outer pane still clips it. A changed
+header height also schedules one check of the current focus; repeated equal
+measurements do no work. Desktop management panes use their own top
+edge, avoiding a second header inset. The reveal never calls `focus()`, changes a
+field value or handles dialog-owned targets; visible oversized regions retain their
+position. Measurement, listeners and queued work are released on unmount, and
+overlapping layout replacements restore the original root inset after the last
+header leaves. Explicit feature transitions continue to use `focusVisibleContext`.
+
 `RegistrationProgress` owns only numbered progress and deliberate step-heading focus after invitation code entry. Registration features own data, pending guards and proof lifetime: every identity edit clears the local completion proof and code, a different invitation resets prefill/credentials, and the server revalidates browser proof. Credentials and proofs never enter URLs, browser history or JavaScript storage; the verified public-form handoff uses the short-lived HttpOnly cookie described above. Reply uses separate in-memory general/per-recipient drafts with each payload’s idempotency key. Cancel restores the prior draft and opener focus; pending sends and unresolved permission queries block retargeting. `focusVisibleContext` measures the actual sticky header before revealing a focused target.
 
 Feature integrations include the three participant/account editors, roster actions, account identity settings, meeting attendance, interview panels, profile/CAPTCHA settings, combine-account candidates and public history. Cached query failures retain usable content and drafts. Background refetches preserve the profile policy snapshot; successful saves and explicit successful Reloads update it. The shared-pattern migration is recorded in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); verify each changed feature against its current domain contract.
