@@ -6,11 +6,13 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import messages from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 
 const fixture = vi.hoisted(() => ({
   failRead: false,
@@ -79,28 +81,49 @@ afterEach(() => {
   cleanup();
   client.clear();
 });
-const show = () =>
+const messagesByLocale = { en: messages, zh };
+const show = (locale: keyof typeof messagesByLocale = "en") =>
   render(
     <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={messages}>
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messagesByLocale[locale]}
+      >
         <ProgramTimeZoneSettings />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
 
-it("initial timezone read failure offers Retry and recovers without changing the setting", async () => {
-  fixture.failRead = true;
-  show();
-  await screen.findByRole("alert");
-  expect(fixture.failedReads).toHaveBeenCalled();
-  expect(screen.queryByRole("combobox")).toBeNull();
-  const retry = screen.getByRole("button", { name: messages.uiPatterns.retry });
-  fixture.failRead = false;
-  fireEvent.click(retry);
-  await screen.findByRole("combobox");
-  expect(screen.queryByRole("alert")).toBeNull();
-  expect(fixture.mutate).not.toHaveBeenCalled();
-});
+it.each(["en", "zh"] as const)(
+  "identifies an initial timezone read failure in %s and recovers without changing the setting",
+  async (locale) => {
+    const localizedMessages = messagesByLocale[locale];
+    fixture.failRead = true;
+    fixture.failure = new Error("Service unavailable");
+    show(locale);
+    const panel = await screen.findByRole("alert");
+    expect(
+      within(panel).getByRole("heading", {
+        level: 2,
+        name: localizedMessages.programTimeZone.title,
+      }),
+    ).toBeTruthy();
+    expect(within(panel).getByText("Service unavailable")).toBeTruthy();
+    expect(
+      within(panel).queryByRole("heading", { name: "Service unavailable" }),
+    ).toBeNull();
+    expect(fixture.failedReads).toHaveBeenCalled();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    const retry = screen.getByRole("button", {
+      name: localizedMessages.uiPatterns.retry,
+    });
+    fixture.failRead = false;
+    fireEvent.click(retry);
+    await screen.findByRole("combobox");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(fixture.mutate).not.toHaveBeenCalled();
+  },
+);
 
 it("a cached timezone read failure retains settings and offers read-only Retry", async () => {
   show();
@@ -151,6 +174,12 @@ it("conceals denied cached settings through null and transport responses until a
     await client.invalidateQueries({ queryKey: ["audit-timezone-settings"] });
   });
   await screen.findByText("Synthetic timezone access denied");
+  expect(
+    screen.getByRole("heading", {
+      level: 2,
+      name: messages.programTimeZone.title,
+    }),
+  ).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   fixture.failRead = false;
   fixture.missing = true;
@@ -178,7 +207,14 @@ it("conceals denied cached settings through null and transport responses until a
 it("offers read-only recovery for a null settings response", async () => {
   fixture.missing = true;
   show();
-  await screen.findByRole("alert");
+  const panel = await screen.findByRole("alert");
+  expect(
+    within(panel).getByRole("heading", {
+      level: 2,
+      name: messages.programTimeZone.title,
+    }),
+  ).toBeTruthy();
+  expect(within(panel).getByText(messages.uiPatterns.loadFailed)).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   fixture.missing = false;
   fireEvent.click(

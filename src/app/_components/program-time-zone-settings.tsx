@@ -23,7 +23,7 @@ export function ProgramTimeZoneSettings() {
     return (
       <StatePanel
         kind={denied ? "denied" : "error"}
-        title={settings.error?.message ?? common("loadFailed")}
+        title={t("title")}
         action={
           <Button
             disabled={settings.isFetching}
@@ -32,7 +32,9 @@ export function ProgramTimeZoneSettings() {
             {common("retry")}
           </Button>
         }
-      />
+      >
+        {settings.error?.message ?? common("loadFailed")}
+      </StatePanel>
     );
   if (!settings.data) return <p className="muted">{t("loading")}</p>;
   return (
