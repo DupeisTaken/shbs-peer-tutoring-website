@@ -603,6 +603,21 @@ uses two job-owned PostgreSQL 16 services and native PostgreSQL 16 clients. It r
 for scoped recovery/schema changes or explicit dispatch without changing the
 ordinary required-job topology.
 
+The [committed journal rehearsal](../../scripts/recovery-transfer-journal-postgres.test.ts)
+also executes the real `scripts/recovery.ts` admission entry point in separate,
+bounded Node processes. In the same random fixture database it commits an
+accountless admission and two preserved name edits through installed journal
+triggers, then exercises checkpoint, compare, stale-plan refusal, live actor
+demotion refusal, restore, exact retry, receipt lookup and retry-key conflict.
+The longer supported chain remains ineligible for website recovery. Snapshots
+check that reads and refusals preserve state, one operator compensation creates
+one receipt/reversal audit, and retry preserves that result while deliberately
+advancing the recovery fence. Unrelated transfer fixtures remain unchanged.
+Children use literal argv, an explicit synthetic environment and an empty owned
+dotenv file; each child must settle before database cleanup. This establishes the
+CLI dispatcher/file/authorization/transaction chain separately from parser tests,
+injected tools, direct domain calls and the whole-site HTTP rehearsal below.
+
 The opt-in [PostgreSQL restoration rehearsal](../../scripts/recovery-postgres.test.ts)
 requires two caller-owned isolated loopback clusters with distinct ports,
 `shbs_*_test` maintenance databases and compatible PostgreSQL tools. Set
@@ -629,8 +644,11 @@ The helper cleans up only generated fixture databases/roles, never resets a
 supplied maintenance database and skips when either URL is absent.
 
 `SHBS_RECOVERY_TEST_ARTIFACT_DIR` enables allowlisted synthetic JSON/HTML receipts.
-The workflow uploads only those report files, never dumps, raw rows, connection
-URLs or credentials. A skipped local run or authored workflow is not a successful
+The workflow uploads only the restoration receipt/report and allowlisted
+`w115-cli-witness.json`. The CLI witness records the tested checkout/source hashes,
+command case IDs, stable error codes, counters, booleans and owned cleanup results;
+it excludes plans, raw command output, fixture identities, grant codes, dumps,
+raw rows, connection URLs and credentials. A skipped local run or authored workflow is not a successful
 native rehearsal: use the result and artifacts for the exact reviewed revision.
 Neither mocked tools nor a successful disposable clone establishes production
 restoration, external-storage recovery or activation of a writable live site.

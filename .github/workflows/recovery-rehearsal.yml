@@ -7,6 +7,9 @@ on:
       - .github/workflows/recovery-rehearsal.yml
       - scripts/recovery-postgres.test.ts
       - scripts/recovery-transfer-journal-postgres.test.ts
+      - scripts/recovery.ts
+      - src/server/recovery/admission.ts
+      - src/server/recovery/capture.ts
       - src/server/person-participation.ts
       - src/server/recovery/checkpoint.ts
       - src/server/recovery/adapters/participant.ts
@@ -78,7 +81,7 @@ jobs:
           echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
       - name: Install locked dependencies
         run: npm ci
-      - name: Verify fixed-room transfer journal grouping and blocked compensation
+      - name: Verify committed transfer journals and actual admission CLI lifecycle
         run: node --import tsx --import ./scripts/scheduling-profile/register-server-runtime.mjs --test --test-concurrency=1 scripts/recovery-transfer-journal-postgres.test.ts
       - name: Build matching genuine Next runtime against job-owned synthetic database
         run: |
@@ -90,7 +93,7 @@ jobs:
           node --input-type=module -e 'import{readFileSync,writeFileSync}from"node:fs";import{createHash}from"node:crypto";const root=".next/standalone";writeFileSync(root+"/.recovery-checkout.json",JSON.stringify({version:1,checkoutSha:process.env.GITHUB_SHA,runtimeBuildId:readFileSync(root+"/.next/BUILD_ID","utf8").trim(),serverSha256:createHash("sha256").update(readFileSync(root+"/server.js")).digest("hex")}));'
       - name: Restore committed-schema synthetic checkpoint and inspect exact values
         run: node --import tsx --test --test-concurrency=1 scripts/recovery-postgres.test.ts
-      - name: Upload sanitized restoration receipt and report
+      - name: Upload sanitized CLI witness and restoration receipt/report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
@@ -98,6 +101,7 @@ jobs:
           path: |
             .validation/recovery-rehearsal/receipt.json
             .validation/recovery-rehearsal/report.html
+            .validation/recovery-rehearsal/w115-cli-witness.json
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
