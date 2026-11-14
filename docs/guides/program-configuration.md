@@ -632,10 +632,11 @@ legacy-pairing-001,legacy-tutor-001,legacy-term-001,Mathematics,2,600,630
 
 Head or Admin selects a supported IANA region in **Program Settings → Recruitment and Refresh → Program Time Zone**; Admin/Head apply it and Coordinators request review. The default is Asia/Shanghai. Review the current/proposed time preview before submitting. Reload a stale editor or other open pages after another staff member changes the setting.
 
-If the initial settings cannot load, **Retry** reads them again without changing
-the zone. An ordinary failed background read retains your selected draft; only the
-separate successful **Reload** adopts new saved evidence. Denied access keeps cached
-settings concealed until a fresh authorized read succeeds.
+If the initial settings cannot load or access is denied, the **Program Time Zone** heading
+identifies the affected section above the error detail. **Try again** reads the setting
+again without changing the zone. An ordinary failed background read retains your
+selected draft; only the separate successful **Reload** adopts new saved evidence.
+Denied access keeps cached settings concealed until a fresh authorized read succeeds.
 
 Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
 
