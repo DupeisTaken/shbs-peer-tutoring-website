@@ -4,6 +4,7 @@ import { api } from "~/trpc/react";
 import { CaptchaError } from "./signup-captcha";
 import { Button, Switch } from "./ui/button";
 import { InlineNotice, SettingRow, StatePanel } from "./ui/patterns";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 /** Head applies this sensitive setting; Admin proposals retain the live version, with a version token to reject stale tabs (including ABA). */
 export function ProgramCaptchaSettings() {
@@ -23,6 +24,7 @@ export function ProgramCaptchaSettings() {
     },
   });
   const data = settings.data;
+  const admission = useProgramWriteAdmission(!!data?.canEdit && !settings.error);
   const retry = (
     <Button
       disabled={settings.isFetching}
@@ -57,13 +59,14 @@ export function ProgramCaptchaSettings() {
               <Switch
                 label={data.canApply === false ? approvals("requestChange", { setting: t("title") }) : t("title")}
                 checked={data.enabled}
-                disabled={save.isPending || (!data.enabled && !data.ready)}
-                onChange={(enabled) =>
+                disabled={!admission.allowed || save.isPending || (!data.enabled && !data.ready)}
+                onChange={(enabled) => {
+                  if (!admission.isAllowed() || save.isPending || (!data.enabled && !data.ready)) return;
                   save.mutate({
                     enabled,
                     expectedVersion: data.version,
-                  })
-                }
+                  });
+                }}
               />
             ) : (
               <p className="muted text-sm">{t("readOnly")}</p>

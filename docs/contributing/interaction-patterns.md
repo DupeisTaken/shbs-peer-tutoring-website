@@ -75,6 +75,12 @@ approval rules, immutable evidence, query access or profile/policy version owner
 - Preserve drafts on failed saves and background refreshes. Keep cached content
   mounted beside recovery. A conflict Retry must not silently adopt a new expected
   version; explicit Reload replaces a draft only after a successful fetch.
+- Separate a retained owner's lifetime from current write admission. An ordinary
+  shared-account read failure may retain an already-authorized identity's settings
+  drafts, including hidden panels, while blocking dependent writes. Enforce that
+  boundary in submit handlers and captured review callbacks as well as disabled
+  controls. Identity/rank replacement, read-only access and authoritative denial
+  must still remove private owners; recovery never transfers their old drafts.
 - A successful write followed by failed synchronization is distinct from a failed
   write. Use the feature's read-only refresh recovery instead of resubmitting it;
   tutor availability is the existing example.
