@@ -60,7 +60,7 @@ export type SessionOverview = {
 type PlanningRequest = Agenda["requests"][number];
 type Suggestion = Agenda["suggestions"][number];
 type Editor = {
-  mode: "suggest" | "propose" | "alternative";
+  mode: "suggest" | "propose" | "alternative" | "cancel";
   cohort: AgendaCohort;
   request?: PlanningRequest;
   suggestion?: Suggestion;
@@ -185,6 +185,7 @@ export function SessionAgenda({
   const [receipt, setReceipt] = useState<"saved" | "savedRefreshFailed" | null>(
     null,
   );
+  const [cancellationReceipt, setCancellationReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [editorGeneration, setEditorGeneration] = useState(0);
@@ -196,6 +197,8 @@ export function SessionAgenda({
   const admission = useRef(false);
   const arrivedHash = useRef<string | null>(null);
   const propose = api.sessionPlanning.propose.useMutation();
+  const proposeCancellation =
+    api.sessionPlanning.proposeCancellation.useMutation();
   const suggest = api.sessionPlanning.suggest.useMutation();
   const respond = api.sessionPlanning.respond.useMutation();
   const split = api.sessionPlanning.requestSplit.useMutation();
@@ -306,7 +309,10 @@ export function SessionAgenda({
       setWorking(false);
     }
   }
-  async function commit(action: () => Promise<unknown>) {
+  async function commit(
+    action: () => Promise<unknown>,
+    cancellationRequest = false,
+  ) {
     if (admission.current || blocked) return false;
     admission.current = true;
     setWorking(true);
@@ -317,6 +323,7 @@ export function SessionAgenda({
       // Clear the accepted editor before recovery. A refresh failure cannot replay it.
       setEditor(null);
       setDecisionReview(null);
+      setCancellationReceipt(cancellationRequest);
       setReceipt("saved");
       await refreshAccepted();
       return true;
@@ -690,7 +697,13 @@ export function SessionAgenda({
               ) : undefined
             }
           >
-            {t(receipt)}
+            {t(
+              cancellationReceipt
+                ? receipt === "saved"
+                  ? "cancellationRequested"
+                  : "cancellationRequestedRefreshFailed"
+                : receipt,
+            )}
           </InlineNotice>
         )}
         {error && (
@@ -722,6 +735,12 @@ export function SessionAgenda({
               if ("content" in entry)
                 return <Fragment key={entry.id}>{entry.content}</Fragment>;
               const cohort = entry.cohort;
+              const pendingChange = data.requests.some(
+                (request) =>
+                  request.cohortId === cohort.id &&
+                  (request.status === "PENDING" ||
+                    request.status === "SPLIT_REQUESTED"),
+              );
               return (
                 <AgendaEventCard
                   key={cohort.id}
@@ -759,7 +778,11 @@ export function SessionAgenda({
                   }
                   badges={
                     <>
-                      {cohort.tutoringPaused && <AgendaBadge tone="warning">{t("tutoringPaused")}</AgendaBadge>}
+                      {cohort.tutoringPaused && (
+                        <AgendaBadge tone="warning">
+                          {t("tutoringPaused")}
+                        </AgendaBadge>
+                      )}
                       {!cohort.tutoringPaused && cohort.status === "SCHEDULED" && isRegularTutoringPaused(cohort.date, data.tutoringPauses ?? []) && (
                         <AgendaBadge>{t("exceptionScheduled")}</AgendaBadge>
                       )}
@@ -838,7 +861,11 @@ export function SessionAgenda({
                                 })
                               }
                             >
-                              {t(cohort.tutoringPaused ? "arrangeException" : "reschedule")}
+                              {t(
+                                cohort.tutoringPaused
+                                  ? "arrangeException"
+                                  : "reschedule",
+                              )}
                             </Button>
                             {cohort.canArrangeException && !cohort.tutoringPaused && (
                               <Button size="compact" disabled={blocked || cohort.startsAt <= now || cohort.unavailable}
@@ -865,6 +892,24 @@ export function SessionAgenda({
                                 {t("addExtra")}
                               </Button>
                             )}
+                            {cohort.kind === "EXTRA" &&
+                              !cohort.tutoringPaused && (
+                                <Button
+                                  variant="danger"
+                                  size="compact"
+                                  disabled={
+                                    blocked ||
+                                    pendingChange ||
+                                    cohort.startsAt <= now ||
+                                    cohort.unavailable
+                                  }
+                                  onClick={() =>
+                                    setEditor({ mode: "cancel", cohort })
+                                  }
+                                >
+                                  {t("cancelExtra")}
+                                </Button>
+                              )}
                           </>
                         )}
                         {role === "tutee" && (
@@ -1015,12 +1060,26 @@ export function SessionAgenda({
                     </span>
                   </div>
                   <p className="text-sm font-medium">
-                    {t(request.kind === "EXTRA" ? "extra" : "rescheduled")}
+                    {t(
+                      request.kind === "CANCEL"
+                        ? "cancellationRequest"
+                        : request.kind === "EXTRA"
+                          ? "extra"
+                          : "rescheduled",
+                    )}
                   </p>
                   <p className="muted text-sm">
-                    {t(request.scope === "ALL" ? "allFlow" : "oneFlow")}
+                    {t(
+                      request.kind === "CANCEL"
+                        ? request.status === "PENDING"
+                          ? "cancellationPendingHelp"
+                          : "cancellationHelp"
+                        : request.scope === "ALL"
+                          ? "allFlow"
+                          : "oneFlow",
+                    )}
                   </p>
-                  {request.scope === "ONE" && (
+                  {request.scope === "ONE" && request.kind !== "CANCEL" && (
                     <p className="text-sm font-medium">
                       {t(
                         `stage.${request.stage === 1 ? "A" : request.stage === 2 ? "B" : "C"}`,
@@ -1029,16 +1088,22 @@ export function SessionAgenda({
                   )}
                   {offer && (
                     <>
-                      {offer.schoolClosed && (
+                      {request.kind !== "CANCEL" && offer.schoolClosed && (
                         <InlineNotice tone="warning">
                           {t("schoolClosedProposal")}
                         </InlineNotice>
                       )}
                       <p>
-                        {t("proposed")}:{" "}
-                        {timeText(offer.startsAt, offer.endsAt)}
+                        {t(
+                          request.kind === "CANCEL"
+                            ? "sessionToCancel"
+                            : "proposed",
+                        )}
+                        : {timeText(offer.startsAt, offer.endsAt)}
                       </p>
-                      <p>{t("location")}: {locationText(offer)}</p>
+                      <p>
+                        {t("location")}: {locationText(offer)}
+                      </p>
                       {!locationKnown(offer) && (
                         <Button disabled={working || agenda.isFetching} onClick={() => void agenda.refetch()}>
                           {t("retry")}
@@ -1079,16 +1144,26 @@ export function SessionAgenda({
                   {canRespond && offer && (
                     <div className="flex flex-wrap gap-2">
                       <Button
-                        disabled={blocked || !locationKnown(offer)}
+                        disabled={
+                          blocked ||
+                          (request.kind !== "CANCEL" && !locationKnown(offer))
+                        }
                         onClick={() => beginDecision(request, "ACCEPT")}
                       >
-                        {t("accept")}
+                        {t(
+                          request.kind === "CANCEL"
+                            ? "acceptCancellation"
+                            : "accept",
+                        )}
                       </Button>
                       {offer.canReject && (
                         <Button
                           disabled={blocked || !cohort}
                           onClick={() => {
-                            if (request.scope === "ONE" && request.stage === 3)
+                            if (
+                              request.kind === "CANCEL" ||
+                              (request.scope === "ONE" && request.stage === 3)
+                            )
                               beginDecision(request, "REJECT");
                             else if (cohort)
                               setEditor({
@@ -1099,13 +1174,15 @@ export function SessionAgenda({
                           }}
                         >
                           {t(
-                            request.scope === "ONE" && request.stage === 3
-                              ? "finalReject"
-                              : "alternative",
+                            request.kind === "CANCEL"
+                              ? "declineCancellation"
+                              : request.scope === "ONE" && request.stage === 3
+                                ? "finalReject"
+                                : "alternative",
                           )}
                         </Button>
                       )}
-                      {offer.canRequestSplit && (
+                      {request.kind !== "CANCEL" && offer.canRequestSplit && (
                         <Button
                           disabled={blocked}
                           onClick={() => beginDecision(request, "SPLIT")}
@@ -1220,7 +1297,25 @@ export function SessionAgenda({
             schoolCalendarDays={data.schoolCalendarDays}
             tutoringPauses={data.tutoringPauses ?? []}
             timeZone={data.timeZone}
-            blocked={blocked}
+            blocked={
+              blocked ||
+              (editor.mode === "cancel" &&
+                (!data.canTutorWrite ||
+                  !data.cohorts.some(
+                    (cohort) =>
+                      cohort.id === editor.cohort.id &&
+                      cohort.kind === "EXTRA" &&
+                      cohort.status === "SCHEDULED" &&
+                      cohort.startsAt > now &&
+                      !cohort.unavailable,
+                  ) ||
+                  data.requests.some(
+                    (request) =>
+                      request.cohortId === editor.cohort.id &&
+                      (request.status === "PENDING" ||
+                        request.status === "SPLIT_REQUESTED"),
+                  )))
+            }
             working={working}
             error={error}
             readFailed={!!agenda.error}
@@ -1231,6 +1326,14 @@ export function SessionAgenda({
             }}
             onCommit={(value) =>
               commit(() => {
+                if (editor.mode === "cancel")
+                  return proposeCancellation.mutateAsync({
+                    cohortId: editor.cohort.id,
+                    expectedVersion: editor.cohort.version,
+                    clientKey: value.clientKey,
+                    scope: value.scope,
+                    tuteeId: value.scope === "ONE" ? value.tuteeId : undefined,
+                  });
                 const common = {
                   cohortId: editor.cohort.id,
                   expectedVersion: editor.cohort.version,
@@ -1275,7 +1378,7 @@ export function SessionAgenda({
                       ? editor.suggestion.id
                       : undefined,
                 });
-              })
+              }, editor.mode === "cancel")
             }
           />
         )}
@@ -1283,9 +1386,13 @@ export function SessionAgenda({
           <Modal
             title={t(
               decisionReview.decision === "ACCEPT"
-                ? "accept"
+                ? decisionReview.request.kind === "CANCEL"
+                  ? "acceptCancellation"
+                  : "accept"
                 : decisionReview.decision === "REJECT"
-                  ? "finalReject"
+                  ? decisionReview.request.kind === "CANCEL"
+                    ? "declineCancellation"
+                    : "finalReject"
                   : decisionReview.decision === "SPLIT"
                     ? "requestSeparate"
                     : "formalizeSplit",
@@ -1304,8 +1411,13 @@ export function SessionAgenda({
                 </Button>
                 <Button
                   variant="primary"
-                  disabled={blocked || (decisionReview.decision === "ACCEPT" &&
-                    !!decisionReview.request.currentOffer && !locationKnown(decisionReview.request.currentOffer))}
+                  disabled={
+                    blocked ||
+                    (decisionReview.decision === "ACCEPT" &&
+                      decisionReview.request.kind !== "CANCEL" &&
+                      !!decisionReview.request.currentOffer &&
+                      !locationKnown(decisionReview.request.currentOffer))
+                  }
                   onClick={() =>
                     void commit(() => {
                       const request = decisionReview.request;
@@ -1330,9 +1442,13 @@ export function SessionAgenda({
                 >
                   {t(
                     decisionReview.decision === "ACCEPT"
-                      ? "accept"
+                      ? decisionReview.request.kind === "CANCEL"
+                        ? "acceptCancellation"
+                        : "accept"
                       : decisionReview.decision === "REJECT"
-                        ? "finalReject"
+                        ? decisionReview.request.kind === "CANCEL"
+                          ? "declineCancellation"
+                          : "finalReject"
                         : decisionReview.decision === "SPLIT"
                           ? "requestSeparate"
                           : "formalizeSplit",
@@ -1349,7 +1465,10 @@ export function SessionAgenda({
                     decisionReview.request.currentOffer.endsAt,
                   )}
                 </p>
-                <p>{t("location")}: {locationText(decisionReview.request.currentOffer)}</p>
+                <p>
+                  {t("location")}:{" "}
+                  {locationText(decisionReview.request.currentOffer)}
+                </p>
                 {!locationKnown(decisionReview.request.currentOffer) && (
                   <Button disabled={working || agenda.isFetching} onClick={() => void agenda.refetch()}>
                     {t("retry")}
@@ -1366,12 +1485,26 @@ export function SessionAgenda({
                 )}
               </div>
             )}
+            {decisionReview.request.kind === "CANCEL" && (
+              <p className="mt-3">
+                {t(decisionReview.request.scope === "ALL" ? "all" : "one")}:{" "}
+                {/* Captured actors survive account combination and execution-ID remapping. */}
+                {decisionReview.request.currentOffer?.responses
+                  .filter((person) => person.actorKey.startsWith("tutee:"))
+                  .map((person) => person.name)
+                  .join(", ")}
+              </p>
+            )}
             <p className="mt-3">
               {t(
                 decisionReview.decision === "SPLIT" ||
                   decisionReview.decision === "FORMALIZE_SPLIT"
                   ? "splitHelp"
-                  : "reviewHelp",
+                  : decisionReview.request.kind === "CANCEL"
+                    ? decisionReview.decision === "REJECT"
+                      ? "declineCancellationHelp"
+                      : "cancellationReviewHelp"
+                    : "reviewHelp",
               )}
             </p>
             {error && (
@@ -1475,6 +1608,7 @@ function SessionPlanningEditor({
   onCommit: (value: EditorValue) => Promise<boolean>;
 }) {
   const t = useTranslations("sessionPlanning");
+  const format = useFormatter();
   const utils = api.useUtils();
   const scopeHelpId = useId();
   const [value, setValue] = useState<EditorValue>(() => ({
@@ -1522,6 +1656,11 @@ function SessionPlanningEditor({
   }, []);
   async function reviewProposal() {
     if (blocked || !valid || previewGuard.current) return;
+    // Cancellation reviews the captured commitment; it allocates no new room or time.
+    if (editor.mode === "cancel") {
+      setReview(true);
+      return;
+    }
     previewGuard.current = true;
     setPreviewing(true);
     setPreviewError(null);
@@ -1561,13 +1700,17 @@ function SessionPlanningEditor({
     }
   }
   const title = t(
-    editor.mode === "suggest"
-      ? "suggest"
-      : editor.mode === "alternative"
-        ? "alternative"
-        : editor.pausedOnly ? "arrangeException" : editor.kind === "EXTRA"
-          ? "addExtra"
-          : "reschedule",
+    editor.mode === "cancel"
+      ? "cancelExtra"
+      : editor.mode === "suggest"
+        ? "suggest"
+        : editor.mode === "alternative"
+          ? "alternative"
+          : editor.pausedOnly
+            ? "arrangeException"
+            : editor.kind === "EXTRA"
+              ? "addExtra"
+              : "reschedule",
   );
   const valid = !!value.date && (value.scope === "ALL" || !!value.tuteeId);
   const closedDate = schoolCalendarDays.some(
@@ -1613,34 +1756,57 @@ function SessionPlanningEditor({
         {" · "}
         <span className="muted">{timeZone}</span>
       </p>
-      {closedDate && (
+      {editor.mode !== "cancel" && closedDate && (
         <InlineNotice tone="warning">{t("schoolClosedProposal")}</InlineNotice>
       )}
-      {pausedDate && <InlineNotice tone="warning">{t("tutoringPauseProposal")}</InlineNotice>}
+      {editor.mode !== "cancel" && pausedDate && (
+        <InlineNotice tone="warning">{t("tutoringPauseProposal")}</InlineNotice>
+      )}
       {review ? (
         <ChangeReview
           title={t("review")}
           evidence={
             <div className="space-y-2">
-              {editor.kind !== "EXTRA" && editor.request?.kind !== "EXTRA" && (
+              {editor.mode !== "cancel" &&
+                editor.kind !== "EXTRA" &&
+                editor.request?.kind !== "EXTRA" && (
+                  <p>
+                    {t("before")}: {editor.cohort.date} ·{" "}
+                    {String(Math.floor(editor.cohort.startMin / 60)).padStart(
+                      2,
+                      "0",
+                    )}
+                    :{String(editor.cohort.startMin % 60).padStart(2, "0")}
+                  </p>
+                )}
+              {editor.mode === "cancel" ? (
                 <p>
-                  {t("before")}: {editor.cohort.date} ·{" "}
-                  {String(Math.floor(editor.cohort.startMin / 60)).padStart(
-                    2,
-                    "0",
-                  )}
-                  :{String(editor.cohort.startMin % 60).padStart(2, "0")}
+                  {t("sessionToCancel")}:{" "}
+                  {format.dateTime(editor.cohort.startsAt, {
+                    dateStyle: "full",
+                    timeStyle: "short",
+                  })}{" "}
+                  –{" "}
+                  {format.dateTime(editor.cohort.endsAt, {
+                    timeStyle: "short",
+                  })}
+                </p>
+              ) : (
+                <p>
+                  {t("proposed")}: {value.date} ·{" "}
+                  {String(Math.floor(value.startMin / 60)).padStart(2, "0")}:
+                  {String(value.startMin % 60).padStart(2, "0")} · 45 min
                 </p>
               )}
               <p>
-                {t("proposed")}: {value.date} ·{" "}
-                {String(Math.floor(value.startMin / 60)).padStart(2, "0")}:
-                {String(value.startMin % 60).padStart(2, "0")} · 45 min
+                {t("location")}:{" "}
+                {value.online
+                  ? t("online")
+                  : editor.mode === "cancel"
+                    ? (editor.cohort.roomName ?? t("noRoom"))
+                    : roomName}
               </p>
-              <p>
-                {t("location")}: {value.online ? t("online") : roomName}
-              </p>
-              {!value.online && (
+              {editor.mode !== "cancel" && !value.online && (
                 <p className="muted text-sm">{t("roomReviewHelp")}</p>
               )}
               <p>
@@ -1662,12 +1828,24 @@ function SessionPlanningEditor({
           }
           consequences={
             <>
-              <p>{t("reviewHelp")}</p>
+              <p>
+                {t(
+                  editor.mode === "cancel"
+                    ? "cancellationReviewHelp"
+                    : "reviewHelp",
+                )}
+              </p>
               <p className="mt-2">
                 {t(
-                  editor.mode === "suggest"
-                    ? "suggestionHelp"
-                    : pausedDate ? "explicitExceptionHelp" : "agreementHelp",
+                  editor.mode === "cancel"
+                    ? pausedDate
+                      ? "cancellationExplicitHelp"
+                      : "cancellationAgreementHelp"
+                    : editor.mode === "suggest"
+                      ? "suggestionHelp"
+                      : pausedDate
+                        ? "explicitExceptionHelp"
+                        : "agreementHelp",
                 )}
               </p>
             </>
@@ -1683,7 +1861,11 @@ function SessionPlanningEditor({
                 onClick={() => void onCommit(value)}
               >
                 {t(
-                  editor.mode === "suggest" ? "sendSuggestion" : "sendProposal",
+                  editor.mode === "cancel"
+                    ? "sendCancellation"
+                    : editor.mode === "suggest"
+                      ? "sendSuggestion"
+                      : "sendProposal",
                 )}
               </Button>
             </>
@@ -1697,7 +1879,7 @@ function SessionPlanningEditor({
           }}
           className="space-y-3"
         >
-          {editor.mode === "propose" && (
+          {(editor.mode === "propose" || editor.mode === "cancel") && (
             <fieldset
               disabled={working || previewing || !!editor.suggestion}
               className="space-y-2"
@@ -1753,32 +1935,59 @@ function SessionPlanningEditor({
               </p>
             </fieldset>
           )}
-          <SessionPlanTimeFields
-            value={value}
-            disabled={working || previewing}
-            onChange={(time) =>
-              setValue({ ...value, ...time, clientKey: crypto.randomUUID() })
-            }
-          />
-          <label className="block space-y-1">
-            <span className="label">{t("location")}</span>
-            <select
-              className="select"
-              disabled={working || previewing}
-              value={value.online ? "online" : "inPerson"}
-              onChange={(event) =>
-                setValue({
-                  ...value,
-                  online: event.target.value === "online",
-                  roomId: null,
-                  clientKey: crypto.randomUUID(),
-                })
-              }
-            >
-              <option value="inPerson">{t("automaticRoom")}</option>
-              <option value="online">{t("online")}</option>
-            </select>
-          </label>
+          {editor.mode === "cancel" ? (
+            <div className="space-y-2 text-sm">
+              <p>
+                {t("sessionToCancel")}:{" "}
+                {format.dateTime(editor.cohort.startsAt, {
+                  dateStyle: "full",
+                  timeStyle: "short",
+                })}{" "}
+                –{" "}
+                {format.dateTime(editor.cohort.endsAt, { timeStyle: "short" })}
+              </p>
+              <p>
+                {t("location")}:{" "}
+                {editor.cohort.online
+                  ? t("online")
+                  : (editor.cohort.roomName ?? t("noRoom"))}
+              </p>
+              <p>{t("cancellationPendingHelp")}</p>
+            </div>
+          ) : (
+            <>
+              <SessionPlanTimeFields
+                value={value}
+                disabled={working || previewing}
+                onChange={(time) =>
+                  setValue({
+                    ...value,
+                    ...time,
+                    clientKey: crypto.randomUUID(),
+                  })
+                }
+              />
+              <label className="block space-y-1">
+                <span className="label">{t("location")}</span>
+                <select
+                  className="select"
+                  disabled={working || previewing}
+                  value={value.online ? "online" : "inPerson"}
+                  onChange={(event) =>
+                    setValue({
+                      ...value,
+                      online: event.target.value === "online",
+                      roomId: null,
+                      clientKey: crypto.randomUUID(),
+                    })
+                  }
+                >
+                  <option value="inPerson">{t("automaticRoom")}</option>
+                  <option value="online">{t("online")}</option>
+                </select>
+              </label>
+            </>
+          )}
           <FormActions>
             <Button disabled={working || previewing} onClick={onClose}>
               {t("cancel")}

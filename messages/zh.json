@@ -154,7 +154,21 @@
     "requiresExplicit": "须明确同意；未回复不会视为接受此提议。",
     "explicitExceptionHelp": "此例外安排须由辅导伙伴及每位参加的学习伙伴明确同意。未回复即未同意。",
     "tutoringPauseProposal": "此日期的常规辅导已暂停。此提议仅可作为明确同意的例外安排继续。",
-    "exceptionScheduled": "已同意的例外安排"
+    "exceptionScheduled": "已同意的例外安排",
+    "cancelExtra": "取消额外辅导",
+    "cancellationRequest": "额外辅导取消请求",
+    "sessionToCancel": "拟取消的辅导",
+    "cancellationPendingHelp": "在取消请求达成一致前，此次额外辅导仍按原计划进行。拒绝取消会保留此次辅导。",
+    "cancellationReviewHelp": "达成一致后，仅取消所选学习伙伴的此次额外辅导。每周辅导安排保持不变。此请求不生成出勤记录或服务时数。",
+    "cancellationAgreementHelp": "必要邮件被邮件服务接收后，24 小时回复窗口才开始。在完整的 24 小时窗口内未回复会视为同意。若无法在辅导开始前结束该窗口，所有参与者必须在开始前明确同意。未达成一致会保留原安排。",
+    "acceptCancellation": "同意取消",
+    "declineCancellation": "拒绝取消",
+    "declineCancellationHelp": "拒绝会关闭此取消请求。此次额外辅导仍按原计划进行。",
+    "sendCancellation": "发送取消请求",
+    "cancellationRequested": "已提交取消请求。达成一致前，此次额外辅导仍按原计划进行。",
+    "cancellationRequestedRefreshFailed": "已提交取消请求，但无法刷新详情。请仅刷新，不要重复发送请求。",
+    "cancellationHelp": "此请求仅涉及所选学习伙伴的此次额外辅导。每周辅导安排保持不变。",
+    "cancellationExplicitHelp": "取消此次辅导需要所有参与者在开始前明确同意。未回复不视为同意此取消请求。"
   },
   "nextRecruitment": {
     "savedForTarget": "已为 {name} 保存开放时间。",

@@ -154,7 +154,21 @@
     "requiresExplicit": "Explicit agreement required; silence will not accept this offer.",
     "explicitExceptionHelp": "This exception requires affirmative agreement from the tutor and every participating learner. No response means no agreement.",
     "tutoringPauseProposal": "Regular tutoring is paused on this date. This proposal can proceed only as an explicitly agreed exception.",
-    "exceptionScheduled": "Agreed exception"
+    "exceptionScheduled": "Agreed exception",
+    "cancelExtra": "Cancel Extra Session",
+    "cancellationRequest": "Extra-session cancellation request",
+    "sessionToCancel": "Session to cancel",
+    "cancellationPendingHelp": "This extra session stays scheduled until the cancellation is agreed. Declining keeps the session in place.",
+    "cancellationReviewHelp": "Only the selected tutees’ extra session will be cancelled after agreement. The weekly arrangement stays the same. This request creates no attendance or hours.",
+    "cancellationAgreementHelp": "The 24-hour response window begins after essential email is accepted by the mail service. No reply within a complete 24-hour window counts as agreement. If that window cannot finish before the session starts, everyone must explicitly agree before the start. Unresolved requests keep the session in place.",
+    "acceptCancellation": "Accept cancellation",
+    "declineCancellation": "Decline cancellation",
+    "declineCancellationHelp": "Declining closes this cancellation request. The extra session stays scheduled.",
+    "sendCancellation": "Send cancellation request",
+    "cancellationRequested": "Cancellation requested. The extra session stays scheduled until agreement.",
+    "cancellationRequestedRefreshFailed": "Cancellation requested, but details could not be refreshed. Refresh only; do not send the request again.",
+    "cancellationHelp": "This request concerns only the selected tutees’ extra session. The weekly arrangement stays the same.",
+    "cancellationExplicitHelp": "Cancelling this session requires explicit agreement from every participant before it starts. Silence does not accept this cancellation request."
   },
   "nextRecruitment": {
     "savedForTarget": "Opening saved for {name}.",

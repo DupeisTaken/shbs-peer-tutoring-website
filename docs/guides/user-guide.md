@@ -683,8 +683,23 @@ required before the earlier start; otherwise the request expires and the origina
 session stays in place unless a separate authoritative school-calendar or assignment change cancelled it. If a server outage misses an otherwise completed response window until after a session starts, the system requests review instead of retroactively moving the session. Check the portal and essential notice for authoritative outcomes.
 
 An extra session follows the same agreement process and leaves the regular lesson
-in place. A rejected extra proposal never cancels the regular lesson. Scheduling
-changes do not create attendance or absence records. Optional calendar subscription
+in place. A rejected extra proposal never cancels the regular lesson.
+
+To cancel an agreed, upcoming extra, the tutor opens **Cancel Extra Session** on
+its session card. Choose **All** to find extras beyond the two-week Upcoming
+window. Include all current tutees or choose one, review the exact
+lesson and participants, then send the cancellation request. Closing the editor
+or cancelling the review sends nothing. The extra stays scheduled until everyone
+included agrees under the same essential-email response rules above. Tutees use
+**Accept cancellation** or **Decline cancellation**; declining closes the request and
+preserves the lesson. Cancellation requests have no alternative time or separate
+reschedule step. An expired request also leaves the lesson scheduled. A moved
+extra can be cancelled through the same action. Cancellation affects only the
+selected dated commitments, preserves peers and weekly pairings, and is unavailable
+after the lesson starts or attendance is recorded. A saved-request receipt confirms
+submission, not cancellation; a refresh failure offers a read-only retry.
+
+Scheduling changes do not create attendance or absence records. Optional calendar subscription
 links show confirmed sessions; keep the URL private and rotate or revoke it from
 Sessions. Calendar applications may refresh later than the portal.
 

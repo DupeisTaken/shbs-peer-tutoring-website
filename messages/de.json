@@ -154,7 +154,21 @@
     "requiresExplicit": "Ausdrückliche Zustimmung erforderlich; Schweigen nimmt dieses Angebot nicht an.",
     "explicitExceptionHelp": "Diese Ausnahme erfordert die ausdrückliche Zustimmung der Lehrperson und aller teilnehmenden Lernenden. Keine Antwort bedeutet keine Zustimmung.",
     "tutoringPauseProposal": "An diesem Datum pausiert die reguläre Nachhilfe. Der Vorschlag kann nur als ausdrücklich vereinbarte Ausnahme fortgesetzt werden.",
-    "exceptionScheduled": "Vereinbarte Ausnahme"
+    "exceptionScheduled": "Vereinbarte Ausnahme",
+    "cancelExtra": "Zusatztermin absagen",
+    "cancellationRequest": "Anfrage zur Absage eines Zusatztermins",
+    "sessionToCancel": "Abzusagender Termin",
+    "cancellationPendingHelp": "Dieser Zusatztermin bleibt geplant, bis die Absage vereinbart ist. Bei Ablehnung bleibt der Termin bestehen.",
+    "cancellationReviewHelp": "Nach der Einigung wird nur der Zusatztermin der ausgewählten Lernpartner abgesagt. Die wöchentliche Vereinbarung bleibt bestehen. Diese Anfrage erzeugt weder Anwesenheit noch Stunden.",
+    "cancellationAgreementHelp": "Die Antwortfrist von 24 Stunden beginnt, sobald der E-Mail-Dienst die erforderliche Nachricht angenommen hat. Keine Antwort innerhalb einer vollständigen 24-Stunden-Frist gilt als Zustimmung. Endet sie nicht vor dem Termin, müssen alle vor Beginn ausdrücklich zustimmen. Ohne Einigung bleibt der Termin bestehen.",
+    "acceptCancellation": "Absage zustimmen",
+    "declineCancellation": "Absage ablehnen",
+    "declineCancellationHelp": "Eine Ablehnung schließt diese Absageanfrage. Der Zusatztermin bleibt geplant.",
+    "sendCancellation": "Absageanfrage senden",
+    "cancellationRequested": "Absage angefragt. Der Zusatztermin bleibt bis zur Einigung geplant.",
+    "cancellationRequestedRefreshFailed": "Absage angefragt, aber die Details konnten nicht aktualisiert werden. Nur aktualisieren; die Anfrage nicht erneut senden.",
+    "cancellationHelp": "Diese Anfrage betrifft nur den Zusatztermin der ausgewählten Lernpartner. Die wöchentliche Vereinbarung bleibt bestehen.",
+    "cancellationExplicitHelp": "Die Absage erfordert vor Beginn die ausdrückliche Zustimmung aller Beteiligten. Schweigen bedeutet keine Zustimmung zu dieser Absageanfrage."
   },
   "nextRecruitment": {
     "savedForTarget": "Öffnung für {name} gespeichert.",

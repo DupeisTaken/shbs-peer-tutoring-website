@@ -473,6 +473,40 @@ response deadline until after the cutoff never retroactively moves a started
 session; a distinct essential notice identifies the missed deadline for review. See
 [delivery and calendar contracts](session-planning-delivery.md).
 
+## Extra-session cancellation
+
+`sessionPlanning.proposeCancellation` captures an active tutor's exact scheduled
+extra cohort/version, one or all currently scheduled participants, and a client
+receipt key. A `CANCEL` planning request reuses immutable offers, per-person
+responses, essential delivery clocks and settlement locks. Its offer retains the
+existing date/time/location as evidence; it creates no replacement-room hold.
+The original commitment stays effective while the request is pending. All required
+responses must agree; a rejection closes the request with the lesson unchanged,
+without a counteroffer or split. Existing short-notice, delivery and explicit
+agreement rules still apply, and expiry preserves the lesson.
+
+Agreement cancels only the selected participant commitments, clears reversible
+calendar/pause suppression, increments calendar versions and cancels an empty
+physical cohort. Weekly pairings, regular lessons, peers, attendance and hours
+remain intact. Cancellation agreement cannot supply affirmative consent for a
+paused-date lesson. The server rechecks ownership, active participation, source
+version, request overlap and extra provenance, including rescheduled extras;
+started or recorded lessons cannot enter or complete cancellation. The existing
+receipt and transactional outbox prevent duplicate writes/notices, and calendar
+subscriptions retain the original identities and cancellation evidence.
+
+The retained agenda editor reuses arrangement's ONE/ALL selection and consequence
+review without time/location editing. Request cards distinguish cancellation
+from a time offer and expose acceptance or keeping the session. An accepted
+submission with failed refresh offers reads only, preserving its receipt until
+the agenda synchronizes.
+
+**All** also exposes the nearest 300 scheduled future extras beyond the normal
+two-week window as live cohorts, so they can be cancelled before entering
+Upcoming. This is a bounded working set; farther extras remain read-only history
+projections until they enter that set or the current window. Historical regular
+lessons acquire no scheduling authority from this query.
+
 ## Attendance and permissions
 
 The tutor agenda owns the retained wide attendance dialog. Its input identifies

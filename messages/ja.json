@@ -154,7 +154,21 @@
     "requiresExplicit": "明示的な同意が必要です。未返信ではこの提案を受諾したことになりません。",
     "explicitExceptionHelp": "この例外には担当者と参加する学習者全員の明示的な同意が必要です。未返信は同意とみなしません。",
     "tutoringPauseProposal": "この日は通常の指導が休止中です。この提案は明示的に合意した例外としてのみ実施できます。",
-    "exceptionScheduled": "合意済みの例外"
+    "exceptionScheduled": "合意済みの例外",
+    "cancelExtra": "追加セッションをキャンセル",
+    "cancellationRequest": "追加セッションのキャンセル依頼",
+    "sessionToCancel": "キャンセル対象のセッション",
+    "cancellationPendingHelp": "キャンセルへの合意が成立するまで、この追加セッションの予定は維持されます。拒否すると予定はそのまま残ります。",
+    "cancellationReviewHelp": "合意後、選択した参加者の追加セッションのみキャンセルされます。毎週の予定は変わりません。この依頼で出欠や時間は記録されません。",
+    "cancellationAgreementHelp": "必須通知がメールサービスに受理されると、24時間の回答期間が始まります。完全な24時間の回答期間内に返信がない場合は同意とみなされます。開始前に期間を確保できない場合、全員が開始前に明示的に同意する必要があります。未合意の場合、予定は維持されます。",
+    "acceptCancellation": "キャンセルに同意",
+    "declineCancellation": "キャンセルを拒否",
+    "declineCancellationHelp": "拒否するとキャンセル依頼は終了します。追加セッションの予定は維持されます。",
+    "sendCancellation": "キャンセル依頼を送信",
+    "cancellationRequested": "キャンセルを依頼しました。合意が成立するまで追加セッションの予定は維持されます。",
+    "cancellationRequestedRefreshFailed": "キャンセルを依頼しましたが、詳細を更新できませんでした。再送信せず、更新のみ行ってください。",
+    "cancellationHelp": "この依頼は選択した参加者の追加セッションのみが対象です。毎週の予定は変わりません。",
+    "cancellationExplicitHelp": "このセッションのキャンセルには、開始前に参加者全員の明示的な同意が必要です。未回答はキャンセルへの同意とみなされません。"
   },
   "nextRecruitment": {
     "savedForTarget": "{name} の開始時刻を保存しました。",
