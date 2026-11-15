@@ -1,7 +1,7 @@
 {
   "info": {
     "sourceRevision": "dbb3c4eb213d58e134744fd417b1a06299b0e984",
-    "capturedAt": "2026-11-15T18:21:51.369Z",
+    "capturedAt": "2026-11-15T19:36:31.126Z",
     "baseUrl": "http://127.0.0.1:3017",
     "releaseRef": "Local dev server based on latest main at task start (dbb3c4eb), with the Help candidate. User-selected source baseline; no live deployment attestation.",
     "fixture": "Isolated shbs_help_demo using prisma/seed.ts; synthetic Head also assigned Translator for the Landing editor; previous teaching week published through ensureSessionPlanningWindow for the attendance form.",
@@ -496,12 +496,12 @@
       "route": "/admin/help",
       "locale": "en",
       "role": "HEAD",
-      "capturedAt": "2026-11-15T17:26:40.515Z",
+      "capturedAt": "2026-11-15T19:34:20.223Z",
       "viewport": {
         "width": 1440,
         "height": 1000
       },
-      "sha256": "35f62d9035b409e5cfa2f811fe777c6e9607aa6b7a600a5613bde1b6dd9d026a",
+      "sha256": "cfed85dd96e521a02c54b717ef74cb7d6125c9b9374045ab4968b10ba6b7df59",
       "browserViewport": {
         "width": 1440,
         "height": 1000
@@ -642,12 +642,12 @@
       "route": "/admin",
       "locale": "en",
       "role": "HEAD",
-      "capturedAt": "2026-11-15T17:23:06.722Z",
+      "capturedAt": "2026-11-15T19:34:11.559Z",
       "viewport": {
         "width": 1440,
         "height": 1000
       },
-      "sha256": "d07d56ea4b981e3acb8cf0c613a2ff8facc9217f164ae6b9152ea9f44d4d1588",
+      "sha256": "a1f14a42025f8d46e1fe4ccba3aa073690ea6b427bc5321e5128abc7c444a918",
       "browserViewport": {
         "width": 1440,
         "height": 1000
@@ -1558,15 +1558,15 @@
     {
       "id": "help-article",
       "file": "help-article.en.jpg",
-      "route": "/help/sign-in-recover",
+      "route": "/help/sign-in-recover#walkthrough",
       "locale": "en",
-      "role": "GUEST",
-      "capturedAt": "2026-11-15T18:21:51.369Z",
+      "role": "PUBLIC",
+      "capturedAt": "2026-11-15T19:35:19.370Z",
       "viewport": {
         "width": 1425,
         "height": 990
       },
-      "sha256": "d4287ceaae5aee787d7b5a15121a71bc403075ca73847a69008f724fa02d74dc",
+      "sha256": "f99efdc16a26fc755a6de563d4eefc25b26339dad515395d113f4c15b1dd2bac",
       "browserViewport": {
         "width": 1440,
         "height": 1000
@@ -1594,13 +1594,13 @@
       "file": "help-catalogue.en.jpg",
       "route": "/help",
       "locale": "en",
-      "role": "GUEST",
-      "capturedAt": "2026-11-15T17:26:52.469Z",
+      "role": "PUBLIC",
+      "capturedAt": "2026-11-15T19:35:06.428Z",
       "viewport": {
         "width": 1425,
         "height": 990
       },
-      "sha256": "71b5a80579650eba197cd62491566acdb0b85d47be6f4a938b5e65a2f69db45f",
+      "sha256": "af15300bc5cae06b0a646ee5d72b5ce7ef8e903e61ee0f1f0810c2de66829f30",
       "browserViewport": {
         "width": 1440,
         "height": 1000
@@ -1673,27 +1673,27 @@
       "file": "localization.en.jpg",
       "route": "/localization",
       "locale": "en",
-      "role": "TRANSLATOR",
-      "capturedAt": "2026-11-15T17:06:32.369Z",
+      "role": "HEAD_TRANSLATOR",
+      "capturedAt": "2026-11-15T19:34:37.087Z",
       "viewport": {
         "width": 1000,
-        "height": 890
+        "height": 900
       },
-      "sha256": "1ebffddebb4f0961e04bcea39112dc361151cd519c59f1efabf0a1770a29033c",
+      "sha256": "b32c23dcd360e19c5029d9263ff32ce883701e1a08b4849a6c19b208c8d8e4d2",
       "browserViewport": {
         "width": 1440,
         "height": 1000
       },
       "original": {
-        "sha256": "20eb1c6d7ee8b8aad1cccb468374a0ef1784068aa683e95d6b60ea1f8fd9f234",
-        "width": 1425,
-        "height": 990
+        "sha256": "77a4b06d707e4123494bd88dc70b365ddec04b7ee0762a9b1f6731893a671c2e",
+        "width": 1440,
+        "height": 1000
       },
       "crop": {
-        "x": 210,
-        "y": 90,
+        "x": 330,
+        "y": 80,
         "width": 1000,
-        "height": 890
+        "height": 900
       }
     },
     {
@@ -1702,12 +1702,12 @@
       "route": "/admin",
       "locale": "en",
       "role": "VIEWER",
-      "capturedAt": "2026-11-15T17:05:09.015Z",
+      "capturedAt": "2026-11-15T19:36:31.126Z",
       "viewport": {
         "width": 1440,
         "height": 1000
       },
-      "sha256": "4b7016debcf243caf88fa6fa4f7ba43fa0eb9535215917f5b852d5f7e6400684",
+      "sha256": "44182a9ebb7835a5d980c002091682230332fc8aa3455c220860bd070bdbbbff",
       "browserViewport": {
         "width": 1440,
         "height": 1000
@@ -1719,12 +1719,12 @@
       "route": "/patrol",
       "locale": "en",
       "role": "CREW",
-      "capturedAt": "2026-11-15T17:03:29.634Z",
+      "capturedAt": "2026-11-15T19:34:58.586Z",
       "viewport": {
         "width": 1440,
         "height": 1000
       },
-      "sha256": "4715fe928974afde62c2e2e2b68087f9ea3f9da74a5d2069430493bfdf60fcc5",
+      "sha256": "60767f54fab785f67049aa454a651ae87f99a44baa9d761a587a36ae278a377a",
       "browserViewport": {
         "width": 1440,
         "height": 1000

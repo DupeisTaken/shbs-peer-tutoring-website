@@ -1,9 +1,9 @@
 {
   "baselineRevision": "dbb3c4eb213d58e134744fd417b1a06299b0e984",
-  "reviewedAt": "2026-11-15T19:08:17.256Z",
-  "reviewNote": "Reviewed final dev captures and bilingual handbooks; retained unchanged screenshots after correcting handbook wording and adding the invisible sign-in return destination. User selected latest-main baseline dbb3c4eb; no production attestation.",
+  "reviewedAt": "2026-11-15T19:37:13.821Z",
+  "reviewNote": "Refreshed seven real English dev-server captures showing the title-case Help navigation: public catalogue/article, management overview/handbooks, localization, Crew and Viewer. Other focused crops and Chinese captures reviewed and retained; their controls are unchanged. User-selected latest main dbb3c4eb, no production attestation.",
   "files": {
-    "messages/en.json": "320e71f05606dbe4fed33bfa1ddf0a42c3b8ed87d97460f6b1c4aaa57ebd34fb",
+    "messages/en.json": "932d06ae26b998633d33e4722ba502743702c4638afdaa81eda0faf79e710f51",
     "messages/zh.json": "1614b21d59707311dde1d84cff5219fd9bb0df5ac8740dfbe5f18cd6c214a0a0",
     "src/app/(admin)/admin/academic-corrections/page.tsx": "5f9491b5fb5832858b12d47348d4f63b74a8dc5da7b38679974afe5b71597c53",
     "src/app/(admin)/admin/activity/page.tsx": "add06616d915b6948bb5a97fb8600c5cb192bd27c2695213788eb88d72062d8b",

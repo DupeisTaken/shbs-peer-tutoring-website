@@ -46,7 +46,7 @@ Open: `/help`
 
    ![Numbered walkthrough, Look for and On this page](assets/help-article.en.jpg)
 
-   /help/sign-in-recover · EN · 2026-11-15
+   /help/sign-in-recover#walkthrough · EN · 2026-11-15
 
 3. **Enlarge and identify a screenshot** Choose Open full screenshot or select the image for a full-size view. Read the image's English/Chinese screen label, route and capture date. About these screenshots identifies source revision, release baseline and capture server; screenshots use synthetic demonstration accounts, and settings may change your visible controls.
 
