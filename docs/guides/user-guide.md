@@ -785,7 +785,7 @@ groups and your drafts with a notice. **Reload groups** asks before discarding
 unsaved drafts and waits for saves and refreshes to finish. A fresh visit uses the
 applied mode immediately; staged changes do not affect this view.
 
-Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [tutor policy draft](../../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
+Read addressed announcements at the top of your dashboard. All use the same prominent card with an announcement date. Pinned announcements show 📌 before 📣 and stay visible without a Dismiss action, including posts you dismissed before they were pinned. Use **Dismiss** to hide an ordinary announcement. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [tutor policy draft](../../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
 
 ## Crew
 
