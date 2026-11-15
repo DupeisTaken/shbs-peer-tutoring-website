@@ -2008,7 +2008,14 @@ excusedAt continues to govern the separate self-excuse cancellation workflow.
 
 Panelist detail opens lazily into one retained controller and reuses the existing
 vote operation. Each deliberately opened interview keeps its draft across Close and
-selection changes; access or assignment loss hides private evidence. Chair entries
+selection changes; access or assignment loss hides private evidence.
+Accepted local votes refresh `tutor.myInterviews` and every active normal/infinite
+`personalSchedule.interviews` variant before releasing the pending owner. These
+reads use `invalidateAndReport` and `settleRefreshes` so one failure cannot release
+another pending reader. An accepted vote remains saved after a read failure;
+read-only refresh recovery blocks further voting until synchronization succeeds.
+After recovery, deliberate vote revisions remain available while voting is open.
+The thirty-second polling still discovers changes from other writers. Chair entries
 link to the retained dashboard workspace, where current `canChair` authority still
 governs decisions and time changes. Historical `isHead` selects the chair workspace
 without granting live chair authority. Staff assignment, completion correction and
@@ -2185,6 +2192,11 @@ owner/type/reason checks in [interview hours](../../src/server/interview-hours.t
 already-applied evidence is idempotent; panel replacement uses the same source boundary.
 Corrections preserve original school year/quarter while the completion month follows
 the recorded actual datetime. Unrelated manual credits are never prefix-deleted.
+
+The shared `InterviewApprovalDialog` uses retained-mode instructions and review
+labels for recorded non-initial requests, preserving the explicit no-hours-change
+notice and exact original completion timestamp. Initial and unrecorded requests
+retain first-award copy, attendance entry and payloads.
 
 Management summary reads project application-linked invitation state without revealing codes. The authorized on-demand setup popup can reveal the existing active code. Combined chair acceptance records completion and service credits, reconciles initial admission/code issuance and creates an in-app Admin/Head notification in one transaction. Interviewed qualification approval uses the same completion rules without initial-signup reconciliation. Existing exact completion is reused; changed completion must use the correction route. Standalone completion never triggers admission or provision. Pending decision/completion
 approval metadata is separate from applied evidence. Tutor reads expose completion and

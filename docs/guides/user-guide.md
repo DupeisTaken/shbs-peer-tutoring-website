@@ -624,6 +624,15 @@ The application explains loading failures and offers a retry. Intake needs confi
 
 The assigned Admin or Head chair selects **Approve** after every panelist has voted. Enter the actual completion time, duration in minutes and attending panelists, then review and confirm **Approve & award hours**. The panel majority still applies; the chair resolves a tie. The same transaction accepts the application, awards each attendee `minutes / 60` hours, prepares the initial applicant’s registration code (or links an existing verified account), and notifies active Admin and Head accounts. Initial acceptance no longer waits for a second Head approval. Codes appear in **Registration Codes**. Interviewed additional-subject and higher-level approvals award hours and qualifications without creating a registration code. Previously recorded completion is reused exactly; correct it through management before approving if necessary.
 
+Completed additional/higher approval explicitly reuses the recorded completion,
+attendance and service credits, including authorized corrections. Review the existing
+evidence, choose **Review qualification approval**, then **Approve qualification**.
+The review and saved result confirm that the qualification is granted while recorded
+completion, attendance and service credits remain unchanged. Initial and unrecorded
+interviews retain their attendance and hours workflow. Once an initial interview is
+accepted or rejected, a fresh application version cannot authorize a new decision or
+final note; an exact accepted retry only reads its existing receipt.
+
 For rejected interviews, legacy records or separate completion entry, management records actual interview completion through **Tutor Applications → Interview Records**
 in the Tutors navigation group. Expand a record and select **Record completion & award hours**.
 Enter the actual completion time, duration, explicitly attending panelists and required
@@ -682,6 +691,10 @@ following window. **Upcoming** also keeps ended sessions missing attendance and
 past open interviews until their decision. Yellow **Needs Action** marks your
 missing attendance or interview vote. **Vote recorded / Awaiting decision** means
 your vote is saved while the interview remains open; it is not yet Completed.
+Saving a vote refreshes its details and the active Schedule lists. If a refresh
+fails, the vote remains saved: use **Retry refresh** to load the result without
+voting again. Further votes stay disabled until that refresh succeeds; you can
+then deliberately revise your vote while the interview remains open.
 **Excused for Absence** identifies an excused meeting, including a staff-recorded
 excuse. Meetings awaiting staff attendance records do not require you to record
 attendance. Gray labels distinguish regular sessions, extras, interviews and

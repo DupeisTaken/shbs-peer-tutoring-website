@@ -16,6 +16,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { Button } from "~/app/_components/ui/button";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import {
   InterviewApprovalDialog,
@@ -199,14 +200,41 @@ function VoteForm({
   const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState(myVote?.comment ?? "");
+  const [accepted, setAccepted] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
   const votingClosed = paused || status !== "INTERVIEW";
+  const synchronize = async () => {
+    setSyncing(true);
+    try {
+      // One Schedule procedure owns both normal summaries and infinite agenda
+      // pages. Wait for every active variant before releasing this vote owner.
+      await settleRefreshes([
+        () => invalidateAndReport(utils.tutor.myInterviews),
+        () => invalidateAndReport(utils.personalSchedule.interviews),
+      ]);
+      setSyncFailed(false);
+    } catch {
+      // The vote was accepted. A read failure must never reject its mutation or
+      // invite another vote as recovery; retry only the affected readers.
+      setSyncFailed(true);
+    } finally {
+      setSyncing(false);
+    }
+  };
   const cast = api.tutor.castInterviewVote.useMutation({
-    onSuccess: () => utils.tutor.myInterviews.invalidate(),
+    onMutate: () => setAccepted(false),
+    onSuccess: async () => {
+      setAccepted(true);
+      await synchronize();
+    },
   });
+  const pending = !!cast.isPending || syncing;
+  const blocked = votingClosed || pending || syncFailed;
   useLayoutEffect(() => {
-    onPendingChange?.(!!cast.isPending);
+    onPendingChange?.(pending);
     return () => onPendingChange?.(false);
-  }, [cast.isPending, onPendingChange]);
+  }, [pending, onPendingChange]);
 
   const content = (
     <div className="mt-2 space-y-2">
@@ -215,7 +243,7 @@ function VoteForm({
         aria-label={t("tutor.interviews.voteCommentPlaceholder")}
         placeholder={t("tutor.interviews.voteCommentPlaceholder")}
         value={comment}
-        disabled={votingClosed || cast.isPending}
+        disabled={blocked}
         onChange={(e) => setComment(e.target.value)}
       />
       {votingClosed && !paused && (
@@ -226,7 +254,7 @@ function VoteForm({
       <div className="flex flex-wrap items-center gap-2">
         <button
           className={`btn-sm min-h-11 lg:min-h-8 ${myVote?.accept === true ? "btn-primary" : "btn-secondary"}`}
-          disabled={votingClosed || cast.isPending}
+          disabled={blocked}
           onClick={() =>
             cast.mutate({
               applicationId,
@@ -239,7 +267,7 @@ function VoteForm({
         </button>
         <button
           className={`btn-sm min-h-11 lg:min-h-8 ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
-          disabled={votingClosed || cast.isPending}
+          disabled={blocked}
           onClick={() =>
             cast.mutate({
               applicationId,
@@ -263,9 +291,10 @@ function VoteForm({
           <button
             type="button"
             className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-            disabled={cast.isPending}
+            disabled={pending || syncFailed}
             onClick={() => {
               setComment(myVote?.comment ?? "");
+              setAccepted(false);
               cast.reset();
             }}
           >
@@ -278,14 +307,33 @@ function VoteForm({
           {cast.error.message}
         </p>
       )}
-      {cast.isSuccess && (
+      {accepted && (
         <p role="status" className="text-sm text-green-700">
-          {t("tutor.interviews.saved")}
+          {t(
+            syncing ? "tutor.interviews.voteSyncing" : "tutor.interviews.saved",
+          )}
         </p>
+      )}
+      {syncFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button
+              size="compact"
+              disabled={pending}
+              onClick={() => void synchronize()}
+            >
+              {t("tutor.interviews.voteRefresh")}
+            </Button>
+          }
+        >
+          {t("tutor.interviews.voteRefreshFailed")}
+        </InlineNotice>
       )}
     </div>
   );
-  return renderContent ? renderContent(content, cast.isPending) : content;
+  return renderContent ? renderContent(content, pending) : content;
 }
 
 function HeadDecision({
@@ -946,7 +994,7 @@ function RetainedScheduleInterview({
 
 /** Schedule owns one always-mounted controller. Its first deliberate open starts
  * private reads; later closes retain independent drafts and in-flight vote observers.
- * This retains the existing vote/invalidation contract, without receipt recovery. */
+ * Accepted votes synchronize their readers; retries never repeat the vote write. */
 export function ScheduleInterviewDetails({
   applicationId,
   onClose,
