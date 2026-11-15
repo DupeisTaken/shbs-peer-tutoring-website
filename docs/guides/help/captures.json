@@ -1673,27 +1673,27 @@
       "file": "localization.en.jpg",
       "route": "/localization",
       "locale": "en",
-      "role": "HEAD_TRANSLATOR",
-      "capturedAt": "2026-11-15T19:34:37.087Z",
+      "role": "TRANSLATOR",
+      "capturedAt": "2026-11-15T17:06:32.369Z",
       "viewport": {
         "width": 1000,
-        "height": 900
+        "height": 890
       },
-      "sha256": "b32c23dcd360e19c5029d9263ff32ce883701e1a08b4849a6c19b208c8d8e4d2",
+      "sha256": "1ebffddebb4f0961e04bcea39112dc361151cd519c59f1efabf0a1770a29033c",
       "browserViewport": {
         "width": 1440,
         "height": 1000
       },
       "original": {
-        "sha256": "77a4b06d707e4123494bd88dc70b365ddec04b7ee0762a9b1f6731893a671c2e",
-        "width": 1440,
-        "height": 1000
+        "sha256": "20eb1c6d7ee8b8aad1cccb468374a0ef1784068aa683e95d6b60ea1f8fd9f234",
+        "width": 1425,
+        "height": 990
       },
       "crop": {
-        "x": 330,
-        "y": 80,
+        "x": 210,
+        "y": 90,
         "width": 1000,
-        "height": 900
+        "height": 890
       }
     },
     {

@@ -1,7 +1,7 @@
 {
   "baselineRevision": "dbb3c4eb213d58e134744fd417b1a06299b0e984",
-  "reviewedAt": "2026-11-15T19:37:13.821Z",
-  "reviewNote": "Refreshed seven real English dev-server captures showing the title-case Help navigation: public catalogue/article, management overview/handbooks, localization, Crew and Viewer. Other focused crops and Chinese captures reviewed and retained; their controls are unchanged. User-selected latest main dbb3c4eb, no production attestation.",
+  "reviewedAt": "2026-11-15T19:41:26.984Z",
+  "reviewNote": "Refreshed six real English captures that show the title-case Help navigation. Retained the ordinary Translator crop: its header navigation is outside the accepted image, and draft-only controls remain correct. Reviewed other focused crops and Chinese captures as unchanged. User-selected latest main dbb3c4eb; no production attestation.",
   "files": {
     "messages/en.json": "932d06ae26b998633d33e4722ba502743702c4638afdaa81eda0faf79e710f51",
     "messages/zh.json": "1614b21d59707311dde1d84cff5219fd9bb0df5ac8740dfbe5f18cd6c214a0a0",
