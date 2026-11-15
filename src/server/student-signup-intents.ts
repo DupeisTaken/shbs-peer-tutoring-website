@@ -193,7 +193,7 @@ export async function stageStudentSignupIntent(
     }
     await assertIntakeEligibility(tx, term.id, posted.email, account, row?.id);
     const locked = row?.tuteeId
-      ? await assignedSignupSubjects(tx, row.tuteeId, row.intakeTermId)
+      ? await assignedSignupSubjects(tx, row)
       : { subjectIds: [], unresolved: false };
     const answers = await normalizeStudentSignupAnswers(
       tx,
@@ -469,7 +469,7 @@ export async function completeStudentSignupIntent(
   );
   const posted = surveyInput.parse(intent.payload);
   const assigned = row.tuteeId
-    ? await assignedSignupSubjects(tx, row.tuteeId, row.intakeTermId)
+    ? await assignedSignupSubjects(tx, row)
     : { subjectIds: [], unresolved: false };
   if (assigned.unresolved)
     throw new TRPCError({

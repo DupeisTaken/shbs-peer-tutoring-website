@@ -3292,6 +3292,11 @@
     "incompleteHelp": "E-Mail-Bestätigung oder abschließende Kontoprüfung fehlt noch."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -6285,6 +6290,8 @@
     "unnamed": "Kein Name angegeben"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "Anmeldeantworten bearbeiten",
     "edit": "Anmeldeantworten bearbeiten",
     "requestLocal": "Diese Antworten gehören zu dieser Nachhilfeanfrage. Änderungen behalten die ursprüngliche Priorität und ändern weder Ihr Kontoprofil noch Ihre Zugangsdaten.",
