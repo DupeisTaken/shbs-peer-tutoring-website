@@ -1717,9 +1717,9 @@ Email notices include a clear action button and a copyable link, with a plain-te
 Staff, tutors and tutees can use **Account → Notification preferences**, also linked from the bell, to choose unread-badge and optional-email settings independently. The eleven categories are messages, review requests, applications, tutoring assignments, attendance, membership, account updates, announcements, management, other program updates and upcoming reminders. Reminders are email-only. Save applies your choices; Cancel discards unsaved changes.
 
 Admin/Head can require individual badge or email choices to stay on. A required
-choice is checked, unavailable to edit and labelled as required by your
-administrator. Your previous personal choice is preserved and returns when the
-requirement is removed. Required email still depends on the program email switch,
+choice is checked and unavailable to edit, with the administrator requirement
+explained to screen readers. Your previous personal choice is preserved and returns
+when the requirement is removed. Required email still depends on the program email switch,
 your verified delivery addresses and current access to that type of notice.
 
 Turning off a category's badge keeps its notices in the bell and preserves their read/unread state. You can still open them or mark them read. Turning the badge back on counts any still-unread notices again. Existing accounts retain their previous email opt-ins until changed; new categories inherit the corresponding old setting, while review requests and reminders retain their separate opt-ins. New accounts start with optional email off and badges on.
