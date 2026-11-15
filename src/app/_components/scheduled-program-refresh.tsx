@@ -22,6 +22,7 @@ import {
 import { NextRecruitmentReview } from "./next-recruitment-review";
 import { ProgramRefreshEffects } from "./program-refresh-effects";
 import { useSessionAccessDenied } from "./session-view-state";
+import { useProgramWriteAdmission } from "./program-write-admission";
 import { useActionReview } from "./ui/action-review";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 
@@ -143,6 +144,7 @@ export function ScheduledRefreshEditor({
   const [generation, setGeneration] = useState(0);
   const admitted = useRef(false);
   const allowed = canEdit && data.canEdit && next.canEdit;
+  const admission = useProgramWriteAdmission(allowed && !readFailed);
   const applies = canApply && data.canApply;
   const latest = useRef({ allowed, data, next, readFailed });
   useLayoutEffect(() => {
@@ -160,8 +162,7 @@ export function ScheduledRefreshEditor({
   );
   const key = `scheduled-refresh:${snapshot.next.target.sourceTermId}:${row?.version ?? 0}:${generation}`;
   const blocked =
-    !allowed ||
-    readFailed ||
+    !admission.allowed ||
     reloading ||
     !!approvalId ||
     changed ||
@@ -170,8 +171,7 @@ export function ScheduledRefreshEditor({
     review.blocked(key);
   // Cancelling a stored schedule is independent of changing recruitment evidence.
   const cancelBlocked =
-    !allowed ||
-    readFailed ||
+    !admission.allowed ||
     reloading ||
     !!approvalId ||
     JSON.stringify(data.schedule) !== JSON.stringify(row) ||
@@ -254,7 +254,7 @@ export function ScheduledRefreshEditor({
     }
   };
   const open = (cancelling: boolean) => {
-    if (cancelling ? cancelBlocked || !row : blocked) return;
+    if (!admission.isAllowed() || (cancelling ? cancelBlocked || !row : blocked)) return;
     let executeAt: Date;
     try {
       executeAt = cancelling
@@ -304,7 +304,7 @@ export function ScheduledRefreshEditor({
             JSON.stringify(captured.schedule)
           : identity(current.data.schedule, current.next) !==
             identity(captured.schedule, captured.next);
-        if (!current.allowed || current.readFailed || drifted)
+        if (!admission.isAllowed() || !current.allowed || current.readFailed || drifted)
           throw new Error("SCHEDULED_REFRESH_CHANGED");
         receipt = cancelling
           ? await cancel.mutateAsync({

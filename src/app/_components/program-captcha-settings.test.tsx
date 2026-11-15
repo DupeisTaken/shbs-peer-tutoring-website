@@ -85,7 +85,7 @@ it("shows loading alone until the first response", () => {
 it("preserves cached state and version on refetch failure", () => {
   mock.data = { enabled: true, ready: true, canEdit: true, version: 7 };
   mock.error = new Error("CAPTCHA_UNAVAILABLE");
-  show();
+  const view = show();
   const toggle = screen.getByRole<HTMLButtonElement>("switch", {
     name: en.captcha.title,
   });
@@ -95,6 +95,18 @@ it("preserves cached state and version on refetch failure", () => {
   expect(toggle.tabIndex).toBe(0);
   expect(screen.getAllByRole("alert")).toHaveLength(1);
   expect(screen.queryByText(en.captcha.loading)).toBeNull();
+  expect(toggle.disabled).toBe(true);
+  fireEvent.click(toggle);
+  expect(mock.mutate).not.toHaveBeenCalled();
+  mock.error = null;
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProgramCaptchaSettings />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByRole("switch")).toBe(toggle);
+  expect(toggle.disabled).toBe(false);
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
   fireEvent.click(toggle);
   expect(mock.mutate).toHaveBeenCalledWith({
     enabled: false,

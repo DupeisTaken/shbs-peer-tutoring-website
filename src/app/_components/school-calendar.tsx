@@ -9,6 +9,7 @@ import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { ProfileDialog } from "./profile-dialog";
 import { useSessionAccessDenied } from "./session-view-state";
+import { useProgramWriteAdmission } from "./program-write-admission";
 import { useActionReview } from "./ui/action-review";
 import { useDialogPending } from "./ui/modal";
 import { Button } from "./ui/button";
@@ -47,9 +48,9 @@ export function SchoolCalendar() {
   const review = useActionReview();
   const revokeReview = review.revoke;
   const denied = useSessionAccessDenied(identity, calendar);
-  const canEdit =
-    !identity.error &&
-    ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
+  // Temporary identity read failures disable writes without discarding the open draft.
+  const canEdit = ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
+  const admission = useProgramWriteAdmission(canEdit && !!calendar.data && !identity.error && !calendar.error && !denied);
   const canApply = ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const [editor, setEditor] = useState<{
     day: Day | null;
@@ -69,6 +70,7 @@ export function SchoolCalendar() {
       () => invalidateAndReport(utils.program.schoolCalendar),
     ]);
   const blocked =
+    !admission.allowed ||
     !!calendar.error ||
     !!identity.error ||
     recoveryNeeded ||
@@ -226,11 +228,13 @@ export function SchoolCalendar() {
                                         {description(day)}
                                       </p>
                                     ),
-                                    commit: () =>
-                                      reset.mutateAsync({
+                                    commit: () => {
+                                      if (!admission.isAllowed()) throw new Error(t("loadFailed"));
+                                      return reset.mutateAsync({
                                         date: day.date,
                                         expectedVersion: day.version,
-                                      }),
+                                      });
+                                    },
                                     refresh,
                                     approvalId: queuedApprovalId,
                                     repeatAfterRefresh: true,
@@ -311,6 +315,7 @@ function SchoolDayEditor({
 }) {
   const t = useTranslations("schoolCalendar");
   const approvals = useTranslations("approvals");
+  const admission = useProgramWriteAdmission(!disabled);
   const locale = useLocale();
   const save = api.student.setCalendarDay.useMutation();
   const [date, setDate] = useState(initial?.date ?? "");
@@ -353,7 +358,7 @@ function SchoolDayEditor({
       onSubmit={async (event) => {
         event.preventDefault();
         if (
-          disabled ||
+          !admission.isAllowed() ||
           pending ||
           admitted.current ||
           committed.current ||
@@ -403,7 +408,7 @@ function SchoolDayEditor({
       }}
     >
       <fieldset
-        disabled={disabled || pending || !!accepted}
+        disabled={!admission.allowed || pending || !!accepted}
         className="min-w-0 space-y-4"
         aria-busy={pending}
       >

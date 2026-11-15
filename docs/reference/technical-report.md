@@ -960,6 +960,29 @@ header leaves. Explicit feature transitions continue to use `focusVisibleContext
 
 Feature integrations include the three participant/account editors, roster actions, account identity settings, meeting attendance, interview panels, profile/CAPTCHA settings, combine-account candidates and public history. Cached query failures retain usable content and drafts. Background refetches preserve the profile policy snapshot; successful saves and explicit successful Reloads update it. The shared-pattern migration is recorded in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); verify each changed feature against its current domain contract.
 
+The [Program page](<../../src/app/(admin)/admin/program/page.tsx>) retains its
+private settings owners by cached account ID and management rank during an
+ordinary `account.me` failure. Initial account-read failures also expose named
+account-only Retry in the default period panel, retaining healthy public period
+content while private settings await a successful authorized account read. Its
+[write-admission context](../../src/app/_components/program-write-admission.tsx)
+blocks new writes until that shared prerequisite recovers; each owner also checks
+its own read and domain permissions. Current-period failures block recruitment
+and refresh operations without freezing independent profile/deployment settings.
+Captured refresh confirmations consult committed admission at execution, so an
+open review survives a transport error without authorizing its old callback.
+Identity/rank changes, read-only access and authoritative denial remove private
+owners. The page's denial latch remains concealed through later transport errors;
+successful recovery mounts fresh drafts. No draft is persisted in navigation
+storage. Accepted period activation belongs to the account-keyed period owner;
+replacing that owner permanently retires its state and late callbacks, including
+when the same account later returns.
+[Activation lifecycle coverage](<../../src/app/(admin)/admin/program/page.activation-ownership.test.tsx>)
+uses inert refresh/recruitment children to expose that ownership only.
+[Composition coverage](<../../src/app/(admin)/admin/program/page.account-recovery.test.tsx>)
+uses the real page, profile editor, refresh review and React Query cache with a
+synthetic tRPC transport; it establishes no database mutation or browser modality.
+
 Tutor availability keeps a local draft once editing begins, so background query updates cannot discard it. A successful mutation is followed by an explicit throwing refetch before releasing the draft: the server filters inactive slot IDs and returns only a count, so the submitted list is not authoritative. If synchronization fails, the submitted choices remain visible and locked with a read-only retry; only the refreshed result unlocks editing. See [issue #223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223).
 
 The dated planning model and agreement workflow are described in
