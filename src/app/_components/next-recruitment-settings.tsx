@@ -11,6 +11,7 @@ import type { RecruitmentAudience } from "~/lib/recruitment";
 import { sameNextRecruitmentTarget, type NextRecruitmentPreparationEvidence } from "~/lib/next-recruitment";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import { useProgramWriteAdmission } from "./program-write-admission";
 import { NextRecruitmentReview } from "./next-recruitment-review";
 
 export type NextRecruitmentSettingsData = RouterOutputs["program"]["nextRecruitment"];
@@ -75,9 +76,10 @@ export function NextRecruitmentEditor({ audience, data, readFailed = false }: { 
   const [readChanged, setReadChanged] = useState(false);
   const admitted = useRef(false);
   const accepted = useRef<NextRecruitmentPreparationEvidence | null>(null);
+  const admission = useProgramWriteAdmission(data.canEdit && !readFailed);
   const changed = editorIdentity(data, audience) !== editorIdentity(snapshot, audience);
   const staleBinding = !!row && !row.matchesTarget && !acknowledgedTarget;
-  const blocked = !data.canEdit || readFailed || busy || needsRead || changed || staleBinding || !!approvalId;
+  const blocked = !admission.allowed || busy || needsRead || changed || staleBinding || !!approvalId;
 
   const adopt = (fresh: NextRecruitmentSettingsData) => {
     setSnapshot(fresh);
@@ -143,7 +145,7 @@ export function NextRecruitmentEditor({ audience, data, readFailed = false }: { 
   };
   const save = async () => {
     // A ref closes the same-event-turn gap before React disables the fieldset.
-    if (admitted.current || accepted.current || blocked) return;
+    if (!admission.isAllowed() || admitted.current || accepted.current || blocked) return;
     let opensAt: Date | null;
     try {
       opensAt = hasOpening ? parseProgramDateTime(opening, snapshot.timeZone) : null;

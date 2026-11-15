@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api } from "~/trpc/react";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import { useProgramWriteAdmission } from "./program-write-admission";
 import { Button, Switch } from "./ui/button";
 import type { FeatureKey } from "~/server/program/features";
 
@@ -19,6 +20,7 @@ export function FeatureToggles() {
   const setPending = api.program.setFeaturePending.useMutation();
   const utils = api.useUtils();
   const denied = useSessionAccessDenied(settings);
+  const admission = useProgramWriteAdmission(!!settings.data?.canEdit && !settings.error && !denied);
   const admitted = useRef(false);
   const modeReadPending = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -62,6 +64,7 @@ export function FeatureToggles() {
   }
   async function stage(key: FeatureKey, enabled: boolean) {
     if (
+      !admission.isAllowed() ||
       admitted.current ||
       busy ||
       setPending.isPending ||
@@ -185,6 +188,7 @@ export function FeatureToggles() {
                   }
                   checked={target}
                   disabled={
+                    !admission.allowed ||
                     busy ||
                     setPending.isPending ||
                     refreshFailed ||

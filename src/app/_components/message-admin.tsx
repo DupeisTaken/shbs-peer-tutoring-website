@@ -14,6 +14,7 @@ import { api, type RouterInputs } from "~/trpc/react";
 import { MessageGroupChoices } from "./message-inbox";
 import { Pager } from "./student-portal";
 import Link from "next/link";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 export function MessageAdmin() {
   const t = useTranslations("messaging");
@@ -321,6 +322,7 @@ export function MessagePermissions() {
               target={{ type: "ROLE", role: s.role }}
               groups={s.groups}
               showAuthorityHelp={false}
+              readFailed={!!settings.error}
               onSaved={() => settings.refetch()}
             />
           ))}
@@ -377,6 +379,7 @@ function UserPermission({
   const approvals = useTranslations("approvals");
   const [reason, setReason] = useState("");
   const permission = api.messaging.userPermission.useQuery({ userId: user.id });
+  const admission = useProgramWriteAdmission(!!permission.data && !permission.error);
   const restrict = api.messaging.restrict.useMutation({
     onSuccess: () => permission.refetch(),
   });
@@ -406,6 +409,7 @@ function UserPermission({
         label={t("effectivePermission")}
         target={{ type: "USER", userId: user.id }}
         groups={permission.data.groups}
+        readFailed={!!permission.error}
         onSaved={() => permission.refetch()}
       />
       <div className="space-y-3">
@@ -416,14 +420,15 @@ function UserPermission({
         <button
           type="button"
           className="btn-secondary"
-          disabled={restrict.isPending || reason.trim().length < 5}
-          onClick={() =>
+          disabled={!admission.allowed || restrict.isPending || reason.trim().length < 5}
+          onClick={() => {
+            if (!admission.isAllowed() || restrict.isPending || reason.trim().length < 5) return;
             restrict.mutate({
               userId: user.id,
               restricted: !permission.data.restricted,
               reason,
-            })
-          }
+            });
+          }}
         >
           {t(permission.data.restricted ? "allowAccess" : "restrictAccess")}
         </button>
@@ -446,17 +451,20 @@ function PermissionEditor({
   groups,
   onSaved,
   showAuthorityHelp = true,
+  readFailed = false,
 }: {
   label: string;
   target: RouterInputs["messaging"]["setPermission"]["target"];
   groups: string[];
   onSaved: () => Promise<unknown>;
   showAuthorityHelp?: boolean;
+  readFailed?: boolean;
 }) {
   const t = useTranslations("messaging");
   const identity = api.account.me.useQuery();
   const canEdit =
     !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const admission = useProgramWriteAdmission(canEdit && !readFailed);
   const approvals = useTranslations("approvals");
   const [value, setValue] = useState(groups);
   const [reason, setReason] = useState("");
@@ -470,7 +478,7 @@ function PermissionEditor({
       className="card space-y-4 p-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!canEdit || save.isPending) return;
+        if (!admission.isAllowed() || save.isPending) return;
         save.mutate({
           target,
           groups: value as RouterInputs["messaging"]["setPermission"]["groups"],
@@ -483,7 +491,7 @@ function PermissionEditor({
         <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
       )}
       <fieldset
-        disabled={!canEdit || save.isPending}
+        disabled={!admission.allowed || save.isPending}
         className="min-w-0 space-y-4"
       >
         <MessageGroupChoices
@@ -503,7 +511,7 @@ function PermissionEditor({
           <Button
             disabled={save.isPending || reason.trim().length < 5}
             onClick={() => {
-              if (canEdit && !save.isPending)
+              if (admission.isAllowed() && !save.isPending)
                 save.mutate({ target, groups: null, reason });
             }}
           >

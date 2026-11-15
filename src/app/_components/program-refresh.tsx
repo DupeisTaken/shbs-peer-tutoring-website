@@ -11,6 +11,7 @@ import { useActionReview } from "./ui/action-review";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
 import { ScheduledProgramRefresh } from "./scheduled-program-refresh";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 type Period = NonNullable<RouterOutputs["admin"]["currentPeriod"]>;
 
@@ -28,6 +29,7 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
   const [confirm, setConfirm] = useState("");
   const liveCanEdit = canEdit && !!query.data?.canEdit;
   const liveCanApply = canApply && !!query.data?.canApply;
+  const admission = useProgramWriteAdmission(liveCanEdit && !!query.data && !query.error && !denied);
   const latest = useRef({ canEdit: liveCanEdit, data: query.data, error: query.error });
   // The open dialog retains its immutable review, while admission reads the
   // latest committed authority/evidence. Update before interaction, not in render.
@@ -40,7 +42,7 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
   const data = query.data;
   const stale = data ? Object.values(data.preparations).some((row) => row !== null && !row.matchesTarget) : false;
   const key = `refresh:${period.termId}`;
-  const blocked = !liveCanEdit || !data || !!query.error || stale || data.target.sourceTermId !== period.termId || review.blocked(key);
+  const blocked = !admission.allowed || !data || stale || data.target.sourceTermId !== period.termId || review.blocked(key);
   return <><ScheduledProgramRefresh period={period} canEdit={canEdit} canApply={canApply} onActivated={onActivated} /><section className="card space-y-4 border-amber-200 p-5">
     <div><h2 className="section-title">{t("refreshHeading")}</h2><p className="muted mt-1">{t("advancesTo", { name: data?.nextName ?? period.next.name })}</p></div>
     {query.error && <InlineNotice tone="error" announcement="alert" action={<button className="btn-secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>{nextText("retry")}</button>}>{nextText("loadFailed")}</InlineNotice>}
@@ -53,7 +55,7 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
       <div className="flex flex-wrap items-center gap-2">
         <input id={confirmationId} className="input field-auto min-h-11 min-w-44 lg:min-h-10" disabled={!!blocked} value={confirm} placeholder={t("confirmPlaceholder")} onChange={(event) => setConfirm(event.target.value)} />
         <button className="btn-danger min-h-11 lg:min-h-10" disabled={!!blocked || confirm.trim().toUpperCase() !== "REFRESH"} onClick={() => {
-          if (blocked || !data || confirm.trim().toUpperCase() !== "REFRESH") return;
+          if (!admission.isAllowed() || blocked || !data || confirm.trim().toUpperCase() !== "REFRESH") return;
           const snapshot = data;
           const expectedPreparation = snapshot.refreshEvidence;
           const reviewedConfirm = confirm;
@@ -67,7 +69,7 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
             confirmLabel: liveCanApply ? t("refreshButton", { name: snapshot.nextName }) : approvals("requestHead"),
             details: <div className="space-y-4"><NextRecruitmentReview snapshot={snapshot} /><ProgramRefreshEffects target={snapshot.target} /><p className="muted text-sm">{nextText("refreshHelp")}</p></div>,
             commit: () => {
-              if (!latest.current.canEdit || latest.current.error || !latest.current.data) throw new Error(nextText("loadFailed"));
+              if (!admission.isAllowed() || !latest.current.canEdit || latest.current.error || !latest.current.data) throw new Error(nextText("loadFailed"));
               if (JSON.stringify(latest.current.data.refreshEvidence) !== JSON.stringify(expectedPreparation)) throw new Error("NEXT_RECRUITMENT_CHANGED");
               return refresh.mutateAsync({ confirm: reviewedConfirm, expectedTermId: snapshot.target.sourceTermId, expectedPreparation });
             },

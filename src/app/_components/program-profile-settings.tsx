@@ -8,6 +8,7 @@ import { ALL_GRADES, type ProfilePolicy } from "~/lib/profile-policy";
 import { ProfilePolicyError } from "./profile-policy";
 import { Button } from "./ui/button";
 import { InlineNotice, StatePanel } from "./ui/patterns";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 export function ProgramProfileSettings() {
   const t = useTranslations("profilePolicy");
@@ -49,6 +50,7 @@ export function ProgramProfileSettings() {
         policy={query.data}
         canEdit={query.data.canEdit}
         canApply={query.data.canApply}
+        readFailed={!!query.error}
         onReload={async () => {
           const result = await query.refetch();
           if (result.isSuccess) setGeneration((value) => value + 1);
@@ -63,17 +65,20 @@ export function ProfilePolicyEditor({
   policy,
   canEdit,
   canApply = true,
+  readFailed = false,
   onReload,
 }: {
   policy: ProfilePolicy;
   canEdit: boolean;
   canApply?: boolean;
+  readFailed?: boolean;
   onReload: () => Promise<void>;
 }) {
   const t = useTranslations("profilePolicy");
   const approvals = useTranslations("approvals");
   const utils = api.useUtils();
   const router = useRouter();
+  const admission = useProgramWriteAdmission(canEdit && !readFailed);
   const [expectedPolicy, setExpectedPolicy] = useState<ProfilePolicy>(() => ({
     requireLatinNames: true,
     requireLatinLegalNames: false,
@@ -112,7 +117,7 @@ export function ProfilePolicyEditor({
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
-          if (canEdit && offeredGrades.length && !save.isPending)
+          if (admission.isAllowed() && offeredGrades.length && !save.isPending)
             save.mutate({
               requireLatinNames: true,
               requireLatinLegalNames: false,
@@ -125,7 +130,7 @@ export function ProfilePolicyEditor({
       >
         {/* Anchor the clipped absolute legend here rather than to the document. */}
         <fieldset
-          disabled={!canEdit || save.isPending}
+          disabled={!admission.allowed || save.isPending}
           className="relative min-w-0 space-y-4"
         >
           <legend className="sr-only">{t("title")}</legend>

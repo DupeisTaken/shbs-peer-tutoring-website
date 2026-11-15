@@ -8,6 +8,7 @@ import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { programTimeZoneInputLabel } from "~/lib/program-time-zone-label";
 import type { RecruitmentAudience, RecruitmentWindow } from "~/lib/recruitment";
 import { DEFAULT_TIME_ZONE } from "~/i18n/config";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 /** Separate editors prevent saving one audience from overwriting the other's schedule. */
 export function RecruitmentSettings(props: {
@@ -103,6 +104,7 @@ function Editor({
   const approvals = useTranslations("approvals");
   const common = useTranslations("profilePolicy");
   const locale = useLocale();
+  const admission = useProgramWriteAdmission(canEdit);
   const utils = api.useUtils();
   const [enabled, setEnabled] = useState(window.enabled);
   const [startEnabled, setStartEnabled] = useState(!!window.opensAt);
@@ -141,7 +143,7 @@ function Editor({
         onSubmit={(event) => {
           event.preventDefault();
           // Mirror proposal eligibility even for synthetic submit events on a disabled form.
-          if (!canEdit || save.isPending || reloading) return;
+          if (!admission.isAllowed() || save.isPending || reloading) return;
           try {
             const opensAt = startEnabled
               ? parseProgramDateTime(start, timeZone)
@@ -169,7 +171,7 @@ function Editor({
       >
         <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
         <fieldset
-          disabled={!canEdit || save.isPending || reloading}
+          disabled={!admission.allowed || save.isPending || reloading}
           // Hidden absolute labels need a local containing block inside the pane;
           // otherwise their static positions can enlarge the root scroll range.
           className="relative min-w-0 space-y-4"

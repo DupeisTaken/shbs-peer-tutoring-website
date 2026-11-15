@@ -17,6 +17,7 @@ import { queuedApprovalId } from "~/lib/approval-outcome";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { useSessionAccessDenied } from "./session-view-state";
+import { useProgramWriteAdmission } from "./program-write-admission";
 
 type Day = {
   date: string;
@@ -93,6 +94,7 @@ export function ProgramCalendarNotice() {
 export function ProgramCalendarSettings() {
   const t = useTranslations("programCalendar");
   const query = api.program.calendarSettings.useQuery();
+  const admission = useProgramWriteAdmission(!!query.data?.canEdit && !query.error);
   const utils = api.useUtils();
   const review = useActionReview();
   const remove = api.program.removeCalendarDay.useMutation();
@@ -132,7 +134,7 @@ export function ProgramCalendarSettings() {
         </div>
         {data.canEdit && (
           <Button
-            disabled={!!query.error || !!removePreviewing}
+            disabled={!admission.allowed || !!removePreviewing}
             onClick={() => setEditor({ day: null, snapshot: data.days })}
           >
             {t("add")}
@@ -213,7 +215,7 @@ export function ProgramCalendarSettings() {
                     {data.canEdit && (
                       <>
                         <TableAction
-                          disabled={!!query.error || !!removePreviewing}
+                          disabled={!admission.allowed || !!removePreviewing}
                           onClick={() =>
                             setEditor({ day, snapshot: data.days })
                           }
@@ -221,9 +223,9 @@ export function ProgramCalendarSettings() {
                           {t("edit")}
                         </TableAction>
                         <TableAction
-                          disabled={!!query.error || !!removePreviewing || review.blocked(day.date)}
+                          disabled={!admission.allowed || !!removePreviewing || review.blocked(day.date)}
                           onClick={async () => {
-                            if (removeGuard.current) return;
+                            if (!admission.isAllowed() || removeGuard.current) return;
                             removeGuard.current = true;
                             setRemovePreviewing(day.date);
                             setRemoveError(null);
@@ -232,6 +234,8 @@ export function ProgramCalendarSettings() {
                               const removalImpact = previewing
                                 ? await utils.program.calendarImpact.fetch({ date: day.date, endDate: day.endDate, expectedVersion: day.version, remove: true }, { staleTime: 0 })
                                 : null;
+                              // Preview completion cannot reuse authority lost while the read was pending.
+                              if (!admission.isAllowed()) return;
                               review.open({
                               key: day.date,
                               title: t("removeTitle"),
@@ -246,11 +250,13 @@ export function ProgramCalendarSettings() {
                                   · {day.reason}
                                 </p>{removalImpact && <><p>{t("impactScope")}</p><p>{t("impactRestore", { count: removalImpact.restorationCount })}</p><p>{t("impactRule")}</p></>}</div>
                               ),
-                              commit: () =>
-                                remove.mutateAsync({
+                              commit: () => {
+                                if (!admission.isAllowed()) throw new Error(t("loadFailed"));
+                                return remove.mutateAsync({
                                   date: day.date,
                                   expectedVersion: day.version,
-                                }),
+                                });
+                              },
                               refresh: () =>
                                 settleRefreshes([
                                   () =>
@@ -296,7 +302,7 @@ export function ProgramCalendarSettings() {
             initial={editor.day}
             snapshot={editor.snapshot}
             canApply={data.canApply}
-            disabled={!!query.error || !data.canEdit}
+            disabled={!admission.allowed}
             onReload={async () => {
               const result = await query.refetch();
               if (!result.isSuccess)
@@ -333,6 +339,7 @@ function CalendarEditor({
 }) {
   const t = useTranslations("programCalendar");
   const approvals = useTranslations("approvals");
+  const admission = useProgramWriteAdmission(!disabled);
   const utils = api.useUtils();
   const [date, setDate] = useState(initial?.date ?? "");
   const [endDate, setEndDate] = useState(
@@ -381,7 +388,7 @@ function CalendarEditor({
       className="space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
-        if (disabled || pending || admitted.current || committed.current || previewConflict)
+        if (!admission.isAllowed() || pending || admitted.current || committed.current || previewConflict)
           return;
         admitted.current = true;
         setError(null);
@@ -426,7 +433,7 @@ function CalendarEditor({
       }}
     >
       <fieldset
-        disabled={disabled || pending || accepted}
+        disabled={!admission.allowed || pending || accepted}
         className="min-w-0 space-y-4"
       >
         <p className="muted text-sm">{t("rangeHelp")}</p>
