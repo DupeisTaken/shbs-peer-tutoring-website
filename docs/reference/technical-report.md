@@ -2011,7 +2011,14 @@ self excuses from exact accepted staff review evidence before offering cancellat
 
 Panelist detail opens lazily into one retained controller and reuses the existing
 vote operation. Each deliberately opened interview keeps its draft across Close and
-selection changes; access or assignment loss hides private evidence. Chair entries
+selection changes; access or assignment loss hides private evidence.
+Accepted local votes refresh `tutor.myInterviews` and every active normal/infinite
+`personalSchedule.interviews` variant before releasing the pending owner. These
+reads use `invalidateAndReport` and `settleRefreshes` so one failure cannot release
+another pending reader. An accepted vote remains saved after a read failure;
+read-only refresh recovery blocks further voting until synchronization succeeds.
+After recovery, deliberate vote revisions remain available while voting is open.
+The thirty-second polling still discovers changes from other writers. Chair entries
 link to the retained dashboard workspace, where current `canChair` authority still
 governs decisions and time changes. Historical `isHead` selects the chair workspace
 without granting live chair authority. Staff assignment, completion correction and
@@ -2185,6 +2192,11 @@ qualification without adding, removing or reassigning that service. The private
 `completionEvidence` reader exposes the original candidates and per-person credits
 to authorized management separately from the current panel. Participant projections
 retain only the caller's own actual credit and do not acquire that management ledger.
+The shared `InterviewApprovalDialog` uses retained-mode instructions and review
+labels for recorded non-initial requests. Review effects, confirmation and the saved
+receipt follow the captured `retainRecordedService` input, preserving the explicit
+no-hours-change notice and exact original completion timestamp. Initial and
+unrecorded requests retain first-award copy, attendance entry and payloads.
 
 [Interview adjustment source inspection](../../src/server/interview-adjustment-source.ts)
 uses bounded bulk queries to prove exact canonical credit ownership from typed
