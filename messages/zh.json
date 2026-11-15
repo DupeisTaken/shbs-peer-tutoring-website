@@ -3292,6 +3292,11 @@
     "incompleteHelp": "仍需完成邮箱验证或最后的账户确认。"
   },
   "workflow": {
+    "actionFailed": "无法确认此操作是否成功。您的草稿已保留。",
+    "currentRequests": "当前申请",
+    "retryRefresh": "重试刷新",
+    "recallAccepted": "本申请已撤回。请刷新查看最新状态；系统不会重复撤回。",
+    "abortAccepted": "您的退出申请已提交。请刷新查看最新状态；系统不会重复提交申请。",
     "pleaseReview": "请阅读以下内容后再继续",
     "cancel": "取消",
     "confirm": "是，确认",
@@ -6285,6 +6290,8 @@
     "unnamed": "未提供姓名"
   },
   "signupEditing": {
+    "originalEmailLabel": "申请最初验证的邮箱",
+    "emailReadOnly": "只读",
     "title": "编辑报名回答",
     "edit": "编辑报名回答",
     "requestLocal": "这些回答仅属于本次辅导申请。修改后保留原提交优先顺序，不会更改账户资料或登录凭据。",

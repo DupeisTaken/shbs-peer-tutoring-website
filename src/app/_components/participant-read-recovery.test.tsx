@@ -44,9 +44,8 @@ const remote = vi.hoisted(() => ({
   planningWrite: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
-  const { useQuery, useInfiniteQuery, useMutation } = await import(
-    "@tanstack/react-query"
-  );
+  const { useQuery, useInfiniteQuery, useMutation } =
+    await import("@tanstack/react-query");
   const read = (path: string[], load: typeof remote.me) => ({
     _def: () => ({ path }),
     useQuery(input?: unknown, options?: { enabled?: boolean }) {
@@ -55,7 +54,7 @@ vi.mock("~/trpc/react", async () => {
           path,
           { ...(input === undefined ? {} : { input }), type: "query" },
         ],
-        queryFn: (): unknown => load(),
+        queryFn: (): unknown => load(input),
         ...options,
       });
     },
@@ -167,18 +166,29 @@ vi.mock("./timed-action-dialog", () => ({
     canConfirm,
     onConfirm,
     onCancel,
+    busy,
+    action,
+    target,
   }: {
     children: ReactNode;
     canConfirm: boolean;
     onConfirm: (ticket: string) => void;
     onCancel: () => void;
+    busy: boolean;
+    action: string;
+    target: string;
   }) => (
-    <div role="dialog">
+    <div role="dialog" data-action={action} data-target={target}>
       {children}
-      <button disabled={!canConfirm} onClick={() => onConfirm("ticket")}>
+      <button
+        disabled={busy || !canConfirm}
+        onClick={() => onConfirm("ticket")}
+      >
         Confirm timed action
       </button>
-      <button onClick={onCancel}>Cancel timed action</button>
+      <button disabled={busy} onClick={onCancel}>
+        Cancel timed action
+      </button>
     </div>
   ),
 }));
@@ -349,6 +359,7 @@ beforeEach(() => {
   remote.edit.mockResolvedValue({ ok: true, version: 1 });
   remote.headEdit.mockResolvedValue({ ok: true, version: 1 });
   remote.appeal.mockResolvedValue({});
+  remote.withdraw.mockReset().mockResolvedValue({ ok: true });
   remote.feedback.mockResolvedValue({});
   remote.discipline.mockResolvedValue([]);
 });
@@ -851,6 +862,334 @@ it.each(["request", "legacy"])(
     await screen.findByRole("button", { name: en.workflow.applyAbort });
   },
 );
+
+const retainedRequest = {
+  ...request,
+  id: "retained-request",
+  subjects: [{ name: "English" }],
+  submittedAt: new Date("2026-10-02"),
+  pairings: [],
+};
+const retainedSignup = (version = 7) => ({
+  ...signup(version),
+  id: retainedRequest.id,
+  email: "original-english@example.test",
+  submittedAt: retainedRequest.submittedAt,
+  answers: {
+    ...signup(version).answers,
+    firstName: "English",
+    englishName: "English Name",
+    preferredContact: "English contact",
+    firstChoiceId: "english",
+  },
+  assignedSubjectIds: [],
+});
+function ownTwoRequests() {
+  remote.mine.mockResolvedValue([request, retainedRequest]);
+  remote.options.mockResolvedValue({
+    subjects: [
+      { id: "math", name: "Math" },
+      { id: "english", name: "English" },
+    ],
+    slots: [slot, { ...slot, id: "tue", dayOfWeek: 2 }],
+  });
+  remote.signup.mockImplementation(async ({ id }: { id: string }) =>
+    id === retainedRequest.id ? retainedSignup() : signup(),
+  );
+}
+
+it.each(["en", "zh"])(
+  "exposes both open sources with distinct controls and keeps terminal history in %s",
+  async (locale) => {
+    ownTwoRequests();
+    const messages = locale === "zh" ? zh : en;
+    remote.mine.mockResolvedValue([
+      request,
+      retainedRequest,
+      {
+        ...request,
+        id: "closed-request",
+        state: "RECALLED",
+        subjects: [{ name: "History" }],
+      },
+    ]);
+    mount(<StudentWorkspace />, locale);
+    const first = await screen.findByRole("article", { name: "Math" });
+    const second = screen.getByRole("article", { name: "English" });
+    expect(
+      screen.getByRole("heading", {
+        name: messages.workflow.currentRequests,
+        level: 2,
+      }),
+    ).toBeTruthy();
+    for (const [region, subject] of [
+      [first, "Math"],
+      [second, "English"],
+    ] as const) {
+      expect(
+        within(region).getByRole("heading", { name: subject, level: 3 }),
+      ).toBeTruthy();
+      expect(
+        within(region).getByRole("heading", {
+          name: messages.workflow.availability,
+          level: 4,
+        }),
+      ).toBeTruthy();
+      expect(
+        within(region).getByRole("button", {
+          name: new RegExp(`${messages.signupEditing.edit}.*${subject}`),
+        }),
+      ).toBeTruthy();
+      expect(region.getAttribute("aria-describedby")).toBeTruthy();
+    }
+    expect(
+      within(first).getByRole("button", {
+        name: new RegExp(`${messages.workflow.applyAbort}.*Math`),
+      }),
+    ).toBeTruthy();
+    expect(
+      within(second).getByRole("button", {
+        name: new RegExp(`${messages.workflow.recall}.*English`),
+      }),
+    ).toBeTruthy();
+    const history = document.getElementById("request-history")!;
+    expect(within(history).getByText("History")).toBeTruthy();
+    expect(
+      within(history).getByText(messages.workflow.state.RECALLED),
+    ).toBeTruthy();
+    expect(within(history).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("article", { name: "History" })).toBeNull();
+    expect(document.querySelectorAll("#current-request")).toHaveLength(1);
+    const ids = [...document.querySelectorAll("[id]")].map(
+      (element) => element.id,
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(document.body.textContent).not.toContain(retainedRequest.id);
+    expect(remote.signup).not.toHaveBeenCalled();
+    expect(remote.withdraw).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps the second source's editor, version and draft bound through reorder, failed synchronization and independent reopenings", async () => {
+  ownTwoRequests();
+  let saved = retainedSignup();
+  let unavailable = false;
+  remote.signup.mockImplementation(async ({ id }: { id: string }) => {
+    if (id !== retainedRequest.id) return signup();
+    if (unavailable) throw new Error("English source unavailable");
+    return saved;
+  });
+  remote.edit.mockImplementation(
+    async (input: { id: string; answers: typeof saved.answers }) => {
+      saved = { ...saved, version: 8, answers: input.answers };
+      unavailable = true;
+      return { ok: true, version: 8 };
+    },
+  );
+  mount(<StudentWorkspace />);
+  const english = await screen.findByRole("article", { name: "English" });
+  fireEvent.click(
+    within(english).getByRole("button", { name: /Edit signup answers/ }),
+  );
+  const dialog = screen.getByRole("dialog");
+  const contact = await within(dialog).findByDisplayValue("English contact");
+  fireEvent.change(contact, { target: { value: "English saved contact" } });
+  remote.mine.mockResolvedValue([retainedRequest, request]);
+  await refresh(["studentWorkflow", "mine"]);
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  expect(within(dialog).getByDisplayValue("English saved contact")).toBe(
+    contact,
+  );
+  expect(
+    within(dialog).getByDisplayValue("original-english@example.test"),
+  ).toBeTruthy();
+  const form = within(dialog)
+    .getByRole("button", { name: en.signupEditing.save })
+    .closest("form")!;
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: en.signupEditing.save,
+      }).disabled,
+    ).toBe(false),
+  );
+  fireEvent.submit(form);
+  await within(dialog).findByText(en.signupEditing.savedRefresh);
+  expect(remote.edit.mock.calls[0]?.[0]).toMatchObject({
+    id: retainedRequest.id,
+    expectedVersion: 7,
+    answers: {
+      firstChoiceId: "english",
+      preferredContact: "English saved contact",
+    },
+  });
+  fireEvent.submit(form);
+  expect(remote.edit).toHaveBeenCalledTimes(1);
+  unavailable = false;
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: en.signupEditing.retryRefresh }),
+  );
+  await within(dialog).findByText(en.signupEditing.saved);
+  expect(remote.edit).toHaveBeenCalledTimes(1);
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: en.accountProfile.close }),
+  );
+
+  fireEvent.click(
+    within(screen.getByRole("article", { name: "Math" })).getByRole("button", {
+      name: /Edit signup answers/,
+    }),
+  );
+  const mathDialog = screen.getByRole("dialog");
+  const original =
+    await within(mathDialog).findByDisplayValue("Original contact");
+  fireEvent.change(original, { target: { value: "Unsaved math contact" } });
+  fireEvent.click(
+    within(mathDialog).getByRole("button", { name: en.accountProfile.close }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("article", { name: "English" })).getByRole(
+      "button",
+      { name: /Edit signup answers/ },
+    ),
+  );
+  const reopened = screen.getByRole("dialog");
+  await within(reopened).findByDisplayValue("English saved contact");
+  expect(
+    within(reopened).queryByDisplayValue("Unsaved math contact"),
+  ).toBeNull();
+  expect(remote.signup).toHaveBeenCalledWith({ id: request.id });
+  expect(remote.signup).toHaveBeenCalledWith({ id: retainedRequest.id });
+  expect(remote.edit).toHaveBeenCalledTimes(1);
+});
+
+it("preserves a pending source action after its card closes and recovers accepted writes without replay or another source's ticket", async () => {
+  ownTwoRequests();
+  let finish!: () => void;
+  remote.withdraw.mockReturnValueOnce(
+    new Promise<void>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  remote.withdraw.mockResolvedValue({ ok: true });
+  mount(<StudentWorkspace />);
+  const english = await screen.findByRole("article", { name: "English" });
+  fireEvent.click(
+    within(english).getByRole("button", { name: /Recall request/ }),
+  );
+  expect(screen.getByRole("dialog").getAttribute("data-target")).toBe(
+    retainedRequest.id,
+  );
+  expect(screen.getByRole("dialog").getAttribute("data-action")).toBe("RECALL");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel timed action" }));
+  expect(remote.withdraw).not.toHaveBeenCalled();
+
+  fireEvent.click(
+    within(screen.getByRole("article", { name: "Math" })).getByRole("button", {
+      name: /Request withdrawal/,
+    }),
+  );
+  const dialog = screen.getByRole("dialog");
+  const reason = within(dialog).getByRole<HTMLTextAreaElement>("textbox", {
+    name: en.workflow.reason,
+  });
+  fireEvent.change(reason, { target: { value: "Math withdrawal reason" } });
+  const confirm = within(dialog).getByRole("button", {
+    name: "Confirm timed action",
+  });
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  await waitFor(() => expect(remote.withdraw).toHaveBeenCalledTimes(1));
+  expect(remote.withdraw.mock.calls[0]?.[0]).toEqual({
+    id: request.id,
+    reason: "Math withdrawal reason",
+    ticket: "ticket",
+  });
+  const terminal = { ...request, state: "ABORTED" };
+  remote.mine.mockResolvedValue([retainedRequest, terminal]);
+  await refresh(["studentWorkflow", "mine"]);
+  expect(
+    client
+      .getQueryData<Array<{ id: string; state: string }>>(
+        key(["studentWorkflow", "mine"]),
+      )
+      ?.find((row) => row.id === request.id)?.state,
+  ).toBe("ABORTED");
+  // Refetch resolves with the cache update; React Query batches the observer's
+  // render separately. Wait for that commit before checking the retained dialog.
+  await waitFor(() =>
+    expect(screen.queryByRole("article", { name: "Math" })).toBeNull(),
+  );
+  expect(
+    within(document.getElementById("request-history")!).getByText(
+      en.workflow.state.ABORTED,
+    ),
+  ).toBeTruthy();
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  expect(dialog.getAttribute("data-target")).toBe(request.id);
+  expect(reason.value).toBe("Math withdrawal reason");
+  expect(reason.disabled).toBe(true);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: "Cancel timed action",
+    }).disabled,
+  ).toBe(true);
+
+  remote.mine.mockRejectedValue(
+    new Error("Accepted withdrawal status unavailable"),
+  );
+  await act(async () => finish());
+  await screen.findByText(en.workflow.abortAccepted);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  remote.mine.mockResolvedValue([retainedRequest, terminal]);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.workflow.retryRefresh }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByText(en.workflow.abortAccepted)).toBeNull(),
+  );
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(
+    within(screen.getByRole("article", { name: "English" })).getByRole(
+      "button",
+      { name: en.workflow.recall },
+    ),
+  );
+  expect(screen.getByRole("dialog").getAttribute("data-target")).toBe(
+    retainedRequest.id,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Confirm timed action" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(remote.withdraw.mock.calls[1]?.[0]).toEqual({
+    id: retainedRequest.id,
+    ticket: "ticket",
+  });
+  expect(
+    within(
+      screen.getByRole("article", { name: "English" }),
+    ).getByRole<HTMLButtonElement>("button", { name: en.workflow.recall })
+      .disabled,
+  ).toBe(true);
+
+  remote.mine.mockRejectedValue(
+    Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+  );
+  await refresh(["studentWorkflow", "mine"]);
+  await screen.findByText(en.participantRecovery.accessDenied);
+  expect(screen.queryByRole("article")).toBeNull();
+  remote.mine.mockResolvedValue([retainedRequest, terminal]);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.participantRecovery.retry }),
+  );
+  const restored = await screen.findByRole("article", { name: "English" });
+  expect(
+    within(restored).getByRole<HTMLButtonElement>("button", {
+      name: en.workflow.recall,
+    }).disabled,
+  ).toBe(true);
+  expect(remote.withdraw).toHaveBeenCalledTimes(2);
+});
 
 it("announces pending record and visibility reads without inventing empty or private states", async () => {
   remote.me.mockImplementation(() => new Promise(() => undefined));

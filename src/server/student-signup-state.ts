@@ -37,6 +37,7 @@ import { requirePolicy } from "./policy-acceptance";
 import { recordDomainAudit } from "./audit/evidence";
 import { staleConflict } from "./concurrency";
 import { lockCatalogue } from "./qualifications";
+import { releaseStudentRequestExecution, studentRequestExecutionAssignments, type RequestExecutionSource } from "./student-request-execution";
 
 // Identity email, original signature and policy evidence are deliberately absent from edits.
 export const studentSignupAnswersInput = surveyInput.omit({
@@ -112,22 +113,24 @@ export async function assertSignupEditPeriod(
 
 export async function assignedSignupSubjects(
   tx: TransactionDb,
-  tuteeId: string,
-  termId: string,
+  row: RequestExecutionSource,
 ) {
-  const pairings = await tx.pairingTutee.findMany({
-    where: { tuteeId, pairing: { termId } },
-    select: { pairing: { select: { subject: true } } },
+  // Original request identity owns the answers; its exact current execution owns
+  // assignment locks, including transfers, without absorbing a sibling's work.
+  const assignments = await studentRequestExecutionAssignments(tx, row);
+  const pairings = await tx.pairing.findMany({
+    where: { id: { in: assignments.map(({ pairingId }) => pairingId) } },
+    select: { subject: true },
   });
   // Pairing preserves a catalogue label rather than an ID. Include inactive catalogue rows;
-  // an unresolved legacy label requires Head resolution instead of silently losing its lock.
+  // an unresolved assignment label requires Head resolution instead of silently losing its lock.
   const subjects = await tx.subject.findMany({
     select: { id: true, name: true },
   });
   return {
     subjectIds: [
       ...new Set(
-        pairings.flatMap(({ pairing }) => {
+        pairings.flatMap((pairing) => {
           const subject = subjects.find(
             (candidate) => candidate.name === pairing.subject,
           );
@@ -136,7 +139,7 @@ export async function assignedSignupSubjects(
       ),
     ],
     unresolved: pairings.some(
-      ({ pairing }) =>
+      (pairing) =>
         !subjects.some((subject) => subject.name === pairing.subject),
     ),
   };
@@ -341,7 +344,7 @@ export async function editStudentSignupAnswers(
     }
     if (row.currentVersion !== input.expectedVersion) staleConflict();
     const assigned = row.tuteeId
-      ? await assignedSignupSubjects(tx, row.tuteeId, row.intakeTermId)
+      ? await assignedSignupSubjects(tx, row)
       : { subjectIds: [], unresolved: false };
     const previous = studentSignupAnswersInput.parse(
       currentStudentSignupPayload(row),
@@ -394,33 +397,18 @@ export async function editStudentSignupAnswers(
           where: { id: { in: discarded } },
           select: { name: true },
         });
-        const links = await tx.pairingTutee.findMany({
+        const assignments = await studentRequestExecutionAssignments(tx, row);
+        const pairings = await tx.pairing.findMany({
           where: {
-            tuteeId: row.tuteeId,
-            pairing: {
-              termId: row.intakeTermId,
-              subject: { in: subjects.map(({ name }) => name) },
-            },
+            id: { in: assignments.map(({ pairingId }) => pairingId) },
+            subject: { in: subjects.map(({ name }) => name) },
           },
-          select: { pairingId: true },
+          select: { id: true },
         });
-        removedPairingIds.push(...links.map(({ pairingId }) => pairingId));
-        await tx.pairingTutee.deleteMany({
-          where: { tuteeId: row.tuteeId, pairingId: { in: removedPairingIds } },
-        });
+        removedPairingIds.push(...pairings.map(({ id }) => id));
+        for (const pairingId of removedPairingIds)
+          await releaseStudentRequestExecution(tx, row, { pairingId, unassignedStatus: "PENDING" });
         if (removedPairingIds.length) {
-          if (
-            !(await tx.pairingTutee.count({
-              where: {
-                tuteeId: row.tuteeId,
-                pairing: { termId: row.intakeTermId },
-              },
-            }))
-          )
-            await tx.tutee.update({
-              where: { id: row.tuteeId },
-              data: { status: "PENDING" },
-            });
           await tx.studentRequestReview.updateMany({
             where: {
               surveyId: row.id,

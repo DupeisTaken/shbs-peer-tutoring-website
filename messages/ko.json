@@ -3292,6 +3292,11 @@
     "incompleteHelp": "이메일 인증 또는 최종 계정 확인이 아직 필요합니다."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -6285,6 +6290,8 @@
     "unnamed": "이름이 제공되지 않음"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "신청 답변 수정",
     "edit": "신청 답변 수정",
     "requestLocal": "이 답변은 이 튜터링 신청에만 적용됩니다. 수정해도 최초 신청 우선순위가 유지되며 계정 프로필이나 로그인 정보는 바뀌지 않습니다.",

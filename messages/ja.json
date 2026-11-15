@@ -3292,6 +3292,11 @@
     "incompleteHelp": "メール確認または最終的なアカウント確認が必要です。"
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -6285,6 +6290,8 @@
     "unnamed": "氏名未入力"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "申込内容を編集",
     "edit": "申込内容を編集",
     "requestLocal": "この内容は今回の指導申込に属します。編集しても最初の申込順位は維持され、アカウントのプロフィールや認証情報は変わりません。",

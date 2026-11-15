@@ -3292,6 +3292,11 @@
     "incompleteHelp": "La vérification de l’e-mail ou la confirmation finale du compte reste nécessaire."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -6285,6 +6290,8 @@
     "unnamed": "Nom non fourni"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "Modifier les réponses d’inscription",
     "edit": "Modifier les réponses d’inscription",
     "requestLocal": "Ces réponses concernent cette demande de tutorat. Leur modification conserve la priorité initiale sans changer votre profil ni vos identifiants.",

@@ -13,7 +13,9 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { StudentSignupEditor } from "./student-signup-editor";
+import { SignupEmailField } from "../signup/signup-email-field";
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   options: vi.fn(),
@@ -206,6 +208,58 @@ beforeEach(() => {
   mocks.appeal.mockResolvedValue({ ok: true, appealId: "appeal" });
 });
 afterEach(cleanup);
+
+it.each([
+  { locale: "en", retained: false },
+  { locale: "en", retained: true },
+  { locale: "zh", retained: false },
+  { locale: "zh", retained: true },
+])(
+  "labels the immutable original mailbox in $locale (retained source: $retained) while public signup keeps sign-in wording",
+  ({ locale, retained }) => {
+    const messages = locale === "zh" ? zh : en;
+    const requestId = retained ? "retained-source" : "original-source";
+    current = {
+      ...source(),
+      id: requestId,
+      email: retained ? "earlier-verified@example.test" : "owner@example.test",
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <StudentSignupEditor requestId={requestId} onClose={vi.fn()} />
+          <SignupEmailField
+            value="current-signin@example.test"
+            onChange={vi.fn()}
+          />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const original = screen.getByRole<HTMLInputElement>("textbox", {
+      name: `${messages.signupEditing.originalEmailLabel} ${messages.signupEditing.emailReadOnly}`,
+      description: messages.signupEditing.emailFixed,
+    });
+    expect(original.value).toBe(current.email);
+    expect(original.readOnly).toBe(true);
+    expect(original.required).toBe(false);
+    expect(
+      within(original.closest("label")!).queryByText(
+        messages.signupFields.required,
+      ),
+    ).toBeNull();
+    const publicEmail = screen.getByRole<HTMLInputElement>("textbox", {
+      name: `${messages.survey.emailLabel} ${messages.signupFields.required}`,
+      description: messages.survey.emailHelp,
+    });
+    expect(publicEmail.value).toBe("current-signin@example.test");
+    expect(publicEmail.readOnly).toBe(false);
+    expect(publicEmail.required).toBe(true);
+    expect(mocks.query).toHaveBeenCalledWith(
+      { id: requestId },
+      expect.any(Object),
+    );
+  },
+);
 
 it("retains an owned appeal reason across a stale review; reload adopts only its review version", async () => {
   current = {
@@ -500,7 +554,6 @@ it("shows an accepted management proposal without replaying it or pretending the
       .hasAttribute("disabled"),
   ).toBe(true);
 });
-
 
 it("starts a distinct draft when the request or management mode changes", () => {
   const mounted = render(view());

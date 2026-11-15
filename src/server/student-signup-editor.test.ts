@@ -307,6 +307,8 @@ it("retains inactive assigned choices, permits other edits, rejects dropping the
     },
   });
   await db.subject.update({ where: { id: "math" }, data: { active: false } });
+  // No execution map exists: the original request still owns this genuine legacy member.
+  expect((await inspectOwnedStudentSignup(db, "owner", "request")).assignedSubjectIds).toEqual(["math"]);
   const input = draft({
     ...payload,
     preferredContact: "Changed contact",
@@ -328,6 +330,14 @@ it("retains inactive assigned choices, permits other edits, rejects dropping the
     (await inspectOwnedStudentSignup(db, "owner", "request"))
       .assignmentsUnresolved,
   ).toBe(true);
+  await expect(
+    editOwnedStudentSignup(db, "owner", {
+      ...input,
+      clientKey: randomUUID(),
+      expectedVersion: 1,
+      answers: { ...input.answers, firstChoiceId: "science" },
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT", message: "SIGNUP_ASSIGNMENT_UNKNOWN" });
   await expect(
     editOwnedStudentSignup(db, "owner", {
       ...input,
