@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
   historyRetry: vi.fn(),
   refetch: vi.fn(),
   propose: vi.fn(),
+  proposeCancellation: vi.fn(),
   suggest: vi.fn(),
   respond: vi.fn(),
   split: vi.fn(),
@@ -58,6 +59,7 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       propose: { useMutation: () => ({ mutateAsync: state.propose }) },
+      proposeCancellation: { useMutation: () => ({ mutateAsync: state.proposeCancellation }) },
       suggest: { useMutation: () => ({ mutateAsync: state.suggest }) },
       respond: { useMutation: () => ({ mutateAsync: state.respond }) },
       requestSplit: { useMutation: () => ({ mutateAsync: state.split }) },
@@ -169,7 +171,7 @@ const sample = (): Agenda => ({
   rooms: [{ id: "room", name: "A101" }],
   schoolCalendarDays: [],
   tutoringPauses: [],
-  cohorts: [{ ...attendanceOccurrence }],
+  cohorts: [{ ...attendanceOccurrence, tutees: attendanceOccurrence.tutees.map((person) => ({ ...person })) }],
   requests: [],
   suggestions: [],
   notices: [],
@@ -193,6 +195,7 @@ beforeEach(() => {
   state.historyRetry.mockReset();
   for (const fn of [
     state.propose,
+    state.proposeCancellation,
     state.suggest,
     state.respond,
     state.split,
@@ -214,6 +217,345 @@ function show(role: "tutor" | "tutee" = "tutor", locale: "en" | "zh" = "en") {
     </NextIntlClientProvider>,
   );
 }
+function futureExtra() {
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.cohorts = [
+    {
+      ...attendanceOccurrence,
+      tutees: attendanceOccurrence.tutees.map((person) => ({ ...person })),
+      kind: "EXTRA",
+      date: "2099-01-03",
+      startsAt: new Date("2099-01-03T07:00:00Z"),
+      endsAt: new Date("2099-01-03T07:45:00Z"),
+      needsAttendance: false,
+      canRecordAttendance: false,
+    },
+  ];
+  return state.data!.cohorts[0]!;
+}
+
+function cancellationRequest(): Agenda["requests"][number] {
+  const cohort = state.data!.cohorts[0]!;
+  const learner = cohort.tutees[0]!;
+  const response = {
+    id: "cancellation-response",
+    actorKey: `tutee:${learner.id}`,
+    name: learner.name,
+    state: "PENDING" as const,
+    deadline: null,
+    deliveredAt: null,
+    acceptedBy: null,
+    isMe: true,
+  };
+  return {
+    id: "cancellation-request",
+    version: 4,
+    planId: cohort.planId,
+    cohortId: cohort.id,
+    kind: "CANCEL",
+    scope: "ONE",
+    status: "PENDING",
+    stage: 1,
+    participantIds: [learner.id],
+    currentOffer: {
+      id: "cancellation-offer",
+      date: cohort.date,
+      startMin: cohort.startMin,
+      endMin: cohort.endMin,
+      roomId: cohort.roomId,
+      online: cohort.online,
+      startsAt: cohort.startsAt,
+      endsAt: cohort.endsAt,
+      cutoffAt: cohort.startsAt,
+      schoolClosed: false,
+      requiresExplicitAcceptance: false,
+      responses: [response],
+      myResponse: response,
+      canReject: true,
+      canRequestSplit: false,
+    },
+  };
+}
+
+it.each(["en", "zh"] as const)(
+  "reviews cancellation of the selected extra-session tutee without allocating a room (%s)",
+  async (locale) => {
+    const cohort = futureExtra();
+    cohort.rescheduled = true;
+    cohort.tutees.push({ id: "other-tutee", name: "Another Tutee" });
+    show("tutor", locale);
+    const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+    fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+    let dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(text.cancellationPendingHelp)).toBeTruthy();
+    expect(dialog.queryByLabelText(text.date)).toBeNull();
+    expect(dialog.queryByLabelText(text.location)).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: text.includeAll }));
+    fireEvent.change(dialog.getByLabelText(text.learner), {
+      target: { value: "other-tutee" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: text.review }));
+    expect(dialog.getByText(/Another Tutee/)).toBeTruthy();
+    expect(dialog.queryByText(/Remaining Learner/)).toBeNull();
+    expect(dialog.getByText(new RegExp(text.sessionToCancel))).toBeTruthy();
+    expect(dialog.getByText(text.cancellationReviewHelp)).toBeTruthy();
+    expect(state.previewLocation).not.toHaveBeenCalled();
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Close editor" }));
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+    dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByRole("checkbox", { name: text.includeAll }));
+    fireEvent.change(dialog.getByLabelText(text.learner), {
+      target: { value: "other-tutee" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: text.review }));
+    await act(async () =>
+      fireEvent.click(
+        dialog.getByRole("button", { name: text.sendCancellation }),
+      ),
+    );
+    expect(state.proposeCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cohortId: cohort.id,
+        expectedVersion: cohort.version,
+        scope: "ONE",
+        tuteeId: "other-tutee",
+      }),
+    );
+    expect(state.proposeCancellation.mock.calls[0]?.[0]).toHaveProperty(
+      "clientKey",
+      expect.any(String),
+    );
+    expect(state.propose).not.toHaveBeenCalled();
+    expect(screen.getByText(text.cancellationRequested)).toBeTruthy();
+  },
+);
+
+it.each(["regular", "started", "permission", "pending", "tutee"] as const)(
+  "guards cancellation admission for %s",
+  (scenario) => {
+    const cohort = futureExtra();
+    if (scenario === "regular") cohort.kind = "REGULAR";
+    if (scenario === "started")
+      cohort.startsAt = new Date("2000-01-01T07:00:00Z");
+    if (scenario === "permission") state.data!.canTutorWrite = false;
+    if (scenario === "pending") state.data!.requests = [cancellationRequest()];
+    show(scenario === "tutee" ? "tutee" : "tutor");
+    const button = screen.queryByRole<HTMLButtonElement>("button", {
+      name: messages.cancelExtra,
+    });
+    if (scenario === "started" || scenario === "pending")
+      expect(button?.disabled).toBe(true);
+    else expect(button).toBeNull();
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps a rejected cancellation draft, admits one pending submit and recovers accepted writes with reads only", async () => {
+  const cohort = futureExtra();
+  cohort.tutees.push({ id: "other-tutee", name: "Another Tutee" });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: messages.cancelExtra }));
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.click(dialog.getByRole("button", { name: messages.review }));
+  state.proposeCancellation.mockRejectedValueOnce(
+    new Error("Synthetic stale commitment"),
+  );
+  await act(async () =>
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.sendCancellation }),
+    ),
+  );
+  expect(dialog.getByText("Synthetic stale commitment")).toBeTruthy();
+  expect(dialog.getByText(/Remaining Learner, Another Tutee/)).toBeTruthy();
+  let finish!: (value: { id: string }) => void;
+  state.proposeCancellation.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const send = dialog.getByRole("button", { name: messages.sendCancellation });
+  act(() => {
+    fireEvent.click(send);
+    fireEvent.click(send);
+  });
+  expect(state.proposeCancellation).toHaveBeenCalledTimes(2);
+  expect(
+    dialog.getByRole<HTMLButtonElement>("button", { name: "Close editor" })
+      .disabled,
+  ).toBe(true);
+  state.refetch.mockRejectedValueOnce(new Error("Synthetic refresh failure"));
+  await act(async () => finish({ id: "accepted-cancellation" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.getByText(messages.cancellationRequestedRefreshFailed),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.cancelExtra,
+    }).disabled,
+  ).toBe(true);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: messages.retry })),
+  );
+  expect(state.proposeCancellation).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(messages.cancellationRequested)).toBeTruthy();
+  expect(state.proposeCancellation.mock.calls[1]?.[0]).toMatchObject({
+    scope: "ALL",
+    tuteeId: undefined,
+  });
+});
+
+it("blocks a retained cancellation review when current tutor write access is revoked", () => {
+  futureExtra();
+  const view = show();
+  fireEvent.click(screen.getByRole("button", { name: messages.cancelExtra }));
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.review,
+    }),
+  );
+  state.data!.canTutorWrite = false;
+  view.rerender(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <SessionAgenda role="tutor" />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByRole<HTMLButtonElement>("button", {
+      name: messages.sendCancellation,
+    }).disabled,
+  ).toBe(true);
+  expect(state.proposeCancellation).not.toHaveBeenCalled();
+});
+
+it("offers authoritative future extra cancellation in All while keeping it outside Upcoming", () => {
+  futureExtra();
+  state.data!.windowStart = "2026-10-26";
+  state.data!.windowEnd = "2026-11-08";
+  const onViewChange = vi.fn();
+  const view = render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <SessionAgenda role="tutor" view="upcoming" onViewChange={onViewChange} />
+  </NextIntlClientProvider>);
+  expect(screen.queryByRole("button", { name: messages.cancelExtra })).toBeNull();
+  view.rerender(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <SessionAgenda role="tutor" view="all" onViewChange={onViewChange} />
+  </NextIntlClientProvider>);
+  const cancel = screen.getByRole<HTMLButtonElement>("button", { name: messages.cancelExtra });
+  expect(cancel.disabled).toBe(false);
+  fireEvent.click(cancel);
+  expect(screen.getByRole("dialog", { name: messages.cancelExtra })).toBeTruthy();
+  expect(state.proposeCancellation).not.toHaveBeenCalled();
+});
+
+it.each(["en", "zh"] as const)(
+  "reviews acceptance and rejection of cancellation without alternatives or splitting (%s)",
+  async (locale) => {
+    const cohort = futureExtra();
+    state.data!.requests = [cancellationRequest()];
+    show("tutee", locale);
+    const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+    expect(screen.getByText(text.cancellationRequest)).toBeTruthy();
+    expect(screen.getByText(text.cancellationPendingHelp)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: text.alternative })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: text.requestSeparate }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: text.acceptCancellation }),
+    );
+    expect(state.respond).not.toHaveBeenCalled();
+    let dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(new RegExp(cohort.tutees[0]!.name))).toBeTruthy();
+    expect(dialog.getByText(text.cancellationReviewHelp)).toBeTruthy();
+    fireEvent.click(dialog.getByRole("button", { name: text.cancel }));
+    expect(state.respond).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: text.declineCancellation }),
+    );
+    dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(text.declineCancellationHelp)).toBeTruthy();
+    await act(async () =>
+      fireEvent.click(
+        dialog.getByRole("button", { name: text.declineCancellation }),
+      ),
+    );
+    expect(state.respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: "cancellation-request",
+        offerId: "cancellation-offer",
+        expectedVersion: 4,
+        decision: "REJECT",
+      }),
+    );
+    expect(state.respond.mock.calls[0]?.[0]).toHaveProperty(
+      "clientKey",
+      expect.any(String),
+    );
+    expect(state.split).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "requires explicit cancellation agreement on a paused date (%s)",
+  (locale) => {
+    const cohort = futureExtra();
+    state.data!.tutoringPauses = [
+      {
+        date: cohort.date,
+        endDate: cohort.date,
+        active: true,
+        schedulingEffect: "PAUSE_REGULAR",
+      },
+    ];
+    const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+    show("tutor", locale);
+    fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: text.review,
+      }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(text.cancellationExplicitHelp)).toBeTruthy();
+    expect(dialog.queryByText(text.cancellationAgreementHelp)).toBeNull();
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+  },
+);
+
+it("names captured cancellation participants after account combination and accepts the exact offer", async () => {
+  const cohort = futureExtra();
+  const request = cancellationRequest();
+  state.data!.requests = [request];
+  // Request actor evidence retains the original ID while execution ownership moves.
+  cohort.tutees[0]!.id = "combined-account-tutee";
+  show("tutee");
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.acceptCancellation }),
+  );
+  const dialog = within(screen.getByRole("dialog"));
+  expect(dialog.getByText(/Remaining Learner/)).toBeTruthy();
+  await act(async () =>
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.acceptCancellation }),
+    ),
+  );
+  expect(state.respond).toHaveBeenCalledWith(
+    expect.objectContaining({
+      requestId: request.id,
+      offerId: request.currentOffer!.id,
+      expectedVersion: request.version,
+      decision: "ACCEPT",
+    }),
+  );
+  expect(state.respond.mock.calls[0]?.[0]).toHaveProperty(
+    "clientKey",
+    expect.any(String),
+  );
+});
 it("interleaves authorized interview and meeting starts without inventing tutoring intervals", () => {
   const events = [
     {

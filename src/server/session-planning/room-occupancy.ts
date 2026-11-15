@@ -45,6 +45,7 @@ export async function datedUnavailableRooms(
     tx.sessionPlanningRequest.findMany({
       where: {
         status: "PENDING",
+        kind: { not: "CANCEL" },
         offers: { some: { roomId: { in: roomIds } } },
       },
       include: { offers: true },
@@ -137,6 +138,7 @@ export async function assertDatedRoomBlackoutAvailable(
     tx.sessionPlanningRequest.findMany({
       where: {
         status: "PENDING",
+        kind: { not: "CANCEL" },
         offers: { some: { roomId: blackout.roomId } },
       },
       include: { offers: true },

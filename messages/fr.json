@@ -154,7 +154,21 @@
     "requiresExplicit": "Un accord explicite est nécessaire ; le silence ne vaut pas acceptation de cette offre.",
     "explicitExceptionHelp": "Cette exception nécessite l’accord explicite du tuteur et de chaque élève participant. Sans réponse, il n’y a pas d’accord.",
     "tutoringPauseProposal": "Le tutorat régulier est suspendu à cette date. Cette proposition ne peut continuer que comme exception explicitement convenue.",
-    "exceptionScheduled": "Exception convenue"
+    "exceptionScheduled": "Exception convenue",
+    "cancelExtra": "Annuler la séance supplémentaire",
+    "cancellationRequest": "Demande d’annulation de séance supplémentaire",
+    "sessionToCancel": "Séance à annuler",
+    "cancellationPendingHelp": "Cette séance supplémentaire reste prévue jusqu’à un accord sur l’annulation. Un refus maintient la séance.",
+    "cancellationReviewHelp": "Après accord, seule la séance supplémentaire des participants sélectionnés sera annulée. L’organisation hebdomadaire reste identique. Cette demande ne crée ni présence ni heures.",
+    "cancellationAgreementHelp": "Le délai de réponse de 24 heures commence quand le service de messagerie accepte l’avis obligatoire. L’absence de réponse pendant un délai complet de 24 heures vaut accord. S’il ne peut finir avant la séance, tout le monde doit accepter explicitement avant le début. Sans accord, la séance est maintenue.",
+    "acceptCancellation": "Accepter l’annulation",
+    "declineCancellation": "Refuser l’annulation",
+    "declineCancellationHelp": "Le refus ferme cette demande d’annulation. La séance supplémentaire reste prévue.",
+    "sendCancellation": "Envoyer la demande d’annulation",
+    "cancellationRequested": "Annulation demandée. La séance supplémentaire reste prévue jusqu’à l’accord.",
+    "cancellationRequestedRefreshFailed": "Annulation demandée, mais les détails n’ont pas pu être actualisés. Actualisez uniquement ; ne renvoyez pas la demande.",
+    "cancellationHelp": "Cette demande concerne uniquement la séance supplémentaire des participants sélectionnés. L’organisation hebdomadaire reste identique.",
+    "cancellationExplicitHelp": "L’annulation exige l’accord explicite de tous les participants avant le début. Le silence ne vaut pas acceptation de cette demande d’annulation."
   },
   "nextRecruitment": {
     "savedForTarget": "Ouverture enregistrée pour {name}.",

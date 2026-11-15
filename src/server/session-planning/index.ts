@@ -1099,6 +1099,7 @@ async function affirmativePauseParticipants(tx: TransactionDb, plan: Plan, cohor
   const requests = await tx.sessionPlanningRequest.findMany({
     where: {
       status: "ACCEPTED",
+      kind: { not: "CANCEL" },
       OR: [{ planId: plan.id }, ...(extraRoot ? [{ id: extraRoot }, { parentRequestId: extraRoot }] : [])],
     },
     include: requestInclude,
@@ -1940,16 +1941,29 @@ async function makeOffer(
   const request = await reloadRequest(tx, requestId);
   const source = await loadCohort(tx, request.cohortId);
   const people = ids(request.participantIds);
-  const window = await validateTarget(
-    tx,
-    request.plan,
-    time,
-    people,
-    source,
-    request.scope,
-    requestId,
-    now,
-  );
+  // A cancellation refers to the existing commitment; it neither searches for
+  // another room nor reserves a new interval while participants decide.
+  const window =
+    request.kind === "CANCEL"
+      ? {
+          date: source.date,
+          startMin: source.startMin,
+          endMin: source.endMin,
+          startsAt: source.startsAt,
+          endsAt: source.endsAt,
+          roomId: source.roomId,
+          online: source.online,
+        }
+      : await validateTarget(
+          tx,
+          request.plan,
+          time,
+          people,
+          source,
+          request.scope,
+          requestId,
+          now,
+        );
   const cutoffAt = new Date(
     Math.min(source.startsAt.getTime(), window.startsAt.getTime()),
   );
@@ -2069,6 +2083,59 @@ async function finishAgreement(
     return;
   }
   const people = ids(request.participantIds);
+  if (request.kind === "CANCEL") {
+    // Agreement cancels only the captured extra-session audience. A changed
+    // dated commitment requires a new review, never a cancellation of its successor.
+    if (
+      source.plan.kind !== "EXTRA" ||
+      source.status !== "SCHEDULED" ||
+      source.date !== offer.date ||
+      source.startMin !== offer.startMin ||
+      source.endMin !== offer.endMin ||
+      source.roomId !== offer.roomId ||
+      source.online !== offer.online ||
+      source.startsAt.getTime() !== offer.startsAt.getTime() ||
+      source.endsAt.getTime() !== offer.endsAt.getTime() ||
+      people.some(
+        (id) =>
+          !source.plan.participants.some(
+            (person) =>
+              person.tuteeId === id &&
+              person.cohortId === source.id &&
+              person.status === "SCHEDULED",
+          ),
+      ) ||
+      (await tx.session.count({ where: { planningCohortId: source.id } }))
+    ) {
+      await closeRequest(tx, request, "STALE", "stale", now);
+      return;
+    }
+    await tx.sessionPlanParticipant.updateMany({
+      where: {
+        planId: source.planId,
+        cohortId: source.id,
+        tuteeId: { in: people },
+      },
+      data: {
+        status: "CANCELLED",
+        calendarSuppressed: false,
+        tutoringPauseSuppressed: false,
+        version: { increment: 1 },
+      },
+    });
+    const remaining = await tx.sessionPlanParticipant.count({
+      where: { cohortId: source.id, status: "SCHEDULED" },
+    });
+    await tx.sessionPlanCohort.update({
+      where: { id: source.id },
+      data: {
+        status: remaining ? "SCHEDULED" : "CANCELLED",
+        version: { increment: 1 },
+      },
+    });
+    await closeRequest(tx, request, "ACCEPTED", "cancelled", now);
+    return;
+  }
   try {
     await validateTarget(
       tx,
@@ -2678,6 +2745,92 @@ export async function suggestSessionTime(
   });
 }
 
+export async function proposeSessionCancellation(
+  db: DomainDb,
+  actor: Actor,
+  input: Versioned & {
+    cohortId: string;
+    scope: "ONE" | "ALL";
+    tuteeId?: string;
+  },
+) {
+  return inTransaction(db, async (tx) => {
+    await lockPlanningEntry(tx);
+    await actorAccount(tx, actor);
+    return receipt(
+      tx,
+      actor,
+      input.clientKey,
+      ["proposeCancellation", input],
+      async () => {
+        const now = new Date();
+        const cohort = await loadCohort(tx, input.cohortId);
+        await requireTutor(tx, actor, cohort.plan.tutorId, cohort.plan.id);
+        await ensureWritable(tx, cohort, input.expectedVersion, now);
+        if (
+          cohort.plan.kind !== "EXTRA" ||
+          cohort.status !== "SCHEDULED" ||
+          (await tx.session.count({ where: { planningCohortId: cohort.id } }))
+        )
+          return fail(
+            "Only an unstarted extra session can be proposed for cancellation.",
+            "CONFLICT",
+          );
+        const roster = cohort.plan.participants
+          .filter(
+            (row) => row.cohortId === cohort.id && row.status === "SCHEDULED",
+          )
+          .map((row) => row.tuteeId)
+          .sort();
+        const mapped = input.tuteeId
+          ? await operationalStudentSources(tx, cohort.plan, [input.tuteeId])
+          : [];
+        const selected =
+          input.tuteeId && roster.includes(input.tuteeId)
+            ? input.tuteeId
+            : mapped.find((id) => roster.includes(id));
+        const people =
+          input.scope === "ALL" ? roster : selected ? [selected] : [];
+        if (!people.length)
+          return fail("Select a current learner in this dated session.");
+        const pending = await tx.sessionPlanningRequest.findMany({
+          where: {
+            planId: cohort.planId,
+            status: { in: ["PENDING", "SPLIT_REQUESTED"] },
+          },
+        });
+        if (
+          pending.some((row) =>
+            ids(row.participantIds).some((id) => people.includes(id)),
+          )
+        )
+          return fail(
+            "A scheduling request is already open for these learners.",
+            "CONFLICT",
+          );
+        const request = await tx.sessionPlanningRequest.create({
+          data: {
+            planId: cohort.planId,
+            cohortId: cohort.id,
+            kind: "CANCEL",
+            scope: input.scope,
+            participantIds: people,
+          },
+        });
+        await makeOffer(
+          tx,
+          request.id,
+          `tutor:${cohort.plan.tutorId}`,
+          cohort,
+          now,
+        );
+        await audit(tx, request.id, "cancellationProposed");
+        return { id: request.id };
+      },
+    );
+  });
+}
+
 export async function proposeSession(
   db: DomainDb,
   actor: Actor,
@@ -2880,6 +3033,20 @@ export async function respondSession(
         const latest = await reloadRequest(tx, request.id);
         if (latest.status === "PENDING")
           await notice(tx, latest, "response_accepted");
+      } else if (request.kind === "CANCEL") {
+        if (input.alternative)
+          return fail("A cancellation response does not propose another time.");
+        await tx.sessionPlanningResponse.update({
+          where: { id: response.id },
+          data: { state: "REJECTED", respondedAt: now },
+        });
+        await closeRequest(
+          tx,
+          request,
+          "REJECTED",
+          "cancellation_rejected",
+          now,
+        );
       } else {
         const action =
           request.scope === "ONE"
@@ -2961,6 +3128,7 @@ export async function requestSeparateSession(
       await settleRequest(tx, request, new Date());
       request = await reloadRequest(tx, request.id);
       if (
+        request.kind === "CANCEL" ||
         request.scope !== "ALL" ||
         request.status !== "PENDING" ||
         request.version !== input.expectedVersion ||
@@ -2999,6 +3167,7 @@ export async function formalizeSeparateSessions(
         const parent = await reloadRequest(tx, input.requestId);
         await requireTutor(tx, actor, parent.plan.tutorId, parent.plan.id);
         if (
+          parent.kind === "CANCEL" ||
           parent.status !== "SPLIT_REQUESTED" ||
           parent.version !== input.expectedVersion
         )
@@ -3381,7 +3550,7 @@ export async function readSessionAgenda(
     // Bound publication and overdue work independently: old attendance backlog
     // cannot consume every slot and hide this week's actionable sessions. Sources
     // of loaded requests/suggestions remain available regardless of those limits.
-    const [windowRows, backlogRows, sourceRows] = await Promise.all([
+    const [windowRows, backlogRows, sourceRows, futureExtraRows] = await Promise.all([
       tx.sessionPlanCohort.findMany({
         where: {
           plan: visibility,
@@ -3409,10 +3578,24 @@ export async function readSessionAgenda(
             orderBy: [{ startsAt: "asc" }, { id: "asc" }],
           })
         : [],
+      // All can manage agreed extras beyond the publication window. Keep this
+      // live authority separate from read-only historical regular sessions.
+      tx.sessionPlanCohort.findMany({
+        where: {
+          plan: { AND: [visibility, { kind: "EXTRA" }] },
+          date: { gt: publication.end },
+          startsAt: { gt: now },
+          status: "SCHEDULED",
+          sessions: { none: {} },
+        },
+        include: agendaCohortInclude,
+        orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+        take: 300,
+      }),
     ]);
     const rows = [
       ...new Map(
-        [...windowRows, ...backlogRows.slice(0, 300), ...sourceRows].map(
+        [...windowRows, ...backlogRows.slice(0, 300), ...sourceRows, ...futureExtraRows].map(
           (row) => [row.id, row],
         ),
       ).values(),
@@ -3565,6 +3748,7 @@ export async function readSessionAgenda(
                 (request.scope === "ONE" ||
                   !ids(request.rejectionKeys).includes(myResponse.actorKey)),
               canRequestSplit:
+                request.kind !== "CANCEL" &&
                 request.status === "PENDING" &&
                 request.scope === "ALL" &&
                 Boolean(

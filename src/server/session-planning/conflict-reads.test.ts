@@ -266,6 +266,11 @@ describe("fresh overlapping conflict reads", () => {
       await request("before", 855);
       await request("after", 945);
       await request("cancelled", 900, { status: "CANCELLED" });
+      const cancellation = await request("pending-cancellation", 900);
+      await tx.sessionPlanningRequest.update({
+        where: { id: cancellation.id },
+        data: { kind: "CANCEL" },
+      });
       await request("no-offer", null);
       const malformed = await request("foreign-current-pointer", null);
       await tx.sessionPlanningRequest.update({

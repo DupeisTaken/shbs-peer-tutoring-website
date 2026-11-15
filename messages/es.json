@@ -154,7 +154,21 @@
     "requiresExplicit": "Se requiere acuerdo expreso; el silencio no acepta esta oferta.",
     "explicitExceptionHelp": "Esta excepción requiere el acuerdo expreso del tutor y de cada estudiante participante. No responder significa no aceptar.",
     "tutoringPauseProposal": "Las tutorías regulares están pausadas en esta fecha. La propuesta solo puede continuar como excepción acordada expresamente.",
-    "exceptionScheduled": "Excepción acordada"
+    "exceptionScheduled": "Excepción acordada",
+    "cancelExtra": "Cancelar sesión extra",
+    "cancellationRequest": "Solicitud de cancelación de sesión extra",
+    "sessionToCancel": "Sesión que se cancelará",
+    "cancellationPendingHelp": "Esta sesión extra sigue programada hasta que se acuerde la cancelación. Rechazarla mantiene la sesión.",
+    "cancellationReviewHelp": "Tras el acuerdo, solo se cancelará la sesión extra de los participantes seleccionados. El horario semanal se mantiene. Esta solicitud no genera asistencia ni horas.",
+    "cancellationAgreementHelp": "El plazo de respuesta de 24 horas comienza cuando el servicio de correo acepta el aviso obligatorio. No responder dentro de un plazo completo de 24 horas cuenta como aceptación. Si no puede terminar antes de la sesión, todos deben aceptar expresamente antes del inicio. Sin acuerdo, la sesión se mantiene.",
+    "acceptCancellation": "Aceptar cancelación",
+    "declineCancellation": "Rechazar cancelación",
+    "declineCancellationHelp": "El rechazo cierra esta solicitud de cancelación. La sesión extra sigue programada.",
+    "sendCancellation": "Enviar solicitud de cancelación",
+    "cancellationRequested": "Cancelación solicitada. La sesión extra sigue programada hasta el acuerdo.",
+    "cancellationRequestedRefreshFailed": "Cancelación solicitada, pero no se pudieron actualizar los detalles. Actualiza únicamente; no vuelvas a enviar la solicitud.",
+    "cancellationHelp": "Esta solicitud solo afecta a la sesión extra de los participantes seleccionados. El horario semanal se mantiene.",
+    "cancellationExplicitHelp": "Cancelar esta sesión requiere el acuerdo expreso de todos los participantes antes del inicio. El silencio no acepta esta solicitud de cancelación."
   },
   "nextRecruitment": {
     "savedForTarget": "Apertura guardada para {name}.",

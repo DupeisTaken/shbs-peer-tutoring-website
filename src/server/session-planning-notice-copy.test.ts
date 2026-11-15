@@ -4,6 +4,62 @@ import {
   sessionPlanningNoticeCopy,
 } from "./session-planning-notice-copy";
 
+it.each(["en", "zh"] as const)(
+  "describes cancellation agreement and rejection explicitly in %s",
+  (locale) => {
+    const context = {
+      kind: "CANCEL",
+      isActionable: true,
+      startsAt: "2026-11-04T07:00:00.000Z",
+      endsAt: "2026-11-04T07:45:00.000Z",
+      timeZone: "Asia/Shanghai",
+    };
+    const proposed = sessionPlanningNoticeCopy(
+      "proposed",
+      context,
+      false,
+      locale,
+    );
+    expect(proposed.subject).toContain(
+      locale === "en" ? "cancellation" : "取消",
+    );
+    expect(proposed.text).toContain(
+      locale === "en" ? "remains scheduled until" : "达成一致前",
+    );
+    expect(proposed.text).toContain(
+      locale === "en" ? "24-hour clock" : "24小时计时",
+    );
+    expect(proposed.presentation.action.label).toBe(
+      locale === "en" ? "Respond to cancellation" : "回复取消提议",
+    );
+    expect(proposed.text).toContain(
+      locale === "en" ? "Session time:" : "辅导时间",
+    );
+    expect(proposed.text).not.toContain("Proposed time:");
+    const rejected = sessionPlanningNoticeCopy(
+      "cancellation_rejected",
+      context,
+      false,
+      locale,
+    );
+    expect(rejected.text).toContain(
+      locale === "en"
+        ? "remains scheduled at its confirmed time"
+        : "仍按已确认的时间进行",
+    );
+    const explicit = sessionPlanningNoticeCopy(
+      "proposed",
+      { ...context, requiresExplicitAcceptance: true },
+      false,
+      locale,
+    );
+    expect(explicit.text).toContain(
+      locale === "en" ? "Silence will not accept" : "未回复不会视为接受",
+    );
+    expect(explicit.text).not.toContain("24-hour clock");
+  },
+);
+
 it.each(["proposed", "countered"])(
   "asks the recipient to reply to %s in each maintained language",
   (event) => {

@@ -103,7 +103,7 @@ export async function readOverlappingHolds(
     JOIN "SessionPlan" p ON p.id=r."planId"
     LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
     JOIN "SessionPlanningOffer" o ON o.id=r."currentOfferId" AND o."requestId"=r.id
-    WHERE r.status='PENDING'
+    WHERE r.status='PENDING' AND r.kind<>'CANCEL'
       AND o."startsAt"<${endsAt} AND o."endsAt">${startsAt}
       AND (${excluded}::text IS NULL OR r.id<>${excluded})
   `;

@@ -20,6 +20,22 @@ const descriptions = {
     "A tutoring time proposal is waiting for your reply.",
     "一项正式辅导时间提议等待您的回复。",
   ],
+  cancellation_proposed: [
+    "A proposal to cancel this extra tutoring session is waiting for your reply. The confirmed session remains scheduled until the cancellation is agreed.",
+    "取消本次额外辅导的提议等待您的回复。在取消提议达成一致前，已确认的辅导安排继续有效。",
+  ],
+  cancellation_response_accepted: [
+    "A participant agreed to cancel this extra tutoring session. It remains scheduled until every affected participant agrees to the same cancellation.",
+    "一位参与者已同意取消本次额外辅导。在所有受影响参与者同意同一取消提议前，辅导安排继续有效。",
+  ],
+  cancellation_response_autoaccepted: [
+    "A participant's cancellation response was automatically accepted after the 24-hour window following mail-service acceptance. The session remains scheduled until every affected participant agrees.",
+    "邮件服务接受通知后的24小时回复期限已结束，一位参与者的取消回复已自动接受。在所有受影响参与者同意前，辅导安排继续有效。",
+  ],
+  cancellation_rejected: [
+    "The cancellation proposal was declined. The extra tutoring session remains scheduled at its confirmed time.",
+    "取消提议已被拒绝。本次额外辅导仍按已确认的时间进行。",
+  ],
   countered: [
     "An alternative tutoring time is waiting for your reply. Earlier offers no longer apply.",
     "一个替代辅导时间等待您的回复。此前的提议已失效。",
@@ -78,6 +94,22 @@ const subjects: Record<keyof typeof descriptions, { en: string; zh: string }> =
       en: "Reply to a tutoring time proposal",
       zh: "请回复辅导时间提议",
     },
+    cancellation_proposed: {
+      en: "Reply to an extra-session cancellation",
+      zh: "请回复额外辅导取消提议",
+    },
+    cancellation_response_accepted: {
+      en: "A participant agreed to cancel an extra session",
+      zh: "一位参与者已同意取消额外辅导",
+    },
+    cancellation_response_autoaccepted: {
+      en: "Cancellation response accepted automatically",
+      zh: "取消回复已自动接受",
+    },
+    cancellation_rejected: {
+      en: "Extra-session cancellation declined",
+      zh: "额外辅导取消提议已被拒绝",
+    },
     countered: {
       en: "Reply to an alternative tutoring time",
       zh: "请回复替代辅导时间提议",
@@ -119,6 +151,7 @@ const subjects: Record<keyof typeof descriptions, { en: string; zh: string }> =
   };
 
 type SafeContext = {
+  kind?: "CANCEL";
   subjectLabel?: string;
   roomLabel?: string;
   online?: boolean;
@@ -136,6 +169,7 @@ export function sessionNoticeContext(input: unknown): SafeContext {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const source = input as Record<string, unknown>;
   const result: SafeContext = {};
+  if (source.kind === "CANCEL") result.kind = "CANCEL";
   for (const [key, max] of [
     ["subjectLabel", 200],
     ["roomLabel", 120],
@@ -190,10 +224,20 @@ export function sessionPlanningNoticeCopy(
 ) {
   const language = normalizeEmailLocale(locale);
   const t = (en: string, zh: string) => emailText(language, { en, zh });
-  const known = Object.prototype.hasOwnProperty.call(descriptions, event);
-  const key = known ? (event as keyof typeof descriptions) : "stale";
-  const copy = descriptions[key];
   const safe = sessionNoticeContext(context);
+  const cancellationEvent =
+    safe.kind === "CANCEL" &&
+    ["proposed", "response_accepted", "response_autoaccepted"].includes(event)
+      ? `cancellation_${event}`
+      : event;
+  const known = Object.prototype.hasOwnProperty.call(
+    descriptions,
+    cancellationEvent,
+  );
+  const key = known
+    ? (cancellationEvent as keyof typeof descriptions)
+    : "stale";
+  const copy = descriptions[key];
   const lines: string[] = [];
   if (obsolete) {
     lines.push(
@@ -254,15 +298,17 @@ export function sessionPlanningNoticeCopy(
     ? confirmed
       ? ["Earlier confirmed time", "此前确认时间"]
       : ["Earlier proposed time", "此前提议时间"]
-    : confirmed
-      ? ["Confirmed time", "确认时间"]
-      : key === "suggestion"
-        ? ["Suggested time", "建议时间"]
-        : key === "cancelled"
-          ? ["Cancelled session time", "已取消课程时间"]
-          : key === "expired" || key === "stale"
-            ? ["Earlier proposed time", "此前提议时间"]
-            : ["Proposed time", "提议时间"];
+    : safe.kind === "CANCEL" && key !== "cancelled"
+      ? ["Session time", "辅导时间"]
+      : confirmed
+        ? ["Confirmed time", "确认时间"]
+        : key === "suggestion"
+          ? ["Suggested time", "建议时间"]
+          : key === "cancelled"
+            ? ["Cancelled session time", "已取消课程时间"]
+            : key === "expired" || key === "stale"
+              ? ["Earlier proposed time", "此前提议时间"]
+              : ["Proposed time", "提议时间"];
   if (safe.startsAt && safe.timeZone) {
     details.push(
       t(
@@ -325,7 +371,9 @@ export function sessionPlanningNoticeCopy(
         label: obsolete
           ? t("View current schedule", "查看当前安排")
           : safe.isActionable
-            ? t("Respond to proposal", "回复时间提议")
+            ? safe.kind === "CANCEL"
+              ? t("Respond to cancellation", "回复取消提议")
+              : t("Respond to proposal", "回复时间提议")
             : t("View session", "查看课程"),
         url: "",
       },

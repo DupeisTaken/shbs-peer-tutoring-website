@@ -87,6 +87,7 @@ vi.mock("~/trpc/react", async () => {
           remote.calendarStatus,
         ),
         propose: write(remote.planningWrite),
+        proposeCancellation: write(remote.planningWrite),
         suggest: write(remote.planningWrite),
         respond: write(remote.planningWrite),
         requestSplit: write(remote.planningWrite),

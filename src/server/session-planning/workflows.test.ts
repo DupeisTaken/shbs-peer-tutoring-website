@@ -11,7 +11,7 @@ import {
 import { db } from "~/server/db";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { currentPolicy } from "~/server/policy-acceptance";
-import { runAuditedMutation } from "~/server/audit/evidence";
+import * as auditEvidence from "~/server/audit/evidence";
 import {
   saveSchoolCalendar,
   resetSchoolCalendar,
@@ -26,6 +26,7 @@ import { sessionCalendarFeed } from "~/server/session-planning-calendar";
 import {
   ensureSessionPlanningWindow,
   proposeSession,
+  proposeSessionCancellation,
   respondSession,
   suggestSessionTime,
   requestSeparateSession,
@@ -235,6 +236,535 @@ beforeEach(async () => {
 afterEach(() => vi.useRealTimers());
 afterAll(async () => {
   await db.$disconnect();
+});
+
+describe("agreed extra-session cancellation", () => {
+  async function extra(scope: "ONE" | "ALL" = "ALL") {
+    const proposed = await propose(scope, "EXTRA");
+    await respond(proposed.id, one, "ACCEPT");
+    if (scope === "ALL") await respond(proposed.id, two, "ACCEPT");
+    return db.sessionPlanCohort.findFirstOrThrow({
+      where: { plan: { kind: "EXTRA" }, status: "SCHEDULED" },
+      include: { participants: true },
+    });
+  }
+  async function cancel(
+    cohort: { id: string; version: number },
+    scope: "ONE" | "ALL" = "ALL",
+  ) {
+    return proposeSessionCancellation(db, tutor, {
+      cohortId: cohort.id,
+      expectedVersion: cohort.version,
+      clientKey: randomUUID(),
+      scope,
+      tuteeId: "planning-one",
+    });
+  }
+  async function feed(userId: string) {
+    // Feed capabilities use exactly 43 base64url characters, unlike receipt UUIDs.
+    const token = createHash("sha256").update(randomUUID()).digest("base64url");
+    await db.sessionCalendarToken.create({
+      data: {
+        userId,
+        tokenHash: createHash("sha256").update(token).digest("hex"),
+      },
+    });
+    return () => sessionCalendarFeed(db, token, now);
+  }
+  function event(calendar: string | null, uid: string) {
+    return calendar
+      ?.split("BEGIN:VEVENT\r\n")
+      .find((part) => part.includes(`UID:${uid}\r\n`));
+  }
+
+  it("keeps a group extra until agreement, then cancels only that dated commitment with stable calendar identities", async () => {
+    const original = await source();
+    const cohort = await extra();
+    const tutorFeed = await feed(tutor.id),
+      oneFeed = await feed(one.id);
+    const tutorUid = `cohort-${cohort.id}@shbs-session`;
+    const oneUid = `commitment-${cohort.participants.find((row) => row.tuteeId === "planning-one")!.id}@shbs-session`;
+    const before = event(await tutorFeed(), tutorUid);
+    expect(before).toContain("STATUS:CONFIRMED");
+    const request = await cancel(cohort);
+    await respond(request.id, one, "ACCEPT");
+    expect((await read(request.id)).status).toBe("PENDING");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "SCHEDULED", version: cohort.version });
+    const { request: pending, offer } = await current(request.id);
+    const input = {
+      requestId: request.id,
+      offerId: offer.id,
+      expectedVersion: pending.version,
+      clientKey: randomUUID(),
+      decision: "ACCEPT" as const,
+    };
+    await respondSession(db, two, input);
+    await respondSession(db, two, input);
+    expect((await read(request.id)).status).toBe("ACCEPTED");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "CANCELLED", version: cohort.version + 1 });
+    expect(event(await tutorFeed(), tutorUid)).toContain("STATUS:CANCELLED");
+    expect(event(await oneFeed(), oneUid)).toContain("STATUS:CANCELLED");
+    expect(event(await tutorFeed(), tutorUid)).toContain(
+      `SEQUENCE:${cohort.version + 1}`,
+    );
+    expect(
+      await db.sessionPlanParticipant.count({
+        where: {
+          planId: cohort.planId,
+          status: "CANCELLED",
+          calendarSuppressed: false,
+          tutoringPauseSuppressed: false,
+        },
+      }),
+    ).toBe(2);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: original.id },
+      }),
+    ).toMatchObject({ status: "SCHEDULED", version: original.version });
+    expect(await db.pairingTutee.count()).toBe(2);
+    expect(await db.session.count()).toBe(0);
+    expect(await db.disciplinaryCard.count()).toBe(0);
+    expect(
+      await db.sessionNotice.count({
+        where: { requestId: request.id, event: "cancelled" },
+      }),
+    ).toBe(3);
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "CANCELLED" });
+  });
+
+  it("cancels one learner in a moved extra while preserving the other learner's commitment", async () => {
+    const cohort = await extra();
+    const moved = await proposeSession(db, tutor, {
+      cohortId: cohort.id,
+      expectedVersion: cohort.version,
+      clientKey: randomUUID(),
+      scope: "ALL",
+      kind: "RESCHEDULE",
+      ...time("2026-11-04"),
+    });
+    await respond(moved.id, one, "ACCEPT");
+    await respond(moved.id, two, "ACCEPT");
+    const currentCohort = await db.sessionPlanCohort.findUniqueOrThrow({
+      where: { id: cohort.id },
+    });
+    expect(currentCohort.rescheduled).toBe(true);
+    const request = await cancel(currentCohort, "ONE");
+    await respond(request.id, one, "ACCEPT");
+    expect(
+      await db.sessionPlanParticipant.findMany({
+        where: { planId: cohort.planId },
+        orderBy: { tuteeId: "asc" },
+      }),
+    ).toMatchObject([
+      { tuteeId: "planning-one", status: "CANCELLED" },
+      { tuteeId: "planning-two", status: "SCHEDULED" },
+    ]);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "SCHEDULED", date: "2026-11-04" });
+    const attendance = await db.$transaction((tx) =>
+      sessionAttendanceContext(
+        tx,
+        tutor,
+        cohort.id,
+        undefined,
+        new Date(currentCohort.endsAt.getTime() + 1),
+      ),
+    );
+    expect(attendance.tuteeIds).toEqual(["planning-two"]);
+  });
+
+  it("declines cancellation without a counter-time or split and keeps the confirmed extra", async () => {
+    const cohort = await extra();
+    const request = await cancel(cohort);
+    await respond(request.id, one, "REJECT");
+    expect((await read(request.id)).status).toBe("REJECTED");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "SCHEDULED", version: cohort.version });
+    const latest = await read(request.id);
+    await expect(
+      requestSeparateSession(db, one, {
+        requestId: request.id,
+        expectedVersion: latest.version,
+        clientKey: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(
+      await db.sessionNotice.count({
+        where: { requestId: request.id, event: "cancellation_rejected" },
+      }),
+    ).toBe(3);
+    const again = await cancel(cohort);
+    expect(again.id).not.toBe(request.id);
+  });
+
+  it("serializes concurrent cancellation acceptance and refusal against one captured version", async () => {
+    const cohort = await extra("ONE");
+    const proposal = await cancel(cohort, "ONE");
+    const { request, offer } = await current(proposal.id);
+    const clientKeys = [randomUUID(), randomUUID()];
+    const results = await Promise.allSettled(
+      (["ACCEPT", "REJECT"] as const).map((decision, index) =>
+        respondSession(db, one, {
+          requestId: request.id,
+          offerId: offer.id,
+          expectedVersion: request.version,
+          clientKey: clientKeys[index]!,
+          decision,
+        }),
+      ),
+    );
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    const rejected = results.find((result) => result.status === "rejected");
+    expect(rejected).toMatchObject({
+      status: "rejected",
+      reason: { code: "CONFLICT" },
+    });
+    const accepted = results[0]!.status === "fulfilled";
+    const latest = await read(request.id);
+    expect(latest.status).toBe(accepted ? "ACCEPTED" : "REJECTED");
+    expect(
+      latest.offers
+        .find((row) => row.id === offer.id)!
+        .responses.find((row) => row.actorKey === "tutee:planning-one")!.state,
+    ).toBe(accepted ? "ACCEPTED" : "REJECTED");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: cohort.id } }),
+    ).toMatchObject({
+      status: accepted ? "CANCELLED" : "SCHEDULED",
+      version: cohort.version + Number(accepted),
+    });
+    expect(
+      await db.sessionPlanParticipant.findMany({
+        where: { planId: cohort.planId },
+      }),
+    ).toMatchObject([{ status: accepted ? "CANCELLED" : "SCHEDULED" }]);
+    expect(
+      await db.sessionPlanningReceipt.count({
+        where: { actorId: one.id, clientKey: { in: clientKeys } },
+      }),
+    ).toBe(1);
+    expect(
+      await db.sessionNotice.count({
+        where: {
+          requestId: request.id,
+          event: accepted ? "cancellation_rejected" : "cancelled",
+        },
+      }),
+    ).toBe(0);
+    expect(await db.session.count()).toBe(0);
+  });
+
+  it("rolls back cancellation, responses and notices when the final audit fails, then retries the same receipt once", async () => {
+    const cohort = await extra("ONE");
+    const proposal = await cancel(cohort, "ONE");
+    const { request, offer } = await current(proposal.id);
+    const before = await db.sessionPlanCohort.findUniqueOrThrow({
+      where: { id: cohort.id },
+      include: { participants: true },
+    });
+    const noticesBefore = await db.sessionNotice.count({
+      where: { requestId: request.id },
+    });
+    const input = {
+      requestId: request.id,
+      offerId: offer.id,
+      expectedVersion: request.version,
+      clientKey: randomUUID(),
+      decision: "ACCEPT" as const,
+    };
+    const originalAudit = auditEvidence.recordDomainAudit;
+    const failedAudit = vi
+      .spyOn(auditEvidence, "recordDomainAudit")
+      .mockImplementation(async (tx, args) => {
+        if (
+          args.operation === "sessionPlanning.cancelled" &&
+          args.entityId === request.id
+        )
+          throw new Error("Synthetic cancellation audit failure");
+        return originalAudit(tx, args);
+      });
+    try {
+      await expect(respondSession(db, one, input)).rejects.toThrow(
+        "Synthetic cancellation audit failure",
+      );
+    } finally {
+      failedAudit.mockRestore();
+    }
+    expect(await read(request.id)).toEqual(request);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+        include: { participants: true },
+      }),
+    ).toEqual(before);
+    expect(
+      await db.sessionNotice.count({ where: { requestId: request.id } }),
+    ).toBe(noticesBefore);
+    expect(
+      await db.sessionPlanningReceipt.count({
+        where: { actorId: one.id, clientKey: input.clientKey },
+      }),
+    ).toBe(0);
+    expect(
+      await db.auditLog.count({
+        where: { entityId: request.id, operation: "sessionPlanning.cancelled" },
+      }),
+    ).toBe(0);
+    await respondSession(db, one, input);
+    await respondSession(db, one, input);
+    expect((await read(request.id)).status).toBe("ACCEPTED");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: cohort.id } }),
+    ).toMatchObject({ status: "CANCELLED", version: cohort.version + 1 });
+    expect(
+      await db.sessionNotice.count({
+        where: { requestId: request.id, event: "cancelled" },
+      }),
+    ).toBe(2);
+    expect(
+      await db.auditLog.count({
+        where: { entityId: request.id, operation: "sessionPlanning.cancelled" },
+      }),
+    ).toBe(1);
+  });
+
+  it("enforces tutor ownership, extra-only eligibility, versions and the active roster", async () => {
+    const original = await source();
+    await expect(cancel(original)).rejects.toMatchObject({ code: "CONFLICT" });
+    const cohort = await extra();
+    const input = {
+      cohortId: cohort.id,
+      expectedVersion: cohort.version,
+      clientKey: randomUUID(),
+      scope: "ONE" as const,
+      tuteeId: "planning-one",
+    };
+    await expect(
+      proposeSessionCancellation(db, one, input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      proposeSessionCancellation(db, tutor, {
+        ...input,
+        expectedVersion: cohort.version + 1,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      proposeSessionCancellation(db, tutor, { ...input, tuteeId: "unrelated" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await db.user.update({
+      where: { id: tutor.id },
+      data: { tutorAccessRevoked: true },
+    });
+    await expect(
+      proposeSessionCancellation(db, tutor, input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(
+      await db.sessionPlanningRequest.count({ where: { kind: "CANCEL" } }),
+    ).toBe(0);
+  });
+
+  it("replays exact proposal receipts and rejects duplicate pending requests or altered receipt payloads", async () => {
+    const cohort = await extra();
+    const input = {
+      cohortId: cohort.id,
+      expectedVersion: cohort.version,
+      clientKey: randomUUID(),
+      scope: "ALL" as const,
+    };
+    const first = await proposeSessionCancellation(db, tutor, input);
+    expect(await proposeSessionCancellation(db, tutor, input)).toEqual(first);
+    await expect(cancel(cohort)).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      proposeSessionCancellation(db, tutor, {
+        ...input,
+        scope: "ONE",
+        tuteeId: "planning-one",
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(
+      await db.sessionPlanningRequest.count({ where: { kind: "CANCEL" } }),
+    ).toBe(1);
+  });
+
+  it("starts the cancellation silence clock only after delivery and settles at the exact 24-hour deadline", async () => {
+    const cohort = await extra("ONE");
+    const request = await cancel(cohort, "ONE");
+    await sweepSessionPlanning(db, new Date("2026-10-27T01:00:00Z"));
+    expect((await read(request.id)).status).toBe("PENDING");
+    const { offer } = await current(request.id);
+    const response = offer.responses.find(
+      (row) => row.actorKey === "tutee:planning-one",
+    )!;
+    const deliveredAt = new Date("2026-10-27T02:00:00Z");
+    await db.$transaction((tx) =>
+      markSessionResponseDelivered(tx, response.id, deliveredAt),
+    );
+    const persisted = await db.sessionPlanningResponse.findUniqueOrThrow({
+      where: { id: response.id },
+    });
+    expect(persisted.deadline).toEqual(new Date("2026-10-28T02:00:00Z"));
+    await sweepSessionPlanning(db, new Date(persisted.deadline!.getTime() - 1));
+    expect((await read(request.id)).status).toBe("PENDING");
+    await sweepSessionPlanning(db, persisted.deadline!);
+    expect((await read(request.id)).status).toBe("ACCEPTED");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "CANCELLED" });
+  });
+
+  it("expires a short-notice cancellation at start and refuses a new cancellation after start", async () => {
+    const cohort = await extra("ONE");
+    vi.setSystemTime(new Date(cohort.startsAt.getTime() - 60_000));
+    const request = await cancel(cohort, "ONE");
+    const { offer } = await current(request.id);
+    const response = offer.responses.find(
+      (row) => row.actorKey === "tutee:planning-one",
+    )!;
+    await db.$transaction((tx) =>
+      markSessionResponseDelivered(tx, response.id, new Date()),
+    );
+    expect(
+      await db.sessionPlanningResponse.findUniqueOrThrow({
+        where: { id: response.id },
+      }),
+    ).toMatchObject({ deadline: null });
+    vi.setSystemTime(cohort.startsAt);
+    await sweepSessionPlanning(db, cohort.startsAt);
+    expect((await read(request.id)).status).toBe("EXPIRED");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "SCHEDULED" });
+    await expect(cancel(cohort, "ONE")).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+  });
+
+  it("never cancels a changed source time on agreement", async () => {
+    const cohort = await extra("ONE");
+    const request = await cancel(cohort, "ONE");
+    await db.sessionPlanCohort.update({
+      where: { id: cohort.id },
+      data: {
+        startMin: cohort.startMin + 15,
+        endMin: cohort.endMin + 15,
+        startsAt: new Date(cohort.startsAt.getTime() + 15 * 60_000),
+        endsAt: new Date(cohort.endsAt.getTime() + 15 * 60_000),
+        version: { increment: 1 },
+      },
+    });
+    await respond(request.id, one, "ACCEPT");
+    expect((await read(request.id)).status).toBe("STALE");
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "SCHEDULED" });
+  });
+
+  it("refuses cancellation when attendance exists, including attendance added before agreement", async () => {
+    const cohort = await extra("ONE");
+    const request = await cancel(cohort, "ONE");
+    await db.session.create({
+      data: {
+        planningCohortId: cohort.id,
+        pairingId: "planning-pairing",
+        tutorId: tutor.tutorId,
+        date: cohort.startsAt,
+        startMin: cohort.startMin,
+        endMin: cohort.endMin,
+        durationMin: 45,
+        shFactor: 1,
+        shCount: 0.75,
+        month: "2026-11",
+        schoolYear: "26-27",
+        quarter: "Q1",
+      },
+    });
+    await respond(request.id, one, "ACCEPT");
+    expect((await read(request.id)).status).toBe("STALE");
+    await expect(cancel(cohort, "ONE")).rejects.toMatchObject({
+      code: "CONFLICT",
+    });
+    expect(await db.session.count()).toBe(1);
+    expect(
+      await db.sessionPlanParticipant.count({
+        where: { planId: cohort.planId, status: "SCHEDULED" },
+      }),
+    ).toBe(1);
+  });
+
+  it("requires affirmative cancellation on a paused date and never restores its cancelled commitment on reset", async () => {
+    const cohort = await extra("ONE");
+    await db.programCalendarDay.create({
+      data: {
+        date: cohort.date,
+        endDate: cohort.date,
+        reason: "Synthetic pause",
+        schedulingEffect: "PAUSE_REGULAR",
+      },
+    });
+    const request = await cancel(cohort, "ONE");
+    const { offer } = await current(request.id);
+    const response = offer.responses.find(
+      (row) => row.actorKey === "tutee:planning-one",
+    )!;
+    await db.$transaction((tx) =>
+      markSessionResponseDelivered(tx, response.id, now),
+    );
+    expect(
+      await db.sessionPlanningResponse.findUniqueOrThrow({
+        where: { id: response.id },
+      }),
+    ).toMatchObject({ deadline: null });
+    await sweepSessionPlanning(db, new Date(now.getTime() + 25 * 60 * 60_000));
+    expect((await read(request.id)).status).toBe("PENDING");
+    await respond(request.id, one, "ACCEPT");
+    await db.programCalendarDay.update({
+      where: { date: cohort.date },
+      data: { active: false },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanParticipant.count({
+        where: {
+          planId: cohort.planId,
+          status: "CANCELLED",
+          tutoringPauseSuppressed: false,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: cohort.id },
+      }),
+    ).toMatchObject({ status: "CANCELLED" });
+  });
 });
 
 describe("regular tutoring pauses and affirmative exceptions", () => {
@@ -1381,7 +1911,7 @@ describe("whole-group agreement and split", () => {
       actor: { id: string },
       work: (tx: typeof db) => Promise<{ id: string }>,
     ) => {
-      const result = await runAuditedMutation(workflowDb, {
+      const result = await auditEvidence.runAuditedMutation(workflowDb, {
         id: actor.id, name: "Synthetic roster-order actor", role: actor.id === tutor.id ? "TUTOR" : "STUDENT",
       }, operation, async (tx) => ({ ok: true, value: await work(tx) }));
       return result.value;
@@ -3255,6 +3785,15 @@ describe("planned agenda history", () => {
       status: "SCHEDULED",
       canRecordAttendance: false,
     });
+    const live = await readSessionAgenda(db, tutor, "tutor");
+    expect(extra.date > live.windowEnd).toBe(true);
+    const actionable = live.cohorts.find((item) => item.id === extra.id);
+    expect(actionable).toMatchObject({ kind: "EXTRA", status: "SCHEDULED", version: extra.version });
+    const cancellation = await proposeSessionCancellation(db, tutor, {
+      cohortId: extra.id, expectedVersion: actionable!.version,
+      clientKey: randomUUID(), scope: "ALL",
+    });
+    expect((await read(cancellation.id)).kind).toBe("CANCEL");
   });
 });
 
