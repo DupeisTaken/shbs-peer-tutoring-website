@@ -16,6 +16,7 @@ import { createQueryClient, isAdminSaveMutation } from "~/trpc/query-client";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 import { PUBLISHED_SESSION_DECLINE_MESSAGE } from "~/lib/legacy-signup-decline-error";
+import { STALE_RECORD_MESSAGE } from "~/lib/stale-record-error";
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <NextIntlClientProvider locale="en" messages={messages}>
     {children}
@@ -50,6 +51,43 @@ it.each([
     expect(screen.getByRole("alert").textContent).not.toContain(
       TRANSLATION_PAGE_MISSING,
     );
+  },
+);
+
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "uses generic %s stale-record guidance for another operation's global notice",
+  async (locale, catalog) => {
+    const previousHref = window.location.href;
+    window.history.replaceState(null, "", "/admin/applications");
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    const client = createQueryClient();
+    const save = vi.fn(() => Promise.reject(new Error(STALE_RECORD_MESSAGE)));
+    try {
+      const mutation = client.getMutationCache().build(client, {
+        mutationKey: [["admin", "setApplicationStatus"]],
+        mutationFn: save,
+      });
+      await act(async () => {
+        await expect(mutation.execute(undefined)).rejects.toThrow(
+          STALE_RECORD_MESSAGE,
+        );
+      });
+      expect(screen.getByRole("alert").querySelector("p")?.textContent).toBe(
+        catalog.saveErrors.staleRecord,
+      );
+      expect(save).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("status")).toBeNull();
+    } finally {
+      client.clear();
+      window.history.replaceState(null, "", previousHref);
+    }
   },
 );
 

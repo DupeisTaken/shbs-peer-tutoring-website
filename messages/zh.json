@@ -4879,6 +4879,9 @@
     "noTutor": "未关联辅导伙伴",
     "count": "显示 {count} / {total} 位用户"
   },
+  "saveErrors": {
+    "staleRecord": "此内容自加载后已发生变化。请刷新后重试。"
+  },
   "saveNotifications": {
     "saved": "更改已保存",
     "failed": "无法保存更改",

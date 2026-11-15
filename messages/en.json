@@ -4879,6 +4879,9 @@
     "noTutor": "No linked tutor",
     "count": "Showing {count} of {total} users"
   },
+  "saveErrors": {
+    "staleRecord": "This changed since you loaded it — refresh and try again."
+  },
   "saveNotifications": {
     "saved": "Changes saved",
     "failed": "Could not save changes",

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { groupAssignmentTutors } from "~/lib/assignment-qualification";
 import { isInterviewChairRole } from "~/lib/interview-chair";
+import { localizedStaleRecordError } from "~/lib/stale-record-error";
 import { Button } from "./ui/button";
 import { FormActions } from "./ui/patterns";
 
@@ -45,6 +46,7 @@ export function InterviewPanelEditor({
 }) {
   const t = useTranslations("admin.applications");
   const workflow = useTranslations("workflows");
+  const saveErrors = useTranslations("saveErrors");
   const participantNames = useTranslations("participantNames");
   const helpId = useId();
   const grants = api.admin.subjectEligibility.useQuery();
@@ -279,7 +281,8 @@ export function InterviewPanelEditor({
         )}
         {assign.error && (
           <span role="alert" className="text-sm text-red-600">
-            {assign.error.message}
+            {localizedStaleRecordError(assign.error.message, saveErrors) ??
+              assign.error.message}
           </span>
         )}
       </FormActions>
