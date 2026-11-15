@@ -1,0 +1,2169 @@
+{
+  "info": {
+    "sourceRevision": "dbb3c4eb213d58e134744fd417b1a06299b0e984",
+    "capturedAt": "2026-11-15T18:21:51.369Z",
+    "baseUrl": "http://127.0.0.1:3017",
+    "releaseRef": "Local dev server based on latest main at task start (dbb3c4eb), with the Help candidate. User-selected source baseline; no live deployment attestation.",
+    "fixture": "Isolated shbs_help_demo using prisma/seed.ts; synthetic Head also assigned Translator for the Landing editor; previous teaching week published through ensureSessionPlanningWindow for the attendance form.",
+    "captureMethod": "Codex in-app browser, rendered UI, manual inspection. JPEGs saved from browser screenshots; no fabricated screens."
+  },
+  "screenshots": [
+    {
+      "id": "account-academics",
+      "file": "account-academics.en.jpg",
+      "route": "/my-account",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:48:02.596Z",
+      "viewport": {
+        "width": 780,
+        "height": 610
+      },
+      "sha256": "a192fc75cde137cbcbd44f646a2ad1ca629aa30f6fe1c3ecc712537687ed8615",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "5d2d84c91187ab80ca0d05343ba59e50867d90ced59425285134f1b3492e19f1",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 210,
+        "y": 350,
+        "width": 780,
+        "height": 610
+      }
+    },
+    {
+      "id": "account-departure",
+      "file": "account-departure.en.jpg",
+      "route": "/my-account#academic-details",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:52:01.361Z",
+      "viewport": {
+        "width": 690,
+        "height": 495
+      },
+      "sha256": "6e267d07e6f94784ef61062a1badab981d77abee44070da5d0298cfffb0638b6",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "389e3389f368c7147012252a210717a2c8cf70d7c4c8fb30511fab6c2a1ae061",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 365,
+        "y": 250,
+        "width": 690,
+        "height": 495
+      }
+    },
+    {
+      "id": "account-emails",
+      "file": "account-emails.en.jpg",
+      "route": "/my-account#associated-emails",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:51:34.780Z",
+      "viewport": {
+        "width": 780,
+        "height": 550
+      },
+      "sha256": "ddd39b66765125706a16f16c62e556f8a36397650297148897f1b2e124f7eb2f",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "159468034cfb9825aee96bdd5227a349143c74f1c356cde916b144d3fd71ec4f",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 210,
+        "y": 90,
+        "width": 780,
+        "height": 550
+      }
+    },
+    {
+      "id": "account-notifications",
+      "file": "account-notifications.en.jpg",
+      "route": "/my-account#notification-preferences",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:51:23.067Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "530f5935c99a57fb691d52f6dd8653b5612ef5979ace67d98667e1624acafac5",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "account-password",
+      "file": "account-password.en.jpg",
+      "route": "/my-account#account-password",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:50:14.165Z",
+      "viewport": {
+        "width": 780,
+        "height": 370
+      },
+      "sha256": "6bdeadec2800313d46ef4f1dd718ba59c72588dc5b85e13034ec06807b61fb03",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "c6cfae57fa7de0d7dcb542308e5adf2127cccccc4c887c5e2b716851d1b311bf",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 210,
+        "y": 90,
+        "width": 780,
+        "height": 370
+      }
+    },
+    {
+      "id": "account-twofactor",
+      "file": "account-twofactor.en.jpg",
+      "route": "/my-account#account-twofactor",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:51:48.458Z",
+      "viewport": {
+        "width": 780,
+        "height": 270
+      },
+      "sha256": "29175bc0132ca160e5ceee33e11173879d07eb9146b2bd6b56b70c429c5ecaab",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "e7e04eeb15101f41459d799b0336f72488f7f67be205b2298b0ed87cb3f25c8d",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 210,
+        "y": 720,
+        "width": 780,
+        "height": 270
+      }
+    },
+    {
+      "id": "account",
+      "file": "account.en.jpg",
+      "route": "/my-account",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:47:51.187Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "3d47068a9e06989b02a7040cddbcbbb45ecece94296e46fa1a95cfea8b82fbc6",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "admin-academic-corrections",
+      "file": "admin-academic-corrections.en.jpg",
+      "route": "/admin/academic-corrections",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:31:19.809466Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "ef5800ff739e2e3afe2976e1ccb62c2af3273264e66583aa731546a99f064900",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "93d8b2295d36d8b5e224c3c620ecea28ef969687cb95ff98eb27fccadd1c12ba",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-announcements",
+      "file": "admin-announcements.en.jpg",
+      "route": "/admin/announcements",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:30:50.183860Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "c7326bcc7260675085ab9331da4c44b1bfa32246a196a1ff3baa00bb9e6ea6d1",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "3dda150171442ff393b3948b0af2183c71ac2363307c678126f6d1c6528a8d0b",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-applications",
+      "file": "admin-applications.en.jpg",
+      "route": "/admin/applications",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:26:22.354541Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "43f96d514832352b58738f3c9cff7479ee83346f2ff61592e29da5f2cc869600",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "024640e9cbda77b17229ca4ca19c614c4fc59019118b8f6be85a01982edce419",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-applications",
+      "file": "admin-applications.zh.jpg",
+      "route": "/admin/applications",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:34:08.075779Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "8a23c989352ac4a92a7f0412ce82dd37c6ddc77953c1454ab7e84fbaa1fcf9e5",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "3db6c5f6f63c25f11a6836d9f577916a42d64b1d6424dd6e98a77d707ba044df",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-approvals",
+      "file": "admin-approvals.en.jpg",
+      "route": "/admin/approvals",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:31:21.972164Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "d916ecd6bcacb50fe2de46a85b40fdd17b9ffa6d2f979d640063152d40de61e8",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "7867ddbd33a1808ea45c84378628f94773a86208c3a31ec9ac150c292131d014",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-attendance",
+      "file": "admin-attendance.en.jpg",
+      "route": "/admin/attendance",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:28:48.587742Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "f3d9324c50238ccc8eb13d72bdcf85076c5233b9f00d3a4b0fffa716b59c85a4",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "790da6f4f8c4335b5edbd29525a35e1d8e77036678488c6af92fb488f65b6a53",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-audit",
+      "file": "admin-audit.en.jpg",
+      "route": "/admin/audit",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:31:23.248698Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "a3d640fea30169b6eb9be55d77eb10324da66b87eb678674d2da4253b4312756",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "389dd9a8915fdb9565538576f12f2f3de33aca5950ee297a06c4308dd9e21dac",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-crew",
+      "file": "admin-crew.en.jpg",
+      "route": "/admin/crew",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:36:52.360620Z",
+      "viewport": {
+        "width": 1000,
+        "height": 280
+      },
+      "sha256": "4fef2c08ec7e7b9bc0188d21eb7ffce08ac843648f3e846d6a25fd6159bed327",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "1ac0c04702e1394f0354c0d8234ff9d43a11f65633dc55671eed8d5f2c99687a",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 280
+      }
+    },
+    {
+      "id": "admin-crew",
+      "file": "admin-crew.zh.jpg",
+      "route": "/admin/crew",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:33:52.561654Z",
+      "viewport": {
+        "width": 1000,
+        "height": 280
+      },
+      "sha256": "9118b8e87f52c3ed0be97ca874c51f2041986dfeee954d6fd0af7d076b7e8547",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "c01e368ea3530c307bf67a71365bba3e296787322722f66628ee7452e12ad287",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 280
+      }
+    },
+    {
+      "id": "admin-database",
+      "file": "admin-database.en.jpg",
+      "route": "/admin/database",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:31:52.715686Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "8d697efc16cbcb8dfd9c1c6328c3238f8797bd66ccb1536ade48ca51a9901427",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "2ff6a7ac891182643f6e71de3c3266983182e7b4d4e09a35b08126d0d0c22eab",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-discipline",
+      "file": "admin-discipline.en.jpg",
+      "route": "/admin/discipline",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:28:52.884206Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "360b52489e2cd11bbbdd9c3389d60e2f6ec319f8fe5a3b249c151a40dbdb6205",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "78469f87895733c242dc34cdfc27093613bc6207b2ec798983ff23964b9c3ec5",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-help",
+      "file": "admin-help.en.jpg",
+      "route": "/admin/help",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T17:26:40.515Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "35f62d9035b409e5cfa2f811fe777c6e9607aa6b7a600a5613bde1b6dd9d026a",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "admin-help",
+      "file": "admin-help.zh.jpg",
+      "route": "/admin/help",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T17:26:24.318Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "b0efbd00d1affc8c48823815fdeaae0f3e278a0ada8baa746e0f1916cf273439",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "admin-history",
+      "file": "admin-history.en.jpg",
+      "route": "/admin/history",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:30:25.965766Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "af397c951990814c109442c195423da8b7d6ac191a8eb19809b9fa7b274b4ffa",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "34c662723dee11ffa0ef2c1a8fef4d4e54dbd294f5e5fda8bb5bc03e6f8b5704",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-hour-adjustments",
+      "file": "admin-hour-adjustments.en.jpg",
+      "route": "/admin/hour-adjustments",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:30:24.712805Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "82cad29e857b53552fc11ccd0230b107c09f89f321577f2b598083520240d102",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "e6d84a7e7fde6a2a9661125c42115410cd34f5d7ac0027f161eb10a5fb4b4b05",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-landing",
+      "file": "admin-landing.en.jpg",
+      "route": "/admin/landing",
+      "locale": "en",
+      "role": "HEAD_TRANSLATOR",
+      "capturedAt": "2026-11-15T16:31:18.085596Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "f24a97e49ba85b421fc6e47c2bb7f853733fc772ce8aa7437a50791a155a748d",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "57a07970342a808da536bc047612aafe91e41f3dd3c0d4888fa8ac815d397096",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-meetings",
+      "file": "admin-meetings.en.jpg",
+      "route": "/admin/meetings",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:28:47.318101Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "e03ba202f1220ee31007b9ce6903fcb890965fe830c3b5c2a5a69b1a1d40d94f",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "0dfabf4e42f0f681f8d18862b208eb7d9f9b3a10d9ad8eb7ffb64cd67a782336",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-overview",
+      "file": "admin-overview.en.jpg",
+      "route": "/admin",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T17:23:06.722Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "d07d56ea4b981e3acb8cf0c613a2ff8facc9217f164ae6b9152ea9f44d4d1588",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "admin-overview",
+      "file": "admin-overview.zh.jpg",
+      "route": "/admin",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:33:55.081827Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "54f72aa469b0be7c7f2018c25a30c394583306a2fcb06f22444183ebc251a4f1",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "admin-pairings",
+      "file": "admin-pairings.en.jpg",
+      "route": "/admin/pairings",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:26:43.220031Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "080010a0d9218363968e3be65a2fa6503f7ba2e331fd4fc0e5eb5c9d98030a44",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "08e57700491580a08ee932c331f06a4d348e2b246770e55d8117882dbb7e3911",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-pairings",
+      "file": "admin-pairings.zh.jpg",
+      "route": "/admin/pairings",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:34:53.472234Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "7fe17cf67947d3598b8f2dea2ce1d0eccca2ae53529a211713a3568a3a23ec64",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "2c9f5bdb59461ca89adc92be2b4e16125602bd0b7049eed0e87539b7e6fcb8ae",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-policies",
+      "file": "admin-policies.en.jpg",
+      "route": "/admin/policies",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:30:54.659833Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "dcbcf06f9c332537b739da0563dc8bf11f5d3e9272a02805c657c0f1bfb05059",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "c6defb0ffd1cd43b5b476cf145378c76632141a532a402a1d4abd37361b7fa78",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-program",
+      "file": "admin-program.en.jpg",
+      "route": "/admin/program",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:31:54.511004Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "efd12aff7a5083030f165554ebea82685cd84171e154cae8c3371c70884edada",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "639c3c79f35f1924295bb574facb0a53626d77ed7ec588966a8d5d38dbe23c91",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-records",
+      "file": "admin-records.en.jpg",
+      "route": "/admin/records",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:32:34.238218Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "75ffd3fda10bc53d2363a3d0244f5a828455472e1a92270677565642a2a3435a",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "0b2e01cd681df599d1af3f2b20ac5b9a5fc597fe4870ca1088a42d454b34a70e",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-recovery",
+      "file": "admin-recovery.en.jpg",
+      "route": "/admin/recovery",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:31:50.599644Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "21b1f988a7744beb7d3517c11ea644d39d1f7802a6c4686121517a9a40e5f286",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "5f888695c6daae64d38f0360879673726942e7573efe16024ed910b523c111ac",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-registration-codes",
+      "file": "admin-registration-codes.en.jpg",
+      "route": "/admin/registration-codes",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:33:07.250145Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "0559b5177b28e7eb6996c381ea907bf987272e744c22aed69d25ebe21bc08c72",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "89e6f406a30e818393fc88b96f1b6130d92c319a8478f15c521c1936dc52a6ac",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-requests",
+      "file": "admin-requests.en.jpg",
+      "route": "/admin/requests",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:25:48.653295Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "d7a0f16f1df3ef5cbaf25317c9b9d6e2dd0e9f0ceafa01c5ce496e1f7f1614d1",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "eecd465ba9571cca181698936003be9f707928d101b1146fa7c12fdd858dceef",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-requests",
+      "file": "admin-requests.zh.jpg",
+      "route": "/admin/requests",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:33:56.760044Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "ac94c908e84c94f33b6ff83a1ed4f6066b1193c54c5617d412fb5cdb7abe88ea",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "fc97bc9b596a00ce7c5ab83241ff6dc88dca4f575c3651edac62d6517e1a29b0",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-rooms",
+      "file": "admin-rooms.en.jpg",
+      "route": "/admin/rooms",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:26:47.393235Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "0b75484873a2e6f855148b9ab26f9ac31556e5899e3823f832ab5e92519146cd",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "7d484769e90934b159450d1276548dd996bd73785f850b951225c141b6d2c3ae",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-rooms",
+      "file": "admin-rooms.zh.jpg",
+      "route": "/admin/rooms",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:34:58.570411Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "164b7a2e51e7ac419981ef0709307c8265b16d85bd8d648855a0ecb155270f39",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "0f4ec3f0b8d846fd5ac9bde955e43c3cbb4512c0208b3484de85eaefb525b309",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-school-reports",
+      "file": "admin-school-reports.en.jpg",
+      "route": "/admin/service-hours",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:36:48.063643Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "d65ee268a6078378bc4cb4a656e5db41cbf431b53413dbab53fcd371616fdb8b",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "5ae3875daa889d07afd804da840e1c0d5e4cf0acc625ea679df0def1be7026ec",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-school-reports",
+      "file": "admin-school-reports.zh.jpg",
+      "route": "/admin/service-hours",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:36:33.933701Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "8e9b840276bb64603536957757e45ad0fcb1bbda49e84e29abdd8ad50942e5f1",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "ef7ba503e632e2d02cc3bb8d7574066d0671dc7cb1722cca0425f3bc85a94151",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-service-hours",
+      "file": "admin-service-hours.en.jpg",
+      "route": "/admin/service-hours",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:30:22.166342Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "851df4b679d5a505c6a0e327ca84dc2639fbd1140a0918f5721e651ffd680c0c",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "90f4777ea1054fedaa0e4e17dbcc4a7b89d02742513a91687c7ec5d9eef2292b",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-session-flags",
+      "file": "admin-session-flags.en.jpg",
+      "route": "/admin/session-flags",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:28:50.768537Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "084537d9efdd2cc36b416d38eaebeb65aee793c58cae3814363044d25f579636",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "7f9545ae8531d5c425364437dbf9586f7be9213495e9a0d87339ac69fb22d2dc",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-signup-forms",
+      "file": "admin-signup-forms.en.jpg",
+      "route": "/admin/signup-forms",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:31:56.616945Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "333b8c7d6ecc0c1d41fc7ef096687141f5e9c4d01cef61b3ff1c6c2188ee1edc",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "48b19d4df868bb3deade24d871f0f7cd4c62fd76df6f5a0558fd78c993c67a71",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-student-support",
+      "file": "admin-student-support.en.jpg",
+      "route": "/admin/student-support",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:30:28.269527Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "0c0aab6842bdcf9690c96406f287bc63210797a1783f9f9b16a97ee5acf67389",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "eb2d92c517bf664ee7075dab4c6fb3a0e0454fb85b808cd4e3d40cd10f779128",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-subject-availability",
+      "file": "admin-subject-availability.en.jpg",
+      "route": "/admin/subject-availability",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:26:20.385309Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "087b14cebca65e4bb4169ad555e7ae2e5ac898896c1b3eec28815a7a71f74eac",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "6fcbc61a855eecea62f7ffa4bfbefd245f4b4abc68d09f199aee07a9b7e02bc9",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-subject-availability",
+      "file": "admin-subject-availability.zh.jpg",
+      "route": "/admin/subject-availability",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:34:09.919370Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "f771e2f1def46f60bda6d297d0e5d1141e2b05a5d0dea7db764f45538a569e9a",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "f8261a02cf7daaf7c5430ce5130197dd8e4a1736c7348e02a8440c354931dacd",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-subjects",
+      "file": "admin-subjects.en.jpg",
+      "route": "/admin/subjects",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:27:55.921305Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "e47ba190635eae3d6498a6e4f2a4772db7ab68d36ae10ac780e8071e551ac6bb",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "fb544de46350d3c7b6631f5d96946f6e65c9e8c9e50a29181adb5a9a951d500b",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-supervision",
+      "file": "admin-supervision.en.jpg",
+      "route": "/admin/messages/supervision",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:32:36.396854Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "1984f4ae55640171cab3b6957dcb708deed57c6f8b221ceeacde2e9f0a5e4f60",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "474e3afe35488501750b4f0e4d5e7db41bc56dc29bfdce4843470c431a891288",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-time-slots",
+      "file": "admin-time-slots.en.jpg",
+      "route": "/admin/time-slots",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:26:45.331116Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "0845056515169660af2df31d54779f10e835537b6706b8c088678fc26c7e361d",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "e50098d290b4d2becf6ebf1dba51a42ff359405b20fb92f7a119760b0e412d39",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-time-slots",
+      "file": "admin-time-slots.zh.jpg",
+      "route": "/admin/time-slots",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:34:56.767784Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "9e42beca2389790e4167dfcc2c6209d0d48136add8ef2417c8b111db0621f788",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "1844d868dc3ab29c105f84d3e17a69ffd4a36f7a2aca8e78efe412a9b307037a",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-tutee-requests",
+      "file": "admin-tutee-requests.en.jpg",
+      "route": "/admin/tutee-requests",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:27:59.548265Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "bb9993fca35200888cf0aa4e88584562b78ec30e032972cf8d51f91dea60fe62",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "8983da9b15fdaf68862e73b2041044dcf949333c5cf55f6262c261f1bf9ffa06",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-tutees",
+      "file": "admin-tutees.en.jpg",
+      "route": "/admin/tutees",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:26:41.024948Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "c30b2180b195f020f2b01c314e635c97a4ec4fb8c414f74391d6fd7d9fd5934f",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "ac85cd10e136a700728be544655715558357b6d707c19af88e4538b0a19eac04",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-tutees",
+      "file": "admin-tutees.zh.jpg",
+      "route": "/admin/tutees",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:36:08.110528Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "fe4e4689fb63af93260be482610ec4d14e739ad7a95352b0257ff54af993d3c7",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "bd5ba407602ba0c1820571dbe1933050ab7ff2da6bccf1e3d55e4ad524f0f3ad",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-tutor-requests",
+      "file": "admin-tutor-requests.en.jpg",
+      "route": "/admin/tutor-requests",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:27:58.126994Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "39a15ee529292e5a9a53ebf4d6f3892f87d086faa09c60dd741bfd09c72ae198",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "b74cb02468cdc7ff5ff1e0db6f178f71e2d357d7085155dca085f93636e3e1c7",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-tutors",
+      "file": "admin-tutors.en.jpg",
+      "route": "/admin/tutors",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:26:24.618804Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "74dc1a77db36f000609ea50a01495a2a70cd50c1fbdf09a730928c185a7db4f7",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "e976491c852ada373a9a9cb4c018256aa8abfeb4695df1ff04f49e138bdafccd",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-tutors",
+      "file": "admin-tutors.zh.jpg",
+      "route": "/admin/tutors",
+      "locale": "zh",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:34:11.885674Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "f29bea8d7cfccb35049b581e33fc06466309c2dde1b839eef186c667d4b9caa6",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "0009eb54d8e1938653fdf00e1605d32e40193269686c2fe0a388abc4b34b5c4c",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "admin-users",
+      "file": "admin-users.en.jpg",
+      "route": "/admin/users",
+      "locale": "en",
+      "role": "HEAD",
+      "capturedAt": "2026-11-15T16:30:56.565956Z",
+      "viewport": {
+        "width": 1000,
+        "height": 900
+      },
+      "sha256": "c820214e82299d6284ab34c0442b732ffd88927de4223d8af791e22211d4b861",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "50b698a1c7d171ef663dd3e855392a97579ee154086d84886bb375e800d403b2",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 330,
+        "y": 80,
+        "width": 1000,
+        "height": 900
+      }
+    },
+    {
+      "id": "crew-signup",
+      "file": "crew-signup.en.jpg",
+      "route": "/crew-signup",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:06:47.677Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "1e13cfc9d9e246ff80cb14d1337ba39e360c13dacf3e63ba975c92555e3d3910",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "forgot-password",
+      "file": "forgot-password.en.jpg",
+      "route": "/forgot-password",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:10:16.361Z",
+      "viewport": {
+        "width": 490,
+        "height": 365
+      },
+      "sha256": "8c83d43f8789663b1785587c70aedc5e6e6ee734c2d3d97dfe5b44389dfcef52",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "d4d72829670d803d33dfbd01bf85cb385c1c939dcbeb3e85c3cc53d7911a1edb",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 475,
+        "y": 105,
+        "width": 490,
+        "height": 365
+      }
+    },
+    {
+      "id": "help-article",
+      "file": "help-article.en.jpg",
+      "route": "/help/sign-in-recover",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T18:21:51.369Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "d4287ceaae5aee787d7b5a15121a71bc403075ca73847a69008f724fa02d74dc",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "help-article",
+      "file": "help-article.zh.jpg",
+      "route": "/help/sign-in-recover#walkthrough",
+      "locale": "zh",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T18:21:45.563Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "6cb1355223716d244872916fe1083d954acdd6094d5b27c521d1d8d784b05286",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "help-catalogue",
+      "file": "help-catalogue.en.jpg",
+      "route": "/help",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:26:52.469Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "71b5a80579650eba197cd62491566acdb0b85d47be6f4a938b5e65a2f69db45f",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "help-catalogue",
+      "file": "help-catalogue.zh.jpg",
+      "route": "/help",
+      "locale": "zh",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:27:31.728Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "54ec4623b3409b069d7542c8e25b3e0217036b20b56d9cc177e6830df7d715bb",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "history",
+      "file": "history.en.jpg",
+      "route": "/history",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T16:44:33.338Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "4ceffbce4e7bcb8040c9f7f6e5ddee530c4efaad6a021d62bbb22c60a1c4d3b2",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "invitation",
+      "file": "invitation.en.jpg",
+      "route": "/register-account",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:06:49.640Z",
+      "viewport": {
+        "width": 490,
+        "height": 565
+      },
+      "sha256": "4711aad8c4931e211124943831c4aaf4d8b2d60ad7160a9210e74ac80248eed1",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "36b589e7b6a741eadee439b926bfa4f285421f2c79458fb8bb0a0e7d2ddf64fc",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 475,
+        "y": 110,
+        "width": 490,
+        "height": 565
+      }
+    },
+    {
+      "id": "localization",
+      "file": "localization.en.jpg",
+      "route": "/localization",
+      "locale": "en",
+      "role": "TRANSLATOR",
+      "capturedAt": "2026-11-15T17:06:32.369Z",
+      "viewport": {
+        "width": 1000,
+        "height": 890
+      },
+      "sha256": "1ebffddebb4f0961e04bcea39112dc361151cd519c59f1efabf0a1770a29033c",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "20eb1c6d7ee8b8aad1cccb468374a0ef1784068aa683e95d6b60ea1f8fd9f234",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 210,
+        "y": 90,
+        "width": 1000,
+        "height": 890
+      }
+    },
+    {
+      "id": "observer",
+      "file": "observer.en.jpg",
+      "route": "/admin",
+      "locale": "en",
+      "role": "VIEWER",
+      "capturedAt": "2026-11-15T17:05:09.015Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "4b7016debcf243caf88fa6fa4f7ba43fa0eb9535215917f5b852d5f7e6400684",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "patrol",
+      "file": "patrol.en.jpg",
+      "route": "/patrol",
+      "locale": "en",
+      "role": "CREW",
+      "capturedAt": "2026-11-15T17:03:29.634Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "4715fe928974afde62c2e2e2b68087f9ea3f9da74a5d2069430493bfdf60fcc5",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "policy",
+      "file": "policy.en.jpg",
+      "route": "/dashboard",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:47:40.011Z",
+      "viewport": {
+        "width": 690,
+        "height": 905
+      },
+      "sha256": "685f8239a7343f48cc484b3af5963eddfcae01ac50fcd3a89437fe8363edb2a8",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "8caeb9f0ea4d76fbdf785dca2894b806f2b40f396352deaa34a477ae5b27eae7",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 365,
+        "y": 45,
+        "width": 690,
+        "height": 905
+      }
+    },
+    {
+      "id": "school-report",
+      "file": "school-report.en.jpg",
+      "route": "/reports/service-hours/[private-link]",
+      "locale": "en",
+      "role": "SCHOOL_RECIPIENT",
+      "capturedAt": "2026-11-15T16:39:20.349Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "8642f876e5a788a9e654708634eec4c452786a5c8a807a1e150819a22689aae9",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "signin",
+      "file": "signin.en.jpg",
+      "route": "/signin",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T16:40:28.024Z",
+      "viewport": {
+        "width": 490,
+        "height": 435
+      },
+      "sha256": "93f70d0549d7c10afcdbf16dec35d532c25a1f06453b5af259cd1e2d0e6dde41",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "d47eb4d68bca109d400cc1ed7c53db5ba0d5bc258de1c57199b922730a12cef1",
+        "width": 1440,
+        "height": 1000
+      },
+      "crop": {
+        "x": 475,
+        "y": 115,
+        "width": 490,
+        "height": 435
+      }
+    },
+    {
+      "id": "signup",
+      "file": "signup.en.jpg",
+      "route": "/tutee-signup",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:06:43.368Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "80893b2820e7ebe88ffe3f26f4a003df930f295c49afcfcb714e744d7190f4c0",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "student-attendance",
+      "file": "student-attendance.en.jpg",
+      "route": "/student?view=attendance",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T16:44:28.836Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "aec5ebc5d257051be06e363ea1275c90b4a1718e407196ef37381c7dc1fe39b0",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "student-dashboard",
+      "file": "student-dashboard.en.jpg",
+      "route": "/student?view=dashboard",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T16:42:21.995Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "8c5292f072b1b7485438d3bc9ba13b50968f58b499985642332d754db1fdbed2",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "student-feedback",
+      "file": "student-feedback.en.jpg",
+      "route": "/student?view=attendance",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T17:03:19.025Z",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "sha256": "aa3f0c70b09d09f4583309dca36f4643bda70a3811a8249acb4001efd72d568c",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "student-messages",
+      "file": "student-messages.en.jpg",
+      "route": "/student?view=messages",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T16:43:05.664Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "cec8fc35e22648f93bb4ffce42bb0375910fc0c938c5dbd704d5e71a6a5b8bd8",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "student-requests",
+      "file": "student-requests.en.jpg",
+      "route": "/student?view=requests",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T16:44:27.070Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "cc759191746bef8d1ba5fbdf79c710fd11378c7784018006e10d32325da5e79b",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "student-schedule",
+      "file": "student-schedule.en.jpg",
+      "route": "/student?view=schedule",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T16:43:59.681Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "2cf2c1fefcc1297a84889c6c3f91c4c952c378e8962623c53023bd8cfcdd3d1b",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "student-support",
+      "file": "student-support.en.jpg",
+      "route": "/student?view=support",
+      "locale": "en",
+      "role": "TUTEE",
+      "capturedAt": "2026-11-15T17:02:54.869Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "2bf04bffc4af078f6e4a163d538a75789da8af62528173826ec8fdd3c80366b8",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-attendance",
+      "file": "tutor-attendance.en.jpg",
+      "route": "/dashboard#sessions",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:58:12.275Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "556abb5eef3f422aee4a7054aef3fbc02ccd19392b666d9ffeb396f2438e6756",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-availability",
+      "file": "tutor-availability.en.jpg",
+      "route": "/dashboard#tutor-preferences",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:59:57.212Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "96bfc7b5bdbcab2b382b67b0f8547bb7d88f46d19a803bd828a478b45ed2e494",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-grouping",
+      "file": "tutor-grouping.en.jpg",
+      "route": "/dashboard#tutor-pairings",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T17:00:07.000Z",
+      "viewport": {
+        "width": 690,
+        "height": 725
+      },
+      "sha256": "ae801c1fa9a80126e7c6b2a3a2e8c298d39741a895a8fa6677782a2d2296c321",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "2254bd163d07c069f23f8102eda0c28cee0aa39bfe030609112bf6d8f98291e5",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 365,
+        "y": 135,
+        "width": 690,
+        "height": 725
+      }
+    },
+    {
+      "id": "tutor-history",
+      "file": "tutor-history.en.jpg",
+      "route": "/dashboard",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:46:22.336Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "63c4e9c43ff4e30af362c1e9ab0b56eca83c6351568ab2e61ee80ec93439b2a4",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-membership",
+      "file": "tutor-membership.en.jpg",
+      "route": "/settings",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:54:30.643Z",
+      "viewport": {
+        "width": 460,
+        "height": 275
+      },
+      "sha256": "356358f075b3b6588f59341689deab50aea50ceab2a15844b26c2291466f578a",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "original": {
+        "sha256": "56dccaf30f6537fb098efc4e0f4e20e693e7246ad8315195740d96e3fa82a229",
+        "width": 1425,
+        "height": 990
+      },
+      "crop": {
+        "x": 475,
+        "y": 365,
+        "width": 460,
+        "height": 275
+      }
+    },
+    {
+      "id": "tutor-overview",
+      "file": "tutor-overview.en.jpg",
+      "route": "/dashboard",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T17:02:25.557Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "4a2f23b95e1e7a391314cc23e0f88479add8b8369c9511ca0137a90ad208ea36",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-pairings",
+      "file": "tutor-pairings.en.jpg",
+      "route": "/dashboard",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:46:19.307Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "2119323b4c9e77e6afd9f4d2f770bc1b5266f1acde98b3a960aecdc199118d8c",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-preferences",
+      "file": "tutor-preferences.en.jpg",
+      "route": "/dashboard",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:46:20.800Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "75c6f01b93c11183b1305b8db282f21b8f7cf72773a5e276a20cdd35cae1ed87",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-schedule",
+      "file": "tutor-schedule.en.jpg",
+      "route": "/dashboard",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T16:46:17.722Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "53f8fe9775b7767fe14cad13b2cb2ef1138d23baffe4b16e5d2089d4b70bc0eb",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-session-plan",
+      "file": "tutor-session-plan.en.jpg",
+      "route": "/dashboard#sessions",
+      "locale": "en",
+      "role": "TUTOR",
+      "capturedAt": "2026-11-15T17:02:01.037Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "babcb0a6347791c222b85e0e274bd61639135bd6f66e2000459c451b3259c447",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "tutor-signup",
+      "file": "tutor-signup.en.jpg",
+      "route": "/tutor-signup",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:06:45.728Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "b8c8906444b4e56b8c5b2f918cbb4f99c273cc7b0eb7aaeb6b8cc4e83125f636",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "id": "viewer-signup",
+      "file": "viewer-signup.en.jpg",
+      "route": "/viewer-signup",
+      "locale": "en",
+      "role": "GUEST",
+      "capturedAt": "2026-11-15T17:10:14.547Z",
+      "viewport": {
+        "width": 1425,
+        "height": 990
+      },
+      "sha256": "73b60121407318c2668a9d0d83978d8104ec8beb4a26665034f3474d52a99a66",
+      "browserViewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    }
+  ]
+}

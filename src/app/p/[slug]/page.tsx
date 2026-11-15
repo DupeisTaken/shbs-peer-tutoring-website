@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 
@@ -29,6 +29,8 @@ export default async function SlugPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  // Preserve existing FAQ bookmarks while the maintained catalogue owns help.
+  if (slug === "faq") redirect("/help");
   const locale = await getLocale();
   const navPages = await getNavPages(db, locale);
 
@@ -83,10 +85,16 @@ async function Shell({
     getTranslations("landing"),
     getTranslations("common"),
   ]);
-  const navItems = nav.map((page) => ({
-    href: `/p/${page.slug}`,
-    label: page.label,
-  }));
+  const help = await getTranslations("helpNav");
+  const navItems = [
+    { href: "/help", label: help("title") },
+    ...nav
+      .filter((page) => page.slug !== "faq")
+      .map((page) => ({
+        href: `/p/${page.slug}`,
+        label: page.label,
+      })),
+  ];
   return (
     <div className="flex min-h-screen flex-col">
       <PublicHeader

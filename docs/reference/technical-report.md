@@ -340,6 +340,15 @@ Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by 
 
 The application runs as a persistent Next.js 16 / React 19 Node server with tRPC 11, Prisma 7/PostgreSQL, Auth.js JWT sessions, next-intl and Tailwind CSS 4. It is not a static export: background verification deadlines, authentication and database mutations require the server.
 
+The [Help catalogue](../guides/help/README.md) uses bilingual task records in
+`src/lib/help`. Its server reader derives live capabilities before serializing
+search results or rendering an article. Screenshot handlers accept only reviewed
+manifest IDs referenced by authorized guides; assets stay outside public hosting.
+Staff PDF downloads render the same records and screenshots with embedded local
+fonts. Admin and Head editions retain separate authority gates. Generated GitHub
+editions and reviewed capture/source hashes are checked by `npm run help:check`;
+see the [maintenance procedure](../contributing/help-catalogue.md).
+
 | Change you need                          | Start here                                                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | Add or change a page                     | [App routes](../../src/app), [shared components](../../src/app/_components) and [message catalogs](../../messages)                                                                                        |

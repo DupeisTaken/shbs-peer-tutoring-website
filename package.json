@@ -30,7 +30,9 @@
     "test:ci": "node --test scripts/ci.test.mjs",
     "test:deployment": "node --test --test-concurrency=1 scripts/deployment-config.test.mjs scripts/backup.test.mjs scripts/collect-network-evidence.test.mjs scripts/check-storage-capacity.test.mjs scripts/assemble-runtime.test.mjs scripts/runtime-file-inventory.test.mjs scripts/compare-runtime-images.test.mjs",
     "typecheck": "tsc --noEmit",
-    "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs"
+    "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs && npm run help:check",
+    "help:export": "tsx scripts/export-help.ts",
+    "help:check": "tsx scripts/export-help.ts --check && tsx scripts/check-help-captures.ts"
   },
   "dependencies": {
     "@alicloud/captcha20230305": "^1.1.4",
@@ -53,6 +55,7 @@
     "next-auth": "5.0.0-beta.32",
     "next-intl": "^4.13.1",
     "nodemailer": "10.2.1",
+    "pdfkit": "^0.20.2",
     "pg": "^8.22.0",
     "prisma": "^7.8.0",
     "qrcode": "^1.5.4",
@@ -71,6 +74,7 @@
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.1.0",
     "@types/nodemailer": "^8.0.1",
+    "@types/pdfkit": "^0.17.7",
     "@types/pg": "^8.20.0",
     "@types/pngjs": "^6.0.5",
     "@types/qrcode": "^1.5.6",
@@ -79,10 +83,10 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "16.4.3",
     "fast-glob": "file:tools/next-lint-glob",
-    "minimatch": "file:tools/next-lint-glob/minimatch-compat",
     "js-yaml": "^4.3.2",
     "jsdom": "^30.0.1",
     "jsqr": "^1.4.0",
+    "minimatch": "file:tools/next-lint-glob/minimatch-compat",
     "pngjs": "^7.0.0",
     "postcss": "^8.5.26",
     "prettier": "^3.9.4",

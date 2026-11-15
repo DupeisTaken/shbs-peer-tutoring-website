@@ -73,7 +73,8 @@ export function AccountEmails() {
 
   return (
     <section
-      className="card overflow-hidden"
+      id="associated-emails"
+      className="card scroll-mt-24 overflow-hidden"
       aria-labelledby="account-emails-heading"
     >
       <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">

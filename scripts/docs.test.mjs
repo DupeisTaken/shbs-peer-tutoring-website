@@ -77,8 +77,15 @@ test("maintained documentation has separate contributor, reference and guide hom
           return entry.name === "reports" ? [] : files(file);
         return [file];
       });
-  // Historical captures cannot silently become current source guidance again.
+  // The maintained help manual owns its reviewed image receipts and assets.
+  // Historical reports/captures still cannot become source guidance elsewhere.
   for (const file of files("docs")) {
+    if (
+      /^docs\/guides\/help\/(?:assets\/[a-z0-9-]+\.(?:en|zh)\.jpg|(?:captures|source-fingerprints|coverage)\.json)$/.test(
+        file,
+      )
+    )
+      continue;
     assert.match(
       file,
       /^docs\/(?:README\.md|(?:contributing|reference|guides)\/.+\.md)$/,

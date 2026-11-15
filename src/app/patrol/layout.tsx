@@ -50,6 +50,7 @@ export default async function PatrolLayout({
         href="/patrol"
         title={t("crew.brand", { team: TEAM_TITLE })}
         items={[
+          { href: "/help", label: t("helpNav.title") },
           ...(session.role !== "VIEWER"
             ? [{ href: "/student", label: t("components.userMenu.enterTutee") }]
             : []),

@@ -1,5 +1,11 @@
 # User guide
 
+For searchable English and Chinese task walkthroughs with real development-server
+screenshots, explanations and troubleshooting, open **Help & how-to** at `/help`.
+Sign in to reveal guides for your current account and participation. The
+[repository catalogue](help/README.md) mirrors the same maintained instructions;
+staff can download PDF handbooks from **Management → PDF handbooks**.
+
 Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when Head activates staged program modules at refresh. A hidden page does not grant permission to use its address directly.
 
 ## Contents
@@ -552,7 +558,8 @@ When selecting interviewers, **Group panelists by subject** puts tutors with rec
 
 In **Tutor Applications**, open an initial request's details and choose **Edit signup
 request**. Admin/Head apply the correction; Coordinators submit it for review through
-Management Actions. Coordinators and read-only users cannot submit corrections.
+Management Actions; their proposal does not change the application until Admin/Head
+approval. Read-only users cannot submit corrections.
 Confirm the spelling with the applicant, then enter First Name, Last Name,
 Preferred Name and Name in Another Language as appropriate, with a correction
 reason. Never guess a transliteration or divide an old name into guessed parts.
