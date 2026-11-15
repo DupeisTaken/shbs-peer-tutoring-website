@@ -1,7 +1,7 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -9,7 +9,7 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { Button } from "~/app/_components/ui/button";
-import { StatePanel } from "~/app/_components/ui/patterns";
+import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ParticipantName } from "~/app/_components/participant-name";
@@ -98,6 +98,17 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
       />
     </>
   );
+  const currentRequests = useCurrentRequests({
+    rows: query.data ?? [],
+    readBlocked,
+    readFeedback,
+    concealed: denied || requestDenied || legacyDenied,
+    onRefresh: async () => {
+      const fresh = await query.refetch();
+      if (fresh.error || !fresh.data)
+        throw new Error(recovery("refreshFailed"));
+    },
+  });
   if (denied || requestDenied || legacyDenied)
     return (
       <StatePanel
@@ -117,7 +128,8 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
       </StatePanel>
     );
   if (!query.data) return <div className="space-y-4">{readFeedback}</div>;
-  const active = query.data?.find((r) => r.state === "OPEN");
+  const active = query.data.filter((r) => r.state === "OPEN");
+  const currentLabel = t(active.length > 1 ? "currentRequests" : "current");
   const quarterBlocked =
     (query.data?.some((r) => r.state === "ABORTED") ?? false) ||
     (legacy.data?.some((r) =>
@@ -132,32 +144,27 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
         className="flex flex-wrap gap-4 border-b border-slate-200 pb-3 text-sm"
       >
         <a className="link" href="#current-request">
-          {t("current")}
+          {currentLabel}
         </a>
         <a className="link" href="#request-history">
           {t("processed")}
         </a>
       </nav>
       <section id="current-request" className="space-y-4">
-        <h2 className="section-title">{t("current")}</h2>
-        {active ? (
-          <CurrentRequest
-            key={active.id}
-            row={active}
-            readBlocked={readBlocked}
-            readFeedback={readFeedback}
-          />
-        ) : readBlocked ||
-          legacy.data?.some((row) => row.status !== "INACTIVE") ? null : (
-          <div className="card space-y-3 p-6">
-            <p>{t(quarterBlocked ? "abortFinal" : "noActive")}</p>
-            {!quarterBlocked && (
-              <Link href="/tutee" className="btn-primary">
-                {t("newRequest")}
-              </Link>
-            )}
-          </div>
-        )}
+        <h2 className="section-title">{currentLabel}</h2>
+        {currentRequests}
+        {!active.length &&
+          !readBlocked &&
+          !legacy.data?.some((row) => row.status !== "INACTIVE") && (
+            <div className="card space-y-3 p-6">
+              <p>{t(quarterBlocked ? "abortFinal" : "noActive")}</p>
+              {!quarterBlocked && (
+                <Link href="/tutee" className="btn-primary">
+                  {t("newRequest")}
+                </Link>
+              )}
+            </div>
+          )}
       </section>
       <section id="request-history" className="space-y-3">
         <h2 className="section-title">{t("processed")}</h2>
@@ -187,14 +194,228 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
     </div>
   );
 }
-function CurrentRequest({
-  row,
+type RequestAction = { row: Request; kind: "RECALL" | "ABORT" };
+
+/** Dialogs and accepted receipts belong to the list, not a removable OPEN card.
+ * Source IDs keep actions stable when reads reorder or close another request. */
+function useCurrentRequests({
+  rows,
   readBlocked,
   readFeedback,
+  concealed,
+  onRefresh,
 }: {
-  row: Request;
+  rows: Request[];
   readBlocked: boolean;
   readFeedback: ReactNode;
+  concealed: boolean;
+  onRefresh: () => Promise<void>;
+}) {
+  const format = useFormatter();
+  const t = useTranslations("workflow");
+  const [editing, setEditing] = useState<Request | null>(null);
+  const [action, setAction] = useState<RequestAction | null>(null);
+  const [reason, setReason] = useState("");
+  const [working, setWorking] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState<Set<string>>(() => new Set());
+  const [recoveries, setRecoveries] = useState<RequestAction[]>([]);
+  const admitted = useRef(false);
+  const recall = api.studentWorkflow.recall.useMutation();
+  const abort = api.studentWorkflow.applyAbort.useMutation();
+  const busy = working || recall.isPending || abort.isPending;
+  // Reconcile denial before committing private children. An in-flight action
+  // keeps its captured source/admission and accepted receipt in this owner.
+  if (concealed && (editing || action)) {
+    setEditing(null);
+    setAction(null);
+  }
+  const active = rows.filter((row) => row.state === "OPEN");
+  const context = (row: Request) =>
+    `${row.name ? `${row.name} · ` : ""}${row.subjects.map((subject) => subject.name).join(" · ")} · ${t(
+      "priority",
+      {
+        time: format.dateTime(new Date(row.submittedAt), {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+      },
+    )}`;
+  const recover = async (id: string) => {
+    if (admitted.current || busy) return;
+    admitted.current = true;
+    setWorking(true);
+    try {
+      await onRefresh();
+      setRecoveries((previous) =>
+        previous.filter((item) => item.row.id !== id),
+      );
+    } catch {
+      // The accepted source keeps its own read-only recovery; never replay it.
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
+  };
+  const liveAction = action && rows.find((row) => row.id === action.row.id);
+  const actionAllowed = Boolean(
+    action &&
+    liveAction?.state === "OPEN" &&
+    !accepted.has(action.row.id) &&
+    !readBlocked &&
+    (action.kind === "RECALL"
+      ? !liveAction.pairings.length
+      : liveAction.pairings.length &&
+        !liveAction.reviews.some(
+          (review) =>
+            review.kind === "STUDENT_ABORT" && review.state === "PENDING",
+        ) &&
+        reason.trim()),
+  );
+  const confirm = async (ticket: string) => {
+    if (admitted.current || busy || !action || !actionAllowed) return;
+    admitted.current = true;
+    setWorking(true);
+    setFailure(null);
+    const selected = action;
+    try {
+      if (selected.kind === "ABORT")
+        await abort.mutateAsync({ id: selected.row.id, reason, ticket });
+      else await recall.mutateAsync({ id: selected.row.id, ticket });
+      setAccepted((previous) => new Set(previous).add(selected.row.id));
+      setAction(null);
+      try {
+        await onRefresh();
+      } catch {
+        setRecoveries((previous) => [...previous, selected]);
+      }
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : t("actionFailed"));
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
+  };
+  if (concealed) return null;
+  return (
+    <>
+      {recoveries.map((item) => (
+        <InlineNotice
+          key={item.row.id}
+          tone="warning"
+          announcement="status"
+          action={
+            <Button
+              disabled={busy}
+              aria-label={
+                recoveries.length > 1
+                  ? `${t("retryRefresh")} · ${context(item.row)}`
+                  : undefined
+              }
+              onClick={() => void recover(item.row.id)}
+            >
+              {t("retryRefresh")}
+            </Button>
+          }
+        >
+          <p className="font-medium">{context(item.row)}</p>
+          <p>
+            {t(item.kind === "RECALL" ? "recallAccepted" : "abortAccepted")}
+          </p>
+        </InlineNotice>
+      ))}
+      {active.map((row) => (
+        <CurrentRequest
+          key={row.id}
+          row={row}
+          context={context(row)}
+          multiple={active.length > 1}
+          readBlocked={readBlocked || busy}
+          actionAccepted={accepted.has(row.id)}
+          onEdit={() => {
+            if (editing || action || admitted.current || busy || readBlocked)
+              return;
+            setEditing(row);
+          }}
+          onAction={(kind) => {
+            if (
+              editing ||
+              action ||
+              admitted.current ||
+              busy ||
+              readBlocked ||
+              accepted.has(row.id)
+            )
+              return;
+            setReason("");
+            setFailure(null);
+            setAction({ row, kind });
+          }}
+        />
+      ))}
+      {editing && (
+        <StudentSignupEditor
+          key={editing.id}
+          requestId={editing.id}
+          requestContext={context(editing)}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {action && (
+        <TimedActionDialog
+          action={action.kind}
+          target={action.row.id}
+          title={t(action.kind === "ABORT" ? "applyAbort" : "recall")}
+          message={t(
+            action.kind === "ABORT"
+              ? "abortConsequences"
+              : "recallConsequences",
+          )}
+          busy={busy}
+          error={failure ?? undefined}
+          canConfirm={actionAllowed}
+          onCancel={() => {
+            if (!admitted.current && !busy) setAction(null);
+          }}
+          onConfirm={confirm}
+        >
+          <p className="font-medium">{context(action.row)}</p>
+          {readFeedback}
+          {action.kind === "ABORT" && (
+            <label className="block text-sm">
+              {t("reason")}
+              <textarea
+                className="input mt-2 w-full"
+                rows={3}
+                maxLength={2000}
+                disabled={busy}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </label>
+          )}
+        </TimedActionDialog>
+      )}
+    </>
+  );
+}
+
+function CurrentRequest({
+  row,
+  context,
+  multiple,
+  readBlocked,
+  actionAccepted,
+  onEdit,
+  onAction,
+}: {
+  row: Request;
+  context: string;
+  multiple: boolean;
+  readBlocked: boolean;
+  actionAccepted: boolean;
+  onEdit: () => void;
+  onAction: (kind: "RECALL" | "ABORT") => void;
 }) {
   const format = useFormatter();
   const locale = useLocale();
@@ -202,37 +423,27 @@ function CurrentRequest({
   const signupEditing = useTranslations("signupEditing");
   const appeals = useTranslations("signupAppeal");
   const scheduling = useTranslations("scheduling");
-  const utils = api.useUtils();
-  const [editing, setEditing] = useState(false);
-  const [action, setAction] = useState<"RECALL" | "ABORT" | null>(null);
-  const [reason, setReason] = useState("");
-  const refresh = () => utils.studentWorkflow.mine.invalidate();
-  const recall = api.studentWorkflow.recall.useMutation({
-    onSuccess: async () => {
-      setAction(null);
-      await refresh();
-    },
-  });
-  const abort = api.studentWorkflow.applyAbort.useMutation({
-    onSuccess: async () => {
-      setAction(null);
-      await refresh();
-    },
-  });
+  const headingId = useId();
+  const submissionId = useId();
   const abortPending = row.reviews.some(
     (r) => r.kind === "STUDENT_ABORT" && r.state === "PENDING",
   );
   return (
-    <div className="space-y-4">
+    <article
+      className="space-y-4"
+      aria-labelledby={headingId}
+      aria-describedby={submissionId}
+    >
       <div className="card space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="badge-green">{t("verified")}</span>
           {row.editedAt && <span className="badge-slate">{t("edited")}</span>}
         </div>
-        <p className="text-lg font-semibold">
+        <h3 id={headingId} className="text-lg font-semibold">
           {row.subjects.map((s) => s.name).join(" · ")}
-        </p>
-        <p className="muted text-sm">
+        </h3>
+        {multiple && row.name && <p className="text-sm">{row.name}</p>}
+        <p id={submissionId} className="muted text-sm">
           {t("priority", {
             time: format.dateTime(new Date(row.submittedAt), {
               dateStyle: "medium",
@@ -261,14 +472,18 @@ function CurrentRequest({
               variant="secondary"
               size="compact"
               disabled={readBlocked}
-              onClick={() => setEditing(true)}
+              aria-label={
+                multiple ? `${appeals("staffTitle")} · ${context}` : undefined
+              }
+              aria-describedby={`${headingId} ${submissionId}`}
+              onClick={onEdit}
             >
               {appeals("action")}
             </Button>
           </div>
         )}
         <div className="border-t border-slate-100 pt-4">
-          <h3 className="font-semibold">{t("assignments")}</h3>
+          <h4 className="font-semibold">{t("assignments")}</h4>
           {row.pairings.length ? (
             row.pairings.map((p) => (
               <p key={p.id} className="mt-2 text-sm">
@@ -287,12 +502,16 @@ function CurrentRequest({
       </div>
       <section className="card space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-semibold">{t("availability")}</h3>
+          <h4 className="font-semibold">{t("availability")}</h4>
           <Button
             variant="secondary"
             size="compact"
             disabled={readBlocked}
-            onClick={() => setEditing(true)}
+            aria-label={
+              multiple ? `${signupEditing("edit")} · ${context}` : undefined
+            }
+            aria-describedby={`${headingId} ${submissionId}`}
+            onClick={onEdit}
           >
             {signupEditing("edit")}
           </Button>
@@ -307,14 +526,8 @@ function CurrentRequest({
           ))}
         </ul>
       </section>
-      {editing && (
-        <StudentSignupEditor
-          requestId={row.id}
-          onClose={() => setEditing(false)}
-        />
-      )}
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-        <h3 className="font-semibold">{t("participation")}</h3>
+        <h4 className="font-semibold">{t("participation")}</h4>
         <p className="mt-2 text-sm text-slate-600">
           {t(row.pairings.length ? "abortHelp" : "recallHelp")}
         </p>
@@ -325,51 +538,19 @@ function CurrentRequest({
         ) : (
           <button
             className="btn-danger btn-sm mt-4"
-            disabled={readBlocked}
-            onClick={() => {
-              setReason("");
-              setAction(row.pairings.length ? "ABORT" : "RECALL");
-            }}
+            disabled={readBlocked || actionAccepted}
+            aria-label={
+              multiple
+                ? `${t(row.pairings.length ? "applyAbort" : "recall")} · ${context}`
+                : undefined
+            }
+            aria-describedby={`${headingId} ${submissionId}`}
+            onClick={() => onAction(row.pairings.length ? "ABORT" : "RECALL")}
           >
             {t(row.pairings.length ? "applyAbort" : "recall")}
           </button>
         )}
       </section>
-      {action && (
-        <TimedActionDialog
-          action={action}
-          target={row.id}
-          title={t(action === "ABORT" ? "applyAbort" : "recall")}
-          message={t(
-            action === "ABORT" ? "abortConsequences" : "recallConsequences",
-          )}
-          busy={recall.isPending || abort.isPending}
-          error={recall.error?.message ?? abort.error?.message}
-          canConfirm={!readBlocked && (action !== "ABORT" || !!reason.trim())}
-          onCancel={() => setAction(null)}
-          onConfirm={(ticket) =>
-            !readBlocked &&
-            (action === "ABORT"
-              ? abort.mutateAsync({ id: row.id, reason, ticket })
-              : recall.mutateAsync({ id: row.id, ticket }))
-          }
-        >
-          {/* Read recovery must be reachable while the existing reason/ticket stays mounted. */}
-          {readFeedback}
-          {action === "ABORT" && (
-            <label className="block text-sm">
-              {t("reason")}
-              <textarea
-                className="input mt-2 w-full"
-                rows={3}
-                maxLength={2000}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </label>
-          )}
-        </TimedActionDialog>
-      )}
-    </div>
+    </article>
   );
 }

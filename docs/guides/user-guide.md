@@ -346,7 +346,7 @@ actions. Each list keeps its own page and navigation state.
 | Change an assigned subject   | Ask Admin/Head to review the assignment        | Owners cannot drop assigned choices; Admin/Head review assignment release and request edits together, retaining recorded sessions |
 | Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
 | Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
-| See the result               | **Current Request** and **Closed**     | Review state and assignment are shown separately                                                                         |
+| See the result               | **Current Requests** and **Closed**     | Review state and assignment are shown separately                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
@@ -359,6 +359,17 @@ another edit changed the request, your draft remains available, but explicitly
 reload its current version before deciding what to save. A later policy publication
 does not rewrite a submission's signature or accept the new policy for you; the
 workspace's separate current-policy requirement still applies.
+
+If your account owns several open requests after a participation transfer, each
+appears separately with its original submission time, requested subjects and own
+controls. Use the controls for the request you intend to change. Assigned choices
+belong to that original request, even when tutoring now runs through a retained
+participant profile; another request's assignments do not lock your choices.
+
+The editor's **Original verified request email** is read-only source information.
+It can differ from the account address you currently use to sign in. Change your
+account addresses in **Account Settings**; editing a request keeps its original
+mailbox, priority and signed evidence.
 
 An invalid request shows a notice and sends an email notification. Give a reason
 to appeal before the active program period rolls over. The request stays invalid

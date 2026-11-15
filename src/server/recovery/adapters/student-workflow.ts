@@ -66,7 +66,7 @@ export const studentWorkflowCheckpointAdapter: CheckpointAdapter = {
       if (!saved.tuteeId || current.identity?.ownerIds.length !== 1) blockers.push("A fresh request draft requires one exact current or retained owner.");
       if (remaining.some((change) => !["PairingTutee", "Tutee", "TuteeRemovalRequest"].includes(change.entity))) blockers.push("Unsupported request descendants require review before creating an owner draft.");
     } else {
-      const assigned = saved.tuteeId ? await assignedSignupSubjects(tx, saved.tuteeId, saved.intakeTermId) : { subjectIds: [], unresolved: false };
+      const assigned = saved.tuteeId ? await assignedSignupSubjects(tx, current.row) : { subjectIds: [], unresolved: false };
       let normalizedPreview: unknown = null;
       const validation = await eligibilityBlocker(async () => {
         normalizedPreview = await normalizeStudentSignupAnswers(tx, saved.answers, assigned.subjectIds, current.answers, "READ_ONLY");

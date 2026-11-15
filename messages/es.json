@@ -3269,6 +3269,11 @@
     "incompleteHelp": "Falta verificar el correo o completar la revisión final de la cuenta."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -6265,6 +6270,8 @@
     "unnamed": "Nombre no proporcionado"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "Editar respuestas de inscripción",
     "edit": "Editar respuestas de inscripción",
     "requestLocal": "Estas respuestas pertenecen a esta solicitud de tutoría. Editarlas conserva la prioridad original y no cambia el perfil ni las credenciales de tu cuenta.",

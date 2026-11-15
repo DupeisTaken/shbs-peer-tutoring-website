@@ -3269,6 +3269,11 @@
     "incompleteHelp": "Email verification or final account review is still needed."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -6265,6 +6270,8 @@
     "unnamed": "Name not provided"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "Edit Signup Answers",
     "edit": "Edit signup answers",
     "requestLocal": "Edits here update this request only. Update your account name in Account Settings.",

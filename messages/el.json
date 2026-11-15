@@ -3269,6 +3269,11 @@
     "incompleteHelp": "Απαιτείται ακόμη επαλήθευση email ή τελικός έλεγχος λογαριασμού."
   },
   "workflow": {
+    "actionFailed": "This action could not be confirmed. Your draft is retained.",
+    "currentRequests": "Current Requests",
+    "retryRefresh": "Retry refresh",
+    "recallAccepted": "This request was recalled. Refresh its status; your recall will not be repeated.",
+    "abortAccepted": "Your withdrawal application was submitted. Refresh its status; your application will not be repeated.",
     "pleaseReview": "Please review before continuing",
     "cancel": "Cancel",
     "confirm": "Yes, confirm",
@@ -6265,6 +6270,8 @@
     "unnamed": "Δεν δόθηκε όνομα"
   },
   "signupEditing": {
+    "originalEmailLabel": "Original verified request email",
+    "emailReadOnly": "Read-only",
     "title": "Επεξεργασία απαντήσεων εγγραφής",
     "edit": "Επεξεργασία απαντήσεων εγγραφής",
     "requestLocal": "Αυτές οι απαντήσεις ανήκουν σε αυτό το αίτημα μαθημάτων. Η επεξεργασία διατηρεί την αρχική προτεραιότητα και δεν αλλάζει το προφίλ ή τα στοιχεία σύνδεσης.",

@@ -1623,11 +1623,31 @@ canonical User identity or academics. A stable expected version and exact retry
 key distinguish conflicts from already accepted writes. Drafts survive rejection
 and background failure; successful-write synchronization recovery performs reads.
 
+Assignment locks use each original survey's current exact
+`StudentRequestExecutionAssignment` authority through
+[`student-request-execution.ts`](../../src/server/student-request-execution.ts).
+A participation transfer can execute its work on a retained profile without
+changing original consent or priority. Sibling requests sharing that profile do
+not contribute locks; released or superseded physical membership is not current
+authority. Genuine no-map legacy membership and inactive or unresolved catalogue
+labels retain their existing safety checks.
+
+The personal Requests page renders every owned OPEN source separately, identified
+by its submitted name, subjects and original submission time. Stable source IDs
+bind its editor, expected version and ticketed recall or withdrawal action. The
+workspace retains dialog admission and accepted-action receipts when cards reorder
+or become terminal; failed synchronization retries reads without replaying a write.
+Each editor opening owns its request-local draft. Its read-only **Original verified
+request email** names the immutable source mailbox, independently of the current
+account's sign-in address; public signup keeps **Email for Sign In**.
+
 Management reads use `studentWorkflow.managedSignup`. `headEditSignup` and
 `headUnassign` independently require current Admin/Head authority and a purpose-bound
-consequence ticket; the broad management procedure wrapper does not grant Admin or
-Coordinator the direct write. Dropped assigned choices and their affected current
-`PairingTutee` links change in one transaction. Historical `Session` and
+consequence ticket. The broad management wrapper does not replace these fresh checks
+or grant a Coordinator the direct write. Dropped assigned choices release only the reviewed request's exact
+execution authority in the same transaction. Release tombstones preserve its
+decision, and a canonical `PairingTutee` member stays when another request still
+needs it. Transferred original roster rows remain provenance. Historical `Session` and
 `SessionTutee` rows survive; releasing an assignment is separate from deleting
 recorded attendance.
 
