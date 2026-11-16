@@ -85,8 +85,9 @@ export function DashboardTasks({
     };
   }, [revealTask]);
   const active = status === "ACTIVE";
+  // Share Schedule's agenda key instead of polling a second planning reader.
   const agenda = api.sessionPlanning.agenda.useQuery(
-    { role: "tutor" },
+    { role: "tutor", includeRecurringSchedule: true },
     {
       enabled: active,
       refetchInterval: active ? 30_000 : false,

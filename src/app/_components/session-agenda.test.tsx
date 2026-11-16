@@ -23,6 +23,7 @@ const state = vi.hoisted(() => ({
   error: null as null | { data?: { code: string } },
   historyError: null as null | { data: { code: string } },
   historyRetry: vi.fn(),
+  agendaQuery: vi.fn(),
   refetch: vi.fn(),
   propose: vi.fn(),
   proposeCancellation: vi.fn(),
@@ -50,13 +51,16 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       agenda: {
-        useQuery: () => ({
-          data: state.data,
-          error: state.error,
-          isSuccess: !state.error,
-          isFetching: false,
-          refetch: state.refetch,
-        }),
+        useQuery: (input: unknown, options: unknown) => {
+          state.agendaQuery(input, options);
+          return {
+            data: state.data,
+            error: state.error,
+            isSuccess: !state.error,
+            isFetching: false,
+            refetch: state.refetch,
+          };
+        },
       },
       propose: { useMutation: () => ({ mutateAsync: state.propose }) },
       proposeCancellation: { useMutation: () => ({ mutateAsync: state.proposeCancellation }) },
@@ -193,6 +197,7 @@ beforeEach(() => {
   state.error = null;
   state.historyError = null;
   state.historyRetry.mockReset();
+  state.agendaQuery.mockReset();
   for (const fn of [
     state.propose,
     state.proposeCancellation,
@@ -217,6 +222,13 @@ function show(role: "tutor" | "tutee" = "tutor", locale: "en" | "zh" = "en") {
     </NextIntlClientProvider>,
   );
 }
+it.each(["tutor", "tutee"] as const)("requests recurring slot metadata only for the tutor picker (%s)", (role) => {
+  show(role);
+  expect(state.agendaQuery).toHaveBeenLastCalledWith(
+    role === "tutor" ? { role, includeRecurringSchedule: true } : { role },
+    { refetchInterval: 30_000 },
+  );
+});
 function futureExtra() {
   state.data!.windowStart = "2099-01-01";
   state.data!.windowEnd = "2099-01-14";

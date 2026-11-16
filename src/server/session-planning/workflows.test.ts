@@ -1459,10 +1459,22 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     expect(await members(original.id)).toEqual(before);
   });
 
-  it("projects the recurring pairing slot separately from a rescheduled lesson", async () => {
+  it("keeps default agenda shapes unchanged and enriches recurring slots only when requested", async () => {
+    const plain = await readSessionAgenda(db, tutor, "tutor");
+    expect(plain.cohorts.length).toBeGreaterThan(0);
+    for (const cohort of plain.cohorts) expect(cohort).not.toHaveProperty("recurringSchedule");
+    expect(await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: false })).toEqual(plain);
+    const enriched = await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: true });
+    expect(enriched.cohorts.map(({ recurringSchedule: _recurringSchedule, ...cohort }) => cohort)).toEqual(plain.cohorts);
+    for (const cohort of enriched.cohorts) expect(cohort.recurringSchedule).toEqual({
+      dayOfWeek: 1, startMin: 900, endMin: 945, scheduleConfirmed: true,
+    });
+  });
+
+  it("projects an opted-in recurring pairing slot separately from a rescheduled lesson", async () => {
     const move = await propose();
     await respond(move.id, one, "ACCEPT");
-    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    const agenda = await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: true });
     const moved = agenda.cohorts.find((cohort) => cohort.rescheduled && cohort.date === "2026-11-03");
     expect(moved).toMatchObject({ date: "2026-11-03", recurringSchedule: {
       dayOfWeek: 1, startMin: 900, endMin: 945, scheduleConfirmed: true,
@@ -2857,6 +2869,10 @@ describe("publication and scoped attendance", () => {
       where: { date: "2026-10-31" },
     });
     expect(mapped.status).toBe("SCHEDULED");
+    const agenda = await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: true });
+    expect(agenda.cohorts.find((cohort) => cohort.id === mapped.id)).toMatchObject({
+      date: "2026-10-31", recurringSchedule: { dayOfWeek: 1, startMin: 900, endMin: 945, scheduleConfirmed: true },
+    });
     await resetSchoolCalendar(
       db,
       { date: "2026-10-31", expectedVersion: override.version },

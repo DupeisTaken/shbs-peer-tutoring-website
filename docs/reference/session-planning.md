@@ -41,6 +41,9 @@ than the source occurrence's date. A moved or timetable-mapped date never become
 the displayed recurring weekday. Distinct source cohorts retain their captured
 audience, identity and version even when their weekly labels match; an unavailable
 current slot is shown as unavailable rather than inferred from the occurrence.
+The tutor picker requests this enrichment with `includeRecurringSchedule: true`.
+Omitted or false flags preserve the existing agenda response shape and avoid the
+current-pairing lookup; historical readers remain captured evidence only.
 
 A tutoring pause retains a separate published, suppressed source for **Arrange
 optional session**. Tutors can propose or tutees can suggest an exception from

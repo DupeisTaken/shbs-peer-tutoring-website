@@ -3568,6 +3568,7 @@ export async function readSessionAgenda(
   actor: Actor,
   role: "tutor" | "tutee",
   now = new Date(),
+  options: { includeRecurringSchedule?: boolean } = {},
 ) {
   const publication = await ensureSessionPlanningWindow(db, now);
   await runSessionPlanningSweep(db, now, true);
@@ -3678,13 +3679,14 @@ export async function readSessionAgenda(
     ]);
     const executionByPlan = new Map(planExecutions.map((row) => [row.planId, row]));
     // A dated move or mapped school day is not the recurring assignment's slot.
-    // Read current clocks once for this bounded result, including reviewed transfers.
-    const currentPairingIds = [...new Set(rows.flatMap((row) => {
+    // Only the extra-session picker requests current clocks; ordinary agenda
+    // callers retain their existing projection and perform no additional read.
+    const currentPairingIds = options.includeRecurringSchedule ? [...new Set(rows.flatMap((row) => {
       const execution = executionByPlan.get(row.planId);
       const mappings = execution ? new Map(executionAssignments.parse(execution.assignments)
         .map((mapping) => [mapping.sourcePairingId, mapping.targetPairingId])) : null;
       return row.plan.assignments.map((assignment) => mappings?.get(assignment.pairingId) ?? assignment.pairingId);
-    }))];
+    }))] : [];
     const currentPairings = currentPairingIds.length ? await tx.pairing.findMany({
       where: { id: { in: currentPairingIds } },
       select: { id: true, dayOfWeek: true, startMin: true, endMin: true, scheduleConfirmed: true },
@@ -3709,7 +3711,8 @@ export async function readSessionAgenda(
     const cohorts = [];
     for (const row of rows) {
       const rowContext = role === "tutee" ? { ...context, owned: ownedSources(row.plan) } : context;
-      const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now, false, tutoringPauses, null);
+      const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now, false, tutoringPauses,
+        options.includeRecurringSchedule ? null : undefined);
       if (projectedRows.some((projected) => projected.canArrangeException) && !(await sourceIsCurrent(tx, row.plan))) {
         for (const projected of projectedRows) { projected.canArrangeException = false; projected.unavailable = true; }
       }
@@ -3732,8 +3735,9 @@ export async function readSessionAgenda(
           });
         }
       }
-      for (const projected of projectedRows)
-        projected.recurringSchedule = projected.primaryPairingId ? recurringSchedules.get(projected.primaryPairingId) ?? null : null;
+      if (options.includeRecurringSchedule)
+        for (const projected of projectedRows)
+          projected.recurringSchedule = projected.primaryPairingId ? recurringSchedules.get(projected.primaryPairingId) ?? null : null;
       cohorts.push(...projectedRows);
     }
     const projected = [];

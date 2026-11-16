@@ -161,7 +161,7 @@ export function SessionAgenda({
   const eventText = useTranslations("agendaEvents");
   const [extraPicker, setExtraPicker] = useState(false);
   const agenda = api.sessionPlanning.agenda.useQuery(
-    { role },
+    { role, ...(role === "tutor" ? { includeRecurringSchedule: true } : {}) },
     { refetchInterval: 30_000 },
   );
   const agendaDenied = useSessionAccessDenied(agenda);
