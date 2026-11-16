@@ -2177,6 +2177,12 @@ Retry actions remain visible when navigation resets hide the affected panel.
 
 Announcements freeze tutor IDs at publication, or at approval for a coordinator proposal. Editing or restoring a post does not recompute its recipients. Empty restricted audiences never become broadcasts. Preview, publication, reads and acknowledgements must share recipient-selection rules; notifications and publication commit together.
 
+The tutor dashboard preserves the query's pinned-first, newest-first order and
+renders pinned or unacknowledged posts with one accent card, including the date.
+Pinned cards show 📌 before 📣 and omit Dismiss regardless of acknowledgement;
+acknowledged ordinary posts are hidden. Historical acknowledgements and the
+audience-guarded acknowledgement API remain unchanged.
+
 ### Account emails and delivery
 
 Staff, tutors and tutees share the staged **Notification preferences** card. The
