@@ -95,6 +95,43 @@ test("maintained documentation has separate contributor, reference and guide hom
   }
 });
 
+test("every registered notification event has exactly one maintained inventory entry", () => {
+  const filename = path.join(root, "src/lib/notification-events.ts");
+  const source = ts.createSourceFile(
+    filename,
+    fs.readFileSync(filename, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const declaration = source.statements
+    .filter(ts.isVariableStatement)
+    .flatMap((statement) => [...statement.declarationList.declarations])
+    .find(
+      (entry) =>
+        ts.isIdentifier(entry.name) && entry.name.text === "notificationEvents",
+    );
+  let values = declaration?.initializer;
+  while (values && ts.isAsExpression(values)) values = values.expression;
+  assert.ok(values && ts.isArrayLiteralExpression(values));
+  const events = values.elements.map((entry) => {
+    assert.ok(ts.isStringLiteral(entry));
+    return entry.text;
+  });
+  const inventory = markdownModel(
+    fs.readFileSync(
+      path.join(root, "docs/reference/notification-events.md"),
+      "utf8",
+    ),
+  );
+  const entries = inventory.headings
+    .filter(
+      (heading) =>
+        heading.level === 3 && /^[a-z]+(?:_[a-z]+)+$/.test(heading.text),
+    )
+    .map((heading) => heading.text);
+  assert.deepEqual(entries.toSorted(), events.toSorted());
+});
+
 test("agent discovery routes to contributor rules instead of duplicating them", () => {
   const source = fs.readFileSync(path.join(root, "AGENTS.md"), "utf8");
   const [entry, framework] = source.split("<!-- BEGIN:nextjs-agent-rules -->");
