@@ -36,6 +36,11 @@ editor. It requires active tutoring access and a usable published source. Select
 the source neither submits a proposal nor changes a recurring assignment; the
 existing 45-minute, agreement, version and conflict rules still govern submission.
 An unavailable source leaves the action disabled; Pairings remains directly available in the workspace tabs.
+The picker displays the current primary pairing's localized weekly slot rather
+than the source occurrence's date. A moved or timetable-mapped date never becomes
+the displayed recurring weekday. Distinct source cohorts retain their captured
+audience, identity and version even when their weekly labels match; an unavailable
+current slot is shown as unavailable rather than inferred from the occurrence.
 
 A tutoring pause retains a separate published, suppressed source for **Arrange
 optional session**. Tutors can propose or tutees can suggest an exception from
@@ -177,6 +182,15 @@ newly generated ordinary lessons. Started lessons and any cohort with recorded
 attendance retain their evidence; policy changes create no attendance, absence
 cards or service hours.
 
+New no-tutoring ranges default to `PAUSE_REGULAR` in the editor, impact preview and
+writer. An explicit `NOTICE` selection remains informational, and omitted effects
+on existing rows preserve their saved meaning. Applying a pause cancels future
+automatic regular commitments while retaining already-confirmed extras and
+explicitly agreed rescheduled lessons. Existing confirmed extras remain valid
+even when their pre-pause agreement used the ordinary timeout rule; this retention
+does not manufacture affirmative consent for a new paused-date offer or revive
+cancelled participants.
+
 `ProgramCalendarPolicyRevision` keeps append-only semantic snapshots of each
 stable starting-date source: ending date, effect, active state, version and the
 database effective time. Reason/editor-only changes add no semantic revision.
@@ -200,14 +214,16 @@ pass. Cohort IDs and cancelled calendar evidence remain intact; membership,
 continuation and reviewed execution-identity changes use the same source-owned
 planning lifecycle instead of deleting/recreating consent.
 
-An exception on a paused date requires affirmative agreement for the exact date,
+A new exception on a paused date requires affirmative agreement for the exact date,
 clock, room/Online choice, tutor and participating learner. The scheduler reads
 accepted offers and current response owners. `AUTHOR` and `EXPLICIT` responses
 can establish affirmative consent; `MATCHED` evidence must retain the same offer
 and valid affirmative provenance. For carried split consent, the parent chain
 is checked rather than trusting a historical `MATCHED` label that may have hidden
 timeout acceptance. `TIMEOUT`, `scheduleOverride`, plan kind `EXTRA` and a cohort's
-rescheduled flag do not independently establish this consent. In a mixed cohort,
+rescheduled flag do not independently establish affirmative consent. Retaining an
+already-confirmed extra under a newly applied pause is separate from admitting a
+new exception. In a mixed regular cohort,
 one agreed learner remains scheduled while a peer without that evidence stays
 paused. Source/owner changes still require the existing live authority checks.
 
@@ -226,15 +242,18 @@ expiration never resurrects the suppressed original. Only current pending offers
 hold rooms/participants; terminal requests release those holds through the normal
 request-state path. Short-notice cutoff and explicit agreement rules still apply.
 
-The agenda and optional-session picker expose suppressed sources without granting
-attendance authority. Attendance, reminder reads and private calendars use the
+Upcoming and the default week list show dated commitments and attendance duties,
+excluding cancelled and fully paused source cards. All/History retain cancellation
+evidence. The optional-session picker still exposes eligible suppressed sources
+without granting attendance authority. Attendance, reminder reads and private calendars use the
 effective scheduled roster. A paused source alone reserves no active commitment.
 Pending requests and captured decision reviews display the proposed room or
 Online choice alongside the time. Explicit-only guidance appears before email
 delivery as well as afterwards. An unknown physical room asks for a refresh and
 blocks acceptance without silently substituting Online or a roomless offer;
 fresh server validation still checks the captured offer and version.
-Affirmatively agreed dated exceptions may receive reminders even on paused dates;
+Retained confirmed extras and affirmatively agreed reschedules may receive
+reminders even on paused dates;
 an overlapping `NOTICE` still suppresses optional reminders under the legacy
 notice contract. Queued essential proposal mail is checked against current policy
 before delivery so its agreement guidance cannot promise silence acceptance on

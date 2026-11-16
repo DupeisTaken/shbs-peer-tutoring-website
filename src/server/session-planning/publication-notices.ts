@@ -8,6 +8,7 @@ type PublicationCohort = Pick<
   SessionPlanCohort,
   "id" | "version" | "startsAt" | "endsAt" | "roomId" | "online"
 >;
+type TutoringPauseNotice = Readonly<{ pauseStartDate: string; pauseEndDate: string }>;
 export type PublicationNoticeInput = Readonly<{
   tutorId: string;
   timeZone: string;
@@ -15,6 +16,7 @@ export type PublicationNoticeInput = Readonly<{
   cohort: Readonly<PublicationCohort>;
   tuteeIds: readonly string[];
   event: "schedule_updated" | "cancelled";
+  tutoringPause?: TutoringPauseNotice;
 }>;
 export type PublicationNotice = Readonly<{
   tutorId: string;
@@ -28,6 +30,7 @@ export type PublicationNotice = Readonly<{
   >;
   tuteeIds: readonly string[];
   event: PublicationNoticeInput["event"];
+  tutoringPause?: TutoringPauseNotice;
 }>;
 
 /** Capture the decided audience and clocks before later publication writes.
@@ -50,6 +53,7 @@ export function capturePublicationNotice(
     }),
     tuteeIds: Object.freeze([...input.tuteeIds]),
     event: input.event,
+    ...(input.tutoringPause ? { tutoringPause: Object.freeze({ ...input.tutoringPause }) } : {}),
   });
 }
 
@@ -139,7 +143,12 @@ export async function queuePublicationNotices(
         recipientUserId: person.user.id,
         recipientEmail: person.user.email,
         event: notice.event,
-        context,
+        context: notice.event === "cancelled" && notice.tutoringPause ? {
+          ...context,
+          outcomeReason: "TUTORING_PAUSE",
+          ...notice.tutoringPause,
+          recipientRole: person.actorKey.startsWith("tutor:") ? "tutor" : "tutee",
+        } : context,
       });
   }
   // One operation-wide call retains first-intent dedupe, queue state, bounded

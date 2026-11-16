@@ -340,7 +340,10 @@ function CalendarEditor({
   );
   const [reason, setReason] = useState(initial?.reason ?? "");
   const [schedulingEffect, setSchedulingEffect] = useState<"NOTICE" | "PAUSE_REGULAR">(
-    initial?.schedulingEffect === "PAUSE_REGULAR" ? "PAUSE_REGULAR" : "NOTICE",
+    // New no-tutoring ranges affect schedules; editing a legacy notice preserves its meaning.
+    !initial || initial.schedulingEffect === "PAUSE_REGULAR"
+      ? "PAUSE_REGULAR"
+      : "NOTICE",
   );
   const effectHelpId = useId();
   const [impact, setImpact] = useState<{
