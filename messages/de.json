@@ -828,7 +828,7 @@
         "sendSetup": "Einrichtungslink senden",
         "needEmail": "Zuerst eine E-Mail hinzufügen",
         "linkEmailed": "Die Einrichtungs-E-Mail wurde an den Kontoinhaber gesendet.",
-        "linkManual": "Der E-Mail-Versand ist nicht eingerichtet. Wenden Sie sich vor dem Versand von Kontoeinrichtungs-E-Mails an die für die Bereitstellung zuständige Person.",
+        "linkManual": "Die E-Mail zur Kontoeinrichtung konnte nicht gesendet werden. Prüfen Sie den E-Mail-Versandstatus und versuchen Sie es erneut.",
         "dismiss": "Schließen"
       },
       "createDraftHint": "Beim Schließen dieses Dialogs bleiben Ihre Eingaben erhalten, bis Sie diese Seite verlassen.",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "Der E-Mail-Versand konnte nicht bestätigt werden. Prüfen Sie den Versandstatus und versuchen Sie es erneut.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",

@@ -507,6 +507,9 @@ const credentialOperations = new Set([
   "account.requestEmailChange",
   "account.confirmEmailChange",
   "account.requestPasswordChangeCode",
+  // The tutor Settings page uses these aliases of the same credential helpers.
+  "tutor.requestPasswordChangeCode",
+  "tutor.changePassword",
   "account.changePassword",
   "account.setTwoFactorEnabled",
 ]);

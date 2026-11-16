@@ -828,7 +828,7 @@
         "sendSetup": "설정 링크 보내기",
         "needEmail": "먼저 이메일을 추가하세요",
         "linkEmailed": "계정 소유자에게 설정 이메일을 보냈습니다.",
-        "linkManual": "이메일 전송이 설정되지 않았습니다. 계정 설정 이메일을 보내기 전에 배포 관리자에게 문의하세요.",
+        "linkManual": "계정 설정 이메일을 보내지 못했습니다. 이메일 전송 상태를 확인한 후 다시 시도하세요.",
         "dismiss": "닫기"
       },
       "createDraftHint": "이 대화상자를 닫아도 이 페이지를 떠날 때까지 입력 내용이 유지됩니다.",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "이메일 전송 성공 여부를 확인하지 못했습니다. 전송 상태를 확인한 후 다시 시도하세요.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
