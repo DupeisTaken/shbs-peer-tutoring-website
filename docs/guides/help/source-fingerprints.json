@@ -1,7 +1,7 @@
 {
-  "baselineRevision": "dbb3c4eb213d58e134744fd417b1a06299b0e984",
-  "reviewedAt": "2026-11-15T19:41:26.984Z",
-  "reviewNote": "Refreshed six real English captures that show the title-case Help navigation. Retained the ordinary Translator crop: its header navigation is outside the accepted image, and draft-only controls remain correct. Reviewed other focused crops and Chinese captures as unchanged. User-selected latest main dbb3c4eb; no production attestation.",
+  "baselineRevision": "589c055e4b1cf166b48b353bd619ac1982e5d9f6",
+  "reviewedAt": "2026-11-16T00:33:28.929637+00:00",
+  "reviewNote": "Reviewed latest-main 589c055e tutor dashboard on the real loopback dev server with synthetic Alice Chen: pinned cards have no Dismiss; ordinary cards retain Dismiss. Retained the earlier overview as an ordinary-announcement and task-navigation context image: it does not depict a pinned post or promise that pins can be dismissed. Other owning sources and their prior reviews are unchanged. User selected latest main; no production attestation.",
   "files": {
     "messages/en.json": "932d06ae26b998633d33e4722ba502743702c4638afdaa81eda0faf79e710f51",
     "messages/zh.json": "1614b21d59707311dde1d84cff5219fd9bb0df5ac8740dfbe5f18cd6c214a0a0",
@@ -43,7 +43,7 @@
     "src/app/(admin)/admin/tutors/page.tsx": "0b0dd0848bfb0c8e691c380fb61a7090ac883bdf1ba4b6dc54be5dbbaedbf22d",
     "src/app/(admin)/admin/users/page.tsx": "da1d1a9f2113362a47d6e938be16b5947d1257f15b6327ff8718b21b97365887",
     "src/app/(admin)/admin/users/user-details.tsx": "7d5477ee7a5fc455b3616d90c73311a40915ae0e2d51af172b825d81cb3c407c",
-    "src/app/(tutor)/_components/announcements-banner.tsx": "542eb2bae165495284112e0086093d8ea6db198426b87f049fd5853bda4416bd",
+    "src/app/(tutor)/_components/announcements-banner.tsx": "0bcb0af4c5440706d87e67db0067a24951b1b042a5ca717565c7d1f41ff196e0",
     "src/app/(tutor)/_components/attendance-form.tsx": "f6e406feca5ecd9027ec58059b1948092aedc70d61ee782d649b3798fc63a622",
     "src/app/(tutor)/_components/availability-editor.tsx": "6de39b810fa8ad9ea4928119abfa9feda65658fe553550d88afc6b2c2860d419",
     "src/app/(tutor)/_components/my-interviews.tsx": "f41942b049462f1a2a287927fba7fd8621b264ccb9705363def95f9958fefcad",
@@ -61,7 +61,7 @@
     "src/app/(tutor)/_components/tutor-room-schedule.tsx": "b826b82d672ffb8218909c64383ac32c7ce2206cf4fbcc8d5312c47f81f27e6c",
     "src/app/(tutor)/_components/tutor-schedule.tsx": "a7524dba2abaaa7af005a30631198074bfb5ecc12269223e119848702252823c",
     "src/app/(tutor)/_components/tutor-workspace.tsx": "6050e0b23e5d80f3c00d9c91f1d702d28c6b387e84e81ef05ffd7fdcea71fff3",
-    "src/app/(tutor)/dashboard/page.tsx": "4f99e763b5e9d77c494db22ef76775ef59747cb7923d7dca912af09493e00e54",
+    "src/app/(tutor)/dashboard/page.tsx": "48a9093af6c9bc2362a313db23895601f30ce1b6fba88724b09688532a5074b8",
     "src/app/(tutor)/handbook/page.tsx": "98dc681a686e761b37b366a6858a3db9bad115184ea048c23786d8020bcee3a8",
     "src/app/(tutor)/settings/page.tsx": "a85eb5eeb375a17561a54ddd15b75b208959cc0eac61bedd482947d9b5a1e4a2",
     "src/app/_components/academic-profile.tsx": "7da8ee193cecf12e57624624ea04791bceff4c891feba8b6825268b0793a2646",
