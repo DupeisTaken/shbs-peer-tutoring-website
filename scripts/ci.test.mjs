@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 import yaml from "js-yaml";
 import { publishImage } from "./ci-publish.mjs";
+import { profileMatrix } from "./scheduling-profile/aggregate-partitions.mjs";
+import { groupSlots, profileGroups } from "./scheduling-profile/group-plan.mjs";
+import { renderWorker } from "./scheduling-profile/generate-workflow.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const workflow = yaml.load(
@@ -207,6 +210,23 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   assert.equal(report.with.path, ".validation/test-results.json");
 });
 
+function matrixSize(matrix) {
+  if (!matrix) return 1;
+  // Resolve dynamic matrices from their real generator before counting them.
+  // Reject unfamiliar shapes instead of silently treating new fanout as one job.
+  assert.equal(typeof matrix, "object");
+  if (Object.hasOwn(matrix, "include")) {
+    assert.deepEqual(Object.keys(matrix), ["include"]);
+    return matrix.include.length;
+  }
+  if (Object.hasOwn(matrix, "group")) {
+    assert.deepEqual(Object.keys(matrix), ["group"]);
+    return matrix.group.length;
+  }
+  assert.deepEqual(Object.keys(matrix), ["shard"]);
+  return matrix.shard.length;
+}
+
 function peakRunnerSlots(workflowJobs) {
   const jobs = Object.entries(workflowJobs);
   const ancestors = (id) => {
@@ -229,11 +249,9 @@ function peakRunnerSlots(workflowJobs) {
       continue;
     const slots = simultaneous.reduce((total, [, job]) => {
       const matrix = job.strategy?.matrix;
-      if (!matrix) return total + 1;
-      assert.deepEqual(Object.keys(matrix), ["shard"]);
       return (
         total +
-        Math.min(matrix.shard.length, job.strategy["max-parallel"] ?? Infinity)
+        Math.min(matrixSize(matrix), job.strategy?.["max-parallel"] ?? Infinity)
       );
     }, 0);
     peak = Math.max(peak, slots);
@@ -241,14 +259,120 @@ function peakRunnerSlots(workflowJobs) {
   return peak;
 }
 
-test("four PRs fit twenty slots including their independent sizing workflows", () => {
-  const prSize = yaml.load(
-    readFileSync(path.join(root, ".github/workflows/pr-size.yml"), "utf8"),
+test("PR capacity includes every automatic workflow and the full profile population", () => {
+  const directory = path.join(root, ".github/workflows");
+  const automatic = Object.fromEntries(
+    readdirSync(directory)
+      .filter((name) => /\.ya?ml$/.test(name))
+      .sort()
+      .map((name) => [
+        name,
+        yaml.load(readFileSync(path.join(directory, name), "utf8")),
+      ])
+      .filter(([, definition]) => {
+        const events = typeof definition.on === "object" && !Array.isArray(definition.on)
+          ? Object.keys(definition.on) : [definition.on].flat();
+        return events.some((event) => ["pull_request", "pull_request_target"].includes(event));
+      }),
   );
-  const buildSlots = peakRunnerSlots(workflow.jobs);
-  const sizeSlots = peakRunnerSlots(prSize.jobs);
-  assert.equal(buildSlots, 4);
-  assert.ok(4 * (buildSlots + sizeSlots) <= 20, "count each PR's sizing jobs");
+  assert.deepEqual(
+    Object.keys(automatic),
+    [
+      "docker-build.yml",
+      "pr-size.yml",
+      "production-network-observation.yml",
+      "recovery-rehearsal.yml",
+      "scheduling-profile.yml",
+    ],
+    "new automatic workflows need an explicit capacity review",
+  );
+
+  const profile = automatic["scheduling-profile.yml"];
+  assert.deepEqual(profile.jobs.profile.strategy.matrix, { group: profileGroups() });
+  assert.equal(profile.jobs.profile.strategy["max-parallel"], 4,
+    "each PR has four additional scheduling benchmark slots, independent of core CI");
+  assert.equal(profile.jobs.preflight.strategy, undefined);
+  const population = profileMatrix().include;
+  assert.equal(population.filter((row) => row.mode === "latency").length, 60);
+  assert.equal(
+    population.filter((row) => row.mode === "diagnostic").length,
+    10,
+  );
+  assert.equal(groupSlots("preflight").length, 5);
+  assert.equal(profileGroups().length, 8);
+  assert.deepEqual(
+    ["preflight", ...profileGroups()].flatMap(groupSlots)
+      .map((row) => JSON.stringify(row))
+      .sort(),
+    population.map((row) => JSON.stringify(row)).sort(),
+    "preflight and remaining jobs must cover the complete population exactly once",
+  );
+
+  // Each reusable group currently occupies exactly one runner. A worker
+  // workflow that adds jobs must also update the capacity calculation.
+  const workerPath = "./.github/workflows/scheduling-profile-worker.yml";
+  const worker = yaml.load(readFileSync(path.join(root, workerPath), "utf8"));
+  assert.equal(readFileSync(path.join(root, workerPath), "utf8").replaceAll("\r\n", "\n"), renderWorker(),
+    "the checked-in worker must match the complete generated serial plan");
+  assert.deepEqual(Object.keys(worker.jobs), ["measure"]);
+  assert.ok(worker.jobs.measure["runs-on"]);
+  assert.equal(worker.jobs.measure.strategy, undefined);
+  for (const id of ["preflight", "profile"])
+    assert.equal(profile.jobs[id].uses, workerPath);
+
+  const counts = Object.fromEntries(
+    Object.entries(automatic).map(([name, definition]) => {
+      return [
+        name,
+        {
+          displayed: Object.values(definition.jobs).reduce(
+            (total, job) =>
+              total + matrixSize(job.strategy?.matrix),
+            0,
+          ),
+          peak: peakRunnerSlots(definition.jobs),
+        },
+      ];
+    }),
+  );
+  assert.deepEqual(counts, {
+    "docker-build.yml": { displayed: 8, peak: 4 },
+    "pr-size.yml": { displayed: 1, peak: 1 },
+    "production-network-observation.yml": { displayed: 1, peak: 1 },
+    "recovery-rehearsal.yml": { displayed: 1, peak: 1 },
+    "scheduling-profile.yml": { displayed: 11, peak: 4 },
+  });
+  const scenarios = [
+    ["docker-build.yml", "pr-size.yml"],
+    ["docker-build.yml", "pr-size.yml", "scheduling-profile.yml"],
+    [
+      "docker-build.yml",
+      "pr-size.yml",
+      "scheduling-profile.yml",
+      "recovery-rehearsal.yml",
+    ],
+    Object.keys(automatic),
+  ].map((names) =>
+    names.reduce(
+      (total, name) => ({
+        displayed: total.displayed + counts[name].displayed,
+        peak: total.peak + counts[name].peak,
+      }),
+      { displayed: 0, peak: 0 },
+    ),
+  );
+  assert.deepEqual(scenarios, [
+    { displayed: 9, peak: 5 },
+    { displayed: 20, peak: 9 },
+    { displayed: 21, peak: 10 },
+    { displayed: 22, peak: 11 },
+  ]);
+  assert.equal(
+    4 * scenarios[0].peak,
+    20,
+    "four core-only PR runs fit the planning budget",
+  );
+  assert.ok(3 * scenarios[1].peak > 20, "three profiled PR runs can queue");
 });
 
 test("shards run after local setup without retries or dropped coverage", () => {

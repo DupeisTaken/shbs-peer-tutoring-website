@@ -162,8 +162,20 @@ type SafeContext = {
   stage?: "A" | "B" | "C";
   isActionable?: boolean;
   requiresExplicitAcceptance?: boolean;
-  outcomeReason?: "MISSED_AUTOMATIC_RESPONSE_WINDOW";
+  outcomeReason?: "MISSED_AUTOMATIC_RESPONSE_WINDOW" | "TUTORING_PAUSE";
+  pauseStartDate?: string;
+  pauseEndDate?: string;
+  recipientRole?: "tutor" | "tutee";
 };
+
+function isCalendarDate(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
+  );
+}
 
 export function sessionNoticeContext(input: unknown): SafeContext {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
@@ -213,6 +225,20 @@ export function sessionNoticeContext(input: unknown): SafeContext {
     result.requiresExplicitAcceptance = source.requiresExplicitAcceptance;
   if (source.outcomeReason === "MISSED_AUTOMATIC_RESPONSE_WINDOW")
     result.outcomeReason = source.outcomeReason;
+  // A pause notice carries date-only policy facts, never free-text reasons or
+  // participant names. Admit the complete inclusive range together.
+  if (
+    source.outcomeReason === "TUTORING_PAUSE" &&
+    isCalendarDate(source.pauseStartDate) &&
+    isCalendarDate(source.pauseEndDate) &&
+    source.pauseEndDate >= source.pauseStartDate
+  ) {
+    result.outcomeReason = source.outcomeReason;
+    result.pauseStartDate = source.pauseStartDate;
+    result.pauseEndDate = source.pauseEndDate;
+    if (source.recipientRole === "tutor" || source.recipientRole === "tutee")
+      result.recipientRole = source.recipientRole;
+  }
   return result;
 }
 
@@ -238,6 +264,13 @@ export function sessionPlanningNoticeCopy(
     ? (cancellationEvent as keyof typeof descriptions)
     : "stale";
   const copy = descriptions[key];
+  const pauseRange =
+    key === "cancelled" &&
+    safe.outcomeReason === "TUTORING_PAUSE" &&
+    safe.pauseStartDate &&
+    safe.pauseEndDate
+      ? { start: safe.pauseStartDate, end: safe.pauseEndDate }
+      : null;
   const lines: string[] = [];
   if (obsolete) {
     lines.push(
@@ -247,7 +280,48 @@ export function sessionPlanningNoticeCopy(
       ),
     );
   }
-  lines.push(copy[language === "zh" ? 1 : 0]);
+  if (pauseRange) {
+    // Policy dates are labels: a recipient's timezone must not shift either end.
+    const date = new Intl.DateTimeFormat(language, {
+      dateStyle: "long",
+      timeZone: "UTC",
+    });
+    const start = date.format(new Date(`${pauseRange.start}T00:00:00Z`));
+    const end = date.format(new Date(`${pauseRange.end}T00:00:00Z`));
+    lines.push(
+      pauseRange.start === pauseRange.end
+        ? t(
+            `Regular tutoring is paused on ${start}. Your scheduled regular session has been cancelled.`,
+            `${start}暂停常规辅导。您已安排的常规辅导已取消。`,
+          )
+        : t(
+            `Regular tutoring is paused from ${start} through ${end} (inclusive). Your scheduled regular session has been cancelled.`,
+            `${start}至${end}暂停常规辅导（含首尾两日）。您已安排的常规辅导已取消。`,
+          ),
+    );
+    lines.push(
+      t(
+        "Agreed extra sessions and explicitly agreed rescheduled sessions remain scheduled.",
+        "已确认的额外辅导和已明确同意的改期辅导继续有效。",
+      ),
+    );
+    lines.push(
+      safe.recipientRole === "tutor"
+        ? t(
+            "Feel free to coordinate with your tutee to arrange extra sessions if needed.",
+            "如有需要，可与您的学习伙伴协商安排额外辅导。",
+          )
+        : safe.recipientRole === "tutee"
+          ? t(
+              "Feel free to coordinate with your tutor to arrange extra sessions if needed.",
+              "如有需要，可与您的辅导伙伴协商安排额外辅导。",
+            )
+          : t(
+              "Feel free to coordinate with your tutoring partner to arrange extra sessions if needed.",
+              "如有需要，双方可协商安排额外辅导。",
+            ),
+    );
+  } else lines.push(copy[language === "zh" ? 1 : 0]);
   if (!obsolete && safe.isActionable) {
     lines.push(
       safe.requiresExplicitAcceptance
@@ -337,13 +411,18 @@ export function sessionPlanningNoticeCopy(
     details.push(t("Location: No room specified", "地点：未指定教室"));
   if (details.length) lines.push(details.join("\n"));
   lines.push(
-    t(
-      "Calendar subscriptions may lag; the portal has the current schedule and response deadline.",
-      "日历订阅可能延迟；最新安排和回复期限以平台为准。",
-    ),
+    pauseRange
+      ? t(
+          "Calendar subscriptions may lag; check the portal for current confirmed sessions.",
+          "日历订阅可能延迟；请在平台查看当前已确认的辅导安排。",
+        )
+      : t(
+          "Calendar subscriptions may lag; the portal has the current schedule and response deadline.",
+          "日历订阅可能延迟；最新安排和回复期限以平台为准。",
+        ),
   );
   return {
-    subject: `${obsolete ? t("Earlier tutoring update", "历史辅导通知") : emailText(language, subjects[key])}${safe.subjectLabel ? ` — ${safe.subjectLabel}` : ""}`,
+    subject: `${obsolete ? t("Earlier tutoring update", "历史辅导通知") : pauseRange ? t("Tutoring pause — regular session cancelled", "常规辅导暂停：本次安排已取消") : emailText(language, subjects[key])}${safe.subjectLabel ? ` — ${safe.subjectLabel}` : ""}`,
     text: lines.join("\n\n"),
     presentation: {
       locale: language,
@@ -368,13 +447,14 @@ export function sessionPlanningNoticeCopy(
             ),
       eyebrow: t("ESSENTIAL SESSION UPDATE", "必要课程通知"),
       action: {
-        label: obsolete
-          ? t("View current schedule", "查看当前安排")
-          : safe.isActionable
-            ? safe.kind === "CANCEL"
-              ? t("Respond to cancellation", "回复取消提议")
-              : t("Respond to proposal", "回复时间提议")
-            : t("View session", "查看课程"),
+        label:
+          obsolete || pauseRange
+            ? t("View current schedule", "查看当前安排")
+            : safe.isActionable
+              ? safe.kind === "CANCEL"
+                ? t("Respond to cancellation", "回复取消提议")
+                : t("Respond to proposal", "回复时间提议")
+              : t("View session", "查看课程"),
         url: "",
       },
     },

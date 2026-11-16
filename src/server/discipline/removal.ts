@@ -5,7 +5,7 @@ import { recordDomainAudit } from "~/server/audit/evidence";
 import { auditActorScope } from "~/server/db-scope";
 import { standingFromCounts } from "~/lib/discipline";
 import { getActivePeriodOrNull } from "~/server/period";
-import { notifyAdmins, notifyUsers } from "~/server/notifications/core";
+import { managementNotificationRecipients } from "~/server/notifications/core";
 import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
 import { preserveHistoricalAcademics } from "~/server/historical-academic-snapshot";
 import { isImportedProgramRecord } from "~/server/imported-records";
@@ -72,44 +72,36 @@ async function finalizeRemoval(
       },
     },
   });
-  await withRecoveryDeliverySource(
+  const recipients = new Map<string, string>();
+  for (const link of links) {
+    const userId = link.pairing.tutor.user?.id;
+    if (userId) recipients.set(userId, "/dashboard");
+  }
+  // One account gets one notice even across several pairings or both roles.
+  // Only the existing eligible management audience receives the management link.
+  for (const manager of await managementNotificationRecipients(
     tx,
-    { entity: "TuteeRemovalRequest", recordId: requestId },
-    () =>
-      notifyUsers(
-        links.flatMap((l) =>
-          l.pairing.tutor.user ? [l.pairing.tutor.user.id] : [],
-        ),
-        {
-          ...notificationInAppEvent("tutee_removed", undefined, {
-            en: `Tutee ${tutee.englishName} was removed from the current roster.`,
-            zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
-          }),
-          title: "Tutee removed",
-          body: `${tutee.englishName} was removed from the current roster.`,
-          link: "/dashboard",
-        },
-        tx,
-      ),
-  );
-  await withRecoveryDeliverySource(
-    tx,
-    { entity: "TuteeRemovalRequest", recordId: requestId },
-    () =>
-      notifyAdmins(
-        {
-          ...notificationInAppEvent("tutee_removed", undefined, {
-            en: `Tutee ${tutee.englishName} was removed from the current roster.`,
-            zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
-          }),
-          title: "Tutee removed",
-          body: `${tutee.englishName} was removed from the current roster.`,
-          link: "/admin/tutee-requests",
-        },
-        undefined,
-        tx,
-      ),
-  );
+    "tutee_removed",
+  ))
+    recipients.set(manager.id, "/admin/tutee-requests");
+  if (recipients.size)
+    await withRecoveryDeliverySource(
+      tx,
+      { entity: "TuteeRemovalRequest", recordId: requestId },
+      () =>
+        tx.notification.createMany({
+          data: [...recipients].map(([userId, link]) => ({
+            userId,
+            link,
+            ...notificationInAppEvent("tutee_removed", undefined, {
+              en: `Tutee ${tutee.englishName} was removed from the current roster.`,
+              zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
+            }),
+            title: "Tutee removed",
+            body: `${tutee.englishName} was removed from the current roster.`,
+          })),
+        }),
+    );
   await recordDomainAudit(tx, {
     operation: "system.finalizeTuteeRemoval",
     entity: "TuteeRemovalRequest",

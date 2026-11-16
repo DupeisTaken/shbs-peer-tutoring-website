@@ -832,7 +832,7 @@
         "sendSetup": "Envoyer le lien de configuration",
         "needEmail": "Ajoutez d'abord un e-mail",
         "linkEmailed": "L’e-mail de configuration a été envoyé au titulaire du compte.",
-        "linkManual": "L’envoi d’e-mails n’est pas configuré. Contactez l’administrateur du déploiement avant d’envoyer un e-mail de configuration de compte.",
+        "linkManual": "L’e-mail de configuration du compte n’a pas pu être envoyé. Vérifiez l’état de l’envoi des e-mails et réessayez.",
         "dismiss": "Fermer"
       },
       "createDraftHint": "Fermer cette fenêtre conserve vos saisies jusqu’à ce que vous quittiez cette page.",
@@ -4910,7 +4910,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "L’envoi de l’e-mail n’a pas pu être confirmé. Vérifiez l’état de l’envoi et réessayez.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
@@ -6111,7 +6111,7 @@
   },
   "programCalendar": {
     "title": "Informations et suspensions du tutorat",
-    "informational": "Chaque période est une information ou une suspension des séances régulières. Les suspensions autorisent des exceptions explicitement convenues et ne modifient ni le calendrier scolaire ni les délais de recours.",
+    "informational": "Les pauses de tutorat annulent les séances régulières planifiées automatiquement. Les séances supplémentaires confirmées et les reports expressément convenus sont conservés. Les simples avis et les règles des jours de classe restent distincts.",
     "refresh": "Actualiser",
     "reload": "Recharger le brouillon",
     "loadFailed": "Impossible de charger les avis de tutorat.",
@@ -6139,7 +6139,7 @@
     "noticeEffect": "Information uniquement",
     "pauseEffect": "Suspendre les séances régulières",
     "noticeHelp": "Affiche une information sans modifier les séances datées.",
-    "pauseHelp": "Les séances régulières sont suspendues. Les exceptions nécessitent l’accord explicite du tuteur et de chaque élève participant ; le silence ne vaut pas accord. Les jours scolaires et les délais de recours restent indépendants.",
+    "pauseHelp": "Annule les futures séances régulières planifiées automatiquement et informe les participants concernés par e-mail. Les séances supplémentaires confirmées et les reports expressément convenus sont conservés. Toute nouvelle exception exige un accord explicite ; le silence ne vaut pas accord.",
     "removePauseHelp": "Supprimer cette suspension. Les engagements réguliers futurs admissibles pourront être rétablis après vérification des autres restrictions et conflits. Les séances commencées et les présences enregistrées restent inchangées.",
     "reviewImpact": "Vérifier l’effet sur la planification",
     "impactTitle": "Vérifier les engagements concernés",
@@ -6147,10 +6147,10 @@
     "impactConflict": "Cet avis a changé. Recharge les détails actuels avant de vérifier à nouveau.",
     "impactScope": "Aperçu des engagements futurs existants des élèves selon la règle résultante, y compris ceux déjà suspendus. Les élèves d’une même séance sont comptés séparément ; les récurrences futures suivent aussi cette règle.",
     "impactPause": "Engagements réguliers suspendus selon la règle résultante : {count}",
-    "impactRetain": "Exceptions explicitement convenues maintenues : {count}",
+    "impactRetain": "Séances supplémentaires confirmées et reports expressément convenus conservés : {count}",
     "impactConfirm": "Confirmation explicite nécessaire : {count}",
     "impactRestore": "Candidats au rétablissement : {count}",
-    "impactRule": "L’enregistrement vérifie à nouveau les accords et conflits actuels. Les séances commencées et les présences enregistrées restent inchangées."
+    "impactRule": "L’enregistrement revérifie les accords et conflits actuels. Les participants concernés sont informés des annulations par e-mail. Les séances commencées et les présences enregistrées restent inchangées."
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",

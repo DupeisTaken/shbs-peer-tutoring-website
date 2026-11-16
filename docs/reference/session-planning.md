@@ -36,6 +36,14 @@ editor. It requires active tutoring access and a usable published source. Select
 the source neither submits a proposal nor changes a recurring assignment; the
 existing 45-minute, agreement, version and conflict rules still govern submission.
 An unavailable source leaves the action disabled; Pairings remains directly available in the workspace tabs.
+The picker displays the current primary pairing's localized weekly slot rather
+than the source occurrence's date. A moved or timetable-mapped date never becomes
+the displayed recurring weekday. Distinct source cohorts retain their captured
+audience, identity and version even when their weekly labels match; an unavailable
+current slot is shown as unavailable rather than inferred from the occurrence.
+The tutor picker requests this enrichment with `includeRecurringSchedule: true`.
+Omitted or false flags preserve the existing agenda response shape and avoid the
+current-pairing lookup; historical readers remain captured evidence only.
 
 A tutoring pause retains a separate published, suppressed source for **Arrange
 optional session**. Tutors can propose or tutees can suggest an exception from
@@ -177,6 +185,15 @@ newly generated ordinary lessons. Started lessons and any cohort with recorded
 attendance retain their evidence; policy changes create no attendance, absence
 cards or service hours.
 
+New no-tutoring ranges default to `PAUSE_REGULAR` in the editor, impact preview and
+writer. An explicit `NOTICE` selection remains informational, and omitted effects
+on existing rows preserve their saved meaning. Applying a pause cancels future
+automatic regular commitments while retaining already-confirmed extras and
+explicitly agreed rescheduled lessons. Existing confirmed extras remain valid
+even when their pre-pause agreement used the ordinary timeout rule; this retention
+does not manufacture affirmative consent for a new paused-date offer or revive
+cancelled participants.
+
 `ProgramCalendarPolicyRevision` keeps append-only semantic snapshots of each
 stable starting-date source: ending date, effect, active state, version and the
 database effective time. Reason/editor-only changes add no semantic revision.
@@ -200,14 +217,16 @@ pass. Cohort IDs and cancelled calendar evidence remain intact; membership,
 continuation and reviewed execution-identity changes use the same source-owned
 planning lifecycle instead of deleting/recreating consent.
 
-An exception on a paused date requires affirmative agreement for the exact date,
+A new exception on a paused date requires affirmative agreement for the exact date,
 clock, room/Online choice, tutor and participating learner. The scheduler reads
 accepted offers and current response owners. `AUTHOR` and `EXPLICIT` responses
 can establish affirmative consent; `MATCHED` evidence must retain the same offer
 and valid affirmative provenance. For carried split consent, the parent chain
 is checked rather than trusting a historical `MATCHED` label that may have hidden
 timeout acceptance. `TIMEOUT`, `scheduleOverride`, plan kind `EXTRA` and a cohort's
-rescheduled flag do not independently establish this consent. In a mixed cohort,
+rescheduled flag do not independently establish affirmative consent. Retaining an
+already-confirmed extra under a newly applied pause is separate from admitting a
+new exception. In a mixed regular cohort,
 one agreed learner remains scheduled while a peer without that evidence stays
 paused. Source/owner changes still require the existing live authority checks.
 
@@ -226,15 +245,18 @@ expiration never resurrects the suppressed original. Only current pending offers
 hold rooms/participants; terminal requests release those holds through the normal
 request-state path. Short-notice cutoff and explicit agreement rules still apply.
 
-The agenda and optional-session picker expose suppressed sources without granting
-attendance authority. Attendance, reminder reads and private calendars use the
+Upcoming and the default week list show dated commitments and attendance duties,
+excluding cancelled and fully paused source cards. All/History retain cancellation
+evidence. The optional-session picker still exposes eligible suppressed sources
+without granting attendance authority. Attendance, reminder reads and private calendars use the
 effective scheduled roster. A paused source alone reserves no active commitment.
 Pending requests and captured decision reviews display the proposed room or
 Online choice alongside the time. Explicit-only guidance appears before email
 delivery as well as afterwards. An unknown physical room asks for a refresh and
 blocks acceptance without silently substituting Online or a roomless offer;
 fresh server validation still checks the captured offer and version.
-Affirmatively agreed dated exceptions may receive reminders even on paused dates;
+Retained confirmed extras and affirmatively agreed reschedules may receive
+reminders even on paused dates;
 an overlapping `NOTICE` still suppresses optional reminders under the legacy
 notice contract. Queued essential proposal mail is checked against current policy
 before delivery so its agreement guidance cannot promise silence acceptance on
@@ -649,9 +671,21 @@ application and the proposed revision separately from the original campaign.
 For applicable changes, the dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
 runs `scripts/profile-scheduling-requests.ts` on Node 22 Linux against its own
 PostgreSQL service. Cold publication, warm agendas, Sunday catch-up, negotiation,
-allocation, catalog reads and competing requests each have separate latency and
-diagnostic jobs. Baseline and candidate run serially on the same runner with the
+allocation, catalog reads and competing requests retain separate latency and
+diagnostic evidence. One preflight check runs the five prerequisite diagnostics
+serially. Eight scenario-group checks (cold, warm, Sunday, negotiation,
+allocation, catalog, contention and backlog) run their remaining partitions
+serially, with at most four groups active at once. Planning and final aggregation
+bring the benchmark to eleven checks. The full 60 latency partitions and ten
+diagnostics remain required; grouping does not reduce their sample populations.
+Baseline and candidate run serially on the same runner with the
 same synthetic fixture, harness, anchor, dependency lockfile and database schema.
+Each partition starts from pristine checkouts and a fresh job-owned database,
+preventing an earlier schema overlay from contaminating its original control.
+It retains its seven-minute command deadline and separate sealed artifact. The
+containing group has a longer bounded job timeout for its serial partitions.
+Provider-visible preparation and partition steps bind each artifact to its real
+execution; a failed group cannot turn missing or failed measurements into a PASS.
 The job reserves time for evidence upload and fails on exhausted budgets; partial
 samples do not count as passing evidence.
 
@@ -681,7 +715,10 @@ watch policy remain subject to the ordinary application, dependency and image ga
 
 Locked helper installation has a 180-second bound and serial helper regressions
 have a 120-second bound with a 4 GiB Node heap, including not-applicable and
-deferred decisions. The declaration job has a ten-minute ceiling; measurement
+deferred decisions. Candidate workflow-structure assertions run as root-only
+specs in this declaration check. Measured-side `*.test.ts` checks exclude them:
+the immutable baseline retains its own workflow rather than receiving the
+candidate's orchestrator. The declaration job has a ten-minute ceiling; measurement
 workers retain their separate resource and time limits. The declaration uploads
 its revision-bound applicability receipt. The aggregate independently recomputes
 a `NOT_APPLICABLE` receipt against fresh base/head checkouts and checks the exact
@@ -718,8 +755,9 @@ setup may retry once. Each attempt has at most 30 seconds and both share a
 remains in the terminal receipt even when the retry succeeds. A failed
 migration, comparison, timing command or parity check ends that worker.
 
-The special workflow caps preflight at two runners and the remaining matrix at
-four per PR. Three admitted PRs can use twelve profiling jobs. Run required CI
+The special workflow uses one preflight runner and caps the scenario groups at
+four per PR. These are four additional slots alongside the core CI allowance;
+three admitted PRs can use twelve profiling runners. Run required CI
 ahead of a coordinated campaign and check the account queue for other work. A delayed worker that cannot fit its
 entire command budget must fail before timing starts. Each worker records the
 actual Node and PostgreSQL clock ranges. Aggregation verifies those ranges

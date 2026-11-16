@@ -11,6 +11,7 @@ import { isDeepStrictEqual } from "node:util";
 export const PROFILE_WATCH_PATHS = Object.freeze([
   ".github/workflows/scheduling-profile.yml",
   ".github/workflows/scheduling-profile-worker.yml",
+  ".github/actions/scheduling-profile-partition/**",
   ".github/scheduling-profile-manifests/**",
   "scripts/profile-scheduling-requests.ts",
   "scripts/scheduling-profile/**",

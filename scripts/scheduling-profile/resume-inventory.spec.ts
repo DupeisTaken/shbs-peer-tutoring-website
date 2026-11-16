@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { zipSync, strToU8, type Zippable } from "fflate";
 import { collectInventory, downloadArchives } from "./resume-inventory.mjs";
 import type { Archive, Campaign, Slot } from "./resume-inventory.mjs";
+import { groupJobName, partitionStepName, prepareStepName } from "./group-plan.mjs";
 
 const campaign: Campaign = {
   repository: "synthetic/profile", runId: "123", campaignAttempt: 1, currentAttempt: 2,
@@ -64,6 +65,66 @@ function fixture(binding: Campaign = campaign) {
   };
   return { state, attempts, calls, options: { fetch: send, token } };
 }
+
+function groupedJob(id: number, attempt: number, targets: Slot[], outcomes: string[] = [], group = targets[0]!.scenario): ProviderRecord {
+  return { ...job(id, attempt, targets[0]), name: groupJobName(group), conclusion: "failure",
+    steps: targets.flatMap((target, index) => [
+      { name: prepareStepName(target), number: index * 2 + 1, status: "completed", conclusion: "success" },
+      { name: partitionStepName(target), number: index * 2 + 2, status: "completed", conclusion: outcomes[index] ?? "success" },
+    ]) };
+}
+
+void test("group journals bind independent partition outcomes to provider steps rather than the failed parent job", async () => {
+  const second = { ...slot, partition: 1 };
+  const { state, options } = fixture();
+  state.jobs.set(1, [groupedJob(101, 1, [slot, second], ["success", "failure"])]);
+  state.jobs.set(2, []); state.artifacts = [artifact(201, 1), artifact(202, 1, second)];
+  const result = await collectInventory(campaign, [slot, second], options);
+  assert.deepEqual(result.executions.map((entry) => [entry.jobId, entry.conclusion, entry.providerStep?.number]), [
+    ["101", "success", 2], ["101", "failure", 4],
+  ]);
+  assert.equal(result.executions[0]!.artifactId, "201");
+  const steps = state.jobs.get(1)![0]!.steps as ProviderRecord[];
+  steps[1]!.name = partitionStepName({ ...slot, scenario: "warm" });
+  await assert.rejects(collectInventory(campaign, [slot, second], options), /another group's partition/);
+});
+
+void test("an explicitly skipped grouped partition carries a prior PASS without inventing a fresh execution or archive", async () => {
+  const { state, options } = fixture();
+  state.jobs.set(1, [groupedJob(101, 1, [slot])]);
+  state.jobs.set(2, [groupedJob(102, 2, [slot], ["skipped"])]);
+  const result = await collectInventory(campaign, [slot], options);
+  assert.equal(result.executions.length, 1);
+  assert.equal(result.audit.carriedPartitions.length, 1);
+  assert.equal(result.audit.carriedPartitions[0]!.sourceArtifactId, "201");
+  state.artifacts.push(artifact(202, 2));
+  await assert.rejects(collectInventory(campaign, [slot], options), /alias cannot own a new artifact/);
+  state.artifacts.pop();
+  const steps = state.jobs.get(2)![0]!.steps as ProviderRecord[];
+  steps[1]!.conclusion = "success";
+  const reexecuted = await collectInventory(campaign, [slot], options);
+  assert.equal(reexecuted.executions.length, 2, "success without a new archive cannot become reuse");
+  assert.deepEqual(reexecuted.audit.carriedPartitions, []);
+});
+
+void test("skipped grouped steps prove non-start, but missing, failed and active steps cannot become successful carry", async () => {
+  const { state, options } = fixture();
+  state.jobs.set(1, [groupedJob(101, 1, [slot], ["skipped"])]);
+  state.jobs.set(2, []); state.artifacts = [];
+  const skipped = await collectInventory(campaign, [slot], options);
+  assert.equal(skipped.executions[0]!.nonStart?.kind, "PROVIDER_SKIPPED_STEP");
+  const grouped = state.jobs.get(1)![0]!;
+  grouped.steps = [];
+  const missing = await collectInventory(campaign, [slot], options);
+  assert.equal(missing.executions[0]!.conclusion, "failure");
+  assert.equal(missing.executions[0]!.nonStart, undefined);
+  grouped.status = "in_progress"; grouped.conclusion = null;
+  grouped.steps = [{ name: prepareStepName(slot), number: 1, status: "in_progress", conclusion: null },
+    { name: partitionStepName(slot), number: 2, status: "pending", conclusion: null }];
+  const active = await collectInventory(campaign, [slot], options);
+  assert.equal(active.executions[0]!.conclusion, "in_progress");
+  assert.equal(active.executions[0]!.measurementStarted, false);
+});
 
 void test("retains every authenticated execution, including a newer failed job without an artifact", async () => {
   const { options } = fixture();

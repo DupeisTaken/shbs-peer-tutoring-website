@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { profileMatrix } from "./aggregate-partitions.mjs";
 import { validateReportClocks } from "./clock-admission.mjs";
+import { groupSlots, partitionStepName, prepareStepName } from "./group-plan.mjs";
 
 /** Pure selection of original artifact packages, never file I/O or measurement.
  * The caller authenticates an exhaustive GitHub executions/artifacts inventory,
@@ -11,7 +12,8 @@ import { validateReportClocks } from "./clock-admission.mjs";
  *
  * @typedef {{scenario:string,mode:string,partition:number,partitionCount:number,samples:number}} Slot
  * @typedef {{repository:string,runId:string,workflowSha:string,campaignAttempt:number,currentAttempt:number,candidateRevision:string,anchor:string,nodeImage:string,nodeImageId:string,postgresImage:string,candidateSchemaSha256:string,dependencyLockSha256:string,reportSchemaVersion:number,partitionProtocolVersion:number,scenarios:Record<string,{baselineRevision:string,comparisonSha256:string,requiresNativeSchemaControl:boolean}>}} Campaign
- * @typedef {{repository:string,runId:string,workflowSha:string,attempt:number,jobId:string,slot:Slot,conclusion:string,artifactId:string|null,nonStart?:{kind:string,jobId:string,status:string,conclusion:string,stepCount:number,stage?:string}}} Execution
+ * @typedef {{group:string,name:string,number:number|null,prepareName:string,prepareNumber:number|null}} ProviderStep
+ * @typedef {{repository:string,runId:string,workflowSha:string,attempt:number,jobId:string,slot:Slot,conclusion:string,artifactId:string|null,measurementStarted?:boolean,providerStep?:ProviderStep,nonStart?:{kind:string,jobId:string,status:string,conclusion:string,stepCount:number,stage?:string,group?:string,stepName?:string,stepNumber?:number}}} Execution
  * @typedef {{status?:unknown,exit?:unknown,budget?:unknown,events?:unknown[]}} PhaseFiles
  * @typedef {{repository:string,runId:string,attempt:number,artifactId:string,name:string,archiveSha256:string,archiveSize:number,identitySha256:string,inventorySha256:string,identity:unknown,files:Record<string,string>,phaseFiles:Partial<Record<'base'|'head',PhaseFiles>>,reports?:Partial<Record<'base'|'head'|'native',unknown>>}} Artifact
  * @typedef {{campaign:Campaign,executions:Execution[],artifacts:Artifact[]}} Inventory
@@ -221,8 +223,17 @@ function nonStart(execution) {
   if (execution.nonStart === undefined) return false;
   const proof = object(execution.nonStart);
   same(execution.conclusion, "skipped"); same(execution.artifactId, null);
-  same(proof.kind, "PROVIDER_SKIPPED_JOB"); same(proof.jobId, execution.jobId);
-  same(proof.status, "completed"); same(proof.conclusion, "skipped"); same(proof.stepCount, 0);
+  same(proof.jobId, execution.jobId);
+  same(proof.status, "completed"); same(proof.conclusion, "skipped");
+  if (proof.kind === "PROVIDER_SKIPPED_STEP") {
+    same(proof.stepCount, 1); same(proof.group, execution.providerStep?.group);
+    same(proof.stepName, execution.providerStep?.name); same(proof.stepNumber, execution.providerStep?.number);
+    positive(proof.stepNumber);
+  } else if (proof.kind === "PROVIDER_SKIPPED_GROUP") {
+    same(proof.stepCount, 0); same(proof.group, execution.providerStep?.group);
+  } else {
+    same(proof.kind, "PROVIDER_SKIPPED_JOB"); same(proof.stepCount, 0);
+  }
   require(proof.stage === undefined || ["profile", "preflight"].includes(proof.stage), "UNKNOWN_SKIPPED_STAGE");
   return true;
 }
@@ -253,6 +264,26 @@ function inventory(input, requested) {
   require(usedArtifacts.size === artifacts.length, "UNREFERENCED_ARTIFACT");
   for (const group of jobs.values()) {
     const first = group[0]; require(first, "MISSING_JOB");
+    if (first.providerStep) {
+      const declared = new Set(groupSlots(first.providerStep.group).map(slotKey));
+      const stepNumbers = new Set();
+      for (const execution of group) {
+        same(execution.attempt, first.attempt);
+        const proof = object(execution.providerStep);
+        same(proof.group, first.providerStep.group);
+        require(declared.has(slotKey(execution.slot)), "GROUP_SLOT_MISMATCH");
+        same(proof.name, partitionStepName(execution.slot)); same(proof.prepareName, prepareStepName(execution.slot));
+        if (proof.number !== null) {
+          positive(proof.number); positive(proof.prepareNumber);
+          require(!stepNumbers.has(proof.number) && !stepNumbers.has(proof.prepareNumber), "DUPLICATE_PROVIDER_STEP");
+          stepNumbers.add(proof.number); stepNumbers.add(proof.prepareNumber);
+          require(proof.prepareNumber < proof.number, "INVALID_PROVIDER_STEP_ORDER");
+        } else {
+          require(execution.artifactId === null && execution.conclusion !== "success", "MISSING_PROVIDER_STEP");
+        }
+      }
+      continue;
+    }
     const stage = first.nonStart?.stage;
     if (!stage) require(group.length === 1, "DUPLICATE_JOB");
     else {
@@ -271,6 +302,7 @@ function inventory(input, requested) {
 /** @param {Artifact} artifact @param {Execution} execution */
 function provenance(artifact, execution) {
   return { jobId: execution.jobId, attempt: execution.attempt, artifactId: artifact.artifactId, name: artifact.name,
+    ...(execution.providerStep ? { providerStep: { ...execution.providerStep } } : {}),
     archiveSha256: artifact.archiveSha256, archiveSize: artifact.archiveSize, identitySha256: artifact.identitySha256,
     inventorySha256: artifact.inventorySha256, files: { ...artifact.files } };
 }
@@ -308,7 +340,7 @@ export function authorizeArtifactRetry(input) {
   const key = checkedSlot(input.slot), { campaign, bySlot, byArtifact } = inventory(input, [input.slot]);
   const all = bySlot.get(key) ?? [];
   const current = all.filter((execution) => execution.attempt === campaign.currentAttempt);
-  require(current.every((execution) => execution.conclusion === "in_progress" && execution.artifactId === null), "CURRENT_ATTEMPT_ALREADY_TERMINAL");
+  require(current.every((execution) => execution.conclusion === "in_progress" && execution.artifactId === null && execution.measurementStarted !== true), "CURRENT_ATTEMPT_ALREADY_TERMINAL");
   const history = all.filter((execution) => execution.attempt < campaign.currentAttempt);
   require(history.length > 0, "MISSING_PRIOR_FAILURE");
   const replaced = history.map((execution) => {
@@ -321,4 +353,22 @@ export function authorizeArtifactRetry(input) {
     repository: campaign.repository, runId: campaign.runId, workflowSha: campaign.workflowSha,
     campaignAttempt: campaign.campaignAttempt, attempt: campaign.currentAttempt, remeasureBaseline: true,
     remeasureCandidate: true, preserveOriginalArtifacts: true, replaced };
+}
+
+/** Group reruns leave already successful partitions intact. A provider-visible
+ * skipped measurement step later proves reuse; absence of a new archive does not.
+ * @param {Inventory & {slot:Slot}} input */
+export function preparePartition(input) {
+  const { campaign, bySlot } = inventory(input, [input.slot]);
+  const history = bySlot.get(checkedSlot(input.slot)) ?? [];
+  const current = history.filter((entry) => entry.attempt === campaign.currentAttempt);
+  require(current.every((entry) => entry.conclusion === "in_progress" && entry.artifactId === null && entry.measurementStarted !== true), "CURRENT_ATTEMPT_ALREADY_TERMINAL");
+  const prior = history.filter((entry) => entry.attempt < campaign.currentAttempt);
+  const latest = prior.at(-1);
+  if (latest?.conclusion === "success") {
+    const selection = selectResumeArtifacts({ ...input, executions: prior,
+      artifacts: input.artifacts.filter((entry) => entry.attempt < campaign.currentAttempt), requiredSlots: [input.slot] });
+    return { shouldRun: false, selection };
+  }
+  return { shouldRun: true, authorization: authorizeArtifactRetry(input) };
 }

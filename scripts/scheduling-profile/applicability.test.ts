@@ -13,7 +13,6 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
-  PROFILE_WATCH_PATHS,
   inspectApplicability,
   inspectDependencyAddition,
   inspectGitApplicability,
@@ -378,6 +377,10 @@ for (const path of [
   "scripts/scheduling-profile/scenarios.ts",
   "scripts/scheduling-profile/new-harness.mjs",
   ".github/workflows/scheduling-profile-worker.yml",
+  ".github/actions/scheduling-profile-partition/action.yml",
+  ".github/actions/scheduling-profile-partition/run.sh",
+  "scripts/scheduling-profile/generate-workflow.mjs",
+  "scripts/scheduling-profile/group-plan.mjs",
   "scripts/scheduling-profile/clock-admission.mjs",
   "scripts/scheduling-profile/aggregate-partitions.mjs",
   "scripts/scheduling-profile/resume-run.mjs",
@@ -401,9 +404,11 @@ void test("workflow and admission-helper validation alone need regressions but d
     "scripts/scheduling-profile/comparison-inputs.mjs",
     "scripts/scheduling-profile/applicability.mjs",
     "scripts/scheduling-profile/applicability.test.ts",
+    "scripts/scheduling-profile/applicability-workflow.spec.ts",
+    "scripts/scheduling-profile/group-plan.spec.ts",
   ]);
   assert.equal(result.status, "NOT_APPLICABLE");
-  assert.equal(result.validationOnlyPaths.length, 4);
+  assert.equal(result.validationOnlyPaths.length, 6);
   assert.deepEqual(result.watchedSourcePaths, []);
   assert.equal(
     scoped(
@@ -462,80 +467,6 @@ void test("terminal gate fails closed on missing scope, failed declaration or un
       status: "REQUIRED",
       clockStatus: "DEFERRED",
     }),
-  );
-});
-
-const workflowFile = fileURLToPath(
-  new URL("../../.github/workflows/scheduling-profile.yml", import.meta.url),
-);
-void test("workflow keeps path policy, unconditional bounded helper validation and independently verified N/A aggregation", () => {
-  const workflow = readFileSync(workflowFile, "utf8").replaceAll("\r\n", "\n");
-  const triggers = workflow
-    .split("    paths:\n")[1]!
-    .split("  workflow_dispatch:")[0]!;
-  assert.deepEqual(
-    [...triggers.matchAll(/^\s+- "([^"]+)"$/gm)].map((match) => match[1]),
-    [...PROFILE_WATCH_PATHS],
-  );
-  const matrix = workflow.split("  matrix:\n")[1]!.split("  preflight:\n")[0]!;
-  const validation =
-    /- name: Validate profile helpers before any applicability decision\n([\s\S]*?)(?=\n      - )/.exec(matrix)![1]!;
-  assert.doesNotMatch(validation, /\bif:/);
-  assert.match(
-    validation,
-    /timeout 120 node --import tsx --test --test-concurrency=1/,
-  );
-  assert.ok(
-    matrix.indexOf("Determine scheduling-profile applicability") <
-      matrix.indexOf("Determine the common measurement interval"),
-  );
-  assert.ok(
-    matrix.indexOf("Determine scheduling-profile applicability") <
-      matrix.indexOf("docker pull"),
-  );
-  assert.match(
-    matrix,
-    /assert.notEqual\(control, candidate, "A measurement control cannot be the candidate revision"\)/,
-  );
-  for (const step of [
-    "Select immutable comparison and reviewed schema contract",
-    "Determine the common measurement interval",
-  ])
-    assert.match(
-      matrix.slice(
-        matrix.indexOf(`- name: ${step}`),
-        matrix.indexOf(`- name: ${step}`) + 200,
-      ),
-      /if: steps.scope.outputs.status == 'REQUIRED'/,
-    );
-  const aggregate = workflow.split("  aggregate:\n")[1]!;
-  assert.match(
-    aggregate,
-    /if: always\(\) && needs.matrix.outputs.admission != 'DEFERRED'/,
-  );
-  assert.match(
-    aggregate,
-    /run: node scripts\/scheduling-profile\/applicability.mjs gate/,
-  );
-  assert.match(
-    aggregate,
-    /name: scheduling-profile-applicability-\$\{\{ needs.matrix.outputs.scope_attempt \}\}/,
-  );
-  assert.match(
-    aggregate,
-    /PROFILE_SCOPE_PROOF_SHA256: \$\{\{ needs.matrix.outputs.scope_proof_sha256 \}\}/,
-  );
-  assert.match(
-    aggregate,
-    /applicability.mjs verify \.profile-scope-base \. \.profile-applicability\/scheduling-profile-applicability.json/,
-  );
-  assert.match(
-    aggregate,
-    /Authenticate every execution and pool complete paired populations\n        if: needs.matrix.outputs.applicability == 'REQUIRED'/,
-  );
-  assert.match(
-    aggregate,
-    /Require every diagnostic and latency partition\n        if: always\(\) && needs.matrix.outputs.applicability == 'REQUIRED'/,
   );
 });
 

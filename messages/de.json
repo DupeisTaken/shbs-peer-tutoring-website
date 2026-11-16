@@ -832,7 +832,7 @@
         "sendSetup": "Einrichtungslink senden",
         "needEmail": "Zuerst eine E-Mail hinzufügen",
         "linkEmailed": "Die Einrichtungs-E-Mail wurde an den Kontoinhaber gesendet.",
-        "linkManual": "Der E-Mail-Versand ist nicht eingerichtet. Wenden Sie sich vor dem Versand von Kontoeinrichtungs-E-Mails an die für die Bereitstellung zuständige Person.",
+        "linkManual": "Die E-Mail zur Kontoeinrichtung konnte nicht gesendet werden. Prüfen Sie den E-Mail-Versandstatus und versuchen Sie es erneut.",
         "dismiss": "Schließen"
       },
       "createDraftHint": "Beim Schließen dieses Dialogs bleiben Ihre Eingaben erhalten, bis Sie diese Seite verlassen.",
@@ -4910,7 +4910,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "Der E-Mail-Versand konnte nicht bestätigt werden. Prüfen Sie den Versandstatus und versuchen Sie es erneut.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
@@ -6111,7 +6111,7 @@
   },
   "programCalendar": {
     "title": "Nachhilfehinweise und Pausen",
-    "informational": "Ein Zeitraum ist ein Hinweis oder eine Pause regulärer Nachhilfe. Während einer Pause sind ausdrücklich vereinbarte Ausnahmen möglich; Schulkalender und Einspruchsfristen ändern sich nicht.",
+    "informational": "Nachhilfepausen sagen automatisch geplante reguläre Termine ab. Bestätigte Zusatztermine und ausdrücklich vereinbarte Verschiebungen bleiben bestehen. Reine Hinweise und Schultagsregeln bleiben getrennt.",
     "refresh": "Aktualisieren",
     "reload": "Entwurf neu laden",
     "loadFailed": "Nachhilfehinweise konnten nicht geladen werden.",
@@ -6139,7 +6139,7 @@
     "noticeEffect": "Nur Hinweis",
     "pauseEffect": "Reguläre Nachhilfe pausieren",
     "noticeHelp": "Zeigt einen Hinweis, ohne datierte Termine zu ändern.",
-    "pauseHelp": "Reguläre Termine pausieren. Ausnahmen benötigen die ausdrückliche Zustimmung der Lehrperson und aller teilnehmenden Lernenden; Schweigen gilt nicht als Zustimmung. Schultage und Einspruchsfristen bleiben unabhängig.",
+    "pauseHelp": "Sagt künftige automatisch geplante reguläre Termine ab und benachrichtigt Betroffene per E-Mail. Bestätigte Zusatztermine und ausdrücklich vereinbarte Verschiebungen bleiben bestehen. Neue Ausnahmen erfordern ausdrückliche Zustimmung; Schweigen gilt nicht als Zustimmung.",
     "removePauseHelp": "Diese Nachhilfepause entfernen. Berechtigte zukünftige reguläre Termine können nach Prüfung anderer Einschränkungen und Konflikte wiederhergestellt werden. Bereits begonnene Termine und erfasste Anwesenheit bleiben unverändert.",
     "reviewImpact": "Planungsauswirkung prüfen",
     "impactTitle": "Betroffene Termine prüfen",
@@ -6147,10 +6147,10 @@
     "impactConflict": "Dieser Hinweis wurde geändert. Lade die aktuellen Angaben neu, bevor du erneut prüfst.",
     "impactScope": "Vorschau bestehender zukünftiger Lernendentermine unter der neuen Regel, einschließlich bereits pausierter Termine. Lernende einer gemeinsamen Stunde zählen einzeln; künftige Wiederholungen folgen ebenfalls der Regel.",
     "impactPause": "Unter der neuen Regel pausierte reguläre Termine: {count}",
-    "impactRetain": "Ausdrücklich vereinbarte Ausnahmen bleiben: {count}",
+    "impactRetain": "Bestätigte Zusatztermine und ausdrücklich vereinbarte Verschiebungen bleiben: {count}",
     "impactConfirm": "Ausdrückliche Bestätigung erforderlich: {count}",
     "impactRestore": "Mögliche Wiederherstellungen: {count}",
-    "impactRule": "Beim Speichern werden aktuelle Zustimmungen und Konflikte erneut geprüft. Begonnene Termine und erfasste Anwesenheit bleiben unverändert."
+    "impactRule": "Beim Speichern werden aktuelle Zustimmungen und Konflikte erneut geprüft. Betroffene werden per E-Mail über Absagen informiert. Begonnene Termine und erfasste Anwesenheit bleiben unverändert."
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",
