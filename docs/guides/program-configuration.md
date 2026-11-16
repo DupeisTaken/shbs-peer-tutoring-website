@@ -715,8 +715,9 @@ and school-day/timetable facts, never the staff note. Delivery rechecks the curr
 calendar revision and participant eligibility; SMTP already accepted cannot be
 recalled. No external calendar provider is modified. The separate **No-tutoring
 dates** control has an explicit scheduling effect. **Notice only** is informational;
-**Pause regular tutoring** suppresses future ordinary dated commitments and preserves
-individually agreed exceptions under the dated scheduler. Neither mode changes
+New ranges default to **Pause regular tutoring**, which cancels future automatic
+regular commitments while preserving confirmed extras and explicitly agreed
+rescheduled lessons under the dated scheduler. Neither mode changes
 school-day appeal counting or the recurring assignment itself.
 
 ### Configure recruitment windows
@@ -790,11 +791,17 @@ Applying/removing a pause reconciles future commitments in the same transaction;
 ordinary suppression is reversible but removal does not revive user cancellations,
 overwrite school closures, duplicate moved lessons or bypass new conflicts. Started
 lessons, historical attendance, discipline and service hours remain actual evidence.
-Optional sessions use dated exception proposals and affirmative participation; silence
-must not opt a learner into a paused date. An agreed exception retains normal room,
+New optional sessions use dated exception proposals and affirmative participation;
+silence must not opt a learner into a paused date. An extra confirmed before a
+pause remains scheduled even if its agreement used the ordinary timeout rule.
+Cancellation emails name the inclusive pause range and suggest arranging an extra
+with the counterpart if needed; retained participants do not receive a cancellation.
+Only the bounded publication window is materialized, so farther recurring dates
+receive cancellation notices when their dated sessions are published.
+An agreed exception retains normal room,
 participant, permission, reminder and calendar checks.
 
-Existing records and older queued requests retain **Notice only**. An older client
+Existing records and explicit **Notice only** requests retain their saved effect. An older client
 editing an existing pause without sending a scheduling effect preserves that pause;
 changing its effect requires an explicit selection. The additive migration is
 `20261108010000_tutoring_pause_policy`; deploy it before the application. It adds a

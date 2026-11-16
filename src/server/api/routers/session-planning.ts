@@ -88,12 +88,14 @@ export const sessionPlanningRouter = createTRPCRouter({
       retrySessionNotice(ctx.db, input.noticeId, ctx.session.user.id),
     ),
   agenda: protectedProcedure
-    .input(z.object({ role: z.enum(["tutor", "tutee"]) }))
+    .input(z.object({ role: z.enum(["tutor", "tutee"]), includeRecurringSchedule: z.boolean().optional() }))
     .query(({ ctx, input }) =>
       readSessionAgenda(
         ctx.db,
         { id: ctx.session.user.id, tutorId: ctx.session.tutorId },
         input.role,
+        undefined,
+        { includeRecurringSchedule: input.includeRecurringSchedule },
       ),
     ),
   suggest: protectedProcedure

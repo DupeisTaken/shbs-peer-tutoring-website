@@ -332,9 +332,13 @@ export async function readCurrentSessionReminderCohort(
     )
       return null;
     const calendarDay = resolvePlanningTimetableDay(cohort.date, await tx.schoolCalendarDay.findMany());
-    if (isRegularTutoringPaused(cohort.date, await pauseRanges(tx)) || !calendarDay.isSchoolDay) {
+    const scheduled = cohort.plan.participants.filter((person) => person.cohortId === cohort.id && person.status === "SCHEDULED");
+    if (isRegularTutoringPaused(cohort.date, await pauseRanges(tx))) {
+      const retained = await retainedPauseParticipants(tx, cohort.plan, cohort);
+      if (!scheduled.length || scheduled.some((person) => !retained.has(person.tuteeId))) return null;
+    }
+    if (!calendarDay.isSchoolDay) {
       const affirmative = await affirmativePauseParticipants(tx, cohort.plan, cohort);
-      const scheduled = cohort.plan.participants.filter((person) => person.cohortId === cohort.id && person.status === "SCHEDULED");
       if (!scheduled.length || scheduled.some((person) => !affirmative.has(person.tuteeId))) return null;
     }
     // Delivery uses the reviewed executor while original assignment identifiers
@@ -1027,6 +1031,7 @@ async function notifyPlanChange(
   event: string,
   originalStartsAt = cohort.startsAt,
   affectedTuteeIds?: readonly string[],
+  tutoringPause?: { pauseStartDate: string; pauseEndDate: string },
 ) {
   const audience = await recipients(
     tx,
@@ -1064,6 +1069,11 @@ async function notifyPlanChange(
           .slice(0, 200),
         roomLabel: room?.name.slice(0, 120) ?? null,
         online: cohort.online,
+        ...(tutoringPause ? {
+          outcomeReason: "TUTORING_PAUSE",
+          ...tutoringPause,
+          recipientRole: person.actorKey.startsWith("tutor:") ? "tutor" : "tutee",
+        } : {}),
       },
     })),
   );
@@ -1130,8 +1140,32 @@ async function affirmativePauseParticipants(tx: TransactionDb, plan: Plan, cohor
   return result;
 }
 
+/** A pause stops automatic recurrence, not already-confirmed extra commitments.
+ * Retention does not grant consent to new offers or revive cancelled participants. */
+async function retainedPauseParticipants(tx: TransactionDb, plan: Plan, cohort: Cohort) {
+  const retained = await affirmativePauseParticipants(tx, plan, cohort);
+  if (plan.kind === "EXTRA" && cohort.status === "SCHEDULED") {
+    for (const person of plan.participants) {
+      if (person.cohortId === cohort.id && person.status === "SCHEDULED")
+        retained.add(person.tuteeId);
+    }
+  }
+  return retained;
+}
+
 async function pauseRanges(tx: TransactionDb) {
   return tx.programCalendarDay.findMany({ where: { active: true, schedulingEffect: "PAUSE_REGULAR" } });
+}
+
+function tutoringPauseNoticeRange(date: string, ranges: readonly TutoringPauseRange[]) {
+  // Every matching interval contains this date, so its union is contiguous.
+  const applicable = ranges.filter((range) => range.active !== false &&
+    range.schedulingEffect === "PAUSE_REGULAR" && range.date <= date && range.endDate >= date);
+  if (!applicable.length) return undefined;
+  return {
+    pauseStartDate: applicable.map((range) => range.date).sort()[0]!,
+    pauseEndDate: applicable.map((range) => range.endDate).sort().at(-1)!,
+  };
 }
 
 async function offerRequiresExplicitAgreement(tx: TransactionDb, offer: { id: string; date: string }) {
@@ -1163,11 +1197,12 @@ async function reconcileTutoringPauses(tx: TransactionDb, ranges: readonly Tutor
       (person.status === "SCHEDULED" || person.tutoringPauseSuppressed || person.calendarSuppressed));
     if (!people.length || !(await sourceIsCurrent(tx, plan))) continue;
     const paused = isRegularTutoringPaused(cohort.date, ranges);
-    const affirmative = paused ? await affirmativePauseParticipants(tx, plan, cohort) : new Set<string>();
-    const suppress = people.filter((person) => paused && !affirmative.has(person.tuteeId) && !person.tutoringPauseSuppressed);
-    const restore = people.filter((person) => person.tutoringPauseSuppressed && (!paused || affirmative.has(person.tuteeId)));
+    const retained = paused ? await retainedPauseParticipants(tx, plan, cohort) : new Set<string>();
+    const suppress = people.filter((person) => paused && !retained.has(person.tuteeId) && !person.tutoringPauseSuppressed);
+    const restore = people.filter((person) => person.tutoringPauseSuppressed && (!paused || retained.has(person.tuteeId)));
     if (!suppress.length && !restore.length) continue;
     const changedIds: string[] = [];
+    const restoredIds: string[] = [];
     if (suppress.length) {
       await tx.sessionPlanParticipant.updateMany({
         where: { id: { in: suppress.map((person) => person.id) } },
@@ -1206,6 +1241,7 @@ async function reconcileTutoringPauses(tx: TransactionDb, ranges: readonly Tutor
           calendarSuppressed: calendarBlocked, version: { increment: 1 } },
       });
       changedIds.push(person.tuteeId);
+      restoredIds.push(person.tuteeId);
     }
     if (!changedIds.length) continue;
     const remaining = await tx.sessionPlanParticipant.count({ where: { cohortId: cohort.id, status: "SCHEDULED" } });
@@ -1213,7 +1249,15 @@ async function reconcileTutoringPauses(tx: TransactionDb, ranges: readonly Tutor
       where: { id: cohort.id }, data: { status: remaining ? "SCHEDULED" : "CANCELLED", version: { increment: 1 } },
     });
     const currentPlan = await tx.sessionPlan.findUniqueOrThrow({ where: { id: plan.id }, include: planInclude });
-    await notifyPlanChange(tx, currentPlan, changed, remaining ? "schedule_updated" : "cancelled", cohort.startsAt, changedIds);
+    const newlyCancelled = suppress.filter((person) => person.status === "SCHEDULED");
+    if (newlyCancelled.length) {
+      // A school-closed participant may acquire an independent pause marker,
+      // but only an active commitment actually cancelled by this pause gets mail.
+      await notifyPlanChange(tx, currentPlan, changed, "cancelled", cohort.startsAt,
+        newlyCancelled.map((person) => person.tuteeId), tutoringPauseNoticeRange(cohort.date, ranges));
+    }
+    if (restoredIds.length)
+      await notifyPlanChange(tx, currentPlan, changed, remaining ? "schedule_updated" : "cancelled", cohort.startsAt, restoredIds);
     await audit(tx, plan.id, "tutoringPauseUpdated", true);
   }
   // A newly added pause invalidates silence-based acceptance even when some
@@ -1232,7 +1276,7 @@ export async function previewProgramCalendarImpact(
     const current = existing.find((row) => row.date === input.date);
     const next = existing.filter((row) => row.date !== input.date);
     if (!input.remove) next.push({ ...current, date: input.date, endDate: input.endDate,
-      schedulingEffect: input.schedulingEffect ?? current?.schedulingEffect ?? "NOTICE", active: true } as typeof existing[number]);
+      schedulingEffect: input.schedulingEffect ?? current?.schedulingEffect ?? "PAUSE_REGULAR", active: true } as typeof existing[number]);
     const start = current && current.date < input.date ? current.date : input.date;
     const end = current && current.endDate > input.endDate ? current.endDate : input.endDate;
     const cohorts = await tx.sessionPlanCohort.findMany({
@@ -1246,10 +1290,10 @@ export async function previewProgramCalendarImpact(
     };
     for (const cohort of cohorts) {
       if (!(await sourceIsCurrent(tx, cohort.plan))) continue;
-      const explicit = await affirmativePauseParticipants(tx, cohort.plan, cohort);
+      const retained = await retainedPauseParticipants(tx, cohort.plan, cohort);
       for (const person of cohort.plan.participants.filter((row) => row.cohortId === cohort.id && (row.status === "SCHEDULED" || row.tutoringPauseSuppressed || row.calendarSuppressed))) {
         if (isRegularTutoringPaused(cohort.date, next)) {
-          if (explicit.has(person.tuteeId)) counts.retainedExceptionCount++;
+          if (retained.has(person.tuteeId)) counts.retainedExceptionCount++;
           else if (person.scheduleOverride || cohort.plan.kind === "EXTRA" || cohort.rescheduled) counts.confirmationCount++;
           else counts.pauseCount++;
         } else if (person.tutoringPauseSuppressed) {
@@ -1906,6 +1950,9 @@ export async function ensureSessionPlanningWindow(
             tuteeIds: roster,
             cohort: published,
             event: available ? "schedule_updated" : "cancelled",
+            ...(tutoringPaused && !schoolSuppressed ? {
+              tutoringPause: tutoringPauseNoticeRange(date, computation.tutoringPauses ?? []),
+            } : {}),
           }),
         );
       }
@@ -3281,6 +3328,8 @@ const agendaCohortInclude = {
 type AgendaCohortRow = Prisma.SessionPlanCohortGetPayload<{
   include: typeof agendaCohortInclude;
 }>;
+type RecurringSchedule = Pick<Prisma.PairingGetPayload<Record<string, never>>,
+  "dayOfWeek" | "startMin" | "endMin" | "scheduleConfirmed">;
 
 /** History reads captured planning evidence, never live Pairings or actual attendance.
  * A fully moved/cancelled source can have no remaining cohort joins; its immutable
@@ -3294,6 +3343,7 @@ function projectAgendaCohort(
   now: Date,
   history = false,
   tutoringPauses: readonly TutoringPauseRange[] = [],
+  recurringSchedule?: RecurringSchedule | null,
 ) {
   const roster = row.participants.filter(
     (person) => person.status === "SCHEDULED",
@@ -3379,6 +3429,7 @@ function projectAgendaCohort(
       subjects: [...new Set(assignments.map((item) => item.subject))],
       pairingIds: sorted.map((item) => item.pairingId),
       primaryPairingId: sorted[0]?.pairingId ?? null,
+      ...(recurringSchedule === undefined ? {} : { recurringSchedule }),
       tutorId: row.plan.tutorId,
       tutorName: row.plan.tutor.englishName,
       tutees:
@@ -3517,6 +3568,7 @@ export async function readSessionAgenda(
   actor: Actor,
   role: "tutor" | "tutee",
   now = new Date(),
+  options: { includeRecurringSchedule?: boolean } = {},
 ) {
   const publication = await ensureSessionPlanningWindow(db, now);
   await runSessionPlanningSweep(db, now, true);
@@ -3626,6 +3678,20 @@ export async function readSessionAgenda(
       currentResponses.length ? tx.sessionResponseExecution.findMany({ where: { responseId: { in: currentResponses.map((response) => response.id) } }, select: { responseId: true, userId: true, profileKind: true, profileId: true } }) : [],
     ]);
     const executionByPlan = new Map(planExecutions.map((row) => [row.planId, row]));
+    // A dated move or mapped school day is not the recurring assignment's slot.
+    // Only the extra-session picker requests current clocks; ordinary agenda
+    // callers retain their existing projection and perform no additional read.
+    const currentPairingIds = options.includeRecurringSchedule ? [...new Set(rows.flatMap((row) => {
+      const execution = executionByPlan.get(row.planId);
+      const mappings = execution ? new Map(executionAssignments.parse(execution.assignments)
+        .map((mapping) => [mapping.sourcePairingId, mapping.targetPairingId])) : null;
+      return row.plan.assignments.map((assignment) => mappings?.get(assignment.pairingId) ?? assignment.pairingId);
+    }))] : [];
+    const currentPairings = currentPairingIds.length ? await tx.pairing.findMany({
+      where: { id: { in: currentPairingIds } },
+      select: { id: true, dayOfWeek: true, startMin: true, endMin: true, scheduleConfirmed: true },
+    }) : [];
+    const recurringSchedules = new Map(currentPairings.map(({ id, ...schedule }) => [id, schedule]));
     const executingStudent = new Map(participantExecutions.map((row) => [row.participantId, row.tuteeId]));
     const executionByResponse = new Map(responseExecutions.map((row) => [row.responseId, row]));
     const pendingIds = new Set(currentResponses.filter((response) => response.state === "PENDING").map((response) => response.id));
@@ -3645,7 +3711,8 @@ export async function readSessionAgenda(
     const cohorts = [];
     for (const row of rows) {
       const rowContext = role === "tutee" ? { ...context, owned: ownedSources(row.plan) } : context;
-      const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now, false, tutoringPauses);
+      const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now, false, tutoringPauses,
+        options.includeRecurringSchedule ? null : undefined);
       if (projectedRows.some((projected) => projected.canArrangeException) && !(await sourceIsCurrent(tx, row.plan))) {
         for (const projected of projectedRows) { projected.canArrangeException = false; projected.unavailable = true; }
       }
@@ -3668,6 +3735,9 @@ export async function readSessionAgenda(
           });
         }
       }
+      if (options.includeRecurringSchedule)
+        for (const projected of projectedRows)
+          projected.recurringSchedule = projected.primaryPairingId ? recurringSchedules.get(projected.primaryPairingId) ?? null : null;
       cohorts.push(...projectedRows);
     }
     const projected = [];
@@ -3887,8 +3957,8 @@ export async function sessionAttendanceContext(
   if (!participants.length)
     return fail("This session has no active commitments.", "CONFLICT");
   if (await readRegularTutoringPausedAt(tx, cohort.date, cohort.startsAt)) {
-    const affirmative = await affirmativePauseParticipants(tx, cohort.plan, cohort);
-    if (participants.some((person) => !affirmative.has(person.tuteeId)))
+    const retained = await retainedPauseParticipants(tx, cohort.plan, cohort);
+    if (participants.some((person) => !retained.has(person.tuteeId)))
       return fail("This tutoring date required explicit agreement before attendance could be recorded.", "CONFLICT");
   }
   const assignments = cohort.plan.assignments

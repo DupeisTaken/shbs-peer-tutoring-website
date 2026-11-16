@@ -321,8 +321,10 @@ Current schedules include only active-period assignments on explicitly owned, no
 Schedule notices can show program no-tutoring dates or date ranges and their
 reasons. Both the starting and ending dates are included; a single-day notice
 uses the same date for both. **Notice only** provides context; **Pause regular
-tutoring** removes automatic ordinary commitments while allowing individually
-agreed exceptions. Confirm optional plans through the dated session workflow.
+tutoring** removes automatic ordinary commitments while keeping confirmed extras
+and explicitly agreed rescheduled lessons. New optional plans on paused dates
+require explicit agreement through the dated session workflow. Upcoming hides
+cancelled sessions; All/History retain their cancellation evidence.
 Neither mode changes recurring assignments or the school-day appeal calendar.
 
 The dashboard previews up to three existing recurring schedules and links to the
@@ -660,6 +662,9 @@ a schedule change.
 Tutees can suggest a time from their schedule. Tutors use **Reschedule Session**
 or **Add Extra Session**. Check **Include all tutees in this session**, or uncheck
 it and choose one tutee. For a single-person session, the person is shown directly.
+The extra-session picker identifies each source by the pairing's weekly slot,
+such as Thursday 15:50–16:35, rather than a previous occurrence date. Different
+dated sources can share that slot while retaining their own participants.
 Choose **In person — room assigned automatically** or **Online**. Review checks
 availability and shows the assigned room before sending. Review does not reserve
 the room; if it becomes unavailable, edit and review again. The system never
@@ -1108,9 +1113,14 @@ reason. Admin/Head apply changes directly; Coordinators request review. Each sta
 date identifies one notice. Different notices may overlap and remain separate.
 Edit an existing notice to change its ending date or reason; to move its starting
 date, remove it and create a new notice. **View details** shows the complete reason.
-Select **Notice only** to display context, or **Pause regular tutoring** to suppress
-future ordinary sessions on those dates while permitting expressly agreed dated
-exceptions. Review affected published commitments before applying or lifting a pause.
+New ranges default to **Pause regular tutoring**, which cancels future automatic
+regular sessions on those dates while keeping confirmed extras and explicitly
+agreed rescheduled lessons. Affected tutors and tutees receive an essential email
+naming the inclusive pause range, confirming the cancellation and suggesting
+coordination for an extra session if needed. Newly published affected sessions
+receive the same cancellation notice when they enter the publication window.
+Choose **Notice only** explicitly when the dates should provide context without
+changing sessions. Review affected published commitments before applying or lifting a pause.
 School-day appeal deadlines and historical attendance remain unchanged. Overlapping
 pauses apply independently; removing one does not lift another. Existing notices
 remain informational until their scheduling effect is deliberately changed.
