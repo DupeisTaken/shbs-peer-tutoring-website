@@ -136,7 +136,8 @@ Personal agendas do not expose the publisher's program-wide `unavailable` counte
 It mixes invalid assignment groups with failed candidate dates and is not a count
 of a participant's weekly arrangements. Session-specific unavailable guidance
 stays with the affected captured lesson; internal maintenance metrics remain
-available to the scheduling service.
+available to the scheduling service. The deprecated personal response field stays
+at zero for compatibility and never contains the publisher's global count.
 
 The source term's persisted `SCHEDULED` official refresh is an exact end boundary:
 new lessons must finish at or before `executeAt`. The earlier term date bound

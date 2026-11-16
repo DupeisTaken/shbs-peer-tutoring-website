@@ -271,7 +271,7 @@ describe("scheduled program refresh boundary", () => {
     await cutoff(new Date("2026-11-02T07:44:59.999Z"));
     const hidden = await readSessionAgenda(db, tutor, "tutor", now);
     expect(hidden.cohorts.some((row) => row.id === original.id)).toBe(false);
-    expect(hidden.weeklyPublication).not.toHaveProperty("unavailable");
+    expect(hidden.weeklyPublication.unavailable).toBe(0);
     expect(await stored(original.id)).toMatchObject({ refreshSuppressed: true, status: "SCHEDULED" });
     expect((await db.sessionPlanParticipant.findMany({ where: { cohortId: original.id }, orderBy: { id: "asc" } })).map((row) => [row.id, row.status, row.scheduleOverride])).toEqual(roster.map((row) => [row.id, row.status, row.scheduleOverride]));
     await expect(propose()).rejects.toMatchObject({ code: "CONFLICT" });
@@ -295,6 +295,24 @@ describe("scheduled program refresh boundary", () => {
     await cutoff(new Date("2026-10-30T00:00:00Z"), "BLOCKED");
     await ensureSessionPlanningWindow(db, now);
     expect((await stored(original.id)).refreshSuppressed).toBe(false);
+  });
+
+  it("retains a zero-valued compatibility field for each personal agenda while unrelated global failures remain internal", async () => {
+    const unrelated = await db.tutor.create({ data: {
+      englishName: "Synthetic unrelated tutor", status: "ACTIVE",
+    } });
+    // A confirmed legacy arrangement with no current learners is a genuine
+    // publisher failure, but is unrelated to every participant in this fixture.
+    await db.pairing.create({ data: {
+      tutorId: unrelated.id, termId: "planning-term", subject: "Synthetic unrelated subject",
+      dayOfWeek: 2, startMin: 900, endMin: 945, scheduleConfirmed: true, roomMode: "NONE",
+    } });
+    expect((await ensureSessionPlanningWindow(db, now)).unavailable).toBe(1);
+    for (const [actor, role] of [[tutor, "tutor"], [one, "tutee"], [two, "tutee"]] as const) {
+      const agenda = await readSessionAgenda(db, actor, role, now);
+      expect(agenda.weeklyPublication.unavailable).toBe(0);
+    }
+    expect((await ensureSessionPlanningWindow(db, now)).unavailable).toBe(1);
   });
 
   it("hides a paused optional source past refresh and never admits an exception from it", async () => {

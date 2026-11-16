@@ -3904,6 +3904,9 @@ export async function readSessionAgenda(
         tutor?.status === "ACTIVE" &&
         !account.tutorAccessRevoked,
       weeklyPublication: {
+        // Deprecated compatibility field; never expose the publisher's global
+        // diagnostic count through an individual participant's agenda.
+        unavailable: 0,
         normalized: publication.normalized,
         preparedThrough: publication.prepareEnd,
       },

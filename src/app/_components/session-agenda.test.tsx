@@ -177,6 +177,7 @@ const sample = (): Agenda => ({
   suggestions: [],
   notices: [],
   weeklyPublication: {
+    unavailable: 0,
     normalized: 0,
     preparedThrough: "2026-11-08",
   },

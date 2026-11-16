@@ -317,6 +317,7 @@ beforeEach(() => {
     suggestions: [],
     notices: [],
     weeklyPublication: {
+      unavailable: 0,
       normalized: 0,
       preparedThrough: date,
     },

@@ -65,6 +65,9 @@ LANGUAGE sql STABLE SET search_path=pg_catalog,public AS $body$
         AND t.tgfoid='public.scheduling_invalidate_deleted_metadata()'::regprocedure
     )
   )
+  -- Preserve the complete verifier installed by tutoring_policy_history: a warm
+  -- scheduling watermark also depends on intact semantic policy evidence.
+  AND public.tutoring_policy_history_integrity()
 $body$;
 
 -- A previously warm publication must reconcile already-published future dates.
