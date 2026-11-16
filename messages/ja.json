@@ -828,7 +828,7 @@
         "sendSetup": "セットアップリンクを送信",
         "needEmail": "先にメールアドレスを追加してください",
         "linkEmailed": "アカウント所有者にセットアップメールを送信しました。",
-        "linkManual": "メール送信が設定されていません。アカウントのセットアップメールを送信する前に、運用管理者へご連絡ください。",
+        "linkManual": "アカウント設定メールを送信できませんでした。メールの送信状況を確認して、もう一度お試しください。",
         "dismiss": "閉じる"
       },
       "createDraftHint": "このダイアログを閉じても、このページを離れるまでは入力内容が保持されます。",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "メールの送信成功を確認できませんでした。送信状況を確認して、もう一度お試しください。",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",

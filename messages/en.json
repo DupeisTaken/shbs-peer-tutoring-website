@@ -828,7 +828,7 @@
         "sendSetup": "Send Setup Link",
         "needEmail": "Add an Email First",
         "linkEmailed": "Setup email sent to the account holder.",
-        "linkManual": "Email delivery is not configured. Contact the deployment administrator before sending account setup mail.",
+        "linkManual": "The setup email could not be sent. Check email delivery status and try again.",
         "dismiss": "Dismiss"
       },
       "createDraftHint": "Closing this dialog keeps your entries until you leave this page.",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "Email delivery could not be confirmed. Check delivery status and try again.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",

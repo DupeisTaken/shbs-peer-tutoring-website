@@ -2591,11 +2591,12 @@ export const adminRouter = createTRPCRouter({
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
-        action: `Sent account setup link to ${tutor?.englishName ?? "tutor"}`,
+        action: `Requested account setup email for ${tutor?.englishName ?? "tutor"}`,
         entity: "Tutor",
         entityId: input.tutorId,
       });
-      return { emailed: result.emailed };
+      // Preserve the helper's mutable receipt until the audit owner settles SMTP.
+      return result.delivery;
     }),
 
   createTutee: adminProcedure
