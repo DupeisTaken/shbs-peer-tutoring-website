@@ -3,9 +3,11 @@ import { createHash } from "node:crypto";
 import { test } from "node:test";
 import { profileMatrix } from "./aggregate-partitions.mjs";
 import { createClockAdmission } from "./clock-admission.mjs";
+import { partitionStepName, prepareStepName } from "./group-plan.mjs";
 import {
   artifactInventoryHash,
   authorizeArtifactRetry,
+  preparePartition,
   selectResumeArtifacts,
   slotKey,
 } from "./resume-artifacts.mjs";
@@ -136,6 +138,65 @@ void test("selects immutable complete pairs after explicit head dependency failu
   const authorization = authorizeArtifactRetry({ ...input(c, [old]), slot });
   assert.equal(authorization.remeasureBaseline, true); assert.equal(authorization.remeasureCandidate, true);
   assert.equal(authorization.preserveOriginalArtifacts, true);
+});
+
+void test("grouped execution identity permits distinct provider steps but rejects reused, foreign and missing step proof", () => {
+  const c = campaign(1), second = { ...slot, partition: 1 };
+  const one = packaged(c, slot, 1), two = packaged(c, second, 1);
+  for (const [index, entry] of [one, two].entries()) {
+    entry.execution.jobId = "777";
+    entry.execution.providerStep = { group: "negotiation", name: partitionStepName(entry.execution.slot), number: index * 2 + 2,
+      prepareName: prepareStepName(entry.execution.slot), prepareNumber: index * 2 + 1 };
+  }
+  const source = input(c, [one, two], [slot, second]);
+  assert.equal(selectResumeArtifacts(source).selected.length, 2);
+  two.execution.providerStep!.number = 2;
+  assert.throws(() => selectResumeArtifacts(source), /DUPLICATE_PROVIDER_STEP/);
+  two.execution.providerStep!.number = 4;
+  two.execution.providerStep!.group = "warm";
+  assert.throws(() => selectResumeArtifacts(source), /IDENTITY_MISMATCH/);
+  two.execution.providerStep!.group = "negotiation";
+  two.execution.providerStep!.number = null;
+  assert.throws(() => selectResumeArtifacts(source), /MISSING_PROVIDER_STEP/);
+});
+
+void test("both controlled-order reference pairs remain independently authenticated within one preflight job", () => {
+  const c = campaign(1), controls = references.map((selected, index) => {
+    const packagedControl = packaged(c, selected, 1);
+    packagedControl.execution.jobId = "777";
+    packagedControl.execution.providerStep = { group: "preflight", name: partitionStepName(selected), number: index * 2 + 2,
+      prepareName: prepareStepName(selected), prepareNumber: index * 2 + 1 };
+    return packagedControl;
+  });
+  const selection = selectResumeArtifacts(input(c, controls, references));
+  assert.equal(selection.selected.length, 2);
+  assert.ok(selection.selected.every((entry) => entry.jobId === "777"));
+  assert.notEqual(selection.selected[0]!.artifactId, selection.selected[1]!.artifactId);
+});
+
+void test("group preparation reuses only validated PASS and authorizes only proven unmeasured retries", () => {
+  const c = campaign(), passed = packaged(c, slot, 1);
+  const complete = input(c, [passed]);
+  assert.equal(preparePartition({ ...complete, slot }).shouldRun, false);
+  const executed: Execution = { ...passed.execution, attempt: 2, jobId: "888", artifactId: null, conclusion: "in_progress", measurementStarted: true };
+  assert.throws(() => preparePartition({ ...complete, executions: [...complete.executions, executed], slot }), /CURRENT_ATTEMPT_ALREADY_TERMINAL/);
+  const retryable = packaged(c, slot, 1, "base-bootstrap");
+  assert.equal(preparePartition({ ...input(c, [retryable]), slot }).shouldRun, true);
+  assert.throws(() => preparePartition({ ...input(c, [packaged(c, slot, 1, "measured")]), slot }), /FAILURE_NOT_PREMEASUREMENT|MEASURED_FAILURE/);
+  assert.throws(() => preparePartition({ ...complete, artifacts: [], slot }), /MISSING_EXECUTED_ARTIFACT|UNREFERENCED/);
+});
+
+void test("grouped provider-skipped partition and group proofs authorize first measurements without treating missing work as PASS", () => {
+  const c = campaign(), next = packaged(c, slot, 2);
+  const prior: Execution = { ...skipped(c, slot), providerStep: { group: "negotiation", name: partitionStepName(slot), number: 2,
+    prepareName: prepareStepName(slot), prepareNumber: 1 },
+    nonStart: { kind: "PROVIDER_SKIPPED_STEP", jobId: "80001", status: "completed", conclusion: "skipped", stepCount: 1,
+      group: "negotiation", stepName: partitionStepName(slot), stepNumber: 2 } };
+  const source = input(c, [next]); source.executions.unshift(prior);
+  assert.equal(selectResumeArtifacts(source).selected[0]!.history[0]!.outcome, "not_started");
+  assert.equal(preparePartition({ ...source, executions: [prior], artifacts: [], slot }).shouldRun, true);
+  prior.nonStart!.stepNumber = 9;
+  assert.throws(() => selectResumeArtifacts(source), /IDENTITY_MISMATCH/);
 });
 
 void test("supports reference-only selection and the complete 70-slot declared population", () => {

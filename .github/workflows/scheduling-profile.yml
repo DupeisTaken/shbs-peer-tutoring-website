@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/scheduling-profile.yml"
       - ".github/workflows/scheduling-profile-worker.yml"
+      - ".github/actions/scheduling-profile-partition/**"
       - ".github/scheduling-profile-manifests/**"
       - "scripts/profile-scheduling-requests.ts"
       - "scripts/scheduling-profile/**"
@@ -47,8 +48,6 @@ jobs:
     timeout-minutes: 6
     outputs:
       admission: ${{ steps.clock.outputs.status }}
-      matrix: ${{ steps.clock.outputs.matrix }}
-      preflight: ${{ steps.clock.outputs.preflight }}
       anchor: ${{ steps.plan.outputs.anchor }}
       node_image: ${{ steps.plan.outputs.node_image }}
       campaign: ${{ steps.binding.outputs.campaign }}
@@ -84,10 +83,6 @@ jobs:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
-          preflight=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix preflight)
-          remaining=$(node scripts/scheduling-profile/aggregate-partitions.mjs --matrix remaining)
-          echo "preflight=$preflight" >> "$GITHUB_OUTPUT"
-          echo "matrix=$remaining" >> "$GITHUB_OUTPUT"
           node scripts/scheduling-profile/clock-admission.mjs --plan > clock-plan.json
           jq --arg revision "$CANDIDATE_SHA" --arg run "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" \
             '. + {revision: $revision, run: $run, attempt: $attempt}' clock-plan.json > clock-admission.json
@@ -148,55 +143,52 @@ jobs:
           PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
         run: |
           docker run --rm --cpus=2 --memory=4g -v "$PWD:/work" -w /work \
-            "$PROFILE_NODE_IMAGE" sh -ec 'apk add --no-cache git python3 && npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts scripts/scheduling-profile/resume-*.spec.ts'
+            "$PROFILE_NODE_IMAGE" sh -ec 'apk add --no-cache git python3 && npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts scripts/scheduling-profile/resume-*.spec.ts scripts/scheduling-profile/group-plan.spec.ts'
   preflight:
     needs: matrix
     if: needs.matrix.outputs.admission == 'ADMITTED'
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix: ${{ fromJSON(needs.matrix.outputs.preflight) }}
     uses: ./.github/workflows/scheduling-profile-worker.yml
     with:
-      baseline: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_baseline || needs.matrix.outputs.baseline }}
+      baseline: ${{ needs.matrix.outputs.baseline }}
       candidate: ${{ github.event.pull_request.head.sha || github.sha }}
-      scenario: ${{ matrix.scenario }}
-      mode: ${{ matrix.mode }}
-      partition: ${{ matrix.partition }}
-      partition-count: ${{ matrix.partitionCount }}
-      samples: ${{ matrix.samples }}
+      group: preflight
       campaign: ${{ needs.matrix.outputs.campaign }}
       anchor: ${{ needs.matrix.outputs.anchor }}
       node-image: ${{ needs.matrix.outputs.node_image }}
       schema-manifest: ${{ needs.matrix.outputs.manifest }}
-      baseline-selection-path: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_path || needs.matrix.outputs.baseline_path }}
-      baseline-selection-file-sha256: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_file_sha256 || needs.matrix.outputs.baseline_file_sha256 }}
-      baseline-selection-source: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_source || needs.matrix.outputs.baseline_source }}
+      baseline-selection-path: ${{ needs.matrix.outputs.baseline_path }}
+      baseline-selection-file-sha256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
+      baseline-selection-source: ${{ needs.matrix.outputs.baseline_source }}
+      catalog-baseline: ${{ needs.matrix.outputs.catalog_baseline }}
+      catalog-selection-path: ${{ needs.matrix.outputs.catalog_path }}
+      catalog-selection-file-sha256: ${{ needs.matrix.outputs.catalog_file_sha256 }}
+      catalog-selection-source: ${{ needs.matrix.outputs.catalog_source }}
   profile:
     needs: [matrix, preflight]
     if: needs.matrix.outputs.admission == 'ADMITTED'
     strategy:
       fail-fast: false
-      # Independent hosted runners own separate databases. Each before/after
-      # pair remains serial on its same runner with fixed resource limits.
+      # One check per scenario group. Partitions inside a group are serial;
+      # at most four groups own independent runners and databases at once.
       max-parallel: 4
-      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+      matrix:
+        group: [cold, warm, sunday, negotiation, allocation, catalog, contention, backlog]
     uses: ./.github/workflows/scheduling-profile-worker.yml
     with:
-      baseline: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_baseline || needs.matrix.outputs.baseline }}
+      baseline: ${{ needs.matrix.outputs.baseline }}
       candidate: ${{ github.event.pull_request.head.sha || github.sha }}
-      scenario: ${{ matrix.scenario }}
-      mode: ${{ matrix.mode }}
-      partition: ${{ matrix.partition }}
-      partition-count: ${{ matrix.partitionCount }}
-      samples: ${{ matrix.samples }}
+      group: ${{ matrix.group }}
       campaign: ${{ needs.matrix.outputs.campaign }}
       anchor: ${{ needs.matrix.outputs.anchor }}
       node-image: ${{ needs.matrix.outputs.node_image }}
       schema-manifest: ${{ needs.matrix.outputs.manifest }}
-      baseline-selection-path: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_path || needs.matrix.outputs.baseline_path }}
-      baseline-selection-file-sha256: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_file_sha256 || needs.matrix.outputs.baseline_file_sha256 }}
-      baseline-selection-source: ${{ matrix.scenario == 'catalog' && needs.matrix.outputs.catalog_source || needs.matrix.outputs.baseline_source }}
+      baseline-selection-path: ${{ needs.matrix.outputs.baseline_path }}
+      baseline-selection-file-sha256: ${{ needs.matrix.outputs.baseline_file_sha256 }}
+      baseline-selection-source: ${{ needs.matrix.outputs.baseline_source }}
+      catalog-baseline: ${{ needs.matrix.outputs.catalog_baseline }}
+      catalog-selection-path: ${{ needs.matrix.outputs.catalog_path }}
+      catalog-selection-file-sha256: ${{ needs.matrix.outputs.catalog_file_sha256 }}
+      catalog-selection-source: ${{ needs.matrix.outputs.catalog_source }}
 
   aggregate:
     needs: [matrix, preflight, profile]
