@@ -1049,6 +1049,8 @@ action slot. The self-report opens the existing `SchoolDeparturePanel` in a
 `ProfileDialog`; staff academic panels retain their existing layout and departure
 editors. Academic drafts and departure revisions remain independent. A confirmed
 departure keeps the entry available for return requests and history.
+The shared departure editor stacks Change and Reason for review in full-width
+rows at every viewport, keeping self-service and staff forms aligned.
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
 `SchoolDepartureEvent` records. [Portal access](../../src/lib/portal-access.ts) derives
