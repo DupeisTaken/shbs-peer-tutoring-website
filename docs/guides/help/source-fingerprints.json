@@ -1,5 +1,5 @@
 {
-  "baselineRevision": "589c055e4b1cf166b48b353bd619ac1982e5d9f6",
+  "baselineRevision": "dbb3c4eb213d58e134744fd417b1a06299b0e984",
   "reviewedAt": "2026-11-16T00:33:28.929637+00:00",
   "reviewNote": "Reviewed latest-main 589c055e tutor dashboard on the real loopback dev server with synthetic Alice Chen: pinned cards have no Dismiss; ordinary cards retain Dismiss. Retained the earlier overview as an ordinary-announcement and task-navigation context image: it does not depict a pinned post or promise that pins can be dismissed. Other owning sources and their prior reviews are unchanged. User selected latest main; no production attestation.",
   "files": {
