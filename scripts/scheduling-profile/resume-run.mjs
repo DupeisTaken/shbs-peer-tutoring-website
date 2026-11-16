@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { link, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { appendFile, link, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { aggregatePartitions, loadControlledReferencePaths, loadPartitionInputs, profileMatrix } from "./aggregate-partitions.mjs";
 import { loadContentionReferences, CONTENTION_SCENARIOS } from "./contention-references.mjs";
-import { selectResumeArtifacts, authorizeArtifactRetry } from "./resume-artifacts.mjs";
+import { selectResumeArtifacts, authorizeArtifactRetry, preparePartition } from "./resume-artifacts.mjs";
 import { currentCampaign, setting, workerSlot } from "./resume-campaign.mjs";
 import { collectInventory, downloadArchives } from "./resume-inventory.mjs";
 import { readReceipt, sealReceipt } from "./resume-receipt.mjs";
@@ -33,10 +33,10 @@ async function seal(campaign, slot, directory) {
 
 /** Stage verified archive bytes by hard link in a fresh directory. Raw attempts
  * (including failures) remain separate. Recheck GitHub after canonical validation.
- * @param {"authorize"|"references"|"aggregate"} command @param {Campaign} campaign */
+ * @param {"authorize"|"prepare"|"references"|"aggregate"} command @param {Campaign} campaign */
 async function verify(command, campaign) {
   const all = profileMatrix("all").include;
-  const slots = command === "aggregate" ? all : command === "authorize" ? [workerSlot()] :
+  const slots = command === "aggregate" ? all : command === "authorize" || command === "prepare" ? [workerSlot()] :
     all.filter((slot) => Object.values(CONTENTION_SCENARIOS).some((scenario) => scenario === slot.scenario) && slot.mode === "diagnostic");
   const temp = await mkdtemp(join(setting("RUNNER_TEMP"), "profile-resume-"));
   const raw = join(temp, "raw");
@@ -49,6 +49,14 @@ async function verify(command, campaign) {
   for (const archive of snapshot.archives) artifacts.push(await readReceipt(join(raw, archive.name), archive));
   const inventory = { campaign, executions: snapshot.executions, artifacts };
   const recheck = async () => assert.deepEqual(await collectInventory(campaign, slots), snapshot, "GitHub execution history changed during verification");
+  if (command === "prepare") {
+    const decision = preparePartition({ ...inventory, slot: workerSlot() });
+    await recheck();
+    await mkdir("outputs/scheduling-profile", { recursive: true });
+    await json("outputs/scheduling-profile/retry-authorization.json", decision);
+    await appendFile(setting("GITHUB_OUTPUT"), `should_run=${decision.shouldRun}\n`);
+    return;
+  }
   if (command === "authorize") {
     const authorization = authorizeArtifactRetry({ ...inventory, slot: workerSlot() });
     await recheck();
@@ -99,9 +107,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     if (command === "aggregate") await mkdir("outputs", { recursive: true });
     const campaign = currentCampaign();
-    if (command === "seal") await seal(campaign, workerSlot(), "outputs/scheduling-profile");
+    if (command === "prepare" && campaign.currentAttempt === campaign.campaignAttempt) {
+      workerSlot();
+      await appendFile(setting("GITHUB_OUTPUT"), "should_run=true\n");
+    } else if (command === "seal") await seal(campaign, workerSlot(), "outputs/scheduling-profile");
     else {
-      assert.ok(command === "authorize" || command === "references" || command === "aggregate", "Unknown resume command");
+      assert.ok(command === "authorize" || command === "prepare" || command === "references" || command === "aggregate", "Unknown resume command");
       await verify(command, campaign);
     }
   } catch (error) {

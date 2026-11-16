@@ -649,9 +649,21 @@ application and the proposed revision separately from the original campaign.
 The dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
 runs `scripts/profile-scheduling-requests.ts` on Node 22 Linux against its own
 PostgreSQL service. Cold publication, warm agendas, Sunday catch-up, negotiation,
-allocation, catalog reads and competing requests each have separate latency and
-diagnostic jobs. Baseline and candidate run serially on the same runner with the
+allocation, catalog reads and competing requests retain separate latency and
+diagnostic evidence. One preflight check runs the five prerequisite diagnostics
+serially. Eight scenario-group checks (cold, warm, Sunday, negotiation,
+allocation, catalog, contention and backlog) run their remaining partitions
+serially, with at most four groups active at once. Planning and final aggregation
+bring the benchmark to eleven checks. The full 60 latency partitions and ten
+diagnostics remain required; grouping does not reduce their sample populations.
+Baseline and candidate run serially on the same runner with the
 same synthetic fixture, harness, anchor, dependency lockfile and database schema.
+Each partition starts from pristine checkouts and a fresh job-owned database,
+preventing an earlier schema overlay from contaminating its original control.
+It retains its seven-minute command deadline and separate sealed artifact. The
+containing group has a longer bounded job timeout for its serial partitions.
+Provider-visible preparation and partition steps bind each artifact to its real
+execution; a failed group cannot turn missing or failed measurements into a PASS.
 The job reserves time for evidence upload and fails on exhausted budgets; partial
 samples do not count as passing evidence.
 
@@ -677,8 +689,9 @@ setup may retry once. Each attempt has at most 30 seconds and both share a
 remains in the terminal receipt even when the retry succeeds. A failed
 migration, comparison, timing command or parity check ends that worker.
 
-The special workflow caps preflight at two runners and the remaining matrix at
-four per PR. Three admitted PRs can use twelve profiling jobs. Run required CI
+The special workflow uses one preflight runner and caps the scenario groups at
+four per PR. These are four additional slots alongside the core CI allowance;
+three admitted PRs can use twelve profiling runners. Run required CI
 ahead of a coordinated campaign and check the account queue for other work. A delayed worker that cannot fit its
 entire command budget must fail before timing starts. Each worker records the
 actual Node and PostgreSQL clock ranges. Aggregation verifies those ranges

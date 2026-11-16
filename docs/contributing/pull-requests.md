@@ -7,8 +7,9 @@ broader trackers open until their full scope is complete.
 
 For delegated work, the lead integrates the changes, verifies them locally and
 batches them into one push. Check queued and active runs before opening a PR,
-pushing or requesting a rerun. Coordinate up to four active PR runs under the
-[shared capacity budget](verification.md#ci-capacity-and-queue-discipline).
+pushing or requesting a rerun. Four core-only PR runs fill the planning budget;
+include matching scheduling-profile, recovery and network workflows when applying
+the [shared capacity budget](verification.md#ci-capacity-and-queue-discipline).
 
 ## Pull request size labels
 
