@@ -37,6 +37,12 @@ vi.mock("./event-reminders", () => ({
   queueEventReminders: vi.fn(),
   validateEventReminder: mocks.reminderEligible,
 }));
+// Source-lock and PostgreSQL interleavings have their own integration suite;
+// this fixture isolates routing, with real identity/outbox admission retained.
+vi.mock("./reminder-source-locks", () => ({
+  lockEventReminderSource: async () => true,
+  isReminderSourceBusy: () => false,
+}));
 import { deliverNotifications } from "./notification-delivery";
 import { renderEmail } from "./template";
 import type { EmailMessage } from "./sender";
@@ -53,6 +59,8 @@ beforeEach(() => {
   // cancellation record, causal root or transport outcome.
   mocks.rows.mockImplementation((parts: TemplateStringsArray) => {
     const sql = parts.join("?");
+    if (sql.includes("current_setting('lock_timeout')")) return Promise.resolve([{ timeout: "0" }]);
+    if (sql.includes("set_config('lock_timeout'")) return Promise.resolve([]);
     if (sql.includes("WITH candidates AS MATERIALIZED")) return mocks.leases();
     if (sql.includes('SELECT DISTINCT "actionId"')) return Promise.resolve([]);
     if (sql.includes('FROM "EmailDelivery"') && sql.includes("FOR UPDATE"))

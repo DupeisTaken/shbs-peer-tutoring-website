@@ -45,6 +45,11 @@ const contextSchema = z.object({
   }),
 });
 type ReminderContext = z.infer<typeof contextSchema>;
+/** Only immutable, validated source selectors may choose admission locks. */
+export function eventReminderSource(context: unknown) {
+  const result = contextSchema.safeParse(context);
+  return result.success ? result.data : null;
+}
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const safeLabel = (value: string) =>
