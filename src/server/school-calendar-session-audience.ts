@@ -1,5 +1,6 @@
 import { portalAccess } from "~/lib/portal-access";
 import type { TransactionDb } from "./transactions";
+import { readSessionRefreshSchedules, readSessionRequestSources, sessionExceedsRefresh, sessionRefreshSuppressed, sessionRequestSourceSuppressed } from "./session-planning/refresh-boundary";
 
 /** Integration seam for the dated-session owner. Include participants in explicit extras,
  * reschedules and dated recurring occurrences on this actual date, including preserved
@@ -11,7 +12,7 @@ export async function getSchoolCalendarDatedSessionUserIds(
   date: string,
   now = new Date(),
 ): Promise<string[]> {
-  const cohorts = await tx.sessionPlanCohort.findMany({
+  const cohortRows = await tx.sessionPlanCohort.findMany({
     where: {
       date,
       status: "SCHEDULED",
@@ -22,7 +23,10 @@ export async function getSchoolCalendarDatedSessionUserIds(
     select: {
       id: true,
       planId: true,
-      plan: { select: { tutorId: true } },
+      startsAt: true,
+      endsAt: true,
+      refreshSuppressed: true,
+      plan: { select: { tutorId: true, termId: true } },
     },
     take: 5001,
   });
@@ -37,15 +41,24 @@ export async function getSchoolCalendarDatedSessionUserIds(
       id: true,
       planId: true,
       currentOfferId: true,
+      cohortId: true,
       participantIds: true,
-      plan: { select: { tutorId: true } },
+      plan: { select: { tutorId: true, termId: true } },
     },
     take: 5001,
   });
-  if (cohorts.length > 5000 || requests.length > 5000)
+  if (cohortRows.length > 5000 || requests.length > 5000)
     throw new Error(
       "Too many dated sessions to safely resolve calendar recipients.",
     );
+  const [refreshSchedules, requestSources] = await Promise.all([
+    readSessionRefreshSchedules(tx),
+    readSessionRequestSources(tx, requests),
+  ]);
+  // A raw SCHEDULED status retains consent while refresh suppression is
+  // reversible. It must not expand the audience, even before maintenance runs.
+  const cohorts = cohortRows.filter((row) => !row.refreshSuppressed &&
+    !sessionRefreshSuppressed(row, refreshSchedules.get(row.plan.termId), now));
   // Fetch exact current IDs separately so arbitrarily many historical offers
   // cannot enlarge this bounded read or contribute old response provenance.
   const currentOfferIds = requests.flatMap((request) =>
@@ -54,12 +67,16 @@ export async function getSchoolCalendarDatedSessionUserIds(
   const offers = currentOfferIds.length
     ? await tx.sessionPlanningOffer.findMany({
         where: { id: { in: currentOfferIds }, date, cutoffAt: { gt: now } },
-        select: { id: true, requestId: true },
+        select: { id: true, requestId: true, endsAt: true },
       })
     : [];
-  const liveOfferRequests = new Map(offers.map((offer) => [offer.id, offer.requestId]));
+  const requestTerms = new Map(requests.map((row) => [row.id, row.plan.termId]));
+  const liveOfferRequests = new Map(offers.filter((offer) =>
+    !sessionExceedsRefresh(offer, refreshSchedules.get(requestTerms.get(offer.requestId) ?? "")),
+  ).map((offer) => [offer.id, offer.requestId]));
   const current = requests.filter(
-    (request) => request.currentOfferId && liveOfferRequests.get(request.currentOfferId) === request.id,
+    (request) => request.currentOfferId && liveOfferRequests.get(request.currentOfferId) === request.id &&
+      !sessionRequestSourceSuppressed(requestSources.get(request.cohortId), refreshSchedules, now),
   );
   const requestPeople = (value: unknown): string[] =>
     Array.isArray(value)

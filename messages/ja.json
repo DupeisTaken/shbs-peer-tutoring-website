@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "セッションは予定された期間更新の時刻までに終了する必要があります。最新の予定を再読み込みしてください。",
     "deadlineMissedTitle": "対応が必要です：期限切れの日程申請を確認してください",
     "deadlineMissedHelp": "通知の返答期限が、日程処理を利用できない間に過ぎました。過去にさかのぼる日時変更は行っていません。チューターと元の予定と提案された時間を確認してください。出席・欠席は自動判断していません。",
     "scheduleUnavailable": "予定の確認が必要",

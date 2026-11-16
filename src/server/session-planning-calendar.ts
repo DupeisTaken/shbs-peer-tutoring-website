@@ -7,6 +7,7 @@ import {
 import { portalAccess } from "~/lib/portal-access";
 import { emailOrigin } from "~/server/email/urls";
 import { ownedStudentIds } from "~/server/student-ownership";
+import { readSessionRefreshSchedules, sessionRefreshSuppressed } from "~/server/session-planning/refresh-boundary";
 import {
   inTransaction,
   lockEntity,
@@ -146,6 +147,7 @@ export async function sessionCalendarFeed(
     if (!capability || capability.revokedAt) return null;
     const audience = await calendarAudience(tx, capability.userId);
     if (!audience) return null;
+    const refreshSchedules = await readSessionRefreshSchedules(tx);
     // Keep recent cancellations long enough for slow subscription refresh. Do not
     // truncate a large feed silently: dropping events can erase cached commitments.
     const since = new Date(now.getTime() - 120 * 86_400_000);
@@ -162,6 +164,7 @@ export async function sessionCalendarFeed(
             ],
           },
           orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+          include: { plan: { select: { termId: true } }, sessions: { select: { id: true } } },
           take: 5001,
         })
       : [];
@@ -177,7 +180,7 @@ export async function sessionCalendarFeed(
               ],
             },
           },
-          include: { cohort: true },
+          include: { cohort: { include: { plan: { select: { termId: true } }, sessions: { select: { id: true } } } } },
           orderBy: { id: "asc" },
           take: 5001,
         })
@@ -215,11 +218,14 @@ export async function sessionCalendarFeed(
     const locations = new Map(rooms.map((room) => [room.id, room.name]));
     const events: SessionCalendarEvent[] = visibleCohorts.map((cohort) => ({
       uid: `cohort-${cohort.id}@shbs-session`,
-      revision: cohort.version,
+      // Source versions also advance before maintenance catches up; cancellation
+      // or replacement never sends an older SEQUENCE for the same stable UID.
+      revision: cohort.version + (refreshSchedules.get(cohort.plan.termId)?.version ?? 0),
       startsAt: cohort.startsAt,
       endsAt: cohort.endsAt,
-      updatedAt: cohort.updatedAt,
-      cancelled: cohort.status === "CANCELLED",
+      updatedAt: new Date(Math.max(cohort.updatedAt.getTime(), refreshSchedules.get(cohort.plan.termId)?.updatedAt.getTime() ?? 0)),
+      cancelled: cohort.status === "CANCELLED" || cohort.refreshSuppressed ||
+        (!cohort.sessions.length && cohort.status !== "RECORDED" && sessionRefreshSuppressed(cohort, refreshSchedules.get(cohort.plan.termId), now)),
       location: cohort.online
         ? "Online / 线上"
         : locations.get(cohort.roomId ?? ""),
@@ -233,14 +239,15 @@ export async function sessionCalendarFeed(
         continue;
       events.push({
         uid: `commitment-${participant.id}@shbs-session`,
-        revision: participant.version,
+        revision: participant.version + (refreshSchedules.get(cohort.plan.termId)?.version ?? 0),
         startsAt: cohort.startsAt,
         endsAt: cohort.endsAt,
         updatedAt: new Date(
-          Math.max(participant.updatedAt.getTime(), cohort.updatedAt.getTime()),
+          Math.max(participant.updatedAt.getTime(), cohort.updatedAt.getTime(), refreshSchedules.get(cohort.plan.termId)?.updatedAt.getTime() ?? 0),
         ),
         cancelled:
-          participant.status === "CANCELLED" || cohort.status === "CANCELLED",
+          participant.status === "CANCELLED" || cohort.status === "CANCELLED" || cohort.refreshSuppressed ||
+          (!cohort.sessions.length && cohort.status !== "RECORDED" && sessionRefreshSuppressed(cohort, refreshSchedules.get(cohort.plan.termId), now)),
         location: cohort.online
           ? "Online / 线上"
           : locations.get(cohort.roomId ?? ""),

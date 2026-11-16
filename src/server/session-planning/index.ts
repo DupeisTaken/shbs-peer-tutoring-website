@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import type { Prisma } from "../../../generated/prisma";
 import {
   plannedWindow,
+  SESSION_REFRESH_BOUNDARY_ERROR,
   planningWeeks,
   addPlanningDays,
   responseDeadline,
@@ -21,6 +22,14 @@ import { insertSessionNotices } from "./notice-inserts";
 import { readContinuationPairingIds } from "./publication-continuations";
 import { lockPlanningSources } from "./source-locks";
 import { readOverlappingCohorts, readOverlappingHolds } from "./conflict-reads";
+import {
+  readSessionRefreshSchedules,
+  readSessionRequestSources,
+  sessionExceedsRefresh,
+  sessionRefreshSuppressed,
+  sessionRequestSourceSuppressed,
+  type SessionRefreshSchedule,
+} from "./refresh-boundary";
 import {
   readPublicationValidationSnapshot,
   type PublicationValidationSnapshot,
@@ -106,6 +115,7 @@ type PlanningComputation = {
   calendar: ReturnType<typeof createSchoolCalendarSnapshot>;
   parseDateTime: ReturnType<typeof createProgramDateTimeParser>;
   tutoringPauses?: readonly TutoringPauseRange[];
+  refreshSchedules?: ReadonlyMap<string, SessionRefreshSchedule>;
 };
 type Actor = { id: string; tutorId?: string | null };
 type Versioned = { expectedVersion: number; clientKey: string };
@@ -328,6 +338,8 @@ export async function readCurrentSessionReminderCohort(
     if (
       cohort?.status !== "SCHEDULED" ||
       cohort.sourceInvalidated ||
+      cohort.refreshSuppressed ||
+      sessionRefreshSuppressed(cohort, (await readSessionRefreshSchedules(tx)).get(cohort.plan.termId), new Date()) ||
       !(await sourceIsCurrent(tx, cohort.plan))
     )
       return null;
@@ -599,6 +611,9 @@ async function ensureWritable(
 ) {
   if (cohort.version !== version)
     fail("The session changed. Reload before continuing.", "CONFLICT");
+  if (cohort.refreshSuppressed || sessionRefreshSuppressed(cohort,
+    (await readSessionRefreshSchedules(tx)).get(cohort.plan.termId), now))
+    fail(SESSION_REFRESH_BOUNDARY_ERROR, "CONFLICT");
   const pausedSource = cohort.plan.participants.some((person) =>
     person.cohortId === cohort.id && person.tutoringPauseSuppressed) &&
     isRegularTutoringPaused(cohort.date, await pauseRanges(tx));
@@ -769,6 +784,9 @@ async function validateTarget(
   }
   if (window.startsAt <= now)
     fail("The proposed lesson must start in the future.");
+  const refreshSchedules = computation?.refreshSchedules ?? await readSessionRefreshSchedules(tx);
+  if (sessionExceedsRefresh(window, refreshSchedules.get(plan.termId)))
+    fail(SESSION_REFRESH_BOUNDARY_ERROR, "CONFLICT");
   if (
     (plan.term.startDate &&
       time.date < programDateKey(plan.term.startDate, plan.timeZone)) ||
@@ -1132,6 +1150,58 @@ async function affirmativePauseParticipants(tx: TransactionDb, plan: Plan, cohor
 
 async function pauseRanges(tx: TransactionDb) {
   return tx.programCalendarDay.findMany({ where: { active: true, schedulingEffect: "PAUSE_REGULAR" } });
+}
+
+/** Refresh suppression is independent of cancellation, calendar policy and
+ * negotiated consent. Keep those sources intact and restore only a safe future
+ * booking, using the same event identities and increasing calendar revisions. */
+async function reconcileSessionRefreshBoundaries(
+  tx: TransactionDb,
+  schedules: ReadonlyMap<string, SessionRefreshSchedule>,
+  now: Date,
+) {
+  const rows = await tx.sessionPlanCohort.findMany({
+    where: {
+      sessions: { none: {} },
+      OR: [
+        ...[...schedules.values()].filter((row) => row.state === "SCHEDULED").map((row) => ({
+          plan: { termId: row.sourceTermId },
+          endsAt: { gt: row.executeAt },
+          OR: [{ startsAt: { gt: now } }, { startsAt: { gt: row.updatedAt } }],
+        })),
+        { refreshSuppressed: true, startsAt: { gt: now } },
+      ],
+    },
+    include: { plan: { include: planInclude } },
+    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+  });
+  for (const cohort of rows) {
+    const suppressed = sessionRefreshSuppressed(cohort, schedules.get(cohort.plan.termId), now);
+    if (suppressed === cohort.refreshSuppressed) continue;
+    if (!suppressed && cohort.status === "SCHEDULED") {
+      const roster = cohort.plan.participants.filter((person) => person.cohortId === cohort.id && person.status === "SCHEDULED");
+      if (roster.length) {
+        try {
+          if (!(await sourceIsCurrent(tx, cohort.plan))) continue;
+          await validateTarget(tx, cohort.plan, cohort, roster.map((person) => person.tuteeId), cohort, "ALL", undefined, now);
+        } catch {
+          // A room/participant conflict after cancellation must not resurrect an
+          // overlapping commitment. A later source change retries restoration.
+          continue;
+        }
+      }
+    }
+    const changed = await tx.sessionPlanCohort.update({
+      where: { id: cohort.id },
+      data: { refreshSuppressed: suppressed, version: { increment: 1 } },
+    });
+    await tx.sessionPlanParticipant.updateMany({
+      where: { cohortId: cohort.id },
+      data: { version: { increment: 1 } },
+    });
+    if (cohort.status === "SCHEDULED")
+      await notifyPlanChange(tx, cohort.plan, changed, suppressed ? "cancelled" : "schedule_updated");
+  }
 }
 
 async function offerRequiresExplicitAgreement(tx: TransactionDb, offer: { id: string; date: string }) {
@@ -1659,8 +1729,10 @@ export async function ensureSessionPlanningWindow(
       calendar: createSchoolCalendarSnapshot(overrides),
       parseDateTime: createProgramDateTimeParser(),
       tutoringPauses: await pauseRanges(tx),
+      refreshSchedules: await readSessionRefreshSchedules(tx),
     };
     await reconcileTutoringPauses(tx, computation.tutoringPauses ?? [], now);
+    await reconcileSessionRefreshBoundaries(tx, computation.refreshSchedules!, now);
     const publicationNotices: PublicationNotice[] = [];
     const evidencePairingIds = await pairingEvidenceIds(tx, rows.map((row) => row.id));
     const continuationPairingIds = await readContinuationPairingIds(tx, evidencePairingIds);
@@ -1789,6 +1861,9 @@ export async function ensureSessionPlanningWindow(
         }
         // Launch/catch-up never fabricates past appointments or duplicate old attendance.
         if (window.endsAt <= now) continue;
+        // A reviewed future refresh bounds automatic commitments without turning
+        // an expected period boundary into a publication failure/tombstone.
+        if (sessionExceedsRefresh(window, computation.refreshSchedules?.get(primary.termId))) continue;
         const planId = randomUUID(),
           cohortId = randomUUID();
         const roster = [
@@ -1842,6 +1917,7 @@ export async function ensureSessionPlanningWindow(
           ...window,
           rescheduled: false,
           sourceInvalidated: false,
+          refreshSuppressed: false,
           status: "SCHEDULED",
           version: 1,
           createdAt: now,
@@ -2049,6 +2125,11 @@ async function finishAgreement(
     }
   }
   const source = await loadCohort(tx, request.cohortId);
+  if (source.refreshSuppressed || sessionRefreshSuppressed(source,
+    (await readSessionRefreshSchedules(tx)).get(source.plan.termId), now)) {
+    await closeRequest(tx, request, "STALE", "stale", now);
+    return;
+  }
   const sourceCalendar = resolvePlanningTimetableDay(
     source.plan.originalDate,
     await tx.schoolCalendarDay.findMany(),
@@ -2310,7 +2391,7 @@ export async function markSessionResponseDelivered(
   await lockSessionPlanning(tx);
   const response = await tx.sessionPlanningResponse.findUnique({
     where: { id: responseId },
-    include: { offer: { include: { request: true } } },
+    include: { offer: { include: { request: { include: { plan: { select: { termId: true } } } } } } },
   });
   if (
     response?.state !== "PENDING" ||
@@ -2318,6 +2399,9 @@ export async function markSessionResponseDelivered(
     response.offer.request.currentOfferId !== response.offerId
   )
     return false;
+  const source = await loadCohort(tx, response.offer.request.cohortId);
+  const refresh = (await readSessionRefreshSchedules(tx)).get(response.offer.request.plan.termId);
+  if (source.refreshSuppressed || sessionRefreshSuppressed(source, refresh, new Date()) || sessionExceedsRefresh(response.offer, refresh)) return false;
   const explicitOnly = admittedExplicitOnly || await offerRequiresExplicitAgreement(tx, response.offer);
   if (response.deliveredAt) {
     // A delayed normal completion must not outvote a stricter receipt admitted
@@ -2338,8 +2422,19 @@ export async function markSessionResponseDelivered(
 }
 
 async function settleRequest(tx: TransactionDb, request: Request, now: Date) {
+  if (request.status !== "PENDING" && request.status !== "SPLIT_REQUESTED") return;
+  const refresh = (await readSessionRefreshSchedules(tx)).get(request.plan.termId);
+  const source = await loadCohort(tx, request.cohortId);
+  if (source.refreshSuppressed || sessionRefreshSuppressed(source, refresh, now)) {
+    await closeRequest(tx, request, "STALE", "stale", now);
+    return;
+  }
+  const target = request.offers.find((row) => row.id === request.currentOfferId);
+  if (target && sessionExceedsRefresh(target, refresh)) {
+    await closeRequest(tx, request, "STALE", "stale", now);
+    return;
+  }
   if (request.status === "SPLIT_REQUESTED") {
-    const source = await loadCohort(tx, request.cohortId);
     if (source.startsAt <= now)
       await closeRequest(tx, request, "EXPIRED", "expired", now);
     else if (!(await sourceIsCurrent(tx, request.plan)))
@@ -3295,6 +3390,7 @@ function projectAgendaCohort(
   history = false,
   tutoringPauses: readonly TutoringPauseRange[] = [],
 ) {
+  if (!history && row.refreshSuppressed) return [];
   const roster = row.participants.filter(
     (person) => person.status === "SCHEDULED",
   );
@@ -3362,11 +3458,11 @@ function projectAgendaCohort(
       unavailable: restorationBlocked || (!activePersonal.length && ordinaryUnavailable) || (row.sourceInvalidated && !paused.length),
       ...(paused.length ? {
         tutoringPaused,
-        canArrangeException: !history && !row.sessions.length && row.startsAt > now,
+        canArrangeException: !history && !row.refreshSuppressed && !row.sessions.length && row.startsAt > now,
         pausedTutees: paused.map((person) => ({ id: person.tuteeId, name: person.tutee.englishName })),
       } : {}),
       status:
-        role === "tutee" &&
+        row.refreshSuppressed ? "CANCELLED" : role === "tutee" &&
         personal.every((person) => person.status === "CANCELLED")
           ? "CANCELLED"
           : row.sessions.length
@@ -3394,11 +3490,13 @@ function projectAgendaCohort(
                 name: person.tutee.englishName,
               })),
       needsAttendance:
+        !row.refreshSuppressed &&
         !row.sessions.length &&
         roster.length > 0 &&
         row.status === "SCHEDULED" &&
         row.endsAt <= now,
       canRecordAttendance:
+        !row.refreshSuppressed &&
         !history &&
         role === "tutor" &&
         tutor?.status === "ACTIVE" &&
@@ -3485,16 +3583,17 @@ export async function readSessionAgendaHistory(
       orderBy: [{ startsAt: "desc" }, { id: "desc" }],
       take: limit + 1,
     });
-    const [rooms, calendar] = await Promise.all([
+    const [rooms, calendar, refreshSchedules] = await Promise.all([
       tx.room.findMany({ select: { id: true, name: true } }),
       tx.schoolCalendarDay.findMany(),
+      readSessionRefreshSchedules(tx),
     ]);
     const page = rows.slice(0, limit);
     const last = page.at(-1);
     return {
       cohorts: page.flatMap((row) =>
         projectAgendaCohort(
-          row,
+          { ...row, refreshSuppressed: row.refreshSuppressed || (!row.sessions.length && sessionRefreshSuppressed(row, refreshSchedules.get(row.plan.termId), now)) },
           input.role,
           context,
           rooms,
@@ -3554,6 +3653,7 @@ export async function readSessionAgenda(
       tx.sessionPlanCohort.findMany({
         where: {
           plan: visibility,
+          refreshSuppressed: false,
           date: { gte: publication.start, lte: publication.end },
         },
         include: agendaCohortInclude,
@@ -3563,6 +3663,7 @@ export async function readSessionAgenda(
       tx.sessionPlanCohort.findMany({
         where: {
           plan: visibility,
+          refreshSuppressed: false,
           endsAt: { lte: now },
           status: "SCHEDULED",
           sessions: { none: {} },
@@ -3583,6 +3684,7 @@ export async function readSessionAgenda(
       tx.sessionPlanCohort.findMany({
         where: {
           plan: { AND: [visibility, { kind: "EXTRA" }] },
+          refreshSuppressed: false,
           date: { gt: publication.end },
           startsAt: { gt: now },
           status: "SCHEDULED",
@@ -3610,6 +3712,7 @@ export async function readSessionAgenda(
     });
     const calendar = await tx.schoolCalendarDay.findMany();
     const tutoringPauses = await pauseRanges(tx);
+    const refreshSchedules = await readSessionRefreshSchedules(tx);
     // Read execution only for the bounded agenda results. Published actors and
     // roster keys remain the evidence used to match consent and personal access.
     const liveRows = rows.filter((row) => !row.sessions.length);
@@ -3644,6 +3747,7 @@ export async function readSessionAgenda(
       .map((person) => person.tuteeId);
     const cohorts = [];
     for (const row of rows) {
+      if (row.refreshSuppressed || (!row.sessions.length && sessionRefreshSuppressed(row, refreshSchedules.get(row.plan.termId), now))) continue;
       const rowContext = role === "tutee" ? { ...context, owned: ownedSources(row.plan) } : context;
       const projectedRows = projectAgendaCohort(row, role, rowContext, roomRows, calendar, now, false, tutoringPauses);
       if (projectedRows.some((projected) => projected.canArrangeException) && !(await sourceIsCurrent(tx, row.plan))) {
@@ -3672,6 +3776,10 @@ export async function readSessionAgenda(
     }
     const projected = [];
     for (const request of requests) {
+      const source = rows.find((row) => row.id === request.cohortId);
+      const target = request.offers.find((row) => row.id === request.currentOfferId);
+      if (source && (source.refreshSuppressed || sessionRefreshSuppressed(source, refreshSchedules.get(source.plan.termId), now)) ||
+        target && sessionExceedsRefresh(target, refreshSchedules.get(request.plan.termId))) continue;
       const requestOwned = role === "tutee" ? ownedSources(request.plan) : owned;
       if (
         role === "tutee" &&
@@ -3778,7 +3886,9 @@ export async function readSessionAgenda(
     // returned by this reader. Newest work is bounded without claiming a total.
     const visibleSuggestions = [];
     for (const suggestion of suggestions) {
-      const sourcePlan = rows.find((row) => row.planId === suggestion.planId)?.plan;
+      const source = rows.find((row) => row.id === suggestion.cohortId);
+      if (source?.refreshSuppressed || source && sessionRefreshSuppressed(source, refreshSchedules.get(source.plan.termId), now)) continue;
+      const sourcePlan = source?.plan;
       if (role === "tutor" || sourcePlan && ownedSources(sourcePlan).includes(suggestion.tuteeId)) visibleSuggestions.push(suggestion);
     }
     const backlogPage: { attendanceBacklogHasMore?: boolean } = {
@@ -3794,7 +3904,6 @@ export async function readSessionAgenda(
         tutor?.status === "ACTIVE" &&
         !account.tutorAccessRevoked,
       weeklyPublication: {
-        unavailable: publication.unavailable,
         normalized: publication.normalized,
         preparedThrough: publication.prepareEnd,
       },
@@ -3866,7 +3975,8 @@ export async function sessionAttendanceContext(
       "The dated session changed. Reload before recording attendance.",
       "CONFLICT",
     );
-  if (cohort.status !== "SCHEDULED" || cohort.endsAt > now)
+  if (cohort.status !== "SCHEDULED" || cohort.refreshSuppressed ||
+    sessionRefreshSuppressed(cohort, (await readSessionRefreshSchedules(tx)).get(cohort.plan.termId), now) || cohort.endsAt > now)
     return fail(
       "Attendance is available after this scheduled session ends.",
       "CONFLICT",
@@ -3974,6 +4084,7 @@ export async function syncContinuationPlanMembership(
     ? await tx.schoolCalendarDay.findMany()
     : [];
   const tutoringPauses = !input.releasedAt ? await pauseRanges(tx) : [];
+  const refreshSchedules = !input.releasedAt ? await readSessionRefreshSchedules(tx) : new Map<string, SessionRefreshSchedule>();
   const plans = await tx.sessionPlan.findMany({
     where: { assignments: { some: { pairingId: { in: await pairingEvidenceIds(tx, [input.pairingId]) } } } },
     include: { ...planInclude, cohorts: true },
@@ -4019,6 +4130,7 @@ export async function syncContinuationPlanMembership(
         !cohort.rescheduled &&
         cohort.status === "SCHEDULED",
     );
+    if (!input.releasedAt && original && (original.refreshSuppressed || sessionExceedsRefresh(original, refreshSchedules.get(plan.termId)))) continue;
     const day = resolvePlanningTimetableDay(plan.originalDate, calendar);
     const tutoringPaused = !input.releasedAt && isRegularTutoringPaused(plan.originalDate, tutoringPauses);
     const suppressed =
@@ -4038,6 +4150,7 @@ export async function syncContinuationPlanMembership(
         plan.timeZone,
       );
       if (window.startsAt <= now) continue;
+      if (sessionExceedsRefresh(window, refreshSchedules.get(plan.termId))) continue;
       // Returning to the weekly clock does not erase peers' explicit consent.
       // Share only a live physical cohort; cancelled UIDs remain tombstones.
       const shared = plan.cohorts.find(
@@ -4066,6 +4179,7 @@ export async function syncContinuationPlanMembership(
         ...window,
         status: suppressed || tutoringPaused ? "CANCELLED" : "SCHEDULED",
         sourceInvalidated: Boolean(suppressed),
+        refreshSuppressed: false,
         rescheduled: false,
         version: 1,
         createdAt: now,
@@ -4333,6 +4447,8 @@ export async function assertSessionPlanningWeeklyAvailable(
   });
   const calendar = createSchoolCalendarSnapshot(overrides);
   const tutoringPauses = await pauseRanges(tx);
+  const refreshSchedules = await readSessionRefreshSchedules(tx);
+  const scheduledRefresh = refreshSchedules.get(schedule.termId);
   let termStart: string | undefined;
   let termEnd: string | undefined;
   const applies = (date: string) => {
@@ -4344,7 +4460,8 @@ export async function assertSessionPlanningWeeklyAvailable(
       (!term.startDate ||
         date >= (termStart ??= programDateKey(term.startDate, timeZone))) &&
       (!term.endDate ||
-        date <= (termEnd ??= programDateKey(term.endDate, timeZone)))
+        date <= (termEnd ??= programDateKey(term.endDate, timeZone))) &&
+      (scheduledRefresh?.state !== "SCHEDULED" || !sessionRefreshSuppressed(plannedWindow({ date, startMin: schedule.startMin, online: false }, timeZone), scheduledRefresh, now))
     );
   };
   const cohorts = await tx.sessionPlanCohort.findMany({
@@ -4373,6 +4490,7 @@ export async function assertSessionPlanningWeeklyAvailable(
       "Too many pending offers to safely review this weekly change.",
       "CONFLICT",
     );
+  const requestSources = await readSessionRequestSources(tx, requests);
   const planIds = [...new Set([...cohorts.map((row) => row.planId), ...requests.map((row) => row.planId)])];
   const executions = await tx.sessionPlanExecution.findMany({ where: { planId: { in: planIds } } });
   const originalPeople = executions.length ? await tx.sessionPlanParticipant.findMany({ where: { planId: { in: executions.map((row) => row.planId) } }, select: { id: true, planId: true, tuteeId: true } }) : [];
@@ -4409,6 +4527,7 @@ export async function assertSessionPlanningWeeklyAvailable(
     if (schedule.preservedPlanIds?.includes(cohort.planId)) continue;
     if (
       !cohort.participants.length ||
+      cohort.refreshSuppressed || sessionRefreshSuppressed(cohort, refreshSchedules.get(cohort.plan.termId), now) ||
       !applies(cohort.date) ||
       cohort.startMin >= schedule.startMin + 45 ||
       cohort.endMin <= schedule.startMin
@@ -4437,11 +4556,13 @@ export async function assertSessionPlanningWeeklyAvailable(
   }
   for (const request of requests) {
     if (schedule.preservedPlanIds?.includes(request.planId)) continue;
+    if (sessionRequestSourceSuppressed(requestSources.get(request.cohortId), refreshSchedules, now)) continue;
     const offer = request.offers.find(
       (row) => row.id === request.currentOfferId,
     );
     if (
       !offer ||
+      sessionExceedsRefresh(offer, refreshSchedules.get(request.plan.termId)) ||
       !applies(offer.date) ||
       offer.startMin >= schedule.startMin + 45 ||
       offer.endMin <= schedule.startMin

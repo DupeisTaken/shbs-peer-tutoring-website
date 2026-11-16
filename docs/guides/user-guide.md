@@ -657,6 +657,13 @@ Start with **Message to coordinate** to agree on a workable
 time. Opening the composer sends nothing, and chat messages do not formally accept
 a schedule change.
 
+Old-quarter lessons must finish by the official scheduled quarter refresh. A
+later lesson is removed from Upcoming without creating an absence. If management
+moves or cancels that refresh, eligible future lessons can return after scheduling
+checks. Recorded lessons and older attendance work stay available. A warning on
+a session card concerns that captured lesson; personal agendas do not display a
+program-wide count as though it were your own arrangements needing repair.
+
 Tutees can suggest a time from their schedule. Tutors use **Reschedule Session**
 or **Add Extra Session**. Check **Include all tutees in this session**, or uncheck
 it and choose one tutee. For a single-person session, the person is shown directly.
