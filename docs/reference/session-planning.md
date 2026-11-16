@@ -646,7 +646,7 @@ settlement under overlapping calls. It also reproduces the original two-reader
 agenda phase to evaluate a proposed change. Its reports identify the frozen
 application and the proposed revision separately from the original campaign.
 
-The dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
+For applicable changes, the dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
 runs `scripts/profile-scheduling-requests.ts` on Node 22 Linux against its own
 PostgreSQL service. Cold publication, warm agendas, Sunday catch-up, negotiation,
 allocation, catalog reads and competing requests each have separate latency and
@@ -654,6 +654,47 @@ diagnostic jobs. Baseline and candidate run serially on the same runner with the
 same synthetic fixture, harness, anchor, dependency lockfile and database schema.
 The job reserves time for evidence upload and fails on exhausted budgets; partial
 samples do not count as passing evidence.
+
+Before clock admission or Docker pulls, the workflow checks applicability against
+the immutable **PR event base and head**, independently of any reviewed benchmark
+control. The [applicability helper](../../scripts/scheduling-profile/applicability.mjs)
+uses the existing profile watch-path policy. A change to a watched scheduling
+source, Prisma input, benchmark harness or measurement wrapper remains `REQUIRED`.
+Changes limited to the parent workflow, applicability helper, comparison-input
+diagnostics and helper test/spec files receive bounded validation rather than a
+performance claim. Worker/resource configuration, clock admission, aggregation,
+resume execution and benchmark/harness changes remain measurement inputs. Manual
+dispatch always requires the controlled measurements, without reading a PR-base
+checkout that does not exist for that event.
+
+A PR with no watched measurement-source change may be `NOT_APPLICABLE` when its
+dependency proof succeeds. Both locks must be v3; all existing non-root install
+records and root dependency ranges must remain unchanged. Package identity,
+engines, overrides, measured commands and lifecycle scripts must stay unchanged;
+new Help/docs commands and an additive extension of the docs gate are allowed.
+New registry packages must belong to added root dependency closures, with no new
+install hooks, links or executable aliases. Every existing production dependency,
+optional dependency and peer must resolve to the same installed path. A newly
+satisfied development-only optional peer is recorded explicitly; it does not
+justify claiming that new dependencies are globally inert. Changes outside this
+watch policy remain subject to the ordinary application, dependency and image gates.
+
+Locked helper installation has a 180-second bound and serial helper regressions
+have a 120-second bound with a 4 GiB Node heap, including not-applicable and
+deferred decisions. The declaration job has a ten-minute ceiling; measurement
+workers retain their separate resource and time limits. The declaration uploads
+its revision-bound applicability receipt. The aggregate independently recomputes
+a `NOT_APPLICABLE` receipt against fresh base/head checkouts and checks the exact
+originating artifact hash, including on failed-job reruns. Missing or failed scope
+declarations fail closed. Its summary says **no benchmark ran**, never measured
+`PASS`. No latency population, paired comparison or performance acceptance is
+inferred from this result.
+
+This applicability decision does not loosen measured comparisons:
+`comparison-inputs.mjs` still requires byte-identical complete lockfiles,
+and the exact schema/migration contract. The workflow independently rejects the
+candidate revision as either primary or catalog measurement control. It never
+copies candidate dependencies over a baseline or sets baseline to head.
 
 The matrix admits all workers into one interval on the same Shanghai calendar
 date. Start a campaign between **00:30–11:30** or **19:15–20:30** Shanghai time.

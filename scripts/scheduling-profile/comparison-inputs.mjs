@@ -14,6 +14,22 @@ const read = (root, path) => readFileSync(resolve(root, path));
 /** @param {Buffer} bytes */
 const normalized = (bytes) => bytes.toString("utf8").replaceAll("\r\n", "\n").trim();
 
+/** Keep exact byte equality without asking AssertionError to inspect/diff large
+ * Buffers. Node's diff can allocate an entire per-byte edit trace before it
+ * prints even a custom message. Missing and empty files remain distinct.
+ * @param {Buffer | undefined} baseline
+ * @param {Buffer | undefined} candidate
+ * @param {string} label */
+function assertIdenticalBytes(baseline, candidate, label) {
+  const identical = baseline === undefined
+    ? candidate === undefined
+    : candidate !== undefined && baseline.equals(candidate);
+  if (identical) return;
+  /** @param {Buffer | undefined} bytes */
+  const fingerprint = (bytes) => bytes === undefined ? "missing" : `${bytes.length} bytes, SHA256 ${digest(bytes)}`;
+  assert.ok(identical, `${label}; baseline: ${fingerprint(baseline)}; candidate: ${fingerprint(candidate)}`);
+}
+
 /** @typedef {{ version: 1, baselineSchemaSha256: string, candidateSchemaSha256: string,
  * dependencyLockSha256: string, addedMigrations: { path: string, sha256: string }[],
  * historicalMigrations: Record<string, string> }} ReviewedSchemaDeltaManifest */
@@ -117,7 +133,7 @@ function reviewedInventory(root) {
  * @param {unknown} [reviewedManifest] Explicit reviewed data only; never auto-discovered.
  */
 export function inspectComparisonInputs(baseline, candidate, reviewedManifest) {
-  assert.deepEqual(read(baseline, "package-lock.json"), read(candidate, "package-lock.json"), "Dependency lockfiles differ");
+  assertIdenticalBytes(read(baseline, "package-lock.json"), read(candidate, "package-lock.json"), "Dependency lockfiles differ: package-lock.json");
   const originalSchema = read(baseline, "prisma/schema.prisma");
   const candidateSchema = read(candidate, "prisma/schema.prisma");
   const baselineText = normalized(originalSchema);
@@ -143,7 +159,7 @@ export function inspectComparisonInputs(baseline, candidate, reviewedManifest) {
     assert.deepEqual(candidateInventory.paths,
       [...baselineInventory.paths, ...reviewed.addedMigrations.map((entry) => entry.path)].sort(),
       "Reviewed candidate inventory differs; migrations were added, removed or renamed");
-    assert.deepEqual(baselineInventory.lock, candidateInventory.lock, "Migration lock files differ");
+    assertIdenticalBytes(baselineInventory.lock, candidateInventory.lock, "Migration lock files differ: prisma/migrations/migration_lock.toml");
     migrationLockSha256 = baselineInventory.lock ? digest(baselineInventory.lock) : null;
     for (const [path, expected] of Object.entries(reviewed.historicalMigrations)) {
       assert.equal(digest(read(baseline, path)), expected, `Reviewed historical baseline hash differs: ${path}`);
@@ -177,7 +193,7 @@ export function inspectComparisonInputs(baseline, candidate, reviewedManifest) {
     const path = `prisma/migrations/${name}/migration.sql`;
     const originalBytes = read(baseline, path);
     const candidateBytes = read(candidate, path);
-    if (reviewed || identical) assert.deepEqual(originalBytes, candidateBytes, `Historical migration changed: ${name}`);
+    if (reviewed || identical) assertIdenticalBytes(originalBytes, candidateBytes, `Historical migration changed: ${name} (${path})`);
     else assert.equal(normalized(originalBytes), normalized(candidateBytes), `Historical migration changed: ${name}`);
     return [path, digest(originalBytes)];
   }));

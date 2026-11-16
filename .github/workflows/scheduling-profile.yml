@@ -44,8 +44,11 @@ concurrency:
 jobs:
   matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 10
     outputs:
+      applicability: ${{ steps.scope.outputs.status }}
+      scope_proof_sha256: ${{ steps.scope.outputs.proof_sha256 }}
+      scope_attempt: ${{ steps.scope.outputs.artifact_attempt }}
       admission: ${{ steps.clock.outputs.status }}
       matrix: ${{ steps.clock.outputs.matrix }}
       preflight: ${{ steps.clock.outputs.preflight }}
@@ -70,7 +73,36 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Install locked helper-validation tools
+        run: timeout 180 npm ci --ignore-scripts
+      - name: Validate profile helpers before any applicability decision
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: timeout 120 node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts scripts/scheduling-profile/resume-*.spec.ts
+      - name: Checkout the immutable PR scope base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .profile-scope-base
+          persist-credentials: false
+      - name: Determine scheduling-profile applicability
+        id: scope
+        env:
+          PROFILE_SCOPE_EVENT: ${{ github.event_name }}
+          PROFILE_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.baseline }}
+          PROFILE_SCOPE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/scheduling-profile/applicability.mjs inspect .profile-scope-base . scheduling-profile-applicability.json
+      - name: Preserve the applicability proof
+        if: always() && steps.scope.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduling-profile-applicability-${{ github.run_attempt }}
+          retention-days: 7
+          path: scheduling-profile-applicability.json
+          if-no-files-found: error
       - name: Select immutable comparison and reviewed schema contract
+        if: steps.scope.outputs.status == 'REQUIRED'
         id: selection
         env:
           DEFAULT_BASELINE_SHA: ${{ github.event.pull_request.base.sha || inputs.baseline }}
@@ -78,7 +110,23 @@ jobs:
           MANUAL_BASELINE_SHA: ${{ inputs.baseline || '' }}
           MANUAL_SCHEMA_MANIFEST: ${{ inputs.schema-manifest || '' }}
         run: node scripts/scheduling-profile/select-comparison.mjs . >> "$GITHUB_OUTPUT"
+      - name: Require independent immutable measurement controls
+        if: steps.scope.outputs.status == 'REQUIRED'
+        env:
+          PROFILE_CONTROL_BASE: ${{ steps.selection.outputs.baseline }}
+          PROFILE_CONTROL_CATALOG: ${{ steps.selection.outputs.catalogBaseline }}
+          PROFILE_CONTROL_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            const candidate = process.env.PROFILE_CONTROL_CANDIDATE;
+            assert.match(candidate, /^[a-f0-9]{40}$/);
+            for (const control of [process.env.PROFILE_CONTROL_BASE, process.env.PROFILE_CONTROL_CATALOG]) {
+              assert.match(control, /^[a-f0-9]{40}$/);
+              assert.notEqual(control, candidate, "A measurement control cannot be the candidate revision");
+            }'
       - name: Determine the common measurement interval
+        if: steps.scope.outputs.status == 'REQUIRED'
         id: clock
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -142,13 +190,6 @@ jobs:
           PROFILE_POSTGRES_IMAGE: ${{ steps.plan.outputs.postgres_image }}
           PROFILE_NODE_IMAGE_ID: ${{ steps.plan.outputs.node_image_id }}
         run: node scripts/scheduling-profile/resume-campaign.mjs >> "$GITHUB_OUTPUT"
-      - name: Validate helpers under the measurement resource limits
-        if: steps.clock.outputs.status == 'ADMITTED'
-        env:
-          PROFILE_NODE_IMAGE: ${{ steps.plan.outputs.node_image }}
-        run: |
-          docker run --rm --cpus=2 --memory=4g -v "$PWD:/work" -w /work \
-            "$PROFILE_NODE_IMAGE" sh -ec 'apk add --no-cache git python3 && npm ci --ignore-scripts && node --import tsx --test --test-concurrency=1 scripts/scheduling-profile/*.test.ts scripts/scheduling-profile/resume-*.spec.ts'
   preflight:
     needs: matrix
     if: needs.matrix.outputs.admission == 'ADMITTED'
@@ -204,6 +245,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 9
     env:
+      PROFILE_MATRIX_RESULT: ${{ needs.matrix.result }}
+      PROFILE_SCOPE_STATUS: ${{ needs.matrix.outputs.applicability }}
+      PROFILE_CLOCK_STATUS: ${{ needs.matrix.outputs.admission }}
       BASELINE_SHA: ${{ needs.matrix.outputs.baseline }}
       CATALOG_BASELINE_SHA: ${{ needs.matrix.outputs.catalog_baseline }}
       CATALOG_SELECTION_SOURCE: ${{ needs.matrix.outputs.catalog_source }}
@@ -215,18 +259,42 @@ jobs:
         with:
           ref: ${{ env.CANDIDATE_SHA }}
           persist-credentials: false
+      - name: Require a successful explicit scope declaration
+        run: node scripts/scheduling-profile/applicability.mjs gate
+      - name: Checkout the PR base for independent applicability verification
+        if: needs.matrix.outputs.applicability == 'NOT_APPLICABLE'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .profile-scope-base
+          persist-credentials: false
+      - name: Retrieve the declaration's exact applicability artifact
+        if: needs.matrix.outputs.applicability == 'NOT_APPLICABLE'
+        uses: actions/download-artifact@v4
+        with:
+          name: scheduling-profile-applicability-${{ needs.matrix.outputs.scope_attempt }}
+          path: .profile-applicability
+      - name: Independently require the unmeasured NOT_APPLICABLE proof
+        if: needs.matrix.outputs.applicability == 'NOT_APPLICABLE'
+        env:
+          PROFILE_SCOPE_EVENT: ${{ github.event_name }}
+          PROFILE_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PROFILE_SCOPE_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PROFILE_SCOPE_PROOF_SHA256: ${{ needs.matrix.outputs.scope_proof_sha256 }}
+        run: node scripts/scheduling-profile/applicability.mjs verify .profile-scope-base . .profile-applicability/scheduling-profile-applicability.json
       - name: Authenticate every execution and pool complete paired populations
+        if: needs.matrix.outputs.applicability == 'REQUIRED'
         env:
           PROFILE_CAMPAIGN: ${{ needs.matrix.outputs.campaign }}
           GH_TOKEN: ${{ github.token }}
         run: node --max-old-space-size=4096 scripts/scheduling-profile/resume-run.mjs aggregate
       - name: Require every diagnostic and latency partition
-        if: always()
+        if: always() && needs.matrix.outputs.applicability == 'REQUIRED'
         run: |
           test "$PREFLIGHT_RESULT" = success
           test "$PROFILE_RESULT" = success
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && needs.matrix.outputs.applicability == 'REQUIRED'
         with:
           name: scheduling-profile-aggregate-${{ github.run_attempt }}
           path: |

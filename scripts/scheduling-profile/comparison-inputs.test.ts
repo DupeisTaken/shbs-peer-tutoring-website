@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -113,6 +114,39 @@ void test("identical schema alone cannot allow an added migration or changed dep
   withIdenticalMetadataInputs(({ baseline, candidate, write }) => {
     write(candidate, "package-lock.json", '{"lockfileVersion":99}');
     assert.throws(() => inspectComparisonInputs(baseline, candidate), /Dependency lockfiles differ/);
+  });
+});
+
+void test("a realistic large dependency-lock mismatch fails with a bounded diagnostic", () => {
+  withIdenticalMetadataInputs(({ baseline, candidate, write }) => {
+    const integrity = `sha512-${Buffer.alloc(64, 97).toString("base64")}`;
+    const packages = Object.fromEntries(Array.from({ length: 1_650 }, (_, index) => [
+      `node_modules/profile-fixture-${index}`,
+      { version: "1.0.0", resolved: `https://registry.npmjs.org/profile-fixture-${index}/-/profile-fixture-${index}-1.0.0.tgz`,
+        integrity, license: "MIT" },
+    ]));
+    const original = JSON.stringify({ name: "profile-fixture", lockfileVersion: 3, packages }, null, 2);
+    const changed = JSON.stringify({ name: "profile-fixture", lockfileVersion: 3,
+      packages: { ...packages, "node_modules/new-fixture": { version: "1.0.0", integrity } } }, null, 2);
+    assert.ok(original.length >= 450_000 && original.length <= 650_000, "Keep the fixture close to a real 500 KB lockfile");
+    write(baseline, "package-lock.json", original);
+    write(candidate, "package-lock.json", changed);
+    const script = fileURLToPath(new URL("./comparison-inputs.mjs", import.meta.url));
+    // A regressed Buffer diff must fail inside a small, short-lived child, never
+    // expand the test runner's heap or leave a profiling process behind.
+    const child = spawnSync(process.execPath, ["--max-old-space-size=48", script,
+      baseline, candidate, join(candidate, "comparison-receipt.json")], {
+      encoding: "utf8", timeout: 2_000, killSignal: "SIGKILL", maxBuffer: 8_192,
+      env: { ...process.env, NODE_OPTIONS: "" },
+    });
+    assert.equal(child.error, undefined, "Comparison must reject promptly without a timeout or output overflow");
+    assert.equal(child.signal, null);
+    assert.equal(child.status, 1);
+    assert.equal(child.stdout, "");
+    assert.ok(child.stderr.length < 4_096, "The diagnostic must remain independent of lockfile size");
+    assert.match(child.stderr, /Dependency lockfiles differ: package-lock\.json/);
+    assert.ok(child.stderr.includes(hash(original)) && child.stderr.includes(hash(changed)));
+    assert.doesNotMatch(child.stderr, /Buffer\(|Uint8Array|profile-fixture-1649|Skipped lines/);
   });
 });
 
@@ -275,6 +309,19 @@ void test("reviewed mode requires complete inventories and unchanged migration c
   withReviewedInputs(({ baseline, candidate, manifest, write }) => {
     write(candidate, "prisma/migrations/migration_lock.toml", 'provider = "sqlite"\n');
     assert.throws(() => inspectComparisonInputs(baseline, candidate, manifest), /Migration lock files differ/);
+  });
+});
+
+void test("migration lock byte equality distinguishes missing files from empty files", () => {
+  withReviewedInputs(({ baseline, candidate, manifest }) => {
+    for (const directory of [baseline, candidate])
+      rmSync(join(directory, "prisma/migrations/migration_lock.toml"));
+    assert.equal(inspectComparisonInputs(baseline, candidate, manifest).migrationLockSha256, null);
+    writeFileSync(join(baseline, "prisma/migrations/migration_lock.toml"), "");
+    assert.throws(() => inspectComparisonInputs(baseline, candidate, manifest), /Migration lock files differ.*candidate: missing/);
+    rmSync(join(baseline, "prisma/migrations/migration_lock.toml"));
+    writeFileSync(join(candidate, "prisma/migrations/migration_lock.toml"), "");
+    assert.throws(() => inspectComparisonInputs(baseline, candidate, manifest), /Migration lock files differ.*baseline: missing/);
   });
 });
 
