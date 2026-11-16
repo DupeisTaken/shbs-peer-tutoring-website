@@ -69,6 +69,7 @@ export const approvalSummaryContexts: Record<string, readonly string[]> = {
   "subjectAvailability.setWillingness": ["tutorId", "subjectId"],
   "interviewManagement.complete": ["applicationId"],
   "student.setCalendarDay": ["date"],
+  "student.setCalendarHoliday": ["from", "to"],
   "student.resetCalendarDay": ["date"],
   "student.setFeedbackSettings": [],
   "student.decideAppeal": ["id"],

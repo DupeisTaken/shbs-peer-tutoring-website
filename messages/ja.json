@@ -3852,7 +3852,8 @@
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "月次サービス時間レポートのスケジュールを変更",
-        "schoolHours_save": "学校向け奉仕時間報告のスケジュールを変更"
+        "schoolHours_save": "学校向け奉仕時間報告のスケジュールを変更",
+        "student_setCalendarHoliday": "学校の休暇期間を追加"
       },
       "decisionRequestHelp": "「承認して適用」は、元の申請を却下する操作も含め、提案された操作を実行します。「フィードバックを付けて却下」は、この提案を却下し、変更を行いません。どちらの場合も判断の理由を備考に記入してください。",
       "confirmPassword": "アカウントのパスワードを確認",
@@ -7302,7 +7303,16 @@
     "viewUpcoming": "今後の変更を見る",
     "requestedDateTitle": "この日付の学校の予定",
     "defaultCalendar": "この日に有効な例外はありません。通常の登校日と曜日のルールを適用します。",
-    "currentCalendar": "現在の学校カレンダーを表示しています。以前の通知時点の内容ではありません。"
+    "currentCalendar": "現在の学校カレンダーを表示しています。以前の通知時点の内容ではありません。",
+    "addHoliday": "休暇を追加",
+    "from": "開始日",
+    "to": "終了日",
+    "holidayHelp": "期間内のすべての日を休校日にします。開始日と終了日を含み、最大366日です。メモはすべての日に適用されます。",
+    "holidayPreview": "休校日：{count}日（開始日と終了日を含む）。",
+    "invalidRange": "有効な日付を選び、終了日は開始日以降、期間は366日以内にしてください。",
+    "holidayReplaces": "保存すると、以下の既存の{count}件の日付設定とメモが置き換えられます。",
+    "saveHoliday": "休暇を保存",
+    "reloadHoliday": "現在の期間を再読み込み"
   },
   "recordInspector": {
     "backToRecord": "Back to record",

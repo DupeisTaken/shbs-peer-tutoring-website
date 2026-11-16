@@ -29,6 +29,7 @@ const state = vi.hoisted(() => ({
   pending: false,
   queryError: null as null | { message: string; data?: { code?: string } },
   save: vi.fn(),
+  saveHoliday: vi.fn(),
   reset: vi.fn(),
   invalidate: vi.fn(),
   publicInvalidate: vi.fn(),
@@ -67,6 +68,12 @@ vi.mock("~/trpc/react", () => ({
           isPending: state.pending,
         }),
       },
+      setCalendarHoliday: {
+        useMutation: () => ({
+          mutateAsync: state.saveHoliday,
+          isPending: state.pending,
+        }),
+      },
       resetCalendarDay: {
         useMutation: () => ({ mutateAsync: state.reset, isPending: false }),
       },
@@ -91,6 +98,7 @@ beforeEach(() => {
   state.pending = false;
   state.queryError = null;
   state.save.mockResolvedValue({});
+  state.saveHoliday.mockResolvedValue([]);
   state.reset.mockResolvedValue({});
   state.invalidate.mockResolvedValue(undefined);
   state.publicInvalidate.mockResolvedValue(undefined);
@@ -470,4 +478,183 @@ it("queues a Coordinator reset for Admin review without reporting a direct reset
   });
   expect(screen.getByText(en.actionReview.queued)).toBeTruthy();
   expect(state.save).not.toHaveBeenCalled();
+});
+
+const openHoliday = () => {
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.addHoliday }),
+  );
+  fireEvent.change(field(en.schoolCalendar.from), {
+    target: { value: "2026-11-26" },
+  });
+  fireEvent.change(field(en.schoolCalendar.to), {
+    target: { value: "2026-11-28" },
+  });
+  fireEvent.change(field(en.schoolCalendar.note), {
+    target: { value: "Thanksgiving holiday" },
+  });
+};
+const submitHoliday = async () =>
+  act(async () => {
+    fireEvent.submit(field(en.schoolCalendar.note).closest("form")!);
+  });
+
+it.each(["en", "zh"] as const)(
+  "shows inclusive holiday dates and hides timetable controls in %s",
+  (locale) => {
+    render(tree(locale));
+    const t = (locale === "en" ? en : zh).schoolCalendar;
+    fireEvent.click(screen.getByRole("button", { name: t.addHoliday }));
+    fireEvent.change(field(t.from), { target: { value: "2026-11-26" } });
+    fireEvent.change(field(t.to), { target: { value: "2026-11-28" } });
+    expect(screen.getByRole("status").textContent).toContain("3");
+    expect(field(t.from).getAttribute("aria-describedby")).toBe(
+      "school-calendar-range-help",
+    );
+    expect(screen.queryByRole("combobox", { name: t.schoolStatus })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: t.timetable })).toBeNull();
+  },
+);
+
+it("submits every date with captured absence, active and tombstone versions and previews replacements", async () => {
+  state.days = [
+    row({ date: "2026-11-27", version: 4 }),
+    row({ date: "2026-11-28", active: false, version: 7 }),
+  ];
+  render(tree());
+  openHoliday();
+  expect(
+    screen.getByText(en.schoolCalendar.holidayReplaces.replace("{count}", "1")),
+  ).toBeTruthy();
+  await submitHoliday();
+  expect(state.saveHoliday).toHaveBeenCalledWith({
+    from: "2026-11-26",
+    to: "2026-11-28",
+    note: "Thanksgiving holiday",
+    expectedVersions: [
+      { date: "2026-11-26", version: 0 },
+      { date: "2026-11-27", version: 4 },
+      { date: "2026-11-28", version: 7 },
+    ],
+  });
+  expect(state.save).not.toHaveBeenCalled();
+  expect(screen.getByText(en.schoolCalendar.saved)).toBeTruthy();
+});
+
+it.each([
+  ["2026-11-28", "2026-11-26"],
+  ["2026-01-01", "2027-01-02"],
+])(
+  "rejects an invalid holiday range %s to %s before a write",
+  async (from, to) => {
+    render(tree());
+    openHoliday();
+    fireEvent.change(field(en.schoolCalendar.from), {
+      target: { value: from },
+    });
+    fireEvent.change(field(en.schoolCalendar.to), { target: { value: to } });
+    expect(screen.getByText(en.schoolCalendar.invalidRange)).toBeTruthy();
+    await submitHoliday();
+    expect(state.saveHoliday).not.toHaveBeenCalled();
+  },
+);
+
+it("preserves the range draft on conflict and adopts fresh versions only on explicit reload", async () => {
+  state.saveHoliday.mockRejectedValueOnce(
+    Object.assign(new Error("Range changed"), { data: { code: "CONFLICT" } }),
+  );
+  const view = render(tree());
+  openHoliday();
+  await submitHoliday();
+  state.days = [row({ date: "2026-11-27", version: 8 })];
+  view.rerender(tree());
+  expect(field(en.schoolCalendar.note).value).toBe("Thanksgiving holiday");
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.schoolCalendar.saveHoliday,
+    }).disabled,
+  ).toBe(true);
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.schoolCalendar.reloadHoliday }),
+    );
+  });
+  expect(field(en.schoolCalendar.from).value).toBe("2026-11-26");
+  expect(field(en.schoolCalendar.to).value).toBe("2026-11-28");
+  expect(field(en.schoolCalendar.note).value).toBe("Thanksgiving holiday");
+  await submitHoliday();
+  expect(state.saveHoliday).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      expectedVersions: [
+        { date: "2026-11-26", version: 0 },
+        { date: "2026-11-27", version: 8 },
+        { date: "2026-11-28", version: 0 },
+      ],
+    }),
+  );
+});
+
+it("admits one holiday write, blocks dismissal while pending and retries only reads after acceptance", async () => {
+  let finish!: (value: unknown) => void;
+  state.saveHoliday.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  state.invalidate.mockRejectedValueOnce(new Error("Offline"));
+  render(tree());
+  openHoliday();
+  await act(async () => {
+    fireEvent.submit(field(en.schoolCalendar.note).closest("form")!);
+    fireEvent.submit(field(en.schoolCalendar.note).closest("form")!);
+  });
+  expect(state.saveHoliday).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.accountProfile.close,
+    }).disabled,
+  ).toBe(true);
+  await act(async () => {
+    finish([]);
+  });
+  expect(screen.getByText(en.schoolCalendar.refreshFailed)).toBeTruthy();
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.schoolCalendar.refresh }),
+    );
+  });
+  expect(state.saveHoliday).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(en.schoolCalendar.refreshFailed)).toBeNull();
+});
+
+it("queues one Coordinator holiday proposal without claiming the dates were applied", async () => {
+  state.role = "COORDINATOR";
+  state.saveHoliday.mockRejectedValueOnce({
+    data: { approvalId: "synthetic-holiday-proposal" },
+  });
+  render(tree());
+  openHoliday();
+  await submitHoliday();
+  expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
+  expect(screen.queryByText(en.schoolCalendar.saved)).toBeNull();
+  await submitHoliday();
+  expect(state.saveHoliday).toHaveBeenCalledTimes(1);
+});
+
+it("keeps queued holiday dates protected after closing and reopening an overlapping range", async () => {
+  state.role = "COORDINATOR";
+  state.saveHoliday.mockRejectedValueOnce({
+    data: { approvalId: "queued-holiday" },
+  });
+  render(tree());
+  openHoliday();
+  await submitHoliday();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountProfile.close }),
+  );
+  openHoliday();
+  expect(screen.getByText(en.schoolCalendar.alreadySubmitted)).toBeTruthy();
+  await submitHoliday();
+  expect(state.saveHoliday).toHaveBeenCalledTimes(1);
 });
