@@ -55,6 +55,7 @@ function fixture(rows: Row[] = []) {
     room: { count: vi.fn().mockResolvedValue(1) },
     schoolCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
     programCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
+    scheduledProgramRefresh: { findMany: vi.fn().mockResolvedValue([]) },
     programSettings: {
       findUnique: vi.fn().mockResolvedValue({ timeZone: "Asia/Shanghai" }),
     },

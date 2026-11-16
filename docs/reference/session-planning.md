@@ -132,6 +132,31 @@ publication idempotent. An initial publication does not invent ended lessons.
 Previously published, ended lessons remain available for attendance beyond the
 visible window. Existing attendance and historical durations are not rewritten.
 
+Personal agendas do not expose the publisher's program-wide `unavailable` counter.
+It mixes invalid assignment groups with failed candidate dates and is not a count
+of a participant's weekly arrangements. Session-specific unavailable guidance
+stays with the affected captured lesson; internal maintenance metrics remain
+available to the scheduling service. The deprecated personal response field stays
+at zero for compatibility and never contains the publisher's global count.
+
+The source term's persisted `SCHEDULED` official refresh is an exact end boundary:
+new lessons must finish at or before `executeAt`. The earlier term date bound
+still applies. Moving or cancelling the refresh can restore eligible future
+commitments; started lessons and recorded attendance retain their evidence.
+Blocked, failed, cancelled and completed schedules do not impose a future cutoff;
+actual refresh continues to own term activation and participation changes.
+
+The reversible `SessionPlanCohort.refreshSuppressed` marker keeps refresh intent
+separate from participant cancellations, tutoring pauses and negotiated consent.
+Scheduling changes dirty maintenance through the
+[refresh-boundary migration](../../prisma/migrations/20261116010000_session_refresh_boundary/migration.sql).
+Reconciliation releases future bookings and preserves their IDs; restoration
+rechecks conflicts. Calendar reads apply the current cutoff before maintenance
+catches up and retain cancellation until restoration is safe. Source schedule
+versions advance the same calendar UID's sequence across cancellation/replacement.
+A cutoff saved before a lesson stays effective on a late first read; a cutoff
+saved after work started cannot retroactively suppress that lesson.
+
 Every new plan derives an end exactly 45 minutes after its start. Older recurring
 slots may retain their historical duration; the agenda flags their normalization.
 The source start stays fixed. Unscheduled or invalid combined groups remain
@@ -353,7 +378,7 @@ change, Monday window change, Sunday preparation extension or any pending event
 requires the existing source reconciliation and publication pass. The pass keeps
 the period → room → planning and source-row fences, current source validation,
 45-minute calculation, continuation handling, synchronous calendar reconciliation
-and transactional notice effects. Original `normalized` and `unavailable` counter
+and transactional notice effects. Internal `normalized` and `unavailable` counter
 semantics remain: a newly inserted conflict cancellation is counted on that call;
 invalid groups and clocks still count on repeated calls.
 

@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "Τα μαθήματα πρέπει να ολοκληρώνονται έως την προγραμματισμένη ανανέωση της περιόδου. Φορτώστε ξανά το τρέχον πρόγραμμα.",
     "deadlineMissedTitle": "Απαιτείται ενέργεια: έλεγχος ληγμένου αιτήματος ώρας",
     "deadlineMissedHelp": "Η προθεσμία της παραδομένης ειδοποίησης έληξε ενώ η επεξεργασία ήταν μη διαθέσιμη. Δεν έγινε αναδρομική μεταφορά. Ελέγξτε την αρχική και προτεινόμενη ώρα με τον καθοδηγητή. Δεν συναχθηκε παρουσία ή απουσία.",
     "scheduleUnavailable": "Απαιτείται έλεγχος προγράμματος",

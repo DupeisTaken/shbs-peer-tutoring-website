@@ -87,6 +87,36 @@ async function withFixture(
 }
 
 describe("fresh overlapping conflict reads", () => {
+  it("releases a current offer whose source crosses refresh even before the source marker is reconciled", async () => {
+    await withFixture(async (tx, f) => {
+      const plan = await tx.sessionPlan.findUniqueOrThrow({ where: { id: f.planId } });
+      const source = await tx.sessionPlanCohort.create({ data: {
+        planId: f.planId, date, startMin: 1000, endMin: 1045,
+        startsAt: instant(1000), endsAt: instant(1045), roomId: f.roomId,
+      } });
+      await tx.sessionPlanParticipant.create({ data: { planId: f.planId, cohortId: source.id, tuteeId: f.tuteeIds[0]! } });
+      const request = await tx.sessionPlanningRequest.create({ data: {
+        planId: f.planId, cohortId: source.id, kind: "RESCHEDULE", scope: "ALL", participantIds: f.tuteeIds, status: "PENDING",
+      } });
+      const offer = await tx.sessionPlanningOffer.create({ data: {
+        requestId: request.id, sequence: 1, authorKey: `tutor:${f.tutorId}`, date,
+        startMin: 900, endMin: 945, startsAt: instant(900), endsAt: instant(945), roomId: f.roomId, cutoffAt: instant(900),
+      } });
+      await tx.sessionPlanningRequest.update({ where: { id: request.id }, data: { currentOfferId: offer.id } });
+      const refresh = await tx.scheduledProgramRefresh.create({ data: {
+        sourceTermId: plan.termId, sourceSchoolYear: f.prefix, sourceQuarter: "Q1",
+        destinationSchoolYear: f.prefix, destinationQuarter: "Q2", semesterMode: false,
+        executeAt: instant(945), timeZone: "UTC", expectedPreparation: {}, authorizedById: "synthetic-head", authorityRevision: 0,
+      } });
+      expect((await readOverlappingHolds(tx, instant(900), instant(945))).some((row) => row.id === request.id)).toBe(false);
+      expect((await readOverlappingCohorts(tx, instant(1000), instant(1045))).some((row) => row.id === source.id)).toBe(false);
+      await tx.scheduledProgramRefresh.update({ where: { id: refresh.id }, data: { state: "CANCELLED", version: { increment: 1 } } });
+      expect((await readOverlappingHolds(tx, instant(900), instant(945))).some((row) => row.id === request.id)).toBe(true);
+      await tx.sessionPlanCohort.update({ where: { id: source.id }, data: { refreshSuppressed: true } });
+      expect((await readOverlappingHolds(tx, instant(900), instant(945))).some((row) => row.id === request.id)).toBe(false);
+    });
+  });
+
   it("keeps strict UTC boundaries, scheduled rosters and empty cohorts, and observes subsequent writes", async () => {
     await withFixture(async (tx, fixture) => {
       const { prefix, planId, tutorId, roomId, tuteeIds } = fixture;

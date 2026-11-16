@@ -3129,6 +3129,8 @@ model SessionPlanCohort {
   online Boolean @default(false)
   rescheduled Boolean @default(false)
   sourceInvalidated Boolean @default(false)
+  /// Reversible scheduled-refresh boundary; participant state and consent remain intact.
+  refreshSuppressed Boolean @default(false)
   status String @default("SCHEDULED")
   version Int @default(1)
   participants SessionPlanParticipant[]

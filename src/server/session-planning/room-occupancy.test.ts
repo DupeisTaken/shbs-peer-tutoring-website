@@ -26,12 +26,16 @@ const schedule = {
   endMin: 945,
 };
 const booking = (roomId = "room", date = "2026-11-02") => ({
+  id: "source-cohort",
   roomId,
   date,
   startMin: 900,
   endMin: 945,
+  startsAt: new Date(`${date}T07:00:00Z`),
+  endsAt: new Date(`${date}T07:45:00Z`),
+  refreshSuppressed: false,
   participants: [{ id: "participant" }],
-  plan: { originalDate: date, assignments: [] as { pairingId: string }[] },
+  plan: { termId: "term", originalDate: date, assignments: [] as { pairingId: string }[] },
 });
 const offer = (id: string, startMin = 900) => ({
   id,
@@ -39,6 +43,8 @@ const offer = (id: string, startMin = 900) => ({
   date: "2026-11-02",
   startMin,
   endMin: startMin + 45,
+  startsAt: new Date(new Date("2026-11-02T07:00:00Z").getTime() + (startMin - 900) * 60_000),
+  endsAt: new Date(new Date("2026-11-02T07:45:00Z").getTime() + (startMin - 900) * 60_000),
   cutoffAt: new Date("2026-11-02T07:00:00Z"),
 });
 type Request = {
@@ -53,6 +59,7 @@ function fixture({
   requests = [],
   successors = [],
   term = { startDate: null, endDate: null },
+  refreshSchedules = [],
 }: {
   calendar?: SchoolCalendarOverride[];
   tutoringPauses?: TutoringPauseRange[];
@@ -60,14 +67,16 @@ function fixture({
   requests?: Request[];
   successors?: { sourcePairingId: string; targetPairingId: string }[];
   term?: { startDate: Date | null; endDate: Date | null };
+  refreshSchedules?: { sourceTermId: string; state: string; executeAt: Date; version: number; updatedAt: Date }[];
 } = {}) {
   const raw = {
     $executeRaw: vi.fn().mockResolvedValue(1),
     schoolCalendarDay: { findMany: vi.fn().mockResolvedValue(calendar) },
     programCalendarDay: { findMany: vi.fn().mockResolvedValue(tutoringPauses) },
     term: { findUniqueOrThrow: vi.fn().mockResolvedValue(term) },
+    scheduledProgramRefresh: { findMany: vi.fn().mockResolvedValue(refreshSchedules) },
     sessionPlanCohort: { findMany: vi.fn().mockResolvedValue(cohorts) },
-    sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue(requests) },
+    sessionPlanningRequest: { findMany: vi.fn().mockResolvedValue(requests.map((row) => ({ ...row, cohortId: "source-cohort", plan: { termId: "term" } }))) },
     pairingExecutionSuccessor: { findMany: vi.fn(async ({ where }: { where: { targetPairingId: { in: string[] } } }) =>
       successors.filter(row => where.targetPairingId.in.includes(row.targetPairingId))) },
   };
@@ -75,6 +84,30 @@ function fixture({
 }
 
 describe("dated recurring room availability", () => {
+  it("releases an offer before cutoff when its unreconciled source is beyond cutoff in weekly and blackout readers", async () => {
+    const source = booking();
+    const cutoff = { sourceTermId: "term", state: "SCHEDULED", executeAt: new Date("2026-11-02T06:45:00Z"), version: 1, updatedAt: now };
+    const { db } = fixture({ cohorts: [source], requests: [{ currentOfferId: "current", offers: [offer("current", 840)] }], refreshSchedules: [cutoff] });
+    const targetSchedule = { ...schedule, startMin: 840, endMin: 885 };
+    expect(await datedUnavailableRooms(db, targetSchedule, ["room"], now)).toEqual(new Set());
+    await expect(assertDatedRoomBlackoutAvailable(db, { roomId: "room", dayOfWeek: 1, startMin: 840, endMin: 885 }, now)).resolves.toBeUndefined();
+    cutoff.state = "CANCELLED";
+    expect(await datedUnavailableRooms(db, targetSchedule, ["room"], now)).toEqual(new Set(["room"]));
+    source.refreshSuppressed = true;
+    expect(await datedUnavailableRooms(db, targetSchedule, ["room"], now)).toEqual(new Set());
+    await expect(assertDatedRoomBlackoutAvailable(db, { roomId: "room", dayOfWeek: 1, startMin: 840, endMin: 885 }, now)).resolves.toBeUndefined();
+  });
+  it("releases post-refresh dated rooms and pending holds before maintenance but preserves exact-end and started bookings", async () => {
+    const cutoff = { sourceTermId: "term", state: "SCHEDULED", executeAt: new Date("2026-11-02T07:44:59Z"), version: 1, updatedAt: now };
+    const { db } = fixture({ cohorts: [booking()], requests: [{ currentOfferId: "current", offers: [offer("current")] }], refreshSchedules: [cutoff] });
+    expect(await datedUnavailableRooms(db, schedule, ["room"], now)).toEqual(new Set());
+    await expect(assertDatedRoomBlackoutAvailable(db, { roomId: "room", dayOfWeek: 1, startMin: 900, endMin: 945 }, now)).resolves.toBeUndefined();
+    cutoff.executeAt = new Date("2026-11-02T07:45:00Z");
+    expect(await datedUnavailableRooms(db, schedule, ["room"], now)).toEqual(new Set(["room"]));
+    cutoff.executeAt = new Date("2026-11-02T07:44:59Z");
+    cutoff.updatedAt = new Date("2026-11-02T07:00:00Z");
+    await expect(assertDatedRoomBlackoutAvailable(db, { roomId: "room", dayOfWeek: 1, startMin: 900, endMin: 945 }, new Date("2026-11-02T07:00:00Z"))).rejects.toThrow("agreed dated session");
+  });
   it("ignores paused weekly defaults while explicit dated bookings still prohibit physical blackouts", async () => {
     const { db } = fixture({
       cohorts: [booking()],

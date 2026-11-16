@@ -5,6 +5,7 @@
     "consumed": "This recovery draft has already been submitted. Continue with the verification email for your new request, or open your account to view its status."
   },
   "sessionPlanning": {
+    "refreshBoundary": "Sessions must finish by the scheduled program refresh. Reload the current schedule.",
     "deadlineMissedTitle": "Action Required: Review the Expired Time Request",
     "deadlineMissedHelp": "The delivered response deadline passed while scheduling processing was unavailable. No retroactive move was applied. Review the original session and proposed time with your tutor. No attendance or absence was inferred.",
     "scheduleUnavailable": "Needs schedule review",

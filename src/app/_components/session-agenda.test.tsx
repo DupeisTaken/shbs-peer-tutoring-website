@@ -16,6 +16,7 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { attendanceOccurrence } from "~/app/(tutor)/_components/attendance-test-data";
 import { SessionAgenda, SessionResponseDeadline } from "./session-agenda";
+import { SESSION_REFRESH_BOUNDARY_ERROR } from "~/lib/session-planning";
 
 type Agenda = RouterOutputs["sessionPlanning"]["agenda"];
 const state = vi.hoisted(() => ({
@@ -409,6 +410,20 @@ it("keeps a rejected cancellation draft, admits one pending submit and recovers 
   });
 });
 
+it.each(["en", "zh"] as const)("explains a newly imposed refresh cutoff without discarding the reviewed draft (%s)", async (locale) => {
+  futureExtra();
+  const text = (locale === "en" ? en : zh).sessionPlanning;
+  state.proposeCancellation.mockRejectedValueOnce(new Error(SESSION_REFRESH_BOUNDARY_ERROR));
+  show("tutor", locale);
+  fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: text.review }));
+  await act(async () => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: text.sendCancellation })));
+  expect(screen.getAllByText(text.refreshBoundary).length).toBeGreaterThan(0);
+  expect(screen.queryByText(SESSION_REFRESH_BOUNDARY_ERROR)).toBeNull();
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(state.proposeCancellation).toHaveBeenCalledTimes(1);
+});
+
 it("blocks a retained cancellation review when current tutor write access is revoked", () => {
   futureExtra();
   const view = show();
@@ -668,6 +683,17 @@ it.each(["en", "zh"] as const)(
     ).toBeTruthy();
     for (const heading of screen.getAllByRole("heading"))
       expect(heading.textContent?.trim()).not.toBe("");
+  },
+);
+it.each(["tutor", "tutee"] as const)(
+  "does not present a stale program-wide preparation count as %s work",
+  (role) => {
+    // Older cached responses can still contain the removed global diagnostic.
+    Object.assign(state.data!.weeklyPublication, { unavailable: 4 });
+    state.data!.cohorts = [{ ...attendanceOccurrence, unavailable: true }];
+    show(role);
+    expect(screen.queryByText(/weekly arrangement\(s\) need review/)).toBeNull();
+    expect(screen.getByText(en.sessionPlanning.scheduleUnavailableHelp)).toBeTruthy();
   },
 );
 it("keeps the final Sunday and older incomplete attendance reachable", () => {

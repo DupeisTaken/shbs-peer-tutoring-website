@@ -12,6 +12,7 @@ import { portalAccess } from "~/lib/portal-access";
 import { ensureSessionPlanningWindow, lockSessionPlanning, markSessionResponseDelivered, sweepSessionPlanning } from "~/server/session-planning";
 import { sessionNoticeContext, sessionPlanningNoticeCopy } from "./session-planning-notice-copy";
 import { executionParticipantId, executionResponseActor } from "./participant-execution";
+import { readSessionRefreshSchedules, sessionExceedsRefresh, sessionRefreshSuppressed } from "./session-planning/refresh-boundary";
 
 const failure = "Essential session email failed. Check PROGRAM delivery and retry this notice.";
 const missingOwner = "The recipient no longer owns a verified delivery address. Staff action is required.";
@@ -21,12 +22,22 @@ const maxAttempts = 5;
 async function actionableState(tx: TransactionDb, row: SessionNotice) {
   if (!row.responseId) return { current: false, response: null };
   const original = await tx.sessionPlanningResponse.findUnique({
-    where: { id: row.responseId }, include: { offer: { include: { request: true } } },
+    where: { id: row.responseId }, include: { offer: { include: { request: { include: { plan: { select: { termId: true } } } } } } },
   });
   const authority = original ? await executionResponseActor(tx, original) : null;
   const response = original && authority ? { ...original, actorUserId: authority.userId, actorKey: authority.actorKey } : null;
+  let refreshCurrent = false;
+  if (response) {
+    const [schedules, source] = await Promise.all([
+      readSessionRefreshSchedules(tx),
+      tx.sessionPlanCohort.findUnique({ where: { id: response.offer.request.cohortId }, select: { startsAt: true, endsAt: true, refreshSuppressed: true } }),
+    ]);
+    const refresh = schedules.get(response.offer.request.plan.termId);
+    refreshCurrent = !!source && !source.refreshSuppressed &&
+      !sessionRefreshSuppressed(source, refresh, new Date()) && !sessionExceedsRefresh(response.offer, refresh);
+  }
   return {
-    current: !!response && response.state === "PENDING" && response.actorUserId === row.recipientUserId &&
+    current: refreshCurrent && !!response && response.state === "PENDING" && response.actorUserId === row.recipientUserId &&
       response.offerId === row.offerId && response.offer.requestId === row.requestId &&
       response.offer.request.status === "PENDING" && response.offer.request.currentOfferId === response.offerId &&
       response.offer.cutoffAt.getTime() > Date.now(),
