@@ -828,7 +828,7 @@
         "sendSetup": "Αποστολή συνδέσμου ρύθμισης",
         "needEmail": "Προσθέστε πρώτα email",
         "linkEmailed": "Το email ρύθμισης στάλθηκε στον κάτοχο του λογαριασμού.",
-        "linkManual": "Η αποστολή email δεν έχει ρυθμιστεί. Επικοινωνήστε με τον διαχειριστή εγκατάστασης πριν στείλετε email ρύθμισης λογαριασμού.",
+        "linkManual": "Δεν ήταν δυνατή η αποστολή του email ρύθμισης λογαριασμού. Ελέγξτε την κατάσταση αποστολής email και δοκιμάστε ξανά.",
         "dismiss": "Κλείσιμο"
       },
       "createDraftHint": "Το κλείσιμο αυτού του παραθύρου διατηρεί τις καταχωρίσεις σας μέχρι να φύγετε από τη σελίδα.",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "Δεν ήταν δυνατή η επιβεβαίωση της αποστολής του email. Ελέγξτε την κατάσταση αποστολής και δοκιμάστε ξανά.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",

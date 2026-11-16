@@ -828,7 +828,7 @@
         "sendSetup": "Envoyer le lien de configuration",
         "needEmail": "Ajoutez d'abord un e-mail",
         "linkEmailed": "L’e-mail de configuration a été envoyé au titulaire du compte.",
-        "linkManual": "L’envoi d’e-mails n’est pas configuré. Contactez l’administrateur du déploiement avant d’envoyer un e-mail de configuration de compte.",
+        "linkManual": "L’e-mail de configuration du compte n’a pas pu être envoyé. Vérifiez l’état de l’envoi des e-mails et réessayez.",
         "dismiss": "Fermer"
       },
       "createDraftHint": "Fermer cette fenêtre conserve vos saisies jusqu’à ce que vous quittiez cette page.",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "L’envoi de l’e-mail n’a pas pu être confirmé. Vérifiez l’état de l’envoi et réessayez.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
