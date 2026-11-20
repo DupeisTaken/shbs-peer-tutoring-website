@@ -472,6 +472,12 @@ vote and decision drafts, errors and pending state. Read failures offer Retry wi
 replacing loaded records. Optional editors also retain drafts when collapsed. Pending qualification requests remain visible
 even when completed history is collapsed or filtered.
 
+In the chair's scheduling editor, **Set Time** saves the displayed time.
+**Saved.** confirms that submission. Editing again clears the previous
+confirmation or scheduling error and keeps the new time as a draft. Choose
+**Set Time** again to save it, or **Cancel** to restore the latest recorded time
+without a write. These scheduling controls stay disabled while a save is pending.
+
 Pending tutors confirm whether to participate before tutoring actions appear.
 Inactive tutors retain their records but cannot edit pairings or submit attendance.
 
