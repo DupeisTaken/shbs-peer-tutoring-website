@@ -41,7 +41,7 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useReadOnly } from "~/app/_components/read-only";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
-import { UserDetails } from "./user-details";
+import { UserDetails, UserDetailsHost } from "./user-details";
 import { LoginSetup, MembershipBadges } from "./presentation";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import Link from "next/link";
@@ -99,6 +99,8 @@ export default function UsersPage() {
   const verified = useSessionViewVerified();
   const [linkedTutorId, setLinkedTutorId] = useState<string | null>(null);
   const [directoryDetailsOpen, setDirectoryDetailsOpen] = useState(false);
+  const directorySearch = useRef<HTMLInputElement>(null);
+  const directoryRetry = useRef<HTMLButtonElement>(null);
   const [arrival, setArrival] = useState<NotificationRecordArrival | null>(
     null,
   );
@@ -480,8 +482,7 @@ export default function UsersPage() {
   ]);
   const rows = useMemo(() => {
     const data = directoryRows;
-    // Navigation hides browsing, but does not remove its row-owned editors.
-    // Their drafts and pending writes survive Back/Forward to a source hash.
+    // Filtering changes only browsing; the route owns already-open details.
     const filtered = data.filter((u) => matchesUserFilters(u, filters, search));
     if (sort.dir === "none") return filtered;
     const dir = sort.dir === "asc" ? 1 : -1;
@@ -499,27 +500,26 @@ export default function UsersPage() {
     });
   }, [locale, directoryRows, sort.key, sort.dir, filters, search]);
 
-  if (directoryDenied)
-    return (
-      <div className="space-y-6">
-        <h1 className="page-title">{t("admin.users.title")}</h1>
-        <StatePanel
-          kind="denied"
-          title={t("managementRecovery.denied", {
-            section: t("admin.users.title"),
-          })}
-          action={
-            <Button
-              disabled={accounts.isFetching}
-              onClick={() => void accounts.refetch()}
-            >
-              {t("uiPatterns.retry")}
-            </Button>
-          }
-        />
-      </div>
-    );
-  return (
+  const content = directoryDenied ? (
+    <div className="space-y-6">
+      <h1 className="page-title">{t("admin.users.title")}</h1>
+      <StatePanel
+        kind="denied"
+        title={t("managementRecovery.denied", {
+          section: t("admin.users.title"),
+        })}
+        action={
+          <Button
+            ref={directoryRetry}
+            disabled={accounts.isFetching}
+            onClick={() => void accounts.refetch()}
+          >
+            {t("uiPatterns.retry")}
+          </Button>
+        }
+      />
+    </div>
+  ) : (
     <div className="space-y-6">
       {canEditProfiles && editingTuteeId && (
         <DirectoryTuteeEditor
@@ -650,6 +650,7 @@ export default function UsersPage() {
           <label className="min-w-0 flex-1">
             <span className="label">{t("rosterSearch.label")}</span>
             <input
+              ref={directorySearch}
               type="search"
               className="input w-full"
               value={search}
@@ -1244,9 +1245,8 @@ export default function UsersPage() {
           </tbody>
         </SummaryTable>
       </div>
-      {/* Hide the browsing table, retaining the real UserDetails subtree. Its
-          already-open portal stays available until the user finishes or closes
-          it; source reveal waits so navigation cannot steal dialog focus. */}
+      {/* Hash navigation hides browsing. The route-owned details portal stays
+          available, and source reveal waits for it to release focus. */}
       <div className="card" hidden={!!linkedTutorId}>
         <SummaryTable label={t("admin.users.title")}>
           <thead>
@@ -1318,10 +1318,7 @@ export default function UsersPage() {
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
                   <TableActions>
-                    <UserDetails
-                      row={u}
-                      onOpenChange={setDirectoryDetailsOpen}
-                    />
+                    <UserDetails row={u} />
                     {/* Registered accounts recover access themselves; only unfinished tutor logins are provisioned. */}
                     {!readOnly &&
                       u.tutorId &&
@@ -1484,6 +1481,24 @@ export default function UsersPage() {
       )}
       {dialog}
     </div>
+  );
+  return (
+    <UserDetailsHost
+      accessDenied={directoryDenied}
+      unavailable={!!accounts.error || accounts.isFetching}
+      onOpenChange={setDirectoryDetailsOpen}
+      onRetryAccess={() => void accounts.refetch({ cancelRefetch: false })}
+      retryingAccess={accounts.isFetching}
+      directoryRows={accounts.data?.rows}
+      directoryReady={accounts.isSuccess && !accounts.isFetching && !accounts.error && !directoryDenied}
+      returnFocusFallback={() => {
+        if (directoryDenied) return directoryRetry.current;
+        // Hash navigation owns its existing source-focus recovery after Close.
+        return linkedTutorId ? null : directorySearch.current;
+      }}
+    >
+      {content}
+    </UserDetailsHost>
   );
 }
 

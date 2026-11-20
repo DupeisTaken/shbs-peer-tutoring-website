@@ -1,6 +1,8 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useContext, useId, useLayoutEffect, useRef, useState } from "react";
+import { hashKey, QueryClientContext, type QueryKey } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
@@ -19,10 +21,79 @@ const key = (source: Candidate) => `${source.ref.kind}:${source.ref.id}`;
 const code = (error: unknown) => (error as { data?: { code?: string } } | null)?.data?.code;
 const isDenied = (error: unknown) => ["FORBIDDEN", "UNAUTHORIZED"].includes(code(error) ?? "");
 
+type ExactRetryScope = { reads: readonly QueryKey[] };
+
+/** A missing/regrouped source cannot authorize new work. Only a deliberate fresh
+ * candidate read may release the existing frozen retry, against these exact live
+ * parent reads. Cache events fence the lease even when React batches a fetch. */
+function useExactRetryAuthority(scope: ExactRetryScope | undefined, search: string) {
+  const client = useContext(QueryClientContext);
+  const candidateKey = scope && client
+    ? getQueryKey(api.personCombine.candidates, { search }, "query")
+    : undefined;
+  const parentHashes = scope?.reads.map(hashKey) ?? [];
+  const readKeys = candidateKey ? [...(scope?.reads ?? []), candidateKey] : [];
+  const hashes = readKeys.map(hashKey);
+  const scopeKey = hashes.length ? JSON.stringify(hashes) : "";
+  const parentKey = JSON.stringify(parentHashes);
+  const fence = useRef({ scopeKey: "", version: 0, parentVersion: 0 });
+  const [proof, setProof] = useState<{
+    client: typeof client;
+    scopeKey: string;
+    version: number;
+  } | null>(null);
+  const [observedScope, setObservedScope] = useState(scopeKey);
+  if (observedScope !== scopeKey) {
+    setObservedScope(scopeKey);
+    setProof(null);
+  }
+  useLayoutEffect(() => {
+    fence.current = {
+      scopeKey,
+      version: fence.current.version + 1,
+      parentVersion: fence.current.parentVersion + 1,
+    };
+    if (!client || !scopeKey) return;
+    const activeHashes = JSON.parse(scopeKey) as string[];
+    const activeParents = JSON.parse(parentKey) as string[];
+    return client.getQueryCache().subscribe((event) => {
+      if ((event.type !== "updated" && event.type !== "removed") ||
+        !activeHashes.includes(event.query.queryHash)) return;
+      fence.current.version += 1;
+      if (activeParents.includes(event.query.queryHash)) fence.current.parentVersion += 1;
+      setProof(null);
+    });
+    // These keys describe exact reads; changing object identities must not
+    // restart the lease or turn a render into another authority read.
+  }, [client, scopeKey, parentKey]);
+  const healthy = (keys = readKeys) => !!client && !!scope && keys.length > 0 && keys.every((key) => {
+    const state = client.getQueryState(key);
+    return state?.status === "success" && state.fetchStatus === "idle" &&
+      !state.error && state.data !== undefined;
+  });
+  return {
+    available: !!proof && proof.client === client && proof.scopeKey === scopeKey && healthy(),
+    begin() {
+      setProof(null);
+      return healthy(scope?.reads ?? []) ? { scopeKey, parentVersion: fence.current.parentVersion } : null;
+    },
+    complete(stamp: { scopeKey: string; parentVersion: number } | null) {
+      if (stamp && client && healthy() && stamp.scopeKey === fence.current.scopeKey &&
+        stamp.parentVersion === fence.current.parentVersion)
+        setProof({ client, scopeKey, version: fence.current.version });
+    },
+    admit() {
+      return !!proof && proof.client === client && proof.scopeKey === fence.current.scopeKey &&
+        proof.version === fence.current.version && healthy();
+    },
+  };
+}
+
 /** A retained review owns its selected operational evidence and durable receipt.
  * Refreshes and lost responses never silently create a second transfer intent. */
-export function PersonParticipationTransfer({ personId, unavailable = false, accessDenied = false }: {
+export function PersonParticipationTransfer({ personId, unavailable = false, accessDenied = false, exactRetryScope }: {
   personId: string; unavailable?: boolean; accessDenied?: boolean;
+  exactRetryScope?: ExactRetryScope;
 }) {
   const t = useTranslations("personParticipationTransfer");
   const common = useTranslations("combineRecords");
@@ -33,6 +104,7 @@ export function PersonParticipationTransfer({ personId, unavailable = false, acc
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const candidates = api.personCombine.candidates.useQuery({ search: query }, { enabled: !accessDenied, refetchOnMount: "always" });
+  const exactRetryAuthority = useExactRetryAuthority(exactRetryScope, query);
   const [sources, setSources] = useState<Candidate[]>([]);
   const [retained, setRetained] = useState<Candidate | null>(null);
   const [activeTutorId, setActiveTutorId] = useState<string | null>(null);
@@ -122,8 +194,9 @@ export function PersonParticipationTransfer({ personId, unavailable = false, acc
     } catch (failure) { if (isDenied(failure)) setLocalDenied(true); setError(message(failure)); }
     finally { readAdmission.current = false; setReading(false); }
   }
-  async function submit(intent: Intent) {
-    if (admission.current || reading || saving || syncing || denied || unavailable || !password) return;
+  async function submit(intent: Intent, exactRetry = false) {
+    const retainedRetry = exactRetry && intent === frozenIntent && uncertain && missingReceipt && exactRetryAuthority.admit();
+    if (admission.current || reading || saving || syncing || denied || (unavailable && !retainedRetry) || !password) return;
     admission.current = true; setSaving(true); setError(null); setMissingReceipt(false);
     try { await accept(await mutation.mutateAsync({ ...intent, confirmPassword: password })); }
     catch (failure) {
@@ -149,11 +222,16 @@ export function PersonParticipationTransfer({ personId, unavailable = false, acc
   async function reloadAccess() {
     if (readAdmission.current || saving || syncing) return;
     readAdmission.current = true; setReading(true);
-    try { const result = await candidates.refetch(); if (!result.error && !accessDenied) { setLocalDenied(false); invalidateReview(); } }
+    const retryStamp = exactRetryAuthority.begin();
+    try { const result = await candidates.refetch(); if (!result.error && !accessDenied) {
+      setLocalDenied(false); invalidateReview();
+      if (result.isSuccess && !result.isFetching) exactRetryAuthority.complete(retryStamp);
+    } }
     catch (failure) { if (isDenied(failure)) setLocalDenied(true); setError(message(failure)); }
     finally { readAdmission.current = false; setReading(false); }
   }
   const groupCandidates = candidates.data?.filter((row) => row.personId === personId) ?? [];
+  const retryUnavailable = unavailable && !exactRetryAuthority.available;
   const sourceName = (id: string | null) => id ? `${preview?.sources.find((row) => row.id === id)?.name ?? sources.find((row) => row.ref.id === id)?.name ?? ""} · ${id}` : t("none");
   const choose = (rows: Candidate[], value: string | null, label: string, change: (id: string | null) => void, optional = false) => <label className="block"><span className="label">{label}</span><select className="input w-full" value={value ?? ""} onChange={(event) => { change(event.target.value || null); invalidateReview(); }}><option value="">{t(optional ? "keepActive" : "choose")}</option>{rows.map((row) => <option key={key(row)} value={row.ref.id}>{row.name} · {row.ref.id}</option>)}</select></label>;
   const recordedState = (value: string) => {
@@ -167,8 +245,9 @@ export function PersonParticipationTransfer({ personId, unavailable = false, acc
     {refreshFailed && <InlineNotice tone="warning" announcement="alert" action={<Button disabled={syncing || saving || reading} onClick={() => void refresh()}>{t("refresh")}</Button>}>{t("refreshFailed")}</InlineNotice>}
     {syncing && <p role="status">{common("refreshing")}</p>}
     {uncertain && <InlineNotice tone="warning" announcement="alert" action={<Button disabled={reading || saving || syncing} onClick={() => void recover()}>{common("checkOutcome")}</Button>}><p>{common("uncertain")}</p>{missingReceipt && <p className="mt-2">{common("notRecordedYet")}</p>}</InlineNotice>}
-    {uncertain && missingReceipt && frozenIntent && !denied && <fieldset disabled={reading || saving || syncing || unavailable} className="space-y-3"><p className="text-sm">{t("exactRetryHelp")}</p><label className="block"><span className="label">{common("password")}</span><input className="input w-full" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><Button disabled={!password || reading || saving || syncing || unavailable} onClick={() => void submit(frozenIntent)}>{common("retryExact")}</Button></fieldset>}
+    {uncertain && missingReceipt && frozenIntent && !denied && <fieldset disabled={reading || saving || syncing || retryUnavailable} className="space-y-3"><p className="text-sm">{t("exactRetryHelp")}</p><label className="block"><span className="label">{common("password")}</span><input className="input w-full" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label><Button disabled={!password || reading || saving || syncing || retryUnavailable} onClick={() => void submit(frozenIntent, true)}>{common("retryExact")}</Button></fieldset>}
     {(denied || candidates.error) && <StatePanel kind={denied ? "denied" : "error"} title={common(denied ? "denied" : "failed")} action={<Button disabled={reading || saving || syncing || candidates.isFetching} onClick={() => void reloadAccess()}>{t("refresh")}</Button>} />}
+    {uncertain && missingReceipt && exactRetryScope && !denied && !candidates.error && <Button disabled={reading || saving || syncing || candidates.isFetching} onClick={() => void reloadAccess()}>{t("refresh")}</Button>}
     {error && !denied && <InlineNotice tone="error" announcement="alert">{error}</InlineNotice>}
     {candidates.isFetching && !denied && <p role="status">{common("loading")}</p>}
     {!denied && !receipt && !uncertain && <>

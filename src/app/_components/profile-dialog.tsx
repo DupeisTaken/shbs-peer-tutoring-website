@@ -12,6 +12,7 @@ export function ProfileDialog({
   children,
   size = "default",
   pending = false,
+  returnFocusFallback,
 }: {
   title: string;
   onClose: () => void;
@@ -19,6 +20,8 @@ export function ProfileDialog({
   size?: "default" | "wide";
   /** This owner's write; children register independent writes with useDialogPending. */
   pending?: boolean;
+  /** Current logical destination when the opening row has disappeared. */
+  returnFocusFallback?: () => HTMLElement | null;
 }) {
   const t = useTranslations("accountProfile");
   const titleId = useId();
@@ -27,6 +30,7 @@ export function ProfileDialog({
       labelledBy={titleId}
       busy={pending}
       onClose={onClose}
+      returnFocusFallback={returnFocusFallback}
       className={`m-auto max-h-[min(88dvh,850px)] w-[calc(100%-2rem)] ${size === "wide" ? "max-w-4xl" : "max-w-2xl"} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40`}
     >
       {(busy) => (
