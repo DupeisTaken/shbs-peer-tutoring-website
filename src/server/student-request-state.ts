@@ -1,4 +1,5 @@
 import { requireStudentSchoolParticipation } from "./school-departure";
+import { quarterBlockAccountWhere } from "./history-row-ownership";
 import { releaseStudentRequestExecution, studentRequestExecutionAssignments } from "./student-request-execution";
 import { notificationSchedule } from "~/lib/notification-facts";
 import {
@@ -265,9 +266,22 @@ export async function assertStudentRequestAssignable(
       where: { active: true },
       orderBy: { createdAt: "desc" },
     });
+    // Aggregate withdrawal can close this manual sibling without fabricating an
+    // APPROVED review for it. Only explicit current/retained account ownership
+    // projects the durable period restriction; contact and Person matches do not.
+    const [direct, retained] = await Promise.all([
+      tx.user.findMany({ where: { studentId: tuteeId }, select: { id: true } }),
+      tx.studentProfileOwnership.findUnique({ where: { tuteeId } }),
+    ]);
+    const ownerIds = [...new Set([...direct.map((user) => user.id), ...(retained ? [retained.userId] : [])])];
+    if (ownerIds.length > 1)
+      throw new TRPCError({ code: "CONFLICT", message: "Current and retained enrollment ownership conflict. Review ownership before assignment." });
+    const accountBlocked = term && ownerIds[0]
+      ? await tx.studentQuarterBlock.count({ where: { intakeTermId: term.id, AND: [await quarterBlockAccountWhere(tx, ownerIds[0])] } })
+      : 0;
     if (
       term &&
-      (await tx.studentRequestReview.findFirst({
+      (accountBlocked || await tx.studentRequestReview.findFirst({
         where: {
           legacyTuteeId: tuteeId,
           legacyIntakeTermId: term.id,

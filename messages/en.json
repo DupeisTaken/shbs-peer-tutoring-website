@@ -3461,6 +3461,7 @@
       "yes": "Yes",
       "no": "No",
       "approveUnderlying": "Approve the underlying request",
+      "quarterWithdrawalOutcome": "Approval ends all tutoring and matching for this account in the current program period and blocks new requests until the next period.",
       "rejectUnderlying": "Reject the underlying request",
       "overturn": "Uphold the appeal and overturn the card",
       "uphold": "Reject the appeal and keep the card",
@@ -3584,6 +3585,7 @@
         "invalidatedAt": "Flag recorded at",
         "invalidatedByName": "Flag recorded by",
         "originalReason": "Reason on the original request",
+        "withdrawalEnrollmentCount": "Enrollments ending",
         "requestReason": "Reason for this correction",
         "explanation": "Request explanation",
         "expectedSchoolYear": "Program school year at submission",
@@ -7532,6 +7534,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"

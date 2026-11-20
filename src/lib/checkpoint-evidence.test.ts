@@ -1,5 +1,12 @@
 import { expect, it } from "vitest";
 import { checkpointEvidenceText } from "./checkpoint-evidence";
+it("localizes the terminal quarter-withdrawal boundary without changing its canonical diagnostic", () => {
+  const diagnostic = "Approved quarter withdrawal is inspection-only. Generic recovery cannot reopen its requests, restore assignments or remove the quarter withdrawal block.";
+  expect(checkpointEvidenceText(diagnostic, "en")).toBe(diagnostic);
+  expect(checkpointEvidenceText(diagnostic, "zh-CN")).toBe(
+    "已批准的季度退出检查点仅供查看。通用恢复不能重新开启相关申请、恢复分配或移除本季度退出限制。",
+  );
+});
 it("translates canonical checkpoint consequences without changing source IDs, tables or saved evidence", () => {
   const source = "Restore TUTOR synthetic-record lifecycle to ARCHIVED.";
   expect(checkpointEvidenceText(source, "en")).toBe(source);

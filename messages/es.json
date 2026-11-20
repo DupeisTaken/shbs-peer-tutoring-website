@@ -3461,6 +3461,7 @@
       "yes": "Sí",
       "no": "No",
       "approveUnderlying": "Aprobar la solicitud original",
+      "quarterWithdrawalOutcome": "La aprobación finaliza todas las tutorías y las asignaciones pendientes de esta cuenta en el periodo actual del programa. Solo se podrán enviar nuevas solicitudes en el próximo periodo.",
       "rejectUnderlying": "Rechazar la solicitud original",
       "overturn": "Estimar el recurso y anular la tarjeta",
       "uphold": "Rechazar el recurso y mantener la tarjeta",
@@ -3579,6 +3580,7 @@
         "quarter": "Periodo del programa",
         "accept": "Decisión de entrevista solicitada",
         "originalReason": "Motivo de la solicitud original",
+        "withdrawalEnrollmentCount": "Inscripciones que finalizan",
         "requestReason": "Motivo de esta corrección",
         "explanation": "Explicación de la solicitud",
         "expectedSchoolYear": "Curso escolar del programa al enviar",
@@ -7532,6 +7534,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"

@@ -1690,11 +1690,25 @@ existing domain contracts; these presentation changes create no new authority.
 | Admin/Head edit assigned choices     | Review and release affected assignments with the answer change; preserve sessions and attendance |
 | Read terminal or historical signup | Keep original answers and accepted revisions read only |
 | Recall an unassigned request    | Close it permanently; a later application receives a new request and priority               |
-| Approve withdrawal              | Release all assignments and block another signup for that account/email in the period       |
+| Approve withdrawal              | End all explicitly owned current-period enrollment and block another signup for that account in the period |
 | Approve a schedule rejection    | Remove only the affected pairing and return the request for matching                        |
 | Expire an unverified assignment | Permanently disqualify it and release assignments; a fresh eligible application is separate |
 
 `StudentProfileOwnership` retains explicit links across intakes and verified email changes. Attendance, feedback and appeals use all owned profiles. Staff-entered enrollment withdrawal also requires explicit ownership and current-term evidence; it never relies on a matching email. Signup-source labels describe recorded provenance and do not change permissions or priority.
+
+[Quarter withdrawal](../../src/server/student-quarter-withdrawal.ts) rechecks
+the requesting account's exact ownership and affected period before approval.
+One decision closes its current OPEN requests and eligible staff-entered
+enrollments, releases their assignment and future-session authority, and records
+the period restriction in the same transaction. The originating review remains
+the approved decision. Obsolete pending reviews for the ended enrollments close
+with it. Shared execution remains available to independently owned requests.
+Original requests, consent, attendance and completed session history remain readable.
+
+Coordinator approval captures the full affected scope. If the scope changes
+between proposal and approval, reject the stale proposal and review the current
+withdrawal again. Earlier proposals that captured only the originating request
+require fresh review before account-wide approval.
 
 `student-signup-intents.ts` stages `StudentSignupIntent` records separately from
 `StudentSurvey`. The client retry key is hashed and bound to the exact parsed

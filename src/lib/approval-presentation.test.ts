@@ -206,6 +206,19 @@ it.each([true, false])(
   },
 );
 
+it("shows the exact captured scope for an approved quarter withdrawal proposal", () => {
+  const targets = {
+    StudentRequestReview: [{ record: { id: "review", kind: "STUDENT_ABORT" } }],
+    studentQuarterWithdrawal: { version: 1, review: { id: "review" }, enrollmentCount: 2 },
+  };
+  const review = approvalPresentation("studentWorkflow.resolveReview", { id: "review", approve: true }, targets);
+  expect(review.outcome).toBe("quarterWithdrawalOutcome");
+  expect(review.summary.facts).toContainEqual({ key: "withdrawalEnrollmentCount", value: 2 });
+  const denied = approvalPresentation("studentWorkflow.resolveReview", { id: "review", approve: false }, targets);
+  expect(denied.outcome).toBe("rejectUnderlying");
+  expect(denied.summary.facts).not.toContainEqual({ key: "withdrawalEnrollmentCount", value: 2 });
+});
+
 it.each(["localization.setString", "home.setContent"])(
   "surfaces exact publication text and locale for %s",
   (operation) => {

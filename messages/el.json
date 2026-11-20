@@ -3461,6 +3461,7 @@
       "yes": "Ναι",
       "no": "Όχι",
       "approveUnderlying": "Έγκριση του αρχικού αιτήματος",
+      "quarterWithdrawalOutcome": "Η έγκριση τερματίζει όλα τα μαθήματα και τις εκκρεμείς αντιστοιχίσεις αυτού του λογαριασμού κατά την τρέχουσα περίοδο του προγράμματος. Νέα αίτηση μπορεί να υποβληθεί από την επόμενη περίοδο.",
       "rejectUnderlying": "Απόρριψη του αρχικού αιτήματος",
       "overturn": "Αποδοχή ένστασης και ακύρωση κάρτας",
       "uphold": "Απόρριψη ένστασης και διατήρηση κάρτας",
@@ -3579,6 +3580,7 @@
         "quarter": "Περίοδος προγράμματος",
         "accept": "Αιτούμενη απόφαση συνέντευξης",
         "originalReason": "Αιτιολογία αρχικού αιτήματος",
+        "withdrawalEnrollmentCount": "Εγγραφές που λήγουν",
         "requestReason": "Αιτιολογία διόρθωσης",
         "explanation": "Επεξήγηση αιτήματος",
         "expectedSchoolYear": "Σχολικό έτος προγράμματος κατά την υποβολή",
@@ -7532,6 +7534,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"
