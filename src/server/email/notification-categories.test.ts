@@ -138,19 +138,19 @@ it("rejects malformed detail at the database boundary, and never promotes securi
   expect(filtered[0]?.context).toBeNull();
 });
 
-it("delivers only sanitized facts from the real notification trigger and rechecks revoked reviewer authority", async () => {
+it.each(["en", "zh"] as const)("delivers only sanitized %s facts from the real notification trigger and rechecks revoked reviewer authority", async (locale) => {
   await db.user.update({
     where: { id: reviewer },
-    data: { emailInfo: false, emailReviewRequests: true },
+    data: { emailInfo: false, emailReviewRequests: true, emailLocale: locale },
   });
   await pending(reviewer);
   await deliverNotifications();
   expect(mail.send).toHaveBeenCalledTimes(1);
   const message = mail.send.mock.calls[0]![0];
-  expect(message.text).toContain(detail.en);
-  expect(message.text).toContain(detail.zh);
+  expect(message.text).toContain(detail[locale]);
+  expect(message.text).not.toContain(detail[locale === "en" ? "zh" : "en"]);
   expect(message.text).not.toMatch(/sentinel|private@example/);
-  expect(message.presentation?.eyebrow).toBe("REVIEW REQUEST");
+  expect(message.presentation?.eyebrow).toBe(locale === "en" ? "REVIEW REQUEST" : "审核请求");
   expect(message.presentation?.unsubscribeUrl).toBeTruthy();
   await pending(reviewer);
   await db.user.update({ where: { id: reviewer }, data: { role: "STUDENT" } });

@@ -32,6 +32,7 @@ const accountAccessOperations = new Set([
   "program.setProfilePolicy",
   "program.setSignupField",
   "program.setEmailNotifications",
+  "program.setNotificationLocks",
   "program.setSecondaryEmailBinding",
   "program.setTimeZone",
   "schoolHours.save",
@@ -44,6 +45,7 @@ const accountAccessOperations = new Set([
   "i18n.reorderLanguages",
   "messaging.setPermission",
   "student.setCalendarDay",
+  "student.setCalendarHoliday",
   "student.resetCalendarDay",
   "student.setFeedbackSettings",
   "admin.upsertPolicy",
@@ -92,6 +94,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "program.setProfilePolicy": "ProgramSettings",
   "program.setSignupField": "ProgramSettings",
   "program.setEmailNotifications": "ProgramSettings",
+  "program.setNotificationLocks": "ProgramSettings",
   "program.setSecondaryEmailBinding": "ProgramSettings",
   "program.setTimeZone": "ProgramSettings",
   "schoolHours.save": "SchoolHoursSchedule",
@@ -119,6 +122,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "subjectAvailability.setWillingness": "Tutor",
   "interviewManagement.complete": "TutorApplication",
   "student.setCalendarDay": "SchoolCalendarDay",
+  "student.setCalendarHoliday": "SchoolCalendarDay",
   "student.resetCalendarDay": "SchoolCalendarDay",
   "student.setFeedbackSettings": "StudentSettings",
   "student.decideAppeal": "StudentAppeal",
@@ -260,6 +264,7 @@ const significantSettings = new Set([
   "i18n.reorderLanguages",
   "messaging.setPermission",
   "student.setCalendarDay",
+  "student.setCalendarHoliday",
   "student.resetCalendarDay",
   "student.setFeedbackSettings",
   "admin.upsertPolicy",
@@ -315,6 +320,11 @@ export function classifyApproval(
   } = {},
 ): ApprovalAuthority | null {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation)) return null;
+  // Required notifications take effect immediately and never admit Coordinator proposals.
+  if (operation === "program.setNotificationLocks") return {
+    category: "SIGNIFICANT_SETTING", directRoles: ["ADMIN", "HEAD"],
+    requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["ADMIN", "HEAD"],
+  };
   // Causal admission recovery uses ordinary management review. The domain
   // service still enforces complete evidence and the website's 0/1 event cap.
   if (operation === "recovery.voidAdmission")

@@ -63,7 +63,7 @@ vi.mock("./academic-profile", () => ({
     return <input aria-label="Academic draft" />;
   },
 }));
-vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
+vi.mock("./school-departure", () => ({ SchoolDepartureAction: () => null }));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
 vi.mock("./account-emails", () => ({
   AccountEmails: () => null,

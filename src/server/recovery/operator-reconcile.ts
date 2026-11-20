@@ -21,6 +21,7 @@ import {
   type SiteDependencies,
 } from "./operator-site";
 import { assertReviewedRecoverySchema } from "./operator-schema";
+import { orderReconciledEmailDeliveries } from "./operator-delivery-order";
 import {
   appendIdentityEvidence,
   assertIdentityAuthorityClosure,
@@ -324,6 +325,7 @@ const ACCOUNT_FIELDS = [
   "emailReviewRequests",
   "emailEventReminders",
   "emailSecondaryRecipients",
+  "emailLocale",
   "mustChangePassword",
   "twoFactorEnabled",
   "emailVerifiedAt",
@@ -415,7 +417,7 @@ export async function readReconciliationSnapshot(
     "SELECT t.typname AS type_name,e.enumlabel AS enum_label FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' ORDER BY t.typname,e.enumsortorder LIMIT 2001",
   );
   operatorAssert(enums.rows.length <= 2000, "SECURITY_SCHEMA_TOO_LARGE");
-  const { identityVersion, legacySignupDecline } = assertReviewedRecoverySchema(
+  const { identityVersion, legacySignupDecline, emailLocale } = assertReviewedRecoverySchema(
     schema.rows,
     enums.rows,
   );
@@ -429,10 +431,10 @@ export async function readReconciliationSnapshot(
       trigger.rows[0]?.proname === "advance_account_session_version",
     "INVALID_SESSION_GENERATION_TRIGGER",
   );
-  const accountFields =
-    identityVersion === 1
-      ? [...ACCOUNT_FIELDS, "historyAccessRevision"]
-      : ACCOUNT_FIELDS;
+  const accountFields = [
+    ...ACCOUNT_FIELDS.filter((field) => field !== "emailLocale" || emailLocale),
+    ...(identityVersion === 1 ? ["historyAccessRevision"] : []),
+  ];
   const accounts = await db.query(
     `SELECT ${accountFields.map(quote).join(",")} FROM public."User" ORDER BY id LIMIT 10001`,
   );
@@ -466,6 +468,11 @@ export async function readReconciliationSnapshot(
     ...DIVERGENCE_AUTHORITIES.filter(
       (table) => table !== "LegacySignupDecline" || legacySignupDecline,
     ),
+    // A security overlay cannot restore historical financial/workflow records
+    // while dropping the operational boundary that keeps them archive-only.
+    ...(schema.rows.some((row) => row.table_name === "ImportedRecordProvenance")
+      ? ["ImportedRecordProvenance"]
+      : []),
     "StudentSurvey",
   ]) {
     const records = await db.query(
@@ -559,15 +566,13 @@ function credentialGenerations(
 ) {
   const now = byId(current.accounts),
     old = byId(restored.accounts);
-  return [...new Set([...now.keys(), ...old.keys()])]
-    .sort()
-    .map((userId) => ({
-      userId,
-      current: now.has(userId) ? Number(now.get(userId)?.sessionVersion) : null,
-      checkpoint: old.has(userId)
-        ? Number(old.get(userId)?.sessionVersion)
-        : null,
-    }));
+  return [...new Set([...now.keys(), ...old.keys()])].sort().map((userId) => ({
+    userId,
+    current: now.has(userId) ? Number(now.get(userId)?.sessionVersion) : null,
+    checkpoint: old.has(userId)
+      ? Number(old.get(userId)?.sessionVersion)
+      : null,
+  }));
 }
 export function validateSecurityIdentityClosure(
   current: OverlaySnapshot,
@@ -890,7 +895,9 @@ export async function applySiteReconciliation(
       maintenanceUrl,
       dependencies,
       async (target) => {
-        const prior = siteReconciliationReceiptSchema.safeParse(await readDatabaseRecoveryMarker(target));
+        const prior = siteReconciliationReceiptSchema.safeParse(
+          await readDatabaseRecoveryMarker(target),
+        );
         if (prior.success && prior.data.planId === plan.id) {
           operatorAssert(
             prior.data.planHash === planHash(plan),
@@ -1032,6 +1039,11 @@ export async function reconcileSecuritySnapshot(
   current: OverlaySnapshot,
   restored: OverlaySnapshot,
 ) {
+  // Validate reminder ownership before any target writes, then retain the exact
+  // current receipt fields in a self-FK-safe order.
+  const currentDeliveries = orderReconciledEmailDeliveries(
+    current.tables.EmailDelivery ?? [],
+  );
   // Source-row triggers append dirty metadata. Take normal planning fences
   // before the first DML; final invalidation preserves every event.
   await acquireRecoverySchedulingFences(target);
@@ -1110,7 +1122,8 @@ export async function reconcileSecuritySnapshot(
       account,
       ACCOUNT_FIELDS.filter(
         (field) =>
-          field !== "sessionVersion" && field !== "refreshAuthorityRevision",
+          field !== "sessionVersion" && field !== "refreshAuthorityRevision" &&
+          (field !== "emailLocale" || Object.hasOwn(account, field)),
       ),
     );
     await target.query(
@@ -1180,7 +1193,11 @@ export async function reconcileSecuritySnapshot(
   }
   for (const table of ["EmailDelivery", "SessionNotice"]) {
     const existing = byId(restored.tables[table] ?? []);
-    for (const row of current.tables[table] ?? []) {
+    const rows =
+      table === "EmailDelivery"
+        ? currentDeliveries
+        : current.tables[table] ?? [];
+    for (const row of rows) {
       if (existing.has(String(row.id)))
         await updateFromRecord(target, table, row, Object.keys(row));
       else

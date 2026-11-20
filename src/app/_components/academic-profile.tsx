@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
@@ -249,9 +249,12 @@ export function AcademicForm({
 export function AcademicPanel({
   userId,
   canApply = true,
+  actions,
 }: {
   userId?: string;
   canApply?: boolean;
+  /** The account owner may compose related actions without changing staff editors. */
+  actions?: ReactNode;
 }) {
   const t = useTranslations("academics");
   const format = useFormatter();
@@ -325,6 +328,17 @@ export function AcademicPanel({
       });
     }
   };
+  const editAction =
+    !snapshot && data ? (
+      <button
+        type="button"
+        className="btn-secondary min-h-11 lg:min-h-10"
+        disabled={!policy.data || pending}
+        onClick={beginEdit}
+      >
+        {t(data.academic.needsConfirmation ? "review" : "edit")}
+      </button>
+    ) : null;
   return (
     <section className="card space-y-4 p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -332,17 +346,14 @@ export function AcademicPanel({
           <h2 className="section-title">{t("title")}</h2>
           <p className="muted mt-1 max-w-prose text-sm">{t("help")}</p>
         </div>
-        {!snapshot && data && (
-          <button
-            type="button"
-            className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={!policy.data || pending}
-            onClick={beginEdit}
-          >
-            {t(data.academic.needsConfirmation ? "review" : "edit")}
-          </button>
-        )}
+        {!actions && editAction}
       </div>
+      {actions && (
+        <div className="flex flex-wrap items-center gap-3">
+          {editAction}
+          {actions}
+        </div>
+      )}
       <ProfilePolicyLoadError
         error={policy.error}
         onRetry={() => void policy.refetch()}

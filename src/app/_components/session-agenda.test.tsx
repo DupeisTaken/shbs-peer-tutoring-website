@@ -23,8 +23,10 @@ const state = vi.hoisted(() => ({
   error: null as null | { data?: { code: string } },
   historyError: null as null | { data: { code: string } },
   historyRetry: vi.fn(),
+  agendaQuery: vi.fn(),
   refetch: vi.fn(),
   propose: vi.fn(),
+  proposeCancellation: vi.fn(),
   suggest: vi.fn(),
   respond: vi.fn(),
   split: vi.fn(),
@@ -49,15 +51,19 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       agenda: {
-        useQuery: () => ({
-          data: state.data,
-          error: state.error,
-          isSuccess: !state.error,
-          isFetching: false,
-          refetch: state.refetch,
-        }),
+        useQuery: (input: unknown, options: unknown) => {
+          state.agendaQuery(input, options);
+          return {
+            data: state.data,
+            error: state.error,
+            isSuccess: !state.error,
+            isFetching: false,
+            refetch: state.refetch,
+          };
+        },
       },
       propose: { useMutation: () => ({ mutateAsync: state.propose }) },
+      proposeCancellation: { useMutation: () => ({ mutateAsync: state.proposeCancellation }) },
       suggest: { useMutation: () => ({ mutateAsync: state.suggest }) },
       respond: { useMutation: () => ({ mutateAsync: state.respond }) },
       requestSplit: { useMutation: () => ({ mutateAsync: state.split }) },
@@ -168,7 +174,8 @@ const sample = (): Agenda => ({
   canTutorWrite: true,
   rooms: [{ id: "room", name: "A101" }],
   schoolCalendarDays: [],
-  cohorts: [{ ...attendanceOccurrence }],
+  tutoringPauses: [],
+  cohorts: [{ ...attendanceOccurrence, tutees: attendanceOccurrence.tutees.map((person) => ({ ...person })) }],
   requests: [],
   suggestions: [],
   notices: [],
@@ -190,8 +197,10 @@ beforeEach(() => {
   state.error = null;
   state.historyError = null;
   state.historyRetry.mockReset();
+  state.agendaQuery.mockReset();
   for (const fn of [
     state.propose,
+    state.proposeCancellation,
     state.suggest,
     state.respond,
     state.split,
@@ -213,6 +222,352 @@ function show(role: "tutor" | "tutee" = "tutor", locale: "en" | "zh" = "en") {
     </NextIntlClientProvider>,
   );
 }
+it.each(["tutor", "tutee"] as const)("requests recurring slot metadata only for the tutor picker (%s)", (role) => {
+  show(role);
+  expect(state.agendaQuery).toHaveBeenLastCalledWith(
+    role === "tutor" ? { role, includeRecurringSchedule: true } : { role },
+    { refetchInterval: 30_000 },
+  );
+});
+function futureExtra() {
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.cohorts = [
+    {
+      ...attendanceOccurrence,
+      tutees: attendanceOccurrence.tutees.map((person) => ({ ...person })),
+      kind: "EXTRA",
+      date: "2099-01-03",
+      startsAt: new Date("2099-01-03T07:00:00Z"),
+      endsAt: new Date("2099-01-03T07:45:00Z"),
+      needsAttendance: false,
+      canRecordAttendance: false,
+    },
+  ];
+  return state.data!.cohorts[0]!;
+}
+
+function cancellationRequest(): Agenda["requests"][number] {
+  const cohort = state.data!.cohorts[0]!;
+  const learner = cohort.tutees[0]!;
+  const response = {
+    id: "cancellation-response",
+    actorKey: `tutee:${learner.id}`,
+    name: learner.name,
+    state: "PENDING" as const,
+    deadline: null,
+    deliveredAt: null,
+    acceptedBy: null,
+    isMe: true,
+  };
+  return {
+    id: "cancellation-request",
+    version: 4,
+    planId: cohort.planId,
+    cohortId: cohort.id,
+    kind: "CANCEL",
+    scope: "ONE",
+    status: "PENDING",
+    stage: 1,
+    participantIds: [learner.id],
+    currentOffer: {
+      id: "cancellation-offer",
+      date: cohort.date,
+      startMin: cohort.startMin,
+      endMin: cohort.endMin,
+      roomId: cohort.roomId,
+      online: cohort.online,
+      startsAt: cohort.startsAt,
+      endsAt: cohort.endsAt,
+      cutoffAt: cohort.startsAt,
+      schoolClosed: false,
+      requiresExplicitAcceptance: false,
+      responses: [response],
+      myResponse: response,
+      canReject: true,
+      canRequestSplit: false,
+    },
+  };
+}
+
+it.each(["en", "zh"] as const)(
+  "reviews cancellation of the selected extra-session tutee without allocating a room (%s)",
+  async (locale) => {
+    const cohort = futureExtra();
+    cohort.rescheduled = true;
+    cohort.tutees.push({ id: "other-tutee", name: "Another Tutee" });
+    show("tutor", locale);
+    const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+    fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+    let dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(text.cancellationPendingHelp)).toBeTruthy();
+    expect(dialog.queryByLabelText(text.date)).toBeNull();
+    expect(dialog.queryByLabelText(text.location)).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: text.includeAll }));
+    fireEvent.change(dialog.getByLabelText(text.learner), {
+      target: { value: "other-tutee" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: text.review }));
+    expect(dialog.getByText(/Another Tutee/)).toBeTruthy();
+    expect(dialog.queryByText(/Remaining Learner/)).toBeNull();
+    expect(dialog.getByText(new RegExp(text.sessionToCancel))).toBeTruthy();
+    expect(dialog.getByText(text.cancellationReviewHelp)).toBeTruthy();
+    expect(state.previewLocation).not.toHaveBeenCalled();
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Close editor" }));
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+    dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByRole("checkbox", { name: text.includeAll }));
+    fireEvent.change(dialog.getByLabelText(text.learner), {
+      target: { value: "other-tutee" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: text.review }));
+    await act(async () =>
+      fireEvent.click(
+        dialog.getByRole("button", { name: text.sendCancellation }),
+      ),
+    );
+    expect(state.proposeCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cohortId: cohort.id,
+        expectedVersion: cohort.version,
+        scope: "ONE",
+        tuteeId: "other-tutee",
+      }),
+    );
+    expect(state.proposeCancellation.mock.calls[0]?.[0]).toHaveProperty(
+      "clientKey",
+      expect.any(String),
+    );
+    expect(state.propose).not.toHaveBeenCalled();
+    expect(screen.getByText(text.cancellationRequested)).toBeTruthy();
+  },
+);
+
+it.each(["regular", "started", "permission", "pending", "tutee"] as const)(
+  "guards cancellation admission for %s",
+  (scenario) => {
+    const cohort = futureExtra();
+    if (scenario === "regular") cohort.kind = "REGULAR";
+    if (scenario === "started")
+      cohort.startsAt = new Date("2000-01-01T07:00:00Z");
+    if (scenario === "permission") state.data!.canTutorWrite = false;
+    if (scenario === "pending") state.data!.requests = [cancellationRequest()];
+    show(scenario === "tutee" ? "tutee" : "tutor");
+    const button = screen.queryByRole<HTMLButtonElement>("button", {
+      name: messages.cancelExtra,
+    });
+    if (scenario === "started" || scenario === "pending")
+      expect(button?.disabled).toBe(true);
+    else expect(button).toBeNull();
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps a rejected cancellation draft, admits one pending submit and recovers accepted writes with reads only", async () => {
+  const cohort = futureExtra();
+  cohort.tutees.push({ id: "other-tutee", name: "Another Tutee" });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: messages.cancelExtra }));
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.click(dialog.getByRole("button", { name: messages.review }));
+  state.proposeCancellation.mockRejectedValueOnce(
+    new Error("Synthetic stale commitment"),
+  );
+  await act(async () =>
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.sendCancellation }),
+    ),
+  );
+  expect(dialog.getByText("Synthetic stale commitment")).toBeTruthy();
+  expect(dialog.getByText(/Remaining Learner, Another Tutee/)).toBeTruthy();
+  let finish!: (value: { id: string }) => void;
+  state.proposeCancellation.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const send = dialog.getByRole("button", { name: messages.sendCancellation });
+  act(() => {
+    fireEvent.click(send);
+    fireEvent.click(send);
+  });
+  expect(state.proposeCancellation).toHaveBeenCalledTimes(2);
+  expect(
+    dialog.getByRole<HTMLButtonElement>("button", { name: "Close editor" })
+      .disabled,
+  ).toBe(true);
+  state.refetch.mockRejectedValueOnce(new Error("Synthetic refresh failure"));
+  await act(async () => finish({ id: "accepted-cancellation" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.getByText(messages.cancellationRequestedRefreshFailed),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.cancelExtra,
+    }).disabled,
+  ).toBe(true);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: messages.retry })),
+  );
+  expect(state.proposeCancellation).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(messages.cancellationRequested)).toBeTruthy();
+  expect(state.proposeCancellation.mock.calls[1]?.[0]).toMatchObject({
+    scope: "ALL",
+    tuteeId: undefined,
+  });
+});
+
+it("blocks a retained cancellation review when current tutor write access is revoked", () => {
+  futureExtra();
+  const view = show();
+  fireEvent.click(screen.getByRole("button", { name: messages.cancelExtra }));
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.review,
+    }),
+  );
+  state.data!.canTutorWrite = false;
+  view.rerender(
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <SessionAgenda role="tutor" />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByRole<HTMLButtonElement>("button", {
+      name: messages.sendCancellation,
+    }).disabled,
+  ).toBe(true);
+  expect(state.proposeCancellation).not.toHaveBeenCalled();
+});
+
+it("offers authoritative future extra cancellation in All while keeping it outside Upcoming", () => {
+  futureExtra();
+  state.data!.windowStart = "2026-10-26";
+  state.data!.windowEnd = "2026-11-08";
+  const onViewChange = vi.fn();
+  const view = render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <SessionAgenda role="tutor" view="upcoming" onViewChange={onViewChange} />
+  </NextIntlClientProvider>);
+  expect(screen.queryByRole("button", { name: messages.cancelExtra })).toBeNull();
+  view.rerender(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <SessionAgenda role="tutor" view="all" onViewChange={onViewChange} />
+  </NextIntlClientProvider>);
+  const cancel = screen.getByRole<HTMLButtonElement>("button", { name: messages.cancelExtra });
+  expect(cancel.disabled).toBe(false);
+  fireEvent.click(cancel);
+  expect(screen.getByRole("dialog", { name: messages.cancelExtra })).toBeTruthy();
+  expect(state.proposeCancellation).not.toHaveBeenCalled();
+});
+
+it.each(["en", "zh"] as const)(
+  "reviews acceptance and rejection of cancellation without alternatives or splitting (%s)",
+  async (locale) => {
+    const cohort = futureExtra();
+    state.data!.requests = [cancellationRequest()];
+    show("tutee", locale);
+    const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+    expect(screen.getByText(text.cancellationRequest)).toBeTruthy();
+    expect(screen.getByText(text.cancellationPendingHelp)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: text.alternative })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: text.requestSeparate }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: text.acceptCancellation }),
+    );
+    expect(state.respond).not.toHaveBeenCalled();
+    let dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(new RegExp(cohort.tutees[0]!.name))).toBeTruthy();
+    expect(dialog.getByText(text.cancellationReviewHelp)).toBeTruthy();
+    fireEvent.click(dialog.getByRole("button", { name: text.cancel }));
+    expect(state.respond).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: text.declineCancellation }),
+    );
+    dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(text.declineCancellationHelp)).toBeTruthy();
+    await act(async () =>
+      fireEvent.click(
+        dialog.getByRole("button", { name: text.declineCancellation }),
+      ),
+    );
+    expect(state.respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: "cancellation-request",
+        offerId: "cancellation-offer",
+        expectedVersion: 4,
+        decision: "REJECT",
+      }),
+    );
+    expect(state.respond.mock.calls[0]?.[0]).toHaveProperty(
+      "clientKey",
+      expect.any(String),
+    );
+    expect(state.split).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "requires explicit cancellation agreement on a paused date (%s)",
+  (locale) => {
+    const cohort = futureExtra();
+    state.data!.tutoringPauses = [
+      {
+        date: cohort.date,
+        endDate: cohort.date,
+        active: true,
+        schedulingEffect: "PAUSE_REGULAR",
+      },
+    ];
+    const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+    show("tutor", locale);
+    fireEvent.click(screen.getByRole("button", { name: text.cancelExtra }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: text.review,
+      }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText(text.cancellationExplicitHelp)).toBeTruthy();
+    expect(dialog.queryByText(text.cancellationAgreementHelp)).toBeNull();
+    expect(state.proposeCancellation).not.toHaveBeenCalled();
+  },
+);
+
+it("names captured cancellation participants after account combination and accepts the exact offer", async () => {
+  const cohort = futureExtra();
+  const request = cancellationRequest();
+  state.data!.requests = [request];
+  // Request actor evidence retains the original ID while execution ownership moves.
+  cohort.tutees[0]!.id = "combined-account-tutee";
+  show("tutee");
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.acceptCancellation }),
+  );
+  const dialog = within(screen.getByRole("dialog"));
+  expect(dialog.getByText(/Remaining Learner/)).toBeTruthy();
+  await act(async () =>
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.acceptCancellation }),
+    ),
+  );
+  expect(state.respond).toHaveBeenCalledWith(
+    expect.objectContaining({
+      requestId: request.id,
+      offerId: request.currentOffer!.id,
+      expectedVersion: request.version,
+      decision: "ACCEPT",
+    }),
+  );
+  expect(state.respond.mock.calls[0]?.[0]).toHaveProperty(
+    "clientKey",
+    expect.any(String),
+  );
+});
 it("interleaves authorized interview and meeting starts without inventing tutoring intervals", () => {
   const events = [
     {
@@ -376,6 +731,7 @@ it("stops historical response prompts on a split request while retaining evidenc
       endsAt: new Date("2099-01-04T07:45:00Z"),
       cutoffAt: new Date("2099-01-03T07:00:00Z"),
       schoolClosed: false,
+      requiresExplicitAcceptance: false,
       responses: [
         response,
         {
@@ -642,6 +998,7 @@ it("offers separate rescheduling after an ALL rejection budget is spent, with a 
         endsAt: new Date("2099-01-04T07:45:00Z"),
         cutoffAt: new Date("2099-01-03T07:00:00Z"),
         schoolClosed: false,
+        requiresExplicitAcceptance: false,
         responses: [response],
         myResponse: response,
         canReject: false,
@@ -670,6 +1027,145 @@ it("offers separate rescheduling after an ALL rejection budget is spent, with a 
     expectedVersion: 3,
   });
 });
+
+it.each([
+  ["en", true],
+  ["en", false],
+  ["zh", true],
+  ["zh", false],
+] as const)("reviews the exact explicit-only offer location and cutoff before accepting (%s, online=%s)", async (locale, online) => {
+  const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+  const source = state.data!.cohorts[0]!;
+  const learner = source.tutees[0]!;
+  const cutoffAt = new Date("2099-01-03T07:00:00Z");
+  const response = {
+    id: "exact-location-response", actorKey: `tutee:${learner.id}`, name: learner.name,
+    state: "PENDING" as const, deadline: null, deliveredAt: null, acceptedBy: null, isMe: true,
+  };
+  const request: Agenda["requests"][number] = {
+    id: "exact-location-request", version: 7, planId: source.planId, cohortId: source.id,
+    kind: "RESCHEDULE", scope: "ONE", status: "PENDING", stage: 1, participantIds: [learner.id],
+    currentOffer: {
+      id: "captured-location-offer", date: "2099-01-04", startMin: 950, endMin: 995,
+      roomId: online ? null : "offer-room", online,
+      startsAt: new Date("2099-01-04T07:50:00Z"), endsAt: new Date("2099-01-04T08:35:00Z"),
+      cutoffAt, schoolClosed: false, requiresExplicitAcceptance: true,
+      responses: [response], myResponse: response, canReject: true, canRequestSplit: false,
+    },
+  };
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.rooms.push({ id: "offer-room", name: "B202" });
+  state.data!.cohorts = [{ ...source, date: "2099-01-03", startsAt: cutoffAt,
+    endsAt: new Date("2099-01-03T07:45:00Z"), roomId: "room", roomName: "A101",
+    canRecordAttendance: false, needsAttendance: false }];
+  state.data!.tutoringPauses = [{ date: "2099-01-04", endDate: "2099-01-04", active: true, schedulingEffect: "PAUSE_REGULAR" }];
+  state.data!.requests = [request];
+  const view = show("tutee", locale);
+  const accept = screen.getByRole("button", { name: text.accept });
+  const card = accept.closest("article")!;
+  const expectedLocation = `${text.location}: ${online ? text.online : "B202"}`;
+  const formattedCutoff = new Intl.DateTimeFormat(locale, {
+    timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "short",
+  }).format(cutoffAt);
+  const exactRequirement = text.explicitBy.replace("{deadline}", formattedCutoff);
+  function verifyTerms(container: HTMLElement) {
+    expect(within(container).getByText(expectedLocation)).toBeTruthy();
+    const requirement = within(container).getByText(text.requiresExplicit).closest("p")!;
+    expect(requirement.textContent).toContain(exactRequirement);
+    expect(within(container).queryByText(text.deliveryPending)).toBeNull();
+    expect(container.textContent).not.toMatch(/short.notice|临近开始|24.?hour|24\s*小时/i);
+  }
+  verifyTerms(card);
+  expect(state.respond).not.toHaveBeenCalled();
+  fireEvent.click(accept);
+  const dialog = screen.getByRole("dialog", { name: text.accept });
+  verifyTerms(dialog);
+  expect(state.respond).not.toHaveBeenCalled();
+  // A live read can change while the user reviews. Confirmation must submit
+  // exactly the disclosed offer/version, never silently retarget that decision.
+  state.data = { ...state.data!, requests: [{ ...request, version: 8,
+    currentOffer: { ...request.currentOffer!, id: "replacement-location-offer", online: !online,
+      roomId: online ? "room" : null, cutoffAt: new Date("2099-01-05T07:00:00Z") } }] };
+  view.rerender(<NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={locale === "en" ? en : zh}>
+    <SessionAgenda role="tutee" />
+  </NextIntlClientProvider>);
+  verifyTerms(dialog);
+  expect(state.respond).not.toHaveBeenCalled();
+  await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: text.accept })));
+  expect(state.respond).toHaveBeenCalledOnce();
+  expect(state.respond.mock.calls[0]?.[0]).toMatchObject({
+    requestId: request.id, expectedVersion: 7, offerId: "captured-location-offer", decision: "ACCEPT",
+  });
+});
+
+function pendingPhysicalConsent(roomAvailable: boolean) {
+  const source = state.data!.cohorts[0]!;
+  const learner = source.tutees[0]!;
+  const cutoffAt = new Date("2099-01-03T07:00:00Z");
+  const response = { id: "physical-response", actorKey: `tutee:${learner.id}`, name: learner.name,
+    state: "PENDING" as const, deadline: null, deliveredAt: null, acceptedBy: null, isMe: true };
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.cohorts = [{ ...source, date: "2099-01-03", startsAt: cutoffAt,
+    endsAt: new Date("2099-01-03T07:45:00Z"), roomId: "room", roomName: "A101",
+    canRecordAttendance: false, needsAttendance: false }];
+  if (roomAvailable) state.data!.rooms.push({ id: "requested-room", name: "B202" });
+  state.data!.requests = [{
+    id: "physical-request", version: 2, planId: source.planId, cohortId: source.id,
+    kind: "RESCHEDULE", scope: "ONE", status: "PENDING", stage: 3, participantIds: [learner.id],
+    currentOffer: {
+      id: "physical-offer", date: "2099-01-04", startMin: 950, endMin: 995,
+      roomId: "requested-room", online: false,
+      startsAt: new Date("2099-01-04T07:50:00Z"), endsAt: new Date("2099-01-04T08:35:00Z"),
+      cutoffAt, schoolClosed: false, requiresExplicitAcceptance: true,
+      responses: [response], myResponse: response, canReject: true, canRequestSplit: false,
+    },
+  }];
+}
+
+it.each(["en", "zh"] as const)("does not offer acceptance for an unknown physical room or relabel it Online/roomless (%s)", (locale) => {
+  const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+  pendingPhysicalConsent(false);
+  show("tutee", locale);
+  const accept = screen.getByRole<HTMLButtonElement>("button", { name: text.accept });
+  const card = accept.closest("article")!;
+  expect(within(card).getByText(`${text.location}: ${text.locationUnavailable}`)).toBeTruthy();
+  expect(within(card).queryByText(`${text.location}: ${text.online}`)).toBeNull();
+  expect(within(card).queryByText(`${text.location}: ${text.noRoom}`)).toBeNull();
+  expect(within(card).queryByText(`${text.location}: A101`)).toBeNull();
+  expect(accept.disabled).toBe(true);
+  fireEvent.click(accept);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(state.respond).not.toHaveBeenCalled();
+  const reject = within(card).getByRole<HTMLButtonElement>("button", { name: text.finalReject });
+  expect(reject.disabled).toBe(false);
+  fireEvent.click(reject);
+  expect(within(screen.getByRole("dialog")).getByRole<HTMLButtonElement>("button", { name: text.finalReject }).disabled).toBe(false);
+  expect(state.respond).not.toHaveBeenCalled();
+});
+
+it.each(["en", "zh"] as const)("blocks confirmation if the captured physical room disappears during acceptance review (%s)", (locale) => {
+  const text = locale === "en" ? en.sessionPlanning : zh.sessionPlanning;
+  pendingPhysicalConsent(true);
+  const view = show("tutee", locale);
+  fireEvent.click(screen.getByRole("button", { name: text.accept }));
+  const dialog = screen.getByRole("dialog", { name: text.accept });
+  expect(within(dialog).getByText(`${text.location}: B202`)).toBeTruthy();
+  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: text.accept }).disabled).toBe(false);
+  state.data = { ...state.data!, rooms: state.data!.rooms.filter((room) => room.id !== "requested-room") };
+  view.rerender(<NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={locale === "en" ? en : zh}>
+    <SessionAgenda role="tutee" />
+  </NextIntlClientProvider>);
+  expect(within(dialog).getByText(`${text.location}: ${text.locationUnavailable}`)).toBeTruthy();
+  expect(within(dialog).queryByText(`${text.location}: ${text.online}`)).toBeNull();
+  expect(within(dialog).queryByText(`${text.location}: ${text.noRoom}`)).toBeNull();
+  const confirm = within(dialog).getByRole<HTMLButtonElement>("button", { name: text.accept });
+  expect(confirm.disabled).toBe(true);
+  fireEvent.click(confirm);
+  expect(state.respond).not.toHaveBeenCalled();
+});
+
 it.each(["en", "zh"] as const)(
   "keeps a SENT action-required outage visible with exact original/proposed context in %s and no retroactive action",
   (locale) => {
@@ -769,11 +1265,11 @@ it("distinguishes undelivered, explicit short-notice and elapsed response window
   expect(state.respond).not.toHaveBeenCalled();
 });
 
-function UnifiedAgenda() {
+function UnifiedAgenda({ role = "tutor" }: { role?: "tutor" | "tutee" }) {
   const [view, setView] = useState<ScheduleView>("upcoming");
   return (
     <SessionAgenda
-      role="tutor"
+      role={role}
       view={view}
       onViewChange={setView}
       renderOverview={(overview) => (
@@ -858,20 +1354,35 @@ it("keeps ended missing attendance in Upcoming and its overview, preserving a dr
     1,
   );
 });
-it("global extra requires a real future source and keeps the selected cohort version", () => {
+it.each([
+  ["en", en, "Thu"],
+  ["zh", zh, "周四"],
+] as const)("extra picker shows the recurring slot and preserves the selected dated source in %s", async (locale, catalog, weekday) => {
   const future = {
     ...attendanceOccurrence,
     id: "future-source",
     version: 9,
     subjects: ["Future pairing"],
-    startsAt: new Date("2099-01-01T07:00:00Z"),
-    endsAt: new Date("2099-01-01T07:45:00Z"),
+    date: "2099-01-01",
+    startMin: 1020,
+    endMin: 1065,
+    startsAt: new Date("2099-01-01T09:00:00Z"),
+    endsAt: new Date("2099-01-01T09:45:00Z"),
+    rescheduled: true,
+    recurringSchedule: { scheduleConfirmed: true, dayOfWeek: 4, startMin: 950, endMin: 995 },
     needsAttendance: false,
     canRecordAttendance: false,
   };
-  state.data!.cohorts.push(future);
+  state.data!.cohorts.push(future, {
+    ...future,
+    id: "later-source",
+    version: 12,
+    date: "2099-01-08",
+    startsAt: new Date("2099-01-08T09:00:00Z"),
+    endsAt: new Date("2099-01-08T09:45:00Z"),
+  });
   render(
-    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={catalog}>
       <UnifiedAgenda />
     </NextIntlClientProvider>,
   );
@@ -879,17 +1390,43 @@ it("global extra requires a real future source and keeps the selected cohort ver
   const picker = screen.getByRole("dialog");
   expect(
     within(picker).getAllByRole("button", {
-      name: en.unifiedSchedule.chooseSession,
+      name: catalog.unifiedSchedule.chooseSession,
     }),
-  ).toHaveLength(1);
-  expect(within(picker).getByText("Future pairing")).toBeTruthy();
+  ).toHaveLength(2);
+  // Dated moves and mapped school days must not become the weekly slot label.
+  expect(within(picker).getAllByText(`${weekday} 15:50–16:35`)).toHaveLength(2);
+  expect(picker.textContent).not.toContain("2099");
+  expect(picker.textContent).not.toContain("17:00");
   fireEvent.click(
-    within(picker).getByRole("button", {
-      name: en.unifiedSchedule.chooseSession,
-    }),
+    within(picker).getAllByRole("button", {
+      name: catalog.unifiedSchedule.chooseSession,
+    })[0]!,
   );
   expect(screen.getByRole("dialog").textContent).toContain("Future pairing");
   expect(state.propose).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(catalog.sessionPlanning.date), { target: { value: "2099-01-15" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: catalog.sessionPlanning.review }));
+  });
+  expect(state.previewLocation).toHaveBeenCalledWith(expect.objectContaining({
+    cohortId: "future-source", expectedVersion: 9, date: "2099-01-15", kind: "EXTRA",
+  }), { staleTime: 0 });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: catalog.sessionPlanning.sendProposal }));
+  });
+  expect(state.propose).toHaveBeenCalledWith(expect.objectContaining({
+    cohortId: "future-source", expectedVersion: 9, date: "2099-01-15", kind: "EXTRA",
+  }));
+});
+
+it("does not invent a recurring slot when the pairing schedule is unavailable", () => {
+  futureExtra();
+  state.data!.cohorts[0]!.recurringSchedule = null;
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda /></NextIntlClientProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
+  const picker = screen.getByRole("dialog");
+  expect(within(picker).getByText(messages.scheduleUnavailable)).toBeTruthy();
+  expect(picker.textContent).not.toContain("2099");
 });
 
 it("a denied history read conceals tutoring caches while keeping independent filters and pagination", () => {
@@ -923,4 +1460,151 @@ it("a denied history read conceals tutoring caches while keeping independent fil
   expect(onViewChange).toHaveBeenCalledWith("all");
   fireEvent.click(screen.getByRole("button", { name: messages.retry }));
   expect(state.historyRetry).toHaveBeenCalledOnce();
+});
+
+it.each(["en", "zh"] as const)("hides a paused card while keeping its source available for an extra exception in %s", (locale) => {
+  const catalog = locale === "en" ? en : zh;
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.tutoringPauses = [{ date: "2099-01-01", endDate: "2099-01-14", schedulingEffect: "PAUSE_REGULAR", active: true }];
+  state.data!.cohorts = [{ ...attendanceOccurrence, date: "2099-01-01", status: "CANCELLED", tutoringPaused: true,
+    canArrangeException: true, pausedTutees: attendanceOccurrence.tutees, tutees: [], needsAttendance: false, canRecordAttendance: false,
+    startsAt: new Date("2099-01-01T07:00:00Z"), endsAt: new Date("2099-01-01T07:45:00Z") }];
+  render(<NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={catalog}><UnifiedAgenda /></NextIntlClientProvider>);
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(screen.queryByRole("button", { name: catalog.sessionPlanning.record })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
+  expect(screen.getByRole("dialog").textContent).toContain(catalog.sessionPlanning.tutoringPauseProposal);
+  expect(state.propose).not.toHaveBeenCalled();
+});
+
+it.each(["tutor", "tutee"] as const)("keeps only confirmed upcoming session cards while retaining cancelled evidence for %s", (role) => {
+  const scheduled = futureExtra();
+  state.data!.cohorts = [
+    { ...scheduled, id: "regular", kind: "REGULAR", subjects: ["Regular lesson"] },
+    { ...scheduled, id: "extra", subjects: ["Confirmed extra"] },
+    { ...scheduled, id: "rescheduled", kind: "REGULAR", rescheduled: true, subjects: ["Confirmed reschedule"] },
+    { ...scheduled, id: "cancelled", status: "CANCELLED", subjects: ["Cancelled lesson"] },
+    { ...scheduled, id: "paused", status: "CANCELLED", tutoringPaused: true, subjects: ["Paused lesson"] },
+  ];
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda role={role} /></NextIntlClientProvider>);
+  expect(screen.getAllByRole("article")).toHaveLength(3);
+  expect(document.getElementById("session-regular")).toBeTruthy();
+  expect(document.getElementById("session-extra")).toBeTruthy();
+  expect(document.getElementById("session-rescheduled")).toBeTruthy();
+  expect(document.getElementById("session-cancelled")).toBeNull();
+  expect(document.getElementById("session-paused")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.unifiedSchedule.filter.all }));
+  expect(document.getElementById("session-cancelled")).toBeTruthy();
+  expect(document.getElementById("session-paused")).toBeTruthy();
+});
+
+it.each(["tutor", "tutee"] as const)("hides cancelled cards in the default week without losing ended attendance for %s", (role) => {
+  state.data!.cohorts.push(
+    { ...attendanceOccurrence, id: "cancelled", status: "CANCELLED", needsAttendance: false, canRecordAttendance: false },
+    { ...attendanceOccurrence, id: "paused", status: "CANCELLED", tutoringPaused: true, needsAttendance: false, canRecordAttendance: false },
+  );
+  show(role);
+  expect(screen.getAllByRole("article")).toHaveLength(1);
+  expect(document.getElementById("session-cohort-synthetic")).toBeTruthy();
+  expect(document.getElementById("session-cancelled")).toBeNull();
+  expect(document.getElementById("session-paused")).toBeNull();
+});
+
+it("preserves ended cancellation evidence in History", () => {
+  state.data!.cohorts = [{ ...attendanceOccurrence, status: "CANCELLED", needsAttendance: false,
+    canRecordAttendance: false, date: "2000-01-01", startsAt: new Date("2000-01-01T07:00:00Z"), endsAt: new Date("2000-01-01T07:45:00Z") }];
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda /></NextIntlClientProvider>);
+  expect(screen.queryByRole("article")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.unifiedSchedule.filter.history }));
+  const card = screen.getByRole("article");
+  expect(within(card).queryByRole("button", { name: messages.record })).toBeNull();
+  expect(within(card).queryByRole("button", { name: messages.reschedule })).toBeNull();
+});
+
+it.each([false, true])("reveals a linked future cancellation in All and an ended cancellation in History (paused: %s)", (tutoringPaused) => {
+  const future = futureExtra();
+  state.data!.cohorts = [
+    { ...future, id: "cancelled-future", status: "CANCELLED", tutoringPaused },
+    { ...future, id: "cancelled-past", status: "CANCELLED", tutoringPaused,
+      date: "2000-01-01", startsAt: new Date("2000-01-01T07:00:00Z"), endsAt: new Date("2000-01-01T07:45:00Z") },
+  ];
+  const previousUrl = window.location.href;
+  const frames: FrameRequestCallback[] = [];
+  const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  const cancelFrame = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+  const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
+  let view: ReturnType<typeof render> | undefined;
+  try {
+    window.history.replaceState(null, "", "#session-cancelled-future");
+    view = render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda /></NextIntlClientProvider>);
+    act(() => { for (const frame of frames.splice(0)) frame(0); });
+    expect(screen.getByRole("button", { name: en.unifiedSchedule.filter.all }).getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement?.id).toBe("session-cancelled-future");
+
+    act(() => {
+      window.history.replaceState(null, "", "#session-cancelled-past");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    act(() => { for (const frame of frames.splice(0)) frame(0); });
+    expect(screen.getByRole("button", { name: en.unifiedSchedule.filter.history }).getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement?.id).toBe("session-cancelled-past");
+    expect(document.getElementById("session-cancelled-future")).toBeNull();
+    expect(state.propose).not.toHaveBeenCalled();
+    expect(state.respond).not.toHaveBeenCalled();
+  } finally {
+    view?.unmount();
+    window.history.replaceState(null, "", previousUrl);
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
+    scroll.mockRestore();
+  }
+});
+
+it("keeps a mixed cohort attendance roster separate from the paused exception audience", () => {
+  state.data!.windowStart = "2099-01-01";
+  state.data!.windowEnd = "2099-01-14";
+  state.data!.cohorts = [{ ...attendanceOccurrence, date: "2099-01-01", canArrangeException: true,
+    tutees: [{ id: "remaining", name: "Remaining Learner" }],
+    pausedTutees: [{ id: "paused", name: "Paused Learner" }],
+    startsAt: new Date("2099-01-01T07:00:00Z"), endsAt: new Date("2099-01-01T07:45:00Z") }];
+  show();
+  const card = screen.getByRole("article");
+  expect(within(card).getByText("Remaining Learner")).toBeTruthy();
+  expect(within(card).queryByText(messages.tutoringPausedHelp)).toBeNull();
+  expect(within(card).getByRole("button", { name: messages.record })).toBeTruthy();
+  fireEvent.click(within(card).getByRole("button", { name: messages.arrangeException }));
+  expect(screen.getByRole("dialog").textContent).toContain("Paused Learner");
+  expect(screen.getByRole("dialog").textContent).not.toContain("Remaining Learner");
+});
+
+it.each([null, new Date("2099-01-01T00:00:00Z")])("an exception response shows explicit consent before or after delivery (%s)", (deliveredAt) => {
+  const now = new Date("2099-01-01T00:00:00Z");
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <SessionResponseDeadline deliveredAt={deliveredAt} deadline={new Date("2099-01-02T00:00:00Z")} cutoffAt={new Date("2099-01-03T00:00:00Z")} now={now} requiresExplicitAcceptance />
+  </NextIntlClientProvider>);
+  expect(screen.getByText(messages.requiresExplicit)).toBeTruthy();
+  expect(screen.getByText(/Silence does not accept this offer/).textContent)
+    .toMatch(/Jan 3, 2099.*8:00 AM/);
+  expect(screen.queryByText(messages.deliveryPending)).toBeNull();
+  expect(screen.queryByText(/24h/)).toBeNull();
+  expect(screen.queryByText(/remaining/i)).toBeNull();
+});
+
+it("keeps ordinary agenda actions usable when optional pause metadata is absent", () => {
+  delete state.data!.tutoringPauses;
+  for (const cohort of state.data!.cohorts) {
+    delete cohort.tutoringPaused;
+    delete cohort.canArrangeException;
+    delete cohort.pausedTutees;
+  }
+  show();
+  const card = screen.getByRole("article");
+  expect(within(card).getByText(/Remaining Learner/)).toBeTruthy();
+  expect(within(card).getByRole("button", { name: messages.record })).toBeTruthy();
+  expect(within(card).queryByRole("button", { name: messages.arrangeException })).toBeNull();
 });

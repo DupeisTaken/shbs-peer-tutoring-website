@@ -11,6 +11,7 @@ import { ensureNameFallbackForRole } from "~/server/program/name-fields";
 import { initializeAccountAcademics } from "~/server/academics";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { initializePersonSource } from "~/server/person-source-initialization";
+import { assertMutableProgramRecords } from "~/server/imported-records";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -70,6 +71,10 @@ export async function promoteApplicantToTutor(
   return inTransaction(client, async (db) => {
     await lockUsernameNamespace(db);
     await lockApplicationReview(db, applicationId);
+    // Keep the grant writer fenced even when a caller bypasses reconciliation.
+    await assertMutableProgramRecords(db, [
+      { entity: "TutorApplication", recordId: applicationId },
+    ]);
     const app = await db.tutorApplication.findUnique({
       where: { id: applicationId },
       select: {
@@ -196,8 +201,14 @@ export async function promoteApplicantToTutor(
       // Historical-only setup also sets this flag without granting membership.
       // Match registration: a retained current tutor link distinguishes revoked
       // membership from an account that can still receive its first admission.
-      if (account.tutorId && account.tutorAccessRevoked &&
-        !(account.recoveryVoidedAt && await isFreshAdmissionCapture(db, applicationId)))
+      if (
+        account.tutorId &&
+        account.tutorAccessRevoked &&
+        !(
+          account.recoveryVoidedAt &&
+          (await isFreshAdmissionCapture(db, applicationId))
+        )
+      )
         throw new TRPCError({
           code: "FORBIDDEN",
           message: TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE,

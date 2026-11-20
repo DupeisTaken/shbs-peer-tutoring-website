@@ -2,7 +2,7 @@ import { inTransaction, type DomainDb, type TransactionDb } from "~/server/trans
 import { databaseScope } from "~/server/db-scope";
 
 /** This is an accelerator version, never a version of scheduling authority. */
-export const SCHEDULING_MAINTENANCE_VERSION = 1;
+export const SCHEDULING_MAINTENANCE_VERSION = 2;
 export const SCHEDULING_MAINTENANCE_EVENT_LIMIT = 1000;
 export const SCHEDULING_INVALIDATION_PAGE_SIZE = 200;
 

@@ -392,6 +392,12 @@ spacing; only its background changes to dark green (`#18342C`) or blue (`#172F49
 Check that instructions and full codes remain readable when stylesheets or images are blocked.
 Use `npx tsx scripts/preview-emails.ts` to generate synthetic invitation, verification
 and legacy-mail previews in ignored `.validation/email-previews`; it sends no mail.
+The gallery also renders production session, notification, request, appeal, history
+and school-report copy with complete plain-text alternatives. Review both languages
+at desktop/mobile widths and the stylesheet/images-removed invitation. Shared HTML
+uses explicit escaped body prose; avoid removing codes or link substrings from
+sentences to deduplicate it. Code expiry and permanent verification deadlines need
+distinct labels. Keep full codes and URLs in the text-only alternative.
 
 Check copied-code mailbox verification and verified-browser handoff independently.
 Older five-digit, five-character alphanumeric and twelve-character invitations must
@@ -466,6 +472,24 @@ Application tests live under `src/**/*.test.{ts,tsx}`:
   routers against a **real database**, verifying role/ownership scoping. They run serially
   (`fileParallelism: false`) and need a reachable `DATABASE_URL` with the schema applied.
 - **UI render tests** exercise interactive controls in jsdom without starting the website.
+
+[Recovery checkpoint fixtures](../../src/server/recovery/correction-checkpoints.integration.test.ts)
+reset and seed in one transaction before exercising the real application client.
+Their fixture-specific 20-second hook covers a 1-second acquisition wait,
+10-second transaction and up to 6 seconds draining an active statement before
+rollback. Lock waits remain capped at 1 second. The global Vitest timeouts and
+ordinary test-body limits stay unchanged. Synthetic trigger installation/cleanup
+uses separate bounded transactions; the three failure/delay controls have
+50-second case limits for multiple resets and cleanup.
+
+Keep the single schema-wide `TRUNCATE`: scheduling and calendar policy triggers
+also run on empty tables, so skipping empty tables, substituting `DELETE` or
+disabling triggers changes fixture semantics. The checkpoint suite checks a real
+blocking lock, final-write rollback and a valid reset delayed beyond the former
+two-second statement cap. CI emits catalog, truncate, seed and settlement timings
+after each reset settles, including failures. Set `SHBS_PROFILE_RECOVERY_FIXTURE=1`
+for equivalent local diagnostics. A failed phase includes rollback/drain time;
+logs contain only timings, table counts and SQLSTATE, never fixture rows or URLs.
 
 [`src/test/setup.ts`](../../src/test/setup.ts) loads `.env` and supplies fallback
 `AUTH_SECRET`/`DATABASE_URL` values for tests that need no live database. It does

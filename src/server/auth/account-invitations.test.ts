@@ -2,6 +2,8 @@ import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import type { EmailMessage } from "~/server/email/sender";
 import { expectNoCodeSecrets } from "~/test/code-secrets";
+import { emailDeadline } from "~/server/email/direct-email-copy";
+import { getProgramTimeZone } from "~/server/program/time-zone-reader";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const mail = vi.hoisted(() => ({
   send: vi.fn<(message: EmailMessage) => Promise<void>>(),
@@ -430,11 +432,12 @@ async function viewer(target = email) {
   };
 }
 
-async function displayedViewer() {
+async function displayedViewer(locale: "en" | "zh" = "en") {
   const started = await startViewerSignup({
     email,
     name: "New Viewer",
     affiliation: "Family",
+    emailLocale: locale,
   });
   if (!started.ok) throw Error("Expected request");
   const verified = await verifyViewerCode(email, started.code);
@@ -597,8 +600,8 @@ it("a redundant generic tutor invitation preserves an opted-out existing tutor",
   expect(await db.tutor.count()).toBe(1);
 });
 
-it("displays an invitation without mail, preserves its receipt, and requires separate identity proof", async () => {
-  const invite = await displayedViewer();
+it.each(["en", "zh"] as const)("displays a %s invitation without mail, preserves its receipt, and requires separate identity proof", async (locale) => {
+  const invite = await displayedViewer(locale);
   expect(invite.code).toMatch(/^[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}$/);
   expect(invite.code).toMatch(/[A-Z]/);
   expect(invite.code).toMatch(/[0-9]/);
@@ -637,9 +640,12 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
   const before = await db.accountInvitation.findUniqueOrThrow({
     where: { id: invite.invitationId },
   });
-  expect(mail.send.mock.calls.at(-1)?.[0].subject).toContain("read-only Viewer access");
-  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(before.emailCodeExpiresAt!.toISOString());
-  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain("新增权限仍须另行确认");
+  const verification = mail.send.mock.lastCall![0];
+  expect(verification.presentation?.locale).toBe(locale);
+  expect(verification.subject).toContain(locale === "zh" ? "只读观察员权限" : "read-only Viewer access");
+  expect(verification.text).toContain(emailDeadline({ at: before.emailCodeExpiresAt!, timeZone: await getProgramTimeZone(db) }, { en: "Code expires", zh: "验证码有效期至" }, locale));
+  expect(verification.text).toContain(locale === "zh" ? "新增权限仍须另行确认" : "accept any added access separately");
+  expect(verification.text).not.toContain(locale === "zh" ? "proves mailbox ownership" : "此验证码仅确认邮箱归属");
   mail.send.mockRejectedValueOnce(Error("offline"));
   await expect(
     emailDisplayedInvitation(db, {
@@ -661,10 +667,10 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
     `&code=${invite.code}`,
   );
   expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(
-    "5 letters and numbers",
+    locale === "zh" ? "5 位字母与数字" : "5 letters and numbers",
   );
-  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain("read-only Viewer access");
-  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(before.expiresAt.toISOString());
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(locale === "zh" ? "只读观察员权限" : "read-only Viewer access");
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(emailDeadline({ at: before.expiresAt, timeZone: await getProgramTimeZone(db) }, { en: "Invitation expires", zh: "邀请有效期至" }, locale));
 });
 
 it.each(["staff", "display"] as const)(
@@ -1588,7 +1594,7 @@ it("starts a fresh fixed review window after near-expiry Viewer verification", a
     });
     expect(row.expiresAt).toEqual(source.codeExpiresAt);
     expect(mail.send.mock.lastCall![0].text).toContain(
-      source.codeExpiresAt.toISOString(),
+      emailDeadline({ at: source.codeExpiresAt, timeZone: await getProgramTimeZone(db) }, { en: "Code expires", zh: "验证码有效期至" }),
     );
     const proof = await verifyAccountInvitation(db, {
       ...invite,

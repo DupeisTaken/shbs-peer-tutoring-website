@@ -26,6 +26,8 @@ import { recordAudit } from "~/server/audit/log";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { getEmailDeliveryStatus } from "~/server/email/delivery-status";
 import { resendStuckEmails } from "~/server/email/resend-stuck";
+import { notificationLockCategories } from "~/lib/notification-categories";
+import { notificationLocksInput, saveNotificationLocks } from "~/server/program/notification-locks";
 
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { isProgramTimeZone } from "~/lib/program-time";
@@ -58,6 +60,7 @@ import {
   saveProgramCalendar,
   removeProgramCalendar,
 } from "~/server/program/calendar";
+import { previewProgramCalendarImpact } from "~/server/session-planning";
 import {
   nameAccountTypeSchema,
   nameFieldStatesSchema,
@@ -155,12 +158,12 @@ export const programRouter = createTRPCRouter({
         .strict(),
     )
     .mutation(({ ctx, input }) => saveNameFieldPolicy(ctx.db, input)),
-  // Informational context is readable by signed-in schedule users; it grants no write or attendance authority.
+  // Schedule context grants no write or attendance authority; pauses affect planning server-side.
   calendar: protectedProcedure.query(({ ctx }) =>
     ctx.db.programCalendarDay.findMany({
       where: { active: true },
       orderBy: { date: "asc" },
-      select: { date: true, endDate: true, reason: true },
+      select: { date: true, endDate: true, reason: true, schedulingEffect: true },
     }),
   ),
   // Participants read only bounded calendar facts; staff notes and editor history stay private.
@@ -195,6 +198,20 @@ export const programRouter = createTRPCRouter({
     canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
     canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
+  calendarImpact: adminProcedure
+    .input(z.object({
+      date: programCalendarDate,
+      endDate: programCalendarDate,
+      schedulingEffect: z.enum(["NOTICE", "PAUSE_REGULAR"]).optional(),
+      expectedVersion: z.number().int().nonnegative(),
+      remove: z.boolean().optional(),
+    }).strict().refine((input) => input.endDate >= input.date, "Choose an inclusive date range."))
+    .query(async ({ ctx, input }) => {
+      const current = await ctx.db.programCalendarDay.findUnique({ where: { date: input.date } });
+      if ((current?.version ?? 0) !== input.expectedVersion || (input.remove && !current?.active))
+        throw new TRPCError({ code: "CONFLICT", message: "The tutoring notice changed. Reload before reviewing." });
+      return previewProgramCalendarImpact(ctx.db, input);
+    }),
   setCalendarDay: adminOnlyProcedure
     .input(programCalendarWrite)
     .mutation(({ ctx, input }) => saveProgramCalendar(ctx.db, input)),
@@ -419,6 +436,14 @@ export const programRouter = createTRPCRouter({
       failed,
     };
   }),
+  notificationLockSettings: adminProcedure.query(async ({ ctx }) => {
+    const settings = await ctx.db.programSettings.findUnique({ where: { id: "program" }, select: { notificationLocks: true } });
+    return {
+      categories: notificationLockCategories(settings?.notificationLocks).map((row) => ({ ...row, badgeAvailable: row.category !== "reminders" })),
+      canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
+    };
+  }),
+  setNotificationLocks: adminOnlyProcedure.input(notificationLocksInput).mutation(({ ctx, input }) => saveNotificationLocks(ctx.db, input, ctx.session.user)),
   setEmailNotifications: adminOnlyProcedure
     .input(z.object({ enabled: z.boolean(), expectedEnabled: z.boolean() }))
     .mutation(async ({ ctx, input }) =>

@@ -55,3 +55,35 @@ it.each(["en", "zh"] as const)(
     expect(screen.getByText(t.emailOnly)).toBeTruthy();
   },
 );
+
+it.each(["en", "zh"] as const)(
+  "demonstrates a locked email and restores the saved choice after unlock in %s",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    render(
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <NotificationPreferencesRecipe />
+      </NextIntlClientProvider>,
+    );
+    const email = screen.getByRole<HTMLInputElement>("checkbox", {
+      name: messages.notificationPreferences.emailFor.replace(
+        "{category}",
+        messages.notificationPreferences.categories.messages,
+      ),
+    });
+    const lock = screen.getByRole("checkbox", {
+      name: messages.notificationPreferences.lockDemo,
+    });
+    fireEvent.click(lock);
+    expect(email.checked).toBe(true);
+    expect(email.disabled).toBe(true);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.notificationPreferences.save,
+      }),
+    );
+    fireEvent.click(lock);
+    expect(email.checked).toBe(false);
+    expect(email.disabled).toBe(false);
+  },
+);

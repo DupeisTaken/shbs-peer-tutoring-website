@@ -21,7 +21,7 @@ import { Button } from "./ui/button";
 import { FormSection, InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
 import { MembershipEditor } from "./membership-editor";
-import { SchoolDeparturePanel } from "~/app/_components/school-departure";
+import { SchoolDepartureAction } from "~/app/_components/school-departure";
 import { AcademicPanel } from "./academic-profile";
 import { accountMembership } from "~/lib/account-membership";
 import { ProfilePolicyError } from "~/app/_components/profile-policy";
@@ -114,7 +114,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   if (draft && me.data && draft.ownerId !== me.data.id) setDraft(null);
   const names = draft?.names ?? nameDraft(me.data);
   const originalNames = draft?.originalNames ?? nameDraft(me.data);
-  const legacyName = draft ? draft.legacyName : me.data && unsplitLegacyName(me.data);
+  const legacyName = draft
+    ? draft.legacyName
+    : me.data && unsplitLegacyName(me.data);
   const nameDraftVersion = draft?.version ?? me.data?.profileVersion;
   const accountId = me.data?.id;
   const owner = useRef(accountId);
@@ -124,7 +126,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   }, [accountId]);
   useEffect(() => {
     active.current = true;
-    return () => { active.current = false; };
+    return () => {
+      active.current = false;
+    };
   }, []);
   const {
     ready: namePolicyReady,
@@ -151,9 +155,14 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
       // Cached data returned with a failed read never authorizes discarding a draft.
       if (!result.isSuccess || !result.data)
         throw new Error("Identity refresh failed");
-      if (!active.current ||
-          (requestedOwner && (owner.current !== requestedOwner || result.data.id !== requestedOwner)) ||
-          (!requestedOwner && owner.current && result.data.id !== owner.current)) return;
+      if (
+        !active.current ||
+        (requestedOwner &&
+          (owner.current !== requestedOwner ||
+            result.data.id !== requestedOwner)) ||
+        (!requestedOwner && owner.current && result.data.id !== owner.current)
+      )
+        return;
       setDraft(null);
       setIdentityDenied(false);
       setNameCommitted(false);
@@ -492,8 +501,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         )}
       </section>
 
-      <AcademicPanel />
-      <SchoolDeparturePanel />
+      <AcademicPanel actions={<SchoolDepartureAction />} />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5 sm:p-6">
@@ -578,7 +586,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                   pwError ?? changePassword.error ?? requestCode.error,
                 )}
                 aria-describedby={
-                  pwError ?? changePassword.error ?? requestCode.error
+                  (pwError ?? changePassword.error ?? requestCode.error)
                     ? "account-password-error"
                     : undefined
                 }

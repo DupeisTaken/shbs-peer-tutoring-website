@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { APP_TITLE } from "~/lib/branding";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Prisma, type SchoolHoursSchedule } from "../../generated/prisma";
@@ -7,6 +8,7 @@ import { programDateTimeInput } from "~/lib/program-time";
 import { getProgramTimeZone } from "./program/time-zone";
 import { getFeatures } from "./program/features";
 import { isEmailDeliveryAvailable } from "./email/sender";
+import { emailOrigin } from "./email/urls";
 import {
   inTransaction,
   lockEntity,
@@ -18,6 +20,7 @@ import { isSerializationFailure } from "./auth/username-snapshot";
 import { databaseScope } from "./db-scope";
 import {
   schoolHoursBaselineInput,
+  schoolHoursCarrySchema,
   schoolHoursComponentsSchema,
   schoolHoursGenerateInput,
   schoolHoursSettingsInput,
@@ -39,6 +42,10 @@ import {
   schoolHoursTokenMatches,
 } from "./school-hours-link";
 import { schoolHoursEmailCopy } from "./school-hours-email";
+import {
+  quantizeSchoolHours,
+  sumSchoolHoursCarry,
+} from "./school-hours-posting";
 import {
   publicSchoolHoursReport,
   schoolHoursCsv as publicSchoolHoursCsv,
@@ -84,6 +91,7 @@ const personSchema = z.object({
   beneficiaryId: z.string(),
   schoolAccountKey: z.string(),
   components: schoolHoursComponentsSchema,
+  carryHours: schoolHoursCarrySchema.default("0"),
   provenanceUserIds: z.array(z.string()),
   provenanceTutorIds: z.array(z.string()),
 });
@@ -188,38 +196,60 @@ async function audit(
 /** Explicit ownership and retirement edges are identity evidence. Names, shared
  * Person rows and email addresses never join beneficiaries. */
 async function collect(db: DomainDb) {
-  const [users, tutors, sessions, adjustments, patrols] = await Promise.all([
-    db.user.findMany({
-      select: {
-        id: true,
-        ...nameSelect,
-        name: true,
-        tutorId: true,
-        mergedIntoId: true,
-      },
-    }),
-    db.tutor.findMany({
-      select: {
-        id: true,
-        ...nameSelect,
-        englishName: true,
-        nameFieldsConfirmed: true,
-        retainedOwner: { select: { userId: true } },
-      },
-    }),
-    db.session.findMany({
-      select: { id: true, tutorId: true, shCount: true },
-      orderBy: { id: "asc" },
-    }),
-    db.serviceHourAdjustment.findMany({
-      select: { id: true, tutorId: true, type: true, amount: true },
-      orderBy: { id: "asc" },
-    }),
-    db.patrol.findMany({
-      select: { id: true, crewUserId: true, hours: true },
-      orderBy: { id: "asc" },
-    }),
-  ]);
+  const [users, tutors, sessions, adjustments, patrols, imported] =
+    await Promise.all([
+      db.user.findMany({
+        select: {
+          id: true,
+          ...nameSelect,
+          name: true,
+          tutorId: true,
+          mergedIntoId: true,
+        },
+      }),
+      db.tutor.findMany({
+        select: {
+          id: true,
+          ...nameSelect,
+          englishName: true,
+          nameFieldsConfirmed: true,
+          retainedOwner: { select: { userId: true } },
+        },
+      }),
+      db.session.findMany({
+        select: { id: true, tutorId: true, shCount: true },
+        orderBy: { id: "asc" },
+      }),
+      db.serviceHourAdjustment.findMany({
+        select: { id: true, tutorId: true, type: true, amount: true },
+        orderBy: { id: "asc" },
+      }),
+      db.patrol.findMany({
+        select: { id: true, crewUserId: true, hours: true },
+        orderBy: { id: "asc" },
+      }),
+      db.importedRecordProvenance.findMany({
+        where: {
+          entity: { in: ["Session", "ServiceHourAdjustment", "Patrol"] },
+        },
+        select: { entity: true, recordId: true },
+      }),
+    ]);
+  const importedKeys = new Set(
+    imported.map((row) => `${row.entity}:${row.recordId}`),
+  );
+  const importedSourceKeys = new Set(
+    imported.map(
+      (row) =>
+        `${row.entity === "Session" ? "session" : row.entity === "Patrol" ? "patrol" : "adjustment"}:${row.recordId}`,
+    ),
+  );
+  const archivedSourceKeys = new Set<string>();
+  const archived = (entity: string, id: string, sourceKey: string) => {
+    if (!importedKeys.has(`${entity}:${id}`)) return false;
+    archivedSourceKeys.add(sourceKey);
+    return true;
+  };
   const blockers: Blocker[] = [];
   const userMap = new Map(users.map((user) => [user.id, user]));
   const tutorMap = new Map(tutors.map((tutor) => [tutor.id, tutor]));
@@ -339,27 +369,41 @@ async function collect(db: DomainDb) {
       ownerId,
     });
   }
+  // Stored archive hours remain available in rosters/history. Importing evidence
+  // alone never certifies new school credit, even for an already-reviewed owner.
   for (const row of sessions)
-    add("tutor", row.tutorId, `session:${row.id}`, "earned", row.shCount);
+    if (!archived("Session", row.id, `session:${row.id}`))
+      add("tutor", row.tutorId, `session:${row.id}`, "earned", row.shCount);
   // Reconciliation IDs (meeting absences/interview awards) are logical source
   // keys, so delete/recreate with the same ID never becomes a second deduction.
   for (const row of adjustments)
-    add(
-      "tutor",
-      row.tutorId,
-      `adjustment:${row.id}`,
-      row.type === "EXTRA" ? "extras" : "deductions",
-      row.amount,
-    );
+    if (!archived("ServiceHourAdjustment", row.id, `adjustment:${row.id}`))
+      add(
+        "tutor",
+        row.tutorId,
+        `adjustment:${row.id}`,
+        row.type === "EXTRA" ? "extras" : "deductions",
+        row.amount,
+      );
   for (const row of patrols)
-    add("user", row.crewUserId, `patrol:${row.id}`, "crew", row.hours);
+    if (!archived("Patrol", row.id, `patrol:${row.id}`))
+      add("user", row.crewUserId, `patrol:${row.id}`, "crew", row.hours);
   for (const person of people.values())
     for (const key of keys)
       person.components[key] = componentTotals
         .get(person.beneficiaryId)!
         [key].toNumber();
   sources.sort((a, b) => a.key.localeCompare(b.key));
-  return { people, sources, blockers, resolve, userMap, tutorMap };
+  return {
+    people,
+    sources,
+    blockers,
+    resolve,
+    userMap,
+    tutorMap,
+    archivedSourceKeys,
+    importedSourceKeys,
+  };
 }
 
 async function accounting(db: DomainDb) {
@@ -379,6 +423,24 @@ async function accounting(db: DomainDb) {
     : [];
   const previous = new Map<string, Person>();
   const blockers = [...current.blockers];
+  // Reimporting a deleted logical source must not turn its committed credit into
+  // a negative correction. Such a boundary change needs explicit reconciliation.
+  for (const source of [...committed.sources, ...opening.sources]) {
+    if (
+      current.importedSourceKeys.has(source.key) &&
+      !blockers.some(
+        (blocker) =>
+          blocker.code === "IMPORTED_SOURCE_REQUIRES_RECONCILIATION" &&
+          blocker.beneficiaryId === source.beneficiaryId,
+      )
+    )
+      blockers.push({
+        code: "IMPORTED_SOURCE_REQUIRES_RECONCILIATION",
+        beneficiaryId: source.beneficiaryId,
+        message:
+          "Previously reviewed school-reporting evidence was restored as an archive. Reconcile its reporting boundary before issuing.",
+      });
+  }
   const resolvePerson = (person: Person) => {
     const direct = current.resolve(person.beneficiaryId);
     if (direct) return direct;
@@ -426,6 +488,7 @@ async function accounting(db: DomainDb) {
     if (old) {
       for (const key of keys)
         old.components[key] = sum(old.components[key], person.components[key]);
+      old.carryHours = sumSchoolHoursCarry([old.carryHours, person.carryHours]);
     } else
       previous.set(id, {
         ...person,
@@ -490,6 +553,7 @@ async function accounting(db: DomainDb) {
       schoolAccountKey: old?.schoolAccountKey ?? null,
       current: live?.components ?? zero(),
       alreadyReported: old?.components ?? null,
+      carryHours: old?.carryHours ?? "0",
       needsReview: !old,
       sourceCount: live?.sourceCount ?? 0,
     };
@@ -506,6 +570,7 @@ async function accounting(db: DomainDb) {
       head: head?.id ?? null,
       participants,
       sources: current.sources,
+      archivedSourceKeys: [...current.archivedSourceKeys].sort(),
       blockers,
     }),
   };
@@ -520,6 +585,7 @@ export async function schoolHoursBaselinePreview(db: DomainDb) {
       headReportId: result.head?.id ?? null,
       participants: result.participants,
       blockers: result.blockers,
+      archivedSourceCount: result.current.archivedSourceKeys.size,
     };
   });
 }
@@ -560,6 +626,7 @@ export async function reviewSchoolHoursBaseline(
           deductions: row.deductions,
           crew: row.crew,
         },
+        carryHours: "0",
         provenanceUserIds: live.provenanceUserIds,
         provenanceTutorIds: live.provenanceTutorIds,
       };
@@ -576,7 +643,23 @@ export async function reviewSchoolHoursBaseline(
       throw invalid(
         "Each independent participant needs a distinct school identifier.",
       );
-    opening.sources = result.current.sources;
+    // A partial review anchors only its selected people. Preserve everyone
+    // else's reviewed ownership evidence rather than adopting a background read.
+    const reviewed = new Set(
+      input.participants.map((row) => row.beneficiaryId),
+    );
+    opening.sources = [
+      ...opening.sources.filter(
+        (source) =>
+          !reviewed.has(
+            result.current.resolve(source.beneficiaryId) ??
+              source.beneficiaryId,
+          ),
+      ),
+      ...result.current.sources.filter((source) =>
+        reviewed.has(source.beneficiaryId),
+      ),
+    ].sort((left, right) => left.key.localeCompare(right.key));
     const baselineVersion = input.expectedBaselineVersion + 1;
     await tx.schoolHoursSchedule.upsert({
       where: { id: "program" },
@@ -609,6 +692,7 @@ export function schoolHoursConfig(
   return {
     enabled: row?.enabled ?? false,
     recipientEmails: row?.recipientEmails ?? [],
+    recipientLabels: (row?.recipientLabels ?? {}) as Record<string, string>,
     timeZone: row?.timeZone ?? zone,
     includeStatistics: row?.includeStatistics ?? false,
     dateOverrides: (row?.dateOverrides ?? {}) as Record<string, string>,
@@ -668,17 +752,28 @@ export async function saveSchoolHoursSettings(
         : nextSchoolHoursOccurrence(new Date(), input)
       : null;
     const { expectedVersion, ...fields } = input;
+    // Older clients omit labels. Preserve retained mailboxes' labels while
+    // removing labels for deleted recipients; an explicit empty map clears all.
+    const recipientLabels =
+      input.recipientLabels ??
+      Object.fromEntries(
+        Object.entries(
+          schoolHoursConfig(before, input.timeZone).recipientLabels,
+        ).filter(([email]) => input.recipientEmails.includes(email)),
+      );
     const row = await tx.schoolHoursSchedule.upsert({
       where: { id: "program" },
       create: {
         id: "program",
         ...fields,
+        recipientLabels,
         version: expectedVersion + 1,
         nextMonth: next?.month ?? null,
         nextDueAt: next?.dueAt ?? null,
       },
       update: {
         ...fields,
+        recipientLabels,
         version: expectedVersion + 1,
         nextMonth: next?.month ?? null,
         nextDueAt: next?.dueAt ?? null,
@@ -689,9 +784,10 @@ export async function saveSchoolHoursSettings(
       where: {
         category: schoolHoursCategory,
         status: { in: ["PENDING", "FAILED", "BLOCKED"] },
-        ...(input.enabled
-          ? { recipient: { notIn: input.recipientEmails } }
-          : {}),
+        OR: [
+          { recipient: { notIn: input.recipientEmails } },
+          ...(!input.enabled ? [{ schoolHoursReminderSourceId: null }] : []),
+        ],
       },
       data: {
         status: "SKIPPED",
@@ -768,8 +864,14 @@ async function preview(db: DomainDb, month: string) {
         change.extras,
         -change.deductions,
       ),
-      crewChange = change.crew,
-      hoursToAdd = sum(tutoringChange, crewChange);
+      crewChange = change.crew;
+    // The source baseline advances in full, but only positive whole tenths are posted.
+    // The signed remainder travels with this person's baseline, even across
+    // months and ownership retirement. Preview and mail retries never consume it.
+    const { hoursToAdd, carryOutHours } = quantizeSchoolHours(
+      sum(tutoringChange, crewChange),
+      participant.carryHours,
+    );
     const oldRow = headSnapshot?.rows.filter(
       (row) =>
         state.current.resolve(row.beneficiaryId) === participant.beneficiaryId,
@@ -821,6 +923,8 @@ async function preview(db: DomainDb, month: string) {
       tutoringChange,
       crewChange,
       hoursToAdd,
+      carryInHours: participant.carryHours,
+      carryOutHours,
       monthAmount,
       previousEditionAmount: sameMonth ? oldMonth : null,
       previousMonthAmount,
@@ -828,7 +932,7 @@ async function preview(db: DomainDb, month: string) {
         previousMonthAmount == null
           ? null
           : minus(monthAmount, previousMonthAmount),
-      unchanged: keys.every((key) => change[key] === 0),
+      unchanged: keys.every((key) => change[key] === 0) && hoursToAdd === 0,
       priorEditions: editionCorrections,
     };
   });
@@ -847,6 +951,7 @@ async function preview(db: DomainDb, month: string) {
   }
   const snapshot: SchoolHoursSnapshot = {
     schemaVersion: 1,
+    postingPolicy: "TENTH_HOUR_CARRY_NONNEGATIVE",
     month,
     revision: sameMonth ? state.head!.revision + 1 : 1,
     generatedAt: new Date().toISOString(),
@@ -863,6 +968,7 @@ async function preview(db: DomainDb, month: string) {
     recipients: config.recipientEmails,
     snapshot: { ...snapshot, generatedAt: null },
     sources: state.current.sources,
+    archivedSourceKeys: [...state.current.archivedSourceKeys].sort(),
     blockers,
   });
   return {
@@ -874,6 +980,8 @@ async function preview(db: DomainDb, month: string) {
     contentHash,
     blockers,
     email: schoolHoursEmailCopy({
+      brand: APP_TITLE,
+      iconUrl: `${emailOrigin()}/icon.png`,
       report: snapshot,
       reportUrl: "#school-report-preview",
       preview: true,
@@ -894,6 +1002,7 @@ export async function previewSchoolHours(db: DomainDb, month: string) {
       contentHash: result.contentHash,
       blockers: result.blockers,
       email: result.email,
+      archivedSourceCount: result.state.current.archivedSourceKeys.size,
     };
   });
 }
@@ -927,6 +1036,7 @@ async function createReport(
       beneficiaryId: row.beneficiaryId,
       schoolAccountKey: row.schoolAccountKey,
       components: row.current,
+      carryHours: row.carryOutHours ?? "0",
       provenanceUserIds:
         result.state.current.people.get(row.beneficiaryId)?.provenanceUserIds ??
         result.state.previous.get(row.beneficiaryId)?.provenanceUserIds ??
@@ -1178,7 +1288,12 @@ export async function getSchoolHoursSettings(db: DomainDb, role: string) {
     db.schoolHoursReport.findMany({
       orderBy: { generatedAt: "desc" },
       take: 24,
-      include: { deliveries: { select: { status: true, attempts: true } } },
+      include: {
+        deliveries: {
+          where: { schoolHoursReminderSourceId: null },
+          select: { status: true, attempts: true },
+        },
+      },
     }),
     getProgramTimeZone(db),
     getFeatures(db),
@@ -1229,6 +1344,9 @@ export async function getSchoolHoursReport(db: DomainDb, id: string) {
           lastError: true,
           completedAt: true,
           availableAt: true,
+          schoolHoursLinkOpenedAt: true,
+          schoolHoursReminderSourceId: true,
+          schoolHoursScheduledFor: true,
         },
       },
     },
@@ -1292,6 +1410,7 @@ export async function retrySchoolHoursReport(
     const result = await tx.emailDelivery.updateMany({
       where: {
         schoolHoursReportId: id,
+        schoolHoursReminderSourceId: null,
         recipient: { in: config.recipientEmails },
         status: { in: ["FAILED", "BLOCKED"] },
       },
@@ -1339,6 +1458,21 @@ export async function changeSchoolHoursLink(
             linkRevokedAt: null,
           }
         : { linkVersion, linkRevokedAt: new Date() },
+    });
+    // Settle reminders bound to the invalidated capability immediately, so a
+    // fresh personal link never shows an old reminder as still scheduled.
+    await tx.emailDelivery.updateMany({
+      where: {
+        schoolHoursReportId: id,
+        schoolHoursReminderSourceId: { not: null },
+        status: { in: ["PENDING", "BLOCKED", "FAILED"] },
+      },
+      data: {
+        status: "SKIPPED",
+        lastError: reissue ? "LINK_CHANGED" : "LINK_REVOKED",
+        completedAt: new Date(),
+        leaseUntil: null,
+      },
     });
     await audit(tx, actorId, reissue ? "reissueLink" : "revokeLink", id, {
       linkVersion,

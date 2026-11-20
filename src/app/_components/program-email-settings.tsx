@@ -5,10 +5,15 @@ import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { ProgramSchoolHoursPreview } from "./school-hours-preview";
+import { SectionTabs } from "./ui/section-tabs";
+import { ProgramNotificationLocks } from "./program-notification-locks";
 
 /** Independent immediate controls share query invalidation, never a combined toggle. */
 export function ProgramEmailSettings() {
   const t = useTranslations("programEmail");
+  const locks = useTranslations("notificationLocks");
+  const [panel, setPanel] = useState<"delivery" | "requirements">("delivery");
+  const [requirementsOpened, setRequirementsOpened] = useState(false);
   const approvals = useTranslations("approvals");
   const utils = api.useUtils();
   const settings = api.program.emailNotificationSettings.useQuery();
@@ -44,133 +49,155 @@ export function ProgramEmailSettings() {
           </span>
         )}
       </div>
-      {data?.canEdit && data.canApply === false && (
-        <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
-      )}
-      {data && (
-        <EmailDeliveryStatus
-          canEdit={data.canEdit}
-          settingsReady={!settings.error}
-        />
-      )}
-      {data && (
-        <ProgramSchoolHoursPreview
-          denied={
-            settings.error?.data?.code === "FORBIDDEN" ||
-            settings.error?.data?.code === "UNAUTHORIZED"
-          }
-        />
-      )}
-      {!data && !settings.error && (
-        <StatePanel kind="loading" title={t("loading")} />
-      )}
-      {data?.canEdit && (
-        <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
-          <input
-            type="checkbox"
-            checked={data.enabled}
-            disabled={
-              save.isPending ||
-              !!settings.error ||
-              (!data.enabled && !data.deliveryAvailable)
-            }
-            onChange={(e) =>
-              save.mutate({
-                enabled: e.target.checked,
-                expectedEnabled: data.enabled,
-              })
-            }
-            className="accent-accent-600 h-4 w-4"
-          />
-          {data.canApply === false
-            ? approvals("requestChange", { setting: t("enable") })
-            : t("enable")}
-        </label>
-      )}
-      <p className="muted text-xs">{t("essential")}</p>
-      <div className="space-y-3 border-t border-slate-100 pt-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              {t("bindingTitle")}
-            </h3>
-            <p className="muted mt-1 text-sm">{t("bindingHelp")}</p>
-          </div>
+      <SectionTabs
+        label={t("title")}
+        value={panel}
+        onChange={(value) => {
+          setPanel(value);
+          if (value === "requirements") setRequirementsOpened(true);
+        }}
+        items={[
+          { value: "delivery", label: locks("deliveryTab") },
+          { value: "requirements", label: locks("requiredTab") },
+        ]}
+      >
+        <div hidden={panel !== "delivery"} className="space-y-3">
+          {data?.canEdit && data.canApply === false && (
+            <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+          )}
           {data && (
-            <span
-              className={
-                data.secondaryEmailBindingEnabled
-                  ? "badge-green"
-                  : "badge-slate"
+            <EmailDeliveryStatus
+              canEdit={data.canEdit}
+              settingsReady={!settings.error}
+            />
+          )}
+          {data && (
+            <ProgramSchoolHoursPreview
+              denied={
+                settings.error?.data?.code === "FORBIDDEN" ||
+                settings.error?.data?.code === "UNAUTHORIZED"
+              }
+            />
+          )}
+          {!data && !settings.error && (
+            <StatePanel kind="loading" title={t("loading")} />
+          )}
+          {data?.canEdit && (
+            <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={data.enabled}
+                disabled={
+                  save.isPending ||
+                  !!settings.error ||
+                  (!data.enabled && !data.deliveryAvailable)
+                }
+                onChange={(e) =>
+                  save.mutate({
+                    enabled: e.target.checked,
+                    expectedEnabled: data.enabled,
+                  })
+                }
+                className="accent-accent-600 h-4 w-4"
+              />
+              {data.canApply === false
+                ? approvals("requestChange", { setting: t("enable") })
+                : t("enable")}
+            </label>
+          )}
+          <p className="muted text-xs">{t("essential")}</p>
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  {t("bindingTitle")}
+                </h3>
+                <p className="muted mt-1 text-sm">{t("bindingHelp")}</p>
+              </div>
+              {data && (
+                <span
+                  className={
+                    data.secondaryEmailBindingEnabled
+                      ? "badge-green"
+                      : "badge-slate"
+                  }
+                >
+                  {t(data.secondaryEmailBindingEnabled ? "on" : "off")}
+                </span>
+              )}
+            </div>
+            {data?.canEdit && (
+              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={data.secondaryEmailBindingEnabled}
+                  disabled={binding.isPending || !!settings.error}
+                  onChange={(e) =>
+                    binding.mutate({
+                      enabled: e.target.checked,
+                      expectedEnabled: data.secondaryEmailBindingEnabled,
+                    })
+                  }
+                  className="accent-accent-600 h-4 w-4 shrink-0"
+                />
+                {data.canApply === false
+                  ? approvals("requestChange", { setting: t("bindingEnable") })
+                  : t("bindingEnable")}
+              </label>
+            )}
+          </div>
+          {data && !data.deliveryAvailable && (
+            <p className="text-sm text-amber-800">{t("unavailable")}</p>
+          )}
+          {(save.error?.data?.approvalId ??
+            binding.error?.data?.approvalId) && (
+            <InlineNotice tone="warning" announcement="status">
+              {approvals("queuedBody")}
+            </InlineNotice>
+          )}
+          {(save.isSuccess || binding.isSuccess) &&
+            !save.error?.data?.approvalId &&
+            !binding.error?.data?.approvalId && (
+              <p role="status" className="text-sm text-green-700">
+                {t("saved")}
+              </p>
+            )}
+          {settings.error && (
+            <InlineNotice
+              tone="error"
+              announcement="alert"
+              action={
+                <Button
+                  size="compact"
+                  disabled={settings.isFetching}
+                  onClick={() => void settings.refetch()}
+                >
+                  {t("retrySettings")}
+                </Button>
               }
             >
-              {t(data.secondaryEmailBindingEnabled ? "on" : "off")}
-            </span>
+              {t("settingsFailed")}
+            </InlineNotice>
+          )}
+          {((save.error?.data?.approvalId ? null : save.error) ??
+            (binding.error?.data?.approvalId ? null : binding.error)) && (
+            <p role="alert" className="text-sm text-red-700">
+              {
+                (
+                  (save.error?.data?.approvalId ? null : save.error) ??
+                  (binding.error?.data?.approvalId ? null : binding.error)
+                )?.message
+              }
+            </p>
           )}
         </div>
-        {data?.canEdit && (
-          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={data.secondaryEmailBindingEnabled}
-              disabled={binding.isPending || !!settings.error}
-              onChange={(e) =>
-                binding.mutate({
-                  enabled: e.target.checked,
-                  expectedEnabled: data.secondaryEmailBindingEnabled,
-                })
-              }
-              className="accent-accent-600 h-4 w-4 shrink-0"
-            />
-            {data.canApply === false
-              ? approvals("requestChange", { setting: t("bindingEnable") })
-              : t("bindingEnable")}
-          </label>
+        {/* Retain requirements drafts, pending writes and read recovery across tabs. */}
+        {requirementsOpened && (
+          <div hidden={panel !== "requirements"}>
+            <ProgramNotificationLocks />
+          </div>
         )}
-      </div>
-      {data && !data.deliveryAvailable && (
-        <p className="text-sm text-amber-800">{t("unavailable")}</p>
-      )}
-      {(save.error?.data?.approvalId ?? binding.error?.data?.approvalId) && (
-        <InlineNotice tone="warning" announcement="status">
-          {approvals("queuedBody")}
-        </InlineNotice>
-      )}
-      {(save.isSuccess || binding.isSuccess) &&
-        !save.error?.data?.approvalId &&
-        !binding.error?.data?.approvalId && (
-          <p role="status" className="text-sm text-green-700">
-            {t("saved")}
-          </p>
-        )}
-      {settings.error && (
-        <InlineNotice
-          tone="error"
-          announcement="alert"
-          action={
-            <Button
-              size="compact"
-              disabled={settings.isFetching}
-              onClick={() => void settings.refetch()}
-            >
-              {t("retrySettings")}
-            </Button>
-          }
-        >
-          {t("settingsFailed")}
-        </InlineNotice>
-      )}
-      {((save.error?.data?.approvalId ? null : save.error) ??
-        (binding.error?.data?.approvalId ? null : binding.error)) && (
-        <p role="alert" className="text-sm text-red-700">
-          {
-            (
-              (save.error?.data?.approvalId ? null : save.error) ??
-              (binding.error?.data?.approvalId ? null : binding.error)
-            )?.message
-          }
-        </p>
-      )}
+      </SectionTabs>
     </section>
   );
 }

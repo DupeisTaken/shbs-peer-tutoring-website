@@ -32,6 +32,52 @@ import {
 } from "./signup";
 
 const email = "crew@example.test";
+
+it("persists the accountless application language through mailbox resends and durable intake", async () => {
+  await stageCrewVerification(db, email, draft, false, "zh");
+  expect(mail.send.mock.calls.at(-1)![0].presentation?.locale).toBe("zh");
+  await stageCrewVerification(db, email, undefined, true, "en");
+  expect(mail.send.mock.calls.at(-1)![0].presentation?.locale).toBe("zh");
+  await verifyCrewApplication(db, { email, code: code() }, headers);
+  expect((await db.crewApplication.findFirstOrThrow()).emailLocale).toBe("zh");
+});
+it("recovers durable application language after disposable verification cleanup", async () => {
+  await stageCrewVerification(db, email, draft, false, "zh");
+  await verifyCrewApplication(db, { email, code: code() }, headers);
+  const application = await db.crewApplication.findFirstOrThrow();
+  await db.crewSignupVerification.deleteMany({ where: { email } });
+  await stageCrewVerification(db, email, undefined, false, "en");
+  expect(mail.send.mock.lastCall![0].presentation?.locale).toBe("zh");
+  expect(
+    await db.crewSignupVerification.findUniqueOrThrow({ where: { email } }),
+  ).toMatchObject({
+    applicationId: application.id,
+    emailLocale: "zh",
+  });
+  expect(
+    (
+      await db.crewApplication.findUniqueOrThrow({
+        where: { id: application.id },
+      })
+    ).emailLocale,
+  ).toBe("zh");
+});
+
+it("prefers the current account language without replacing the application's captured language", async () => {
+  await stageCrewVerification(db, email, draft, false, "zh");
+  await verifyCrewApplication(db, { email, code: code() }, headers);
+  const application = await db.crewApplication.findFirstOrThrow();
+  await db.user.create({ data: { email, emailLocale: "en" } });
+  await stageCrewVerification(db, email, undefined, true, "zh");
+  expect(mail.send.mock.lastCall![0].presentation?.locale).toBe("en");
+  expect(
+    (
+      await db.crewApplication.findUniqueOrThrow({
+        where: { id: application.id },
+      })
+    ).emailLocale,
+  ).toBe("zh");
+});
 const headers = new Headers({ "x-forwarded-for": "192.0.2.50" });
 const draft = {
   name: "Original Crew",
@@ -413,7 +459,10 @@ it("waits for an in-flight Head demotion and rejects before issuing a grant", as
         { pid: number }[]
       >`SELECT pg_backend_pid() AS pid`;
       demotionPid = backend!.pid;
-      await tx.user.update({ where: { id: "HEAD" }, data: { role: "COORDINATOR" } });
+      await tx.user.update({
+        where: { id: "HEAD" },
+        data: { role: "COORDINATOR" },
+      });
       actorLocked();
       await gate;
     }),

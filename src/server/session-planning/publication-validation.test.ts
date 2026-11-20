@@ -284,6 +284,11 @@ describe("fresh initial-publication validation snapshot", () => {
         });
       }
       const current = await request("current", 0);
+      const cancellation = await request("pending-cancellation", 0);
+      await tx.sessionPlanningRequest.update({
+        where: { id: cancellation.id },
+        data: { kind: "CANCEL" },
+      });
       await request("old-overlap-current-touching", 45, true);
       await request("before", -45);
       const accepted = await request("accepted", 0);

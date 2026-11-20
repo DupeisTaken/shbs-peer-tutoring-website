@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import type { TransactionDb } from "~/server/transactions";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { readCurrentSessionReminderCohort } from "~/server/session-planning";
+import { saveProgramCalendar, removeProgramCalendar } from "~/server/program/calendar";
 import { queueEventReminders, validateEventReminder } from "./event-reminders";
 
 beforeAll(() => assertIsolatedTestDatabase(process.env.DATABASE_URL));
@@ -167,6 +168,68 @@ it("uses one published occurrence per lead and rechecks the actual dated source"
     });
     await queueEventReminders(tx, now);
     expect(await f.queued()).toHaveLength(0);
+  });
+});
+
+it("queues actual dated-exception reminders through a pause, excludes ordinary peers and respects an overlapping NOTICE", async () => {
+  await fixture(async (tx, f) => {
+    // Bound this synthetic term to the distant domain date. The real-clock
+    // policy writer still reconciles this future publication synchronously.
+    await tx.term.update({ where: { id: f.pairing.termId }, data: {
+      startDate: new Date("2096-10-01T00:00:00Z"), endDate: new Date("2096-11-30T00:00:00Z"),
+    } });
+    const { plan, cohort } = await f.publish();
+    const peer = await tx.tutee.create({ data: { englishName: "Casey Synthetic", status: "ACTIVE" } });
+    const peerUser = await tx.user.create({ data: {
+      email: `${randomUUID()}@example.test`, role: "STUDENT", studentId: peer.id,
+      tuteeMember: true, emailVerifiedAt: now, emailEventReminders: true,
+    } });
+    f.users.push(peerUser.id);
+    await tx.pairingTutee.create({ data: { pairingId: f.pairing.id, tuteeId: peer.id } });
+    await tx.sessionPlanAssignment.update({ where: { planId_pairingId: { planId: plan.id, pairingId: f.pairing.id } }, data: { tuteeIds: [f.tutee.id, peer.id] } });
+    await tx.sessionPlanParticipant.create({ data: { planId: plan.id, cohortId: cohort.id, tuteeId: peer.id } });
+    await tx.sessionPlanParticipant.update({ where: { planId_tuteeId: { planId: plan.id, tuteeId: f.tutee.id } }, data: { scheduleOverride: true } });
+    // Capture durable exact consent, rather than treating scheduleOverride as
+    // evidence. Queueing below executes the real optional-mail selection path.
+    const request = await tx.sessionPlanningRequest.create({ data: {
+      planId: plan.id, cohortId: cohort.id, kind: "RESCHEDULE", scope: "ONE",
+      participantIds: [f.tutee.id], status: "ACCEPTED",
+    } });
+    const offer = await tx.sessionPlanningOffer.create({ data: {
+      requestId: request.id, sequence: 1, authorKey: `tutor:${f.tutor.id}`,
+      date, startMin: cohort.startMin, endMin: cohort.endMin, startsAt: cohort.startsAt, endsAt: cohort.endsAt,
+      roomId: cohort.roomId, online: cohort.online, cutoffAt: cohort.startsAt,
+      responses: { create: [
+        { actorKey: `tutor:${f.tutor.id}`, actorUserId: f.tutorUser.id, state: "ACCEPTED", acceptedBy: "AUTHOR" },
+        { actorKey: `tutee:${f.tutee.id}`, actorUserId: f.studentUser.id, state: "ACCEPTED", acceptedBy: "EXPLICIT" },
+      ] },
+    } });
+    await tx.sessionPlanningRequest.update({ where: { id: request.id }, data: { currentOfferId: offer.id } });
+    await queueEventReminders(tx, now);
+    const ordinaryReceipt = (await f.queued()).find((row) => row.userId === peerUser.id)!;
+    expect(ordinaryReceipt).toBeDefined();
+    await saveProgramCalendar(tx, { date, endDate: date, reason: "PRIVATE SYNTHETIC PAUSE REASON", schedulingEffect: "PAUSE_REGULAR", expectedVersion: 0 });
+    expect(await tx.sessionPlanParticipant.findUniqueOrThrow({ where: { planId_tuteeId: { planId: plan.id, tuteeId: peer.id } } })).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true });
+    expect(await validateEventReminder(tx, ordinaryReceipt, now)).toBe(false);
+    await tx.emailDelivery.deleteMany({ where: { userId: { in: f.users }, category: "reminder" } });
+    await queueEventReminders(tx, now);
+    const retained = await f.queued();
+    expect(retained.map((row) => row.userId).sort()).toEqual([f.tutorUser.id, f.studentUser.id].sort());
+    for (const row of retained) {
+      expect(row.context).toMatchObject({ kind: "tutoring_cohort", sourceId: cohort.id });
+      expect(await validateEventReminder(tx, row, now)).toBe(true);
+    }
+    expect(JSON.stringify(retained.map((row) => row.context))).not.toContain("Casey Synthetic");
+    expect(JSON.stringify(retained.map((row) => row.context))).not.toContain("PRIVATE SYNTHETIC PAUSE REASON");
+    const notice = await saveProgramCalendar(tx, { date: "2096-10-28", endDate: "2096-10-30", reason: "PRIVATE SYNTHETIC NOTICE REASON", schedulingEffect: "NOTICE", expectedVersion: 0 });
+    for (const row of retained) expect(await validateEventReminder(tx, row, now)).toBe(false);
+    await tx.emailDelivery.deleteMany({ where: { userId: { in: f.users }, category: "reminder" } });
+    await queueEventReminders(tx, now);
+    expect(await f.queued()).toHaveLength(0);
+    await removeProgramCalendar(tx, { date: notice.date, expectedVersion: notice.version });
+    await queueEventReminders(tx, now);
+    expect((await f.queued()).map((row) => row.userId).sort()).toEqual([f.tutorUser.id, f.studentUser.id].sort());
+    expect(await tx.sessionPlanCohort.findUniqueOrThrow({ where: { id: cohort.id } })).toMatchObject({ status: "SCHEDULED" });
   });
 });
 

@@ -19,6 +19,7 @@ import {
 import { fullPersonName } from "~/lib/person-name";
 import { ensureUserUsername, lockUsernameNamespace } from "./username";
 import { initializePersonSource } from "~/server/person-source-initialization";
+import { normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
 
 export const VIEWER_CODE_TTL_MINUTES = 15;
 const MAX_ATTEMPTS = 6;
@@ -44,6 +45,7 @@ async function startViewerSignupLocked(
     preferredName?: string | null;
     alternativeNames?: string | null;
     affiliation: string;
+    emailLocale?: EmailLocale;
   },
   client: DomainDb = db,
 ): Promise<{ ok: true; code: string } | { ok: false; error: "email-taken" }> {
@@ -66,10 +68,13 @@ async function startViewerSignupLocked(
   await assertPrimaryName(client, input.name);
   const previous = await client.viewerSignup.findUnique({
     where: { email },
-    select: { codeHash: true },
+    select: { codeHash: true, usedAt: true, emailLocale: true },
   });
   const code = freshEmailCode([previous?.codeHash]);
   const data = {
+    // Resending an unfinished request rotates proof, not its captured language.
+    // A completed request can start a fresh workflow using the current page choice.
+    emailLocale: normalizeEmailLocale(previous && !previous.usedAt ? previous.emailLocale : input.emailLocale),
     firstName: input.firstName,
     lastName: input.lastName,
     preferredName: input.preferredName,
@@ -224,6 +229,7 @@ export async function completeViewerSignup(
     const created = await tx.user.create({
       data: {
         email: e,
+        emailLocale: normalizeEmailLocale(row.emailLocale),
         // No username: viewers sign in by email; ensureUserUsername also skips VIEWER accounts.
         firstName: row.firstName,
         lastName: row.lastName,

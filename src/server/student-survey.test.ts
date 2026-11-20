@@ -174,6 +174,21 @@ afterAll(async () => {
 });
 
 describe("survey-first enrollment", () => {
+  it.each(["en", "zh"] as const)("retains an accountless %s mail choice through verification-link resend", async (locale) => {
+    await submitSurvey(db, input(), locale);
+    const row = await db.studentSurvey.findFirstOrThrow();
+    expect(row.emailLocale).toBe(locale);
+    const message = send.mock.lastCall![0];
+    expect(message.presentation?.locale).toBe(locale);
+    expect(message.subject).toBe(locale === "zh" ? "验证辅导报名邮箱" : "Verify your tutoring signup");
+    expect(message.text).toContain(locale === "zh" ? "报名尚未完成" : "signup is not complete");
+    expect(message.text).toContain(locale === "zh" ? "24 小时后失效" : "expire in 24 hours");
+    expect(message.text).not.toContain(locale === "zh" ? "signup is not complete" : "报名尚未完成");
+    expect(message.text).toContain("/tutee/account?token=");
+    await resendSurvey(db, row.email);
+    expect(send.mock.lastCall![0].presentation?.locale).toBe(locale);
+    expect((await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).emailLocale).toBe(locale);
+  });
   it.each([
     ["Xiaoming Wang", undefined, "xwang"],
     ["Xiaoming Wang", "Xiaoming Wang", "xwang"],
@@ -1034,7 +1049,7 @@ describe("student request lifecycle", () => {
         .signupSubmittedAt,
     ).toEqual(row.submittedAt);
     expect(send.mock.calls.at(-1)?.[0].text).toContain(
-      row.verificationDueAt!.toISOString(),
+      emailDeadline({ at: row.verificationDueAt!, timeZone: await getProgramTimeZone(db) }, { en: "Complete verification by", zh: "完成验证截止时间" }),
     );
     await resendSurvey(db, email);
     expect(
@@ -1686,3 +1701,5 @@ it("preserves all four name fields when staff materialize an intake before accou
   ).toEqual(row.payload);
   expect(await db.user.findUnique({ where: { email } })).toBeNull();
 });
+import { emailDeadline } from "./email/direct-email-copy";
+import { getProgramTimeZone } from "./program/time-zone-reader";

@@ -11,6 +11,10 @@ const change = {
   after: {},
   changedFields: ["name", "profileVersion"],
 };
+it("preserves an independent account email-language edit without admitting adjacent authority changes", () => {
+  expect(preservedRecoveryChange({ ...change, changedFields: ["emailLocale"] })).toBe(true);
+  expect(preservedRecoveryChange({ ...change, changedFields: ["emailLocale", "mergedIntoId"] })).toBe(false);
+});
 it("preserves live history invalidation epochs without adopting ownership or execution changes", () => {
   const epoch = {
     ...change,

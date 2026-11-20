@@ -96,8 +96,12 @@ test("CLI packaging guard catches omitted recovery acceptance descendants", () =
   const graph = runtimeCliGraph("scripts/recovery.ts");
   for (const omitted of [
     "src/server/recovery/operator-cutover.ts",
+    "src/server/recovery/operator-delivery-order.ts",
     "src/server/recovery/operator-next.ts",
+    "src/lib/email-locale.ts",
     "src/lib/session-identity.ts",
+    "src/lib/tutoring-policy.ts",
+    "src/server/program/calendar-policy-history.ts",
   ]) {
     assert.ok(graph.files.has(omitted), `${omitted} must be exercised by recovery`);
     assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== omitted)), [omitted]);

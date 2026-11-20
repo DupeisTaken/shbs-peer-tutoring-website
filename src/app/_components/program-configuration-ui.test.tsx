@@ -189,6 +189,7 @@ it("keeps a calendar draft/version across failed writes and blocks same-tick dup
     date: "2026-10-12",
     endDate: "2026-10-12",
     reason: "Unsaved reason",
+    schedulingEffect: "NOTICE",
     expectedVersion: 4,
   });
   expect(

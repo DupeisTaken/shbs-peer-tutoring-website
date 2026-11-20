@@ -938,7 +938,8 @@ when extending them; they are not an outstanding implementation checklist.
 The [contributor recipe](../contributing/implementation.md#add-an-action-or-feature) describes how
 to add a caller while preserving these boundaries.
 
-- **Informational tutoring dates:** no-tutoring notices carry program-local
+- **Tutoring calendar policy:** no-tutoring ranges carry an explicit `NOTICE` or
+  `PAUSE_REGULAR` effect and program-local
   inclusive starting and ending dates and a reason, independently of the school-day
   calendar used by appeals. `ProgramCalendarDay.date` remains the unique starting
   date and stable identity; `endDate` must be on or after it. Equal endpoints mean
@@ -949,8 +950,10 @@ to add a caller while preserving these boundaries.
   their versions and one-day meaning. Legacy writes and queued approval payloads
   without an end date retain that one-day meaning. Tombstones keep versions
   monotonic across removal and recreation so stale writes cannot revive a notice.
-  Displaying a range must not prohibit attendance, change an appeal deadline,
-  cancel a pairing, modify recurrence or infer a next session. Preserve the
+  Existing rows remain `NOTICE`; only an applied `PAUSE_REGULAR` policy suppresses
+  future ordinary dated commitments. School days, appeal deadlines, recurring
+  assignments and historical attendance remain separate. Suppression is reversible
+  per participant, without undoing user cancellations or individual dated agreement. Preserve the
   Admin/Head direct-write, Coordinator approval and audit model.
 - **Name requirements:** per-account-type Required, Optional and Hidden states
   apply to signup and later profile editing. All fields may be optional or hidden;
@@ -1050,6 +1053,14 @@ remain feature-owned. Ticket lifetimes stay at 30 minutes for student actions an
 rate limits, signup opening clocks and session timeouts are outside this contract.
 
 ## Identity and authorization
+
+`AccountSettings` composes `SchoolDepartureAction` into `AcademicPanel`'s optional
+action slot. The self-report opens the existing `SchoolDeparturePanel` in a
+`ProfileDialog`; staff academic panels retain their existing layout and departure
+editors. Academic drafts and departure revisions remain independent. A confirmed
+departure keeps the entry available for return requests and history.
+The shared departure editor stacks Change and Reason for review in full-width
+rows at every viewport, keeping self-service and staff forms aligned.
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
 `SchoolDepartureEvent` records. [Portal access](../../src/lib/portal-access.ts) derives
@@ -1599,6 +1610,15 @@ Deadline timestamps live in PostgreSQL. The Node worker checks at startup and ev
 
 Tutor and crew requests lock the member, recheck current membership and change only a pending request. Membership, notification and audit changes commit together, including through coordinator review. A stale request cannot override a later manual status change. Opt-out approval requires a seven-day wait; reentry requires approval without that wait. Opting out does not automatically perform the staff student-requeue action.
 
+Self-service Tutor/Crew opt-out reviews and the pending tutor's direct opt-out
+confirmation opt into a three-second presentation pause through `useReviewDelay`.
+The hook uses a monotonic deadline, resamples on focus/visibility, and rechecks
+readiness on click. Each explicit opening starts a new pause; Cancel is immediate
+and reaching zero never submits. `useActionReview` and `useDialog` remain immediate
+by default. This local pause is independent of server confirmation tickets and
+the seven-day membership approval wait. Crew review captures the displayed reason
+and rechecks eligibility before submitting; accepted-write recovery only refetches.
+
 These requests differ from non-survey tutee opt-outs relayed by a tutor: [removal processing](../../src/server/discipline/removal.ts) finalizes those after their seven-day recall window when a workflow enforces due requests. Survey/account-linked whole-period withdrawals instead require staff review and impose the period signup block. Do not merge these lifecycle rules.
 
 Application locks protect supported API writes. Do not import directly into request tables assuming a unique pending-request index exists. Validate membership and pending-request invariants when designing import tooling, and preserve decision history.
@@ -1858,10 +1878,25 @@ state or resolved school-day/timetable meaning also advance `scheduleRevision`.
 Legacy set inputs without an expected version retain create-only version-0
 behavior; an existing row or incompatible older proposal requires fresh review.
 
+`student.setCalendarHoliday` applies an inclusive closed-school range of at most
+366 actual dates. Its shared schema requires exactly one captured version for
+every covered date, using 0 only when no row exists. One transaction locks the
+period, dated scheduler and ascending dates, validates the complete version set,
+then writes ordinary `SchoolCalendarDay` rows with the same audit, tombstone and
+semantic-revision rules as individual edits. Existing make-up overrides can be
+replaced only with their captured versions. The dated scheduler reconciles once
+after the final range is present; per-date notification intents commit with all
+rows. A stale date or failed intent rolls back the entire range. Coordinators
+submit one proposal whose captured range is revalidated before Admin/Head
+approval. The resulting dates retain ordinary individual edit/reset behavior;
+school-day resolution, appeal counting and participant date links need no range
+precedence rule or separate holiday record.
+
 Protected participant reads expose bounded calendar facts without staff notes.
 Tutor upcoming sessions and today's task summary share these facts; attendance,
 historical session dates and service hours remain actual evidence. The separate
-`ProgramCalendarDay` inclusive no-tutoring ranges retain their informational meaning.
+`ProgramCalendarDay` ranges retain informational `NOTICE` behavior unless explicitly
+changed to `PAUSE_REGULAR`; tutoring-only pauses leave this school calendar unchanged.
 The [dated-session audience adapter](../../src/server/school-calendar-session-audience.ts)
 adds current eligible tutors and tutees from actual scheduled cohorts, including
 explicit extras and moved commitments retained on closed dates. Split rosters use
@@ -2016,6 +2051,23 @@ task counts. Missing attendance is not inferred from present-day membership.
 Period filters do not change excuse deadlines, correction authority or semester-wide
 deduction reconciliation.
 
+Meeting deduction reconciliation distinguishes native attendance from imported
+archive evidence. `ImportedRecordProvenance` marks newly imported meetings,
+attendance and amendments. Imported absences do not consume the native
+semester allowance, and imported `mtgabs_` amendments are never deleted or
+recomputed by a later current attendance edit or self-excuse. Native Q1/Q2 and
+Q3/Q4 attendance still shares its respective semester allowance. A native
+deduction whose identifier collides with a preserved imported amendment fails
+before rebuilding any deductions. Import and native management writers share
+meeting-record then sorted tutor-hour advisory fences so source/provenance
+publication cannot race a deduction rebuild or meeting deletion.
+
+Native meeting attendance changes and deletion reject imported meeting or
+attendance evidence. Corrections to that frozen source require reviewed archive
+recovery; browsing history and changing the displayed period remain reads.
+Existing unclassified rows retain their previous behavior: migration does not
+guess which old records came from an import.
+
 [Disciplinary standing](../../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; restoration requires the removal's status snapshot to remain current and eligible pairings to remain valid.
 
 A catalog time-slot edit releases movable room reservations by reviewed unit, in pairing ID order within each unit. A grouped room update detaches members in their authoritative member
@@ -2030,7 +2082,17 @@ together and increments their versions in pairing ID order. Restoring the
 third or later member therefore gives each affected sibling its original
 single increment and a reproducible position in the recovery journal.
 
-[Catalog-slot attendance propagation](../../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.
+[Catalog-slot attendance propagation](../../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete native merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. An imported Session or SessionTutee freezes its entire attendance block against unrelated catalogue propagation, including mixed-origin siblings. Frozen attendance still participates in overlap checks for a changed native block. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.
+
+Automatic crew comparisons preserve imported attendance blocks, recorded flags and
+logical `flag:` amendments. Imported PatrolObservation rows and observations under
+an imported Patrol do not generate new native discrepancy work. Imports and
+native comparisons share sorted session-flag advisory fences, including each
+merged primary when importing a sibling, before provenance and attendance-roster
+reads. Explicit reviewed source corrections remain separate
+from these automatic comparisons. Valid imported cards still contribute to
+disciplinary standing under the existing policy; an imported approved removal
+receipt cannot automatically restore current enrollment after a later card edit.
 
 Reusable tutor pairing groups are implemented by [pairing-groups](../../src/server/pairing-groups.ts) and the self-scoped [router](../../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. The shared [eligibility helper](../../src/lib/pairing-group-eligibility.ts) requires each distinct tutee's selected subject set to equal the whole group's subject set. It compares stored subject labels exactly because Pairing has no subject ID; case, whitespace and aliases never invent missing assignments. Splitting one subject across roster rows remains valid.
 
@@ -2132,6 +2194,12 @@ Retry actions remain visible when navigation resets hide the affected panel.
 
 Announcements freeze tutor IDs at publication, or at approval for a coordinator proposal. Editing or restoring a post does not recompute its recipients. Empty restricted audiences never become broadcasts. Preview, publication, reads and acknowledgements must share recipient-selection rules; notifications and publication commit together.
 
+The tutor dashboard preserves the query's pinned-first, newest-first order and
+renders pinned or unacknowledged posts with one accent card, including the date.
+Pinned cards show 📌 before 📣 and omit Dismiss regardless of acknowledgement;
+acknowledged ordinary posts are hidden. Historical acknowledgements and the
+audience-guarded acknowledgement API remain unchanged.
+
 ### Account emails and delivery
 
 Staff, tutors and tutees share the staged **Notification preferences** card. The
@@ -2157,17 +2225,78 @@ notices fall outside the latest thirty displayed records. Saving invalidates bot
 counts and the list; an accepted save followed by a failed
 refresh offers read-only recovery rather than repeating the write.
 
+The same Save/Cancel draft includes an English/中文 email-language selector. Language
+can be saved while global optional email is disabled and does not opt into delivery.
+Older clients that omit the field preserve the current choice. The additive source
+columns have database checks for `en`/`zh`; operator recovery accepts complete older
+backups without them and rejects a partially upgraded locale-column bundle.
+Language remains available under notification requirements; category choices still
+use the existing expected-lock snapshot and stored-personal-choice safeguards.
+
+`ProgramSettings.notificationLocks` stores sparse per-category `badgeLocked` and
+`emailLocked` flags, defaulting to no requirements. The Admin/Head-only
+`program.setNotificationLocks` mutation compares a complete expected snapshot
+under the shared `email-notifications-setting` lock before saving; Coordinators
+cannot propose or apply a change. Effective preferences OR each personal channel
+with its lock. Account saves, legacy broad switches and unsubscribe preserve the
+underlying personal value of a locked channel. Badge counts ignore personal mutes
+for locked categories. The email SQL helper, delivery worker and reminder candidate
+selection apply email locks while retaining program availability and current
+reviewer, address and event eligibility. Secondary-address inclusion and the
+dedicated School Month Report consent rules remain separate.
+
+New personal preference saves retain the draft's expected lock snapshot and reject
+a changed policy before writing. This prevents an older forced-on display from
+becoming a personal opt-in after an administrator unlocks it. Legacy broad
+information opt-outs materialize locked topic values before changing their fallback,
+so unlocked historical mail can stop while the preserved choice returns on unlock.
+
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.
 
 Secondary-email requests and confirmations first acquire the `secondary-email-binding-setting` transaction lock, shared with the Admin/Head-applied availability mutation (Coordinators submit changes for review), and reject when `ProgramSettings.secondaryEmailBindingEnabled` is false. This independent flag defaults true for compatibility. Existing addresses, pending state, primary-email changes and authentication remain intact. Verification rechecks availability and claims the address atomically. An address lock serializes competing confirmations; the unique registry key also arbitrates races with primary-account writers. Verified aliases resolve the same account. Recovery grants bind to their exact destination and recheck ownership on redemption; address removal and password rotation revoke grants. Never infer participant ownership from an alias or change the account's ID/history when promoting it.
 
 Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. The [delivery worker](../../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for account mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications skips only optional pending rows; security and essential request-service notices remain eligible. Previous-primary security notices have the documented ownership exception. Account notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](../guides/deployment.md#optional-notification-delivery).
 
+Ordinary optional notices receive one transport admission. Rejected or abandoned
+admitted attempts remain `UNCERTAIN`, including legacy admitted rows returned to
+`PENDING`; they cannot be replayed by the worker or bulk resend. Failures before
+admission and the owning security/request/report protocols retain their separate
+retry budgets. Essential session-planning mail uses `SessionNotice`, outside the
+general outbox. Sender purpose alone does not select retry or optional-consent policy.
+
+Reminder admission acquires ownership tables and exact recovery roots before
+source protocols/rows, then the exact outbox row. Its source fingerprint, current
+recipient, preference, verified address and due window are revalidated in that
+transaction. Missing sources or changed selectors are skipped. Nonblocking domain
+locks and a 250 ms local lock budget turn source contention into a 30-second
+deferral without spending an SMTP attempt. A savepoint restores the caller's
+timeout and partial lock prefix on contention, including inside an existing
+transaction. Locks end at admission commit, before SMTP; a later source change
+cannot recall an already admitted attempt or authorize its replay.
+
+Audited staff setup/verification uses [direct-delivery receipts](../../src/server/email/direct-delivery.ts).
+The resolver retains the exact mutable receipt until its transaction owner flushes
+postcommit effects. `emailed` becomes true only after the configured sender accepts
+the message; queued effects, configuration alone and local logging leave it false.
+A failed postcommit send leaves the issued grant and audit evidence committed and
+does not invalidate earlier usable setup sources. Public password recovery keeps
+its uniform response. The account and tutor credential aliases share the existing
+credential-owned boundary: code issuance commits before the synchronous send, and
+failed proof guesses or consumed proofs retain their original commit semantics.
+
 `Notification.event` and its allowlisted `context` identify the committed action;
 the trigger copies only that safe context into account email receipts, never arbitrary
 titles or bodies. [The shared formatter](../../src/lib/notification-events.ts) drives
-localized in-app copy and bilingual English/Chinese email because recipient language
-is not persisted. Old in-app rows retain their original readable title/body; unknown
+localized in-app copy and single-language English or Chinese email. `User.emailLocale`
+is saved independently from website language and optional notification categories.
+Dispatch reads the current preference for the exact authorized recipient, including
+verified secondary addresses. Public challenge/source rows persist the supported
+`NEXT_LOCALE` page choice across retries and initialize newly created accounts;
+existing preferences are never overwritten by signup. Legacy sources and school addresses without an exact verified account
+default to English. Configured school destinations can use the verified address
+registry solely for language selection; report authorization and hours attribution
+remain independent. Locale affects presentation only, never consent,
+authorization, deduplication keys or response clocks. Old in-app rows retain their original readable title/body; unknown
 email events use the generic program-update description. Count context is limited to
 discipline-card requests and changed historical teaching blocks. Scheduled interviews
 carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
@@ -2192,17 +2321,38 @@ details use bounded bilingual snapshots. Account secrets and profile field value
 are excluded; request-status reason disclosure retains its separate mailbox-proof
 rule. Historical rows are not reconstructed from mutable current records.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
+[Direct-mail copy builders](../../src/server/email/direct-email-copy.ts) keep full
+codes and URLs in plain text and supply escaped `presentation.body` prose for HTML.
+The shared code panel and named action carry those values once in the HTML body;
+the separate copyable-link fallback remains available. Legacy callers without an
+explicit body retain their text, with only an exact standalone action-URL paragraph
+removed. The renderer never deletes URLs embedded in sentences or interprets
+caller prose as HTML or Markdown. Expiry labels distinguish verification codes,
+invitations and permanent request deadlines. Session subjects use maintained
+bilingual outcomes instead of event IDs; proposed/confirmed times and response
+warnings retain their scheduling meaning. Request reasons appear once and still
+require request-specific mailbox proof. Optional notification HTML puts unsubscribe
+in the footer; plain text retains its full link.
 
-The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. Retryable `PENDING` rows with attempts greater than zero surface the first failed attempt; `FAILED` and uncertain outcomes have separate counts. Untouched zero-attempt pending rows, dedicated `SessionNotice` receipts and direct authentication/signup history are outside these counts, so zero failures are not an all-delivered receipt. `READY` proves connectivity/authentication; configured production `SENT` proves SMTP acceptance, not inbox receipt. Unconfigured development logging can also complete a general receipt. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. The additive event/request outbox migrations remain required before running this version.
+
+The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only retryable failed or previously attempted pending rows without an active lease qualify; admitted ordinary notices, uncertain outcomes and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Specialized transports keep their own source guards and SMTP limitations.
 
 Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
 
 When a receipt records a preference topic, unsubscribe disables only that exact
 topic and cancels its pending copies without changing badge settings or sibling
 topics. Legacy null-topic receipts retain their broad messages/information/review/
-reminder behavior. All-optional unsubscribe covers all eleven topics; security and
+reminder behavior. Both scopes preserve locked topic choices and queued copies;
+all-optional unsubscribe changes only unlocked topics. A fully locked linked
+category returns a required state, while a successful partial unsubscribe reports
+whether required categories remain. Security and
 essential request-service transport never grants an unsubscribe capability.
+Required-category receipts explain the administrator requirement once in the
+recipient's email language and label the same scoped link “Manage email
+preferences” / “管理邮件偏好”; ordinary optional receipts retain “Unsubscribe”.
+Saving email language leaves stored personal channel choices unchanged beneath
+administrator requirements, including when program optional delivery is off.
 
 ### Public-request invalidity notices and appeals
 
@@ -2220,7 +2370,7 @@ records are not reclassified as public requests.
 bypassing optional program/personal preferences and secondary-recipient expansion.
 Delivery uses the exact submitted address recorded on the source, with no account
 address fallback, and rechecks its exact source/revision.
-The [bilingual copy](../../src/server/email/request-notice-copy.ts) masks unverified
+The [localized copy](../../src/server/email/request-notice-copy.ts) masks unverified
 recipients to request kind and original submission date/time/timezone, plus the
 limited appeal action; no names, original answers or reason appear. Missing historical
 timestamps remain unavailable rather than borrowing row creation time. A reason is
@@ -2735,6 +2885,41 @@ The archive allowlist includes original HistoricalAcademicRecord evidence, with 
 `src/server/api/routers/record-transfer.ts` exposes Admin/Head export, preview and import procedures. Each rechecks and locks the active account within its transaction; a stale privileged session cannot authorize a transfer. These procedures are deliberately absent from coordinator approval operations. Export uses a Repeatable Read snapshot and writes export audit evidence. Preview and import use Serializable transactions plus the shared import advisory lock. Tutor and HistoricalAcademicRecord files acquire the username namespace fence before the account lock.
 
 `src/server/record-transfer.ts` declares the domain-table allowlist in dependency order. PostgreSQL metadata supplies column types, nullability, defaults, enums and primary keys. Only allowlisted tables and validated column names enter SQL identifiers; cell values use bound JSON parameters through `jsonb_populate_record`. New columns require security review: User remains restricted to ID/name/email, and survey token hashes remain excluded. `User.csv` validates existing accounts without writing them. Scalar ownership and other live references receive explicit checks in addition to database foreign keys; historical actor snapshots can survive account deletion.
+
+New archive primary keys pass a separate historical admission boundary before insertion.
+Tutor/Tutee rows require explicit inactive membership, workflow records require
+completed outcomes, meetings must be in the past and announcements must be
+inactive. Related-record validation also covers child-only imports: interview
+panels/intents/votes require completed applications, meeting attendance requires
+a past meeting, discipline, signup screening, qualifications and participant
+scheduling preferences require inactive participant targets, and signup
+records/quarter blocks require inactive terms. Legacy signup screening also
+requires an inactive intake term when one is recorded and a real referenced
+tutee. Related parents inserted earlier in the same batch are checked using
+their actual saved state. Schema defaults cannot silently create current work.
+An exact existing-ID match is skipped before these new-row checks, preserving
+repeat exports of native current records without changing them.
+
+Each newly inserted row receives local `ImportedRecordProvenance` in the same
+transaction. A single `id` remains its scalar key; other primary keys use
+canonical sorted key/value pairs with retained value types and normalized dates.
+Only primary-key fields enter this identity. Its entity/record key and
+admission time are neither CSV fields nor an exported/importable archive family.
+An identical retry preserves the original provenance and never reclassifies an
+existing native row. Preview rolls this evidence back with the source inserts.
+Financial reporting uses that boundary as described in the
+[school-hours reference](school-hours.md); a full deployment backup/recovery
+retains the metadata. Older imports have no reliable per-row origin evidence and
+are not inferred from names, dates, inactive terms or table-wide audit counts.
+
+Native interview completion cannot rewrite imported applications or panel rows,
+and initial-admission reconciliation and the grant writer both reject imported
+applications as membership authority. Independent accepted-grant checks exclude
+imported acceptance history while preserving native acceptance. Completion cannot
+clear imported logical interview credits, or recreate a credit whose imported
+provenance remains after source deletion. Exact already-applied completion
+receipts remain read-only, and native historical correction behavior is retained.
+Importers share the application's review fence with these award writers.
 
 Signup archives preserve the original `StudentSurvey` evidence, its current answer
 projection, immutable `StudentSignupRevision` answer/consent evidence and

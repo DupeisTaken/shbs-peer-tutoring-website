@@ -12,22 +12,19 @@ review aid, not the source of authority.
 
 ## Delivery and access boundaries
 
-`recovery_workflow_draft` is an in-app-only Tutoring notice to the exact recorded
-owner of a compensating signup draft. Its heading is **Review a Fresh Signup
-Draft** / **请审核新的报名草稿**. It explains that the original request remains
-closed and requires a new submission, current policy agreement and mailbox
-verification. The action opens the authenticated draft through
-`/signup?recoveryDraft=...`; the reader rechecks exact source ownership and current
-account access. No answers, contact details, signature, code or review reason
-enter notification context. The draft notification is causally bound to the
-reviewed recovery transaction and never replays an earlier delivery.
+The [recovery draft event](#recovery_workflow_draft) is in-app-only and remains
+bound to its exact source owner and reviewed recovery transaction. It never
+replays earlier email or reopens the original request.
 
 Typed in-app notifications retain localized event headings and show their captured
 change details. [In-app detail formatting](../../src/lib/notification-details.ts)
 selects a bounded English/Chinese snapshot (English for other interface languages),
 then the original nonempty stored body, then the event's generic description.
-Historical notices are never reconstructed from current mutable records. Email includes
-both English and Chinese because no recipient email-language preference is saved.
+Historical notices are never reconstructed from current mutable records. Email selects English or Chinese from the established recipient account’s saved
+email-language preference. This setting is independent of the website language and
+optional delivery categories. Existing accounts and accountless legacy/external
+recipients default to English. Public signups retain their supported page language
+through resends and new-account creation; an established account’s preference wins.
 Old in-app records retain their original title/body; an unknown email event uses the
 safe generic program-update copy, never arbitrary stored titles or bodies.
 
@@ -76,6 +73,13 @@ email controls. The exhaustive [category mapping](../../src/lib/notification-cat
 is shared by settings, badge queries and delivery; the migration's SQL classification
 is checked against it by integration tests.
 
+Admin/Head may lock either channel on for individual categories; reminders have no
+badge channel. A lock overrides a saved personal off choice without replacing it.
+It applies to badge counts and to optional-email enqueue and dispatch. Email locks
+retain the program availability, verified-address and recipient-eligibility gates,
+including active Admin/Head review access. They neither select secondary recipients
+nor turn an intentionally in-app-only event into email.
+
 | Category | Examples | Bell badge | Optional email |
 | --- | --- | --- | --- |
 | Private messages | A message from a named sender | Configurable | Configurable |
@@ -110,8 +114,10 @@ category overrides when an old client submits an unchanged value.
 Only active Admin/Head accounts can enable reviewer email, and Head-only events keep
 their narrower authority. Participant copies of a pending workflow event keep their
 domain category. Dispatch rechecks recipient eligibility, category preferences and
-verified address ownership. Unsubscribe disables the delivery's exact category or all
-optional categories, without changing badge settings. An intentionally in-app-only
+verified address ownership. Unsubscribe disables the delivery's exact unlocked
+category or all unlocked optional categories, without changing badge settings or
+locked personal choices. A locked linked category is explained on the confirmation
+page; stopping all still permits other categories to be disabled. An intentionally in-app-only
 event, such as a room-allocation shortage, still does not produce email merely because
 its category's email preference is enabled.
 
@@ -644,6 +650,7 @@ authorized decision interfaces and policy rules.
 - Recipient: Linked accounts of affected paired tutors and active Admin/Head.
 - Trigger: Removal is finalized, preserving history and removing current roster/assignment state. [Emitter](../../src/server/discipline/removal.ts).
 - Authorized destination: Tutors: /dashboard; managers: /admin/tutee-requests.
+- Audience overlap is consolidated: an affected tutor who is also an eligible Admin/Head receives one notice with the management destination. Multiple affected pairings do not add copies.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
@@ -830,6 +837,29 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 | --- | --- | --- | --- |
 | English | Tutoring Assignment Updated | A tutoring assignment was updated. Review the recurring weekly schedule and its confirmation state in your workspace; this notice does not create a dated session. | Review tutoring assignment |
 | 中文 | 辅导安排已更新 | 一项辅导安排已更新。请在工作区查看每周安排及其确认状态；本通知不会创建某个日期的辅导记录。 | 查看辅导安排 |
+
+### student_continuation_released
+
+- Recipient: Active Admin/Head plus the linked tutor, student and retained request owner; overlapping management/participant accounts receive one notice.
+- Trigger: A tracked continued assignment is released after tutor availability, the original time or its source assignment changes. Existing signup demand and attendance remain retained. [Emitter](../../src/server/student-continuation-assignment.ts).
+- Authorized destination: Managers: the exact retained survey request in /admin/requests; tutor: /dashboard; student/request owner: /student.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Continued Tutoring Assignment Released | A continued tutoring assignment was released after availability changed. The signup request remains filed for reassignment. Open the request for details. | Review retained signup request |
+| 中文 | 延续辅导分配已解除 | 由于可用时间变化，延续的辅导分配已解除。报名申请仍保留，等待重新安排。请打开申请查看详情。 | 查看保留的报名申请 |
+
+### recovery_workflow_draft
+
+- Recipient: The exact recorded owner of a compensating signup draft, subject to current source ownership and account access.
+- Trigger: A reviewed recovery transaction prepares a fresh draft; the original request stays closed. [Emitter](../../src/server/recovery/workflow-draft.ts).
+- Delivery: In-app only; no optional email or replay of earlier delivery.
+- Authorized destination: The authenticated /signup?recoveryDraft=... draft. A new submission, current policy agreement and mailbox verification remain required. Answers, contacts, signatures, codes and review reasons stay out of notification context.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Review a Fresh Signup Draft | Management prepared a new draft for your review. Your original request remains closed. Submit a new request with current policy agreement and fresh mailbox verification. | Review signup draft |
+| 中文 | 请审核新的报名草稿 | 管理人员已为你准备新的报名草稿，等待你审核。原申请仍保持关闭。请重新提交申请，同意现行规则并完成新的邮箱验证。 | 审核报名草稿 |
 
 ### student_availability_updated
 

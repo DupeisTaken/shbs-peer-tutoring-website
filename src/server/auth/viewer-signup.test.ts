@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
+import type { EmailMessage } from "~/server/email/sender";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
-const mail = vi.hoisted(() => ({ send: vi.fn() }));
+const mail = vi.hoisted(() => ({ send: vi.fn<(message: EmailMessage) => Promise<void>>().mockResolvedValue(undefined) }));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: mail.send },
   isEmailConfigured: () => true,
@@ -43,6 +44,51 @@ beforeEach(async () => {
   );
 });
 afterAll(() => db.$disconnect());
+
+it("retains the request language through mailbox verification and initializes only the new account", async () => {
+  const staged = await startViewerSignup({ email, name: "Language Viewer", affiliation: "Family", emailLocale: "zh" });
+  if (!staged.ok) throw Error("Expected signup");
+  expect((await db.viewerSignup.findUniqueOrThrow({ where: { email } })).emailLocale).toBe("zh");
+  const resent = await startViewerSignup({ email, name: "Language Viewer", affiliation: "Family", emailLocale: "en" });
+  if (!resent.ok) throw Error("Expected resend");
+  expect((await db.viewerSignup.findUniqueOrThrow({ where: { email } })).emailLocale).toBe("zh");
+  const proof = await verifyViewerCode(email, resent.code);
+  if (!proof.ok) throw Error("Expected mailbox proof");
+  expect(await completeViewerSignup(email, password, proof.completionProof)).toEqual({ ok: true });
+  expect((await db.user.findUniqueOrThrow({ where: { email } })).emailLocale).toBe("zh");
+  const retry = await startViewerSignup({ email, name: "Language Viewer", affiliation: "Family", emailLocale: "en" });
+  if (!retry.ok) throw Error("Expected challenge");
+  expect((await db.viewerSignup.findUniqueOrThrow({ where: { email } })).emailLocale).toBe("en");
+  const existingProof = await verifyViewerCode(email, retry.code);
+  if (!existingProof.ok) throw Error("Expected mailbox proof");
+  expect(await completeViewerSignup(email, password, existingProof.completionProof)).toEqual({ ok: false, error: "email-taken" });
+  expect((await db.user.findUniqueOrThrow({ where: { email } })).emailLocale).toBe("zh");
+});
+
+it("captures only a supported public cookie language and honors verified-secondary account preference", async () => {
+  const start = (target: string, cookie: string) => createCaller({ db, session: null, headers: new Headers({ cookie, "x-real-ip": `viewer-language-${++serial}` }) })
+    .viewer.start({ email: target, name: "Language Viewer", affiliation: "Family" });
+  await start(email, "NEXT_LOCALE=zh");
+  expect((await db.viewerSignup.findUniqueOrThrow({ where: { email } })).emailLocale).toBe("zh");
+  expect(mail.send.mock.lastCall![0].subject).toBe("验证观察员注册");
+  expect(mail.send.mock.lastCall![0].text).not.toContain("Enter this code");
+  const resendTarget = "resend-language@example.test";
+  await startViewerSignup({ email: resendTarget, name: "Language Viewer", affiliation: "Family", emailLocale: "zh" });
+  await start(resendTarget, "NEXT_LOCALE=en");
+  expect((await db.viewerSignup.findUniqueOrThrow({ where: { email: resendTarget } })).emailLocale).toBe("zh");
+  expect(mail.send.mock.lastCall![0].subject).toBe("验证观察员注册");
+  const unsupported = "unsupported-language@example.test";
+  await start(unsupported, "NEXT_LOCALE=fr");
+  expect((await db.viewerSignup.findUniqueOrThrow({ where: { email: unsupported } })).emailLocale).toBe("en");
+  expect(mail.send.mock.lastCall![0].subject).toBe("Verify Viewer signup");
+  const owner = await db.user.create({ data: { email: "saved-language@example.test", emailVerifiedAt: new Date(), emailLocale: "zh" } });
+  const alias = "saved-language-alias@example.test";
+  await db.accountEmail.create({ data: { userId: owner.id, email: alias, verifiedAt: new Date() } });
+  await start(alias, "NEXT_LOCALE=en");
+  expect((await db.viewerSignup.findUniqueOrThrow({ where: { email: alias } })).emailLocale).toBe("en");
+  expect(mail.send.mock.lastCall![0].subject).toBe("验证观察员注册");
+  expect((await db.user.findUniqueOrThrow({ where: { id: owner.id } })).emailLocale).toBe("zh");
+});
 async function verify(target = email) {
   const started = await startViewerSignup({
     email: target,

@@ -31,6 +31,13 @@ export default async function proxy(
   request: NextRequest,
   event: NextFetchEvent,
 ) {
+  // The standalone recipient report reuses Management's licensed Geist face.
+  // Only these non-sensitive assets bypass auth, never an arbitrary font path.
+  if (
+    request.nextUrl.pathname === "/report-assets/geist-sans.woff2" ||
+    request.nextUrl.pathname === "/report-assets/OFL.txt"
+  )
+    return NextResponse.next();
   // The capability is checked by these two report-only handlers. A stale site
   // session must not redirect a school recipient away from their report link.
   if (

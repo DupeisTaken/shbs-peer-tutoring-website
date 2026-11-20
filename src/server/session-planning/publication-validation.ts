@@ -102,7 +102,7 @@ export async function readPublicationValidationSnapshot(
     LEFT JOIN "SessionPlanExecution" executor ON executor."planId"=p.id
       JOIN "SessionPlanningOffer" o ON o.id=r."currentOfferId" AND o."requestId"=r.id
       CROSS JOIN parameters a
-      WHERE r.status='PENDING' AND o."startsAt"<a."endsAt" AND o."endsAt">a."startsAt"
+      WHERE r.status='PENDING' AND r.kind<>'CANCEL' AND o."startsAt"<a."endsAt" AND o."endsAt">a."startsAt"
     ), potential_recurring AS (
       SELECT p.id, p."tutorId", p."roomId", p."startMin", p."dayOfWeek", ARRAY(
         SELECT roster."tuteeId" FROM "PairingTutee" roster WHERE roster."pairingId"=p.id

@@ -10,6 +10,7 @@ import {
   readSessionAgendaHistory,
   suggestSessionTime,
   proposeSession,
+  proposeSessionCancellation,
   respondSession,
   requestSeparateSession,
   formalizeSeparateSessions,
@@ -41,6 +42,7 @@ export const sessionPlanningRouter = createTRPCRouter({
         scope: z.enum(["ONE", "ALL"]),
         tuteeId: z.string().optional(),
         kind: z.enum(["RESCHEDULE", "EXTRA"]),
+        pausedOnly: z.boolean().optional(),
         requestId: z.string().optional(),
         requestVersion: z.number().int().positive().optional(),
         offerId: z.string().optional(),
@@ -86,12 +88,14 @@ export const sessionPlanningRouter = createTRPCRouter({
       retrySessionNotice(ctx.db, input.noticeId, ctx.session.user.id),
     ),
   agenda: protectedProcedure
-    .input(z.object({ role: z.enum(["tutor", "tutee"]) }))
+    .input(z.object({ role: z.enum(["tutor", "tutee"]), includeRecurringSchedule: z.boolean().optional() }))
     .query(({ ctx, input }) =>
       readSessionAgenda(
         ctx.db,
         { id: ctx.session.user.id, tutorId: ctx.session.tutorId },
         input.role,
+        undefined,
+        { includeRecurringSchedule: input.includeRecurringSchedule },
       ),
     ),
   suggest: protectedProcedure
@@ -106,10 +110,26 @@ export const sessionPlanningRouter = createTRPCRouter({
         tuteeId: z.string().optional(),
         kind: z.enum(["RESCHEDULE", "EXTRA"]),
         suggestionId: z.string().optional(),
+        pausedOnly: z.boolean().optional(),
       }),
     )
     .mutation(({ ctx, input }) =>
       proposeSession(
+        ctx.db,
+        { id: ctx.session.user.id, tutorId: ctx.session.tutorId },
+        input,
+      ),
+    ),
+  proposeCancellation: activeTutorProcedure
+    .input(
+      versioned.extend({
+        cohortId: z.string().min(1),
+        scope: z.enum(["ONE", "ALL"]),
+        tuteeId: z.string().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      proposeSessionCancellation(
         ctx.db,
         { id: ctx.session.user.id, tutorId: ctx.session.tutorId },
         input,

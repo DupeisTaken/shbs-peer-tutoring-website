@@ -5,6 +5,10 @@ import { inTransaction } from "~/server/transactions";
 import { runAuditedMutation, safeAuditSnapshot } from "./evidence";
 
 const actor = { id: "head", name: "Head", role: "HEAD" };
+it("records the nonsecret email language without admitting account secrets", () => {
+  expect(safeAuditSnapshot({ id: "account", emailLocale: "zh", passwordHash: "PRIVATE", code: "PRIVATE" }, "User"))
+    .toEqual({ id: "account", emailLocale: "zh" });
+});
 type State = { status: string; reviewNote: string | null; attempts: number; consumedAt: Date | null; audits: Array<Record<string, unknown>> };
 
 /** A rollback-capable double, rather than a no-op transaction mock, proves the
@@ -243,9 +247,9 @@ describe("transactional mutation evidence", () => {
     expect(JSON.stringify(f.state.audits)).not.toContain("PRIVATE_REASON");
   });
 
-  it("retains incorrect credential proof counters despite a rejected resolver result", async () => {
+  it.each(["account.confirmSecondaryEmail", "account.changePassword", "tutor.changePassword"])("retains %s proof counters despite a rejected resolver result", async (operation) => {
     const f = fixture();
-    const result = await runAuditedMutation(f.shared, actor, "account.confirmSecondaryEmail", async tx => {
+    const result = await runAuditedMutation(f.shared, actor, operation, async tx => {
       await tx.$transaction(async owned => {
         await owned.emailVerificationCode.updateMany({ where: { id: "proof" }, data: { attempts: { increment: 1 } } });
       });
@@ -258,10 +262,10 @@ describe("transactional mutation evidence", () => {
     ]);
   });
 
-  it("keeps a consumed credential proof burned when the later password write fails", async () => {
+  it.each(["account.changePassword", "tutor.changePassword"])("keeps a consumed %s proof burned when the later password write fails", async (operation) => {
     const f = fixture();
     const now = new Date();
-    await expect(runAuditedMutation(f.shared, actor, "account.changePassword", async tx => {
+    await expect(runAuditedMutation(f.shared, actor, operation, async tx => {
       await tx.emailVerificationCode.updateMany({ where: { id: "proof" }, data: { consumedAt: now } });
       throw Object.assign(new Error("Credentials changed"), { code: "CONFLICT" });
     })).rejects.toThrow("Credentials changed");

@@ -1,3 +1,4 @@
+import { emailLocaleFromHeaders } from "~/lib/email-locale";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
@@ -220,6 +221,7 @@ export const applicationRouter = createTRPCRouter({
                 alternativeNames: input.alternativeNames,
                 name: input.name,
                 email,
+                emailLocale: emailLocaleFromHeaders(ctx.headers),
                 preferredContact:
                   fields.preferredContact === "hidden"
                     ? null

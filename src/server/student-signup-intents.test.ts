@@ -52,6 +52,49 @@ import { consumeRecoveryWorkflowDraft, readRecoveryWorkflowDraft } from "./recov
 
 const email = "owner@example.test";
 const password = "Existing-password-268!";
+it("retains an accountless Chinese delivery choice through resend, invitation and new-account creation", async () => {
+  const input = await answers();
+  const receipt = await stageStudentSignupIntent(
+    db,
+    input,
+    randomUUID(),
+    undefined,
+    undefined,
+    "zh",
+  );
+  const first = fixtures.send.mock.calls.at(-1)![0];
+  expect(first.presentation?.locale).toBe("zh");
+  expect(first.subject).toBe("验证辅导报名邮箱");
+  await resendStudentSignupIntent(db, receipt.intentId, email);
+  expect(fixtures.send.mock.calls.at(-1)![0].presentation?.locale).toBe("zh");
+  await complete(receipt.intentId, undefined, "New-password-268!");
+  expect(
+    (await db.user.findUniqueOrThrow({ where: { email } })).emailLocale,
+  ).toBe("zh");
+  expect((await db.accountInvitation.findFirstOrThrow()).emailLocale).toBe(
+    "zh",
+  );
+});
+
+it("uses the recipient's current preference on a resend without replacing it with the signup page language", async () => {
+  const { user } = await owner();
+  await db.user.update({ where: { id: user.id }, data: { emailLocale: "zh" } });
+  const receipt = await stageStudentSignupIntent(
+    db,
+    await answers(),
+    randomUUID(),
+    undefined,
+    undefined,
+    "en",
+  );
+  expect(fixtures.send.mock.calls.at(-1)![0].presentation?.locale).toBe("zh");
+  await db.user.update({ where: { id: user.id }, data: { emailLocale: "en" } });
+  await resendStudentSignupIntent(db, receipt.intentId, email);
+  expect(fixtures.send.mock.calls.at(-1)![0].presentation?.locale).toBe("en");
+  expect(
+    (await db.user.findUniqueOrThrow({ where: { id: user.id } })).emailLocale,
+  ).toBe("en");
+});
 const credential = hashPassword(password);
 const termId = "signup-intents-term";
 const profile = { firstName: "Posted", lastName: "Identity", reviewed: true as const };
@@ -144,8 +187,8 @@ async function existing(options: { confirmed?: boolean; mfa?: boolean } = {}) {
   return { user, tutor, tutee, row, payload, acceptance };
 }
 
-async function staged(input: Awaited<ReturnType<typeof answers>>, clientKey = randomUUID(), userId?: string) {
-  const receipt = await stageStudentSignupIntent(db, input, clientKey, userId);
+async function staged(input: Awaited<ReturnType<typeof answers>>, clientKey = randomUUID(), userId?: string, locale: "en" | "zh" = "en") {
+  const receipt = await stageStudentSignupIntent(db, input, clientKey, userId, undefined, locale);
   const intent = await db.studentSignupIntent.findUniqueOrThrow({ where: { id: receipt.intentId } });
   return { receipt, intent, clientKey, input };
 }
@@ -357,14 +400,16 @@ it("keeps the management completion signal pending through mailbox verification 
   expect((await managed()).confirmedAt).toBeInstanceOf(Date);
 });
 
-it("emails both remaining signup steps with a program-zone deadline and exact-intent recovery link", async () => {
+it.each(["en", "zh"] as const)("emails both remaining signup steps in %s with a program-zone deadline and exact-intent recovery link", async (locale) => {
   await db.programSettings.upsert({where:{id:"program"},create:{id:"program",timeZone:"Asia/Shanghai"},update:{timeZone:"Asia/Shanghai"}});
-  const accepted = await staged(await answers());
+  const accepted = await staged(await answers(), randomUUID(), undefined, locale);
   const message = fixtures.send.mock.lastCall![0];
-  expect(message.subject).toContain("验证");
-  expect(message.text).toContain("signup is not complete");
-  expect(message.text).toContain("finish account review");
-  expect(message.text).toContain("报名尚未完成");
+  expect(message.presentation?.locale).toBe(locale);
+  expect(message.subject).toBe(locale === "zh" ? "验证辅导报名邮箱" : "Verify your tutoring signup");
+  expect(message.text).toContain(locale === "zh" ? "报名尚未完成" : "signup is not complete");
+  expect(message.text).toContain(locale === "zh" ? "完成账户确认并确认申请" : "finish account review and confirm your request");
+  expect(message.text).toContain(locale === "zh" ? "原提交优先顺序保留" : "original submission priority is kept");
+  expect(message.text).not.toContain(locale === "zh" ? "signup is not complete" : "报名尚未完成");
   expect(message.text).toContain("Asia/Shanghai");
   expect(message.text).not.toContain(accepted.intent.expiresAt.toISOString());
   expect(message.text).not.toContain("Your previous request");

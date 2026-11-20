@@ -1,3 +1,4 @@
+import { emailLocaleFromHeaders } from "~/lib/email-locale";
 import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { TRPCError } from "@trpc/server";
 import {
@@ -122,7 +123,7 @@ export const tuteeHistoryRouter = createTRPCRouter({
     if (ctx.session?.user)
       throw new TRPCError({ code: "CONFLICT", message: "HISTORY_EMAIL_TAKEN" });
     return withSignupAdmission(ctx.db, ctx.headers, "mail", input.email, () =>
-      startHistoryAccount(ctx.db, input),
+      startHistoryAccount(ctx.db, input, emailLocaleFromHeaders(ctx.headers)),
     );
   }),
   verifyAccount: publicProcedure

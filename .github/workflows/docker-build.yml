@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Generate route types, lint and type-check
+        # Typed ESLint exhausted 4 GiB; scope the verified 6 GiB heap to this check.
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run check
       - name: Check documentation
         run: npm run docs:check

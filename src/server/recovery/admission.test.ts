@@ -114,7 +114,7 @@ it("journals and preserves independent notification preferences through admissio
   });
   await db.user.update({
     where: { id: user.id },
-    data: { emailReviewRequests: true, emailEventReminders: true },
+    data: { emailReviewRequests: true, emailEventReminders: true, emailLocale: "zh" },
   });
   const journal = await db.recoveryChange.findMany({
     where: { actionId: source.actionId, entity: "NotificationPreference" },
@@ -142,7 +142,7 @@ it("journals and preserves independent notification preferences through admissio
   ]);
   expect(
     await db.user.findUniqueOrThrow({ where: { id: user.id } }),
-  ).toMatchObject({ emailReviewRequests: true, emailEventReminders: true });
+  ).toMatchObject({ emailReviewRequests: true, emailEventReminders: true, emailLocale: "zh" });
 });
 
 async function admission(

@@ -288,6 +288,14 @@ delivery evidence. Unknown identity/security schema changes block reconciliation
 Signing-key rotation uses `RECOVERY_PREVIOUS_AUTH_SECRET` and
 `RECOVERY_ROTATED_AUTH_SECRET`; only their fingerprints enter plans and receipts.
 
+The complete school-recipient reminder migration is a reviewed recovery shape;
+partial or mistyped reminder metadata still blocks reconciliation. Original
+delivery receipts are restored before their dependent reminders. Selected times,
+source receipts, reminder intent and first-link-open timestamps remain evidence.
+All school report links are revoked, the signing key rotates, and unsent reminders
+are quarantined with the other deferred mail, even when automatic monthly issuance
+is disabled. Recovery does not reschedule those reminders.
+
 Acceptance, cutover and rollback are restricted to synthetic loopback
 `shbs_*_test` environments. `RECOVERY_APPLICATION_URL` identifies a separately
 provisioned read-only application role; `RECOVERY_FRESH_TEST_PASSWORD` is a fresh

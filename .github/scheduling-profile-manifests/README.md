@@ -11,6 +11,62 @@ scheduling scenarios compare the baseline application under this candidate schem
 the new decline workflow has separate candidate regression evidence and makes no
 baseline parity or speedup claim. The comparison policy remains unchanged.
 
+PR #639 uses its integrated main commit
+`3d5dddf39df8c5377ada3c8dd0c7f0fa94425246` as its scoped control. This advances its
+`7fa85bdf` control to include required notification choices from PR #651, after
+earlier controls incorporated recipient labels from PR #640 and tutoring pauses
+from PR #606.
+Recipient labels are staff-only annotations saved through settings review;
+they do not classify archive sources or grant reporting or delivery authority.
+Notification locks govern configured notification choices, without classifying
+archive evidence or changing issued school-report amounts.
+Its manifest pins both schema versions, the unchanged
+dependency lock, all 139 historical migrations and the single
+`20261108010000_imported_record_provenance` addition.
+That migration adds server-owned archive provenance and its recovery journal
+trigger; it does not reclassify existing records. The baseline application runs
+under the candidate schema for the existing scheduling scenarios, with the
+separate native-schema cold control retained. New archive-import, reporting and
+admission behavior has separate candidate regression coverage and establishes no
+baseline support, semantic parity or speedup claim for those new paths. This
+PR-scoped selection changes no comparison or harness guard.
+
+PR #606 uses its integrated pre-feature main commit
+`64d55753608e064205fc5788e08687fe99dc5c9a` as both scheduling controls.
+This advances the earlier `dfe9be18` pin for upstream account-menu wording,
+neutral Edited-badge styling and documentation updates. Scheduling sources,
+harness, schema and dependency bytes are unchanged between those baselines.
+Its manifest binds all 133 historical migrations and the four tutoring-policy
+additions (`20261108010000`, `20261108011000`, `20261108012000`,
+`20261108013000`), both complete schema hashes and the unchanged dependency lock.
+Those additions introduce explicit legacy-safe notice/pause effects, independent
+participant suppression, safe recovery evidence, semantic policy history and its
+integrity guards, plus the exact-offer notice lookup index. SQL namespace and
+trigger behavior are part of the pinned bytes.
+
+The shared-schema control runs unchanged baseline application sources under this
+exact candidate schema. The fixture generator, workload populations, capture
+projections and parity/latency criteria are unchanged. The ordinary scheduling
+fixtures do not activate tutoring pauses; pause/affirmative-exception behavior has
+separate candidate regression evidence. This manifest authorizes only the input
+overlay, not a parity result or baseline support for new policy behavior. The
+native-schema control remains required, and any additional domain evidence or
+procedure-result difference remains subject to the existing comparison rules.
+Missing or changed bytes, an unlisted migration or a changed dependency lock still
+fail closed. No general or other-PR baseline selection is changed.
+
+PR #651 pins its integrated main base `7fa85bdf903d9cf7fe03ba4a438f45aeb509a7b9`
+and all 138 existing migration hashes, including the tutoring-policy and
+school-hours recipient-label migrations already on main. Its sole addition,
+`20261108010000_notification_choice_locks`, adds the default-empty
+`ProgramSettings.notificationLocks` setting and lets the existing email-enqueue
+helper apply required category email choices. Existing scheduling scenarios run
+with that empty setting in both application arms under the candidate schema,
+with the native-schema control retained separately. Required-notification behavior
+has candidate-specific regression evidence; this manifest makes no baseline
+feature parity or speedup claim. Dependency and historical SQL bytes remain fixed,
+and no comparison policy is relaxed.
+
 The primary control is `223a1b213a7a5167187b057d08a349d30f0087ad`, the original `c113b8efbbfe0c350dc8c0d09aec92c48777d9c6` with newly captured proposal rosters sorted. The catalog-only control is its child `c3947f096a1cf1eb33c02948d0385d46d6838d77`. It adds the ordered room-release helper and its caller. Both catalog arms use the reviewed shared-schema migration that orders sibling invalidations. The original failed measurements remain separately identified.
 
 Each `pr-N-baseline.txt` and `pr-N-catalog-baseline.txt` contains a full SHA followed by LF. Combined PR #570 compares shared captures with the complete identity and recovery projections. Its original-schema cold control captures only the fixed historical projection. Controlled contention diagnostics retain both complete ordered histories. Uncontrolled rounds preserve their independent observed fence order and raw audit chronology.

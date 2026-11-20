@@ -87,7 +87,10 @@ vi.mock("~/lib/password-session", () => ({
 }));
 // Independent academic/departure panels have their own integration suites.
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
-vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
+vi.mock("./school-departure", () => ({
+  SchoolDeparturePanel: () => null,
+  SchoolDepartureAction: () => null,
+}));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
 vi.mock("./account-emails", () => ({
   AccountEmails: () => null,

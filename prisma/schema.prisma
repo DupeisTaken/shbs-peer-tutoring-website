@@ -37,6 +37,8 @@ enum Role {
 }
 
 model User {
+  /// Saved account delivery language, independent of the website locale and email opt-in.
+  emailLocale String @default("en")
   sessionNotices SessionNotice[]
   sessionCalendarTokens SessionCalendarToken[]
   personId String?
@@ -238,6 +240,8 @@ model ProgramFeature {
 /// password it becomes a read-only VIEWER login. Rate-limited at the router. One row per email.
 /// See src/server/auth/viewer-signup.ts.
 model ViewerSignup {
+  /// Request language retained for verification, retries and the later invitation.
+  emailLocale String @default("en")
   firstName        String?
   lastName         String?
   preferredName    String?
@@ -724,6 +728,8 @@ model RegistrationCode {
 /// Recipient-only invitation envelope. Staff authorization stays in its original source;
 /// this separate, hashed secret proves mailbox ownership and can never be redisplayed to staff.
 model AccountInvitation {
+  /// Captured source language; a current account's saved choice takes precedence at delivery.
+  emailLocale String @default("en")
   id String @id @default(cuid())
   kind String
   email String
@@ -1174,6 +1180,8 @@ enum CrewApplicationStatus {
 /// A public application to join the crew (no login is created — mirrors /signup & /tutor-signup).
 /// An admin reviews it on /admin/crew; accepting issues a CREW registration code bound to the email.
 model CrewApplication {
+  /// Captured application language for later staff-issued invitations.
+  emailLocale String @default("en")
   firstName        String?
   lastName         String?
   preferredName    String?
@@ -1196,6 +1204,8 @@ model CrewApplication {
 /// Mailbox-owned public crew draft/status challenge; never itself authorizes participation.
 /// Drafts become durable CrewApplications only after successful recipient verification.
 model CrewSignupVerification {
+  /// Request language retained for verification and the resulting application.
+  emailLocale String @default("en")
   id String @id @default(cuid())
   email String @unique
   draft Json?
@@ -1424,6 +1434,8 @@ enum TutorApplicationType {
 }
 
 model TutorApplication {
+  /// Captured application language for later staff-issued invitations.
+  emailLocale String @default("en")
   /// Advances only for audited name corrections; zero keeps untouched review fingerprints compatible.
   identityRevision Int @default(0)
   /// Reversible staff screening metadata; never an interview outcome or membership change.
@@ -1929,6 +1941,8 @@ model StudentContinuationReceipt {
 }
 
 model StudentSurvey {
+  /// Request language retained for retries, notices and the later invitation.
+  emailLocale String @default("en")
   /// Staff-only screening metadata is separate from immutable intake and lifecycle evidence.
   invalidReason String?
   invalidatedAt DateTime?
@@ -1997,6 +2011,8 @@ model StudentSignupRevision {
 /// Public answers are staged under an independent exact mailbox challenge. An email match
 /// identifies a candidate account/request but never authorizes replacing its current answers.
 model StudentSignupIntent {
+  /// Captured request language; does not alter an existing account's saved choice.
+  emailLocale String @default("en")
   id String @id @default(cuid())
   keyHash String @unique
   inputHash String
@@ -2260,6 +2276,8 @@ model TutorProfileOwnership {
 /// Exact-record invitations establish historical ownership only, never participation.
 /// Tokens are hashed, single-use and excluded from program-record exports/imports.
 model TuteeHistoryInvitation {
+  /// Captured invitation language for recipients who do not yet have an account.
+  emailLocale String @default("en")
   tuteeId String @id
   tutee Tutee @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
   tokenHash String @unique
@@ -2310,6 +2328,8 @@ model TuteeHistoryInvitationAttempt {
 /// Additive typed-history envelope. Legacy Tutee grants retain their original table/proofs.
 /// Frozen sources are never expanded through subsequent Person membership changes.
 model HistoricalRecordInvitation {
+  /// Captured invitation language for recipients who do not yet have an account.
+  emailLocale String @default("en")
   scopeKey String @id
   tokenHash String @unique
   sources Json
@@ -2540,16 +2560,31 @@ model SchoolCalendarDay {
   updatedAt        DateTime @default(now()) @updatedAt
 }
 
-/// Informational inclusive ranges only; attendance and school-day appeal rules never consume these rows.
+/// Inclusive tutoring notices or regular-session pauses; school-day appeal rules are independent.
 model ProgramCalendarDay {
   /// The start date remains the stable identity, including for legacy single-day notices.
   date      String   @id
   endDate   String
   reason    String
+  /// Legacy notices remain informational until an explicit reviewed policy change.
+  schedulingEffect String @default("NOTICE")
   /// Retain the version after removal so an old editor cannot overwrite a recreated date.
   active    Boolean  @default(true)
   version   Int      @default(1)
   updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Append-only semantic snapshots; policy at lesson start survives later edits/removal.
+model ProgramCalendarPolicyRevision {
+  id BigInt @id @default(autoincrement())
+  date String
+  endDate String
+  schedulingEffect String
+  active Boolean
+  version Int
+  effectiveAt DateTime @default(now())
+
+  @@index([date, effectiveAt, id])
 }
 
 /// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
@@ -2570,6 +2605,8 @@ model ProgramSettings {
   offeredGrades                Int[]    @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)
+  /// Global ON requirements overlay participant choices; unlocking restores their saved choices.
+  notificationLocks Json @default("{}")
   // Availability only: existing verified aliases and primary authentication remain intact.
   secondaryEmailBindingEnabled Boolean @default(true)
   id String @id @default("program")
@@ -2630,11 +2667,32 @@ model EmailDelivery {
   monthlyHoursReport MonthlyHoursReport? @relation(fields: [monthlyHoursReportId], references: [id], onDelete: Restrict)
   schoolHoursReportId String?
   schoolHoursReport SchoolHoursReport? @relation(fields: [schoolHoursReportId], references: [id], onDelete: Restrict)
+  /// Each recipient-requested reminder retains its own durable send receipt.
+  schoolHoursSendKey String @default("initial")
+  schoolHoursReminderSourceId String?
+  schoolHoursReminderSource EmailDelivery? @relation("SchoolHoursReminders", fields: [schoolHoursReminderSourceId], references: [id], onDelete: Restrict)
+  schoolHoursReminders EmailDelivery[] @relation("SchoolHoursReminders")
+  schoolHoursScheduledFor DateTime?
+  schoolHoursReminderLinkVersion Int?
+  schoolHoursReminderIntentHash String?
+  /// First authenticated personal-link GET; not proof of a human reading email.
+  schoolHoursLinkOpenedAt DateTime?
   @@index([status, availableAt])
   @@index([sourceNotificationId])
   @@unique([requestKind, requestId, requestVersion])
   @@unique([monthlyHoursReportId, recipient])
-  @@unique([schoolHoursReportId, recipient])
+  @@unique([schoolHoursReportId, recipient, schoolHoursSendKey], map: "EmailDelivery_school_recipient_send_key")
+  @@index([schoolHoursReminderSourceId, createdAt])
+}
+
+/// Archive evidence is retained without granting current workflow or reporting authority.
+/// Operational metadata is written by the importer and never accepted from CSV.
+model ImportedRecordProvenance {
+  entity     String
+  recordId   String
+  importedAt DateTime @default(now())
+
+  @@id([entity, recordId])
 }
 
 /// Independent school issue chain; previews and mail delivery never advance it.
@@ -2642,6 +2700,8 @@ model SchoolHoursSchedule {
   id String @id @default("program")
   enabled Boolean @default(false)
   recipientEmails String[] @default([])
+  /// Staff-only labels keyed by normalized mailbox; never part of a report or mail.
+  recipientLabels Json @default("{}")
   timeZone String @default("Asia/Shanghai")
   includeStatistics Boolean @default(false)
   dateOverrides Json @default("{}")
@@ -3093,6 +3153,8 @@ model SessionPlanParticipant {
   scheduleOverride Boolean @default(false)
   /// Automatic plan/calendar suppression may be restored; user/lifecycle cancellations are not.
   calendarSuppressed Boolean @default(false)
+  /// Reversible tutoring-only suppression; never substitutes for school closure or user cancellation.
+  tutoringPauseSuppressed Boolean @default(false)
   version Int @default(1)
   updatedAt DateTime @updatedAt
   @@unique([planId, tuteeId])
@@ -3209,6 +3271,8 @@ model SessionNotice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([status, availableAt, priority])
+  // Exact-offer consent checks must not scan unrelated notice history.
+  @@index([offerId])
 }
 
 model SessionCalendarToken {

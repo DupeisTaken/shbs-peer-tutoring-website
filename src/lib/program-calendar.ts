@@ -15,6 +15,8 @@ export const programCalendarWrite = z
     date: programCalendarDate,
     endDate: programCalendarDate.optional(),
     reason: z.string().trim().min(1).max(300),
+    // The writer preserves omitted legacy edits; new ranges default to a pause.
+    schedulingEffect: z.enum(["NOTICE", "PAUSE_REGULAR"]).optional(),
     expectedVersion: z.number().int().nonnegative(),
   })
   .strict()

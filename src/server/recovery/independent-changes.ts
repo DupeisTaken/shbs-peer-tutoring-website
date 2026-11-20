@@ -27,6 +27,7 @@ const preservedFields: Record<string, ReadonlySet<string>> = {
     "emailReviewRequests",
     "emailEventReminders",
     "emailSecondaryRecipients",
+    "emailLocale",
     "passwordHash",
     "sessionVersion",
     // History ownership invalidates old private-read sessions. Preserve the live

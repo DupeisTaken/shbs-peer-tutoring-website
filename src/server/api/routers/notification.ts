@@ -23,6 +23,7 @@ import { isNotificationEvent } from "~/lib/notification-events";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { notificationOwnershipWhere } from "~/server/history-row-ownership";
 import { withHistoryReadMutation } from "~/server/history-access-generation";
+import { isNotificationCategory, notificationLockFor } from "~/lib/notification-categories";
 
 /**
  * In-app notifications for the signed-in user (any role). Always scoped to
@@ -87,12 +88,14 @@ export const notificationRouter = createTRPCRouter({
   }),
 
   unreadCount: protectedProcedure.input(z.object({ includeMuted: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
+    const settings = input?.includeMuted ? null : await ctx.db.programSettings.findUnique({ where: { id: "program" }, select: { notificationLocks: true } });
     const muted = input?.includeMuted ? [] : await ctx.db.notificationPreference.findMany({
       where: { userId: ctx.session.user.id, badgeEnabled: false }, select: { category: true },
     });
+    const mutedCategories = muted.filter((row) => !isNotificationCategory(row.category) || !notificationLockFor(settings?.notificationLocks, row.category).badgeLocked).map((row) => row.category);
     return ctx.db.notification.count({
       where: { AND: [await notificationOwnershipWhere(ctx.db, ctx.session.user.id)], readAt: null, recoveryWithdrawnAt: null,
-        ...(muted.length ? { category: { notIn: muted.map((row) => row.category) } } : {}),
+        ...(mutedCategories.length ? { category: { notIn: mutedCategories } } : {}),
       },
     });
   }),

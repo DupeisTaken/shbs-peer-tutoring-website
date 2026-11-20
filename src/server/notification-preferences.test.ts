@@ -29,7 +29,7 @@ beforeEach(async () => {
   await db.programSettings.upsert({
     where: { id: "program" },
     create: { id: "program", emailNotificationsEnabled: true },
-    update: { emailNotificationsEnabled: true },
+    update: { emailNotificationsEnabled: true, notificationLocks: {} },
   });
   await db.user.create({
     data: {
@@ -44,6 +44,167 @@ beforeEach(async () => {
 afterAll(async () => {
   await db.user.deleteMany({ where: { id: userId } });
   await db.$disconnect();
+});
+
+it("saves the account's email language independently from delivery consent and other accounts", async () => {
+  const otherId = `${userId}-other`;
+  await db.user.create({
+    data: {
+      id: otherId,
+      email: "other-language@example.test",
+      emailLocale: "en",
+    },
+  });
+  try {
+    expect((await caller().account.notificationPreferences()).emailLocale).toBe(
+      "en",
+    );
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: { emailNotificationsEnabled: false },
+    });
+    await db.emailDelivery.deleteMany({ where: { userId } });
+    const before = await db.user.findUniqueOrThrow({ where: { id: userId } });
+    await caller().account.setNotificationPreferences({
+      categories: [],
+      emailLocale: "zh",
+    });
+    expect((await caller().account.notificationPreferences()).emailLocale).toBe(
+      "zh",
+    );
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: userId } }),
+    ).toMatchObject({
+      emailLocale: "zh",
+      emailInfo: before.emailInfo,
+      emailSecondaryRecipients: before.emailSecondaryRecipients,
+      sessionVersion: before.sessionVersion,
+      profileVersion: before.profileVersion,
+    });
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: otherId } })).emailLocale,
+    ).toBe("en");
+    expect(await db.emailDelivery.count({ where: { userId } })).toBe(0);
+  } finally {
+    await db.user.delete({ where: { id: otherId } });
+  }
+});
+
+it("preserves saved email language when older clients omit it", async () => {
+  await db.user.update({ where: { id: userId }, data: { emailLocale: "zh" } });
+  await caller().account.setNotificationPreferences({ categories: [] });
+  await caller().account.setEmailPreferences({
+    emailMessages: false,
+    emailInfo: true,
+    emailSecondaryRecipients: false,
+  });
+  expect((await caller().account.notificationPreferences()).emailLocale).toBe(
+    "zh",
+  );
+});
+
+it.each([true, false])(
+  "saves language with required channels and global email=%s while preserving underlying personal choices",
+  async (emailNotificationsEnabled) => {
+    await db.notificationPreference.createMany({
+      data: [
+        {
+          userId,
+          category: "messages",
+          badgeEnabled: false,
+          emailEnabled: false,
+        },
+        {
+          userId,
+          category: "attendance",
+          badgeEnabled: true,
+          emailEnabled: true,
+        },
+      ],
+    });
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: {
+        emailNotificationsEnabled,
+        notificationLocks: {
+          messages: { badgeLocked: true, emailLocked: true },
+          attendance: { badgeLocked: true, emailLocked: true },
+        },
+      },
+    });
+    const before = await db.user.findUniqueOrThrow({ where: { id: userId } });
+    const read = await caller().account.notificationPreferences();
+    expect(
+      read.categories.find((row) => row.category === "messages"),
+    ).toMatchObject({
+      badgeEnabled: true,
+      emailEnabled: true,
+      badgeLocked: true,
+      emailLocked: true,
+    });
+    await caller().account.setNotificationPreferences({
+      emailLocale: "zh",
+      expectedLocks: read.categories.map(
+        ({ category, badgeLocked, emailLocked }) => ({
+          category,
+          badgeLocked,
+          emailLocked,
+        }),
+      ),
+      categories: read.categories.map(
+        ({ category, badgeEnabled, emailEnabled }) => ({
+          category,
+          badgeEnabled,
+          emailEnabled,
+        }),
+      ),
+    });
+    expect(
+      await db.notificationPreference.findUniqueOrThrow({
+        where: { userId_category: { userId, category: "messages" } },
+      }),
+    ).toMatchObject({ badgeEnabled: false, emailEnabled: false });
+    expect(
+      await db.notificationPreference.findUniqueOrThrow({
+        where: { userId_category: { userId, category: "attendance" } },
+      }),
+    ).toMatchObject({ badgeEnabled: true, emailEnabled: true });
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: userId } }),
+    ).toMatchObject({
+      emailLocale: "zh",
+      emailInfo: before.emailInfo,
+      emailMessages: before.emailMessages,
+      emailSecondaryRecipients: before.emailSecondaryRecipients,
+    });
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: { notificationLocks: {} },
+    });
+    const unlocked = await caller().account.notificationPreferences();
+    expect(unlocked.emailLocale).toBe("zh");
+    expect(
+      unlocked.categories.find((row) => row.category === "messages"),
+    ).toMatchObject({ badgeEnabled: false, emailEnabled: false });
+    expect(
+      unlocked.categories.find((row) => row.category === "attendance"),
+    ).toMatchObject({ badgeEnabled: true, emailEnabled: true });
+  },
+);
+
+it("rejects unsupported email languages at the API and database boundaries", async () => {
+  await expect(
+    caller().account.setNotificationPreferences({
+      categories: [],
+      emailLocale: "fr" as never,
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    db.$executeRaw`UPDATE "User" SET "emailLocale"='fr' WHERE id=${userId}`,
+  ).rejects.toThrow();
+  expect((await caller().account.notificationPreferences()).emailLocale).toBe(
+    "en",
+  );
 });
 
 it("conceals recovery-withdrawn notices from lists and badges without rewriting original read evidence", async () => {

@@ -2,6 +2,128 @@
 import { expect, it } from "vitest";
 import { renderEmail } from "./template";
 
+it.each(["en", "zh"] as const)(
+  "escapes an explicit %s preference-management label without changing its capability or footer styling",
+  (locale) => {
+    const label =
+      locale === "en"
+        ? "Manage <script>private()</script> & preferences"
+        : "管理 <script>private()</script> 与邮件偏好";
+    const url = "https://school.example/unsubscribe?token=synthetic";
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: "Notice",
+        text: "Details",
+        presentation: { locale, unsubscribeUrl: url, unsubscribeLabel: label },
+      }),
+      "text/html",
+    );
+    const link = doc.querySelector<HTMLAnchorElement>(".footer-unsubscribe")!;
+    expect(link.textContent).toBe(label);
+    expect(link.href).toBe(url);
+    expect(link.style.lineHeight).toBe("20px");
+    expect(link.style.textDecoration).toBe("underline");
+    expect(doc.querySelector("script,[onerror],[onmouseover]")).toBeNull();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "uses a safe %s inbox preview instead of repeating the subject or recovering private body content",
+  (locale) => {
+    const subject = "PRIVATE SUBJECT 0012";
+    const html = renderEmail({
+      brand: "School",
+      subject,
+      text: "PRIVATE REASON https://school.example/?token=SECRET",
+      presentation: { locale, code: "0012" },
+    });
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const preview = doc.querySelector(".preheader")?.textContent;
+    expect(preview).toBe(
+      locale === "en"
+        ? "Details and next steps inside."
+        : "请查看邮件中的详情和后续步骤。",
+    );
+    expect(preview).not.toMatch(/PRIVATE|0012|SECRET|https:/);
+    expect(doc.body.textContent?.split(subject)).toHaveLength(2);
+    expect(doc.querySelector("h1")?.textContent).toBe(subject);
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "escapes an explicit %s preview without creating executable markup",
+  (locale) => {
+    const preview =
+      locale === "en"
+        ? 'Review <img src=x onerror="private()"> & continue.'
+        : '请核对 <img src=x onerror="private()"> 并继续。';
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: "Subject",
+        text: "Body",
+        presentation: { locale, preview },
+      }),
+      "text/html",
+    );
+    expect(doc.querySelector(".preheader")?.textContent).toBe(preview);
+    expect(doc.querySelector("img,[onerror],script")).toBeNull();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "renders all shared boilerplate in %s without changing legacy code styling",
+  (locale) => {
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: locale === "en" ? "Your code" : "您的验证码",
+        text: locale === "en" ? "Enter the code." : "请输入验证码。",
+        iconUrl: "https://school.example/icon.png",
+        presentation: {
+          locale,
+          code: "0012",
+          codePurpose: "verification",
+          action: {
+            label: locale === "en" ? "Continue" : "继续",
+            url: "https://school.example/continue",
+          },
+          unsubscribeUrl: "https://school.example/unsubscribe",
+        },
+      }),
+      "text/html",
+    );
+    expect(doc.documentElement.lang).toBe(locale);
+    expect(doc.querySelector(".footer-unsubscribe")?.textContent).toBe(
+      locale === "en" ? "Unsubscribe" : "取消订阅",
+    );
+    expect(doc.querySelector(".footer-copy")?.textContent).toBe(
+      locale === "en"
+        ? "Automated message. Keep account links and codes private."
+        : "此为自动邮件，请勿分享账户链接和验证码。",
+    );
+    expect(doc.querySelector(".panel")?.textContent).toContain(
+      locale === "en"
+        ? "Copy this link into your browser:"
+        : "复制链接到浏览器：",
+    );
+    expect(doc.querySelector(".code")?.textContent).toBe("0012");
+    expect(doc.querySelector<HTMLElement>(".code")!.style.backgroundColor).toBe(
+      "rgb(23, 47, 73)",
+    );
+    expect(doc.querySelector("img")?.alt).toBe(
+      locale === "en" ? "School icon" : "School图标",
+    );
+    if (locale === "en")
+      expect(doc.body.textContent).not.toMatch(/\p{Script=Han}/u);
+    else
+      expect(doc.body.textContent).not.toMatch(
+        /ACCOUNT & PROGRAM MAIL|Copy this link|Automated message|Unsubscribe/,
+      );
+  },
+);
+
 it("escapes caller text and gives the CTA and fallback exactly the same token URL", () => {
   const url =
     "https://school.example/reset-password?token=synthetic&next=one#confirm";
@@ -18,6 +140,68 @@ it("escapes caller text and gives the CTA and fallback exactly the same token UR
   expect(doc.body.textContent).toContain("School <script>alert(1)</script>");
   expect(html).toContain("@media(max-width:600px)");
   expect(html).toContain("prefers-color-scheme:dark");
+});
+
+it("uses escaped presentation prose while leaving the complete plain-text alternative untouched", () => {
+  const url = "https://school.example/verify?token=synthetic";
+  const text = `Verification code: 0012. 验证码：0012。\n\n${url}`;
+  const input = {
+    brand: "School",
+    subject: "Verify your email",
+    text,
+    presentation: {
+      body: "Enter the code below within ten minutes.\n\n请在十分钟内输入验证码。 <script>literal</script>",
+      code: "0012",
+      codePurpose: "verification" as const,
+      action: { label: "Verify email / 验证邮箱", url },
+    },
+  };
+  const doc = new DOMParser().parseFromString(renderEmail(input), "text/html");
+  expect(doc.querySelector(".body")?.textContent).toContain(
+    "请在十分钟内输入验证码。 <script>literal</script>",
+  );
+  expect(doc.querySelector("script")).toBeNull();
+  expect(doc.querySelector(".body")?.textContent).not.toContain(
+    "Verification code: 0012",
+  );
+  expect(doc.querySelector(".code")?.textContent).toBe("0012");
+  expect(input.text).toBe(text);
+  expect([...doc.querySelectorAll("a")].map((link) => link.href)).toEqual([
+    url,
+    url,
+  ]);
+});
+
+it("removes only standalone action URLs and preserves complete embedded link sentences", () => {
+  const url = "https://school.example/register?invitation=synthetic";
+  const sentence = `Enter your code at ${url}. 请前往 ${url} 输入验证码。`;
+  const doc = new DOMParser().parseFromString(
+    renderEmail({
+      brand: "School",
+      subject: "Review your invitation",
+      text: `${sentence}\n\n  ${url}  \n\nKeep this invitation private.`,
+      presentation: { action: { label: "Review invitation", url } },
+    }),
+    "text/html",
+  );
+  const paragraphs = [...doc.querySelectorAll(".body > p")].map(
+    (paragraph) => paragraph.textContent,
+  );
+  expect(paragraphs).toEqual([sentence, "Keep this invitation private."]);
+});
+
+it("honors an explicitly empty HTML body without recovering redundant fallback prose", () => {
+  const doc = new DOMParser().parseFromString(
+    renderEmail({
+      brand: "School",
+      subject: "Your code",
+      text: "Your verification code is 0012.",
+      presentation: { body: "", code: "0012" },
+    }),
+    "text/html",
+  );
+  expect(doc.querySelector(".body > p")).toBeNull();
+  expect(doc.querySelector(".code")?.textContent).toBe("0012");
 });
 
 it("keeps mixed-language instructions and code readable without images", () => {
@@ -348,7 +532,7 @@ it("keeps all email text at readable contrast when a client strips the styleshee
     code: doc.querySelector(".code"),
     action: doc.querySelector("a"),
     fallbackInstructions: [...doc.querySelectorAll("p")].find((paragraph) =>
-      paragraph.textContent?.startsWith("Or copy this link"),
+      paragraph.textContent?.startsWith("Copy this link into your browser"),
     ),
     fallbackLink: doc.querySelector("a.ink"),
   };
@@ -377,7 +561,7 @@ it("retains branded bilingual instructions, verification code and both usable ac
     url,
   ]);
   expect(doc.body.textContent).toContain(
-    "Keep account links and verification codes private.",
+    "Keep account links and codes private.",
   );
 });
 
@@ -407,7 +591,7 @@ it("places one accessible 48px site icon above the footer brand and privacy copy
   const footerCopy = footer.querySelector(".footer-copy")!;
   expect(footerBrand.textContent).toBe("SHBS Peer Tutoring");
   expect(footerCopy.textContent).toBe(
-    "This is an automated message. Keep account links and verification codes private.",
+    "Automated message. Keep account links and codes private.",
   );
   expect(footer.contains(icon)).toBe(true);
   expect(

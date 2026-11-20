@@ -119,12 +119,16 @@ export default function SettingsPage() {
     hasFields: editableNames,
     observe: observeNamePolicy,
   } = useNameFieldPresentation();
-  const [originalNames, setOriginalNames] = useState(() => nameDraft(profile.data));
+  const [originalNames, setOriginalNames] = useState(() =>
+    nameDraft(profile.data),
+  );
   const [legacyName, setLegacyName] = useState(() =>
     profile.data ? unsplitLegacyName(profile.data) : undefined,
   );
   const identity = personNameEdit(names, originalNames, legacyName);
-  const [profileVersion, setProfileVersion] = useState(profile.data?.profileVersion);
+  const [profileVersion, setProfileVersion] = useState(
+    profile.data?.profileVersion,
+  );
   const [profileDirty, setProfileDirty] = useState(false);
   const [optOutReason, setOptOutReason] = useState("");
   const [observedProfile, setObservedProfile] = useState(profile.data);
@@ -335,7 +339,8 @@ export default function SettingsPage() {
       title: t("tutor.settings.optOutBtn"),
       description: t("tutor.settings.optOutReviewHelp"),
       confirmLabel: t("tutor.settings.optOutBtn"),
-      confirmVariant: "primary",
+      confirmVariant: "danger",
+      confirmDelayMs: 3_000,
       successMessage: t("tutor.settings.optOutSubmitted"),
       details: (
         <div className="space-y-1">
@@ -790,7 +795,7 @@ export default function SettingsPage() {
               />
             </label>
             <button
-              className="btn-secondary"
+              className="btn-danger"
               disabled={membershipBlocked}
               onClick={reviewOptOut}
             >

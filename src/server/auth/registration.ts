@@ -1,3 +1,4 @@
+import { normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
 import {
   configuredNewNames,
   ensureNameFallbackForRole,
@@ -70,7 +71,12 @@ import { graduationYear } from "~/lib/period";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { getFeatures } from "~/server/program/features";
 import { initializePersonSource } from "~/server/person-source-initialization";
-import { registrationRecoveryAction, captureRegistrationBefore, recoveryAccountSelect, trackRecoveryEntity } from "~/server/recovery/capture";
+import {
+  registrationRecoveryAction,
+  captureRegistrationBefore,
+  recoveryAccountSelect,
+  trackRecoveryEntity,
+} from "~/server/recovery/capture";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
 export const CODE_TTL_DAYS = 7;
@@ -168,7 +174,12 @@ export async function issueRegistrationCode(
       const issuer = opts.issuedById
         ? await tx.user.findUnique({ where: { id: opts.issuedById } })
         : null;
-      if (!issuer || !["ADMIN", "HEAD"].includes(issuer.role) || issuer.suspendedAt || issuer.mergedIntoId)
+      if (
+        !issuer ||
+        !["ADMIN", "HEAD"].includes(issuer.role) ||
+        issuer.suspendedAt ||
+        issuer.mergedIntoId
+      )
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only Admin or Head may issue management invitations.",
@@ -295,7 +306,11 @@ export async function assertTutorRegistrationSource(
     where: { id: row.applicationId },
     select: { invalidatedAt: true, status: true },
   });
-  if (!application || application.invalidatedAt || application.status !== "ACCEPTED")
+  if (
+    !application ||
+    application.invalidatedAt ||
+    application.status !== "ACCEPTED"
+  )
     throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
 }
 
@@ -410,9 +425,11 @@ export async function codePrefill(row: CodeRow, client: DomainDb = db) {
   // A returning roster keeps its established identity during promotion. Prefill
   // must describe that exact invitation-bound roster too, rather than suggesting
   // a request-local correction that account creation will correctly refuse to adopt.
-  const names = row.applicationId && row.tutorId
-    ? (await client.tutor.findUnique({ where: { id: row.tutorId } })) ?? source
-    : source;
+  const names =
+    row.applicationId && row.tutorId
+      ? ((await client.tutor.findUnique({ where: { id: row.tutorId } })) ??
+        source)
+      : source;
   return {
     boundEmail: row.email?.toLowerCase() ?? null,
     firstName: names?.firstName ?? "",
@@ -543,6 +560,8 @@ export async function confirmEmailCode(
 }
 
 export interface CompleteRegistrationInput {
+  /** Trusted invitation presentation, separate from identity and consent evidence. */
+  emailLocale?: EmailLocale;
   completionProof: string;
   firstName: string;
   lastName: string;
@@ -639,6 +658,12 @@ async function completeRegistrationLocked(
   // Crew applications retain their existing precedence over a generic tutor link.
   // Newly hidden form fields and posted replacements cannot erase accepted values.
   const preservedIdentity = owner ?? acceptedSource;
+  const emailLocale = normalizeEmailLocale(
+    input.emailLocale ??
+      (acceptedSource && "emailLocale" in acceptedSource
+        ? acceptedSource.emailLocale
+        : undefined),
+  );
   if (preservedIdentity)
     input = {
       ...input,
@@ -792,7 +817,8 @@ async function completeRegistrationLocked(
           after: nextRole,
         });
         if (recipient.role !== nextRole) {
-          const { reconcileManagementReviewNotifications } = await import("~/server/notifications/create");
+          const { reconcileManagementReviewNotifications } =
+            await import("~/server/notifications/create");
           await reconcileManagementReviewNotifications(tx);
         }
         return {
@@ -814,6 +840,7 @@ async function completeRegistrationLocked(
       const user = await tx.user.create({
         data: {
           email,
+          emailLocale,
           username,
           firstName,
           lastName,
@@ -841,7 +868,8 @@ async function completeRegistrationLocked(
         data: { usedByUserId: user.id },
       });
       await recordRedemption(tx, row, user.id);
-      const { reconcileManagementReviewNotifications } = await import("~/server/notifications/create");
+      const { reconcileManagementReviewNotifications } =
+        await import("~/server/notifications/create");
       await reconcileManagementReviewNotifications(tx);
       return { ok: true as const, username };
     });
@@ -965,6 +993,7 @@ async function completeRegistrationLocked(
       const created = await tx.user.create({
         data: {
           email,
+          emailLocale,
           username: desiredUsername,
           firstName,
           lastName,
@@ -1023,7 +1052,11 @@ async function completeRegistrationLocked(
     await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await assertTutorRegistrationSource(tx, row);
-    const recoveryActionId = await registrationRecoveryAction(tx, row.applicationId, row.id);
+    const recoveryActionId = await registrationRecoveryAction(
+      tx,
+      row.applicationId,
+      row.id,
+    );
     const term = await tx.term.findFirst({
       where: { active: true },
       select: { schoolYear: true },
@@ -1043,7 +1076,8 @@ async function completeRegistrationLocked(
       });
       if (
         existingUser.suspendedAt ||
-        (existingUser.tutorId && existingUser.tutorAccessRevoked &&
+        (existingUser.tutorId &&
+          existingUser.tutorAccessRevoked &&
           !(existingUser.recoveryVoidedAt && recoveryActionId))
       )
         throw new TRPCError({
@@ -1070,8 +1104,17 @@ async function completeRegistrationLocked(
         message:
           "Account membership changed. Ask Head to review this invitation.",
       });
-    if (recoveryActionId) await captureRegistrationBefore(tx, recoveryActionId,
-      existingUser ? await tx.user.findUnique({ where: { id: existingUser.id }, select: recoveryAccountSelect }) : null);
+    if (recoveryActionId)
+      await captureRegistrationBefore(
+        tx,
+        recoveryActionId,
+        existingUser
+          ? await tx.user.findUnique({
+              where: { id: existingUser.id },
+              select: recoveryAccountSelect,
+            })
+          : null,
+      );
     if (existingUser?.recoveryVoidedAt && recoveryActionId)
       await tx.$queryRaw`SELECT set_config('shbs.recovery_reauthorize', ${recoveryActionId}, true)`;
     await claimRegistration(tx, row);
@@ -1154,7 +1197,7 @@ async function completeRegistrationLocked(
             ? {
                 englishName: existingUser?.name?.trim()
                   ? existingUser.name
-                  : sourceIdentity?.legacyName ?? explicitName,
+                  : (sourceIdentity?.legacyName ?? explicitName),
               }
             : {}),
           alternativeNames,
@@ -1200,7 +1243,9 @@ async function completeRegistrationLocked(
         data: {
           tutorId,
           tutorAccessRevoked: false,
-          ...(existingUser.recoveryVoidedAt && recoveryActionId ? { recoveryVoidedAt: null } : {}),
+          ...(existingUser.recoveryVoidedAt && recoveryActionId
+            ? { recoveryVoidedAt: null }
+            : {}),
           ...(existingUser.role === "VIEWER" ? { role: "TUTOR" as const } : {}),
           username: desiredUsername,
           ...(!existingUser.passwordHash
@@ -1218,6 +1263,7 @@ async function completeRegistrationLocked(
       const createdUser = await tx.user.create({
         data: {
           email,
+          emailLocale,
           username: desiredUsername,
           firstName,
           lastName,
@@ -1302,7 +1348,8 @@ async function completeRegistrationLocked(
       where: { id: row.id },
       data: { usedAt: new Date(), usedByUserId: userId },
     });
-    if (recoveryActionId) await trackRecoveryEntity(tx, recoveryActionId, "User", userId);
+    if (recoveryActionId)
+      await trackRecoveryEntity(tx, recoveryActionId, "User", userId);
     await recordRedemption(tx, row, userId);
     return {
       username: desiredUsername,

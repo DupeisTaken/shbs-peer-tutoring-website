@@ -34,6 +34,7 @@ import { DEFAULT_FEATURES } from "./program/features";
 import { getProgramTimeZone } from "./program/time-zone";
 import {
   schoolCalendarWrite,
+  schoolCalendarHoliday,
   schoolCalendarReset,
 } from "~/lib/school-calendar";
 import { schoolHoursLock, validateSchoolHoursSettings } from "./school-hours";
@@ -532,6 +533,10 @@ export async function proposalTargets(
         id: true,
         enabled: true,
         recipientEmails: true,
+        // Older queued proposals have no metadata field in their captured target.
+        ...(proposed.recipientLabels !== undefined
+          ? { recipientLabels: true }
+          : {}),
         timeZone: true,
         includeStatistics: true,
         dateOverrides: true,
@@ -655,6 +660,9 @@ export async function proposalTargets(
   if (
     ["program.setCalendarDay", "program.removeCalendarDay"].includes(operation)
   ) {
+    await lockEntity(client, "program:period");
+    const { lockSessionPlanning } = await import("./session-planning");
+    await lockSessionPlanning(client);
     await lockEntity(
       client,
       `program-calendar:${z.string().parse(fields.date)}`,
@@ -695,6 +703,11 @@ export async function proposalTargets(
         message:
           "The school calendar changed. Reload before requesting review.",
       });
+  }
+  if (operation === "student.setCalendarHoliday") {
+    const { lockSchoolCalendarHoliday } =
+      await import("./program/school-calendar");
+    await lockSchoolCalendarHoliday(client, schoolCalendarHoliday.parse(input));
   }
   if (operation === "program.setNameFields") {
     await lockUsernameNamespace(client);
@@ -940,9 +953,12 @@ export async function proposalTargets(
     });
     // Backfilled single-day rows keep pre-migration approval fingerprints. A real
     // range retains its endpoint; every later edit also advances the row version.
-    targets.programCalendar = notices.map(({ endDate, ...notice }) =>
-      endDate === notice.date ? notice : { ...notice, endDate },
-    );
+    targets.programCalendar = notices.map(({ endDate, schedulingEffect, ...notice }) => ({
+      ...notice,
+      ...(endDate === notice.date ? {} : { endDate }),
+      // Additive default preserves unchanged pre-policy approval fingerprints.
+      ...(schedulingEffect === "NOTICE" ? {} : { schedulingEffect }),
+    }));
   }
   if (operation === "admin.reorderRooms")
     targets.roomOrder = await client.room.findMany({
@@ -1064,7 +1080,16 @@ export async function proposalTargets(
   }
   if (primary === "SchoolCalendarDay")
     targets.calendar = await client.schoolCalendarDay.findMany({
-      where: { date: z.string().parse(fields.date) },
+      where:
+        operation === "student.setCalendarHoliday"
+          ? {
+              date: {
+                gte: z.string().parse(fields.from),
+                lte: z.string().parse(fields.to),
+              },
+            }
+          : { date: z.string().parse(fields.date) },
+      orderBy: { date: "asc" },
     });
   if (primary === "StudentSettings")
     targets.settings = await client.studentSettings.findMany({

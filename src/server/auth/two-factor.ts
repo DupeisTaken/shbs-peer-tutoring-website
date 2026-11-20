@@ -6,8 +6,9 @@
  * login codes for the same user.
  */
 import { timingSafeEqual } from "crypto";
+import { emailText, normalizeEmailLocale } from "~/lib/email-locale";
 
-import { APP_TITLE } from "~/lib/branding";
+import { codeEmailCopy } from "~/server/email/direct-email-copy";
 import { db } from "~/server/db";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { normalizeEmailCode, EMAIL_CODE_LENGTH } from "./code";
@@ -48,6 +49,7 @@ export async function issueLoginCode(
       where: { id: userId },
       select: {
         email: true,
+        emailLocale: true,
         name: true,
         sessionVersion: true,
         mergedIntoId: true,
@@ -84,12 +86,22 @@ export async function issueLoginCode(
   await emailSender.send({
     category: "SECURITY",
     to: user.email,
-    subject: `${APP_TITLE}: your sign-in code`,
-    presentation: { code, codePurpose: "verification", eyebrow: "SIGN IN" },
-    text:
-      `Hi ${user.name ?? "there"},\n\n` +
-      `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.\n\n` +
-      "If you did not just try to sign in, change your password or contact the program team.",
+    ...codeEmailCopy({
+      locale: normalizeEmailLocale(user.emailLocale),
+      subject: emailText(normalizeEmailLocale(user.emailLocale), {
+        en: "Your sign-in code",
+        zh: "您的登录验证码",
+      }),
+      code,
+      eyebrow: emailText(normalizeEmailLocale(user.emailLocale), {
+        en: "SIGN IN",
+        zh: "登录",
+      }),
+      body: emailText(normalizeEmailLocale(user.emailLocale), {
+        en: `Enter this code to finish signing in. It expires in ${CODE_TTL_MINUTES} minutes.\n\nIf you did not just try to sign in, change your password or contact the program team.`,
+        zh: `输入此验证码以完成登录，${CODE_TTL_MINUTES} 分钟内有效。\n\n如非本人尝试登录，请更改密码或联系项目团队。`,
+      }),
+    }),
   });
 
   return { email: user.email };

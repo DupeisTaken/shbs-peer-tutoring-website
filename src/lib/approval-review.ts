@@ -42,10 +42,12 @@ export const reviewTechnicalFields = new Set([
   "expectedProfileVersion",
   "expectedRoomVersion",
   "expectedVersion",
+  "expectedVersions",
   "expectedIds",
   "expectedPolicy",
   "expectedState",
   "expectedEnabled",
+  "expectedCategories",
   "expectedTimeZone",
   "expectedTermId",
   "expectedFingerprint",
@@ -297,11 +299,13 @@ export function approvalReview(
   targets: unknown,
 ) {
   const rawInput = record(payload) ?? {};
-  // Reset has a fixed, reviewable resulting effect; retained fields remain historical evidence.
+  // Fixed calendar actions expose their resulting effect without comparing a whole range to one row.
   const input =
-    operation === "student.resetCalendarDay"
-      ? { ...rawInput, active: false }
-      : rawInput;
+    operation === "student.setCalendarHoliday"
+      ? { ...rawInput, isSchoolDay: false, timetableWeekday: null }
+      : operation === "student.resetCalendarDay"
+        ? { ...rawInput, active: false }
+        : rawInput;
   const evidence = record(targets) ?? {};
   const groups = Object.entries(evidence).flatMap(([table, value]) => {
     const rows = (Array.isArray(value) ? value : [value])

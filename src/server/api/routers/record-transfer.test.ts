@@ -263,7 +263,12 @@ it("preserves the User/Tutor handle namespace and scalar ownership references", 
     caller().recordTransfer.preview({
       files: [
         file("Tutor", [
-          { id: "new", englishName: "Old Tutor", username: "TAKEN" },
+          {
+            id: "new",
+            englishName: "Old Tutor",
+            username: "TAKEN",
+            status: "ARCHIVED",
+          },
         ]),
       ],
     }),
@@ -868,4 +873,305 @@ it("rejects impossible calendar dates instead of normalizing them", async () => 
       ],
     }),
   ).rejects.toThrow(/invalid calendar date/);
+});
+
+it("records archive provenance only for inserted rows and rolls it back during preview", async () => {
+  const files = fixtures();
+  const preview = await caller().recordTransfer.preview({ files });
+  expect(await db.importedRecordProvenance.count()).toBe(0);
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  const provenance = await db.importedRecordProvenance.findMany({
+    orderBy: [{ entity: "asc" }, { recordId: "asc" }],
+  });
+  expect(
+    provenance.map(({ entity, recordId }) => ({ entity, recordId })),
+  ).toEqual([
+    { entity: "Pairing", recordId: "pair" },
+    {
+      entity: "PairingTutee",
+      recordId: '[["pairingId","pair"],["tuteeId","tutee"]]',
+    },
+    { entity: "ServiceHourAdjustment", recordId: "extra" },
+    { entity: "Session", recordId: "session" },
+    {
+      entity: "SessionTutee",
+      recordId: '[["sessionId","session"],["tuteeId","tutee"]]',
+    },
+    { entity: "Term", recordId: "term" },
+    { entity: "Tutee", recordId: "tutee" },
+    { entity: "Tutor", recordId: "tutor" },
+  ]);
+  const repeated = await caller().recordTransfer.preview({ files });
+  await caller().recordTransfer.import({ files, ticket: repeated.ticket });
+  expect(
+    await db.importedRecordProvenance.findMany({
+      orderBy: [{ entity: "asc" }, { recordId: "asc" }],
+    }),
+  ).toEqual(provenance);
+  const exported = await caller().recordTransfer.export({});
+  expect(
+    exported.files.some((row) => row.name === "ImportedRecordProvenance.csv"),
+  ).toBe(false);
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("ImportedRecordProvenance", [
+          { entity: "Session", recordId: "native" },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/unsupported/);
+});
+
+it("skips an identical current native tutor without changing its lifecycle or origin", async () => {
+  await db.tutor.create({
+    data: {
+      id: "native-current",
+      englishName: "Current Tutor",
+      status: "ACTIVE",
+    },
+  });
+  const files = [
+    file("Tutor", [
+      { id: "native-current", englishName: "Current Tutor", status: "ACTIVE" },
+    ]),
+  ];
+  const preview = await caller().recordTransfer.preview({ files });
+  expect(preview.summary).toEqual([{ table: "Tutor", created: 0, skipped: 1 }]);
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  expect(await db.importedRecordProvenance.count()).toBe(0);
+  expect(
+    (await db.tutor.findUniqueOrThrow({ where: { id: "native-current" } }))
+      .status,
+  ).toBe("ACTIVE");
+});
+
+it.each([
+  ["Tutor", { id: "new-current", englishName: "Current" }, /inactive status/],
+  [
+    "Tutor",
+    { id: "new-current", englishName: "Current", status: "PENDING" },
+    /inactive status/,
+  ],
+  [
+    "Tutee",
+    {
+      id: "new-current",
+      englishName: "Current",
+      updatedAt: "2024-10-01T00:00:00Z",
+    },
+    /status=INACTIVE/,
+  ],
+  [
+    "TutorMeeting",
+    { id: "new-upcoming", title: "Upcoming", date: "2099-01-01T00:00:00Z" },
+    /must be in the past/,
+  ],
+  [
+    "CrewApplication",
+    { id: "pending", name: "Applicant", email: "applicant@example.test" },
+    /completed status/,
+  ],
+  [
+    "Announcement",
+    { id: "new-live", title: "Broadcast", body: "Historical text" },
+    /active=false/,
+  ],
+] as const)(
+  "does not activate new %s archive records through schema defaults",
+  async (table, row, error) => {
+    await expect(
+      caller().recordTransfer.preview({ files: [file(table, [row])] }),
+    ).rejects.toThrow(error);
+    expect(await db.importedRecordProvenance.count()).toBe(0);
+  },
+);
+
+it("rejects archived discipline against current participation and honors same-batch inactive targets", async () => {
+  const files = fixtures();
+  const preview = await caller().recordTransfer.preview({ files });
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  await db.tutee.update({ where: { id: "tutee" }, data: { status: "ACTIVE" } });
+  const card = {
+    id: "archived-card",
+    tuteeId: "tutee",
+    color: "RED",
+    reviewStatus: "VALID",
+    updatedAt: "2024-10-01T00:00:00Z",
+  };
+  await expect(
+    caller().recordTransfer.preview({
+      files: [file("DisciplinaryCard", [card])],
+    }),
+  ).rejects.toThrow(/require an inactive tutee/);
+  expect(await db.disciplinaryCard.count()).toBe(0);
+  const archivedTutee = {
+    id: "other-archive",
+    englishName: "Past Learner",
+    status: "INACTIVE",
+    updatedAt: "2024-10-01T00:00:00Z",
+  };
+  const sameBatch = [
+    file("DisciplinaryCard", [{ ...card, tuteeId: "other-archive" }]),
+    file("Tutee", [archivedTutee]),
+  ];
+  const accepted = await caller().recordTransfer.preview({ files: sameBatch });
+  await caller().recordTransfer.import({
+    files: sameBatch,
+    ticket: accepted.ticket,
+  });
+  expect(
+    (await db.disciplinaryCard.findUniqueOrThrow({ where: { id: card.id } }))
+      .tuteeId,
+  ).toBe("other-archive");
+});
+
+it("rejects child-only imports that would change an upcoming meeting or current interview panel", async () => {
+  await db.tutor.create({
+    data: { id: "native-tutor", englishName: "Current Tutor" },
+  });
+  await db.tutorMeeting.create({
+    data: {
+      id: "upcoming-native",
+      title: "Current meeting",
+      date: new Date("2099-01-01T00:00:00Z"),
+    },
+  });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("MeetingAttendance", [
+          {
+            id: "new-absence",
+            meetingId: "upcoming-native",
+            tutorId: "native-tutor",
+            status: "EXCUSED_ABSENT",
+          },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/requires a past meeting/);
+  await db.tutorApplication.create({
+    data: {
+      id: "native-interview",
+      name: "Current Applicant",
+      email: "current-applicant@example.test",
+      status: "INTERVIEW",
+    },
+  });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("InterviewAssignment", [
+          {
+            applicationId: "native-interview",
+            tutorId: "native-tutor",
+            isHead: true,
+          },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/require a completed application/);
+  expect(await db.meetingAttendance.count()).toBe(0);
+  expect(await db.interviewAssignment.count()).toBe(0);
+});
+
+it("does not add live screening or qualification authority through child-only archives", async () => {
+  await db.tutee.create({
+    data: {
+      id: "current-learner",
+      englishName: "Current Learner",
+      status: "ACTIVE",
+    },
+  });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("TuteeRequestInvalidity", [
+          {
+            tuteeId: "current-learner",
+            invalidatedAt: "2024-10-01T00:00:00Z",
+            invalidReason: "Historical screening",
+          },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/require an inactive tutee/);
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("TuteeRequestInvalidity", [
+          { tuteeId: "missing-learner", invalidReason: "Historical screening" },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/missing Tutee/);
+  await db.term.create({
+    data: {
+      id: "live-intake",
+      name: "Current",
+      schoolYear: "26-27",
+      quarter: "Q2",
+      active: true,
+    },
+  });
+  await db.tutee.update({
+    where: { id: "current-learner" },
+    data: { status: "INACTIVE", intakeTermId: "live-intake" },
+  });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("TuteeRequestInvalidity", [
+          { tuteeId: "current-learner", invalidReason: "Historical screening" },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/requires an inactive intake term/);
+  await db.tutor.create({
+    data: {
+      id: "current-tutor",
+      englishName: "Current Tutor",
+      status: "ACTIVE",
+    },
+  });
+  await db.subject.create({
+    data: { id: "qualification-subject", name: "Math" },
+  });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("TutorQualification", [
+          {
+            tutorId: "current-tutor",
+            subjectId: "qualification-subject",
+            approvedById: "HEAD",
+            status: "APPROVED",
+          },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/require an inactive tutor/);
+  await db.tutorQualification.create({
+    data: {
+      tutorId: "current-tutor",
+      subjectId: "qualification-subject",
+      approvedById: "HEAD",
+    },
+  });
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("QualificationGrant", [
+          {
+            tutorId: "current-tutor",
+            sourceSubjectId: "qualification-subject",
+            subjectId: "qualification-subject",
+          },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/require an inactive tutor/);
+  expect(await db.tuteeRequestInvalidity.count()).toBe(0);
+  expect(await db.qualificationGrant.count()).toBe(0);
 });

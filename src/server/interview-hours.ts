@@ -5,6 +5,10 @@ import { monthKey } from "~/lib/service-hours";
 import type { Quarter } from "~/lib/period";
 import { getActivePeriod } from "~/server/period";
 import { assertFeatureEnabled } from "~/server/program/features";
+import {
+  assertMutableProgramRecords,
+  importedRecordKey,
+} from "~/server/imported-records";
 
 export const interviewServiceInput = z.object({
   durationMin: z.number().int().min(1).max(480),
@@ -71,6 +75,15 @@ export async function writeInterviewCompletion(
   input: InterviewService,
   credits: { id: string }[],
 ) {
+  await assertMutableInterviewSources(
+    tx,
+    applicationId,
+    [
+      ...before.interviewers.map((row) => row.tutorId),
+      ...input.attendedTutorIds,
+    ],
+    credits.map((row) => row.id),
+  );
   const period =
     before.interviewSchoolYear && before.interviewQuarter
       ? {
@@ -182,6 +195,33 @@ export const INTERVIEW_HOURS_REASON = "Completed interview service";
 export const interviewHoursId = (applicationId: string, tutorId: string) =>
   `interview_${applicationId}_${tutorId}`;
 
+/** Imported completion/panel evidence never authorizes a native award rebuild.
+ * Retained logical IDs also fence a deleted archive credit from being reissued. */
+async function assertMutableInterviewSources(
+  db: DomainDb,
+  applicationId: string,
+  tutorIds: string[],
+  existingCreditIds: string[] = [],
+) {
+  const panel = await db.interviewAssignment.findMany({
+    where: { applicationId },
+    select: { applicationId: true, tutorId: true },
+  });
+  await assertMutableProgramRecords(db, [
+    { entity: "TutorApplication", recordId: applicationId },
+    ...panel.map((row) => ({
+      entity: "InterviewAssignment",
+      recordId: importedRecordKey(row, ["applicationId", "tutorId"]),
+    })),
+    ...[
+      ...new Set([
+        ...existingCreditIds,
+        ...tutorIds.map((tutorId) => interviewHoursId(applicationId, tutorId)),
+      ]),
+    ].map((recordId) => ({ entity: "ServiceHourAdjustment", recordId })),
+  ]);
+}
+
 /** Legacy IDs have no source foreign key. Check both the exact panel-derived ID
  * and its owner/shape; a prefix can also match another application's credits. */
 export async function interviewHourRows(
@@ -216,6 +256,7 @@ export async function clearInterviewHours(
   applicationId: string,
   tutorIds: string[],
 ) {
+  await assertMutableInterviewSources(db, applicationId, tutorIds);
   const rows = await interviewHourRows(db, applicationId, tutorIds);
   await db.serviceHourAdjustment.deleteMany({
     where: { id: { in: rows.map((row) => row.id) } },

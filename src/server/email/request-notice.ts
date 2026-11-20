@@ -14,6 +14,11 @@ import {
   lockLegacySignupReview,
 } from "~/server/request-invalidity";
 import { lockUsernameNamespace } from "~/server/auth/username";
+import {
+  DEFAULT_EMAIL_LOCALE,
+  normalizeEmailLocale,
+  type EmailLocale,
+} from "~/lib/email-locale";
 
 export const requestNoticeSource = z.object({
   kind: z.enum(["application", "survey", "signup"]),
@@ -237,6 +242,105 @@ export async function currentRequestNotice(
   return { current: false, verified: false };
 }
 
+/** Locale is presentation, not mailbox proof. An explicit owner's current primary
+ * keeps its preference before verification and during suspension; an alias still
+ * needs current verified ownership. Retired accounts never supply preferences. */
+async function sourceRecipientLocale(
+  tx: DomainDb,
+  userId: string | null | undefined,
+  recipient: string,
+  fallback: EmailLocale,
+) {
+  if (!userId) return fallback;
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: { email: true, emailLocale: true, mergedIntoId: true },
+  });
+  if (!user || user.mergedIntoId) return fallback;
+  if (user.email === recipient) return normalizeEmailLocale(user.emailLocale);
+  const alias = await tx.accountEmail.findUnique({
+    where: { email: recipient },
+    select: { userId: true, verifiedAt: true },
+  });
+  return alias?.verifiedAt && alias.userId === userId
+    ? normalizeEmailLocale(user.emailLocale)
+    : fallback;
+}
+
+/** Language follows the request's established owner, never a matching mailbox
+ * alone. This presentation lookup does not change currentness or reason disclosure. */
+export async function requestNoticeLocale(
+  tx: DomainDb,
+  row: {
+    requestKind: string | null;
+    requestId: string | null;
+    recipient: string;
+  },
+) {
+  if (!row.requestId) return DEFAULT_EMAIL_LOCALE;
+  if (row.requestKind === "application") {
+    const source = await tx.tutorApplication.findUnique({
+      where: { id: row.requestId },
+      select: { emailLocale: true },
+    });
+    const proof = await tx.registrationCode.findFirst({
+      where: {
+        applicationId: row.requestId,
+        pendingEmail: row.recipient,
+        usedByUserId: { not: null },
+      },
+      select: { usedByUserId: true },
+    });
+    return sourceRecipientLocale(
+      tx,
+      proof?.usedByUserId,
+      row.recipient,
+      normalizeEmailLocale(source?.emailLocale),
+    );
+  }
+  if (row.requestKind === "survey" || row.requestKind === "signup") {
+    const survey =
+      row.requestKind === "survey"
+        ? await tx.studentSurvey.findUnique({
+            where: { id: row.requestId },
+            select: { tuteeId: true, emailLocale: true, payload: true },
+          })
+        : null;
+    const tuteeId =
+      row.requestKind === "signup" ? row.requestId : survey?.tuteeId;
+    const owner = tuteeId
+      ? await tx.studentProfileOwnership.findUnique({
+          where: { tuteeId },
+          select: { userId: true },
+        })
+      : null;
+    const direct =
+      !owner && tuteeId
+        ? await tx.user.findFirst({
+            where: { studentId: tuteeId, mergedIntoId: null },
+            select: { id: true },
+          })
+        : null;
+    const payload = survey?.payload;
+    const capturedAccountId =
+      !tuteeId &&
+      payload &&
+      typeof payload === "object" &&
+      !Array.isArray(payload) &&
+      typeof payload.academicAccountId === "string"
+        ? payload.academicAccountId
+        : null;
+    const userId = owner?.userId ?? direct?.id ?? capturedAccountId;
+    return sourceRecipientLocale(
+      tx,
+      userId,
+      row.recipient,
+      normalizeEmailLocale(survey?.emailLocale),
+    );
+  }
+  return DEFAULT_EMAIL_LOCALE;
+}
+
 async function assertSourceExists(tx: DomainDb, source: RequestNoticeSource) {
   const found =
     source.kind === "application"
@@ -414,6 +518,7 @@ export async function admitRequestDelivery(
       });
       return null;
     }
+    const locale = await requestNoticeLocale(tx, row);
     const admitted = await tx.emailDelivery.update({
       where: { id },
       data: {
@@ -436,7 +541,7 @@ export async function admitRequestDelivery(
             row.recipient,
           )
         : undefined;
-    return { row: admitted, verified: current.verified, appealUrl };
+    return { row: admitted, verified: current.verified, appealUrl, locale };
   });
 }
 

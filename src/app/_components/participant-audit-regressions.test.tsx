@@ -73,6 +73,7 @@ vi.mock("~/trpc/react", () => ({
               emailMessages: boolean;
               emailInfo: boolean;
               emailSecondaryRecipients: boolean;
+              emailLocale?: "en" | "zh";
             };
             [key: string]: unknown;
           };
@@ -83,6 +84,7 @@ vi.mock("~/trpc/react", () => ({
               ? {
                   emailEnabled: data.enabled,
                   emailSecondaryRecipients: data.emailSecondaryRecipients,
+                  emailLocale: data.emailLocale ?? "en",
                   categories: notificationCategories.map((category) => ({
                     category,
                     badgeEnabled: true,
@@ -264,6 +266,8 @@ it("preserves dirty preferences through a failed read and explicit read recovery
   };
   state.emailSettings.mockReturnValue({ data, refetch: state.retry });
   const view = render(wrap(<EmailPreferences />));
+  const language = screen.getByRole<HTMLSelectElement>("combobox", { name: en.emailPreferences.language });
+  fireEvent.change(language, { target: { value: "zh" } });
   fireEvent.click(
     screen.getByRole("checkbox", { name: "Private messages: email" }),
   );
@@ -273,6 +277,8 @@ it("preserves dirty preferences through a failed read and explicit read recovery
     refetch: state.retry,
   });
   view.rerender(wrap(<EmailPreferences />));
+  expect(language.value).toBe("zh");
+  expect(language.matches(":disabled")).toBe(true);
   expect(
     screen.getByRole<HTMLInputElement>("checkbox", {
       name: "Private messages: email",
@@ -291,12 +297,14 @@ it("preserves dirty preferences through a failed read and explicit read recovery
     refetch: state.retry,
   });
   view.rerender(wrap(<EmailPreferences />));
+  expect(language.value).toBe("zh");
   expect(
     screen.getByRole<HTMLInputElement>("checkbox", {
       name: "Private messages: email",
     }).checked,
   ).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.cancel }));
+  expect(language.value).toBe("en");
   expect(
     screen.getByRole<HTMLInputElement>("checkbox", {
       name: "Private messages: email",
@@ -316,6 +324,8 @@ it("locks accepted preferences during failed synchronization and only retries th
   state.emailSettings.mockReturnValue({ data, refetch: state.retry });
   state.retry.mockRejectedValueOnce(new Error("Offline"));
   const view = render(wrap(<EmailPreferences />));
+  const language = screen.getByRole<HTMLSelectElement>("combobox", { name: en.emailPreferences.language });
+  fireEvent.change(language, { target: { value: "zh" } });
   fireEvent.click(
     screen.getByRole("checkbox", { name: "Private messages: email" }),
   );
@@ -323,6 +333,7 @@ it("locks accepted preferences during failed synchronization and only retries th
     screen.getByRole("button", { name: en.emailPreferences.save }),
   );
   await act(async () => state.acceptPreferences!());
+  expect(language.matches(":disabled")).toBe(true);
   expect(
     screen
       .getByRole("button", { name: en.emailPreferences.save })

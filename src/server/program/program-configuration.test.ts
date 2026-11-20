@@ -49,6 +49,7 @@ import { emailSender } from "~/server/email/sender";
 import { stageCrewVerification } from "~/server/crew/signup";
 import { issueRegistrationCode } from "~/server/auth/registration";
 import { fingerprint, queueProposal } from "~/server/approvals";
+import * as sessionPlanning from "~/server/session-planning";
 
 /** Reconstruct an old Admin request without calling today's direct mutation. */
 async function legacyCalendarProposal(operation: string, input: unknown) {
@@ -124,7 +125,7 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-it("keeps tutoring notices independent from school days and prevents stale delete/recreate writes", async () => {
+it("keeps default tutoring pauses independent from school days and prevents stale delete/recreate writes", async () => {
   await db.schoolCalendarDay.create({
     data: { date: "2026-10-12", isSchoolDay: true, note: "Appeal school day" },
   });
@@ -133,6 +134,7 @@ it("keeps tutoring notices independent from school days and prevents stale delet
     reason: "Exam preparation",
     expectedVersion: 0,
   });
+  expect(first.schedulingEffect).toBe("PAUSE_REGULAR");
   await caller().program.removeCalendarDay({
     date: first.date,
     expectedVersion: first.version,
@@ -150,7 +152,7 @@ it("keeps tutoring notices independent from school days and prevents stale delet
     expectedVersion: 2,
   });
   expect(await caller("STUDENT").program.calendar()).toEqual([
-    { date: first.date, endDate: first.date, reason: "Updated notice" },
+    { date: first.date, endDate: first.date, reason: "Updated notice", schedulingEffect: "PAUSE_REGULAR" },
   ]);
   expect(
     await db.schoolCalendarDay.findUnique({ where: { date: first.date } }),
@@ -170,7 +172,7 @@ it("keeps tutoring notices independent from school days and prevents stale delet
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });
-it("stores inclusive ranges as independent notices and versions endpoint changes", async () => {
+it("defaults inclusive ranges to independent tutoring pauses and versions endpoint changes", async () => {
   const first = await caller().program.setCalendarDay({
     date: "2026-10-12",
     endDate: "2026-10-16",
@@ -184,8 +186,8 @@ it("stores inclusive ranges as independent notices and versions endpoint changes
     expectedVersion: 0,
   });
   expect(await caller("STUDENT").program.calendar()).toEqual([
-    { date: "2026-10-12", endDate: "2026-10-16", reason: "Exam week" },
-    { date: "2026-10-14", endDate: "2026-10-18", reason: "Campus closure" },
+    { date: "2026-10-12", endDate: "2026-10-16", reason: "Exam week", schedulingEffect: "PAUSE_REGULAR" },
+    { date: "2026-10-14", endDate: "2026-10-18", reason: "Campus closure", schedulingEffect: "PAUSE_REGULAR" },
   ]);
   expect(await db.schoolCalendarDay.count()).toBe(0);
   const updated = await caller().program.setCalendarDay({
@@ -196,6 +198,7 @@ it("stores inclusive ranges as independent notices and versions endpoint changes
   });
   expect(updated).toMatchObject({
     endDate: "2026-10-20",
+    schedulingEffect: "PAUSE_REGULAR",
     version: first.version + 1,
   });
   await expect(
@@ -236,6 +239,7 @@ it("stores inclusive ranges as independent notices and versions endpoint changes
   expect(recreated).toMatchObject({
     active: true,
     endDate: "2026-10-21",
+    schedulingEffect: "PAUSE_REGULAR",
     version: updated.version + 2,
   });
 });
@@ -261,7 +265,7 @@ it("requires Admin review for Coordinator ranges and refuses a changed range pro
   const first = await db.programCalendarDay.findUniqueOrThrow({
     where: { date: "2026-10-12" },
   });
-  expect(first.endDate).toBe("2026-10-16");
+  expect(first).toMatchObject({ endDate: "2026-10-16", schedulingEffect: "PAUSE_REGULAR" });
   await expect(
     caller("COORDINATOR").program.setCalendarDay({
       date: first.date,
@@ -292,6 +296,7 @@ it("applies an unchanged legacy queued single-day edit after the additive range 
   const first = await caller().program.setCalendarDay({
     date: "2026-10-12",
     reason: "Original notice",
+    schedulingEffect: "NOTICE",
     expectedVersion: 0,
   });
   const legacyInput = {
@@ -322,13 +327,14 @@ it("applies an unchanged legacy queued single-day edit after the additive range 
     note: "Legacy notice checked",
   });
   expect(await caller("STUDENT").program.calendar()).toEqual([
-    { date: first.date, endDate: first.date, reason: legacyInput.reason },
+    { date: first.date, endDate: first.date, reason: legacyInput.reason, schedulingEffect: "NOTICE" },
   ]);
 });
 it("applies an unchanged legacy queued removal and retains the range tombstone", async () => {
   const first = await caller().program.setCalendarDay({
     date: "2026-10-12",
     reason: "Legacy removal",
+    schedulingEffect: "NOTICE",
     expectedVersion: 0,
   });
   const request = await legacyCalendarProposal("program.removeCalendarDay", {
@@ -1177,4 +1183,62 @@ it("applies hidden and newly required policies at new student, tutor and crew in
       firstName: "Given",
     }),
   ).rejects.toMatchObject({ message: "PROFILE_NAME_FIELDS_REQUIRED" });
+});
+
+
+it("preserves a pause through legacy edits and exposes its applied policy without changing school days", async () => {
+  const input = { date: "2026-11-09", endDate: "2026-11-13", reason: "Synthetic tutoring pause", expectedVersion: 0 };
+  const first = await caller().program.setCalendarDay({ ...input, schedulingEffect: "PAUSE_REGULAR" });
+  const updated = await caller().program.setCalendarDay({ ...input, reason: "Reason edit from an old client", expectedVersion: first.version });
+  expect(updated.schedulingEffect).toBe("PAUSE_REGULAR");
+  expect(await caller("STUDENT").program.calendar()).toEqual([
+    { date: input.date, endDate: input.endDate, reason: updated.reason, schedulingEffect: "PAUSE_REGULAR" },
+  ]);
+  expect(await db.schoolCalendarDay.count()).toBe(0);
+  await expect(caller().program.setCalendarDay({ ...input, schedulingEffect: "NOTICE", expectedVersion: first.version })).rejects.toMatchObject({ code: "CONFLICT" });
+  await caller().program.removeCalendarDay({ date: updated.date, expectedVersion: updated.version });
+  const recreated = await caller().program.setCalendarDay({ ...input, schedulingEffect: "NOTICE", expectedVersion: updated.version + 1 });
+  expect(recreated).toMatchObject({ schedulingEffect: "NOTICE", active: true });
+});
+
+it("does not activate a queued pause until approval and detects policy changes in reviewed targets", async () => {
+  const input = { date: "2026-11-09", endDate: "2026-11-13", reason: "Reviewed pause", schedulingEffect: "PAUSE_REGULAR" as const, expectedVersion: 0 };
+  await expect(caller("COORDINATOR").program.setCalendarDay(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setCalendarDay", state: "PENDING" } });
+  expect(await db.programCalendarDay.count()).toBe(0);
+  await caller("ADMIN").approval.decide({ id: request.id, approve: true, note: "Reviewed scheduling policy" });
+  const first = await db.programCalendarDay.findUniqueOrThrow({ where: { date: input.date } });
+  expect(first.schedulingEffect).toBe("PAUSE_REGULAR");
+  await expect(caller("COORDINATOR").program.setCalendarDay({ ...input, reason: "Reviewed reason", expectedVersion: first.version })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const pending = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setCalendarDay", state: "PENDING" } });
+  expect(pending.targets).toMatchObject({ programCalendar: [{ schedulingEffect: "PAUSE_REGULAR" }] });
+  await caller().program.setCalendarDay({ ...input, schedulingEffect: "NOTICE", expectedVersion: first.version });
+  await expect(caller().approval.decide({ id: pending.id, approve: true, note: "Stale reviewed policy" })).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+it("exposes a bounded identity-free policy preview and rejects stale or unauthorized previews", async () => {
+  const input = { date: "2026-11-09", endDate: "2026-11-13", schedulingEffect: "PAUSE_REGULAR" as const, expectedVersion: 0 };
+  expect(await caller().program.calendarImpact(input)).toEqual({ scope: "publishedFutureParticipants", pauseCount: 0, retainedExceptionCount: 0, confirmationCount: 0, restorationCount: 0 });
+  expect(await db.programCalendarDay.count()).toBe(0);
+  await expect(caller("STUDENT").program.calendarImpact(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await caller().program.setCalendarDay({ ...input, reason: "Changed before preview" });
+  await expect(caller().program.calendarImpact(input)).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+it("rolls back a pause and its version if synchronous dated reconciliation fails", async () => {
+  const input = { date: "2026-11-09", endDate: "2026-11-13", reason: "Atomic pause", expectedVersion: 0 };
+  // Start from an informational row so this edit changes scheduling meaning.
+  const first = await caller().program.setCalendarDay({ ...input, schedulingEffect: "NOTICE" });
+  const revisionsBefore = await db.programCalendarPolicyRevision.count({ where: { date: input.date } });
+  const reconcile = vi.spyOn(sessionPlanning, "ensureSessionPlanningWindow")
+    .mockRejectedValueOnce(new Error("Synthetic schedule reconciliation failure"));
+  try {
+    await expect(caller().program.setCalendarDay({ ...input, schedulingEffect: "PAUSE_REGULAR", expectedVersion: first.version }))
+      .rejects.toThrow("Synthetic schedule reconciliation failure");
+    expect(reconcile).toHaveBeenCalledTimes(1);
+    expect(await db.programCalendarDay.findUniqueOrThrow({ where: { date: input.date } })).toEqual(first);
+    expect(await db.programCalendarPolicyRevision.count({ where: { date: input.date } })).toBe(revisionsBefore);
+  } finally {
+    reconcile.mockRestore();
+  }
 });

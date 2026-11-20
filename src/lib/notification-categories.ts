@@ -169,6 +169,55 @@ export type NotificationPreferenceValue = {
   badgeEnabled: boolean;
   emailEnabled: boolean;
 };
+export type NotificationLockValue = {
+  category: NotificationCategory;
+  badgeLocked: boolean;
+  emailLocked: boolean;
+};
+
+/** Missing/older settings leave choices optional; reminders never have a badge. */
+export function notificationLockCategories(
+  value: unknown,
+): NotificationLockValue[] {
+  const source =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return notificationCategories.map((category) => {
+    const row = source[category];
+    const settings =
+      row && typeof row === "object" && !Array.isArray(row)
+        ? (row as Record<string, unknown>)
+        : {};
+    return {
+      category,
+      badgeLocked: category !== "reminders" && settings.badgeLocked === true,
+      emailLocked: settings.emailLocked === true,
+    };
+  });
+}
+
+export function notificationLockFor(
+  value: unknown,
+  category: NotificationCategory,
+) {
+  return notificationLockCategories(value).find(
+    (row) => row.category === category,
+  )!;
+}
+
+/** Old topic-less deliveries retain their original category instead of guessing a domain. */
+export function legacyNotificationTopic(
+  category: string,
+): NotificationCategory | null {
+  return category === "messages"
+    ? "messages"
+    : category === "review"
+      ? "reviews"
+      : category === "reminder"
+        ? "reminders"
+        : null;
+}
 export function legacyEmailEnabled(
   user: LegacyNotificationPreferences,
   category: NotificationCategory,
@@ -187,12 +236,16 @@ export function effectiveNotificationPreference(
   user: LegacyNotificationPreferences,
   category: NotificationCategory,
   preferences: readonly NotificationPreferenceValue[] = [],
+  locks?: unknown,
 ) {
   const saved = preferences.find((item) => item.category === category);
+  const required = notificationLockFor(locks, category);
   return {
     category,
-    badgeEnabled: saved?.badgeEnabled ?? true,
-    emailEnabled: saved?.emailEnabled ?? legacyEmailEnabled(user, category),
+    badgeEnabled: required.badgeLocked || (saved?.badgeEnabled ?? true),
+    emailEnabled:
+      required.emailLocked ||
+      (saved?.emailEnabled ?? legacyEmailEnabled(user, category)),
   };
 }
 export const informationCategories = notificationCategories.filter(

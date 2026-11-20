@@ -59,6 +59,12 @@ it.each([true, false])(
     });
     fireEvent.click(button);
     await waitFor(() => expect(state.confirm).toHaveBeenCalled());
+    if (!available) {
+      expect(button.className).toContain("btn-danger");
+      expect(state.confirm).toHaveBeenCalledWith(
+        expect.objectContaining({ danger: true, confirmDelayMs: 3_000 }),
+      );
+    }
     expect(state.mutate).not.toHaveBeenCalled();
     expect(state.refresh).not.toHaveBeenCalled();
     state.confirm.mockResolvedValue(true);

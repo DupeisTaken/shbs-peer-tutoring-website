@@ -58,7 +58,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("./academic-profile", () => ({
   AcademicPanel: () => <input aria-label="Academic draft" />,
 }));
-vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
+vi.mock("./school-departure", () => ({ SchoolDepartureAction: () => null }));
 vi.mock("./membership-editor", () => ({
   MembershipEditor: () => <input aria-label="Membership draft" />,
 }));
@@ -341,7 +341,10 @@ it("derives an untouched profile from new reads and captures that version on the
   expect(firstName().value).toBe("My draft");
   fireEvent.click(save());
   expect(state.save).toHaveBeenCalledWith(
-    expect.objectContaining({ firstName: "My draft", expectedProfileVersion: 8 }),
+    expect.objectContaining({
+      firstName: "My draft",
+      expectedProfileVersion: 8,
+    }),
     expect.any(Object),
   );
 });
@@ -349,7 +352,12 @@ it("derives an untouched profile from new reads and captures that version on the
 it("never carries a name draft into another account identity", () => {
   const view = render(ui());
   fireEvent.change(firstName(), { target: { value: "Private draft" } });
-  state.account = { ...state.account, id: "other", firstName: "Other", profileVersion: 1 };
+  state.account = {
+    ...state.account,
+    id: "other",
+    firstName: "Other",
+    profileVersion: 1,
+  };
   view.rerender(ui());
   expect(firstName().value).toBe("Other");
   fireEvent.click(save());

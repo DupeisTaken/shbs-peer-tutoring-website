@@ -138,6 +138,36 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
+it.each(["en", "zh"] as const)("uses the authenticated account's %s preference for secondary proof and both recovery destinations", async (locale) => {
+  await verifiedAlias();
+  await db.user.update({ where: { id: userId }, data: { emailLocale: locale } });
+  const pending = `${userId}-language@example.test`;
+  await requestSecondaryEmail(userId, pending, password);
+  const verification = mail.send.mock.lastCall![0];
+  expect(verification.to).toBe(pending);
+  expect(verification.subject).toBe(locale === "zh" ? "验证备用邮箱" : "Verify your secondary email");
+  expect(verification.text).toContain(locale === "zh" ? "10 分钟内有效" : "10 minutes");
+  expect(verification.text).not.toContain(locale === "zh" ? "Enter this code" : "输入此验证码");
+  for (const address of [`${userId}@example.test`, secondary()]) {
+    await issuePasswordReset(address);
+    const recovery = mail.send.mock.lastCall![0];
+    expect(recovery.to).toBe(address);
+    expect(recovery.subject).toBe(locale === "zh" ? "重设密码" : "Reset your password");
+    expect(recovery.text).toContain(locale === "zh" ? "60 分钟" : "60 minutes");
+    expect(recovery.text).not.toContain(locale === "zh" ? "Use this link" : "请在");
+  }
+});
+
+it.each(["en", "zh"] as const)("uses the exact unverified account's %s preference for staff-issued setup", async (locale) => {
+  await db.user.update({ where: { id: userId }, data: { emailLocale: locale, emailVerifiedAt: null } });
+  await issueAccountVerification(userId);
+  const setup = mail.send.mock.lastCall![0];
+  expect(setup.to).toBe(`${userId}@example.test`);
+  expect(setup.subject).toBe(locale === "zh" ? "验证并设置账户" : "Verify and set up your account");
+  expect(setup.text).toContain(locale === "zh" ? "七天内有效" : "seven days");
+  expect(setup.text).not.toContain(locale === "zh" ? "The program team" : "项目团队");
+});
+
 it("requires proof before secondary sign-in; case-normalized aliases resolve the same account", async () => {
   await requestSecondaryEmail(
     userId,
@@ -863,7 +893,8 @@ it.each([
     expect(
       mail.send.mock.calls.some(
         ([message]) =>
-          message.subject === "Account Security Changed / 账户安全设置已更改" &&
+          message.subject === "Account Security Changed" &&
+          message.presentation?.locale === "en" &&
           message.category === "SECURITY",
       ),
     ).toBe(true);

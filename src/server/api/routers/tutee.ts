@@ -1,3 +1,4 @@
+import { emailLocaleFromHeaders } from "~/lib/email-locale";
 import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { captchaGrantInput } from "~/lib/captcha";
 import { withProtectedSignup } from "~/server/captcha";
@@ -152,6 +153,7 @@ async function submitTuteeSignup(
             input.clientKey,
             userId,
             input.recoveryDraft,
+            emailLocaleFromHeaders(headers),
           ),
       );
     },

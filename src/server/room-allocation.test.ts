@@ -91,6 +91,7 @@ function fixture(
     $executeRaw: vi.fn().mockResolvedValue(1),
     $queryRaw: vi.fn().mockResolvedValue(canonicalRows),
     schoolCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
+    programCalendarDay: { findMany: vi.fn().mockResolvedValue([]) },
     programSettings: {
       findUnique: vi.fn().mockResolvedValue({ timeZone: "Asia/Shanghai" }),
     },

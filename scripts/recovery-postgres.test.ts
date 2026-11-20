@@ -114,6 +114,29 @@ void test(
     const otp = (value: string) =>
       createHmac("sha256", checkpointAuthSecret).update(value).digest("hex");
     const reportPayload = "v1.school-report.1";
+    const schoolMail = {
+      checkpointRoot: "z-school-checkpoint-original",
+      checkpointReminder: "a-school-checkpoint-reminder",
+      checkpointMailbox: "checkpoint-school-office@example.test",
+      currentRoot: "z-school-current-original",
+      currentReminder: "a-school-current-reminder",
+      currentMailbox: "current-school-office@example.test",
+    };
+    const schoolMailIds = [
+      schoolMail.checkpointRoot,
+      schoolMail.checkpointReminder,
+      schoolMail.currentRoot,
+      schoolMail.currentReminder,
+    ];
+    const schoolMailEvidenceSql = `SELECT id,status,jsonb_build_object(
+      'recipient',recipient,'schoolHoursReportId',"schoolHoursReportId",
+      'schoolHoursSendKey',"schoolHoursSendKey",
+      'schoolHoursReminderSourceId',"schoolHoursReminderSourceId",
+      'schoolHoursScheduledFor',"schoolHoursScheduledFor",
+      'schoolHoursReminderLinkVersion',"schoolHoursReminderLinkVersion",
+      'schoolHoursReminderIntentHash',"schoolHoursReminderIntentHash",
+      'schoolHoursLinkOpenedAt',"schoolHoursLinkOpenedAt") AS evidence
+      FROM "EmailDelivery" WHERE id=ANY($1::text[]) ORDER BY id`;
     const proofs: NextCapabilityProofs = {
       registrationCode: "ABCDE",
       surveyToken: randomBytes(32).toString("hex"),
@@ -320,13 +343,83 @@ void test(
       INSERT INTO "CaptchaGrant" ("tokenHash",action,"identityHash",scene,version,"expiresAt") VALUES ('old-captcha-proof','synthetic','synthetic','synthetic',1,'2099-01-01');
       INSERT INTO "CaptchaProof" (key,"expiresAt") VALUES ('old-captcha-key','2099-01-01');
       INSERT INTO "SignupLease" (slot,owner,"expiresAt") VALUES ('synthetic-slot','synthetic-owner','2099-01-01');
-      INSERT INTO "SchoolHoursSchedule" (id,enabled,"updatedAt") VALUES ('program',true,NOW());
-      INSERT INTO "SchoolHoursReport" (id,"scheduleId",month,revision,"configVersion","baselineVersion","timeZone",snapshot,"sourceBaseline","intendedRecipients","contentHash","generationKey","generationHash","linkTokenHash") VALUES ('school-report','program','2026-01',1,0,0,'Asia/Shanghai','{"schemaVersion":1,"month":"2026-01","revision":1,"generatedAt":"2026-01-01T00:00:00Z","timeZone":"Asia/Shanghai","predecessorId":null,"supersedesId":null,"includeStatistics":false,"rows":[],"totals":{"people":0,"tutoringChange":0,"crewChange":0,"hoursToAdd":0,"monthAmount":0}}','{}','{}','synthetic-content','synthetic-generation','synthetic-hash','${sha(proofs.schoolReportToken!)}');
+      INSERT INTO "SchoolHoursSchedule" (id,enabled,"recipientEmails","updatedAt") VALUES ('program',true,ARRAY['${schoolMail.checkpointMailbox}','${schoolMail.currentMailbox}'],NOW());
+      INSERT INTO "SchoolHoursReport" (id,"scheduleId",month,revision,"configVersion","baselineVersion","timeZone",snapshot,"sourceBaseline","intendedRecipients","contentHash","generationKey","generationHash","linkTokenHash") VALUES ('school-report','program','2026-01',1,0,0,'Asia/Shanghai','{"schemaVersion":1,"month":"2026-01","revision":1,"generatedAt":"2026-01-01T00:00:00Z","timeZone":"Asia/Shanghai","predecessorId":null,"supersedesId":null,"includeStatistics":false,"rows":[],"totals":{"people":0,"tutoringChange":0,"crewChange":0,"hoursToAdd":0,"monthAmount":0}}','{}',ARRAY['${schoolMail.checkpointMailbox}','${schoolMail.currentMailbox}'],'synthetic-content','synthetic-generation','synthetic-hash','${sha(proofs.schoolReportToken!)}');
       INSERT INTO "MonthlyHoursSchedule" (id,enabled,"updatedAt") VALUES ('program',true,NOW());
       INSERT INTO "Term" (id,"schoolYear",quarter,name) VALUES ('synthetic-term','25-26','Q1','Synthetic quarter');
       INSERT INTO "ScheduledProgramRefresh" (id,"sourceTermId","sourceSchoolYear","sourceQuarter","destinationSchoolYear","destinationQuarter","semesterMode","executeAt","timeZone","expectedPreparation","authorizedById","authorityRevision","updatedAt") VALUES ('synthetic-refresh','synthetic-term','25-26','Q1','25-26','Q2',false,'2026-01-01','Asia/Shanghai','{}','independent',0,NOW());
       INSERT INTO "SessionNotice" (id,"dedupeKey","recipientUserId","recipientEmail",event,context,"updatedAt") VALUES ('synthetic-session-notice','synthetic-dedupe','independent','independent@example.test','synthetic','{}',NOW());
     `);
+    const insertSchoolReminderPair = async (fixture: {
+      rootId: string;
+      reminderId: string;
+      mailbox: string;
+      requestId: string;
+      rootAt: string;
+      rootOpenedAt: string;
+      createdAt: string;
+      localTime: string;
+      scheduledFor: string;
+      openedAt: string | null;
+      retryAt: string;
+      status: "PENDING" | "FAILED";
+    }) => {
+      await app.query(
+        `INSERT INTO "EmailDelivery" (id,category,event,recipient,status,
+          "schoolHoursReportId","createdAt","availableAt","completedAt","schoolHoursLinkOpenedAt")
+         VALUES ($1,'school_hours','school_hours_report',$2,'SENT','school-report',$3,$3,$3,$4)`,
+        [fixture.rootId, fixture.mailbox, fixture.rootAt, fixture.rootOpenedAt],
+      );
+      await app.query(
+        `INSERT INTO "EmailDelivery" (id,category,event,recipient,status,attempts,
+          "schoolHoursReportId","createdAt","availableAt","attemptStartedAt","completedAt",
+          "schoolHoursSendKey","schoolHoursReminderSourceId","schoolHoursScheduledFor",
+          "schoolHoursReminderLinkVersion","schoolHoursReminderIntentHash","schoolHoursLinkOpenedAt")
+         VALUES ($1,'school_hours','school_hours_reminder',$2,$3,$4,'school-report',$5,$6,$7,$8,
+          $9,$10,$7,1,$11,$12)`,
+        [
+          fixture.reminderId,
+          fixture.mailbox,
+          fixture.status,
+          fixture.status === "FAILED" ? 5 : 1,
+          fixture.createdAt,
+          fixture.retryAt,
+          fixture.scheduledFor,
+          fixture.status === "FAILED" ? fixture.retryAt : null,
+          `reminder:${fixture.requestId}`,
+          fixture.rootId,
+          sha(JSON.stringify({
+            rootId: fixture.rootId,
+            requestId: fixture.requestId,
+            localTime: fixture.localTime,
+            linkVersion: 1,
+          })),
+          fixture.openedAt,
+        ],
+      );
+      assert.deepEqual(
+        (await app.query<{ id: string }>(
+          'SELECT id FROM "EmailDelivery" t WHERE id=ANY($1::text[]) ORDER BY to_jsonb(t)::text',
+          [[fixture.rootId, fixture.reminderId]],
+        )).rows.map((row) => row.id),
+        [fixture.reminderId, fixture.rootId],
+        "The real JSON snapshot ordering must put this reminder before its original receipt.",
+      );
+    };
+    await insertSchoolReminderPair({
+      rootId: schoolMail.checkpointRoot,
+      reminderId: schoolMail.checkpointReminder,
+      mailbox: schoolMail.checkpointMailbox,
+      requestId: "11111111-1111-4111-8111-111111111111",
+      rootAt: "2026-01-01T04:00:00Z",
+      rootOpenedAt: "2026-01-01T05:00:00Z",
+      createdAt: "2026-01-02T04:00:00Z",
+      localTime: "2026-01-10T09:30",
+      scheduledFor: "2026-01-10T01:30:00Z",
+      openedAt: null,
+      retryAt: "2026-01-10T01:32:00Z",
+      status: "PENDING",
+    });
     if (identityInstalled)
       await app.query(
         `INSERT INTO "HistoryRowOwnership" (entity,"recordId","readerUserId","sourceUserIds",revision,"receiptId") VALUES ('Tutee','historical-tutee','independent',ARRAY[]::text[],1,'synthetic-backup-history-anchor')`,
@@ -387,6 +480,29 @@ void test(
     await app.query(
       `UPDATE "EmailDelivery" SET status='SENT', "completedAt"='2026-02-01T00:00:00Z' WHERE id='checkpoint-outbound'`,
     );
+    await app.query(
+      `UPDATE "EmailDelivery" SET status='FAILED',attempts=5,
+        "availableAt"='2026-01-10T02:02:00Z',"completedAt"='2026-01-10T02:00:00Z',
+        "schoolHoursLinkOpenedAt"='2026-01-10T01:33:00Z' WHERE id=$1`,
+      [schoolMail.checkpointReminder],
+    );
+    // Neither this original nor its child exists in the checkpoint. Source JSON
+    // ordering deliberately lists the child first, so reconciliation must insert
+    // the original before copying its self-referencing reminder evidence.
+    await insertSchoolReminderPair({
+      rootId: schoolMail.currentRoot,
+      reminderId: schoolMail.currentReminder,
+      mailbox: schoolMail.currentMailbox,
+      requestId: "22222222-2222-4222-8222-222222222222",
+      rootAt: "2026-02-01T04:00:00Z",
+      rootOpenedAt: "2026-02-01T05:00:00Z",
+      createdAt: "2026-02-02T04:00:00Z",
+      localTime: "2026-02-10T09:30",
+      scheduledFor: "2026-02-10T01:30:00Z",
+      openedAt: "2026-02-10T01:31:00Z",
+      retryAt: "2026-02-10T02:02:00Z",
+      status: "FAILED",
+    });
     await app.query(`INSERT INTO "SchoolDeparture" ("userId", source, "observerRevoked", "tutorDerived") VALUES
       ('checkpoint', 'SYNTHETIC_REHEARSAL', true, true)`);
     await app.query(`INSERT INTO "User" (id, name, email, role) VALUES
@@ -509,6 +625,14 @@ void test(
           await rowFingerprints(restored),
           checkpointRows,
           "Every restored row must equal the exact checkpoint, including historical values.",
+        );
+        assert.equal(
+          (await restored.query<{ count: string }>(
+            'SELECT count(*)::text AS count FROM "EmailDelivery" WHERE id=ANY($1::text[])',
+            [[schoolMail.currentRoot, schoolMail.currentReminder]],
+          )).rows[0]?.count,
+          "0",
+          "The later reminder's original receipt must be copied, not supplied by the checkpoint.",
         );
         const values =
           await restored.query(`SELECT name, role, "crewStatus", "canTranslate",
@@ -727,6 +851,12 @@ void test(
       /STALE_SOURCE_SECURITY_FINGERPRINT/,
     );
     const sourceBeforeReconciliation = await rowFingerprints(app);
+    const currentSchoolMailEvidence = (await app.query<{
+      id: string;
+      status: string;
+      evidence: unknown;
+    }>(schoolMailEvidenceSql, [schoolMailIds])).rows;
+    assert.equal(currentSchoolMailEvidence.length, 4);
     const reconciliationPlan = await createSiteReconciliationPlan(
       reconciliationInput,
       sourceUrl.toString(),
@@ -869,6 +999,32 @@ void test(
             )
           ).rows[0]?.status,
           "SENT",
+        );
+        assert.deepEqual(
+          (await target.query(schoolMailEvidenceSql, [schoolMailIds])).rows,
+          currentSchoolMailEvidence.map((row) => ({
+            ...row,
+            status: row.id.endsWith("-reminder")
+              ? "CANCELLED_RECOVERY"
+              : row.status,
+          })),
+          "Recovery must quarantine both generations of unsent school reminders while preserving their exact source, instant, intent and link-open evidence; sent originals remain sent.",
+        );
+        assert.equal(
+          (await target.query(
+            `SELECT count(*)::text AS count FROM "EmailDelivery"
+             WHERE "schoolHoursReportId"='school-report'
+               AND "schoolHoursReminderSourceId" IS NOT NULL
+               AND status <> 'CANCELLED_RECOVERY'`,
+          )).rows[0]?.count,
+          "0",
+        );
+        assert.equal(
+          (await target.query(
+            'SELECT "linkRevokedAt" IS NOT NULL AS revoked FROM "SchoolHoursReport" WHERE id=\'school-report\'',
+          )).rows[0]?.revoked,
+          true,
+          "Preserved school reminder evidence must not revive its report link.",
         );
         assert.equal(
           (

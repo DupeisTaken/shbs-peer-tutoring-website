@@ -59,6 +59,109 @@ afterEach(() => {
 });
 
 describe("public unsubscribe confirmation", () => {
+  it.each(["en", "zh"] as const)(
+    "retains administrator-required mail while allowing other categories to be stopped in %s",
+    async (locale) => {
+      const catalog = locale === "en" ? en : zh;
+      request.mockResolvedValueOnce(
+        response({ status: "locked", category: "messages" }),
+      );
+      request.mockResolvedValueOnce(
+        response({
+          status: "unsubscribed",
+          category: "messages",
+          requiredRemaining: true,
+        }),
+      );
+      render(view("required-mail-capability", locale));
+      await screen.findByText(
+        catalog.unsubscribe.locked.replace(
+          "{category}",
+          catalog.unsubscribe.messages,
+        ),
+      );
+      const category = screen.getByRole<HTMLInputElement>("radio", {
+        name: (name) => name.startsWith(catalog.unsubscribe.messages),
+      });
+      expect(category.disabled).toBe(true);
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: catalog.unsubscribe.confirmCategory,
+        }).disabled,
+      ).toBe(true);
+      fireEvent.click(
+        screen.getByRole("radio", {
+          name: (name) => name.startsWith(catalog.unsubscribe.all),
+        }),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: catalog.unsubscribe.confirmAll }),
+      );
+      await screen.findByText(catalog.unsubscribe.successRequired);
+      expect(screen.queryByText(catalog.unsubscribe.successAll)).toBeNull();
+      expect(request.mock.calls.at(-1)?.[1]?.body).toBe(
+        JSON.stringify({ token: "required-mail-capability", scope: "all" }),
+      );
+    },
+  );
+
+  it("shows a newly imposed requirement returned during confirmation", async () => {
+    request.mockResolvedValueOnce(ready());
+    request.mockResolvedValueOnce(
+      response({ status: "locked", category: "messages" }),
+    );
+    render(view("new-requirement"));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: en.unsubscribe.confirmCategory,
+      }),
+    );
+    await screen.findByText(
+      en.unsubscribe.locked.replace("{category}", en.unsubscribe.messages),
+    );
+    expect(screen.queryByText(en.unsubscribe.saveError)).toBeNull();
+  });
+
+  it.each(["en", "zh"] as const)(
+    "qualifies a legacy information unsubscribe when some topics remain required in %s",
+    async (locale) => {
+      const catalog = locale === "en" ? en : zh;
+      request.mockResolvedValueOnce(
+        response({
+          status: "ready",
+          category: "info",
+          requiredRemaining: true,
+        }),
+      );
+      request.mockResolvedValueOnce(
+        response({
+          status: "unsubscribed",
+          category: "info",
+          requiredRemaining: true,
+        }),
+      );
+      render(view("legacy-information", locale));
+      fireEvent.click(
+        await screen.findByRole("button", {
+          name: catalog.unsubscribe.confirmCategory,
+        }),
+      );
+      await screen.findByText(
+        catalog.unsubscribe.successCategoryRequired.replace(
+          "{category}",
+          catalog.unsubscribe.info,
+        ),
+      );
+      expect(
+        screen.queryByText(
+          catalog.unsubscribe.successCategory.replace(
+            "{category}",
+            catalog.unsubscribe.info,
+          ),
+        ),
+      ).toBeNull();
+    },
+  );
   it.each(notificationCategories)(
     "recognizes exact %s topic without broadening the submitted scope",
     async (category) => {

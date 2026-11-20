@@ -23,10 +23,12 @@ function Example({
   repeat = false,
   primary = false,
   successMessage,
+  delayMs,
 }: {
   repeat?: boolean;
   primary?: boolean;
   successMessage?: string;
+  delayMs?: number;
 }) {
   const review = useActionReview();
   useEffect(() => {
@@ -43,6 +45,7 @@ function Example({
             description: "The record will be permanently removed.",
             confirmLabel: "Delete record",
             confirmVariant: primary ? "primary" : undefined,
+            confirmDelayMs: delayMs,
             successMessage,
             renderResult: primary
               ? (result) =>
@@ -111,7 +114,53 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+it("makes an opted-in review deliberate, keeps Cancel immediate, and resets each opening", async () => {
+  let now = 100;
+  vi.spyOn(performance, "now").mockImplementation(() => now);
+  render(
+    <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
+      <Example delayMs={3_000} />
+    </NextIntlClientProvider>,
+  );
+  open();
+  let confirm = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Delete record",
+  });
+  expect(confirm.disabled).toBe(true);
+  expect(confirm.className).toContain("btn-danger");
+  expect(
+    document.getElementById(confirm.getAttribute("aria-describedby")!)
+      ?.textContent,
+  ).toBe("Confirm in 3s");
+  // Disabled presentation is not the admission boundary.
+  confirm.disabled = false;
+  fireEvent.click(confirm);
+  expect(commit).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: en.actionReview.cancel }));
+  now = 3_100;
+  open();
+  confirm = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Delete record",
+  });
+  expect(confirm.disabled).toBe(true);
+  now = 6_099;
+  fireEvent.focus(window);
+  expect(screen.getByRole("status").textContent).toBe("Confirm in 1s");
+  expect(confirm.disabled).toBe(true);
+  // Resume sampling elapsed monotonic time after a throttled background callback.
+  now = 6_100;
+  fireEvent(document, new Event("visibilitychange"));
+  expect(confirm.disabled).toBe(false);
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  await screen.findByText(en.actionReview.applied);
+  expect(commit).toHaveBeenCalledOnce();
+});
 
 it("describes a submitted request separately from its eventual effect and preserves read recovery", async () => {
   refresh.mockRejectedValueOnce(new Error("Read failed"));
@@ -123,7 +172,9 @@ it("describes a submitted request separately from its eventual effect and preser
   open();
   fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
   await screen.findByText(en.actionReview.refreshFailed);
-  expect(screen.queryByText("Request submitted; membership remains active.")).toBeNull();
+  expect(
+    screen.queryByText("Request submitted; membership remains active."),
+  ).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: en.actionReview.retry }));
   await screen.findByText("Request submitted; membership remains active.");
   expect(screen.queryByText(en.actionReview.applied)).toBeNull();

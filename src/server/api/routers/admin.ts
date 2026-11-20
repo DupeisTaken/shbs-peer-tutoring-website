@@ -144,6 +144,7 @@ import {
 } from "~/server/student-request-state";
 import { validatePanel } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
+import { assertMutableProgramRecords } from "~/server/imported-records";
 import {
   createRoomBlockSchema,
   updateRoomBlockSchema,
@@ -2590,11 +2591,12 @@ export const adminRouter = createTRPCRouter({
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
-        action: `Sent account setup link to ${tutor?.englishName ?? "tutor"}`,
+        action: `Requested account setup email for ${tutor?.englishName ?? "tutor"}`,
         entity: "Tutor",
         entityId: input.tutorId,
       });
-      return { emailed: result.emailed };
+      // Preserve the helper's mutable receipt until the audit owner settles SMTP.
+      return result.delivery;
     }),
 
   createTutee: adminProcedure
@@ -3761,10 +3763,18 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await assertFeatureEnabled(ctx.db, "MEETINGS");
       return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `meeting-record:${input.id}`);
         const participants = await tx.meetingAttendance.findMany({
           where: { meetingId: input.id },
-          select: { tutorId: true },
+          select: { id: true, tutorId: true },
         });
+        await assertMutableProgramRecords(tx, [
+          { entity: "TutorMeeting", recordId: input.id },
+          ...participants.map((row) => ({
+            entity: "MeetingAttendance",
+            recordId: row.id,
+          })),
+        ]);
         for (const id of [
           ...new Set(participants.map((p) => p.tutorId)),
         ].sort())
@@ -3804,10 +3814,25 @@ export const adminRouter = createTRPCRouter({
       // Deductions land in the meeting's month, scoped to its term (or the active period).
 
       await ctx.db.$transaction(async (tx) => {
+        await lockEntity(tx, `meeting-record:${input.meetingId}`);
         for (const id of [
           ...new Set(input.entries.map((e) => e.tutorId)),
         ].sort())
           await lockEntity(tx, `meeting-hours:${id}`);
+        const recorded = await tx.meetingAttendance.findMany({
+          where: {
+            meetingId: input.meetingId,
+            tutorId: { in: input.entries.map((entry) => entry.tutorId) },
+          },
+          select: { id: true },
+        });
+        await assertMutableProgramRecords(tx, [
+          { entity: "TutorMeeting", recordId: input.meetingId },
+          ...recorded.map((row) => ({
+            entity: "MeetingAttendance",
+            recordId: row.id,
+          })),
+        ]);
         for (const e of input.entries) {
           await tx.meetingAttendance.upsert({
             where: {

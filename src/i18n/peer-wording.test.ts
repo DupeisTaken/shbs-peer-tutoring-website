@@ -9,6 +9,15 @@ import zh from "../../messages/zh.json";
 import { BUNDLED_POLICIES } from "../../prisma/policies";
 import { getHomeOverrides } from "~/server/home/content";
 import { formatNotificationEvent } from "~/lib/notification-events";
+import {
+  historyInvitationEmailCopy,
+  invitationVerificationEmailCopy,
+  tutoringSignupEmailCopy,
+} from "~/server/email/direct-email-copy";
+import {
+  historyInvitationScope,
+  invitationPurpose,
+} from "~/server/email/required-notice-details";
 
 describe("Chinese peer roles", () => {
   it("uses the chosen glossary across the catalog and retains genuine school references", () => {
@@ -86,14 +95,35 @@ describe("Chinese peer roles", () => {
     expect(JSON.stringify(zh.notificationEvents)).not.toMatch(
       /导师|辅导员|学员|学生/,
     );
-    for (const file of ["student-survey"]) {
-      const source = readFileSync(
-        new URL(`../server/${file}.ts`, import.meta.url),
-        "utf8",
+    // Direct workflow prose now lives in pure copy builders, rather than the
+    // survey service. Check delivered wording so extraction cannot weaken this contract.
+    const invitation = invitationVerificationEmailCopy({
+      locale: "zh",
+      code: "0012",
+      purpose: invitationPurpose("TUTOR"),
+      deadline: {
+        at: new Date("2026-11-10T08:00:00Z"),
+        timeZone: "Asia/Shanghai",
+      },
+    });
+    const history = historyInvitationEmailCopy({
+      locale: "zh",
+      exact: true,
+      url: "https://school.example.test/history",
+      scope: historyInvitationScope([{ kind: "TUTOR" }, { kind: "TUTEE" }]),
+    });
+    const signup = tutoringSignupEmailCopy({
+      locale: "zh",
+      code: "0012",
+      url: "https://school.example.test/signup",
+    });
+    for (const direct of [invitation, history, signup])
+      expect(`${direct.subject} ${direct.text}`).not.toMatch(
+        /导师|辅导员|学员|学生/,
       );
-      expect(source).not.toMatch(/导师|辅导员|学员|学生/);
-      expect(source).toMatch(/辅导伙伴|学习伙伴/);
-    }
+    expect(invitation.text).toContain("辅导伙伴");
+    expect(history.text).toContain("辅导伙伴");
+    expect(history.text).toContain("学习伙伴");
   });
 });
 

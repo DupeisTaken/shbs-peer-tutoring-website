@@ -18,6 +18,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import messages from "../../../../messages/en.json";
 import SettingsPage from "./page";
 import type { NameFieldStates } from "~/lib/name-field-policy";
+
+let reviewTime = 0;
 // This suite retains profile/password/membership ownership; the independent
 // workload editor's real QueryClient regressions live beside that component.
 vi.mock("~/app/_components/tutor-workload-preference", () => ({
@@ -300,6 +302,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   state.client?.clear();
 });
 it("shows a useful all-Hidden Tutor profile while keeping email/security/academics independent", () => {
@@ -635,6 +638,8 @@ const optOutReason = () =>
     name: messages.tutor.settings.optOutReasonLabel,
   });
 function openOptOut() {
+  reviewTime = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => reviewTime);
   fireEvent.click(
     screen.getByRole("button", { name: messages.tutor.settings.optOutBtn }),
   );
@@ -643,6 +648,10 @@ function openOptOut() {
   );
 }
 function confirmOptOut() {
+  act(() => {
+    reviewTime += 3_000;
+    fireEvent.focus(window);
+  });
   return within(screen.getByRole("dialog")).getByRole("button", {
     name: messages.tutor.settings.optOutBtn,
   });
@@ -657,6 +666,17 @@ it("labels the opt-out reason and reviews the named request without writing on C
   ).toBe(messages.tutor.settings.optOutHelp);
   fireEvent.change(reason, { target: { value: "Time for exams" } });
   const review = openOptOut();
+  expect(
+    screen.getAllByRole<HTMLButtonElement>("button", {
+      name: messages.tutor.settings.optOutBtn,
+    })[0]?.className,
+  ).toContain("btn-danger");
+  const confirm = review.getByRole<HTMLButtonElement>("button", {
+    name: messages.tutor.settings.optOutBtn,
+  });
+  expect(confirm.className).toContain("btn-danger");
+  expect(confirm.disabled).toBe(true);
+  expect(review.getByRole("status").textContent).toBe("Confirm in 3s");
   expect(review.getByText("Original Person")).toBeTruthy();
   expect(review.getByText("Time for exams")).toBeTruthy();
   expect(

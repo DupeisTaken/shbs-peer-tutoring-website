@@ -1,12 +1,13 @@
 /** @vitest-environment jsdom */
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { ActionReviewRecipe } from "./action-review-recipe";
@@ -24,15 +25,37 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 it("shows a request receipt without claiming the eventual change was applied", async () => {
+  let now = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => now);
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <ActionReviewRecipe />
     </NextIntlClientProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: messages.tutor.settings.optOutBtn }));
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: messages.tutor.settings.optOutBtn }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.settings.optOutBtn }),
+  );
+  const confirm = within(
+    screen.getByRole("dialog"),
+  ).getByRole<HTMLButtonElement>("button", {
+    name: messages.tutor.settings.optOutBtn,
+  });
+  expect(confirm.disabled).toBe(true);
+  expect(confirm.className).toContain("btn-danger");
+  act(() => {
+    now = 3_000;
+    fireEvent.focus(window);
+  });
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.tutor.settings.optOutBtn,
+    }),
+  );
   await screen.findByText(messages.tutor.settings.optOutSubmitted);
   expect(screen.queryByText(messages.actionReview.applied)).toBeNull();
 });

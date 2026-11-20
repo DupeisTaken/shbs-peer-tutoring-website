@@ -1,3 +1,4 @@
+import { emailLocaleFromHeaders } from "~/lib/email-locale";
 import { accountHistoryIds } from "~/server/account-history";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
@@ -214,7 +215,7 @@ export const crewRouter = createTRPCRouter({
     .input(crewApplicationInput.extend({ captchaGrant: captchaGrantInput }))
     .mutation(async ({ ctx, input }) =>
       withProtectedSignup(ctx.db, ctx.headers, "crew.submit", input.email, input.captchaGrant,
-        () => crewMail(() => stageCrewVerification(ctx.db, input.email, input))),
+        () => crewMail(() => stageCrewVerification(ctx.db, input.email, input, false, emailLocaleFromHeaders(ctx.headers)))),
     ),
 
   /** Generic mail response, including absent applications. Explicit resends preserve
@@ -223,7 +224,7 @@ export const crewRouter = createTRPCRouter({
     .input(z.object({ email: z.string().trim().email().max(254), captchaGrant: captchaGrantInput, resend: z.boolean().optional() }))
     .mutation(({ ctx, input }) => withProtectedSignup(
       ctx.db, ctx.headers, "crew.status", input.email, input.captchaGrant,
-      () => crewMail(() => stageCrewVerification(ctx.db, input.email, undefined, input.resend)),
+      () => crewMail(() => stageCrewVerification(ctx.db, input.email, undefined, input.resend, emailLocaleFromHeaders(ctx.headers))),
     )),
 
   verifyApplication: publicProcedure

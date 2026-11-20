@@ -242,7 +242,7 @@ void test("one matrix spec retains all original68 jobs plus2controlled diagnosti
   assert.ok(matrix.filter((row) => row.mode === "diagnostic" && row.scenario !== "backlog").every((row) => row.samples === 3));
 });
 
-void test("five diagnostic preflights and65 remaining jobs retain the original68 plus2controlled rows", () => {
+void test("five diagnostic preflights and65 remaining partitions retain the original68 plus2controlled rows", () => {
   const all = profileMatrix().include;
   assert.deepEqual(profileMatrix("all").include, all);
   const preflight = profileMatrix("preflight").include;

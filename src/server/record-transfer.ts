@@ -21,6 +21,10 @@ import { historicalAcademicSnapshot } from "~/server/historical-academics";
 import { legacySignupDeclineSnapshotSchema } from "~/lib/legacy-signup-decline";
 import { initializePersonSource } from "~/server/person-source-initialization";
 import type { PersonSource } from "~/server/person-identity";
+import { historicalImportError } from "~/server/record-transfer-boundary";
+import { importedRecordKey } from "~/server/imported-records";
+import { lockApplicationReview } from "~/server/request-review";
+import { lockImportedSessionSources } from "~/server/record-transfer-session-lock";
 
 // Explicit domain allowlist, in dependency order. Never expand this to every database table:
 // executable approvals, account privileges, credentials and private messages are not archives.
@@ -293,6 +297,93 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
   if (count > TRANSFER_MAX_ROWS)
     fail("Import at most 5,000 records at a time.");
   if (!count) fail("The selected CSV files contain no records.");
+  // Share the native meeting writer's parent -> tutor fences. Provenance and
+  // source insertion must be atomic against deletion and deduction rebuilding.
+  const meetingIds = new Set<string>();
+  const meetingTutorIds = new Set<string>();
+  for (const table of [
+    "TutorMeeting",
+    "MeetingAttendance",
+    "ServiceHourAdjustment",
+  ] as const) {
+    const file = byTable.get(table);
+    if (!file) continue;
+    const read = (cells: string[], field: string) => {
+      const index = file.columns.findIndex((column) => column.name === field);
+      return index < 0 ? null : decodeRecordCell(cells[index] ?? "");
+    };
+    for (const cells of file.rows) {
+      const meetingId = read(
+        cells,
+        table === "TutorMeeting" ? "id" : "meetingId",
+      );
+      const tutorId = read(cells, "tutorId");
+      if (meetingId) meetingIds.add(meetingId);
+      if (tutorId) meetingTutorIds.add(tutorId);
+    }
+  }
+  for (const id of [...meetingIds].sort())
+    await lockEntity(tx, `meeting-record:${id}`);
+  for (const id of [...meetingTutorIds].sort())
+    await lockEntity(tx, `meeting-hours:${id}`);
+  const applicationIds = new Set<string>();
+  for (const table of [
+    "TutorApplication",
+    "ApplicationSubjectIntent",
+    "InterviewAssignment",
+    "InterviewVote",
+  ] as const) {
+    const file = byTable.get(table);
+    if (!file) continue;
+    const index = file.columns.findIndex(
+      (column) =>
+        column.name === (table === "TutorApplication" ? "id" : "applicationId"),
+    );
+    if (index < 0) continue;
+    for (const cells of file.rows) {
+      const id = decodeRecordCell(cells[index] ?? "");
+      if (id) applicationIds.add(id);
+    }
+  }
+  for (const id of [...applicationIds].sort())
+    await lockApplicationReview(tx, id);
+  const sessionIds = new Set<string>();
+  const incomingPrimaryIds = new Set<string>();
+  for (const table of ["Session", "SessionTutee", "SessionFlag"] as const) {
+    const file = byTable.get(table);
+    if (!file) continue;
+    const index = file.columns.findIndex(
+      (column) => column.name === (table === "Session" ? "id" : "sessionId"),
+    );
+    if (index < 0) continue;
+    for (const cells of file.rows) {
+      const id = decodeRecordCell(cells[index] ?? "");
+      if (id) sessionIds.add(id);
+      if (table === "Session") {
+        const primaryIndex = file.columns.findIndex(
+          (column) => column.name === "mergeGroupId",
+        );
+        const primaryId =
+          primaryIndex < 0 ? null : decodeRecordCell(cells[primaryIndex] ?? "");
+        if (primaryId) incomingPrimaryIds.add(primaryId);
+      }
+    }
+  }
+  const amendmentFile = byTable.get("ServiceHourAdjustment");
+  const amendmentId =
+    amendmentFile?.columns.findIndex((column) => column.name === "id") ?? -1;
+  if (amendmentFile && amendmentId >= 0) {
+    for (const cells of amendmentFile.rows) {
+      const id = decodeRecordCell(cells[amendmentId] ?? "");
+      if (!id?.startsWith("flag:")) continue;
+      const flag = await tx.sessionFlag.findUnique({
+        where: { id: id.slice(5) },
+        select: { sessionId: true },
+      });
+      if (flag) sessionIds.add(flag.sessionId);
+    }
+  }
+  await lockImportedSessionSources(tx, sessionIds, incomingPrimaryIds);
   // A reserved archive can list Tutee before Tutor, while a dual-linked account's
   // academic/name mirrors lock Tutor before Tutee. Take reserved participant advisory
   // and row locks in that shared order before inserting anything. Decode only the stable ID
@@ -416,6 +507,7 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
             "Account reference not found. Create/link accounts through the normal account workflow first.",
           );
         validateDomainRow(table, row);
+        await validateHistoricalTargets(tx, table, row);
         if (table === "LegacySignupDecline") {
           const [source, term, surveyCount, activeLinks] = await Promise.all([
             tx.tutee.findUnique({ where: { id: String(row.tuteeId) } }),
@@ -555,10 +647,28 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
       }
     }
   }
+  // Provenance is local admission authority, never CSV input. Exact existing
+  // rows above remain native; importing an archive cannot quarantine live work.
+  const provenance = inserted.map(({ table, row }) => ({
+    entity: table,
+    recordId: importedRecordKey(
+      row,
+      schema
+        .get(table)!
+        .filter((column) => column.primary)
+        .map((column) => column.name),
+    ),
+  }));
+  if (provenance.length)
+    await tx.importedRecordProvenance.createMany({
+      data: provenance,
+      skipDuplicates: true,
+    });
   // These historical links are scalar-only in Prisma. Validate the live references explicitly;
   // denormalized actor snapshots remain allowed to refer to accounts that were later deleted.
   const references: Partial<Record<Table, Record<string, Table>>> = {
     Tutee: { intakeTermId: "Term" },
+    TuteeRequestInvalidity: { tuteeId: "Tutee" },
     StudentSurvey: { intakeTermId: "Term", tuteeId: "Tutee" },
     StudentProfileOwnership: { tuteeId: "Tutee", userId: "User" },
     PolicyAcceptance: { userId: "User" },
@@ -649,6 +759,8 @@ function databaseError(error: unknown) {
 }
 
 function validateDomainRow(table: Table, row: Row) {
+  const historicalError = historicalImportError(table, row);
+  if (historicalError) fail(historicalError);
   if (table === "LegacySignupDecline") {
     const snapshot = legacySignupDeclineSnapshotSchema.safeParse(
       row.intakeSnapshot,
@@ -745,6 +857,100 @@ function validateDomainRow(table: Table, row: Row) {
       (Number(value) < 1 || Number(value) > 5)
     )
       fail(`${field} must be between 1 and 5.`);
+}
+
+/** Child-only archives must not bypass the lifecycle boundary of their parent.
+ * Parents earlier in RECORD_TABLES include this batch's inserted rows. */
+async function validateHistoricalTargets(
+  tx: TransactionDb,
+  table: Table,
+  row: Row,
+) {
+  if (
+    [
+      "DisciplinaryCard",
+      "TuteeAvailability",
+      "TuteeRequestInvalidity",
+    ].includes(table) &&
+    typeof row.tuteeId === "string"
+  ) {
+    const target = await tx.tutee.findUnique({
+      where: { id: row.tuteeId },
+      select: { status: true, intakeTermId: true },
+    });
+    if (target && target.status !== "INACTIVE")
+      fail(
+        "Historical discipline, availability and signup screening require an inactive tutee. Use the current workflow to change current participation.",
+      );
+    if (table === "TuteeRequestInvalidity" && target?.intakeTermId) {
+      const term = await tx.term.findUnique({
+        where: { id: target.intakeTermId },
+        select: { active: true },
+      });
+      if (term?.active)
+        fail(
+          "Historical signup screening requires an inactive intake term. Use the current signup review workflow for this term.",
+        );
+    }
+  }
+  if (
+    [
+      "TutorAvailability",
+      "TutorSubjectWillingness",
+      "TutorQualification",
+      "QualificationGrant",
+    ].includes(table) &&
+    typeof row.tutorId === "string"
+  ) {
+    const target = await tx.tutor.findUnique({
+      where: { id: row.tutorId },
+      select: { status: true },
+    });
+    if (target && ["ACTIVE", "PENDING"].includes(target.status))
+      fail(
+        "Historical availability, subject willingness and qualifications require an inactive tutor. Use the tutor workflow for current preferences and qualification decisions.",
+      );
+  }
+  if (
+    [
+      "ApplicationSubjectIntent",
+      "InterviewAssignment",
+      "InterviewVote",
+    ].includes(table) &&
+    typeof row.applicationId === "string"
+  ) {
+    const target = await tx.tutorApplication.findUnique({
+      where: { id: row.applicationId },
+      select: { status: true },
+    });
+    if (target && ["PENDING", "INTERVIEW"].includes(target.status))
+      fail(
+        "Historical interview records require a completed application. Use Interviews to change a current application or panel.",
+      );
+  }
+  if (table === "MeetingAttendance" && typeof row.meetingId === "string") {
+    const meeting = await tx.tutorMeeting.findUnique({
+      where: { id: row.meetingId },
+      select: { date: true },
+    });
+    if (meeting && meeting.date > new Date())
+      fail(
+        "Historical meeting attendance requires a past meeting. Use Meetings for upcoming attendance and excuses.",
+      );
+  }
+  if (
+    ["StudentSurvey", "StudentQuarterBlock"].includes(table) &&
+    typeof row.intakeTermId === "string"
+  ) {
+    const term = await tx.term.findUnique({
+      where: { id: row.intakeTermId },
+      select: { active: true },
+    });
+    if (term?.active)
+      fail(
+        "Historical signup records and quarter restrictions require an inactive term. Use the current signup review workflow for this term.",
+      );
+  }
 }
 
 /** Preview tickets bind exact bytes, actor and expiry; preview cannot authorize edited files. */

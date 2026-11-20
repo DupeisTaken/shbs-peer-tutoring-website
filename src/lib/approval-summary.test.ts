@@ -7,6 +7,66 @@ import {
   isReviewReference,
 } from "./approval-summary";
 
+it("summarizes a holiday's inclusive boundaries and closed-school effect without exposing version assertions as changes", () => {
+  const payload = {
+    from: "2026-11-01",
+    to: "2026-11-03",
+    note: "Reviewed holiday",
+    expectedVersions: [
+      { date: "2026-11-01", version: 2 },
+      { date: "2026-11-02", version: 0 },
+      { date: "2026-11-03", version: 0 },
+    ],
+  };
+  const targets = {
+    calendar: [
+      {
+        date: payload.from,
+        isSchoolDay: true,
+        timetableWeekday: 1,
+        version: 2,
+      },
+    ],
+  };
+  const original = structuredClone({ payload, targets });
+  const model = approvalPresentation(
+    "student.setCalendarHoliday",
+    payload,
+    targets,
+  );
+  expect(model.kind).toBe("action");
+  expect(model.summary.facts).toEqual(
+    expect.arrayContaining([
+      { key: "from", value: payload.from },
+      { key: "to", value: payload.to },
+    ]),
+  );
+  expect(model.summary.changes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ key: "note", requested: "Reviewed holiday" }),
+      expect.objectContaining({
+        key: "isSchoolDay",
+        requested: false,
+        hasBefore: false,
+      }),
+      expect.objectContaining({
+        key: "timetableWeekday",
+        requested: null,
+        hasBefore: false,
+      }),
+    ]),
+  );
+  expect(
+    model.summary.changes.some(({ key }) => key === "expectedVersions"),
+  ).toBe(false);
+  expect(model.groups).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ table: "calendar", rows: targets.calendar }),
+    ]),
+  );
+  expect({ payload, targets }).toEqual(original);
+});
+
 it("keeps admission recovery context separate from its requested reason", () => {
   const payload = {
     actionId: "admission-one",
@@ -81,6 +141,31 @@ it("authors a semantic summary contract for every allowed approval operation", (
         }),
       );
   }
+});
+
+it("summarizes required notification choices while retaining their expected policy as concurrency evidence", () => {
+  const categories = [
+    { category: "messages", badgeLocked: false, emailLocked: true },
+  ];
+  const payload = {
+    categories,
+    expectedCategories: [
+      { category: "messages", badgeLocked: false, emailLocked: false },
+    ],
+  };
+  const original = structuredClone(payload);
+  const model = approvalPresentation("program.setNotificationLocks", payload, {
+    programSettings: { notificationLocks: {} },
+  });
+  expect(model.summary).toMatchObject({
+    known: true,
+    operationKey: "program_setNotificationLocks",
+    facts: [],
+    changes: [{ key: "categories", requested: categories, hasBefore: false }],
+  });
+  expect(model.changes.map(({ key }) => key)).toEqual(["categories"]);
+  // Presentation must preserve the expected snapshot needed by the real writer.
+  expect(payload).toEqual(original);
 });
 
 it("compares school recipients and monthly dates with the captured schedule", () => {

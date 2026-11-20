@@ -25,6 +25,7 @@ type Delivery = {
 function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
   const settings = {
     emailNotificationsEnabled: true,
+    notificationLocks: {} as Record<string, { emailLocked: boolean }>,
     timeZone: "Asia/Shanghai",
   };
   const features: {
@@ -198,6 +199,20 @@ function fixture(kind: "meeting" | "interview" | "tutoring" = "meeting") {
 }
 
 describe("upcoming event reminders", () => {
+  it("includes opted-out reminder candidates only while required and keeps the global gate authoritative", async () => {
+    const f = fixture();
+    f.user.emailEventReminders = false;
+    f.settings.notificationLocks = { reminders: { emailLocked: true } };
+    expect(await queueEventReminders(f.db, hourBefore)).toBe(1);
+    expect(JSON.stringify(f.client.user.findMany.mock.calls[0])).not.toContain("emailEventReminders");
+    const row = [...f.rows.values()][0]!;
+    expect(await validateEventReminder(f.db, row, hourBefore)).toBe(true);
+    f.settings.notificationLocks = {};
+    expect(await validateEventReminder(f.db, row, hourBefore)).toBe(false);
+    f.settings.notificationLocks = { reminders: { emailLocked: true } };
+    f.settings.emailNotificationsEnabled = false;
+    expect(await validateEventReminder(f.db, row, hourBefore)).toBe(false);
+  });
   it.each(["interview", "meeting"] as const)(
     "honors the effective %s module gate at queue and preflight, not staged changes",
     async (kind) => {

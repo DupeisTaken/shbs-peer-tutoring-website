@@ -20,7 +20,13 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 import { getProgramTimeZone } from "~/server/program/time-zone-reader";
-import { programDateKey, programMinuteOfDay, programDayStart, programDayEnd } from "~/lib/program-time";
+import {
+  programDateKey,
+  programMinuteOfDay,
+  programDayStart,
+  programDayEnd,
+} from "~/lib/program-time";
+import { importedRecordKey } from "~/server/imported-records";
 type Db = DomainDb;
 
 /** Minimum students an observation guarantees (4+ is treated as ≥4 — never an under-count below 4). */
@@ -44,14 +50,32 @@ const MATCH_GRACE_MIN = 15;
 
 /** A change to actual attendance evidence invalidates its reviewed flag and linked deduction.
  * Callers preserve the previous state in their audit snapshot before invoking this helper. */
-export async function reconsiderSessionFlag(tx: TransactionDb, sessionId: string) {
+export async function reconsiderSessionFlag(
+  tx: TransactionDb,
+  sessionId: string,
+) {
   await lockEntity(tx, `session-flag:${sessionId}`);
-  const flag = await tx.sessionFlag.findUnique({ where: { sessionId } });
+  const [flag, session] = await Promise.all([
+    tx.sessionFlag.findUnique({ where: { sessionId } }),
+    tx.session.findUnique({
+      where: { id: sessionId },
+      select: { id: true, mergeGroupId: true },
+    }),
+  ]);
+  if (session && (await frozenFlagEvidence(tx, session, flag))) return;
   if (flag) {
-    await tx.serviceHourAdjustment.deleteMany({ where: { id: `flag:${flag.id}` } });
+    await tx.serviceHourAdjustment.deleteMany({
+      where: { id: `flag:${flag.id}` },
+    });
     await tx.sessionFlag.update({
       where: { id: flag.id },
-      data: { state: "PENDING", resolvedAt: null, resolvedById: null, resolvedByName: null, decisionNote: null },
+      data: {
+        state: "PENDING",
+        resolvedAt: null,
+        resolvedById: null,
+        resolvedByName: null,
+        decisionNote: null,
+      },
     });
   }
   await syncSessionFlag(tx, sessionId);
@@ -94,6 +118,8 @@ async function reconcileFlag(
     where: { sessionId },
     select: { id: true, state: true },
   });
+  if (await frozenFlagEvidence(db, session, existing))
+    return { flagged: false };
   // An admin already acted — leave their decision alone.
   if (existing && existing.state !== "PENDING") return { flagged: false };
 
@@ -135,13 +161,31 @@ async function reconcileFlag(
         lte: programDayEnd(session.date.toISOString().slice(0, 10), timeZone),
       },
     },
-    select: { headcount: true, observedAt: true },
+    select: { id: true, patrolId: true, headcount: true, observedAt: true },
   });
+  const importedObservations = await db.importedRecordProvenance.findMany({
+    where: {
+      OR: [
+        {
+          entity: "PatrolObservation",
+          recordId: { in: obs.map((row) => row.id) },
+        },
+        { entity: "Patrol", recordId: { in: obs.map((row) => row.patrolId) } },
+      ],
+    },
+    select: { entity: true, recordId: true },
+  });
+  const archived = new Set(
+    importedObservations.map((row) => `${row.entity}:${row.recordId}`),
+  );
   const lowStart = session.startMin - MATCH_GRACE_MIN;
   const highEnd = session.endMin + MATCH_GRACE_MIN;
   const matching = obs.filter(
     (o) =>
-      programDateKey(o.observedAt, timeZone) === session.date.toISOString().slice(0, 10) &&
+      !archived.has(`PatrolObservation:${o.id}`) &&
+      !archived.has(`Patrol:${o.patrolId}`) &&
+      programDateKey(o.observedAt, timeZone) ===
+        session.date.toISOString().slice(0, 10) &&
       programMinuteOfDay(o.observedAt, timeZone) >= lowStart &&
       programMinuteOfDay(o.observedAt, timeZone) <= highEnd,
   );
@@ -166,4 +210,52 @@ async function reconcileFlag(
     });
   }
   return { flagged: true };
+}
+
+/** Automatic comparison never reinterprets an imported block, flag decision or
+ * deduction. Explicit reviewed source corrections remain separate operations. */
+async function frozenFlagEvidence(
+  db: Db,
+  session: { id: string; mergeGroupId: string | null },
+  flag: { id: string } | null,
+) {
+  const blockIds = session.mergeGroupId
+    ? (
+        await db.session.findMany({
+          where: {
+            OR: [
+              { id: session.mergeGroupId },
+              { mergeGroupId: session.mergeGroupId },
+            ],
+          },
+          select: { id: true },
+        })
+      ).map((row) => row.id)
+    : [session.id];
+  const attendance = await db.sessionTutee.findMany({
+    where: { sessionId: { in: blockIds } },
+    select: { sessionId: true, tuteeId: true },
+  });
+  return !!(await db.importedRecordProvenance.findFirst({
+    where: {
+      OR: [
+        { entity: "Session", recordId: { in: blockIds } },
+        {
+          entity: "SessionTutee",
+          recordId: {
+            in: attendance.map((row) =>
+              importedRecordKey(row, ["sessionId", "tuteeId"]),
+            ),
+          },
+        },
+        ...(flag
+          ? [
+              { entity: "SessionFlag", recordId: flag.id },
+              { entity: "ServiceHourAdjustment", recordId: `flag:${flag.id}` },
+            ]
+          : []),
+      ],
+    },
+    select: { recordId: true },
+  }));
 }

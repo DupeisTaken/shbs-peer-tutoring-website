@@ -5,10 +5,15 @@ import { recordDomainAudit } from "~/server/audit/evidence";
 import { auditActorScope } from "~/server/db-scope";
 import { standingFromCounts } from "~/lib/discipline";
 import { getActivePeriodOrNull } from "~/server/period";
-import { notifyAdmins, notifyUsers } from "~/server/notifications/core";
+import { managementNotificationRecipients } from "~/server/notifications/core";
 import { withRecoveryDeliverySource } from "~/server/recovery/delivery-effects";
 import { preserveHistoricalAcademics } from "~/server/historical-academic-snapshot";
-import { executionParticipantId, executionSourceIds, supersededPairingIds } from "~/server/participant-execution";
+import { isImportedProgramRecord } from "~/server/imported-records";
+import {
+  executionParticipantId,
+  executionSourceIds,
+  supersededPairingIds,
+} from "~/server/participant-execution";
 import {
   inTransaction,
   lockEntity,
@@ -31,7 +36,13 @@ async function finalizeRemoval(
   const period = await getActivePeriodOrNull(tx);
   const tutee = await tx.tutee.findUniqueOrThrow({ where: { id: tuteeId } });
   const links = await tx.pairingTutee.findMany({
-    where: { tuteeId, pairing: { id: { notIn: await supersededPairingIds(tx) }, term: { active: true } } },
+    where: {
+      tuteeId,
+      pairing: {
+        id: { notIn: await supersededPairingIds(tx) },
+        term: { active: true },
+      },
+    },
     include: {
       pairing: {
         include: { tutor: { select: { user: { select: { id: true } } } } },
@@ -61,44 +72,36 @@ async function finalizeRemoval(
       },
     },
   });
-  await withRecoveryDeliverySource(
+  const recipients = new Map<string, string>();
+  for (const link of links) {
+    const userId = link.pairing.tutor.user?.id;
+    if (userId) recipients.set(userId, "/dashboard");
+  }
+  // One account gets one notice even across several pairings or both roles.
+  // Only the existing eligible management audience receives the management link.
+  for (const manager of await managementNotificationRecipients(
     tx,
-    { entity: "TuteeRemovalRequest", recordId: requestId },
-    () =>
-      notifyUsers(
-        links.flatMap((l) =>
-          l.pairing.tutor.user ? [l.pairing.tutor.user.id] : [],
-        ),
-        {
-          ...notificationInAppEvent("tutee_removed", undefined, {
-            en: `Tutee ${tutee.englishName} was removed from the current roster.`,
-            zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
-          }),
-          title: "Tutee removed",
-          body: `${tutee.englishName} was removed from the current roster.`,
-          link: "/dashboard",
-        },
-        tx,
-      ),
-  );
-  await withRecoveryDeliverySource(
-    tx,
-    { entity: "TuteeRemovalRequest", recordId: requestId },
-    () =>
-      notifyAdmins(
-        {
-          ...notificationInAppEvent("tutee_removed", undefined, {
-            en: `Tutee ${tutee.englishName} was removed from the current roster.`,
-            zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
-          }),
-          title: "Tutee removed",
-          body: `${tutee.englishName} was removed from the current roster.`,
-          link: "/admin/tutee-requests",
-        },
-        undefined,
-        tx,
-      ),
-  );
+    "tutee_removed",
+  ))
+    recipients.set(manager.id, "/admin/tutee-requests");
+  if (recipients.size)
+    await withRecoveryDeliverySource(
+      tx,
+      { entity: "TuteeRemovalRequest", recordId: requestId },
+      () =>
+        tx.notification.createMany({
+          data: [...recipients].map(([userId, link]) => ({
+            userId,
+            link,
+            ...notificationInAppEvent("tutee_removed", undefined, {
+              en: `Tutee ${tutee.englishName} was removed from the current roster.`,
+              zh: `学习伙伴 ${tutee.englishName} 已从本期名单移除。`,
+            }),
+            title: "Tutee removed",
+            body: `${tutee.englishName} was removed from the current roster.`,
+          })),
+        }),
+    );
   await recordDomainAudit(tx, {
     operation: "system.finalizeTuteeRemoval",
     entity: "TuteeRemovalRequest",
@@ -141,7 +144,10 @@ export async function syncPunishmentRemoval(
     });
     const valid = await tx.disciplinaryCard.groupBy({
       by: ["color"],
-      where: { tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) }, reviewStatus: "VALID" },
+      where: {
+        tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) },
+        reviewStatus: "VALID",
+      },
       _count: { _all: true },
     });
     const candidateStanding = standingFromCounts({
@@ -158,6 +164,13 @@ export async function syncPunishmentRemoval(
         where: { tuteeId, kind: "PUNISHMENT", state: "APPROVED" },
         orderBy: { resolvedAt: "desc" },
       });
+      // A preserved historical decision is evidence, not authority to recreate
+      // participation when a later native card correction runs.
+      if (
+        removal &&
+        (await isImportedProgramRecord(tx, "TuteeRemovalRequest", removal.id))
+      )
+        return { removed: false };
       if (
         !removal ||
         !snapshotSchema.safeParse(removal.pairingSnapshot).success ||
@@ -180,7 +193,10 @@ export async function syncPunishmentRemoval(
         });
         const cards = await tx.disciplinaryCard.groupBy({
           by: ["color"],
-          where: { tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) }, reviewStatus: "VALID" },
+          where: {
+            tuteeId: { in: await executionSourceIds(tx, "TUTEE", tuteeId) },
+            reviewStatus: "VALID",
+          },
           _count: { _all: true },
         });
         const standing = standingFromCounts({
@@ -195,6 +211,15 @@ export async function syncPunishmentRemoval(
             where: { tuteeId, kind: "PUNISHMENT", state: "APPROVED" },
             orderBy: { resolvedAt: "desc" },
           });
+          if (
+            removal &&
+            (await isImportedProgramRecord(
+              tx,
+              "TuteeRemovalRequest",
+              removal.id,
+            ))
+          )
+            return { removed: false };
           const snapshot = snapshotSchema.safeParse(removal?.pairingSnapshot);
           if (
             removal &&

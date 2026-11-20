@@ -46,7 +46,9 @@ describe("step-up verification codes", () => {
     expect(code).toMatch(/^[0-9]{4}$/);
     const message = send.mock.calls.at(-1)![0];
     expect(message.subject).toContain("change your password");
-    expect(message.text).toContain("更改密码");
+    expect(message.presentation?.locale).toBe("en");
+    expect(message.text).toContain("change your password");
+    expect(message.text).not.toContain("更改密码");
     expect(message.text).toContain("15 minutes");
     expect(message.text).toContain("does not complete the requested action");
 
@@ -57,6 +59,18 @@ describe("step-up verification codes", () => {
     );
 
     expect(results.filter((result) => result.ok)).toHaveLength(1);
+  });
+
+  it("uses only the saved Chinese language while retaining operation, expiry and non-completion guidance", async () => {
+    await db.user.update({ where: { id: USER_ID }, data: { emailLocale: "zh" } });
+    await issueStepUpCode(USER_ID, "PASSWORD_CHANGE");
+    const message = send.mock.calls.at(-1)![0];
+    expect(message.presentation?.locale).toBe("zh");
+    expect(message.subject).toBe("验证更改密码");
+    expect(message.text).toContain("以更改密码");
+    expect(message.text).toContain("15 分钟内有效");
+    expect(message.text).toContain("发送验证码不代表该操作已完成");
+    expect(message.text).not.toContain("Enter this code");
   });
 
   it("invalidates an older code when a replacement is issued", async () => {

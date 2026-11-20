@@ -36,6 +36,22 @@ editor. It requires active tutoring access and a usable published source. Select
 the source neither submits a proposal nor changes a recurring assignment; the
 existing 45-minute, agreement, version and conflict rules still govern submission.
 An unavailable source leaves the action disabled; Pairings remains directly available in the workspace tabs.
+The picker displays the current primary pairing's localized weekly slot rather
+than the source occurrence's date. A moved or timetable-mapped date never becomes
+the displayed recurring weekday. Distinct source cohorts retain their captured
+audience, identity and version even when their weekly labels match; an unavailable
+current slot is shown as unavailable rather than inferred from the occurrence.
+The tutor picker requests this enrichment with `includeRecurringSchedule: true`.
+Omitted or false flags preserve the existing agenda response shape and avoid the
+current-pairing lookup; historical readers remain captured evidence only.
+
+A tutoring pause retains a separate published, suppressed source for **Arrange
+optional session**. Tutors can propose or tutees can suggest an exception from
+that source without restoring its automatic commitment. When a physical cohort
+contains both scheduled and paused learners, the paused action passes
+`pausedOnly` and the server selects only its paused roster. Ordinary attendance
+and ordinary rescheduling keep their scheduled roster. Sharing a room and time
+never transfers one learner's affirmative agreement to another learner.
 
 The compact agenda previews actionable items from up to three distinct unresolved
 items across the personal sources. Items requiring action come first, most recent first; other commitments
@@ -128,21 +144,135 @@ Every new plan derives an end exactly 45 minutes after its start. Older recurrin
 slots may retain their historical duration; the agenda flags their normalization.
 The source start stays fixed. Unscheduled or invalid combined groups remain
 unavailable until repaired. Effective dated exceptions and current proposals take
-part in conflict checks. School closures suppress ordinary recurrence; explicitly
-agreed sessions remain commitments. The school-calendar mapping adapter reads
+part in conflict checks. School closures suppress ordinary recurrence; agreed
+dated sessions remain commitments. Tutoring pauses apply the stronger affirmative
+exception rule below. The school-calendar mapping adapter reads
 the owning calendar's effective weekday and semantic revision.
 Semantic calendar saves and resets reconcile future plans in the same transaction,
 using the shared period, room and planning locks. A closure saved before a lesson
 starts cannot remain attendance-eligible just because the first agenda read occurs
 after its start; retrospective edits preserve already-started evidence.
-Individual `scheduleOverride` provenance preserves an explicitly agreed learner
+Individual `scheduleOverride` provenance preserves an agreed learner
 who returns to an ordinary shared cohort. `calendarSuppressed` distinguishes an
 ordinary commitment that may be restored on reset from a user/lifecycle
 cancellation. Restoration rechecks conflicts; exact matching cohorts coalesce
 and emptied physical cohorts retain cancellation evidence for subscriptions.
+This includes restoring peers to an already-agreed sibling at the unchanged
+weekly clock: retain the agreed cohort's identity and each learner's separate
+consent, rather than creating overlapping attendance blocks.
 Calendar-change notices include current live proposal recipients on the target
 date, even when no confirmed lesson or recurring assignment exists there yet.
 Superseded offers, elapsed cutoffs and terminal requests do not expand that audience.
+
+### Tutoring pauses and affirmative exceptions
+
+The [tutoring policy helper](../../src/lib/tutoring-policy.ts) resolves applied
+`ProgramCalendarDay` ranges against the actual program-local date, independently
+of timetable mappings. `NOTICE` retains the legacy informational contract;
+`PAUSE_REGULAR` suppresses automatic ordinary commitments. Both endpoints are
+inclusive. Any active overlapping pause still applies after another is removed.
+Existing rows default to `NOTICE`, and an omitted effect in an older edit preserves
+the current row's effect. Coordinator proposals do not apply policy until approved.
+School-day appeal counting and recurring assignments are unchanged.
+
+The [calendar writer](../../src/server/program/calendar.ts) shares the period →
+room → planning → notice-range lock order with publication and attendance.
+Changing the effective pause interval/mode, reactivating a pause or removing one
+reconciles future publications in the same transaction. Reasons and editor
+versions do not themselves change scheduling meaning. Reconciliation includes
+published moved/extra cohorts outside the visible two-week window, not only
+newly generated ordinary lessons. Started lessons and any cohort with recorded
+attendance retain their evidence; policy changes create no attendance, absence
+cards or service hours.
+
+New no-tutoring ranges default to `PAUSE_REGULAR` in the editor, impact preview and
+writer. An explicit `NOTICE` selection remains informational, and omitted effects
+on existing rows preserve their saved meaning. Applying a pause cancels future
+automatic regular commitments while retaining already-confirmed extras and
+explicitly agreed rescheduled lessons. Existing confirmed extras remain valid
+even when their pre-pause agreement used the ordinary timeout rule; this retention
+does not manufacture affirmative consent for a new paused-date offer or revive
+cancelled participants.
+
+`ProgramCalendarPolicyRevision` keeps append-only semantic snapshots of each
+stable starting-date source: ending date, effect, active state, version and the
+database effective time. Reason/editor-only changes add no semantic revision.
+Raw source updates, removal and source-table truncation append their meaning;
+they do not rewrite earlier policy. The
+[history reader](../../src/server/program/calendar-policy-history.ts) selects the
+latest snapshot of each source strictly before the actual lesson start, then
+checks active intervals and overlaps. Filtering endpoints first would wrongly
+revive a shortened/removed old pause. A decision at or after the start preserves
+already-started evidence. Synchronous configuration reconciliation uses the same
+persisted effective time. Deployment seeds existing rows at deployment time;
+neither their editor timestamps nor legacy notices invent a past pause.
+
+`SessionPlanParticipant.tutoringPauseSuppressed` records a distinct reversible
+cause. `calendarSuppressed` remains the school-calendar cause. User/lifecycle
+cancellations clear the pause marker and are not candidates for automatic
+restoration. Removing a pause restores only eligible future participants after
+checking remaining pauses, school-calendar restrictions and current conflicts.
+An unresolved conflict leaves a reversible tombstone for a later dirty-source
+pass. Cohort IDs and cancelled calendar evidence remain intact; membership,
+continuation and reviewed execution-identity changes use the same source-owned
+planning lifecycle instead of deleting/recreating consent.
+
+A new exception on a paused date requires affirmative agreement for the exact date,
+clock, room/Online choice, tutor and participating learner. The scheduler reads
+accepted offers and current response owners. `AUTHOR` and `EXPLICIT` responses
+can establish affirmative consent; `MATCHED` evidence must retain the same offer
+and valid affirmative provenance. For carried split consent, the parent chain
+is checked rather than trusting a historical `MATCHED` label that may have hidden
+timeout acceptance. `TIMEOUT`, `scheduleOverride`, plan kind `EXTRA` and a cohort's
+rescheduled flag do not independently establish affirmative consent. Retaining an
+already-confirmed extra under a newly applied pause is separate from admitting a
+new exception. In a mixed regular cohort,
+one agreed learner remains scheduled while a peer without that evidence stays
+paused. Source/owner changes still require the existing live authority checks.
+
+Submission, counteroffers, delivery completion, final agreement and the deadline
+sweep recheck the proposed date's pause policy. While paused, essential-mail
+delivery records acceptance time but creates no silence deadline. Applying a pause
+clears existing pending response deadlines while retaining SMTP acceptance times;
+timeout/unknown acceptance cannot become optional participation. Removing the
+pause does not revive a cleared deadline or count silence spent under the pause.
+Previously delivered pause-exposed offers therefore still need affirmative replies;
+a genuinely new ordinary offer may use the normal delivery-based response clock.
+If an essential message was admitted with explicit-only guidance, completion does
+not start a silence timer merely because the pause was removed while SMTP was in
+flight. A valid move out of a paused date remains negotiable, and
+expiration never resurrects the suppressed original. Only current pending offers
+hold rooms/participants; terminal requests release those holds through the normal
+request-state path. Short-notice cutoff and explicit agreement rules still apply.
+
+Upcoming and the default week list show dated commitments and attendance duties,
+excluding cancelled and fully paused source cards. All/History retain cancellation
+evidence. The optional-session picker still exposes eligible suppressed sources
+without granting attendance authority. Attendance, reminder reads and private calendars use the
+effective scheduled roster. A paused source alone reserves no active commitment.
+Pending requests and captured decision reviews display the proposed room or
+Online choice alongside the time. Explicit-only guidance appears before email
+delivery as well as afterwards. An unknown physical room asks for a refresh and
+blocks acceptance without silently substituting Online or a roomless offer;
+fresh server validation still checks the captured offer and version.
+Retained confirmed extras and affirmatively agreed reschedules may receive
+reminders even on paused dates;
+an overlapping `NOTICE` still suppresses optional reminders under the legacy
+notice contract. Queued essential proposal mail is checked against current policy
+before delivery so its agreement guidance cannot promise silence acceptance on
+a paused date. Existing SMTP acceptance times remain historical facts.
+The stricter explicit-only transport admission remains sticky across automatic
+and manual retries, including a later notice for the same offer. Retrying retains
+the actual prior admission time while rotating the active attempt ID/lease; an old
+attempt completion cannot settle the replacement. A never-admitted queued notice
+does not establish that transport evidence.
+
+The management impact preview is a read-only snapshot of already-published future
+participant commitments, not unique people, sessions or all future recurrence.
+It separates ordinary suppression, retained affirmative exceptions, exceptions
+needing confirmation and potentially restorable participants. Actual writes
+recheck current versions, source authority and conflicts. Previewing does not
+reserve rooms, create a request or apply policy.
 
 ### Durable maintenance and source invalidation
 
@@ -174,6 +304,7 @@ deliberately suppressed. The complete dependency closure is:
 | `TutorProfileOwnership`, `StudentProfileOwnership` | Explicit current/retained profile ownership and reviewed transfer revisions |
 | `Term`, `ProgramSettings` | Active period, inclusive date bounds and program timezone |
 | `SchoolCalendarDay` | School-day/timetable meaning, semantic revision, reset and inactive tombstone |
+| `ProgramCalendarDay` | Applied tutoring-pause interval, effect and active state; informational/reason-only edits do not change planning meaning |
 | `SchoolDeparture`, `PolicyAcceptance` | Current participation and the policy evidence consumed by dual-role learner admission |
 | `StudentContinuationPairing`, `StudentContinuationAssignment` | Continuation identity, current status, target pairing and assignment/release instants |
 | `SessionPlanContinuationMember`, `SessionPlanAssignment` | Supplemental enrollment/release and original published assignment/roster evidence |
@@ -193,6 +324,45 @@ that read the old state from certifying it after installation. Missing state sti
 starts with obsolete defaults and requires a later current-source pass. Identity
 mapping revisions remain semantic changes even though ordinary timestamps and
 the unrelated generic `version` field are excluded from dirty-event comparison.
+
+The [tutoring policy migration](../../prisma/migrations/20261108010000_tutoring_pause_policy/migration.sql)
+adds its source to both unconditional triggers and the complete strict verifier,
+preserves pending events/retries and invalidates existing maintenance generations.
+The implementation version also advances so an old warm publication cannot skip
+the new policy pass. The [safe recovery follow-up](../../prisma/migrations/20261108011000_tutoring_pause_recovery/migration.sql)
+retains `tutoringPauseSuppressed` beside the independent calendar marker in
+planning journal snapshots and retains the safe `schedulingEffect` scalar. It
+does not add notice reasons, message bodies, mailbox addresses or capabilities,
+and it grants no new recovery compensation authority. Complete pre-policy backup
+catalogs remain recognized; a partially added policy-column pair is rejected.
+The [policy history migration](../../prisma/migrations/20261108012000_tutoring_policy_history/migration.sql)
+also preserves entity-specific interval/effect/active facts and the date primary
+key in calendar-source recovery evidence. Its projection excludes the notice
+reason. History snapshots reject row updates/deletes, and a compensating source
+write appends a new revision at its actual database time. No generic recovery
+operation acquires authority to edit prior policy history. Complete pre-history
+backup catalogs remain recognized; incomplete history tables are rejected. A dedicated
+history-integrity check verifies exact unconditional capture, source-truncation,
+row-immutability and journal triggers and matches each current source to its latest
+semantic snapshot. As-of reads and config writes fail closed if those contracts
+are missing; the scheduling maintenance verifier requires the same proof.
+Whole-database offline backup/test resets may truncate source and history together,
+following the existing immutable-evidence reset convention. Operational record
+editing exposes no history truncation or historical revision writer. Source-only
+truncation appends deactivation; accidental history-only truncation while source
+rows remain fails the semantic consistency check. Privileged offline database
+restoration must restore source and revision history consistently; runtime guards
+do not claim to prevent a database administrator from replacing the full database.
+All new migration helper definitions and trigger references are explicitly in
+`public`, with fixed function search paths where appropriate, so a custom caller
+schema or a migration search path beginning with `pg_catalog` cannot shadow the
+intended recovery projection. Clean migration verification must use the committed
+chain; updating a stored checksum does not establish successful installation.
+The [consent lookup index](../../prisma/migrations/20261108013000_tutoring_consent_lookup/migration.sql)
+adds a B-tree on `SessionNotice.offerId` for repeated exact-offer sticky-admission
+checks in agenda/sweep paths. It narrows candidate notice history before applying
+admission-time/context filters. The tradeoff is an extra index entry and insertion
+work per notice; this change does not itself establish a measured latency gain.
 
 Conflict checks reuse the proposed party's current execution identities within
 one operation. The original published actors remain historical evidence; they do
@@ -315,14 +485,49 @@ audit or recovery write order. Existing requests retain their captured audience
 order; reading or splitting an older request does not rewrite that evidence.
 
 Every response clock begins at essential-mail SMTP acceptance, not creation or
-queueing. A resend never restarts it. Twenty-four hours of silence accepts only
-when the complete interval ends before both the original and proposed starts.
+queueing. A resend never restarts it. Outside paused target dates, twenty-four
+hours of silence accepts only when the complete interval ends before both the
+original and proposed starts. Paused-date exceptions require affirmative acceptance.
 Short-notice requests require explicit agreement before the earlier start;
 unresolved requests expire and retain the original arrangement. Delivery failures
 remain visible and block automatic acceptance. A server outage that misses an eligible
 response deadline until after the cutoff never retroactively moves a started
 session; a distinct essential notice identifies the missed deadline for review. See
 [delivery and calendar contracts](session-planning-delivery.md).
+
+## Extra-session cancellation
+
+`sessionPlanning.proposeCancellation` captures an active tutor's exact scheduled
+extra cohort/version, one or all currently scheduled participants, and a client
+receipt key. A `CANCEL` planning request reuses immutable offers, per-person
+responses, essential delivery clocks and settlement locks. Its offer retains the
+existing date/time/location as evidence; it creates no replacement-room hold.
+The original commitment stays effective while the request is pending. All required
+responses must agree; a rejection closes the request with the lesson unchanged,
+without a counteroffer or split. Existing short-notice, delivery and explicit
+agreement rules still apply, and expiry preserves the lesson.
+
+Agreement cancels only the selected participant commitments, clears reversible
+calendar/pause suppression, increments calendar versions and cancels an empty
+physical cohort. Weekly pairings, regular lessons, peers, attendance and hours
+remain intact. Cancellation agreement cannot supply affirmative consent for a
+paused-date lesson. The server rechecks ownership, active participation, source
+version, request overlap and extra provenance, including rescheduled extras;
+started or recorded lessons cannot enter or complete cancellation. The existing
+receipt and transactional outbox prevent duplicate writes/notices, and calendar
+subscriptions retain the original identities and cancellation evidence.
+
+The retained agenda editor reuses arrangement's ONE/ALL selection and consequence
+review without time/location editing. Request cards distinguish cancellation
+from a time offer and expose acceptance or keeping the session. An accepted
+submission with failed refresh offers reads only, preserving its receipt until
+the agenda synchronizes.
+
+**All** also exposes the nearest 300 scheduled future extras beyond the normal
+two-week window as live cohorts, so they can be cancelled before entering
+Upcoming. This is a bounded working set; farther extras remain read-only history
+projections until they enter that set or the current window. Historical regular
+lessons acquire no scheduling authority from this query.
 
 ## Attendance and permissions
 
@@ -466,9 +671,21 @@ application and the proposed revision separately from the original campaign.
 The dedicated [request-profile workflow](../../.github/workflows/scheduling-profile.yml)
 runs `scripts/profile-scheduling-requests.ts` on Node 22 Linux against its own
 PostgreSQL service. Cold publication, warm agendas, Sunday catch-up, negotiation,
-allocation, catalog reads and competing requests each have separate latency and
-diagnostic jobs. Baseline and candidate run serially on the same runner with the
+allocation, catalog reads and competing requests retain separate latency and
+diagnostic evidence. One preflight check runs the five prerequisite diagnostics
+serially. Eight scenario-group checks (cold, warm, Sunday, negotiation,
+allocation, catalog, contention and backlog) run their remaining partitions
+serially, with at most four groups active at once. Planning and final aggregation
+bring the benchmark to eleven checks. The full 60 latency partitions and ten
+diagnostics remain required; grouping does not reduce their sample populations.
+Baseline and candidate run serially on the same runner with the
 same synthetic fixture, harness, anchor, dependency lockfile and database schema.
+Each partition starts from pristine checkouts and a fresh job-owned database,
+preventing an earlier schema overlay from contaminating its original control.
+It retains its seven-minute command deadline and separate sealed artifact. The
+containing group has a longer bounded job timeout for its serial partitions.
+Provider-visible preparation and partition steps bind each artifact to its real
+execution; a failed group cannot turn missing or failed measurements into a PASS.
 The job reserves time for evidence upload and fails on exhausted budgets; partial
 samples do not count as passing evidence.
 
@@ -494,8 +711,9 @@ setup may retry once. Each attempt has at most 30 seconds and both share a
 remains in the terminal receipt even when the retry succeeds. A failed
 migration, comparison, timing command or parity check ends that worker.
 
-The special workflow caps preflight at two runners and the remaining matrix at
-four per PR. Three admitted PRs can use twelve profiling jobs. Run required CI
+The special workflow uses one preflight runner and caps the scenario groups at
+four per PR. These are four additional slots alongside the core CI allowance;
+three admitted PRs can use twelve profiling runners. Run required CI
 ahead of a coordinated campaign and check the account queue for other work. A delayed worker that cannot fit its
 entire command budget must fail before timing starts. Each worker records the
 actual Node and PostgreSQL clock ranges. Aggregation verifies those ranges

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { formatWeekday } from "~/lib/time";
+import { schoolCalendarRangeDates } from "~/lib/school-calendar";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
@@ -54,6 +55,7 @@ export function SchoolCalendar() {
   const [editor, setEditor] = useState<{
     day: Day | null;
     snapshot: Day[];
+    holiday?: boolean;
   } | null>(null);
   const [generation, setGeneration] = useState(0);
   const [acceptedVersions, setAcceptedVersions] = useState<ReadonlySet<string>>(
@@ -90,14 +92,28 @@ export function SchoolCalendar() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="section-title">{t("title")}</h2>
         {canEdit && !denied && (
-          <Button
-            disabled={blocked || !calendar.data || !!editor}
-            onClick={() =>
-              setEditor({ day: null, snapshot: calendar.data ?? [] })
-            }
-          >
-            {t("add")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={blocked || !calendar.data || !!editor}
+              onClick={() =>
+                setEditor({
+                  day: null,
+                  snapshot: calendar.data ?? [],
+                  holiday: true,
+                })
+              }
+            >
+              {t("addHoliday")}
+            </Button>
+            <Button
+              disabled={blocked || !calendar.data || !!editor}
+              onClick={() =>
+                setEditor({ day: null, snapshot: calendar.data ?? [] })
+              }
+            >
+              {t("add")}
+            </Button>
+          </div>
         )}
       </div>
       <p className="muted text-sm">{t("help")}</p>
@@ -252,12 +268,15 @@ export function SchoolCalendar() {
           {review.dialog}
           {editor && canEdit && (
             <ProfileDialog
-              title={t(editor.day ? "edit" : "add")}
+              title={t(
+                editor.holiday ? "addHoliday" : editor.day ? "edit" : "add",
+              )}
               onClose={() => setEditor(null)}
             >
               <SchoolDayEditor
                 key={generation}
                 initial={editor.day}
+                holiday={!!editor.holiday}
                 snapshot={editor.snapshot}
                 canApply={canApply}
                 disabled={blocked}
@@ -273,10 +292,13 @@ export function SchoolCalendar() {
                   const result = await calendar.refetch();
                   if (!result.isSuccess) throw new Error(t("loadFailed"));
                   setEditor({
-                    day: result.data.find((day) => day.date === date) ?? null,
+                    day: editor.holiday
+                      ? null
+                      : (result.data.find((day) => day.date === date) ?? null),
                     snapshot: result.data,
+                    holiday: editor.holiday,
                   });
-                  setGeneration((value) => value + 1);
+                  if (!editor.holiday) setGeneration((value) => value + 1);
                 }}
               />
             </ProfileDialog>
@@ -290,6 +312,7 @@ export function SchoolCalendar() {
 /** Keep the draft's version fixed until explicit Reload; an accepted write only retries reads. */
 function SchoolDayEditor({
   initial,
+  holiday,
   snapshot,
   canApply,
   disabled,
@@ -300,6 +323,7 @@ function SchoolDayEditor({
   acceptedVersions,
 }: {
   initial: Day | null;
+  holiday: boolean;
   snapshot: Day[];
   canApply: boolean;
   disabled: boolean;
@@ -313,7 +337,9 @@ function SchoolDayEditor({
   const approvals = useTranslations("approvals");
   const locale = useLocale();
   const save = api.student.setCalendarDay.useMutation();
+  const saveHoliday = api.student.setCalendarHoliday.useMutation();
   const [date, setDate] = useState(initial?.date ?? "");
+  const [endDate, setEndDate] = useState("");
   const [schoolDay, setSchoolDay] = useState(
     initial?.active ? initial.isSchoolDay : true,
   );
@@ -328,12 +354,34 @@ function SchoolDayEditor({
   const [working, setWorking] = useState(false);
   const admitted = useRef(false);
   const committed = useRef(false);
-  const pending = useDialogPending(working || save.isPending);
+  const pending = useDialogPending(
+    working || save.isPending || saveHoliday.isPending,
+  );
+  let rangeDates: string[] = [];
+  try {
+    if (holiday && date && endDate)
+      rangeDates = schoolCalendarRangeDates(date, endDate);
+  } catch {
+    // Keep incomplete/invalid dates editable; the shared bounded parser owns the range.
+  }
+  const invalidRange =
+    holiday && !!date && !!endDate && rangeDates.length === 0;
+  const expectedVersions = rangeDates.map((coveredDate) => ({
+    date: coveredDate,
+    version: snapshot.find((day) => day.date === coveredDate)?.version ?? 0,
+  }));
+  const replacements = snapshot.filter(
+    (day) => day.active && rangeDates.includes(day.date),
+  );
   const expectedVersion =
     initial?.version ??
     snapshot.find((day) => day.date === date && !day.active)?.version ??
     0;
-  const alreadyAccepted = acceptedVersions.has(`${date}:${expectedVersion}`);
+  const alreadyAccepted = holiday
+    ? expectedVersions.some((day) =>
+        acceptedVersions.has(`${day.date}:${day.version}`),
+      )
+    : acceptedVersions.has(`${date}:${expectedVersion}`);
   async function sync() {
     setWorking(true);
     try {
@@ -358,29 +406,46 @@ function SchoolDayEditor({
           admitted.current ||
           committed.current ||
           alreadyAccepted ||
-          conflict
+          conflict ||
+          (holiday && rangeDates.length === 0)
         )
           return;
         admitted.current = true;
         setWorking(true);
         setError(null);
         try {
-          await save.mutateAsync({
-            date,
-            isSchoolDay: schoolDay,
-            timetableWeekday: schoolDay && weekday ? Number(weekday) : null,
-            note,
-            expectedVersion,
-          });
+          if (holiday)
+            await saveHoliday.mutateAsync({
+              from: date,
+              to: endDate,
+              note,
+              expectedVersions,
+            });
+          else
+            await save.mutateAsync({
+              date,
+              isSchoolDay: schoolDay,
+              timetableWeekday: schoolDay && weekday ? Number(weekday) : null,
+              note,
+              expectedVersion,
+            });
           committed.current = true;
           setAccepted("saved");
-          onAccepted(date, expectedVersion);
+          if (holiday)
+            expectedVersions.forEach((day) =>
+              onAccepted(day.date, day.version),
+            );
+          else onAccepted(date, expectedVersion);
           await sync();
         } catch (failure) {
           if (queuedApprovalId(failure)) {
             committed.current = true;
             setAccepted("queued");
-            onAccepted(date, expectedVersion);
+            if (holiday)
+              expectedVersions.forEach((day) =>
+                onAccepted(day.date, day.version),
+              );
+            else onAccepted(date, expectedVersion);
           } else {
             setError(
               failure instanceof Error ? failure.message : t("saveFailed"),
@@ -408,34 +473,72 @@ function SchoolDayEditor({
         aria-busy={pending}
       >
         <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
-        <label className="block">
-          <span className="label">{t("date")}</span>
-          <input
-            className="input w-full"
-            type="date"
-            required
-            disabled={!!initial}
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </label>
-        {date && (
+        {holiday && (
+          <p id="school-calendar-range-help" className="muted text-sm">
+            {t("holidayHelp")}
+          </p>
+        )}
+        <div className={holiday ? "grid gap-4 sm:grid-cols-2" : undefined}>
+          <label className="block min-w-0">
+            <span className="label">{t(holiday ? "from" : "date")}</span>
+            <input
+              className="input w-full"
+              type="date"
+              required
+              disabled={!!initial}
+              aria-describedby={
+                holiday ? "school-calendar-range-help" : undefined
+              }
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </label>
+          {holiday && (
+            <label className="block min-w-0">
+              <span className="label">{t("to")}</span>
+              <input
+                className="input w-full"
+                type="date"
+                required
+                min={date || undefined}
+                aria-describedby="school-calendar-range-help"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+              />
+            </label>
+          )}
+        </div>
+        {holiday && rangeDates.length > 0 && (
+          <p className="text-sm" role="status">
+            {t("holidayPreview", { count: rangeDates.length })}
+          </p>
+        )}
+        {invalidRange && (
+          <InlineNotice tone="error" announcement="alert">
+            {t("invalidRange")}
+          </InlineNotice>
+        )}
+        {!holiday && date && (
           <p className="text-sm">
             <SchoolCalendarDate date={date} />
           </p>
         )}
-        <label className="block">
-          <span className="label">{t("schoolStatus")}</span>
-          <select
-            className="select w-full"
-            value={schoolDay ? "school" : "closed"}
-            onChange={(event) => setSchoolDay(event.target.value === "school")}
-          >
-            <option value="school">{t("schoolDay")}</option>
-            <option value="closed">{t("noSchool")}</option>
-          </select>
-        </label>
-        {schoolDay && (
+        {!holiday && (
+          <label className="block">
+            <span className="label">{t("schoolStatus")}</span>
+            <select
+              className="select w-full"
+              value={schoolDay ? "school" : "closed"}
+              onChange={(event) =>
+                setSchoolDay(event.target.value === "school")
+              }
+            >
+              <option value="school">{t("schoolDay")}</option>
+              <option value="closed">{t("noSchool")}</option>
+            </select>
+          </label>
+        )}
+        {!holiday && schoolDay && (
           <div>
             <label className="label" htmlFor="school-calendar-weekday">
               {t("timetable")}
@@ -471,17 +574,43 @@ function SchoolDayEditor({
             onChange={(event) => setNote(event.target.value)}
           />
         </label>
+        {holiday && replacements.length > 0 && (
+          <InlineNotice tone="warning">
+            <p>{t("holidayReplaces", { count: replacements.length })}</p>
+            <ul className="mt-2 max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-sm">
+              {replacements.map((day) => (
+                <li key={day.date}>
+                  <SchoolCalendarDate date={day.date} /> ·{" "}
+                  {day.isSchoolDay
+                    ? t("follows", {
+                        weekday: formatWeekday(
+                          day.timetableWeekday ??
+                            (new Date(`${day.date}T00:00:00Z`).getUTCDay() ||
+                              7),
+                          locale,
+                        ),
+                      })
+                    : t("noSchool")}
+                </li>
+              ))}
+            </ul>
+          </InlineNotice>
+        )}
         <p className="muted text-sm">{t("agreementWarning")}</p>
         <FormActions>
           <Button
             type="submit"
             variant="primary"
-            disabled={conflict || alreadyAccepted}
+            disabled={
+              conflict ||
+              alreadyAccepted ||
+              (holiday && rangeDates.length === 0)
+            }
           >
             {pending
               ? t("saving")
               : canApply
-                ? t("save")
+                ? t(holiday ? "saveHoliday" : "save")
                 : approvals("requestAdmin")}
           </Button>
         </FormActions>
@@ -511,6 +640,10 @@ function SchoolDayEditor({
             setWorking(true);
             try {
               await onReload(date);
+              if (holiday) {
+                setConflict(false);
+                setError(null);
+              }
             } catch {
               setError(t("loadFailed"));
             } finally {
@@ -518,7 +651,7 @@ function SchoolDayEditor({
             }
           }}
         >
-          {t("reload")}
+          {t(holiday ? "reloadHoliday" : "reload")}
         </Button>
       )}
       {readFailed && (
