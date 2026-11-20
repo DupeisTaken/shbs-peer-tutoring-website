@@ -26,6 +26,7 @@ import { TutorDiscipline } from "../(tutor)/_components/tutor-discipline";
 import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
 import { programDateKey } from "~/lib/program-time";
 import type { RouterOutputs } from "~/trpc/react";
+import { installSessionReadReceipts } from "~/lib/session-read-receipts";
 
 const remote = vi.hoisted(() => ({
   me: vi.fn(),
@@ -325,6 +326,7 @@ beforeEach(() => {
       mutations: { retry: false },
     },
   });
+  installSessionReadReceipts(client);
   vi.clearAllMocks();
   window.history.replaceState(null, "", "/student");
   remote.calendar.mockResolvedValue([]);
@@ -380,7 +382,7 @@ beforeEach(() => {
   remote.edit.mockResolvedValue({ ok: true, version: 1 });
   remote.headEdit.mockResolvedValue({ ok: true, version: 1 });
   remote.appeal.mockResolvedValue({});
-  remote.withdraw.mockReset().mockResolvedValue({ ok: true });
+  remote.withdraw.mockReset().mockResolvedValue({ ok: true, reviewId: "withdrawal-review" });
   remote.feedback.mockResolvedValue({});
   remote.discipline.mockResolvedValue([]);
 });
@@ -975,6 +977,33 @@ function ownTwoRequests() {
   );
 }
 
+function withdrawalReview(id: string, state: "PENDING" | "DENIED" | "APPROVED") {
+  return {
+    id,
+    kind: "STUDENT_ABORT",
+    reason: "Synthetic withdrawal review",
+    state,
+    createdAt: new Date("2026-10-03"),
+    resolvedAt: state === "PENDING" ? null : new Date("2026-10-04"),
+    pairingId: null,
+    assignment: null,
+  } satisfies RouterOutputs["studentWorkflow"]["mine"][number]["reviews"][number];
+}
+
+async function submitWorkspaceWithdrawal(
+  messages: { workflow: { applyAbort: string } } = en,
+) {
+  const article = await screen.findByRole("article", { name: "Math" });
+  fireEvent.click(within(article).getByRole("button", { name: new RegExp(messages.workflow.applyAbort) }));
+  const dialog = screen.getByRole("dialog");
+  fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "Synthetic renewed withdrawal reason" } });
+  const confirm = within(dialog).getByRole("button", { name: "Confirm timed action" });
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+}
+
 it.each(["en", "zh"])(
   "exposes both open sources with distinct controls and keeps terminal history in %s",
   async (locale) => {
@@ -1144,8 +1173,8 @@ it("preserves a pending source action after its card closes and recovers accepte
   ownTwoRequests();
   let finish!: () => void;
   remote.withdraw.mockReturnValueOnce(
-    new Promise<void>((resolve) => {
-      finish = resolve;
+    new Promise<{ ok: boolean; reviewId: string }>((resolve) => {
+      finish = () => resolve({ ok: true, reviewId: "withdrawal-review" });
     }),
   );
   remote.withdraw.mockResolvedValue({ ok: true });
@@ -1182,7 +1211,7 @@ it("preserves a pending source action after its card closes and recovers accepte
     reason: "Math withdrawal reason",
     ticket: "ticket",
   });
-  const terminal = { ...request, state: "ABORTED" };
+  const terminal = { ...request, state: "ABORTED", reviews: [withdrawalReview("withdrawal-review", "APPROVED")] };
   remote.mine.mockResolvedValue([retainedRequest, terminal]);
   await refresh(["studentWorkflow", "mine"]);
   expect(
@@ -1266,6 +1295,105 @@ it("preserves a pending source action after its card closes and recovers accepte
     }).disabled,
   ).toBe(true);
   expect(remote.withdraw).toHaveBeenCalledTimes(2);
+});
+
+it.each(["en", "zh"])(
+  "allows another withdrawal after its exact decline arrives through a sibling recall, without observing pending (%s)",
+  async (locale) => {
+    ownTwoRequests();
+    const messages = locale === "zh" ? zh : en;
+    const older = withdrawalReview("older-withdrawal", "DENIED");
+    remote.mine.mockResolvedValue([{ ...request, reviews: [older] }, retainedRequest]);
+    mount(<StudentWorkspace />, locale);
+    await submitWorkspaceWithdrawal(messages);
+    expect(remote.withdraw).toHaveBeenCalledTimes(1);
+    const first = screen.getByRole("article", { name: "Math" });
+    expect(within(first).getByRole<HTMLButtonElement>("button", { name: new RegExp(messages.workflow.applyAbort) }).disabled).toBe(true);
+    expect(screen.getByText(messages.workflow.abortAccepted)).toBeTruthy();
+
+    const declined = { ...request, reviews: [withdrawalReview("withdrawal-review", "DENIED"), older] };
+    remote.withdraw.mockImplementationOnce(async () => {
+      remote.mine.mockResolvedValue([{ ...retainedRequest, state: "RECALLED" }, declined]);
+      return { ok: true };
+    });
+    fireEvent.click(within(screen.getByRole("article", { name: "English" })).getByRole("button", { name: new RegExp(messages.workflow.recall) }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm timed action" }));
+    await waitFor(() => expect(within(screen.getByRole("article", { name: "Math" })).getByRole<HTMLButtonElement>("button", { name: messages.workflow.applyAbort }).disabled).toBe(false));
+    expect(screen.queryByText(messages.workflow.abortAccepted)).toBeNull();
+    expect(remote.withdraw).toHaveBeenCalledTimes(2);
+    expect(remote.withdraw.mock.calls[1]?.[0]).toEqual({ id: retainedRequest.id, ticket: "ticket" });
+
+    remote.withdraw.mockResolvedValue({ ok: true, reviewId: "renewed-withdrawal" });
+    remote.mine.mockResolvedValue([{ ...declined, reviews: [withdrawalReview("renewed-withdrawal", "PENDING"), ...declined.reviews] }]);
+    await submitWorkspaceWithdrawal(messages);
+    await screen.findByText(messages.workflow.abortPending);
+    expect(screen.queryByRole("button", { name: messages.workflow.applyAbort })).toBeNull();
+    expect(screen.queryByText(messages.workflow.abortAccepted)).toBeNull();
+    expect(remote.withdraw).toHaveBeenCalledTimes(3);
+    expect(remote.withdraw.mock.calls[2]?.[0]).toEqual({ id: request.id, reason: "Synthetic renewed withdrawal reason", ticket: "ticket" });
+  },
+);
+
+it("retains accepted withdrawal recovery through failed and manual cached reads, then clears it on a fresh exact decline", async () => {
+  remote.withdraw.mockImplementation(async () => {
+    remote.mine.mockRejectedValue(new Error("Synthetic accepted withdrawal refresh failure"));
+    return { ok: true, reviewId: "withdrawal-review" };
+  });
+  mount(<StudentWorkspace />);
+  await submitWorkspaceWithdrawal();
+  expect(screen.getByText(en.workflow.abortAccepted)).toBeTruthy();
+  const declined = { ...request, reviews: [withdrawalReview("withdrawal-review", "DENIED")] };
+  await act(async () => { client.setQueryData(key(["studentWorkflow", "mine"]), [declined]); });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: en.workflow.applyAbort }).disabled).toBe(true);
+  expect(screen.getByText(en.workflow.abortAccepted)).toBeTruthy();
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+  remote.mine.mockResolvedValue([declined]);
+  await refresh(["studentWorkflow", "mine"]);
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: en.workflow.applyAbort }).disabled).toBe(false));
+  expect(screen.queryByText(en.workflow.abortAccepted)).toBeNull();
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+});
+
+it.each(["older decline", "approved", "terminal decline"])(
+  "keeps an accepted withdrawal guarded after a fresh %s read",
+  async (outcome) => {
+    mount(<StudentWorkspace />);
+    await submitWorkspaceWithdrawal();
+    const review = withdrawalReview(outcome === "older decline" ? "older-withdrawal" : "withdrawal-review", outcome === "approved" ? "APPROVED" : "DENIED");
+    remote.mine.mockResolvedValue([{ ...request, state: outcome === "terminal decline" ? "RECALLED" : "OPEN", reviews: [review] }]);
+    await refresh(["studentWorkflow", "mine"]);
+    // A terminal row followed by an obsolete OPEN read must not resurrect the action.
+    if (outcome === "terminal decline") {
+      await waitFor(() => expect(screen.queryByRole("article")).toBeNull());
+      remote.mine.mockResolvedValue([request]);
+      await refresh(["studentWorkflow", "mine"]);
+    }
+    await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: en.workflow.applyAbort }).disabled).toBe(true));
+    expect(remote.withdraw).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("keeps the accepted withdrawal receipt during denied and failed recovery, then releases it after fresh authorization and its exact decline", async () => {
+  mount(<StudentWorkspace />);
+  await submitWorkspaceWithdrawal();
+  remote.mine.mockRejectedValue(Object.assign(new Error("Synthetic denial"), { data: { code: "FORBIDDEN" } }));
+  await refresh(["studentWorkflow", "mine"]);
+  await screen.findByText(en.participantRecovery.accessDenied);
+  expect(screen.queryByRole("article")).toBeNull();
+  remote.mine.mockRejectedValue(new Error("Synthetic recovery unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: en.participantRecovery.retry }));
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  expect(screen.getByText(en.participantRecovery.accessDenied)).toBeTruthy();
+  remote.mine.mockResolvedValue([request]);
+  fireEvent.click(screen.getByRole("button", { name: en.participantRecovery.retry }));
+  await screen.findByRole("article", { name: "Math" });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: en.workflow.applyAbort }).disabled).toBe(true);
+  expect(screen.getByText(en.workflow.abortAccepted)).toBeTruthy();
+  remote.mine.mockResolvedValue([{ ...request, reviews: [withdrawalReview("withdrawal-review", "DENIED")] }]);
+  await refresh(["studentWorkflow", "mine"]);
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: en.workflow.applyAbort }).disabled).toBe(false));
+  expect(screen.queryByText(en.workflow.abortAccepted)).toBeNull();
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
 });
 
 it("announces pending record and visibility reads without inventing empty or private states", async () => {

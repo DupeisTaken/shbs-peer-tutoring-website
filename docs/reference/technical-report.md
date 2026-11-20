@@ -1763,6 +1763,12 @@ by its submitted name, subjects and original submission time. Stable source IDs
 bind its editor, expected version and ticketed recall or withdrawal action. The
 workspace retains dialog admission and accepted-action receipts when cards reorder
 or become terminal; failed synchronization retries reads without replaying a write.
+Withdrawal receipts identify the persisted review returned by `applyAbort`. A
+successful network read observing that exact review as declined on an OPEN source
+permits a new ticketed attempt, even when the page never observed its pending state.
+Older or unrelated declines, cached updates and failed or denied reads cannot
+release that receipt. Observing the exact accepted review also clears its read-only
+refresh warning; pending and approved withdrawals remain guarded.
 Each editor opening owns its request-local draft. Its read-only **Original verified
 request email** names the immutable source mailbox, independently of the current
 account's sign-in address; public signup keeps **Email for Sign In**.
