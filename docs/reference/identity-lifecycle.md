@@ -249,6 +249,7 @@ that permission. The same actor-bound UUID, fingerprint and intent reach the
 server, which may return the original receipt, reject stale scope or accept the
 still-valid original operation. A known rejection or receipt settles uncertainty;
 an absent receipt and authority refresh never settle it on their own.
+
 Qualification transfer materializes only the concrete approved
 `sourceSubjectId`/`subjectId` tuples reviewed, retaining their original approval and
 grant provenance. It does not run current-catalogue inheritance. Willingness and

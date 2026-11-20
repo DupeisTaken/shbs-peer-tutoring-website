@@ -4,6 +4,8 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import type { TransactionDb } from "./transactions";
 import { hashPassword } from "./auth/password";
 import { resolveTutorLink } from "./auth/tutor-link";
+import { isSessionCurrent } from "./auth/session-version";
+import { assertHistoryAccessGeneration } from "./history-access-generation";
 import { runAuditedMutation } from "./audit/evidence";
 import { db } from "./db";
 import { closeStudentRequest } from "./student-request-state";
@@ -42,7 +44,7 @@ async function seed(tx: TransactionDb) {
   const selection = { personId, retainedUserId: userB, activeTutorId: tutorB, activeTuteeId: null, tutorIds: [tutorA, tutorB], tuteeIds: [], acknowledgeHistoryAccessCorrection: true };
   return { id, personId, reviewerId, userA, userB, tutorA, tutorB, student, termId, pairingId, selection };
 }
-async function reviewed(tx: TransactionDb, f: Awaited<ReturnType<typeof seed>>, selection = f.selection) {
+async function reviewed(tx: TransactionDb, f: Awaited<ReturnType<typeof seed>>, selection: Parameters<typeof previewPersonParticipationTransfer>[1] = f.selection) {
   const preview = await previewPersonParticipationTransfer(tx, selection);
   return { ...selection, fingerprint: preview.fingerprint, operationId: randomUUID(), reason: "Reviewed exact original sources and future execution ownership", acknowledged: true as const, confirmPassword: password };
 }
@@ -152,6 +154,120 @@ it("recovers an accepted response by immutable receipt without repeating the tra
   expect(await transferPersonParticipation(tx, f.reviewerId, input)).toEqual(accepted);
   expect(await personParticipationTransferReceipt(tx, f.reviewerId, input.operationId)).toEqual(accepted);
   expect(await tx.pairingExecutionSuccessor.count({ where: { sourcePairingId: f.pairingId } })).toBe(1);
+}));
+
+it.each(["TUTOR", "TUTEE", "BOTH"] as const)("hands canonical %s participation to a fresh retained login after a real consolidation", async (kind) => fixture(async (tx, f) => {
+  const selectTutor = kind !== "TUTEE", selectTutee = kind !== "TUTOR";
+  const learnerA = f.id("learner-a"), learnerC = f.id("learner-c"), learnerD = f.id("learner-d");
+  const userD = f.id("fresh-retained-login"), tutorD = f.id("independent-tutor-d"), outsideTutor = f.id("outside-tutor");
+  const submittedAt = new Date("2026-01-01T00:00:00Z");
+  await tx.tutee.createMany({ data: [learnerA, learnerC, learnerD].map((id) => ({ id, personId: f.personId, englishName: id, status: "ACTIVE" as const, intakeTermId: f.termId })) });
+  await tx.tutor.createMany({ data: [
+    { id: tutorD, personId: f.personId, englishName: "Independent retained tutor", status: "ACTIVE" as const },
+    { id: outsideTutor, englishName: "Unrelated lesson tutor", status: "ACTIVE" as const },
+  ] });
+  await tx.user.update({ where: { id: f.userA }, data: { studentId: learnerA, tuteeMember: true } });
+  await tx.user.update({ where: { id: f.userB }, data: { studentId: learnerC, tuteeMember: true } });
+  await tx.user.create({ data: {
+    id: userD, personId: f.personId, email: `${userD}@example.test`, role: "TUTOR", passwordHash,
+    emailVerifiedAt: submittedAt, tuteeMember: true,
+    tutorId: selectTutor ? null : tutorD, studentId: selectTutee ? null : learnerD,
+  } });
+  // One-kind transfers must retain the independent opposite role on every login,
+  // including its exact private-history authority rather than only its pointer.
+  const independentEntity = selectTutor ? "Tutee" as const : "Tutor" as const;
+  const independentIds = selectTutor ? [learnerA, learnerC, learnerD] : [f.tutorA, f.tutorB, tutorD];
+  if (kind !== "BOTH") {
+    await tx.historyRowOwnership.createMany({ data: independentIds.map((recordId, index) => ({ entity: independentEntity, recordId, readerUserId: [f.userA, f.userB, userD][index]!, receiptId: f.id("independent-history") })) });
+  }
+  const independentHistory = await tx.historyRowOwnership.findMany({ where: { entity: independentEntity, recordId: { in: independentIds } }, orderBy: { recordId: "asc" } });
+  const learnerPairing = await tx.pairing.create({ data: { tutorId: outsideTutor, termId: f.termId, subject: "Independent learner subject", dayOfWeek: 3, startMin: 600, endMin: 645, scheduleConfirmed: true, roomMode: "NONE", tutees: { create: { tuteeId: learnerA } } } });
+  const survey = await tx.studentSurvey.create({ data: {
+    tuteeId: learnerA, intakeTermId: f.termId, email: `${learnerA}@example.test`,
+    payload: { englishName: "Original learner", signatureName: "Original synthetic signature" },
+    policyRevision: "original-policy", policySnapshot: { signedBy: learnerA },
+    tokenHash: f.id("original-request-token"), submittedAt, confirmedAt: submittedAt,
+    firstAssignedAt: submittedAt, expiresAt: new Date("2099-01-01T00:00:00Z"),
+  } });
+  const completed = await tx.session.create({ data: {
+    tutorId: outsideTutor, pairingId: learnerPairing.id, date: submittedAt, startMin: 600, endMin: 645,
+    durationMin: 45, shCount: 1.5, shFactor: 2, month: "2026-01", schoolYear: "26-27", quarter: "Q1",
+    tutees: { create: { tuteeId: learnerA, status: "PRESENT" } },
+  }, include: { tutees: true } });
+  const sourcePairings = await tx.pairing.findMany({ where: { id: { in: [f.pairingId, learnerPairing.id] } }, include: { tutees: true }, orderBy: { id: "asc" } });
+  const selection = {
+    personId: f.personId, retainedUserId: f.userB, acknowledgeHistoryAccessCorrection: true,
+    activeTutorId: selectTutor ? f.tutorB : null, tutorIds: selectTutor ? [f.tutorA, f.tutorB] : [],
+    activeTuteeId: selectTutee ? learnerC : null, tuteeIds: selectTutee ? [learnerA, learnerC] : [],
+  };
+  const firstPreview = await previewPersonParticipationTransfer(tx, selection);
+  expect(firstPreview.blockers).toEqual([]);
+  const first = await transferPersonParticipation(tx, f.reviewerId, await reviewed(tx, f, selection));
+  expect(first.successorPairingIds).toHaveLength(kind === "BOTH" ? 2 : 1);
+  if (selectTutor) expect(await executionParticipantId(tx, "TUTOR", f.tutorA)).toBe(f.tutorB);
+  if (selectTutee) expect(await executionParticipantId(tx, "TUTEE", learnerA)).toBe(learnerC);
+  const firstSuccessors = await tx.pairing.findMany({ where: { id: { in: first.successorPairingIds } }, include: { tutees: true }, orderBy: { id: "asc" } });
+  const requestExecution = await tx.studentRequestExecutionAssignment.findMany({ where: { surveyId: survey.id }, orderBy: { pairingId: "asc" } });
+  const firstReceipt = await tx.personParticipationTransferReceipt.findUniqueOrThrow({ where: { id: first.receiptId } });
+  const archivedHistory = await tx.historyRowOwnership.findMany({ where: { OR: [
+    ...(selectTutor ? [{ entity: "Tutor", recordId: f.tutorA }] : []),
+    ...(selectTutee ? [{ entity: "Tutee", recordId: learnerA }] : []),
+  ] }, orderBy: [{ entity: "asc" }, { recordId: "asc" }] });
+  const beforeHandover = await tx.user.findMany({ where: { id: { in: [f.userA, f.userB, userD] } }, orderBy: { id: "asc" } });
+  await tx.sessionCalendarToken.createMany({ data: beforeHandover.map((user) => ({ id: f.id(`calendar-${user.id}`), userId: user.id, tokenHash: f.id(`calendar-token-${user.id}`) })) });
+  const canonicalOnly = { ...selection, retainedUserId: userD, tutorIds: selectTutor ? [f.tutorB] : [], tuteeIds: selectTutee ? [learnerC] : [] };
+  const preview = await previewPersonParticipationTransfer(tx, canonicalOnly);
+  expect(preview.blockers).toEqual([]);
+  expect(preview.canTransfer).toBe(true);
+  expect(preview.accessChanges).toHaveLength(kind === "BOTH" ? 2 : 1);
+  const intent = await reviewed(tx, f, canonicalOnly);
+  const second = await transferPersonParticipation(tx, f.reviewerId, intent);
+  expect(second).toMatchObject({ retainedUserId: userD, tutorId: canonicalOnly.activeTutorId, tuteeId: canonicalOnly.activeTuteeId, successorPairingIds: [] });
+  for (const previous of beforeHandover) {
+    const current = await tx.user.findUniqueOrThrow({ where: { id: previous.id } });
+    expect(current).toMatchObject({ role: previous.role, tuteeMember: previous.tuteeMember, tutorAccessRevoked: previous.tutorAccessRevoked });
+    expect(current.tutorId).toBe(selectTutor ? previous.id === userD ? f.tutorB : null : previous.tutorId);
+    expect(current.studentId).toBe(selectTutee ? previous.id === userD ? learnerC : null : previous.studentId);
+    expect(current.historyAccessRevision).toBeGreaterThan(previous.historyAccessRevision);
+    expect(current.sessionVersion - previous.sessionVersion).toBe(current.historyAccessRevision - previous.historyAccessRevision);
+    expect(await isSessionCurrent(tx, { sub: previous.id, sessionVersion: previous.sessionVersion })).toBe(false);
+    await expect(assertHistoryAccessGeneration(tx, { userId: previous.id, historyAccessRevision: previous.historyAccessRevision })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    expect(await isSessionCurrent(tx, { sub: current.id, sessionVersion: current.sessionVersion })).toBe(true);
+  }
+  for (const [entity, recordId] of [...(selectTutor ? [["Tutor", f.tutorB] as const] : []), ...(selectTutee ? [["Tutee", learnerC] as const] : [])]) {
+    expect(await tx.historyRowOwnership.findUniqueOrThrow({ where: { entity_recordId: { entity, recordId } } })).toMatchObject({ readerUserId: userD, revision: 2, receiptId: second.receiptId, sourceUserIds: [f.userA, f.userB].sort() });
+    const owner = entity === "Tutor" ? await tx.tutorProfileOwnership.findUniqueOrThrow({ where: { tutorId: recordId } }) : await tx.studentProfileOwnership.findUniqueOrThrow({ where: { tuteeId: recordId } });
+    expect(owner).toMatchObject({ userId: userD, revision: 2 });
+  }
+  expect(await tx.sessionCalendarToken.count({ where: { userId: { in: beforeHandover.map((user) => user.id) }, revokedAt: null } })).toBe(0);
+  if (kind !== "BOTH") expect(await tx.historyRowOwnership.findMany({ where: { entity: independentEntity, recordId: { in: independentIds } }, orderBy: { recordId: "asc" } })).toEqual(independentHistory);
+  expect(await tx.historyRowOwnership.findMany({ where: { OR: archivedHistory.map((row) => ({ entity: row.entity, recordId: row.recordId })) }, orderBy: [{ entity: "asc" }, { recordId: "asc" }] })).toEqual(archivedHistory);
+  expect(await tx.pairing.findMany({ where: { id: { in: sourcePairings.map((row) => row.id) } }, include: { tutees: true }, orderBy: { id: "asc" } })).toEqual(sourcePairings);
+  expect(await tx.pairing.findMany({ where: { id: { in: first.successorPairingIds } }, include: { tutees: true }, orderBy: { id: "asc" } })).toEqual(firstSuccessors);
+  // A new reviewed login handover records fresh authority on the exact active
+  // binding. Released provenance and every original mapping field stay intact.
+  expect(await tx.studentRequestExecutionAssignment.findMany({ where: { surveyId: survey.id }, orderBy: { pairingId: "asc" } })).toEqual(requestExecution.map((row) =>
+    selectTutee && !row.releasedAt && row.tuteeId === learnerC
+      ? { ...row, revision: row.revision + 1, receiptId: second.receiptId }
+      : row,
+  ));
+  expect(await tx.session.findUniqueOrThrow({ where: { id: completed.id }, include: { tutees: true } })).toEqual(completed);
+  expect(await tx.studentSurvey.findUniqueOrThrow({ where: { id: survey.id } })).toEqual(survey);
+  expect(await tx.personParticipationTransferReceipt.findUniqueOrThrow({ where: { id: first.receiptId } })).toEqual(firstReceipt);
+  const afterHandover = async () => ({
+    person: await tx.person.findUniqueOrThrow({ where: { id: f.personId } }),
+    users: await tx.user.findMany({ where: { personId: f.personId }, orderBy: { id: "asc" } }),
+    history: await tx.historyRowOwnership.findMany({ where: { receiptId: second.receiptId }, orderBy: [{ entity: "asc" }, { recordId: "asc" }] }),
+    tokens: await tx.sessionCalendarToken.findMany({ where: { userId: { in: beforeHandover.map((user) => user.id) } }, orderBy: { id: "asc" } }),
+    owners: [await tx.tutorProfileOwnership.findMany({ where: { tutorId: { in: [f.tutorA, f.tutorB] } }, orderBy: { tutorId: "asc" } }), await tx.studentProfileOwnership.findMany({ where: { tuteeId: { in: [learnerA, learnerC] } }, orderBy: { tuteeId: "asc" } })],
+    requestExecution: await tx.studentRequestExecutionAssignment.findMany({ where: { surveyId: survey.id }, orderBy: { pairingId: "asc" } }),
+    receipts: await tx.personParticipationTransferReceipt.findMany({ where: { personId: f.personId }, orderBy: { id: "asc" } }),
+    audits: await tx.auditLog.findMany({ where: { entityId: f.personId, operation: "personCombine.transferParticipation" }, orderBy: { id: "asc" } }),
+  });
+  const accepted = await afterHandover();
+  expect(await personParticipationTransferReceipt(tx, f.reviewerId, second.receiptId)).toEqual(second);
+  expect(await transferPersonParticipation(tx, f.reviewerId, intent)).toEqual(second);
+  expect(await afterHandover()).toEqual(accepted);
 }));
 
 it("rejects a wrong confirmation without changing participation, then accepts a fresh review", async () => fixture(async (tx, f) => {
