@@ -76,6 +76,7 @@ export const approvalSummaryContexts: Record<string, readonly string[]> = {
     "id",
     "participant",
     "kind",
+    "withdrawalEnrollmentCount",
     "originalReason",
   ],
   "translationReview.decide": ["id", "textDestination", "locale"],

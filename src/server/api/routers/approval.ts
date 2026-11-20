@@ -170,6 +170,7 @@ export const approvalRouter = createTRPCRouter({
         : null;
       const attendanceApproval =
         initial && isAttendanceApproval(initial.operation);
+      const studentReviewApproval = initial?.operation === "studentWorkflow.resolveReview";
       const calendarApproval =
         !!initial &&
         ["student.setCalendarDay", "student.resetCalendarDay"].includes(
@@ -220,9 +221,9 @@ export const approvalRouter = createTRPCRouter({
           async (tx) =>
             databaseScope.run(tx, () =>
               approvalScope.run(input.id, async () => {
-                // These identity callbacks reenter the period barrier. Match signup
-                // and refresh order so an approval cannot invert namespace/period.
-                if (periodIdentityApproval)
+                // These callbacks reenter the period barrier. Match signup
+                // and withdrawal scope capture before the approval lock.
+                if (periodIdentityApproval || studentReviewApproval)
                   await lockEntity(tx, "program:period");
                 if (nextRecruitmentApproval) {
                   await lockNextRecruitment(tx);
@@ -580,6 +581,12 @@ export const approvalRouter = createTRPCRouter({
             code: "CONFLICT",
             message:
               "The school calendar changed. Reload before reviewing again.",
+            cause,
+          });
+        if (studentReviewApproval && isSerializationFailure(cause))
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The tutee review changed. Reload before reviewing again.",
             cause,
           });
         throw cause;

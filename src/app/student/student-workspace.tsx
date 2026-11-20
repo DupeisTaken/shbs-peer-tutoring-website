@@ -1,7 +1,14 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -14,9 +21,18 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ParticipantName } from "~/app/_components/participant-name";
 import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
+import { useStudentSignupRestriction } from "./signup-restriction";
 
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
-export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
+export function StudentWorkspace({
+  viewScope = "",
+  quarterBlocked = false,
+}: {
+  viewScope?: string;
+  quarterBlocked?: boolean;
+}) {
+  const restriction = useStudentSignupRestriction();
+  const refreshRestriction = restriction?.refreshAfterSourceRead;
   const t = useTranslations("workflow");
   const appeal = useTranslations("signupAppeal");
   const recovery = useTranslations("participantRecovery");
@@ -34,6 +50,33 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   const legacyDenied =
     legacy.error?.data?.code === "FORBIDDEN" ||
     legacy.error?.data?.code === "UNAUTHORIZED";
+  // Hide creation guidance before painting freshly read source rows; the
+  // restriction still comes from its independent authoritative read.
+  useLayoutEffect(() => {
+    if (
+      query.isSuccess &&
+      legacy.isSuccess &&
+      !query.error &&
+      !legacy.error &&
+      !query.isFetching &&
+      !legacy.isFetching &&
+      !requestDenied &&
+      !legacyDenied
+    )
+      void refreshRestriction?.();
+  }, [
+    query.dataUpdatedAt,
+    legacy.dataUpdatedAt,
+    query.isSuccess,
+    legacy.isSuccess,
+    query.error,
+    legacy.error,
+    query.isFetching,
+    legacy.isFetching,
+    requestDenied,
+    legacyDenied,
+    refreshRestriction,
+  ]);
   useSessionPageScroll({
     id: "student-requests-v1",
     scope: viewScope,
@@ -130,12 +173,8 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   if (!query.data) return <div className="space-y-4">{readFeedback}</div>;
   const active = query.data.filter((r) => r.state === "OPEN");
   const currentLabel = t(active.length > 1 ? "currentRequests" : "current");
-  const quarterBlocked =
-    (query.data?.some((r) => r.state === "ABORTED") ?? false) ||
-    (legacy.data?.some((r) =>
-      r.reviews.some((review) => review.state === "APPROVED"),
-    ) ??
-      false);
+  const signupBlocked = restriction?.blocked ?? quarterBlocked;
+  const signupReady = restriction?.ready ?? true;
   return (
     <div className="space-y-6">
       {readFeedback}
@@ -155,10 +194,11 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
         {currentRequests}
         {!active.length &&
           !readBlocked &&
+          (signupBlocked || signupReady) &&
           !legacy.data?.some((row) => row.status !== "INACTIVE") && (
             <div className="card space-y-3 p-6">
-              <p>{t(quarterBlocked ? "abortFinal" : "noActive")}</p>
-              {!quarterBlocked && (
+              <p>{t(signupBlocked ? "abortFinal" : "noActive")}</p>
+              {!signupBlocked && signupReady && (
                 <Link href="/tutee" className="btn-primary">
                   {t("newRequest")}
                 </Link>

@@ -30,6 +30,7 @@ import {
   tuteeCheckpointAdapter,
 } from "./adapters/participant";
 import { studentWorkflowCheckpointAdapter } from "./adapters/student-workflow";
+import { studentQuarterWithdrawalCheckpointAdapter } from "./adapters/student-quarter-withdrawal";
 import { programRefreshCheckpointAdapter } from "./adapters/program-refresh";
 import { preservedCheckpointChange } from "./adapters/shared";
 import {
@@ -42,6 +43,7 @@ const adapters: Record<CheckpointAdapterId, CheckpointAdapter> = {
   PARTICIPANT_TUTOR: tutorCheckpointAdapter,
   PARTICIPANT_TUTEE: tuteeCheckpointAdapter,
   STUDENT_WORKFLOW: studentWorkflowCheckpointAdapter,
+  STUDENT_QUARTER_WITHDRAWAL: studentQuarterWithdrawalCheckpointAdapter,
   ATTENDANCE: attendanceCheckpointAdapter,
   CARD: cardCheckpointAdapter,
   PROGRAM_REFRESH: programRefreshCheckpointAdapter,

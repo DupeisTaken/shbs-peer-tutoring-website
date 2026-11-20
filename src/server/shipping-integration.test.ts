@@ -10,7 +10,7 @@ vi.mock("~/server/email/sender", () => ({
 import { db } from "./db";
 import { createCaller } from "./api/root";
 import { emailSender } from "./email/sender";
-import { ApprovalQueued } from "./approvals";
+import { ApprovalQueued, fingerprint } from "./approvals";
 import { approvalScope, databaseScope } from "./db-scope";
 import { currentPolicy } from "./policy-acceptance";
 import { submitSurvey, confirmSurvey, surveyInput } from "./student-survey";
@@ -398,7 +398,7 @@ it("keeps history, feedback and appeals after a new intake profile and verified 
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it("preserves quarter withdrawal restrictions after a verified account email change", async () => {
+async function queueShippingWithdrawal() {
   const { user, survey, student } = await confirmed();
   await admin().studentWorkflow.assign({
     id: survey.id,
@@ -419,6 +419,19 @@ it("preserves quarter withdrawal restrictions after a verified account email cha
       ticket: await ready("shipping-coordinator", "APPROVE", review.id),
     }),
   );
+  return { user, survey, review, proposal };
+}
+
+it("preserves quarter withdrawal restrictions after a verified account email change", async () => {
+  const { user, survey, review, proposal } = await queueShippingWithdrawal();
+  expect(proposal.targets).toMatchObject({
+    studentQuarterWithdrawal: {
+      version: 1,
+      review: { id: review.id },
+      owner: { id: user.id },
+      sources: [{ id: survey.id }],
+    },
+  });
   expect(await db.pairingTutee.count()).toBe(1);
   await admin().approval.decide({
     id: proposal.id,
@@ -441,6 +454,103 @@ it("preserves quarter withdrawal restrictions after a verified account email cha
   await expect(
     submitSurvey(db, signup("withdrawn-new@example.test")),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+it("requires a fresh Coordinator proposal if an owned current enrollment was added", async () => {
+  const { user, survey, review, proposal } = await queueShippingWithdrawal();
+  const additional = await db.tutee.create({
+    data: {
+      englishName: "Additional staff enrollment",
+      intakeTermId: survey.intakeTermId,
+    },
+  });
+  await db.studentProfileOwnership.create({
+    data: { tuteeId: additional.id, userId: user.id },
+  });
+  const ticket = await ready("shipping-admin", "APPROVE", review.id);
+
+  const staleDecision = admin().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Earlier evidence",
+    ticket,
+  });
+  await expect(staleDecision).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(staleDecision).rejects.toThrow("fresh proposal");
+  expect(await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).toMatchObject({ state: "PENDING" });
+  expect(await db.studentRequestReview.findUniqueOrThrow({ where: { id: review.id } })).toMatchObject({ state: "PENDING" });
+  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: survey.id } })).toMatchObject({ state: "OPEN" });
+  expect(await db.studentQuarterBlock.count()).toBe(0);
+  expect(await db.pairingTutee.count()).toBe(1);
+
+  await admin().approval.decide({
+    id: proposal.id,
+    approve: false,
+    note: "Request a fresh consequence review",
+  });
+  const fresh = await queued(
+    coordinator().studentWorkflow.resolveReview({
+      id: review.id,
+      approve: true,
+      ticket: await ready("shipping-coordinator", "APPROVE", review.id),
+    }),
+  );
+  expect(fresh.targets).toMatchObject({
+    studentQuarterWithdrawal: { enrollmentCount: 2 },
+  });
+  // Rejecting stale scope neither consumes the reviewer ticket nor narrows the live review.
+  await admin().approval.decide({ id: fresh.id, approve: true, note: "Reviewed both enrollments", ticket });
+  expect(await db.tutee.findUniqueOrThrow({ where: { id: additional.id } })).toMatchObject({ status: "INACTIVE" });
+  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: survey.id } })).toMatchObject({ state: "ABORTED" });
+  expect(await db.studentQuarterBlock.count()).toBe(1);
+  expect(await db.pairingTutee.count()).toBe(0);
+});
+
+it("does not apply a withdrawal proposal captured before account-wide scope", async () => {
+  const { review, proposal } = await queueShippingWithdrawal();
+  // Emulate the pre-upgrade evidence shape and its matching immutable digest.
+  if (!proposal.targets || typeof proposal.targets !== "object" || Array.isArray(proposal.targets))
+    throw Error("Expected captured proposal evidence");
+  const targets = { ...proposal.targets };
+  delete targets.studentQuarterWithdrawal;
+  await db.approvalRequest.update({
+    where: { id: proposal.id },
+    data: { targets, fingerprint: fingerprint(targets) },
+  });
+  const preUpgradeDecision = admin().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Older scope",
+    ticket: await ready("shipping-admin", "APPROVE", review.id),
+  });
+  await expect(preUpgradeDecision).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(preUpgradeDecision).rejects.toThrow("fresh proposal");
+  expect(await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).toMatchObject({ state: "PENDING" });
+  expect(await db.studentRequestReview.findUniqueOrThrow({ where: { id: review.id } })).toMatchObject({ state: "PENDING" });
+  expect(await db.studentQuarterBlock.count()).toBe(0);
+  expect(await db.pairingTutee.count()).toBe(1);
+});
+
+it("commits one withdrawal if Admin and Head concurrently approve the same application", async () => {
+  const { survey, review } = await queueShippingWithdrawal();
+  const adminTicket = await ready("shipping-admin", "APPROVE", review.id);
+  const headTicket = await ready("shipping-head", "APPROVE", review.id);
+  const results = await Promise.allSettled([
+    admin().studentWorkflow.resolveReview({ id: review.id, approve: true, ticket: adminTicket }),
+    head().studentWorkflow.resolveReview({ id: review.id, approve: true, ticket: headTicket }),
+  ]);
+  expect(results.filter((result) => result.status === "fulfilled")).toEqual([
+    { status: "fulfilled", value: { ok: true } },
+  ]);
+  const rejected = results.find((result) => result.status === "rejected");
+  expect(rejected?.reason).toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: survey.id } })).toMatchObject({ state: "ABORTED" });
+  expect(await db.studentRequestReview.findUniqueOrThrow({ where: { id: review.id } })).toMatchObject({ state: "APPROVED" });
+  expect(await db.studentQuarterBlock.count()).toBe(1);
+  expect(await db.pairingTutee.count()).toBe(0);
+  expect(await db.recoveryCheckpoint.count({
+    where: { adapter: "STUDENT_QUARTER_WITHDRAWAL", sourceId: review.id },
+  })).toBe(1);
 });
 
 it("does not let the legacy consent endpoint bypass the student policy timer", async () => {

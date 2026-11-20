@@ -22,9 +22,11 @@ import {
 } from "./student-survey";
 import { verifyPassword, hashPassword } from "~/server/auth/password";
 import { createCallerFactory } from "~/server/api/trpc";
+import { createCaller } from "~/server/api/root";
 import { tuteeRouter } from "~/server/api/routers/tutee";
 import { adminRouter } from "~/server/api/routers/admin";
 import { resolveTutorLink } from "~/server/auth/tutor-link";
+import { readStudentSignupRestriction } from "./student-intake-restriction";
 import { ensureUserUsername } from "~/server/auth/username";
 import {
   verifyAccountInvitation,
@@ -94,6 +96,24 @@ async function assigned(verify = false) {
   });
   const pairing = await db.pairing.findFirstOrThrow();
   return { row: survey, tutor, tutorUser, pairing };
+}
+
+async function assignedManual(signupSource: "STAFF" | "SELF_SERVICE" | "UNKNOWN") {
+  // These are genuinely surveyless enrollment prerequisites. Never convert a
+  // modern request by deleting its immutable execution authority or its survey.
+  const student = await db.tutee.create({ data: { englishName: "Legacy Student One", email, signupSource, intakeTermId: "survey-term", firstChoiceId: "survey-math", status: "PENDING" } });
+  const owner = await db.user.create({ data: { email, role: "STUDENT", studentId: student.id, tuteeMember: true, emailVerifiedAt: new Date(), passwordHash: hashPassword(password) } });
+  await db.studentProfileOwnership.create({ data: { tuteeId: student.id, userId: owner.id } });
+  const policy = await currentPolicy(db, "tutee-policy");
+  await db.policyAcceptance.create({ data: { userId: owner.id, slug: "tutee-policy", revision: policy.revision, snapshot: policy.documents, signature: "Legacy Student One" } });
+  const tutor = await db.tutor.create({ data: { englishName: "Legacy Tutor One", status: "ACTIVE" } });
+  await db.user.create({ data: { email: "legacy-tutor@example.test", role: "TUTOR", tutorId: tutor.id } });
+  await db.$transaction((tx) => approveQualification(tx, tutor.id, "survey-math", "manager"));
+  const manager = createCallerFactory(adminRouter)({ db, headers: new Headers(), session: { user: { id: "manager" }, role: "ADMIN", tutorId: null, expires: "2099-01-01" } });
+  await manager.assignTuteeToTutor({ tuteeId: student.id, tutorId: tutor.id, termId: "survey-term" });
+  expect(await db.studentSurvey.count()).toBe(0);
+  expect(await db.studentRequestExecutionAssignment.count()).toBe(0);
+  return { row: { tuteeId: student.id }, owner };
 }
 
 // The mocked sender does not access `this`.
@@ -808,6 +828,57 @@ describe("student request lifecycle", () => {
       },
     });
   });
+  it("projects only the admitted current account's active-period restriction in workspace and existing public options reads", async () => {
+    const { row } = await assigned(true);
+    const user = await db.user.findUniqueOrThrow({ where: { email } });
+    const session = {
+      user: { id: user.id, email },
+      role: "STUDENT" as const,
+      tutorId: null,
+      expires: "2099-01-01",
+    };
+    const caller = createCaller({ db, headers: new Headers(), session });
+    const namespace = {
+      displayedTermId: "a-display-namespace-is-not-an-authorized-target",
+      snapshotKey: randomUUID(),
+    };
+    expect(await caller.studentWorkflow.signupRestriction(namespace)).toMatchObject({
+      intakeTermId: "survey-term",
+      blocked: false,
+    });
+    await db.studentQuarterBlock.create({
+      data: {
+        email: "older-address@example.test",
+        surveyId: row.id,
+        userId: user.id,
+        intakeTermId: "survey-term",
+      },
+    });
+    expect(await caller.studentWorkflow.signupRestriction(namespace)).toMatchObject({
+      intakeTermId: "survey-term",
+      blocked: true,
+    });
+    expect((await caller.tutee.signupOptions()).signupRestriction).toMatchObject(
+      { blocked: true, canOpenWorkspace: true },
+    );
+    const anonymous = createCaller({
+      db,
+      headers: new Headers(),
+      session: null,
+    });
+    expect((await anonymous.tutee.signupOptions()).signupRestriction).toBeNull();
+    for (const data of [
+      { role: "VIEWER" as const, tuteeMember: false },
+      { role: "STUDENT" as const, tuteeMember: false },
+      { tuteeMember: true, suspendedAt: new Date() },
+    ]) {
+      await db.user.update({ where: { id: user.id }, data });
+      await expect(caller.studentWorkflow.signupRestriction(namespace)).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    }
+  });
+
   it("admits one concurrent consumer of the same confirmation proof", async () => {
     const ticket = await ready("RECALL", "review-target");
     const attempts = await Promise.allSettled([
@@ -1235,6 +1306,9 @@ describe("student request lifecycle", () => {
     );
     expect(await db.pairingTutee.count()).toBe(1);
     const review = await db.studentRequestReview.findFirstOrThrow();
+    expect(
+      (await readStudentSignupRestriction(db, row.intakeTermId, user.id)).blocked,
+    ).toBe(false);
     await resolveStudentReview(
       db,
       "manager",
@@ -1247,13 +1321,19 @@ describe("student request lifecycle", () => {
       (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
         .state,
     ).toBe("ABORTED");
+    expect(
+      (await readStudentSignupRestriction(db, row.intakeTermId, user.id)).blocked,
+    ).toBe(true);
     await expect(submitSurvey(db, input())).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
     await db.term.updateMany({ data: { active: false } });
-    await db.term.create({
+    const nextTerm = await db.term.create({
       data: { name: "Next", schoolYear: "26-27", quarter: "Q2", active: true },
     });
+    expect(
+      (await readStudentSignupRestriction(db, nextTerm.id, user.id)).blocked,
+    ).toBe(false);
     await expect(submitSurvey(db, input())).resolves.toMatchObject({
       ok: true,
     });
@@ -1313,6 +1393,9 @@ describe("student request lifecycle", () => {
     expect(physical(manualPlan)).toEqual(physical(automaticPlan));
     expect(await db.pairingTutee.count()).toBe(1);
     expect(await db.studentQuarterBlock.count()).toBe(0);
+    expect(
+      (await readStudentSignupRestriction(db, row.intakeTermId, user.id)).blocked,
+    ).toBe(false);
     expect(
       (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
         .state,
@@ -1378,13 +1461,7 @@ describe("student request lifecycle", () => {
   it.each(["STAFF", "SELF_SERVICE", "UNKNOWN"] as const)(
     "preserves %s provenance while explicit owners withdraw and staff approval blocks repeat signup",
     async (signupSource) => {
-      const { row } = await assigned(true);
-      const owner = await db.user.findUniqueOrThrow({ where: { email } });
-      await db.studentSurvey.delete({ where: { id: row.id } });
-      await db.tutee.update({
-        where: { id: row.tuteeId! },
-        data: { signupSource },
-      });
+      const { row, owner } = await assignedManual(signupSource);
       const other = await db.user.create({
         data: { email: "different@example.test", role: "STUDENT" },
       });
@@ -1393,7 +1470,7 @@ describe("student request lifecycle", () => {
         applyLegacyStudentWithdrawal(
           db,
           other.id,
-          row.tuteeId!,
+          row.tuteeId,
           "Leaving",
           await ready("ABORT", target, other.id),
         ),
@@ -1401,7 +1478,7 @@ describe("student request lifecycle", () => {
       await applyLegacyStudentWithdrawal(
         db,
         owner.id,
-        row.tuteeId!,
+        row.tuteeId,
         "Leaving",
         await ready("ABORT", target, owner.id),
       );
@@ -1418,7 +1495,7 @@ describe("student request lifecycle", () => {
       );
       expect(await db.pairingTutee.count()).toBe(0);
       expect(
-        (await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId! } }))
+        (await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId } }))
           .status,
       ).toBe("INACTIVE");
       expect(await db.studentQuarterBlock.findFirstOrThrow()).toMatchObject({
@@ -1427,7 +1504,10 @@ describe("student request lifecycle", () => {
         surveyId: null,
       });
       expect(
-        (await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId! } }))
+        (await readStudentSignupRestriction(db, "survey-term", owner.id)).blocked,
+      ).toBe(true);
+      expect(
+        (await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId } }))
           .signupSource,
       ).toBe(signupSource);
       await expect(submitSurvey(db, input())).rejects.toMatchObject({
@@ -1436,13 +1516,11 @@ describe("student request lifecycle", () => {
     },
   );
   it("declining a manual student withdrawal leaves the student assigned", async () => {
-    const { row } = await assigned(true);
-    const owner = await db.user.findUniqueOrThrow({ where: { email } });
-    await db.studentSurvey.delete({ where: { id: row.id } });
+    const { row, owner } = await assignedManual("STAFF");
     await applyLegacyStudentWithdrawal(
       db,
       owner.id,
-      row.tuteeId!,
+      row.tuteeId,
       "Leaving",
       await ready("ABORT", `legacy:${row.tuteeId}`, owner.id),
     );

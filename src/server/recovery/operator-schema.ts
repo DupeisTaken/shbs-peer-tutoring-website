@@ -507,9 +507,11 @@ export function assertReviewedRecoverySchema(
       provenance.join("\n") === IMPORT_PROVENANCE_COLUMNS.join("\n"),
     "UNREVIEWED_PUBLIC_RECOVERY_SCHEMA",
   );
-  // Compose the independently reviewed tutoring-era and import-boundary profiles.
+  // Older complete backups can predate the additive manual release evidence.
   const reviewedDomain = comparedDomain.filter(
-    (column) => !column.startsWith("ImportedRecordProvenance|"),
+    (column) =>
+      !column.startsWith("ImportedRecordProvenance|") &&
+      column !== "SessionPlanContinuationMember|sourceTuteeId|text",
   );
   const identityVersion: 0 | 1 | null =
     reviewedDomain.join("\n") === REVIEWED_COLUMNS.join("\n") ||

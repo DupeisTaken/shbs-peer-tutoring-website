@@ -213,7 +213,7 @@ export function parseRecoveryCommand(argv: readonly string[]): RecoveryCommand {
       };
     case "checkpoint.capture": {
       const adapter = get("adapter", 50);
-      operatorAssert(["PARTICIPANT_TUTOR", "PARTICIPANT_TUTEE", "STUDENT_WORKFLOW", "ATTENDANCE", "CARD", "PROGRAM_REFRESH"].includes(adapter), "INVALID_ADAPTER");
+      operatorAssert(["PARTICIPANT_TUTOR", "PARTICIPANT_TUTEE", "STUDENT_WORKFLOW", "STUDENT_QUARTER_WITHDRAWAL", "ATTENDANCE", "CARD", "PROGRAM_REFRESH"].includes(adapter), "INVALID_ADAPTER");
       return { kind: name, adapter, sourceId: get("source-id", 200), actorId: get("actor-id", 100), ...(values.has("out") ? { out: get("out") } : {}) };
     }
     case "checkpoint.inspect":
@@ -305,7 +305,9 @@ checkpoint inspect --checkpoint-id ID --actor-id USER [--out PLAN.json]
 checkpoint compare --plan PLAN.json --plan-hash SHA256 --actor-id USER
 checkpoint receipt --receipt-id ID --actor-id USER
 checkpoint apply --plan PLAN.json --plan-hash SHA256 --actor-id USER --reason TEXT --client-key UUID
-ADAPTER: PARTICIPANT_TUTOR, PARTICIPANT_TUTEE, STUDENT_WORKFLOW, ATTENDANCE, CARD, PROGRAM_REFRESH.
+ADAPTER: PARTICIPANT_TUTOR, PARTICIPANT_TUTEE, STUDENT_WORKFLOW, STUDENT_QUARTER_WITHDRAWAL, ATTENDANCE, CARD, PROGRAM_REFRESH.
+STUDENT_QUARTER_WITHDRAWAL uses the actual withdrawal review ID and is inspection-only.
+Website and operator apply cannot reopen its requests, restore assignments or remove its quarter block.
 site plan --backup FILE.sql.gz --target-name shbs_recovery_NAME --evidence-dir DIR --out PLAN.json
 site stage --plan PLAN.json --plan-hash SHA256 --reason TEXT
 site reconcile-plan|acceptance-plan|cutover-plan|rollback-plan --plan PREVIOUS_PLAN.json --plan-hash SHA256 --receipt PREVIOUS_RECEIPT.json --receipt-hash SHA256 --out PLAN.json

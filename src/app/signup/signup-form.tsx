@@ -1,5 +1,6 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
+import Link from "next/link";
 import {
   FormSection,
   FormActions,
@@ -15,7 +16,7 @@ import {
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   useProfilePolicy,
   OfferedGradeSelect,
@@ -103,6 +104,7 @@ export function SignupForm({
     intentId?: string;
     recoveryDraftState?: "CONSUMED" | "PENDING_REVIEW" | "UNAVAILABLE";
   } | null>(null);
+  const submissionAllowed = useRef(false);
   const editing = useTranslations("signupEditing");
 
   /** Retry carries exactly the original intent and answers. Receipt recovery uses POST
@@ -125,7 +127,11 @@ export function SignupForm({
           return;
         }
       }
+      // Receipt recovery remains available after eligibility changes. A missing
+      // receipt never authorizes another write while the current read is blocked.
+      if (!submissionAllowed.current) return;
       await captcha.run(async (captchaGrant) => {
+        if (!submissionAllowed.current) return;
         // Once a feature write is dispatched, a missing reply can mean success.
         // CAPTCHA cancellation on a later retry must keep this intent frozen.
         setDispatched(true);
@@ -234,6 +240,8 @@ export function SignupForm({
     );
 
   const status = useRecruitmentStatus(options.data?.recruitment);
+  const signupRestriction = options.data?.signupRestriction;
+  const signupBlocked = signupRestriction?.blocked ?? false;
   const missing = [
     ...(!courses.length ? ["subjects"] : []),
     ...(fields.availability === "required" && !slots.length ? ["slots"] : []),
@@ -244,10 +252,26 @@ export function SignupForm({
     missing.length > 0 ||
     !draftTerm ||
     periodChanged ||
-    reviewingPeriod;
+    reviewingPeriod ||
+    signupBlocked;
+  useLayoutEffect(() => {
+    submissionAllowed.current =
+      !!options.isFetchedAfterMount &&
+      !options.isFetching &&
+      !options.isError &&
+      !policy.isError &&
+      !readOnly;
+  }, [
+    options.isFetchedAfterMount,
+    options.isFetching,
+    options.isError,
+    policy.isError,
+    readOnly,
+  ]);
   const canSubmit =
     namePolicyReady &&
     options.isFetchedAfterMount &&
+    !options.isFetching &&
     !readOnly &&
     !options.isError &&
     !policy.isError &&
@@ -336,6 +360,24 @@ export function SignupForm({
           {t("recoveryWorkflow.review")}
         </InlineNotice>
       )}
+      {signupBlocked && (
+        <InlineNotice
+          announcement="status"
+          action={
+            signupRestriction?.canOpenWorkspace ? (
+              <Link href="/student?view=requests" className="btn-secondary">
+                {t("tuteePortal.viewMyRequests")}
+              </Link>
+            ) : undefined
+          }
+        >
+          {t(
+            transition?.current?.kind === "semester"
+              ? "workflow.semesterCopy.abortFinal"
+              : "workflow.abortFinal",
+          )}
+        </InlineNotice>
+      )}
       {transition && (
         <SignupTransitionNotice
           data={transition}
@@ -408,7 +450,7 @@ export function SignupForm({
           {t("survey.loadFailed")}
         </InlineNotice>
       )}
-      {readOnly && (
+      {readOnly && !signupBlocked && (
         <RecruitmentNotice
           status={status}
           missing={missing}

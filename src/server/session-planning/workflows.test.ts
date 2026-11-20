@@ -38,6 +38,7 @@ import {
   previewSessionLocation,
   previewProgramCalendarImpact,
   readCurrentSessionReminderCohort,
+  releaseSessionLegacyParticipation,
 } from ".";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -1455,6 +1456,53 @@ describe("whole-group agreement and split", () => {
     expect(auditChildren).toEqual(expected);
     expect(await db.auditLog.count({ where: { operation: "sessionPlanning.split", entityId: parent.id } })).toBe(1);
     expect(await db.session.count()).toBe(0);
+  });
+
+  it("keeps a manual withdrawal release when a remaining learner accepts an extra session", async () => {
+    const initial = await source();
+    const plan = await db.sessionPlan.findUniqueOrThrow({
+      where: { id: initial.planId },
+    });
+    await db.$transaction(async (tx) => {
+      await tx.pairingTutee.delete({
+        where: {
+          pairingId_tuteeId: { pairingId: "planning-pairing", tuteeId: "planning-one" },
+        },
+      });
+      await releaseSessionLegacyParticipation(tx, {
+        pairingId: "planning-pairing",
+        tuteeId: "planning-one",
+        sourceTuteeId: "planning-one",
+        termId: plan.termId,
+      }, now);
+    });
+    const currentCohort = await source();
+    const change = await proposeSession(db, tutor, {
+      cohortId: currentCohort.id,
+      expectedVersion: currentCohort.version,
+      clientKey: randomUUID(),
+      scope: "ONE",
+      tuteeId: "planning-two",
+      kind: "EXTRA",
+      ...time(),
+    });
+    await respond(change.id, two, "ACCEPT");
+    const extra = await db.sessionPlan.findFirstOrThrow({
+      where: { kind: "EXTRA" },
+      include: { continuationMembers: true, participants: true },
+    });
+    expect(extra.continuationMembers).toMatchObject([{
+      pairingId: "planning-pairing",
+      tuteeId: "planning-one",
+      sourceTuteeId: "planning-one",
+      assignmentId: null,
+      sourceSurveyId: null,
+      releasedAt: now,
+    }]);
+    expect(extra.participants).toMatchObject([{
+      tuteeId: "planning-two",
+      status: "SCHEDULED",
+    }]);
   });
 
   it("gives split-extra children one explicit extra root and physical cohort with replay-safe membership", async () => {
