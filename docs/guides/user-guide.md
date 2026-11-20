@@ -403,7 +403,7 @@ own unchanged timing rules.
 
 ### Withdrawal requests
 
-Open **Requests → Participation → Request withdrawal…**. The button names the current quarter or semester and also works for staff-entered enrollments explicitly linked to your account. Give a reason and complete the timed confirmation; check the decision before assuming your participation has ended.
+Open **Requests → Participation → Request withdrawal…**. The button names the current quarter or semester and also works for staff-entered enrollments explicitly linked to your account. Give a reason and complete the timed confirmation. Participation continues while the request is pending. Approval ends all tutoring and pending matching under your account for the current period, including other requests and linked staff-entered enrollments. You can still read your completed attendance and original requests. A declined request leaves participation in place.
 
 ### Records, feedback and appeals
 
@@ -1501,7 +1501,7 @@ for allocation priorities and the distinction between planned and actual rooms.
 
 ### Review withdrawals and membership
 
-Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Tutee requests show their source, scope, submission time and approval-dependent effective date. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.
+Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Tutee requests show their source, scope, submission time and approval-dependent effective date. An approved tutee withdrawal ends all of the account’s current-period enrollments. If the originating enrollment changes owners, decline the outdated request and ask the current owner to submit a new one. If the account’s enrollment changes after a Coordinator proposes approval, reject the stale proposal and review the current scope. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.
 
 Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out approval requires seven days to have elapsed; reentry has no seven-day wait. Recall controls depend on the request type; crew members can recall a pending opt-out. After approving a tutor opt-out, use the explicit student-requeue action to return affected students for matching. If the member's status has changed since submission, decline the stale request and review the current roster.
 

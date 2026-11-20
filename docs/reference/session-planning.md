@@ -285,7 +285,7 @@ deliberately suppressed. The complete dependency closure is:
 | `ProgramCalendarDay` | Applied tutoring-pause interval, effect and active state; informational/reason-only edits do not change planning meaning |
 | `SchoolDeparture`, `PolicyAcceptance` | Current participation and the policy evidence consumed by dual-role learner admission |
 | `StudentContinuationPairing`, `StudentContinuationAssignment` | Continuation identity, current status, target pairing and assignment/release instants |
-| `SessionPlanContinuationMember`, `SessionPlanAssignment` | Supplemental enrollment/release and original published assignment/roster evidence |
+| `SessionPlanContinuationMember`, `SessionPlanAssignment` | Supplemental enrollment/release and original published assignment/roster evidence. A surveyless withdrawal release records the original tutee profile, including after transfer |
 | `SessionPlan`, `SessionPlanCohort`, `SessionPlanParticipant` | Dated source, clock, room, cancellation/override/suppression and participant changes |
 | `SessionPlanningRequest`, `SessionPlanningOffer`, `SessionPlanningResponse` | Current offers, holds, request state, responses and delivered response deadlines |
 | `Room`, `RoomUnavailability` | Room existence and recurring blocked clocks |

@@ -3470,6 +3470,7 @@
       "yes": "예",
       "no": "아니요",
       "approveUnderlying": "원래 신청 승인",
+      "quarterWithdrawalOutcome": "승인하면 이 계정의 현재 프로그램 기간에 진행 중인 모든 튜터링과 대기 중인 매칭이 종료됩니다. 새 신청은 다음 기간부터 가능합니다.",
       "rejectUnderlying": "원래 신청 거부",
       "overturn": "이의 신청을 인정하고 카드를 취소",
       "uphold": "이의 신청을 거부하고 카드를 유지",
@@ -3588,6 +3589,7 @@
         "quarter": "프로그램 기간",
         "accept": "요청된 면접 결정",
         "originalReason": "원래 신청의 사유",
+        "withdrawalEnrollmentCount": "종료되는 등록 건수",
         "requestReason": "이번 정정 사유",
         "explanation": "신청 설명",
         "expectedSchoolYear": "제출 당시 프로그램 학년도",
@@ -7516,6 +7518,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"

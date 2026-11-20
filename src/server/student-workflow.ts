@@ -18,7 +18,7 @@ import {
 } from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
-import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
+import { applyQuarterWithdrawal, lockQuarterWithdrawalScope } from "./student-quarter-withdrawal";
 import { TRPCError } from "@trpc/server";
 import { approvalScope } from "./db-scope";
 import { ownedStudentIds } from "./student-ownership";
@@ -614,6 +614,25 @@ export async function resolveStudentReview(
     });
     const { withAutomaticRecoveryCheckpoint } =
       await import("~/server/recovery/checkpoint");
+    if (approve && initial.kind === "STUDENT_ABORT") {
+      // Prelock the complete aggregate before recovery creates its tracking
+      // fences. Capture and mutation share this exact authoritative scope.
+      const scope = await lockQuarterWithdrawalScope(tx, { reviewId: id });
+      return withAutomaticRecoveryCheckpoint(
+        tx,
+        { adapter: "STUDENT_QUARTER_WITHDRAWAL", sourceId: id },
+        { id: userId },
+        async () => {
+          await consumeStudentAction(tx, ticket, userId, "APPROVE", id);
+          await applyQuarterWithdrawal(tx, scope, { actorId: userId, now: new Date() });
+          for (const profile of scope.manual) await notifyLegacySchedule(
+            tx, profile.id, scope.owner!.id, "student_withdrawal_approved", undefined,
+            scope.term!.id, { entity: "StudentRequestReview", recordId: id },
+          );
+          return { ok: true };
+        },
+      );
+    }
     return withAutomaticRecoveryCheckpoint(
       tx,
       initial.surveyId
@@ -635,9 +654,7 @@ export async function resolveStudentReview(
             approve ? "APPROVE" : "DENY",
             id,
           );
-          if (approve && review.kind === "STUDENT_ABORT") {
-            await approveLegacyStudentWithdrawal(tx, review);
-          } else if (approve) {
+          if (approve) {
             if (!review.pairingId || (await supersededPairingIds(tx)).includes(review.pairingId) ||
               await tx.studentRequestExecutionAssignment.count({ where: { pairingId: review.pairingId, tuteeId: review.legacyTuteeId!, releasedAt: null } }))
               fail("This assignment now has exact request ownership. Decline this outdated review and review its current original request.");
@@ -720,35 +737,7 @@ export async function resolveStudentReview(
             resolvedByUserId: userId,
           },
         });
-        if (approve && review.kind === "STUDENT_ABORT") {
-          const owner = row.tuteeId
-            ? await tx.studentProfileOwnership.findUnique({
-                where: { tuteeId: row.tuteeId },
-              })
-            : null;
-          const linked = row.tuteeId
-            ? await tx.user.findUnique({
-                where: { studentId: row.tuteeId },
-                select: { id: true },
-              })
-            : null;
-          await tx.studentQuarterBlock.upsert({
-            where: {
-              email_intakeTermId: {
-                email: row.email,
-                intakeTermId: row.intakeTermId,
-              },
-            },
-            update: {},
-            create: {
-              email: row.email,
-              intakeTermId: row.intakeTermId,
-              surveyId: row.id,
-              userId: owner?.userId ?? linked?.id,
-            },
-          });
-          await closeStudentRequest(tx, row, "ABORTED");
-        } else if (approve) {
+        if (approve) {
           const requester = await tx.user.findUnique({
             where: { id: review.requestedByUserId },
             select: { tutorId: true },

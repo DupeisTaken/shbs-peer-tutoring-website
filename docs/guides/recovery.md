@@ -186,7 +186,8 @@ The checkpoint section at `/admin/recovery` lists before-states captured by
 supported ordinary writers. You may also deliberately capture the current state
 before a planned action. Capture is a mutation; viewing and comparing are read-only.
 Use the adapter matching the source: `PARTICIPANT_TUTOR`, `PARTICIPANT_TUTEE`,
-`STUDENT_WORKFLOW`, `ATTENDANCE`, `CARD` or `PROGRAM_REFRESH`.
+`STUDENT_WORKFLOW`, `STUDENT_QUARTER_WITHDRAWAL`, `ATTENDANCE`, `CARD` or
+`PROGRAM_REFRESH`.
 
 ```bash
 npm run recovery -- checkpoint capture --adapter ATTENDANCE --source-id SESSION_ID --actor-id ADMIN_ID --out local-operations/checkpoint.json
@@ -202,6 +203,15 @@ authority. Coordinator proposals retain the exact reviewed fingerprint. An opera
 can handle a longer supported chain but cannot bypass current restrictions or
 unknown evidence. Review delivery dispositions: stopped pending work, previously
 observed notices, sent mail and in-flight uncertainty mean different things.
+
+Approved quarter withdrawals use `STUDENT_QUARTER_WITHDRAWAL` and the actual
+`StudentRequestReview.id`, rather than a survey or account ID. This checkpoint is
+inspection-only: its explicit terminal blocker reports `UNKNOWN` coverage and
+disables website restoration. Operator apply has the same restriction. Generic
+recovery cannot reopen the withdrawn requests, restore released assignments or
+remove the quarter block. The bounded scope and normal delivery inventory remain
+available for inspection and comparison; a blocked apply cancels no delivery and
+creates no owner-review draft or restoration receipt.
 
 Attendance restoration recalculates the complete merged block and requests fresh
 discrepancy review. Card restoration creates a new review. A closed signup produces

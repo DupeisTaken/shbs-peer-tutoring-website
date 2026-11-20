@@ -3470,6 +3470,7 @@
       "yes": "Ja",
       "no": "Nein",
       "approveUnderlying": "Zugrunde liegenden Antrag genehmigen",
+      "quarterWithdrawalOutcome": "Die Genehmigung beendet alle Nachhilfestunden und offenen Vermittlungen für dieses Konto im laufenden Programmzeitraum. Neue Anträge sind erst im nächsten Zeitraum möglich.",
       "rejectUnderlying": "Zugrunde liegenden Antrag ablehnen",
       "overturn": "Beschwerde stattgeben und Karte aufheben",
       "uphold": "Beschwerde ablehnen und Karte beibehalten",
@@ -3588,6 +3589,7 @@
         "quarter": "Programmzeitraum",
         "accept": "Beantragte Interviewentscheidung",
         "originalReason": "Begründung im ursprünglichen Antrag",
+        "withdrawalEnrollmentCount": "Endende Teilnahmen",
         "requestReason": "Begründung dieser Korrektur",
         "explanation": "Antragsbegründung",
         "expectedSchoolYear": "Programmschuljahr bei Antragstellung",
@@ -7516,6 +7518,7 @@
       "PARTICIPANT_TUTOR": "Tutor participation",
       "PARTICIPANT_TUTEE": "Tutee participation",
       "STUDENT_WORKFLOW": "Student request workflow",
+      "STUDENT_QUARTER_WITHDRAWAL": "Quarter withdrawal (inspection only)",
       "ATTENDANCE": "Attendance correction",
       "CARD": "Discipline card review",
       "PROGRAM_REFRESH": "Program refresh (Head approval)"

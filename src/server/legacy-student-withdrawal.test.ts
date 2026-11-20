@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { StudentRequestReview } from "../../generated/prisma";
 import type { TransactionDb } from "./transactions";
 import {
   applyLegacyStudentWithdrawal,
-  approveLegacyStudentWithdrawal,
   ownedLegacyParticipation,
 } from "./legacy-student-withdrawal";
 const controls = vi.hoisted(() => ({ consume: vi.fn(), policy: vi.fn() }));
@@ -165,34 +163,5 @@ describe("manual student withdrawal ownership and policy", () => {
     await expect(
       ownedLegacyParticipation(db, "owner", "student"),
     ).rejects.toThrow("no current");
-  });
-  it("approval blocks repeat signup and releases only current-quarter pairings", async () => {
-    const { db, mock } = fixture();
-    const review = {
-      id: "review",
-      requestedByUserId: "owner",
-      legacyTuteeId: "student",
-      legacyIntakeTermId: "current",
-    } as StudentRequestReview;
-    await approveLegacyStudentWithdrawal(db, review);
-    expect(mock.studentQuarterBlock.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        create: {
-          email: "owner@example.test",
-          intakeTermId: "current",
-          userId: "owner",
-          legacyTuteeId: "student",
-        },
-      }),
-    );
-    expect(mock.pairingTutee.deleteMany).toHaveBeenCalledWith({
-      where: { tuteeId: "student", pairing: { termId: "current" } },
-    });
-    await expect(
-      approveLegacyStudentWithdrawal(db, {
-        ...review,
-        legacyIntakeTermId: "ended",
-      }),
-    ).rejects.toThrow("quarter ended");
   });
 });
