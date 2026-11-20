@@ -66,7 +66,7 @@ function useExactRetryAuthority(scope: ExactRetryScope | undefined, search: stri
     // These keys describe exact reads; changing object identities must not
     // restart the lease or turn a render into another authority read.
   }, [client, scopeKey, parentKey]);
-  const healthy = (keys = readKeys) => !!client && !!scope && keys.length > 0 && keys.every((key) => {
+  const healthy = (keys: readonly QueryKey[] = readKeys) => !!client && !!scope && keys.length > 0 && keys.every((key) => {
     const state = client.getQueryState(key);
     return state?.status === "success" && state.fetchStatus === "idle" &&
       !state.error && state.data !== undefined;
