@@ -23,6 +23,7 @@ const state = vi.hoisted(() => ({
   error: null as null | { data?: { code: string } },
   historyError: null as null | { data: { code: string } },
   historyRetry: vi.fn(),
+  agendaQuery: vi.fn(),
   refetch: vi.fn(),
   propose: vi.fn(),
   proposeCancellation: vi.fn(),
@@ -50,13 +51,16 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       agenda: {
-        useQuery: () => ({
-          data: state.data,
-          error: state.error,
-          isSuccess: !state.error,
-          isFetching: false,
-          refetch: state.refetch,
-        }),
+        useQuery: (input: unknown, options: unknown) => {
+          state.agendaQuery(input, options);
+          return {
+            data: state.data,
+            error: state.error,
+            isSuccess: !state.error,
+            isFetching: false,
+            refetch: state.refetch,
+          };
+        },
       },
       propose: { useMutation: () => ({ mutateAsync: state.propose }) },
       proposeCancellation: { useMutation: () => ({ mutateAsync: state.proposeCancellation }) },
@@ -193,6 +197,7 @@ beforeEach(() => {
   state.error = null;
   state.historyError = null;
   state.historyRetry.mockReset();
+  state.agendaQuery.mockReset();
   for (const fn of [
     state.propose,
     state.proposeCancellation,
@@ -217,6 +222,13 @@ function show(role: "tutor" | "tutee" = "tutor", locale: "en" | "zh" = "en") {
     </NextIntlClientProvider>,
   );
 }
+it.each(["tutor", "tutee"] as const)("requests recurring slot metadata only for the tutor picker (%s)", (role) => {
+  show(role);
+  expect(state.agendaQuery).toHaveBeenLastCalledWith(
+    role === "tutor" ? { role, includeRecurringSchedule: true } : { role },
+    { refetchInterval: 30_000 },
+  );
+});
 function futureExtra() {
   state.data!.windowStart = "2099-01-01";
   state.data!.windowEnd = "2099-01-14";
@@ -1253,11 +1265,11 @@ it("distinguishes undelivered, explicit short-notice and elapsed response window
   expect(state.respond).not.toHaveBeenCalled();
 });
 
-function UnifiedAgenda() {
+function UnifiedAgenda({ role = "tutor" }: { role?: "tutor" | "tutee" }) {
   const [view, setView] = useState<ScheduleView>("upcoming");
   return (
     <SessionAgenda
-      role="tutor"
+      role={role}
       view={view}
       onViewChange={setView}
       renderOverview={(overview) => (
@@ -1342,20 +1354,35 @@ it("keeps ended missing attendance in Upcoming and its overview, preserving a dr
     1,
   );
 });
-it("global extra requires a real future source and keeps the selected cohort version", () => {
+it.each([
+  ["en", en, "Thu"],
+  ["zh", zh, "周四"],
+] as const)("extra picker shows the recurring slot and preserves the selected dated source in %s", async (locale, catalog, weekday) => {
   const future = {
     ...attendanceOccurrence,
     id: "future-source",
     version: 9,
     subjects: ["Future pairing"],
-    startsAt: new Date("2099-01-01T07:00:00Z"),
-    endsAt: new Date("2099-01-01T07:45:00Z"),
+    date: "2099-01-01",
+    startMin: 1020,
+    endMin: 1065,
+    startsAt: new Date("2099-01-01T09:00:00Z"),
+    endsAt: new Date("2099-01-01T09:45:00Z"),
+    rescheduled: true,
+    recurringSchedule: { scheduleConfirmed: true, dayOfWeek: 4, startMin: 950, endMin: 995 },
     needsAttendance: false,
     canRecordAttendance: false,
   };
-  state.data!.cohorts.push(future);
+  state.data!.cohorts.push(future, {
+    ...future,
+    id: "later-source",
+    version: 12,
+    date: "2099-01-08",
+    startsAt: new Date("2099-01-08T09:00:00Z"),
+    endsAt: new Date("2099-01-08T09:45:00Z"),
+  });
   render(
-    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+    <NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={catalog}>
       <UnifiedAgenda />
     </NextIntlClientProvider>,
   );
@@ -1363,17 +1390,43 @@ it("global extra requires a real future source and keeps the selected cohort ver
   const picker = screen.getByRole("dialog");
   expect(
     within(picker).getAllByRole("button", {
-      name: en.unifiedSchedule.chooseSession,
+      name: catalog.unifiedSchedule.chooseSession,
     }),
-  ).toHaveLength(1);
-  expect(within(picker).getByText("Future pairing")).toBeTruthy();
+  ).toHaveLength(2);
+  // Dated moves and mapped school days must not become the weekly slot label.
+  expect(within(picker).getAllByText(`${weekday} 15:50–16:35`)).toHaveLength(2);
+  expect(picker.textContent).not.toContain("2099");
+  expect(picker.textContent).not.toContain("17:00");
   fireEvent.click(
-    within(picker).getByRole("button", {
-      name: en.unifiedSchedule.chooseSession,
-    }),
+    within(picker).getAllByRole("button", {
+      name: catalog.unifiedSchedule.chooseSession,
+    })[0]!,
   );
   expect(screen.getByRole("dialog").textContent).toContain("Future pairing");
   expect(state.propose).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(catalog.sessionPlanning.date), { target: { value: "2099-01-15" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: catalog.sessionPlanning.review }));
+  });
+  expect(state.previewLocation).toHaveBeenCalledWith(expect.objectContaining({
+    cohortId: "future-source", expectedVersion: 9, date: "2099-01-15", kind: "EXTRA",
+  }), { staleTime: 0 });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: catalog.sessionPlanning.sendProposal }));
+  });
+  expect(state.propose).toHaveBeenCalledWith(expect.objectContaining({
+    cohortId: "future-source", expectedVersion: 9, date: "2099-01-15", kind: "EXTRA",
+  }));
+});
+
+it("does not invent a recurring slot when the pairing schedule is unavailable", () => {
+  futureExtra();
+  state.data!.cohorts[0]!.recurringSchedule = null;
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda /></NextIntlClientProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
+  const picker = screen.getByRole("dialog");
+  expect(within(picker).getByText(messages.scheduleUnavailable)).toBeTruthy();
+  expect(picker.textContent).not.toContain("2099");
 });
 
 it("a denied history read conceals tutoring caches while keeping independent filters and pagination", () => {
@@ -1409,7 +1462,7 @@ it("a denied history read conceals tutoring caches while keeping independent fil
   expect(state.historyRetry).toHaveBeenCalledOnce();
 });
 
-it.each(["en", "zh"] as const)("shows a paused source without attendance duty and opens an exception in %s", (locale) => {
+it.each(["en", "zh"] as const)("hides a paused card while keeping its source available for an extra exception in %s", (locale) => {
   const catalog = locale === "en" ? en : zh;
   state.data!.windowStart = "2099-01-01";
   state.data!.windowEnd = "2099-01-14";
@@ -1417,13 +1470,99 @@ it.each(["en", "zh"] as const)("shows a paused source without attendance duty an
   state.data!.cohorts = [{ ...attendanceOccurrence, date: "2099-01-01", status: "CANCELLED", tutoringPaused: true,
     canArrangeException: true, pausedTutees: attendanceOccurrence.tutees, tutees: [], needsAttendance: false, canRecordAttendance: false,
     startsAt: new Date("2099-01-01T07:00:00Z"), endsAt: new Date("2099-01-01T07:45:00Z") }];
-  show("tutor", locale);
-  const card = screen.getByRole("article");
-  expect(within(card).getByText(catalog.sessionPlanning.tutoringPausedHelp)).toBeTruthy();
-  expect(within(card).queryByRole("button", { name: catalog.sessionPlanning.record })).toBeNull();
-  fireEvent.click(within(card).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
+  render(<NextIntlClientProvider locale={locale} timeZone="Asia/Shanghai" messages={catalog}><UnifiedAgenda /></NextIntlClientProvider>);
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(screen.queryByRole("button", { name: catalog.sessionPlanning.record })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Global extra" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: catalog.sessionPlanning.arrangeException }));
   expect(screen.getByRole("dialog").textContent).toContain(catalog.sessionPlanning.tutoringPauseProposal);
   expect(state.propose).not.toHaveBeenCalled();
+});
+
+it.each(["tutor", "tutee"] as const)("keeps only confirmed upcoming session cards while retaining cancelled evidence for %s", (role) => {
+  const scheduled = futureExtra();
+  state.data!.cohorts = [
+    { ...scheduled, id: "regular", kind: "REGULAR", subjects: ["Regular lesson"] },
+    { ...scheduled, id: "extra", subjects: ["Confirmed extra"] },
+    { ...scheduled, id: "rescheduled", kind: "REGULAR", rescheduled: true, subjects: ["Confirmed reschedule"] },
+    { ...scheduled, id: "cancelled", status: "CANCELLED", subjects: ["Cancelled lesson"] },
+    { ...scheduled, id: "paused", status: "CANCELLED", tutoringPaused: true, subjects: ["Paused lesson"] },
+  ];
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda role={role} /></NextIntlClientProvider>);
+  expect(screen.getAllByRole("article")).toHaveLength(3);
+  expect(document.getElementById("session-regular")).toBeTruthy();
+  expect(document.getElementById("session-extra")).toBeTruthy();
+  expect(document.getElementById("session-rescheduled")).toBeTruthy();
+  expect(document.getElementById("session-cancelled")).toBeNull();
+  expect(document.getElementById("session-paused")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.unifiedSchedule.filter.all }));
+  expect(document.getElementById("session-cancelled")).toBeTruthy();
+  expect(document.getElementById("session-paused")).toBeTruthy();
+});
+
+it.each(["tutor", "tutee"] as const)("hides cancelled cards in the default week without losing ended attendance for %s", (role) => {
+  state.data!.cohorts.push(
+    { ...attendanceOccurrence, id: "cancelled", status: "CANCELLED", needsAttendance: false, canRecordAttendance: false },
+    { ...attendanceOccurrence, id: "paused", status: "CANCELLED", tutoringPaused: true, needsAttendance: false, canRecordAttendance: false },
+  );
+  show(role);
+  expect(screen.getAllByRole("article")).toHaveLength(1);
+  expect(document.getElementById("session-cohort-synthetic")).toBeTruthy();
+  expect(document.getElementById("session-cancelled")).toBeNull();
+  expect(document.getElementById("session-paused")).toBeNull();
+});
+
+it("preserves ended cancellation evidence in History", () => {
+  state.data!.cohorts = [{ ...attendanceOccurrence, status: "CANCELLED", needsAttendance: false,
+    canRecordAttendance: false, date: "2000-01-01", startsAt: new Date("2000-01-01T07:00:00Z"), endsAt: new Date("2000-01-01T07:45:00Z") }];
+  render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda /></NextIntlClientProvider>);
+  expect(screen.queryByRole("article")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.unifiedSchedule.filter.history }));
+  const card = screen.getByRole("article");
+  expect(within(card).queryByRole("button", { name: messages.record })).toBeNull();
+  expect(within(card).queryByRole("button", { name: messages.reschedule })).toBeNull();
+});
+
+it.each([false, true])("reveals a linked future cancellation in All and an ended cancellation in History (paused: %s)", (tutoringPaused) => {
+  const future = futureExtra();
+  state.data!.cohorts = [
+    { ...future, id: "cancelled-future", status: "CANCELLED", tutoringPaused },
+    { ...future, id: "cancelled-past", status: "CANCELLED", tutoringPaused,
+      date: "2000-01-01", startsAt: new Date("2000-01-01T07:00:00Z"), endsAt: new Date("2000-01-01T07:45:00Z") },
+  ];
+  const previousUrl = window.location.href;
+  const frames: FrameRequestCallback[] = [];
+  const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  const cancelFrame = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+  const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
+  let view: ReturnType<typeof render> | undefined;
+  try {
+    window.history.replaceState(null, "", "#session-cancelled-future");
+    view = render(<NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}><UnifiedAgenda /></NextIntlClientProvider>);
+    act(() => { for (const frame of frames.splice(0)) frame(0); });
+    expect(screen.getByRole("button", { name: en.unifiedSchedule.filter.all }).getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement?.id).toBe("session-cancelled-future");
+
+    act(() => {
+      window.history.replaceState(null, "", "#session-cancelled-past");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    act(() => { for (const frame of frames.splice(0)) frame(0); });
+    expect(screen.getByRole("button", { name: en.unifiedSchedule.filter.history }).getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement?.id).toBe("session-cancelled-past");
+    expect(document.getElementById("session-cancelled-future")).toBeNull();
+    expect(state.propose).not.toHaveBeenCalled();
+    expect(state.respond).not.toHaveBeenCalled();
+  } finally {
+    view?.unmount();
+    window.history.replaceState(null, "", previousUrl);
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
+    scroll.mockRestore();
+  }
 });
 
 it("keeps a mixed cohort attendance roster separate from the paused exception audience", () => {

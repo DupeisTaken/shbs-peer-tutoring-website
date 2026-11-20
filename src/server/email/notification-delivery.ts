@@ -3,6 +3,7 @@ import { normalizeEmailLocale } from "~/lib/email-locale";
 import { verifiedRecipientEmailLocale } from "./recipient-locale";
 import {
   admitIdentityNotice,
+  admitReminderNotice,
   finishIdentityNotice,
 } from "./identity-notice-admission";
 import { deferUntilCommit } from "~/server/db-scope";
@@ -349,12 +350,9 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
         requiredByProgram: requiredEmail,
       });
       if (!essential) {
-        transportAttempt = await admitIdentityNotice(
-          db,
-          id,
-          leaseUntil,
-          attemptId,
-        );
+        transportAttempt = reminder
+          ? await admitReminderNotice(db, id, leaseUntil, attemptId, row)
+          : await admitIdentityNotice(db, id, leaseUntil, attemptId);
         if (!transportAttempt) continue;
       }
       const send = () =>

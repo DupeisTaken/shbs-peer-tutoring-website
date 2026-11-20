@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import type { EmailDelivery } from "../../../generated/prisma";
 import {
   inTransaction,
   lockEntity,
@@ -86,6 +87,9 @@ const validId = (value: string) => value.length > 0 && value.length <= 200;
  * before causal-root locks and never performing another admission. */
 export type RecoveryGenericDeliveryGuard = {
   lock: (tx: TransactionDb) => Promise<void>;
+  /** Source locks follow ownership/root locks and precede the outbox lock. */
+  prepare?: (tx: TransactionDb, deliveryId: string) => Promise<void>;
+  eligible?: (tx: TransactionDb, row: EmailDelivery) => Promise<boolean>;
   withheld: (
     tx: TransactionDb,
     row: {
@@ -404,6 +408,7 @@ export async function admitRecoveryGenericDelivery(
     // Root-only compatibility callers cannot admit independent rows. The
     // ordinary dispatcher supplies identity policy for every generic notice.
     if (!captured && !guard) return { independent: true as const };
+    await guard?.prepare?.(tx, deliveryId);
     await tx.$queryRaw`SELECT id FROM "EmailDelivery" WHERE id=${deliveryId} FOR UPDATE`;
     const row = await tx.emailDelivery.findUnique({
       where: { id: deliveryId },
@@ -438,6 +443,13 @@ export async function admitRecoveryGenericDelivery(
           completedAt: new Date(),
           leaseUntil: null,
         },
+      });
+      return null;
+    }
+    if (guard?.eligible && !(await guard.eligible(tx, row))) {
+      await tx.emailDelivery.update({
+        where: { id: deliveryId },
+        data: { status: "SKIPPED", completedAt: new Date(), leaseUntil: null },
       });
       return null;
     }

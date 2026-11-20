@@ -828,7 +828,7 @@
         "sendSetup": "セットアップリンクを送信",
         "needEmail": "先にメールアドレスを追加してください",
         "linkEmailed": "アカウント所有者にセットアップメールを送信しました。",
-        "linkManual": "メール送信が設定されていません。アカウントのセットアップメールを送信する前に、運用管理者へご連絡ください。",
+        "linkManual": "アカウント設定メールを送信できませんでした。メールの送信状況を確認して、もう一度お試しください。",
         "dismiss": "閉じる"
       },
       "createDraftHint": "このダイアログを閉じても、このページを離れるまでは入力内容が保持されます。",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "メールの送信成功を確認できませんでした。送信状況を確認して、もう一度お試しください。",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
@@ -6107,7 +6107,7 @@
   },
   "programCalendar": {
     "title": "指導のお知らせと休止",
-    "informational": "各期間はお知らせ、または通常の指導の休止として設定します。休止中も明示的に合意した例外は実施でき、学校カレンダーや異議申立ての期限は変更しません。",
+    "informational": "指導休止期間は、自動設定された通常セッションをキャンセルします。確定済みの追加セッションと明示的に合意した振替は維持されます。通知のみの期間と学校の授業日ルールは別に扱います。",
     "refresh": "更新",
     "reload": "下書きを再読み込み",
     "loadFailed": "チュータリングのお知らせを読み込めませんでした。",
@@ -6135,7 +6135,7 @@
     "noticeEffect": "お知らせのみ",
     "pauseEffect": "通常の指導を休止",
     "noticeHelp": "日付の決まった予定を変更せず、お知らせを表示します。",
-    "pauseHelp": "通常の指導を休止します。例外の実施には担当者と参加する学習者全員の明示的な同意が必要です。未返信は同意とみなしません。登校日と異議申立ての期限は別に扱います。",
+    "pauseHelp": "今後の自動設定された通常セッションをキャンセルし、対象の参加者にメールで通知します。確定済みの追加セッションと明示的に合意した振替は維持されます。新たな例外には明示的な合意が必要で、無応答は合意とみなしません。",
     "removePauseHelp": "この休止設定を削除します。他の制限や重複を確認したうえで、条件を満たす今後の通常予定を復元できます。開始済みの指導や記録済みの出欠は変更しません。",
     "reviewImpact": "スケジュールへの影響を確認",
     "impactTitle": "影響を受ける予定を確認",
@@ -6143,10 +6143,10 @@
     "impactConflict": "この通知は変更されました。最新の詳細を再読み込みしてから、もう一度確認してください。",
     "impactScope": "適用後のルールに基づく既存の今後の学習者予定のプレビューです。休止済みの予定も含み、同じ指導に参加する学習者は別々に数えます。今後の繰り返しにもこのルールを適用します。",
     "impactPause": "適用後のルールで休止する通常予定：{count}",
-    "impactRetain": "明示的に合意済みの例外を維持：{count}",
+    "impactRetain": "維持する確定済み追加セッション・明示的に合意した振替：{count}",
     "impactConfirm": "明示的な確認が必要：{count}",
     "impactRestore": "復元候補：{count}",
-    "impactRule": "保存時に現在の同意と重複を再確認します。開始済みの指導や記録済みの出欠は変更しません。"
+    "impactRule": "保存時に現在の合意と競合を再確認し、対象の参加者にキャンセルをメールで通知します。開始済みのセッションと記録済みの出席は変更されません。"
   },
   "roomOrder": {
     "title": "教室の表示順",

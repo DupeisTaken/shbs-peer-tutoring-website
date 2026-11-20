@@ -1049,6 +1049,8 @@ action slot. The self-report opens the existing `SchoolDeparturePanel` in a
 `ProfileDialog`; staff academic panels retain their existing layout and departure
 editors. Academic drafts and departure revisions remain independent. A confirmed
 departure keeps the entry available for return requests and history.
+The shared departure editor stacks Change and Reason for review in full-width
+rows at every viewport, keeping self-service and staff forms aligned.
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
 `SchoolDepartureEvent` records. [Portal access](../../src/lib/portal-access.ts) derives
@@ -2168,6 +2170,12 @@ Retry actions remain visible when navigation resets hide the affected panel.
 
 Announcements freeze tutor IDs at publication, or at approval for a coordinator proposal. Editing or restoring a post does not recompute its recipients. Empty restricted audiences never become broadcasts. Preview, publication, reads and acknowledgements must share recipient-selection rules; notifications and publication commit together.
 
+The tutor dashboard preserves the query's pinned-first, newest-first order and
+renders pinned or unacknowledged posts with one accent card, including the date.
+Pinned cards show 📌 before 📣 and omit Dismiss regardless of acknowledgement;
+acknowledged ordinary posts are hidden. Historical acknowledgements and the
+audience-guarded acknowledgement API remain unchanged.
+
 ### Account emails and delivery
 
 Staff, tutors and tutees share the staged **Notification preferences** card. The
@@ -2225,6 +2233,33 @@ Secondary-email requests and confirmations first acquire the `secondary-email-bi
 
 Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. The [delivery worker](../../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for account mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications skips only optional pending rows; security and essential request-service notices remain eligible. Previous-primary security notices have the documented ownership exception. Account notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](../guides/deployment.md#optional-notification-delivery).
 
+Ordinary optional notices receive one transport admission. Rejected or abandoned
+admitted attempts remain `UNCERTAIN`, including legacy admitted rows returned to
+`PENDING`; they cannot be replayed by the worker or bulk resend. Failures before
+admission and the owning security/request/report protocols retain their separate
+retry budgets. Essential session-planning mail uses `SessionNotice`, outside the
+general outbox. Sender purpose alone does not select retry or optional-consent policy.
+
+Reminder admission acquires ownership tables and exact recovery roots before
+source protocols/rows, then the exact outbox row. Its source fingerprint, current
+recipient, preference, verified address and due window are revalidated in that
+transaction. Missing sources or changed selectors are skipped. Nonblocking domain
+locks and a 250 ms local lock budget turn source contention into a 30-second
+deferral without spending an SMTP attempt. A savepoint restores the caller's
+timeout and partial lock prefix on contention, including inside an existing
+transaction. Locks end at admission commit, before SMTP; a later source change
+cannot recall an already admitted attempt or authorize its replay.
+
+Audited staff setup/verification uses [direct-delivery receipts](../../src/server/email/direct-delivery.ts).
+The resolver retains the exact mutable receipt until its transaction owner flushes
+postcommit effects. `emailed` becomes true only after the configured sender accepts
+the message; queued effects, configuration alone and local logging leave it false.
+A failed postcommit send leaves the issued grant and audit evidence committed and
+does not invalidate earlier usable setup sources. Public password recovery keeps
+its uniform response. The account and tutor credential aliases share the existing
+credential-owned boundary: code issuance commits before the synchronous send, and
+failed proof guesses or consumed proofs retain their original commit semantics.
+
 `Notification.event` and its allowlisted `context` identify the committed action;
 the trigger copies only that safe context into account email receipts, never arbitrary
 titles or bodies. [The shared formatter](../../src/lib/notification-events.ts) drives
@@ -2275,9 +2310,9 @@ warnings retain their scheduling meaning. Request reasons appear once and still
 require request-specific mailbox proof. Optional notification HTML puts unsubscribe
 in the footer; plain text retains its full link.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. Retryable `PENDING` rows with attempts greater than zero surface the first failed attempt; `FAILED` and uncertain outcomes have separate counts. Untouched zero-attempt pending rows, dedicated `SessionNotice` receipts and direct authentication/signup history are outside these counts, so zero failures are not an all-delivered receipt. `READY` proves connectivity/authentication; configured production `SENT` proves SMTP acceptance, not inbox receipt. Unconfigured development logging can also complete a general receipt. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. The additive event/request outbox migrations remain required before running this version.
 
-The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
+The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only retryable failed or previously attempted pending rows without an active lease qualify; admitted ordinary notices, uncertain outcomes and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Specialized transports keep their own source guards and SMTP limitations.
 
 Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
 

@@ -246,7 +246,8 @@ function SchoolDepartureEditor({
           {state.data.departure?.observerRevoked ? " · " + t("revoked") : ""}
         </p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* Keep the reason on its own full-width row at every viewport. */}
+      <div className="grid gap-3">
         <label className="block">
           <span className="label">{t("change")}</span>
           <select

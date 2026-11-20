@@ -824,7 +824,7 @@
         "sendSetup": "Enviar enlace de configuración",
         "needEmail": "Agrega un correo primero",
         "linkEmailed": "Se envió el correo de configuración al titular de la cuenta.",
-        "linkManual": "El envío de correo no está configurado. Contacta con el administrador del despliegue antes de enviar correos de configuración de cuentas.",
+        "linkManual": "No se pudo enviar el correo de configuración de la cuenta. Comprueba el estado del envío de correo e inténtalo de nuevo.",
         "dismiss": "Descartar",
         "registered": "Registrado",
         "setup": "Configuración pendiente",
@@ -4906,7 +4906,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "No se pudo confirmar el envío del correo. Comprueba el estado del envío e inténtalo de nuevo.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
@@ -6107,7 +6107,7 @@
   },
   "programCalendar": {
     "title": "Avisos y pausas de tutorías",
-    "informational": "Cada intervalo es un aviso o una pausa de tutorías regulares. Las pausas permiten excepciones acordadas expresamente y no cambian el calendario escolar ni los plazos de apelación.",
+    "informational": "Las pausas de tutoría cancelan las sesiones regulares programadas automáticamente. Se conservan las sesiones extra confirmadas y las reprogramaciones acordadas explícitamente. Los avisos informativos y las reglas de días lectivos se mantienen separados.",
     "refresh": "Actualizar",
     "reload": "Recargar borrador",
     "loadFailed": "No se pudieron cargar los avisos de tutoría.",
@@ -6135,7 +6135,7 @@
     "noticeEffect": "Solo aviso",
     "pauseEffect": "Pausar tutorías regulares",
     "noticeHelp": "Muestra un aviso sin cambiar las sesiones con fecha.",
-    "pauseHelp": "Se pausan las sesiones regulares. Las excepciones requieren el acuerdo expreso del tutor y de cada estudiante participante; el silencio no equivale a aceptar. Los días lectivos y los plazos de apelación siguen siendo independientes.",
+    "pauseHelp": "Cancela futuras sesiones regulares programadas automáticamente y avisa por correo a los participantes afectados. Se conservan las sesiones extra confirmadas y las reprogramaciones acordadas explícitamente. Las nuevas excepciones requieren acuerdo explícito; el silencio no implica acuerdo.",
     "removePauseHelp": "Eliminar esta pausa de tutorías. Las sesiones regulares futuras que cumplan los requisitos podrán restablecerse tras comprobar otras restricciones y conflictos. Las sesiones iniciadas y la asistencia registrada no cambian.",
     "reviewImpact": "Revisar efecto en la programación",
     "impactTitle": "Revisar compromisos afectados",
@@ -6143,10 +6143,10 @@
     "impactConflict": "Este aviso ha cambiado. Vuelve a cargar los detalles actuales antes de revisarlo de nuevo.",
     "impactScope": "Vista previa de los compromisos futuros existentes de estudiantes según la regla resultante, incluidos los ya pausados. Los estudiantes de una misma sesión se cuentan por separado; la regla también rige la recurrencia futura.",
     "impactPause": "Compromisos regulares pausados según la regla resultante: {count}",
-    "impactRetain": "Excepciones acordadas expresamente que se mantienen: {count}",
+    "impactRetain": "Sesiones extra confirmadas y reprogramaciones acordadas explícitamente conservadas: {count}",
     "impactConfirm": "Necesitan confirmación expresa: {count}",
     "impactRestore": "Candidatos a restablecimiento: {count}",
-    "impactRule": "Al guardar se vuelven a comprobar los acuerdos y conflictos actuales. Las sesiones iniciadas y la asistencia registrada no cambian."
+    "impactRule": "Al guardar se vuelven a comprobar los acuerdos y conflictos actuales. Se informa por correo a los participantes afectados sobre las cancelaciones. Las sesiones iniciadas y la asistencia registrada no cambian."
   },
   "roomOrder": {
     "title": "Orden de las aulas",

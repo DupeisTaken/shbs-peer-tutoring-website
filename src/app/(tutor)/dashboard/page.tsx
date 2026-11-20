@@ -129,7 +129,7 @@ export default async function TutorDashboard() {
         </div>
       </section>
 
-      {/* Team announcements — shown on every login until acknowledged. */}
+      {/* Pinned announcements persist; ordinary announcements can be dismissed. */}
       <AnnouncementsBanner />
       <PolicyConsent slug="tutor-policy" />
 

@@ -1,0 +1,134 @@
+name: Measure one scheduling profile partition
+description: Own clean source trees and a fresh disposable database for one immutable before/after pair.
+inputs:
+  postgres-container-id:
+    description: The caller job-owned PostgreSQL service container.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Validate immutable source selection
+      shell: bash
+      run: |
+        [[ "$BASELINE_SHA" =~ ^[0-9a-f]{40}$ ]]
+        [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+        if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
+          [[ "$PROFILE_SCHEMA_MANIFEST" =~ ^\.github/scheduling-profile-manifests/[a-zA-Z0-9_-]+\.json$ ]]
+        fi
+        # Keep the original seven-minute partition command budget inside its nine-minute step cap.
+        echo "PROFILE_DEADLINE=$(( $(date +%s) + 420 ))" >> "$GITHUB_ENV"
+    - name: Checkout candidate
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.CANDIDATE_SHA }}
+        path: profile-head
+        clean: true
+        persist-credentials: false
+    - name: Reset only this job-owned partition database
+      shell: bash
+      env:
+        POSTGRES_CONTAINER_ID: ${{ inputs.postgres-container-id }}
+      run: |-
+        timeout 30 docker exec "$POSTGRES_CONTAINER_ID" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+          -c 'DROP DATABASE IF EXISTS shbs_performance_test WITH (FORCE)' \
+          -c "CREATE DATABASE shbs_performance_test TEMPLATE template0 ENCODING 'UTF8'"
+    - name: Check remaining wall-clock budget before preparing the databases
+      shell: bash
+      working-directory: profile-head
+      run: |
+        node --input-type=module -e '
+          import { validateClockAdmissionBudget } from "./scripts/scheduling-profile/clock-admission.mjs";
+          const start = new Date();
+          validateClockAdmissionBudget({
+            anchor: process.env.PROFILE_ANCHOR,
+            startedAt: start,
+            timeoutMs: Number(process.env.PROFILE_DEADLINE) * 1000 - start.getTime(),
+          });'
+    - name: Checkout baseline
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.BASELINE_SHA }}
+        path: profile-base
+        clean: true
+        persist-credentials: false
+    - name: Authenticate both controlled ordering references
+      if: env.PROFILE_SCENARIO == 'contention'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      working-directory: profile-head
+      run: node scripts/scheduling-profile/resume-run.mjs references
+      shell: bash
+    - name: Freeze comparison inputs
+      id: freeze
+      shell: bash
+      run: |
+        mkdir -p profile-head/outputs/scheduling-profile profile-base/scripts/scheduling-profile
+        # Inspect before copying: default allows only the initial additive
+        # metadata. Combined-feature runs require an explicit exact hash manifest;
+        # every historical migration and baseline application file stays intact.
+        manifest_args=()
+        if [[ -n "$PROFILE_SCHEMA_MANIFEST" ]]; then
+          manifest_args=(inspect "$PWD/profile-head/$PROFILE_SCHEMA_MANIFEST")
+        fi
+        node profile-head/scripts/scheduling-profile/comparison-inputs.mjs \
+          profile-base profile-head profile-head/outputs/scheduling-profile/comparison-inputs.json "${manifest_args[@]}"
+        cp profile-head/scripts/profile-scheduling-requests.ts profile-base/scripts/
+        cp profile-head/scripts/run-scheduling-profile-ci.sh profile-base/scripts/
+        cp profile-head/scripts/scheduling-profile/* profile-base/scripts/scheduling-profile/
+        printf '%s\n' "$PROFILE_ANCHOR" > profile-head/outputs/scheduling-profile/anchor.txt
+        timeout 60 docker pull "$PROFILE_NODE_IMAGE"
+        docker image inspect "$PROFILE_NODE_IMAGE" --format '{{.Id}}' > profile-head/outputs/scheduling-profile/node-image.txt
+    - name: Measure baseline then candidate
+      shell: bash
+      run: |
+        set -o pipefail
+        anchor="$(cat profile-head/outputs/scheduling-profile/anchor.txt)"
+        node_image="$(cat profile-head/outputs/scheduling-profile/node-image.txt)"
+        for revision in base head; do
+          docker run --rm --cpus=2 --memory=4g --network=host \
+            -v "$PWD/profile-$revision:/work" \
+            -v "$PWD/profile-head/outputs/scheduling-profile:/evidence" \
+            -v "$PWD/profile-head:/overlay:ro" \
+            -w /work \
+            -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55439/shbs_performance_test \
+            -e AUTH_SECRET=synthetic-scheduling-profile-secret-only \
+            -e NEXT_TELEMETRY_DISABLED=1 \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/work \
+            -e PROFILE_REVISION="$revision" -e PROFILE_SCENARIO -e PROFILE_MODE -e PROFILE_DEADLINE \
+            -e PROFILE_SCHEMA_MANIFEST -e BASELINE_SHA -e CANDIDATE_SHA \
+            -e PROFILE_BASELINE_SELECTION_PATH -e PROFILE_BASELINE_SELECTION_FILE_SHA256 -e PROFILE_BASELINE_SELECTION_SOURCE \
+            -e PROFILE_ANCHOR="$anchor" -e PROFILE_SAMPLES \
+            -e PROFILE_PARTITION_INDEX -e PROFILE_PARTITION_COUNT -e PROFILE_PARTITION_RUNNER_ID \
+            -e PROFILE_RUNNER_NAME="$RUNNER_NAME" -e PROFILE_RUNNER_OS="$RUNNER_OS" -e PROFILE_RUNNER_ARCH="$RUNNER_ARCH" \
+            "$node_image" sh -eu scripts/run-scheduling-profile-ci.sh \
+            2>&1 | tee "profile-head/outputs/scheduling-profile/$revision.log"
+        done
+    - name: Seal the raw partition including setup and measurement failures
+      if: ${{ !cancelled() && steps.freeze.outcome == 'success' }}
+      working-directory: profile-head
+      run: node scripts/scheduling-profile/resume-run.mjs seal
+      shell: bash
+    - name: Retain raw samples and failure receipts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: scheduling-profile-${{ env.PROFILE_SCENARIO }}-${{ env.PROFILE_MODE }}-part-${{ env.PROFILE_PARTITION_INDEX }}-${{ github.run_attempt }}
+        path: profile-head/outputs/scheduling-profile/
+        retention-days: 7
+        if-no-files-found: warn
+    - name: Restore ownership of only the partition checkout trees
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        workspace="$(realpath -e -- "$GITHUB_WORKSPACE")"
+        owner="$(id -u):$(id -g)"
+        # Root containers may create dependencies/generated files. Restore only
+        # these exact owned trees so the next partition can clean its checkouts.
+        for relative in profile-head profile-base; do
+          target="$workspace/$relative"
+          if [[ ! -e "$target" && ! -L "$target" ]]; then continue; fi
+          [[ -d "$target" && ! -L "$target" ]] || exit 1
+          [[ "$(realpath -e -- "$target")" == "$target" ]] || exit 1
+          timeout 30 sudo chown -R -P --no-dereference "$owner" -- "$target"
+        done

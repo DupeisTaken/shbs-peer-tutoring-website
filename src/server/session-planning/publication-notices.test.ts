@@ -188,6 +188,24 @@ it("stores the exact legacy context and dedupe keys without overriding queue def
   }
 });
 
+it("captures a pause's inclusive dates and addresses its cancellation to each audience", async () => {
+  const tutoringPause = { pauseStartDate: "2026-11-02", pauseEndDate: "2026-11-06" };
+  const descriptor = capturePublicationNotice(input("paused", { event: "cancelled", tutoringPause }));
+  tutoringPause.pauseEndDate = "2026-12-31";
+  const { tx, stored } = fixture({ users: [
+    user("tutor-user", { tutorId: "tutor" }),
+    user("student-user", { studentId: "tutee" }),
+  ] });
+  await queuePublicationNotices(tx, [descriptor]);
+  await queuePublicationNotices(tx, [descriptor]);
+  expect(stored.size).toBe(2);
+  for (const notice of stored.values()) expect(notice).toMatchObject({ event: "cancelled", context: {
+    outcomeReason: "TUTORING_PAUSE", pauseStartDate: "2026-11-02", pauseEndDate: "2026-11-06",
+    recipientRole: notice.recipientUserId === "tutor-user" ? "tutor" : "tutee",
+  } });
+  expect(Object.isFrozen(descriptor.tutoringPause)).toBe(true);
+});
+
 it.each(["missing", "empty"])(
   "keeps cancelled tutee notices when the tutor mailbox is %s",
   async (mode) => {

@@ -616,7 +616,9 @@ In **Announcements → Recipients**, choose all current tutors, filtered tutors 
 
 **Include** adds a tutor regardless of filters; **Exclude** wins over both filters and inclusion. Search narrows only the override picker. Check the complete audience count and name preview before publishing; an empty audience is blocked. Assignment filters need an active term and count unique active tutees in that term.
 
-The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience; publish a new announcement to change recipients. Tutors can read and dismiss only active posts addressed to their linked identity, plus applicable broadcasts. In-app notifications can also produce announcement event emails when program and personal information-notification preferences are enabled; these notices explain how to open the announcement and do not contain its title or body.
+The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience or resend its notification; publish a new announcement to change recipients. Tutors can read only active posts addressed to their linked identity, plus applicable broadcasts. All dashboard announcements use the same prominent dated card; pinned posts show 📌 before 📣 and have no Dismiss action, even when previously acknowledged. Ordinary posts can be dismissed. The publisher does not receive their own announcement notification or email.
+
+Announcement notifications can produce optional email when the program switch and the recipient's effective **Announcements** email choice or requirement permit it. A verified eligible destination and configured PROGRAM sender are still required. The email includes the bounded announcement title and publication action, with a link to read it; the full announcement body stays on the site. Publishing confirms the saved announcement and notifications, not SMTP acceptance or inbox receipt. Landing-page **Program News** is a separate publishing flow and does not trigger announcement email. See [delivery and recovery rules](deployment.md#optional-notification-delivery).
 
 ## Message permissions and supervision
 
@@ -713,8 +715,9 @@ and school-day/timetable facts, never the staff note. Delivery rechecks the curr
 calendar revision and participant eligibility; SMTP already accepted cannot be
 recalled. No external calendar provider is modified. The separate **No-tutoring
 dates** control has an explicit scheduling effect. **Notice only** is informational;
-**Pause regular tutoring** suppresses future ordinary dated commitments and preserves
-individually agreed exceptions under the dated scheduler. Neither mode changes
+New ranges default to **Pause regular tutoring**, which cancels future automatic
+regular commitments while preserving confirmed extras and explicitly agreed
+rescheduled lessons under the dated scheduler. Neither mode changes
 school-day appeal counting or the recurring assignment itself.
 
 ### Configure recruitment windows
@@ -788,11 +791,17 @@ Applying/removing a pause reconciles future commitments in the same transaction;
 ordinary suppression is reversible but removal does not revive user cancellations,
 overwrite school closures, duplicate moved lessons or bypass new conflicts. Started
 lessons, historical attendance, discipline and service hours remain actual evidence.
-Optional sessions use dated exception proposals and affirmative participation; silence
-must not opt a learner into a paused date. An agreed exception retains normal room,
+New optional sessions use dated exception proposals and affirmative participation;
+silence must not opt a learner into a paused date. An extra confirmed before a
+pause remains scheduled even if its agreement used the ordinary timeout rule.
+Cancellation emails name the inclusive pause range and suggest arranging an extra
+with the counterpart if needed; retained participants do not receive a cancellation.
+Only the bounded publication window is materialized, so farther recurring dates
+receive cancellation notices when their dated sessions are published.
+An agreed exception retains normal room,
 participant, permission, reminder and calendar checks.
 
-Existing records and older queued requests retain **Notice only**. An older client
+Existing records and explicit **Notice only** requests retain their saved effect. An older client
 editing an existing pause without sending a scheduling effect preserves that pause;
 changing its effect requires an explicit selection. The additive migration is
 `20261108010000_tutoring_pause_policy`; deploy it before the application. It adds a

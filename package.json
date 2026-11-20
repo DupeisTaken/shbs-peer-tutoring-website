@@ -27,7 +27,7 @@
     "test:watch": "vitest",
     "test:lint-glob": "node --test scripts/lint-glob.test.mjs scripts/lint-minimatch.test.mjs",
     "test:pr-size": "node --test scripts/pr-size.test.mjs",
-    "test:ci": "node --test scripts/ci.test.mjs",
+    "test:ci": "node --import tsx --test --test-concurrency=1 scripts/ci.test.mjs scripts/scheduling-profile/group-plan.spec.ts",
     "test:deployment": "node --test --test-concurrency=1 scripts/deployment-config.test.mjs scripts/backup.test.mjs scripts/collect-network-evidence.test.mjs scripts/check-storage-capacity.test.mjs scripts/assemble-runtime.test.mjs scripts/runtime-file-inventory.test.mjs scripts/compare-runtime-images.test.mjs",
     "typecheck": "tsc --noEmit",
     "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs"

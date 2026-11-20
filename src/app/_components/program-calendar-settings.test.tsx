@@ -127,7 +127,8 @@ const edit = () =>
 const submit = async () => {
   await act(async () => {
     fireEvent.click(
-      screen.getByRole("button", { name: en.programCalendar.save }),
+      screen.queryByRole("button", { name: en.programCalendar.save }) ??
+        screen.getByRole("button", { name: en.programCalendar.reviewImpact }),
     );
   });
 };
@@ -157,7 +158,7 @@ it.each(["en", "zh"] as const)(
   },
 );
 
-it("defaults a new notice to one day and blocks a reversed or missing end date", async () => {
+it("defaults a new pause to one day, rejects invalid dates and reviews before saving", async () => {
   render(tree());
   fireEvent.click(screen.getByRole("button", { name: en.programCalendar.add }));
   fireEvent.change(field(en.programCalendar.startDate), {
@@ -182,11 +183,16 @@ it("defaults a new notice to one day and blocks a reversed or missing end date",
     target: { value: "2027-02-03" },
   });
   await submit();
+  expect(state.save).not.toHaveBeenCalled();
+  expect(state.preview).toHaveBeenCalledExactlyOnceWith({
+    date: "2027-02-03", endDate: "2027-02-03", schedulingEffect: "PAUSE_REGULAR", expectedVersion: 0,
+  }, { staleTime: 0 });
+  await submit();
   expect(state.save).toHaveBeenCalledWith({
     date: "2027-02-03",
     endDate: "2027-02-03",
     reason: "School event",
-    schedulingEffect: "NOTICE",
+    schedulingEffect: "PAUSE_REGULAR",
     expectedVersion: 0,
   });
 });
@@ -338,7 +344,7 @@ const reviewImpact = async (locale: "en" | "zh" = "en") => {
   });
 };
 
-it.each(["en", "zh"] as const)("preselects an existing pause and defaults new notices safely in %s", (locale) => {
+it.each(["en", "zh"] as const)("preselects existing pauses and requires review for new no-tutoring ranges in %s", (locale) => {
   state.days[0]!.schedulingEffect = "PAUSE_REGULAR";
   const copy = (locale === "en" ? en : zh).programCalendar;
   render(tree(locale));
@@ -348,8 +354,9 @@ it.each(["en", "zh"] as const)("preselects an existing pause and defaults new no
   expect(screen.queryByRole("button", { name: copy.save })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: (locale === "en" ? en : zh).accountProfile.close }));
   fireEvent.click(screen.getByRole("button", { name: copy.add }));
-  expect(effect().value).toBe("NOTICE");
-  expect(screen.getByRole("button", { name: copy.save })).toBeTruthy();
+  expect(effect().value).toBe("PAUSE_REGULAR");
+  expect(screen.getByRole("button", { name: copy.reviewImpact })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: copy.save })).toBeNull();
   expect(state.preview).not.toHaveBeenCalled();
   expect(state.save).not.toHaveBeenCalled();
 });
@@ -552,3 +559,33 @@ it("does not obtain a policy review after edit permission is revoked", () => {
   expect(state.preview).not.toHaveBeenCalled();
   expect(state.save).not.toHaveBeenCalled();
 });
+
+it.each(["en", "zh"] as const)(
+  "preserves an explicit notice-only choice for a new range in %s",
+  async (locale) => {
+    const copy = (locale === "en" ? en : zh).programCalendar;
+    render(tree(locale));
+    fireEvent.click(screen.getByRole("button", { name: copy.add }));
+    fireEvent.change(field(copy.startDate), {
+      target: { value: "2027-02-03" },
+    });
+    fireEvent.change(field(copy.reason), {
+      target: { value: "Synthetic information only" },
+    });
+    fireEvent.change(effect(), { target: { value: "NOTICE" } });
+    expect(
+      screen.queryByRole("button", { name: copy.reviewImpact }),
+    ).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: copy.save }));
+    });
+    expect(state.preview).not.toHaveBeenCalled();
+    expect(state.save).toHaveBeenCalledExactlyOnceWith({
+      date: "2027-02-03",
+      endDate: "2027-02-03",
+      reason: "Synthetic information only",
+      schedulingEffect: "NOTICE",
+      expectedVersion: 0,
+    });
+  },
+);

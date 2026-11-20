@@ -39,10 +39,13 @@ void test("worker CLI seals a failed arm, authenticates the next attempt, and re
     const env = { ...process.env, GH_TOKEN: "synthetic", RUNNER_TEMP: cwd, GITHUB_RUN_ID: campaign.runId, GITHUB_WORKFLOW_SHA: campaign.workflowSha,
       GITHUB_REPOSITORY: campaign.repository, PROFILE_CAMPAIGN: JSON.stringify(campaign), GITHUB_RUN_ATTEMPT: "1", CANDIDATE_SHA: candidate,
       PROFILE_MODE: "latency", PROFILE_SCENARIO: "warm", PROFILE_SAMPLES: "40", PROFILE_PARTITION_INDEX: "0", PROFILE_PARTITION_COUNT: "10",
-      BASELINE_SHA: control.baselineRevision, PROFILE_NODE_IMAGE: campaign.nodeImage, PROFILE_ANCHOR: campaign.anchor };
+      BASELINE_SHA: control.baselineRevision, PROFILE_NODE_IMAGE: campaign.nodeImage, PROFILE_ANCHOR: campaign.anchor,
+      GITHUB_OUTPUT: join(cwd, "step-output.txt") };
     const run = (args: string[], attempt = 1) => execFileSync(process.execPath, args, {
       cwd, env: { ...env, GITHUB_RUN_ATTEMPT: String(attempt) }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
     });
+    run([script, "prepare"]);
+    assert.equal(await readFile(env.GITHUB_OUTPUT, "utf8"), "should_run=true\n");
     run([script, "seal"]);
     const zipped = zipSync(Object.fromEntries(await Promise.all((await readdir(directory)).map(async name =>
       [name, await readFile(join(directory, name))] as const))));
@@ -73,9 +76,11 @@ void test("worker CLI seals a failed arm, authenticates the next attempt, and re
     const authorize = ["--import", pathToFileURL(mock).href, script, "authorize"];
     await writeFile(join(cwd, "provider.json"), JSON.stringify(responses));
     run(authorize, 2);
+    run(["--import", pathToFileURL(mock).href, script, "prepare"], 2);
+    assert.equal(await readFile(env.GITHUB_OUTPUT, "utf8"), "should_run=true\nshould_run=true\n");
     const receipt = await readFile(join(directory, "retry-authorization.json"), "utf8");
-    const authorization = JSON.parse(receipt) as { state: string };
-    assert.equal(authorization.state, "AUTHORIZED_REMEASURE_PAIRED_ARMS");
+    const authorization = JSON.parse(receipt) as { authorization: { state: string } };
+    assert.equal(authorization.authorization.state, "AUTHORIZED_REMEASURE_PAIRED_ARMS");
     responses["runs/123/attempts/2/jobs"] = { jobs: [{ ...prior, id: 202, run_attempt: 2 }], total_count: 1 };
     await writeFile(join(cwd, "provider.json"), JSON.stringify(responses));
     assert.throws(() => run(authorize, 2));
