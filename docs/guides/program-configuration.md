@@ -679,7 +679,16 @@ changes and resets directly; Coordinators submit them for Admin/Head review.
 Pending proposals do not change schedules or send
 operational calendar notices.
 
-Use **Add date override** for a holiday, make-up school day or different timetable. Select
+Use **Add holiday** for several consecutive days, such as Thanksgiving. Enter the
+start and end dates and a shared staff note. Both dates are included (up to 366 days),
+including weekends. The form shows how many dates will be closed and lists any
+existing overrides that saving will replace, including their notes. Review those
+replacements before saving. The whole range is applied together, or submitted as
+one Coordinator proposal; one changed date requires reloading and reviewing the
+range before retrying. Reloading a range retains its dates and note. Once saved,
+each date can still be edited or reset individually.
+
+Use **Add date override** for a single holiday, make-up school day or different timetable. Select
 the actual date, whether school is open, an optional timetable weekday, and a note.
 Without an override, Monday–Friday are school days and weekends are closed. An open
 date with no selected timetable weekday follows its own civil weekday. For example,

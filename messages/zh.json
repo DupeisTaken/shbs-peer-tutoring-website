@@ -3852,7 +3852,8 @@
         "admin_scheduleRefresh": "预约项目刷新",
         "admin_cancelRefresh": "取消项目刷新预约",
         "monthlyHours_save": "更改月度服务时数报告计划",
-        "schoolHours_save": "更改学校服务时数报告计划"
+        "schoolHours_save": "更改学校服务时数报告计划",
+        "student_setCalendarHoliday": "添加学校假期日期范围"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认您的账户密码",
@@ -7302,7 +7303,16 @@
     "viewUpcoming": "查看即将生效的调整",
     "requestedDateTitle": "此日期的学校安排",
     "defaultCalendar": "此日期没有生效中的调整，采用常规上课日及星期课表规则。",
-    "currentCalendar": "这里显示的是当前学校日历，并非之前通知发送时的安排快照。"
+    "currentCalendar": "这里显示的是当前学校日历，并非之前通知发送时的安排快照。",
+    "addHoliday": "添加假期",
+    "from": "开始日期",
+    "to": "结束日期",
+    "holidayHelp": "将范围内的每一天设为不上课，包含开始和结束日期，最多366天。备注适用于每一天。",
+    "holidayPreview": "设为不上课的日期共{count}天（含起止日期）。",
+    "invalidRange": "请选择有效日期，结束日期不得早于开始日期，且不得超过366天。",
+    "holidayReplaces": "保存将替换下列{count}个现有日期设置及其备注。",
+    "saveHoliday": "保存假期",
+    "reloadHoliday": "重新加载当前日期范围"
   },
   "recordInspector": {
     "backToRecord": "返回记录",
