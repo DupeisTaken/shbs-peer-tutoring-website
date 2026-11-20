@@ -29,11 +29,13 @@ import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 import {
   resolveSchoolCalendarDay,
   schoolCalendarWrite,
+  schoolCalendarHoliday,
   schoolCalendarReset,
   type SchoolCalendarOverride,
 } from "~/lib/school-calendar";
 import {
   saveSchoolCalendar,
+  saveSchoolCalendarHoliday,
   resetSchoolCalendar,
 } from "~/server/program/school-calendar";
 const staff = (role: string) => ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
@@ -136,6 +138,11 @@ export const studentRouter = createTRPCRouter({
     .input(schoolCalendarWrite)
     .mutation(({ ctx, input }) =>
       saveSchoolCalendar(ctx.db, input, ctx.session.user.id),
+    ),
+  setCalendarHoliday: adminProcedure
+    .input(schoolCalendarHoliday)
+    .mutation(({ ctx, input }) =>
+      saveSchoolCalendarHoliday(ctx.db, input, ctx.session.user.id),
     ),
   resetCalendarDay: adminProcedure
     .input(schoolCalendarReset)

@@ -3852,7 +3852,8 @@
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Modifier la planification des rapports mensuels des heures",
-        "schoolHours_save": "Modifier la planification des rapports d’heures pour l’école"
+        "schoolHours_save": "Modifier la planification des rapports d’heures pour l’école",
+        "student_setCalendarHoliday": "Ajouter une période de vacances scolaires"
       },
       "decisionRequestHelp": "Approuver et appliquer exécute l’action demandée, y compris un rejet demandé. Rejeter avec un commentaire refuse cette proposition sans rien modifier. Ajoutez une note pour expliquer votre décision.",
       "confirmPassword": "Confirmez le mot de passe de votre compte",
@@ -7302,7 +7303,16 @@
     "viewUpcoming": "Voir les prochains changements",
     "requestedDateTitle": "Calendrier scolaire pour cette date",
     "defaultCalendar": "Aucune exception active pour cette date. Les règles scolaires habituelles s’appliquent.",
-    "currentCalendar": "Ceci reflète le calendrier scolaire actuel, pas l’état au moment de la notification précédente."
+    "currentCalendar": "Ceci reflète le calendrier scolaire actuel, pas l’état au moment de la notification précédente.",
+    "addHoliday": "Ajouter des vacances",
+    "from": "Date de début",
+    "to": "Date de fin",
+    "holidayHelp": "Marquer chaque date de cette période comme sans école. Les deux dates sont incluses ; 366 jours maximum. La note s’applique à chaque date.",
+    "holidayPreview": "Jours sans école : {count} (début et fin inclus).",
+    "invalidRange": "Choisissez des dates valides, avec une fin au plus tôt au début et 366 jours maximum.",
+    "holidayReplaces": "L’enregistrement remplace les {count} exceptions ci-dessous, y compris leurs notes.",
+    "saveHoliday": "Enregistrer les vacances",
+    "reloadHoliday": "Recharger la période actuelle"
   },
   "recordInspector": {
     "backToRecord": "Back to record",

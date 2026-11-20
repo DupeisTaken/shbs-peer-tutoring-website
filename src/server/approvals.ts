@@ -34,6 +34,7 @@ import { DEFAULT_FEATURES } from "./program/features";
 import { getProgramTimeZone } from "./program/time-zone";
 import {
   schoolCalendarWrite,
+  schoolCalendarHoliday,
   schoolCalendarReset,
 } from "~/lib/school-calendar";
 import { schoolHoursLock, validateSchoolHoursSettings } from "./school-hours";
@@ -703,6 +704,11 @@ export async function proposalTargets(
           "The school calendar changed. Reload before requesting review.",
       });
   }
+  if (operation === "student.setCalendarHoliday") {
+    const { lockSchoolCalendarHoliday } =
+      await import("./program/school-calendar");
+    await lockSchoolCalendarHoliday(client, schoolCalendarHoliday.parse(input));
+  }
   if (operation === "program.setNameFields") {
     await lockUsernameNamespace(client);
     const settings = await client.programSettings.findUnique({
@@ -1074,7 +1080,16 @@ export async function proposalTargets(
   }
   if (primary === "SchoolCalendarDay")
     targets.calendar = await client.schoolCalendarDay.findMany({
-      where: { date: z.string().parse(fields.date) },
+      where:
+        operation === "student.setCalendarHoliday"
+          ? {
+              date: {
+                gte: z.string().parse(fields.from),
+                lte: z.string().parse(fields.to),
+              },
+            }
+          : { date: z.string().parse(fields.date) },
+      orderBy: { date: "asc" },
     });
   if (primary === "StudentSettings")
     targets.settings = await client.studentSettings.findMany({

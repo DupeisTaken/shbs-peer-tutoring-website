@@ -7,6 +7,66 @@ import {
   isReviewReference,
 } from "./approval-summary";
 
+it("summarizes a holiday's inclusive boundaries and closed-school effect without exposing version assertions as changes", () => {
+  const payload = {
+    from: "2026-11-01",
+    to: "2026-11-03",
+    note: "Reviewed holiday",
+    expectedVersions: [
+      { date: "2026-11-01", version: 2 },
+      { date: "2026-11-02", version: 0 },
+      { date: "2026-11-03", version: 0 },
+    ],
+  };
+  const targets = {
+    calendar: [
+      {
+        date: payload.from,
+        isSchoolDay: true,
+        timetableWeekday: 1,
+        version: 2,
+      },
+    ],
+  };
+  const original = structuredClone({ payload, targets });
+  const model = approvalPresentation(
+    "student.setCalendarHoliday",
+    payload,
+    targets,
+  );
+  expect(model.kind).toBe("action");
+  expect(model.summary.facts).toEqual(
+    expect.arrayContaining([
+      { key: "from", value: payload.from },
+      { key: "to", value: payload.to },
+    ]),
+  );
+  expect(model.summary.changes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ key: "note", requested: "Reviewed holiday" }),
+      expect.objectContaining({
+        key: "isSchoolDay",
+        requested: false,
+        hasBefore: false,
+      }),
+      expect.objectContaining({
+        key: "timetableWeekday",
+        requested: null,
+        hasBefore: false,
+      }),
+    ]),
+  );
+  expect(
+    model.summary.changes.some(({ key }) => key === "expectedVersions"),
+  ).toBe(false);
+  expect(model.groups).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ table: "calendar", rows: targets.calendar }),
+    ]),
+  );
+  expect({ payload, targets }).toEqual(original);
+});
+
 it("keeps admission recovery context separate from its requested reason", () => {
   const payload = {
     actionId: "admission-one",

@@ -1868,6 +1868,20 @@ state or resolved school-day/timetable meaning also advance `scheduleRevision`.
 Legacy set inputs without an expected version retain create-only version-0
 behavior; an existing row or incompatible older proposal requires fresh review.
 
+`student.setCalendarHoliday` applies an inclusive closed-school range of at most
+366 actual dates. Its shared schema requires exactly one captured version for
+every covered date, using 0 only when no row exists. One transaction locks the
+period, dated scheduler and ascending dates, validates the complete version set,
+then writes ordinary `SchoolCalendarDay` rows with the same audit, tombstone and
+semantic-revision rules as individual edits. Existing make-up overrides can be
+replaced only with their captured versions. The dated scheduler reconciles once
+after the final range is present; per-date notification intents commit with all
+rows. A stale date or failed intent rolls back the entire range. Coordinators
+submit one proposal whose captured range is revalidated before Admin/Head
+approval. The resulting dates retain ordinary individual edit/reset behavior;
+school-day resolution, appeal counting and participant date links need no range
+precedence rule or separate holiday record.
+
 Protected participant reads expose bounded calendar facts without staff notes.
 Tutor upcoming sessions and today's task summary share these facts; attendance,
 historical session dates and service hours remain actual evidence. The separate
