@@ -416,7 +416,34 @@ writers and private readers to their actual authority, documents transaction-own
 missing-source initialization, and defines the read-only reconciliation command
 and cutover/rollback comparison. Directory metadata is excluded from archives.
 
-The Users & Roles page composes existing table actions, `ProfileDialog`, `TableDetails`, academic and policy displays. Detail queries and mutation observers mount only on opening. Each opening refreshes the authoritative detail read, even within the shared query cache freshness window, so independent membership, suspension and profile editors cannot leave reopened details stale. Failed background reads retain cached details with read-only Retry. Badge colors are local presentation, independent of the six accent palettes: management indigo, participation teal, Translator amber and Viewer slate. Summary badge suppression and all filtering logic remain in their existing domain helpers; the detail display adds the underlying accepted Tutee membership. The read-only context hides the private entry, and server authorization independently refuses observers and participants, including stale elevated sessions.
+The Users & Roles page composes existing table actions, `ProfileDialog`, `TableDetails`, academic and policy displays. The route-owned `UserDetailsHost` captures an opening independently of its filtered row, so an accepted participation handover cannot remove its own receipt when the former login becomes history-only. Detail queries and mutation observers mount only on opening. Each opening refreshes the authoritative detail read, even within the shared query cache freshness window, so independent membership, suspension and profile editors cannot leave reopened details stale. Failed background reads retain cached details with read-only Retry. Badge colors are local presentation, independent of the six accent palettes: management indigo, participation teal, Translator amber and Viewer slate. Summary badge suppression and all filtering logic remain in their existing domain helpers; the detail display adds the underlying accepted Tutee membership. The read-only context hides the private entry, and server authorization independently refuses observers and participants, including stale elevated sessions.
+
+An open details session retains its original group controller through missing or
+changed detail-group results and directory loading/denial. Matching fresh group
+reads can update its display; a different group cannot replace an admitted
+operation. Unavailable reads disable new review actions. Live denial conceals
+cached private evidence and unmounts nested private editors while preserving the
+safe operation reference, receipt and read-only outcome recovery. Pending writes,
+initial synchronization and unknown outcomes still protect Close/Escape. Idle
+Close ends the opening; when its row has disappeared, native focus recovery uses
+the current Search input or denied-directory Retry. Linked Tutor navigation keeps
+its existing source-focus recovery instead of that browsing fallback.
+The captured query target remains fixed while authoritative unfiltered directory
+data for that exact login updates the title and account display. Another login's
+representative row cannot replace it; disappearance falls back to the opening's
+captured display, and denial conceals both current and captured private display.
+During directory denial, the retained reader's named **Retry Users & Roles**
+action can freshly verify directory authority even while an unknown operation
+protects dismissal. This read cannot replace the captured controller or resend
+its write. Other parent retries and sibling editors keep their busy protections.
+If a successful details read no longer has the opening's group, ordinary previews
+and editors remain unavailable. An unknown operation with no receipt can only
+use its existing exact retry after successful current directory/details reads
+and an explicit successful candidate refresh. Any later fetch, error or change
+to those exact queries invalidates that retry permission, including before React
+publishes a disabled button. The deliberate retry preserves the actor, UUID,
+fingerprint and frozen selection and requires a fresh password; a server rejection
+or accepted receipt resolves the unknown outcome. A null receipt never does.
 
 The on-demand `admin.applicationAccountSetup` read powers the application’s **Set up account** popup. It exposes an existing active application-bound code or a safe linked/pending/restricted account state, with explicit expired/used/missing/conflicting outcomes. It never issues codes or sends email, and observers/participants cannot read it. Optional directory links use [tutor-directory-link.ts](../../src/lib/tutor-directory-link.ts) to address `/admin/users#tutor-<encoded tutor ID>`. The stable roster ID survives account creation. The target comes from `promotedTutorId`, or, when absent, an unambiguous tutor ID on the application's own registration codes; ambiguous references do not produce an inferred target.
 
@@ -454,8 +481,10 @@ dialog remains available until deliberately closed; source reveal does not
 take its focus. When the outer reader closes with its browsing opener hidden,
 lost focus returns to the still-authorized visible source without scrolling or
 restarting a gesture-cancelled arrival. Existing usable focus and other open
-dialogs retain ownership; missing targets and access denial receive no fallback.
-Authoritative access denial still unmounts private readers.
+dialogs retain ownership; missing targets and access denial receive no source-row
+fallback.
+Authoritative access denial still unmounts private reader/editor content; retained
+operation controllers expose only their safe receipt and recovery controls.
 The separate read-only Tutor Details reader stays open on refresh, but closes
 when history selects another source or returns to the directory. Open the new
 source explicitly to read its details.
