@@ -212,6 +212,15 @@ records bind the exact reviewed live actors. Source freshness, collision checks,
 calendar/delivery, response authorization and attendance must use that same mapping.
 Completed lessons and existing response deadlines are never rewritten by transfer.
 
+A later review can keep the same canonical Tutor/Tutee and hand its selected
+participation to another eligible login. Under the existing transaction and locks,
+the writer clears both selected kinds of current login pointers before changing
+exact history readers, then updates retained ownership and restores the selected
+active pointers. This lets history-reader session revocation run against consistent
+ownership. Unselected roles and earlier source-history assignments remain intact;
+old reader sessions and calendar tokens are invalidated, and an exact receipt retry
+does not repeat the handover.
+
 Qualification transfer materializes only the concrete approved
 `sourceSubjectId`/`subjectId` tuples reviewed, retaining their original approval and
 grant provenance. It does not run current-catalogue inheritance. Willingness and
