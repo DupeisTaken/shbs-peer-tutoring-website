@@ -462,7 +462,7 @@ export async function applyStudentAbort(
     });
     await notifyRequest(tx, row, "student_withdrawal_pending", undefined, undefined,
       { entity: "StudentRequestReview", recordId: review.id });
-    return { ok: true };
+    return { ok: true, reviewId: review.id };
   });
 }
 
