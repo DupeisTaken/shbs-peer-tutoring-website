@@ -328,6 +328,7 @@ export const protectedProcedure = t.procedure
       "student.feedback",
       "student.appeal",
       "studentWorkflow.mine",
+      "studentWorkflow.signupRestriction",
       "studentWorkflow.legacyParticipation",
       "studentWorkflow.applyLegacyWithdrawal",
       "studentWorkflow.editAvailability",

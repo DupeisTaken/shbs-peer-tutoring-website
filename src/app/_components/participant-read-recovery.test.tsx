@@ -16,6 +16,10 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { StudentPortal } from "./student-portal";
 import { StudentWorkspace } from "../student/student-workspace";
+import {
+  StudentSignupAction,
+  StudentSignupRestrictionProvider,
+} from "../student/signup-restriction";
 import { LegacyParticipation } from "../student/legacy-participation";
 import { TutorDiscipline } from "../(tutor)/_components/tutor-discipline";
 import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
@@ -42,6 +46,12 @@ const remote = vi.hoisted(() => ({
   history: vi.fn(),
   calendarStatus: vi.fn(),
   planningWrite: vi.fn(),
+  restriction: vi.fn(),
+  routeRefresh: vi.fn(),
+}));
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: remote.routeRefresh }),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useQuery, useInfiniteQuery, useMutation } =
@@ -136,6 +146,10 @@ vi.mock("~/trpc/react", async () => {
         appeal: write(remote.appeal),
       },
       studentWorkflow: {
+        signupRestriction: read(
+          ["studentWorkflow", "signupRestriction"],
+          remote.restriction,
+        ),
         mine: read(["studentWorkflow", "mine"], remote.mine),
         legacyParticipation: read(
           ["studentWorkflow", "legacyParticipation"],
@@ -342,6 +356,11 @@ beforeEach(() => {
   remote.me.mockResolvedValue(personal);
   remote.settings.mockResolvedValue(false);
   remote.mine.mockResolvedValue([request]);
+  remote.restriction.mockResolvedValue({
+    intakeTermId: "current",
+    blocked: false,
+    canOpenWorkspace: true,
+  });
   remote.legacy.mockResolvedValue([]);
   remote.options.mockResolvedValue({
     subjects: [
@@ -472,6 +491,48 @@ it.each(["en", "zh"])(
     );
   },
 );
+
+it.each(["PENDING", "DENIED", "APPROVED"])(
+  "refreshes both mounted signup entries after a source read (decision=%s)",
+  async (decision) => {
+    const approved = decision === "APPROVED";
+    remote.mine.mockResolvedValue([]);
+    remote.legacy.mockResolvedValue([
+      { status: "INACTIVE", reviews: [{ state: decision }] },
+    ]);
+    mount(
+      <StudentSignupRestrictionProvider
+        snapshotKey="a0000000-0000-4000-8000-000000000001"
+        initialRestriction={{
+          intakeTermId: "current",
+          blocked: false,
+          canOpenWorkspace: true,
+        }}
+      >
+        <StudentSignupAction initiallyBlocked={false} departed={false} />
+        <StudentWorkspace />
+      </StudentSignupRestrictionProvider>,
+    );
+    await screen.findByRole("link", { name: en.workflow.newRequest });
+    remote.restriction.mockResolvedValue({
+      intakeTermId: "current",
+      blocked: approved,
+      canOpenWorkspace: true,
+    });
+    await refresh(["studentWorkflow", "mine"]);
+    await waitFor(() =>
+      expect(
+        !!screen.queryByRole("link", { name: en.tuteePortal.requestTutor }),
+      ).toBe(!approved),
+    );
+    expect(!!screen.queryByRole("link", { name: en.workflow.newRequest })).toBe(
+      !approved,
+    );
+    if (approved) expect(screen.getByText(en.workflow.abortFinal)).toBeTruthy();
+    expect(remote.withdraw).not.toHaveBeenCalled();
+  },
+);
+
 it.each([undefined, false, true])(
   "never claims a privacy audience on an unknown/failed read (cached %s)",
   async (cached) => {
@@ -718,6 +779,20 @@ it("retains selected availability on background failure and localizes the stored
   expect((choices[1] as HTMLInputElement).checked).toBe(true);
   expect(remote.edit).not.toHaveBeenCalled();
 });
+
+it.each(["en", "zh"])(
+  "uses the authoritative current-period restriction for an empty %s request workspace",
+  async (locale) => {
+    remote.mine.mockResolvedValue([]);
+    remote.legacy.mockResolvedValue([]);
+    mount(<StudentWorkspace quarterBlocked />, locale);
+    const messages = locale === "zh" ? zh : en;
+    expect(await screen.findByText(messages.workflow.abortFinal)).toBeTruthy();
+    expect(
+      screen.queryByRole("link", { name: messages.workflow.newRequest }),
+    ).toBeNull();
+  },
+);
 
 it("keeps a saved signup draft read-only through refresh failure and recovers without duplicating the accepted write", async () => {
   mount(<StudentWorkspace />);

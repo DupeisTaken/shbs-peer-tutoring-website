@@ -256,6 +256,15 @@ settings before enabling its fields. Outside that window, the form is a read-onl
 preview. If the check fails, use Retry; existing requests and their separate email
 confirmation deadlines remain unchanged.
 
+An open signup form checks participation restrictions with its existing settings
+refresh. If withdrawal is approved while you are editing, your answers remain
+visible and new submission is disabled. A saved or uncertain submission still
+offers its existing verification or result-recovery controls. After the program
+actually changes periods, review the new period and renew policy agreement before
+submitting. A failed refresh keeps your draft and blocks further submission until
+the read succeeds. Returning to the tutee workspace also refreshes its shared signup
+restriction; an unreadable restriction does not remove existing request panels.
+
 ### Continue selected pairings into the next quarter
 
 After an official **Q1 → Q2** or **Q3 → Q4** refresh, eligible signed-in tutees
@@ -318,7 +327,7 @@ The tutee page uses the same top bar, account menu, theme and card layout as the
 | Messages             | Read and send messages within the tutee workspace                                                                                  |
 | Account              | Manage your shared account within the tutee workspace                                                                              |
 
-While eligible to participate, **Request a Tutor** appears once in the page header of every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
+While eligible to participate, **Request a Tutor** appears once in the page header of every section and opens the existing request form. After an approved whole-period withdrawal, it is hidden for that period. Opening the signup address while signed in explains the restriction instead of showing a form; use **Requests** to read your retained records. Pending or declined withdrawal requests do not impose this restriction. A new active period restores the normal signup entry, subject to its recruitment window. A planned future opening does not change the active period. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
 
 Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
 

@@ -6,6 +6,8 @@ import {
   withSignupLease,
 } from "~/server/signup-admission";
 import { readPublicSignupTransition } from "~/server/program/public-signup-transition";
+import { readStudentSignupRestriction } from "~/server/student-intake-restriction";
+import { inTransaction } from "~/server/transactions";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { courseChoices } from "~/server/course-choices";
 import { issueSurveyAccountInvitation } from "~/server/auth/account-invitations";
@@ -279,7 +281,7 @@ export const tuteeRouter = createTRPCRouter({
   /** Options needed to render the public signup form: active subjects + active time slots. */
   signupOptions: publicProcedure.query(async ({ ctx }) =>
     withSignupAdmission(ctx.db, ctx.headers, "read", undefined, async () => {
-      const [subjects, slots, settings, transition] = await Promise.all([
+      const [subjects, slots, settings, intake] = await Promise.all([
         courseChoices(ctx.db, { active: true }),
         ctx.db.timeSlot.findMany({
           where: { active: true },
@@ -293,8 +295,19 @@ export const tuteeRouter = createTRPCRouter({
           },
         }),
         getSignupSettings(ctx.db),
-        readPublicSignupTransition(ctx.db),
+        inTransaction(ctx.db, async (tx) => {
+          const transition = await readPublicSignupTransition(tx);
+          const signupRestriction = ctx.session?.user
+            ? await readStudentSignupRestriction(
+                tx,
+                transition.current?.termId ?? null,
+                ctx.session.user.id,
+              )
+            : null;
+          return { transition, signupRestriction };
+        }),
       ]);
+      const { transition, signupRestriction } = intake;
       return {
         subjects: subjects.map(({ id, name }) => ({ id, name })),
         slots,
@@ -307,6 +320,7 @@ export const tuteeRouter = createTRPCRouter({
           serverNow: transition.serverNow,
         },
         transition,
+        signupRestriction,
       };
     }),
   ),
