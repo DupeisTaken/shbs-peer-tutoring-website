@@ -982,7 +982,7 @@ it.each([false, true])(
     expect(screen.getByText("workflow.abortFinal")).toBeTruthy();
     expect(
       screen
-        .getByRole("link", { name: "tuteePortal.requests" })
+        .getByRole("link", { name: "tuteePortal.viewMyRequests" })
         .getAttribute("href"),
     ).toBe("/student?view=requests");
     expect(name.value).toBe("Student");
