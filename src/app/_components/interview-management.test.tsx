@@ -955,11 +955,13 @@ it("opens an exact completed source outside saved list scope once through reads 
   mocks.fetch.mockResolvedValueOnce(sourceEvidence());
   arriveAtCompletion("completed");
   show();
-  await waitFor(() =>
-    expect(
-      screen.getByLabelText("Original Interview Participant"),
-    ).toBeTruthy(),
-  );
+  // The native dialog opens in an effect after its contents mount.
+  const dialog = await screen.findByRole("dialog", {
+    name: `${en.interviewReview.correct} · Earlier Candidate`,
+  });
+  expect(
+    within(dialog).getByLabelText("Original Interview Participant"),
+  ).toBeTruthy();
   expect(mocks.exactFetch).toHaveBeenCalledWith(
     {
       applicationId: "completed",
@@ -982,7 +984,9 @@ it("opens an exact completed source outside saved list scope once through reads 
     status: "",
     sort: "CREATED_DESC",
   });
-  fireEvent.click(screen.getByRole("button", { name: en.common.cancel }));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: en.common.cancel }),
+  );
   fireEvent.change(
     screen.getByRole("combobox", {
       name: en.admin.applications.filters.status,
