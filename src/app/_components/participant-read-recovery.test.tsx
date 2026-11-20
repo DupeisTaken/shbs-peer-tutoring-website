@@ -12,6 +12,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactElement, ReactNode } from "react";
+import type * as NextNavigation from "next/navigation";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { StudentPortal } from "./student-portal";
@@ -50,7 +51,7 @@ const remote = vi.hoisted(() => ({
   routeRefresh: vi.fn(),
 }));
 vi.mock("next/navigation", async (original) => ({
-  ...(await original<typeof import("next/navigation")>()),
+  ...(await original<typeof NextNavigation>()),
   useRouter: () => ({ refresh: remote.routeRefresh }),
 }));
 vi.mock("~/trpc/react", async () => {
