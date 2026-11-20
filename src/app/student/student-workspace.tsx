@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,9 +22,12 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ParticipantName } from "~/app/_components/participant-name";
 import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
+import { getSessionReadReceipts } from "~/lib/session-read-receipts";
 import { useStudentSignupRestriction } from "./signup-restriction";
 
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
+const noReadSubscription = () => () => undefined;
+const emptyReadSnapshot = () => 0;
 export function StudentWorkspace({
   viewScope = "",
   quarterBlocked = false,
@@ -37,6 +41,12 @@ export function StudentWorkspace({
   const appeal = useTranslations("signupAppeal");
   const recovery = useTranslations("participantRecovery");
   const queryClient = useQueryClient();
+  const readReceipts = getSessionReadReceipts(queryClient);
+  useSyncExternalStore(
+    readReceipts?.subscribe ?? noReadSubscription,
+    readReceipts?.getSnapshot ?? emptyReadSnapshot,
+    emptyReadSnapshot,
+  );
   const [denied, setDenied] = useState(false);
   const query = api.studentWorkflow.mine.useQuery(undefined, {
     enabled: !denied,
@@ -117,6 +127,22 @@ export function StudentWorkspace({
   };
   const readBlocked =
     !!query.error || !!legacy.error || !query.data || !legacy.data;
+  const sourceQuery = queryClient.getQueryCache().find({
+    queryKey: getQueryKey(api.studentWorkflow.mine, undefined, "query"),
+    exact: true,
+  });
+  const sourceProof = sourceQuery && readReceipts?.read(sourceQuery).proof;
+  // An exact review must come from a completed network read of this generation.
+  // Manual cache writes and reads crossing a denial cannot release a receipt.
+  const readVerified = Boolean(
+    sourceProof &&
+    sourceProof.firstDenialFence === undefined &&
+    sourceQuery?.state.data === query.data &&
+    query.isSuccess &&
+    legacy.isSuccess &&
+    !query.isFetching &&
+    !legacy.isFetching,
+  );
   const readFeedback = (
     <>
       <QueryFeedback
@@ -144,6 +170,7 @@ export function StudentWorkspace({
   const currentRequests = useCurrentRequests({
     rows: query.data ?? [],
     readBlocked,
+    readVerified,
     readFeedback,
     concealed: denied || requestDenied || legacyDenied,
     onRefresh: async () => {
@@ -235,18 +262,23 @@ export function StudentWorkspace({
   );
 }
 type RequestAction = { row: Request; kind: "RECALL" | "ABORT" };
+type AcceptedRequestAction =
+  | { kind: "RECALL" }
+  | { kind: "ABORT"; reviewId: string };
 
 /** Dialogs and accepted receipts belong to the list, not a removable OPEN card.
  * Source IDs keep actions stable when reads reorder or close another request. */
 function useCurrentRequests({
   rows,
   readBlocked,
+  readVerified,
   readFeedback,
   concealed,
   onRefresh,
 }: {
   rows: Request[];
   readBlocked: boolean;
+  readVerified: boolean;
   readFeedback: ReactNode;
   concealed: boolean;
   onRefresh: () => Promise<void>;
@@ -258,7 +290,9 @@ function useCurrentRequests({
   const [reason, setReason] = useState("");
   const [working, setWorking] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [accepted, setAccepted] = useState<Set<string>>(() => new Set());
+  const [accepted, setAccepted] = useState<Map<string, AcceptedRequestAction>>(
+    () => new Map(),
+  );
   const [recoveries, setRecoveries] = useState<RequestAction[]>([]);
   const admitted = useRef(false);
   const recall = api.studentWorkflow.recall.useMutation();
@@ -269,6 +303,29 @@ function useCurrentRequests({
   if (concealed && (editing || action)) {
     setEditing(null);
     setAction(null);
+  }
+  if (readVerified && !readBlocked && !concealed) {
+    const nextAccepted = new Map(accepted);
+    const observed = new Set<string>();
+    for (const [id, receipt] of accepted) {
+      const row = rows.find((item) => item.id === id);
+      const review =
+        receipt.kind === "ABORT"
+          ? row?.reviews.find(
+              (item) =>
+                item.id === receipt.reviewId && item.kind === "STUDENT_ABORT",
+            )
+          : undefined;
+      if (review || (receipt.kind === "RECALL" && row?.state === "RECALLED"))
+        observed.add(id);
+      // A decline of this exact submission permits a fresh ticketed attempt,
+      // even if no intervening PENDING snapshot reached the mounted workspace.
+      if (row?.state === "OPEN" && review?.state === "DENIED")
+        nextAccepted.delete(id);
+    }
+    if (nextAccepted.size !== accepted.size) setAccepted(nextAccepted);
+    if (recoveries.some((item) => observed.has(item.row.id)))
+      setRecoveries(recoveries.filter((item) => !observed.has(item.row.id)));
   }
   const active = rows.filter((row) => row.state === "OPEN");
   const context = (row: Request) =>
@@ -281,15 +338,12 @@ function useCurrentRequests({
         }),
       },
     )}`;
-  const recover = async (id: string) => {
+  const recover = async () => {
     if (admitted.current || busy) return;
     admitted.current = true;
     setWorking(true);
     try {
       await onRefresh();
-      setRecoveries((previous) =>
-        previous.filter((item) => item.row.id !== id),
-      );
     } catch {
       // The accepted source keeps its own read-only recovery; never replay it.
     } finally {
@@ -319,15 +373,25 @@ function useCurrentRequests({
     setFailure(null);
     const selected = action;
     try {
-      if (selected.kind === "ABORT")
-        await abort.mutateAsync({ id: selected.row.id, reason, ticket });
-      else await recall.mutateAsync({ id: selected.row.id, ticket });
-      setAccepted((previous) => new Set(previous).add(selected.row.id));
+      let receipt: AcceptedRequestAction;
+      if (selected.kind === "ABORT") {
+        const result = await abort.mutateAsync({
+          id: selected.row.id,
+          reason,
+          ticket,
+        });
+        receipt = { kind: "ABORT", reviewId: result.reviewId };
+      } else {
+        await recall.mutateAsync({ id: selected.row.id, ticket });
+        receipt = { kind: "RECALL" };
+      }
+      setAccepted((previous) => new Map(previous).set(selected.row.id, receipt));
+      setRecoveries((previous) => [...previous, selected]);
       setAction(null);
       try {
         await onRefresh();
       } catch {
-        setRecoveries((previous) => [...previous, selected]);
+        // Keep read-only recovery until the exact accepted result is observed.
       }
     } catch (error) {
       setFailure(error instanceof Error ? error.message : t("actionFailed"));
@@ -352,7 +416,7 @@ function useCurrentRequests({
                   ? `${t("retryRefresh")} · ${context(item.row)}`
                   : undefined
               }
-              onClick={() => void recover(item.row.id)}
+              onClick={() => void recover()}
             >
               {t("retryRefresh")}
             </Button>

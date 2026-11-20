@@ -63,8 +63,10 @@ async function ready(actor: Caller, action: "ASSIGN" | "SIGNUP_EDIT" | "SIGNUP_U
 }
 
 async function withdrawal(f: Awaited<ReturnType<typeof fixture>>, surveyId = "request-c") {
-  await f.owner.studentWorkflow.applyAbort({ id: surveyId, reason: "Synthetic quarter withdrawal", ticket: await ready(f.owner, "ABORT", surveyId) });
-  return db.studentRequestReview.findFirstOrThrow({ where: { surveyId, kind: "STUDENT_ABORT", state: "PENDING" } });
+  const receipt = await f.owner.studentWorkflow.applyAbort({ id: surveyId, reason: "Synthetic quarter withdrawal", ticket: await ready(f.owner, "ABORT", surveyId) });
+  const review = await db.studentRequestReview.findFirstOrThrow({ where: { surveyId, kind: "STUDENT_ABORT", state: "PENDING" } });
+  expect(receipt).toEqual({ ok: true, reviewId: review.id });
+  return review;
 }
 
 async function sibling(input: { id: string; ownerId?: string; term?: string; manual?: boolean; state?: "OPEN" | "RECALLED" }) {
@@ -348,6 +350,18 @@ it("declines a withdrawal without closing owned siblings, assignments or intake"
   expect(await db.pairingTutee.findMany()).toEqual(members);
   expect(await db.studentQuarterBlock.count()).toBe(0);
   expect(await db.studentRequestReview.findUnique({ where: { id: review.id } })).toMatchObject({ state: "DENIED" });
+  expect((await f.owner.studentWorkflow.mine()).find(({ id }) => id === "request-c")?.reviews)
+    .toEqual(expect.arrayContaining([expect.objectContaining({ id: review.id, kind: "STUDENT_ABORT", state: "DENIED" })]));
+  const next = await withdrawal(f);
+  expect(next.id).not.toBe(review.id);
+  expect((await f.owner.studentWorkflow.mine()).find(({ id }) => id === "request-c")?.reviews)
+    .toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: review.id, state: "DENIED" }),
+      expect.objectContaining({ id: next.id, state: "PENDING" }),
+    ]));
+  await expect(f.owner.studentWorkflow.applyAbort({ id: "request-c", reason: "Duplicate pending withdrawal", ticket: await ready(f.owner, "ABORT", "request-c") }))
+    .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.studentRequestReview.count({ where: { surveyId: "request-c", kind: "STUDENT_ABORT" } })).toBe(2);
 });
 
 it.each(["transferred", "conflicting"])("fails closed when initiating ownership is %s after application", async (mode) => {
