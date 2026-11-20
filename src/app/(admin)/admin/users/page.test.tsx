@@ -473,6 +473,7 @@ vi.mock("~/trpc/react", async () => {
 vi.mock("./user-details", async (importOriginal) => {
   const actual = await importOriginal<typeof UserDetailsModule>();
   return {
+    ...actual,
     UserDetails: (props: ComponentProps<typeof actual.UserDetails>) =>
       fixture.realDetails ? (
         <actual.UserDetails {...props} />
