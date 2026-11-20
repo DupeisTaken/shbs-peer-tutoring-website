@@ -234,6 +234,7 @@ it.each(["en", "zh"])(
         );
         expect(html).toContain('role="status"');
         expect(html).toContain('href="/student?view=requests"');
+        expect(html).toContain(messages.tuteePortal.viewMyRequests);
         expect(html).not.toContain(messages.survey.intro);
       }
     }

@@ -92,7 +92,7 @@ export default async function SignupPage({
             action={
               restriction.canOpenWorkspace ? (
                 <Link href="/student?view=requests" className="btn-secondary">
-                  {t("tuteePortal.requests")}
+                  {t("tuteePortal.viewMyRequests")}
                 </Link>
               ) : undefined
             }
