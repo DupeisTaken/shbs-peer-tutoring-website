@@ -14,6 +14,7 @@ import { currentPolicy } from "~/server/policy-acceptance";
 import * as auditEvidence from "~/server/audit/evidence";
 import {
   saveSchoolCalendar,
+  saveSchoolCalendarHoliday,
   resetSchoolCalendar,
 } from "~/server/program/school-calendar";
 import { saveProgramCalendar, removeProgramCalendar } from "~/server/program/calendar";
@@ -22,6 +23,7 @@ import { changeSchoolDeparture } from "~/server/school-departure";
 import * as transactionHelpers from "~/server/transactions";
 import * as sessionNoticeWrites from "./notice-inserts";
 import { plannedWindow, type PlanningTime } from "~/lib/session-planning";
+import { schoolCalendarRangeDates } from "~/lib/school-calendar";
 import { assertNoPublishedTuteeDeletion } from "./deletion-guards";
 import { sessionCalendarFeed } from "~/server/session-planning-calendar";
 import {
@@ -2933,6 +2935,112 @@ describe("publication and scoped attendance", () => {
         .sourceScheduleFingerprint,
     ).toBe(plan.sourceScheduleFingerprint);
     expect(await db.sessionNotice.count()).toBe(noticeCount);
+  });
+
+  it("publishes the maximum 366-day holiday with real planning and notification adapters inside the transaction budget", async () => {
+    const from = "2026-10-27",
+      to = "2027-10-27";
+    const started = performance.now();
+    const saved = await saveSchoolCalendarHoliday(
+      db,
+      {
+        from,
+        to,
+        note: "Synthetic maximum holiday range",
+        expectedVersions: schoolCalendarRangeDates(from, to).map((date) => ({
+          date,
+          version: 0,
+        })),
+      },
+      tutor.id,
+    );
+    const elapsedMs = Math.round(performance.now() - started);
+    expect(saved).toHaveLength(366);
+    expect(saved[0]?.date).toBe(from);
+    expect(saved.at(-1)?.date).toBe(to);
+    expect(
+      await db.schoolCalendarDay.count({
+        where: { active: true, isSchoolDay: false },
+      }),
+    ).toBe(366);
+    expect(
+      await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+    ).toBe(366);
+    console.info(
+      `[school-calendar maximum range] 366 dates committed in ${elapsedMs} ms (real planning and notification adapters; 20000 ms transaction budget)`,
+    );
+  }, 30_000);
+
+  it("closes a three-day holiday atomically while retaining an explicitly agreed extra", async () => {
+    const mapped = [];
+    for (const date of ["2026-11-03", "2026-11-04"])
+      mapped.push(
+        await saveSchoolCalendar(
+          db,
+          {
+            date,
+            isSchoolDay: true,
+            timetableWeekday: 1,
+            note: "Synthetic make-up timetable",
+            expectedVersion: 0,
+          },
+          tutor.id,
+        ),
+      );
+    const ordinary = await db.sessionPlanCohort.findMany({
+      where: {
+        date: { gte: "2026-11-02", lte: "2026-11-04" },
+        plan: { kind: "REGULAR" },
+      },
+      orderBy: { date: "asc" },
+    });
+    expect(ordinary.map((cohort) => cohort.date)).toEqual([
+      "2026-11-02",
+      "2026-11-03",
+      "2026-11-04",
+    ]);
+    expect(ordinary.every((cohort) => cohort.status === "SCHEDULED")).toBe(true);
+    const original = await source();
+    const extra = await proposeSession(db, tutor, {
+      cohortId: original.id,
+      expectedVersion: original.version,
+      clientKey: randomUUID(),
+      scope: "ONE",
+      kind: "EXTRA",
+      tuteeId: "planning-one",
+      date: "2026-11-03",
+      startMin: 1000,
+      online: false,
+    });
+    await respond(extra.id, one, "ACCEPT");
+    const agreed = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { date: "2026-11-03", plan: { kind: "EXTRA" } },
+    });
+    const closed = await saveSchoolCalendarHoliday(
+      db,
+      {
+        from: "2026-11-02",
+        to: "2026-11-04",
+        note: "Synthetic three-day holiday",
+        expectedVersions: [
+          { date: "2026-11-02", version: 0 },
+          ...mapped.map((day) => ({ date: day.date, version: day.version })),
+        ],
+      },
+      tutor.id,
+    );
+    expect(closed).toHaveLength(3);
+    const changed = await db.sessionPlanCohort.findMany({
+      where: { id: { in: ordinary.map((cohort) => cohort.id) } },
+    });
+    expect(changed.every((cohort) => cohort.status === "CANCELLED")).toBe(true);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: agreed.id } }),
+    ).toMatchObject({
+      status: "SCHEDULED",
+      date: agreed.date,
+      startMin: agreed.startMin,
+    });
   });
 
   it("suppresses ordinary closure dates while retaining explicit extras and reschedules through reset", async () => {

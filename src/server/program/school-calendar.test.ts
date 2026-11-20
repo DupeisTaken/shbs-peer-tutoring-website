@@ -16,10 +16,12 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import {
   schoolCalendarWrite,
   resolveSchoolCalendarDay,
+  schoolCalendarRangeDates,
 } from "~/lib/school-calendar";
 import { notifySchoolCalendarChange } from "~/server/school-calendar-notifications";
 import { saveSchoolCalendar } from "./school-calendar";
 import * as transactionHelpers from "~/server/transactions";
+import * as sessionPlanning from "~/server/session-planning";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 const caller = (role: Session["role"] = "HEAD") =>
@@ -519,4 +521,247 @@ it("counts school-day status for appeals without consuming timetable mappings, t
     },
   });
   expect(appealDeadline(start, [reset])).toEqual(baseline);
+});
+
+const holidayInput = (from = "2026-11-01", to = "2026-11-03") => ({
+  from,
+  to,
+  note: "Synthetic school holiday",
+  expectedVersions: schoolCalendarRangeDates(from, to).map((date) => ({
+    date,
+    version: 0,
+  })),
+});
+
+it.each(["HEAD", "ADMIN"] as const)(
+  "lets %s close every date inclusively, reconciling only the final range once",
+  async (role) => {
+    const originalPlanning = sessionPlanning.ensureSessionPlanningWindow;
+    const planning = vi
+      .spyOn(sessionPlanning, "ensureSessionPlanningWindow")
+      .mockImplementation(async (client, now) => {
+        const days = await client.schoolCalendarDay.findMany({
+          orderBy: { date: "asc" },
+        });
+        expect(days.map((day) => day.date)).toEqual([
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03",
+        ]);
+        expect(days.every((day) => !day.isSchoolDay)).toBe(true);
+        return originalPlanning(client, now);
+      });
+    try {
+      vi.mocked(notifySchoolCalendarChange).mockImplementation(async () => {
+        // The notification adapter receives the same transaction after all range rows exist.
+        expect(planning).toHaveBeenCalledTimes(1);
+      });
+      const saved =
+        await caller(role).student.setCalendarHoliday(holidayInput());
+      expect(saved.map(({ date }) => date)).toEqual([
+        "2026-11-01",
+        "2026-11-02",
+        "2026-11-03",
+      ]);
+      expect(
+        saved.every(
+          (day) =>
+            day.active &&
+            !day.isSchoolDay &&
+            day.timetableWeekday === null &&
+            day.version === 1 &&
+            day.scheduleRevision === 1,
+        ),
+      ).toBe(true);
+      expect(planning).toHaveBeenCalledTimes(1);
+      expect(notifySchoolCalendarChange).toHaveBeenCalledTimes(3);
+      expect(await db.approvalRequest.count()).toBe(0);
+      expect(
+        await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+      ).toBe(3);
+      expect(
+        appealDeadline(new Date("2026-10-30T03:00:00Z"), saved).toISOString(),
+      ).toBe("2026-11-10T15:59:59.999Z");
+      const repeat = await caller(role).student.setCalendarHoliday({
+        ...holidayInput(),
+        expectedVersions: saved.map((day) => ({
+          date: day.date,
+          version: day.version,
+        })),
+      });
+      expect(repeat).toEqual(saved);
+      expect(planning).toHaveBeenCalledTimes(1);
+      expect(notifySchoolCalendarChange).toHaveBeenCalledTimes(3);
+      expect(
+        await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+      ).toBe(3);
+    } finally {
+      planning.mockRestore();
+    }
+  },
+);
+
+it("rejects a stale middle date before any range write and reactivates only captured tombstone versions", async () => {
+  const existing = await caller().student.setCalendarDay({
+    ...mapping,
+    date: "2026-11-02",
+  });
+  const reset = await caller().student.resetCalendarDay({
+    date: existing.date,
+    expectedVersion: existing.version,
+  });
+  vi.mocked(notifySchoolCalendarChange).mockClear();
+  const input = holidayInput();
+  const auditCount = await db.auditLog.count({
+    where: { entity: "SchoolCalendarDay" },
+  });
+  await expect(
+    caller().student.setCalendarHoliday(input),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.schoolCalendarDay.findMany()).toEqual([reset]);
+  expect(
+    await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+  ).toBe(auditCount);
+  expect(notifySchoolCalendarChange).not.toHaveBeenCalled();
+  const saved = await caller().student.setCalendarHoliday({
+    ...input,
+    expectedVersions: input.expectedVersions.map((entry) =>
+      entry.date === reset.date ? { ...entry, version: reset.version } : entry,
+    ),
+  });
+  expect(saved[1]).toMatchObject({
+    active: true,
+    isSchoolDay: false,
+    version: reset.version + 1,
+    scheduleRevision: reset.scheduleRevision + 1,
+  });
+});
+
+it("replaces captured make-up mappings and retains semantic revisions on a holiday note-only edit", async () => {
+  const existing = await caller().student.setCalendarDay(mapping);
+  const input = holidayInput(mapping.date, mapping.date);
+  const [saved] = await caller().student.setCalendarHoliday({
+    ...input,
+    expectedVersions: [{ date: existing.date, version: existing.version }],
+  });
+  expect(saved).toMatchObject({
+    active: true,
+    isSchoolDay: false,
+    timetableWeekday: null,
+    version: 2,
+    scheduleRevision: 2,
+  });
+  vi.mocked(notifySchoolCalendarChange).mockClear();
+  const edited = await caller().student.setCalendarHoliday({
+    ...input,
+    note: "Updated private note",
+    expectedVersions: [{ date: existing.date, version: saved!.version }],
+  });
+  expect(edited[0]).toMatchObject({ version: 3, scheduleRevision: 2 });
+  expect(notifySchoolCalendarChange).not.toHaveBeenCalled();
+});
+
+it("queues one Coordinator holiday proposal and refuses the whole approval after a formerly absent middle date changes", async () => {
+  const input = holidayInput();
+  for (const role of ["TUTOR", "STUDENT"] as const)
+    await expect(
+      caller(role).student.setCalendarHoliday(input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller("COORDINATOR").student.setCalendarHoliday(input),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.schoolCalendarDay.count()).toBe(0);
+  expect(notifySchoolCalendarChange).not.toHaveBeenCalled();
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "student.setCalendarHoliday" },
+  });
+  expect(proposal.targets).toMatchObject({ calendar: [] });
+  expect(await db.approvalRequest.count()).toBe(1);
+  const intervening = await caller().student.setCalendarDay({
+    ...mapping,
+    date: "2026-11-02",
+  });
+  await expect(
+    caller("ADMIN").approval.decide({
+      id: proposal.id,
+      approve: true,
+      note: "Stale holiday review",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.schoolCalendarDay.findMany()).toEqual([intervening]);
+  const current = {
+    ...input,
+    expectedVersions: input.expectedVersions.map((entry) =>
+      entry.date === intervening.date
+        ? { ...entry, version: intervening.version }
+        : entry,
+    ),
+  };
+  await expect(
+    caller("COORDINATOR").student.setCalendarHoliday(current),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const replacement = await db.approvalRequest.findFirstOrThrow({
+    where: {
+      operation: "student.setCalendarHoliday",
+      id: { not: proposal.id },
+    },
+  });
+  expect(replacement.targets).toMatchObject({
+    calendar: [
+      {
+        date: intervening.date,
+        version: intervening.version,
+        timetableWeekday: 1,
+      },
+    ],
+  });
+  await caller("ADMIN").approval.decide({
+    id: replacement.id,
+    approve: true,
+    note: "Reviewed all holiday dates",
+  });
+  expect(
+    await db.schoolCalendarDay.count({
+      where: { active: true, isSchoolDay: false },
+    }),
+  ).toBe(3);
+});
+
+it("rolls back the entire holiday range and audit if a later notification intent fails", async () => {
+  vi.mocked(notifySchoolCalendarChange)
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValueOnce(new Error("Synthetic range intent failure"));
+  await expect(
+    caller().student.setCalendarHoliday(holidayInput()),
+  ).rejects.toThrow("Synthetic range intent failure");
+  expect(await db.schoolCalendarDay.count()).toBe(0);
+  expect(
+    await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+  ).toBe(0);
+});
+
+it("keeps an approved holiday proposal pending if transactional publication fails", async () => {
+  await expect(
+    caller("COORDINATOR").student.setCalendarHoliday(holidayInput()),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "student.setCalendarHoliday" },
+  });
+  vi.mocked(notifySchoolCalendarChange)
+    .mockResolvedValueOnce(undefined)
+    .mockRejectedValueOnce(new Error("Synthetic approved-range failure"));
+  await expect(
+    caller("ADMIN").approval.decide({
+      id: proposal.id,
+      approve: true,
+      note: "Reviewed holiday",
+    }),
+  ).rejects.toThrow("Synthetic approved-range failure");
+  expect(await db.schoolCalendarDay.count()).toBe(0);
+  expect(
+    await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+  ).toBe(0);
+  expect(
+    await db.approvalRequest.findUnique({ where: { id: proposal.id } }),
+  ).toMatchObject({ state: "PENDING" });
 });

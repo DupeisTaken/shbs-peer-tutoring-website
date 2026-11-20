@@ -3856,7 +3856,8 @@
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "월간 서비스 시간 보고서 일정 변경",
-        "schoolHours_save": "학교 봉사시간 보고서 일정 변경"
+        "schoolHours_save": "학교 봉사시간 보고서 일정 변경",
+        "student_setCalendarHoliday": "학교 휴일 날짜 범위 추가"
       },
       "decisionRequestHelp": "'승인 및 적용'은 원래 신청을 거부하는 작업을 포함하여 제안된 작업을 실행합니다. '피드백과 함께 거부'는 이 제안을 거부하고 변경하지 않습니다. 어느 쪽이든 결정 사유를 메모에 작성하세요.",
       "confirmPassword": "계정 비밀번호 확인",
@@ -7306,7 +7307,16 @@
     "viewUpcoming": "예정된 변경 보기",
     "requestedDateTitle": "이 날짜의 학교 일정",
     "defaultCalendar": "이 날짜에 적용 중인 예외가 없습니다. 기본 등교일 및 요일 규칙을 적용합니다.",
-    "currentCalendar": "현재 학교 일정을 표시하며 이전 알림 당시의 상태는 아닙니다."
+    "currentCalendar": "현재 학교 일정을 표시하며 이전 알림 당시의 상태는 아닙니다.",
+    "addHoliday": "휴일 추가",
+    "from": "시작일",
+    "to": "종료일",
+    "holidayHelp": "범위 내 모든 날짜를 휴교일로 설정합니다. 시작일과 종료일을 포함하며 최대 366일입니다. 메모는 모든 날짜에 적용됩니다.",
+    "holidayPreview": "휴교일: {count}일 (시작일과 종료일 포함).",
+    "invalidRange": "유효한 날짜를 선택하세요. 종료일은 시작일 이후 또는 같은 날이어야 하며 최대 366일입니다.",
+    "holidayReplaces": "저장하면 아래 기존 날짜 설정 {count}개와 해당 메모가 교체됩니다.",
+    "saveHoliday": "휴일 저장",
+    "reloadHoliday": "현재 범위 다시 불러오기"
   },
   "recordInspector": {
     "backToRecord": "Back to record",

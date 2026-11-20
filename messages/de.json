@@ -3856,7 +3856,8 @@
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Zeitplan der monatlichen Dienststundenberichte ändern",
-        "schoolHours_save": "Zeitplan der Schulstundenberichte ändern"
+        "schoolHours_save": "Zeitplan der Schulstundenberichte ändern",
+        "student_setCalendarHoliday": "Einen Schulferienzeitraum hinzufügen"
       },
       "decisionRequestHelp": "„Genehmigen und anwenden“ führt die beantragte Aktion aus, auch eine beantragte Ablehnung. „Mit Rückmeldung ablehnen“ lehnt diesen Antrag ohne Änderungen ab. Begründen Sie beide Entscheidungen mit einer Notiz.",
       "confirmPassword": "Passwort Ihres Kontos bestätigen",
@@ -7306,7 +7307,16 @@
     "viewUpcoming": "Bevorstehende Änderungen ansehen",
     "requestedDateTitle": "Schulkalender für dieses Datum",
     "defaultCalendar": "Keine aktive Ausnahme für dieses Datum. Die üblichen Schul- und Wochentagsregeln gelten.",
-    "currentCalendar": "Dies zeigt den aktuellen Schulkalender, nicht den Stand der früheren Benachrichtigung."
+    "currentCalendar": "Dies zeigt den aktuellen Schulkalender, nicht den Stand der früheren Benachrichtigung.",
+    "addHoliday": "Ferien hinzufügen",
+    "from": "Startdatum",
+    "to": "Enddatum",
+    "holidayHelp": "Alle Daten in diesem Zeitraum als schulfrei markieren. Start und Ende sind eingeschlossen; höchstens 366 Tage. Die Notiz gilt für jeden Tag.",
+    "holidayPreview": "Schulfreie Tage: {count} (einschließlich Start und Ende).",
+    "invalidRange": "Gültige Daten wählen: Ende frühestens am Start, höchstens 366 Tage.",
+    "holidayReplaces": "Beim Speichern werden die folgenden {count} Datumsausnahmen samt Notizen ersetzt.",
+    "saveHoliday": "Ferien speichern",
+    "reloadHoliday": "Aktuellen Zeitraum neu laden"
   },
   "recordInspector": {
     "backToRecord": "Back to record",

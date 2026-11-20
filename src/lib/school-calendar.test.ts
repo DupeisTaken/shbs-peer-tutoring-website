@@ -4,8 +4,97 @@ import {
   resolveSchoolCalendarDay,
   schoolCalendarWrite,
   schoolCalendarReset,
+  schoolCalendarHoliday,
+  schoolCalendarRangeDates,
   type SchoolCalendarOverride,
 } from "./school-calendar";
+
+describe("inclusive holiday ranges", () => {
+  const holiday = (from: string, to: string) => ({
+    from,
+    to,
+    note: "  School holiday  ",
+    expectedVersions: schoolCalendarRangeDates(from, to).map((date) => ({
+      date,
+      version: 0,
+    })),
+  });
+  it("includes both boundaries, single dates, leap days and year changes", () => {
+    expect(schoolCalendarRangeDates("2028-02-28", "2028-03-01")).toEqual([
+      "2028-02-28",
+      "2028-02-29",
+      "2028-03-01",
+    ]);
+    expect(schoolCalendarRangeDates("2026-12-31", "2027-01-01")).toEqual([
+      "2026-12-31",
+      "2027-01-01",
+    ]);
+    expect(
+      schoolCalendarHoliday.parse(holiday("2026-11-02", "2026-11-02")),
+    ).toMatchObject({
+      note: "School holiday",
+      expectedVersions: [{ date: "2026-11-02", version: 0 }],
+    });
+    expect(schoolCalendarRangeDates("2028-01-01", "2028-12-31")).toHaveLength(
+      366,
+    );
+    expect(
+      schoolCalendarHoliday.safeParse(holiday("2028-01-01", "2028-12-31"))
+        .success,
+    ).toBe(true);
+  });
+  it.each([
+    ["2026-02-29", "2026-03-01"],
+    ["2026-11-03", "2026-11-02"],
+    ["2028-01-01", "2029-01-01"],
+  ])("rejects malformed, reversed or oversized ranges %s–%s", (from, to) => {
+    expect(() => schoolCalendarRangeDates(from, to)).toThrow();
+    expect(
+      schoolCalendarHoliday.safeParse({
+        from,
+        to,
+        note: "",
+        expectedVersions: [],
+      }).success,
+    ).toBe(false);
+  });
+  it("requires exactly one nonnegative version for every covered date and no school-day fields", () => {
+    const input = holiday("2026-11-01", "2026-11-03");
+    for (const expectedVersions of [
+      input.expectedVersions.slice(1),
+      [...input.expectedVersions, input.expectedVersions[0]],
+      [
+        input.expectedVersions[0],
+        input.expectedVersions[0],
+        input.expectedVersions[2],
+      ],
+      [
+        ...input.expectedVersions.slice(0, 2),
+        { date: "2026-11-04", version: 0 },
+      ],
+      [
+        ...input.expectedVersions.slice(0, 2),
+        { date: "2026-11-03", version: -1 },
+      ],
+    ])
+      expect(
+        schoolCalendarHoliday.safeParse({ ...input, expectedVersions }).success,
+      ).toBe(false);
+    expect(
+      schoolCalendarHoliday.safeParse({ ...input, isSchoolDay: true }).success,
+    ).toBe(false);
+    expect(
+      schoolCalendarHoliday.safeParse({ ...input, timetableWeekday: 1 })
+        .success,
+    ).toBe(false);
+    expect(
+      schoolCalendarHoliday.safeParse({
+        ...input,
+        expectedVersions: [...input.expectedVersions].reverse(),
+      }).success,
+    ).toBe(true);
+  });
+});
 
 describe("school calendar facts", () => {
   it("defaults to school weekdays and closed weekends, independently of machine timezone", () => {
@@ -127,7 +216,12 @@ describe("operation-scoped school calendar snapshots", () => {
         version: 8,
         scheduleRevision: 3,
       },
-      { date: "2026-11-04", isSchoolDay: false, version: 9, scheduleRevision: 0 },
+      {
+        date: "2026-11-04",
+        isSchoolDay: false,
+        version: 9,
+        scheduleRevision: 0,
+      },
     ];
     const snapshot = createSchoolCalendarSnapshot(overrides);
     for (const date of [
@@ -182,7 +276,9 @@ describe("operation-scoped school calendar snapshots", () => {
     });
     expect(snapshot.semanticDays()).toBe(snapshot.semanticDays());
     expect(Object.isFrozen(snapshot.semanticDays())).toBe(true);
-    expect(snapshot.semanticDays().every((day) => Object.isFrozen(day))).toBe(true);
+    expect(snapshot.semanticDays().every((day) => Object.isFrozen(day))).toBe(
+      true,
+    );
   });
 
   it("isolates input changes and returned objects between operations", () => {

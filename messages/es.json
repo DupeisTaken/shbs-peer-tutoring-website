@@ -3856,7 +3856,8 @@
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Cambiar la programación de informes mensuales de horas",
-        "schoolHours_save": "Cambiar la programación de informes de horas para la escuela"
+        "schoolHours_save": "Cambiar la programación de informes de horas para la escuela",
+        "student_setCalendarHoliday": "Añadir un intervalo de vacaciones escolares"
       },
       "decisionRequestHelp": "Aprobar y aplicar ejecuta la acción solicitada, incluso cuando esta consiste en rechazar una solicitud. Rechazar con comentarios descarta esta propuesta sin aplicar cambios. Añada una nota para explicar su decisión.",
       "confirmPassword": "Confirma la contraseña de tu cuenta",
@@ -7306,7 +7307,16 @@
     "viewUpcoming": "Ver próximos cambios",
     "requestedDateTitle": "Calendario escolar de esta fecha",
     "defaultCalendar": "No hay una excepción activa para esta fecha. Se aplican las reglas habituales de días lectivos y horarios.",
-    "currentCalendar": "Se muestra el calendario escolar actual, no el estado de la notificación anterior."
+    "currentCalendar": "Se muestra el calendario escolar actual, no el estado de la notificación anterior.",
+    "addHoliday": "Añadir vacaciones",
+    "from": "Fecha de inicio",
+    "to": "Fecha de fin",
+    "holidayHelp": "Marcar todas las fechas del intervalo como días sin clase. Se incluyen ambos extremos; máximo 366 días. La nota se aplica a cada fecha.",
+    "holidayPreview": "Días sin clase: {count} (incluye inicio y fin).",
+    "invalidRange": "Elige fechas válidas, con el fin igual o posterior al inicio y un máximo de 366 días.",
+    "holidayReplaces": "Al guardar se reemplazan las siguientes {count} excepciones de fecha, incluidas sus notas.",
+    "saveHoliday": "Guardar vacaciones",
+    "reloadHoliday": "Recargar intervalo actual"
   },
   "recordInspector": {
     "backToRecord": "Back to record",
