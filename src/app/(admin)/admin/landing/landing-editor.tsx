@@ -28,6 +28,7 @@ import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
+import type { LandingEditorView } from "~/lib/landing-editor-view";
 import {
   type Block,
   type LeafBlock,
@@ -94,7 +95,9 @@ const FIELD_LABEL: Record<string, string> = {
   footer: "footer",
 };
 
-export default function LandingAdminPage() {
+export default function LandingAdminPage({
+  initialView,
+}: { initialView?: LandingEditorView } = {}) {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const review = useActionReview();
@@ -104,11 +107,25 @@ export default function LandingAdminPage() {
   }, []);
   const images = api.home.images.useQuery();
   const imageDenied = useSessionAccessDenied(images);
-  const [tab, setTab] = useSessionViewState<Tab>({ id: "landing.tab.v1", initialState: "layout",
-    parse: viewEnum(["layout", "content", "sections", "pages", "news", "images"]), enabled: !imageDenied });
+  const [tab, setTab, reconcileTab] = useSessionViewState<Tab>({
+    id: "landing.tab.v1",
+    initialState: initialView ?? "layout",
+    parse: viewEnum(["layout", "content", "sections", "pages", "news", "images"]),
+    enabled: !imageDenied,
+  });
   const [openedTabs, setOpenedTabs] = useState<ReadonlySet<Tab>>(
-    () => new Set(["layout"]),
+    () => new Set([initialView ?? "layout"]),
   );
+  const [appliedView, setAppliedView] = useState<LandingEditorView>();
+  if (appliedView !== initialView) {
+    setAppliedView(initialView);
+    // An allowlisted preview return wins once over remembered navigation. Later tab
+    // clicks remain local choices, and bare /admin/landing keeps session restoration.
+    if (initialView && !imageDenied) {
+      reconcileTab(initialView);
+      setOpenedTabs((previous) => new Set(previous).add(initialView));
+    }
+  }
   const scene = tab === "images" ? { ready: !!images.data, denied: imageDenied, scope: "" } : scenes[tab];
   useSessionPageScroll({ id: "landing", scope: JSON.stringify([tab, scene?.scope ?? ""]),
     ready: !!images.data && !!scene?.ready, enabled: !imageDenied && !scene?.denied });
@@ -2841,7 +2858,8 @@ function PageCard({
               ? t("admin.landing.sections.statusVisible")
               : t("admin.landing.sections.statusHidden")}
           </span>
-          {page.showInNav && (
+          {/* Match public navigation; hidden pages retain their saved preference. */}
+          {page.published && page.showInNav && (
             <span className="badge-slate">
               {t("admin.landing.pages.inNav")}
             </span>

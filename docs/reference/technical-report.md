@@ -2491,6 +2491,20 @@ The `/localization` editor contains interface text, website text and draft revie
 
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
 
+Unpublished detail pages require the live landing-editor permission gate and show
+owner-specific visibility copy. Their **Back to Editor** links use the resolved
+record type to select `?view=pages` or `?view=sections`, including when **View page**
+opens a separate browser tab. Only those scalar view values are accepted; unknown
+or repeated values leave ordinary session restoration in control. An explicit
+return selects its tab once, after which normal tab navigation and retained drafts
+continue. Bare `/admin/landing` visits keep their remembered view. The return does
+not expand or focus a particular record. Published pages retain their public
+return link, and the active language continues to come from the locale cookie.
+
+The custom-page card's **In nav** status follows the public navigation reader's
+`published && showInNav` condition. The separate checkbox still reflects and saves
+`showInNav` while hidden, preserving the preference for later publication.
+
 The [landing editor](<../../src/app/(admin)/admin/landing/landing-editor.tsx>)
 normalizes slug text on blur, then reads the canonical slug after the write succeeds.
 Both page and page-mode section address inputs have a persistent localized label;

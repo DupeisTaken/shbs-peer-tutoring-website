@@ -705,7 +705,8 @@
       "draftBadge": "Draft"
     },
     "detail": {
-      "hiddenNote": "This page is hidden from visitors until the section is shown."
+      "hiddenNote": "This page is hidden from visitors until the section is shown.",
+      "hiddenPageNote": "This page is hidden from visitors until the page is shown."
     }
   },
   "dashboard": {

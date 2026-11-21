@@ -8,6 +8,7 @@ import LandingAdminPage from "./landing-editor";
 import type * as SessionViewState from "~/app/_components/session-view-state";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+import type { LandingEditorView } from "~/lib/landing-editor-view";
 
 const state = vi.hoisted(() => {
   const records: Record<string, unknown[]> = {};
@@ -30,11 +31,158 @@ vi.mock("~/trpc/react", () => {
   }) });
   return { api: { home, useUtils: () => ({ home }), i18n: { languages: { useQuery: () => ({ data: [{ code: "en", label: "English" }], isSuccess: true }) } } } };
 });
-const tree = (locale: "en" | "zh" = "en") => <SessionViewProvider identity="head" pathname="/admin/landing" verified>
-  <NextIntlClientProvider locale={locale} messages={locale === "zh" ? zh : en}><LandingAdminPage /></NextIntlClientProvider>
-</SessionViewProvider>;
+const tree = (
+  locale: "en" | "zh" = "en",
+  initialView?: LandingEditorView,
+  verified = true,
+) => (
+  <SessionViewProvider identity="head" pathname="/admin/landing" verified={verified}>
+    <NextIntlClientProvider locale={locale} messages={locale === "zh" ? zh : en}>
+      <LandingAdminPage initialView={initialView} />
+    </NextIntlClientProvider>
+  </SessionViewProvider>
+);
 beforeEach(() => { window.sessionStorage.clear(); state.news = undefined; state.records = {}; state.error = null; state.scroll.mockClear(); state.mutate.mockClear(); state.write.mockReset().mockResolvedValue({ ok: true }); state.read.mockReset().mockImplementation(async (name) => ({ data: state.records[name] ?? [] })); });
 afterEach(cleanup);
+afterEach(() => vi.restoreAllMocks());
+
+it.each(["en", "zh"] as const)(
+  "reports effective %s page navigation while retaining its saved preference",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    const record = (published: boolean, showInNav: boolean) => ({
+      id: "navigation-preference",
+      slug: "navigation-preference",
+      title: { en: "Synthetic navigation preference" },
+      published,
+      showInNav,
+      navOrder: 0,
+      createdByName: null,
+      updatedAt: new Date("2026-01-01"),
+    });
+    state.records.pages = [record(false, true)];
+    const page = render(tree(locale, "pages"));
+    const preference = screen.getByRole<HTMLInputElement>("checkbox", {
+      name: messages.admin.landing.pages.showInNav,
+    });
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusHidden),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.admin.landing.pages.inNav)).toBeNull();
+    expect(preference.checked).toBe(true);
+
+    state.records.pages = [record(true, true)];
+    page.rerender(tree(locale, "pages"));
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusVisible),
+    ).toBeTruthy();
+    expect(screen.getByText(messages.admin.landing.pages.inNav)).toBeTruthy();
+    expect(preference.checked).toBe(true);
+
+    state.records.pages = [record(true, false)];
+    page.rerender(tree(locale, "pages"));
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusVisible),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.admin.landing.pages.inNav)).toBeNull();
+    expect(preference.checked).toBe(false);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ["en", "pages"],
+  ["en", "sections"],
+  ["zh", "pages"],
+  ["zh", "sections"],
+] as const)(
+  "returns to the %s %s owner over a remembered tab and retains its draft",
+  (locale, view) => {
+    const messages = locale === "zh" ? zh : en;
+    const key = viewStateKey("head", "/admin/landing", "landing.tab.v1", "");
+    writeViewState(window.sessionStorage, key, "news");
+    state.news = [];
+    const page = render(tree(locale, view));
+    const ownerTab = screen.getByRole("tab", {
+      name: messages.admin.landing.tabs[view],
+    });
+    expect(ownerTab.getAttribute("aria-selected")).toBe("true");
+    const placeholder =
+      view === "pages"
+        ? messages.admin.landing.pages.new.placeholder
+        : messages.admin.landing.sections.new.titlePlaceholder;
+    const input = screen.getByPlaceholderText<HTMLInputElement>(placeholder);
+    fireEvent.change(input, { target: { value: "Unsaved synthetic title" } });
+    // Arrow navigation preserves manual activation; focus alone must not switch tabs.
+    fireEvent.keyDown(ownerTab, { key: "Home" });
+    const layoutTab = screen.getByRole("tab", {
+      name: messages.admin.landing.tabs.layout,
+    });
+    expect(document.activeElement).toBe(layoutTab);
+    expect(ownerTab.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(layoutTab);
+    page.rerender(tree(locale, view));
+    expect(layoutTab.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(ownerTab);
+    expect(screen.getByPlaceholderText(placeholder)).toBe(input);
+    expect(input.value).toBe("Unsaved synthetic title");
+    expect(JSON.stringify(window.sessionStorage)).not.toContain(
+      "Unsaved synthetic title",
+    );
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["pages", "sections"] as const)(
+  "selects an explicit %s return when browser storage is unavailable",
+  (view) => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("Storage unavailable");
+    });
+    render(tree("en", view));
+    expect(
+      screen
+        .getByRole("tab", { name: en.admin.landing.tabs[view] })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps an explicit arrival through identity verification and consumes a changed owner once", () => {
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey("head", "/admin/landing", "landing.tab.v1", ""),
+    "news",
+  );
+  state.news = [];
+  const page = render(tree("en", "pages", false));
+  page.rerender(tree("en", "pages"));
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.landing.tabs.pages })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  page.rerender(tree("en", "sections"));
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.landing.tabs.sections })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.landing.tabs.pages }),
+  );
+  page.rerender(tree("en", "sections"));
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.landing.tabs.pages })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(state.mutate).not.toHaveBeenCalled();
+});
 
 it.each([
   ["en", "pages"], ["en", "sections"],
@@ -63,6 +211,11 @@ it.each([
     const helper = document.getElementById(input.getAttribute("aria-describedby")!);
     expect(helper?.textContent).toBe(messages.saveBoundary.blur);
     expect(label?.contains(helper)).toBe(false);
+  }
+  for (const link of screen.getAllByRole("link", { name: new RegExp(messages.admin.landing.sections.viewPage) })) {
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.getAttribute("href")).toMatch(/^\/p\/(first|second)$/);
   }
   expect(state.mutate).not.toHaveBeenCalled();
 });

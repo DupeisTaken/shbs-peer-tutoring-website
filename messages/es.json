@@ -705,7 +705,8 @@
       "draftBadge": "Borrador"
     },
     "detail": {
-      "hiddenNote": "Esta página está oculta para los visitantes hasta que la sección se muestre."
+      "hiddenNote": "Esta página está oculta para los visitantes hasta que la sección se muestre.",
+      "hiddenPageNote": "Esta página está oculta para los visitantes hasta que se muestre la página."
     }
   },
   "dashboard": {

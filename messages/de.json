@@ -705,7 +705,8 @@
       "draftBadge": "Entwurf"
     },
     "detail": {
-      "hiddenNote": "Diese Seite ist für Besucher verborgen, bis der Abschnitt sichtbar ist."
+      "hiddenNote": "Diese Seite ist für Besucher verborgen, bis der Abschnitt sichtbar ist.",
+      "hiddenPageNote": "Diese Seite ist für Besucher verborgen, bis die Seite sichtbar ist."
     }
   },
   "dashboard": {
