@@ -76,6 +76,8 @@ describe("UI recovery and persistent field labels", () => {
     "admin.meetings.refreshFailed",
     "admin.landing.translation.titleLabel",
     "admin.landing.translation.bodyLabel",
+    "admin.landing.addressRefreshFailed",
+    "admin.landing.refreshAddress",
     "translationEditor.refreshFailed",
     "admin.crew.originalApplication",
     "admin.crew.originalRequest",
