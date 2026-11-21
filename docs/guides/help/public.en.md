@@ -4,7 +4,7 @@ Generated from the website help catalogue. Edit the content records, then run `n
 
 [Catalogue & capture provenance](README.md)
 
-Screenshot source: `b5ece465681957c9fe579d26babdeb260c674fa0`. New captures use latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Earlier captures list their own revision and capture date.
+Screenshot source: `1df44d6bb31cf04352adae9c65819139b7b747d8`. New captures use latest-main development baseline 1df44d6b, selected 2026-11-21, with the Help candidate. Earlier captures list their own revision and capture date.
 
 This GitHub training copy includes role-specific instructions. Signing in and current program permissions are still required to use the corresponding website features. All examples are synthetic.
 
@@ -290,21 +290,21 @@ Open: `/signin`
 
    **View 1**
 
-   ![Check the opening notice](assets/annotated/9cad3a60a7d9bf0b38f8930ebb4c4393b60d44bb336d9068f5636f2247467e39.webp)
+   ![Check the opening notice](assets/annotated/ed44507524c573763d93d247bc8fb519ca7d202ff2214ba05263b43764ee9e0e.webp)
 
-   /tutor-signup · EN · 2026-11-20
+   /tutor-signup · EN · 2026-11-21
 
-   The public Tutor signup displays a read-only preview, the reason intake is closed and the next opening in the program time zone.
+   The real Q2 Tutor signup notice shows its scheduled opening in the program timezone. You can read the form now and return after the opening time.
 
-   [Original full screenshot](assets/choose-registration-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Isolated synthetic first-report demonstration phase.
+   [Original full screenshot](assets/choose-registration-step-3.en.jpg) · `1df44d6bb31cf04352adae9c65819139b7b747d8` · Latest-main development baseline 1df44d6b, selected 2026-11-21, with the Help candidate and synthetic demo records.
 
    Annotations added for this step. The original full screenshot is unchanged.
 
-   - **1.** Read-only preview
+   - **1.** Opening time
 
-   - **2.** Intake has not started
+   - **2.** Time zone
 
-   - **3.** Opening time and zone
+   - **3.** Read-only preview
 
    **View 2**
 
@@ -327,6 +327,8 @@ You are on the application or invitation page for your intended access.
 ### How it works
 
 An application, an approved roster entry, email verification and a ready login are different stages. Participation and management authority are separate.
+
+Tutor and tutee opening times can differ. A configured opening may still need activation and review. Return when the form is open to submit it.
 
 ### Troubleshooting
 

@@ -165,6 +165,10 @@ export const participantArticles: HelpArticle[] = [
         "An application, an approved roster entry, email verification and a ready login are different stages. Participation and management authority are separate.",
         "提交申请、名册获批、邮箱验证和可用登录账户属于不同阶段。参与资格与管理权限也相互独立。",
       ),
+      t(
+        "Tutor and tutee opening times can differ. A configured opening may still need activation and review. Return when the form is open to submit it.",
+        "辅导伙伴和学习伙伴的开放时间可以不同。已配置的开放时间可能仍需启用和审核。表单开放后再返回提交。",
+      ),
     ],
     troubleshooting: [
       {
@@ -188,6 +192,10 @@ export const participantArticles: HelpArticle[] = [
     sources: [
       "src/app/signin/page.tsx",
       "src/app/register/page.tsx",
+      "src/app/signup/signup-opening-notice.tsx",
+      "src/app/signup/signup-transition-notice.tsx",
+      "src/lib/public-signup-transition.ts",
+      "src/server/program/public-signup-transition.ts",
       "docs/guides/user-guide.md",
     ],
     covers: [

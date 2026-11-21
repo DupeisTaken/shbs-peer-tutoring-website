@@ -1,9 +1,9 @@
 {
   "info": {
-    "sourceRevision": "b5ece465681957c9fe579d26babdeb260c674fa0",
-    "capturedAt": "2026-11-21T02:40:43.026Z",
+    "sourceRevision": "1df44d6bb31cf04352adae9c65819139b7b747d8",
+    "capturedAt": "2026-11-21T03:21:46.033Z",
     "baseUrl": "http://127.0.0.1:3017",
-    "releaseRef": "New captures use latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Earlier captures list their own revision and capture date.",
+    "releaseRef": "New captures use latest-main development baseline 1df44d6b, selected 2026-11-21, with the Help candidate. Earlier captures list their own revision and capture date.",
     "fixture": "Synthetic fixtures on the real local development server. Each screenshot identifies its own source and describes the actual workflow state. Capture email uses the loopback TLS sink. No production participant data or credentials are included.",
     "captureMethod": "Manual rendered-UI captures through documented Codex CUA APIs, using the in-app browser and a task-scoped Microsoft Edge fallback. Saved full-frame step JPEGs receive pixel review before acceptance; original and crop provenance remain per image."
   },
@@ -86909,70 +86909,85 @@
       "locale": "en",
       "screenLocale": "en",
       "role": "GUEST",
-      "capturedAt": "2026-11-20T18:28:54.954Z",
+      "capturedAt": "2026-11-21T03:21:30.828Z",
       "viewport": {
         "width": 1425,
-        "height": 991
+        "height": 987
       },
       "browserViewport": {
         "width": 1440,
-        "height": 1001
+        "height": 997
       },
       "captureMode": "viewport",
-      "sha256": "68c23ced67ac1ae6566cb7a0e06e0dda6f6be7d365f0d1a7b0ccee4ad203d00a",
-      "sourceRevision": "b5ece465681957c9fe579d26babdeb260c674fa0",
-      "sourceLabel": "Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Isolated synthetic first-report demonstration phase.",
+      "sha256": "239ba44a9e70314ab160e1e8679350eebd6eb517c775a942bd3d0ed27418fa38",
+      "sourceRevision": "1df44d6bb31cf04352adae9c65819139b7b747d8",
+      "sourceLabel": "Latest-main development baseline 1df44d6b, selected 2026-11-21, with the Help candidate and synthetic demo records.",
       "state": {
-        "en": "The public Tutor signup displays a read-only preview, the reason intake is closed and the next opening in the program time zone.",
-        "zh": "公开导师报名显示只读预览、暂停报名的原因，以及按项目时区显示的下次开放时间。"
+        "en": "The real Q2 Tutor signup notice shows its scheduled opening in the program timezone. You can read the form now and return after the opening time.",
+        "zh": "第二季度导师报名页面显示项目时区下的开放时间。现在可以预览表单，并在开放后返回。"
       },
       "callouts": [
         {
           "bounds": {
-            "x": 0.259375,
-            "y": 0.4275724275724276,
-            "width": 0.4708333333333333,
-            "height": 0.027972027972027972
+            "x": 0.2621527777777778,
+            "y": 0.4844533600802407,
+            "width": 0.16321614583333333,
+            "height": 0.02106318956870612
+          },
+          "label": {
+            "en": "Opening time",
+            "zh": "开放时间"
+          },
+          "placement": "right",
+          "labelPosition": {
+            "x": 0.02638888888888889,
+            "y": 0.45035105315947843
+          },
+          "badgePosition": {
+            "x": 0.24305555555555555,
+            "y": 0.48746238716148443
+          }
+        },
+        {
+          "bounds": {
+            "x": 0.2621527777777778,
+            "y": 0.5115346038114343,
+            "width": 0.2659722222222222,
+            "height": 0.020060180541624874
+          },
+          "label": {
+            "en": "Time zone",
+            "zh": "项目时区"
+          },
+          "placement": "right",
+          "labelPosition": {
+            "x": 0.04513888888888889,
+            "y": 0.5095285857572718
+          },
+          "badgePosition": {
+            "x": 0.2423611111111111,
+            "y": 0.5235707121364093
+          }
+        },
+        {
+          "bounds": {
+            "x": 0.2590277777777778,
+            "y": 0.6589769307923772,
+            "width": 0.16111111111111112,
+            "height": 0.028084252758274825
           },
           "label": {
             "en": "Read-only preview",
             "zh": "只读预览"
           },
+          "placement": "below",
           "labelPosition": {
-            "x": 0.755,
-            "y": 0.393
-          }
-        },
-        {
-          "bounds": {
-            "x": 0.259375,
-            "y": 0.4595404595404595,
-            "width": 0.4708333333333333,
-            "height": 0.01998001998001998
+            "x": 0.4548611111111111,
+            "y": 0.6479438314944834
           },
-          "label": {
-            "en": "Intake has not started",
-            "zh": "报名尚未开始"
-          },
-          "labelPosition": {
-            "x": 0.755,
-            "y": 0.452
-          }
-        },
-        {
-          "bounds": {
-            "x": 0.259375,
-            "y": 0.5194805194805194,
-            "width": 0.4708333333333333,
-            "height": 0.01998001998001998
-          },
-          "label": {
-            "en": "Opening time and zone",
-            "zh": "开放时间和时区"
-          },
-          "labelPosition": {
-            "x": 0.755,
-            "y": 0.513
+          "badgePosition": {
+            "x": 0.4354166666666667,
+            "y": 0.675025075225677
           }
         }
       ],
@@ -86987,33 +87002,33 @@
       },
       "captureGeometry": {
         "version": 10,
-        "helperBuild": "v24",
+        "helperBuild": "v26",
         "strategy": "plain-viewport-no-clip",
         "cssFrame": {
           "x": 0,
           "y": 0,
           "width": 1440,
-          "height": 1001
+          "height": 997
         },
         "screenshotOptions": {
           "fullPage": false
         },
         "pixelScale": {
           "x": 0.9895833333333334,
-          "y": 0.99000999000999
+          "y": 0.9899699097291875
         },
         "before": {
           "frame": {
-            "clientHeight": 1001,
+            "clientHeight": 997,
             "clientWidth": 1425,
             "devicePixelRatio": 1,
-            "documentHeight": 2955,
+            "documentHeight": 3154,
             "documentWidth": 1425,
-            "innerHeight": 1001,
+            "innerHeight": 997,
             "innerWidth": 1440,
             "scrollX": 0,
             "scrollY": 0,
-            "visualHeight": 1001,
+            "visualHeight": 997,
             "visualOffsetX": 0,
             "visualOffsetY": 0,
             "visualScale": 1,
@@ -87021,37 +87036,37 @@
           },
           "boxes": [
             {
+              "height": 21,
+              "width": 235.03125,
+              "x": 377.5,
+              "y": 483
+            },
+            {
+              "height": 20,
+              "width": 383,
+              "x": 377.5,
+              "y": 510
+            },
+            {
               "height": 28,
               "width": 678,
               "x": 373.5,
-              "y": 428
-            },
-            {
-              "height": 20,
-              "width": 678,
-              "x": 373.5,
-              "y": 460
-            },
-            {
-              "height": 20,
-              "width": 678,
-              "x": 373.5,
-              "y": 520
+              "y": 659
             }
           ]
         },
         "after": {
           "frame": {
-            "clientHeight": 1001,
+            "clientHeight": 997,
             "clientWidth": 1425,
             "devicePixelRatio": 1,
-            "documentHeight": 2955,
+            "documentHeight": 3154,
             "documentWidth": 1425,
-            "innerHeight": 1001,
+            "innerHeight": 997,
             "innerWidth": 1440,
             "scrollX": 0,
             "scrollY": 0,
-            "visualHeight": 1001,
+            "visualHeight": 997,
             "visualOffsetX": 0,
             "visualOffsetY": 0,
             "visualScale": 1,
@@ -87059,36 +87074,36 @@
           },
           "boxes": [
             {
+              "height": 21,
+              "width": 235.03125,
+              "x": 377.5,
+              "y": 483
+            },
+            {
+              "height": 20,
+              "width": 383,
+              "x": 377.5,
+              "y": 510
+            },
+            {
               "height": 28,
               "width": 678,
               "x": 373.5,
-              "y": 428
-            },
-            {
-              "height": 20,
-              "width": 678,
-              "x": 373.5,
-              "y": 460
-            },
-            {
-              "height": 20,
-              "width": 678,
-              "x": 373.5,
-              "y": 520
+              "y": 659
             }
           ]
         },
-        "primingSha256": "68c23ced67ac1ae6566cb7a0e06e0dda6f6be7d365f0d1a7b0ccee4ad203d00a",
+        "primingSha256": "239ba44a9e70314ab160e1e8679350eebd6eb517c775a942bd3d0ed27418fa38",
         "primingDimensions": {
           "width": 1425,
-          "height": 991
+          "height": 987
         },
-        "beforeSha256": "9cc7cf9c75a15c7f4b08c7f2ee5037e14e9a606fdfc50266475443916e594a2e",
-        "afterSha256": "9cc7cf9c75a15c7f4b08c7f2ee5037e14e9a606fdfc50266475443916e594a2e",
+        "beforeSha256": "7db563f588a18282e4461eee0b6c9e18d2d0ffdc12eb6133fa7dd507743462ba",
+        "afterSha256": "7db563f588a18282e4461eee0b6c9e18d2d0ffdc12eb6133fa7dd507743462ba",
         "reviewRequired": "Catalogue capture reviewer must inspect this exact saved JPEG and confirm target alignment; lead reviews the audit and representative samples. Pre/post stability does not prove transient provider behavior."
       },
       "review": {
-        "acceptedAt": "2026-11-20T18:37:38.813Z",
+        "acceptedAt": "2026-11-21T03:25:52.700Z",
         "method": "Catalogue capture reviewer inspected the exact saved real-browser screenshot and visible control targets; lead verifies batch review."
       }
     },
@@ -116943,6 +116958,211 @@
       },
       "review": {
         "acceptedAt": "2026-11-21T02:43:23.440Z",
+        "method": "Catalogue capture reviewer inspected the exact saved real-browser screenshot and visible control targets; lead verifies batch review."
+      }
+    },
+    {
+      "id": "choose-registration-step-3",
+      "file": "choose-registration-step-3.zh.jpg",
+      "route": "/tutor-signup",
+      "locale": "zh",
+      "screenLocale": "zh",
+      "role": "GUEST",
+      "capturedAt": "2026-11-21T03:21:46.033Z",
+      "viewport": {
+        "width": 1425,
+        "height": 987
+      },
+      "browserViewport": {
+        "width": 1440,
+        "height": 997
+      },
+      "captureMode": "viewport",
+      "sha256": "aa0c8a4f3821b05d5121d6a7be4030f129cc6efab01cecdda4826b4a93c27278",
+      "sourceRevision": "1df44d6bb31cf04352adae9c65819139b7b747d8",
+      "sourceLabel": "Latest-main development baseline 1df44d6b, selected 2026-11-21, with the Help candidate and synthetic demo records.",
+      "state": {
+        "en": "The Chinese Tutor signup preview shows the same scheduled opening and program timezone. Submitting is disabled while recruitment is closed.",
+        "zh": "辅导伙伴报名预览显示相同的开放时间和项目时区。报名未开放时，无法提交表单。"
+      },
+      "callouts": [
+        {
+          "bounds": {
+            "x": 0.2621527777777778,
+            "y": 0.4202607823470411,
+            "width": 0.11814236111111111,
+            "height": 0.02106318956870612
+          },
+          "label": {
+            "en": "Opening time",
+            "zh": "开放时间"
+          },
+          "placement": "right",
+          "labelPosition": {
+            "x": 0.02638888888888889,
+            "y": 0.3881644934804413
+          },
+          "badgePosition": {
+            "x": 0.2423611111111111,
+            "y": 0.42126379137412234
+          }
+        },
+        {
+          "bounds": {
+            "x": 0.2621527777777778,
+            "y": 0.4473420260782347,
+            "width": 0.32925347222222223,
+            "height": 0.020060180541624874
+          },
+          "label": {
+            "en": "Time zone",
+            "zh": "项目时区"
+          },
+          "placement": "right",
+          "labelPosition": {
+            "x": 0.04513888888888889,
+            "y": 0.4463390170511535
+          },
+          "badgePosition": {
+            "x": 0.2423611111111111,
+            "y": 0.4563691073219659
+          }
+        },
+        {
+          "bounds": {
+            "x": 0.2590277777777778,
+            "y": 0.5947843530591775,
+            "width": 0.08611111111111111,
+            "height": 0.028084252758274825
+          },
+          "label": {
+            "en": "Read-only preview",
+            "zh": "只读预览"
+          },
+          "placement": "below",
+          "labelPosition": {
+            "x": 0.3784722222222222,
+            "y": 0.5837512537612839
+          },
+          "badgePosition": {
+            "x": 0.3611111111111111,
+            "y": 0.6088264794383149
+          }
+        }
+      ],
+      "stepBinding": {
+        "guide": "choose-registration",
+        "step": 3,
+        "title": {
+          "en": "Check the opening notice",
+          "zh": "查看开放提示"
+        },
+        "directionsSha256": "5e5b25fd2a2055ebdc539bb0bb8f703cc91b397139f4a60584e23436a943b353"
+      },
+      "captureGeometry": {
+        "version": 10,
+        "helperBuild": "v26",
+        "strategy": "plain-viewport-no-clip",
+        "cssFrame": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 997
+        },
+        "screenshotOptions": {
+          "fullPage": false
+        },
+        "pixelScale": {
+          "x": 0.9895833333333334,
+          "y": 0.9899699097291875
+        },
+        "before": {
+          "frame": {
+            "clientHeight": 997,
+            "clientWidth": 1425,
+            "devicePixelRatio": 1,
+            "documentHeight": 3090,
+            "documentWidth": 1425,
+            "innerHeight": 997,
+            "innerWidth": 1440,
+            "scrollX": 0,
+            "scrollY": 0,
+            "visualHeight": 997,
+            "visualOffsetX": 0,
+            "visualOffsetY": 0,
+            "visualScale": 1,
+            "visualWidth": 1425
+          },
+          "boxes": [
+            {
+              "height": 21,
+              "width": 170.125,
+              "x": 377.5,
+              "y": 419
+            },
+            {
+              "height": 20,
+              "width": 474.125,
+              "x": 377.5,
+              "y": 446
+            },
+            {
+              "height": 28,
+              "width": 678,
+              "x": 373.5,
+              "y": 595
+            }
+          ]
+        },
+        "after": {
+          "frame": {
+            "clientHeight": 997,
+            "clientWidth": 1425,
+            "devicePixelRatio": 1,
+            "documentHeight": 3090,
+            "documentWidth": 1425,
+            "innerHeight": 997,
+            "innerWidth": 1440,
+            "scrollX": 0,
+            "scrollY": 0,
+            "visualHeight": 997,
+            "visualOffsetX": 0,
+            "visualOffsetY": 0,
+            "visualScale": 1,
+            "visualWidth": 1425
+          },
+          "boxes": [
+            {
+              "height": 21,
+              "width": 170.125,
+              "x": 377.5,
+              "y": 419
+            },
+            {
+              "height": 20,
+              "width": 474.125,
+              "x": 377.5,
+              "y": 446
+            },
+            {
+              "height": 28,
+              "width": 678,
+              "x": 373.5,
+              "y": 595
+            }
+          ]
+        },
+        "primingSha256": "589221dd5b26102d26d4f034d731aab9fd5931c8bfdb032dbf598e48649dcf8d",
+        "primingDimensions": {
+          "width": 1425,
+          "height": 987
+        },
+        "beforeSha256": "48481f92338fe1cf2722c770833406595c588c50c70ef0e8f83c6b9eff3eb1fb",
+        "afterSha256": "48481f92338fe1cf2722c770833406595c588c50c70ef0e8f83c6b9eff3eb1fb",
+        "reviewRequired": "Catalogue capture reviewer must inspect this exact saved JPEG and confirm target alignment; lead reviews the audit and representative samples. Pre/post stability does not prove transient provider behavior."
+      },
+      "review": {
+        "acceptedAt": "2026-11-21T03:25:52.779Z",
         "method": "Catalogue capture reviewer inspected the exact saved real-browser screenshot and visible control targets; lead verifies batch review."
       }
     }

@@ -4,7 +4,7 @@
 
 [目录与截图来源](README.md)
 
-截图来源: `b5ece465681957c9fe579d26babdeb260c674fa0`. New captures use latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Earlier captures list their own revision and capture date.
+截图来源: `1df44d6bb31cf04352adae9c65819139b7b747d8`. New captures use latest-main development baseline 1df44d6b, selected 2026-11-21, with the Help candidate. Earlier captures list their own revision and capture date.
 
 此 GitHub 培训副本包含各角色操作说明。实际使用网站功能仍需登录并具备当前项目权限。所有示例数据均为虚构。
 
@@ -290,21 +290,21 @@
 
    **视图 1**
 
-   ![查看开放提示](assets/annotated/fb68f882a69c3850d3706e6d77a5ca09e567731fb171dfc80dee7dbc6a68648e.webp)
+   ![查看开放提示](assets/annotated/fb231f075102987a4c01ccaa33f0d22f00a35ca100ba316e522691abe904060a.webp)
 
-   /tutor-signup · EN · 2026-11-20
+   /tutor-signup · ZH · 2026-11-21
 
-   公开导师报名显示只读预览、暂停报名的原因，以及按项目时区显示的下次开放时间。
+   辅导伙伴报名预览显示相同的开放时间和项目时区。报名未开放时，无法提交表单。
 
-   [原始完整截图](assets/choose-registration-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Isolated synthetic first-report demonstration phase.
+   [原始完整截图](assets/choose-registration-step-3.zh.jpg) · `1df44d6bb31cf04352adae9c65819139b7b747d8` · Latest-main development baseline 1df44d6b, selected 2026-11-21, with the Help candidate and synthetic demo records.
 
    已为本步骤添加标注，原始完整截图保持不变。
 
-   - **1.** 只读预览
+   - **1.** 开放时间
 
-   - **2.** 报名尚未开始
+   - **2.** 项目时区
 
-   - **3.** 开放时间和时区
+   - **3.** 只读预览
 
    **视图 2**
 
@@ -327,6 +327,8 @@
 ### 工作原理
 
 提交申请、名册获批、邮箱验证和可用登录账户属于不同阶段。参与资格与管理权限也相互独立。
+
+辅导伙伴和学习伙伴的开放时间可以不同。已配置的开放时间可能仍需启用和审核。表单开放后再返回提交。
 
 ### 问题排查
 

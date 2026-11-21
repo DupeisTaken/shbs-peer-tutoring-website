@@ -439,27 +439,27 @@
       "effort": 4,
       "exact": true
     },
-    "pngRecipeSha256": "d3b533e48e613709ea738a3adce491dafc013c0555d1639863f28a1830306460",
+    "pngRecipeSha256": "a6c954090e99d1bb9bc50c63e026754564a642166f3394a18a459af3a962f0f3",
     "pixelParity": {
       "schemaVersion": 1,
       "algorithm": "sharp-srgb-ensureAlpha-rgba8",
       "width": 1425,
-      "height": 991,
+      "height": 987,
       "channels": 4,
-      "pngSha256": "753b90d30f2450af13521c08eb4357e9ca0159e6ab57523e57fdae837ba4cecf",
-      "pngRgbaSha256": "b3e74bc7176047f4f0d7279682d4efaabddde8fd2885379cbbfd40c716d6f550",
-      "webpRgbaSha256": "b3e74bc7176047f4f0d7279682d4efaabddde8fd2885379cbbfd40c716d6f550"
+      "pngSha256": "12b3c1c33151c9d4cef3626a785b8cadf0cbf6b42dece63a25d0b0c04e15bf1f",
+      "pngRgbaSha256": "67e67f19023e7735e7f686395dc2f356d74ca235081ca5993fa755b865c57482",
+      "webpRgbaSha256": "67e67f19023e7735e7f686395dc2f356d74ca235081ca5993fa755b865c57482"
     },
     "article": "choose-registration",
     "step": 3,
     "locale": "en",
-    "file": "assets/annotated/9cad3a60a7d9bf0b38f8930ebb4c4393b60d44bb336d9068f5636f2247467e39.webp",
+    "file": "assets/annotated/ed44507524c573763d93d247bc8fb519ca7d202ff2214ba05263b43764ee9e0e.webp",
     "screenshot": "choose-registration-step-3",
     "view": 1,
     "rawFile": "choose-registration-step-3.en.jpg",
-    "rawSha256": "68c23ced67ac1ae6566cb7a0e06e0dda6f6be7d365f0d1a7b0ccee4ad203d00a",
-    "recipeSha256": "9cad3a60a7d9bf0b38f8930ebb4c4393b60d44bb336d9068f5636f2247467e39",
-    "sha256": "4dac48c241279948a16e3150872095e2ec6430143d88431f433509bfa2f07347"
+    "rawSha256": "239ba44a9e70314ab160e1e8679350eebd6eb517c775a942bd3d0ed27418fa38",
+    "recipeSha256": "ed44507524c573763d93d247bc8fb519ca7d202ff2214ba05263b43764ee9e0e",
+    "sha256": "67fb45e5bb09be86e000156a08751b4b93389150b8ef2385df96ec3e3a5713b3"
   },
   {
     "schemaVersion": 2,
@@ -2815,27 +2815,27 @@
       "effort": 4,
       "exact": true
     },
-    "pngRecipeSha256": "7c1ec769e87c3eed940785782ca53f03262a80030cb3e6050becb46114709681",
+    "pngRecipeSha256": "33994ef7fb657ad7ebda7fc088c65c2157528b205f485aa90c8d5710eb2bcb13",
     "pixelParity": {
       "schemaVersion": 1,
       "algorithm": "sharp-srgb-ensureAlpha-rgba8",
       "width": 1425,
-      "height": 991,
+      "height": 987,
       "channels": 4,
-      "pngSha256": "045e86ebb1bdacaf13ae0bf1510cabb21a4505eb82219d06638830360f1d716c",
-      "pngRgbaSha256": "89e955bba6e3e1b33fd3b706adbeb5b6d76669d78297a1a6d36f5b7de0281293",
-      "webpRgbaSha256": "89e955bba6e3e1b33fd3b706adbeb5b6d76669d78297a1a6d36f5b7de0281293"
+      "pngSha256": "ce612e20ede2cc5e82bd41bba6136cb885d90a7b81e8f69120552b1d9e65a3b6",
+      "pngRgbaSha256": "d75e14089d09a00ec1e9edf29c9c4d6e8ad012de331780b5e557062284a2b9cb",
+      "webpRgbaSha256": "d75e14089d09a00ec1e9edf29c9c4d6e8ad012de331780b5e557062284a2b9cb"
     },
     "article": "choose-registration",
     "step": 3,
     "locale": "zh",
-    "file": "assets/annotated/fb68f882a69c3850d3706e6d77a5ca09e567731fb171dfc80dee7dbc6a68648e.webp",
+    "file": "assets/annotated/fb231f075102987a4c01ccaa33f0d22f00a35ca100ba316e522691abe904060a.webp",
     "screenshot": "choose-registration-step-3",
     "view": 1,
-    "rawFile": "choose-registration-step-3.en.jpg",
-    "rawSha256": "68c23ced67ac1ae6566cb7a0e06e0dda6f6be7d365f0d1a7b0ccee4ad203d00a",
-    "recipeSha256": "fb68f882a69c3850d3706e6d77a5ca09e567731fb171dfc80dee7dbc6a68648e",
-    "sha256": "5aa803c3517d8a42a292986c1ce1dd793c999b3be72bbb1796a7871dc75322c0"
+    "rawFile": "choose-registration-step-3.zh.jpg",
+    "rawSha256": "aa0c8a4f3821b05d5121d6a7be4030f129cc6efab01cecdda4826b4a93c27278",
+    "recipeSha256": "fb231f075102987a4c01ccaa33f0d22f00a35ca100ba316e522691abe904060a",
+    "sha256": "0ca96b436849e1693fd5c2de67d566eeba9127e671bdf1d7e5938ecd42593ba3"
   },
   {
     "schemaVersion": 2,
