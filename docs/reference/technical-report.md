@@ -590,6 +590,11 @@ authoritative. Decision notes and reviewer names are masked for management
 observers. Feature-owned note/penalty drafts survive dialog close and filters.
 Admission guards block same-turn duplicates, pending writes prevent dismissal,
 and accepted/queued decisions cannot replay through failed synchronization.
+Authoritative read denial conceals cached flags, resets the filter to Pending and
+disables its choices. The latched denial owns the single recovery status even
+after cache eviction clears query data/error; read-only Retry must freshly
+authorize Pending before filters become usable again. Ordinary transport failures
+retain cached rows and drafts with dependent decisions disabled.
 
 Audit difference markers compare only stored JSON values and presence. They
 support both root before/after snapshots and canonical `changes[n].before/after`

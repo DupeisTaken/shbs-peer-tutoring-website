@@ -493,6 +493,9 @@ A lower exact headcount creates a pending flag. Management reviews the evidence 
 Loading or failed reads do not mean there are no flags. Use **Try again** after a
 read failure; existing review notes and penalty amounts stay visible, with editing
 paused until recovery. Those fields also pause while a decision is being sent.
+If access is denied, flags are concealed, the filter returns to **Pending** and
+the filter choices are disabled. The recovery status offers **Try again**; failed
+recovery keeps the flags concealed until a fresh successful read restores access.
 A failed decision keeps the draft for retry; a queued proposal is labelled as
 awaiting approval and has not applied a penalty or another decision.
 
