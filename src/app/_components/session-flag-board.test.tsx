@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -365,64 +366,83 @@ it("keeps notes after rejection and protects pending dismissal", () => {
   ).toBe("Retained");
   expect(screen.getByRole("alert").textContent).toBe("Decision rejected");
 });
-it("retains cached rows beside transport recovery but conceals denied evidence and observer mutations", async () => {
-  mock.readOnly = true;
-  const view = show();
-  expect(
-    screen.queryByRole("button", { name: en.admin.sessionFlags.warn }),
-  ).toBeNull();
-  mock.error = { message: "Offline" };
-  await publishRead({ state: "PENDING" });
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.getByText("Alex · Math")).toBeTruthy();
-  expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
-  mock.error = { message: "Denied", data: { code: "FORBIDDEN" } };
-  await publishRead({ state: "PENDING" });
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.queryByText("Alex · Math")).toBeNull();
-  mock.error = { message: "Offline again" };
-  await publishRead({ state: "PENDING" });
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.queryByText("Alex · Math")).toBeNull();
-  mock.error = null;
-  mock.data = [{ ...flag, tutor: "Fresh authorized tutor" }];
-  await publishRead({ state: "PENDING" });
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <SessionFlagBoard />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
-});
+it.each([true, false])(
+  "retains cached rows beside transport recovery and conceals denied evidence (read-only: %s)",
+  async (readOnly) => {
+    mock.readOnly = readOnly;
+    const view = show();
+    if (readOnly) {
+      expect(
+        screen.queryByRole("button", { name: en.admin.sessionFlags.warn }),
+      ).toBeNull();
+    }
+    mock.error = { message: "Offline" };
+    await publishRead({ state: "PENDING" });
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Alex · Math")).toBeTruthy();
+    expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
+    expect(screen.queryByText(en.common.loading)).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("Offline");
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Dismissed" }).disabled,
+    ).toBe(false);
+    if (!readOnly) {
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: en.admin.sessionFlags.warn,
+        }).disabled,
+      ).toBe(true);
+    }
+    mock.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+    await publishRead({ state: "PENDING" });
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByText("Alex · Math")).toBeNull();
+    mock.error = { message: "Offline again" };
+    await publishRead({ state: "PENDING" });
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByText("Alex · Math")).toBeNull();
+    mock.error = null;
+    mock.data = [{ ...flag, tutor: "Fresh authorized tutor" }];
+    await publishRead({ state: "PENDING" });
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+          <SessionFlagBoard />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+  },
+);
 
-it("keeps nondefault-filter denial latched across a cached default and failed retry until a fresh success", async () => {
+it("shows one idle denial status with unavailable filters through failed Retry and fresh Pending recovery", async () => {
   window.sessionStorage.clear();
   const remove = vi.spyOn(client, "removeQueries");
   let defaultRows = [{ ...flag, tutor: "Cached pending tutor" }];
-  mock.readRows = ({ state }) =>
+  const readRows = vi.fn(({ state }: { state: string }) =>
     state === "PENDING"
       ? defaultRows
-      : [{ ...flag, tutor: "Resolved tutor", state: "DISMISSED" }];
+      : [{ ...flag, tutor: "Resolved tutor", state: "DISMISSED" }],
+  );
+  mock.readRows = readRows;
   const tree = () => (
     <QueryClientProvider client={client}>
       <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
@@ -438,28 +458,102 @@ it("keeps nondefault-filter denial latched across a cached default and failed re
   );
   seedHealthyFlags();
   const view = render(tree());
-  fireEvent.click(screen.getByRole("button", { name: "Dismissed" }));
+  fireEvent.click(screen.getByRole("button", { name: "All states" }));
   expect(screen.getByText("Resolved tutor · Math")).toBeTruthy();
   mock.error = { message: "Denied", data: { code: "FORBIDDEN" } };
-  await publishRead({ state: "DISMISSED" });
+  await publishRead({ state: "ALL" });
   view.rerender(tree());
   expect(mock.input).toEqual({ state: "PENDING" });
   expect(screen.queryByText("Resolved tutor · Math")).toBeNull();
   expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
   expect(remove).toHaveBeenCalledWith({ queryKey: flagKey(), exact: false });
 
+  const expectDeniedBoard = () => {
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("false");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(en.common.loading)).toBeNull();
+    expect(screen.queryByText(en.admin.sessionFlags.empty)).toBeNull();
+    expect(screen.queryByText("Resolved tutor · Math")).toBeNull();
+    expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
+    expect(screen.queryByText("Fresh authorized tutor · Math")).toBeNull();
+    const choices = within(
+      screen.getByRole("region", { name: en.admin.sessionFlags.filterLabel }),
+    ).getAllByRole<HTMLButtonElement>("button");
+    expect(choices).toHaveLength(SESSION_FLAG_FILTERS.length);
+    for (const choice of choices) expect(choice.disabled).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Pending" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+  };
+  expectDeniedBoard();
+  expect(screen.getByRole("status").textContent).toContain(
+    en.uiPatterns.loadFailed,
+  );
+  expect(client.isFetching({ queryKey: flagKey() })).toBe(0);
+  const retry = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.uiPatterns.retry,
+  });
+  expect(retry.disabled).toBe(false);
+  retry.focus();
+  const readsBeforeBlockedChoice = readRows.mock.calls.length;
+  const dismissed = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Dismissed",
+  });
+  dismissed.focus();
+  expect(document.activeElement).toBe(retry);
+  fireEvent.click(dismissed);
+  expect(mock.input).toEqual({ state: "PENDING" });
+  expect(readRows).toHaveBeenCalledTimes(readsBeforeBlockedChoice);
+  expect(mock.refetch).not.toHaveBeenCalled();
+
   mock.error = { message: "Offline" };
-  await publishRead({ state: "PENDING" });
-  view.rerender(tree());
-  expect(screen.queryByText("Cached pending tutor · Math")).toBeNull();
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+    fireEvent.click(retry);
+  });
+  await waitFor(() => {
+    expect(client.getQueryState(flagKey({ state: "PENDING" }))?.status).toBe(
+      "error",
+    );
+    expect(client.isFetching({ queryKey: flagKey() })).toBe(0);
   });
   expect(mock.refetch).toHaveBeenCalledTimes(1);
+  expectDeniedBoard();
 
   mock.error = null;
   defaultRows = [{ ...flag, tutor: "Fresh authorized tutor" }];
-  await publishRead({ state: "PENDING" });
-  view.rerender(tree());
-  expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+  let completeRead!: () => void;
+  mock.refetch.mockReturnValueOnce(
+    new Promise<void>((resolve) => {
+      completeRead = resolve;
+    }),
+  );
+  await act(async () => {
+    fireEvent.click(retry);
+  });
+  expectDeniedBoard();
+  await act(async () => {
+    completeRead();
+  });
+  await waitFor(() => {
+    expect(screen.getByText("Fresh authorized tutor · Math")).toBeTruthy();
+  });
+  expect(mock.refetch).toHaveBeenCalledTimes(2);
+  expect(mock.input).toEqual({ state: "PENDING" });
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  for (const choice of within(
+    screen.getByRole("region", { name: en.admin.sessionFlags.filterLabel }),
+  ).getAllByRole<HTMLButtonElement>("button")) {
+    expect(choice.disabled).toBe(false);
+  }
+  expect(
+    screen.getByRole("button", { name: "Pending" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(dismissed);
+  expect(mock.input).toEqual({ state: "DISMISSED" });
+  await waitFor(() => {
+    expect(screen.getByText("Resolved tutor · Math")).toBeTruthy();
+  });
+  expect(mock.mutate).not.toHaveBeenCalled();
 });

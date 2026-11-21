@@ -161,6 +161,7 @@ export function SessionFlagBoard() {
             <ChoiceButton
               key={value}
               selected={filter === value}
+              disabled={denied}
               onClick={() => setFilter(value)}
             >
               {t(`states.${value}`)}
@@ -168,7 +169,8 @@ export function SessionFlagBoard() {
           ))}
         </div>
       </FilterToolbar>
-      {!flags.data && !flags.error && (
+      {/* Denial can evict the failed query; its missing data is not a new load. */}
+      {!denied && !flags.data && !flags.error && (
         <StatePanel kind="loading" title={common("loading")} />
       )}
       {(!!flags.error || denied) && (
