@@ -176,6 +176,11 @@ function ApplicationCard({
   });
 
   const accepts = app.votes.filter((v) => v.accept).length;
+  // Use the same decision tally in both card states.
+  const voteTally = t("admin.applications.voteTally", {
+    accepts,
+    rejects: app.votes.length - accepts,
+  });
   const courseNames =
     app.subjectIntents.map((ci) => ci.subject.name).join(", ") ||
     t("admin.applications.noCourses");
@@ -232,12 +237,7 @@ function ApplicationCard({
                     n: app.interviewers.length,
                     total: PANEL_SIZE,
                   })}
-                  {app.votes.length > 0
-                    ? ` · ${t("admin.applications.votesSummary", {
-                        accepts,
-                        total: app.votes.length,
-                      })}`
-                    : ""}
+                  {app.votes.length > 0 ? ` · ${voteTally}` : ""}
                 </>
               )}
             </span>
@@ -466,10 +466,7 @@ function ApplicationCard({
               {app.votes.length > 0 ? (
                 <>
                   <p className="muted mt-1 text-sm">
-                    {t("admin.applications.voteTally", {
-                      accepts,
-                      rejects: app.votes.length - accepts,
-                    })}
+                    {voteTally}
                   </p>
                   <ul className="mt-1 space-y-0.5">
                     {app.votes.map((v, i) => (
