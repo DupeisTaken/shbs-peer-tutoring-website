@@ -2593,6 +2593,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "We could not load the signup form details. Please try again.",
     "applicationRetryNotice": "If an application for this email is already under review, we keep the original submission. To change it, contact the program team.",
     "signup": {
       "title": "Request a Peer Tutor",
