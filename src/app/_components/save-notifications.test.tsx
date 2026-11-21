@@ -36,13 +36,13 @@ it.each([
         <SaveNotifications />
       </NextIntlClientProvider>,
     );
-    act(() =>
+    act(() => {
       window.dispatchEvent(
         new CustomEvent("admin-save-result", {
           detail: { kind: "error", message: TRANSLATION_PAGE_MISSING },
         }),
-      ),
-    );
+      );
+    });
     expect(screen.getByRole("alert").textContent).toContain(
       catalog.translationEditor.pageTarget.missingRecovery,
     );
