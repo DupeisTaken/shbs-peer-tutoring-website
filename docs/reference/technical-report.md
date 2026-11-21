@@ -2485,11 +2485,18 @@ cannot release it. Retry performs reads only, and account changes reset drafts.
 
 Acceptance keeps the exact revision, text, signature and timestamp. Participation requires current consent; history, feedback, appeals, account settings and messages stay available during renewal. Student and tutor applicability are checked independently. Client scrolling and confirmation controls assist review but do not replace server revision and action-ticket validation.
 
-Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
+Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
 
 Page-title draft review shows the current saved page title, its language (with an
 explicit English fallback), the canonical `/p/<slug>` address and a secondary page
-reference ID. A missing page is labelled explicitly. This read batches only page
+reference ID. A missing page is labelled explicitly. Pending drafts for deleted
+pages disable publication and Coordinator publication requests, while Admin/Head
+can still reject them and retain their evidence. A deletion discovered at decision
+time returns the same localized recovery and disables further publication attempts
+in that review view. Queue admission and replay recheck only page-title publication
+targets under the shared destination lock, before capturing or comparing approval
+evidence; rejection and other destinations retain their existing rules.
+This read batches only page
 IDs in the authorized draft page and projects no page body or unrelated titles.
 Review reads revalidate on return so a recently cached title/address does not
 remain fresh after a landing-page edit.

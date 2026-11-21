@@ -5,7 +5,9 @@ import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { translationAccess } from "~/lib/translation-access";
+import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 import { Pager } from "./student-portal";
+import { TranslationReviewError } from "./translation-review-error";
 
 type DraftState = "PENDING" | "APPROVED" | "REJECTED";
 const operationLabels: Record<
@@ -28,6 +30,7 @@ export function TranslationReview() {
   const [page, setPage] = useState(0);
   const [state, setState] = useState<DraftState | "ALL">("PENDING");
   const [requested, setRequested] = useState<Record<string, string>>({});
+  const [missingPages, setMissingPages] = useState<Record<string, boolean>>({});
   const me = api.account.me.useQuery();
   const access = translationAccess(me.data);
   const rows = api.translationReview.list.useQuery(
@@ -45,6 +48,8 @@ export function TranslationReview() {
       ]);
     },
     onError: (error, input) => {
+      if (error.message === TRANSLATION_PAGE_MISSING)
+        setMissingPages((previous) => ({ ...previous, [input.id]: true }));
       if (error.data?.approvalId) {
         const id = error.data.approvalId;
         setRequested((previous) => ({ ...previous, [input.id]: id }));
@@ -87,114 +92,168 @@ export function TranslationReview() {
       {!rows.isLoading && !rows.error && rows.data?.length === 0 && (
         <p className="card p-6">{t("empty")}</p>
       )}
-      {rows.data?.map((draft) => (
-        <article key={draft.id} className="card space-y-4 p-4 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="font-semibold">
-                {t(operationLabels[draft.operation] ?? "website")}
-              </h3>
-              <p className="muted mt-1 text-xs">
-                {format.dateTime(draft.createdAt, {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-              </p>
+      {rows.data?.map((draft) => {
+        // A deletion discovered during a decision remains known even while the
+        // cached list still carries its former title, or another draft is reviewed.
+        const pageMissing =
+          draft.pageTarget?.state === "missing" || !!missingPages[draft.id];
+        return (
+          <article key={draft.id} className="card space-y-4 p-4 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold">
+                  {t(operationLabels[draft.operation] ?? "website")}
+                </h3>
+                <p className="muted mt-1 text-xs">
+                  {format.dateTime(draft.createdAt, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              </div>
+              <span
+                className={
+                  draft.state === "PENDING" ? "badge-amber" : "badge-slate"
+                }
+              >
+                {t(draft.state)}
+              </span>
             </div>
-            <span
-              className={
-                draft.state === "PENDING" ? "badge-amber" : "badge-slate"
-              }
-            >
-              {t(draft.state)}
-            </span>
-          </div>
-          <dl className="grid min-w-0 gap-3 rounded-lg bg-slate-50 p-4">
-            {draft.pageTarget && (
-              <>
-                <div className="min-w-0">
-                  <dt className="text-xs font-semibold text-slate-500">
-                    {t("pageTarget.current")}
-                  </dt>
-                  <dd className="mt-1 [overflow-wrap:anywhere] whitespace-pre-wrap">
-                    {draft.pageTarget.state === "missing" ? (
-                      t("pageTarget.missing")
-                    ) : draft.pageTarget.title ? (
-                      <span lang={draft.pageTarget.title.locale}>
-                        {draft.pageTarget.title.value}
-                      </span>
-                    ) : (
-                      t("pageTarget.untitled")
-                    )}
-                    {draft.pageTarget.title && (
-                      <span className="muted mt-1 block text-xs">
-                        {t(
-                          draft.pageTarget.title.locale === draft.payload.locale
-                            ? "pageTarget.language"
-                            : "pageTarget.fallbackLanguage",
-                          { locale: draft.pageTarget.title.locale },
-                        )}
-                      </span>
-                    )}
-                    <span className="muted mt-1 block text-xs">
-                      {t("pageTarget.currentHelp")}
-                    </span>
-                  </dd>
-                </div>
-                {draft.pageTarget.address && (
+            <dl className="grid min-w-0 gap-3 rounded-lg bg-slate-50 p-4">
+              {draft.pageTarget && (
+                <>
                   <div className="min-w-0">
                     <dt className="text-xs font-semibold text-slate-500">
-                      {t("pageTarget.address")}
+                      {t("pageTarget.current")}
                     </dt>
-                    <dd className="mt-1 [overflow-wrap:anywhere]">
-                      {draft.pageTarget.address}
+                    <dd className="mt-1 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                      {pageMissing ? (
+                        t("pageTarget.missing")
+                      ) : draft.pageTarget.title ? (
+                        <span lang={draft.pageTarget.title.locale}>
+                          {draft.pageTarget.title.value}
+                        </span>
+                      ) : (
+                        t("pageTarget.untitled")
+                      )}
+                      {!pageMissing && draft.pageTarget.title && (
+                        <span className="muted mt-1 block text-xs">
+                          {t(
+                            draft.pageTarget.title.locale ===
+                              draft.payload.locale
+                              ? "pageTarget.language"
+                              : "pageTarget.fallbackLanguage",
+                            { locale: draft.pageTarget.title.locale },
+                          )}
+                        </span>
+                      )}
+                      <span className="muted mt-1 block text-xs">
+                        {t("pageTarget.currentHelp")}
+                      </span>
                     </dd>
                   </div>
-                )}
-                <div className="min-w-0">
-                  <dt className="text-xs font-semibold text-slate-500">
-                    {t("pageTarget.reference")}
-                  </dt>
-                  <dd className="mt-1 text-xs [overflow-wrap:anywhere]">
-                    {draft.pageTarget.id}
-                  </dd>
-                </div>
-              </>
+                  {!pageMissing && draft.pageTarget.address && (
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold text-slate-500">
+                        {t("pageTarget.address")}
+                      </dt>
+                      <dd className="mt-1 [overflow-wrap:anywhere]">
+                        {draft.pageTarget.address}
+                      </dd>
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <dt className="text-xs font-semibold text-slate-500">
+                      {t("pageTarget.reference")}
+                    </dt>
+                    <dd className="mt-1 text-xs [overflow-wrap:anywhere]">
+                      {draft.pageTarget.id}
+                    </dd>
+                  </div>
+                </>
+              )}
+              {Object.entries(draft.payload as Record<string, unknown>)
+                .filter(([key]) => !(draft.pageTarget && key === "id"))
+                .map(([key, value]) => (
+                  <div key={key} className="min-w-0">
+                    <dt className="text-xs font-semibold text-slate-500">
+                      {t(
+                        [
+                          "locale",
+                          "key",
+                          "value",
+                          "title",
+                          "body",
+                          "postId",
+                          "sectionId",
+                          "id",
+                        ].includes(key)
+                          ? `fields.${key}`
+                          : "fields.other",
+                      )}
+                    </dt>
+                    <dd className="mt-1 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                      {String(value)}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+            {pageMissing &&
+              draft.state === "PENDING" &&
+              !(
+                decisionError?.message === TRANSLATION_PAGE_MISSING &&
+                decide.variables?.id === draft.id
+              ) && (
+                <p className="text-sm text-amber-800">
+                  {t("pageTarget.missingRecovery")}
+                </p>
+              )}
+            {!pageMissing &&
+              draft.needsResubmission &&
+              draft.state === "PENDING" && (
+                <p className="text-sm text-amber-800">{t("resubmit")}</p>
+              )}
+            {draft.state === "PENDING" && access.publish && (
+              <div className="flex flex-wrap gap-3">
+                <button
+                  className="btn-primary"
+                  disabled={
+                    decide.isPending || draft.needsResubmission || pageMissing
+                  }
+                  onClick={() =>
+                    decide.mutate({
+                      id: draft.id,
+                      approve: true,
+                      expectedUpdatedAt: draft.updatedAt,
+                    })
+                  }
+                >
+                  {workflow("approve")}
+                </button>
+                <button
+                  className="btn-secondary"
+                  disabled={decide.isPending}
+                  onClick={() =>
+                    decide.mutate({
+                      id: draft.id,
+                      approve: false,
+                      expectedUpdatedAt: draft.updatedAt,
+                    })
+                  }
+                >
+                  {workflow("rejectDraft")}
+                </button>
+              </div>
             )}
-            {Object.entries(draft.payload as Record<string, unknown>)
-              .filter(([key]) => !(draft.pageTarget && key === "id"))
-              .map(([key, value]) => (
-                <div key={key} className="min-w-0">
-                  <dt className="text-xs font-semibold text-slate-500">
-                    {t(
-                      [
-                        "locale",
-                        "key",
-                        "value",
-                        "title",
-                        "body",
-                        "postId",
-                        "sectionId",
-                        "id",
-                      ].includes(key)
-                        ? `fields.${key}`
-                        : "fields.other",
-                    )}
-                  </dt>
-                  <dd className="mt-1 [overflow-wrap:anywhere] whitespace-pre-wrap">
-                    {String(value)}
-                  </dd>
-                </div>
-              ))}
-          </dl>
-          {draft.needsResubmission && draft.state === "PENDING" && (
-            <p className="text-sm text-amber-800">{t("resubmit")}</p>
-          )}
-          {draft.state === "PENDING" && access.publish && (
-            <div className="flex flex-wrap gap-3">
+            {draft.state === "PENDING" && access.request && (
               <button
-                className="btn-primary"
-                disabled={decide.isPending || draft.needsResubmission}
+                className="btn-secondary"
+                disabled={
+                  decide.isPending ||
+                  draft.needsResubmission ||
+                  pageMissing ||
+                  !!requested[draft.id]
+                }
                 onClick={() =>
                   decide.mutate({
                     id: draft.id,
@@ -203,61 +262,29 @@ export function TranslationReview() {
                   })
                 }
               >
-                {workflow("approve")}
+                {t("requestApproval")}
               </button>
-              <button
-                className="btn-secondary"
-                disabled={decide.isPending}
-                onClick={() =>
-                  decide.mutate({
-                    id: draft.id,
-                    approve: false,
-                    expectedUpdatedAt: draft.updatedAt,
-                  })
-                }
-              >
-                {workflow("rejectDraft")}
-              </button>
-            </div>
-          )}
-          {draft.state === "PENDING" && access.request && (
-            <button
-              className="btn-secondary"
-              disabled={
-                decide.isPending ||
-                draft.needsResubmission ||
-                !!requested[draft.id]
-              }
-              onClick={() =>
-                decide.mutate({
-                  id: draft.id,
-                  approve: true,
-                  expectedUpdatedAt: draft.updatedAt,
-                })
-              }
-            >
-              {t("requestApproval")}
-            </button>
-          )}
-          {requested[draft.id] && (
-            <p role="status" className="text-sm">
-              {t("requested")}{" "}
-              <Link
-                className="link inline-flex min-h-11 items-center lg:min-h-9"
-                href={`/admin/approvals?request=${encodeURIComponent(requested[draft.id] ?? "")}`}
-              >
-                {t("viewRequest")}
-              </Link>
-            </p>
-          )}
-          {/* Keep a failed decision next to its draft, even in a long review queue. */}
-          {decisionError && decide.variables?.id === draft.id && (
-            <p role="alert" className="text-red-700">
-              {decisionError.message}
-            </p>
-          )}
-        </article>
-      ))}
+            )}
+            {requested[draft.id] && (
+              <p role="status" className="text-sm">
+                {t("requested")}{" "}
+                <Link
+                  className="link inline-flex min-h-11 items-center lg:min-h-9"
+                  href={`/admin/approvals?request=${encodeURIComponent(requested[draft.id] ?? "")}`}
+                >
+                  {t("viewRequest")}
+                </Link>
+              </p>
+            )}
+            {/* Keep a failed decision next to its draft, even in a long review queue. */}
+            {decisionError && decide.variables?.id === draft.id && (
+              <p role="alert" className="text-red-700">
+                <TranslationReviewError message={decisionError.message} />
+              </p>
+            )}
+          </article>
+        );
+      })}
       {rows.error && (
         <p role="alert" className="text-red-700">
           {rows.error.message}

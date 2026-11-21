@@ -3028,6 +3028,7 @@
       "current": "当前已保存的页面",
       "currentHelp": "以下是当前保存的信息，并非提交草稿时的快照。",
       "missing": "此页面已不存在。",
+      "missingRecovery": "此页面已不存在，因此无法发布此草稿。管理员或负责人可以拒绝草稿，并将其保留在历史记录中。",
       "untitled": "目标语言和英语均无已保存的标题。",
       "language": "标题语言：{locale}",
       "fallbackLanguage": "标题语言：{locale}（回退语言）",

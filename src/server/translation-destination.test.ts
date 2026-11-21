@@ -6,6 +6,7 @@ import { createCaller } from "./api/root";
 import { databaseScope } from "./db-scope";
 import { TRANSLATION_BASELINE } from "./translation-destination";
 import { proposeTranslation } from "./translation-drafts";
+import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 
 const user = (id: string, role: Session["role"], client = db) =>
   createCaller({
@@ -343,21 +344,174 @@ it("distinguishes identically titled pages while retaining author-scoped target 
   expect(JSON.stringify(all)).not.toContain("Other-language-only title");
 });
 
-it("labels a deleted page without discarding or publishing its draft", async () => {
-  await write("page", "Retained proposal");
+it.each(["ADMIN", "HEAD"] as const)(
+  "%s can reject a deleted page draft without Translator assignment",
+  async (role) => {
+    await write("page", "Retained proposal");
+    const draft = await latest();
+    // The current page was visible when this review started; deletion races the click.
+    expect((await admin().translationReview.list())[0]?.pageTarget?.state).toBe(
+      "current",
+    );
+    await db.customPage.delete({ where: { id: "translation-page" } });
+    await db.user.update({
+      where: { id: "translation-admin" },
+      data: { role, canTranslate: false },
+    });
+    const rows = await admin().translationReview.list();
+    expect(rows[0]?.pageTarget).toEqual({
+      id: "translation-page",
+      state: "missing",
+      title: null,
+      address: null,
+    });
+    expect(rows[0]?.payload.value).toBe("Retained proposal");
+    await expect(approve(draft)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: TRANSLATION_PAGE_MISSING,
+    });
+    expect((await latest()).payload).toEqual(draft.payload);
+    expect((await latest()).state).toBe("PENDING");
+    expect(await db.approvalRequest.count()).toBe(0);
+    expect(
+      await db.auditLog.count({ where: { entity: "TranslationDraft" } }),
+    ).toBe(0);
+    await admin().translationReview.decide({
+      id: draft.id,
+      approve: false,
+      expectedUpdatedAt: draft.updatedAt,
+    });
+    expect((await latest()).state).toBe("REJECTED");
+    expect((await latest()).payload).toEqual(draft.payload);
+  },
+);
+
+it("blocks a missing page at Coordinator queue admission and preserves queued rejection", async () => {
+  await write("page", "Retained Coordinator proposal");
   const draft = await latest();
-  await db.customPage.delete({ where: { id: "translation-page" } });
-  const rows = await admin().translationReview.list();
-  expect(rows[0]?.pageTarget).toEqual({
-    id: "translation-page",
-    state: "missing",
-    title: null,
-    address: null,
+  await db.user.update({
+    where: { id: "translation-author" },
+    data: { role: "COORDINATOR", canTranslate: false },
   });
-  expect(rows[0]?.payload.value).toBe("Retained proposal");
-  await expect(approve(draft)).rejects.toThrow("destination text changed");
-  expect((await latest()).payload).toEqual(draft.payload);
+  const coordinator = user("translation-author", "COORDINATOR");
+  expect(
+    (await coordinator.translationReview.list())[0]?.pageTarget?.state,
+  ).toBe("current");
+  await db.customPage.delete({ where: { id: "translation-page" } });
+  const input = {
+    id: draft.id,
+    approve: true,
+    expectedUpdatedAt: draft.updatedAt,
+  };
+  await expect(
+    coordinator.translationReview.decide(input),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    message: TRANSLATION_PAGE_MISSING,
+  });
+  expect(await db.approvalRequest.count()).toBe(0);
   expect((await latest()).state).toBe("PENDING");
+  expect((await latest()).payload).toEqual(draft.payload);
+  // Existing API-only rejection proposals retain their ordinary Coordinator mode.
+  await expect(
+    coordinator.translationReview.decide({ ...input, approve: false }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow();
+  await admin().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Reject retained draft for deleted page",
+  });
+  expect((await latest()).state).toBe("REJECTED");
+  expect((await latest()).payload).toEqual(draft.payload);
+});
+
+it("reports a page deleted after queuing before generic replay fingerprints and keeps both rejection paths", async () => {
+  await write("page", "Queued publication");
+  const draft = await latest();
+  await db.user.update({
+    where: { id: "translation-author" },
+    data: { role: "COORDINATOR", canTranslate: false },
+  });
+  await expect(
+    user("translation-author", "COORDINATOR").translationReview.decide({
+      id: draft.id,
+      approve: true,
+      expectedUpdatedAt: draft.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow();
+  await db.customPage.delete({ where: { id: "translation-page" } });
+  await expect(
+    admin().approval.decide({
+      id: request.id,
+      approve: true,
+      note: "Review queued publication",
+    }),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    message: TRANSLATION_PAGE_MISSING,
+  });
+  expect(
+    (await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } }))
+      .state,
+  ).toBe("PENDING");
+  expect((await latest()).state).toBe("PENDING");
+  expect((await latest()).payload).toEqual(draft.payload);
+  expect(await db.customPage.count()).toBe(0);
+  expect(
+    await db.auditLog.count({ where: { entity: "TranslationDraft" } }),
+  ).toBe(0);
+  await admin().approval.decide({
+    id: request.id,
+    approve: false,
+    note: "Page no longer exists",
+  });
+  await admin().translationReview.decide({
+    id: draft.id,
+    approve: false,
+    expectedUpdatedAt: draft.updatedAt,
+  });
+  expect((await latest()).state).toBe("REJECTED");
+});
+
+it("distinguishes a deleted page from a legacy draft with a current blank-title target", async () => {
+  await db.customPage.update({
+    where: { id: "translation-page" },
+    data: { title: {} },
+  });
+  await translator().home.setPageTitle({
+    id: "translation-page",
+    locale: "zh",
+    value: "New saved title",
+  });
+  const current = await latest();
+  expect((await admin().translationReview.list())[0]?.pageTarget).toMatchObject(
+    { state: "current", title: null },
+  );
+  await approve(current);
+  expect(await read("page")).toEqual({ zh: "New saved title" });
+  const legacy = await db.translationDraft.create({
+    data: {
+      authorId: "translation-author",
+      operation: "home.setPageTitle",
+      payload: {
+        id: "translation-page",
+        locale: "zh",
+        value: "Legacy proposal",
+      },
+    },
+  });
+  await expect(approve(legacy)).rejects.toThrow("older draft");
+  await db.customPage.delete({ where: { id: "translation-page" } });
+  await expect(approve(legacy)).rejects.toMatchObject({
+    code: "CONFLICT",
+    message: TRANSLATION_PAGE_MISSING,
+  });
+  expect(
+    (await db.translationDraft.findUniqueOrThrow({ where: { id: legacy.id } }))
+      .payload,
+  ).toEqual(legacy.payload);
 });
 
 it("labels published history with current page details and keeps its original proposal", async () => {

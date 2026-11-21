@@ -370,6 +370,15 @@ export const approvalRouter = createTRPCRouter({
                       request.operation,
                       value,
                     );
+                  if (request.operation === "translationReview.decide") {
+                    const { assertTranslationReviewTarget } =
+                      await import("~/server/translation-destination");
+                    await assertTranslationReviewTarget(
+                      tx,
+                      request.operation,
+                      value,
+                    );
+                  }
                   const targets = await proposalTargets(
                     tx,
                     request.operation,

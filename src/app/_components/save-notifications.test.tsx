@@ -14,6 +14,7 @@ import { NotificationViewport, SaveNotifications } from "./save-notifications";
 import { ApprovalNotice } from "./approval-notice";
 import { createQueryClient, isAdminSaveMutation } from "~/trpc/query-client";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
+import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <NextIntlClientProvider locale="en" messages={messages}>
     {children}
@@ -23,6 +24,33 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
+
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "localizes deleted translation-page recovery in the %s global notice",
+  (locale, catalog) => {
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    act(() =>
+      window.dispatchEvent(
+        new CustomEvent("admin-save-result", {
+          detail: { kind: "error", message: TRANSLATION_PAGE_MISSING },
+        }),
+      ),
+    );
+    expect(screen.getByRole("alert").textContent).toContain(
+      catalog.translationEditor.pageTarget.missingRecovery,
+    );
+    expect(screen.getByRole("alert").textContent).not.toContain(
+      TRANSLATION_PAGE_MISSING,
+    );
+  },
+);
 
 it.each([
   ["en", messages, "PROFILE_LATIN_NAME_REQUIRED", "latinRequired"],

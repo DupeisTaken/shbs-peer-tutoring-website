@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { TranslationReviewPageTarget } from "~/lib/page-title-reference";
+import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 
@@ -26,7 +27,7 @@ const mocks = vi.hoisted(() => ({
   onError: undefined as
     | undefined
     | ((
-        error: { data: { approvalId: string } },
+        error: { message?: string; data?: { approvalId?: string } },
         input: { id: string },
       ) => void),
 }));
@@ -285,4 +286,148 @@ it("keeps untitled current pages identifiable and legacy proposals blocked", () 
   expect(
     screen.queryByRole("button", { name: zh.workflows.approve }),
   ).toBeNull();
+});
+
+it.each([
+  ["en", "ADMIN"],
+  ["zh", "ADMIN"],
+  ["en", "HEAD"],
+  ["zh", "HEAD"],
+  ["en", "COORDINATOR"],
+  ["zh", "COORDINATOR"],
+] as const)(
+  "%s gives %s recovery for a known deleted page without sending publication",
+  (locale, role) => {
+    const catalog = locale === "zh" ? zh : en;
+    mocks.locale = locale;
+    mocks.me = { role, canTranslate: false };
+    mocks.draft.operation = "home.setPageTitle";
+    mocks.draft.payload = {
+      id: "deleted-page",
+      locale: "zh",
+      value: "Retained proposal",
+    };
+    mocks.draft.pageTarget = {
+      id: "deleted-page",
+      state: "missing",
+      title: null,
+      address: null,
+    };
+    render(<TranslationReview />);
+    expect(
+      screen.getByText(catalog.translationEditor.pageTarget.missingRecovery),
+    ).toBeTruthy();
+    const publish = screen.getByRole<HTMLButtonElement>("button", {
+      name:
+        role === "COORDINATOR"
+          ? catalog.translationEditor.requestApproval
+          : catalog.workflows.approve,
+    });
+    expect(publish.disabled).toBe(true);
+    fireEvent.click(publish);
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Retained proposal")).toBeTruthy();
+    expect(screen.getByText("deleted-page")).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+    if (role === "COORDINATOR") {
+      expect(
+        screen.queryByRole("button", { name: catalog.workflows.rejectDraft }),
+      ).toBeNull();
+    } else {
+      const reject = screen.getByRole<HTMLButtonElement>("button", {
+        name: catalog.workflows.rejectDraft,
+      });
+      expect(reject.disabled).toBe(false);
+      fireEvent.click(reject);
+      expect(mocks.mutate).toHaveBeenCalledExactlyOnceWith({
+        id: "draft",
+        approve: false,
+        expectedUpdatedAt: mocks.draft.updatedAt,
+      });
+    }
+  },
+);
+
+it.each([
+  ["en", "ADMIN"],
+  ["zh", "ADMIN"],
+  ["en", "COORDINATOR"],
+  ["zh", "COORDINATOR"],
+] as const)(
+  "%s retains %s deletion recovery after the cached current-page read",
+  (locale, role) => {
+    const catalog = locale === "zh" ? zh : en;
+    mocks.locale = locale;
+    mocks.me = { role, canTranslate: false };
+    mocks.draft.operation = "home.setPageTitle";
+    mocks.draft.pageTarget = {
+      id: "deleted-page",
+      state: "current",
+      title: { value: "Former saved title", locale: "en" },
+      address: "/p/former-address",
+    };
+    mocks.mutate.mockImplementation((input: { id: string }) => {
+      mocks.decisionError = { message: TRANSLATION_PAGE_MISSING };
+      mocks.onError?.(mocks.decisionError, input);
+    });
+    const mounted = render(<TranslationReview />);
+    const action =
+      role === "COORDINATOR"
+        ? catalog.translationEditor.requestApproval
+        : catalog.workflows.approve;
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    expect(mocks.mutate).toHaveBeenCalledOnce();
+    expect(screen.getByRole("alert").textContent).toBe(
+      catalog.translationEditor.pageTarget.missingRecovery,
+    );
+    expect(screen.queryByText(TRANSLATION_PAGE_MISSING)).toBeNull();
+    expect(screen.queryByText("Former saved title")).toBeNull();
+    expect(screen.queryByText("/p/former-address")).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: action,
+      }).disabled,
+    ).toBe(true);
+    if (role === "ADMIN")
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: catalog.workflows.rejectDraft,
+        }).disabled,
+      ).toBe(false);
+    else
+      expect(
+        screen.queryByRole("button", { name: catalog.workflows.rejectDraft }),
+      ).toBeNull();
+    // Another decision can clear the mutation error without forgetting this deletion.
+    mocks.decisionError = null;
+    mounted.rerender(<TranslationReview />);
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    expect(mocks.mutate).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText(catalog.translationEditor.pageTarget.missingRecovery),
+    ).toBeTruthy();
+  },
+);
+
+it("keeps current pages with no saved title eligible for a Coordinator request", () => {
+  mocks.me = { role: "COORDINATOR", canTranslate: false };
+  mocks.draft.operation = "home.setPageTitle";
+  mocks.draft.pageTarget = {
+    id: "untitled-page",
+    state: "current",
+    title: null,
+    address: "/p/untitled-page",
+  };
+  render(<TranslationReview />);
+  expect(screen.getByText("pageTarget.untitled")).toBeTruthy();
+  const request = screen.getByRole<HTMLButtonElement>("button", {
+    name: "requestApproval",
+  });
+  expect(request.disabled).toBe(false);
+  fireEvent.click(request);
+  expect(mocks.mutate).toHaveBeenCalledExactlyOnceWith({
+    id: "draft",
+    approve: true,
+    expectedUpdatedAt: mocks.draft.updatedAt,
+  });
 });

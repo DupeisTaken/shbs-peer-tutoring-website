@@ -1653,8 +1653,10 @@ For page-title drafts, check **Current saved page** and **Current page address**
 before deciding. The title uses the draft's language, with an explicitly labelled
 English fallback when needed. The page reference ID distinguishes similar names.
 These are current details, including when viewing published or rejected history;
-the submitted translation below stays unchanged. Deleted pages are labelled and
-cannot be published through an older draft.
+the submitted translation below stays unchanged. Deleted pages are labelled;
+publication and publication requests are unavailable. Admin or Head can reject
+these drafts to retain them in history. If the page is deleted while you are
+reviewing it, the decision reports the same recovery without publishing anything.
 
 ## Account settings and private support
 

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 import { ProfilePolicyError } from "./profile-policy-error";
+import { TranslationReviewError } from "./translation-review-error";
+import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 
 type Result = { kind: "success" | "error"; message?: string; id: number };
 /** One bounded viewport prevents approval and saved/error notices covering one another. */
@@ -89,6 +91,8 @@ export function SaveNotifications() {
               in the active language, never expose a stable server code as UI text. */}
           {result.message === TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE ? (
             interview("tutoringAccessRevoked")
+          ) : result.message === TRANSLATION_PAGE_MISSING ? (
+            <TranslationReviewError message={result.message} />
           ) : result.message?.startsWith("HISTORICAL_") &&
             historical.has(result.message) ? (
             historical(result.message)

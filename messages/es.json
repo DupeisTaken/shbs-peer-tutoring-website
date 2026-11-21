@@ -3028,6 +3028,7 @@
       "current": "Página guardada actualmente",
       "currentHelp": "Datos guardados actuales, no una copia del momento del envío.",
       "missing": "Esta página ya no existe.",
+      "missingRecovery": "Esta página ya no existe, por lo que este borrador no se puede publicar. Un administrador o responsable puede rechazarlo y conservarlo en el historial.",
       "untitled": "No hay título guardado en el idioma de destino ni en inglés.",
       "language": "Idioma del título: {locale}",
       "fallbackLanguage": "Idioma del título: {locale} (alternativo)",
