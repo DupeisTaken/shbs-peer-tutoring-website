@@ -483,7 +483,7 @@ authorized decision interfaces and policy rules.
 ### scheduled_refresh_blocked
 
 - Recipient: Active, unmerged Admins and Head.
-- Trigger: A due refresh is blocked by review/authority drift, or reaches five failed execution attempts. The notice commits with its terminal state. [Emitter](../../src/server/program/scheduled-refresh.ts).
+- Trigger: A periodic worker check detects review or authority drift, including before the scheduled time, or a refresh reaches five failed execution attempts. The notice commits with the schedule outcome once per authorization. [Emitter](../../src/server/program/scheduled-refresh.ts).
 - Authorized destination: /admin/program?panel=period.
 
 | Language | Title | Description | Action |

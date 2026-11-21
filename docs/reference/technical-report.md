@@ -310,12 +310,16 @@ A database trigger increments `User.refreshAuthorityRevision` on role, suspensio
 or merge changes, so reversing a change cannot revive an earlier authorization.
 Audit preserves replaced authorizations.
 
-Scheduling, cancellation and execution share the existing period barrier. Execution
-checks database time after locking and revalidates review/authority before applying
-effects. Completion and notification intent commit with activation. Failed transactions
-leave no partial participation change; a separate version-checked failure record
-bounds retries to five. Review conflicts block immediately. Node instrumentation
-starts a 30-second worker and startup sweep; elapsed valid schedules catch up.
+Scheduling, cancellation and execution share the existing period barrier. Node
+instrumentation starts a worker sweep at startup and every 30 seconds. The sweep
+checks review and Head authority for scheduled rows, including future rows. A
+detected mismatch commits a blocked state, audit and needs-review notice together.
+The feature evidence treats an absent row and a materialized unchanged default at
+revision zero as equivalent, while preserving evidence of actual edits. The worker
+checks database time before activation, so elapsed valid schedules catch up.
+Completion and notification intent commit with activation. Failed transactions
+leave no partial participation change. A separate version-checked failure record
+bounds execution retries to five. Advance check errors leave that budget intact.
 
 The [public projection](../../src/server/program/public-signup-transition.ts) reads
 allowlisted current/future intake metadata under the period barrier. Its
