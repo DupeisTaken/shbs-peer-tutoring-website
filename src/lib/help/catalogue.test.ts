@@ -187,17 +187,22 @@ describe("maintained help catalogue completeness", () => {
                 "VIEWER",
               ],
             };
-            expect(
-              [
-                "GUEST",
-                "PUBLIC",
-                ...(article.slug === "use-school-report-link"
-                  ? ["SCHOOL_RECIPIENT"]
-                  : []),
-                ...(publicOutcomeRoles[id.replace(/-view-\d+$/, "")] ?? []),
-              ],
-              `${article.slug}: screenshot role`,
-            ).toContain(screenshot!.role);
+            const allowedRoles = [
+              "GUEST",
+              "PUBLIC",
+              ...(article.slug === "use-school-report-link"
+                ? ["SCHOOL_RECIPIENT"]
+                : []),
+              ...(publicOutcomeRoles[id.replace(/-view-\d+$/, "")] ?? []),
+            ];
+            // Capture receipts retain the camera's original role spelling.
+            for (const locale of ["en", "zh"] as const) {
+              const role = getHelpScreenshot(id, locale)?.role.toUpperCase();
+              expect(
+                allowedRoles,
+                `${article.slug}: ${id} (${locale}) role`,
+              ).toContain(role);
+            }
           }
         }
       }
