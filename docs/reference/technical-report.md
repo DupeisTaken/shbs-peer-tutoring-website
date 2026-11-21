@@ -2637,6 +2637,12 @@ remain available, including unknown historical
 envelopes. These readers perform no writes and do not replace request permissions,
 stale-evidence checks, private-evidence allowlists or transactional replay.
 
+Viewer and departed observer audit dialogs keep a compact summary whose label
+uses only the allowlisted event kind and the active locale's existing event-title
+catalog. Unknown historical kinds use the generic recorded change label. The
+server projection still replaces stored action text and masks details/undo data;
+the compact reader never mounts the staff evidence reader or recovery actions.
+
 The shared [`review vocabulary`](../../src/lib/review-vocabulary.ts) maps known
 entities, fields and enums to authored catalog keys. Meanings are scoped by entity
 and field: an extra session differs from an additional-hours adjustment, and an

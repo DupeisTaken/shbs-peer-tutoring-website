@@ -16,7 +16,18 @@ import { SessionViewProvider } from "~/app/_components/session-view-state";
 import AuditPage from "./page";
 import type * as AuditFiltersModule from "~/app/_components/audit-filters";
 
-const mocks = vi.hoisted(() => ({ detail: vi.fn(), undo: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  detail: vi.fn(),
+  undo: vi.fn(),
+  entry: {
+    kind: "ACTION",
+    action: "Management action",
+    operation: null as string | null,
+    entity: null as string | null,
+    approvalId: null as string | null,
+    undoData: null as object | null,
+  },
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -46,11 +57,8 @@ vi.mock("~/trpc/react", () => ({
               id: "event-1",
               createdAt: new Date("2026-10-09T01:02:03Z"),
               userName: "Recorded actor",
-              action: "Management action",
-              kind: "ACTION",
+              ...mocks.entry,
               undone: false,
-              undoData: null,
-              approvalId: null,
             },
           ],
         }),
@@ -85,6 +93,14 @@ const evidence = {
 let client: QueryClient;
 beforeEach(() => {
   sessionStorage.clear();
+  Object.assign(mocks.entry, {
+    kind: "ACTION",
+    action: "Management action",
+    operation: null,
+    entity: null,
+    approvalId: null,
+    undoData: null,
+  });
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.detail.mockReturnValue({
     data: {
@@ -218,6 +234,9 @@ it.each(["en", "zh"] as const)(
     });
     expect(close.parentElement?.className).not.toContain("sticky top-0");
     expect(within(dialog).getByText("Recorded actor")).toBeTruthy();
+    expect(
+      within(dialog).getByText(messages.eventTitles.ACTION, { selector: "p" }),
+    ).toBeTruthy();
     expect(dialog.querySelector("details")).toBeNull();
     expect(mocks.detail).not.toHaveBeenCalled();
     expect(
@@ -226,5 +245,63 @@ it.each(["en", "zh"] as const)(
     fireEvent.click(close);
     expect(document.activeElement).toBe(trigger);
     expect(mocks.undo).not.toHaveBeenCalled();
+  },
+);
+
+const observerKinds = [
+  ["ACTION", "ACTION", "Management action"],
+  ["DECISION", "DECISION", "Management decision"],
+  ["SUBMISSION", "SUBMISSION", "Management submission"],
+  ["CANCELLATION", "CANCELLATION", "Management cancellation"],
+  ["ATTEMPT", "ATTEMPT", "Management action"],
+  ["REVERSAL", "REVERSAL", "Management action"],
+  ["LEGACY_IMPORTED_EVENT", "ACTION", "Management action"],
+  ["", "ACTION", "Management action"],
+] as const;
+
+it.each(
+  (["en", "zh"] as const).flatMap((locale) =>
+    observerKinds.map(([kind, titleKind, action]) => ({
+      locale,
+      kind,
+      titleKind,
+      action,
+    })),
+  ),
+)(
+  "localizes the $locale observer summary for $kind without mounting staff evidence or recovery",
+  ({ locale, kind, titleKind, action }) => {
+    Object.assign(mocks.entry, {
+      kind,
+      action,
+      // Existing row titles may use safe metadata, but the compact summary must
+      // remain category-only and must not depend on any recorded action text.
+      operation: "program.setProfilePolicy",
+      entity: "ProgramSettings",
+      approvalId: "private-approval",
+      undoData: { private: "executable undo instructions" },
+    });
+    const original = structuredClone(mocks.entry);
+    const messages = mount(locale, true);
+    expect(mocks.detail).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /Recorded actor/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText(messages.eventTitles[titleKind], {
+        selector: "p",
+      }),
+    ).toBeTruthy();
+    expect(dialog.textContent).not.toContain(action);
+    expect(dialog.querySelector("details, pre")).toBeNull();
+    expect(dialog.textContent).not.toContain("executable undo instructions");
+    expect(
+      screen.queryByRole("link", { name: messages.approvals.viewRequest }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: messages.recovery.title }),
+    ).toBeNull();
+    expect(mocks.detail).not.toHaveBeenCalled();
+    expect(mocks.undo).not.toHaveBeenCalled();
+    expect(mocks.entry).toEqual(original);
   },
 );

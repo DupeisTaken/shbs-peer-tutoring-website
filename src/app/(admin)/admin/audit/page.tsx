@@ -228,7 +228,9 @@ function AuditLog() {
                           })}
                         </p>
                         <p>{e.userName ?? "—"}</p>
-                        <p>{e.action}</p>
+                        {/* Translate only the safe kind; stored action text can
+                            contain private reasons in historical events. */}
+                        <p>{eventTitle(t, { kind: e.kind })}</p>
                       </>
                     ) : (
                       <AuditEventDetails id={e.id} />
