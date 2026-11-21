@@ -86,24 +86,20 @@ it.each([
     } else {
       const table = screen.getByRole("table", {
         name: messages.admin.audit.title,
-        exact: true,
       });
       expect(
         within(table).getByRole("cell", {
           name: messages.approvals.review.operations.student_decideAppeal,
-          exact: true,
         }),
       ).toBeTruthy();
       expect(
         within(table).getByRole("cell", {
           name: messages.auditFilters.kinds.DECISION,
-          exact: true,
         }),
       ).toBeTruthy();
       expect(
         screen.getByRole("option", {
           name: "Staff One · @staff",
-          exact: true,
         }),
       ).toBeTruthy();
     }
@@ -117,14 +113,12 @@ it.each([
         : `${messages.approvals.review.operations.student_decideAppeal} · Staff One`;
     const detail = rowActions.getByRole("button", {
       name: `${messages.tablePatterns.details}: ${detailTitle}`,
-      exact: true,
     });
     expect(detail.textContent).toBe(messages.tablePatterns.details);
     detail.focus();
     fireEvent.click(detail);
     const dialog = screen.getByRole("dialog", {
       name: detailTitle,
-      exact: true,
     });
     expect(document.body.textContent).not.toContain(PRIVATE);
     expect(within(dialog).queryByRole("textbox")).toBeNull();
