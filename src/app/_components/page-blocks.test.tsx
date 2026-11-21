@@ -114,19 +114,35 @@ it("uses each image caption/alt and button label's own language at both block le
       />
     </div>,
   );
-  for (const image of screen.getAllByRole("img", { name: "English image" }))
-    expect(language(image)).toBe("en");
-  for (const image of screen.getAllByRole("img", { name: "中文图片" }))
-    expect(language(image)).toBe("zh");
-  for (const image of screen.getAllByAltText("")) {
+  for (const [name, locale] of [
+    ["English image", "en"],
+    ["中文图片", "zh"],
+  ] as const) {
+    const images = screen.getAllByRole("img", { name });
+    const captions = screen.getAllByText(name);
+    expect(images).toHaveLength(2);
+    expect(captions).toHaveLength(2);
+    for (const image of images) expect(language(image)).toBe(locale);
+    for (const caption of captions) {
+      expect(caption.tagName).toBe("FIGCAPTION");
+      expect(language(caption)).toBe(locale);
+    }
+  }
+  const decorativeImages = screen.getAllByAltText("");
+  expect(decorativeImages).toHaveLength(2);
+  for (const image of decorativeImages) {
     expect(image.closest("figure")?.hasAttribute("lang")).toBe(false);
     expect(language(image)).toBe("zh");
   }
-  for (const link of screen.getAllByRole("link", { name: "Request help" })) {
+  const requestLinks = screen.getAllByRole("link", { name: "Request help" });
+  expect(requestLinks).toHaveLength(2);
+  for (const link of requestLinks) {
     expect(link.getAttribute("lang")).toBe("en");
     expect(link.getAttribute("href")).toBe("/tutee?source=synthetic#form");
   }
-  for (const link of screen.getAllByRole("link", { name: "学校网站" })) {
+  const schoolLinks = screen.getAllByRole("link", { name: "学校网站" });
+  expect(schoolLinks).toHaveLength(2);
+  for (const link of schoolLinks) {
     expect(link.getAttribute("lang")).toBe("zh");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
