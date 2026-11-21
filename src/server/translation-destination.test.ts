@@ -284,7 +284,10 @@ it("keeps current page labels distinct from submitted text and destination evide
   const draft = await latest();
   await db.customPage.update({
     where: { id: "translation-page" },
-    data: { slug: "renamed-page", title: { en: "New English", zh: "当前标题" } },
+    data: {
+      slug: "renamed-page",
+      title: { en: "New English", zh: "当前标题" },
+    },
   });
   const rows = await admin().translationReview.list();
   expect(rows[0]?.pageTarget).toEqual({

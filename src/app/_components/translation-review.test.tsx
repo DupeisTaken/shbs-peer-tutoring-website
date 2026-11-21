@@ -36,8 +36,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("next-intl", () => ({
   useTranslations:
-    (namespace: string) =>
-    (key: string, values?: Record<string, string>) => {
+    (namespace: string) => (key: string, values?: Record<string, string>) => {
       if (!mocks.locale) return key;
       const messages = mocks.locale === "zh" ? zh : en;
       let value: unknown = messages;
@@ -265,7 +264,11 @@ it("keeps untitled current pages identifiable and legacy proposals blocked", () 
   mocks.locale = "zh";
   mocks.me = { role: "COORDINATOR", canTranslate: false };
   mocks.draft.operation = "home.setPageTitle";
-  mocks.draft.payload = { id: "untitled-page", locale: "zh", value: "提议标题" };
+  mocks.draft.payload = {
+    id: "untitled-page",
+    locale: "zh",
+    value: "提议标题",
+  };
   mocks.draft.pageTarget = {
     id: "untitled-page",
     state: "current",
@@ -274,12 +277,16 @@ it("keeps untitled current pages identifiable and legacy proposals blocked", () 
   };
   mocks.draft.needsResubmission = true;
   render(<TranslationReview />);
-  expect(screen.getByText(zh.translationEditor.pageTarget.untitled)).toBeTruthy();
+  expect(
+    screen.getByText(zh.translationEditor.pageTarget.untitled),
+  ).toBeTruthy();
   expect(screen.getByText("/p/untitled-page")).toBeTruthy();
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
       name: zh.translationEditor.requestApproval,
     }).disabled,
   ).toBe(true);
-  expect(screen.queryByRole("button", { name: zh.workflows.approve })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: zh.workflows.approve }),
+  ).toBeNull();
 });
