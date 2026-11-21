@@ -31,6 +31,7 @@ import {
   editStudentAvailability,
   recallStudentRequest,
   applyStudentAbort,
+  studentAbortReceipt,
   applyScheduleRejection,
   resolveStudentReview,
   studentRequestRows,
@@ -326,6 +327,19 @@ export const studentWorkflowRouter = createTRPCRouter({
         ctx.session.user.id,
         input.id,
         input.reason,
+        input.ticket,
+      ),
+    ),
+  abortReceipt: protectedProcedure
+    .input(
+      z.object({ id, ticket, reasonHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+    )
+    .query(({ ctx, input }) =>
+      studentAbortReceipt(
+        ctx.db,
+        ctx.session.user.id,
+        input.id,
+        input.reasonHash,
         input.ticket,
       ),
     ),

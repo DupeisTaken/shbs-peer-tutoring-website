@@ -1766,11 +1766,49 @@ bind its editor, expected version and ticketed recall or withdrawal action. The
 workspace retains dialog admission and accepted-action receipts when cards reorder
 or become terminal; failed synchronization retries reads without replaying a write.
 Withdrawal receipts identify the persisted review returned by `applyAbort`. A
+new review's domain-separated ID hashes its original actor, source, one-use ticket
+and normalized reason. The review itself is the durable exact receipt: same-intent
+transport repeats return that review without a second write or notification, even
+after a decision, proof cleanup or period rollover. `abortReceipt` is an explicitly
+owned, participant-authorized read under the same ticket lock; it never expires
+requests or consumes proof. Old random review IDs are preserved and never inferred
+as receipts from matching reasons, timestamps or unrelated pending reviews.
+Receipt checks remain true tRPC queries, sent through an unbatched POST transport
+only for `studentWorkflow.abortReceipt`. The route enables that method override
+only for the exact single procedure; other queries and batches retain their normal
+transport. The proof and reason digest stay in the body. Protected query gates and
+history checks still apply; checking creates no mutation audit or domain rows.
+
+An interrupted result moves the mounted source to read-only **Check submission**
+recovery, retaining its exact submitted reason and ticket. A missing receipt means
+unconfirmed, not rejected. **Start fresh review** explicitly retires only an unused
+ticket, then rechecks the receipt before opening a fresh timed review with the draft.
+If the original write won that race, the accepted receipt is recovered instead.
+New survey reviews prepare `SURVEY_ABORT`, with the same delay as `ABORT`, and
+store a versioned proof ID plus internal `SURVEY_ABORT_V1` action. Legacy
+staff-entered withdrawal keeps ordinary `ABORT` proof. Existing in-flight
+ordinary survey tickets remain valid. Old servers cannot consume the new internal
+action, so every accepted versioned proof must have its exact review receipt.
+Under the ticket lock, absent proof or an expired unused versioned proof establishes
+`NOT_ACCEPTED` and cannot commit later. This also recovers a lost retirement
+reply or proof cleanup before the first check. Missing/used old ordinary tickets
+without exact receipts remain uncertain and offer reads rather than a dead-end
+restart action.
+
+A fresh source read must still show an OPEN, assigned request with no pending
+withdrawal before another timed review opens. Otherwise the retained negative
+receipt explains the current closed, unassigned, pending or unavailable state,
+keeps its draft, and offers a status read. A
 successful network read observing that exact review as declined on an OPEN source
 permits a new ticketed attempt, even when the page never observed its pending state.
 Older or unrelated declines, cached updates and failed or denied reads cannot
 release that receipt. Observing the exact accepted review also clears its read-only
 refresh warning; pending and approved withdrawals remain guarded.
+Withdrawal confirmation and explicit receipt/status reads own a one-shot keyboard
+focus handoff after the timed dialog's native cleanup. Focus reaches the exact
+request's enabled recovery control or resulting status/heading; a deliberate move
+elsewhere, a disabled recovery, a new dialog, ordinary recall and background reads
+do not reclaim it. Terminal requests use the workspace's owned history heading.
 Each editor opening owns its request-local draft. Its read-only **Original verified
 request email** names the immutable source mailbox, independently of the current
 account's sign-in address; public signup keeps **Email for Sign In**.
