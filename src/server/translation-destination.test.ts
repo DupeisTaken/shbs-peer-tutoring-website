@@ -316,7 +316,12 @@ it("distinguishes identically titled pages while retaining author-scoped target 
     },
   });
   await db.user.create({
-    data: { id: "page-author", role: "STUDENT", canTranslate: true },
+    data: {
+      id: "page-author",
+      email: "translation-page-author@example.test",
+      role: "STUDENT",
+      canTranslate: true,
+    },
   });
   await user("page-author", "STUDENT").home.setPageTitle({
     id: "other-page",
