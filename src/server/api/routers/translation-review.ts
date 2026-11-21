@@ -16,6 +16,10 @@ import {
 import { homeRouter } from "./home";
 import { localizationRouter } from "./localization";
 import type { PrismaClient } from "../../../../generated/prisma";
+import {
+  pageTitleReference,
+  type TranslationReviewPageTarget,
+} from "~/lib/page-title-reference";
 
 /** Approval runs the original validated staff mutation and the decision in the same transaction.
  * The called text-only mutations use transaction-compatible delegates, never nested $transaction. */
@@ -41,10 +45,45 @@ export const translationReviewRouter = createTRPCRouter({
         take: 30,
         skip: input.page * 30,
       });
-      return rows.map((row) => ({
+      const visibleRows = rows.map((row) => ({
         ...row,
         ...visibleTranslationPayload(row.payload),
       }));
+      // Resolve only this authorized batch's page targets. These current labels
+      // never replace submitted payloads, baselines or captured approval evidence.
+      const pageIds = [
+        ...new Set(
+          visibleRows.flatMap((row) =>
+            row.operation === "home.setPageTitle" &&
+            typeof row.payload.id === "string"
+              ? [row.payload.id]
+              : [],
+          ),
+        ),
+      ];
+      const pages = pageIds.length
+        ? await ctx.db.customPage.findMany({
+            where: { id: { in: pageIds } },
+            select: { id: true, slug: true, title: true },
+          })
+        : [];
+      const pagesById = new Map(pages.map((page) => [page.id, page]));
+      return visibleRows.map((row) => {
+        let pageTarget: TranslationReviewPageTarget | null = null;
+        if (
+          row.operation === "home.setPageTitle" &&
+          typeof row.payload.id === "string"
+        ) {
+          const page = pagesById.get(row.payload.id);
+          pageTarget = {
+            id: row.payload.id,
+            state: page ? "current" : "missing",
+            title: pageTitleReference(page?.title, row.payload.locale),
+            address: page ? `/p/${encodeURIComponent(page.slug)}` : null,
+          };
+        }
+        return { ...row, pageTarget };
+      });
     }),
   decide: adminProcedure
     .input(

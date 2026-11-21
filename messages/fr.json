@@ -3024,6 +3024,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "Page actuellement enregistrée",
+      "currentHelp": "Détails enregistrés actuels, et non une copie au moment de l’envoi.",
+      "missing": "Cette page n’existe plus.",
+      "missingRecovery": "Cette page n’existe plus ; ce brouillon ne peut donc pas être publié. Un administrateur ou responsable peut le rejeter et le conserver dans l’historique.",
+      "untitled": "Aucun titre enregistré dans la langue cible ou en anglais.",
+      "language": "Langue du titre : {locale}",
+      "fallbackLanguage": "Langue du titre : {locale} (langue de repli)",
+      "address": "Adresse actuelle de la page",
+      "reference": "Identifiant de référence de la page"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",

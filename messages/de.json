@@ -3024,6 +3024,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "Aktuell gespeicherte Seite",
+      "currentHelp": "Aktuell gespeicherte Angaben, keine Momentaufnahme der Einreichung.",
+      "missing": "Diese Seite existiert nicht mehr.",
+      "missingRecovery": "Diese Seite existiert nicht mehr. Dieser Entwurf kann daher nicht veröffentlicht werden. Admin oder Leitung können ihn ablehnen und im Verlauf aufbewahren.",
+      "untitled": "Kein gespeicherter Titel in der Zielsprache oder auf Englisch.",
+      "language": "Titelsprache: {locale}",
+      "fallbackLanguage": "Titelsprache: {locale} (Ersatzsprache)",
+      "address": "Aktuelle Seitenadresse",
+      "reference": "Seitenreferenz-ID"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",

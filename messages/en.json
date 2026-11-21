@@ -3024,6 +3024,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "Current saved page",
+      "currentHelp": "Current saved details, not a snapshot from submission.",
+      "missing": "This page no longer exists.",
+      "missingRecovery": "This page no longer exists, so this draft cannot be published. Admin or Head can reject it and retain it in history.",
+      "untitled": "No saved title in the target language or English.",
+      "language": "Title language: {locale}",
+      "fallbackLanguage": "Title language: {locale} (fallback)",
+      "address": "Current page address",
+      "reference": "Page reference ID"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",

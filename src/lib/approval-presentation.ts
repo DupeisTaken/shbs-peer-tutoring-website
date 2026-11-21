@@ -8,6 +8,7 @@ import { recordedEvidenceDiff } from "./recorded-evidence-diff";
 import { reviewInstantValue } from "./review-instant";
 import { approvalReferences, approvalSummary } from "./approval-summary";
 import { reviewCollection } from "./approval-review-collections";
+import { pageTitleReference } from "./page-title-reference";
 
 const record = (value: unknown): ReviewRecord | undefined =>
   value !== null && typeof value === "object" && !Array.isArray(value)
@@ -426,13 +427,9 @@ export function approvalPresentation(
       } else if (table === "CustomPage") {
         const titles = record(parent?.title);
         destinationName =
-          nonblank([
-            typeof proposed.locale === "string"
-              ? titles?.[proposed.locale]
-              : undefined,
-            titles?.en,
-            parent?.slug,
-          ]) ?? targetId;
+          pageTitleReference(titles, proposed.locale)?.value ??
+          nonblank([parent?.slug]) ??
+          targetId;
         if (
           titles &&
           typeof proposed.locale === "string" &&

@@ -77,6 +77,7 @@ describe("UI recovery and persistent field labels", () => {
     "admin.landing.translation.titleLabel",
     "admin.landing.translation.bodyLabel",
     "translationEditor.refreshFailed",
+    "translationEditor.pageTarget.missingRecovery",
     "admin.crew.originalApplication",
     "admin.crew.originalRequest",
     "actionReview.galleryRevokeScenario",
