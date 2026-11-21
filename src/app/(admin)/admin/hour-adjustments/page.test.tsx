@@ -30,7 +30,7 @@ const state = vi.hoisted(() => ({
       id: "synthetic-adjustment",
       tutor: { englishName: "Alexandra Montgomery-Wellington Synthetic Tutor" },
       month: "2026-09",
-      type: "EXTRA" as "EXTRA" | "PUNISHMENT",
+      type: "EXTRA",
       amount: 1.5,
       reason:
         "Synthetic explanation with full detail. " +
