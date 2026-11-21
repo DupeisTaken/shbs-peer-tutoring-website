@@ -2048,6 +2048,8 @@
     },
     "landing": {
       "pageAddress": "Dirección de la página",
+      "addressRefreshFailed": "La dirección se guardó, pero no se pudo cargar la dirección actualizada. Actualice la dirección sin volver a guardarla.",
+      "refreshAddress": "Actualizar dirección",
       "title": "Página de inicio",
       "subtitle": "Edita textos, noticias e imágenes del sitio público. Los cambios de coordinadores y textos de traductores requieren revisión. Los cambios autorizados de Admin/Head se aplican directamente; las noticias en borrador siguen privadas hasta publicarse.",
       "loading": "Cargando…",

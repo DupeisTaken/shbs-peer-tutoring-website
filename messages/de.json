@@ -2048,6 +2048,8 @@
     },
     "landing": {
       "pageAddress": "Seitenadresse",
+      "addressRefreshFailed": "Die Adresse wurde gespeichert, aber die aktualisierte Adresse konnte nicht geladen werden. Aktualisieren Sie die Adresse, ohne erneut zu speichern.",
+      "refreshAddress": "Adresse aktualisieren",
       "title": "Startseite",
       "subtitle": "Öffentliche Webseitentexte, Neuigkeiten und Bilder bearbeiten. Änderungen von Koordinatoren und Textänderungen von Übersetzern müssen geprüft werden. Berechtigte Änderungen von Admin/Head gelten direkt; Nachrichtenentwürfe bleiben bis zur Veröffentlichung privat.",
       "loading": "Wird geladen…",
