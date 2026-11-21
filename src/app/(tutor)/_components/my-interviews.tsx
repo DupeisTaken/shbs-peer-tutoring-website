@@ -130,7 +130,12 @@ function HeadScheduler({
         aria-label={t("tutor.interviews.setTime")}
         value={value}
         disabled={save.isPending}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setInputError("");
+          // A new draft clears feedback from the previous submission.
+          if (!save.isPending && (save.isSuccess || save.error)) save.reset();
+        }}
       />
       <button
         className="btn-primary btn-sm min-h-11 lg:min-h-10"
