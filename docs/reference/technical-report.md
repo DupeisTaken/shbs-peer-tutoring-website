@@ -2008,6 +2008,16 @@ discoverable. Summary and Breakdown share that selection and sort; a separately
 labelled subtotal must not replace the complete program totals. Current status is
 not a historical membership assertion, and identical names never merge tutor IDs.
 
+Service Hours and historical Reports display service-hour values through the
+existing [exact hours formatter](../../src/lib/school-hours-format.ts), including
+totals, tutor comparisons, Details and report source rows. It retains the numeric
+value without independently rounding each reader, normalizing only negative zero.
+Selection, sorting, subtotal arithmetic and server calculations retain raw numbers;
+the existing Reports CSV formatting remains separate from on-screen precision.
+Hour summary grids fit wider columns to the available container rather than fixing
+four columns. Each value can shrink and wrap within its own field, including compact
+subtotals, so long minute-derived totals cannot paint over adjacent labels or values.
+
 Meeting workspaces use the count-only catalog in
 [meeting-periods.ts](../../src/server/meeting-periods.ts), grouping stored term ownership
 by school year and quarter, or both quarters under the applied semester mode.
