@@ -62,14 +62,16 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
   "returns separate proposal and direct-apply email permissions for live %s",
   async (role) => {
     const { caller, mock } = fixture(role, "ADMIN");
-    await expect(caller.program.emailNotificationSettings()).resolves.toEqual({
+    const { deliveryAvailable, ...settings } =
+      await caller.program.emailNotificationSettings();
+    expect(settings).toEqual({
       enabled: false,
       secondaryEmailBindingEnabled: true,
       canEdit: true,
       canApply: role !== "COORDINATOR",
-      deliveryAvailable: expect.any(Boolean),
       failed: 1,
     });
+    expect(typeof deliveryAvailable).toBe("boolean");
     expect(mock.auditLog.create).not.toHaveBeenCalled();
     expect(mocks.resend).not.toHaveBeenCalled();
   },
