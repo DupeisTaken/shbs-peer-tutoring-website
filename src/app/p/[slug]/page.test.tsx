@@ -8,7 +8,7 @@ import zh from "../../../../messages/zh.json";
 import SlugPage from "./page";
 
 const state = vi.hoisted(() => ({
-  locale: "en" as "en" | "zh",
+  locale: "en",
   page: vi.fn(),
   section: vi.fn(),
   layout: vi.fn(),
