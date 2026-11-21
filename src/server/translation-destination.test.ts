@@ -242,6 +242,133 @@ it("legacy proposals retain evidence, hide internal metadata and require explici
   await approve(fresh);
 });
 
+it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
+  "%s identifies page-title destinations without a Translator assignment",
+  async (role) => {
+    await translator().home.setPageTitle({
+      id: "translation-page",
+      locale: "zh",
+      value: "提议标题",
+    });
+    const draft = await latest();
+    await db.user.update({
+      where: { id: "translation-admin" },
+      data: { role, canTranslate: false },
+    });
+    const reviewer = user("translation-admin", role);
+    const rows = await reviewer.translationReview.list();
+    expect(rows[0]).toMatchObject({
+      id: draft.id,
+      pageTarget: {
+        id: "translation-page",
+        state: "current",
+        title: { value: "Original", locale: "en" },
+        address: "/p/translation-test",
+      },
+      payload: { id: "translation-page", locale: "zh", value: "提议标题" },
+    });
+    await expect(reviewer.home.pages()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(await db.approvalRequest.count()).toBe(0);
+    expect((await latest()).payload).toEqual(draft.payload);
+  },
+);
+
+it("keeps current page labels distinct from submitted text and destination evidence", async () => {
+  await translator().home.setPageTitle({
+    id: "translation-page",
+    locale: "zh",
+    value: "Unrelated proposed title",
+  });
+  const draft = await latest();
+  await db.customPage.update({
+    where: { id: "translation-page" },
+    data: { slug: "renamed-page", title: { en: "New English", zh: "当前标题" } },
+  });
+  const rows = await admin().translationReview.list();
+  expect(rows[0]?.pageTarget).toEqual({
+    id: "translation-page",
+    state: "current",
+    title: { value: "当前标题", locale: "zh" },
+    address: "/p/renamed-page",
+  });
+  expect(rows[0]?.payload).toEqual({
+    id: "translation-page",
+    locale: "zh",
+    value: "Unrelated proposed title",
+  });
+  expect((await latest()).payload).toEqual(draft.payload);
+  await expect(approve(draft)).rejects.toThrow("destination text changed");
+  expect((await latest()).state).toBe("PENDING");
+});
+
+it("distinguishes identically titled pages while retaining author-scoped target reads", async () => {
+  await write("page", "First proposal");
+  await db.customPage.create({
+    data: {
+      id: "other-page",
+      slug: "another-page",
+      title: { en: "Original", fr: "Other-language-only title" },
+    },
+  });
+  await db.user.create({
+    data: { id: "page-author", role: "STUDENT", canTranslate: true },
+  });
+  await user("page-author", "STUDENT").home.setPageTitle({
+    id: "other-page",
+    locale: "zh",
+    value: "Other proposal",
+  });
+  const own = await translator().translationReview.list();
+  expect(own).toHaveLength(1);
+  expect(own[0]?.pageTarget?.id).toBe("translation-page");
+  const all = await admin().translationReview.list();
+  expect(all.map((row) => row.pageTarget?.title?.value)).toEqual([
+    "Original",
+    "Original",
+  ]);
+  expect(all.map((row) => row.pageTarget?.address).sort()).toEqual([
+    "/p/another-page",
+    "/p/translation-test",
+  ]);
+  expect(JSON.stringify(all)).not.toContain("Other-language-only title");
+});
+
+it("labels a deleted page without discarding or publishing its draft", async () => {
+  await write("page", "Retained proposal");
+  const draft = await latest();
+  await db.customPage.delete({ where: { id: "translation-page" } });
+  const rows = await admin().translationReview.list();
+  expect(rows[0]?.pageTarget).toEqual({
+    id: "translation-page",
+    state: "missing",
+    title: null,
+    address: null,
+  });
+  expect(rows[0]?.payload.value).toBe("Retained proposal");
+  await expect(approve(draft)).rejects.toThrow("destination text changed");
+  expect((await latest()).payload).toEqual(draft.payload);
+  expect((await latest()).state).toBe("PENDING");
+});
+
+it("labels published history with current page details and keeps its original proposal", async () => {
+  await write("page", "Published proposal");
+  const draft = await latest();
+  await approve(draft);
+  await db.customPage.update({
+    where: { id: "translation-page" },
+    data: { slug: "later-address", title: { en: "Later saved title" } },
+  });
+  const rows = await admin().translationReview.list({ state: "APPROVED" });
+  expect(rows[0]?.pageTarget).toMatchObject({
+    title: { value: "Later saved title", locale: "en" },
+    address: "/p/later-address",
+  });
+  expect(rows[0]?.payload.value).toBe("Published proposal");
+  expect((await latest()).payload).toEqual(draft.payload);
+});
+
 it("a deleted custom locale cannot redirect a proposal into English", async () => {
   await db.language.create({ data: { code: "zz", label: "Demo language" } });
   await translator().localization.setString({

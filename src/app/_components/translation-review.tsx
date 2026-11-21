@@ -32,7 +32,8 @@ export function TranslationReview() {
   const access = translationAccess(me.data);
   const rows = api.translationReview.list.useQuery(
     { page, state: state === "ALL" ? undefined : state },
-    { enabled: access.enter },
+    // Current page labels must revalidate on return after a title/slug edit.
+    { enabled: access.enter, staleTime: 0 },
   );
   const utils = api.useUtils();
   const decide = api.translationReview.decide.useMutation({
@@ -109,8 +110,60 @@ export function TranslationReview() {
             </span>
           </div>
           <dl className="grid min-w-0 gap-3 rounded-lg bg-slate-50 p-4">
-            {Object.entries(draft.payload as Record<string, unknown>).map(
-              ([key, value]) => (
+            {draft.pageTarget && (
+              <>
+                <div className="min-w-0">
+                  <dt className="text-xs font-semibold text-slate-500">
+                    {t("pageTarget.current")}
+                  </dt>
+                  <dd className="mt-1 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                    {draft.pageTarget.state === "missing" ? (
+                      t("pageTarget.missing")
+                    ) : draft.pageTarget.title ? (
+                      <span lang={draft.pageTarget.title.locale}>
+                        {draft.pageTarget.title.value}
+                      </span>
+                    ) : (
+                      t("pageTarget.untitled")
+                    )}
+                    {draft.pageTarget.title && (
+                      <span className="muted mt-1 block text-xs">
+                        {t(
+                          draft.pageTarget.title.locale === draft.payload.locale
+                            ? "pageTarget.language"
+                            : "pageTarget.fallbackLanguage",
+                          { locale: draft.pageTarget.title.locale },
+                        )}
+                      </span>
+                    )}
+                    <span className="muted mt-1 block text-xs">
+                      {t("pageTarget.currentHelp")}
+                    </span>
+                  </dd>
+                </div>
+                {draft.pageTarget.address && (
+                  <div className="min-w-0">
+                    <dt className="text-xs font-semibold text-slate-500">
+                      {t("pageTarget.address")}
+                    </dt>
+                    <dd className="mt-1 [overflow-wrap:anywhere]">
+                      {draft.pageTarget.address}
+                    </dd>
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <dt className="text-xs font-semibold text-slate-500">
+                    {t("pageTarget.reference")}
+                  </dt>
+                  <dd className="mt-1 text-xs [overflow-wrap:anywhere]">
+                    {draft.pageTarget.id}
+                  </dd>
+                </div>
+              </>
+            )}
+            {Object.entries(draft.payload as Record<string, unknown>)
+              .filter(([key]) => !(draft.pageTarget && key === "id"))
+              .map(([key, value]) => (
                 <div key={key} className="min-w-0">
                   <dt className="text-xs font-semibold text-slate-500">
                     {t(
@@ -132,8 +185,7 @@ export function TranslationReview() {
                     {String(value)}
                   </dd>
                 </div>
-              ),
-            )}
+              ))}
           </dl>
           {draft.needsResubmission && draft.state === "PENDING" && (
             <p className="text-sm text-amber-800">{t("resubmit")}</p>

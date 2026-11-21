@@ -2487,6 +2487,18 @@ Acceptance keeps the exact revision, text, signature and timestamp. Participatio
 
 Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
 
+Page-title draft review shows the current saved page title, its language (with an
+explicit English fallback), the canonical `/p/<slug>` address and a secondary page
+reference ID. A missing page is labelled explicitly. This read batches only page
+IDs in the authorized draft page and projects no page body or unrelated titles.
+Review reads revalidate on return so a recently cached title/address does not
+remain fresh after a landing-page edit.
+The labelled current details can change after submission or publication; they never
+replace the immutable proposal, destination fingerprint or captured Management
+Actions evidence. The shared page-title label resolver accepts the target locale,
+then English, while each caller retains ownership of its current or captured data.
+News, sections and interface/fixed-content draft labels keep their existing scope.
+
 The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
 
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.

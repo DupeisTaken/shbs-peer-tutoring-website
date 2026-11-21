@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { TranslationReviewPageTarget } from "~/lib/page-title-reference";
+import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 
 const mocks = vi.hoisted(() => ({
   me: { role: "TUTOR", canTranslate: true },
+  locale: null as "en" | "zh" | null,
   draft: {
     id: "draft",
     operation: "localization.setString",
@@ -12,7 +16,8 @@ const mocks = vi.hoisted(() => ({
       locale: "en",
       key: "common.save",
       value: "Synthetic translation",
-    },
+    } as Record<string, unknown>,
+    pageTarget: null as TranslationReviewPageTarget | null,
     createdAt: new Date("2026-09-19"),
     updatedAt: new Date("2026-09-19"),
     needsResubmission: false,
@@ -30,7 +35,19 @@ const mocks = vi.hoisted(() => ({
       ) => void),
 }));
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations:
+    (namespace: string) =>
+    (key: string, values?: Record<string, string>) => {
+      if (!mocks.locale) return key;
+      const messages = mocks.locale === "zh" ? zh : en;
+      let value: unknown = messages;
+      for (const part of `${namespace}.${key}`.split("."))
+        value = (value as Record<string, unknown>)[part];
+      return Object.entries(values ?? {}).reduce(
+        (text, [name, replacement]) => text.replace(`{${name}}`, replacement),
+        String(value),
+      );
+    },
   useFormatter: () => ({ dateTime: () => "19 Sep 2026" }),
 }));
 vi.mock("~/trpc/react", () => ({
@@ -68,7 +85,17 @@ import { TranslationReview } from "./translation-review";
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.mutate.mockReset();
   mocks.me = { role: "TUTOR", canTranslate: true };
+  mocks.locale = null;
+  mocks.draft.operation = "localization.setString";
+  mocks.draft.state = "PENDING";
+  mocks.draft.payload = {
+    locale: "en",
+    key: "common.save",
+    value: "Synthetic translation",
+  };
+  mocks.draft.pageTarget = null;
   mocks.draft.needsResubmission = false;
   mocks.error = null;
   mocks.decisionError = null;
@@ -151,4 +178,108 @@ it("keeps failed publication feedback inside the affected draft", () => {
   expect(screen.getByRole("alert").closest("article")?.textContent).toContain(
     "Synthetic translation",
   );
+});
+
+it.each(["en", "zh"] as const)(
+  "%s separates saved page identity from the proposed title without adding navigation rights",
+  (locale) => {
+    mocks.locale = locale;
+    mocks.me = { role: "ADMIN", canTranslate: false };
+    mocks.draft.operation = "home.setPageTitle";
+    mocks.draft.payload = {
+      id: "page-reference",
+      locale: "zh",
+      value: "完全不同的提议标题\n",
+    };
+    mocks.draft.pageTarget = {
+      id: "page-reference",
+      state: "current",
+      title: { value: "Saved English page title", locale: "en" },
+      address: "/p/saved-page",
+    };
+    render(<TranslationReview />);
+    const labels = (locale === "zh" ? zh : en).translationEditor.pageTarget;
+    expect(screen.getByText(labels.current)).toBeTruthy();
+    expect(screen.getByText(labels.currentHelp)).toBeTruthy();
+    expect(screen.getByText("Saved English page title")).toBeTruthy();
+    expect(
+      screen.getByText("Saved English page title").getAttribute("lang"),
+    ).toBe("en");
+    expect(
+      screen.getByText(labels.fallbackLanguage.replace("{locale}", "en")),
+    ).toBeTruthy();
+    expect(screen.getByText("/p/saved-page")).toBeTruthy();
+    expect(screen.getAllByText("page-reference")).toHaveLength(1);
+    expect(screen.getByText("完全不同的提议标题")).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: (locale === "zh" ? zh : en).workflows.approve,
+      }),
+    );
+    expect(mocks.mutate).toHaveBeenCalledWith({
+      id: "draft",
+      approve: true,
+      expectedUpdatedAt: mocks.draft.updatedAt,
+    });
+  },
+);
+
+it.each(["APPROVED", "REJECTED"])(
+  "shows missing current targets alongside retained %s proposals",
+  (state) => {
+    mocks.locale = "en";
+    mocks.me = { role: "ADMIN", canTranslate: false };
+    mocks.draft.operation = "home.setPageTitle";
+    mocks.draft.state = state;
+    mocks.draft.payload = {
+      id: "deleted-page",
+      locale: "zh",
+      value: "Retained proposal",
+    };
+    mocks.draft.pageTarget = {
+      id: "deleted-page",
+      state: "missing",
+      title: null,
+      address: null,
+    };
+    render(<TranslationReview />);
+    expect(
+      screen.getByText(en.translationEditor.pageTarget.missing),
+    ).toBeTruthy();
+    expect(screen.getByText("Retained proposal")).toBeTruthy();
+    expect(screen.getByText("deleted-page")).toBeTruthy();
+    expect(
+      screen.queryByText(en.translationEditor.pageTarget.address),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: en.workflows.approve }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: en.workflows.rejectDraft }),
+    ).toBeNull();
+  },
+);
+
+it("keeps untitled current pages identifiable and legacy proposals blocked", () => {
+  mocks.locale = "zh";
+  mocks.me = { role: "COORDINATOR", canTranslate: false };
+  mocks.draft.operation = "home.setPageTitle";
+  mocks.draft.payload = { id: "untitled-page", locale: "zh", value: "提议标题" };
+  mocks.draft.pageTarget = {
+    id: "untitled-page",
+    state: "current",
+    title: null,
+    address: "/p/untitled-page",
+  };
+  mocks.draft.needsResubmission = true;
+  render(<TranslationReview />);
+  expect(screen.getByText(zh.translationEditor.pageTarget.untitled)).toBeTruthy();
+  expect(screen.getByText("/p/untitled-page")).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: zh.translationEditor.requestApproval,
+    }).disabled,
+  ).toBe(true);
+  expect(screen.queryByRole("button", { name: zh.workflows.approve })).toBeNull();
 });

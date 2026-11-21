@@ -1649,6 +1649,13 @@ Leaving or reloading the editor ends these local draft lifetimes.
 
 Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
 
+For page-title drafts, check **Current saved page** and **Current page address**
+before deciding. The title uses the draft's language, with an explicitly labelled
+English fallback when needed. The page reference ID distinguishes similar names.
+These are current details, including when viewing published or rejected history;
+the submitted translation below stays unchanged. Deleted pages are labelled and
+cannot be published through an older draft.
+
 ## Account settings and private support
 
 Use **Account Settings** to edit the name fields available for your current role, change your password or request a verified email change. Program settings determine which fields are shown and how saved names appear; see [name fields and display settings](#names-and-academic-details). Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
