@@ -570,13 +570,11 @@ async function readStudentAbortReceipt(
     where: { id: ticket },
   });
   const versioned = isReceiptBoundAbortTicket(ticket);
-  const boundUnused = Boolean(
-    proof &&
-    proof.userId === userId &&
+  const boundUnused =
+    proof?.userId === userId &&
     proof.target === id &&
     proof.action === (versioned ? surveyAbortProofAction : "ABORT") &&
-    !proof.usedAt,
-  );
+    !proof.usedAt;
   // Every accepted versioned proof commits its exact receipt. Missing or expired
   // unused proof cannot be consumed later, including after a lost retirement reply.
   if (versioned && (!proof || (boundUnused && proof.expiresAt <= new Date())))

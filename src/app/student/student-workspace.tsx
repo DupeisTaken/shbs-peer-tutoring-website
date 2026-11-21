@@ -559,9 +559,9 @@ function useCurrentRequests({
               </Button>
               {attempt.checked &&
                 !attempt.unavailable &&
-                (attempt.canRetire ||
+                (attempt.canRetire === true ||
                   attempt.retired ||
-                  attempt.notAccepted) && (
+                  attempt.notAccepted === true) && (
                   <Button
                     disabled={busy || readBlocked}
                     onClick={() => void checkAbort(attempt, true)}
