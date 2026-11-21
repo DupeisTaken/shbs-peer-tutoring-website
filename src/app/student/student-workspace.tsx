@@ -23,6 +23,7 @@ import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ParticipantName } from "~/app/_components/participant-name";
 import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
 import { getSessionReadReceipts } from "~/lib/session-read-receipts";
+import { studentAbortReasonHash } from "~/lib/student-abort-intent";
 import { useStudentSignupRestriction } from "./signup-restriction";
 
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
@@ -177,6 +178,7 @@ export function StudentWorkspace({
       const fresh = await query.refetch();
       if (fresh.error || !fresh.data)
         throw new Error(recovery("refreshFailed"));
+      return fresh.data;
     },
   });
   if (denied || requestDenied || legacyDenied)
@@ -265,6 +267,17 @@ type RequestAction = { row: Request; kind: "RECALL" | "ABORT" };
 type AcceptedRequestAction =
   | { kind: "RECALL" }
   | { kind: "ABORT"; reviewId: string };
+type UnconfirmedAbort = {
+  selected: RequestAction;
+  ticket: string;
+  reason: string;
+  checked: boolean;
+  retired: boolean;
+  notAccepted?: boolean;
+  canRetire?: boolean;
+  unavailable?: "pending" | "unassigned" | "closed" | "missing";
+  error?: string;
+};
 
 /** Dialogs and accepted receipts belong to the list, not a removable OPEN card.
  * Source IDs keep actions stable when reads reorder or close another request. */
@@ -281,7 +294,7 @@ function useCurrentRequests({
   readVerified: boolean;
   readFeedback: ReactNode;
   concealed: boolean;
-  onRefresh: () => Promise<void>;
+  onRefresh: () => Promise<Request[]>;
 }) {
   const format = useFormatter();
   const t = useTranslations("workflow");
@@ -294,9 +307,14 @@ function useCurrentRequests({
     () => new Map(),
   );
   const [recoveries, setRecoveries] = useState<RequestAction[]>([]);
+  const [unconfirmed, setUnconfirmed] = useState<Map<string, UnconfirmedAbort>>(
+    () => new Map(),
+  );
   const admitted = useRef(false);
+  const utils = api.useUtils();
   const recall = api.studentWorkflow.recall.useMutation();
-  const abort = api.studentWorkflow.applyAbort.useMutation();
+  const abort = api.studentWorkflow.applyAbort.useMutation({ retry: false });
+  const cancel = api.studentWorkflow.cancelAction.useMutation({ retry: false });
   const busy = working || recall.isPending || abort.isPending;
   // Reconcile denial before committing private children. An in-flight action
   // keeps its captured source/admission and accepted receipt in this owner.
@@ -356,6 +374,9 @@ function useCurrentRequests({
     action &&
     liveAction?.state === "OPEN" &&
     !accepted.has(action.row.id) &&
+    (!unconfirmed.has(action.row.id) ||
+      (action.kind === "RECALL" &&
+        unconfirmed.get(action.row.id)?.notAccepted)) &&
     !readBlocked &&
     (action.kind === "RECALL"
       ? !liveAction.pairings.length
@@ -366,18 +387,122 @@ function useCurrentRequests({
         ) &&
         reason.trim()),
   );
+  const checkAbort = async (attempt: UnconfirmedAbort, restart = false) => {
+    if (admitted.current || busy || concealed || readBlocked) return;
+    admitted.current = true;
+    setWorking(true);
+    const id = attempt.selected.row.id;
+    let retired = attempt.retired;
+    let notAccepted = attempt.notAccepted ?? false;
+    let receiptChecked = false;
+    try {
+      // Retiring an unused proof fences a delayed original POST. A missing/used
+      // proof alone never establishes rejection of an old, unreceipted write.
+      if (restart && !retired && !notAccepted) {
+        const result = await cancel.mutateAsync({ ticket: attempt.ticket });
+        retired = result.count === 1;
+      }
+      const receipt = await utils.studentWorkflow.abortReceipt.fetch(
+        {
+          id,
+          ticket: attempt.ticket,
+          reasonHash: await studentAbortReasonHash(attempt.reason),
+        },
+        { staleTime: 0 },
+      );
+      receiptChecked = true;
+      if (receipt.status === "ACCEPTED") {
+        setUnconfirmed((previous) => {
+          const next = new Map(previous);
+          next.delete(id);
+          return next;
+        });
+        setAccepted((previous) =>
+          new Map(previous).set(id, {
+            kind: "ABORT",
+            reviewId: receipt.reviewId,
+          }),
+        );
+        setRecoveries((previous) => [...previous, attempt.selected]);
+        try {
+          await onRefresh();
+        } catch {
+          /* Exact accepted receipt retains read-only refresh. */
+        }
+      } else {
+        notAccepted =
+          notAccepted || retired || receipt.status === "NOT_ACCEPTED";
+        let unavailable = attempt.unavailable;
+        if (notAccepted) {
+          const fresh = (await onRefresh()).find((row) => row.id === id);
+          unavailable = !fresh
+            ? "missing"
+            : fresh.state !== "OPEN"
+              ? "closed"
+              : fresh.reviews.some(
+                    (review) =>
+                      review.kind === "STUDENT_ABORT" &&
+                      review.state === "PENDING",
+                  )
+                ? "pending"
+                : !fresh.pairings.length
+                  ? "unassigned"
+                  : undefined;
+          if (restart && fresh && !unavailable) {
+            setUnconfirmed((previous) => {
+              const next = new Map(previous);
+              next.delete(id);
+              return next;
+            });
+            setReason(attempt.reason);
+            setFailure(null);
+            setAction({ row: fresh, kind: "ABORT" });
+            return;
+          }
+        }
+        setUnconfirmed((previous) =>
+          new Map(previous).set(id, {
+            ...attempt,
+            checked: true,
+            retired,
+            notAccepted,
+            canRetire: receipt.status === "UNCONFIRMED" && receipt.canRetire,
+            unavailable,
+            error: undefined,
+          }),
+        );
+      }
+    } catch {
+      setUnconfirmed((previous) =>
+        new Map(previous).set(id, {
+          ...attempt,
+          retired,
+          notAccepted,
+          error: t(
+            receiptChecked && notAccepted
+              ? "abortRefreshFailed"
+              : "abortCheckFailed",
+          ),
+        }),
+      );
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
+  };
   const confirm = async (ticket: string) => {
     if (admitted.current || busy || !action || !actionAllowed) return;
     admitted.current = true;
     setWorking(true);
     setFailure(null);
     const selected = action;
+    const submittedReason = reason.trim();
     try {
       let receipt: AcceptedRequestAction;
       if (selected.kind === "ABORT") {
         const result = await abort.mutateAsync({
           id: selected.row.id,
-          reason,
+          reason: submittedReason,
           ticket,
         });
         receipt = { kind: "ABORT", reviewId: result.reviewId };
@@ -385,7 +510,9 @@ function useCurrentRequests({
         await recall.mutateAsync({ id: selected.row.id, ticket });
         receipt = { kind: "RECALL" };
       }
-      setAccepted((previous) => new Map(previous).set(selected.row.id, receipt));
+      setAccepted((previous) =>
+        new Map(previous).set(selected.row.id, receipt),
+      );
       setRecoveries((previous) => [...previous, selected]);
       setAction(null);
       try {
@@ -394,7 +521,21 @@ function useCurrentRequests({
         // Keep read-only recovery until the exact accepted result is observed.
       }
     } catch (error) {
-      setFailure(error instanceof Error ? error.message : t("actionFailed"));
+      if (selected.kind === "ABORT") {
+        // Preserve the exact intent even when a transport retry reports a used
+        // ticket. This source cannot submit again until its outcome is resolved.
+        setUnconfirmed((previous) =>
+          new Map(previous).set(selected.row.id, {
+            selected,
+            ticket,
+            reason: submittedReason,
+            checked: false,
+            retired: false,
+          }),
+        );
+        setAction(null);
+      } else
+        setFailure(error instanceof Error ? error.message : t("actionFailed"));
     } finally {
       admitted.current = false;
       setWorking(false);
@@ -403,6 +544,56 @@ function useCurrentRequests({
   if (concealed) return null;
   return (
     <>
+      {[...unconfirmed.values()].map((attempt) => (
+        <InlineNotice
+          key={attempt.selected.row.id}
+          tone="warning"
+          announcement="status"
+          action={
+            <>
+              <Button
+                disabled={busy || readBlocked}
+                onClick={() => void checkAbort(attempt)}
+              >
+                {t("checkAbortSubmission")}
+              </Button>
+              {attempt.checked &&
+                !attempt.unavailable &&
+                (attempt.canRetire ||
+                  attempt.retired ||
+                  attempt.notAccepted) && (
+                  <Button
+                    disabled={busy || readBlocked}
+                    onClick={() => void checkAbort(attempt, true)}
+                  >
+                    {t("freshAbortReview")}
+                  </Button>
+                )}
+            </>
+          }
+        >
+          <p className="font-medium">
+            {attempt.unavailable === "missing"
+              ? t("abortFreshMissing")
+              : context(attempt.selected.row)}
+          </p>
+          <p>
+            {t(
+              attempt.notAccepted
+                ? "abortNotAccepted"
+                : attempt.checked
+                  ? attempt.canRetire || attempt.retired
+                    ? "abortNotConfirmed"
+                    : "abortStillUnknown"
+                  : "abortUnconfirmed",
+            )}
+          </p>
+          {attempt.unavailable && attempt.unavailable !== "missing" && (
+            <p>{t(`abortFreshUnavailable.${attempt.unavailable}`)}</p>
+          )}
+          {attempt.error && <p role="alert">{attempt.error}</p>}
+        </InlineNotice>
+      ))}
       {recoveries.map((item) => (
         <InlineNotice
           key={item.row.id}
@@ -435,9 +626,20 @@ function useCurrentRequests({
           context={context(row)}
           multiple={active.length > 1}
           readBlocked={readBlocked || busy}
-          actionAccepted={accepted.has(row.id)}
+          actionAccepted={
+            accepted.has(row.id) ||
+            (unconfirmed.has(row.id) &&
+              (!unconfirmed.get(row.id)?.notAccepted || !!row.pairings.length))
+          }
           onEdit={() => {
-            if (editing || action || admitted.current || busy || readBlocked)
+            if (
+              editing ||
+              action ||
+              admitted.current ||
+              busy ||
+              readBlocked ||
+              (unconfirmed.has(row.id) && !unconfirmed.get(row.id)?.notAccepted)
+            )
               return;
             setEditing(row);
           }}
@@ -448,7 +650,9 @@ function useCurrentRequests({
               admitted.current ||
               busy ||
               readBlocked ||
-              accepted.has(row.id)
+              accepted.has(row.id) ||
+              (unconfirmed.has(row.id) &&
+                !(kind === "RECALL" && unconfirmed.get(row.id)?.notAccepted))
             )
               return;
             setReason("");
@@ -467,7 +671,7 @@ function useCurrentRequests({
       )}
       {action && (
         <TimedActionDialog
-          action={action.kind}
+          action={action.kind === "ABORT" ? "SURVEY_ABORT" : action.kind}
           target={action.row.id}
           title={t(action.kind === "ABORT" ? "applyAbort" : "recall")}
           message={t(

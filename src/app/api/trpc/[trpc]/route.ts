@@ -1,5 +1,6 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { signupIngress } from "~/server/signup-ingress";
+import { isStudentAbortReceiptPost } from "~/lib/student-abort-receipt-transport";
 
 import { env } from "~/env";
 import { appRouter } from "~/server/api/root";
@@ -15,20 +16,23 @@ const createContext = async (req: Request) => {
   });
 };
 
-const handler = (incoming: Request) => signupIngress(incoming, (req) =>
-  fetchRequestHandler({
-    endpoint: "/api/trpc",
-    req,
-    router: appRouter,
-    createContext: () => createContext(req),
-    onError:
-      env.NODE_ENV === "development"
-        ? ({ path, error }) => {
-            console.error(
-              `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`
-            );
-          }
-        : undefined,
-  }));
+const handler = (incoming: Request) =>
+  signupIngress(incoming, (req) =>
+    fetchRequestHandler({
+      endpoint: "/api/trpc",
+      req,
+      allowMethodOverride: isStudentAbortReceiptPost(req),
+      router: appRouter,
+      createContext: () => createContext(req),
+      onError:
+        env.NODE_ENV === "development"
+          ? ({ path, error }) => {
+              console.error(
+                `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`,
+              );
+            }
+          : undefined,
+    }),
+  );
 
 export { handler as GET, handler as POST };

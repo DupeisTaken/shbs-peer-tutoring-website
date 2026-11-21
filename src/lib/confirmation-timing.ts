@@ -2,6 +2,8 @@
 export const confirmationDelayMs = {
   RECALL: 2_000,
   ABORT: 3_000,
+  // Survey withdrawals use a distinct receipt-bound proof, with the same review.
+  SURVEY_ABORT: 3_000,
   SCHEDULE: 2_000,
   APPROVE: 3_000,
   DENY: 2_000,

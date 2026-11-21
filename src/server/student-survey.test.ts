@@ -2,7 +2,7 @@ import { approveQualification } from "~/server/qualifications";
 import { applyLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { beforeEach, afterAll, describe, it, expect, vi } from "vitest";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: vi.fn().mockResolvedValue(undefined) },
@@ -41,6 +41,7 @@ import {
   editStudentAvailability,
   recallStudentRequest,
   applyStudentAbort,
+  studentAbortReceipt as readStudentAbortReceipt,
   applyScheduleRejection,
   resolveStudentReview,
   acceptStudentPolicy,
@@ -195,6 +196,436 @@ afterAll(async () => {
   } finally {
     await db.$disconnect();
   }
+});
+
+describe("exact withdrawal submission receipts", () => {
+  const reasonHash = (reason: string) =>
+    createHash("sha256").update(reason.trim()).digest("hex");
+  const studentAbortReceipt = (
+    database: Parameters<typeof readStudentAbortReceipt>[0],
+    userId: string,
+    id: string,
+    reason: string,
+    ticket: string,
+  ) =>
+    readStudentAbortReceipt(database, userId, id, reasonHash(reason), ticket);
+  async function attempt() {
+    const { row } = await assigned(true);
+    const user = await db.user.findUniqueOrThrow({ where: { email } });
+    return {
+      row,
+      user,
+      ticket: await ready("SURVEY_ABORT", row.id, user.id),
+      reason: "Synthetic interrupted withdrawal",
+    };
+  }
+  it("recovers a lost result and same-ticket retry without a second review or notification", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    const accepted = await applyStudentAbort(
+      db,
+      user.id,
+      row.id,
+      `  ${reason}  `,
+      ticket,
+    );
+    const notices = await db.notification.count();
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ).toEqual({ status: "ACCEPTED", reviewId: accepted.reviewId });
+    expect(
+      await applyStudentAbort(db, user.id, row.id, reason, ticket),
+    ).toEqual(accepted);
+    expect(await db.studentRequestReview.findMany()).toEqual([
+      expect.objectContaining({
+        id: accepted.reviewId,
+        reason,
+        state: "PENDING",
+      }),
+    ]);
+    expect(await db.notification.count()).toBe(notices);
+    expect(await db.pairingTutee.count()).toBe(1);
+    expect(await db.studentQuarterBlock.count()).toBe(0);
+  });
+  it("binds source, actor, ticket and reason instead of accepting another review", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    await applyStudentAbort(db, user.id, row.id, reason, ticket);
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, "Changed intent", ticket),
+    ).toEqual({ status: "UNCONFIRMED", canRetire: false });
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, "another-ticket"),
+    ).toEqual({ status: "UNCONFIRMED", canRetire: false });
+    const other = await db.user.create({
+      data: {
+        email: "unrelated-receipt@example.test",
+        role: "STUDENT",
+        tuteeMember: true,
+      },
+    });
+    await expect(
+      studentAbortReceipt(db, other.id, row.id, reason, ticket),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      studentAbortReceipt(db, user.id, "unrelated-request", reason, ticket),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      applyStudentAbort(db, user.id, row.id, "Changed intent", ticket),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const fresh = await ready("ABORT", row.id, user.id);
+    await expect(
+      applyStudentAbort(db, user.id, row.id, reason, fresh),
+    ).rejects.toThrow("already awaiting review");
+    expect(await db.studentRequestReview.count()).toBe(1);
+    expect(
+      await db.studentActionConfirmation.findUnique({ where: { id: fresh } }),
+    ).toMatchObject({ usedAt: null });
+  });
+  it("preserves old reviews and consumed tickets as uncertain, while accepting valid old-format tickets", async () => {
+    const { row, user, reason } = await attempt();
+    const ticket = await ready("ABORT", row.id, user.id);
+    await db.studentActionConfirmation.update({
+      where: { id: ticket },
+      data: { usedAt: new Date() },
+    });
+    await db.studentRequestReview.create({
+      data: {
+        id: "old-random-review",
+        surveyId: row.id,
+        kind: "STUDENT_ABORT",
+        requestedByUserId: user.id,
+        reason,
+        state: "DENIED",
+      },
+    });
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ).toEqual({ status: "UNCONFIRMED", canRetire: false });
+    expect((await cancelStudentAction(db, user.id, ticket)).count).toBe(0);
+    const valid = await ready("ABORT", row.id, user.id);
+    const accepted = await applyStudentAbort(
+      db,
+      user.id,
+      row.id,
+      reason,
+      valid,
+    );
+    expect(accepted.reviewId).not.toBe("old-random-review");
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, valid),
+    ).toEqual({ status: "ACCEPTED", reviewId: accepted.reviewId });
+  });
+  it("retains exact receipts after decline, proof cleanup and rollover, and permits a fresh-ticket resubmission", async () => {
+    await db.user.create({
+      data: {
+        id: "manager",
+        email: "receipt-manager@example.test",
+        role: "ADMIN",
+      },
+    });
+    const { row, user, ticket, reason } = await attempt();
+    const first = await applyStudentAbort(db, user.id, row.id, reason, ticket);
+    await resolveStudentReview(
+      db,
+      "manager",
+      first.reviewId,
+      false,
+      await ready("DENY", first.reviewId),
+    );
+    expect(
+      await applyStudentAbort(db, user.id, row.id, reason, ticket),
+    ).toEqual(first);
+    const second = await applyStudentAbort(
+      db,
+      user.id,
+      row.id,
+      reason,
+      await ready("SURVEY_ABORT", row.id, user.id),
+    );
+    expect(second.reviewId).not.toBe(first.reviewId);
+    await resolveStudentReview(
+      db,
+      "manager",
+      second.reviewId,
+      true,
+      await ready("APPROVE", second.reviewId),
+    );
+    await db.studentActionConfirmation.update({
+      where: { id: ticket },
+      data: { expiresAt: new Date(0) },
+    });
+    await prepareStudentAction(db, user.id, "ABORT", row.id);
+    expect(
+      await db.studentActionConfirmation.findUnique({ where: { id: ticket } }),
+    ).toBeNull();
+    await db.term.update({
+      where: { id: row.intakeTermId },
+      data: { active: false },
+    });
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ).toEqual({ status: "ACCEPTED", reviewId: first.reviewId });
+    expect(
+      await applyStudentAbort(db, user.id, row.id, reason, ticket),
+    ).toEqual(first);
+    expect(await db.studentRequestReview.count()).toBe(2);
+    expect(await db.pairingTutee.count()).toBe(0);
+  });
+  it("keeps inspection read-only and fences a rejected unused proof before a fresh attempt", async () => {
+    const { row, user, reason } = await attempt();
+    const early = await prepareStudentAction(
+      db,
+      user.id,
+      "SURVEY_ABORT",
+      row.id,
+    );
+    await db.studentActionConfirmation.update({
+      where: { id: early.id },
+      data: { readyAt: new Date(Date.now() + 60_000) },
+    });
+    await expect(
+      applyStudentAbort(db, user.id, row.id, reason, early.id),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const before = await db.studentActionConfirmation.findUniqueOrThrow({
+      where: { id: early.id },
+    });
+    const due = await db.studentSurvey.create({
+      data: {
+        email: "due-receipt@example.test",
+        intakeTermId: row.intakeTermId,
+        payload: {},
+        policyRevision: revision,
+        policySnapshot: {},
+        tokenHash: "synthetic-due-receipt",
+        expiresAt: new Date("2099-01-01"),
+        verificationDueAt: new Date(0),
+      },
+    });
+    const notices = await db.notification.count();
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, early.id),
+    ).toEqual({ status: "UNCONFIRMED", canRetire: true });
+    expect(
+      await db.studentActionConfirmation.findUniqueOrThrow({
+        where: { id: early.id },
+      }),
+    ).toEqual(before);
+    expect(await db.notification.count()).toBe(notices);
+    expect(await db.studentRequestReview.count()).toBe(0);
+    expect(
+      await db.studentSurvey.findUnique({ where: { id: due.id } }),
+    ).toMatchObject({ state: "OPEN" });
+    expect((await cancelStudentAction(db, user.id, early.id)).count).toBe(1);
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, early.id),
+    ).toEqual({ status: "NOT_ACCEPTED" });
+    await expect(
+      applyStudentAbort(db, user.id, row.id, reason, early.id),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(
+      applyStudentAbort(
+        db,
+        user.id,
+        row.id,
+        reason,
+        await ready("ABORT", row.id, user.id),
+      ),
+    ).resolves.toMatchObject({ ok: true });
+  });
+  it("serializes duplicate POSTs and receipt reads without a second effect", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    const [first, second] = await Promise.all([
+      applyStudentAbort(db, user.id, row.id, reason, ticket),
+      applyStudentAbort(db, user.id, row.id, reason, ticket),
+      studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ]);
+    expect(second).toEqual(first);
+    expect(await db.studentRequestReview.count()).toBe(1);
+    const notices = await db.notification.count();
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ).toEqual({ status: "ACCEPTED", reviewId: first.reviewId });
+    expect(
+      await applyStudentAbort(db, user.id, row.id, reason, ticket),
+    ).toEqual(first);
+    expect(await db.notification.count()).toBe(notices);
+  });
+  it("arbitrates cancellation against a delayed original submission", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    const [cancelled, submitted] = await Promise.all([
+      cancelStudentAction(db, user.id, ticket),
+      applyStudentAbort(db, user.id, row.id, reason, ticket).then(
+        (result) => ({ accepted: result }),
+        (error: unknown) => ({ error }),
+      ),
+    ]);
+    const receipt = await studentAbortReceipt(
+      db,
+      user.id,
+      row.id,
+      reason,
+      ticket,
+    );
+    if (cancelled.count === 1) {
+      expect(submitted).toHaveProperty("error.code", "PRECONDITION_FAILED");
+      expect(receipt).toEqual({ status: "NOT_ACCEPTED" });
+      expect(await db.studentRequestReview.count()).toBe(0);
+    } else {
+      expect(submitted).toHaveProperty("accepted.ok", true);
+      expect(receipt).toMatchObject({ status: "ACCEPTED" });
+      expect(await db.studentRequestReview.count()).toBe(1);
+    }
+  });
+  it("rechecks live participant access and explicit ownership on receipt reads", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    await applyStudentAbort(db, user.id, row.id, reason, ticket);
+    const actor = createCaller({
+      db,
+      headers: new Headers(),
+      session: {
+        user: { id: user.id },
+        role: "STUDENT",
+        tutorId: null,
+        expires: "2099-01-01",
+      },
+    }).studentWorkflow;
+    const receiptInput = { id: row.id, ticket, reasonHash: reasonHash(reason) };
+    await expect(actor.abortReceipt(receiptInput)).resolves.toMatchObject({
+      status: "ACCEPTED",
+    });
+    await db.user.update({
+      where: { id: user.id },
+      data: { tuteeMember: false },
+    });
+    await expect(actor.abortReceipt(receiptInput)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await db.user.update({
+      where: { id: user.id },
+      data: { tuteeMember: true, suspendedAt: new Date() },
+    });
+    await expect(actor.abortReceipt(receiptInput)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await db.user.update({
+      where: { id: user.id },
+      data: { suspendedAt: null, studentId: null },
+    });
+    // Only the isolated synthetic ownership fixture is changed to model transfer.
+    await db.studentProfileOwnership.deleteMany({ where: { userId: user.id } });
+    await expect(actor.abortReceipt(receiptInput)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+  it("versions only survey proof and prevents an older ABORT consumer from accepting it", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    expect(ticket).toMatch(/^survey-abort-v1:/);
+    expect(
+      await db.studentActionConfirmation.findUnique({ where: { id: ticket } }),
+    ).toMatchObject({ action: "SURVEY_ABORT_V1", target: row.id });
+    expect(confirmationDelayMs.SURVEY_ABORT).toBe(confirmationDelayMs.ABORT);
+    const legacy = await prepareStudentAction(
+      db,
+      user.id,
+      "ABORT",
+      `legacy:${row.tuteeId}`,
+    );
+    expect(legacy.id).not.toMatch(/^survey-abort-v1:/);
+    expect(
+      await db.studentActionConfirmation.findUnique({
+        where: { id: legacy.id },
+      }),
+    ).toMatchObject({ action: "ABORT", target: `legacy:${row.tuteeId}` });
+    await expect(
+      db.$transaction((tx) =>
+        consumeStudentAction(tx, ticket, user.id, "ABORT", row.id),
+      ),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(
+      applyStudentAbort(db, user.id, row.id, reason, ticket),
+    ).resolves.toMatchObject({ ok: true });
+  });
+  it("recovers unused versioned retirement after its reply is lost and checks without audit or domain writes", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    await cancelStudentAction(db, user.id, ticket); // Deliberately discard its result.
+    const actor = createCaller({
+      db,
+      headers: new Headers(),
+      session: {
+        user: { id: user.id },
+        role: "STUDENT",
+        tutorId: null,
+        expires: "2099-01-01",
+      },
+    }).studentWorkflow;
+    const before = {
+      audits: await db.auditLog.count(),
+      notices: await db.notification.count(),
+      reviews: await db.studentRequestReview.count(),
+      blocks: await db.studentQuarterBlock.count(),
+    };
+    for (let count = 0; count < 2; count++)
+      expect(
+        await actor.abortReceipt({
+          id: row.id,
+          ticket,
+          reasonHash: reasonHash(reason),
+        }),
+      ).toEqual({ status: "NOT_ACCEPTED" });
+    expect({
+      audits: await db.auditLog.count(),
+      notices: await db.notification.count(),
+      reviews: await db.studentRequestReview.count(),
+      blocks: await db.studentQuarterBlock.count(),
+    }).toEqual(before);
+    await expect(
+      applyStudentAbort(db, user.id, row.id, reason, ticket),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const fresh = await ready("SURVEY_ABORT", row.id, user.id);
+    expect(fresh).not.toBe(ticket);
+    await applyStudentAbort(db, user.id, row.id, reason, fresh);
+    expect(await db.studentRequestReview.count()).toBe(1);
+  });
+  it("proves expired and collected unused versioned attempts unaccepted without guessing legacy absence", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    await db.studentActionConfirmation.update({
+      where: { id: ticket },
+      data: { expiresAt: new Date(0) },
+    });
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ).toEqual({ status: "NOT_ACCEPTED" });
+    const legacy = await ready("ABORT", row.id, user.id);
+    await db.studentActionConfirmation.update({
+      where: { id: legacy },
+      data: { expiresAt: new Date(0) },
+    });
+    // Exercise the real preparation sweep; the worker uses the same expiry deletion.
+    await prepareStudentAction(db, user.id, "RECALL", row.id);
+    expect(
+      await db.studentActionConfirmation.findUnique({ where: { id: ticket } }),
+    ).toBeNull();
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ).toEqual({ status: "NOT_ACCEPTED" });
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, legacy),
+    ).toEqual({ status: "UNCONFIRMED", canRetire: false });
+    expect(await db.studentRequestReview.count()).toBe(0);
+  });
+  it("does not accept an incomplete version marker/action pair or a consumed mismatched intent", async () => {
+    const { row, user, ticket, reason } = await attempt();
+    await db.studentActionConfirmation.update({
+      where: { id: ticket },
+      data: { action: "ABORT" },
+    });
+    await expect(
+      applyStudentAbort(db, user.id, row.id, reason, ticket),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(
+      await studentAbortReceipt(db, user.id, row.id, reason, ticket),
+    ).toEqual({ status: "UNCONFIRMED", canRetire: false });
+    expect(await db.studentRequestReview.count()).toBe(0);
+  });
 });
 
 describe("survey-first enrollment", () => {
