@@ -3,6 +3,7 @@ import { CodeInput } from "~/app/_components/ui/code-field";
 
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { QueryFeedback } from "./ui/query-feedback";
 import { Button } from "./ui/button";
@@ -19,6 +20,7 @@ import {
  * Form actions retain 44px touch targets; compact desktop address actions share 32px rows. */
 export function AccountEmails() {
   const t = useTranslations("accountEmails");
+  const router = useRouter();
   const utils = api.useUtils();
   const settings = api.account.emailSettings.useQuery();
   const [email, setEmail] = useState("");
@@ -52,11 +54,13 @@ export function AccountEmails() {
     },
   });
   const manage = api.account.manageSecondaryEmail.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_, input) => {
       setPassword("");
       setSelected("");
       setCode("");
       setNotice(t("saved"));
+      // The account menu is server-rendered; a client-query refresh alone leaves its email stale.
+      if (input.action === "primary") router.refresh();
       await refresh();
     },
   });

@@ -932,15 +932,15 @@ export const participantArticles: HelpArticle[] = [
         ),
         screenshot: "account",
         focus: t(
-          "Profile fields followed by Save profile and Cancel",
-          "资料字段及下方的保存资料、取消按钮",
+          "Profile fields followed by this section's save and Cancel controls",
+          "资料字段及下方当前区域的保存与取消按钮",
         ),
       },
       {
         title: t("Save this section", "保存当前区域"),
         body: t(
-          "Choose Save profile to save the name fields together. Cancel restores the last loaded values. Password, emails, academics and membership each have their own actions and are not saved by this button.",
-          "选择“保存资料”一起保存姓名字段。“取消”恢复上次读取值。密码、邮箱、学业和参与资格各有独立操作，不会由此按钮保存。",
+          "Choose Save Changes in tutor Settings, or Save profile in shared Account Settings, to save the name fields together. Cancel restores the last loaded values. Password, emails, academics and membership each have their own actions and are not saved by this button.",
+          "在辅导伙伴设置中选择“保存更改”，或在通用账户设置中选择“保存个人资料”，一起保存姓名字段。“取消”恢复上次读取值。密码、邮箱、学业和参与资格各有独立操作，不会由此按钮保存。",
         ),
       },
       {
@@ -1090,16 +1090,16 @@ export const participantArticles: HelpArticle[] = [
     route: "/my-account#academic-details",
     prerequisites: [
       t(
-        "Open Account Settings → Academic Details; use the separate departure control.",
-        "打开账户设置→学业信息，并使用独立离校控件。",
+        "Open School Departure in tutor Settings, or use the separate departure control beside Academic Details in shared Account Settings.",
+        "在辅导伙伴设置中打开“离校状态”，或使用通用账户设置中学业信息旁的独立离校控件。",
       ),
     ],
     steps: [
       {
         title: t("Open School Departure", "打开离校功能"),
         body: t(
-          "Choose I have transferred away beside Academic Details. Select the applicable graduation or transfer situation, explain it and review the named consequences before confirming the request.",
-          "选择学业信息旁的“我已转学离校”。根据实际情况选择毕业或转学、填写说明，并核对具体影响后确认申请。",
+          "In tutor Settings use School Departure directly; in shared Account Settings choose I have transferred away beside Academic Details. Select the applicable Change, enter Reason for review and choose Request change. Read Review departure change, then choose Confirm change to submit for Admin review; this does not approve departure.",
+          "在辅导伙伴设置中直接使用“离校状态”；通用账户设置则选择学业信息旁的“我已转学离校”。选择适用的“变更”，填写“审核理由”，再选择“申请变更”。阅读“核对离校变更”后选择“确认变更”，仅提交管理员审核，并不代表离校已获批准。",
         ),
         screenshot: "account-departure",
         focus: t(
@@ -1120,8 +1120,8 @@ export const participantArticles: HelpArticle[] = [
           "情况改变时申请返校",
         ),
         body: t(
-          "Open the same School Departure entry, choose Return to school and provide the required reason. After approval, restore tutor activation or learning enrollment through their normal workflows.",
-          "再次打开同一离校入口，选择“返回学校”并提供所需原因。获批后，通过正常流程恢复辅导激活或学习报名。",
+          "In School Departure choose Return to school under Change, enter Reason for review and choose Request change. Read Review departure change and Confirm change to submit the return request. After approval, restore tutor activation or learning enrollment through their normal workflows.",
+          "在“离校状态”的“变更”中选择“返校”，填写“审核理由”并选择“申请变更”。阅读“核对离校变更”后选择“确认变更”，提交返校申请。获批后，通过正常流程恢复辅导激活或学习报名。",
         ),
       },
     ],
@@ -1290,8 +1290,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Handle a pending address", "处理待验证地址"),
         body: t(
-          "Use Resend for an expired or missing code, or Cancel to remove the pending request. Codes last ten minutes, permit five attempts and have a one-minute resend interval.",
-          "验证码过期或未收到时使用重发，或选择取消移除待验证申请。验证码有效十分钟，允许五次尝试，重发间隔一分钟。",
+          "Re-enter Current password to unlock Resend code or Cancel pending. Use Resend code for an expired or missing code, or Cancel pending beside the address to remove its request. Codes last ten minutes, permit five attempts and have a one-minute resend interval.",
+          "重新输入当前密码，才能使用重发验证码或取消待验证。验证码过期或未收到时选择重发验证码；移除申请时，选择邮箱旁的取消待验证。验证码有效十分钟，允许五次尝试，重发间隔一分钟。",
         ),
       },
       {
@@ -1300,8 +1300,8 @@ export const participantArticles: HelpArticle[] = [
           "选择主要邮箱或移除备用邮箱",
         ),
         body: t(
-          "Select a verified address as primary with password confirmation. The previous verified primary becomes secondary. To remove an address, first ensure another verified address is primary, then confirm the secondary removal.",
-          "通过密码确认将已验证地址设为主要邮箱。原已验证主要邮箱会成为备用邮箱。移除地址前，先确保另一已验证地址为主要邮箱，再确认移除备用邮箱。",
+          "Enter Current password, then choose Make primary beside a verified secondary address. This submits immediately; the previous verified primary becomes secondary. To remove a secondary, ensure the intended primary is marked, re-enter Current password and choose Remove beside the secondary. There is no separate confirmation dialog.",
+          "输入当前密码，再选择已验证备用邮箱旁的设为主要邮箱。操作立即提交，原已验证主要邮箱成为备用邮箱。移除备用邮箱前，确认预期主要邮箱已标记，重新输入当前密码，再选择该备用邮箱旁的移除。此操作没有另一个确认弹窗。",
         ),
       },
     ],
@@ -1319,8 +1319,8 @@ export const participantArticles: HelpArticle[] = [
       {
         problem: t("Adding or verifying is disabled", "无法添加或验证"),
         solution: t(
-          "Check the program's Secondary-Email Binding notice. When off, existing verified addresses remain usable/removable and pending requests can be cancelled; primary-email change remains available.",
-          "查看项目备用邮箱绑定提示。关闭时，已有验证地址仍可使用或移除，待验证申请可取消；主要邮箱变更仍可用。",
+          "Re-enter Current password when Resend code or Cancel pending is disabled after sending. Wait for the resend cooldown. Check the program's Secondary-Email Binding notice: when off, existing verified addresses remain usable/removable, pending requests can be cancelled, and primary-email change remains available.",
+          "发送后若重发验证码或取消待验证不可用，请重新输入当前密码，并等待重发冷却结束。查看项目备用邮箱绑定提示：关闭时，已有验证地址仍可使用或移除，待验证申请可取消，主要邮箱变更仍可用。",
         ),
       },
       {
@@ -1563,10 +1563,24 @@ export const participantArticles: HelpArticle[] = [
           "在消息上选择回复。编辑框显示发送者并聚焦文字框。取消回复会返回独立的普通消息草稿；回复成功后也会返回。",
         ),
       },
+      {
+        title: t(
+          "Mark incoming messages read and browse history",
+          "将收到的消息标为已读并翻阅历史",
+        ),
+        body: t(
+          "In Your Messages, choose Mark as Read on an unread incoming message. This saves immediately without a confirmation dialog. After the list refreshes, its Mark as Read button and unread left-border highlight disappear; opening the inbox or replying alone does not mark it read. Use this list's Next for older messages and Previous to return, checking the displayed page number and disabled buttons. Message read state and bell notices are independent; mark the notice read using the bell's own controls if needed.",
+          "在“我的消息”中，对尚未阅读的收到消息选择“标为已读”。此操作立即保存，没有确认对话框。列表刷新后，该消息的“标为已读”按钮和彩色未读左边框消失；仅打开收件箱或回复不会将其标为已读。使用此列表的“下一页”翻阅较早消息、“上一页”返回，并留意显示的页码和禁用按钮。消息已读状态与铃铛通知相互独立；如需把通知标为已读，请使用铃铛自身的已读控件。",
+        ),
+        focus: t(
+          "Incoming Mark as Read, its saved result and the Your Messages pager",
+          "收到消息的标为已读按钮、保存结果与我的消息分页控件",
+        ),
+      },
     ],
     expected: t(
-      "Your sent history confirms the delivery or shows a clear failure while retaining the draft.",
-      "已发历史确认投递，或明确显示失败并保留草稿。",
+      "Your sent history confirms the delivery or shows a clear failure while retaining the draft. After marking an incoming message read and refreshing the list, its Mark as Read button and unread left-border highlight disappear.",
+      "已发历史确认投递，或明确显示失败并保留草稿。收到消息被标为已读并刷新列表后，不再显示该消息的“标为已读”按钮和彩色未读左边框。",
     ),
     explanation: [
       t(
@@ -1596,7 +1610,9 @@ export const participantArticles: HelpArticle[] = [
     related: ["notification-preferences", "report-problem"],
     sources: [
       "src/app/messages/page.tsx",
+      "src/app/_components/message-inbox.tsx",
       "src/server/api/routers/messaging.ts",
+      "src/server/api/routers/notification.ts",
       "src/server/messaging-permissions.ts",
     ],
     covers: [
@@ -1605,6 +1621,8 @@ export const participantArticles: HelpArticle[] = [
       "send message",
       "reply",
       "cancel reply",
+      "mark incoming messages read",
+      "browse message history",
       "message moderation disclosure",
       "messaging restriction",
     ],
@@ -1710,6 +1728,10 @@ export const participantArticles: HelpArticle[] = [
         "明确页面、原本操作和实际结果。",
       ),
     ],
+    externalAction: {
+      href: "https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=01-bug_report.yml",
+      label: t("Open bug report form (GitHub)", "打开缺陷报告表单（GitHub）"),
+    },
     steps: [
       {
         title: t("Choose the right channel", "选择合适渠道"),
@@ -1893,8 +1915,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Edit eligible current answers", "编辑可修改的当前答案"),
         body: t(
-          "Open the signup editor, correct names/contact/grade, availability or unassigned subject choices, then review and confirm the named changes. Assigned choices cannot be dropped here; ask Admin/Head to review release and answer changes together.",
-          "打开报名编辑器，更正姓名／联系／年级、可用时间或尚未分配的科目，然后检查并确认具体更改。此处不能删除已分配科目；请管理员／负责人一并审核释放分配及答案更改。",
+          "Choose Edit Signup Answers and correct eligible names/contact/grade, availability or unassigned subject choices. Check the draft, then choose Save signup answers; this saves directly without another confirmation dialog. Read the saved result before editing again. Assigned choices cannot be dropped here; ask Admin/Head to review release and answer changes together.",
+          "选择编辑报名回答，更正允许修改的姓名／联系／年级、可用时间或尚未分配科目。核对草稿后选择保存报名回答；此操作会直接保存，不会再打开确认弹窗。再次编辑前先阅读保存结果。此处不能删除已分配科目；请管理员／负责人一并审核释放分配及答案更改。",
         ),
       },
       {
@@ -2033,8 +2055,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Read the invalidity notice", "阅读无效提示"),
         body: t(
-          "Open the flagged request in Requests or follow its private essential email link. Complete the requested sign-in or exact-request verification before reading protected reasons.",
-          "在申请中打开被标记记录，或通过其私密必需邮件链接进入。按要求完成登录或指定申请验证后，才能读取受保护原因。",
+          "Open Review a Flagged Request in Requests and check its appeal status. You can also use the private link in the notice for this request. Complete sign-in or verification if prompted.",
+          "在“申请”中打开“审核被标记的申请”，查看申诉状态。也可以使用此申请通知中的私密链接。如有提示，请完成登录或验证。",
         ),
         screenshot: "student-requests",
         focus: t(
@@ -2116,8 +2138,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Find your request's notice email", "找到本人的申请通知邮件"),
         body: t(
-          "In the mailbox used for the application, open the invalid-signup notice and choose Appeal this decision. The supplied link opens /request-appeal for supported legacy tutor/tutee requests, or /tutee-signup/appeal for a signup-specific review. Use that original link, including its private proof, rather than a copied bare address.",
-          "在申请使用的邮箱中打开报名无效通知，选择对此决定提出申诉。所提供链接会进入支持旧版辅导伙伴、学习伙伴申请的/request-appeal，或指定报名审核的/tutee-signup/appeal。请使用包含私密凭证的原链接，而非仅复制页面地址。",
+          "Open the invalid-signup notice in the mailbox used for the application. Choose Review and appeal or Appeal this decision, as shown in the notice. Use the complete private link. It opens the appeal page for that request.",
+          "在提交申请时使用的邮箱中打开报名无效通知。按通知显示选择“查看并申诉”或“对此决定提出申诉”。使用完整私密链接打开这份申请的申诉页面。",
         ),
         screenshot: "signup",
         focus: t(
@@ -2128,8 +2150,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Check the available request status", "查看可用申请状态"),
         body: t(
-          "Read the displayed request type, original submission time or current appeal state. These pages disclose only the information permitted by that exact link. Opening the page changes nothing and grants no account or participation access.",
-          "阅读页面提供的申请类型、原提交时间或当前申诉状态。这些页面仅披露该指定链接允许的信息。打开页面不会改变任何记录，也不会授予账户或参与权限。",
+          "Check whether the appeal form is available or the page shows a saved appeal status. An older request may also show its type and original submission time. The private link permits review of this request's appeal only.",
+          "查看页面是否提供申诉表单，或是否显示已保存的申诉状态。较早的申请还可能显示类型及原提交时间。私密链接仅允许查看这份申请的申诉。",
         ),
       },
       {
@@ -2233,8 +2255,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Review and appeal your card", "查看并申诉本人的纪律卡"),
         body: t(
-          "In Support open your card and read its issue date/reason and appeal status. Submit one reasoned appeal by the end of the fifth school day after its recorded issue date in program timezone. Check the later decision separately.",
-          "在支持中打开本人纪律卡，查看签发日期、原因及申诉状态。须在项目时区下签发日期后的第五个上学日结束前，提交一次有依据的申诉。之后单独检查决定。",
+          "In Support, find your card and read its reason, displayed appeal deadline and status. Submit one reasoned appeal by the end of the fifth school day after its recorded issue date in the program time zone. Return to Support to check the decision.",
+          "在“支持”中找到本人纪律卡，查看原因、页面显示的申诉期限及状态。须在项目时区下签发日期后的第五个上课日结束前，提交一次有依据的申诉。之后返回“支持”查看决定。",
         ),
         screenshot: "student-support",
         focus: t(
@@ -2353,11 +2375,19 @@ export const participantArticles: HelpArticle[] = [
           "检查时期转换、截止时间、明确所有权及是否已确认普通申请。招募开放时可使用常规表单；首次开放历史未知时不会虚设窗口。",
         ),
       },
+      {
+        problem: t("The panel asks to review required details", "面板提示检查必需信息"),
+        solution: t(
+          "Choose Review required details. Check the required name, academic and contact information, and complete email verification if prompted. Contact the program team if information is missing from your prior record.",
+          "选择“检查必需信息”，核对必需的姓名、学业及联系方式，如有提示请完成邮箱验证。如果原记录缺少信息，请联系项目团队。",
+        ),
+      },
     ],
     related: ["request-tutoring", "manage-tutee-request"],
     sources: [
       "src/app/student/legacy-continuation.tsx",
       "src/server/api/routers/student-workflow.ts",
+      "src/server/student-continuation.ts",
     ],
     covers: [
       "quarter continuation",
@@ -2446,6 +2476,7 @@ export const participantArticles: HelpArticle[] = [
     related: ["tutee-workspace", "send-private-messages"],
     sources: [
       "src/app/_components/session-plan-time.tsx",
+      "src/app/_components/session-agenda.tsx",
       "src/server/api/routers/session-planning.ts",
       "docs/guides/user-guide.md",
     ],
@@ -2984,6 +3015,7 @@ export const participantArticles: HelpArticle[] = [
     ],
     sources: [
       "src/app/(tutor)/_components/attendance-form.tsx",
+      "src/app/_components/session-agenda.tsx",
       "src/app/(tutor)/_components/tutor-schedule.tsx",
       "docs/guides/user-guide.md",
     ],
@@ -3063,6 +3095,10 @@ export const participantArticles: HelpArticle[] = [
         "Rescheduling changes a dated commitment; extras leave the regular lesson intact. The 24-hour automatic-acceptance window begins only after essential email transport accepts the notice. Short windows require explicit agreement before the earlier start; delayed reconciliation after a session starts requires review rather than a retroactive move.",
         "改期改变具体日期安排；加课保留常规课。二十四小时自动接受窗口仅在邮件传输接受必需通知后开始。短窗口需在较早开始前明确同意；课次开始后才处理的延迟情况需审核，不会追溯改课。",
       ),
+      t(
+        "Add Extra Session opens a source picker showing the actual weekly pairing slot; choose Choose session to continue. Eligible paused sources offer Arrange exception there. Fully paused or cancelled commitments leave Upcoming; use All or History to inspect their retained cancellation evidence. These controls do not change your private calendar subscription settings.",
+        "添加额外辅导会打开来源选择器，显示实际每周配对时段；点击选择辅导继续。符合条件的暂停来源会在此提供安排例外辅导。完全暂停或取消的约定不再显示于近期；可在全部或历史中检查保留的取消证据。这些控件不会改变私密日历订阅设置。",
+      ),
     ],
     troubleshooting: [
       {
@@ -3083,6 +3119,7 @@ export const participantArticles: HelpArticle[] = [
     ],
     sources: [
       "src/app/_components/session-plan-time.tsx",
+      "src/app/_components/session-agenda.tsx",
       "src/server/api/routers/session-planning.ts",
       "src/app/(tutor)/_components/student-schedule-action.tsx",
     ],
@@ -3257,6 +3294,7 @@ export const participantArticles: HelpArticle[] = [
     related: ["plan-dated-session", "respond-session-plan"],
     sources: [
       "src/app/_components/session-calendar-subscription.tsx",
+      "src/app/_components/session-agenda.tsx",
       "src/app/api/session-calendar/[token]/route.ts",
     ],
     covers: [
@@ -3482,8 +3520,8 @@ export const participantArticles: HelpArticle[] = [
           "仅转达符合条件学生的退出",
         ),
         body: t(
-          "For a non-survey enrolled student use the relay action in pairing Details, give the reason and review. It processes after a seven-day recall window unless recalled or cancelled. Survey students request whole-period withdrawal in their own workspace; schedule conflicts use their own review.",
-          "非问卷报名学生可在配对详情使用转达操作，填写原因并检查。七天撤回窗口后自动处理，除非撤回或取消。问卷学生应在本人页面申请整个时期退出；排课冲突使用独立审核。",
+          "For a non-survey enrolled student use the relay action in pairing Details, add an optional reason and review. It processes after a seven-day recall window unless recalled or cancelled. Survey students request whole-period withdrawal in their own workspace; schedule conflicts use their own review.",
+          "非问卷报名学生可在配对详情使用转达操作，填写可选原因并检查。七天撤回窗口后自动处理，除非撤回或取消。问卷学生应在本人页面申请整个时期退出；排课冲突使用独立审核。",
         ),
       },
       {
@@ -3560,20 +3598,20 @@ export const participantArticles: HelpArticle[] = [
           "打开巡查并按教室顺序检查",
         ),
         body: t(
-          "Open Patrol from your workspace/account menu. For each visited room, enter its actual observation time and select student headcount 0, 1, 2, 3 or 4+. Record each room once and include at least one observation.",
-          "从工作区或账户菜单打开巡查。每到一间教室，填写实际观察时间，并选择学生人数零、一、二、三或四及以上。每间教室仅记录一次，至少填写一项观察。",
+          "Open Patrol from your workspace/account menu and follow the listed room order. At each visited room, select the actual student headcount: 0, 1, 2, 3 or 4+. The page automatically timestamps each selection; choosing again replaces that room's count and time. Include at least one room.",
+          "从工作区或账户菜单打开巡查，按列表中的教室顺序检查。每到一间教室，选择实际学生人数：0、1、2、3 或 4+。页面会自动记录每次选择的时间；再次选择会替换该教室的人数和时间。至少记录一间教室。",
         ),
         screenshot: "patrol",
         focus: t(
-          "Room observations, actual time and headcount buttons",
-          "教室观察、实际时间及人数按钮",
+          "Ordered rooms and selected headcount buttons",
+          "按顺序排列的教室及已选人数按钮",
         ),
       },
       {
-        title: t("Review and submit the sweep", "核对并提交巡查"),
+        title: t("Check selections and submit", "核对选项并提交巡查"),
         body: t(
-          "Check rooms, actual times and counts, then submit once. Never change an older observation time to claim freshness. The server permits only a one-minute future allowance for device-clock differences.",
-          "核对教室、实际时间和人数，再提交一次。不要修改较早观察时间以获得新鲜度。服务器仅允许一分钟未来时间差，用于设备时钟误差。",
+          "Check the highlighted counts, optionally enter Patrol note, then choose Submit Patrol (n), where n is the number of recorded rooms. This saves the sweep immediately. Do not reselect an older count just to refresh its timestamp. If a future-time error appears, check your device clock; the server allows only one minute of clock difference.",
+          "核对高亮的人数选项，可在「巡查备注」中填写说明，再点击「提交巡查（n）」，其中 n 为已记录的教室数量。此按钮会立即保存巡查。不要为了刷新时间而重新选择较早记录的人数。若出现观察时间在未来的错误，请检查设备时钟；服务器仅允许一分钟时钟误差。",
         ),
       },
       {
@@ -3585,8 +3623,8 @@ export const participantArticles: HelpArticle[] = [
       },
     ],
     expected: t(
-      "One patrol receipt retains observations and explicitly states its earned Crew credit.",
-      "一份巡查回执保留观察，并明确显示获得的巡查时数。",
+      "The saved sweep appears in Recent Patrols with its Crew hours; a zero-credit success message explains when no hours were added.",
+      "保存的巡查会出现在「近期巡查」并显示巡查时数；未增加时数时，成功提示会说明原因。",
     ),
     explanation: [
       t(
@@ -3869,6 +3907,7 @@ export const participantArticles: HelpArticle[] = [
     sources: [
       "src/app/_components/translation-editor.tsx",
       "src/app/_components/translation-strings.tsx",
+      "src/app/_components/translation-composer.tsx",
       "src/app/_components/translation-review.tsx",
       "src/lib/translation-access.ts",
     ],
@@ -3906,8 +3945,8 @@ export const participantArticles: HelpArticle[] = [
       {
         title: t("Read addressed announcements", "阅读发给本人的公告"),
         body: t(
-          "Open the announcement shown in your workspace and read it completely. Use its acknowledge/dismiss action when offered. Addressed posts use the audience captured at publication; another tutor's notice is not yours to acknowledge.",
-          "打开本人页面中的公告并完整阅读。提供时可使用确认或收起操作。定向公告使用发布时确定的受众，不能代他人确认。",
+          "Read the announcement cards above your workspace. Pinned posts stay visible even after an earlier acknowledgement; they have no Dismiss button. Use Dismiss on an ordinary post when offered. Addressed posts use the audience captured at publication; another tutor's notice is not yours to acknowledge.",
+          "阅读本人工作区上方的公告卡片。置顶公告即使曾确认仍会保留，也没有收起按钮。普通公告提供收起按钮时可使用。定向公告使用发布时确定的受众，不能代他人确认。",
         ),
         screenshot: "tutor-overview",
         focus: t(

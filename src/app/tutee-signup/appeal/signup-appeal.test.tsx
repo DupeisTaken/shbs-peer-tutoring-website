@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { StrictMode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   act,
@@ -43,7 +44,10 @@ beforeEach(() => {
   mocks.query.mockResolvedValue(initial);
   mocks.save.mockResolvedValue({ ok: true, appealId: "appeal" });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
 it("refuses a missing or invalid capability without exposing a reason or submitting an appeal", () => {
   render(view("invalid"));
   expect(screen.getByText(en.signupAppeal.invalid)).toBeTruthy();
@@ -115,13 +119,31 @@ it.each(["PENDING", "ACCEPTED", "REJECTED"])(
     expect(mocks.save).not.toHaveBeenCalled();
   },
 );
-it("extracts and clears an email fragment, sending proof only through read-only POST inspection", async () => {
+it("keeps an email fragment through Strict Mode effect replay and clears it from the URL", async () => {
   window.history.replaceState(null, "", "/tutee-signup/appeal#token=" + token);
-  render(view(""));
+  render(<StrictMode>{view("")}</StrictMode>);
   await screen.findByRole("textbox");
   expect(window.location.hash).toBe("");
   expect(mocks.query).toHaveBeenCalledWith({ token });
   expect(window.location.search).toBe("");
+  expect(mocks.save).not.toHaveBeenCalled();
+});
+
+it("replaces the in-memory proof and draft when a different email fragment opens", async () => {
+  const route = "/tutee-signup/appeal?source=mail";
+  window.history.replaceState(null, "", route + "#token=" + token);
+  render(<StrictMode>{view("")}</StrictMode>);
+  const draft = await screen.findByRole("textbox");
+  fireEvent.change(draft, { target: { value: "Old capability draft" } });
+  const replacement = "d".repeat(64);
+  window.history.replaceState(null, "", route + "#token=" + replacement);
+  fireEvent(window, new HashChangeEvent("hashchange"));
+  await screen.findByRole("textbox");
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("");
+  expect(mocks.query).toHaveBeenCalledWith({ token: replacement });
+  expect(window.location.hash).toBe("");
+  expect(window.location.search).toBe("?source=mail");
+  expect(mocks.save).not.toHaveBeenCalled();
 });
 
 it("ignores an old inspection after the capability changes", async () => {

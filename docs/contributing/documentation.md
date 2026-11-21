@@ -32,6 +32,13 @@ The illustrated [Help catalogue](../guides/help/README.md) is generated from
 bilingual application records so website, Markdown and PDF editions stay aligned.
 Its reviewed synthetic screenshots and capture/coverage/source receipts are
 maintained runtime inputs in `docs/guides/help/`, covered by `help:check`.
+Step annotation exports also live there: `annotations.json` records the original
+capture, drawing/format recipes, derivative hashes and PNG-to-WebP pixel parity.
+`assets/annotated/` contains lossless WebP images named by their 64-character
+format-recipe hash; existing content-addressed PNG review proofs are retained.
+These reviewed help inputs are the specific exception to the Markdown-only
+maintained documentation policy;
+arbitrary images, PDFs and reports remain local evidence.
 Follow the [capture procedure](help-catalogue.md) when updating them; additional
 review screenshots, originals and reports still belong in ignored local evidence.
 

@@ -4,7 +4,7 @@
 
 [目录与截图来源](README.md)
 
-截图来源: `dbb3c4eb213d58e134744fd417b1a06299b0e984`. Local dev server based on latest main at task start (dbb3c4eb), with the Help candidate. User-selected source baseline; no live deployment attestation.
+截图来源: `b5ece465681957c9fe579d26babdeb260c674fa0`. New captures use latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Earlier captures list their own revision and capture date.
 
 此 GitHub 培训副本包含各角色操作说明。实际使用网站功能仍需登录并具备当前项目权限。所有示例数据均为虚构。
 
@@ -37,13 +37,55 @@
 
    请注意: 参与提示、待处理任务和工作区页签
 
-   ![参与提示、待处理任务和工作区页签](assets/tutor-overview.en.jpg)
+   ![参与提示、待处理任务和工作区页签](assets/annotated/d577daeeba0daada0fcdbf0008f268e5363c03d345c1b0cdd14c06b3daa6896d.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard · EN · 2026-11-20
+
+   Alice 已处于活跃状态。辅导伙伴概览在参与任务前显示已接受当前政策的提示。待确认人员会先看到单独的参与选项。
+
+   [原始完整截图](assets/start-tutoring-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 辅导伙伴页面
+
+   - **2.** 当前政策
 
 2. **使用四个任务页签** 课表包含日期辅导、面试和会议；配对包含每周分配；偏好包含可用时间、期望课次数和科目选择；历史与时数包含保留证据。在本次访问中切换这些本地页签会保留已打开编辑器。
 
+   ![使用四个任务页签](assets/annotated/5fc5278cbfb98047dede119a2ece684ad8754b878f2d56514e425f65dfb91047.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-21
+
+   在辅导伙伴工作区选择“配对”查看固定小组。数学条目显示每周时间。
+
+   [原始完整截图](assets/start-tutoring-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 配对标签
+
+   - **2.** 固定科目
+
+   - **3.** 每周时间
+
 3. **跟进待处理任务** 打开待确认排课、缺少出勤、面试投票或会议任务。需要处理表示等待本人操作；已投票／等待决定表示投票已保存，但面试仍未结束。
+
+   ![跟进待处理任务](assets/annotated/de275ab0c5eb84052b547e62dbca731315d16fd25f30f878bc24fb572a42438f.webp)
+
+   /dashboard · EN · 2026-11-21
+
+   “待处理任务”中的“未结束面试”可进入对应日期任务。Fiona 的面试显示已投票及等待决定。
+
+   [原始完整截图](assets/start-tutoring-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 面试快捷入口
+
+   - **2.** 投票已保存
+
+   - **3.** 等待决定
 
 ### 预期结果
 
@@ -73,13 +115,53 @@
 
    请注意: 星期时间选择与保存可用时间
 
-   ![星期时间选择与保存可用时间](assets/tutor-availability.en.jpg)
+   ![星期时间选择与保存可用时间](assets/annotated/973fdbf3fc8e484719ff68538f47cb0d5eb12b688ac4f73f8ead5cb10d6079b1.webp)
 
-   /dashboard#tutor-preferences · EN · 2026-11-15
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
+   展开的可授课时间表、独立偏好课次数控件及当前工作量
+
+   [原始完整截图](assets/tutor-availability-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 切换可授课时间
+
+   - **2.** 保存可授课时间
 
 2. **单独保存期望课次数** 在时间选择下方选择零至四，或清空偏好，再使用该区域的保存。零表示希望不分配课程；未设置是另一种状态。保存时间不会保存此独立草稿。
 
+   ![单独保存期望课次数](assets/annotated/e751b10c590c826e09f6e4e0dbde8be448ff91b7535e66941530ba92fb9f4589.webp)
+
+   /dashboard#tutor-preferences · EN · 2026-11-21
+
+   在独立的“期望课次数”表单中选择零或清空偏好。本例的零是草稿，随后已取消。
+
+   [原始完整截图](assets/tutor-availability-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 零
+
+   - **2.** 清空偏好
+
+   - **3.** 独立保存
+
 3. **查看保存后的工作量信息** 比较已分配教学块数量与已保存偏好。配对组改变会刷新数量，但不替换未保存偏好。保存已接受但同步失败时，使用重试刷新。
+
+   ![查看保存后的工作量信息](assets/annotated/abc5db75da6f26e84e8a83b875e5a9358d4ccec3c64fe8a916a8f53539d92b64.webp)
+
+   /dashboard#tutor-preferences · EN · 2026-11-21
+
+   保存后的比较显示已分配两个教学块，偏好为一。取消草稿后，选中的是已保存的值。
+
+   [原始完整截图](assets/tutor-availability-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已分配及偏好
+
+   - **2.** 已保存偏好：1
 
 ### 预期结果
 
@@ -109,13 +191,53 @@
 
    请注意: 科目意愿与科目资质
 
-   ![科目意愿与科目资质](assets/tutor-preferences.en.jpg)
+   ![科目意愿与科目资质](assets/annotated/b6e71eea35091a131aeb1a18d0123bb233b06a260216cd6138de841e11439c78.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
+   学科意愿编辑器：显示已自动保存的数学意愿
+
+   [原始完整截图](assets/tutor-subject-qualifications-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 辅导意愿
+
+   - **2.** 搜索已有学科
 
 2. **申请新科目或更高等级** 在科目资质中选择科目／等级，说明资质并提交。在你的申请中使用待处理、已批准、已拒绝或已撤回筛选，并展开历史查看决定说明及已授予科目。
 
+   ![申请新科目或更高等级](assets/annotated/519eb7764f6fbe6490997e462c63bd35c929052dc2307d5cc516601b6426c983.webp)
+
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
+   额外学科资格申请草稿：已选学科层级并填写说明
+
+   [原始完整截图](assets/tutor-subject-qualifications-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 学科及层级
+
+   - **2.** 资格依据
+
+   - **3.** 提交资格申请
+
 3. **撤回符合条件的待审申请** 在待处理或面试阶段选择撤回申请，核对具体科目后确认。已撤回申请不能重开或获批；准备好后需重新提交。
+
+   ![撤回符合条件的待审申请](assets/annotated/2efd7b3fc8d760964df3eb103e274a1d5f510ce9556d382f312e393da5e2387c.webp)
+
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
+   撤回仍待审核的代数II资格申请前的明确确认
+
+   [原始完整截图](assets/tutor-subject-qualifications-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 确认撤回
+
+   - **2.** 保留申请
 
 ### 预期结果
 
@@ -145,15 +267,65 @@
 
    请注意: 学习伙伴列表之前的配对时间选择器与详情
 
-   ![学习伙伴列表之前的配对时间选择器与详情](assets/tutor-pairings.en.jpg)
+   ![学习伙伴列表之前的配对时间选择器与详情](assets/annotated/6e33855865408787f362f0403cd0ab76bfc995bfd0c79aa3d49fcf3be96da45d.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   展开的合并辅导安排：成员、教室、每周时间及个人详情
+
+   [原始完整截图](assets/tutor-pairing-time-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 合并安排成员
+
+   - **2.** 共享默认时间
 
 2. **比较时间分组** 使用默认时间选择器。双方可用要求本人及所有当前学习伙伴保存相同目录时间段；其他时间段缺少该共同证据。与其他教学块重叠的不可用选项会被禁用。
 
+   ![比较时间分组](assets/annotated/e5d1679d0e3fd8adebd86131bfcae939ba724a87ef804d4948daef3a72928121.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   合并数学辅导安排的默认时间段选择器
+
+   [原始完整截图](assets/tutor-pairing-time-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 选择时间段
+
 3. **核对并保存时间** 讨论时间后选择所需时段，并确认具体审核。配对组共享时间，修改一个成员默认时间会改变整组。之后检查教室结果及日期课表。
 
+   ![核对并保存时间](assets/annotated/93b3b98c39a3eff01e9e5a2cc15b9863dd3996886839e04f5251e56c4da79ded.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   更改合并组全体成员共享每周时间段前的明确审核
+
+   [原始完整截图](assets/tutor-pairing-time-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 核对共享时间
+
+   - **2.** 保存更改
+
 4. **报告实际排课冲突** 在学习伙伴详情中使用排课冲突申请，提供原因并完成两秒审核。获批前分配仍有效。仅缺少已存可用时间并不能证明冲突。
+
+   ![报告实际排课冲突](assets/annotated/709f1b29b334b196b1c869862793ca831650861232b36315ba3cfe6e47ab02bd.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   准确原始申请的排期冲突审核：已说明原因，尚未提交
+
+   [原始完整截图](assets/tutor-pairing-time-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 原始申请
+
+   - **2.** 排期冲突原因
 
 ### 预期结果
 
@@ -183,19 +355,51 @@
 
    请注意: 合并／拆分配对与分组概览
 
-   ![合并／拆分配对与分组概览](assets/tutor-pairings.en.jpg)
+   ![合并／拆分配对与分组概览](assets/annotated/19887bf587d0b754e3dcba57c8801a869495236a9e8095f19b586213a48c8a71.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   从“我的配对”打开明确的合并／拆分编辑器
+
+   [原始完整截图](assets/combine-split-pairings-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 合并／拆分辅导安排
 
 2. **选择共享时间** 可保持等待排课，或选择一个共享目录时段；仅在保留已确认时间区间时使用明确保留时间选项。保存前核对学生、科目、时间及教室影响。
 
    请注意: 分组编辑器中已选分配、主要成员及共享时间
 
-   ![分组编辑器中已选分配、主要成员及共享时间](assets/tutor-grouping.en.jpg)
+   ![分组编辑器中已选分配、主要成员及共享时间](assets/annotated/57dee483cd956f7e4cca3e4b8586885bd8d5e413516fe07d4ad6590360ed5574.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-15
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   现有合并组：已选分配、主要教室来源及单一共享每周时间段
+
+   [原始完整截图](assets/combine-split-pairings-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 主要分配／教室
+
+   - **2.** 共享时间
 
 3. **明确修复或拆分** 重新打开编辑器可添加或取消选中分配，或选择拆分此组。保留的每组至少需两名成员。退出组的分配保留学生、科目和教室，但返回等待排课，需另行安排。
+
+   ![明确修复或拆分](assets/annotated/c515a16a24f7b1371e7e326a379bbd77d45a3952e4331d9300bb85147b96ead3.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   审核前现有合并组编辑器中的修复及拆分控件
+
+   [原始完整截图](assets/combine-split-pairings-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 拆分整个组
+
+   - **2.** 至少保留两项
 
 ### 预期结果
 
@@ -225,21 +429,75 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 
    请注意: 标记待记录出勤的已结束课次
 
-   ![标记待记录出勤的已结束课次](assets/tutor-schedule.en.jpg)
+   ![标记待记录出勤的已结束课次](assets/annotated/44c2def8f8313fdf94753fe9e5b301f141b2c653c33800dfbe61830f946e8805.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#sessions · EN · 2026-11-21
+
+   选择日期与学习伙伴名单正确的已结束数学课次。“记录出勤”会打开该课次表单。
+
+   [原始完整截图](assets/record-attendance-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已结束课次日期
+
+   - **2.** 预期学习伙伴
+
+   - **3.** 记录出勤
 
 2. **记录实际时间与地点** 确认实际起止时间、教室或线上。计划课次为四十五分钟，但出勤记录实际时长。阅读任何教室冲突提示；如实历史记录不会预订未来冲突教室。
 
    请注意: 实际时间、地点及出勤行
 
-   ![实际时间、地点及出勤行](assets/tutor-attendance.en.jpg)
+   ![实际时间、地点及出勤行](assets/annotated/f5d9d39e6df8c556416017f40794cbb8ea1916e93cb77c383f8afe9ef35c2341.webp)
 
-   /dashboard#sessions · EN · 2026-11-15
+   /dashboard · EN · 2026-11-16
+
+   出勤表：准确已结束课次的实际时间、教室及线上模式
+
+   [原始完整截图](assets/record-attendance-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 开始时间
+
+   - **2.** 结束时间
+
+   - **3.** 线上授课
 
 3. **填写每人的出勤** 填写本人及每位学生实际出勤。提供所需缺席或请假原因、评论、课次评分及纪律卡申请原因。组合课次中不同学生各计一次，并保留捕获科目。
 
+   ![填写每人的出勤](assets/annotated/5828fb4055faf7dafc3faa9d96d130b8a851b6dc3d2d1c2da8d4f2f8ca98718e.webp)
+
+   /dashboard · EN · 2026-11-16
+
+   提交前滚动至出勤评价、评语及可选纪律卡区域
+
+   [原始完整截图](assets/record-attendance-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 必填评语
+
+   - **2.** 可选纪律卡
+
+   - **3.** 检查后提交
+
 4. **提交并查看回执** 提交一次并查看保存回执。已接受记录会锁定；再次提交入口用于新记录。总数刷新失败时使用重试刷新。已存记录或未计划历史课次的更正需联系管理团队。
+
+   ![提交并查看回执](assets/annotated/bdeebaefa555bc2fe8e18f7ca3074fef485f4a0846d5518ffd3af5e82dfffaa2.webp)
+
+   /dashboard · EN · 2026-11-16
+
+   计划课次出勤已保存：已接受表单锁定并显示保存成功
+
+   [原始完整截图](assets/record-attendance-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已保存
+
+   - **2.** 已保存记录锁定
 
 ### 预期结果
 
@@ -269,21 +527,123 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 
    请注意: 课次操作菜单与具体日期事件
 
-   ![课次操作菜单与具体日期事件](assets/tutor-schedule.en.jpg)
+   ![课次操作菜单与具体日期事件](assets/annotated/26fb9d411deed64fb0557b2ed3131ab7b9c0b38e639cda226fd9ba0368ffe968.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#sessions · EN · 2026-11-21
+
+   选择即将到来的数学课日期，核对包含的学习伙伴，再从该日期课次打开“重新排课”。
+
+   [原始完整截图](assets/plan-dated-session-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 即将到来的日期
+
+   - **2.** 学习伙伴名单
+
+   - **3.** 打开重新排课
 
 2. **选择范围、时间与方式** 可保留包含本课所有学习伙伴，或取消勾选后选一人。选择线下自动分配教室或线上。修改起止时间时，计划时长仍保持四十五分钟。
 
    请注意: 提议编辑器中的学习伙伴范围、日期时间及线下或线上方式
 
-   ![提议编辑器中的学习伙伴范围、日期时间及线下或线上方式](assets/tutor-session-plan.en.jpg)
+   **视图 1**
 
-   /dashboard#sessions · EN · 2026-11-15
+   ![提议编辑器中的学习伙伴范围、日期时间及线下或线上方式](assets/annotated/9a52c2eef0812f641213367ce2d0efc6fc71c867d8afc8bd114c3c0e9af85867.webp)
+
+   /dashboard · EN · 2026-11-20
+
+   勾选包含所有学习伙伴以选择该日期的数学小组。设置日期和开始时间，核对联动的四十五分钟结束时间，再选择地点。
+
+   [原始完整截图](assets/plan-dated-session-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 所有学习伙伴
+
+   - **2.** 日期与时间
+
+   - **3.** 地点
+
+   - **4.** 检查提议
+
+   **视图 2**
+
+   ![提议编辑器中的学习伙伴范围、日期时间及线下或线上方式](assets/annotated/f7ba8c5dfa1431d81d33c749fb69ea6d5abae008412813dcf452462d3457f7d5.webp)
+
+   /dashboard · EN · 2026-11-20
+
+   如只为一位学习伙伴提议，请取消包含所有人并选择准确对象。线上是单独的地点选项。
+
+   [原始完整截图](assets/plan-dated-session-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 取消全选
+
+   - **2.** 选择学习伙伴
+
+   - **3.** 线上
 
 3. **检查可用情况和教室** 选择检查，并在发送前查看分配教室。检查不会预订；教室变为不可用时须编辑后重新检查。系统不会静默更换已审核教室或转为线上。
 
+   **视图 1**
+
+   ![检查可用情况和教室](assets/annotated/2e496afe1554c3e01f3ba455eef625fa8ef294b439356ac97fff0cc696e6828b.webp)
+
+   /dashboard · EN · 2026-11-20
+
+   检查会比较原时间与小组拟定时间，并显示分配教室。发送提议时会再次检查教室。
+
+   [原始完整截图](assets/plan-dated-session-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 原时间
+
+   - **2.** 拟定时间
+
+   - **3.** 分配教室
+
+   - **4.** 发送提议
+
+   **视图 2**
+
+   ![检查可用情况和教室](assets/annotated/d15185b02d4e929cef2bb92b08f45145ede6e7b657addd1de59c332fea17caff.webp)
+
+   /dashboard · EN · 2026-11-20
+
+   单独检查此单人加课。已检查的提议会显示拟定日期、线上地点，并表明艾玛是唯一的学习伙伴。
+
+   [原始完整截图](assets/plan-dated-session-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 拟定时间
+
+   - **2.** 线上
+
+   - **3.** 一位学习伙伴
+
+   - **4.** 发送提议
+
 4. **发送并跟进同意情况** 发送核对后的提议，并检查必需邮件投递及各人回应。使用此建议可将完全一致的当前学习伙伴建议正式化。单人改期可接受其替代时间，或拒绝并提供一次最终提议。小组显示已申请单独改期时，选择开始个人申请，核对并确认受影响人员，再分别跟进各人申请。申请单独改期期间小组倒计时停止，每周配对组仍保留。
+
+   ![发送并跟进同意情况](assets/annotated/8d81197b7874dd01ffc15c5e56e043dec3b84975814f6f297139d66f3b4ad022.webp)
+
+   /dashboard · EN · 2026-11-20
+
+   发送后打开排课申请。加课正在等待艾玛回应，显示的截止时间在必需邮件投递后开始。
+
+   [原始完整截图](assets/plan-dated-session-step-4.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 等待回应
+
+   - **2.** 学习伙伴回应
+
+   - **3.** 回应截止
 
 ### 预期结果
 
@@ -292,6 +652,8 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 ### 工作原理
 
 改期改变具体日期安排；加课保留常规课。二十四小时自动接受窗口仅在邮件传输接受必需通知后开始。短窗口需在较早开始前明确同意；课次开始后才处理的延迟情况需审核，不会追溯改课。
+
+添加额外辅导会打开来源选择器，显示实际每周配对时段；点击选择辅导继续。符合条件的暂停来源会在此提供安排例外辅导。完全暂停或取消的约定不再显示于近期；可在全部或历史中检查保留的取消证据。这些控件不会改变私密日历订阅设置。
 
 ### 问题排查
 
@@ -313,13 +675,93 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 
    请注意: 已约定加课卡与取消加课
 
-   ![已约定加课卡与取消加课](assets/tutor-schedule.en.jpg)
+   ![已约定加课卡与取消加课](assets/annotated/4ab3fd277e649e461b6ca3ee18b6edecf20922432b92c7c04165fe79373e49ef.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#sessions · EN · 2026-11-20
+
+   找到准确日期、学习伙伴的已安排加课。在该卡片上打开取消加课。
+
+   [原始完整截图](assets/cancel-extra-session-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 加课
+
+   - **2.** 已约定时间
+
+   - **3.** 取消加课
 
 2. **核对参与者** 选择所有当前学习伙伴或一人，然后核对具体日期、时间及人员。提交前关闭或取消不会发送任何内容。只发送核对后的取消申请。
 
+   ![核对参与者](assets/annotated/7bcc98f5d66342ec810ea17ae8a6d3a403813de68974b2d3e10b28b17ed389af.webp)
+
+   /dashboard#sessions · EN · 2026-11-20
+
+   在检查提议中核对加课的准确日期、时间与学习伙伴。发送取消申请会为该加课创建同意申请。
+
+   [原始完整截图](assets/cancel-extra-session-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 课次时间
+
+   - **2.** 包含的学习伙伴
+
+   - **3.** 发送取消申请
+
 3. **检查同意情况与结果** 每位包含的学习伙伴可接受或拒绝取消。按必需邮件回应规则达成同意前，加课仍在课表中。应区分申请保存与真正取消。
+
+   **视图 1**
+
+   ![检查同意情况与结果](assets/annotated/4414057829baaccdcaf3f66c75a93002b528d9e03465ca004c169d2bcc4e3ca0.webp)
+
+   /student?view=schedule · EN · 2026-11-20
+
+   在学习伙伴的接受取消检查中，确认准确的日期加课及唯一参与者。回应后在课表中查看保存结果。
+
+   [原始完整截图](assets/cancel-extra-session-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 准确时间
+
+   - **2.** 这位学习伙伴
+
+   - **3.** 确认接受
+
+   **视图 2**
+
+   ![检查同意情况与结果](assets/annotated/192aa34a75a8da945209ede54915deccc524c2d5102211f8c0ce2f49fb7a8088.webp)
+
+   /dashboard#sessions · EN · 2026-11-20
+
+   导师看到取消申请回执，同时同一加课仍显示为即将发生。仍在等待同意。
+
+   [原始完整截图](assets/cancel-extra-session-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已保存申请
+
+   - **2.** 即将发生
+
+   **视图 3**
+
+   ![检查同意情况与结果](assets/annotated/eddb158952f81b81a6b2d329b682b73e438d235759fbe33030dc45c9956f353b.webp)
+
+   /dashboard#sessions · EN · 2026-11-20
+
+   学习伙伴同意后，在导师课表选择全部，找到同一日期加课及其实际已取消标记。
+
+   [原始完整截图](assets/cancel-extra-session-step-3-view-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 全部
+
+   - **2.** 同一加课
+
+   - **3.** 已取消
 
 ### 预期结果
 
@@ -349,15 +791,113 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 
    请注意: 面试卡、投票状态及操作
 
-   ![面试卡、投票状态及操作](assets/tutor-schedule.en.jpg)
+   ![面试卡、投票状态及操作](assets/annotated/77796d3569878f1bb7c171847a4f858697a6b919645b8d6a368ca6268848bfba.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard · EN · 2026-11-16
+
+   最新main辅导伙伴首页：置顶及普通公告、任务面板和具体日期日程
+
+   [原始完整截图](assets/tutor-interviews-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 查看面试及本人投票
 
 2. **提交本人的投票** 阅读申请证据，通过现有控件记录本人投票。检查已投票／等待决定。最终决定前每位委员必须投票；仅打开或排期不会计时。
 
+   ![提交本人的投票](assets/annotated/370f84e72db68aa8eea13f50a4045f1b58938f2b55879b4dbba1b3022ebd09dd.webp)
+
+   /dashboard · EN · 2026-11-16
+
+   面试小组成员详情：可选投票评语及本人已记录投票
+
+   [原始完整截图](assets/tutor-interviews-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 本人投票说明
+
+   - **2.** 本人投票
+
 3. **主席：排期并决定** 获授权主席安排面试，并在全部投票后依据多数意见记录结果，平票时作出决定。批准时填写实际完成时间、分钟数及出席委员，再检查批准并授予时数。
 
+   **视图 1**
+
+   ![主席：排期并决定](assets/annotated/6e2eca6fd70b4f32ee628c8683db8ad698eeae6c486430dc529fed509f6fa3c2.webp)
+
+   /dashboard#sessions · EN · 2026-11-20
+
+   指定主持人在练习批准草稿中填写完成时间、用时及实际到场人员。“审核批准与时数”会打开最终影响审核。
+
+   [原始完整截图](assets/tutor-interviews-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 完成时间
+
+   - **2.** 实际用时
+
+   - **3.** 到场成员
+
+   - **4.** 审核批准与时数
+
+   **视图 2**
+
+   ![主席：排期并决定](assets/annotated/0ef09e6652c1895d511ba787a509d9ce19b885930b389eb921a11bad2de1b284.webp)
+
+   /dashboard#sessions · EN · 2026-11-20
+
+   首次申请的最终批准审核显示拟计 1.5 小时，以及录取、注册及通知的影响。尚未点击确认。
+
+   [原始完整截图](assets/tutor-interviews-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 批准的影响
+
+   - **2.** 拟计时数
+
+   - **3.** 批准并计入时数
+
 4. **检查完成后续** 分别检查保存决定及完成记录。录取、面试计时和初次邀请设置可一并生效；新增资质授予科目但不创建新注册码。完成信息或时数更正请管理团队通过面试记录处理。
+
+   **视图 1**
+
+   ![检查完成后续](assets/annotated/02f1130eaa16b62b5047f5a11806832a5a9e6da3b9c9f25f56a8cedb3f3dae95.webp)
+
+   /dashboard#sessions · EN · 2026-11-20
+
+   George 的已完成面试卡片显示已保存的录取决定，以及独立记录的 35 分钟完成信息和本人面试时数。
+
+   [原始完整截图](assets/tutor-interviews-step-4.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已完成面试的申请人
+
+   - **2.** 实际完成记录
+
+   - **3.** 已记录时数
+
+   - **4.** 已保存的决定
+
+   **视图 2**
+
+   ![检查完成后续](assets/annotated/90ea0397f2054e8ae55b816ae5577175b3b9aef5c949f127b22100ff903c7be9.webp)
+
+   /admin/applications#interview-records · EN · 2026-11-20
+
+   “面试记录”显示 George 已录取、到场面试时数已计入，以及单独的注册码已使用状态。页面没有显示注册码。
+
+   [原始完整截图](assets/tutor-interviews-step-4-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已保存的决定
+
+   - **2.** 到场时数
+
+   - **3.** 注册状态
 
 ### 预期结果
 
@@ -387,13 +927,67 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 
    请注意: 会议卡及请假状态
 
-   ![会议卡及请假状态](assets/tutor-schedule.en.jpg)
+   ![会议卡及请假状态](assets/annotated/79b43a4431cb02eac602e67b1027ba97c4a98ee04699f26666ab26e9062d292b.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard · EN · 2026-11-16
+
+   最新main辅导伙伴首页：置顶及普通公告、任务面板和具体日期日程
+
+   [原始完整截图](assets/tutor-meetings-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 查看这场会议
 
 2. **提交或取消请假** 使用请假操作，填写所需原因，并至少在会议开始前六十分钟确认。同一期限前可取消本人符合条件的请假。工作人员记录的状态需由工作人员更正。
 
+   **视图 1**
+
+   ![提交或取消请假](assets/annotated/19836b112ded1c09da193c0a172e87486f9052073e85b4975e4fa2c93d1fa93e.webp)
+
+   /dashboard · ZH · 2026-11-16
+
+   布局修复后的中文桌面会议请假，尚未提交
+
+   [原始完整截图](assets/tutor-meetings-step-2.zh.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 请假原因
+
+   - **2.** 提交请假说明
+
+   **视图 2**
+
+   ![提交或取消请假](assets/annotated/94a15cc9d88f68acbc1ba4bafde6a75a0f2fbe8720f8f6b101a2f4fe55747690.webp)
+
+   /dashboard · ZH · 2026-11-16
+
+   布局修复后的中文手机会议请假：所有操作均位于对话框内
+
+   [原始完整截图](assets/tutor-meetings-step-2-view-2.zh.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 填写原因
+
+   - **2.** 提交请假
+
 3. **查看会议历史** 打开会议历史，再选择学年／学季组查看已记录出勤。学期模式合并该学期两个学季。未记录时期会明确标示；记录于其他时期的未来会议单独呈现。
+
+   ![查看会议历史](assets/annotated/d2751bf2302dc3481ea65aafba987d0db42644a6e66305a41b0137040a214fd8.webp)
+
+   /dashboard#sessions · EN · 2026-11-16
+
+   会议历史已展开至保留的学年／季度分组及出勤记录
+
+   [原始完整截图](assets/tutor-meetings-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 会议历史
+
+   - **2.** 报告学期
 
 ### 预期结果
 
@@ -423,21 +1017,183 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 
    请注意: 辅导参与申请与待处理状态
 
-   ![辅导参与申请与待处理状态](assets/tutor-membership.en.jpg)
+   **视图 1**
 
-   /settings · EN · 2026-11-15
+   ![辅导参与申请与待处理状态](assets/annotated/11f9e585725258db27a8453176950302c75e97f6a6683fbfa72b1cbf3d67bb6a.webp)
+
+   /settings · EN · 2026-11-16
+
+   退出审核确认区显示导师、可选理由、七天审核冷却期，以及获批前继续参与的规则。
+
+   [原始完整截图](assets/tutor-membership-hours-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 申请退出
+
+   - **2.** 取消
+
+   **视图 2**
+
+   ![辅导参与申请与待处理状态](assets/annotated/bafb630aff216409834d8156c302785764ca4afdbc7553fb7739e16e451ea94c.webp)
+
+   /settings · EN · 2026-11-16
+
+   实际退出申请回执列明未来可批准日期及撤回期限，并不等于已获批准。
+
+   [原始完整截图](assets/tutor-membership-hours-step-1-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 申请已保存
+
+   - **2.** 关闭
+
+   **视图 3**
+
+   ![辅导参与申请与待处理状态](assets/annotated/2ae2a52598279fc8394bd19c7a4400bccd8b8250e3fb01b0111c6e4d77725e51.webp)
+
+   /settings · EN · 2026-11-16
+
+   待批准退出申请显示实际可批准日期及独立撤回申请按钮，此时仍可参与。
+
+   [原始完整截图](assets/tutor-membership-hours-step-1-view-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 撤回申请
 
 2. **申请重新加入或确认新学期** 已退出辅导伙伴可申请重新加入，无七天等待，但仍需批准。同一时间仅允许一个待审资格申请。学期刷新后，待确认的继续参与者可在激活提示直接选择可参与或退出。
 
-3. **仅转达符合条件学生的退出** 非问卷报名学生可在配对详情使用转达操作，填写原因并检查。七天撤回窗口后自动处理，除非撤回或取消。问卷学生应在本人页面申请整个时期退出；排课冲突使用独立审核。
+   **视图 1**
+
+   ![申请重新加入或确认新学期](assets/annotated/c1a3eaa636c0988af9f1cc14e8016896f57e6da4c0342c7009b46e1d38b8efcc.webp)
+
+   /settings · EN · 2026-11-16
+
+   此独立已退出辅导账户在参与资格中看到申请重新加入。页面说明申请由管理员审核；按钮不会将辅导资格直接设为有效。
+
+   [原始完整截图](assets/tutor-membership-hours-step-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 申请重新加入
+
+   **视图 2**
+
+   ![申请重新加入或确认新学期](assets/annotated/32ced42212bae202259c606a288175cde32b135cc49eee6bd3f58fc4565b2b67.webp)
+
+   /settings · EN · 2026-11-16
+
+   申请重新加入已立即提交，实际页面显示等待管理员批准。可使用撤回申请；辅导资格未激活，也未提交政策接受。
+
+   [原始完整截图](assets/tutor-membership-hours-step-2-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 等待批准
+
+   - **2.** 撤回申请
+
+3. **仅转达符合条件学生的退出** 非问卷报名学生可在配对详情使用转达操作，填写可选原因并检查。七天撤回窗口后自动处理，除非撤回或取消。问卷学生应在本人页面申请整个时期退出；排课冲突使用独立审核。
+
+   **视图 1**
+
+   ![仅转达符合条件学生的退出](assets/annotated/a6ec6648f88a836d725505940df8e658ec70342648a99944dc50987c6dcfb102.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   Alice 在非问卷登记的 Capture Legacy Learner 配对详情中填写可选转达原因；点击转达退出将打开核对确认，尚未提交。
+
+   [原始完整截图](assets/tutor-membership-hours-step-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 原因
+
+   - **2.** 核对
+
+   **视图 2**
+
+   ![仅转达符合条件学生的退出](assets/annotated/0c0632e22f1bffb4bafb232917bc1c6af8dd5034938f3a91820f3a4cd3553749.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   实际转达退出核对框列明 Capture Legacy Learner 与 Mathematics，说明参与状态在七天撤回期内仍保持活跃，并提供取消或最终转达退出；尚未提交。
+
+   [原始完整截图](assets/tutor-membership-hours-step-3-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 阅读
+
+   - **2.** 确认
+
+   **视图 3**
+
+   ![仅转达符合条件学生的退出](assets/annotated/7660e461c922bb0f5713fcfc36f062d4dc554ca87313ef8c53fd92c123cd1cc1.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   实际转达已提交一次；学习伙伴显示退出待处理，实际撤回期限为2026年11月23日下午3:51。回执说明七天窗口内参与状态保持活跃，且可撤回。
+
+   [原始完整截图](assets/tutor-membership-hours-step-3-view-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 待处理
+
+   - **2.** 期限
+
+   - **3.** 撤回
+
+   **视图 4**
+
+   ![仅转达符合条件学生的退出](assets/annotated/5f958003b78d94292f873670cc6d8606e38056ed3d86a3903102e27746e451b7.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   点击撤回后出现此实际确认框。核对学习伙伴与科目，再选择撤回以取消待处理移除，或选择取消以保留待处理申请；框内说明分配将保持活跃。
+
+   [原始完整截图](assets/tutor-membership-hours-step-3-view-4.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 阅读
+
+   - **2.** 撤回
+
+   **视图 5**
+
+   ![仅转达符合条件学生的退出](assets/annotated/b9cb2314516eb6503041f653343e97059c4e64058436b395742b0176e93ad39b.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   最终撤回操作已完成，实际已保存回执可见。待处理标记、期限与撤回操作均消失；可再次转达退出，学习伙伴仍在分配中。
+
+   [原始完整截图](assets/tutor-membership-hours-step-3-view-5.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已保存
 
 4. **检查历史与时数** 查看报告时期、辅导获得时数、额外时数和扣除。检查课次、面试、会议扣时及手动调整。巡查时数单独计算，不包含在辅导总时数内。
 
    请注意: 所选时期及获得、额外、扣除时数
 
-   ![所选时期及获得、额外、扣除时数](assets/tutor-history.en.jpg)
+   ![所选时期及获得、额外、扣除时数](assets/annotated/bef083fc744b1356374068b3c81a6cee3939aa89089d702e7ba86529f7ddefb3.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#tutor-history · EN · 2026-11-16
+
+   保留的辅导历史详情区分已存课次学时、会议记录及人工调整
+
+   [原始完整截图](assets/tutor-membership-hours-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 课次学时不等于总额
+
+   - **2.** 已记录课次
 
 ### 预期结果
 
@@ -463,27 +1219,91 @@ A化学与B化学可合并；若两名学生同时组合化学和数学，则必
 
 ### 操作步骤
 
-1. **阅读发给本人的公告** 打开本人页面中的公告并完整阅读。提供时可使用确认或收起操作。定向公告使用发布时确定的受众，不能代他人确认。
+1. **阅读发给本人的公告** 阅读本人工作区上方的公告卡片。置顶公告即使曾确认仍会保留，也没有收起按钮。普通公告提供收起按钮时可使用。定向公告使用发布时确定的受众，不能代他人确认。
 
    请注意: 辅导伙伴页面上方公告
 
-   ![辅导伙伴页面上方公告](assets/tutor-overview.en.jpg)
+   ![辅导伙伴页面上方公告](assets/annotated/61216c4919c03b7b311780f20dd7297c1b278e9e951b6e5116a9c5335a71d0d0.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard · EN · 2026-11-16
+
+   最新main辅导伙伴首页：置顶及普通公告、任务面板和具体日期日程
+
+   [原始完整截图](assets/tutor-program-information-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 置顶与普通公告
+
+   - **2.** 收起这条公告
 
 2. **查看共享教室课表** 在辅导伙伴页面使用共享教室课表，查看公开计划教室安排。核对具体时间及教室详情，完成后关闭阅读器。此视图不会显示私人面试证据，也不会为本人预订教室。
 
    请注意: 提供时配对工具旁的共享教室课表
 
-   ![提供时配对工具旁的共享教室课表](assets/tutor-pairings.en.jpg)
+   ![提供时配对工具旁的共享教室课表](assets/annotated/07ce387fb85c6e566b2dd7668ecd7edc42070305c266b036826f55a650735f7f.webp)
 
-   /dashboard · EN · 2026-11-15
+   /dashboard#sessions · EN · 2026-11-16
+
+   准确周一时间段的只读教室课表详情，包含不可用教室
+
+   [原始完整截图](assets/tutor-program-information-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 时间段
+
+   - **2.** 教室及时间区间
+
+   - **3.** 关闭详情
 
 3. **查看本人学习伙伴状态** 纪律历史可用时，可展开学习伙伴时间线，查看卡片颜色、日期及待处理或有效结果。辅导伙伴可见状态和结果，不能查看私人纪律原因。新纪律卡需通过相关出勤表单并提供真实原因申请。
 
+   ![查看本人学习伙伴状态](assets/annotated/1d91e6eac335a397295f730dba52e84ad2e765bb999ec8cce4feae328f926117.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   展开的辅导伙伴可见纪律时间线：颜色、日期以及有效或待审核结果
+
+   [原始完整截图](assets/tutor-program-information-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 纪律卡状态
+
+   - **2.** 带日期的结果
+
 4. **重新打开手册** 选择手册或当前政策，按界面语言阅读已发布辅导政策，无译文时使用英语。阅读不会签署新修订版；如提示，仍需完成独立参与政策审核。
 
+   ![重新打开手册](assets/annotated/702e985bd7de8ff264a4f56758cf1d45db3d835952915ffb46f223e604ad46a3.webp)
+
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
+   从已接受政策提示重新打开的已发布辅导伙伴政策阅读器
+
+   [原始完整截图](assets/tutor-program-information-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 标题与版本
+
+   - **2.** 关闭阅读器
+
 5. **阅读共享给本人的反馈** 打开/student-support的学习伙伴支持。管理团队启用与辅导伙伴共享反馈后，可阅读本人已记录课次的反馈，并用上一页／下一页浏览。共享关闭或无法确认时，应遵循页面不可用或隐私提示，不要假定仍有访问权限。
+
+   ![阅读共享给本人的反馈](assets/annotated/5edcabf57d29fd948f4cc7fc4ecee27fbac51fd934bbf1b8563a3a4eee8b4c09.webp)
+
+   /student-support · EN · 2026-11-16
+
+   管理团队未开启共享时的辅导伙伴反馈页面：明确显示隐私提示
+
+   [原始完整截图](assets/tutor-program-information-step-5.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 反馈可见范围
+
+   - **2.** 分页控件
 
 ### 预期结果
 

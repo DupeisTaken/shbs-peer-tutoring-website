@@ -1,12 +1,14 @@
 "use client";
 import { CodeInput } from "~/app/_components/ui/code-field";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 
 /** Both account surfaces use the same verified identity change instead of editing login email. */
 export function EmailChange() {
   const t = useTranslations("emailChange");
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -17,6 +19,7 @@ export function EmailChange() {
   });
   const confirm = api.account.confirmEmailChange.useMutation({
     onSuccess: async () => {
+      router.refresh();
       await Promise.all([
         utils.account.me.invalidate(),
         utils.tutor.myProfile.invalidate(),

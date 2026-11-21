@@ -1,5 +1,6 @@
 import { participantArticles } from "./participant-content";
 import { managementArticles } from "./management-content";
+import { getHelpScreenshot, helpScreenshots } from "./screenshots";
 import { helpText as t, type HelpAudience } from "./types";
 
 export const helpAudiences: HelpAudience[] = [
@@ -27,7 +28,38 @@ export const helpAudienceTitles = {
   translator: t("Translate the website", "翻译网站"),
 } satisfies Record<HelpAudience, { en: string; zh: string }>;
 
-export const helpArticles = [...participantArticles, ...managementArticles];
+// A frame belongs to one numbered instruction, not merely its feature's landing
+// page. Capture checks bind the recorded title/body to that exact step so later
+// reordering cannot silently attach a screenshot to a different action.
+export const helpArticles = [...participantArticles, ...managementArticles].map(
+  (article) => ({
+    ...article,
+    steps: article.steps.map((step, index) => {
+      const id = `${article.slug}-step-${index + 1}`;
+      const supplementaryScreenshots = [
+        ...new Set(
+          helpScreenshots
+            .filter(
+              (capture) =>
+                capture.locale === "en" && capture.id.startsWith(`${id}-view-`),
+            )
+            .map((capture) => capture.id),
+        ),
+      ].sort(
+        (left, right) =>
+          Number(left.slice(`${id}-view-`.length)) -
+          Number(right.slice(`${id}-view-`.length)),
+      );
+      return {
+        ...step,
+        ...(getHelpScreenshot(id) ? { screenshot: id } : {}),
+        ...(supplementaryScreenshots.length
+          ? { supplementaryScreenshots }
+          : {}),
+      };
+    }),
+  }),
+);
 
 export function handbookArticles(audience: HelpAudience) {
   // Editions are task collections, not permission bundles. Management can download

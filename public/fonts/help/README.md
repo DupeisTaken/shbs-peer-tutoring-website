@@ -17,10 +17,14 @@ Python environment, run from the repository root:
 
 ```sh
 python scripts/subset-help-font.py /path/to/NotoSansSC-Regular.otf
+# If Node is not on PATH, append: --node /path/to/node
 ```
 
-The helper includes the article corpus, audience titles, capture metadata, PDF renderer labels,
-ASCII and the PDF's bullet/separator characters. It refuses missing source
-glyphs. Repeat it when adding new Chinese characters, then run the help checks
+The helper checks the input against the pinned SHA-256 above and uses the installed
+Node/tsx runtime to read the same decoded corpus as CI: both article languages,
+audience titles, complete capture metadata/callouts, annotation notices, PDF labels,
+ASCII and bullet/separator characters. JSON Unicode escapes are decoded before
+glyph collection. It refuses missing glyphs and disables timestamp recalculation.
+Repeat it when adding new Chinese characters, then run the help checks
 and visually verify both language editions. The application never downloads
 the upstream font while serving a PDF.

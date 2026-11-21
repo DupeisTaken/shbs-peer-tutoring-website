@@ -61,8 +61,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Open management", "进入管理区"),
         t(
-          "Choose Enter management from your account menu. On a phone, open the menu below the brand to reveal the same groups.",
-          "从账户菜单选择进入管理区。手机上打开品牌下方的菜单，即可看到相同分组。",
+          "Choose Back to Management from the header or account menu, or Enter management when that label is offered. On a phone, open the menu below the brand to reveal the same groups.",
+          "从页首或账户菜单选择返回管理；入口显示进入管理区时，选择该项。手机上打开品牌下方的菜单，即可看到相同分组。",
         ),
       ],
       [
@@ -136,8 +136,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Choose the request tab", "选择申请标签页"),
         t(
-          "Open Signup Requests → Needs matching. Search the student, inspect source and verification labels, and read the submitted choices, time availability and current answer revisions.",
-          "打开报名申请→待匹配。搜索学习伙伴，查看来源和验证标记，并阅读科目志愿、可用时间及当前答案修订。",
+          "Open Signup Requests → Needs matching. Find the student in the list and expand the request. Check its source and verification labels, subject choices, available times and current answer revisions.",
+          "打开报名申请→待匹配。在列表中找到学习伙伴并展开申请。核对来源和验证标记、科目志愿、可用时间及当前答案修订。",
         ),
       ],
       [
@@ -311,29 +311,29 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Read original and current answers", "阅读原始及当前答案"),
         t(
-          "Open the student's request and inspect the original submission separately from accepted revisions. Confirm the subject and period you mean to change.",
-          "打开学习伙伴申请，分别查看原始提交与已接受修订，确认要变更的科目和学期。",
+          "Open the student's request and choose Edit signup answers. Compare the current answers with the retained original signature and policy revision. Confirm the subject and period you intend to change.",
+          "打开学习伙伴申请并选择“编辑报名答案”。将当前答案与保留的原签名及政策版本对照。确认要更改的科目和学期。",
         ),
       ],
       [
         t("Edit the intended answers", "编辑预期答案"),
         t(
-          "Open the signup-answer editor, update only the needed fields, and inspect any assigned choices that the change will release. Owners may edit unassigned choices; staff changes can have wider consequences.",
-          "打开报名答案编辑器，仅更新必要字段，并检查变更会解除的已分配志愿。申请人只能改未分配志愿；工作人员变更可能影响更多内容。",
+          "Update the needed fields in Edit signup answers. Check which subjects are assigned on the request. Owners can edit unassigned choices. A staff change to an assigned choice can release that assignment.",
+          "在“编辑报名答案”中更新所需字段。先查看申请中哪些科目已分配。申请人可以编辑未分配的志愿。工作人员更改已分配的志愿可能会解除对应分配。",
         ),
       ],
       [
         t("Review releases explicitly", "明确审阅解除分配"),
         t(
-          "Read the affected student, subject and assignment list before confirming an edit or unassignment. Cancel to return to the unchanged draft when the consequences are not intended.",
-          "确认编辑或解除分配前阅读受影响学习伙伴、科目及分配清单。若后果并非预期，取消可返回未提交草稿。",
+          "Choose Review signup changes. Check the identified student and the release consequences. Match the affected subjects and assignments to the original request. Cancel returns to the draft.",
+          "选择“审核报名更改”。核对学习伙伴及解除分配的后果，并与原申请中的科目和分配对照。“取消”会返回草稿。",
         ),
       ],
       [
         t("Verify the revised request", "验证修订申请"),
         t(
-          "After saving, reload through the offered read recovery if needed. Check the current choices, assigned status and retained revision history.",
-          "保存后如有需要，使用提供的读取恢复功能。检查当前志愿、分配状态及保留的修订历史。",
+          "After saving, check the current choices and assignment status. Reopen the editor to verify the retained signature and policy version. If the list failed to refresh, retry the read.",
+          "保存后检查当前志愿和分配状态。重新打开编辑器，核对保留的签名和政策版本。如果列表未刷新，请重试读取。",
         ),
       ],
     ],
@@ -387,8 +387,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Find the application", "查找申请"),
         t(
-          "Search by applicant, panelist or subject. Choose open, completed or all records, then filter status and choose application date, completion date or name order.",
-          "按申请人、评委或科目搜索。选择未完成、已完成或全部记录，再筛选状态，并按申请日期、完成日期或姓名排序。",
+          "At the top, search Name or email and use the application-status, requested-subject, interview-completion and sort filters. The separate Interview records section searches applicants, panelists or subjects; choose Needs completion, Completed or All there, then Search. Panelist search belongs to that lower section.",
+          "在顶部按姓名或邮箱搜索，并使用申请状态、申请科目、面试完成情况及排序筛选。独立的面试记录区域支持搜索申请人、评审或科目；在该处选择待完成、已完成或全部，再点击搜索。按评审搜索应使用下方区域。",
         ),
       ],
       [
@@ -471,15 +471,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Arrange the interview", "安排面试"),
         t(
-          "The assigned chair sets the interview time and comments through the interview controls. Confirm the displayed timezone and communicate with the panel. Panelists submit their own votes.",
-          "指定主席通过面试控件设置时间和备注。确认显示时区并与评委沟通。各评委提交自己的投票。",
+          "The assigned chair opens Interviews to Conduct in Tutor Schedule and chooses Set Time. Enter the date and time in the program time zone. Each panelist submits their own vote.",
+          "指定主席在辅导伙伴“课表”中打开“待进行的面试”，选择“设置时间”。按项目时区输入日期与时间。每位评委各自提交投票。",
         ),
       ],
       [
         t("Record the decision", "记录决定"),
         t(
-          "The eligible chair reviews votes and the majority/tie rules before confirming the final decision. An applicant or otherwise ineligible chair must not decide their own qualification.",
-          "符合资格的主席在确认最终决定前检查投票及多数、平票规则。申请人或其他不合资格主席不能决定自己的资格。",
+          "Open Votes & Decision in Tutor Applications to read the tally. After all panelists vote, an eligible chair follows the displayed majority or tie rules in Interviews to Conduct and confirms the decision from there.",
+          "在“辅导伙伴申请”中打开“投票与决定”查看票数。全体评委投票后，符合资格的主席在“待进行的面试”中按页面显示的多数或平票规则确认决定。",
         ),
       ],
       [
@@ -570,8 +570,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Use the correct follow-up", "选择正确后续操作"),
         t(
-          "Use the available willingness or manual grant/source-removal editor through its shown save/review path. Admin/Head separately decide additional qualification applications. Return to matching to check schedule and capacity independently.",
-          "意愿或手动授予、移除来源可通过其显示保存、审核路径编辑。额外资格申请由管理员或负责人另行决定。回到匹配时另行检查排期和容量。",
+          "Open Edit details. Changing Willing to tutor saves immediately; Approve this subject and Remove approval source also submit immediately. Read the saved or Coordinator approval-request outcome before continuing. Admin/Head decide additional qualification applications separately. Check schedule and capacity independently when matching.",
+          "打开编辑详情。更改辅导意愿会立即保存；批准此科目及移除审批来源也会立即提交。继续前阅读保存结果或协调员的审核申请结果。额外资格申请由管理员或负责人另行决定；匹配时须另行检查排期和容量。",
         ),
       ],
     ],
@@ -637,17 +637,17 @@ export const managementArticles: HelpArticle[] = [
         ),
       ],
       [
-        t("Review the proposed qualification", "审核拟授予资格"),
+        t("Check and grant the qualification", "核对并授予资格"),
         t(
-          "Use the manual approval action and confirm the named tutor, subject and variant. Review included lower-level grants before saving or submitting for review. A Coordinator proposal grants nothing until applied.",
-          "使用手动批准操作并确认辅导伙伴、科目和级别。保存或提交审核前检查包含低级别资格。协调员提案在应用前不授予资格。",
+          "In Edit details, check the named tutor, subject and level. Inspect the group's lower levels, then choose Approve this subject to submit immediately. Admin and Head apply the grant directly. A Coordinator follows the pending proposal in Management Actions.",
+          "打开编辑详情，核对辅导伙伴、科目及级别。检查该科目组的较低级别，再选择批准此科目立即提交。管理员及负责人直接应用授予。协调员在管理操作中跟进待审提案。",
         ),
       ],
       [
         t("Remove only the intended source", "仅移除预期来源"),
         t(
-          "To withdraw an approval, choose the specific saved source and read the consequence review. Qualifications supported by another source remain; do not promise that removing one source removes every grant.",
-          "撤销批准时选择具体保存来源并阅读后果审阅。有其他来源支持的资格会保留；不能认为移除一个来源就会移除全部资格。",
+          "Open Edit details for the variant with direct approval. Read its direct and inherited sources before choosing Remove approval source, which submits immediately. Once the change is applied, reopen the record and check which qualifications still have another source.",
+          "对有直接批准的级别打开编辑详情，先阅读直接来源及继承来源，再选择移除审批来源立即提交。变更应用后重新打开记录，核对哪些资格仍有其他来源支持。",
         ),
       ],
       [
@@ -682,6 +682,7 @@ export const managementArticles: HelpArticle[] = [
     ],
     sources: [
       "src/server/api/routers/interview-management.ts",
+      "src/server/qualifications.ts",
       "src/lib/approval-policy.ts",
       "src/app/_components/subject-availability.tsx",
     ],
@@ -721,10 +722,10 @@ export const managementArticles: HelpArticle[] = [
         ),
       ],
       [
-        t("Change membership deliberately", "审慎变更成员状态"),
+        t("Change roster status deliberately", "审慎变更名册状态"),
         t(
-          "Use the named activation, archive or access action and read its affected-record review. An archived roster, a revoked Tutor badge and an opted-out member represent different states.",
-          "使用明确的激活、归档或权限操作并阅读受影响记录审阅。归档名册、撤销辅导伙伴标记与退出成员是不同状态。",
+          "Open Edit profile and use Status to choose a permitted roster state, then save that section. Review account access separately in Users & Roles. An archived roster, a revoked Tutor badge and an opted-out member represent different states.",
+          "打开编辑资料，在状态中选择允许的名册状态，再保存该区块。账户权限需另外在用户与角色中检查。归档名册、撤销辅导伙伴标记与退出成员是不同状态。",
         ),
       ],
       [
@@ -733,8 +734,8 @@ export const managementArticles: HelpArticle[] = [
           "仅在正常报名不适用时手动创建",
         ),
         t(
-          "Choose Add Tutor, read the warning, check the acknowledgement and Continue. Enter required First Name and Last Name and optional Email/Grade. Save or submit for review, then inspect whether a separate account-setup step is needed.",
-          "选择添加辅导伙伴，阅读警告、勾选确认并继续。填写必填名字和姓氏及可选邮箱、年级。保存或提交审核后，检查是否仍需单独设置账户。",
+          "Choose Add Tutor, read the warning, check the acknowledgement and Continue. Complete the name fields marked required by the current form policy and optional Email/Grade, then choose Add Tutor. Read the saved or submitted-for-review result and inspect whether a separate account-setup step is needed.",
+          "选择添加辅导伙伴，阅读警告、勾选确认并继续。按当前表单规则填写标记为必填的姓名字段及可选邮箱、年级，再选择添加辅导伙伴。阅读已保存或已提交审核结果，并检查是否仍需单独设置账户。",
         ),
       ],
     ],
@@ -1105,8 +1106,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect the room", "检查教室"),
         t(
-          "Open Rooms and locate the room by its saved name. Read existing reservations and unavailable periods before changing its state.",
-          "打开教室并按保存名称定位。变更状态前查看现有预约及不可用时段。",
+          "Open Rooms, locate the saved room name and choose Edit details to inspect its recurring unavailable periods. Check existing bookings in Pairings before changing room availability.",
+          "打开教室，按保存名称找到教室，再选择编辑详情查看每周重复的不可用时段。变更教室可用性前，在配对中核对现有预约。",
         ),
       ],
       [
@@ -1119,8 +1120,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Mark unavailability", "标记不可用"),
         t(
-          "Open the room-period availability controls, select the intended blocked slot or range, and review the named room and time before saving or proposing.",
-          "打开教室时段可用性控件，选择预期禁用时间段或范围，保存或提案前审阅具体教室和时间。",
+          "Choose Edit details, then Add blocked period. Enter Day, Start time, End time and optional Reason, check the named room and range, then choose Save blocked period or the Coordinator's Submit request. Use Edit period for an existing block and review removal separately.",
+          "选择编辑详情，再选择添加禁用时段。填写星期、开始时间、结束时间及可选理由，核对具体教室和范围，再保存禁用时段；协调员选择提交申请。已有时段使用编辑时段，移除需单独审阅。",
         ),
       ],
       [
@@ -1183,29 +1184,29 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Find the course group", "查找课程分组"),
         t(
-          "Open Courses & Levels and search the saved course/group/variant names. Inspect archived entries as well as the currently offered catalogue.",
-          "打开课程与级别，按保存的课程、分组或变体名称搜索。除当前开设目录外，也检查归档条目。",
+          "Open Subjects & Levels and search the saved course/group/variant names. Inspect inactive entries as well as the currently offered catalogue.",
+          "打开科目与级别，按保存的课程、分组或变体名称搜索。除当前开设目录外，也检查已停用条目。",
         ),
       ],
       [
         t("Edit an individual course or level", "编辑单个课程或级别"),
         t(
-          "Open the relevant add/edit action, set the named group and level fields and inspect ordering. Review archive or restore actions separately from ordinary field edits.",
-          "打开相应添加或编辑操作，设置具体分组、级别字段并检查顺序。归档、恢复操作应与普通字段编辑分别审阅。",
+          "In the group editor choose the offered levels, then Save group; unselected levels become inactive. Select an offering again and save to restore it. Level-name and prefix fields save when you leave them; AP-score toggles and ordering arrows submit immediately. Read the saved or Coordinator review-request result after each change.",
+          "在科目组编辑器选择开设级别，再选择保存科目组；未选级别会停用。重新勾选并保存可恢复开设。级别名称及前缀在离开输入框时保存；AP计分选项和排序箭头会立即提交。每次变更后均应阅读保存或协调员审核申请结果。",
         ),
       ],
       [
         t("Review batch selection", "审阅批量选择"),
         t(
-          "Select the intended visible courses before applying a batch edit. Check the selected list and the changes shown in the review; filtering is not consent to edit every hidden row.",
-          "批量编辑前选择预期可见课程。检查已选清单及审阅所示变更；筛选不代表同意编辑所有隐藏行。",
+          "Select the intended visible courses. Choose Set level and/or Set status, check the selected count and hidden-selection notice, then choose Apply to N visible selected. This submits immediately; only visible selected courses change. Read the actual save or approval-request result.",
+          "勾选预期可见课程，使用设置级别及／或设置状态，核对已选数量及隐藏选择提示，再选择应用于N门可见已选课程。此操作立即提交，只有可见且已选的课程会变更。阅读实际保存或审核申请结果。",
         ),
       ],
       [
         t("Import a catalogue deliberately", "审慎导入目录"),
         t(
-          "Use the offered JSON/CSV catalogue import, inspect the expected format and preview/validation, then review the exact changes before submitting. Reload the course list after the applied result.",
-          "使用提供的JSON或CSV目录导入，检查预期格式及预览、验证，审阅具体变更后再提交。应用后重新读取课程清单。",
+          "Read the import help and download the example before selecting a JSON or CSV file. Selecting a valid file immediately submits its parsed catalogue changes. A permitted Coordinator import queues a review request. Read the actual import result or error, then reload the course list after an applied change.",
+          "选择JSON或CSV文件前，先阅读导入说明并下载示例。选中有效文件会立即提交解析后的目录变更。协调员获准发起的导入会进入审核申请。阅读实际导入结果或错误，应用变更后重新读取课程清单。",
         ),
       ],
     ],
@@ -1226,8 +1227,8 @@ export const managementArticles: HelpArticle[] = [
           "导入验证失败或批量包含错误课程",
         ),
         solution: t(
-          "Cancel the review, correct the file using the displayed format and inspect selected IDs/names again. Do not repeatedly import a rejected file or assume a hidden selection matches the current filter.",
-          "取消审阅，按显示格式修正文件，并重新检查已选ID及名称。不要反复导入被拒文件，也不要假设隐藏选择符合当前筛选。",
+          "For an import error, correct the file using the displayed format before selecting it again. For a batch that has not been applied, use Clear selection or correct the visible selections. Inspect IDs/names again; a hidden selection may not match the current filter.",
+          "导入出错时，应按显示格式修正文件后再重新选择。尚未应用的批量操作可用清除选择，或修正可见选择。重新检查ID及名称；隐藏选择可能不符合当前筛选。",
         ),
       },
     ],
@@ -1255,15 +1256,15 @@ export const managementArticles: HelpArticle[] = [
     route: "/admin/tutor-requests",
     screenshot: "admin-tutor-requests",
     focus: t(
-      "Open a pending tutor request and read its submitted date and current membership.",
-      "打开待处理辅导伙伴申请，阅读提交日期及当前成员状态。",
+      "Find the pending tutor, request type, reason and available decision controls.",
+      "找到待处理申请的辅导伙伴、申请类型、原因及可用决定控件。",
     ),
     steps: [
       [
-        t("Open the pending request", "打开待处理申请"),
+        t("Find the pending request", "找到待处理申请"),
         t(
-          "Use Tutor Requests to inspect the tutor, requested opt-out/reentry, reason, submission time and current status. Read decision history before overturning earlier outcomes.",
-          "在辅导伙伴申请检查辅导伙伴、所申请退出或重新加入、原因、提交时间及当前状态。推翻旧结果前先阅读决定历史。",
+          "In Tutor Status Requests, check the tutor, request type and reason. An opt-out may show the approval date and number of affected students. Check current membership in Tutor Roster and earlier decisions in the Audit Log if you have access.",
+          "在辅导伙伴状态申请核对辅导伙伴、申请类型及原因。退出申请可能显示可审批日期及受影响学习伙伴人数。在辅导伙伴名册核对当前资格，并在有权限时通过审计日志查看过去的决定。",
         ),
       ],
       [
@@ -1274,17 +1275,17 @@ export const managementArticles: HelpArticle[] = [
         ),
       ],
       [
-        t("Review the decision", "审阅决定"),
+        t("Submit the decision", "提交决定"),
         t(
-          "Read the complete note, choose the intended approval/decline action and review its consequence. Complete the direct decision or permitted approval request as shown.",
-          "阅读完整说明，选择预期批准或拒绝操作并审阅后果，按界面完成直接决定或允许的审核申请。",
+          "Check the tutor, reason and any affected students before choosing Approve or Deny. Both buttons submit immediately. Verify the updated roster after a direct decision or follow the Coordinator proposal in Management Actions.",
+          "选择审批通过或拒绝前，核对辅导伙伴、原因及受影响学习伙伴。两个按钮均会立即提交。直接决定后核对更新的名册，或在管理操作中跟进协调员提案。",
         ),
       ],
       [
         t("Requeue affected students", "重新安排受影响学习伙伴"),
         t(
-          "After tutor opt-out is applied, use the explicit student-requeue action to return affected students to matching. Verify the request history and remaining pairings.",
-          "辅导伙伴退出应用后，使用明确的学习伙伴重新排队操作，将受影响学习伙伴送回匹配。核对申请历史及剩余配对。",
+          "After an opt-out is applied, the prompt identifies any affected students. Choose Re-Queue Tutees to return them to matching, or Not Now to leave them for later review. Verify the signup queue and remaining pairings.",
+          "退出应用后，提示会标出受影响的学习伙伴。选择重新加入队列将他们送回待匹配，或选择暂不操作以便稍后审核。核对报名队列及剩余配对。",
         ),
       ],
     ],
@@ -1505,10 +1506,10 @@ export const managementArticles: HelpArticle[] = [
         ),
       ],
       [
-        t("Create or edit details", "创建或编辑详情"),
+        t("Create a meeting or review deletion", "创建会议或核对删除"),
         t(
-          "Use the meeting create/edit action, enter the time, location and other labelled fields and review the exact meeting. Deletion has a separate named confirmation; Cancel returns without deleting it.",
-          "使用创建或编辑会议操作，填写时间、地点及其他有标签字段并审核具体会议。删除有独立明确确认；取消会返回且不删除。",
+          "In the current period, enter Meeting title, Date and Time, check the date and program timezone, then choose Create. Use a meeting's Delete action for its separate named confirmation; Cancel returns without deleting it.",
+          "在当前周期填写会议标题、日期及时间，核对日期和项目时区，再选择创建。会议的删除操作会打开独立明确确认；取消会返回且不删除。",
         ),
       ],
       [
@@ -1739,29 +1740,29 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect the card evidence", "检查纪律卡证据"),
         t(
-          "Open Discipline, filter the relevant pending/history view and open the full record. Read tutor comments, session attendance, card reason and prior effective standing.",
-          "打开纪律页面，筛选相应待处理或历史视图并打开完整记录。阅读辅导伙伴备注、课程出勤、卡片原因及此前有效纪律状态。",
+          "In Tutee Discipline, find the named card in Pending Review. Read its reason, issuer and recorded session context. Open View details in Tutee Standing to check the student's current effective cards.",
+          "在学习伙伴纪律页面的“待复核”中找到对应纪律卡。阅读原因、签发者及已记录的课次情况。在“学习伙伴纪律状态”选择“查看详情”，核对该学习伙伴目前计入的有效纪律卡。",
         ),
       ],
       [
         t("Review validation", "审核有效性"),
         t(
-          "Choose the intended validation or rejection, enter the required review note and inspect the named card and consequences. An overturning decision follows the current Admin/Head review rules.",
-          "选择预期确认有效或驳回，填写必要审核说明并检查具体卡片及后果。推翻决定须遵循当前管理员或负责人审核规则。",
+          "Choose Edit on the named pending card. Check its reason and add relevant context in Review note (optional). Valid or Invalid submits the decision immediately. Changes to a prior decision follow current Admin/Head review rules.",
+          "在对应待复核纪律卡中选择“编辑”。核对原因，并在“复核备注（可选）”中补充相关情况。选择“有效”或“无效”即提交决定。更改先前决定须遵循当前管理员或负责人复核规则。",
         ),
       ],
       [
         t("Open card appeals", "打开纪律卡申诉"),
         t(
-          "Use Tutee Support → Appeals for the owner's complete appeal and related evidence. Check the displayed school-day deadline and decide through the authorized review action.",
-          "在学习伙伴支持→申诉查看申请人完整申诉及相关证据。检查显示的上课日截止时间，并通过授权审核操作决定。",
+          "In Tutee Support, open Tutee Appeals and select Pending. Read the card reason and appeal, choose Overturn Card or Reject Appeal, then enter a Decision Reason and submit. Use the School calendar in Program Settings link to check which days count as school days.",
+          "在“学习伙伴支持”中打开“学习伙伴申诉”，选择“待处理”。阅读纪律卡原因和申诉内容，选择“撤销纪律记录”或“驳回申诉”，填写“决定理由”后提交。通过“在项目设置中管理学校日历”链接核对哪些日期计为上课日。",
         ),
       ],
       [
         t("Verify the resulting standing", "验证最终纪律状态"),
         t(
-          "Check the card's current status, appeal history and any resulting removal workflow. Follow pending participation consequences separately rather than assuming the student has already been removed.",
-          "检查卡片当前状态、申诉历史及产生的移除流程。应分别跟进待处理参与后果，不要假设学习伙伴已被移除。",
+          "In Tutee Standing, check the current status and choose View details to see the valid cards. Select Resolved in Tutee Appeals for any appeal decision. If standing shows removal pending, track the participation change separately in Withdrawal Requests & Removals.",
+          "在“学习伙伴纪律状态”中核对当前状态，并选择“查看详情”查看有效纪律卡。在“学习伙伴申诉”中选择“已处理”可查看申诉决定。若纪律状态显示“待移除”，请在“退出申请与移除”中单独跟进参与状态变更。",
         ),
       ],
     ],
@@ -1825,22 +1826,22 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Read the full context", "阅读完整背景"),
         t(
-          "Open the selected session/record and read its owner, lesson and sharing state. Page each list with its own Previous/Next controls; switching panels preserves the current-visit filters and drafts.",
-          "打开选定课程或记录，阅读归属、课程及共享状态。使用各列表自己的上一页、下一页；切换面板会保留本次访问筛选和草稿。",
+          "Read the name, subject, rating, full feedback and last update on the feedback card. For an appeal, read the card reason and appeal text on its entry. Use each list's own pagination when more records are available. Switching panels keeps current filters and drafts.",
+          "直接在反馈卡片中查看姓名、科目、评分、完整反馈及最近更新时间。申诉的纪律卡原因和申诉内容显示在对应条目内。记录较多时使用各列表的独立分页。切换面板会保留当前筛选和草稿。",
         ),
       ],
       [
         t("Follow the appropriate response route", "使用适当响应途径"),
         t(
-          "Use the record's authorized review action for an appeal. For a private conversation, open Messages and select an allowed contact rather than putting participant details into public site content.",
-          "申诉使用记录自己的授权审核操作。私人对话请打开消息并选择允许联系人，不要将参与者详情写入公开网站内容。",
+          "For an appeal, choose Overturn Card or Reject Appeal and enter a Decision Reason. For private follow-up, open Messages from the Feedback panel and select an allowed contact.",
+          "处理申诉时选择“撤销纪律记录”或“驳回申诉”，并填写“决定理由”。如需私下跟进，请从反馈面板打开“消息”，并选择允许联系的人员。",
         ),
       ],
       [
         t("Review tutor sharing separately", "单独审核与辅导伙伴共享"),
         t(
-          "Inspect Share feedback with tutors in the feedback settings and review its save. It changes the assigned tutor's access, including earlier feedback, while staff-authorized feedback remains readable independently.",
-          "在反馈设置检查与辅导伙伴共享反馈，并审核保存。它会改变所分配辅导伙伴的访问，包括较早反馈；工作人员获准反馈仍独立可读。",
+          "Check Allow assigned tutors to read tutee feedback. Changing the checkbox submits immediately for Admin/Head or requests review for a Coordinator. It applies to past and future feedback. Authorized staff can read feedback regardless of this setting.",
+          "检查“允许已分配的辅导伙伴查看学习伙伴反馈”。管理员或负责人切换复选框后即提交变更，协调员切换后提交审核申请。设置适用于已有和今后的反馈。有权限的工作人员始终可以查看反馈。",
         ),
       ],
     ],
@@ -1970,15 +1971,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Check existing adjustments", "检查现有调整"),
         t(
-          "Open Hour Adjustments and locate the tutor/month. Use Show past tutors when the intended historical tutor is not offered; showing a person does not reactivate them.",
-          "打开学时调整并定位辅导伙伴和月份。若未提供目标历史辅导伙伴，使用显示过往辅导伙伴；显示人员不会重新激活他们。",
+          "Open Hour Adjustments and locate the tutor/month. Show past tutors is inside New hour adjustment; use it when the intended historical tutor is not offered in that dialog. Showing a person does not reactivate them.",
+          "打开学时调整并定位辅导伙伴和月份。显示过往辅导伙伴位于新增学时调整弹窗中；若弹窗未提供目标历史辅导伙伴，可使用该选项。显示人员不会重新激活他们。",
         ),
       ],
       [
         t("Enter the adjustment", "填写调整"),
         t(
-          "Open the create action. Select Tutor, Month and Type, enter the amount and a specific reason, then reread whether the type adds or deducts hours before submitting.",
-          "打开创建操作。选择辅导伙伴、月份及类型，填写数量和具体原因，再次核对类型是增加还是扣减学时后提交。",
+          "Open New hour adjustment. Select Tutor, Month and Type, enter a positive amount in the form's half-hour increments, such as 0.5, and give a specific reason. Check whether the type adds or deducts hours, then choose Add. This submits immediately.",
+          "打开新增学时调整。选择辅导伙伴、月份及类型，按表单的半小时步长填写正数（如0.5），并说明具体原因。核对类型是增加还是扣减学时，再选择添加。此操作立即提交。",
         ),
       ],
       [
@@ -2158,8 +2159,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Correct the latest eligible edition", "修订最新符合条件版本"),
         t(
-          "Review the correction and select the last edition actually entered by school. Apply only the displayed incremental correction, not the full replacement amount again. After a later month issues, later changes reconcile in the next report.",
-          "审核修订并选择学校实际入账的上个版本。只应用显示的增量修正，不要再次录入完整替换数量。后续月份发放后，更晚变化会在下一报表核对。",
+          "Review the corrected edition. In Details, find the comparison row for the last edition the school entered and use its incremental amount. Once a later month has been issued, any new changes reconcile in the next report.",
+          "核对修订版。在“详情”中找到学校上次实际入账版本的对照行，并使用该行的增量时数。后续月份的报表发放后，新变化会在下一份报表中核对。",
         ),
       ],
     ],
@@ -2236,8 +2237,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect an edition's delivery", "查看版本投递"),
         t(
-          "Admin/Head can open delivery history, read failed/blocked reasons and retry eligible failed delivery using the same saved edition. Report link opened records a visit separately from transport acceptance.",
-          "管理员或负责人可打开投递历史，阅读失败或被阻止原因，并使用同一已保存版本重试符合条件的失败投递。报表链接已打开记录访问，与传输接受独立。",
+          "Admin/Head can open School Delivery Status and check the state, attempts and any delivery notice. Retry delivery reuses the same saved edition and link when eligible. Report link opened records access separately from transport acceptance. Automated link checks can trigger it too.",
+          "管理员或负责人可打开“学校投递状态”，查看状态、尝试次数和投递提示。符合条件时，“重试投递”使用同一已保存版本和链接。“报告链接已打开”记录访问，邮件传输是否已接受另行显示。自动链接检查也可能产生打开记录。",
         ),
       ],
       [
@@ -2399,8 +2400,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Maintain the saved record", "维护已保存记录"),
         t(
-          "Use the row's edit, pin or archive action for the intended change. Restore an archived announcement only through its reviewed restoration action. Read acknowledgement evidence separately from delivery.",
-          "使用行中的编辑、置顶或归档操作进行预期变更。恢复归档公告必须使用审阅后的恢复操作。确认已阅证据应与投递分开阅读。",
+          "Use Save for edits, Pin or Unpin for placement, and Deactivate or Reactivate for visibility. Read the Dismissed count and recipient information separately. Delete opens its own review.",
+          "使用“保存”提交编辑，通过“置顶”或“取消置顶”调整位置，通过“停用”或“重新启用”管理可见性。分别查看已关闭人数及收件人信息。“删除”会打开独立审核。",
         ),
       ],
     ],
@@ -2431,7 +2432,7 @@ export const managementArticles: HelpArticle[] = [
       "announcement creation",
       "audience snapshot",
       "Include/Exclude overrides",
-      "publish/edit/pin/archive/restore",
+      "publish/edit/pin/deactivate/reactivate",
       "acknowledgement evidence",
     ],
   }),
@@ -2446,8 +2447,8 @@ export const managementArticles: HelpArticle[] = [
     route: "/admin/landing",
     screenshot: "admin-landing",
     focus: t(
-      "Use Layout, Fixed content, Sections, News, Pages and Images tabs.",
-      "使用布局、固定内容、区块、新闻、页面及图片标签。",
+      "Use Layout, Main Page Content, Sections, Program News, Pages and Images tabs.",
+      "使用“布局”“主页面内容”“板块”“项目动态”“页面”和“图片”选项卡。",
     ),
     prerequisites: [
       t(
@@ -2459,29 +2460,29 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Choose a content area", "选择内容区域"),
         t(
-          "Open Landing Editor and choose Layout, Fixed content, Sections, News, Pages or Images. With a keyboard, move between tab labels with arrows and open the focused one with Enter or Space.",
-          "打开首页编辑器并选择布局、固定内容、区块、新闻、页面或图片。键盘可用方向键移动标签焦点，再按回车或空格打开。",
+          "Open Landing Page and choose Layout, Main Page Content, Sections, Program News, Pages or Images. Use the arrow keys to move focus between tabs, then Enter or Space to open the focused tab.",
+          "打开“首页”，选择“布局”“主页面内容”“板块”“项目动态”“页面”或“图片”。用方向键在选项卡之间移动焦点，再按回车或空格打开当前选项卡。",
         ),
       ],
       [
         t("Edit the current draft", "编辑当前草稿"),
         t(
-          "Choose the intended language and edit that area's fields. Opened tabs/languages keep independent drafts during this visit; switching tabs does not save them. Review custom-page slug validation and navigation placement.",
-          "选择预期语言并编辑该区域字段。已打开标签和语言在本次访问保留独立草稿；切换不会保存。检查自定义页地址验证及导航位置。",
+          "Choose Language and edit the intended field. Fields with their own Save keep independent drafts across tabs and languages during this visit. In Pages, leaving a title or page-address field submits its change. Show in top nav submits immediately.",
+          "选择“语言”并编辑需要的字段。有独立“保存”的字段会在本次访问中跨选项卡和语言保留各自草稿。在“页面”中，离开标题或页面地址字段时会提交更改。“显示在顶部导航”会立即提交。",
         ),
       ],
       [
         t("Preview before publication", "发布前预览"),
         t(
-          "Use the available landing preview to inspect the actual layout, titles, links and images. Check that new pages and news point to the intended destinations and that image framing is readable on small screens.",
-          "使用首页预览检查实际布局、标题、链接及图片。确认新页面和新闻指向预期位置，图片在小屏幕上也清晰。",
+          "Open Preview to inspect the saved layout, titles, links and images. Editors can also see saved drafts and hidden sections in this preview. For an unsaved Markdown edit, use the inline Preview. Check links and image framing on small screens.",
+          "打开“预览”检查已保存的布局、标题、链接及图片。编辑者还可在此预览中查看已保存的草稿和隐藏板块。未保存的 Markdown 编辑可使用编辑区内的“预览”。在小屏幕上核对链接和图片显示范围。",
         ),
       ],
       [
         t("Save, publish or restore", "保存、发布或恢复"),
         t(
-          "Save each intended area/language using its own control and inspect the returned result. Applied content is live without a redeploy. Archive or restore saved news/pages using their separate reviewed actions, then verify the public page.",
-          "使用各自控件保存预期区域和语言并检查返回结果。已应用内容无需重新部署就生效。使用各自审核操作归档或恢复新闻、页面，再验证公开页面。",
+          "Use each area's Save or Publish control and verify the public page after the change applies. Use Archive or Restore for Program News and Show or Hide for custom pages. Applied content appears without a redeploy.",
+          "使用各区块的“保存”或“发布”控件，在更改生效后核对公开页面。“项目动态”使用“归档”或“恢复”，自定义页面使用“显示”或“隐藏”。生效的内容无需重新部署即可显示。",
         ),
       ],
     ],
@@ -2552,8 +2553,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Save the reviewed English source", "保存经审核英文来源"),
         t(
-          "Edit the English title/text and use that document's explicit save/review action. Check the new version before adding translations; repository Markdown changes alone do not update a running site's policies.",
-          "编辑英文标题及正文，使用文档明确保存、审核操作。添加翻译前检查新版本；只改仓库Markdown不会更新运行中网站政策。",
+          "Choose English and review the document title, version and policy text. Admin/Head use Save to publish. Coordinators use Request Admin approval. Check the resulting version before adding translations.",
+          "选择英文，核对文档标题、版本及政策正文。管理员或负责人选择“保存”发布。协调员选择“请求管理员审批”。添加译文前核对发布版本。",
         ),
       ],
       [
@@ -2629,10 +2630,10 @@ export const managementArticles: HelpArticle[] = [
         ),
       ],
       [
-        t("Review binding and expiry", "审核绑定及有效期"),
+        t("Check binding and issue", "核对绑定并发放"),
         t(
-          "Enter the available recipient binding and expiry/label fields, then inspect the exact role and review the creation action. A pending issuance proposal is not an active invitation.",
-          "填写可用收件人绑定、有效期及标签字段，再核对确切角色并审阅创建操作。待审发放提案不是有效邀请。",
+          "Select Kind, enter Label and optional Email, then check the role and recipient binding. For Admin/Head, Issue submits directly. Read the resulting expiry and Active status on the card or list. A Coordinator's issuance request remains pending until approved.",
+          "选择类型，填写标签及可选邮箱，再核对角色和收件人绑定。管理员或负责人选择发放即直接提交。随后在邀请卡或列表中查看有效期及有效状态。协调员的发放申请在批准前保持待审。",
         ),
       ],
       [
@@ -2879,8 +2880,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Use setup or recovery appropriately", "适当使用设置或恢复"),
         t(
-          "Use Send setup link for an eligible unlinked/unfinished source, or the existing-login recovery action for a ready account. Delivery goes to the canonical recipient; staff do not receive the recipient's recovery secret.",
-          "对符合条件未关联或未完成来源使用发送设置链接；已就绪账户使用现有登录恢复操作。投递发往规范收件人，工作人员不会收到收件人恢复密钥。",
+          "Use Send Setup Link in Users & Roles for eligible unfinished setup. For a ready account, direct the owner to Forgot password on Sign In. The application delivers the setup or recovery link to the eligible recipient through that workflow.",
+          "对符合条件但尚未完成设置的账户，请在“用户与角色”中选择“发送设置链接”。已就绪账户的使用者可在登录页选择“忘记密码”。应用会按相应流程向符合条件的收件人发送设置或恢复链接。",
         ),
       ],
       [
@@ -3003,8 +3004,8 @@ export const managementArticles: HelpArticle[] = [
           "用户名已被占用或编辑已过时",
         ),
         solution: t(
-          "Choose another valid handle after checking login and tutor-roster uniqueness. For a version conflict use explicit Reload; a failed read keeps the draft, so retry the read before editing again.",
-          "检查登录及辅导伙伴名册唯一性后选择其他有效用户名。版本冲突请明确重新加载；读取失败会保留草稿，应先重试读取再编辑。",
+          "Check login and tutor-roster uniqueness, then choose a valid handle. If the account changed while you were editing, choose Discard Username Draft and Reload, review the current handle and re-enter the change. If reloading fails, retry the read before editing again.",
+          "检查登录账户及辅导伙伴名册中的用户名是否唯一，再选择有效用户名。如果编辑期间账户发生变化，选择“放弃用户名草稿并重新加载”，核对当前用户名后重新输入变更。若重新加载失败，请先重试读取再编辑。",
         ),
       },
     ],
@@ -3083,6 +3084,16 @@ export const managementArticles: HelpArticle[] = [
       ),
     ],
     troubleshooting: [
+      {
+        problem: t(
+          "A new review still lists records from an earlier combination",
+          "新审阅仍列出上一次合并的记录",
+        ),
+        solution: t(
+          "In Selected records, remove each unrelated source before opening Review combination. Compare the names and original record IDs in Reviewed source records before confirming.",
+          "打开审阅合并前，在已选记录中移除每条无关来源。确认前对照审阅来源记录中的姓名和原记录编号。",
+        ),
+      },
       {
         problem: t(
           "The review changed or the response was interrupted",
@@ -3385,8 +3396,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Prepare the change in its own page", "在对应页面准备变更"),
         t(
-          "Edit the intended operation where its records live, inspect the named consequence review and choose the offered request/review action. Coordinator authority is explicit; an unavailable action is not a generic permission to propose it elsewhere.",
-          "在记录所属页面编辑预期操作，检查明确后果审阅并选择提供的申请、审核操作。协调员权限是明确列出的；操作不可用不代表可在别处通用提案。",
+          "Edit the intended operation where its records live, inspect the proposed values and any offered consequence review, then choose the shown request/review action. Coordinator authority is explicit; an unavailable action is not a generic permission to propose it elsewhere.",
+          "在记录所属页面编辑预期操作，检查拟变更值及提供的后果审阅，再选择显示的申请、审核操作。协调员权限是明确列出的；操作不可用不代表可在别处通用提案。",
         ),
       ],
       [
@@ -3399,15 +3410,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Follow pending and resolved states", "跟进待处理及已处理状态"),
         t(
-          "Use status and requester filters to locate the request later. Read its decision and resulting record rather than assuming the requested change was immediately saved.",
-          "以后可用状态及申请人筛选定位申请。阅读决定及最终记录，不要假设请求变更已立即保存。",
+          "Use Status to follow your requests. Admin/Head can also filter Requester; Coordinators see their own requests. Read the decision and resulting record rather than assuming the requested change was immediately saved.",
+          "使用状态跟进本人的申请。管理员／负责人还可按申请人筛选；协调员只能查看自己的申请。阅读决定及最终记录，不要假设请求变更已立即保存。",
         ),
       ],
       [
         t("Withdraw an unapplied request", "撤回尚未应用申请"),
         t(
-          "If your pending proposal is no longer needed, open its eligible withdrawal action and confirm the exact request. Reversing a live applied change instead requires the owning feature's reviewed reversal.",
-          "若自己的待审提案已不需要，可打开符合条件撤回操作并确认具体申请。逆转实际已应用变更则需要对应功能的审阅逆转流程。",
+          "If your pending proposal is no longer needed, check its exact target and choose Withdraw Request. This button submits withdrawal immediately. Reversing a live applied change requires the owning feature's reviewed reversal.",
+          "若自己的待审提案已不需要，先核对具体目标，再选择撤回申请；该按钮会立即提交撤回。逆转实际已应用变更需使用对应功能的审阅逆转流程。",
         ),
       ],
     ],
@@ -3482,8 +3493,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Decide with a note", "附说明决定"),
         t(
-          "Read the complete consequence confirmation, add the required review note and approve or reject the exact request. Complete fresh-password confirmation if the operation requires it.",
-          "阅读完整后果确认、填写必要审核说明，并批准或拒绝具体申请。操作需要时完成最新密码确认。",
+          "Enter the required review note, check the exact request, then choose Approve and Apply or Reject with Feedback. Complete the consequence review and fresh-password confirmation when the operation offers or requires them. Requests without an extra consequence review submit directly from the decision button.",
+          "填写必填审核说明、核对具体申请，再选择批准并应用或拒绝并反馈。操作提供或要求后果审阅、密码确认时，完成对应步骤。没有额外后果审阅的申请会由决定按钮直接提交。",
         ),
       ],
       [
@@ -3808,29 +3819,29 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Download an archive or templates", "下载归档或模板"),
         t(
-          "Open Program records and choose the export or template download. Keep the ZIP/CSV headers and stable source IDs intact. Read the listed archive scope before treating it as a complete backup.",
-          "打开项目记录并选择导出或模板下载。保留ZIP、CSV表头及稳定来源ID。将其视为完整备份前先阅读列出的归档范围。",
+          "Open Program Records and choose Export CSV archive or Download CSV templates. Read the listed export scope. Preserve the ZIP/CSV headers and stable source IDs. A full backup is a separate operator workflow.",
+          "打开“项目记录”，选择“导出 CSV 归档”或“下载 CSV 模板”。阅读列出的导出范围，保留 ZIP、CSV 表头及稳定来源 ID。完整备份由操作员通过独立流程执行。",
         ),
       ],
       [
         t("Prepare related files together", "一起准备关联文件"),
         t(
-          "Fill the offered UTF-8 CSV formats and include dependent files together. Select the intended ZIP/CSV files and check the displayed limits and selected filenames.",
-          "填写提供的UTF-8 CSV格式，并将依赖文件一并包含。选择预期ZIP或CSV文件，检查显示限制及文件名。",
+          "Use the offered UTF-8 CSV formats and include related files together. Under Import Past Records, select the CSV files or ZIP archive. Check the selected file, parsed CSV count and displayed limits before previewing.",
+          "使用提供的 UTF-8 CSV 格式，并一起选择相关文件。在“导入历史记录”中选择 CSV 文件或 ZIP 归档。预览前核对所选文件、解析出的 CSV 数量及显示的限制。",
         ),
       ],
       [
         t("Preview before import", "导入前预览"),
         t(
-          "Choose Preview and inspect each record type's new/skipped/conflicting counts and dependency errors. Correct the source files and preview again until the intended import is clear.",
-          "选择预览，检查各记录类型新增、跳过、冲突数量及依赖错误。修正来源文件并重新预览，直至预期导入明确。",
+          "Choose Preview import and check New records and Already present for each record type. If a conflict or missing dependency is reported, correct the named file or row and preview again.",
+          "选择“预览导入”，检查各类型的新增记录及已存在记录数量。若提示冲突或缺少依赖，请修正提示中的文件或行，再次预览。",
         ),
       ],
       [
         t("Confirm and verify", "确认并验证"),
         t(
-          "Acknowledge the reviewed preview and confirm import. Inspect the completion counts and original records. Existing records are never overwritten; a skipped duplicate is not an instruction to invent a new ID.",
-          "确认已审核预览并执行导入。检查完成数量及原始记录。现有记录不会覆盖；跳过重复项不代表应编造新ID。",
+          "Acknowledge the reviewed preview and choose Import records. Check the completion counts and audit receipt. Duplicate entries preserve the existing records and their stable source IDs.",
+          "确认已审核预览后选择“导入记录”。核对完成数量和审计记录。重复条目会保留现有记录及其稳定来源 ID。",
         ),
       ],
     ],
@@ -3898,29 +3909,29 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Find the disclosed conversation", "查找已告知监管会话"),
         t(
-          "Open Messages → Supervision and use the available search/filter controls. Inspect the intended participants and the disclosure boundary before opening a conversation.",
-          "打开消息→监管，并使用搜索、筛选控件。打开会话前检查预期参与者及告知监管边界。",
+          "Open Message Supervision. Search by name, username or message text, then check participants and visibility. Use View conversation to narrow the disclosed messages to that pair.",
+          "打开消息监管，按姓名、用户名或消息正文搜索，核对参与者及可见状态。选择“查看双方对话”，筛选到该双方已告知监督规则的消息。",
         ),
       ],
       [
         t("Record the review reason", "记录审阅原因"),
         t(
-          "Provide the required reason to review an eligible conversation and read its exact messages. Original legacy participant-only messages remain outside the disclosed supervision boundary.",
-          "填写必要原因以审核符合条件会话，再阅读准确消息。旧的仅参与者消息仍在已告知监管边界之外。",
+          "Enter a review reason of at least five characters and choose Open audited review on the exact message. Read the content and audit history. Supervision applies to messages covered by the disclosed rule.",
+          "输入至少五个字符的审阅理由，再对对应消息选择“审阅并记录操作”。查看正文及审计记录。监督适用于已告知监督规则的消息。",
         ),
       ],
       [
         t("Moderate explicitly", "明确执行监管操作"),
         t(
-          "Use the named hide/restore or contact-restriction action only after reviewing the exact message/person and consequences. Record the required reason; restoration and unrestriction remain reviewed reversals.",
-          "只有审核准确消息、人员及后果后，才使用明确隐藏、恢复或联系限制操作。记录必要原因；恢复和解除限制仍属于审核逆转。",
+          "Check the exact message and enter the reason for changing it. Hide from participants and Restore for participants submit immediately. Check the resulting visibility and audit history. Use the separate account permission controls to restrict or restore contact access.",
+          "核对对应消息并填写变更理由。“对双方隐藏”和“恢复双方可见”会立即提交。核对变更后的可见状态和审计记录。限制或恢复联系权限请使用独立的账户权限控件。",
         ),
       ],
       [
         t("Maintain permission rules separately", "单独维护权限规则"),
         t(
-          "Use Program Settings contact-permission controls to inspect role/user allowed contacts. Return to Own inbox to send personal messages; supervision does not turn a private conversation into your own thread.",
-          "使用项目设置联系权限控件检查角色、用户允许联系人。发送个人消息应返回个人收件箱；监管不会将私人会话变成自己的会话。",
+          "Choose Messaging permissions in Program Settings to inspect permitted contact groups by role or account. Choose Your inbox to send your own messages.",
+          "选择“在项目设置中管理消息权限”，按角色或账户查看允许联系的组。发送自己的消息时选择“我的收件箱”。",
         ),
       ],
     ],
@@ -4050,8 +4061,8 @@ export const managementArticles: HelpArticle[] = [
       "设置上课日及暂停辅导通知",
     ),
     summary: t(
-      "Maintain appeal-calendar overrides and separate informational notices from regular-session pauses.",
-      "维护申诉日历覆盖，并区分说明通知及固定课程暂停。",
+      "Set date overrides and holiday ranges for the appeal calendar. Choose when a tutoring notice also pauses regular sessions.",
+      "在申诉日历中设置单日调整和假期范围，并决定辅导通知是否同时暂停固定课程。",
     ),
     route: "/admin/program",
     screenshot: "admin-program",
@@ -4075,17 +4086,24 @@ export const managementArticles: HelpArticle[] = [
         ),
       ],
       [
+        t("Add a holiday range", "添加假期范围"),
+        t(
+          "Choose Add holiday. Enter Start date, End date and a shared Staff note. The range includes both dates and weekends, up to 366 days. Check the No school count and the listed overrides and notes that saving will replace. Choose Save holiday to apply the range or Request Admin Approval to submit one Coordinator proposal.",
+          "选择添加假期，填写开始日期、结束日期和共用的工作人员备注。范围包含起止当天和周末，最长366天。核对不上课天数，以及保存时会被替换的已有日期设置及备注。选择保存假期以应用整个范围，或选择申请管理员审批以提交一项协调员提案。",
+        ),
+      ],
+      [
         t("Create a notice or pause", "创建通知或暂停"),
         t(
-          "Enter the starting date, inclusive ending date and reason. Choose Notice only for context, or Pause regular tutoring to suppress future ordinary sessions while permitting expressly agreed dated exceptions.",
-          "填写开始日期、含当天的结束日期及原因。仅通知用于说明；暂停固定辅导会停止未来普通课程，同时允许明确约定的特定日期例外。",
+          "Enter the starting date, inclusive ending date and reason. A new range defaults to Pause regular tutoring, which suppresses future ordinary sessions. Choose Notice only when the range should provide information without changing the schedule. New dated exceptions during a pause require explicit agreement.",
+          "填写开始日期、含当天的结束日期及原因。新范围默认选择暂停固定辅导，会停止未来普通课程。若只提供说明而不改变课表，请改选仅通知。暂停期间的新日期例外须明确同意。",
         ),
       ],
       [
         t("Review existing commitments", "审核现有约定"),
         t(
-          "Read affected published commitments before applying/lifting a pause. Edit an existing notice to change its ending date/reason; to change its identifying start date, remove it and create a new notice. View details shows the full reason.",
-          "应用或解除暂停前阅读受影响已发布约定。变更结束日期、原因可编辑现有通知；变更用于标识的开始日期，须移除后新建。查看详情可读完整原因。",
+          "Read affected published commitments before applying/lifting a pause. Already confirmed extra lessons and agreed reschedules remain; inspect the impact review rather than assuming every lesson is cancelled. Edit an existing notice to change its ending date/reason; to change its identifying start date, remove it and create a new notice. View details shows the full reason.",
+          "应用或解除暂停前阅读受影响已发布约定。已确认加课及已同意改期会保留；应检查影响审核，不要假定所有课程均取消。变更结束日期、原因可编辑现有通知；变更用于标识的开始日期，须移除后新建。查看详情可读完整原因。",
         ),
       ],
     ],
@@ -4102,6 +4120,16 @@ export const managementArticles: HelpArticle[] = [
     troubleshooting: [
       {
         problem: t(
+          "An existing date changed while you edited a holiday",
+          "编辑假期期间已有日期发生变化",
+        ),
+        solution: t(
+          "Use Reload current range. Your dates and note stay in the form. Review the updated replacements before saving again. After a range is saved, Edit and Reset to normal still apply to individual dates.",
+          "使用重新加载当前日期范围。日期和备注会保留在表单中。再次保存前检查更新后的替换内容。范围保存后，仍可对单日使用编辑或恢复常规安排。",
+        ),
+      },
+      {
+        problem: t(
           "Sessions remain paused after removing a notice",
           "移除通知后课程仍暂停",
         ),
@@ -4115,11 +4143,16 @@ export const managementArticles: HelpArticle[] = [
       "src/app/_components/school-calendar.tsx",
       "src/app/_components/program-calendar.tsx",
       "src/app/_components/school-calendar-notice.tsx",
+      "src/lib/school-calendar.ts",
+      "src/server/program/school-calendar.ts",
     ],
     covers: [
       "school-day override",
       "calendar override removal",
       "appeal school days",
+      "inclusive holiday range",
+      "holiday override replacement review",
+      "holiday range conflict reload",
       "no-tutoring notice",
       "Pause regular tutoring",
       "overlapping pauses",
@@ -4147,29 +4180,29 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Choose the form and field", "选择表单及字段"),
         t(
-          "Open Signup Forms, select the intended signup kind and review the current field requirements. Change Required, Optional or Hidden only for the named field and form.",
-          "打开报名表，选择预期报名类型并审核当前字段要求。只对具体字段及表单更改必填、可选或隐藏。",
+          "Open Signup Forms and choose the intended form, such as Tutor signup. Read the current field requirements and choose Configure on the named row. Select Required, Optional or Hidden for that field.",
+          "打开“报名表”并选择所需表单，例如“辅导伙伴报名”。查看当前字段要求，在对应字段行选择“配置”，再选“必填”“可选”或“隐藏”。",
         ),
       ],
       [
         t("Review name and grade policy", "审核姓名及年级政策"),
         t(
-          "For shared Names and Grades/Profile settings, open Program Settings → Account Settings. Review Latin-name requirements, display choices and grade/reference-year confirmation controls using the live participant-name example.",
-          "共享姓名及年级、资料设置请打开项目设置→账户设置。使用即时参与者姓名示例，审核拉丁字母要求、展示选择及年级、参考学年确认控件。",
+          "Open Program Settings → Account Settings → Names and Grades. Check the name options in Display preview and review Offered grades for future confirmations. Expand Name Field Requirements to check Latin-letter and other name rules for each account type.",
+          "打开“项目设置”→“账户设置”→“姓名与年级”。在“姓名显示预览”中核对显示选项，并查看未来确认可使用的年级。展开“姓名字段要求”，核对各账户类型的拉丁字母等姓名规则。",
         ),
       ],
       [
         t("Save the intended scope", "保存预期范围"),
         t(
-          "Use the affected form/section's own Save and consequence review. Admin/Head apply allowed settings; Coordinators submit permitted proposals. Switching panels preserves independent drafts but saves nothing.",
-          "使用对应表单、区块自己的保存及后果审阅。管理员或负责人应用允许设置；协调员提交允许提案。切换面板保留独立草稿，但不会保存。",
+          "Review the intended requirement in the field's Configure dialog. Admin/Head use Save to apply the setting. Coordinators use Submit for approval. Check the field row after a successful save.",
+          "在字段的“配置”对话框中核对所选要求。管理员或负责人选择“保存”应用设置，协调员选择“提交审批”。保存成功后核对对应字段行。",
         ),
       ],
       [
         t("Preview actual signup", "预览实际报名"),
         t(
-          "Open the relevant public form and account-profile view to check labels, required markers and errors. Verify the displayed requirements after the setting applies rather than relying on a local unsaved selection.",
-          "打开对应公开表单及账户资料视图，检查标签、必填标记及错误。设置应用后确认所示要求，不要依赖本地未保存选择。",
+          "Open the affected public form after the setting applies. Check the field label, required marker and validation. For a shared account policy change, check the relevant account-profile editor too.",
+          "设置生效后打开对应的公开表单，核对字段标签、必填标记及校验。更改共享账户政策时，也请核对相应的账户资料编辑器。",
         ),
       ],
     ],
@@ -4230,15 +4263,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect delivery before changing policy", "变更政策前检查投递"),
         t(
-          "Open Program Settings → Deployment Configurations. Read mail readiness/status and available HTML/plain-text email previews. Previews send nothing; host SMTP credentials remain an operator configuration task.",
-          "打开项目设置→部署配置。阅读邮件就绪状态及可用HTML、纯文本邮件预览。预览不发送；主机SMTP凭据仍由技术操作员配置。",
+          "Open Program Settings → Deployment Configurations → Email Notifications. Read Email Delivery Status for security and program mail. Open School Report Email Preview and check Email HTML or Plain Text. A preview sends nothing. Operators configure SMTP on the host.",
+          "打开“项目设置”→“部署配置”→“邮件通知”。在“邮件投递状态”查看安全邮件和项目邮件。打开学校报表邮件预览，查看 HTML 或纯文本。预览不会发送邮件。SMTP 由技术操作员在主机上配置。",
         ),
       ],
       [
         t("Review email and notification requirements", "审核邮件及通知要求"),
         t(
-          "Use the delivery and requirements panels to change the intended program-mail or required-notification setting. Read the consequence review and distinguish a required preference from a user's optional email choice.",
-          "使用投递及要求面板变更预期项目邮件或必要通知设置。阅读后果审阅，并区分必要偏好和用户可选邮件选择。",
+          "Read the consequences beside Enable email notifications. Changing that switch submits the delivery setting through your current authority. In Required notifications, review the locks you want to change and choose Save requirements or Cancel. Locks govern separate user preferences.",
+          "阅读“启用邮件通知”旁的影响说明。切换后会按当前权限提交投递设置。在“必需通知”中核对要更改的锁定项，再选择“保存通知要求”或“取消”。锁定设置作用于各用户的独立偏好。",
         ),
       ],
       [
@@ -4251,8 +4284,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Retry existing delivery carefully", "谨慎重试已有投递"),
         t(
-          "Admin/Head may use the eligible stuck-email retry action after reading status. Confirm the existing delivery result and review access changes on actual sign-in/signup or messaging pages without exposing credentials.",
-          "管理员或负责人阅读状态后，可使用符合条件的滞留邮件重试。确认现有投递结果，并在实际登录、报名或消息页面审核访问变更，不暴露凭据。",
+          "Admin/Head can use Resend stuck emails for eligible failed or retrying deliveries. Read the result, then use Refresh status to confirm transport. Check access changes on the relevant sign-in, signup or messaging page.",
+          "管理员或负责人可使用“重新发送滞留邮件”，处理符合条件的失败或重试中投递。阅读操作结果，再用“刷新状态”确认传输情况。在相应登录、报名或消息页面核对访问变更。",
         ),
       ],
     ],
@@ -4320,15 +4353,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Prepare the intended switch", "准备预期开关"),
         t(
-          "Choose the intended next state and save or submit the permitted review. A pending feature switch does not immediately change participant navigation or available actions.",
-          "选择预期下一状态并保存或提交允许审核。待生效功能开关不会立即改变参与者导航或可用操作。",
+          "Set the switch to the intended next state. For Admin/Head this stages the change immediately. Coordinator changes go to Admin review. The current state stays effective until the official refresh activates the staged choice.",
+          "将开关切换到预期的下一状态。管理员或负责人切换后立即将变更设为待生效，协调员的变更需提交管理员审核。正式换期应用待生效选择前，当前状态继续生效。",
         ),
       ],
       [
         t("Cancel a pending change deliberately", "明确取消待生效变更"),
         t(
-          "To remove a pending choice, switch back to the effective value and save the intended cancellation. Check the returned pending/effective state rather than the unsaved toggle.",
-          "要移除待生效选择，应切回当前生效值并保存预期取消。检查返回待生效、已生效状态，不要依赖未保存开关。",
+          "Switch the feature back to its effective state and check the returned state. Once the cancellation applies, the pending badge clears. If the save succeeded and the read failed, use Retry refresh.",
+          "将功能开关切回当前生效状态，并核对返回的状态。取消生效后，待生效标记会清除。如果保存成功但读取失败，请选择“重试刷新”。",
         ),
       ],
       [
@@ -4496,15 +4529,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Open the dedicated transfer", "打开专用转移"),
         t(
-          "Use leadership transfer rather than a normal management-rank edit or invitation. Read the before/after leaders and the outgoing Head's resulting Admin role.",
-          "使用负责人转移，而非普通管理职级编辑或邀请。阅读前后负责人及原负责人将成为管理员的结果。",
+          "In Edit profile, open Roles and Participation and choose Make Head. Review the named successor and confirm that the outgoing Head will become an Admin.",
+          "在“编辑资料”中打开角色与参与资格，选择“设为负责人”。核对所列继任者，并确认原负责人将成为管理员。",
         ),
       ],
       [
         t("Confirm identity and password", "确认身份及密码"),
         t(
-          "Review the named consequence confirmation, enter your current password and complete the transfer only when the successor and resulting roles are correct.",
-          "审核明确后果确认，输入当前密码，仅在继任者及最终角色正确时完成转移。",
+          "Check the successor and resulting roles in the confirmation. Enter your current password and choose Confirm leadership transfer when those details are correct.",
+          "在确认区核对继任者和变更后的角色。信息正确时输入当前密码，再选择“确认转交负责人”。",
         ),
       ],
       [
@@ -4658,8 +4691,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Read the exact amount", "阅读准确入账数量"),
         t(
-          "Use the highlighted Hours value once for the named person. Click Hours or — to open Details, compare the school-account reference and choose the last edition already entered if correcting an older entry. Apply only the shown incremental correction.",
-          "对具体人员仅使用突出入账时数一次。点击时数或横线打开详情，比较学校账户参考；修正旧录入时选择此前实际已录入版本。只应用显示增量修正。",
+          "Use the highlighted Hours value once for the named person. Click Hours or — to open Details and verify the school-account reference. For a correction, find the comparison row for the edition already entered and use the incremental amount shown there.",
+          "对具体人员仅使用突出显示的入账时数一次。点击入账时数或横线打开“详情”，核对学校账户参考。需要修正时，找到此前已入账版本的对照行，使用该行显示的增量时数。",
         ),
       ],
       [
@@ -4908,8 +4941,8 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Inspect the effective region", "检查生效区域"),
         t(
-          "Open Program Settings → Recruitment and Refresh → Program timezone. Read the current IANA region and choose the intended proposed region; a label's UTC offset can vary with the preview date.",
-          "打开项目设置→招募及换期→项目时区。阅读当前IANA区域并选择预期拟改区域；标记UTC偏移可随预览日期改变。",
+          "Open Program Settings → Recruitment and Refresh → Program Time Zone. Read the current IANA region and choose the proposed region. The UTC offset can vary with the preview date.",
+          "打开“项目设置”→“招募与刷新”→“项目时区”。查看当前 IANA 区域并选择拟更改的区域。UTC 偏移可能随预览日期改变。",
         ),
       ],
       [
@@ -4922,15 +4955,15 @@ export const managementArticles: HelpArticle[] = [
       [
         t("Acknowledge and save", "确认并保存"),
         t(
-          "Read the displayed effects, acknowledge the timezone change and use Save or the offered Coordinator request action. Admin/Head apply directly. Cancel the draft if the proposed clock/date interpretation is unintended.",
-          "阅读显示影响、确认时区变更，再使用保存或提供协调员申请操作。管理员及负责人直接应用。若拟改钟表、日期解释不合预期，应取消草稿。",
+          "Read the impact and acknowledge the effect on schedules and deadlines. Admin/Head use Save time zone. Coordinators use Request Admin Approval. To discard the draft, return to the effective region or choose Reload Current Settings.",
+          "阅读影响并确认对排课及截止时间的影响。管理员或负责人选择“保存时区”，协调员选择“请求管理员审批”。若要放弃草稿，请切回当前区域或选择“重新加载当前设置”。",
         ),
       ],
       [
         t("Recheck dated inputs", "重新检查日期输入"),
         t(
-          "Verify the applied timezone in the header/page context and reload stale next-period editors before another save. Review upcoming dated schedules and calendar controls using the new displayed region.",
-          "在页头或页面上下文验证已应用时区，再次保存前重载过时下一学期编辑器。使用新显示区域检查即将发生日期排课及日历控件。",
+          "Verify the saved region in Program Time Zone. For an out-of-date Next-Period Recruitment draft, use Reload preparation before editing again. Check the region beside dated schedules or calendar inputs where shown.",
+          "在“项目时区”核对保存的区域。“下一周期招募”草稿过时时，先选择“重新加载准备”再编辑。在显示时区的日期排课或日历输入旁核对区域。",
         ),
       ],
     ],

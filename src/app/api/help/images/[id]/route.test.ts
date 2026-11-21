@@ -18,6 +18,26 @@ const mock = vi.hoisted(() => ({
       sha256: "synthetic",
     },
     {
+      id: "head-detail",
+      file: "head-detail.en.jpg",
+      route: "/admin/users",
+      locale: "en",
+      capturedAt: "2026-11-15T16:00:00Z",
+      viewport: { width: 1440, height: 1000 },
+      role: "HEAD",
+      sha256: "synthetic",
+    },
+    {
+      id: "unbound-detail",
+      file: "unbound-detail.en.jpg",
+      route: "/admin/users",
+      locale: "en",
+      capturedAt: "2026-11-15T16:00:00Z",
+      viewport: { width: 1440, height: 1000 },
+      role: "HEAD",
+      sha256: "synthetic",
+    },
+    {
       id: "head-screen",
       file: "head-screen.en.jpg",
       route: "/admin/users",
@@ -34,7 +54,15 @@ vi.mock("~/server/help/access", () => ({ getHelpAccess: mock.access }));
 vi.mock("~/lib/help/catalogue", () => ({
   helpArticles: [
     { audience: "public", steps: [{ screenshot: "public-screen" }] },
-    { audience: "head", steps: [{ screenshot: "head-screen" }] },
+    {
+      audience: "head",
+      steps: [
+        {
+          screenshot: "head-screen",
+          supplementaryScreenshots: ["head-detail"],
+        },
+      ],
+    },
   ],
 }));
 vi.mock("~/lib/help/screenshots", () => ({
@@ -117,6 +145,19 @@ it("does not infer Head image access from staff or Admin audiences", async () =>
     canDownload: true,
   });
   expect((await request("head-screen")).status).toBe(200);
+  expect(mock.read).toHaveBeenCalledTimes(1);
+});
+
+it("protects supplemental images through the same live article allowlist and rejects unbound receipts", async () => {
+  expect((await request("head-detail")).status).toBe(404);
+  mock.access.mockResolvedValue({
+    audiences: ["public", "head"],
+    canDownload: true,
+  });
+  expect((await request("head-detail")).status).toBe(200);
+  expect((await request("unbound-detail")).status).toBe(404);
+  mock.access.mockResolvedValue({ audiences: ["public"], canDownload: false });
+  expect((await request("head-detail")).status).toBe(404);
   expect(mock.read).toHaveBeenCalledTimes(1);
 });
 

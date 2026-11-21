@@ -246,6 +246,7 @@ const {
             select: {
               id: true,
               name: true,
+              email: true,
               role: true,
               tutorId: true,
               tutorAccessRevoked: true,
@@ -273,6 +274,7 @@ const {
         token.historyAccessRevision = dbUser.historyAccessRevision;
         token.role = dbUser.role;
         token.name = dbUser.name;
+        token.email = dbUser.email;
         token.tutorId =
           dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked
             ? null
@@ -285,6 +287,7 @@ const {
           where: { id: token.sub },
           select: {
             name: true,
+            email: true,
             tutorId: true,
             tutorAccessRevoked: true,
             role: true,
@@ -310,6 +313,8 @@ const {
         token.role = dbUser.role;
         token.historyAccessRevision = dbUser.historyAccessRevision;
         token.name = dbUser.name;
+        // Primary-email changes keep this session; refresh its display identity after validation.
+        token.email = dbUser.email;
       }
       return token;
     },

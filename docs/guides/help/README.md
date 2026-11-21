@@ -4,7 +4,10 @@ Open `/help` on the running website for searchable, illustrated walkthroughs.
 The Information menu and account menu link to it; `/p/faq` redirects there.
 Signing in adds the collections available to the current account. Each guide
 has prerequisites, numbered directions, a result to check, an explanation and
-brief troubleshooting. Open a screenshot to inspect it at full size.
+brief troubleshooting. Numbered labels identify the controls used in each step.
+Long forms and separate review/result states have additional full-screen views.
+Open an annotated screenshot at its original size, or inspect the unchanged
+original image separately. A readable numbered legend accompanies each view.
 
 ## GitHub training editions
 
@@ -36,15 +39,22 @@ corresponding authority. Downloads are private and are not cached publicly.
 
 ## Screenshot provenance
 
-The user-selected baseline is `dbb3c4eb213d58e134744fd417b1a06299b0e984`,
-the latest `main` revision at the start of this work. Images were taken from an
-actual local Next.js dev server at `http://127.0.0.1:3017`, with the Help
-candidate and isolated synthetic demo data. This records a source baseline,
-not an attestation of a live production deployment. The new Help screens
-necessarily show the candidate implementation.
+The user selected latest `main`, clearly labelled, as the source baseline.
+The current checkout includes `dd970ea426016e85cb514beeeab537c3ab2e5098`;
+earlier frames retain their exact `589c055e` or `dbb3c4eb` revision. Each image
+identifies its own baseline rather than inheriting a later revision. Refresh
+screens affected by a source change; retain unaffected images only after a
+documented review. The maintenance procedure explains that review and the
+source-fingerprint gate.
+
+Images come from an actual local Next.js dev server at
+`http://127.0.0.1:3017`, with the Help candidate and isolated synthetic demo data.
+This records a source baseline, not an attestation of a live production
+deployment. The Help screens necessarily show the candidate implementation.
 
 [Capture receipts](captures.json) record each image's route, role, language,
-time, viewport, file hash and any crop. A private school-report capability is
+time, full viewport, file hash, exact step binding, labels and review. Bound
+step screenshots are never presentation crops. A private school-report capability is
 represented by `[private-link]`; its credential is never saved in this manual.
 English and Chinese captures are selected where available. A Chinese guide
 labels an English image explicitly when that screen has no Chinese capture.

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import type * as ScreenshotsModule from "~/lib/help/screenshots";
 import type { HelpArticle, HelpAudience } from "~/lib/help/types";
 import HelpPage from "./page";
 import HelpArticlePage from "./[slug]/page";
@@ -72,7 +73,8 @@ vi.mock("~/lib/help/catalogue", () => ({
     head: { en: "Head authority training", zh: "负责人培训" },
   },
 }));
-vi.mock("~/lib/help/screenshots", () => ({
+vi.mock("~/lib/help/screenshots", async (importOriginal) => ({
+  ...(await importOriginal<typeof ScreenshotsModule>()),
   getHelpScreenshot: mock.screenshot,
   helpCaptureInfo: {
     sourceRevision: "synthetic-revision",
@@ -87,10 +89,38 @@ beforeEach(() => {
   mock.access = { audiences: ["public"], canDownload: false };
   for (const article of mock.articles) {
     delete article.requiresPrivateLink;
+    delete article.externalAction;
     article.route = "/signin";
   }
 });
 afterEach(cleanup);
+
+it.each(["en", "zh"])(
+  "links an external task directly in the %s guide",
+  async (locale) => {
+    mock.locale = locale;
+    const article = mock.articles[0]!;
+    article.route = "/help";
+    article.externalAction = {
+      href: "https://github.com/example/project/issues/new?template=bug.yml",
+      label: { en: "Open bug report form", zh: "打开缺陷报告表单" },
+    };
+    render(
+      await HelpArticlePage({ params: Promise.resolve({ slug: article.slug }) }),
+    );
+    const link = screen.getByRole("link", {
+      name: article.externalAction.label[locale as "en" | "zh"],
+    });
+    expect(link.getAttribute("href")).toBe(article.externalAction.href);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(
+      screen.queryByRole("link", {
+        name: helpCopy[locale as "en" | "zh"].openPage,
+      }),
+    ).toBeNull();
+  },
+);
 
 it("filters forbidden articles before serializing catalogue props or audience shortcuts", async () => {
   const page = await HelpPage();
@@ -105,8 +135,9 @@ it("filters forbidden articles before serializing catalogue props or audience sh
   render(page);
   expect(screen.getByRole("heading", { name: "Help & how-to" })).toBeTruthy();
   expect(screen.getByRole("status").textContent).toBe("1 of 1 guides found");
-  expect(screen.getByRole("link", { name: "Sign in" }).getAttribute("href"))
-    .toBe("/signin?callbackUrl=%2Fhelp");
+  expect(
+    screen.getByRole("link", { name: "Sign in" }).getAttribute("href"),
+  ).toBe("/signin?callbackUrl=%2Fhelp");
   expect(
     screen.queryByRole("button", { name: "Tutoring training" }),
   ).toBeNull();

@@ -19,7 +19,10 @@ export function permittedScreenshot(
   const referenced = helpArticles.some(
     (article) =>
       audiences.includes(article.audience) &&
-      article.steps.some((step) => step.screenshot === id),
+      article.steps.some(
+        (step) =>
+          step.screenshot === id || step.supplementaryScreenshots?.includes(id),
+      ),
   );
   return referenced ? getHelpScreenshot(id, locale) : undefined;
 }

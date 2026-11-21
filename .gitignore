@@ -55,6 +55,9 @@ yarn-error.log*
 /output/pdf/
 /backups/
 
+# Preserve local PNG review proofs alongside the generated GitHub WebP images.
+/docs/guides/help/assets/annotated/*.png
+
 # Private operator notes and deployment details; never part of the shared LMS foundation.
 /local-operations/
 

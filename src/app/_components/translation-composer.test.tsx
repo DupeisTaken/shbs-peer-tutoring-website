@@ -1,17 +1,37 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type * as NextIntlModule from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
+
+const catalogs = { en, zh };
 const state = vi.hoisted(() => ({
   role: "COORDINATOR",
   mutate: vi.fn(),
   reset: vi.fn(),
   pending: false,
   error: null as null | { message: string },
+  realLocale: undefined as "en" | "zh" | undefined,
 }));
-vi.mock("next-intl", () => ({
-  useLocale: () => "en",
-  useTranslations: () => (key: string) => key,
-}));
+vi.mock("next-intl", async (importOriginal) => {
+  const intl = await importOriginal<typeof NextIntlModule>();
+  return {
+    ...intl,
+    useLocale: () => state.realLocale ?? "en",
+    useTranslations: (namespace: string) =>
+      state.realLocale
+        ? intl.createTranslator<NextIntlModule.AbstractIntlMessages, string>({
+            locale: state.realLocale,
+            messages: catalogs[state.realLocale],
+            namespace,
+            onError: (error) => {
+              throw error;
+            },
+          })
+        : (key: string) => key,
+  };
+});
 vi.mock("~/trpc/react", () => {
   const mutation = {
     useMutation: () => ({
@@ -74,7 +94,18 @@ beforeEach(() => {
   state.role = "COORDINATOR";
   state.pending = false;
   state.error = null;
+  state.realLocale = undefined;
 });
+
+it.each(["en", "zh"] as const)(
+  "renders the authored %s form save boundary",
+  (locale) => {
+    state.realLocale = locale;
+    render(<TranslationComposer />);
+    expect(screen.getByText(catalogs[locale].saveBoundary.form)).toBeTruthy();
+  },
+);
+
 it("submits a Coordinator translation with its selected destination", () => {
   render(<TranslationComposer />);
   fireEvent.change(screen.getByLabelText("target"), {

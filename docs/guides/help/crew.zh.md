@@ -4,7 +4,7 @@
 
 [目录与截图来源](README.md)
 
-截图来源: `dbb3c4eb213d58e134744fd417b1a06299b0e984`. Local dev server based on latest main at task start (dbb3c4eb), with the Help candidate. User-selected source baseline; no live deployment attestation.
+截图来源: `b5ece465681957c9fe579d26babdeb260c674fa0`. New captures use latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Earlier captures list their own revision and capture date.
 
 此 GitHub 培训副本包含各角色操作说明。实际使用网站功能仍需登录并具备当前项目权限。所有示例数据均为虚构。
 
@@ -23,21 +23,67 @@
 
 ### 操作步骤
 
-1. **打开巡查并按教室顺序检查** 从工作区或账户菜单打开巡查。每到一间教室，填写实际观察时间，并选择学生人数零、一、二、三或四及以上。每间教室仅记录一次，至少填写一项观察。
+1. **打开巡查并按教室顺序检查** 从工作区或账户菜单打开巡查，按列表中的教室顺序检查。每到一间教室，选择实际学生人数：0、1、2、3 或 4+。页面会自动记录每次选择的时间；再次选择会替换该教室的人数和时间。至少记录一间教室。
 
-   请注意: 教室观察、实际时间及人数按钮
+   请注意: 按顺序排列的教室及已选人数按钮
 
-   ![教室观察、实际时间及人数按钮](assets/patrol.en.jpg)
+   ![按顺序排列的教室及已选人数按钮](assets/annotated/07bee098877f6ce427144fb660e760fa48329d9e238b2407558f09b2ce48f36e.webp)
 
-   /patrol · EN · 2026-11-15
+   /patrol · EN · 2026-11-20
 
-2. **核对并提交巡查** 核对教室、实际时间和人数，再提交一次。不要修改较早观察时间以获得新鲜度。服务器仅允许一分钟未来时间差，用于设备时钟误差。
+   按列表中的教室顺序检查并选择实际人数。此模拟教室无人，选择 0 后应用会自动记录选中时间。
+
+   [原始完整截图](assets/record-patrol-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 教室巡查
+
+   - **2.** 教室顺序
+
+   - **3.** 学生人数
+
+2. **核对选项并提交巡查** 核对高亮的人数选项，可在「巡查备注」中填写说明，再点击「提交巡查（n）」，其中 n 为已记录的教室数量。此按钮会立即保存巡查。不要为了刷新时间而重新选择较早记录的人数。若出现观察时间在未来的错误，请检查设备时钟；服务器仅允许一分钟时钟误差。
+
+   ![核对选项并提交巡查](assets/annotated/ebf6848944403bbb6a519a88f0fb2997eddf1905054aa9d1157f933c15af02d0.webp)
+
+   /patrol · EN · 2026-11-20
+
+   核对高亮人数与可选备注后，选择提交巡查（1）。系统立即保存已观察的一间教室。
+
+   [原始完整截图](assets/record-patrol-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已选择 0
+
+   - **2.** 可选备注
+
+   - **3.** 提交一间教室
 
 3. **查看保存的计时结果** 检查保存巡查获得零点五巡查小时还是零小时，并查看历史。无计时结果仍保留观察记录。出现错误时，指出准确巡查记录并请管理团队按原因更正。
 
+   ![查看保存的计时结果](assets/annotated/78a6f26a6329527b75aeb29e070a2529b99d26ea1be9252c125023bb61448d04.webp)
+
+   /patrol · EN · 2026-11-20
+
+   确认提示与最新历史记录同时显示。本次巡查保存零人的观察结果并获得 0.5 小时。
+
+   [原始完整截图](assets/record-patrol-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 保存提示
+
+   - **2.** 本次巡查：0.5 小时
+
+   - **3.** 已保存人数
+
+   - **4.** 总巡查小时
+
 ### 预期结果
 
-一份巡查回执保留观察，并明确显示获得的巡查时数。
+保存的巡查会出现在「近期巡查」并显示巡查时数；未增加时数时，成功提示会说明原因。
 
 ### 工作原理
 
@@ -67,13 +113,109 @@
 
    请注意: 巡查状态与资格申请控件
 
-   ![巡查状态与资格申请控件](assets/patrol.en.jpg)
+   ![巡查状态与资格申请控件](assets/annotated/fa082078d951b66f17fe0fbeee629cc7c007b588f0e39745b0bf66984aa8cb05.webp)
 
-   /patrol · EN · 2026-11-15
+   /patrol · EN · 2026-11-20
+
+   活跃巡查成员可以记录巡查、查看当前巡查小时，并在历史记录下方找到申请退出。
+
+   [原始完整截图](assets/crew-membership-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 巡查工作区
+
+   - **2.** 当前巡查小时
+
+   - **3.** 退出入口
 
 2. **申请或撤回退出** 使用退出控件，填写所需原因，并在三秒暂停后确认具体审核。工作人员只能在七天后批准。决定继续时，可撤回待审退出申请。
 
+   **视图 1**
+
+   ![申请或撤回退出](assets/annotated/5fae46d880f9e21b60f7cfc0f4b3420e398332a21287549ac0f7c4351c54695e.webp)
+
+   /patrol · EN · 2026-11-20
+
+   具名审核会展示原因和一周等待期。三秒后确认按钮可用。选择取消可保持申请未发送。
+
+   [原始完整截图](assets/crew-membership-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 一周等待期
+
+   - **2.** 核对原因
+
+   - **3.** 三秒后确认
+
+   - **4.** 取消审核
+
+   **视图 2**
+
+   ![申请或撤回退出](assets/annotated/f62cb2ca8ff7b4d3ca1a52351b78090a32ad31ee0dbe7e3d9c7879497c3fd7f5.webp)
+
+   /patrol · EN · 2026-11-20
+
+   填写退出原因，从表单打开具名退出审核。申请尚未发送。
+
+   [原始完整截图](assets/crew-membership-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 退出原因
+
+   - **2.** 打开审核
+
+   **视图 3**
+
+   ![申请或撤回退出](assets/annotated/77183d015c79cd3924fca77ecbdd680d99adafcff563f2e01fed00944262068a.webp)
+
+   /patrol · EN · 2026-11-20
+
+   退出申请待审期间成员仍保持活跃。现有待审示例显示撤回申请按钮。
+
+   [原始完整截图](assets/crew-membership-step-2-view-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 等待批准
+
+   - **2.** 撤回申请
+
 3. **申请重新加入** 已退出成员可申请重新加入，无七天等待，但仍需工作人员批准。停用账户可能需明确工作人员恢复。开始新巡查前请检查决定。
+
+   **视图 1**
+
+   ![申请重新加入](assets/annotated/de4c0493f3206804e6700dcee0c9ec4f0a6749928c1137039d3b1c9d7f847451.webp)
+
+   /patrol · EN · 2026-11-20
+
+   已退出的巡查成员可从此提示申请重新加入；申请仍需工作人员批准。
+
+   [原始完整截图](assets/crew-membership-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 已退出状态
+
+   - **2.** 申请重新加入
+
+   **视图 2**
+
+   ![申请重新加入](assets/annotated/9e135280dcb97e675f6f39e9a9664c127c30febd0535f9c6185bc995c6520bd8.webp)
+
+   /patrol · EN · 2026-11-20
+
+   已保存的重新加入申请等待管理员批准。待审期间成员仍为已退出状态。
+
+   [原始完整截图](assets/crew-membership-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   已为本步骤添加标注，原始完整截图保持不变。
+
+   - **1.** 仍为已退出
+
+   - **2.** 等待批准
 
 ### 预期结果
 

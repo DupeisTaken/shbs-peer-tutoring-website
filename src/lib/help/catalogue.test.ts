@@ -5,10 +5,14 @@ import { describe, expect, it } from "vitest";
 import { helpArticles, helpAudienceTitles, helpAudiences } from "./catalogue";
 import {
   getHelpScreenshot,
+  getStepCallouts,
+  getStepCaptureViews,
   helpCaptureInfo,
   helpScreenshots,
+  stepForCaptureView,
 } from "./screenshots";
 import type { HelpText } from "./types";
+import { validateHelpCallouts } from "~/app/help/screenshot-annotations";
 
 function requireBilingual(value: HelpText, context: string) {
   for (const locale of ["en", "zh"] as const) {
@@ -47,6 +51,15 @@ describe("maintained help catalogue completeness", () => {
       requireBilingual(article.summary, `${article.slug}.summary`);
       requireBilingual(article.expected, `${article.slug}.expected`);
       expect(article.route, article.slug).toMatch(/^\/(?!\/)/);
+      if (article.externalAction) {
+        requireBilingual(
+          article.externalAction.label,
+          `${article.slug}.externalAction`,
+        );
+        const action = new URL(article.externalAction.href);
+        expect(action.protocol).toBe("https:");
+        expect(action.username || action.password || action.hash).toBe("");
+      }
       expect(article.prerequisites.length, article.slug).toBeGreaterThan(0);
       expect(article.steps.length, article.slug).toBeGreaterThanOrEqual(3);
       expect(article.explanation.length, article.slug).toBeGreaterThan(0);
@@ -139,19 +152,53 @@ describe("maintained help catalogue completeness", () => {
       const steps = article.steps.filter((step) => step.screenshot);
       expect(steps.length, article.slug).toBeGreaterThan(0);
       for (const step of steps) {
-        expect(step.screenshot, article.slug).toMatch(
-          /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-        );
-        expect(
-          step.focus,
-          `${article.slug}: screenshot direction`,
-        ).toBeDefined();
-        expect(
-          getHelpScreenshot(step.screenshot!),
-          `${article.slug}: ${step.screenshot}`,
-        ).toBeDefined();
-        if (article.audience === "public") {
-          expect(step.screenshot, article.slug).not.toMatch(/^admin-/);
+        for (const { id, view } of getStepCaptureViews(step)) {
+          expect(id, article.slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+          const screenshot = getHelpScreenshot(id);
+          expect(screenshot, `${article.slug}: ${id}`).toBeDefined();
+          const callouts = getStepCallouts(
+            stepForCaptureView(step, view),
+            screenshot!,
+          );
+          expect(
+            !!step.focus || callouts.length > 0,
+            `${article.slug}: screenshot direction`,
+          ).toBe(true);
+          // Field labels can be a complete single character, such as 名 or 姓.
+          // Use the rendering schema; guide prose retains its stricter check.
+          expect(
+            () => validateHelpCallouts(callouts),
+            `${id}: callouts`,
+          ).not.toThrow();
+          if (article.audience === "public") {
+            expect(id, article.slug).not.toMatch(/^admin-/);
+            // Public onboarding explains the resulting participant workspace too.
+            // Keep those synthetic examples explicit; management screens remain
+            // outside the public guide asset allowlist.
+            const publicOutcomeRoles: Record<string, string[]> = {
+              "use-help-catalogue-step-1": ["STUDENT"],
+              "request-tutoring-step-4": ["STUDENT"],
+              "register-viewer-step-3": ["VIEWER"],
+              "sign-in-recover-step-4": ["SUSPENDED"],
+              "accept-invitation-step-4": [
+                "STUDENT",
+                "TUTOR",
+                "CREW",
+                "VIEWER",
+              ],
+            };
+            expect(
+              [
+                "GUEST",
+                "PUBLIC",
+                ...(article.slug === "use-school-report-link"
+                  ? ["SCHOOL_RECIPIENT"]
+                  : []),
+                ...(publicOutcomeRoles[id.replace(/-view-\d+$/, "")] ?? []),
+              ],
+              `${article.slug}: screenshot role`,
+            ).toContain(screenshot!.role);
+          }
         }
       }
     }

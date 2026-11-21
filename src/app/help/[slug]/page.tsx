@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { helpArticles, helpAudienceTitles } from "~/lib/help/catalogue";
-import { getHelpScreenshot, helpCaptureInfo } from "~/lib/help/screenshots";
+import { helpCaptureInfo } from "~/lib/help/screenshots";
 import { helpLocale } from "~/lib/help/types";
 import { getHelpAccess } from "~/server/help/access";
 import { captureDate, helpCopy } from "../copy";
+import { StepScreenshotGallery } from "../step-screenshot-gallery";
 
 /** The page guard runs before article text, related links or screenshots render.
  * An unavailable article is indistinguishable from an unknown slug. */
@@ -90,6 +91,15 @@ export default async function HelpArticlePage({
               <p className="border-accent-200 bg-accent-50 text-accent-950 mt-4 rounded-lg border px-4 py-3 text-sm leading-6">
                 {copy.privateLinkHint}
               </p>
+            ) : article.externalAction ? (
+              <a
+                href={article.externalAction.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary mt-4 inline-flex min-h-11 max-w-full items-center"
+              >
+                {article.externalAction.label[locale]}
+              </a>
             ) : (
               <Link
                 prefetch={false}
@@ -131,14 +141,12 @@ export default async function HelpArticlePage({
             </h2>
             <ol className="mt-4 space-y-5">
               {article.steps.map((step, index) => {
-                const screenshot = step.screenshot
-                  ? getHelpScreenshot(step.screenshot, locale)
-                  : undefined;
-                const imageHref = step.screenshot
-                  ? `/api/help/images/${step.screenshot}?locale=${locale}`
-                  : "";
                 return (
-                  <li key={index} className="card overflow-hidden">
+                  <li
+                    key={index}
+                    id={`step-${index + 1}`}
+                    className="card scroll-mt-40 overflow-hidden"
+                  >
                     <div className="p-4 sm:p-5">
                       <div className="flex items-start gap-3">
                         <span
@@ -164,61 +172,12 @@ export default async function HelpArticlePage({
                         </p>
                       )}
                     </div>
-                    {screenshot && (
-                      <figure className="border-t border-slate-200 bg-slate-50">
-                        <a
-                          href={imageHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block focus-visible:outline-2 focus-visible:outline-offset-2"
-                          aria-label={`${copy.image}: ${step.title[locale]}`}
-                        >
-                          {/* Protected route enforces the same audience allowlist. The native image
-                              avoids a public optimization-cache copy of a role-restricted capture. */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={imageHref}
-                            alt={
-                              screenshot.caption?.[locale] ??
-                              step.focus?.[locale] ??
-                              step.title[locale]
-                            }
-                            width={screenshot.viewport.width}
-                            height={screenshot.viewport.height}
-                            loading="lazy"
-                            className="mx-auto h-auto w-full"
-                            style={{ maxWidth: screenshot.viewport.width }}
-                          />
-                        </a>
-                        <figcaption className="space-y-1 border-t border-slate-200 px-4 py-3 text-xs leading-5 text-slate-600 sm:px-5">
-                          <p className="font-medium text-slate-700">
-                            {screenshot.caption?.[locale] ?? step.title[locale]}
-                          </p>
-                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                            <span>
-                              {screenshot.locale === "zh"
-                                ? copy.chinese
-                                : copy.english}{" "}
-                              · {screenshot.route} ·{" "}
-                              {captureDate(screenshot.capturedAt, locale)}
-                            </span>
-                            <a
-                              href={imageHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="link inline-flex min-h-11 items-center lg:min-h-8"
-                            >
-                              {copy.image}
-                            </a>
-                          </div>
-                        </figcaption>
-                      </figure>
-                    )}
-                    {step.screenshot && !screenshot && (
-                      <p className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:px-5">
-                        {copy.screenshotMissing}
-                      </p>
-                    )}
+                    <StepScreenshotGallery
+                      slug={article.slug}
+                      step={step}
+                      number={index + 1}
+                      locale={locale}
+                    />
                   </li>
                 );
               })}
