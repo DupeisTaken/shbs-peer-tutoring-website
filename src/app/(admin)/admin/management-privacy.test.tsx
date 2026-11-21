@@ -84,18 +84,48 @@ it.each([
       expect(screen.queryByText("Tutee One")).toBeNull();
       expect(screen.getByText("1.0")).toBeTruthy();
     } else {
-      expect(screen.getByText(messages.approvals.review.operations.student_decideAppeal)).toBeTruthy();
-      expect(screen.getByRole("option", { name: /Staff One/ })).toBeTruthy();
+      const table = screen.getByRole("table", {
+        name: messages.admin.audit.title,
+        exact: true,
+      });
+      expect(
+        within(table).getByRole("cell", {
+          name: messages.approvals.review.operations.student_decideAppeal,
+          exact: true,
+        }),
+      ).toBeTruthy();
+      expect(
+        within(table).getByRole("cell", {
+          name: messages.auditFilters.kinds.DECISION,
+          exact: true,
+        }),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("option", {
+          name: "Staff One · @staff",
+          exact: true,
+        }),
+      ).toBeTruthy();
     }
 
     // The rollout moves permitted detail out of summary cells. Exercise that
     // lazy boundary with the real server projection, including masked nulls.
     const rowActions = within(document.querySelector("tbody")!);
-    const detail = rowActions.getByRole("button");
+    const detailTitle =
+      page === "attendance"
+        ? "Tutor One · Math"
+        : `${messages.approvals.review.operations.student_decideAppeal} · Staff One`;
+    const detail = rowActions.getByRole("button", {
+      name: `${messages.tablePatterns.details}: ${detailTitle}`,
+      exact: true,
+    });
     expect(detail.textContent).toBe(messages.tablePatterns.details);
     detail.focus();
     fireEvent.click(detail);
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("dialog", {
+      name: detailTitle,
+      exact: true,
+    });
     expect(document.body.textContent).not.toContain(PRIVATE);
     expect(within(dialog).queryByRole("textbox")).toBeNull();
     expect(within(dialog).getAllByRole("button")).toHaveLength(1);
@@ -107,8 +137,18 @@ it.each([
         }),
       ).toBeNull();
     } else {
-      expect(within(dialog).getByText("Management decision")).toBeTruthy();
-      expect(dialog.querySelector("pre")).toBeNull();
+      // Observer copy uses only the localized category, never stored action text.
+      expect(
+        within(dialog).getByText(messages.eventTitles.DECISION, {
+          selector: "p",
+          exact: true,
+        }),
+      ).toBeTruthy();
+      expect(
+        within(dialog).getByText("Staff One", { selector: "p", exact: true }),
+      ).toBeTruthy();
+      expect(dialog.textContent).not.toContain("Management decision");
+      expect(dialog.querySelector("details, pre")).toBeNull();
       expect(rowActions.queryByRole("link")).toBeNull();
     }
     fireEvent.click(
