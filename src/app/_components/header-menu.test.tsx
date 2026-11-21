@@ -10,6 +10,26 @@ const items = [{ href: "/dashboard", label: "Dashboard" }];
 afterEach(cleanup);
 
 describe("HeaderMenu", () => {
+  it("marks a fallback label without changing the menu language or destination", () => {
+    render(
+      <div lang="zh">
+        <HeaderMenu
+          label="菜单"
+          items={[{ href: "/p/synthetic", label: "English label", lang: "en" }]}
+        />
+      </div>,
+    );
+    const trigger = screen.getByRole("button", { name: "菜单" });
+    fireEvent.click(trigger);
+    const link = screen.getByRole("link", { name: "English label" });
+    expect(link.lang).toBe("en");
+    expect(link.getAttribute("href")).toBe("/p/synthetic");
+    expect(trigger.closest("[lang]")?.getAttribute("lang")).toBe("zh");
+    expect(
+      screen.getByRole("dialog", { name: "菜单" }).hasAttribute("lang"),
+    ).toBe(false);
+  });
+
   it("opens accessibly and closes when the user clicks outside", () => {
     render(<HeaderMenu label="Menu" items={items} />);
     const trigger = screen.getByRole("button", { name: "Menu" });

@@ -86,8 +86,22 @@ export const DEFAULT_LAYOUT: Block[] = [
   { id: "news", type: "NEWS" },
 ];
 
+/** Resolve each text field independently, retaining the chosen language for its markup. */
+export function resolveLocalized(
+  map: Record<string, string> | undefined,
+  locale: string,
+): { value: string; locale: string | undefined } {
+  if (!map) return { value: "", locale: undefined };
+  if (map[locale] != null) return { value: map[locale], locale };
+  if (map.en != null) return { value: map.en, locale: "en" };
+  const first = Object.entries(map)[0];
+  return { value: first?.[1] ?? "", locale: first?.[0] };
+}
+
 /** A localized text field resolved for a locale (en fallback, then any value). */
-export function pickLocalized(map: Record<string, string> | undefined, locale: string): string {
-  if (!map) return "";
-  return map[locale] ?? map.en ?? Object.values(map)[0] ?? "";
+export function pickLocalized(
+  map: Record<string, string> | undefined,
+  locale: string,
+): string {
+  return resolveLocalized(map, locale).value;
 }
