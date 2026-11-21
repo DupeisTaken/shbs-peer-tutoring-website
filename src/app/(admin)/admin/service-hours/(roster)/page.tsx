@@ -29,6 +29,7 @@ import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { nextSort, type Sort } from "~/app/_components/sortable";
 import { ServiceHoursComparison } from "~/app/_components/service-hours-comparison";
 import { SchoolHoursPanel } from "~/app/_components/school-hours-panel";
+import { formatSchoolHours } from "~/lib/school-hours-format";
 
 export default function SummaryPage() {
   const t = useTranslations();
@@ -394,7 +395,7 @@ function HoursTotals({
                   : "font-medium text-slate-700 tabular-nums"
             }
           >
-            {value.toFixed(1)}
+            {formatSchoolHours(value)}
           </dd>
         </div>
       ))}

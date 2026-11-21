@@ -28,6 +28,7 @@ import { Button } from "~/app/_components/ui/button";
 import { StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { toCsv, type CsvCell as Cell } from "~/lib/csv";
+import { formatSchoolHours } from "~/lib/school-hours-format";
 import {
   SummaryTable,
   TableActions,
@@ -398,6 +399,8 @@ export default function ReportsPage() {
             </p>
           </div>
 
+          {/* Display stored service-hour precision throughout the report; CSV
+              retains its existing independent export-format contract. */}
           {/* Summary — grouped (hours · attendance · activity) for clarity */}
           <section className="space-y-4">
             <div className="report-section-head">
@@ -413,20 +416,20 @@ export default function ReportsPage() {
               >
                 <Stat
                   label={t("admin.reports.stat.total")}
-                  value={`${r.summary.hours.total.toFixed(1)} h`}
+                  value={`${formatSchoolHours(r.summary.hours.total)} h`}
                   primary
                 />
                 <Stat
                   label={t("admin.reports.stat.earned")}
-                  value={`${r.summary.hours.earned.toFixed(1)} h`}
+                  value={`${formatSchoolHours(r.summary.hours.earned)} h`}
                 />
                 <Stat
                   label={t("admin.reports.stat.extras")}
-                  value={`+${r.summary.hours.extras.toFixed(1)} h`}
+                  value={`+${formatSchoolHours(r.summary.hours.extras)} h`}
                 />
                 <Stat
                   label={t("admin.reports.stat.penalties")}
-                  value={`−${r.summary.hours.punishments.toFixed(1)} h`}
+                  value={`−${formatSchoolHours(r.summary.hours.punishments)} h`}
                 />
               </StatGroup>
             )}
@@ -550,11 +553,13 @@ export default function ReportsPage() {
                     {!x.active && ` ${t("admin.reports.inactive")}`}
                   </td>
                   <td className="text-right">{x.sessions}</td>
-                  <td className="text-right">{x.earned.toFixed(1)}</td>
-                  <td className="text-right">{x.extras.toFixed(1)}</td>
-                  <td className="text-right">{x.punishments.toFixed(1)}</td>
+                  <td className="text-right">{formatSchoolHours(x.earned)}</td>
+                  <td className="text-right">{formatSchoolHours(x.extras)}</td>
+                  <td className="text-right">
+                    {formatSchoolHours(x.punishments)}
+                  </td>
                   <td className="text-right font-semibold">
-                    {x.total.toFixed(1)}
+                    {formatSchoolHours(x.total)}
                   </td>
                 </tr>
               ))}
@@ -618,7 +623,9 @@ export default function ReportsPage() {
                     <td className="text-slate-500">
                       {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
                     </td>
-                    <td className="text-right">{s.shCount.toFixed(1)}</td>
+                    <td className="text-right">
+                      {formatSchoolHours(s.shCount)}
+                    </td>
                     <td className="text-slate-600">
                       {s.tutees
                         .map(
@@ -835,7 +842,9 @@ export default function ReportsPage() {
                       >
                         {a.type}
                       </td>
-                      <td className="text-right">{a.amount.toFixed(2)}</td>
+                      <td className="text-right">
+                        {formatSchoolHours(a.amount)}
+                      </td>
                       <td className="text-slate-600">{a.reason ?? "—"}</td>
                     </tr>
                   ))}

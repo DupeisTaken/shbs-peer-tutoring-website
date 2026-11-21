@@ -23,6 +23,7 @@ const query = vi.hoisted(() => ({
   retry: vi.fn(),
   loaded: true,
   rows: [] as ServiceHoursRow[],
+  totals: { earned: 8, extras: 0, punishments: 3, total: 5 },
 }));
 vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["summary"] }));
 vi.mock("~/trpc/react", () => ({
@@ -34,7 +35,7 @@ vi.mock("~/trpc/react", () => ({
             ? {
                 scope: { label: "Synthetic semester" },
                 rows: query.rows,
-                totals: { earned: 8, extras: 0, punishments: 3, total: 5 },
+                totals: query.totals,
               }
             : undefined,
           error: query.error,
@@ -68,6 +69,7 @@ beforeEach(() => {
   query.error = null;
   query.loaded = true;
   query.retry.mockClear();
+  query.totals = { earned: 8, extras: 0, punishments: 3, total: 5 };
   query.rows = [
     row("No records"),
     row("Zero credit", { sessions: 1 }),
@@ -122,6 +124,61 @@ const rosterNames = () =>
     .map((r) => r.firstElementChild!.textContent);
 
 it.each(["en", "zh"] as const)(
+  "reconciles three quarter-hour contributors across totals, views and Details (%s)",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    const copy = messages.admin.summary;
+    query.rows = ["Quarter One", "Quarter Two", "Quarter Three"].map((name) =>
+      row(name, { adjustmentCount: 1, extras: 0.25, total: 0.25 }),
+    );
+    query.totals = { earned: 0, extras: 0.75, punishments: 0, total: 0.75 };
+    render(show(locale));
+    for (const name of [
+      copy.programTotals,
+      copy.filteredSubtotal.replace("{count}", "3"),
+    ]) {
+      const totals = within(screen.getByRole("region", { name }));
+      expect(totals.getAllByText("0.75")).toHaveLength(2);
+      expect(totals.queryByText("0.8")).toBeNull();
+    }
+    const summaryRows = within(screen.getByRole("table"))
+      .getAllByRole("row")
+      .slice(1);
+    for (const record of summaryRows) {
+      expect(within(record).getByRole("cell", { name: "0.25" })).toBeTruthy();
+      expect(within(record).queryByText("0.3")).toBeNull();
+    }
+    fireEvent.click(
+      within(summaryRows[0]!).getByRole("button", {
+        name: `${messages.tablePatterns.details}: Quarter One`,
+      }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getAllByText("0.25")).toHaveLength(2);
+    fireEvent.click(
+      dialog.getByRole("button", { name: messages.tablePatterns.close }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: copy.viewBreakdown }));
+    const breakdownRows = within(screen.getByRole("table"))
+      .getAllByRole("row")
+      .slice(1);
+    expect(breakdownRows).toHaveLength(3);
+    for (const record of breakdownRows) {
+      expect(
+        within(record)
+          .getAllByRole("cell")
+          .slice(1)
+          .map((cell) => cell.textContent),
+      ).toEqual(["0", "0", "0.25", "0", "0.25"]);
+    }
+    expect(query.rows.map((record) => record.total)).toEqual([
+      0.25, 0.25, 0.25,
+    ]);
+    expect(query.totals.total).toBe(0.75);
+  },
+);
+
+it.each(["en", "zh"] as const)(
   "filters evidence independently and keeps program totals separate (%s)",
   (locale) => {
     const copy = locale === "zh" ? zh.admin.summary : en.admin.summary;
@@ -133,7 +190,7 @@ it.each(["en", "zh"] as const)(
     ).toBe("active");
     expect(rosterNames()).toHaveLength(5);
     const totals = screen.getByRole("region", { name: copy.programTotals });
-    expect(totals.textContent).toContain("5.0");
+    expect(within(totals).getByText("5")).toBeTruthy();
     fireEvent.change(
       screen.getByRole("combobox", { name: copy.activityLabel }),
       { target: { value: "records" } },
@@ -144,12 +201,12 @@ it.each(["en", "zh"] as const)(
     expect(screen.getByText("Zero adjustment")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: copy.viewInactive }));
     expect(rosterNames()).toEqual([`Deduction ${copy.inactive}`]);
-    expect(totals.textContent).toContain("5.0");
+    expect(within(totals).getByText("5")).toBeTruthy();
     expect(
       screen.getByRole("region", {
         name: copy.filteredSubtotal.replace("{count}", "1"),
       }).textContent,
-    ).toContain("-3.0");
+    ).toContain("-3");
     fireEvent.click(screen.getByRole("button", { name: copy.resetFilters }));
     expect(rosterNames()).toHaveLength(5);
   },
@@ -170,7 +227,7 @@ it("keeps same-name IDs distinct, and retains selected sort and rows across summ
   fireEvent.click(sortTotal());
   expect(
     within(screen.getByRole("table")).getAllByRole("row")[1]!.textContent,
-  ).toContain("5.0");
+  ).toContain("5");
   const summary = screen.getByRole("tab", {
     name: en.admin.summary.viewSummary,
   });
@@ -188,7 +245,7 @@ it("keeps same-name IDs distinct, and retains selected sort and rows across summ
   ).toHaveLength(6);
   expect(
     within(screen.getByRole("table")).getAllByRole("row")[1]!.textContent,
-  ).toContain("5.0");
+  ).toContain("5");
   view.unmount();
   render(show());
   expect(
