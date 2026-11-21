@@ -657,6 +657,11 @@ Hiding removes content from participants' responses while retaining it for autho
 
 Use **Landing Page** for public content, menus, media and custom pages. Custom pages and page-mode sections share the same URL namespace. The editor adds a numeric suffix when a slug is occupied; unpublished content still reserves its URL. Check the resulting public link after saving.
 
+**View page** opens the saved page in a separate tab. Eligible landing editors can
+preview unpublished pages; visitors receive a not-found page. In a draft preview,
+**Back to Editor** opens **Pages** for a custom page or **Sections** for a page-mode
+section. Locate and open the relevant card there to continue editing.
+
 Assigned translators submit text drafts for review. If the destination text or language changes before approval, reject the stale draft, reload the current destination and submit again. A coordinator publication decision requires ADMIN/HEAD approval. English and Chinese are visible by default; review wording in hidden catalogs before enabling additional languages. Policy publication uses its own [reviewed revision workflow](policies/README.md).
 
 Translations cover interface strings and supported public text such as news, sections and page titles. Translators can add a language with English fallback; management controls visibility, ordering and deletion of added languages. Built-in language catalogs cannot be deleted. Enabling a UI language does not create a policy translation: publish reviewed policy text separately, or the policy falls back to English.

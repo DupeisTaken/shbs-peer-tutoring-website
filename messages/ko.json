@@ -705,7 +705,8 @@
       "draftBadge": "초안"
     },
     "detail": {
-      "hiddenNote": "섹션이 표시되기 전까지 이 페이지는 방문자에게 숨겨집니다."
+      "hiddenNote": "섹션이 표시되기 전까지 이 페이지는 방문자에게 숨겨집니다.",
+      "hiddenPageNote": "페이지가 표시되기 전까지 이 페이지는 방문자에게 숨겨집니다."
     }
   },
   "dashboard": {

@@ -705,7 +705,8 @@
       "draftBadge": "草稿"
     },
     "detail": {
-      "hiddenNote": "在该板块显示之前，此页面对访客隐藏。"
+      "hiddenNote": "在该板块显示之前，此页面对访客隐藏。",
+      "hiddenPageNote": "此页面在设为显示之前对访客隐藏。"
     }
   },
   "dashboard": {

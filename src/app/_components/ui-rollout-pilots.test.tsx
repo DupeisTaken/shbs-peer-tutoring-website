@@ -520,7 +520,7 @@ it("offers a retry when meetings fail to load", () => {
 it("mounts the landing editor only after live authorization succeeds", async () => {
   // Invoke the thin server wrapper with its I/O mocked; async RSC rendering and
   // permission integration are covered by the running-site/server tests.
-  render(await LandingPage());
+  render(await LandingPage({ searchParams: Promise.resolve({}) }));
   expect(mocks.authorize).toHaveBeenCalledOnce();
   expect(
     screen.getByRole("heading", { name: "Live landing editor" }),
@@ -530,7 +530,7 @@ it("mounts the landing editor only after live authorization succeeds", async () 
 
 it("replaces a denied editor with a terminal access explanation and return route", async () => {
   mocks.authorize.mockResolvedValue({ ok: false, name: "Viewer" });
-  render(await LandingPage());
+  render(await LandingPage({ searchParams: Promise.resolve({}) }));
   expect(mocks.authorize).toHaveBeenCalledOnce();
   expect(mocks.editor).not.toHaveBeenCalled();
   expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("false");
