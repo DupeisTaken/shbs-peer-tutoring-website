@@ -1802,6 +1802,11 @@ permits a new ticketed attempt, even when the page never observed its pending st
 Older or unrelated declines, cached updates and failed or denied reads cannot
 release that receipt. Observing the exact accepted review also clears its read-only
 refresh warning; pending and approved withdrawals remain guarded.
+Withdrawal confirmation and explicit receipt/status reads own a one-shot keyboard
+focus handoff after the timed dialog's native cleanup. Focus reaches the exact
+request's enabled recovery control or resulting status/heading; a deliberate move
+elsewhere, a disabled recovery, a new dialog, ordinary recall and background reads
+do not reclaim it. Terminal requests use the workspace's owned history heading.
 Each editor opening owns its request-local draft. Its read-only **Original verified
 request email** names the immutable source mailbox, independently of the current
 account's sign-in address; public signup keeps **Email for Sign In**.

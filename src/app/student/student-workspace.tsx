@@ -39,6 +39,8 @@ export function StudentWorkspace({
   const restriction = useStudentSignupRestriction();
   const refreshRestriction = restriction?.refreshAfterSourceRead;
   const t = useTranslations("workflow");
+  const currentHeading = useRef<HTMLHeadingElement>(null);
+  const historyHeading = useRef<HTMLHeadingElement>(null);
   const appeal = useTranslations("signupAppeal");
   const recovery = useTranslations("participantRecovery");
   const queryClient = useQueryClient();
@@ -174,6 +176,10 @@ export function StudentWorkspace({
     readVerified,
     readFeedback,
     concealed: denied || requestDenied || legacyDenied,
+    focusFallback: (id) =>
+      query.data?.find((row) => row.id === id)?.state === "OPEN"
+        ? currentHeading.current
+        : historyHeading.current,
     onRefresh: async () => {
       const fresh = await query.refetch();
       if (fresh.error || !fresh.data)
@@ -219,7 +225,9 @@ export function StudentWorkspace({
         </a>
       </nav>
       <section id="current-request" className="space-y-4">
-        <h2 className="section-title">{currentLabel}</h2>
+        <h2 ref={currentHeading} tabIndex={-1} className="section-title">
+          {currentLabel}
+        </h2>
         {currentRequests}
         {!active.length &&
           !readBlocked &&
@@ -236,7 +244,9 @@ export function StudentWorkspace({
           )}
       </section>
       <section id="request-history" className="space-y-3">
-        <h2 className="section-title">{t("processed")}</h2>
+        <h2 ref={historyHeading} tabIndex={-1} className="section-title">
+          {t("processed")}
+        </h2>
         {query.data
           ?.filter((r) => r.state !== "OPEN")
           .map((row) => (
@@ -265,8 +275,7 @@ export function StudentWorkspace({
 }
 type RequestAction = { row: Request; kind: "RECALL" | "ABORT" };
 type AcceptedRequestAction =
-  | { kind: "RECALL" }
-  | { kind: "ABORT"; reviewId: string };
+  { kind: "RECALL" } | { kind: "ABORT"; reviewId: string };
 type UnconfirmedAbort = {
   selected: RequestAction;
   ticket: string;
@@ -278,6 +287,13 @@ type UnconfirmedAbort = {
   unavailable?: "pending" | "unassigned" | "closed" | "missing";
   error?: string;
 };
+type WithdrawalFocus = {
+  id: string;
+  origin: HTMLElement;
+  scope?: Element | null;
+  ready: boolean;
+  moved: boolean;
+};
 
 /** Dialogs and accepted receipts belong to the list, not a removable OPEN card.
  * Source IDs keep actions stable when reads reorder or close another request. */
@@ -288,6 +304,7 @@ function useCurrentRequests({
   readFeedback,
   concealed,
   onRefresh,
+  focusFallback,
 }: {
   rows: Request[];
   readBlocked: boolean;
@@ -295,6 +312,7 @@ function useCurrentRequests({
   readFeedback: ReactNode;
   concealed: boolean;
   onRefresh: () => Promise<Request[]>;
+  focusFallback: (id: string) => HTMLElement | null;
 }) {
   const format = useFormatter();
   const t = useTranslations("workflow");
@@ -311,11 +329,88 @@ function useCurrentRequests({
     () => new Map(),
   );
   const admitted = useRef(false);
+  const confirmationContext = useRef<HTMLParagraphElement>(null);
+  const withdrawalFocus = useRef<WithdrawalFocus | null>(null);
+  const withdrawalTargets = useRef(new Map<string, HTMLElement>());
+  const registerWithdrawalTarget =
+    (key: string) => (node: HTMLElement | null) => {
+      if (node) withdrawalTargets.current.set(key, node);
+      else withdrawalTargets.current.delete(key);
+    };
+  const beginWithdrawalFocus = (
+    id: string,
+    origin?: HTMLElement,
+    scope?: Element | null,
+  ) => {
+    if (!origin || origin === document.body) return null;
+    const intent = { id, origin, scope, ready: false, moved: false };
+    withdrawalFocus.current = intent;
+    return intent;
+  };
   const utils = api.useUtils();
   const recall = api.studentWorkflow.recall.useMutation();
   const abort = api.studentWorkflow.applyAbort.useMutation({ retry: false });
   const cancel = api.studentWorkflow.cancelAction.useMutation({ retry: false });
   const busy = working || recall.isPending || abort.isPending;
+  useEffect(() => {
+    const moved = (event: FocusEvent) => {
+      const intent = withdrawalFocus.current;
+      const target = event.target;
+      if (
+        intent &&
+        target instanceof HTMLElement &&
+        target.isConnected &&
+        target !== document.body &&
+        target !== intent.origin &&
+        !intent.scope?.contains(target)
+      )
+        intent.moved = true;
+    };
+    document.addEventListener("focusin", moved);
+    return () => document.removeEventListener("focusin", moved);
+  }, []);
+  useEffect(() => {
+    const intent = withdrawalFocus.current;
+    if (!intent?.ready || busy) return;
+    if (action || concealed || (unconfirmed.has(intent.id) && readBlocked)) {
+      withdrawalFocus.current = null;
+      return;
+    }
+    // TimedActionDialog releases native modality in passive cleanup. Wait until
+    // that finishes; a usable opener or a deliberate move elsewhere keeps focus.
+    const frame = requestAnimationFrame(() => {
+      if (withdrawalFocus.current !== intent) return;
+      withdrawalFocus.current = null;
+      const active = document.activeElement;
+      if (
+        intent.moved ||
+        (active?.isConnected &&
+          active !== document.body &&
+          active !== intent.origin &&
+          !intent.scope?.contains(active))
+      )
+        return;
+      const target = unconfirmed.has(intent.id)
+        ? withdrawalTargets.current.get(`check:${intent.id}`)
+        : recoveries.some((item) => item.row.id === intent.id)
+          ? withdrawalTargets.current.get(`retry:${intent.id}`)
+          : (withdrawalTargets.current
+              .get(`request:${intent.id}`)
+              ?.querySelector<HTMLElement>("[data-withdrawal-status]") ??
+            withdrawalTargets.current
+              .get(`request:${intent.id}`)
+              ?.querySelector<HTMLElement>("h3") ??
+            focusFallback(intent.id));
+      if (
+        !target?.isConnected ||
+        target.matches(':disabled, [aria-disabled="true"]') ||
+        target.closest("[hidden], [inert], dialog:not([open])")
+      )
+        return;
+      target.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  });
   // Reconcile denial before committing private children. An in-flight action
   // keeps its captured source/admission and accepted receipt in this owner.
   if (concealed && (editing || action)) {
@@ -356,15 +451,18 @@ function useCurrentRequests({
         }),
       },
     )}`;
-  const recover = async () => {
+  const recover = async (item: RequestAction, origin: HTMLElement) => {
     if (admitted.current || busy) return;
     admitted.current = true;
+    const focus =
+      item.kind === "ABORT" ? beginWithdrawalFocus(item.row.id, origin) : null;
     setWorking(true);
     try {
       await onRefresh();
     } catch {
       // The accepted source keeps its own read-only recovery; never replay it.
     } finally {
+      if (focus) focus.ready = true;
       admitted.current = false;
       setWorking(false);
     }
@@ -387,9 +485,14 @@ function useCurrentRequests({
         ) &&
         reason.trim()),
   );
-  const checkAbort = async (attempt: UnconfirmedAbort, restart = false) => {
+  const checkAbort = async (
+    attempt: UnconfirmedAbort,
+    restart = false,
+    origin?: HTMLElement,
+  ) => {
     if (admitted.current || busy || concealed || readBlocked) return;
     admitted.current = true;
+    const focus = beginWithdrawalFocus(attempt.selected.row.id, origin);
     setWorking(true);
     const id = attempt.selected.row.id;
     let retired = attempt.retired;
@@ -486,6 +589,7 @@ function useCurrentRequests({
         }),
       );
     } finally {
+      if (focus) focus.ready = true;
       admitted.current = false;
       setWorking(false);
     }
@@ -493,9 +597,19 @@ function useCurrentRequests({
   const confirm = async (ticket: string) => {
     if (admitted.current || busy || !action || !actionAllowed) return;
     admitted.current = true;
+    const selected = action;
+    const origin = document.activeElement;
+    const scope = confirmationContext.current?.closest(
+      "dialog, [role='dialog']",
+    );
+    const focus =
+      selected.kind === "ABORT" &&
+      origin instanceof HTMLElement &&
+      scope?.contains(origin)
+        ? beginWithdrawalFocus(selected.row.id, origin, scope)
+        : null;
     setWorking(true);
     setFailure(null);
-    const selected = action;
     const submittedReason = reason.trim();
     try {
       let receipt: AcceptedRequestAction;
@@ -537,6 +651,7 @@ function useCurrentRequests({
       } else
         setFailure(error instanceof Error ? error.message : t("actionFailed"));
     } finally {
+      if (focus) focus.ready = true;
       admitted.current = false;
       setWorking(false);
     }
@@ -552,8 +667,13 @@ function useCurrentRequests({
           action={
             <>
               <Button
+                ref={registerWithdrawalTarget(
+                  `check:${attempt.selected.row.id}`,
+                )}
                 disabled={busy || readBlocked}
-                onClick={() => void checkAbort(attempt)}
+                onClick={(event) =>
+                  void checkAbort(attempt, false, event.currentTarget)
+                }
               >
                 {t("checkAbortSubmission")}
               </Button>
@@ -564,7 +684,9 @@ function useCurrentRequests({
                   attempt.notAccepted === true) && (
                   <Button
                     disabled={busy || readBlocked}
-                    onClick={() => void checkAbort(attempt, true)}
+                    onClick={(event) =>
+                      void checkAbort(attempt, true, event.currentTarget)
+                    }
                   >
                     {t("freshAbortReview")}
                   </Button>
@@ -601,13 +723,14 @@ function useCurrentRequests({
           announcement="status"
           action={
             <Button
+              ref={registerWithdrawalTarget(`retry:${item.row.id}`)}
               disabled={busy}
               aria-label={
                 recoveries.length > 1
                   ? `${t("retryRefresh")} · ${context(item.row)}`
                   : undefined
               }
-              onClick={() => void recover()}
+              onClick={(event) => void recover(item, event.currentTarget)}
             >
               {t("retryRefresh")}
             </Button>
@@ -623,6 +746,7 @@ function useCurrentRequests({
         <CurrentRequest
           key={row.id}
           row={row}
+          requestRef={registerWithdrawalTarget(`request:${row.id}`)}
           context={context(row)}
           multiple={active.length > 1}
           readBlocked={readBlocked || busy}
@@ -687,7 +811,9 @@ function useCurrentRequests({
           }}
           onConfirm={confirm}
         >
-          <p className="font-medium">{context(action.row)}</p>
+          <p ref={confirmationContext} className="font-medium">
+            {context(action.row)}
+          </p>
           {readFeedback}
           {action.kind === "ABORT" && (
             <label className="block text-sm">
@@ -710,6 +836,7 @@ function useCurrentRequests({
 
 function CurrentRequest({
   row,
+  requestRef,
   context,
   multiple,
   readBlocked,
@@ -718,6 +845,7 @@ function CurrentRequest({
   onAction,
 }: {
   row: Request;
+  requestRef: (node: HTMLElement | null) => void;
   context: string;
   multiple: boolean;
   readBlocked: boolean;
@@ -738,6 +866,7 @@ function CurrentRequest({
   );
   return (
     <article
+      ref={requestRef}
       className="space-y-4"
       aria-labelledby={headingId}
       aria-describedby={submissionId}
@@ -747,7 +876,7 @@ function CurrentRequest({
           <span className="badge-green">{t("verified")}</span>
           {row.editedAt && <span className="badge-slate">{t("edited")}</span>}
         </div>
-        <h3 id={headingId} className="text-lg font-semibold">
+        <h3 id={headingId} tabIndex={-1} className="text-lg font-semibold">
           {row.subjects.map((s) => s.name).join(" · ")}
         </h3>
         {multiple && row.name && <p className="text-sm">{row.name}</p>}
@@ -840,7 +969,12 @@ function CurrentRequest({
           {t(row.pairings.length ? "abortHelp" : "recallHelp")}
         </p>
         {abortPending ? (
-          <p role="status" className="mt-3 font-medium">
+          <p
+            role="status"
+            tabIndex={-1}
+            data-withdrawal-status
+            className="mt-3 font-medium"
+          >
             {t("abortPending")}
           </p>
         ) : (

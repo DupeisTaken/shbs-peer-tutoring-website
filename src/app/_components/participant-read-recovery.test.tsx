@@ -1682,6 +1682,288 @@ it.each(["pending", "unassigned", "closed", "missing"] as const)(
   },
 );
 
+// fireEvent does not synthesize Enter's click. Keep the initiating control focused
+// and dispatch that activation explicitly; Edge verifies native Tab/close ordering.
+function activateFromKeyboard(control: HTMLElement) {
+  control.focus();
+  fireEvent.keyDown(control, { key: "Enter", code: "Enter" });
+  fireEvent.click(control);
+}
+async function beginKeyboardWithdrawal(messages = en) {
+  const article = await screen.findByRole("article", { name: "Math" });
+  const opener = within(article).getByRole<HTMLButtonElement>("button", {
+    name: messages.workflow.applyAbort,
+  });
+  activateFromKeyboard(opener);
+  const dialog = screen.getByRole("dialog");
+  fireEvent.change(within(dialog).getByRole("textbox"), {
+    target: { value: "Synthetic keyboard withdrawal reason" },
+  });
+  const confirm = within(dialog).getByRole("button", {
+    name: "Confirm timed action",
+  });
+  activateFromKeyboard(confirm);
+  fireEvent.click(confirm);
+  await waitFor(() => expect(remote.withdraw).toHaveBeenCalledTimes(1));
+  return { opener, dialog };
+}
+async function settleFocusFrame() {
+  await act(async () => {
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+  });
+}
+
+it.each(["en", "zh"])(
+  "hands keyboard focus from an uncertain withdrawal to its read-only check and then its exact pending status (%s)",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    remote.withdraw.mockRejectedValue(
+      new Error("Synthetic lost withdrawal response"),
+    );
+    mount(<StudentWorkspace />, locale);
+    await beginKeyboardWithdrawal(messages);
+    const check = await screen.findByRole("button", {
+      name: messages.workflow.checkAbortSubmission,
+    });
+    await waitFor(() => expect(document.activeElement).toBe(check));
+    expect(check.tabIndex).toBe(0);
+    remote.abortReceipt.mockImplementation(async () => {
+      remote.mine.mockResolvedValue([
+        {
+          ...request,
+          reviews: [withdrawalReview("withdrawal-review", "PENDING")],
+        },
+      ]);
+      return { status: "ACCEPTED", reviewId: "withdrawal-review" };
+    });
+    activateFromKeyboard(check);
+    fireEvent.click(check);
+    const pending = await screen.findByText(messages.workflow.abortPending);
+    await waitFor(() => expect(document.activeElement).toBe(pending));
+    expect(pending.tabIndex).toBe(-1);
+    expect(
+      screen.queryByRole("button", {
+        name: messages.workflow.checkAbortSubmission,
+      }),
+    ).toBeNull();
+    expect(remote.withdraw).toHaveBeenCalledTimes(1);
+    expect(remote.abortReceipt).toHaveBeenCalledTimes(1);
+    expect(remote.cancelAction).not.toHaveBeenCalled();
+  },
+);
+
+it("hands direct withdrawal success to its pending status without an extra lookup or write", async () => {
+  remote.withdraw.mockImplementation(async () => {
+    remote.mine.mockResolvedValue([
+      {
+        ...request,
+        reviews: [withdrawalReview("withdrawal-review", "PENDING")],
+      },
+    ]);
+    return { ok: true, reviewId: "withdrawal-review" };
+  });
+  mount(<StudentWorkspace />);
+  await beginKeyboardWithdrawal();
+  const pending = await screen.findByText(en.workflow.abortPending);
+  await waitFor(() => expect(document.activeElement).toBe(pending));
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+  expect(remote.abortReceipt).not.toHaveBeenCalled();
+});
+
+it("keeps an accepted refresh recovery reachable and hands its explicit refresh to the pending status", async () => {
+  remote.withdraw.mockImplementation(async () => {
+    remote.mine.mockRejectedValue(
+      new Error("Synthetic accepted refresh failure"),
+    );
+    return { ok: true, reviewId: "withdrawal-review" };
+  });
+  mount(<StudentWorkspace />);
+  await beginKeyboardWithdrawal();
+  const retry = await screen.findByRole("button", {
+    name: en.workflow.retryRefresh,
+  });
+  await waitFor(() => expect(document.activeElement).toBe(retry));
+  remote.mine.mockResolvedValue([
+    { ...request, reviews: [withdrawalReview("withdrawal-review", "PENDING")] },
+  ]);
+  activateFromKeyboard(retry);
+  const pending = await screen.findByText(en.workflow.abortPending);
+  await waitFor(() => expect(document.activeElement).toBe(pending));
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+  expect(remote.abortReceipt).not.toHaveBeenCalled();
+});
+
+it("hands an explicit accepted lookup to the owned history heading when that request has closed", async () => {
+  remote.withdraw.mockRejectedValue(
+    new Error("Synthetic interrupted submission"),
+  );
+  mount(<StudentWorkspace />);
+  await beginKeyboardWithdrawal();
+  const check = await screen.findByRole("button", {
+    name: en.workflow.checkAbortSubmission,
+  });
+  await waitFor(() => expect(document.activeElement).toBe(check));
+  remote.abortReceipt.mockResolvedValue({
+    status: "ACCEPTED",
+    reviewId: "withdrawal-review",
+  });
+  remote.mine.mockResolvedValue([
+    {
+      ...request,
+      state: "ABORTED",
+      reviews: [withdrawalReview("withdrawal-review", "APPROVED")],
+    },
+  ]);
+  activateFromKeyboard(check);
+  const history = screen.getByRole("heading", { name: en.workflow.processed });
+  await waitFor(() => expect(document.activeElement).toBe(history));
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+  expect(remote.abortReceipt).toHaveBeenCalledTimes(1);
+});
+
+it("retains keyboard focus on a rejected attempt's check and leaves a fresh review's own focus alone", async () => {
+  remote.withdraw.mockRejectedValue(new Error("Synthetic rejected submission"));
+  remote.abortReceipt.mockResolvedValue({ status: "NOT_ACCEPTED" });
+  mount(<StudentWorkspace />);
+  await beginKeyboardWithdrawal();
+  const check = await screen.findByRole("button", {
+    name: en.workflow.checkAbortSubmission,
+  });
+  await waitFor(() => expect(document.activeElement).toBe(check));
+  activateFromKeyboard(check);
+  await screen.findByText(en.workflow.abortNotAccepted);
+  await waitFor(() => expect(document.activeElement).toBe(check));
+  activateFromKeyboard(
+    screen.getByRole("button", { name: en.workflow.freshAbortReview }),
+  );
+  const reason = within(
+    await screen.findByRole("dialog"),
+  ).getByRole<HTMLTextAreaElement>("textbox");
+  // The lightweight dialog mock has no native autofocus; model that initial focus.
+  reason.focus();
+  await settleFocusFrame();
+  expect(document.activeElement).toBe(reason);
+  expect(reason.value).toBe("Synthetic keyboard withdrawal reason");
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+  expect(remote.abortReceipt).toHaveBeenCalledTimes(2);
+});
+
+it.each([false, true])(
+  "does not reclaim focus after the user moves outside a pending receipt lookup (outside target removed: %s)",
+  async (removeOutside) => {
+    let accept!: () => void;
+    remote.withdraw.mockRejectedValue(
+      new Error("Synthetic interrupted submission"),
+    );
+    remote.abortReceipt.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          accept = () =>
+            resolve({ status: "ACCEPTED", reviewId: "withdrawal-review" });
+        }),
+    );
+    const outside = document.createElement("button");
+    outside.textContent = "Another page control";
+    document.body.append(outside);
+    try {
+      mount(<StudentWorkspace />);
+      await beginKeyboardWithdrawal();
+      const check = await screen.findByRole("button", {
+        name: en.workflow.checkAbortSubmission,
+      });
+      await waitFor(() => expect(document.activeElement).toBe(check));
+      activateFromKeyboard(check);
+      await waitFor(() => expect(remote.abortReceipt).toHaveBeenCalledTimes(1));
+      outside.focus();
+      if (removeOutside) outside.remove();
+      remote.mine.mockResolvedValue([
+        {
+          ...request,
+          reviews: [withdrawalReview("withdrawal-review", "PENDING")],
+        },
+      ]);
+      await act(async () => accept());
+      await screen.findByText(en.workflow.abortPending);
+      await settleFocusFrame();
+      expect(document.activeElement).toBe(
+        removeOutside ? document.body : outside,
+      );
+      expect(remote.withdraw).toHaveBeenCalledTimes(1);
+      expect(remote.abortReceipt).toHaveBeenCalledTimes(1);
+    } finally {
+      outside.remove();
+    }
+  },
+);
+
+it("does not queue focus into a disabled recovery or replay that handoff after a background read", async () => {
+  let reject!: () => void;
+  remote.withdraw.mockImplementation(
+    () =>
+      new Promise((_resolve, fail) => {
+        reject = () => fail(new Error("Synthetic interrupted submission"));
+      }),
+  );
+  mount(<StudentWorkspace />);
+  await beginKeyboardWithdrawal();
+  remote.mine.mockRejectedValue(new Error("Synthetic unavailable source"));
+  await refresh(["studentWorkflow", "mine"]);
+  await act(async () => reject());
+  const check = await screen.findByRole<HTMLButtonElement>("button", {
+    name: en.workflow.checkAbortSubmission,
+  });
+  expect(check.disabled).toBe(true);
+  await settleFocusFrame();
+  expect(document.activeElement).toBe(document.body);
+  remote.mine.mockResolvedValue([request]);
+  await refresh(["studentWorkflow", "mine"]);
+  await settleFocusFrame();
+  expect(check.disabled).toBe(false);
+  expect(document.activeElement).toBe(document.body);
+  expect(remote.withdraw).toHaveBeenCalledTimes(1);
+  expect(remote.abortReceipt).not.toHaveBeenCalled();
+});
+
+it("does not move focus for ordinary recall or an unrelated background withdrawal read", async () => {
+  const outside = document.createElement("button");
+  document.body.append(outside);
+  try {
+    remote.mine.mockResolvedValue([{ ...request, pairings: [] }]);
+    remote.withdraw.mockImplementation(async () => {
+      remote.mine.mockResolvedValue([
+        { ...request, state: "RECALLED", pairings: [] },
+      ]);
+      return { ok: true };
+    });
+    mount(<StudentWorkspace />);
+    activateFromKeyboard(
+      await screen.findByRole("button", { name: en.workflow.recall }),
+    );
+    activateFromKeyboard(
+      screen.getByRole("button", { name: "Confirm timed action" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await settleFocusFrame();
+    expect(document.activeElement).toBe(document.body);
+    outside.focus();
+    remote.mine.mockResolvedValue([
+      {
+        ...request,
+        reviews: [withdrawalReview("different-review", "PENDING")],
+      },
+    ]);
+    await refresh(["studentWorkflow", "mine"]);
+    await settleFocusFrame();
+    expect(document.activeElement).toBe(outside);
+    expect(remote.withdraw).toHaveBeenCalledTimes(1);
+    expect(remote.abortReceipt).not.toHaveBeenCalled();
+  } finally {
+    outside.remove();
+  }
+});
+
 it("announces pending record and visibility reads without inventing empty or private states", async () => {
   remote.me.mockImplementation(() => new Promise(() => undefined));
   const view = mount(<StudentPortal view="attendance" />);
