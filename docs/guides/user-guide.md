@@ -1,5 +1,11 @@
 # User guide
 
+For searchable English and Chinese task walkthroughs with real development-server
+screenshots, explanations and troubleshooting, open **Help & how-to** at `/help`.
+Sign in to reveal guides for your current account and participation. The
+[repository catalogue](help/README.md) mirrors the same maintained instructions;
+staff can download PDF handbooks from **Management → PDF handbooks**.
+
 Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when Head activates staged program modules at refresh. A hidden page does not grant permission to use its address directly.
 
 ## Contents
@@ -554,7 +560,8 @@ When selecting interviewers, **Group panelists by subject** puts tutors with rec
 
 In **Tutor Applications**, open an initial request's details and choose **Edit signup
 request**. Admin/Head apply the correction; Coordinators submit it for review through
-Management Actions. Coordinators and read-only users cannot submit corrections.
+Management Actions; their proposal does not change the application until Admin/Head
+approval. Read-only users cannot submit corrections.
 Confirm the spelling with the applicant, then enter First Name, Last Name,
 Preferred Name and Name in Another Language as appropriate, with a correction
 reason. Never guess a transliteration or divide an old name into guessed parts.
@@ -1713,7 +1720,7 @@ On the Tutee page, **Messages** and **Account** open inside the same navigation 
 
 **Account Settings** and tutor **Account Settings** share the **Associated Emails** controls. Only the primary email is required for signup, account setup and normal site use; secondary addresses are optional. An account may have up to five secondary addresses, counting pending requests. Admin/Head can disable **Secondary-Email Binding** in **Program Settings → Deployment Configurations**; Coordinators request Admin/Head review. While disabled, adding, resending and confirming secondary addresses is blocked in settings and on the server; existing verified addresses remain usable and removable, and pending requests can be cancelled. Primary-email changes remain available and preserve the previous verified primary. Enter your current password to add an address, resend its code, promote a verified address or remove a secondary. Codes last ten minutes, allow five attempts and have a one-minute resend interval. Expired requests remain visible for resend or cancellation. Pending requests do not reserve an address or prevent its actual owner from registering; ownership is checked again when you verify.
 
-Any verified address can sign in or recover the same account. Recovery requested with a secondary address goes to that address; recovery by username goes to the primary. Login 2FA and password-change codes still go to the primary, so aliases do not bypass 2FA. Changing primary retains the previous verified primary as a secondary and updates only explicitly linked current tutor/tutee contact rows. Account identity, roles, history and signed agreements remain unchanged. Removing an address revokes its outstanding grants; adding it again does not revive them. Select another verified primary before removing the current one.
+Any verified address can sign in or recover the same account. Recovery requested with a secondary address goes to that address; recovery by username goes to the primary. Login 2FA and password-change codes still go to the primary, so aliases do not bypass 2FA. Changing primary retains the previous verified primary as a secondary and updates only explicitly linked current tutor/tutee contact rows. The account menu updates to the confirmed primary without requiring sign-out. Account identity, roles, history and signed agreements remain unchanged. Removing an address revokes its outstanding grants; adding it again does not revive them. Select another verified primary before removing the current one.
 
 ### Optional email notifications
 

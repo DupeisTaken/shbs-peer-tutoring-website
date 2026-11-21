@@ -54,5 +54,6 @@ operate it. Proposed designs stay in issues until reviewed and delivered.
 | Propose a change or report a problem                               | [Issue conventions](issues.md)                  |
 | Prepare a PR and understand size labels                            | [Pull requests](pull-requests.md)               |
 | Place or maintain documentation and historical evidence            | [Documentation ownership](documentation.md)     |
+| Update visual help, screenshots, GitHub editions or PDF handbooks    | [Help catalogue maintenance](help-catalogue.md)  |
 
 [Documentation home](../README.md).

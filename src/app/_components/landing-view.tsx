@@ -52,12 +52,16 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
   };
   const heroImageId = overrides.heroImageId;
   const draftLabel = t("preview.draftBadge");
+  const help = await getTranslations("helpNav");
   const informationItems = [
+    { href: "/help", label: help("title") },
     { href: "/privacy", label: getPrivacyPolicy(locale).title },
-    ...navPages.map((page) => ({
-      href: `/p/${page.slug}`,
-      label: page.label,
-    })),
+    ...navPages
+      .filter((page) => page.slug !== "faq")
+      .map((page) => ({
+        href: `/p/${page.slug}`,
+        label: page.label,
+      })),
     ...(features.VIEWER_SIGNUP
       ? [{ href: "/viewer", label: t("nav.viewerSignup") }]
       : []),
@@ -65,9 +69,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
   const joinItems = [
     { href: "/tutee", label: t("nav.requestTutor"), strong: true },
     { href: "/tutor", label: t("nav.becomeTutor") },
-    ...(features.CREW
-      ? [{ href: "/crew", label: t("nav.becomeCrew") }]
-      : []),
+    ...(features.CREW ? [{ href: "/crew", label: t("nav.becomeCrew") }] : []),
   ];
 
   // The page owns one primary heading even when editors remove or repeat a hero.

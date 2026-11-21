@@ -6,6 +6,7 @@ import { translationAccess } from "~/lib/translation-access";
 /** A dedicated translator surface avoids granting access to structural publishing controls. */
 export function TranslationComposer() {
   const t = useTranslations("workflows");
+  const saveBoundary = useTranslations("saveBoundary");
   const editor = useTranslations("translationEditor");
   const me = api.account.me.useQuery();
   const access = translationAccess(me.data);
@@ -160,7 +161,7 @@ export function TranslationComposer() {
         else savePage.mutate({ locale, id: target, value: body });
       }}
     >
-      <p className="muted text-sm">{t("saveBoundary.form")}</p>
+      <p className="muted text-sm">{saveBoundary("form")}</p>
       <h2 className="section-title">{t("prepareTranslation")}</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <label>

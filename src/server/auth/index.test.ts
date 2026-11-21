@@ -126,3 +126,103 @@ it("issues a new login at the proved generation after rotation, then rejects it 
   mocks.findUser.mockResolvedValue({ role: "VIEWER", tutorId: null, sessionVersion: 2 });
   expect(await mocks.jwt!({ token: token! })).toBeNull();
 });
+
+it("refreshes a reused session from the current primary without changing account authority", async () => {
+  mocks.findUser.mockResolvedValue({
+    name: "Recovery User",
+    email: "current-primary@example.test",
+    role: "STUDENT",
+    tutorId: "linked-tutor",
+    sessionVersion: 4,
+    historyAccessRevision: 7,
+  });
+  const token = await mocks.jwt!({
+    token: {
+      sub: "same-account",
+      email: "removed-alias@example.test",
+      name: "Old display",
+      role: "STUDENT",
+      tutorId: "linked-tutor",
+      sessionVersion: 4,
+      historyAccessRevision: 7,
+    },
+  });
+  expect(token).toMatchObject({
+    sub: "same-account",
+    email: "current-primary@example.test",
+    name: "Recovery User",
+    role: "STUDENT",
+    tutorId: "linked-tutor",
+    sessionVersion: 4,
+    historyAccessRevision: 7,
+  });
+  const lookup: unknown = mocks.findUser.mock.calls[0]?.[0];
+  expect(lookup).toMatchObject({
+    where: { id: "same-account" },
+    select: { email: true },
+  });
+});
+
+it("uses the locked current primary when issuing a session from an older verified alias", async () => {
+  mocks.findUser.mockResolvedValue({
+    emailVerifiedAt: new Date(),
+    tutorId: null,
+    sessionVersion: 4,
+  });
+  mocks.credentialState.mockResolvedValue({ sessionVersion: 4 });
+  mocks.updateUser.mockResolvedValue({
+    id: "same-account",
+    name: "Recovery User",
+    email: "current-primary@example.test",
+    role: "STUDENT",
+    tutorId: null,
+    sessionVersion: 4,
+    historyAccessRevision: 7,
+  });
+  expect(
+    await mocks.jwt!({
+      token: {
+        email: "older-alias@example.test",
+        role: "STUDENT",
+        tutorId: null,
+      },
+      user: {
+        id: "same-account",
+        email: "older-alias@example.test",
+        sessionVersion: 4,
+      },
+    }),
+  ).toMatchObject({
+    sub: "same-account",
+    email: "current-primary@example.test",
+    role: "STUDENT",
+    tutorId: null,
+    sessionVersion: 4,
+    historyAccessRevision: 7,
+  });
+  const lockedUpdate: unknown = mocks.updateUser.mock.calls[0]?.[0];
+  expect(lockedUpdate).toMatchObject({ select: { email: true } });
+});
+
+it.each([
+  { sessionVersion: 5 },
+  { sessionVersion: 4, mergedIntoId: "another-account" },
+  { sessionVersion: 4, recoveryVoidedAt: new Date("2026-01-01T00:00:00Z") },
+])(
+  "rejects invalid identity before updating its email claim (%j)",
+  async (state) => {
+    const token: JWT = {
+      sub: "same-account",
+      email: "older-alias@example.test",
+      role: "STUDENT",
+      tutorId: null,
+      sessionVersion: 4,
+    };
+    mocks.findUser.mockResolvedValue({
+      email: "current-primary@example.test",
+      ...state,
+    });
+    expect(await mocks.jwt!({ token })).toBeNull();
+    expect(token.email).toBe("older-alias@example.test");
+  },
+);

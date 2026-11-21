@@ -217,7 +217,9 @@ export function useTutorMeetingController() {
                 )}
               </div>
 
-              <div className="min-w-0 sm:shrink-0">
+              {/* A desktop viewport can still contain a narrow meeting reader.
+                  Keep this flex item shrinkable so its form wraps inside it. */}
+              <div className="w-full min-w-0 max-w-full sm:w-auto">
                 {history || !m.upcoming ? (
                   <span className="badge-slate">
                     {m.status
@@ -256,7 +258,7 @@ export function useTutorMeetingController() {
                     {t("tutor.meetings.tooLate")}
                   </span>
                 ) : openId === m.id ? (
-                  <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                  <div className="grid min-w-0 max-w-full gap-2 sm:flex sm:flex-wrap sm:items-center">
                     <input
                       value={drafts[m.id] ?? ""}
                       aria-label={`${m.title}: ${t("tutor.meetings.reasonPlaceholder")}`}
@@ -269,10 +271,10 @@ export function useTutorMeetingController() {
                         }))
                       }
                       placeholder={t("tutor.meetings.reasonPlaceholder")}
-                      className="input control-standard sm:field-auto min-w-0 sm:min-w-44 lg:min-h-10 lg:py-2"
+                      className="input control-standard min-w-0 sm:flex-1 sm:basis-44 lg:min-h-10 lg:py-2"
                     />
                     <button
-                      className="btn-primary control-standard"
+                      className="btn-primary control-standard max-w-full lg:whitespace-normal"
                       disabled={blocked}
                       onClick={() => {
                         if (blocked || admitted.current) return;
@@ -288,7 +290,7 @@ export function useTutorMeetingController() {
                       {t("tutor.meetings.submitExcuse")}
                     </button>
                     <button
-                      className="btn-secondary control-standard"
+                      className="btn-secondary control-standard max-w-full lg:whitespace-normal"
                       disabled={pending}
                       onClick={() => {
                         setOpenId(null);

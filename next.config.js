@@ -45,9 +45,15 @@ const config = {
   // Pin the output file-tracing root to this project (good hygiene for standalone output and
   // to keep the tracer from wandering above the project directory).
   outputFileTracingRoot: workspaceRoot,
+  serverExternalPackages: ["pdfkit"],
   // QR text uses the website's Geist package plus its portable Chinese fallback.
   // Include both explicitly for standalone deployments as well as Docker.
   outputFileTracingIncludes: {
+    "/api/help/images/*": ["./docs/guides/help/assets/*.jpg"],
+    "/api/help/pdf/*": [
+      "./docs/guides/help/assets/*.jpg",
+      "./public/fonts/help/noto-sans-sc.otf",
+    ],
     "/api/public-qr": [
       "./node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf",
       "./public/fonts/public-qr/shbs-public-qr.otf",

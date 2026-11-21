@@ -15,40 +15,45 @@ export function StudentPolicyGate() {
   const path = usePathname();
   const search = useSearchParams().toString();
   const focusVersion = useIdentityFocus();
-  const [dismissed, setDismissed] = useState<
-    { policy: string; focusVersion: number; gateVisit: number } | null
-  >(null);
+  const [dismissed, setDismissed] = useState<{
+    policy: string;
+    focusVersion: number;
+    gateVisit: number;
+  } | null>(null);
   // Credential setup and recovery must stay usable before policy participation.
-  const skipPolicyGate = [
-    // A privacy notice must stay readable even when participation consent is due.
-    "/privacy",
-    // Reading/claiming old records does not enroll someone in the current program.
-    "/history",
-    "/history/claim",
-    "/signup",
-    "/signup/account",
-    "/register",
-    "/register-account",
-    "/tutee",
-    "/tutee/account",
-    "/tutee-signup",
-    "/tutee-signup/account",
-    "/tutor",
-    "/viewer",
-    "/signin",
-    "/onboarding/email",
-    "/forgot-password",
-    "/reset-password",
-    // Email preferences must remain reachable without participation consent.
-    "/unsubscribe",
-    // A narrow request appeal must not require account participation consent.
-    "/request-appeal",
-    "/suspended",
-    "/tutor-signup",
-    "/crew-signup",
-    "/crew",
-    "/viewer-signup",
-  ].includes(path);
+  const skipPolicyGate =
+    [
+      // A privacy notice must stay readable even when participation consent is due.
+      "/privacy",
+      // Reading/claiming old records does not enroll someone in the current program.
+      "/history",
+      "/history/claim",
+      "/signup",
+      "/signup/account",
+      "/register",
+      "/register-account",
+      "/tutee",
+      "/tutee/account",
+      "/tutee-signup",
+      "/tutee-signup/account",
+      "/tutor",
+      "/viewer",
+      "/signin",
+      "/onboarding/email",
+      "/forgot-password",
+      "/reset-password",
+      // Email preferences must remain reachable without participation consent.
+      "/unsubscribe",
+      // A narrow request appeal must not require account participation consent.
+      "/request-appeal",
+      "/suspended",
+      "/tutor-signup",
+      "/crew-signup",
+      "/crew",
+      "/viewer-signup",
+    ].includes(path) ||
+    path === "/help" ||
+    path.startsWith("/help/");
   const status = api.studentWorkflow.policyStatus.useQuery(
     { tuteeEntry: path === "/student" || path.startsWith("/student/") },
     {
@@ -60,7 +65,10 @@ export function StudentPolicyGate() {
   const { refetch } = status;
   // Dismissal belongs to this focus/participation visit, not just the policy.
   // A visit to a bypass route ends it without resetting an active review on focus.
-  const [gateVisit, setGateVisit] = useState({ skipped: skipPolicyGate, version: 0 });
+  const [gateVisit, setGateVisit] = useState({
+    skipped: skipPolicyGate,
+    version: 0,
+  });
   if (gateVisit.skipped !== skipPolicyGate)
     setGateVisit({ skipped: skipPolicyGate, version: gateVisit.version + 1 });
   // Path/focus refreshes belong to the identity provider. Only query-only tabs

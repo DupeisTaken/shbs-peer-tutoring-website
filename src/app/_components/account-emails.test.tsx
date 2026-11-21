@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
@@ -19,19 +19,31 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   confirm: vi.fn(),
   manage: vi.fn(),
+  manageSuccess: undefined as
+    | ((result: unknown, input: { email: string; currentPassword: string; action: "primary" | "remove" }) => Promise<void>)
+    | undefined,
+  legacyRequest: vi.fn(),
+  legacyConfirm: vi.fn(),
+  legacyConfirmSuccess: undefined as (() => Promise<void>) | undefined,
+  legacyRequestReset: vi.fn(),
+  routerRefresh: vi.fn(),
+  invalidateSettings: vi.fn(),
+  invalidateMe: vi.fn(),
+  invalidateProfile: vi.fn(),
   preferences: vi.fn(),
   program: vi.fn(),
   binding: vi.fn(),
   canEdit: true,
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.routerRefresh }) }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       account: {
-        emailSettings: { invalidate: vi.fn() },
-        me: { invalidate: vi.fn() },
+        emailSettings: { invalidate: mocks.invalidateSettings },
+        me: { invalidate: mocks.invalidateMe },
       },
-      tutor: { myProfile: { invalidate: vi.fn() } },
+      tutor: { myProfile: { invalidate: mocks.invalidateProfile } },
       notification: {
         list: { invalidate: vi.fn() },
         unreadCount: { invalidate: vi.fn() },
@@ -49,13 +61,26 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutate: mocks.confirm, reset: vi.fn() }),
       },
       manageSecondaryEmail: {
-        useMutation: () => ({ mutate: mocks.manage, reset: vi.fn() }),
+        useMutation: (options: { onSuccess: typeof mocks.manageSuccess }) => {
+          mocks.manageSuccess = options.onSuccess;
+          return { mutate: mocks.manage, reset: vi.fn() };
+        },
+      },
+      requestEmailChange: {
+        useMutation: () => ({ mutate: mocks.legacyRequest, reset: mocks.legacyRequestReset, isSuccess: true }),
+      },
+      confirmEmailChange: {
+        useMutation: (options: { onSuccess: typeof mocks.legacyConfirmSuccess }) => {
+          mocks.legacyConfirmSuccess = options.onSuccess;
+          return { mutate: mocks.legacyConfirm };
+        },
       },
       setNotificationPreferences: {
         useMutation: () => ({ mutate: mocks.preferences }),
       },
     },
     program: {
+      features: { useQuery: () => ({ data: { EMAIL_DELIVERY_AVAILABLE: true } }) },
       resendStuckEmails: {
         useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
       },
@@ -93,6 +118,7 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 import { AccountEmails, EmailPreferences } from "./account-emails";
+import { EmailChange } from "./email-change";
 import { ProgramEmailSettings } from "./program-email-settings";
 const view = (component: React.ReactNode) =>
   render(
@@ -106,6 +132,11 @@ const view = (component: React.ReactNode) =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.manageSuccess = undefined;
+  mocks.legacyConfirmSuccess = undefined;
+  mocks.invalidateSettings.mockReset().mockResolvedValue(undefined);
+  mocks.invalidateMe.mockReset().mockResolvedValue(undefined);
+  mocks.invalidateProfile.mockReset().mockResolvedValue(undefined);
   mocks.canEdit = true;
   mocks.preferenceData = {
     categories: notificationCategories.map((category) => ({
@@ -653,4 +684,64 @@ it("lets admins enable immediately with the current value for conflict checking"
     enabled: true,
     expectedEnabled: false,
   });
+});
+
+
+it("refreshes the server menu after primary promotion before client queries finish", async () => {
+  let finishRefresh!: () => void;
+  mocks.invalidateSettings.mockImplementation(() => new Promise<void>((resolve) => { finishRefresh = resolve; }));
+  view(<AccountEmails />);
+  fireEvent.change(screen.getByLabelText("Current password"), { target: { value: "synthetic-password" } });
+  fireEvent.click(screen.getByRole("button", { name: "Make primary" }));
+  expect(mocks.routerRefresh).not.toHaveBeenCalled();
+  await act(async () => {
+    const completed = mocks.manageSuccess!(undefined, {
+      email: "secondary@example.test", currentPassword: "synthetic-password", action: "primary",
+    });
+    expect(mocks.routerRefresh).toHaveBeenCalledTimes(1);
+    finishRefresh();
+    await completed;
+  });
+  expect(screen.getByLabelText("Current password")).toHaveProperty("value", "");
+  expect(screen.getByText(messages.accountEmails.saved)).toBeTruthy();
+  expect(mocks.manage).toHaveBeenCalledTimes(1);
+});
+
+it("still refreshes the server identity when a primary save succeeds but client refresh fails", async () => {
+  mocks.invalidateMe.mockRejectedValue(new Error("Refresh unavailable"));
+  view(<AccountEmails />);
+  await act(async () => {
+    await expect(mocks.manageSuccess!(undefined, {
+      email: "secondary@example.test", currentPassword: "synthetic-password", action: "primary",
+    })).rejects.toThrow("Refresh unavailable");
+  });
+  expect(mocks.routerRefresh).toHaveBeenCalledTimes(1);
+  expect(mocks.manage).not.toHaveBeenCalled();
+});
+
+it("does not refresh the server primary for a successful secondary removal", async () => {
+  view(<AccountEmails />);
+  fireEvent.change(screen.getByLabelText("Current password"), { target: { value: "synthetic-password" } });
+  fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+  await act(async () => {
+    await mocks.manageSuccess!(undefined, {
+      email: "secondary@example.test", currentPassword: "synthetic-password", action: "remove",
+    });
+  });
+  expect(mocks.routerRefresh).not.toHaveBeenCalled();
+  expect(mocks.invalidateSettings).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText("Current password")).toHaveProperty("value", "");
+});
+
+it("refreshes the server menu after the compatibility change-email confirmation too", async () => {
+  view(<EmailChange />);
+  fireEvent.change(screen.getByRole("textbox", { name: /Email verification code/i }), { target: { value: "1234" } });
+  fireEvent.click(screen.getByRole("button", { name: "Verify and Change Email" }));
+  expect(mocks.legacyConfirm).toHaveBeenCalledWith({ code: "1234" });
+  expect(mocks.routerRefresh).not.toHaveBeenCalled();
+  await act(async () => { await mocks.legacyConfirmSuccess!(); });
+  expect(mocks.routerRefresh).toHaveBeenCalledTimes(1);
+  expect(mocks.invalidateMe).toHaveBeenCalledTimes(1);
+  expect(mocks.invalidateProfile).toHaveBeenCalledTimes(1);
+  expect(mocks.legacyRequestReset).toHaveBeenCalledTimes(1);
 });

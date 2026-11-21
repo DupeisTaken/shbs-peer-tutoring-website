@@ -1,4 +1,8 @@
 {
+  "helpNav": {
+    "title": "Ayuda y guías",
+    "downloads": "Manuales PDF"
+  },
   "recoveryWorkflow": {
     "adoptionPending": "Your request was saved. Its recovery-draft link could not be confirmed; continue mailbox verification and ask management to review the draft status.",
     "review": "Management prepared these saved answers for your review. Check the current courses and times, enter your verified account email, and agree to the current policy. Your new request still needs mailbox verification.",

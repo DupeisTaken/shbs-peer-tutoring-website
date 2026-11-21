@@ -29,21 +29,22 @@ function AppealCapability({ token }: { token: string }) {
     const takeFragment = () => {
       const proof =
         new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
-      if (!proof && initialized) return;
-      setCapability(proof);
-      setInitialized(true);
-      if (proof)
+      // Effect replay can see an empty fragment after the proof was captured.
+      if (proof) {
+        setCapability(proof);
         window.history.replaceState(
           window.history.state,
           "",
           window.location.pathname + window.location.search,
         );
+      }
+      setInitialized(true);
     };
     // External browser URL changes must be adopted after hydration, never during SSR.
     takeFragment();
     window.addEventListener("hashchange", takeFragment);
     return () => window.removeEventListener("hashchange", takeFragment);
-  }, [token, initialized]);
+  }, [token]);
   if (!initialized) return <StatePanel kind="loading" title={t("loading")} />;
   // Proof identity owns every read, draft and accepted receipt. Replacing a URL
   // capability cannot inherit an old request's mutation callbacks or recovery.

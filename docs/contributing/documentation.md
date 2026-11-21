@@ -28,6 +28,20 @@ Run `npm run docs:check` for links, headings, guide discoverability, ownership
 regressions, user roles and issue forms. It does not fetch external links or establish
 application behavior. Follow [required checks](verification.md#required-checks) too.
 
+The illustrated [Help catalogue](../guides/help/README.md) is generated from
+bilingual application records so website, Markdown and PDF editions stay aligned.
+Its reviewed synthetic screenshots and capture/coverage/source receipts are
+maintained runtime inputs in `docs/guides/help/`, covered by `help:check`.
+Step annotation exports also live there: `annotations.json` records the original
+capture, drawing/format recipes, derivative hashes and PNG-to-WebP pixel parity.
+`assets/annotated/` contains lossless WebP images named by their 64-character
+format-recipe hash; existing content-addressed PNG review proofs are retained.
+These reviewed help inputs are the specific exception to the Markdown-only
+maintained documentation policy;
+arbitrary images, PDFs and reports remain local evidence.
+Follow the [capture procedure](help-catalogue.md) when updating them; additional
+review screenshots, originals and reports still belong in ignored local evidence.
+
 ## Historical evidence and continuation notes
 
 Keep current instructions free of old test totals, rollout logs and completed handoffs.
