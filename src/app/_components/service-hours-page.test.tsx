@@ -124,6 +124,40 @@ const rosterNames = () =>
     .map((r) => r.firstElementChild!.textContent);
 
 it.each(["en", "zh"] as const)(
+  "retains every digit of long totals in program and compact summaries (%s)",
+  (locale) => {
+    const copy = (locale === "zh" ? zh : en).admin.summary;
+    const totals = {
+      earned: 67.5,
+      extras: 10.333333333333334,
+      punishments: 1.25,
+      total: 76.58333333333334,
+    };
+    query.rows = [row("Long totals", { adjustmentCount: 1, ...totals })];
+    query.totals = { ...totals };
+    render(show(locale));
+    for (const name of [
+      copy.programTotals,
+      copy.filteredSubtotal.replace("{count}", "1"),
+    ]) {
+      const region = within(screen.getByRole("region", { name }));
+      for (const [label, value] of [
+        [copy.netHours, "76.58333333333334"],
+        [copy.columns.earned, "67.5"],
+        [copy.columns.extras, "10.333333333333334"],
+        [copy.columns.penalties, "1.25"],
+      ] as const) {
+        expect(
+          region.getByText(label, { selector: "dt" }).nextElementSibling
+            ?.textContent,
+        ).toBe(value);
+      }
+    }
+    expect(query.totals).toEqual(totals);
+  },
+);
+
+it.each(["en", "zh"] as const)(
   "reconciles three quarter-hour contributors across totals, views and Details (%s)",
   (locale) => {
     const messages = locale === "zh" ? zh : en;

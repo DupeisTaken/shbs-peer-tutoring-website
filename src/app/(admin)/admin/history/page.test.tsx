@@ -197,6 +197,37 @@ function mount(locale: "en" | "zh" = "en") {
 }
 
 it.each(["en", "zh"] as const)(
+  "retains complete long hour totals with their signs and units (%s)",
+  async (locale) => {
+    const copy = (locale === "zh" ? zh : en).admin.reports;
+    const hours = {
+      earned: 67.5,
+      extras: 10.333333333333334,
+      punishments: 1.25,
+      total: 76.58333333333334,
+    };
+    remote.report.mockResolvedValue({
+      ...preciseReport,
+      summary: { ...preciseReport.summary, hours },
+    });
+    mount(locale);
+    await screen.findByRole("table", { name: copy.sections.perTutor });
+    for (const [label, value] of [
+      [copy.stat.total, "76.58333333333334 h"],
+      [copy.stat.earned, "67.5 h"],
+      [copy.stat.extras, "+10.333333333333334 h"],
+      [copy.stat.penalties, "−1.25 h"],
+    ] as const) {
+      expect(
+        screen.getByText(label, { selector: "p" }).nextElementSibling
+          ?.textContent,
+      ).toBe(value);
+    }
+    expect(hours.total).toBe(76.58333333333334);
+  },
+);
+
+it.each(["en", "zh"] as const)(
   "retains exact service-hour values in report totals, tutor cells and Details (%s)",
   async (locale) => {
     const catalog = locale === "zh" ? zh : en;

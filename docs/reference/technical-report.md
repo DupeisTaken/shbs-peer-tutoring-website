@@ -2014,6 +2014,9 @@ totals, tutor comparisons, Details and report source rows. It retains the numeri
 value without independently rounding each reader, normalizing only negative zero.
 Selection, sorting, subtotal arithmetic and server calculations retain raw numbers;
 the existing Reports CSV formatting remains separate from on-screen precision.
+Hour summary grids fit wider columns to the available container rather than fixing
+four columns. Each value can shrink and wrap within its own field, including compact
+subtotals, so long minute-derived totals cannot paint over adjacent labels or values.
 
 Meeting workspaces use the count-only catalog in
 [meeting-periods.ts](../../src/server/meeting-periods.ts), grouping stored term ownership

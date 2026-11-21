@@ -1454,7 +1454,9 @@ Service Hours totals, Summary, Breakdown and Details retain recorded fractional
 hours. For example, three `0.25`-hour credits show `0.25` each and a `0.75` subtotal.
 Historical **Reports** uses the same precision for service-hour totals, tutor
 breakdowns, session and adjustment amounts, and their Details. Numeric sorting
-and accounting use the underlying amounts.
+and accounting use the underlying amounts. Long totals use fewer columns to keep
+the complete numbers separate; on very narrow screens they wrap within their own
+field.
 
 Open **School reports** on the same page to report each individual's unreported
 hours to school recipients. The highlighted amount is what to add to that person's

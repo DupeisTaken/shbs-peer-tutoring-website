@@ -413,6 +413,7 @@ export default function ReportsPage() {
               <StatGroup
                 label={t("admin.reports.group.hours")}
                 caption={t("admin.reports.hoursCaption")}
+                wideValues
               >
                 <Stat
                   label={t("admin.reports.stat.total")}
@@ -1142,10 +1143,10 @@ function Stat({
   primary?: boolean;
 }) {
   return (
-    <div className="card p-3">
+    <div className="card min-w-0 p-3">
       <p className="muted text-xs">{label}</p>
       <p
-        className={`mt-1 font-semibold tabular-nums ${
+        className={`mt-1 font-semibold [overflow-wrap:anywhere] tabular-nums ${
           primary ? "text-accent-700 text-2xl" : "text-xl text-slate-900"
         }`}
       >
@@ -1160,10 +1161,12 @@ function StatGroup({
   label,
   caption,
   children,
+  wideValues = false,
 }: {
   label: string;
   caption?: string;
   children: React.ReactNode;
+  wideValues?: boolean;
 }) {
   return (
     <div className="report-keep space-y-1.5">
@@ -1177,10 +1180,15 @@ function StatGroup({
           </span>
         )}
       </div>
-      {/* Auto-fit columns so a group never leaves ragged empty cells (hours = 4, attendance = 5). */}
+      {/* Exact hours need wider tracks than short counts. Cap the minimum at the
+          container width, with value wrapping as the final narrow-screen guard. */}
       <div
         className="grid gap-x-5 gap-y-3"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(8rem, 1fr))" }}
+        style={{
+          gridTemplateColumns: wideValues
+            ? "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))"
+            : "repeat(auto-fit, minmax(8rem, 1fr))",
+        }}
       >
         {children}
       </div>
