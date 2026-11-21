@@ -263,6 +263,7 @@ export const protectedProcedure = t.procedure
       "studentWorkflow.editAvailability",
       "studentWorkflow.recall",
       "studentWorkflow.applyAbort",
+      "studentWorkflow.abortReceipt",
     ]);
     if (tuteeOperations.has(path)) {
       if (account.role === "VIEWER" || (!account.tuteeMember && !access.departed))

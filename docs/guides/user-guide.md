@@ -417,6 +417,18 @@ own unchanged timing rules.
 
 Open **Requests → Participation → Request withdrawal…**. The button names the current quarter or semester and also works for staff-entered enrollments explicitly linked to your account. Give a reason and complete the timed confirmation. Participation continues while the request is pending. Approval ends all tutoring and pending matching under your account for the current period, including other requests and linked staff-entered enrollments. You can still read your completed attendance and original requests. A declined request leaves participation in place.
 
+If an assigned request's withdrawal submission is interrupted, use **Check
+submission** on the retained notice. It checks that exact attempt without sending
+another application. If accepted, refresh its review status. If no accepted receipt
+is found, **Start fresh review** first retires the unused confirmation and checks
+again. Expired or already retired current confirmations can also be resolved by
+the check, even if the retirement reply was interrupted. A new timed review opens
+with your reason only when current request records still permit withdrawal.
+Otherwise the notice explains its current status and keeps your reason for a later
+status check. An outcome that remains
+unknown stays read only; keep checking or ask Admin for help. An older withdrawal
+or another request's review does not confirm this attempt.
+
 ### Records, feedback and appeals
 
 Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
