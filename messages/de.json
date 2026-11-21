@@ -521,7 +521,8 @@
     "close": "Schließen",
     "collapseAll": "Alle zuklappen",
     "expandAll": "Alle aufklappen",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Erneut versuchen"
   },
   "auth": {
     "signinTitle": "Anmelden",

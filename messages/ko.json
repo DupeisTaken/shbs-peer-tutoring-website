@@ -521,7 +521,8 @@
     "close": "닫기",
     "collapseAll": "모두 접기",
     "expandAll": "모두 펼치기",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "다시 시도"
   },
   "auth": {
     "signinTitle": "로그인",
