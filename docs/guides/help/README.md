@@ -39,18 +39,15 @@ corresponding authority. Downloads are private and are not cached publicly.
 
 ## Screenshot provenance
 
-The user selected latest `main`, clearly labelled, as the source baseline.
-The current checkout includes `dd970ea426016e85cb514beeeab537c3ab2e5098`;
-earlier frames retain their exact `589c055e` or `dbb3c4eb` revision. Each image
-identifies its own baseline rather than inheriting a later revision. Refresh
-screens affected by a source change; retain unaffected images only after a
-documented review. The maintenance procedure explains that review and the
-source-fingerprint gate.
+The [capture manifest](captures.json) names the latest `main` development
+baseline selected for the newest captures. Each image records its own source
+revision and date. Refresh screens affected by a source change and document
+the review before retaining earlier captures. The maintenance procedure
+describes that review and the source-fingerprint check.
 
-Images come from an actual local Next.js dev server at
-`http://127.0.0.1:3017`, with the Help candidate and isolated synthetic demo data.
-This records a source baseline, not an attestation of a live production
-deployment. The Help screens necessarily show the candidate implementation.
+Images come from the local Next.js dev server at `http://127.0.0.1:3017`
+running the Help candidate with isolated synthetic demo data. The recorded
+revisions identify the development builds used for capture.
 
 [Capture receipts](captures.json) record each image's route, role, language,
 time, full viewport, file hash, exact step binding, labels and review. Bound
