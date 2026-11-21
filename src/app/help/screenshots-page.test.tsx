@@ -138,9 +138,7 @@ it("keeps Chinese guide labels with an explicitly identified English fallback ca
     "阅读证据",
   );
   expect(screen.getByText(/英文界面/)).toBeTruthy();
-  expect(
-    screen.getByRole("region", { name: "打开完整标注截图" }).tabIndex,
-  ).toBe(0);
+  expect(screen.getByRole("region", { name: "打开完整截图" }).tabIndex).toBe(0);
 });
 
 it.each(["0", "01", "-1", "1.5", "3", "9007199254740993", ["1", "2"]])(

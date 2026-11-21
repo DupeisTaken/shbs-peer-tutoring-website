@@ -410,14 +410,14 @@ describe("capture bitmap integrity", () => {
   });
 });
 
-it("uses decoded capture metadata and the same annotation notices in the font corpus", async () => {
+it("uses decoded capture metadata and the maintained caption controls in the font corpus", async () => {
   const escaped = JSON.parse(
     '{"state":"\\u9f98","callouts":[{"label":"\\u6807\\u6ce8"}]}',
   ) as unknown;
   expect(assembleHelpFontCorpus(escaped, ["Fixed PDF label"])).toContain("龘");
   const corpus = await getHelpFontCorpus();
-  expect(corpus).toContain("Annotations added for this step");
-  expect(corpus).toContain("已为本步骤添加标注");
+  expect(corpus).toContain("Capture details");
+  expect(corpus).toContain("截图详情");
   expect(corpus).toContain("screenshots");
   expect(corpus).toContain("Capture source");
 });

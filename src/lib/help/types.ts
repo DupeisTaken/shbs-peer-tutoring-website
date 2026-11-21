@@ -27,6 +27,8 @@ export type HelpCallout = {
   /** A translated screen can move a control; choose by the capture's actual locale. */
   boundsByLocale?: Partial<Record<HelpLocale, HelpBounds>>;
   label: HelpText;
+  /** Keep a reviewed target in the capture receipt without marking obvious UI in the guide. */
+  omitFromGuide?: true;
   placement?: "above" | "below";
   /** Reviewed top-left label position in the same normalized image coordinates. */
   labelPosition?: HelpPoint;

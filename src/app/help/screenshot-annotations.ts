@@ -1,5 +1,6 @@
 import type { HelpScreenshot } from "~/lib/help/screenshots";
 import { getStepCallouts } from "~/lib/help/screenshots";
+import { getDisplayCallouts } from "~/lib/help/screenshot-copy";
 import type {
   HelpBounds,
   HelpCallout,
@@ -269,10 +270,11 @@ export function layoutHelpCallouts(
   step: HelpStep,
   screenshot: HelpScreenshot,
   locale: HelpLocale,
+  inlineLabels = true,
 ): AnnotationLayout[] {
-  const callouts = getStepCallouts(step, screenshot);
-  validateHelpCallouts(callouts);
-  if (callouts.length && screenshot.crop)
+  const reviewedCallouts = getStepCallouts(step, screenshot);
+  validateHelpCallouts(reviewedCallouts);
+  if (reviewedCallouts.length && screenshot.crop)
     throw new Error(
       "Screenshot callouts require the full viewport rather than a presentation crop",
     );
@@ -289,9 +291,11 @@ export function layoutHelpCallouts(
   const badgeSize = fontSize * 1.35;
   const lineHeight = fontSize * 1.3;
   const margin = Math.min(8, width * 0.02, height * 0.02);
-  const showLabel = width >= 600;
+  const showLabel = inlineLabels && width >= 600;
+  const callouts = getDisplayCallouts(step, screenshot, locale);
   const radius = badgeSize * 0.42;
-  const targets = callouts.map((callout) => {
+  // Suppressed callouts still describe real controls to route drawn markers around.
+  const targets = reviewedCallouts.map((callout) => {
     const bounds =
       callout.boundsByLocale?.[screenshot.locale] ?? callout.bounds;
     return {
@@ -301,7 +305,7 @@ export function layoutHelpCallouts(
       height: bounds.height * height,
     };
   });
-  const reviewed = callouts.map((callout) =>
+  const reviewed = reviewedCallouts.map((callout) =>
     callout.badgePosition
       ? {
           x: callout.badgePosition.x * width,
@@ -310,7 +314,7 @@ export function layoutHelpCallouts(
         }
       : undefined,
   );
-  const occupied = reviewed.filter(
+  const reviewedBadges = reviewed.filter(
     (badge): badge is Badge => badge !== undefined,
   );
   reviewed.forEach((badge, index) => {
@@ -320,7 +324,7 @@ export function layoutHelpCallouts(
         badge,
         targets[index]!,
         controlObstacles(targets[index]!, targets),
-        occupied.filter((other) => other !== badge),
+        reviewedBadges.filter((other) => other !== badge),
         width,
         height,
       )
@@ -329,7 +333,12 @@ export function layoutHelpCallouts(
         "Reviewed screenshot badge position must be near its target, clear of controls and inside the full image",
       );
   });
-  return callouts.map((callout, index) => {
+  const activeTargets = callouts.map((callout) =>
+    reviewedCallouts.indexOf(callout),
+  );
+  const occupied = activeTargets.flatMap((index) => reviewed[index] ?? []);
+  return callouts.map((callout, marker) => {
+    const index = activeTargets[marker]!;
     const target = targets[index]!;
     const text = callout.label[locale].trim();
     const maxLabelWidth = Math.min(
@@ -414,7 +423,7 @@ export function layoutHelpCallouts(
         ? { from, to: { x: targetBadge.x, y: targetBadge.y } }
         : undefined;
     return {
-      number: index + 1,
+      number: marker + 1,
       text,
       lines,
       target,
@@ -430,11 +439,6 @@ export function layoutHelpCallouts(
   });
 }
 
-export const annotationNotice = {
-  en: "Annotations added for this step. The original full screenshot is unchanged.",
-  zh: "已为本步骤添加标注，原始完整截图保持不变。",
-} as const;
-
 export const annotationLabels = {
   en: {
     annotated: "Open annotated full screenshot",
@@ -442,6 +446,8 @@ export const annotationLabels = {
     back: "Back to this guide step",
     pan: "This view keeps the original screenshot dimensions. Scroll horizontally or vertically to inspect every control.",
     source: "Capture source",
+    details: "Capture details",
+    open: "Open full screenshot",
     marker: "Callout",
   },
   zh: {
@@ -450,6 +456,8 @@ export const annotationLabels = {
     back: "返回本指南步骤",
     pan: "此视图保留原始截图尺寸，可横向或纵向滚动查看每个控件。",
     source: "截图来源",
+    details: "截图详情",
+    open: "打开完整截图",
     marker: "标注",
   },
 } as const;

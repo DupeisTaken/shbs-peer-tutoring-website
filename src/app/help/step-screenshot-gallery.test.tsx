@@ -58,7 +58,9 @@ it("renders each frame's own labels, provenance and protected full-context links
     />,
   );
   expect(
-    screen.getAllByRole("img").map((image) => image.getAttribute("src")),
+    [...document.querySelectorAll("figure img")].map((image) =>
+      image.getAttribute("src"),
+    ),
   ).toEqual([
     "/api/help/images/first-state?locale=en",
     "/api/help/images/second-state?locale=en",
@@ -68,16 +70,23 @@ it("renders each frame's own labels, provenance and protected full-context links
     "Primary target",
     "Supplemental target",
   ]);
-  expect(new Set(legends.map((legend) => legend.id)).size).toBe(2);
+  expect(
+    legends.every((legend) => legend.classList.contains("sm:sr-only")),
+  ).toBe(true);
   expect(
     screen
-      .getAllByRole("link", { name: "Open annotated full screenshot" })
+      .getAllByRole("link", { name: /^Open full screenshot/ })
       .map((link) => link.getAttribute("href")),
   ).toEqual([
     "/help/review-panels/screenshots/2",
     "/help/review-panels/screenshots/2?view=2",
   ]);
-  expect(screen.getByText("b".repeat(40))).toBeTruthy();
-  expect(screen.getByText("c".repeat(40))).toBeTruthy();
-  expect(screen.getByText("second-state state")).toBeTruthy();
+  expect(screen.queryByText("Review both panels")).toBeNull();
+  const details = screen
+    .getAllByText("Capture details")
+    .map((summary) => summary.closest("details"));
+  expect(details.every((item) => !item?.open)).toBe(true);
+  expect(details[0]?.textContent).toContain("b".repeat(40));
+  expect(details[1]?.textContent).toContain("c".repeat(40));
+  expect(details[1]?.textContent).toContain("second-state state");
 });

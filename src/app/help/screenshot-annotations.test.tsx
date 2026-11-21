@@ -424,7 +424,7 @@ describe("reviewed screenshot annotation geometry", () => {
           },
           {
             bounds: { x: 0.28394, y: 0.5, width: 0.12708, height: 0.05 },
-            label: text,
+            label: { en: "Suggest a time", zh: "建议时间" },
             labelPosition: { x: 0.03, y: 0.5 },
           },
         ],
@@ -466,7 +466,7 @@ describe("reviewed screenshot annotation geometry", () => {
             width: 110 / 375,
             height: 40 / 844,
           },
-          label: text,
+          label: { en: "Requests", zh: "申请" },
         },
         {
           bounds: {
@@ -475,7 +475,7 @@ describe("reviewed screenshot annotation geometry", () => {
             width: 125 / 375,
             height: 40 / 844,
           },
-          label: text,
+          label: { en: "Schedule", zh: "日程" },
         },
       ],
     };
@@ -513,7 +513,7 @@ describe("reviewed screenshot annotation geometry", () => {
           },
           {
             bounds: { x: 0.4, y: 0.45, width: 0.15, height: 0.08 },
-            label: text,
+            label: { en: "Choose Next", zh: "选择下一步" },
             badgePosition: { x: reviewedX / 1000, y: 392 / 800 },
           },
         ],
@@ -538,7 +538,7 @@ describe("reviewed screenshot annotation geometry", () => {
           { bounds: { x: 0.1, y: 0.2, width: 0.8, height: 0.6 }, label: text },
           {
             bounds: { x: 0.3, y: 0.4, width: 0.16, height: 0.05 },
-            label: text,
+            label: { en: "Nested control", zh: "内部选项" },
           },
         ],
       },
@@ -630,7 +630,6 @@ it("links the unchanged image to its full annotated view and exposes readable ca
       alt="保存设置的位置"
       href="/help/account-profile/screenshots/1"
       linkLabel="打开完整标注截图"
-      legendId="capture-directions"
     />,
   );
   expect(
@@ -639,9 +638,16 @@ it("links the unchanged image to its full annotated view and exposes readable ca
   expect(screen.getByRole("img").getAttribute("src")).toBe(
     "/api/help/images/reviewed-step?locale=zh",
   );
-  expect(screen.getByRole("img").getAttribute("aria-describedby")).toBe(
-    "capture-directions",
-  );
+  expect(
+    screen
+      .getByRole("list", { name: "截图标注" })
+      .classList.contains("sm:sr-only"),
+  ).toBe(true);
+  expect(
+    container
+      .querySelector("[data-callout-label]")
+      ?.classList.contains("max-sm:hidden"),
+  ).toBe(true);
   expect(screen.getByRole("list", { name: "截图标注" }).textContent).toContain(
     "选择保存",
   );
@@ -662,7 +668,6 @@ it("renders annotation labels as text even when they contain markup-like wording
       locale="en"
       src="/api/help/images/reviewed-step"
       alt="A reviewed screen"
-      legendId="safe-callouts"
     />,
   );
   expect(container.querySelector("script")).toBeNull();
@@ -705,7 +710,6 @@ it("matches two displaced labels to numbered targets without covering the contro
       locale="en"
       src="/api/help/images/reviewed-step"
       alt="Two reviewed controls"
-      legendId="two-target-directions"
     />,
   );
   expect(
@@ -740,7 +744,6 @@ it("keeps narrow-frame controls clear with target numbers and a readable externa
       locale="zh"
       src="/api/help/images/reviewed-step"
       alt="窄屏真实页面"
-      legendId="mobile-directions"
     />,
   );
   expect(container.querySelector("[data-callout-label]")).toBeNull();
@@ -752,4 +755,9 @@ it("keeps narrow-frame controls clear with target numbers and a readable externa
   expect(screen.getByRole("list", { name: "截图标注" }).textContent).toContain(
     "选择保存",
   );
+  expect(
+    screen
+      .getByRole("list", { name: "截图标注" })
+      .classList.contains("sr-only"),
+  ).toBe(false);
 });

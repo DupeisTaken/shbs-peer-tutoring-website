@@ -37,55 +37,48 @@ Open: `/dashboard`
 
    Look for: Participation notice, Needs attention and workspace panels
 
-   ![Participation notice, Needs attention and workspace panels](assets/annotated/4656dded2a3a69461f22ae93afc7a169b81b47aff11d30bb14d43c627ca91510.webp)
+   ![Check activation and policy notices · Tutor workspace · Current policy](assets/annotated/4656dded2a3a69461f22ae93afc7a169b81b47aff11d30bb14d43c627ca91510.webp)
 
-   /dashboard · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Alice is already active. The tutor dashboard shows the accepted current-policy notice before participation tasks. A pending tutor would first see a separate participation choice.
 
+   /dashboard · EN · 2026-11-20
+
    [Original full screenshot](assets/start-tutoring-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Tutor workspace
-
-   - **2.** Current policy
+   </details>
 
 2. **Use the four task panels** Schedule holds dated tutoring, interviews and meetings. Pairings holds recurring assignments. Preferences holds availability, workload and subject choices. History & hours holds retained evidence. Switching these local panels retains visited editors during the visit.
 
-   ![Use the four task panels](assets/annotated/d21a4a72845e38e55d52f2a1a6679995224a78b3514f63ef64a9f5aa6685b17b.webp)
+   ![Use the four task panels · Pairings tab · Subject · Weekly time](assets/annotated/d21a4a72845e38e55d52f2a1a6679995224a78b3514f63ef64a9f5aa6685b17b.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-21
+   <details>
+   <summary>Capture details</summary>
 
    Choose Pairings in the Tutor workspace to see the recurring group. The Mathematics row shows the weekly time.
 
+   /dashboard#tutor-pairings · EN · 2026-11-21
+
    [Original full screenshot](assets/start-tutoring-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Pairings tab
-
-   - **2.** Subject
-
-   - **3.** Weekly time
+   </details>
 
 3. **Follow Needs attention** Open the task for an unconfirmed schedule, missing attendance, interview vote or meeting. Needs Action requires your work; Vote recorded / Awaiting decision means your vote is saved while the interview is still open.
 
-   ![Follow Needs attention](assets/annotated/e9b5f2a7efd7a43b65bfdf9703040177234282de2059a07f06e5e53bc140aa8c.webp)
+   ![Follow Needs attention · Open interviews · Vote saved · Awaiting decision](assets/annotated/e9b5f2a7efd7a43b65bfdf9703040177234282de2059a07f06e5e53bc140aa8c.webp)
 
-   /dashboard · EN · 2026-11-21
+   <details>
+   <summary>Capture details</summary>
 
    Open interviews connects the Needs attention shortcut to the dated work. Fiona’s interview shows Vote recorded and Awaiting decision.
 
+   /dashboard · EN · 2026-11-21
+
    [Original full screenshot](assets/start-tutoring-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Open interviews
-
-   - **2.** Vote saved
-
-   - **3.** Awaiting decision
+   </details>
 
 ### What happens next
 
@@ -115,53 +108,48 @@ Open: `/dashboard#tutor-preferences`
 
    Look for: Weekday time choices and Save Availability
 
-   ![Weekday time choices and Save Availability](assets/annotated/0995c8481622926d2184189f1e84862a9d3e3e09aed592d4a8f5554bf67d40ce.webp)
+   ![Edit My Time Availability · Toggle available slots · Save the grid](assets/annotated/0995c8481622926d2184189f1e84862a9d3e3e09aed592d4a8f5554bf67d40ce.webp)
 
-   /dashboard#tutor-preferences · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Expanded availability grid with separate preferred-session controls and current workload context
 
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-availability-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Toggle available slots
-
-   - **2.** Save the grid
+   </details>
 
 2. **Save Preferred Sessions separately** Under the time choices choose one of 0–4, or clear the preference, then use its own Save. Zero means prefer no assignments; an unset preference is different. Saving availability does not save this separate draft.
 
-   ![Save Preferred Sessions separately](assets/annotated/e2f9b6cf82b430e50ba5fc183520044a4a86ea8ef6154b98c66a61bb7c0fe14a.webp)
+   ![Save Preferred Sessions separately · Zero · Clear preference · Separate save](assets/annotated/e2f9b6cf82b430e50ba5fc183520044a4a86ea8ef6154b98c66a61bb7c0fe14a.webp)
 
-   /dashboard#tutor-preferences · EN · 2026-11-21
+   <details>
+   <summary>Capture details</summary>
 
    Choose zero or Clear preference in the separate Preferred Sessions form. This zero was a draft and was cancelled.
 
+   /dashboard#tutor-preferences · EN · 2026-11-21
+
    [Original full screenshot](assets/tutor-availability-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Zero
-
-   - **2.** Clear preference
-
-   - **3.** Separate save
+   </details>
 
 3. **Check the saved workload context** Compare assigned session-block count with the saved preference. Group changes refresh this count without replacing an unsaved preference. After an accepted save with failed synchronization use Retry refresh.
 
-   ![Check the saved workload context](assets/annotated/7557019ca7b720a3b927010ea5af363342623f09680707753ffeb1d4627e75df.webp)
+   ![Check the saved workload context · Assigned and preferred · Saved preference: 1](assets/annotated/7557019ca7b720a3b927010ea5af363342623f09680707753ffeb1d4627e75df.webp)
 
-   /dashboard#tutor-preferences · EN · 2026-11-21
+   <details>
+   <summary>Capture details</summary>
 
    The saved comparison shows two assigned blocks and a preference of one. The saved value is selected after canceling the draft.
 
+   /dashboard#tutor-preferences · EN · 2026-11-21
+
    [Original full screenshot](assets/tutor-availability-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Assigned and preferred
-
-   - **2.** Saved preference: 1
+   </details>
 
 ### What happens next
 
@@ -191,53 +179,48 @@ Open: `/dashboard#tutor-preferences`
 
    Look for: Subject Willingness and Subject Qualifications
 
-   ![Subject Willingness and Subject Qualifications](assets/annotated/80ca5cbb9612c1fcbb966d29ad6af65a00351ab494f8041b9cbb26137609f823.webp)
+   ![Edit willingness for approved subjects · Willingness · Search subjects](assets/annotated/80ca5cbb9612c1fcbb966d29ad6af65a00351ab494f8041b9cbb26137609f823.webp)
 
-   /dashboard#tutor-preferences · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Subject willingness editor showing the automatically saved Mathematics preference
 
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-subject-qualifications-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Willingness
-
-   - **2.** Search subjects
+   </details>
 
 2. **Request a new subject or higher level** In Subject Qualifications choose the subject/level, explain your qualifications and submit. Under Your Requests use Pending, Approved, Rejected or Recalled filters and expand history to read decision notes and granted subjects.
 
-   ![Request a new subject or higher level](assets/annotated/5a945b63ddf5f4008e7720bd694eb0888335a0f0827ca1db74dd617b7ada4d96.webp)
+   ![Request a new subject or higher level · Subject and level · Qualification evidence · Submit request](assets/annotated/5a945b63ddf5f4008e7720bd694eb0888335a0f0827ca1db74dd617b7ada4d96.webp)
 
-   /dashboard#tutor-preferences · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Additional subject qualification draft with a chosen level and explanation
 
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-subject-qualifications-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Subject and level
-
-   - **2.** Qualification evidence
-
-   - **3.** Submit request
+   </details>
 
 3. **Recall an eligible pending request** Choose Recall request while Pending or Interview, review the named subject and confirm. A recalled request cannot be reopened or approved; submit a fresh request later when ready.
 
-   ![Recall an eligible pending request](assets/annotated/a10eb6f43de9d9eaf06ddd24fe4128a050ce31d87b8401511cfd7726a0d07365.webp)
+   ![Recall an eligible pending request · Recall request · Keep request](assets/annotated/a10eb6f43de9d9eaf06ddd24fe4128a050ce31d87b8401511cfd7726a0d07365.webp)
 
-   /dashboard#tutor-preferences · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Named confirmation before recalling the still-pending Algebra II qualification request
 
+   /dashboard#tutor-preferences · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-subject-qualifications-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Recall request
-
-   - **2.** Keep request
+   </details>
 
 ### What happens next
 
@@ -267,65 +250,63 @@ Open: `/dashboard#tutor-pairings`
 
    Look for: Pairing schedule selector before the tutee list and Details
 
-   ![Pairing schedule selector before the tutee list and Details](assets/annotated/2a2ca6b93536d3312f8cebb3f9f3afb83d0ff737d39ea82e34a281410c501e8c.webp)
+   ![Inspect My Pairings · Combined roster · Shared default time](assets/annotated/2a2ca6b93536d3312f8cebb3f9f3afb83d0ff737d39ea82e34a281410c501e8c.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Expanded combined pairing with roster, room, weekly slot and individual details
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-pairing-time-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Combined roster
-
-   - **2.** Shared default time
+   </details>
 
 2. **Compare the time groups** Use the default time selector. Both Available requires the same saved catalogue slot for you and every current tutee; Other Time Slots lacks that shared evidence. Unavailable choices are disabled when they overlap another teaching block.
 
-   ![Compare the time groups](assets/annotated/9e6b1e1209ccf5367d220ec35a49c34a8e1a2ef74331a035f68deba6bedd8285.webp)
+   ![Compare the time groups · Choose a time slot](assets/annotated/9e6b1e1209ccf5367d220ec35a49c34a8e1a2ef74331a035f68deba6bedd8285.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Default-time catalogue selector for the combined Mathematics pairing
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-pairing-time-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Choose a time slot
+   </details>
 
 3. **Review and save the time** Discuss the time, select the intended slot and confirm the named review. A combined group shares one time, so changing a member's default changes the whole group. Check the room result and dated calendar afterward.
 
-   ![Review and save the time](assets/annotated/2200756c146030829467bd60b8409c49acaec4d2b33b118dae6247e88099d1ca.webp)
+   ![Review and save the time · Check shared time · Save change](assets/annotated/2200756c146030829467bd60b8409c49acaec4d2b33b118dae6247e88099d1ca.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Named review before changing the shared recurring slot for every member of the combined group
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-pairing-time-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Check shared time
-
-   - **2.** Save change
+   </details>
 
 4. **Report an actual schedule conflict** In tutee Details use the schedule-conflict request, provide a reason and complete its two-second review. The assignment stays active until approval. Missing saved availability alone does not establish a conflict.
 
-   ![Report an actual schedule conflict](assets/annotated/75bb779bfdaca8e222c8f6ed5b840e9c08e61eb2dba784511bf14a4a8aac0ebd.webp)
+   ![Report an actual schedule conflict · Original request · Conflict reason](assets/annotated/75bb779bfdaca8e222c8f6ed5b840e9c08e61eb2dba784511bf14a4a8aac0ebd.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Exact original-request schedule-conflict review with a reason, before submission
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-pairing-time-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Original request
-
-   - **2.** Conflict reason
+   </details>
 
 ### What happens next
 
@@ -355,51 +336,50 @@ Open: `/dashboard#tutor-pairings`
 
    Look for: Combine / split pairings and grouped assignment summary
 
-   ![Combine / split pairings and grouped assignment summary](assets/annotated/d7037576aa622ab4e1d272cb53de17ae94a529847418d0e497839ac345112218.webp)
+   ![Open Combine / split pairings · Combine / split pairings](assets/annotated/d7037576aa622ab4e1d272cb53de17ae94a529847418d0e497839ac345112218.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Open the explicit combine/split editor from My Pairings
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/combine-split-pairings-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Combine / split pairings
+   </details>
 
 2. **Choose the shared schedule** Leave the group Awaiting schedule or choose one shared catalogue slot; use the explicit retained-time option only when preserving a confirmed interval. Review students, subjects, time and room consequences before saving.
 
    Look for: Selected assignments, primary member and shared schedule in the group editor
 
-   ![Selected assignments, primary member and shared schedule in the group editor](assets/annotated/7506a7db5228d7c92561e47b707d99b2b5eaa04b2a4a514c32e0ee72618e5f1e.webp)
+   ![Choose the shared schedule · Primary / room · Shared time](assets/annotated/7506a7db5228d7c92561e47b707d99b2b5eaa04b2a4a514c32e0ee72618e5f1e.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Existing combined group: selected assignments, primary room source and one shared recurring slot
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/combine-split-pairings-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Primary / room
-
-   - **2.** Shared time
+   </details>
 
 3. **Repair or split deliberately** Reopen the editor to add or untick assignments, or choose Split this group. Each remaining group needs at least two members. Leaving assignments keep their students/subjects/room but return to Awaiting schedule until separately scheduled.
 
-   ![Repair or split deliberately](assets/annotated/a709bca063e33b7b8fb93e40bd3d3595538ea29c2e9307195c3b1c61bfcc9541.webp)
+   ![Repair or split deliberately · Split this group · Keep at least two](assets/annotated/a709bca063e33b7b8fb93e40bd3d3595538ea29c2e9307195c3b1c61bfcc9541.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Repair or split controls in the existing combined-group editor before review
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/combine-split-pairings-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Split this group
-
-   - **2.** Keep at least two
+   </details>
 
 ### What happens next
 
@@ -429,75 +409,65 @@ Open: `/dashboard#sessions`
 
    Look for: Ended lesson marked Needs attendance
 
-   ![Ended lesson marked Needs attendance](assets/annotated/fbd9d274c28817e9ef6174785fcd3b8692ad4c8dd5d49b1dc775ccb423b6c237.webp)
+   ![Choose the ended lesson · Ended date · Learner list · Record attendance](assets/annotated/fbd9d274c28817e9ef6174785fcd3b8692ad4c8dd5d49b1dc775ccb423b6c237.webp)
 
-   /dashboard#sessions · EN · 2026-11-21
+   <details>
+   <summary>Capture details</summary>
 
    Pick the ended Mathematics lesson with the correct date and learner list. Its Record attendance action opens the lesson form.
 
+   /dashboard#sessions · EN · 2026-11-21
+
    [Original full screenshot](assets/record-attendance-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Ended date
-
-   - **2.** Learner list
-
-   - **3.** Record attendance
+   </details>
 
 2. **Record actual time and location** Confirm actual start/end and room or Online; planned lessons use 45 minutes but attendance records the duration that actually occurred. Read any room-conflict warning; a truthful historical report does not reserve a future conflicting room.
 
    Look for: Actual times, location and attendance rows
 
-   ![Actual times, location and attendance rows](assets/annotated/886bd652af64fc594965cbc89ae10d54eda15518276d57b5c56367011b2401a6.webp)
+   ![Record actual time and location · Start time · End time · Held Online](assets/annotated/886bd652af64fc594965cbc89ae10d54eda15518276d57b5c56367011b2401a6.webp)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Attendance form: actual time, room and online mode for the exact ended lesson
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/record-attendance-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Start time
-
-   - **2.** End time
-
-   - **3.** Held Online
+   </details>
 
 3. **Complete every attendance row** Record your attendance and every student's actual attendance. Supply required absence/excuse reasons, comments, session ratings and reasons for requested disciplinary cards. Combined lessons count distinct students once and retain captured subjects.
 
-   ![Complete every attendance row](assets/annotated/5afed011e4dc7233aa538baa1c843f0f3998d37ec61ae167d211604a34ac201a.webp)
+   ![Complete every attendance row · Comments · Optional card · Check then submit](assets/annotated/5afed011e4dc7233aa538baa1c843f0f3998d37ec61ae167d211604a34ac201a.webp)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Attendance form scrolled to evaluation, comments and optional disciplinary cards before submission
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/record-attendance-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Comments
-
-   - **2.** Optional card
-
-   - **3.** Check then submit
+   </details>
 
 4. **Submit and check the receipt** Submit once and read the saved receipt. The accepted entry is locked; Submit Another starts a new entry. If totals fail to refresh use Retry refresh. Ask management for corrections to a saved or unplanned historical lesson.
 
-   ![Submit and check the receipt](assets/annotated/00eff358a7f7f0981c460290a5480372c99e70edffa8b65609deec22f77c14c9.webp)
+   ![Submit and check the receipt · Saved · Saved entry locked](assets/annotated/00eff358a7f7f0981c460290a5480372c99e70edffa8b65609deec22f77c14c9.webp)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Saved planned attendance: the accepted form is locked and shows Saved
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/record-attendance-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Saved
-
-   - **2.** Saved entry locked
+   </details>
 
 ### What happens next
 
@@ -527,21 +497,18 @@ Open: `/dashboard#sessions`
 
    Look for: Session action menu and dated event
 
-   ![Session action menu and dated event](assets/annotated/24b12c24a3f18f5c1d65e7588d6e610ef2de9c6a75ed2f96726a51f89e0c5eb3.webp)
+   ![Open the session action · Upcoming date · Learner list · Open reschedule](assets/annotated/24b12c24a3f18f5c1d65e7588d6e610ef2de9c6a75ed2f96726a51f89e0c5eb3.webp)
 
-   /dashboard#sessions · EN · 2026-11-21
+   <details>
+   <summary>Capture details</summary>
 
    Choose the upcoming Mathematics date and confirm the included learners, then open Reschedule Session for that dated lesson.
 
+   /dashboard#sessions · EN · 2026-11-21
+
    [Original full screenshot](assets/plan-dated-session-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Upcoming date
-
-   - **2.** Learner list
-
-   - **3.** Open reschedule
+   </details>
 
 2. **Choose scope, time and mode** Keep Include all tutees in this session checked, or uncheck it and choose one person. Choose In person — room assigned automatically or Online. Editing start/end retains the planned 45-minute duration.
 
@@ -549,101 +516,80 @@ Open: `/dashboard#sessions`
 
    **View 1**
 
-   ![Proposal editor with included tutees, date/time and In person or Online](assets/annotated/db0cefd73aaff2ebc3462c6b3e27263194225b5c3fa7aa4abfb141fdc3982557.webp)
+   ![View 1 · All tutees · Location · Review](assets/annotated/f831529ae35d6430e28e8aa84f44faeacb1dc1ff1cf06b786467785c404cbe4a.webp)
 
-   /dashboard · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Keep Include all checked for the whole dated Mathematics group. Set the date and start time, check the linked 45-minute end, then choose the location.
 
+   /dashboard · EN · 2026-11-20
+
    [Original full screenshot](assets/plan-dated-session-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** All tutees
-
-   - **2.** Date and time
-
-   - **3.** Location
-
-   - **4.** Review
+   </details>
 
    **View 2**
 
-   ![Proposal editor with included tutees, date/time and In person or Online](assets/annotated/dbb9bfd628ed4e16a292059646ee39530010ada97853fe63e0784b635750e194.webp)
+   ![View 2 · Clear all · Choose learner · Online](assets/annotated/dbb9bfd628ed4e16a292059646ee39530010ada97853fe63e0784b635750e194.webp)
 
-   /dashboard · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    For a one-tutee proposal, clear Include all and choose the exact learner. Online is a separate location choice.
 
+   /dashboard · EN · 2026-11-20
+
    [Original full screenshot](assets/plan-dated-session-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Clear all
-
-   - **2.** Choose learner
-
-   - **3.** Online
+   </details>
 
 3. **Review availability and room** Choose Review and read the assigned room before sending. Review reserves nothing; if that room becomes unavailable, edit and review again. The system does not silently change the reviewed room or switch to Online.
 
    **View 1**
 
-   ![Review availability and room](assets/annotated/7b36297736eee7888e2fd488f38b8c33aec289810b8f55dd277ffede3831518e.webp)
+   ![View 1 · Original time · Proposed time · Assigned room · Send proposal](assets/annotated/7b36297736eee7888e2fd488f38b8c33aec289810b8f55dd277ffede3831518e.webp)
 
-   /dashboard · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Review compares the original time with the proposed group time and shows the assigned room. The room is checked again when a proposal is sent.
 
+   /dashboard · EN · 2026-11-20
+
    [Original full screenshot](assets/plan-dated-session-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Original time
-
-   - **2.** Proposed time
-
-   - **3.** Assigned room
-
-   - **4.** Send proposal
+   </details>
 
    **View 2**
 
-   ![Review availability and room](assets/annotated/29ef1c100d1e181a35d68c584a5bffa3187686006ad6bc2f24ed6f746ba80910.webp)
+   ![View 2 · Proposed time · Online · One tutee · Send proposal](assets/annotated/29ef1c100d1e181a35d68c584a5bffa3187686006ad6bc2f24ed6f746ba80910.webp)
 
-   /dashboard · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Review this one-tutee extra separately. The checked proposal shows the proposed date, Online location, and Emma as the only learner.
 
+   /dashboard · EN · 2026-11-20
+
    [Original full screenshot](assets/plan-dated-session-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Proposed time
-
-   - **2.** Online
-
-   - **3.** One tutee
-
-   - **4.** Send proposal
+   </details>
 
 4. **Send and follow agreement** Send the reviewed proposal and inspect essential-email delivery and each response. Use this suggestion can formalize an exact current tutee suggestion. For one tutee, accept their alternative or reject with one final proposal. If a group shows Separate rescheduling requested, choose Start individual requests and review/confirm the affected participants; then follow each individual request. The group timer stops while separate rescheduling is requested, and the weekly pairing group remains intact.
 
-   ![Send and follow agreement](assets/annotated/15d2347555fb122b784b0e3dba8c2cf4930b81ce7bba931e27a1d2c5e7e5f42f.webp)
+   ![Send and follow agreement · Pending · Learner response · Respond by](assets/annotated/15d2347555fb122b784b0e3dba8c2cf4930b81ce7bba931e27a1d2c5e7e5f42f.webp)
 
-   /dashboard · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Open Scheduling requests after sending. The extra awaits Emma’s response, and the displayed deadline starts after essential email delivery.
 
+   /dashboard · EN · 2026-11-20
+
    [Original full screenshot](assets/plan-dated-session-step-4.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Pending
-
-   - **2.** Learner response
-
-   - **3.** Respond by
+   </details>
 
 ### What happens next
 
@@ -675,93 +621,80 @@ Open: `/dashboard#sessions`
 
    Look for: Agreed Extra card and Cancel Extra Session
 
-   ![Agreed Extra card and Cancel Extra Session](assets/annotated/c90b685e0865a55ac0b83880cebe0829bcd12843ee653704a98a882767929574.webp)
+   ![Find the agreed extra · Extra session · Agreed time · Cancel extra](assets/annotated/c90b685e0865a55ac0b83880cebe0829bcd12843ee653704a98a882767929574.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Find the already scheduled Extra Session for the exact date and learner. Open Cancel Extra Session from that card.
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [Original full screenshot](assets/cancel-extra-session-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Extra session
-
-   - **2.** Agreed time
-
-   - **3.** Cancel extra
+   </details>
 
 2. **Review the participants** Include all current tutees or choose one, then review the exact date, time and people. Close or Cancel before submission sends nothing. Send only the reviewed cancellation request.
 
-   ![Review the participants](assets/annotated/e9f9710372c6df6c7f65270bb30e9521488e78dd5b4b33fd832b2ca6eb8828f1.webp)
+   ![Review the participants · Session time · Included learner · Send request](assets/annotated/e9f9710372c6df6c7f65270bb30e9521488e78dd5b4b33fd832b2ca6eb8828f1.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Check the exact extra date, time and learner on Review proposal. Send cancellation request creates an agreement request for that extra.
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [Original full screenshot](assets/cancel-extra-session-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Session time
-
-   - **2.** Included learner
-
-   - **3.** Send request
+   </details>
 
 3. **Check agreement and the result** Each included tutee can Accept cancellation or Decline cancellation. The extra remains scheduled until agreement under essential-email response rules. Check the saved request separately from actual cancellation.
 
    **View 1**
 
-   ![Check agreement and the result](assets/annotated/3ad2214bf402d0827e4709dc8e34d256be82f7795ec79a7da7c2aacb1da56e15.webp)
+   ![View 1 · Exact time · This learner · Confirm](assets/annotated/3ad2214bf402d0827e4709dc8e34d256be82f7795ec79a7da7c2aacb1da56e15.webp)
 
-   /student?view=schedule · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    On the learner’s Accept cancellation review, confirm the exact dated extra and the single participant. After the response, check the agenda for the saved outcome.
 
+   /student?view=schedule · EN · 2026-11-20
+
    [Original full screenshot](assets/cancel-extra-session-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Exact time
-
-   - **2.** This learner
-
-   - **3.** Confirm
+   </details>
 
    **View 2**
 
-   ![Check agreement and the result](assets/annotated/9d228a3d6925724c7167d5924c583491dd31beff3c19a20ad13eeb326b171933.webp)
+   ![View 2 · Request saved · Upcoming](assets/annotated/9d228a3d6925724c7167d5924c583491dd31beff3c19a20ad13eeb326b171933.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    The tutor sees the cancellation-request receipt while the very same extra remains Upcoming. Agreement is still pending.
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [Original full screenshot](assets/cancel-extra-session-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Request saved
-
-   - **2.** Upcoming
+   </details>
 
    **View 3**
 
-   ![Check agreement and the result](assets/annotated/9c7f3034fca971f55258802d80dac124272ea22be8aafc71f34a81e399702394.webp)
+   ![View 3 · All · Same extra · Cancelled](assets/annotated/9c7f3034fca971f55258802d80dac124272ea22be8aafc71f34a81e399702394.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    After the learner agrees, use All in the tutor schedule to find the same dated extra with its actual Cancelled badge.
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [Original full screenshot](assets/cancel-extra-session-step-3-view-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** All
-
-   - **2.** Same extra
-
-   - **3.** Cancelled
+   </details>
 
 ### What happens next
 
@@ -791,113 +724,97 @@ Open: `/dashboard#sessions`
 
    Look for: Interview card, vote status and action
 
-   ![Interview card, vote status and action](assets/annotated/d1caa70063c3a923e7bde17ac1bbc731857d8ed4b135b2cb7f1d9af08c981686.webp)
+   ![Open Interview work · View your interview and vote](assets/annotated/d1caa70063c3a923e7bde17ac1bbc731857d8ed4b135b2cb7f1d9af08c981686.webp)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Tutor dashboard on latest main: pinned and ordinary announcements, task panels and dated agenda
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-interviews-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** View your interview and vote
+   </details>
 
 2. **Submit your own vote** Read the application evidence and record your vote through its existing control. Check Vote recorded / Awaiting decision. Every panelist must vote before the final decision; opening or scheduling earns no hours.
 
-   ![Submit your own vote](assets/annotated/52884b4ce7433608d133695f0d5b55591a53cd412a29bee0be38127960da85e6.webp)
+   ![Submit your own vote · Your comment · Your vote](assets/annotated/52884b4ce7433608d133695f0d5b55591a53cd412a29bee0be38127960da85e6.webp)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Panelist interview details with an optional vote comment and the recorded own vote
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-interviews-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Your comment
-
-   - **2.** Your vote
+   </details>
 
 3. **Chair: schedule and decide** An authorized chair schedules the interview and records the outcome after all votes, following the majority and resolving a tie. On approval enter actual completion time, minutes and attending panelists, then review Approve & award hours.
 
    **View 1**
 
-   ![Chair: schedule and decide](assets/annotated/df357e405bd7f5e96269003576740f74aa0be957722ccf098b4517877e76b138.webp)
+   ![View 1 · Completion time · Actual duration · Attending panelists · Review approval & hours](assets/annotated/df357e405bd7f5e96269003576740f74aa0be957722ccf098b4517877e76b138.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    The assigned chair enters the completion time, duration and actual attendees for this fictional approval draft. Review approval & hours opens the final consequence review.
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [Original full screenshot](assets/tutor-interviews-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Completion time
-
-   - **2.** Actual duration
-
-   - **3.** Attending panelists
-
-   - **4.** Review approval & hours
+   </details>
 
    **View 2**
 
-   ![Chair: schedule and decide](assets/annotated/7b94fa1e55f112d566f91bdb0f2ea6b30056543da52bba64b07a4cb2a874b369.webp)
+   ![View 2 · Approval effects · Proposed hours · Approve & award hours](assets/annotated/7b94fa1e55f112d566f91bdb0f2ea6b30056543da52bba64b07a4cb2a874b369.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    The final initial approval review shows the proposed 1.5 hours and acceptance, registration and notification consequences. The confirmation remains unpressed.
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [Original full screenshot](assets/tutor-interviews-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Approval effects
-
-   - **2.** Proposed hours
-
-   - **3.** Approve & award hours
+   </details>
 
 4. **Check completion follow-up** Read the saved decision and completion separately. Acceptance, interview credit and initial invitation setup can apply together; additional qualifications grant subjects without a new registration code. Ask management to correct completion/hours through Interview Records.
 
    **View 1**
 
-   ![Check completion follow-up](assets/annotated/42e83389ad960d9791ffaeb60fb1adcf9b29a716469c5d393bb68e841128b4df.webp)
+   ![View 1 · Completed applicant · Actual completion · Recorded credit · Saved decision](assets/annotated/42e83389ad960d9791ffaeb60fb1adcf9b29a716469c5d393bb68e841128b4df.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    George’s completed card shows a saved accepted decision and the separate 35-minute completion and personal interview credit.
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [Original full screenshot](assets/tutor-interviews-step-4.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Completed applicant
-
-   - **2.** Actual completion
-
-   - **3.** Recorded credit
-
-   - **4.** Saved decision
+   </details>
 
    **View 2**
 
-   ![Check completion follow-up](assets/annotated/df4ceffdfe1ea02212ee7f57d27a40923fc294eba840946e42a6b4c249c15e8a.webp)
+   ![View 2 · Saved decision · Attendance hours · Registration status](assets/annotated/df4ceffdfe1ea02212ee7f57d27a40923fc294eba840946e42a6b4c249c15e8a.webp)
 
-   /admin/applications#interview-records · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Interview records shows George’s accepted decision, awarded attendance hours and the separate already-used registration status. No code is displayed.
 
+   /admin/applications#interview-records · EN · 2026-11-20
+
    [Original full screenshot](assets/tutor-interviews-step-4-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Saved decision
-
-   - **2.** Attendance hours
-
-   - **3.** Registration status
+   </details>
 
 ### What happens next
 
@@ -927,67 +844,65 @@ Open: `/dashboard#sessions`
 
    Look for: Meeting card and excuse state
 
-   ![Meeting card and excuse state](assets/annotated/0d97d50402528b84570679a42114df7aeb3e9c8bff4f751d50eacb752413223e.webp)
+   ![Open the meeting · View this meeting](assets/annotated/0d97d50402528b84570679a42114df7aeb3e9c8bff4f751d50eacb752413223e.webp)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Tutor dashboard on latest main: pinned and ordinary announcements, task panels and dated agenda
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-meetings-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** View this meeting
+   </details>
 
 2. **Submit or cancel your excuse** Use the excuse action, supply the requested reason and confirm at least 60 minutes before the meeting starts. You may cancel your own eligible excuse before that same deadline. Staff-recorded statuses require staff correction.
 
    **View 1**
 
-   ![Submit or cancel your excuse](assets/annotated/8e8ff9891f17a745c4ca6d064943e42cdf5cd89c2c12ddcf4bdcf1de52f3bf93.webp)
+   ![View 1](assets/tutor-meetings-step-2.en.jpg)
 
-   /dashboard#sessions · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Advance meeting excuse after the form layout fix: reason and both actions stay inside the dialog
 
+   /dashboard#sessions · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-meetings-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Absence reason
-
-   - **2.** Submit excuse
+   </details>
 
    **View 2**
 
-   ![Submit or cancel your excuse](assets/annotated/d108857457524c181b0c7338266849b695138a9a53460c34442305f1ea5ff0bf.webp)
+   ![View 2](assets/tutor-meetings-step-2-view-2.en.jpg)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    English mobile meeting excuse after the layout fix; reason and both actions remain visible
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-meetings-step-2-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Reason
-
-   - **2.** Submit excuse
+   </details>
 
 3. **Read Meeting history** Open Meeting history, then a school-year/quarter group for recorded attendance. Semester mode groups both constituent quarters. Period not recorded remains explicit; future meetings recorded under other periods appear separately.
 
-   ![Read Meeting history](assets/annotated/85a85836bb59f85fe9d68373daddbb625e7b16284002beafc4233e253c5489d2.webp)
+   ![Read Meeting history · Meeting history · Reporting period](assets/annotated/85a85836bb59f85fe9d68373daddbb625e7b16284002beafc4233e253c5489d2.webp)
 
-   /dashboard#sessions · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Meeting history expanded to a retained school-year/quarter group with recorded attendance
 
+   /dashboard#sessions · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-meetings-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Meeting history
-
-   - **2.** Reporting period
+   </details>
 
 ### What happens next
 
@@ -1019,181 +934,174 @@ Open: `/settings`
 
    **View 1**
 
-   ![Tutor participation request and pending state](assets/annotated/a71f9934aa13d00be3c4a8746b5718da0bd126011ce722154f602c4de02d55c3.webp)
+   ![View 1 · Request opt-out](assets/annotated/562ca2ab526587a99b10f6a1695cbe6a4838ca9983c0792b0b166abb278b1481.webp)
 
-   /settings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Opt-out review names the tutor, optional reason, seven-day review cooldown and continued participation until approval.
 
+   /settings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Request opt-out
-
-   - **2.** Cancel
+   </details>
 
    **View 2**
 
-   ![Tutor participation request and pending state](assets/annotated/8a2365a99e2074be490999d1309ec6618aacdd19fa974edbb4623e29a7ef3987.webp)
+   ![View 2 · Request saved](assets/annotated/15d6902b3d6df78cfd00994b47037e27473a3148ea76234267dd9288d9b5254c.webp)
 
-   /settings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Actual submitted opt-out receipt names the future approval date and recall window; it does not approve departure.
 
+   /settings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-1-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Request saved
-
-   - **2.** Close
+   </details>
 
    **View 3**
 
-   ![Tutor participation request and pending state](assets/annotated/55378d7729300b66f40d5df900a61df55bf752576cdd06bec9e2fcded662dcae.webp)
+   ![View 3 · Recall request](assets/annotated/55378d7729300b66f40d5df900a61df55bf752576cdd06bec9e2fcded662dcae.webp)
 
-   /settings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    The pending opt-out shows its real approval date and a separate Recall Request action while participation remains active.
 
+   /settings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-1-view-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Recall request
+   </details>
 
 2. **Request reentry or confirm a new semester** An opted-out tutor can request reentry without a seven-day wait, but approval remains required. Only one pending membership request is allowed. After semester refresh, pending continuing tutors directly choose available or opting out in the activation prompt.
 
    **View 1**
 
-   ![Request reentry or confirm a new semester](assets/annotated/8770b48ae9380299ac8cc18c660e6005952ec1543fc55cc3864f6fa00a86116f.webp)
+   ![View 1 · Reentry](assets/annotated/8770b48ae9380299ac8cc18c660e6005952ec1543fc55cc3864f6fa00a86116f.webp)
 
-   /settings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    This dedicated opted-out tutor sees Request Reentry in Membership. The page says an Admin will review the request; the button does not make the tutor active.
 
+   /settings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Reentry
+   </details>
 
    **View 2**
 
-   ![Request reentry or confirm a new semester](assets/annotated/ffe51273757b630525a7da9ef0ab99296a997c1d80d691cf450d66133412a4c5.webp)
+   ![View 2 · Pending · Recall](assets/annotated/ffe51273757b630525a7da9ef0ab99296a997c1d80d691cf450d66133412a4c5.webp)
 
-   /settings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Request Reentry submitted immediately and the real page now says it awaits Admin approval. Recall Request is available; the tutor has not been activated and no policy acceptance was submitted.
 
+   /settings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-2-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Pending
-
-   - **2.** Recall
+   </details>
 
 3. **Relay only an eligible student's request** For a non-survey enrolled student use the relay action in pairing Details, add an optional reason and review. It processes after a seven-day recall window unless recalled or cancelled. Survey students request whole-period withdrawal in their own workspace; schedule conflicts use their own review.
 
    **View 1**
 
-   ![Relay only an eligible student's request](assets/annotated/9e25ac2937d659dda750aa8d47b3cbb2b0a40e7ae32f6319dffa9b67bb515edc.webp)
+   ![View 1 · Review](assets/annotated/cc32ef6eeb0e800d3572c59768a9eca9eb3e64a61a6360b190cd84f931064b9b.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Alice opens the non-survey Capture Legacy Learner pairing details and drafts an optional relay reason. Relay Opt-Out will open the confirmation review; nothing has been submitted yet.
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Reason
-
-   - **2.** Review
+   </details>
 
    **View 2**
 
-   ![Relay only an eligible student's request](assets/annotated/85783b6986e551e8c25831fc567ccdad8a58cb6cda65060e0e9ee2b4123d4acd.webp)
+   ![View 2 · Read · Confirm](assets/annotated/85783b6986e551e8c25831fc567ccdad8a58cb6cda65060e0e9ee2b4123d4acd.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    The real Relay Opt-Out review names Capture Legacy Learner and Mathematics, states that participation remains active during the seven-day recall window, and offers Cancel or the final Relay Opt-Out action. Nothing has been submitted yet.
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-3-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Read
-
-   - **2.** Confirm
+   </details>
 
    **View 3**
 
-   ![Relay only an eligible student's request](assets/annotated/155a981ff74ccf09042db8a82de8a8b72a44e3427baf8ca6077e1828a35c7230.webp)
+   ![View 3 · Pending · Window · Recall](assets/annotated/155a981ff74ccf09042db8a82de8a8b72a44e3427baf8ca6077e1828a35c7230.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    The real relay was submitted once. The learner shows opt-out pending and an actual recall deadline of Nov 23, 2026, 3:51 PM; the receipt says participation remains active during this seven-day window. Recall is available.
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-3-view-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Pending
-
-   - **2.** Window
-
-   - **3.** Recall
+   </details>
 
    **View 4**
 
-   ![Relay only an eligible student's request](assets/annotated/d2d3591f218611bf006b3f92545f8bb0ebe4debb7d6b275355761253f5484988.webp)
+   ![View 4 · Recall](assets/annotated/8f29a60a236ba9cce7af7f9ea23ce33310e651f18f7c0a7e939a4daf715bc385.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Recall opens this real confirmation. Check the named learner and subject, then choose Recall to withdraw the pending removal or Cancel to keep it pending. The dialog states the assignment will remain active.
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-3-view-4.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Read
-
-   - **2.** Recall
+   </details>
 
    **View 5**
 
-   ![Relay only an eligible student's request](assets/annotated/13c2242d46a5968e9950df7870c02cab85f401e3105e03053553ce78acf12338.webp)
+   ![View 5 · Saved](assets/annotated/13c2242d46a5968e9950df7870c02cab85f401e3105e03053553ce78acf12338.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    The final Recall action completed and the real Saved receipt is visible. The pending badge, deadline and Recall action have disappeared; Relay Opt-Out is available again and the learner remains in the assignment.
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-3-view-5.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Saved
+   </details>
 
 4. **Inspect History & hours** Read the reporting period, earned tutoring hours, extras and deductions. Review sessions, interviews, meeting deductions and manual adjustments. Crew Hours is separate and is not included in the tutoring total.
 
    Look for: Selected period and earned/extras/deductions
 
-   ![Selected period and earned/extras/deductions](assets/annotated/b716522f44601d568b1ddaa6422b8952d20bb3df724e0fb3ad88cc55de1c22c9.webp)
+   ![Inspect History & hours · Credits ≠ total · Recorded lesson](assets/annotated/b716522f44601d568b1ddaa6422b8952d20bb3df724e0fb3ad88cc55de1c22c9.webp)
 
-   /dashboard#tutor-history · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Retained tutor history detail separates stored session credits from meeting records and manual amendments
 
+   /dashboard#tutor-history · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-membership-hours-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Credits ≠ total
-
-   - **2.** Recorded lesson
+   </details>
 
 ### What happens next
 
@@ -1223,87 +1131,80 @@ Open: `/dashboard`
 
    Look for: Announcements above the tutor workspace
 
-   ![Announcements above the tutor workspace](assets/annotated/57140c9e804734611990b70f29baf87540321b0d0f655350244451869c52f1fa.webp)
+   ![Read addressed announcements · Pinned and ordinary posts · Dismiss this post](assets/annotated/57140c9e804734611990b70f29baf87540321b0d0f655350244451869c52f1fa.webp)
 
-   /dashboard · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Tutor dashboard on latest main: pinned and ordinary announcements, task panels and dated agenda
 
+   /dashboard · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-program-information-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Pinned and ordinary posts
-
-   - **2.** Dismiss this post
+   </details>
 
 2. **Inspect the shared room schedule** Use the shared room-schedule view in the tutor workspace to read planned public room commitments. Read the exact time and room details, and close the reader when finished. It does not display private interview evidence or reserve a room for you.
 
    Look for: Shared room schedule beside pairing tools when offered
 
-   ![Shared room schedule beside pairing tools when offered](assets/annotated/0f72f9999d0db583db65a5c6314f5d2f102e74d3209230949ba41ae1f60cbad4.webp)
+   ![Inspect the shared room schedule · Time slot · Room and interval](assets/annotated/642f151da1ed869c0e1af9c3171bd580b1b0806228dead835caff65dd5324aaf.webp)
 
-   /dashboard#sessions · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Read-only room-schedule detail for the exact Monday time slot, including an unavailable room
 
+   /dashboard#sessions · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-program-information-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Time slot
-
-   - **2.** Room and interval
-
-   - **3.** Close details
+   </details>
 
 3. **Read your learners' standing** When discipline history is available, expand a tutee's timeline to inspect card color, date and pending/valid outcome. Tutors see standing and outcomes, never the private card reasons. Request new cards only through the relevant attendance form with an actual reason.
 
-   ![Read your learners' standing](assets/annotated/46b293104f83553b194a9951675615b7f48df8e7b505b6e5c82d780595978434.webp)
+   ![Read your learners' standing · Card standing · Dated outcomes](assets/annotated/46b293104f83553b194a9951675615b7f48df8e7b505b6e5c82d780595978434.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Expanded tutor-visible card timeline: colors, dates and valid or under-review outcomes
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-program-information-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Card standing
-
-   - **2.** Dated outcomes
+   </details>
 
 4. **Reopen the handbook** Choose Handbook or current policy to read the published tutor policy in the interface language, with English fallback. Reading does not sign a new revision; complete the separate participation-policy review if prompted.
 
-   ![Reopen the handbook](assets/annotated/d20469990e97a98afe54659788d7e3cfac3a526f3a2ee7a9e4d6c1dd3d15d110.webp)
+   ![Reopen the handbook · Title & revision](assets/annotated/7a4ce1f6108eb09ae8402370fe49dc0ee16b0eedd7ecdd8801d09aeac0dcb9d9.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Published tutor-policy reader reopened from the already-accepted policy notice
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-program-information-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Title & revision
-
-   - **2.** Close reader
+   </details>
 
 5. **Read feedback shared with you** Open Tutee Support at /student-support. When management enables Share feedback with tutors, you can read feedback for your own recorded sessions and use Previous/Next for that list. When sharing is off or cannot be verified, follow the stated unavailable/privacy message rather than assuming access.
 
-   ![Read feedback shared with you](assets/annotated/830fb505654cc068d4c51efa35f2eeb5c8abfb554743ae87847a31a92e73eec5.webp)
+   ![Read feedback shared with you · Visibility notice · Pagination](assets/annotated/830fb505654cc068d4c51efa35f2eeb5c8abfb554743ae87847a31a92e73eec5.webp)
 
-   /student-support · EN · 2026-11-16
+   <details>
+   <summary>Capture details</summary>
 
    Tutor feedback reader when management sharing is disabled: the privacy message is explicit
 
+   /student-support · EN · 2026-11-16
+
    [Original full screenshot](assets/tutor-program-information-step-5.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Visibility notice
-
-   - **2.** Pagination
+   </details>
 
 ### What happens next
 

@@ -1,10 +1,7 @@
 import { createHash } from "node:crypto";
 import PDFDocument from "pdfkit";
 import { beforeEach, expect, it, vi } from "vitest";
-import {
-  annotationNotice,
-  layoutHelpCallouts,
-} from "~/app/help/screenshot-annotations";
+import { layoutHelpCallouts } from "~/app/help/screenshot-annotations";
 import { getHelpScreenshot, getScreenshotSource } from "~/lib/help/screenshots";
 import type { HelpLocale } from "~/lib/help/types";
 import { renderHelpPdf } from "./pdf";
@@ -20,8 +17,9 @@ const primary = "observe-program-step-1";
 const supplemental = "observe-program-step-2";
 
 const oversizedDirections = (locale: HelpLocale) =>
-  Array.from({ length: 54 }, (_, index) =>
-    `${index + 1}. ${mock.fixtureDirections[locale]}`,
+  Array.from(
+    { length: 54 },
+    (_, index) => `${index + 1}. ${mock.fixtureDirections[locale]}`,
   ).join("\n");
 
 vi.mock("~/lib/help/catalogue", () => {
@@ -54,12 +52,11 @@ vi.mock("~/lib/help/catalogue", () => {
                 : mock.pagination
                   ? mock.fixtureDirections
                   : { en: "中文", zh: "中文" },
-            screenshot:
-              mock.pagination
-                ? primary
-                : mock.repeatAnnotatedStep || mock.gallery
-                  ? "admin-overview"
-                  : "admin-crew",
+            screenshot: mock.pagination
+              ? primary
+              : mock.repeatAnnotatedStep || mock.gallery
+                ? "admin-overview"
+                : "admin-crew",
             ...(mock.pagination === "grouped"
               ? { supplementaryScreenshots: [supplemental] }
               : mock.gallery
@@ -138,28 +135,30 @@ async function traceRendering(locale: HelpLocale) {
   >;
   const writeText = prototype.text;
   const drawImage = prototype.image;
-  const textSpy = vi.spyOn(prototype, "text").mockImplementation(
-    function (this: PDFKit.PDFDocument, ...args) {
-      const page = this.page.dictionary.id;
-      // Pass the original arguments through unchanged, including absolute
-      // annotation coordinates on PDFKit's alternate text overload.
-      const result = Reflect.apply(writeText, this, args);
-      text.push({ value: args[0], page, finishPage: this.page.dictionary.id });
-      return result;
-    },
-  );
-  const imageSpy = vi.spyOn(prototype, "image").mockImplementation(
-    function (this: PDFKit.PDFDocument, ...args) {
-      const source = args[0];
-      if (!Buffer.isBuffer(source))
-        throw new Error("Expected original JPEG bytes");
-      images.push({
-        page: this.page.dictionary.id,
-        sha256: createHash("sha256").update(source).digest("hex"),
-      });
-      return Reflect.apply(drawImage, this, args);
-    },
-  );
+  const textSpy = vi.spyOn(prototype, "text").mockImplementation(function (
+    this: PDFKit.PDFDocument,
+    ...args
+  ) {
+    const page = this.page.dictionary.id;
+    // Pass the original arguments through unchanged, including absolute
+    // annotation coordinates on PDFKit's alternate text overload.
+    const result = Reflect.apply(writeText, this, args);
+    text.push({ value: args[0], page, finishPage: this.page.dictionary.id });
+    return result;
+  });
+  const imageSpy = vi.spyOn(prototype, "image").mockImplementation(function (
+    this: PDFKit.PDFDocument,
+    ...args
+  ) {
+    const source = args[0];
+    if (!Buffer.isBuffer(source))
+      throw new Error("Expected original JPEG bytes");
+    images.push({
+      page: this.page.dictionary.id,
+      sha256: createHash("sha256").update(source).digest("hex"),
+    });
+    return Reflect.apply(drawImage, this, args);
+  });
   try {
     await renderHelpPdf("observer", locale);
     return {
@@ -207,13 +206,28 @@ it.each(["en", "zh"] as const)(
       const samePage = rendered.completeRowsOn(draw.page);
       expect(draw.sha256).toBe(screenshot.sha256);
       expect(annotations.length).toBeGreaterThanOrEqual(2);
-      expect(samePage).toContain(screenshot.state?.[locale]);
+      expect(samePage).not.toContain(screenshot.state?.[locale]);
       expect(samePage).toContain(
-        `${locale === "zh" ? "截图来源" : "Capture source"}: ${source.revision} · ${source.label}`,
+        `${screenshot.route} · ${screenshot.locale.toUpperCase()} · ${screenshot.capturedAt.slice(0, 10)} · ${source.revision.slice(0, 12)}`,
       );
-      expect(samePage).toContain(annotationNotice[locale]);
-      const legend = annotations.map(({ number, text }) => `${number}. ${text}`);
-      expect(samePage.filter((row) => legend.includes(row))).toEqual(legend);
+      expect(
+        rendered.text.filter(
+          ({ value }) => value === `${source.revision} · ${source.label}`,
+        ),
+      ).toHaveLength(1);
+      const scale = Math.min(
+        300 / screenshot.viewport.height,
+        (595.28 - 96) / screenshot.viewport.width,
+      );
+      for (const annotation of annotations) {
+        const numbered = `${annotation.number}. ${annotation.text}`;
+        if (annotation.showLabel && annotation.fontSize * scale >= 8) {
+          expect(samePage).not.toContain(numbered);
+          for (const line of annotation.lines) expect(samePage).toContain(line);
+        } else {
+          expect(samePage).toContain(numbered);
+        }
+      }
     }
   },
 );

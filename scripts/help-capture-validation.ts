@@ -226,7 +226,7 @@ export function validateStepCaptureCoverage(
             );
           if (!getStepCallouts(frameStep, capture).length)
             throw new Error(
-              `Step capture needs reviewed in-image labels: ${key}`,
+              `Step capture needs reviewed in-image labels or reviewed targets omitted from the guide: ${key}`,
             );
           // Resolve both language editions, selecting positions by the actual frame
           // locale. This also catches invalid boxes, crops and labels too tall to fit.

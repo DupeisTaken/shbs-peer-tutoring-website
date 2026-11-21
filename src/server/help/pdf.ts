@@ -10,10 +10,10 @@ import {
   helpCaptureInfo,
 } from "~/lib/help/screenshots";
 import type { HelpAudience, HelpLocale } from "~/lib/help/types";
+import { getScreenshotCaption, getStepFocus } from "~/lib/help/screenshot-copy";
 import { readScreenshot } from "./assets";
 import {
   annotationColors,
-  annotationNotice,
   layoutHelpCallouts,
 } from "~/app/help/screenshot-annotations";
 
@@ -49,6 +49,7 @@ export async function renderHelpPdf(
   void complete.catch(() => undefined);
   try {
     const text = (en: string, zh: string) => (locale === "zh" ? zh : en);
+    const sources = new Map<string, ReturnType<typeof getScreenshotSource>>();
     const width = doc.page.width - 96;
     const captionGap = 8;
     const bodyStyle = {
@@ -159,8 +160,9 @@ export async function renderHelpPdf(
         const step = article.steps[index]!;
         const walkthrough = index === 0 ? text("Walkthrough", "操作步骤") : "";
         const title = `${index + 1}. ${step.title[locale]}`;
-        const focus = step.focus
-          ? `${text("Look for", "请注意")}: ${step.focus[locale]}`
+        const focusHint = getStepFocus(step, locale);
+        const focus = focusHint
+          ? `${text("Look for", "请注意")}: ${focusHint}`
           : undefined;
         const views = getStepCaptureViews(step);
         const figures = views.map(({ id, view }) => {
@@ -170,36 +172,36 @@ export async function renderHelpPdf(
             300,
             (width * screenshot.viewport.height) / screenshot.viewport.width,
           );
-          const annotations = layoutHelpCallouts(
-            stepForCaptureView(step, view),
-            screenshot,
-            locale,
-          );
+          const frameStep = stepForCaptureView(step, view);
+          const caption = getScreenshotCaption(frameStep, screenshot, locale);
+          const scale = imageHeight / screenshot.viewport.height;
+          const inline = layoutHelpCallouts(frameStep, screenshot, locale);
+          const annotations = inline.some(
+            (annotation) =>
+              annotation.showLabel && annotation.fontSize * scale < 8,
+          )
+            ? layoutHelpCallouts(frameStep, screenshot, locale, false)
+            : inline;
           const source = getScreenshotSource(screenshot);
+          sources.set(`${source.revision}:${source.label}`, source);
           const rows = [
-            ...(screenshot.state
-              ? [{ value: screenshot.state[locale], size: 8 }]
-              : []),
+            ...(caption ? [{ value: caption, size: 9 }] : []),
+            ...annotations
+              .filter((annotation) => !annotation.showLabel)
+              .map(({ number, text }) => ({
+                value: `${number}. ${text}`,
+                size: 9,
+              })),
             {
-              value: `${screenshot.route} · ${screenshot.locale.toUpperCase()} · ${screenshot.capturedAt.slice(0, 10)}`,
+              value: `${screenshot.route} · ${screenshot.locale.toUpperCase()} · ${screenshot.capturedAt.slice(0, 10)} · ${source.revision.slice(0, 12)}`,
               size: 8,
             },
-            {
-              value: `${text("Capture source", "截图来源")}: ${source.revision} · ${source.label}`,
-              size: 8,
-            },
-            ...(annotations.length
-              ? [{ value: annotationNotice[locale], size: 8 }]
-              : []),
-            ...annotations.map(({ number, text }) => ({
-              value: `${number}. ${text}`,
-              size: 9,
-            })),
           ].map((row) => ({
             ...row,
             height: measureText(row.value, row.size, captionStyle),
           }));
-          const label = views.length > 1 ? `${text("View", "视图")} ${view}` : "";
+          const label =
+            views.length > 1 ? `${text("View", "视图")} ${view}` : "";
           return {
             screenshot,
             imageHeight,
@@ -247,8 +249,13 @@ export async function renderHelpPdf(
         if (focus) paragraph(focus, 9);
         for (const figure of figures) {
           if (figure) {
-            const { screenshot, imageHeight, annotations, rows, continuedLabel } =
-              figure;
+            const {
+              screenshot,
+              imageHeight,
+              annotations,
+              rows,
+              continuedLabel,
+            } = figure;
             let label = doc.page === stepPage ? figure.label : continuedLabel;
             const labelHeight = captionHeight(label);
             const continuedHeight = captionHeight(continuedLabel);
@@ -443,6 +450,12 @@ export async function renderHelpPdf(
       for (const issue of article.troubleshooting) {
         paragraph(issue.problem[locale], 11);
         paragraph(issue.solution[locale]);
+      }
+    }
+    if (sources.size) {
+      heading(text("Capture sources", "截图来源"));
+      for (const { revision, label } of sources.values()) {
+        paragraph(`${revision} · ${label}`, 9);
       }
     }
     const range = doc.bufferedPageRange();

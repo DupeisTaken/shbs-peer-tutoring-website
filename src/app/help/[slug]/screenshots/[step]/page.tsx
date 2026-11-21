@@ -4,15 +4,14 @@ import { getLocale } from "next-intl/server";
 import { helpArticles } from "~/lib/help/catalogue";
 import {
   getHelpScreenshot,
-  getScreenshotSource,
   getStepCaptureViews,
   stepForCaptureView,
 } from "~/lib/help/screenshots";
 import { helpLocale } from "~/lib/help/types";
 import { getHelpAccess } from "~/server/help/access";
 import { AnnotatedScreenshot } from "../../../annotated-screenshot";
+import { ScreenshotCaption } from "../../../screenshot-caption";
 import { annotationLabels } from "../../../screenshot-annotations";
-import { captureDate, helpCopy } from "../../../copy";
 
 /** Resolve the live article allowlist before returning a full-size image view.
  * The underlying unchanged JPEG also retains its separate protected route. */
@@ -50,7 +49,7 @@ export default async function HelpStepScreenshotPage({
   const screenshot = getHelpScreenshot(selected.id, locale);
   if (!screenshot) notFound();
   const copy = annotationLabels[locale];
-  const source = getScreenshotSource(screenshot);
+  const frameStep = stepForCaptureView(step, viewNumber);
   const rawHref = `/api/help/images/${screenshot.id}?locale=${locale}`;
   return (
     <main lang={locale} className="mx-auto max-w-[1600px] space-y-5 px-4 py-6">
@@ -103,36 +102,23 @@ export default async function HelpStepScreenshotPage({
           className="overflow-auto"
           tabIndex={0}
           role="region"
-          aria-label={copy.annotated}
+          aria-label={copy.open}
         >
           <div style={{ width: screenshot.viewport.width }}>
             <AnnotatedScreenshot
-              step={stepForCaptureView(step, viewNumber)}
+              step={frameStep}
               screenshot={screenshot}
               locale={locale}
               src={rawHref}
-              alt={
-                screenshot.caption?.[locale] ??
-                step.focus?.[locale] ??
-                step.title[locale]
-              }
-              legendId="full-screenshot-callouts"
+              alt={screenshot.state?.[locale] ?? step.title[locale]}
             />
           </div>
         </div>
-        <figcaption className="space-y-2 border-t border-slate-200 p-4 text-xs leading-6 text-slate-600">
-          {screenshot.state && <p>{screenshot.state[locale]}</p>}
-          <p>
-            {screenshot.locale === "zh"
-              ? helpCopy[locale].chinese
-              : helpCopy[locale].english}{" "}
-            · {screenshot.route} · {captureDate(screenshot.capturedAt, locale)}
-          </p>
-          <p>
-            {copy.source}: <code className="break-all">{source.revision}</code> ·{" "}
-            {source.label}
-          </p>
-        </figcaption>
+        <ScreenshotCaption
+          screenshot={screenshot}
+          step={frameStep}
+          locale={locale}
+        />
       </figure>
     </main>
   );

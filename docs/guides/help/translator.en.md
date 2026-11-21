@@ -26,113 +26,97 @@ Open: `/localization`
 
    Look for: Interface text, Website text, Draft review and language selector
 
-   ![Interface text, Website text, Draft review and language selector](assets/annotated/9a15f9092043b7dfc5ae1454a9265f7ca1c62a8b4620b106207523e398f97c87.webp)
+   ![Choose text type and language · Language · Search key · Exact field](assets/annotated/9a15f9092043b7dfc5ae1454a9265f7ca1c62a8b4620b106207523e398f97c87.webp)
 
-   /localization · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    In Interface text, select the target language and search the exact key. The matching HelpNav group displays the English source and editable value.
 
+   /localization · EN · 2026-11-20
+
    [Original full screenshot](assets/translate-interface-website-step-1.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Language
-
-   - **2.** Search key
-
-   - **3.** Exact field
+   </details>
 
 2. **Submit using the correct control** A changed interface field submits when focus leaves it. Website text uses its explicit submission button. Check each saved/pending/error state before leaving. Open language/destination drafts remain independent during the visit.
 
    **View 1**
 
-   ![Submit using the correct control](assets/annotated/0a3dedddf9867aaa91bffa63bd3b2dad397b649ca7dc7871121af8d4e4c0e098.webp)
+   ![View 1 · Leave field · Draft submitted · New wording](assets/annotated/0a3dedddf9867aaa91bffa63bd3b2dad397b649ca7dc7871121af8d4e4c0e098.webp)
 
-   /localization · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Leave the changed interface field to submit it for review. Draft submitted confirms the new wording is saved for Admin or Head review.
 
+   /localization · EN · 2026-11-20
+
    [Original full screenshot](assets/translate-interface-website-step-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Leave field
-
-   - **2.** Draft submitted
-
-   - **3.** New wording
+   </details>
 
    **View 2**
 
-   ![Submit using the correct control](assets/annotated/9834ac9f3778024e48db4df9b6404e913d9fff7507da82d276ec1b1dc54298f6.webp)
+   ![View 2 · Form-only save · Draft language · Exact text · Submit for review](assets/annotated/9834ac9f3778024e48db4df9b6404e913d9fff7507da82d276ec1b1dc54298f6.webp)
 
-   /localization · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Website text uses its own form. The hidden demonstration language and landing text are selected, and the new wording stays local until Submit for review is selected.
 
+   /localization · EN · 2026-11-20
+
    [Original full screenshot](assets/translate-interface-website-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Form-only save
-
-   - **2.** Draft language
-
-   - **3.** Exact text
-
-   - **4.** Submit for review
+   </details>
 
 3. **Follow Draft review** Use Pending, Published, Rejected or All filters to read review status. Ordinary translators and Coordinator edits create private drafts; only Admin/Head approve/publish or reject. A Coordinator may Request Admin/Head approval, leaving the draft pending.
 
-   ![Follow Draft review](assets/annotated/7d77d51ef707657883f689e396644259873c700e97f8df4edd6d4e6d9641267b.webp)
+   ![Follow Draft review · Draft status · Pending · Proposed text](assets/annotated/7d77d51ef707657883f689e396644259873c700e97f8df4edd6d4e6d9641267b.webp)
 
-   /localization · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    Open Draft review and use Draft status to locate your exact submission. The new HelpNav string is Pending review in the demo language.
 
+   /localization · EN · 2026-11-20
+
    [Original full screenshot](assets/translate-interface-website-step-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Draft status
-
-   - **2.** Pending
-
-   - **3.** Proposed text
+   </details>
 
 4. **Add a language carefully** Use Languages to add a language with English fallback. New languages start hidden until management reviews and enables them. Only the permitted management controls change public visibility, order or deletion; built-in catalogues cannot be deleted.
 
    **View 1**
 
-   ![Add a language carefully](assets/annotated/87bbce37b2c2f6bececb026f58d3c7c50ea28dff9eee0603c657817ba065714a.webp)
+   ![View 1 · Code · Add language](assets/annotated/89e1c0f51b46a1f01b6bbf5640c95c8f25ffc56ea1fc6466a89d73bdfdff159a.webp)
 
-   /localization · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    In Languages, enter a new code and name, then choose Add Language. New language catalogues start hidden.
 
+   /localization · EN · 2026-11-20
+
    [Original full screenshot](assets/translate-interface-website-step-4.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Code
-
-   - **2.** Name
-
-   - **3.** Add language
+   </details>
 
    **View 2**
 
-   ![Add a language carefully](assets/annotated/7d95a29b1d97cad9766cdeb5dd55ce37ddca4de89c8cd36fd4b5b2db31e8cf70.webp)
+   ![View 2 · Starts hidden](assets/annotated/7d95a29b1d97cad9766cdeb5dd55ce37ddca4de89c8cd36fd4b5b2db31e8cf70.webp)
 
-   /localization · EN · 2026-11-20
+   <details>
+   <summary>Capture details</summary>
 
    The new catalogue appears in Languages with hidden status. A Translator can prepare text while this language is absent from the public chooser.
 
+   /localization · EN · 2026-11-20
+
    [Original full screenshot](assets/translate-interface-website-step-4-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   Annotations added for this step. The original full screenshot is unchanged.
-
-   - **1.** Starts hidden
+   </details>
 
 ### What happens next
 

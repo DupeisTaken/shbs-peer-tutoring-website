@@ -98,7 +98,7 @@ it("keeps matching target numbers and leaders in the PNG overlay when labels are
       { ...step.callouts![0]!, labelPosition: { x: 0.7, y: 0.03 } },
       {
         bounds: { x: 0.6, y: 0.5, width: 0.2, height: 0.08 },
-        label: title,
+        label: { en: "Choose Next", zh: "选择下一步" },
         labelPosition: { x: 0.05, y: 0.75 },
       },
     ],

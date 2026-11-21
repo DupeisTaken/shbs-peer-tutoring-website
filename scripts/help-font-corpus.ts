@@ -3,10 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { helpArticles, helpAudienceTitles } from "../src/lib/help/catalogue";
 import { helpCaptureInfo, helpScreenshots } from "../src/lib/help/screenshots";
-import {
-  annotationLabels,
-  annotationNotice,
-} from "../src/app/help/screenshot-annotations";
+import { annotationLabels } from "../src/app/help/screenshot-annotations";
 
 export function assembleHelpFontCorpus(
   payload: unknown,
@@ -31,7 +28,6 @@ export async function getHelpFontCorpus(root = process.cwd()) {
       articles: helpArticles,
       audienceTitles: helpAudienceTitles,
       captures: { info: helpCaptureInfo, screenshots: helpScreenshots },
-      annotationNotice,
       annotationLabels,
     },
     [await fs.readFile(path.join(root, "src/server/help/pdf.ts"), "utf8")],

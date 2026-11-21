@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { helpArticles, helpAudienceTitles } from "~/lib/help/catalogue";
 import { helpCaptureInfo } from "~/lib/help/screenshots";
+import { getStepFocus } from "~/lib/help/screenshot-copy";
 import { helpLocale } from "~/lib/help/types";
 import { getHelpAccess } from "~/server/help/access";
 import { captureDate, helpCopy } from "../copy";
@@ -141,6 +142,7 @@ export default async function HelpArticlePage({
             </h2>
             <ol className="mt-4 space-y-5">
               {article.steps.map((step, index) => {
+                const focus = getStepFocus(step, locale);
                 return (
                   <li
                     key={index}
@@ -165,10 +167,10 @@ export default async function HelpArticlePage({
                           </p>
                         </div>
                       </div>
-                      {step.focus && (
+                      {focus && (
                         <p className="border-accent-200 bg-accent-50 text-accent-950 mt-4 rounded-lg border px-3 py-2 text-sm leading-6">
                           <strong>{copy.focus}: </strong>
-                          {step.focus[locale]}
+                          {focus}
                         </p>
                       )}
                     </div>

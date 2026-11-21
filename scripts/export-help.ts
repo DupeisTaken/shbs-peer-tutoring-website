@@ -17,7 +17,11 @@ import {
 } from "../src/lib/help/screenshots";
 import type { HelpArticle, HelpLocale, HelpStep } from "../src/lib/help/types";
 import type { HelpScreenshot } from "../src/lib/help/screenshots";
-import { annotationNotice } from "../src/app/help/screenshot-annotations";
+import {
+  getScreenshotCaption,
+  getStepFocus,
+} from "../src/lib/help/screenshot-copy";
+import { layoutHelpCallouts } from "../src/app/help/screenshot-annotations";
 import {
   annotationOverlaySvg,
   annotationRecipeHash,
@@ -71,13 +75,20 @@ async function exportStepImage(
   screenshot: HelpScreenshot,
   locale: HelpLocale,
   view: number,
+  annotated: boolean,
 ) {
-  if (!getStepCallouts(step, screenshot).length)
-    return `assets/${screenshot.file}`;
   assertAnnotationImageDimensions(
     screenshot.viewport.width,
     screenshot.viewport.height,
   );
+  const originalKey = `${screenshot.file}:${screenshot.sha256}`;
+  if (!verifiedOriginals.has(originalKey)) {
+    const raw = await fs.readFile(path.join(root, "assets", screenshot.file));
+    if (hash(raw) !== screenshot.sha256)
+      throw new Error(`Original help capture changed: ${screenshot.id}`);
+    verifiedOriginals.add(originalKey);
+  }
+  if (!annotated) return `assets/${screenshot.file}`;
   const overlay = annotationOverlaySvg(step, screenshot, locale);
   const pngRecipeSha256 = annotationRecipeHash(
     screenshot,
@@ -86,17 +97,9 @@ async function exportStepImage(
     locale,
   );
   const recipeSha256 = annotationWebpRecipeHash(pngRecipeSha256);
-  // Content addressing reuses an identical capture/geometry/label/font recipe
-  // across steps. The format recipe also binds the lossless codec and pixel proof.
+  // Content addressing reuses identical bitmap/geometry/label/font recipes.
   const file = `assets/annotated/${recipeSha256}.webp`;
   const destination = path.join(root, file);
-  const originalKey = `${screenshot.file}:${screenshot.sha256}`;
-  if (!verifiedOriginals.has(originalKey)) {
-    const raw = await fs.readFile(path.join(root, "assets", screenshot.file));
-    if (hash(raw) !== screenshot.sha256)
-      throw new Error(`Original help capture changed: ${screenshot.id}`);
-    verifiedOriginals.add(originalKey);
-  }
   const previous = [...previousDerivatives, ...derivedCaptures].find(
     (item) => item.recipeSha256 === recipeSha256 && item.file === file,
   );
@@ -215,17 +218,24 @@ for (const audience of helpAudiences) {
           `${index + 1}. **${text(step.title[locale])}** ${text(step.body[locale])}`,
           "",
         );
-        if (step.focus)
-          lines.push(
-            `   ${label("Look for", "请注意")}: ${text(step.focus[locale])}`,
-            "",
-          );
+        const focus = getStepFocus(step, locale);
+        if (focus)
+          lines.push(`   ${label("Look for", "请注意")}: ${text(focus)}`, "");
         const views = getStepCaptureViews(step);
         for (const { id, view } of views) {
           const screenshot = getHelpScreenshot(id, locale);
           if (!screenshot)
             throw new Error(`Missing screenshot: ${article.slug}: ${id}`);
           const frameStep = stepForCaptureView(step, view);
+          const annotations = layoutHelpCallouts(frameStep, screenshot, locale);
+          const caption = getScreenshotCaption(frameStep, screenshot, locale);
+          const viewLabel = `${label("View", "视图")} ${view}`;
+          const description = [
+            views.length > 1 ? viewLabel : step.title[locale],
+            ...annotations
+              .filter((annotation) => annotation.showLabel)
+              .map((annotation) => annotation.text),
+          ].join(" · ");
           const imageFile = await exportStepImage(
             article,
             frameStep,
@@ -233,32 +243,39 @@ for (const audience of helpAudiences) {
             screenshot,
             locale,
             view,
+            annotations.length > 0,
           );
-          const callouts = getStepCallouts(frameStep, screenshot);
           const source = getScreenshotSource(screenshot);
           lines.push(
-            ...(views.length > 1
-              ? [`   **${label("View", "视图")} ${view}**`, ""]
-              : []),
-            `   ![${text(step.focus?.[locale] ?? step.title[locale])}](${imageFile})`,
+            ...(views.length > 1 ? [`   **${viewLabel}**`, ""] : []),
+            `   ![${text(description).replace(/([\\\[\]])/g, "\\$1")}](${imageFile})`,
             "",
-            `   ${screenshot.route} · ${screenshot.locale.toUpperCase()} · ${screenshot.capturedAt.slice(0, 10)}`,
-            "",
-            ...(screenshot.state
-              ? [`   ${text(screenshot.state[locale])}`, ""]
-              : []),
-            `   [${label("Original full screenshot", "原始完整截图")}](assets/${screenshot.file}) · \`${source.revision}\` · ${text(source.label)}`,
-            "",
-          );
-          if (callouts.length)
-            lines.push(
-              `   ${annotationNotice[locale]}`,
-              "",
-              ...callouts.flatMap((callout, marker) => [
-                `   - **${marker + 1}.** ${text(callout.label[locale])}`,
+            ...annotations
+              .filter((annotation) => !annotation.showLabel)
+              .flatMap((annotation) => [
+                `   - **${annotation.number}.** ${text(annotation.text)}`,
                 "",
               ]),
-            );
+            ...(caption ? [`   ${text(caption)}`, ""] : []),
+            ...(screenshot.locale !== locale
+              ? [
+                  `   ${screenshot.locale === "en" ? label("English screen", "英文界面") : label("Chinese screen", "中文界面")}`,
+                  "",
+                ]
+              : []),
+            "   <details>",
+            `   <summary>${label("Capture details", "截图详情")}</summary>`,
+            "",
+            ...(screenshot.state && !caption
+              ? [`   ${text(screenshot.state[locale])}`, ""]
+              : []),
+            `   ${screenshot.route} · ${screenshot.locale.toUpperCase()} · ${screenshot.capturedAt.slice(0, 10)}`,
+            "",
+            `   [${label("Original full screenshot", "原始完整截图")}](assets/${screenshot.file}) · \`${source.revision}\` · ${text(source.label)}`,
+            "",
+            "   </details>",
+            "",
+          );
         }
       }
       lines.push(

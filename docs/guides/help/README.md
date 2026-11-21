@@ -4,10 +4,11 @@ Open `/help` on the running website for searchable, illustrated walkthroughs.
 The Information menu and account menu link to it; `/p/faq` redirects there.
 Signing in adds the collections available to the current account. Each guide
 has prerequisites, numbered directions, a result to check, an explanation and
-brief troubleshooting. Numbered labels identify the controls used in each step.
+brief troubleshooting. Callouts help locate controls or recognize results when
+the screen needs visual guidance.
 Long forms and separate review/result states have additional full-screen views.
-Open an annotated screenshot at its original size, or inspect the unchanged
-original image separately. A readable numbered legend accompanies each view.
+Select a screenshot to enlarge it. Number-only markers have a readable key.
+Open Capture details for the original image, date, route and source revision.
 
 ## GitHub training editions
 

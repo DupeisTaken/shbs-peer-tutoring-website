@@ -26,51 +26,54 @@
 
    请注意: 只读导航与允许查看的概览
 
-   ![只读导航与允许查看的概览](assets/annotated/f67774206eb2431c79e6646be4c1abfede5c7c0b07eb4161e9d860bfaf021882.webp)
+   ![进入只读门户 · 只读提示 · 打开名册](assets/annotated/f67774206eb2431c79e6646be4c1abfede5c7c0b07eb4161e9d860bfaf021882.webp)
 
-   /admin · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已登录观察员进入实际只读管理门户。权限提示说明联系方式已隐藏。左侧导航的辅导伙伴名册是允许查看的概览页面之一，此处不提交管理操作。
 
+   /admin · EN · 2026-11-16
+
    [原始完整截图](assets/observe-program-step-1.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 只读提示
-
-   - **2.** 打开名册
+   </details>
 
 2. **阅读并筛选概览** 浏览允许的姓名、时间安排、状态、评分和总数。使用可用搜索、时期筛选和排序标题，这些操作仅改变视图。通过允许页面阅读已发布政策及公告。
 
-   ![阅读并筛选概览](assets/annotated/cf986f60a8669d6eaf13e65305f44e7cee29a7b009e6ba3f60e5b006f4459f14.webp)
+   ![阅读并筛选概览 · 搜索姓名 · 对此视图排序](assets/annotated/cf986f60a8669d6eaf13e65305f44e7cee29a7b009e6ba3f60e5b006f4459f14.webp)
 
-   /admin/tutors · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    人员搜索已将实际观察员名册筛选为 Alice，点击姓名仅改变排序。允许的概览显示学业信息与有效状态，此观察员没有联系方式栏或管理操作控件。
 
+   /admin/tutors · EN · 2026-11-16
+
    [原始完整截图](assets/observe-program-step-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 搜索姓名
-
-   - **2.** 对此视图排序
+   </details>
 
 3. **单独管理本人账户** 打开账户设置或我的辅导历史，查看本人符合条件的记录。需要参与资格时，提交申请或确认授权添加权限邀请，不要重复注册。
 
-   ![单独管理本人账户](assets/annotated/106ff5b136198d7358e867ae218d95e35107c29202213425834a58ed686336db.webp)
+   ![单独管理本人账户 · 本人账户 · 本人历史](assets/annotated/106ff5b136198d7358e867ae218d95e35107c29202213425834a58ed686336db.webp)
 
-   /admin/tutors · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    打开账户管理本人设置，或我的辅导历史查看本人符合条件的记录。邀请码入口用于给同一账户添加授权权限，不需重复注册。这些链接不会授予管理编辑权限。
 
+   /admin/tutors · EN · 2026-11-16
+
    [原始完整截图](assets/observe-program-step-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 本人账户
-
-   - **2.** 本人历史
+   </details>
 
 ### 预期结果
 

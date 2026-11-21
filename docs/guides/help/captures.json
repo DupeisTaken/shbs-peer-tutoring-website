@@ -2370,6 +2370,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.34268774703557314,
             "y": 0.3696808510638298,
@@ -2386,6 +2387,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.34268774703557314,
             "y": 0.47606382978723405,
@@ -2402,6 +2404,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.34268774703557314,
             "y": 0.5558510638297872,
@@ -5552,6 +5555,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.7130928853754941,
             "y": 0.06805555555555555,
@@ -5714,6 +5718,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.7879446640316206,
             "y": 0.17291666666666666,
@@ -5987,6 +5992,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.29130434782608694,
             "y": 0.47250434027777777,
@@ -6003,6 +6009,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.4699604743083004,
             "y": 0.47250434027777777,
@@ -6062,6 +6069,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.224,
             "y": 0.5853080568720379,
@@ -6078,6 +6086,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.224,
             "y": 0.6469194312796208,
@@ -6133,6 +6142,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.224,
             "y": 0.5853080568720379,
@@ -6149,6 +6159,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.224,
             "y": 0.6469194312796208,
@@ -6204,6 +6215,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.29130434782608694,
             "y": 0.6513888888888889,
@@ -6220,6 +6232,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.4699604743083004,
             "y": 0.6513888888888889,
@@ -6414,6 +6427,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.26640625,
             "y": 0.4305555555555556,
@@ -7067,6 +7081,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.2652671755725191,
@@ -7553,6 +7568,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.23282442748091603,
@@ -7569,6 +7585,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.29961832061068705,
@@ -7715,6 +7732,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.23282442748091603,
@@ -7731,6 +7749,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.29961832061068705,
@@ -7893,6 +7912,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.32251908396946566,
@@ -8039,6 +8059,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2621527777777778,
             "y": 0.47900763358778625,
@@ -8055,6 +8076,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2621527777777778,
             "y": 0.7690839694656488,
@@ -9055,6 +9077,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.41030534351145037,
@@ -9201,6 +9224,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.3606870229007634,
@@ -9379,6 +9403,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.3664306640625,
             "y": 0.7347222222222223,
@@ -9541,6 +9566,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.45550537109375,
             "y": 0.6256944444444444,
@@ -10999,6 +11025,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.263671875,
             "y": 0.6166666666666667,
@@ -11631,6 +11658,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.263671875,
             "y": 0.4722222222222222,
@@ -11809,6 +11837,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.45550537109375,
             "y": 0.6256944444444444,
@@ -11971,6 +12000,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.59632568359375,
             "y": 0.6854166666666667,
@@ -12251,6 +12281,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.260546875,
             "y": 0.4736111111111111,
@@ -12267,6 +12298,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.260546875,
             "y": 0.5819444444444445,
@@ -12413,6 +12445,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.263671875,
             "y": 0.4736111111111111,
@@ -12575,6 +12608,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.260546875,
             "y": 0.7291666666666666,
@@ -13251,6 +13285,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.278125,
             "y": 0.3568702290076336,
@@ -13441,6 +13476,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.278125,
             "y": 0.19061605438931298,
@@ -13457,6 +13493,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.27531798245614036,
             "y": 0.3146213691919954,
@@ -13473,6 +13510,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.278125,
             "y": 0.43679926049618323,
@@ -13654,7 +13692,7 @@
           "en": "Enlarge and identify a screenshot",
           "zh": "放大并识别截图"
         },
-        "directionsSha256": "4693c16cbbb7107bef0df2efc622ec539d7faecb18fb6d12a736d6ecf133b650"
+        "directionsSha256": "315a4bd27e9d5e9ce83d084c7d965424679c76cc91645f4d0f37f96fb1c03cc5"
       },
       "captureGeometry": {
         "version": 10,
@@ -13765,6 +13803,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.020109649122807015,
             "y": 0.9035854674744381,
@@ -13804,7 +13843,7 @@
           "en": "Enlarge and identify a screenshot",
           "zh": "放大并识别截图"
         },
-        "directionsSha256": "4693c16cbbb7107bef0df2efc622ec539d7faecb18fb6d12a736d6ecf133b650"
+        "directionsSha256": "315a4bd27e9d5e9ce83d084c7d965424679c76cc91645f4d0f37f96fb1c03cc5"
       },
       "captureGeometry": {
         "version": 10,
@@ -13927,6 +13966,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.28712353801169593,
             "y": 0.7678656440011556,
@@ -13966,7 +14006,7 @@
           "en": "Enlarge and identify a screenshot",
           "zh": "放大并识别截图"
         },
-        "directionsSha256": "4693c16cbbb7107bef0df2efc622ec539d7faecb18fb6d12a736d6ecf133b650"
+        "directionsSha256": "315a4bd27e9d5e9ce83d084c7d965424679c76cc91645f4d0f37f96fb1c03cc5"
       },
       "captureGeometry": {
         "version": 10,
@@ -14083,12 +14123,17 @@
       "sha256": "0dde987964425adbece4817cff5212d7b397aa618c18760284a35ae8fbb75d8d",
       "sourceRevision": "589c055e4b1cf166b48b353bd619ac1982e5d9f6",
       "sourceLabel": "Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.",
+      "caption": {
+        "en": "The recovery email opens this page to replace an existing password.",
+        "zh": "通过找回密码邮件中的链接进入此页，可更改现有密码。"
+      },
       "state": {
         "en": "The genuine successfully delivered private recovery link has opened Choose a New Password for an existing synthetic account. Both password fields remain empty and Set New Password is disabled; no credential was entered or changed. Capability query is omitted from published route metadata.",
         "zh": "通过实际成功送达的私密找回链接，现有虚构账户打开真实“选择新密码”表单。两个密码框均为空，“设置新密码”已禁用；未输入或更改任何凭据。公开路径元数据省略了授权查询参数。"
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.23091603053435114,
@@ -14105,6 +14150,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.30725190839694655,
@@ -14121,6 +14167,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.36450381679389315,
@@ -14273,12 +14320,17 @@
       "sha256": "0dde987964425adbece4817cff5212d7b397aa618c18760284a35ae8fbb75d8d",
       "sourceRevision": "589c055e4b1cf166b48b353bd619ac1982e5d9f6",
       "sourceLabel": "Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.",
+      "caption": {
+        "en": "The setup email opens the same form to set your first password.",
+        "zh": "通过账户设置邮件中的链接进入同一表单，可设置初始密码。"
+      },
       "state": {
         "en": "A genuine successfully delivered setup grant for an existing synthetic account without a password opens the real Choose a New Password form. Both fields are empty and Set New Password disabled; setup has not been completed and no new credential entered. The capability query is omitted from published route metadata.",
         "zh": "实际成功送达的设置授权让尚无密码的现有虚构账户打开真实“选择新密码”表单。两个字段为空，“设置新密码”已禁用；尚未完成设置，也未输入新凭据。公开路径元数据省略了授权查询参数。"
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.23091603053435114,
@@ -14295,6 +14347,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.30725190839694655,
@@ -14311,6 +14364,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.36180555555555555,
             "y": 0.36450381679389315,
@@ -14603,6 +14657,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2621527777777778,
             "y": 0.4541984732824427,
@@ -15177,6 +15232,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.35659722222222223,
             "y": 0.3931297709923664,
@@ -15193,6 +15249,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.35659722222222223,
             "y": 0.7767175572519084,
@@ -15395,6 +15452,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2621527777777778,
             "y": 0.4732824427480916,
@@ -15557,6 +15615,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2621527777777778,
             "y": 0.46087786259541985,
@@ -15953,6 +16012,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2621527777777778,
             "y": 0.8148854961832062,
@@ -17923,6 +17983,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.20625,
             "y": 0.32729007633587787,
@@ -18761,6 +18822,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.08461538461538462,
             "y": 0.6113744075829384,
@@ -18773,6 +18835,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.6666666666666666,
             "y": 0.6777251184834123,
@@ -18785,6 +18848,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.3871794871794872,
             "y": 0.7867298578199052,
@@ -18797,6 +18861,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.3153846153846154,
             "y": 0.8779620853080569,
@@ -18963,6 +19028,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.08461538461538462,
             "y": 0.42417061611374407,
@@ -18975,6 +19041,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.6077323717948718,
             "y": 0.490521327014218,
@@ -18987,6 +19054,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5539663461538461,
             "y": 0.5995260663507109,
@@ -19003,6 +19071,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.316786858974359,
             "y": 0.6907582938388626,
@@ -22813,6 +22882,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.248046875,
             "y": 0.5729166666666666,
@@ -23931,6 +24001,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.7665771484375,
             "y": 0.425,
@@ -24097,6 +24168,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.34023437500000003,
             "y": 0.8027777777777778,
@@ -24661,6 +24733,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.24444444444444444,
             "y": 0.28786359077231694,
@@ -24819,6 +24892,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2590277777777778,
             "y": 0.8415245737211635,
@@ -25425,12 +25499,17 @@
       "sha256": "5490267ba276949c1423cb8ac833e77fd71558c11ebda9e8014f3c0d18c9efa9",
       "sourceRevision": "dd970ea426016e85cb514beeeab537c3ab2e5098",
       "sourceLabel": "Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.",
+      "caption": {
+        "en": "The saved Sunday block appears above the editor.",
+        "zh": "已保存的周日禁用时段显示在编辑器上方。"
+      },
       "state": {
         "en": "The Sunday 09:00–10:00 block is saved and listed above its existing Edit period form. The recorded values are loaded for inspection; this edit will be canceled without another change.",
         "zh": "周日09:00至10:00禁用时段已保存，显示在编辑时段表单上方。表单载入已保存数值供检查，本次编辑将取消，不再变更。"
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2708333333333333,
             "y": 0.5947843530591775,
@@ -25451,6 +25530,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.4777777777777778,
             "y": 0.5947843530591775,
@@ -25471,6 +25551,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2708333333333333,
             "y": 0.7632898696088265,
@@ -26225,6 +26306,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2590277777777778,
             "y": 0.2858575727181545,
@@ -26839,6 +26921,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.22890625,
             "y": 0.85,
@@ -26995,12 +27078,17 @@
       "sha256": "7d13162da7cae313ad713a82f366aadfd9d89878a5fe115a7e29cafce5bb21ef",
       "sourceRevision": "dd970ea426016e85cb514beeeab537c3ab2e5098",
       "sourceLabel": "Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.",
+      "caption": {
+        "en": "After saving one level, the group lists the Standard offering.",
+        "zh": "保存单一层级后，科目组会列出 Standard（标准）层级的科目。"
+      },
       "state": {
         "en": "Save group completed and closed the editor. The imported practice group now lists the actual saved Standard offering Capture Catalogue Practice Example.",
         "zh": "保存科目组已完成并关闭编辑器；导入的练习组现在列出实际保存的 Standard 开设科目 Capture Catalogue Practice Example。"
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.22890625,
             "y": 0.45694444444444443,
@@ -27479,6 +27567,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.248046875,
             "y": 0.5951388888888889,
@@ -28021,6 +28110,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.33238481966403166,
             "y": 0.4381320224719101,
@@ -28721,6 +28811,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.123046875,
             "y": 0.6263888888888889,
@@ -29231,6 +29322,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.123046875,
             "y": 0.625,
@@ -29271,6 +29363,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.23133544921875,
             "y": 0.8805555555555555,
@@ -29583,6 +29676,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.123046875,
             "y": 0.49027777777777776,
@@ -32151,6 +32245,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.28125,
             "y": 0.5962888665997994,
@@ -33295,6 +33390,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2590277777777778,
             "y": 0.7773319959879639,
@@ -33463,12 +33559,17 @@
       "sha256": "f1b2b8bf6e3d0c08069ebb64334aa9753b06a0d536d366d8be3050f462a8c2d1",
       "sourceRevision": "dd970ea426016e85cb514beeeab537c3ab2e5098",
       "sourceLabel": "Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.",
+      "caption": {
+        "en": "After reusing Standard and adding Honors, both offerings appear in the group.",
+        "zh": "重新启用 Standard（标准）层级并添加 Honors（荣誉）层级后，科目组中会同时列出这两项。"
+      },
       "state": {
         "en": "Save group completed once. Capture Catalogue Practice now contains the reused Standard Capture Catalogue Practice Example and newly created Honors Capture Catalogue Practice Example; neither offering is marked Inactive. Seeded groups were not edited.",
         "zh": "“Save group”已实际提交一次。Capture Catalogue Practice 现包含复用的 Standard Capture Catalogue Practice Example 和新建的 Honors Capture Catalogue Practice Example；两个开设级别均未标记为停用。未编辑预置科目组。"
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.25625,
             "y": 0.6399197592778335,
@@ -34659,6 +34760,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.25625,
             "y": 0.2886628635907723,
@@ -35051,6 +35153,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5250325520833333,
             "y": 0.5366098294884654,
@@ -35371,6 +35474,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.7172743055555556,
             "y": 0.46519245235707124,
@@ -36091,6 +36195,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.44287109375,
             "y": 0.5995956619859579,
@@ -38973,6 +39078,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.28125,
             "y": 0.8148854961832062,
@@ -40727,6 +40833,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5250325520833333,
             "y": 0.5252862595419847,
@@ -45983,6 +46090,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.26180555555555557,
             "y": 0.5190839694656488,
@@ -47385,6 +47493,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2760416666666667,
             "y": 0.4843451812977099,
@@ -50993,6 +51102,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.28125,
             "y": 0.5084915084915085,
@@ -51013,6 +51123,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.39340277777777777,
             "y": 0.5084915084915085,
@@ -54422,6 +54533,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.4418728298611111,
             "y": 0.5864135864135864,
@@ -57037,6 +57149,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5394639756944445,
             "y": 0.8107517482517482,
@@ -57712,6 +57825,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5952669902912622,
             "y": 0.018604651162790697,
@@ -58716,6 +58830,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5342556423611111,
             "y": 0.5769230769230769,
@@ -59286,6 +59401,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5250325520833333,
             "y": 0.5684315684315684,
@@ -64044,6 +64160,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5380750868055556,
             "y": 0.5882867132867133,
@@ -66090,6 +66207,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.4662000868055556,
             "y": 0.5444555444555444,
@@ -66494,6 +66612,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.4629991319444444,
             "y": 0.5564435564435565,
@@ -66878,6 +66997,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.3121527777777778,
             "y": 0.5338411588411588,
@@ -66918,6 +67038,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5328667534722222,
             "y": 0.6537212787212787,
@@ -67484,6 +67605,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.13506944444444444,
             "y": 0.6473526473526473,
@@ -68070,6 +68192,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.35381944444444446,
             "y": 0.453046953046953,
@@ -68110,6 +68233,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5187282986111111,
             "y": 0.5749250749250749,
@@ -68764,6 +68888,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.28125,
             "y": 0.5529470529470529,
@@ -72938,6 +73063,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.20625,
             "y": 0.42207792207792205,
@@ -72958,6 +73084,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.20625,
             "y": 0.492007992007992,
@@ -75742,6 +75869,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5908311631944444,
             "y": 0.5794205794205795,
@@ -77324,6 +77452,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.5908311631944444,
             "y": 0.5894105894105894,
@@ -79928,6 +80057,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.4697482638888889,
             "y": 0.5364635364635365,
@@ -80094,6 +80224,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.47065972222222224,
             "y": 0.5364635364635365,
@@ -81042,6 +81173,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.6550672743055556,
             "y": 0.22116945554445555,
@@ -82548,6 +82680,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.3740993923611111,
             "y": 0.8201798201798202,
@@ -86970,6 +87103,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2590277777777778,
             "y": 0.6589769307923772,
@@ -97428,6 +97562,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.38126085069444443,
             "y": 0.7927072927072927,
@@ -100480,6 +100615,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2590277777777778,
             "y": 0.37962037962037964,
@@ -100496,6 +100632,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2590277777777778,
             "y": 0.42957042957042957,
@@ -102930,6 +103067,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.47848307291666664,
             "y": 0.8778721278721279,
@@ -104136,6 +104274,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.20104166666666667,
             "y": 0.6918081918081919,
@@ -104974,6 +105113,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.35625,
             "y": 0.2937062937062937,
@@ -105136,6 +105276,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.35625,
             "y": 0.2937062937062937,
@@ -106718,6 +106859,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "below",
           "bounds": {
             "x": 0.36180555555555555,
@@ -107062,6 +107204,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "above",
           "bounds": {
             "x": 0.35659722222222223,
@@ -107234,6 +107377,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "below",
           "bounds": {
             "x": 0.35659722222222223,
@@ -107545,6 +107689,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "above",
           "bounds": {
             "x": 0.35659722222222223,
@@ -107889,6 +108034,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "above",
           "bounds": {
             "x": 0.35659722222222223,
@@ -108094,6 +108240,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "below",
           "bounds": {
             "x": 0.36180555555555555,
@@ -113222,6 +113369,7 @@
       },
       "callouts": [
         {
+          "omitFromGuide": true,
           "placement": "above",
           "bounds": {
             "x": 0.26458333333333334,
@@ -115660,6 +115808,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "right",
           "bounds": {
             "x": 0.5908311631944444,
@@ -116037,6 +116186,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "placement": "below",
           "bounds": {
             "x": 0.25625,
@@ -117029,6 +117179,7 @@
           }
         },
         {
+          "omitFromGuide": true,
           "bounds": {
             "x": 0.2590277777777778,
             "y": 0.5947843530591775,

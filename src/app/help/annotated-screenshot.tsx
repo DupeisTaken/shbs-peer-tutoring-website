@@ -1,10 +1,6 @@
 import type { HelpScreenshot } from "~/lib/help/screenshots";
 import type { HelpLocale, HelpStep } from "~/lib/help/types";
-import {
-  annotationColors,
-  annotationNotice,
-  layoutHelpCallouts,
-} from "./screenshot-annotations";
+import { annotationColors, layoutHelpCallouts } from "./screenshot-annotations";
 
 export function AnnotatedScreenshot({
   step,
@@ -14,7 +10,6 @@ export function AnnotatedScreenshot({
   alt,
   href,
   linkLabel,
-  legendId,
 }: {
   step: HelpStep;
   screenshot: HelpScreenshot;
@@ -23,9 +18,11 @@ export function AnnotatedScreenshot({
   alt: string;
   href?: string;
   linkLabel?: string;
-  legendId: string;
 }) {
   const annotations = layoutHelpCallouts(step, screenshot, locale);
+  const hasInlineLabels = annotations.every(
+    (annotation) => annotation.showLabel,
+  );
   const picture = (
     <div
       className="relative mx-auto"
@@ -40,7 +37,6 @@ export function AnnotatedScreenshot({
         height={screenshot.viewport.height}
         loading="lazy"
         className="block h-auto w-full"
-        aria-describedby={annotations.length ? legendId : undefined}
       />
       {annotations.length > 0 && (
         <svg
@@ -48,7 +44,10 @@ export function AnnotatedScreenshot({
           aria-hidden="true"
           viewBox={`0 0 ${screenshot.viewport.width} ${screenshot.viewport.height}`}
         >
-          <g data-callout-leaders="true">
+          <g
+            data-callout-leaders="true"
+            className={href ? "max-sm:hidden" : undefined}
+          >
             {annotations.map(
               (annotation) =>
                 annotation.leader && (
@@ -91,7 +90,10 @@ export function AnnotatedScreenshot({
                 strokeWidth="3"
               />
               {annotation.showLabel && (
-                <g data-callout-label={annotation.number}>
+                <g
+                  data-callout-label={annotation.number}
+                  className={href ? "max-sm:hidden" : undefined}
+                >
                   <rect
                     {...annotation.label}
                     rx="6"
@@ -192,7 +194,7 @@ export function AnnotatedScreenshot({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="block focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="block cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2"
           aria-label={linkLabel ?? alt}
         >
           {picture}
@@ -201,20 +203,16 @@ export function AnnotatedScreenshot({
         picture
       )}
       {annotations.length > 0 && (
-        <div className="border-t border-slate-200 px-4 py-3 sm:px-5">
-          <p className="text-xs leading-5 text-slate-600">
-            {annotationNotice[locale]}
-          </p>
-          <ol
-            id={legendId}
-            aria-label={locale === "zh" ? "截图标注" : "Screenshot callouts"}
-            className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-slate-800"
-          >
-            {annotations.map((annotation) => (
-              <li key={annotation.number}>{annotation.text}</li>
-            ))}
-          </ol>
-        </div>
+        <ol
+          aria-label={locale === "zh" ? "截图标注" : "Screenshot callouts"}
+          className={`list-decimal space-y-1 border-t border-slate-200 py-3 pr-4 pl-9 text-sm leading-6 text-slate-800 ${hasInlineLabels ? (href ? "sm:sr-only" : "sr-only") : ""}`}
+        >
+          {annotations.map((annotation) => (
+            <li key={annotation.number} value={annotation.number}>
+              {annotation.text}
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   );

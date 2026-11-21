@@ -20,8 +20,9 @@ directions, prerequisites, outcomes and troubleshooting together. Each article's
 3. Capture the actual visible state for **every numbered step**, including opened
    tabs, dialogs, filled forms and result states. Each frame has the stable ID
    `<guide-slug>-step-<one-based-number>`. A feature overview cannot stand in for
-   a later action. Name the relevant control in `focus` and add reviewed bilingual
-   in-image callouts while keeping the original pixels unchanged.
+   a later action. Use `focus` for a clue that adds to the directions. Add bilingual
+   callouts where readers need help locating a control, telling similar choices
+   apart, or checking a result. Keep the original pixels unchanged.
    If a long form or scrolled panel needs more context, add full frames named
    `<guide-slug>-step-<number>-view-2`, then `-view-3`, without gaps. The catalogue
    collects English receipts into `supplementaryScreenshots`; each additional
@@ -113,17 +114,18 @@ Keep one server/browser session at a time; do not build against its `.next` outp
    `boundsByLocale` follows the image locale; label text follows the guide locale.
    Step-level callouts override the receipt, so an empty override cannot satisfy
    the in-image label requirement.
-   On a form, identify the relevant fields or choices and the actual save/submit
-   control, usually with two to four focused labels. A single box around the
-   entire form supplies context but does not explain the action. A single clear
-   outline can suit a read-only evidence table or result message.
+   Use one marker per target and one instance of each label per figure. Leave
+   straightforward form labels and headings clear. Set `omitFromGuide: true`
+   on reviewed targets that add no guidance. Use a bilingual `caption` only
+   when it adds a branch distinction or outcome the surrounding copy skips.
    Pixel measurements on the exact saved bitmap are also valid: record the raw
    image hash, measured rectangles and review method. Preserve the original
    before/after DOM-geometry receipt; do not rewrite it to pretend later
    pixel-reviewed targets were measured in the live page.
    For source frames narrower than 600 pixels, all renderers show target outlines
    and matching number badges without text pills or leaders, preserving visible
-   controls. The readable bilingual numbered legend remains below every image.
+   controls. A numbered key appears when matching text is absent from the image.
+   Capture details retain the receipt state and exact provenance.
 9. Record `review: {acceptedAt, method}` after inspecting the saved frame and its
    targets; the review timestamp must follow capture. Preview both language
    overlays before acceptance. Keep labels, numbers and leaders clear of every

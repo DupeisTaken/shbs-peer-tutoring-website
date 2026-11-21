@@ -37,47 +37,45 @@
 
    请注意: 账户菜单与可用工作区链接
 
-   ![账户菜单与可用工作区链接](assets/annotated/4049b4a48afd4ab9c0307d922fc3019d442ee039ca27fc5fdab81a9f591352b3.webp)
+   ![打开账户菜单 · 学习伙伴页面](assets/annotated/4049b4a48afd4ab9c0307d922fc3019d442ee039ca27fc5fdab81a9f591352b3.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    Alice的账户菜单提供进入学习伙伴页面快捷方式；此入口不会增加其他角色。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/navigate-workspaces-step-1.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 学习伙伴页面
+   </details>
 
 2. **使用手机与语言控件** 窄屏下使用“菜单”打开管理导航；选择链接、关闭或按Escape即可收起。页头可切换语言和主题。宽表格请在表格自身区域内横向滚动。
 
    **视图 1**
 
-   ![使用手机与语言控件](assets/annotated/74fb48d3f8c449d486ce91becd3ce90402c5cb2d3ff3572d8ce27588e94fd313.webp)
+   ![视图 1](assets/annotated/02c0281242f10d365971e3f81bbf69c3df974a3c0634775b4c3070f6c4a08b3b.webp)
 
-   /admin/tutors · EN · 2026-11-20
+   - **1.** 工作区入口
+
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    在实际宽度412像素的窄视口中，菜单打开管理导航。选择可见工作区链接、关闭或按Escape可收起抽屉。
 
+   /admin/tutors · EN · 2026-11-20
+
    [原始完整截图](assets/navigate-workspaces-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 关闭菜单
-
-   - **2.** 工作区入口
+   </details>
 
    **视图 2**
 
-   ![使用手机与语言控件](assets/annotated/724cdf31b30e5099d132be6f92ed2ec2755ced1b179b06d76a2ab051f92d1caf.webp)
-
-   /admin/tutors · EN · 2026-11-20
-
-   收起手机菜单后，同一页头仍可使用菜单、语言和主题。本例保留现有设置。
-
-   [原始完整截图](assets/navigate-workspaces-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
-
-   已为本步骤添加标注，原始完整截图保持不变。
+   ![视图 2](assets/annotated/724cdf31b30e5099d132be6f92ed2ec2755ced1b179b06d76a2ab051f92d1caf.webp)
 
    - **1.** 打开导航
 
@@ -85,93 +83,111 @@
 
    - **3.** 主题
 
-   **视图 3**
+   英文界面
 
-   ![使用手机与语言控件](assets/annotated/52d210963aec1292f37f582c08c0f8228ce71e9aba271ab6dba9ae753fdefbb5.webp)
+   <details>
+   <summary>截图详情</summary>
+
+   收起手机菜单后，同一页头仍可使用菜单、语言和主题。本例保留现有设置。
 
    /admin/tutors · EN · 2026-11-20
 
-   聚焦的辅导伙伴表格横向滚动后显示状态列。表格已滚动到最右侧，页面本身仍没有横向移动。
+   [原始完整截图](assets/navigate-workspaces-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   [原始完整截图](assets/navigate-workspaces-step-2-view-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+   </details>
 
-   已为本步骤添加标注，原始完整截图保持不变。
+   **视图 3**
+
+   ![视图 3](assets/annotated/52d210963aec1292f37f582c08c0f8228ce71e9aba271ab6dba9ae753fdefbb5.webp)
 
    - **1.** 显示其余列
 
    - **2.** 行操作
 
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
+
+   聚焦的辅导伙伴表格横向滚动后显示状态列。表格已滚动到最右侧，页面本身仍没有横向移动。
+
+   /admin/tutors · EN · 2026-11-20
+
+   [原始完整截图](assets/navigate-workspaces-step-2-view-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
+
+   </details>
+
 3. **查看自己的通知** 打开铃铛，选择通知进入关联任务，可逐条标为已读或选择“全部已读”。在通知偏好中分别设置角标与可选邮件。
 
    **视图 1**
 
-   ![查看自己的通知](assets/annotated/b2f8ee3973bb1041dffbd8f90bb489f7d9c2b2b116581488415365eb09313983.webp)
+   ![视图 1 · 通知铃铛 · 全部标为已读 · 通知设置](assets/annotated/b2f8ee3973bb1041dffbd8f90bb489f7d9c2b2b116581488415365eb09313983.webp)
 
-   /settings · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    通知铃铛已打开，显示三条未读通知。逐条通知可进入对应任务，全部标为已读会更新状态，通知设置通向单独偏好。本例未选择通知。
 
+   /settings · EN · 2026-11-20
+
    [原始完整截图](assets/navigate-workspaces-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 通知铃铛
-
-   - **2.** 全部标为已读
-
-   - **3.** 通知设置
+   </details>
 
    **视图 2**
 
-   ![查看自己的通知](assets/annotated/c4f99de07ad4dbbb36d68af6ca5d7fa715826b748e0162207256aaa0ac721e0c.webp)
+   ![视图 2 · 通知偏好 · 未读角标 · 邮件设置](assets/annotated/c4f99de07ad4dbbb36d68af6ca5d7fa715826b748e0162207256aaa0ac721e0c.webp)
 
-   /settings#notification-preferences · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    通知偏好分别设置未读角标和可选邮件。当前项目禁用了可选邮件，相关复选框不可用。本例未更改任何偏好。
 
+   /settings#notification-preferences · EN · 2026-11-20
+
    [原始完整截图](assets/navigate-workspaces-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 通知偏好
-
-   - **2.** 未读角标
-
-   - **3.** 邮件设置
+   </details>
 
 4. **安全排序信息** 点击可排序数据列标题，依次为升序、降序、原始顺序。键盘用户可聚焦后按Enter或空格。排序保留筛选条件，不修改记录。
 
    **视图 1**
 
-   ![安全排序信息](assets/annotated/441daee163fda358efd3d7f236b2568f56e7b533b2863da3bbde94a365ae86c0.webp)
+   ![视图 1 · 姓名升序 · 搜索筛选](assets/annotated/441daee163fda358efd3d7f236b2568f56e7b533b2863da3bbde94a365ae86c0.webp)
 
-   /admin/tutors · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    在只读辅导伙伴名册中，聚焦姓名后按Enter会升序排列。上箭头及升序列状态表明当前顺序。名册记录未发生变化。
 
+   /admin/tutors · EN · 2026-11-20
+
    [原始完整截图](assets/navigate-workspaces-step-4.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 姓名升序
-
-   - **2.** 搜索筛选
+   </details>
 
    **视图 2**
 
-   ![安全排序信息](assets/annotated/3cbad06b9da985359bcd3f36b6ee34fa00ca8c6b4cf86fa977d8105c2a6f0564.webp)
+   ![视图 2 · 姓名降序 · 保留搜索](assets/annotated/3cbad06b9da985359bcd3f36b6ee34fa00ca8c6b4cf86fa977d8105c2a6f0564.webp)
 
-   /admin/tutors · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    再次在姓名列按空格会改为降序，搜索仍为“a”。第三次按键会恢复原始顺序。
 
+   /admin/tutors · EN · 2026-11-20
+
    [原始完整截图](assets/navigate-workspaces-step-4-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 姓名降序
-
-   - **2.** 保留搜索
+   </details>
 
 ### 预期结果
 
@@ -203,115 +219,124 @@
 
    **视图 1**
 
-   ![各区域的保存、错误或恢复提示](assets/annotated/7d3b2a2979683c51937402626768025f56bf45f1e131d64f2543a2733f17db1b.webp)
+   ![视图 1 · 已保存](assets/annotated/7d3b2a2979683c51937402626768025f56bf45f1e131d64f2543a2733f17db1b.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    个人资料写入已完成，在该区操作控件旁显示实际已保存状态。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/read-recover-save-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已保存
+   </details>
 
    **视图 2**
 
-   ![各区域的保存、错误或恢复提示](assets/annotated/2d0e783cb10cf2af446cb94350940c70e901c3f99a80f1ad2811ef9d2221a480.webp)
+   ![视图 2 · 等待审核](assets/annotated/2d0e783cb10cf2af446cb94350940c70e901c3f99a80f1ad2811ef9d2221a480.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已提交管理员审核是提案回执，并明确确认权限并未改变。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/read-recover-save-step-1-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 等待审核
+   </details>
 
    **视图 3**
 
-   ![各区域的保存、错误或恢复提示](assets/annotated/4022145a824958da5b4519c84fd13a7aea976669283866bf3224d8c10fcc5e21.webp)
+   ![视图 3 · 待审核 · 尚未应用](assets/annotated/4022145a824958da5b4519c84fd13a7aea976669283866bf3224d8c10fcc5e21.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已展开的本人申请历史显示等待审核及尚未应用；提交申请尚不代表离校已确认。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/read-recover-save-step-1-view-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 待审核
-
-   - **2.** 尚未应用
+   </details>
 
 2. **重试正确操作** 保存失败时，修正问题后主动重试。保存成功但刷新失败时，选择“重试刷新”或“检查申请结果”：这些操作读取已接受结果，不会重新提交。
 
    **视图 1**
 
-   ![重试正确操作](assets/annotated/2b4dfb2a1d776a2e32e93ffdef14f2a074033f671a0ca172a463d72b8ffb463a.webp)
+   ![视图 1 · 已保存，刷新失败 · 仅重试读取 · 保存已锁定](assets/annotated/2b4dfb2a1d776a2e32e93ffdef14f2a074033f671a0ca172a463d72b8ffb463a.webp)
 
-   /settings · EN · 2026-11-21
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    真实资料修改已受理。受控的本地传输故障只阻止了保存后的资料读取，“保存”按钮禁用并显示重试刷新。
 
+   /settings · EN · 2026-11-21
+
    [原始完整截图](assets/read-recover-save-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已保存，刷新失败
-
-   - **2.** 仅重试读取
-
-   - **3.** 保存已锁定
+   </details>
 
    **视图 2**
 
-   ![重试正确操作](assets/annotated/5b4955c3e087643f9106a3d0ad661bc9183966a858b6afe67132cf08bc83757b.webp)
+   ![视图 2 · 已保存的常用名 · 保存恢复可用](assets/annotated/5b4955c3e087643f9106a3d0ad661bc9183966a858b6afe67132cf08bc83757b.webp)
 
-   /settings · EN · 2026-11-21
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    重试刷新读取了已保存的常用名。刷新警告消失，常规资料控件恢复。
 
+   /settings · EN · 2026-11-21
+
    [原始完整截图](assets/read-recover-save-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已保存的常用名
-
-   - **2.** 保存恢复可用
+   </details>
 
 3. **处理记录变化冲突** 阅读冲突提示。明确选择“重新加载”并成功获取当前证据后，才会替换过时草稿；再次提交前重新核对。关闭或取消不会确认审核。
 
-   ![处理记录变化冲突](assets/annotated/7b39ac1ecd970377434e61239a81c3fdd2fe5b97e58c5c49356b0ab2dd264ac1.webp)
+   ![处理记录变化冲突 · 记录冲突 · 重新加载](assets/annotated/7b39ac1ecd970377434e61239a81c3fdd2fe5b97e58c5c49356b0ab2dd264ac1.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    学业确认更改共享记录后，过期的个人资料草稿被实际拒绝，并显示明确的重新加载按钮。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/read-recover-save-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 记录冲突
-
-   - **2.** 重新加载
+   </details>
 
 4. **注意草稿有效范围** 多数编辑器在当前页面仍挂载时保留草稿，包括折叠或切换页签。离开或刷新后不会自动保存。写入进行中可能锁定编辑及关闭，直到结果明确。
 
-   ![注意草稿有效范围](assets/annotated/c9704f553ec2c6ffb00d29a6df0a9084961fd2e934affb34fb6b3eb46f92dbc9.webp)
+   ![注意草稿有效范围 · 草稿 · 保存](assets/annotated/c9704f553ec2c6ffb00d29a6df0a9084961fd2e934affb34fb6b3eb46f92dbc9.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已挂载的个人资料编辑器保留未保存常用姓名草稿，直至保存、取消或离开页面。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/read-recover-save-step-4.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 草稿
-
-   - **2.** 保存
+   </details>
 
 ### 预期结果
 
@@ -341,51 +366,54 @@
 
    请注意: 资料字段及下方当前区域的保存与取消按钮
 
-   ![资料字段及下方当前区域的保存与取消按钮](assets/annotated/62abb014c3708d7d29219efa1f2013a93b1662f91d2dbb4e557cd91872ddd1f4.webp)
+   ![编辑可用姓名字段 · 其他语言姓名](assets/annotated/4b1b4c7b14b2db7a02e1e7dff2ca4843a73ecf0851b49d842908669d459644a3.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    个人资料编辑区，包含必填名字及可选的多语言姓名。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-profile-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 名字
-
-   - **2.** 其他语言姓名
+   </details>
 
 2. **保存当前区域** 在辅导伙伴设置中选择“保存更改”，或在通用账户设置中选择“保存个人资料”，一起保存姓名字段。“取消”恢复上次读取值。密码、邮箱、学业和参与资格各有独立操作，不会由此按钮保存。
 
-   ![保存当前区域](assets/annotated/57066c8e48e75e74ad91cbfae7ca9b9e3d0615cac30bd19ccea86469193ce638.webp)
+   ![保存当前区域 · 保存更改](assets/annotated/d409e380ee82de9aa1043481c75dc092563fd2e124c4ab3f3c52da79413341e4.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    未保存的常用姓名草稿，以及个人资料区自己的保存更改与取消按钮。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-profile-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 保存更改
-
-   - **2.** 取消
+   </details>
 
 3. **申请参与资格或接受邀请** 使用参与资格控件提交符合条件的申请，或用“添加权限”确认已收到的邀请。参与申请不能授予管理职级；应先查看决定，再判断权限是否改变。
 
-   ![申请参与资格或接受邀请](assets/annotated/11f9e585725258db27a8453176950302c75e97f6a6683fbfa72b1cbf3d67bb6a.webp)
+   ![申请参与资格或接受邀请 · 申请退出](assets/annotated/6545e76ff4012761c54668711ba8664658f515b493d55ed461ae58d02f286d58.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    退出审核确认区显示导师、可选理由、七天审核冷却期，以及获批前继续参与的规则。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-profile-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 申请退出
-
-   - **2.** 取消
+   </details>
 
 ### 预期结果
 
@@ -417,51 +445,54 @@
 
    请注意: 已打开的学业编辑器、年级选择及参考学年
 
-   ![已打开的学业编辑器、年级选择及参考学年](assets/annotated/ab39b6e40a88d9a2a3de22f3d0cc25d9523e1d1b44187e4283b48ee43eb7a89b.webp)
+   ![检查当前记录 · 查看学业状态 · 参考学年](assets/annotated/ab39b6e40a88d9a2a3de22f3d0cc25d9523e1d1b44187e4283b48ee43eb7a89b.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    学业编辑区显示九年级、当前参考学年及单独的确认按钮。
+
+   /settings · EN · 2026-11-16
 
    [原始完整截图](assets/account-academics-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 查看学业状态
-
-   - **2.** 参考学年
+   </details>
 
 2. **选择真实信息** 按实际情况选择开放年级、未知、已毕业或不适用。当前学年自动填写。确认此记录；学业信息与姓名资料分别保存。
 
-   ![选择真实信息](assets/annotated/5bb72612b7a5947e35a270dc7d393afe4a01ff210a5dbc2f93004cab675eaf5c.webp)
+   ![选择真实信息 · 年级 · 确认](assets/annotated/5bb72612b7a5947e35a270dc7d393afe4a01ff210a5dbc2f93004cab675eaf5c.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    学业编辑区显示九年级、当前参考学年及单独的确认按钮。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-academics-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 年级
-
-   - **2.** 确认
+   </details>
 
 3. **查看确认历史** 打开确认历史，查看记录值、来源和日期。邀请完成页若指向此处，请先确认，再按正常辅导激活或巡查重新加入流程继续。
 
-   ![查看确认历史](assets/annotated/150412364e10dc07952f5b31c091f986d23288e86ddaf67a641b0360e1c74666.webp)
+   ![查看确认历史 · 确认历史 · 来源与日期](assets/annotated/150412364e10dc07952f5b31c091f986d23288e86ddaf67a641b0360e1c74666.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已展开的确认历史显示新的本人报告学业确认及更早的已核验申请记录。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-academics-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 确认历史
-
-   - **2.** 来源与日期
+   </details>
 
 ### 预期结果
 
@@ -491,123 +522,126 @@
 
    请注意: 离校审核、离校类型及原因
 
-   ![离校审核、离校类型及原因](assets/annotated/487c83b6a7f3a27d26c7dfc93ce5e4f3c0183a2bc9369c114edefedb986e7295.webp)
+   ![打开离校功能 · 核对更改 · 提交审核](assets/annotated/487c83b6a7f3a27d26c7dfc93ce5e4f3c0183a2bc9369c114edefedb986e7295.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    虚构转学申请的完整审核确认区，列明参与资格后果及明确确认按钮。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/school-departure-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 核对更改
-
-   - **2.** 提交审核
+   </details>
 
 2. **等待决定** 查看离校申请和历史。由管理员／负责人审核；仅提交不代表离校已确认。确认后，符合条件的“进入观察员门户”可打开脱敏只读概览。
 
    **视图 1**
 
-   ![等待决定](assets/annotated/b50fea658dfbd8ca1c2aaecbe14f778acdd12d2ee17a5e4d1cb5c45228ad691f.webp)
+   ![视图 1 · 当前状态 · 独立原因栏 · 等待审核 · 尚未生效](assets/annotated/b50fea658dfbd8ca1c2aaecbe14f778acdd12d2ee17a5e4d1cb5c45228ad691f.webp)
 
-   /settings · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    离校页面显示当前纵向表单和 Alice 的原申请。等待审核和尚未生效表明离校尚未确认。
 
+   /settings · EN · 2026-11-20
+
    [原始完整截图](assets/school-departure-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 当前状态
-
-   - **2.** 独立原因栏
-
-   - **3.** 等待审核
-
-   - **4.** 尚未生效
+   </details>
 
    **视图 2**
 
-   ![等待决定](assets/annotated/4022145a824958da5b4519c84fd13a7aea976669283866bf3224d8c10fcc5e21.webp)
+   ![视图 2 · 待审核 · 尚未应用](assets/annotated/4022145a824958da5b4519c84fd13a7aea976669283866bf3224d8c10fcc5e21.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已展开的本人申请历史显示等待审核及尚未应用；提交申请尚不代表离校已确认。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/school-departure-step-2-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 待审核
-
-   - **2.** 尚未应用
+   </details>
 
 3. **情况改变时申请返校** 在“离校状态”的“变更”中选择“返校”，填写“审核理由”并选择“申请变更”。阅读“核对离校变更”后选择“确认变更”，提交返校申请。获批后，通过正常流程恢复辅导激活或学习报名。
 
    **视图 1**
 
-   ![情况改变时申请返校](assets/annotated/e08d34b82b5f7b0791b9f6c3ff715f2d2c8cdf32e3676ad55ac751468df729c3.webp)
+   ![视图 1 · 返校 · 申请变更](assets/annotated/9cc0cc17bce30437533059055d1a5523c88e81047cc8704c1db3d06365043afb.webp)
 
-   /my-account · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    独立虚构转校学生可申请返校。审核理由占独立完整一行；申请变更会打开审核确认，不会直接批准权限。
 
+   /my-account · EN · 2026-11-16
+
    [原始完整截图](assets/school-departure-step-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 返校
-
-   - **2.** 理由
-
-   - **3.** 申请变更
+   </details>
 
    **视图 2**
 
-   ![情况改变时申请返校](assets/annotated/7c58da9de0cde42dc257e7f076d9b021d7c3db46e7dd58d36100bf26307d1111.webp)
+   ![视图 2 · 权限影响 · 确认变更](assets/annotated/7c58da9de0cde42dc257e7f076d9b021d7c3db46e7dd58d36100bf26307d1111.webp)
 
-   /my-account · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    返校确认在确认变更前说明权限影响：辅导资格回到待激活，学习伙伴报名及分配须重新申请。此画面是确认审核，不是已批准返校。
 
+   /my-account · EN · 2026-11-16
+
    [原始完整截图](assets/school-departure-step-3-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 权限影响
-
-   - **2.** 确认变更
+   </details>
 
    **视图 3**
 
-   ![情况改变时申请返校](assets/annotated/781b3a520a2f33fcd5199b93079ea859eb1f88631ae881875f145df904624a07.webp)
+   ![视图 3 · 状态未变 · 已提交审核](assets/annotated/781b3a520a2f33fcd5199b93079ea859eb1f88631ae881875f145df904624a07.webp)
 
-   /my-account · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    实际返校申请已提交管理员审核。回执明确权限未改变，当前状态仍为已转校；尚未应用返校批准。
 
+   /my-account · EN · 2026-11-16
+
    [原始完整截图](assets/school-departure-step-3-view-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 状态未变
-
-   - **2.** 已提交审核
+   </details>
 
    **视图 4**
 
-   ![情况改变时申请返校](assets/annotated/f5068a63ae9aca4d2ab563aeb27f4fa4db8c4d5ce5b0cd8a55acd7ad9e916e4c.webp)
+   ![视图 4 · 待审核](assets/annotated/f5068a63ae9aca4d2ab563aeb27f4fa4db8c4d5ce5b0cd8a55acd7ad9e916e4c.webp)
 
-   /my-account · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    我的申请与决定将实际返校申请列为待审核及未应用。申请操作为返校，仍需符合条件的审核者决定。
 
+   /my-account · EN · 2026-11-16
+
    [原始完整截图](assets/school-departure-step-3-view-4.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 待审核
+   </details>
 
 ### 预期结果
 
@@ -637,19 +671,20 @@
 
    请注意: 当前密码、新密码及密码确认操作
 
-   ![当前密码、新密码及密码确认操作](assets/annotated/0d407fac6e7c8daf565ef0f6ce1f19a47e8be1ec3f8f36e1720fe7a65b274304.webp)
+   ![打开安全区域](assets/account-security-step-1.en.jpg)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    密码区要求当前密码、新密码及再次确认；所有凭据字段均为空白。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-security-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 当前密码
-
-   - **2.** 新密码
+   </details>
 
 2. **确认所需更改** 修改密码时输入八至一千零二十四字符的新密码，再使用该区域的确认操作。更改双重验证时，核对正在启用还是关闭个人偏好，并单独确认。
 
@@ -657,51 +692,54 @@
 
    **视图 1**
 
-   ![双重验证偏好及其独立安全确认](assets/annotated/f2f6d37dbf07e2ce1153590c0f79566a3c6b97e7a1f0b2f73b3cd0e9b4eec358.webp)
+   ![视图 1 · 启用两步验证](assets/annotated/4339b6cd5038ed69910fa6b53ee2a15169faa3e8dfe2ed842b99f24be33d1207.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    双重验证区显示原生遮罩的当前密码及明确启用双重验证按钮；此截图尚未提交更改。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-security-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 当前密码
-
-   - **2.** 启用两步验证
+   </details>
 
    **视图 2**
 
-   ![双重验证偏好及其独立安全确认](assets/annotated/6ef3f7145b88133870929bcabc64175e41877d0c75daa896261767424e6e92b3.webp)
+   ![视图 2 · 发送验证码](assets/annotated/2fc394de06cd0879802823cffab3e2bf4d36a037275ae820254e467f6ea44883.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    密码更改字段及本区发送验证码按钮；为保护凭据，字段刻意留空，本截图未执行密码更改。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-security-step-2-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 确认新密码
-
-   - **2.** 发送验证码
+   </details>
 
 3. **修改密码后重新登录** 密码修改成功后会返回登录页，并撤销其他现有会话。使用新密码登录；如需双重验证，请确保主要邮箱可用。
 
-   ![修改密码后重新登录](assets/annotated/4c06cf155c4ecc5ddb06972fe8eaa6e1a942d3f9736ceabacabd6d426bd8b14c.webp)
+   ![修改密码后重新登录 · 登录](assets/annotated/6c736ef88aa486a1b73f42945de83f8196dec9846e53f8e18e5dd023583370cc.webp)
 
-   /signin · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    登录入口及空白凭据字段；此图说明修改密码后返回的位置，不表示已实际修改密码。
 
+   /signin · EN · 2026-11-16
+
    [原始完整截图](assets/account-security-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 账户标识
-
-   - **2.** 登录
+   </details>
 
 ### 预期结果
 
@@ -733,119 +771,126 @@
 
    请注意: 关联邮箱与验证状态
 
-   ![关联邮箱与验证状态](assets/annotated/47166935bdeb96cb7cc24f37375feddd9dc2dababf7c6082527a703c3c213359.webp)
+   ![添加并验证邮箱 · 发送验证码](assets/annotated/526b9408b993b5619169ec42d205b490b4aa6b591f7de3ea282ec2825e7014f5.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    次要邮箱输入区使用虚构地址及原生密码遮罩，邮箱核验尚未完成。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/account-emails-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 新邮箱
-
-   - **2.** 发送验证码
+   </details>
 
 2. **处理待验证地址** 重新输入当前密码，才能使用重发验证码或取消待验证。验证码过期或未收到时选择重发验证码；移除申请时，选择邮箱旁的取消待验证。验证码有效十分钟，允许五次尝试，重发间隔一分钟。
 
    **视图 1**
 
-   ![处理待验证地址](assets/annotated/1947eec7ad401e64489e37177f091e3a24b59b4fb060c0514c82598ee767af3d.webp)
+   ![视图 1 · 当前密码 · 取消待验证](assets/annotated/1947eec7ad401e64489e37177f091e3a24b59b4fb060c0514c82598ee767af3d.webp)
 
-   /settings#associated-emails · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    待验证邮箱已列出；当前密码为空时，取消待验证不可用。重新输入现有密码才能启用待验证操作；验证码表单位于下方。
 
+   /settings#associated-emails · EN · 2026-11-16
+
    [原始完整截图](assets/account-emails-step-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 当前密码
-
-   - **2.** 取消待验证
+   </details>
 
    **视图 2**
 
-   ![处理待验证地址](assets/annotated/b298637792894f728b9f536ce8764545324ac62a131606e0876c60516801e73d.webp)
+   ![视图 2 · 验证码 · 重发验证码](assets/annotated/b298637792894f728b9f536ce8764545324ac62a131606e0876c60516801e73d.webp)
 
-   /settings#associated-emails · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    待验证邮箱提供空白验证码输入框及独立的重发验证码操作。须在上一部分重新输入当前密码，重发才会启用；画面未显示验证码或密码。
 
+   /settings#associated-emails · EN · 2026-11-16
+
    [原始完整截图](assets/account-emails-step-2-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 验证码
-
-   - **2.** 重发验证码
+   </details>
 
 3. **选择主要邮箱或移除备用邮箱** 输入当前密码，再选择已验证备用邮箱旁的设为主要邮箱。操作立即提交，原已验证主要邮箱成为备用邮箱。移除备用邮箱前，确认预期主要邮箱已标记，重新输入当前密码，再选择该备用邮箱旁的移除。此操作没有另一个确认弹窗。
 
    **视图 1**
 
-   ![选择主要邮箱或移除备用邮箱](assets/annotated/09859570825d17395bbc68947435a1b2babab2ea6f15452ae958f2f7fbd5127c.webp)
+   ![视图 1 · 设为主要 · 移除](assets/annotated/09859570825d17395bbc68947435a1b2babab2ea6f15452ae958f2f7fbd5127c.webp)
 
-   /admin/account#associated-emails · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    实际本地邮箱验证已产生已验证备用邮箱。设为主要邮箱与移除是独立行操作，使用前须输入当前密码。当前主要邮箱尚未改变。
 
+   /admin/account#associated-emails · EN · 2026-11-16
+
    [原始完整截图](assets/account-emails-step-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 设为主要
-
-   - **2.** 移除
+   </details>
 
    **视图 2**
 
-   ![选择主要邮箱或移除备用邮箱](assets/annotated/3284b1929a1c604fe50add69c2471cf2adef09e15ae62c6a3c1b8ed06977aac0.webp)
+   ![视图 2 · 主要](assets/annotated/61d57e728007caed1374c68e9b397872ce1a6af764639dcfcc6487a3c5fb49ee.webp)
 
-   /admin/account#associated-emails · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    实际保存结果将account-secondary标为主要邮箱。原主要邮箱仍作为已验证备用地址保留，并有独立移除操作；密码输入框再次为空。
 
+   /admin/account#associated-emails · EN · 2026-11-16
+
    [原始完整截图](assets/account-emails-step-3-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 主要
-
-   - **2.** 移除
+   </details>
 
    **视图 3**
 
-   ![选择主要邮箱或移除备用邮箱](assets/annotated/b6b8dd547ee77c9ca6d86e3a4be8af896edd2777558dbea31b1c9e45f5c9396d.webp)
+   ![视图 3 · 保留](assets/annotated/10c58e0d92898736c89f10b2e59d1ba4ee73c931f585779fdd55505494d18c8d.webp)
 
-   /admin/account#associated-emails · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    实际移除后仅保留预期已验证主要邮箱。旧备用地址已不再列出，页面显示邮箱设置已保存；密码输入框已清空。
 
+   /admin/account#associated-emails · EN · 2026-11-16
+
    [原始完整截图](assets/account-emails-step-3-view-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 保留
-
-   - **2.** 已保存
+   </details>
 
    **视图 4**
 
-   ![选择主要邮箱或移除备用邮箱](assets/annotated/40288bd9f9ffcc4f534f065d10f035dd8393bad1b858e0e0a7ecce09d40f4acd.webp)
+   ![视图 4 · 菜单已更新 · 新主要邮箱](assets/annotated/40288bd9f9ffcc4f534f065d10f035dd8393bad1b858e0e0a7ecce09d40f4acd.webp)
 
-   /admin/account · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    实际验证的邮箱现已成为主要邮箱。没有重新加载、导航或退出，打开的账户菜单已显示相同当前地址。原主要邮箱保留为已验证备用邮箱，密码框已清空。
 
+   /admin/account · EN · 2026-11-16
+
    [原始完整截图](assets/account-emails-step-3-view-4.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 菜单已更新
-
-   - **2.** 新主要邮箱
+   </details>
 
 ### 预期结果
 
@@ -879,105 +924,109 @@
 
    **视图 1**
 
-   ![通知类别与邮件语言](assets/annotated/e6b4a4d75cbbfe79b38fba61b24109d12cf9d66886b586bafebfadadaea60147.webp)
+   ![视图 1 · 未读标记 · 邮件已停用](assets/annotated/e6b4a4d75cbbfe79b38fba61b24109d12cf9d66886b586bafebfadadaea60147.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    通知偏好区分别显示未读标记与邮件选项；此演示中，项目已关闭可选邮件。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/notification-preferences-step-1.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 未读标记
-
-   - **2.** 邮件已停用
+   </details>
 
    **视图 2**
 
-   ![通知类别与邮件语言](assets/annotated/2f1f9d8cf455272b241e0953abd43b331384aec4f1686e7de3a162867d472f90.webp)
+   ![视图 2 · 仅邮件 · 必要邮件](assets/annotated/2f1f9d8cf455272b241e0953abd43b331384aec4f1686e7de3a162867d472f90.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    通知偏好底部显示已核验次要邮箱投递、必要邮件说明及实际偏好已保存回执。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/notification-preferences-step-1-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 仅邮件
-
-   - **2.** 必要邮件
+   </details>
 
 2. **选择投递语言与邮箱** 选择英语或中文邮件；提供该选项时可包含已验证备用邮箱。保存应用本区域设置，取消放弃草稿。邮件语言不会改变网站语言。
 
    **视图 1**
 
-   ![选择投递语言与邮箱](assets/annotated/23b2f12a4ab42cbeff13a093a2cd32a26c9f69cc3282ecc2d6d25e81c1b1dc47.webp)
+   ![视图 1 · 邮件语言](assets/annotated/23b2f12a4ab42cbeff13a093a2cd32a26c9f69cc3282ecc2d6d25e81c1b1dc47.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    英文网站中将邮件语言选择为中文；两种语言互相独立，仍需使用本区保存按钮。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/notification-preferences-step-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 邮件语言
+   </details>
 
    **视图 2**
 
-   ![选择投递语言与邮箱](assets/annotated/cf25f2ead9aa365c996a591e08df903ec1e338a2d911ef0e9061cdd437889956.webp)
+   ![视图 2 · 已保存](assets/annotated/a1eaf74c96230806dc0e1aadfcd8d8c8b81beea643428f0360829e4141b2f028.webp)
 
-   /settings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    通知偏好底部显示已核验次要邮箱投递、必要邮件说明及实际偏好已保存回执。
 
+   /settings · EN · 2026-11-16
+
    [原始完整截图](assets/notification-preferences-step-2-view-2.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 保存
-
-   - **2.** 已保存
+   </details>
 
 3. **明确使用退订链接** 可选通知中的退订链接仅打开审核页，不会立即更改设置。选择具体类别或所有未锁定可选邮件并确认。之后可在通知偏好中恢复。
 
    **视图 1**
 
-   ![明确使用退订链接](assets/annotated/42ed0340fb4185e3293a2b7f01e93529b8de04dc8f99d1164ada3470b801ffce.webp)
+   ![视图 1 · 仅公告邮件 · 所有可选邮件 · 确认所选退订](assets/annotated/42ed0340fb4185e3293a2b7f01e93529b8de04dc8f99d1164ada3470b801ffce.webp)
 
-   /unsubscribe · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已收到的公告邮件中，“退订”链接会打开无需登录的确认页面。当前选中“公告”，也可以单独选择所有可选通知邮件。
 
+   /unsubscribe · EN · 2026-11-20
+
    [原始完整截图](assets/notification-preferences-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Isolated synthetic first-report demonstration phase.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 仅公告邮件
-
-   - **2.** 所有可选邮件
-
-   - **3.** 确认所选退订
+   </details>
 
    **视图 2**
 
-   ![明确使用退订链接](assets/annotated/97ce046fb67297fe43482ac6d03735701b79b0a117a7142b007d9c6657d5f0e6.webp)
+   ![视图 2 · 更广的退订范围 · 必要邮件保持开启 · 确认后才生效](assets/annotated/97ce046fb67297fe43482ac6d03735701b79b0a117a7142b007d9c6657d5f0e6.webp)
 
-   /unsubscribe · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    选择所有可选邮件只改变当前的待确认选项。必要邮件仍会发送，点击确认按钮后退订才生效。
 
+   /unsubscribe · EN · 2026-11-20
+
    [原始完整截图](assets/notification-preferences-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate. Isolated synthetic first-report demonstration phase.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 更广的退订范围
-
-   - **2.** 必要邮件保持开启
-
-   - **3.** 确认后才生效
+   </details>
 
 ### 预期结果
 
@@ -1009,73 +1058,73 @@
 
    请注意: 已打开的政策文档、滚动区域及同意控件
 
-   ![已打开的政策文档、滚动区域及同意控件](assets/annotated/359b44c428a52ddf3b1e9e0a88b93146802951e289fa4238275691cd24bc1a23.webp)
+   ![打开所需文档 · 适用政策 · 阅读到底 · 同意暂不可选](assets/annotated/359b44c428a52ddf3b1e9e0a88b93146802951e289fa4238275691cd24bc1a23.webp)
 
-   /student · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    学习伙伴工作区打开适用的学习伙伴政策审核。英文文档显示版本2026.10.14。只有将文档框滚动到底部后才可勾选同意。
 
+   /student · EN · 2026-11-20
+
    [原始完整截图](assets/read-accept-policy-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 适用政策
-
-   - **2.** 阅读到底
-
-   - **3.** 同意暂不可选
+   </details>
 
 2. **阅读到底并同意** 使用触摸、鼠标或键盘在政策文本框内滚动到底部。随后主动勾选同意，按要求签名并完成五秒确认。倒计时不会自动提交。
 
    **视图 1**
 
-   ![阅读到底并同意](assets/annotated/24d581b2438d676100f1c50f044fc8c86bea8f2ccf9bcf18dbcd3a72ea180b22.webp)
+   ![视图 1 · 勾选同意 · 准备就绪后确认](assets/annotated/c6b2b5b6ec3cebb14d6f7a7ef3ce6a4bf02e37fbbc1532c8f3367896d6346118.webp)
 
-   /student · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    滚动到文档底部后可勾选同意。五秒审核结束后可选择确认。本次演示停留在审核并选择取消。
 
+   /student · EN · 2026-11-20
+
    [原始完整截图](assets/read-accept-policy-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 勾选同意
-
-   - **2.** 准备就绪后确认
-
-   - **3.** 取消审核
+   </details>
 
    **视图 2**
 
-   ![阅读到底并同意](assets/annotated/86d78df16a500e9545a8e64bf875359fde08f572a207a97b11ec15de644a1176.webp)
+   ![视图 2 · 重新打开审核 · 参与要求](assets/annotated/86d78df16a500e9545a8e64bf875359fde08f572a207a97b11ec15de644a1176.webp)
 
-   /student · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    取消后仍可重新打开审核，新的学习伙伴参与仍需接受政策。现有账户及历史记录仍可访问。
 
+   /student · EN · 2026-11-20
+
    [原始完整截图](assets/read-accept-policy-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 重新打开审核
-
-   - **2.** 参与要求
+   </details>
 
 3. **重新阅读且不改变接受记录** 辅导伙伴可点击已接受提示中的当前政策，阅读最新文档。可关闭、按Escape或点击背景退出。仅查看不会记录接受。
 
-   ![重新阅读且不改变接受记录](assets/annotated/ff2feb79699384118ae6609376dc2a4535b1473c8eb24038fbd158db54610c8a.webp)
+   ![重新阅读且不改变接受记录 · 仅为阅读 · 刷新政策](assets/annotated/ff2feb79699384118ae6609376dc2a4535b1473c8eb24038fbd158db54610c8a.webp)
 
-   /dashboard#tutor-pairings · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    从已接受政策提示重新打开的已发布辅导伙伴政策阅读器
 
+   /dashboard#tutor-pairings · EN · 2026-11-16
+
    [原始完整截图](assets/read-accept-policy-step-3.en.jpg) · `589c055e4b1cf166b48b353bd619ac1982e5d9f6` · Latest-main development baseline 589c055e with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 仅为阅读
-
-   - **2.** 刷新政策
+   </details>
 
 ### 预期结果
 
@@ -1107,153 +1156,160 @@
 
    **视图 1**
 
-   ![收件人搜索、已选联系人和编辑框](assets/annotated/dd22e9ec6ff7bcfb1841db1f872e6ca1dddc8007906ed775de847ecf4372c35c.webp)
+   ![视图 1 · 搜索 · 选择 · 已选](assets/annotated/dd22e9ec6ff7bcfb1841db1f872e6ca1dddc8007906ed775de847ecf4372c35c.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    Alice 搜索实际获准联系的管理成员，勾选匹配的 Help Capture Manager；已选列表保留分别搜索选中的该管理员与 Alex Interview Chair，共二十人上限中的两人。尚未发送消息。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-1.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 搜索
-
-   - **2.** 选择
-
-   - **3.** 已选
+   </details>
 
    **视图 2**
 
-   ![收件人搜索、已选联系人和编辑框](assets/annotated/5935360446e5efeacf100b75f56ac6a943ba3823a2180c3cf28124c81d320554.webp)
+   ![视图 2 · 阅读 · 联系人](assets/annotated/5935360446e5efeacf100b75f56ac6a943ba3823a2180c3cf28124c81d320554.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    消息页上方说明分别私密投递、当前负责人／管理员监督与旧消息边界；Alice 的编辑器还列明实际可联系对象为管理团队。选择收件人及发送前先阅读这些说明。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-1-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 阅读
-
-   - **2.** 联系人
+   </details>
 
 2. **编辑并发送一次** 阅读编辑框上方的披露说明，输入文字并发送。群选收件人会分别私密投递；收件人看不到其他收件人及其回复。
 
    **视图 1**
 
-   ![编辑并发送一次](assets/annotated/06c9ac2e0565ab9d7320162fbec1680e09e658fd97b352b7f5d278f9858fe519.webp)
+   ![视图 1 · 收件人 · 发送](assets/annotated/1a8b60d003e415bf5e0a8990a95c2620a75e3dbd2b0eb2592435516eab4c6d43.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    阅读披露说明后，Alice 为两位已核对且获准的收件人草拟虚构消息。消息内容与发送消息操作均可见；发送一次会分别私密投递，尚未发送。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 收件人
-
-   - **2.** 消息
-
-   - **3.** 发送
+   </details>
 
    **视图 2**
 
-   ![编辑并发送一次](assets/annotated/41ccd50aa5938d73089d695020792bce084f96f20e353e4c9dd36bdf103cdbd6.webp)
+   ![视图 2 · 已发送](assets/annotated/41ccd50aa5938d73089d695020792bce084f96f20e353e4c9dd36bdf103cdbd6.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    实际发送回执确认分别私密投递给两人；一次发送获接受后，编辑器消息清空，已选收件人数归零。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-2-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已发送
+   </details>
 
    **视图 3**
 
-   ![编辑并发送一次](assets/annotated/83d5264a693f6df1187ec9c58ed0d2ab86845941e592a45821ebb8e500a00ab8.webp)
+   ![视图 3 · 单独投递](assets/annotated/b4ad2ffb4c98bbff1dbb1407ddede3560fb17cce006c67a8aa4940db1c68f3d9.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已存历史显示一次发送产生的两条投递记录：Alice 分别发给 Alex Interview Chair 与 Help Capture Manager；每条包含相同虚构文字及各自的私密投递说明。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-2-view-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 单独投递
-
-   - **2.** 单独投递
+   </details>
 
 3. **回复或返回原草稿** 在消息上选择回复。编辑框显示发送者并聚焦文字框。取消回复会返回独立的普通消息草稿；回复成功后也会返回。
 
    **视图 1**
 
-   ![回复或返回原草稿](assets/annotated/5a056f6495a3015df2219717177f395ca579dd7d4f1f8daa9566995481740225.webp)
+   ![视图 1 · 回复 · 发送](assets/annotated/aa240f7d307d35d5020c8a7fa90b30bb310a22248208c2e929deeb1c48529c77.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    点击回复后，Alice 的编辑器指向 Alex Interview Chair，并保留独立普通草稿。虚构回复已草拟；选择发送消息会发送此回复，选择取消回复则返回保留的普通草稿。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 回复
-
-   - **2.** 消息
-
-   - **3.** 发送
-
-   - **4.** 取消
+   </details>
 
    **视图 2**
 
-   ![回复或返回原草稿](assets/annotated/ff719f2d38595ae7c7d959201ca32fd23e5a3c29f2f17d60a8308d22e700e6dd.webp)
+   ![视图 2 · 草稿](assets/annotated/ff719f2d38595ae7c7d959201ca32fd23e5a3c29f2f17d60a8308d22e700e6dd.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    取消回复后返回独立普通编辑器，原先虚构的未发送计划草稿完全恢复。取消未发送消息，已选收件人数仍为零。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-3-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 草稿
+   </details>
 
    **视图 3**
 
-   ![回复或返回原草稿](assets/annotated/aecc7e4b58090a961b174673b8eca974d1c522e630dcf8ed3cbce4b82ab1fccf.webp)
+   ![视图 3 · 已发送](assets/annotated/afc721409d8e895dd46353c1058eb2df24162253cf7b5074261721f6d0becbd3.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    回复已发送一次，实际回执确认向一人私密投递。回复模式关闭，原先独立普通草稿未变并已恢复，普通收件人数为零。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-3-view-3.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 草稿
-
-   - **2.** 已发送
+   </details>
 
    **视图 4**
 
-   ![回复或返回原草稿](assets/annotated/37a50225371afdb31288762fdeba2d11843d503d81dbe7be860f89c79ccb4307.webp)
+   ![视图 4 · 已回复](assets/annotated/37a50225371afdb31288762fdeba2d11843d503d81dbe7be860f89c79ccb4307.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    最新已存记录显示 Alice 在下午4:34实际回复 Alex Interview Chair 的虚构文字；独立未发送普通草稿仍显示在普通编辑器中。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-3-view-4.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已回复
+   </details>
 
 4. **将收到的消息标为已读并翻阅历史** 在“我的消息”中，对尚未阅读的收到消息选择“标为已读”。此操作立即保存，没有确认对话框。列表刷新后，该消息的“标为已读”按钮和彩色未读左边框消失；仅打开收件箱或回复不会将其标为已读。使用此列表的“下一页”翻阅较早消息、“上一页”返回，并留意显示的页码和禁用按钮。消息已读状态与铃铛通知相互独立；如需把通知标为已读，请使用铃铛自身的已读控件。
 
@@ -1261,37 +1317,37 @@
 
    **视图 1**
 
-   ![收到消息的标为已读按钮、保存结果与我的消息分页控件](assets/annotated/da25c26c4f760260cff725e478614077f96a08608904f737926a2341faa59b7e.webp)
+   ![视图 1 · 已读 · 上一页 · 下一页](assets/annotated/da25c26c4f760260cff725e478614077f96a08608904f737926a2341faa59b7e.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    打开收件箱并回复后，Alex 原先收到的消息仍未读；标为已读是明确且立即保存的操作。四条记录均在第1页，因无其他页，上一页与下一页均禁用。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-4.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已读
-
-   - **2.** 上一页
-
-   - **3.** 下一页
+   </details>
 
    **视图 2**
 
-   ![收到消息的标为已读按钮、保存结果与我的消息分页控件](assets/annotated/928e78aec4de630516ad1bf246dc657d3527c0556435365816161da18d7bcbe3.webp)
+   ![视图 2 · 已读 · 通知](assets/annotated/928e78aec4de630516ad1bf246dc657d3527c0556435365816161da18d7bcbe3.webp)
 
-   /messages · EN · 2026-11-16
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    实际立即标为已读后，收到的消息与回复操作仍保留，已读按钮和彩色未读左边框已消失。铃铛仍显示独立未读通知，本次未对铃铛通知进行已读操作。
 
+   /messages · EN · 2026-11-16
+
    [原始完整截图](assets/send-private-messages-step-4-view-2.en.jpg) · `dd970ea426016e85cb514beeeab537c3ab2e5098` · Latest-main development baseline dd970ea4, selected 2026-11-16, with the Help candidate; synthetic demonstration data.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已读
-
-   - **2.** 通知
+   </details>
 
 ### 预期结果
 
@@ -1325,111 +1381,109 @@
 
    **视图 1**
 
-   ![接受／提供辅导历史与查看历史入口](assets/annotated/3d1c04f3b46057fe92046d9b24a13d3b4e4beda9cdd8d3e1178d6f31090b1d58.webp)
+   ![视图 1 · 接受辅导 · 提供辅导 · 查看历史](assets/annotated/3d1c04f3b46057fe92046d9b24a13d3b4e4beda9cdd8d3e1178d6f31090b1d58.webp)
 
-   /history · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    我的辅导历史分别列出接受及提供辅导记录。Alice 这里没有历史学习伙伴报名，其辅导伙伴行显示记录时段、14节课和查看历史。
 
+   /history · EN · 2026-11-20
+
    [原始完整截图](assets/find-own-history-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 接受辅导
-
-   - **2.** 提供辅导
-
-   - **3.** 查看历史
+   </details>
 
    **视图 2**
 
-   ![接受／提供辅导历史与查看历史入口](assets/annotated/a1e0ca1ac391e3fb072761be2eb63ff271cf97517c8d6abf469d344da89a11a6.webp)
+   ![视图 2 · 我的辅导历史](assets/annotated/a1e0ca1ac391e3fb072761be2eb63ff271cf97517c8d6abf469d344da89a11a6.webp)
 
-   /settings#notification-preferences · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    登录后的账户菜单提供我的辅导历史。该链接打开明确属于此账户的历史。
 
+   /settings#notification-preferences · EN · 2026-11-20
+
    [原始完整截图](assets/find-own-history-step-1-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 我的辅导历史
+   </details>
 
 2. **浏览保留证据** 分别使用课次、会议及调整列表的分页控件。辅导课次时数概览不包含单独的手动调整；比较总数时请另外检查。
 
    **视图 1**
 
-   ![浏览保留证据](assets/annotated/d5b4e4c5d3fcc04ad16d2737c64fdb741fd69f6b83f7c3e8a1c1714e4686314b.webp)
+   ![视图 1 · 证据数量 · 课程 · 已存学时](assets/annotated/d5b4e4c5d3fcc04ad16d2737c64fdb741fd69f6b83f7c3e8a1c1714e4686314b.webp)
 
-   /history · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    详情显示原始时段、14节课、6条会议记录和9项学时调整。每节课显示保存的学时。会议及调整位于独立列表。
 
+   /history · EN · 2026-11-20
+
    [原始完整截图](assets/find-own-history-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 证据数量
-
-   - **2.** 课程
-
-   - **3.** 已存学时
+   </details>
 
    **视图 2**
 
-   ![浏览保留证据](assets/annotated/ccb3de715cdecdb9a67441117f9f9ef5e4bc7098ec691d2d8ce84e87086b9cdd.webp)
+   ![视图 2 · 会议出勤 · 学时调整 · 独立额外学时](assets/annotated/ccb3de715cdecdb9a67441117f9f9ef5e4bc7098ec691d2d8ce84e87086b9cdd.webp)
 
-   /history · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    在同一历史弹窗内滚动可找到会议出勤和学时调整。已保存的面试学时与辅导课时分开列出。本例各列表均只需一页。
 
+   /history · EN · 2026-11-20
+
    [原始完整截图](assets/find-own-history-step-2-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 会议出勤
-
-   - **2.** 学时调整
-
-   - **3.** 独立额外学时
+   </details>
 
 3. **受邀时接受指定历史权限** 没有登录账户的校友可验证邀请指定邮箱，经邀请弹窗完成账户确认，再核对列出的源记录并选择关联我的历史。已有账户使用正常登录或恢复。
 
    **视图 1**
 
-   ![受邀时接受指定历史权限](assets/annotated/7bf172bc5e530598b471dca8bbd989992d14c5be3f614d948e1459a09a12b6b9.webp)
+   ![视图 1 · 原记录编号 · 确认自己的记录 · 关联我的历史](assets/annotated/7bf172bc5e530598b471dca8bbd989992d14c5be3f614d948e1459a09a12b6b9.webp)
 
-   /history/claim · EN · 2026-11-21
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    已验证的现有收件人在固定审阅中看到原辅导伙伴及学习伙伴记录。关联不会授予当前参与资格。
 
+   /history/claim · EN · 2026-11-21
+
    [原始完整截图](assets/find-own-history-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 原记录编号
-
-   - **2.** 确认自己的记录
-
-   - **3.** 关联我的历史
+   </details>
 
    **视图 2**
 
-   ![受邀时接受指定历史权限](assets/annotated/96f643c05d857a722e3555ce9fb842ccac331b70856505e4c13a2cec2470a5e4.webp)
+   ![视图 2 · 受邀邮箱 · 验证邮箱](assets/annotated/a712cfbf8b6b97db520f760c5f8327da6e33fbd52f2480077e17eef34593fdae.webp)
 
-   /history/claim · EN · 2026-11-21
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    真实邀请页面提供现有账户登录，也提供独立的仅历史账户表单。受邀邮箱栏仍为空。
 
+   /history/claim · EN · 2026-11-21
+
    [原始完整截图](assets/find-own-history-step-3-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 登录已有账户
-
-   - **2.** 受邀邮箱
-
-   - **3.** 验证邮箱
+   </details>
 
 ### 预期结果
 
@@ -1459,97 +1513,90 @@
 
    请注意: 可用时的日历订阅控件
 
-   ![可用时的日历订阅控件](assets/annotated/7ccaedaf4087738a79cf93fc39c640b375d9aab5363119cccce45e0b14748c4f.webp)
+   ![打开课次日历控件 · 排课工作区 · 日历订阅 · 每周日程 · 已确认日期](assets/annotated/7ccaedaf4087738a79cf93fc39c640b375d9aab5363119cccce45e0b14748c4f.webp)
 
-   /student?view=schedule · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    打开我的辅导伙伴与安排，在按日期的日程上方找到日历订阅。当前每周日程显示已确认的课程。
 
+   /student?view=schedule · EN · 2026-11-20
+
    [原始完整截图](assets/session-calendar-step-1.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 排课工作区
-
-   - **2.** 日历订阅
-
-   - **3.** 每周日程
-
-   - **4.** 已确认日期
+   </details>
 
 2. **创建并复制私密链接** 选择创建私密链接，阅读创建会撤销旧链接的提示，再确认创建私密链接。关闭弹窗前，将显示的私密订阅链接复制到日历应用。网址仅在本次打开期间显示，之后重新打开不会再次显示。
 
-   ![创建并复制私密链接](assets/annotated/9cf22e941d40dcdcbc534298e2bc9e48a00c7b4494684de79f76ed27043a3764.webp)
+   ![创建并复制私密链接 · 旧链接停止 · 创建私密链接](assets/annotated/3b490cfeca1219541b14b4c128240b5ab6d835f6078730e1d28140e1b1d20fb1.webp)
 
-   /student?view=schedule · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    选择创建私密链接，在确认前阅读旧链接提示。新链接仅在确认后显示，因此本图展示链接出现前的审核。
 
+   /student?view=schedule · EN · 2026-11-20
+
    [原始完整截图](assets/session-calendar-step-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 旧链接停止
-
-   - **2.** 创建私密链接
-
-   - **3.** 取消
+   </details>
 
 3. **核对已确认约会** 以网站中已约定课次时间和教室为最终依据。待处理提议与聊天消息不属于已确认约会。
 
-   ![核对已确认约会](assets/annotated/9c82fd79b8e87a70dc106f7d6e8bce505d53dd34ab9d8ed762974876e5da8934.webp)
+   ![核对已确认约会 · 已同意时间 · 当前教室 · 已改期](assets/annotated/9c82fd79b8e87a70dc106f7d6e8bce505d53dd34ab9d8ed762974876e5da8934.webp)
 
-   /dashboard#sessions · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    辅导伙伴的日期议程显示已同意的数学课程。卡片显示11月25日17:30至18:15、Emma Sun、A102教室及已改期状态。
 
+   /dashboard#sessions · EN · 2026-11-20
+
    [原始完整截图](assets/session-calendar-step-3.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 已同意时间
-
-   - **2.** 当前教室
-
-   - **3.** 已改期
+   </details>
 
 4. **更换或撤销已分享链接** 链接丢失或泄露时，选择替换私密链接，检查并确认，再复制新网址并更新个人日历。全部旧链接停止更新。选择撤销私密链接并确认，可停止订阅而不改变课次。请勿在公开报告中包含订阅网址。
 
    **视图 1**
 
-   ![更换或撤销已分享链接](assets/annotated/9d44ec32bb9594fbafc1bf8050cfe6822f0e724e359a2d1fa9aa63ac5c150d0b.webp)
+   ![视图 1 · 私密链接 · 替换 · 撤销](assets/annotated/9d44ec32bb9594fbafc1bf8050cfe6822f0e724e359a2d1fa9aa63ac5c150d0b.webp)
 
-   /student?view=schedule · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    重新打开面板可替换或撤销已保存的订阅。一次性显示的私密链接已隐藏。
 
+   /student?view=schedule · EN · 2026-11-20
+
    [原始完整截图](assets/session-calendar-step-4.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 私密链接
-
-   - **2.** 替换
-
-   - **3.** 撤销
+   </details>
 
    **视图 2**
 
-   ![更换或撤销已分享链接](assets/annotated/b9096a0ee427e6f353ac1732ed38d68e92ce7b205ee29ac90ef2785b191f310b.webp)
+   ![视图 2 · 停止订阅 · 确认撤销](assets/annotated/ba45009ce93e0098f1f1dd3dfdc8e6fbc40cf36fa194b1a8c861f65f1a93195e.webp)
 
-   /student?view=schedule · EN · 2026-11-20
+   英文界面
+
+   <details>
+   <summary>截图详情</summary>
 
    操作前阅读撤销影响。本次审核已取消，模拟订阅仍处于启用状态。
 
+   /student?view=schedule · EN · 2026-11-20
+
    [原始完整截图](assets/session-calendar-step-4-view-2.en.jpg) · `b5ece465681957c9fe579d26babdeb260c674fa0` · Latest-main development baseline b5ece465, selected 2026-11-20, with the Help candidate and synthetic demo records.
 
-   已为本步骤添加标注，原始完整截图保持不变。
-
-   - **1.** 停止订阅
-
-   - **2.** 确认撤销
-
-   - **3.** 取消
+   </details>
 
 ### 预期结果
 

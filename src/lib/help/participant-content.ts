@@ -25,10 +25,6 @@ export const participantArticles: HelpArticle[] = [
           "打开帮助与操作指南。搜索任务或症状，例如密码、出勤或审核；搜索范围包括步骤及故障排查。使用指南适用对象及按任务浏览缩小结果，再用清除筛选重置搜索和两类筛选。",
         ),
         screenshot: "help-catalogue",
-        focus: t(
-          "Search guides, Guide audience, Browse by task and Clear filters",
-          "搜索指南、指南适用对象、按任务浏览及清除筛选",
-        ),
       },
       {
         title: t("Follow the task guide", "按任务指南操作"),
@@ -37,16 +33,12 @@ export const participantArticles: HelpArticle[] = [
           "选择阅读指南，先检查开始之前，再按编号步骤及截图旁的请找到提示操作。可用本页目录跳转至接下来会发生什么、运作原理或遇到问题时。打开相关页面会进入实际功能；阅读说明不会授予权限。",
         ),
         screenshot: "help-article",
-        focus: t(
-          "Numbered walkthrough, Look for and On this page",
-          "编号操作、请找到及本页目录",
-        ),
       },
       {
         title: t("Enlarge and identify a screenshot", "放大并识别截图"),
         body: t(
-          "Choose Open full screenshot or select the image for a full-size view. Read the image's English/Chinese screen label, route and capture date. About these screenshots identifies source revision, release baseline and capture server; screenshots use synthetic demonstration accounts, and settings may change your visible controls.",
-          "选择打开完整截图或点击图片查看全尺寸。阅读图片的英文／中文界面标记、路径及截图时间。关于这些截图列明源代码版本、发布版本基线及截图服务器；截图使用虚构演示账户，配置可能使本人可见控件有所不同。",
+          "Select the screenshot to enlarge it. Open Capture details for the original image, route, date and source revision. About these screenshots identifies the development baseline and server. Screens use synthetic demonstration accounts.",
+          "选择截图将其放大。展开截图详情可查看原图、路径、日期及源代码版本。关于这些截图列明开发版本基线及服务器。截图使用虚构演示账户。",
         ),
       },
       {
@@ -87,8 +79,8 @@ export const participantArticles: HelpArticle[] = [
           "截图语言或控件不同",
         ),
         solution: t(
-          "Read the caption and release baseline, use the named controls in your interface and enlarge the image. English is used when no Chinese capture is available. Report a persistent release mismatch with its guide title and capture date, without sharing private records.",
-          "阅读图注及发布版本基线，按本人界面的控件名称操作，并放大图片。无中文截图时使用英语。持续存在版本差异时，报告指南标题及截图时间，不要分享私人记录。",
+          "Check Capture details and use the named controls in your interface. If the guide shows an English screen, the callouts still follow the guide language. Report a persistent mismatch with the guide title and capture date.",
+          "查看截图详情，并按本人界面的控件名称操作。如果指南显示英文界面，标注仍使用指南语言。若持续存在差异，请报告指南标题及截图日期。",
         ),
       },
     ],
@@ -136,7 +128,6 @@ export const participantArticles: HelpArticle[] = [
           "在首页选择“申请辅导”接受辅导、“成为辅导伙伴”申请授课，或“加入巡查团队”申请巡查。只需查看信息时，可在开放期间选择“注册为观察员”。",
         ),
         screenshot: "signin",
-        focus: t("Registration links below Sign In", "登录下方的注册链接"),
       },
       {
         title: t(
@@ -664,7 +655,6 @@ export const participantArticles: HelpArticle[] = [
           "在登录页输入用户名、主要邮箱或已验证备用邮箱，以及当前密码，然后选择“登录”。",
         ),
         screenshot: "signin",
-        focus: t("Username or email and Password", "用户名或邮箱与密码输入框"),
       },
       {
         title: t(
@@ -683,10 +673,6 @@ export const participantArticles: HelpArticle[] = [
           "选择“忘记密码”，以用户名或已验证邮箱申请恢复，再通过私密链接设置新密码。用户名恢复发送到主要邮箱，以备用邮箱申请则发送到该地址。之后重新登录。",
         ),
         screenshot: "forgot-password",
-        focus: t(
-          "Username or verified email identifier and Send reset link",
-          "用户名或已验证邮箱输入框及发送重置链接",
-        ),
       },
       {
         title: t(
