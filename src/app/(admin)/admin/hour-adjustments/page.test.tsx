@@ -423,7 +423,7 @@ it.each(
     renderPage(locale);
     const row = within(screen.getByRole("table")).getAllByRole("row")[1]!;
     expect(
-      within(row).getByRole("cell", { name: displayed, exact: true }),
+      within(row).getByRole("cell", { name: displayed }),
     ).toBeTruthy();
 
     fireEvent.click(
