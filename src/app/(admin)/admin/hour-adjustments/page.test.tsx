@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
+import { fileURLToPath, URL as NodeURL } from "node:url";
 import {
   act,
   cleanup,
@@ -18,7 +19,11 @@ import { ReadOnlyProvider } from "~/app/_components/read-only";
 import styles from "./page.module.css";
 
 const layout = parse(
-  readFileSync(new URL("./page.module.css", import.meta.url), "utf8"),
+  // The alias keeps Vite from rewriting this filesystem lookup as a browser asset.
+  readFileSync(
+    fileURLToPath(new NodeURL("./page.module.css", import.meta.url)),
+    "utf8",
+  ),
 );
 
 function layoutFor(element: Element) {
