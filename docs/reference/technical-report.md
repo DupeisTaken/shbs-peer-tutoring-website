@@ -1316,6 +1316,15 @@ Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open an
 
 Audit events identify actors by stable account ID and current role. The default signed-in mutation boundary commits domain writes and safe before/after evidence atomically; workflows that own their transactions retain their isolation/retry contracts and write evidence inside those boundaries. Failure/denial receipts are independent of rolled-back changes. The audit records actions rather than page access. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
+The [Audit Log list](<../../src/app/(admin)/admin/audit/page.tsx>) distinguishes
+**Recorded operation** from **Row actions**. Its scoped narrow-screen styles keep
+each localized date and clock intact on two separate lines below 1024 px; desktop
+retains the combined localized timestamp and punctuation. The semantic `time`
+element retains the original instant. Audit-only column minimums and a compact
+trailing action column preserve the shared keyboard-scroll region and sticky
+44 px touch controls. Names and operation summaries remain brief, with full
+recorded actor names available in Details when the summary is clipped or scrolled.
+
 Prospectively captured initial admissions use the separate
 [causal recovery contract](recovery.md). Website execution requires complete
 coverage and at most one later logical event; longer supported chains use the

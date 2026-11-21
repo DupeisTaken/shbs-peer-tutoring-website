@@ -28,6 +28,7 @@ import {
   TableActions,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
+import styles from "./page.module.css";
 
 /**
  * Audit evidence remains readable. Recovery requires a separate consequence preview;
@@ -153,26 +154,46 @@ function AuditLog() {
       )}
 
       <div className="card">
-        <SummaryTable label={t("admin.audit.title")}>
+        <SummaryTable label={t("admin.audit.title")} className={styles.table}>
           <thead>
             <tr>
-              <th>{t("admin.audit.columns.when")}</th>
+              <th className={styles.when}>{t("admin.audit.columns.when")}</th>
               <th>{t("admin.audit.columns.who")}</th>
-              <th>{t("auditFilters.kind")}</th>
-              <th>{t("admin.audit.columns.action")}</th>
+              <th className={styles.kind}>{t("auditFilters.kind")}</th>
+              <th className={styles.operation}>
+                {t("admin.audit.columns.action")}
+              </th>
               <th className="table-actions-heading">
-                {t("tablePatterns.actions")}
+                {t("admin.audit.columns.actions")}
               </th>
             </tr>
           </thead>
           <tbody>
             {entries.map((e) => (
               <tr key={e.id} className={e.undone ? "bg-slate-50" : ""}>
-                <td className="text-xs text-slate-500">
-                  {format.dateTime(new Date(e.createdAt), {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
+                <td className={`${styles.when} text-xs text-slate-500`}>
+                  <time dateTime={new Date(e.createdAt).toISOString()}>
+                    <span className={styles.fullTimestamp}>
+                      {format.dateTime(new Date(e.createdAt), {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </span>
+                    {/* Keep locale-owned dates intact on narrow screens; the
+                        desktop representation retains its original punctuation. */}
+                    <span className={styles.compactTimestamp}>
+                      <span>
+                        {format.dateTime(new Date(e.createdAt), {
+                          dateStyle: "medium",
+                        })}
+                      </span>{" "}
+                      <span>
+                        {format.dateTime(new Date(e.createdAt), {
+                          timeStyle: "short",
+                        })}
+                      </span>
+                    </span>
+                  </time>
                 </td>
                 <td className="min-w-40 whitespace-nowrap text-slate-600">
                   <span
@@ -182,7 +203,7 @@ function AuditLog() {
                     {e.userName ?? "—"}
                   </span>
                 </td>
-                <td>
+                <td className={styles.kind}>
                   <span
                     className={
                       e.kind === "DECISION"
@@ -197,7 +218,7 @@ function AuditLog() {
                       : eventTitle(t, { kind: e.kind })}
                   </span>
                 </td>
-                <td className="text-slate-800">
+                <td className={`${styles.operation} text-slate-800`}>
                   <span
                     className="block max-w-72 truncate"
                     title={eventTitle(t, e)}

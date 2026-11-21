@@ -9,7 +9,13 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import de from "../../../../../messages/de.json";
+import el from "../../../../../messages/el.json";
 import en from "../../../../../messages/en.json";
+import es from "../../../../../messages/es.json";
+import fr from "../../../../../messages/fr.json";
+import ja from "../../../../../messages/ja.json";
+import ko from "../../../../../messages/ko.json";
 import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
@@ -20,6 +26,8 @@ const mocks = vi.hoisted(() => ({
   detail: vi.fn(),
   undo: vi.fn(),
   entry: {
+    createdAt: new Date("2026-10-09T01:02:03Z"),
+    userName: "Recorded actor",
     kind: "ACTION",
     action: "Management action",
     operation: null as string | null,
@@ -55,8 +63,6 @@ vi.mock("~/trpc/react", () => ({
           data: [
             {
               id: "event-1",
-              createdAt: new Date("2026-10-09T01:02:03Z"),
-              userName: "Recorded actor",
               ...mocks.entry,
               undone: false,
             },
@@ -94,6 +100,8 @@ let client: QueryClient;
 beforeEach(() => {
   sessionStorage.clear();
   Object.assign(mocks.entry, {
+    createdAt: new Date("2026-10-09T01:02:03Z"),
+    userName: "Recorded actor",
     kind: "ACTION",
     action: "Management action",
     operation: null,
@@ -143,8 +151,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function mount(locale: "en" | "zh", readOnly = false) {
-  const messages = locale === "en" ? en : zh;
+const catalogs = { de, el, en, es, fr, ja, ko, zh };
+
+function mount(locale: keyof typeof catalogs, readOnly = false) {
+  const messages = catalogs[locale];
   render(
     <QueryClientProvider client={client}>
       <NextIntlClientProvider
@@ -166,6 +176,93 @@ function mount(locale: "en" | "zh", readOnly = false) {
   );
   return messages;
 }
+
+it.each(Object.keys(catalogs) as (keyof typeof catalogs)[])(
+  "distinguishes recorded operations from row controls in the %s audit table",
+  (locale) => {
+    const messages = mount(locale);
+    const headers = within(screen.getByRole("table")).getAllByRole(
+      "columnheader",
+    );
+    expect(headers).toHaveLength(5);
+    expect(headers[3]!.textContent).toBe(messages.admin.audit.columns.action);
+    expect(headers[4]!.textContent).toBe(messages.admin.audit.columns.actions);
+    expect(headers[3]!.textContent).not.toBe(headers[4]!.textContent);
+    expect(mocks.detail).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "keeps intact %s date/time parts and the same program-zone instant for narrow and desktop rows",
+  (locale) => {
+    // A UTC year boundary catches accidental browser-zone or calendar-date use.
+    const instant = new Date("2026-12-31T17:02:03Z");
+    mocks.entry.createdAt = instant;
+    mount(locale);
+    const table = screen.getByRole("table");
+    const time = table.querySelector("time")!;
+    expect(time.getAttribute("datetime")).toBe(instant.toISOString());
+    const options = { timeZone: "Asia/Shanghai" };
+    const date = new Intl.DateTimeFormat(locale, {
+      ...options,
+      dateStyle: "medium",
+    }).format(instant);
+    const clock = new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeStyle: "short",
+    }).format(instant);
+    const full = new Intl.DateTimeFormat(locale, {
+      ...options,
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(instant);
+    // The responsive CSS chooses one representation; JSDOM establishes content
+    // and semantic time only. Real-browser checks own line counts and geometry.
+    expect(time.children[0]!.textContent).toBe(full);
+    expect(
+      Array.from(time.children[1]!.children, (part) => part.textContent),
+    ).toEqual([date, clock]);
+    const region = screen.getByRole("region", {
+      name: catalogs[locale].admin.audit.title,
+    });
+    expect(region.tabIndex).toBe(0);
+    expect(region.contains(table)).toBe(true);
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "retains the full %s long actor and localized operation behind the row detail control",
+  (locale) => {
+    const actor = "Synthetic recorded actor with a long historical name "
+      .repeat(4)
+      .trim();
+    Object.assign(mocks.entry, {
+      userName: actor,
+      operation: "program.setProfilePolicy",
+    });
+    const messages = mount(locale, true);
+    const title = messages.approvals.review.operations.program_setProfilePolicy;
+    const row = screen.getByText(actor).closest("tr")!;
+    const cells = within(row).getAllByRole("cell");
+    expect(within(cells[1]!).getByText(actor).getAttribute("title")).toBe(actor);
+    expect(within(cells[3]!).getByText(title).getAttribute("title")).toBe(title);
+    const trigger = within(cells[4]!).getByRole("button", {
+      name: `${messages.tablePatterns.details}: ${title} · ${actor}`,
+    });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(actor, { selector: "p" })).toBeTruthy();
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: messages.tablePatterns.close,
+      }),
+    );
+    expect(document.activeElement).toBe(trigger);
+    expect(mocks.detail).not.toHaveBeenCalled();
+    expect(mocks.undo).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["en", "zh"] as const)(
   "keeps full %s evidence and lazy JSON behind a sticky Close, with Close/Escape restoring its row opener",
