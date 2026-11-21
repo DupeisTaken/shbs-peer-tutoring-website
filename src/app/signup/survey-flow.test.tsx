@@ -111,19 +111,39 @@ it("keeps the semester label during review", () => {
   expect(screen.queryByText(/Quarter ·/)).toBeNull();
 });
 
-it("retains the reviewed survey read-only after a failed background refresh", () => {
-  mocks.readError = {
-    message: "Network unavailable",
-    data: { code: "INTERNAL_SERVER_ERROR" },
-  };
-  const { container } = wrap(<StudentRegistration token={"a".repeat(64)} />);
-  expect(screen.getByText("Student One")).toBeTruthy();
-  expect(container.querySelector("fieldset")!.disabled).toBe(true);
-  fireEvent.submit(container.querySelector("form")!);
-  expect(mocks.confirm).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: en.survey.retry }));
-  expect(mocks.refetch).toHaveBeenCalledOnce();
-});
+it.each([
+  { locale: "en", messages: en },
+  { locale: "zh", messages: zh },
+])(
+  "retains the saved-survey recovery wording after a failed background refresh ($locale)",
+  ({ locale, messages }) => {
+    mocks.readError = {
+      message: "Network unavailable",
+      data: { code: "INTERNAL_SERVER_ERROR" },
+    };
+    const { container } = render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <StudentRegistration token={"a".repeat(64)} />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole("alert").textContent).toContain(
+      messages.survey.loadFailed,
+    );
+    expect(screen.queryByText(messages.public.signupFormLoadFailed)).toBeNull();
+    expect(screen.getByText("Student One")).toBeTruthy();
+    expect(container.querySelector("fieldset")!.disabled).toBe(true);
+    fireEvent.submit(container.querySelector("form")!);
+    expect(mocks.confirm).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.survey.retry }),
+    );
+    expect(mocks.refetch).toHaveBeenCalledOnce();
+  },
+);
 it("offers a sign-in button, readable link, and downloadable QR without exposing verification tokens", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {

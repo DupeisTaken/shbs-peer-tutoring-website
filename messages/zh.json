@@ -2593,6 +2593,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "暂时无法加载报名表所需信息，请重试。",
     "applicationRetryNotice": "如果此邮箱已有正在审核的申请，系统会保留原申请。如需修改，请联系项目团队。",
     "signup": {
       "title": "申请同伴辅导",

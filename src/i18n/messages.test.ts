@@ -48,6 +48,7 @@ describe("UI recovery and persistent field labels", () => {
   // Built-in locales do not inherit English. Every newly reachable recovery or
   // label state needs its own message, including states reached only on failure.
   const paths = [
+    "public.signupFormLoadFailed",
     "participantRecovery.loading",
     "participantRecovery.loadFailed",
     "participantRecovery.refreshFailed",

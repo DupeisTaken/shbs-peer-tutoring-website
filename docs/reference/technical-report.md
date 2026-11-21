@@ -341,6 +341,12 @@ Fresh public tutee submissions require `expectedTermId`.
 The intent service checks it under the period barrier after recovering an exact
 accepted receipt. The shared field remains optional for retained legacy intents.
 
+Public form prerequisite failures use `public.signupFormLoadFailed`, separate
+from `survey.loadFailed` for an existing submitted survey. Initial and cached
+tutee failures and cached tutor failures retain their read-only Retry actions;
+Retry reloads options and policy without submitting or recovering a receipt.
+Cached form data and drafts remain visible while submission is blocked.
+
 See [operator behavior](../guides/program-configuration.md#schedule-a-refresh) and
 [worker operations](../guides/deployment.md#scheduled-program-refresh-worker).
 
