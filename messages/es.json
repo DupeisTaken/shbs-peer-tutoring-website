@@ -1235,7 +1235,8 @@
       "columns": {
         "when": "Cuándo",
         "who": "Quién",
-        "action": "Acción"
+        "action": "Operación registrada",
+        "actions": "Acciones de fila"
       },
       "undone": "deshecha",
       "undo": "Deshacer",

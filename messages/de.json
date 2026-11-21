@@ -1243,7 +1243,8 @@
       "columns": {
         "when": "Wann",
         "who": "Wer",
-        "action": "Aktion"
+        "action": "Protokollierter Vorgang",
+        "actions": "Zeilenaktionen"
       },
       "undone": "rückgängig gemacht",
       "undo": "Rückgängig",

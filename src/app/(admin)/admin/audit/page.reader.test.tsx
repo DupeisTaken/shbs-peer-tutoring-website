@@ -9,14 +9,33 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import de from "../../../../../messages/de.json";
+import el from "../../../../../messages/el.json";
 import en from "../../../../../messages/en.json";
+import es from "../../../../../messages/es.json";
+import fr from "../../../../../messages/fr.json";
+import ja from "../../../../../messages/ja.json";
+import ko from "../../../../../messages/ko.json";
 import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import AuditPage from "./page";
 import type * as AuditFiltersModule from "~/app/_components/audit-filters";
 
-const mocks = vi.hoisted(() => ({ detail: vi.fn(), undo: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  detail: vi.fn(),
+  undo: vi.fn(),
+  entry: {
+    createdAt: new Date("2026-10-09T01:02:03Z"),
+    userName: "Recorded actor",
+    kind: "ACTION",
+    action: "Management action",
+    operation: null as string | null,
+    entity: null as string | null,
+    approvalId: null as string | null,
+    undoData: null as object | null,
+  },
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -44,13 +63,8 @@ vi.mock("~/trpc/react", () => ({
           data: [
             {
               id: "event-1",
-              createdAt: new Date("2026-10-09T01:02:03Z"),
-              userName: "Recorded actor",
-              action: "Management action",
-              kind: "ACTION",
+              ...mocks.entry,
               undone: false,
-              undoData: null,
-              approvalId: null,
             },
           ],
         }),
@@ -85,6 +99,16 @@ const evidence = {
 let client: QueryClient;
 beforeEach(() => {
   sessionStorage.clear();
+  Object.assign(mocks.entry, {
+    createdAt: new Date("2026-10-09T01:02:03Z"),
+    userName: "Recorded actor",
+    kind: "ACTION",
+    action: "Management action",
+    operation: null,
+    entity: null,
+    approvalId: null,
+    undoData: null,
+  });
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.detail.mockReturnValue({
     data: {
@@ -127,8 +151,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function mount(locale: "en" | "zh", readOnly = false) {
-  const messages = locale === "en" ? en : zh;
+const catalogs = { de, el, en, es, fr, ja, ko, zh };
+
+function mount(locale: keyof typeof catalogs, readOnly = false) {
+  const messages = catalogs[locale];
   render(
     <QueryClientProvider client={client}>
       <NextIntlClientProvider
@@ -150,6 +176,93 @@ function mount(locale: "en" | "zh", readOnly = false) {
   );
   return messages;
 }
+
+it.each(Object.keys(catalogs) as (keyof typeof catalogs)[])(
+  "distinguishes recorded operations from row controls in the %s audit table",
+  (locale) => {
+    const messages = mount(locale);
+    const headers = within(screen.getByRole("table")).getAllByRole(
+      "columnheader",
+    );
+    expect(headers).toHaveLength(5);
+    expect(headers[3]!.textContent).toBe(messages.admin.audit.columns.action);
+    expect(headers[4]!.textContent).toBe(messages.admin.audit.columns.actions);
+    expect(headers[3]!.textContent).not.toBe(headers[4]!.textContent);
+    expect(mocks.detail).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "keeps intact %s date/time parts and the same program-zone instant for narrow and desktop rows",
+  (locale) => {
+    // A UTC year boundary catches accidental browser-zone or calendar-date use.
+    const instant = new Date("2026-12-31T17:02:03Z");
+    mocks.entry.createdAt = instant;
+    mount(locale);
+    const table = screen.getByRole("table");
+    const time = table.querySelector("time")!;
+    expect(time.getAttribute("datetime")).toBe(instant.toISOString());
+    const options = { timeZone: "Asia/Shanghai" };
+    const date = new Intl.DateTimeFormat(locale, {
+      ...options,
+      dateStyle: "medium",
+    }).format(instant);
+    const clock = new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeStyle: "short",
+    }).format(instant);
+    const full = new Intl.DateTimeFormat(locale, {
+      ...options,
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(instant);
+    // The responsive CSS chooses one representation; JSDOM establishes content
+    // and semantic time only. Real-browser checks own line counts and geometry.
+    expect(time.children[0]!.textContent).toBe(full);
+    expect(
+      Array.from(time.children[1]!.children, (part) => part.textContent),
+    ).toEqual([date, clock]);
+    const region = screen.getByRole("region", {
+      name: catalogs[locale].admin.audit.title,
+    });
+    expect(region.tabIndex).toBe(0);
+    expect(region.contains(table)).toBe(true);
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "retains the full %s long actor and localized operation behind the row detail control",
+  (locale) => {
+    const actor = "Synthetic recorded actor with a long historical name "
+      .repeat(4)
+      .trim();
+    Object.assign(mocks.entry, {
+      userName: actor,
+      operation: "program.setProfilePolicy",
+    });
+    const messages = mount(locale, true);
+    const title = messages.approvals.review.operations.program_setProfilePolicy;
+    const row = screen.getByText(actor).closest("tr")!;
+    const cells = within(row).getAllByRole("cell");
+    expect(within(cells[1]!).getByText(actor).getAttribute("title")).toBe(actor);
+    expect(within(cells[3]!).getByText(title).getAttribute("title")).toBe(title);
+    const trigger = within(cells[4]!).getByRole("button", {
+      name: `${messages.tablePatterns.details}: ${title} · ${actor}`,
+    });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(actor, { selector: "p" })).toBeTruthy();
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: messages.tablePatterns.close,
+      }),
+    );
+    expect(document.activeElement).toBe(trigger);
+    expect(mocks.detail).not.toHaveBeenCalled();
+    expect(mocks.undo).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["en", "zh"] as const)(
   "keeps full %s evidence and lazy JSON behind a sticky Close, with Close/Escape restoring its row opener",
@@ -218,6 +331,9 @@ it.each(["en", "zh"] as const)(
     });
     expect(close.parentElement?.className).not.toContain("sticky top-0");
     expect(within(dialog).getByText("Recorded actor")).toBeTruthy();
+    expect(
+      within(dialog).getByText(messages.eventTitles.ACTION, { selector: "p" }),
+    ).toBeTruthy();
     expect(dialog.querySelector("details")).toBeNull();
     expect(mocks.detail).not.toHaveBeenCalled();
     expect(
@@ -226,5 +342,63 @@ it.each(["en", "zh"] as const)(
     fireEvent.click(close);
     expect(document.activeElement).toBe(trigger);
     expect(mocks.undo).not.toHaveBeenCalled();
+  },
+);
+
+const observerKinds = [
+  ["ACTION", "ACTION", "Management action"],
+  ["DECISION", "DECISION", "Management decision"],
+  ["SUBMISSION", "SUBMISSION", "Management submission"],
+  ["CANCELLATION", "CANCELLATION", "Management cancellation"],
+  ["ATTEMPT", "ATTEMPT", "Management action"],
+  ["REVERSAL", "REVERSAL", "Management action"],
+  ["LEGACY_IMPORTED_EVENT", "ACTION", "Management action"],
+  ["", "ACTION", "Management action"],
+] as const;
+
+it.each(
+  (["en", "zh"] as const).flatMap((locale) =>
+    observerKinds.map(([kind, titleKind, action]) => ({
+      locale,
+      kind,
+      titleKind,
+      action,
+    })),
+  ),
+)(
+  "localizes the $locale observer summary for $kind without mounting staff evidence or recovery",
+  ({ locale, kind, titleKind, action }) => {
+    Object.assign(mocks.entry, {
+      kind,
+      action,
+      // Existing row titles may use safe metadata, but the compact summary must
+      // remain category-only and must not depend on any recorded action text.
+      operation: "program.setProfilePolicy",
+      entity: "ProgramSettings",
+      approvalId: "private-approval",
+      undoData: { private: "executable undo instructions" },
+    });
+    const original = structuredClone(mocks.entry);
+    const messages = mount(locale, true);
+    expect(mocks.detail).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /Recorded actor/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText(messages.eventTitles[titleKind], {
+        selector: "p",
+      }),
+    ).toBeTruthy();
+    expect(dialog.textContent).not.toContain(action);
+    expect(dialog.querySelector("details, pre")).toBeNull();
+    expect(dialog.textContent).not.toContain("executable undo instructions");
+    expect(
+      screen.queryByRole("link", { name: messages.approvals.viewRequest }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: messages.recovery.title }),
+    ).toBeNull();
+    expect(mocks.detail).not.toHaveBeenCalled();
+    expect(mocks.undo).not.toHaveBeenCalled();
+    expect(mocks.entry).toEqual(original);
   },
 );
