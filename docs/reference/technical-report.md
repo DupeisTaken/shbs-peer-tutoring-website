@@ -2501,6 +2501,10 @@ continue. Bare `/admin/landing` visits keep their remembered view. The return do
 not expand or focus a particular record. Published pages retain their public
 return link, and the active language continues to come from the locale cookie.
 
+The custom-page card's **In nav** status follows the public navigation reader's
+`published && showInNav` condition. The separate checkbox still reflects and saves
+`showInNav` while hidden, preserving the preference for later publication.
+
 The [landing editor](<../../src/app/(admin)/admin/landing/landing-editor.tsx>)
 normalizes slug text on blur, then reads the canonical slug after the write succeeds.
 Both page and page-mode section address inputs have a persistent localized label;

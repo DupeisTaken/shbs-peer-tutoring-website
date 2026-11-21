@@ -2858,7 +2858,8 @@ function PageCard({
               ? t("admin.landing.sections.statusVisible")
               : t("admin.landing.sections.statusHidden")}
           </span>
-          {page.showInNav && (
+          {/* Match public navigation; hidden pages retain their saved preference. */}
+          {page.published && page.showInNav && (
             <span className="badge-slate">
               {t("admin.landing.pages.inNav")}
             </span>

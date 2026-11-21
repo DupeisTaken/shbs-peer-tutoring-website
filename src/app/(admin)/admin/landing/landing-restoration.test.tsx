@@ -46,6 +46,50 @@ beforeEach(() => { window.sessionStorage.clear(); state.news = undefined; state.
 afterEach(cleanup);
 afterEach(() => vi.restoreAllMocks());
 
+it.each(["en", "zh"] as const)(
+  "reports effective %s page navigation while retaining its saved preference",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    const record = (published: boolean, showInNav: boolean) => ({
+      id: "navigation-preference",
+      slug: "navigation-preference",
+      title: { en: "Synthetic navigation preference" },
+      published,
+      showInNav,
+      navOrder: 0,
+      createdByName: null,
+      updatedAt: new Date("2026-01-01"),
+    });
+    state.records.pages = [record(false, true)];
+    const page = render(tree(locale, "pages"));
+    const preference = screen.getByRole<HTMLInputElement>("checkbox", {
+      name: messages.admin.landing.pages.showInNav,
+    });
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusHidden),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.admin.landing.pages.inNav)).toBeNull();
+    expect(preference.checked).toBe(true);
+
+    state.records.pages = [record(true, true)];
+    page.rerender(tree(locale, "pages"));
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusVisible),
+    ).toBeTruthy();
+    expect(screen.getByText(messages.admin.landing.pages.inNav)).toBeTruthy();
+    expect(preference.checked).toBe(true);
+
+    state.records.pages = [record(true, false)];
+    page.rerender(tree(locale, "pages"));
+    expect(
+      screen.getByText(messages.admin.landing.sections.statusVisible),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.admin.landing.pages.inNav)).toBeNull();
+    expect(preference.checked).toBe(false);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
 it.each([
   ["en", "pages"],
   ["en", "sections"],
