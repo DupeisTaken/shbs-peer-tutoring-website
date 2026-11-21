@@ -2489,6 +2489,11 @@ Translation drafts capture a fingerprint of their destination. Publication reche
 
 The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
 
+Website text uses the shared `saveBoundary.form` hint. The editor's initial and
+cached account-read failures use `common.retry`; every bundled catalog defines
+both shared paths. Retry refetches identity, while cached editors remain mounted
+and disabled until that read recovers.
+
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
 
 The [landing editor](<../../src/app/(admin)/admin/landing/landing-editor.tsx>)
