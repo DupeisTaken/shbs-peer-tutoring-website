@@ -658,10 +658,10 @@ Hiding removes content from participants' responses while retaining it for autho
 Use **Landing Page** for public content, menus, media and custom pages. Custom pages and page-mode sections share the same URL namespace. The editor adds a numeric suffix when a slug is occupied; unpublished content still reserves its URL. Check the resulting public link after saving.
 
 Custom-page titles, menu labels and content-block text fall back independently
-when a translation is missing: English first, then the first saved language.
-Each displayed field identifies its actual language for assistive technology;
-the surrounding controls keep the chosen interface language. Publishing a title
-translation does not translate the page's individual content blocks.
+when a translation is missing. They try English first, then the first entry in
+the stored translations. Each displayed field identifies its actual language for
+assistive technology. The surrounding controls keep the chosen interface language.
+Publishing a title translation does not translate the page's individual content blocks.
 
 Assigned translators submit text drafts for review. If the destination text or language changes before approval, reject the stale draft, reload the current destination and submit again. A coordinator publication decision requires ADMIN/HEAD approval. English and Chinese are visible by default; review wording in hidden catalogs before enabling additional languages. Policy publication uses its own [reviewed revision workflow](policies/README.md).
 

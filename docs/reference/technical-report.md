@@ -2492,11 +2492,12 @@ The `/localization` editor contains interface text, website text and draft revie
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
 
 Custom-page titles, navigation labels and shared content-block text retain the
-language key selected by [the localized field resolver](../../src/lib/page-blocks.ts):
-requested locale, then English, then the first saved entry, then empty text.
+language key selected by [the localized field resolver](../../src/lib/page-blocks.ts).
+Resolution tries the requested locale, then English, then the first entry in the
+stored map, then empty text.
 An explicitly empty translation still wins. The heading, each navigation link,
 rich-text leaf, image caption/alt and individual button label carry their own
-resolved `lang`; mixed-language columns do not inherit a page title's fallback.
+resolved `lang`. Mixed-language columns do not inherit a page title's fallback.
 The interface, preview notice and return links retain the selected interface
 language. This presentation metadata changes neither saved content nor publication,
 visibility, slug resolution or Markdown sanitation.
