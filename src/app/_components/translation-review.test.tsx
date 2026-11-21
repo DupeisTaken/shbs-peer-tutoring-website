@@ -12,11 +12,7 @@ const mocks = vi.hoisted(() => ({
     id: "draft",
     operation: "localization.setString",
     state: "PENDING",
-    payload: {
-      locale: "en",
-      key: "common.save",
-      value: "Synthetic translation",
-    } as Record<string, unknown>,
+    payload: {},
     pageTarget: null as TranslationReviewPageTarget | null,
     createdAt: new Date("2026-09-19"),
     updatedAt: new Date("2026-09-19"),
