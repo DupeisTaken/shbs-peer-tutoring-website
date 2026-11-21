@@ -421,7 +421,7 @@ function rightmostActions(table: HTMLElement) {
   return actions;
 }
 
-it("keeps audit payload off the summary and preserves request and recovery links in the last cell", () => {
+it("keeps audit payload off the summary and preserves the request link in the last cell", () => {
   render(<AuditPage />, { wrapper });
   const actions = rightmostActions(screen.getByRole("table"));
   expect(screen.queryByText(/Detailed audit payload/)).toBeNull();
@@ -431,7 +431,9 @@ it("keeps audit payload off the summary and preserves request and recovery links
       .getAttribute("href"),
   ).toBe("/admin/approvals?request=approval-1");
   expect(within(actions).queryByRole("button", { name: messages.admin.audit.undo })).toBeNull();
-  expect(within(actions).getByRole("link", { name: messages.recovery.title }).getAttribute("href")).toBe("/admin/recovery");
+  expect(
+    within(actions).queryByRole("link", { name: messages.recovery.title }),
+  ).toBeNull();
   expect(state.undo).not.toHaveBeenCalled();
   fireEvent.click(
     within(actions).getByRole("button", { name: /^View details:/ }),
