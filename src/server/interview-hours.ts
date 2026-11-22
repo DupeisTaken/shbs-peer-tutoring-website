@@ -5,6 +5,7 @@ import { monthKey } from "~/lib/service-hours";
 import type { Quarter } from "~/lib/period";
 import { getActivePeriod } from "~/server/period";
 import { assertFeatureEnabled } from "~/server/program/features";
+import { staleConflict } from "~/server/concurrency";
 import {
   assertMutableProgramRecords,
   importedRecordKey,
@@ -64,6 +65,27 @@ export function sameInterviewCompletionEvidence(
         row.quarter === before.interviewQuarter,
     )
   );
+}
+
+export type InterviewCompletionReview =
+  "FIRST_COMPLETION" | "EXACT_RECEIPT" | "CORRECTION";
+
+/** Exact full-ledger receipts are read-only, even without their original version.
+ * Every changed recorded completion must carry the version the caller reviewed. */
+export function reviewInterviewCompletion(
+  before: CompletionEvidence & { updatedAt: Date },
+  credits: CreditEvidence[],
+  input: InterviewService & { expectedUpdatedAt?: Date },
+): InterviewCompletionReview {
+  if (sameInterviewCompletionEvidence(before, credits, input))
+    return "EXACT_RECEIPT";
+  if (
+    (before.interviewCompletedAt && !input.expectedUpdatedAt) ||
+    (input.expectedUpdatedAt &&
+      input.expectedUpdatedAt.getTime() !== before.updatedAt.getTime())
+  )
+    staleConflict();
+  return before.interviewCompletedAt ? "CORRECTION" : "FIRST_COMPLETION";
 }
 
 /** Both management completion and chair approval use the same source-owned credit
@@ -165,30 +187,29 @@ export async function recordInterviewApprovalService(
   await writeInterviewCompletion(tx, applicationId, before, input, credits);
 }
 
-/** Advisory classification only outside a transaction. The management middleware
- * rechecks this under the source review lock before granting the receipt path. */
-export async function isAppliedInterviewCompletion(
+/** Read-only preflight; admission and application repeat it under the source lock.
+ * Ineligible records never acquire the direct, read-only receipt exception. */
+export async function inspectInterviewCompletionReview(
   db: DomainDb,
   value: unknown,
-) {
+): Promise<InterviewCompletionReview | null> {
   const parsed = interviewCompletionInput.safeParse(value);
-  if (!parsed.success) return false;
+  if (!parsed.success) return null;
   const before = await db.tutorApplication.findUnique({
     where: { id: parsed.data.applicationId },
     include: { interviewers: true },
   });
-  if (
-    !before?.interviewCompletedAt ||
-    before.invalidatedAt ||
-    before.status === "RECALLED"
-  )
-    return false;
+  if (!before) return null;
   const credits = await interviewHourRows(
     db,
     parsed.data.applicationId,
     before.interviewers.map((p) => p.tutorId),
   );
-  return sameInterviewCompletionEvidence(before, credits, parsed.data);
+  const review = reviewInterviewCompletion(before, credits, parsed.data);
+  // Reject missing/stale correction versions before exclusions can send them
+  // into the queue, while retaining the usual invalid/recalled processing gates.
+  if (before.invalidatedAt || before.status === "RECALLED") return null;
+  return review;
 }
 
 export const INTERVIEW_HOURS_REASON = "Completed interview service";

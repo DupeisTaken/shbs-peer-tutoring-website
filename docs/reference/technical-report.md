@@ -1979,7 +1979,13 @@ The [hour calculator](../../src/lib/service-hours.ts) owns session rounding; use
 editing, credit review and final application, keeps cancelled/failed drafts with their
 captured `updatedAt`, and provides read-only synchronization recovery after successful
 writes. The completion transaction locks the application, rejects recalled/invalid
-requests and stale changed evidence, and uses exact deterministic credit IDs plus
+requests and stale changed evidence. A shared completion review requires the
+captured version for every change to already-recorded service, before Coordinator
+proposal admission and again under the application lock. Exact full-ledger receipt
+recovery may omit the version; tokenless first completion remains compatible.
+Queue capture holds the same source lock, so a first completion or correction
+committed while it waits cannot become an unreviewed proposal. The writer uses
+exact deterministic credit IDs plus
 owner/type/reason checks in [interview hours](../../src/server/interview-hours.ts). Identical
 already-applied evidence is idempotent; panel replacement uses the same source boundary.
 Corrections preserve original school year/quarter while the completion month follows
