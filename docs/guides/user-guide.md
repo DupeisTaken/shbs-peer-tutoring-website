@@ -1766,6 +1766,8 @@ If the consent card or policy reader cannot load, **Refresh** reads the current
 publication and acceptance status without signing or accepting it. A typed signature
 survives a temporary read failure. Content requiring acceptance remains unavailable
 until the read recovers.
+If a tutee consent-card confirmation was open, the failed read closes that review.
+After **Refresh**, choose **Accept This Policy Version** again to start a new confirmation.
 
 Email confirmation and password recovery pages remain available without a policy reminder; current acceptance is still required before participating.
 

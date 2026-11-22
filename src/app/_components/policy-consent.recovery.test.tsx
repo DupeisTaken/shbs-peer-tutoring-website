@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
+import type { ConfirmationTicket } from "~/lib/confirmation-timing";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 
@@ -24,7 +25,11 @@ const fixture = vi.hoisted(() => ({
   pendingRead: null as Promise<void> | null,
   reads: vi.fn(),
   accept: vi.fn(),
-  prepare: vi.fn(),
+  prepare:
+    vi.fn<
+      (input: { action: string; target: string }) => Promise<ConfirmationTicket>
+    >(),
+  cancelTicket: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useMutation, useQuery } = await import("@tanstack/react-query");
@@ -81,6 +86,9 @@ vi.mock("~/trpc/react", async () => {
         prepareAction: {
           useMutation: () => ({ mutateAsync: fixture.prepare }),
         },
+        cancelAction: {
+          useMutation: () => ({ mutate: fixture.cancelTicket }),
+        },
       },
     },
   };
@@ -98,6 +106,11 @@ beforeEach(() => {
   fixture.chineseBody = "已发布的中文政策。";
   fixture.pendingRead = null;
   fixture.accept.mockResolvedValue(undefined);
+  fixture.prepare.mockImplementation(async () =>
+    policyTicket(
+      `synthetic-policy-ticket-${fixture.prepare.mock.calls.length}`,
+    ),
+  );
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => {
@@ -118,6 +131,12 @@ const subject = (
     </NextIntlClientProvider>
   </QueryClientProvider>
 );
+const policyTicket = (id: string): ConfirmationTicket => ({
+  id,
+  serverNow: new Date(),
+  readyAt: new Date(Date.now() + 5_000),
+  expiresAt: new Date(Date.now() + 30 * 60_000),
+});
 
 it.each(["tutor-policy", "tutee-policy"] as const)(
   "an initially unavailable %s offers local read-only Retry without consent or action preparation",
@@ -324,5 +343,75 @@ it.each(["failed", "missing"] as const)(
     expect(screen.getByRole("button", { name: "current policy" })).toBeTruthy();
     expect(fixture.accept).not.toHaveBeenCalled();
     expect(fixture.prepare).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  { result: "failed", preparation: "ready" },
+  { result: "missing", preparation: "ready" },
+  { result: "failed", preparation: "pending" },
+  { result: "missing", preparation: "pending" },
+] as const)(
+  "retires $preparation tutee confirmation after a $result read; Refresh prepares nothing until explicit resubmission",
+  async ({ result, preparation }) => {
+    let finishPreparation!: (ticket: ConfirmationTicket) => void;
+    if (preparation === "pending")
+      fixture.prepare.mockReturnValueOnce(
+        new Promise<ConfirmationTicket>((resolve) => {
+          finishPreparation = resolve;
+        }),
+      );
+    render(subject("tutee-policy"));
+    const signature = await screen.findByRole("textbox", {
+      name: en.workflows.signature,
+    });
+    fireEvent.change(signature, { target: { value: "Synthetic signer" } });
+    fireEvent.submit(signature.closest("form")!);
+    await waitFor(() =>
+      expect(fixture.prepare).toHaveBeenCalledExactlyOnceWith({
+        action: "POLICY",
+        target: "synthetic-policy-revision-v2",
+      }),
+    );
+    if (preparation === "ready")
+      await screen.findByRole("button", { name: "Confirm in 5s" });
+    if (result === "failed")
+      fixture.failure = new Error("Synthetic tutee confirmation read failed");
+    else fixture.missing = true;
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["policy-recovery"] });
+    });
+    await screen.findByRole("alert");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    if (preparation === "pending")
+      await act(async () => {
+        finishPreparation(policyTicket("synthetic-policy-ticket-1"));
+      });
+    await waitFor(() =>
+      expect(fixture.cancelTicket).toHaveBeenCalledExactlyOnceWith({
+        ticket: "synthetic-policy-ticket-1",
+      }),
+    );
+    fixture.failure = null;
+    fixture.missing = false;
+    fireEvent.click(
+      screen.getByRole("button", { name: en.workflow.policyRefresh }),
+    );
+    const restoredSignature = await screen.findByRole<HTMLInputElement>(
+      "textbox",
+      { name: en.workflows.signature },
+    );
+    expect(restoredSignature.value).toBe("Synthetic signer");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(fixture.prepare).toHaveBeenCalledOnce();
+    expect(fixture.cancelTicket).toHaveBeenCalledOnce();
+    expect(fixture.accept).not.toHaveBeenCalled();
+    fireEvent.submit(restoredSignature.closest("form")!);
+    await waitFor(() => expect(fixture.prepare).toHaveBeenCalledTimes(2));
+    expect(fixture.prepare).toHaveBeenLastCalledWith({
+      action: "POLICY",
+      target: "synthetic-policy-revision-v2",
+    });
+    expect(fixture.accept).not.toHaveBeenCalled();
   },
 );

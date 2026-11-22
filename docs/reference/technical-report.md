@@ -2480,6 +2480,9 @@ policy response. It refetches `student.policy` only, retains the signature draft
 and conceals acceptance-gated children until a successful read. Recovery does not
 prepare a confirmation ticket or replay an acceptance; signing remains a separate
 action against the returned revision.
+Unavailable read evidence also retires an unfinished tutee consent-card confirmation.
+The dialog releases its prepared ticket, including a late preparation response;
+after recovery, only a fresh explicit form submission starts another review.
 
 [Bundled policy drafts](../guides/policies/README.md) are English/Chinese development sources requiring school adaptation and approval. The running site reads `PolicyDocument` rows. Staff publish reviewed revisions through the policy editor; changing Markdown does not update live policy records.
 

@@ -27,6 +27,9 @@ export function PolicyConsent({
   const save = api.student.acceptPolicy.useMutation({
     onSuccess: () => query.refetch(),
   });
+  // A lost read retires this review intent. Dialog cleanup releases its ticket,
+  // including a late preparation; read-only Refresh must not start another review.
+  if (readUnavailable && confirming) setConfirming(false);
   // Keep the reader open if a refresh finds a newly published, unaccepted revision.
   // Closing it reveals the ordinary consent flow; reading never records acceptance.
   const reader = viewing ? (
