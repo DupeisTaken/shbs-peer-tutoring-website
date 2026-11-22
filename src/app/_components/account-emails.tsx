@@ -95,6 +95,27 @@ export function AccountEmails() {
                 {t("bindingDisabled")}
               </p>
             )}
+            {(data.secondaryEmailBindingEnabled ||
+              data.emails.some((address) => address.email !== data.email)) && (
+              <label className="block space-y-1 border-b border-slate-100 pb-4">
+                <span className="label">{t("password")}</span>
+                <input
+                  type="password"
+                  aria-label={t("password")}
+                  aria-describedby="associated-email-password-help"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input min-h-11 lg:min-h-10"
+                />
+                <span
+                  id="associated-email-password-help"
+                  className="muted block text-xs"
+                >
+                  {t("passwordHelp")}
+                </span>
+              </label>
+            )}
             <ul className="divide-y divide-slate-100">
               {data.emails.map((address) => (
                 <li
@@ -170,27 +191,6 @@ export function AccountEmails() {
                 </li>
               ))}
             </ul>
-            {(data.secondaryEmailBindingEnabled ||
-              data.emails.some((address) => address.email !== data.email)) && (
-              <label className="block space-y-1 border-t border-slate-100 pt-4">
-                <span className="label">{t("password")}</span>
-                <input
-                  type="password"
-                  aria-label={t("password")}
-                  aria-describedby="associated-email-password-help"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input min-h-11 lg:min-h-10"
-                />
-                <span
-                  id="associated-email-password-help"
-                  className="muted block text-xs"
-                >
-                  {t("passwordHelp")}
-                </span>
-              </label>
-            )}
             {!data.deliveryAvailable && (
               <p className="text-sm text-amber-800">{t("unavailable")}</p>
             )}

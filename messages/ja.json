@@ -507,7 +507,8 @@
     "replyContext": "{name} に返信中",
     "cancelReply": "返信をキャンセル",
     "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。",
-    "permissionsDestination": "プログラム設定のメッセージ権限"
+    "permissionsDestination": "プログラム設定のメッセージ権限",
+    "privacyDetails": "過去のメッセージについて"
   },
   "common": {
     "cancel": "キャンセル",
@@ -928,7 +929,8 @@
         "tutors": "チューター",
         "tutees": "生徒",
         "schedulingRecords": "スケジュールと記録",
-        "administration": "管理"
+        "administration": "管理",
+        "dataRecovery": "データと復元"
       },
       "links": {
         "dashboard": "ダッシュボード",
@@ -2371,7 +2373,7 @@
         "EXTRA": "追加セッション",
         "TUTOR_ABSENT": "チューター欠席"
       },
-      "tutorAbsentReason": "チューター欠席の理由 *",
+      "tutorAbsentReason": "チューター欠席の理由",
       "start": "開始",
       "end": "終了",
       "now": "現在",
@@ -2397,7 +2399,7 @@
         "4": "とても良い",
         "5": "優秀"
       },
-      "comments": "コメント *",
+      "comments": "コメント",
       "cardsTitle": "指導カード（任意）",
       "cardsHelp": "簡単な理由とともにイエローまたはレッドカードを発行します。チームが確認してからカウントされます。（無断欠席には自動的にレッドカードが発行されます。）",
       "noCard": "カードなし",
@@ -6287,7 +6289,8 @@
     "proposeUnassign": "割当解除を提案",
     "changed": "入力中に審査情報が変更されました。理由は保持されています。再読み込み後に再試行してください。",
     "reload": "審査を再読み込み",
-    "rejectedTitle": "無効な申込は終了しました"
+    "rejectedTitle": "無効な申込は終了しました",
+    "action": "確認または異議申立て"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",

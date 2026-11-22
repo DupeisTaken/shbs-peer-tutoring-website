@@ -80,6 +80,6 @@ it.each([
   const copy = notificationEmailCopy("student_assignment_updated", {
     emailDetail,
   });
-  expect(copy.description).toContain("A tutoring assignment was updated.");
+  expect(copy.description).toContain("Your weekly tutoring schedule was updated.");
   expect(copy.description).not.toContain("sentinel");
 });

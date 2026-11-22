@@ -318,6 +318,17 @@ acceptance, purpose confusion, attempt limits, resend and failed delivery in tes
 capture both site and email panels at desktop/mobile widths and verify that stripping
 email styles preserves readable instructions, full codes and contrast.
 
+## Writing UI copy
+
+Keep visible interface copy brief, task-oriented and written for high-school participants and student officers rather than engineers.
+
+1. **Describe the user's outcome, not the implementation.** Omit optimistic-locking versions, draft/snapshot internals, idempotent retry deduplication, SMTP transport handoffs, database keys and audit actors from everyday UI copy.
+2. **State what happens rather than listing everything that does not.** Keep a negative caveat only when a person would otherwise reasonably worry about data loss or an irreversible side effect.
+3. **Keep inline guidance short (1–2 sentences).** Move secondary historical rules or edge-case specifications into a collapsed disclosure or tooltip so primary tasks stay scannable.
+4. **Make recovery copy actionable.** State what happened and the next step (for example, `"Saved, but the page could not refresh. Try refreshing."`) instead of explaining how read-only retries avoid replaying writes.
+5. **Follow one English/Chinese glossary and register.** Use **tutor** / **tutee** (`辅导伙伴` / `学习伙伴`) per [implementation wording](implementation.md#english-peer-tutoring-wording), Title Case **Head** (`负责人`, never raw `HEAD` or `Admin` in Chinese prose), **巡查队** / **巡查成员** for Crew, **服务时数** for service hours, **账号** (not `账户`), **加载** (not `载入`), and peer-friendly **你** consistently across Chinese participant screens.
+6. **Keep labels free of manual requirement markers.** Never embed `*` or `(optional)` inside translation strings; render `FieldRequirement` beside the label.
+
 ## Evolving the conventions
 
 Before adding or changing a design rule, inspect the current component, gallery

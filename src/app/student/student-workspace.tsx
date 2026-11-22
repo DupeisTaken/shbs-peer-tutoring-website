@@ -263,7 +263,7 @@ function CurrentRequest({
               disabled={readBlocked}
               onClick={() => setEditing(true)}
             >
-              {appeals("staffTitle")}
+              {appeals("action")}
             </Button>
           </div>
         )}

@@ -242,7 +242,7 @@ it("never replays an accepted save when synchronization fails, then permits a ne
   await choose("0");
   state.read.mockRejectedValueOnce(new Error("Synthetic read failure"));
   fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
-  await screen.findByText(/Preference saved, but synchronization failed/);
+  await screen.findByText(/Saved, but the page could not refresh/);
   expect(choice(0).disabled).toBe(true);
   expect(state.save).toHaveBeenCalledTimes(1);
   state.read.mockResolvedValue(snapshot({ preferredMaximum: 0, version: 1 }));
