@@ -1762,6 +1762,11 @@ For both tutor and tutee policies, scroll to the bottom inside the policy text b
 
 When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the five-second confirmation. Use **Refresh** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
 
+If the consent card or policy reader cannot load, **Refresh** reads the current
+publication and acceptance status without signing or accepting it. A typed signature
+survives a temporary read failure. Content requiring acceptance remains unavailable
+until the read recovers.
+
 Email confirmation and password recovery pages remain available without a policy reminder; current acceptance is still required before participating.
 
 ## Troubleshooting

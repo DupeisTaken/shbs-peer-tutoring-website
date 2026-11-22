@@ -2475,6 +2475,12 @@ Admin/Coordinator redemption requires mailbox proof and explicit review. New acc
 
 The dashboard's `PolicyConsent` accepted message opens `CurrentPolicyDialog`, a read-only native modal. Opening refetches `student.policy` and suppresses cached text during loading or errors. The reader stays open if the refreshed revision is unaccepted; closing restores the normal consent UI. It uses published locale content with English fallback and never invokes acceptance mutations.
 
+The consent card also offers local **Refresh** recovery after a failed or missing
+policy response. It refetches `student.policy` only, retains the signature draft,
+and conceals acceptance-gated children until a successful read. Recovery does not
+prepare a confirmation ticket or replay an acceptance; signing remains a separate
+action against the returned revision.
+
 [Bundled policy drafts](../guides/policies/README.md) are English/Chinese development sources requiring school adaptation and approval. The running site reads `PolicyDocument` rows. Staff publish reviewed revisions through the policy editor; changing Markdown does not update live policy records.
 
 The [policy editor](<../../src/app/(admin)/admin/policies/page.tsx>) conceals private

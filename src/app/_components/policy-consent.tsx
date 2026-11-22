@@ -5,6 +5,8 @@ import { Markdown } from "./markdown";
 import { api } from "~/trpc/react";
 import { TimedActionDialog } from "./timed-action-dialog";
 import { CurrentPolicyDialog } from "./current-policy-dialog";
+import { Button } from "./ui/button";
+import { StatePanel } from "./ui/patterns";
 
 /** The server verifies the revision again on acceptance and on participation mutations. */
 export function PolicyConsent({
@@ -15,8 +17,10 @@ export function PolicyConsent({
   children?: React.ReactNode;
 }) {
   const t = useTranslations("workflows");
+  const recovery = useTranslations("workflow");
   const locale = useLocale();
   const query = api.student.policy.useQuery({ slug });
+  const readUnavailable = !!query.error || (query.isSuccess && !query.data);
   const [signature, setSignature] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [viewing, setViewing] = useState(false);
@@ -29,22 +33,35 @@ export function PolicyConsent({
     <CurrentPolicyDialog
       documents={query.data?.documents}
       loading={query.isFetching}
-      error={!!query.error}
+      error={readUnavailable}
       onRetry={() => void query.refetch()}
       onClose={() => setViewing(false)}
     />
   ) : null;
-  if (query.error && !viewing)
+  // Recovery only reads policy state. The signature remains owned above this
+  // branch; unavailable evidence still cannot expose acceptance-gated children.
+  if (readUnavailable && !viewing)
     return (
-      <p role="alert" className="card p-6 text-red-700">
-        {query.error.message}
-      </p>
+      <StatePanel
+        kind="error"
+        title={recovery("policyLoadError")}
+        action={
+          <Button
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {recovery("policyRefresh")}
+          </Button>
+        }
+      >
+        {query.error?.message}
+      </StatePanel>
     );
-  if (!query.data) return reader ?? <p>{t("loading")}</p>;
-  if (query.data.accepted || viewing)
+  if (query.data?.accepted || viewing)
     return (
       <>
-        {query.data.accepted &&
+        {!readUnavailable &&
+          query.data?.accepted &&
           (children ?? (
             <p className="text-emerald-700">
               {/* A new rich-text key avoids legacy plain-text translation overrides. */}
@@ -68,6 +85,7 @@ export function PolicyConsent({
         {reader}
       </>
     );
+  if (!query.data) return <p>{t("loading")}</p>;
   const document =
     query.data.documents.find((d) => d.locale === locale) ??
     query.data.documents.find((d) => d.locale === "en")!;
