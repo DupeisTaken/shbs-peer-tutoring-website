@@ -2851,6 +2851,7 @@
     "collapseAll": "全部收起",
     "languagesHeading": "语言",
     "languagesHelp": "只有已启用的语言会显示在公共语言菜单中。隐藏的语言仍可在此编辑，直至翻译完善。",
+    "languagesReadFailed": "无法读取语言设置。已缓存的设置和未完成的内容均已保留，请先重试再更改。",
     "builtIn": "内置",
     "enabled": "已启用",
     "disabled": "已隐藏",
