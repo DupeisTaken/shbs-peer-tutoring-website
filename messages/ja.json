@@ -3613,7 +3613,11 @@
         "archivedOfferings": "アーカイブする科目の開設項目",
         "timetableWeekday": "時間割の曜日",
         "scheduleRevision": "時間割の改訂番号",
-        "actionId": "記録済み入会承認の操作 ID"
+        "actionId": "記録済み入会承認の操作 ID",
+        "from": "開始日",
+        "to": "終了日",
+        "originalFrom": "変更前の開始日",
+        "originalTo": "変更前の終了日"
       },
       "values": {
         "ACTIVE": "有効",
@@ -3853,7 +3857,9 @@
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "月次サービス時間レポートのスケジュールを変更",
         "schoolHours_save": "学校向け奉仕時間報告のスケジュールを変更",
-        "student_setCalendarHoliday": "学校の休暇期間を追加"
+        "student_setCalendarHoliday": "学校の休暇期間を追加",
+        "student_updateCalendarHoliday": "学校の休暇期間を編集",
+        "student_resetCalendarHoliday": "学校の休暇期間を通常に戻す"
       },
       "decisionRequestHelp": "「承認して適用」は、元の申請を却下する操作も含め、提案された操作を実行します。「フィードバックを付けて却下」は、この提案を却下し、変更を行いません。どちらの場合も判断の理由を備考に記入してください。",
       "confirmPassword": "アカウントのパスワードを確認",
@@ -6113,7 +6119,7 @@
     "reload": "下書きを再読み込み",
     "loadFailed": "チュータリングのお知らせを読み込めませんでした。",
     "loading": "チュータリングのお知らせを読み込み中…",
-    "add": "期間を追加",
+    "add": "チュータリング休止・お知らせを追加",
     "date": "期間",
     "startDate": "開始日",
     "endDate": "終了日",
@@ -6147,7 +6153,15 @@
     "impactRetain": "維持する確定済み追加セッション・明示的に合意した振替：{count}",
     "impactConfirm": "明示的な確認が必要：{count}",
     "impactRestore": "復元候補：{count}",
-    "impactRule": "保存時に現在の合意と競合を再確認し、対象の参加者にキャンセルをメールで通知します。開始済みのセッションと記録済みの出席は変更されません。"
+    "impactRule": "保存時に現在の合意と競合を再確認し、対象の参加者にキャンセルをメールで通知します。開始済みのセッションと記録済みの出席は変更されません。",
+    "combinedTitle": "学校休暇・チュータリング休止",
+    "combinedHelp": "学校休暇（休校）とチュータリング休止・お知らせ（登校日）を管理します。学校休暇は通常セッションと異議申立の登校日数カウントを停止します。チュータリング休止は登校日ルールを変更しません。",
+    "combinedEmpty": "学校休暇やチュータリングのお知らせはありません。",
+    "denied": "チュータリングのお知らせと休止設定は利用できません。",
+    "holidayEffect": "学校休暇（休校）",
+    "pauseEffectTable": "通常チュータリング休止（登校日）",
+    "noticeEffectTable": "お知らせのみ（登校日）",
+    "reasonOrNote": "理由 / メモ"
   },
   "roomOrder": {
     "title": "教室の表示順",
@@ -7312,7 +7326,23 @@
     "invalidRange": "有効な日付を選び、終了日は開始日以降、期間は366日以内にしてください。",
     "holidayReplaces": "保存すると、以下の既存の{count}件の日付設定とメモが置き換えられます。",
     "saveHoliday": "休暇を保存",
-    "reloadHoliday": "現在の期間を再読み込み"
+    "reloadHoliday": "現在の期間を再読み込み",
+    "weekdayOverridesTitle": "曜日時間割の変更",
+    "weekdayOverridesHelp": "特定の日付に適用する曜日時間割を設定します（週末の振替登校日を含みます）。ここに表示される日付は登校日です。休校や休暇は上で管理します。",
+    "weekdayOverridesEmpty": "曜日時間割の変更はありません。登校日は本来の曜日の時間割に従います。",
+    "addWeekdayOverride": "曜日時間割の変更を追加",
+    "editWeekdayOverride": "曜日時間割の変更を編集",
+    "saveWeekdayOverride": "曜日時間割の変更を保存",
+    "weekdayReplacesExisting": "保存すると、この日付の既存の学校カレンダー設定とメモが置き換えられます。",
+    "editHoliday": "休暇を編集",
+    "holidayDetailsTitle": "学校休暇",
+    "holidayDaysCount": "{count}日間",
+    "noStaffNote": "スタッフメモなし",
+    "staffNotePrivate": "スタッフメモは内部用であり、参加者には送信されません。",
+    "holidayResets": "保存時に通常へ戻る日付：{count}件。",
+    "holidayChangedExternally": "この休暇は他の場所で変更または削除されました。このウィンドウを閉じて最新のカレンダーを確認してください。",
+    "resetHolidayTitle": "この学校休暇を通常に戻しますか？",
+    "resetHolidayHelp": "この休暇に含まれるすべての日付を通常の登校日・曜日時間割ルールに戻します。履歴や合意済みのセッションは保持されます。"
   },
   "recordInspector": {
     "backToRecord": "Back to record",

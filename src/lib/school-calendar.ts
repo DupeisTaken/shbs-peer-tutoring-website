@@ -37,6 +37,12 @@ export const schoolCalendarReset = z
   })
   .strict();
 
+/** Advance a validated program-local YYYY-MM-DD label by one calendar day in UTC. */
+export function nextCalendarDate(date: string): string {
+  programCalendarDate.parse(date);
+  return new Date(Date.parse(date) + 86_400_000).toISOString().slice(0, 10);
+}
+
 /** Enumerate actual date labels inclusively, without local-time/DST arithmetic. */
 export function schoolCalendarRangeDates(from: string, to: string): string[] {
   programCalendarDate.parse(from);
@@ -52,17 +58,186 @@ export function schoolCalendarRangeDates(from: string, to: string): string[] {
   );
 }
 
+/** Sorted unique union of two inclusive holiday ranges for deterministic locking and version checks. */
+export function schoolCalendarHolidayUnionDates(
+  originalFrom: string,
+  originalTo: string,
+  from: string,
+  to: string,
+): string[] {
+  return [
+    ...new Set([
+      ...schoolCalendarRangeDates(originalFrom, originalTo),
+      ...schoolCalendarRangeDates(from, to),
+    ]),
+  ].sort((a, b) => a.localeCompare(b));
+}
+
+export type SchoolCalendarHolidayDay = {
+  date: string;
+  isSchoolDay: boolean;
+  active: boolean;
+  note?: string | null;
+  version: number;
+};
+
+export type SchoolCalendarHolidayGroup<
+  T extends SchoolCalendarHolidayDay = SchoolCalendarHolidayDay,
+> = {
+  from: string;
+  to: string;
+  note: string;
+  days: T[];
+};
+
+/** Group contiguous active closed-school dates with matching normalized notes.
+ * Cap each group at 366 days so every rendered group stays within the atomic edit/reset limit. */
+export function groupSchoolCalendarHolidays<T extends SchoolCalendarHolidayDay>(
+  days: readonly T[],
+): SchoolCalendarHolidayGroup<T>[] {
+  const closed = days
+    .filter((day) => day.active && !day.isSchoolDay)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const groups: SchoolCalendarHolidayGroup<T>[] = [];
+  for (const day of closed) {
+    const note = (day.note ?? "").trim();
+    const current = groups.at(-1);
+    if (
+      current?.note === note &&
+      current.days.length < 366 &&
+      nextCalendarDate(current.to) === day.date
+    ) {
+      current.to = day.date;
+      current.days.push(day);
+    } else {
+      groups.push({ from: day.date, to: day.date, note, days: [day] });
+    }
+  }
+  return groups;
+}
+
+const holidayExpectedVersion = z
+  .object({
+    date: programCalendarDate,
+    version: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export const schoolCalendarHoliday = z
   .object({
     from: programCalendarDate,
     to: programCalendarDate,
     note: z.string().trim().max(300),
+    expectedVersions: z.array(holidayExpectedVersion).min(1).max(366),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      !programCalendarDate.safeParse(input.from).success ||
+      !programCalendarDate.safeParse(input.to).success
+    )
+      return;
+    const span = Date.parse(input.to) - Date.parse(input.from);
+    if (span < 0 || span > 365 * 86_400_000) {
+      context.addIssue({
+        code: "custom",
+        path: ["to"],
+        message: "Choose an inclusive holiday range of at most 366 days.",
+      });
+      return;
+    }
+    const dates = schoolCalendarRangeDates(input.from, input.to);
+    const versions = new Map(
+      input.expectedVersions.map((entry) => [entry.date, entry.version]),
+    );
+    // Missing days and tombstones are evidence too; never silently adopt a newer row.
+    if (
+      input.expectedVersions.length !== dates.length ||
+      versions.size !== dates.length ||
+      dates.some((date) => !versions.has(date))
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["expectedVersions"],
+        message:
+          "Capture the current version of every date in the holiday range.",
+      });
+  });
+
+export const schoolCalendarHolidayUpdate = z
+  .object({
+    originalFrom: programCalendarDate,
+    originalTo: programCalendarDate,
+    from: programCalendarDate,
+    to: programCalendarDate,
+    note: z.string().trim().max(300),
+    expectedVersions: z.array(holidayExpectedVersion).min(1).max(732),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      !programCalendarDate.safeParse(input.originalFrom).success ||
+      !programCalendarDate.safeParse(input.originalTo).success ||
+      !programCalendarDate.safeParse(input.from).success ||
+      !programCalendarDate.safeParse(input.to).success
+    )
+      return;
+    const originalSpan =
+      Date.parse(input.originalTo) - Date.parse(input.originalFrom);
+    if (originalSpan < 0 || originalSpan > 365 * 86_400_000) {
+      context.addIssue({
+        code: "custom",
+        path: ["originalTo"],
+        message: "Choose an inclusive holiday range of at most 366 days.",
+      });
+      return;
+    }
+    const nextSpan = Date.parse(input.to) - Date.parse(input.from);
+    if (nextSpan < 0 || nextSpan > 365 * 86_400_000) {
+      context.addIssue({
+        code: "custom",
+        path: ["to"],
+        message: "Choose an inclusive holiday range of at most 366 days.",
+      });
+      return;
+    }
+    const originalDates = schoolCalendarRangeDates(
+      input.originalFrom,
+      input.originalTo,
+    );
+    const unionDates = schoolCalendarHolidayUnionDates(
+      input.originalFrom,
+      input.originalTo,
+      input.from,
+      input.to,
+    );
+    const versions = new Map(
+      input.expectedVersions.map((entry) => [entry.date, entry.version]),
+    );
+    if (
+      input.expectedVersions.length !== unionDates.length ||
+      versions.size !== unionDates.length ||
+      unionDates.some((date) => !versions.has(date)) ||
+      originalDates.some((date) => (versions.get(date) ?? 0) < 1)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["expectedVersions"],
+        message:
+          "Capture the current version of every original and updated date in the holiday range.",
+      });
+  });
+
+export const schoolCalendarHolidayReset = z
+  .object({
+    from: programCalendarDate,
+    to: programCalendarDate,
     expectedVersions: z
       .array(
         z
           .object({
             date: programCalendarDate,
-            version: z.number().int().nonnegative(),
+            version: z.number().int().positive(),
           })
           .strict(),
       )
@@ -89,7 +264,6 @@ export const schoolCalendarHoliday = z
     const versions = new Map(
       input.expectedVersions.map((entry) => [entry.date, entry.version]),
     );
-    // Missing days and tombstones are evidence too; never silently adopt a newer row.
     if (
       input.expectedVersions.length !== dates.length ||
       versions.size !== dates.length ||

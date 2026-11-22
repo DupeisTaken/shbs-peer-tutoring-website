@@ -3613,7 +3613,11 @@
         "archivedOfferings": "Zu archivierende Fachangebote",
         "timetableWeekday": "Wochentag des Stundenplans",
         "scheduleRevision": "Stundenplanrevision",
-        "actionId": "Aktions-ID der erfassten Zulassung"
+        "actionId": "Aktions-ID der erfassten Zulassung",
+        "from": "Startdatum",
+        "to": "Enddatum",
+        "originalFrom": "Bisheriges Startdatum",
+        "originalTo": "Bisheriges Enddatum"
       },
       "values": {
         "ACTIVE": "Aktiv",
@@ -3853,7 +3857,9 @@
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Zeitplan der monatlichen Dienststundenberichte ändern",
         "schoolHours_save": "Zeitplan der Schulstundenberichte ändern",
-        "student_setCalendarHoliday": "Einen Schulferienzeitraum hinzufügen"
+        "student_setCalendarHoliday": "Einen Schulferienzeitraum hinzufügen",
+        "student_updateCalendarHoliday": "Einen Schulferienzeitraum bearbeiten",
+        "student_resetCalendarHoliday": "Einen Schulferienzeitraum zurücksetzen"
       },
       "decisionRequestHelp": "„Genehmigen und anwenden“ führt die beantragte Aktion aus, auch eine beantragte Ablehnung. „Mit Rückmeldung ablehnen“ lehnt diesen Antrag ohne Änderungen ab. Begründen Sie beide Entscheidungen mit einer Notiz.",
       "confirmPassword": "Passwort Ihres Kontos bestätigen",
@@ -6113,7 +6119,7 @@
     "reload": "Entwurf neu laden",
     "loadFailed": "Nachhilfehinweise konnten nicht geladen werden.",
     "loading": "Nachhilfehinweise werden geladen…",
-    "add": "Zeitraum hinzufügen",
+    "add": "Nachhilfepause oder Hinweis hinzufügen",
     "date": "Zeitraum",
     "startDate": "Startdatum",
     "endDate": "Enddatum",
@@ -6147,7 +6153,15 @@
     "impactRetain": "Bestätigte Zusatztermine und ausdrücklich vereinbarte Verschiebungen bleiben: {count}",
     "impactConfirm": "Ausdrückliche Bestätigung erforderlich: {count}",
     "impactRestore": "Mögliche Wiederherstellungen: {count}",
-    "impactRule": "Beim Speichern werden aktuelle Zustimmungen und Konflikte erneut geprüft. Betroffene werden per E-Mail über Absagen informiert. Begonnene Termine und erfasste Anwesenheit bleiben unverändert."
+    "impactRule": "Beim Speichern werden aktuelle Zustimmungen und Konflikte erneut geprüft. Betroffene werden per E-Mail über Absagen informiert. Begonnene Termine und erfasste Anwesenheit bleiben unverändert.",
+    "combinedTitle": "Ferien & Nachhilfepausen",
+    "combinedHelp": "Verwalten Sie Schulferien (schulfrei) sowie Nachhilfepausen oder Hinweise (Schultag). Schulferien pausieren reguläre Nachhilfe und die Schultagezählung für Einsprüche; Nachhilfepausen lassen Schultags- und Einspruchsregeln unverändert.",
+    "combinedEmpty": "Keine Schulferien oder Nachhilfehinweise.",
+    "denied": "Nachhilfehinweise und -pausen sind nicht verfügbar.",
+    "holidayEffect": "Schulferien (Schulfrei)",
+    "pauseEffectTable": "Nachhilfepause (Schultag)",
+    "noticeEffectTable": "Nur Hinweis (Schultag)",
+    "reasonOrNote": "Grund / Notiz"
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",
@@ -7312,7 +7326,23 @@
     "invalidRange": "Gültige Daten wählen: Ende frühestens am Start, höchstens 366 Tage.",
     "holidayReplaces": "Beim Speichern werden die folgenden {count} Datumsausnahmen samt Notizen ersetzt.",
     "saveHoliday": "Ferien speichern",
-    "reloadHoliday": "Aktuellen Zeitraum neu laden"
+    "reloadHoliday": "Aktuellen Zeitraum neu laden",
+    "weekdayOverridesTitle": "Wochentags-Stundenplan",
+    "weekdayOverridesHelp": "Legen Sie fest, welchem Wochentags-Stundenplan ein bestimmtes Datum folgt, einschließlich Nachhol-Schultagen am Wochenende. Aufgeführte Daten sind Schultage; Ferien und Schließungen werden oben verwaltet.",
+    "weekdayOverridesEmpty": "Keine Wochentags-Stundenplan-Abweichungen. Schultage folgen ihrem eigenen Wochentag.",
+    "addWeekdayOverride": "Stundenplan-Abweichung hinzufügen",
+    "editWeekdayOverride": "Stundenplan-Abweichung bearbeiten",
+    "saveWeekdayOverride": "Stundenplan-Abweichung speichern",
+    "weekdayReplacesExisting": "Beim Speichern wird der bestehende Schulkalender-Eintrag für dieses Datum samt Notiz ersetzt.",
+    "editHoliday": "Ferien bearbeiten",
+    "holidayDetailsTitle": "Schulferien",
+    "holidayDaysCount": "{count, plural, one {# Tag} other {# Tage}}",
+    "noStaffNote": "Keine interne Notiz",
+    "staffNotePrivate": "Interne Notizen bleiben für Mitarbeitende und werden nicht an Teilnehmende gesendet.",
+    "holidayResets": "Daten, die beim Speichern auf den Normalzustand zurückgesetzt werden: {count}.",
+    "holidayChangedExternally": "Diese Ferien wurden anderswo geändert oder entfernt. Schließen Sie diesen Dialog, um den aktuellen Kalender zu prüfen.",
+    "resetHolidayTitle": "Diese Schulferien zurücksetzen?",
+    "resetHolidayHelp": "Stellt die normalen Schultags- und Wochentagsregeln für alle Daten dieser Ferien wieder her. Gespeicherte Verläufe und vereinbarte Sitzungen bleiben erhalten."
   },
   "recordInspector": {
     "backToRecord": "Back to record",

@@ -1888,9 +1888,30 @@ replaced only with their captured versions. The dated scheduler reconciles once
 after the final range is present; per-date notification intents commit with all
 rows. A stale date or failed intent rolls back the entire range. Coordinators
 submit one proposal whose captured range is revalidated before Admin/Head
-approval. The resulting dates retain ordinary individual edit/reset behavior;
-school-day resolution, appeal counting and participant date links need no range
-precedence rule or separate holiday record.
+approval.
+
+For mass editing and mass resetting grouped holidays, `groupSchoolCalendarHolidays`
+in `src/lib/school-calendar.ts` coalesces contiguous active closed `SchoolCalendarDay`
+rows that share the same trimmed note into inclusive ranges (capped at 366 days
+per group). `student.updateCalendarHoliday` updates a holiday from
+`[originalFrom, originalTo]` to `[from, to]` with a shared note in one transaction:
+it locks the period, dated scheduler and sorted union of original and updated dates,
+validates every captured version in that union, verifies that all original dates
+are currently active closures, writes the updated closed range, resets removed
+dates to tombstones, reconciles session planning once if any date's schedule
+changed, and commits per-date notification intents. Note-only edits advance only
+editor versions without changing `scheduleRevision` or sending notices.
+`student.resetCalendarHoliday` atomically resets all active closed dates in an
+inclusive range with captured positive versions while refusing active school-day
+overrides. Both operations support single Coordinator approval proposals with
+complete captured target evidence. In **Program Settings**, grouped school holidays
+appear alongside `ProgramCalendarDay` tutoring pauses and notices in **Holidays &
+Tutoring Pauses** (keeping their underlying queries, mutations, and appeal-day
+rules separate), while **Weekday Overrides** (`SchoolCalendar`) manages open
+school-day timetable overrides and weekend make-up days. `SchoolCalendarDay`
+remains the single persisted source of truth; school-day resolution, appeal
+counting and participant date links need no range precedence rule or separate
+holiday table.
 
 Protected participant reads expose bounded calendar facts without staff notes.
 Tutor upcoming sessions and today's task summary share these facts; attendance,

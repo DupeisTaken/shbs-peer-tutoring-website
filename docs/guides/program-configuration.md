@@ -689,29 +689,44 @@ Verify the finished print or shared image with a scanner.
 
 ### School calendar and timetable dates
 
-Open **Program Settings → Recruitment and Refresh → School Calendar**. Admin/Head apply
-changes and resets directly; Coordinators submit them for Admin/Head review.
-Pending proposals do not change schedules or send
-operational calendar notices.
+Open **Program Settings → Recruitment and Refresh**. School holidays and tutoring
+pauses are managed together in **Holidays & Tutoring Pauses**, while alternate
+weekday timetables and weekend make-up school days live in the dedicated
+**Weekday Overrides** card below it. Admin/Head apply changes and resets directly;
+Coordinators submit them for Admin/Head review. Pending proposals do not change
+schedules or send operational calendar notices.
 
-Use **Add holiday** for several consecutive days, such as Thanksgiving. Enter the
-start and end dates and a shared staff note. Both dates are included (up to 366 days),
-including weekends. The form shows how many dates will be closed and lists any
-existing overrides that saving will replace, including their notes. Review those
-replacements before saving. The whole range is applied together, or submitted as
-one Coordinator proposal; one changed date requires reloading and reviewing the
-range before retrying. Reloading a range retains its dates and note. Once saved,
-each date can still be edited or reset individually.
+In **Holidays & Tutoring Pauses**, each row clearly indicates whether school is
+closed (**School holiday (No school)**) or open (**Tutoring pause (School day)**
+or **Notice only (School day)**):
 
-Use **Add date override** for a single holiday, make-up school day or different timetable. Select
-the actual date, whether school is open, an optional timetable weekday, and a note.
-Without an override, Monday–Friday are school days and weekends are closed. An open
-date with no selected timetable weekday follows its own civil weekday. For example,
-an open Sunday can follow Monday's timetable; its displayed and recorded date remains
-Sunday. A closed date cannot also select a timetable weekday. Ordinary recurring
-plans are suppressed on a closed date. The coordinated dated-session workflows
-remain responsible for agreed extras/reschedules and their closure warnings; this
-setting does not rewrite attendance or historical service hours.
+- Use **Add holiday** for one or more consecutive school closure days, such as
+  Thanksgiving. Enter the start and end dates and an optional internal staff note.
+  Both dates are included (up to 366 days), including weekends. Consecutive closed
+  dates that share the same staff note are grouped into one holiday entry so they
+  can be edited or reset together. Click **Edit** on a grouped holiday to shift,
+  extend, shorten, or re-note the range atomically (dates removed from the range
+  are listed and reset to normal; unrelated existing overrides in the updated
+  range are listed before saving). Click **Reset to normal** to restore every date
+  in the holiday at once. Staff notes stay internal and are never sent to
+  participants.
+- Use **Add tutoring pause or notice** for dates when school stays open but
+  regular tutoring is paused or needs an informational notice. Tutoring pauses
+  review affected future regular commitments before saving and do not change
+  school-day status or five-school-day appeal deadlines.
+
+In **Weekday Overrides**, use **Add weekday override** for a make-up school day
+(such as an open Saturday or Sunday) or an alternate weekday timetable (such as
+Wednesday following Friday's timetable). Select the actual date, an optional
+timetable weekday, and a staff note. Without an override, Monday–Friday are school
+days and weekends are closed. An open date with no selected timetable weekday
+follows its own civil weekday. For example, an open Sunday can follow Monday's
+timetable; its displayed and recorded date remains Sunday. Saving a weekday
+override on a date that currently belongs to a school holiday replaces that date's
+closure after warning you, splitting the surrounding holiday automatically. Ordinary
+recurring plans are suppressed on closed dates; the coordinated dated-session
+workflows remain responsible for agreed extras/reschedules and their closure
+warnings, and calendar edits never rewrite attendance or historical service hours.
 
 Edit a saved date deliberately, or use **Reset to normal** to restore ordinary
 weekday/weekend behavior. Reset retains internal version evidence so an older open
