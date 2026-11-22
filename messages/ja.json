@@ -1702,6 +1702,7 @@
     "applications": {
       "title": "チューター応募",
       "intro": "応募者を審査し、{n}名の面接パネルを割り当てます（代表を1名指定）。行をクリックして展開できます。代表が面接の日程を設定し、自分のダッシュボードから結果を記録します。",
+      "panelRangeIntro": "応募者を審査し、{min}～{max}名のチューターで面接パネルを構成して、その中から代表を1名指定します。行をクリックして展開できます。代表が面接の日程を設定し、自分のダッシュボードから結果を記録します。",
       "empty": "応募はまだありません。",
       "status": {
         "PENDING": "保留中",
@@ -1712,6 +1713,7 @@
       },
       "noCourses": "科目なし",
       "panelSummary": "パネル {n}/{total}",
+      "panelCount": "パネル {n}名（最低{min}名）",
       "votesSummary": "投票 {accepts}/{total}",
       "accept": "合格",
       "reject": "不合格",
@@ -1726,6 +1728,7 @@
       },
       "noQualification": "資格情報なし",
       "panelHeading": "面接パネル（{n}名を選択し、代表を1名指定）",
+      "panelRangeHeading": "面接パネル（{min}～{max}名、代表1名）",
       "scheduled": "予定日時：{when}（代表が設定）",
       "panelistSlot": "— 審査員 {n} —",
       "head": "代表",
@@ -1733,6 +1736,7 @@
       "savePanel": "パネルを保存",
       "saved": "保存しました。",
       "pickHint": "{n}名のチューターと代表を選んでください。",
+      "pickRangeHint": "異なるチューターを{min}～{max}名選び、その中から代表を1名指定してください。",
       "votesDecisionHeading": "投票と判定",
       "voteTally": "{accepts} 合格 · {rejects} 不合格",
       "noVotes": "まだ投票がありません。",

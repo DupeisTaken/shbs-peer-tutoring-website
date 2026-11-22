@@ -1702,6 +1702,7 @@
     "applications": {
       "title": "튜터 지원",
       "intro": "지원자를 검토하고 {n}명의 면접 패널을 배정하세요 (대표 한 명 지정). 행을 클릭하면 펼쳐집니다. 대표가 자신의 대시보드에서 면접 일정을 잡고 결정을 기록합니다.",
+      "panelRangeIntro": "지원자를 검토하고 튜터 {min}~{max}명으로 면접 패널을 구성한 뒤 그중 한 명을 대표로 지정하세요. 행을 클릭하면 펼쳐집니다. 대표가 자신의 대시보드에서 면접 일정을 잡고 결정을 기록합니다.",
       "empty": "아직 지원이 없습니다.",
       "status": {
         "PENDING": "대기 중",
@@ -1712,6 +1713,7 @@
       },
       "noCourses": "과목 없음",
       "panelSummary": "패널 {n}/{total}",
+      "panelCount": "패널 {n}명 (최소 {min}명)",
       "votesSummary": "투표 {accepts}/{total}",
       "accept": "합격",
       "reject": "불합격",
@@ -1726,6 +1728,7 @@
       },
       "noQualification": "자격 정보 없음",
       "panelHeading": "면접 패널 ({n}명 선택, 대표 1명 지정)",
+      "panelRangeHeading": "면접 패널 ({min}~{max}명, 대표 1명)",
       "scheduled": "일정: {when} (대표가 설정)",
       "panelistSlot": "— 패널리스트 {n} —",
       "head": "대표",
@@ -1733,6 +1736,7 @@
       "savePanel": "패널 저장",
       "saved": "저장되었습니다.",
       "pickHint": "{n}명의 튜터와 대표를 선택하세요.",
+      "pickRangeHint": "서로 다른 튜터 {min}~{max}명을 선택하고 그중 한 명을 대표로 지정하세요.",
       "votesDecisionHeading": "투표 및 결정",
       "voteTally": "{accepts}명 합격 · {rejects}명 불합격",
       "noVotes": "아직 투표가 없습니다.",

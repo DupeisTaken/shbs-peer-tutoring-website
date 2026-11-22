@@ -546,9 +546,11 @@ Use **My Subject Willingness → Edit willingness** on the Tutor Dashboard to ch
 
 Staff can narrow **Tutor Applications** by name or email, application status, request type, requested subject and **Interview completion**. **Completed interviews** means a completion time has been recorded; acceptance or rejection alone does not establish completion. Each completed card shows its completion date. Filters combine, and the matching count always refers to the complete application queue. Choose **Sort by** to order by completion date, application date or applicant name in either direction. Choosing completed interviews from the default order starts with the newest completion; you can switch to oldest first. Records without a completion date stay last when sorting by completion date. **Reset filters** clears these controls and restores the queue's default order; the separate active/invalid entry scope remains as selected.
 
-Application cards with recorded votes show separate accept and reject counts in
-their collapsed summary and expanded details. These counts describe the recorded
-votes independently of the panel size. Rejecting votes count toward the tally.
+Collapsed application cards show the actual number of assigned panelists beside
+the three-person minimum. Panels may have three to eight distinct tutors with one
+chair. When votes are recorded, both the collapsed summary and expanded details
+show separate accept and reject counts, independently of the panel size. Each
+recorded vote contributes to its outcome's count.
 
 **Interview Records** below the queue has its own search, completion and application-status filters, plus the same date/name sorting choices. Choosing completed records from the default application-date order starts with newest completion first. Sorting covers all matching records before pagination, so an older interview can appear on the first page when you choose oldest first. Changing a history filter or sort returns to page one without submitting a search draft. Use **Search interviews** to apply that text, or the section's **Reset filters** to return to open records and newest application first. Each section remembers its controls for the current signed-in browser session. A record's panel link reveals the exact application even if current application filters hide it. An open approval draft stays available while its application is sorted or filtered.
 

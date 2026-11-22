@@ -1702,6 +1702,7 @@
     "applications": {
       "title": "Tutor Applications",
       "intro": "Review applicants and assign a {n}-tutor interview panel (mark one chair). Click a row to expand. The chair schedules the interview and records the decision from their own dashboard.",
+      "panelRangeIntro": "Review applicants and assign an interview panel of {min}–{max} tutors, with one chair. Click a row to expand. The chair schedules the interview and records the decision from their own dashboard.",
       "empty": "No applications yet.",
       "status": {
         "PENDING": "pending",
@@ -1712,6 +1713,7 @@
       },
       "noCourses": "no subjects",
       "panelSummary": "panel {n}/{total}",
+      "panelCount": "panel {n} (minimum {min})",
       "votesSummary": "votes {accepts}/{total}",
       "accept": "Accept",
       "reject": "Reject",
@@ -1726,6 +1728,7 @@
       },
       "noQualification": "no qualification given",
       "panelHeading": "Interview Panel (Choose {n}, Mark One Chair)",
+      "panelRangeHeading": "Interview Panel ({min}–{max} Tutors, One Chair)",
       "scheduled": "Scheduled: {when} (set by the chair)",
       "panelistSlot": "— Panelist {n} —",
       "head": "chair",
@@ -1733,6 +1736,7 @@
       "savePanel": "Save Panel",
       "saved": "Saved.",
       "pickHint": "Pick {n} tutors and a chair.",
+      "pickRangeHint": "Pick {min}–{max} distinct tutors and mark one as chair.",
       "votesDecisionHeading": "Votes & Decision",
       "voteTally": "{accepts} accept · {rejects} reject",
       "noVotes": "No votes yet.",

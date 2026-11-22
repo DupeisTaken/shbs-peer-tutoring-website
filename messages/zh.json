@@ -1624,6 +1624,7 @@
     "applications": {
       "title": "辅导伙伴申请",
       "intro": "审核申请人并分配一个由 {n} 名辅导伙伴组成的面试小组（指定一名组长）。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
+      "panelRangeIntro": "审核申请人并分配由 {min}–{max} 名辅导伙伴组成的面试小组，指定其中一名为组长。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
       "empty": "暂无申请。",
       "status": {
         "PENDING": "待处理",
@@ -1634,6 +1635,7 @@
       },
       "noCourses": "暂无科目",
       "panelSummary": "面试小组 {n}/{total}",
+      "panelCount": "面试小组 {n} 人（至少 {min} 人）",
       "votesSummary": "投票 {accepts}/{total}",
       "accept": "通过",
       "reject": "拒绝",
@@ -1648,6 +1650,7 @@
       },
       "noQualification": "未提供资质说明",
       "panelHeading": "面试小组（选择 {n} 人，指定一名组长）",
+      "panelRangeHeading": "面试小组（{min}–{max} 人，一名组长）",
       "scheduled": "已安排：{when}（由组长设定）",
       "panelistSlot": "— 面试官 {n} —",
       "head": "组长",
@@ -1655,6 +1658,7 @@
       "savePanel": "保存小组",
       "saved": "已保存。",
       "pickHint": "请选择 {n} 名辅导伙伴并指定一名组长。",
+      "pickRangeHint": "请选择 {min}–{max} 名不同的辅导伙伴，并指定其中一名为组长。",
       "votesDecisionHeading": "投票与决定",
       "voteTally": "{accepts} 票通过 · {rejects} 票拒绝",
       "noVotes": "暂无投票。",
