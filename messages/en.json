@@ -2851,7 +2851,7 @@
     "collapseAll": "Collapse All",
     "languagesHeading": "Languages",
     "languagesHelp": "Only enabled languages appear in public language menus. Hidden languages stay editable here while their translations are polished.",
-    "languagesReadFailed": "Language settings could not be loaded. Cached settings and unfinished entries are retained. Retry before making changes.",
+    "languagesReadFailed": "Language settings could not be loaded.",
     "builtIn": "built-in",
     "enabled": "enabled",
     "disabled": "hidden",

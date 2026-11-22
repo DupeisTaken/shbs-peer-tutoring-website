@@ -79,15 +79,20 @@ beforeEach(() => {
 
 for (const [locale, messages] of Object.entries({ en, zh })) {
   for (const cached of [false, true]) {
-    it(`renders authored ${locale} managed-read guidance and read-only Retry with cached=${cached}`, async () => {
+    it(`renders neutral ${locale} managed-read guidance and read-only Retry with cached=${cached}`, async () => {
       state.cached = cached;
       render(
         <NextIntlClientProvider locale={locale} messages={messages}>
           <LanguagesPanel canAdd={false} />
         </NextIntlClientProvider>,
       );
+      // The shared notice must also be accurate without cached rows or drafts.
       expect(
-        screen.getByText(messages.localization.languagesReadFailed),
+        screen.getByText(
+          locale === "en"
+            ? "Language settings could not be loaded."
+            : "无法读取语言设置。",
+        ),
       ).toBeTruthy();
       expect(screen.getByRole("alert").textContent).toContain(
         "Synthetic read failure",

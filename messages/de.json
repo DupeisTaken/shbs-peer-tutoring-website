@@ -2851,7 +2851,7 @@
     "collapseAll": "Alle zuklappen",
     "languagesHeading": "Sprachen",
     "languagesHelp": "Nur aktivierte Sprachen erscheinen in öffentlichen Sprachmenüs. Ausgeblendete Sprachen können hier weiter bearbeitet werden, bis ihre Übersetzungen fertig sind.",
-    "languagesReadFailed": "Die Spracheinstellungen konnten nicht geladen werden. Zwischengespeicherte Einstellungen und unvollständige Eingaben bleiben erhalten. Versuchen Sie es vor Änderungen erneut.",
+    "languagesReadFailed": "Die Spracheinstellungen konnten nicht geladen werden.",
     "builtIn": "eingebaut",
     "enabled": "aktiviert",
     "disabled": "ausgeblendet",
