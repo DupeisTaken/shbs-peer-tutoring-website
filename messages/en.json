@@ -522,7 +522,8 @@
     "close": "Close",
     "collapseAll": "Collapse All",
     "expandAll": "Expand All",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Try again"
   },
   "auth": {
     "signinTitle": "Sign In",
@@ -706,7 +707,8 @@
       "draftBadge": "Draft"
     },
     "detail": {
-      "hiddenNote": "This page is hidden from visitors until the section is shown."
+      "hiddenNote": "This page is hidden from visitors until the section is shown.",
+      "hiddenPageNote": "This page is hidden from visitors until the page is shown."
     }
   },
   "dashboard": {
@@ -1245,7 +1247,8 @@
       "columns": {
         "when": "When",
         "who": "Who",
-        "action": "Action"
+        "action": "Recorded operation",
+        "actions": "Row actions"
       },
       "undone": "undone",
       "undo": "Undo",
@@ -1704,6 +1707,7 @@
     "applications": {
       "title": "Tutor Applications",
       "intro": "Review applicants and assign a {n}-tutor interview panel (mark one chair). Click a row to expand. The chair schedules the interview and records the decision from their own dashboard.",
+      "panelRangeIntro": "Review applicants and assign an interview panel of {min}–{max} tutors, with one chair. Click a row to expand. The chair schedules the interview and records the decision from their own dashboard.",
       "empty": "No applications yet.",
       "status": {
         "PENDING": "pending",
@@ -1714,6 +1718,7 @@
       },
       "noCourses": "no subjects",
       "panelSummary": "panel {n}/{total}",
+      "panelCount": "panel {n} (minimum {min})",
       "votesSummary": "votes {accepts}/{total}",
       "accept": "Accept",
       "reject": "Reject",
@@ -1728,6 +1733,7 @@
       },
       "noQualification": "no qualification given",
       "panelHeading": "Interview Panel (Choose {n}, Mark One Chair)",
+      "panelRangeHeading": "Interview Panel ({min}–{max} Tutors, One Chair)",
       "scheduled": "Scheduled: {when} (set by the chair)",
       "panelistSlot": "— Panelist {n} —",
       "head": "chair",
@@ -1735,6 +1741,7 @@
       "savePanel": "Save Panel",
       "saved": "Saved.",
       "pickHint": "Pick {n} tutors and a chair.",
+      "pickRangeHint": "Pick {min}–{max} distinct tutors and mark one as chair.",
       "votesDecisionHeading": "Votes & Decision",
       "voteTally": "{accepts} accept · {rejects} reject",
       "noVotes": "No votes yet.",
@@ -2050,6 +2057,8 @@
     },
     "landing": {
       "pageAddress": "Page address",
+      "addressRefreshFailed": "The address was saved, but the updated address could not be loaded. Refresh the address without saving again.",
+      "refreshAddress": "Refresh address",
       "title": "Landing Page",
       "subtitle": "Edit public website text, news and images. Coordinator changes and translator text edits require review. Authorized Admin/Head changes apply directly; draft news stays private until published.",
       "loading": "Loading…",
@@ -2595,6 +2604,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "We could not load the signup form details. Please try again.",
     "applicationRetryNotice": "If an application for this email is already under review, we keep the original submission. To change it, contact the program team.",
     "signup": {
       "title": "Request a Peer Tutor",
@@ -2853,6 +2863,7 @@
     "collapseAll": "Collapse All",
     "languagesHeading": "Languages",
     "languagesHelp": "Only enabled languages appear in public language menus. Hidden languages stay editable here while their translations are polished.",
+    "languagesReadFailed": "Language settings could not be loaded.",
     "builtIn": "built-in",
     "enabled": "enabled",
     "disabled": "hidden",
@@ -3026,6 +3037,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "Current saved page",
+      "currentHelp": "Current saved details, not a snapshot from submission.",
+      "missing": "This page no longer exists.",
+      "missingRecovery": "This page no longer exists, so this draft cannot be published. Admin or Head can reject it and retain it in history.",
+      "untitled": "No saved title in the target language or English.",
+      "language": "Title language: {locale}",
+      "fallbackLanguage": "Title language: {locale} (fallback)",
+      "address": "Current page address",
+      "reference": "Page reference ID"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",
@@ -3615,7 +3637,11 @@
         "archivedOfferings": "Offerings to archive",
         "timetableWeekday": "Timetable weekday",
         "scheduleRevision": "Schedule revision",
-        "actionId": "Recovery reference"
+        "actionId": "Recovery reference",
+        "from": "Start date",
+        "to": "End date",
+        "originalFrom": "Previous start date",
+        "originalTo": "Previous end date"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3855,7 +3881,9 @@
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Change monthly service-hours report schedule",
         "schoolHours_save": "Change school hours report schedule",
-        "student_setCalendarHoliday": "Add a school holiday date range"
+        "student_setCalendarHoliday": "Add a school holiday date range",
+        "student_updateCalendarHoliday": "Edit a school holiday date range",
+        "student_resetCalendarHoliday": "Reset a school holiday date range"
       },
       "decisionRequestHelp": "Approve runs the proposed action above. Decline cancels this proposal without changing anything. A short note is required.",
       "confirmPassword": "Confirm your account password",
@@ -6115,7 +6143,7 @@
     "reload": "Reload draft",
     "loadFailed": "Could not load tutoring notices.",
     "loading": "Loading tutoring notices…",
-    "add": "Add date range",
+    "add": "Add tutoring pause or notice",
     "date": "Date range",
     "startDate": "Start date",
     "endDate": "End date",
@@ -6149,7 +6177,14 @@
     "impactRetain": "Confirmed extras and explicitly agreed reschedules retained: {count}",
     "impactConfirm": "Need affirmative confirmation: {count}",
     "impactRestore": "Restoration candidates: {count}",
-    "impactRule": "Save rechecks current agreements and conflicts. Affected participants are emailed about cancellations. Started sessions and recorded attendance stay unchanged."
+    "impactRule": "Save rechecks current agreements and conflicts. Affected participants are emailed about cancellations. Started sessions and recorded attendance stay unchanged.",
+    "combinedTitle": "Holidays & Tutoring Pauses",
+    "combinedHelp": "Manage school holidays (no school) and tutoring pauses or notices (school open). School holidays pause regular tutoring and appeal-day counting; tutoring pauses keep school-day and appeal rules unchanged.",
+    "combinedEmpty": "No school holidays or tutoring notices.",
+    "denied": "Tutoring notices and pauses are unavailable.",
+    "holidayEffect": "School holiday (No school)",
+    "pauseEffectTable": "Tutoring pause (School day)",
+    "noticeEffectTable": "Notice only (School day)"
   },
   "roomOrder": {
     "title": "Room Display Order",
@@ -7315,7 +7350,23 @@
     "invalidRange": "Choose valid dates with the end on or after the start, up to 366 days.",
     "holidayReplaces": "Existing date overrides to replace, including their notes: {count}.",
     "saveHoliday": "Save holiday",
-    "reloadHoliday": "Reload current range"
+    "reloadHoliday": "Reload current range",
+    "weekdayOverridesTitle": "Weekday Overrides",
+    "weekdayOverridesHelp": "Override which weekday timetable a specific date follows, including weekend make-up school days. Listed dates are open school days; holidays and closures are managed above.",
+    "weekdayOverridesEmpty": "No weekday overrides. Open school days follow their own weekday timetable.",
+    "addWeekdayOverride": "Add weekday override",
+    "editWeekdayOverride": "Edit weekday override",
+    "saveWeekdayOverride": "Save weekday override",
+    "weekdayReplacesExisting": "Saving will replace the existing school calendar entry on this date, including its note.",
+    "editHoliday": "Edit holiday",
+    "holidayDetailsTitle": "School Holiday",
+    "holidayDaysCount": "{count, plural, one {# day} other {# days}}",
+    "noStaffNote": "No staff note",
+    "staffNotePrivate": "Staff notes stay internal and are not sent to participants.",
+    "holidayResets": "Dates reset to normal when saved: {count}.",
+    "holidayChangedExternally": "This holiday changed or was removed elsewhere. Close this dialog to review the updated calendar.",
+    "resetHolidayTitle": "Reset This School Holiday?",
+    "resetHolidayHelp": "Restore the normal school-day and weekday rules for every date in this holiday. Retained history and explicitly agreed sessions are preserved."
   },
   "recordInspector": {
     "backToRecord": "Back to record",

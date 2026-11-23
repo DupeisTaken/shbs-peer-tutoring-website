@@ -12,6 +12,7 @@ import { LandingView } from "./landing-view";
 const mocks = vi.hoisted(() => ({
   locale: "en",
   blocks: [] as { id: string; type: "HERO" }[],
+  navPages: [] as { slug: string; label: string; labelLocale: string }[],
 }));
 vi.mock("next-intl/server", () => ({
   getLocale: async () => mocks.locale,
@@ -30,7 +31,9 @@ vi.mock("~/server/home/sections", () => ({
 vi.mock("~/server/home/blocks", () => ({
   getLandingLayout: async () => mocks.blocks,
 }));
-vi.mock("~/server/home/pages", () => ({ getNavPages: async () => [] }));
+vi.mock("~/server/home/pages", () => ({
+  getNavPages: async () => mocks.navPages,
+}));
 vi.mock("~/app/_components/language-switcher", () => ({
   LanguageSwitcher: () => null,
 }));
@@ -49,6 +52,30 @@ vi.mock("~/app/_components/page-blocks", () => ({
 afterEach(() => {
   cleanup();
   mocks.blocks = [];
+  mocks.navPages = [];
+});
+
+it("carries each custom page label's language into both landing menus", async () => {
+  mocks.locale = "zh";
+  mocks.navPages = [
+    {
+      slug: "synthetic-english",
+      label: "English navigation",
+      labelLocale: "en",
+    },
+    { slug: "synthetic-chinese", label: "中文导航", labelLocale: "zh" },
+  ];
+  render(<div lang="zh">{await LandingView({})}</div>);
+  for (const name of ["nav.menu", "nav.accessProgramInformation"]) {
+    const trigger = screen.getByRole("button", { name });
+    expect(trigger.closest("[lang]")?.getAttribute("lang")).toBe("zh");
+    fireEvent.click(trigger);
+    const menu = within(screen.getByRole("dialog", { name }));
+    const english = menu.getByRole("link", { name: "English navigation" });
+    expect(english.lang).toBe("en");
+    expect(english.getAttribute("href")).toBe("/p/synthetic-english");
+    expect(menu.getByRole("link", { name: "中文导航" }).lang).toBe("zh");
+  }
 });
 
 it.each([

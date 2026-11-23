@@ -49,7 +49,7 @@ describe("management authority by effect", () => {
     "program.setSignupWindow", "program.prepareNextRecruitment", "program.setFeaturePending", "program.setTimeZone",
     "program.setCaptcha", "program.setProfilePolicy", "program.setSignupField",
     "program.setEmailNotifications", "program.setSecondaryEmailBinding", "schoolHours.save",
-    "student.setCalendarDay", "student.setCalendarHoliday", "student.resetCalendarDay", "student.setFeedbackSettings", "admin.upsertPolicy",
+    "student.setCalendarDay", "student.setCalendarHoliday", "student.updateCalendarHoliday", "student.resetCalendarHoliday", "student.resetCalendarDay", "student.setFeedbackSettings", "admin.upsertPolicy",
     "admin.deletePolicyLocale", "i18n.setLanguageEnabled", "i18n.deleteLanguage",
     "i18n.reorderLanguages", "messaging.setPermission", "admin.updateAccountProfile",
     "admin.updateAccountAcademics", "admin.updateAccountUsername", "admin.setMemberships",

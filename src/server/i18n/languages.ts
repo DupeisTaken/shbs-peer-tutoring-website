@@ -44,25 +44,35 @@ export function mergeLanguages(
     }
   });
 
-  merged.sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
+  merged.sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code),
+  );
   return merged
     .filter((language) => includeDisabled || language.enabled)
-    .map(({ code, label, builtIn, enabled }) => ({ code, label, builtIn, enabled }));
+    .map(({ code, label, builtIn, enabled }) => ({
+      code,
+      label,
+      builtIn,
+      enabled,
+    }));
 }
 
-/**
- * UI languages ordered for selectors and management. Public callers receive enabled languages;
- * translation tools opt into hidden ones. Bundled catalogs are synthesized when rows are missing.
- */
-export async function listLanguages(
-  options: ListLanguageOptions = {},
-): Promise<LanguageInfo[]> {
+/** Management must distinguish missing rows from a failed catalogue read. */
+export async function listManagedLanguages(): Promise<LanguageInfo[]> {
+  const rows = await db.language.findMany({
+    orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+  });
+  return mergeLanguages(rows, { includeDisabled: true });
+}
+
+/** Public rendering deliberately retains bundled enabled languages during outages. */
+export async function listLanguages(): Promise<LanguageInfo[]> {
   try {
     const rows = await db.language.findMany({
       orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
     });
-    return mergeLanguages(rows, options);
+    return mergeLanguages(rows);
   } catch {
-    return mergeLanguages([], options);
+    return mergeLanguages([]);
   }
 }

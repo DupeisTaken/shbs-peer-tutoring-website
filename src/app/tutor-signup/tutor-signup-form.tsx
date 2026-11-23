@@ -214,7 +214,7 @@ export function TutorSignupForm() {
             </Button>
           }
         >
-          {t("survey.loadFailed")}
+          {t("public.signupFormLoadFailed")}
         </InlineNotice>
       )}
       {readOnly && (

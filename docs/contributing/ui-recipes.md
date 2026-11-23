@@ -38,9 +38,13 @@ appear as a reservation. Verify the tutor/tutee arrangements and management pair
 details as well as the gallery; these synthetic examples do not allocate rooms.
 
 The [notification preference recipe](../../src/app/ui-gallery/notification-preferences-recipe.tsx)
-uses `SettingRow` with `stackOnMobile` so multiple controls sit below full-width
-descriptions on narrow screens; existing inline settings retain their layout. It
-uses the same category controls as account settings. Verify independent badge/email
+uses the production account fields with consistent description and channel tracks.
+Descriptions and controls stack when two 18rem tracks cannot fit; each channel
+reserves at least 8rem before stacking. Track minimums follow enlarged text as well
+as available width. The fields reserve equal badge/email columns across every category,
+including email-only reminders; channels stack when narrow space or enlarged text
+cannot fit both columns. Required-choice explanations are screen-reader-only;
+checked, disabled checkboxes convey the visible state. Verify independent badge/email
 choices, staged Save/Cancel, retained badge editing with program email off, and the
 email-only reminder row in English and Chinese at desktop and mobile widths. The
 gallery stores synthetic local state only; production settings own persistence,

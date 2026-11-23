@@ -64,6 +64,11 @@ The tutor application and tutee request are separate forms with separate recruit
 
 ### Retrying public signup
 
+If the signup form details cannot load, use **Retry** to reload its subjects,
+availability and policy. This message does not confirm a submitted application.
+Any previously loaded form and draft remain visible, and submission stays blocked
+until the required reads recover.
+
 If signup asks you to wait, keep your form open and retry after the displayed
 interval. Tutee resends preserve your original submission time and place. A failed
 email does not mean you need to submit a new survey. Contact the team if delivery
@@ -546,9 +551,11 @@ Use **My Subject Willingness → Edit willingness** on the Tutor Dashboard to ch
 
 Staff can narrow **Tutor Applications** by name or email, application status, request type, requested subject and **Interview completion**. **Completed interviews** means a completion time has been recorded; acceptance or rejection alone does not establish completion. Each completed card shows its completion date. Filters combine, and the matching count always refers to the complete application queue. Choose **Sort by** to order by completion date, application date or applicant name in either direction. Choosing completed interviews from the default order starts with the newest completion; you can switch to oldest first. Records without a completion date stay last when sorting by completion date. **Reset filters** clears these controls and restores the queue's default order; the separate active/invalid entry scope remains as selected.
 
-Application cards with recorded votes show separate accept and reject counts in
-their collapsed summary and expanded details. These counts describe the recorded
-votes independently of the panel size. Rejecting votes count toward the tally.
+Collapsed application cards show the actual number of assigned panelists beside
+the three-person minimum. Panels may have three to eight distinct tutors with one
+chair. When votes are recorded, both the collapsed summary and expanded details
+show separate accept and reject counts, independently of the panel size. Each
+recorded vote contributes to its outcome's count.
 
 **Interview Records** below the queue has its own search, completion and application-status filters, plus the same date/name sorting choices. Choosing completed records from the default application-date order starts with newest completion first. Sorting covers all matching records before pagination, so an older interview can appear on the first page when you choose oldest first. Changing a history filter or sort returns to page one without submitting a search draft. Use **Search interviews** to apply that text, or the section's **Reset filters** to return to open records and newest application first. Each section remembers its controls for the current signed-in browser session. A record's panel link reveals the exact application even if current application filters hide it. An open approval draft stays available while its application is sorted or filtered.
 
@@ -612,7 +619,13 @@ it for Admin/Head approval. A queued request has not awarded new hours.
 For an existing completion, **Correct completion & hours** previews each change,
 including removed attendees. It replaces that interview’s automatic credits while
 preserving unrelated manual adjustments and its original school year/quarter; Admin/Head
-apply corrections and Coordinator proposals await Admin/Head review. Failed saves
+apply corrections and Coordinator proposals await Admin/Head review. Every changed
+recording must include the version reviewed by the editor; a missing or stale version
+requires **Reload current evidence (replace draft)** before applying or requesting
+review. The requester can cancel an older pending correction that lacks a version,
+or a reviewer can reject it before a new reviewed correction is requested.
+An exact already-applied completion and its full credit ledger can be recovered
+without changing hours or creating another request. Failed saves
 retain the draft. An already completed interview keeps its historical chair for hour
 corrections and repeated completion submissions, including a legacy Coordinator or
 subsequently demoted chair. The other panel and qualification checks still apply;
@@ -1200,7 +1213,7 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - Interview acceptance does not restore restricted participation. If Head revoked the applicant's tutoring access, Head must explicitly restore it in **Users & Roles** before the chair retries approval. Suspended or retired accounts and confirmed school departures also require review. A historical archive alone does not prevent an otherwise eligible returning applicant from being accepted.
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee Policy** and **Tutor Policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
-- Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
+- Use **Audit Log** to filter by actor, event, operation, record or program-local date. The date controls show the configured program timezone and endpoint offsets; stored event instants remain in UTC, and event details include the exact timestamp in UTC. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
 
 In **Policies**, switching the document's editing language retains each opened
 language's unsaved draft during that page visit. Save each language explicitly;
@@ -1213,7 +1226,12 @@ In **Users & Roles**, choose **Review appeal** to read the complete account appe
 before approving or denying it. A saved decision whose list refresh fails offers
 refresh recovery; it must not be submitted a second time.
 
-In **Audit Log → Actions → Details**, Head, Admin and Coordinator can inspect the
+In **Audit Log**, **Recorded operation** describes the event, while **Row actions**
+contains **View details** and other available controls. On narrow screens, the
+date and time stay on separate lines, and the records scroll horizontally while
+row controls remain reachable. Open Details to read a full recorded actor name.
+
+In **Audit Log → Row actions → View details**, Head, Admin and Coordinator can inspect the
 recorded actor and account ID, event and target IDs, operation, exact timestamp
 (including UTC), approval link and undo time. Recorded before/after values and other
 evidence are shown as readable fields; the stored field names remain visible.
@@ -1454,6 +1472,14 @@ for the browser session. On a narrow screen, scroll inside the labelled table;
 keyboard users can focus it and use the left/right arrow keys. Viewing or hiding
 records never changes their hours or eligibility.
 
+Service Hours totals, Summary, Breakdown and Details retain recorded fractional
+hours. For example, three `0.25`-hour credits show `0.25` each and a `0.75` subtotal.
+Historical **Reports** uses the same precision for service-hour totals, tutor
+breakdowns, session and adjustment amounts, and their Details. Numeric sorting
+and accounting use the underlying amounts. Long totals use fewer columns to keep
+the complete numbers separate; on very narrow screens they wrap within their own
+field.
+
 Open **School reports** on the same page to report each individual's unreported
 hours to school recipients. The highlighted amount is what to add to that person's
 school account. New reports combine tutoring and Crew changes, post complete
@@ -1629,7 +1655,7 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 ### Management username editing
 
-In **Users & Roles → Edit profile**, Admin/Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admin can submit a username request for Head approval; the current handle remains active until Head applies it. Coordinators cannot submit account username edits. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op. A version conflict requires an explicit **Reload** before retrying; a failed read keeps the username draft and original version. After a successful save, the username section automatically refreshes its current value and version so you can make another change in the same editor. Other sections retain their unsaved drafts; only their own Save submits them.
+In **Users & Roles → Edit profile**, Admin/Head can apply username changes directly for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Coordinators can submit username changes for Admin or Head review. The current username remains active until the approved change is applied. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op. A version conflict requires an explicit **Reload** before retrying; a failed read keeps the username draft and original version. After a successful save, the username section automatically refreshes its current value and version so you can make another change in the same editor. Other sections retain their unsaved drafts; only their own Save submits them.
 
 ## Viewers
 
@@ -1645,6 +1671,13 @@ If you need a different role or access to your own participation record, request
 
 Translator access requires an explicit Admin/Head-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment can review drafts. Management also has a **Languages** tab to show/hide languages in the public selector, move them up/down, and remove custom languages. These controls do not require Translator assignment; English remains enabled as the fallback. Assigned translators use the same tab to add languages, which start hidden until Admin/Head enable them. Admin/Head apply language visibility, ordering and deletion; Coordinators request Admin/Head review. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
 
+If **Languages** cannot load its saved settings, it shows an error instead of a
+fresh-install catalogue. If a later refresh fails, previously loaded rows and
+unfinished language fields stay visible with changes disabled until **Try again**
+succeeds. This button only reads the settings; after an accepted catalogue change,
+it refreshes the result without repeating the change. Public pages retain their
+normal language fallback during a read outage.
+
 Within the open editor, changing the website content type, language or destination
 keeps separate text drafts. Interface-text drafts and their pending/error states
 survive search, group collapse and language changes. A successful submission followed
@@ -1652,6 +1685,15 @@ by failed synchronization offers read-only Retry; it does not submit the text ag
 Leaving or reloading the editor ends these local draft lifetimes.
 
 Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
+
+For page-title drafts, check **Current saved page** and **Current page address**
+before deciding. The title uses the draft's language, with an explicitly labelled
+English fallback when needed. The page reference ID distinguishes similar names.
+These are current details, including when viewing published or rejected history;
+the submitted translation below stays unchanged. Deleted pages are labelled;
+publication and publication requests are unavailable. Admin or Head can reject
+these drafts to retain them in history. If the page is deleted while you are
+reviewing it, the decision reports the same recovery without publishing anything.
 
 ## Account settings and private support
 
@@ -1731,9 +1773,9 @@ Email notices include a clear action button and a copyable link, with a plain-te
 Staff, tutors and tutees can use **Account → Notification preferences**, also linked from the bell, to choose unread-badge and optional-email settings independently. The eleven categories are messages, review requests, applications, tutoring assignments, attendance, membership, account updates, announcements, management, other program updates and upcoming reminders. Reminders are email-only. Save applies your choices; Cancel discards unsaved changes.
 
 Admin/Head can require individual badge or email choices to stay on. A required
-choice is checked, unavailable to edit and labelled as required by your
-administrator. Your previous personal choice is preserved and returns when the
-requirement is removed. Required email still depends on the program email switch,
+choice is checked and unavailable to edit, with the administrator requirement
+explained to screen readers. Your previous personal choice is preserved and returns
+when the requirement is removed. Required email still depends on the program email switch,
 your verified delivery addresses and current access to that type of notice.
 
 Turning off a category's badge keeps its notices in the bell and preserves their read/unread state. You can still open them or mark them read. Turning the badge back on counts any still-unread notices again. Existing accounts retain their previous email opt-ins until changed; new categories inherit the corresponding old setting, while review requests and reminders retain their separate opt-ins. New accounts start with optional email off and badges on.

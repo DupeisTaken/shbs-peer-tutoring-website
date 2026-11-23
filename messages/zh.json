@@ -522,7 +522,8 @@
     "close": "关闭",
     "collapseAll": "全部收起",
     "expandAll": "全部展开",
-    "loading": "正在加载…"
+    "loading": "正在加载…",
+    "retry": "重试"
   },
   "auth": {
     "signinTitle": "登录",
@@ -706,7 +707,8 @@
       "draftBadge": "草稿"
     },
     "detail": {
-      "hiddenNote": "在该板块显示之前，此页面对访客隐藏。"
+      "hiddenNote": "在该板块显示之前，此页面对访客隐藏。",
+      "hiddenPageNote": "此页面在设为显示之前对访客隐藏。"
     }
   },
   "dashboard": {
@@ -1237,7 +1239,8 @@
       "columns": {
         "when": "时间",
         "who": "操作者",
-        "action": "操作"
+        "action": "操作内容",
+        "actions": "可用操作"
       },
       "undone": "已撤销",
       "undo": "撤销",
@@ -1626,6 +1629,7 @@
     "applications": {
       "title": "辅导伙伴申请",
       "intro": "审核申请人并分配一个由 {n} 名辅导伙伴组成的面试小组（指定一名组长）。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
+      "panelRangeIntro": "审核申请人并分配由 {min}–{max} 名辅导伙伴组成的面试小组，指定其中一名为组长。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
       "empty": "暂无申请。",
       "status": {
         "PENDING": "待处理",
@@ -1636,6 +1640,7 @@
       },
       "noCourses": "暂无科目",
       "panelSummary": "面试小组 {n}/{total}",
+      "panelCount": "面试小组 {n} 人（至少 {min} 人）",
       "votesSummary": "投票 {accepts}/{total}",
       "accept": "通过",
       "reject": "拒绝",
@@ -1650,6 +1655,7 @@
       },
       "noQualification": "未提供资质说明",
       "panelHeading": "面试小组（选择 {n} 人，指定一名组长）",
+      "panelRangeHeading": "面试小组（{min}–{max} 人，一名组长）",
       "scheduled": "已安排：{when}（由组长设定）",
       "panelistSlot": "— 面试官 {n} —",
       "head": "组长",
@@ -1657,6 +1663,7 @@
       "savePanel": "保存小组",
       "saved": "已保存。",
       "pickHint": "请选择 {n} 名辅导伙伴并指定一名组长。",
+      "pickRangeHint": "请选择 {min}–{max} 名不同的辅导伙伴，并指定其中一名为组长。",
       "votesDecisionHeading": "投票与决定",
       "voteTally": "{accepts} 票通过 · {rejects} 票拒绝",
       "noVotes": "暂无投票。",
@@ -2050,6 +2057,8 @@
     },
     "landing": {
       "pageAddress": "页面地址",
+      "addressRefreshFailed": "地址已保存，但无法加载更新后的地址。请刷新地址，无需再次保存。",
+      "refreshAddress": "刷新地址",
       "title": "首页",
       "subtitle": "编辑公开网站的文字、动态和图片。协调员的更改及翻译人员的文字修改需要审核。管理员或负责人的授权更改直接生效；动态草稿在发布前不会公开。",
       "loading": "加载中…",
@@ -2595,6 +2604,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "暂时无法加载报名表所需信息，请重试。",
     "applicationRetryNotice": "如果此邮箱已有正在审核的申请，系统会保留原申请。如需修改，请联系项目团队。",
     "signup": {
       "title": "申请同伴辅导",
@@ -2853,6 +2863,7 @@
     "collapseAll": "全部收起",
     "languagesHeading": "语言",
     "languagesHelp": "只有已启用的语言会显示在公共语言菜单中。隐藏的语言仍可在此编辑，直至翻译完善。",
+    "languagesReadFailed": "无法读取语言设置。",
     "builtIn": "内置",
     "enabled": "已启用",
     "disabled": "已隐藏",
@@ -3026,6 +3037,17 @@
     "news": "新闻",
     "sections": "网站板块",
     "pages": "页面标题",
+    "pageTarget": {
+      "current": "当前已保存的页面",
+      "currentHelp": "以下是当前保存的信息，并非提交草稿时的快照。",
+      "missing": "此页面已不存在。",
+      "missingRecovery": "此页面已不存在，因此无法发布此草稿。管理员或负责人可以拒绝草稿，并将其保留在历史记录中。",
+      "untitled": "目标语言和英语均无已保存的标题。",
+      "language": "标题语言：{locale}",
+      "fallbackLanguage": "标题语言：{locale}（回退语言）",
+      "address": "当前页面地址",
+      "reference": "页面参考 ID"
+    },
     "fields": {
       "locale": "语言代码",
       "key": "待翻译内容",
@@ -3615,7 +3637,11 @@
         "archivedOfferings": "拟归档的科目开设项",
         "timetableWeekday": "课表星期",
         "scheduleRevision": "课表版本",
-        "actionId": "恢复编号"
+        "actionId": "恢复编号",
+        "from": "开始日期",
+        "to": "结束日期",
+        "originalFrom": "原开始日期",
+        "originalTo": "原结束日期"
       },
       "values": {
         "ACTIVE": "参与中",
@@ -3855,7 +3881,9 @@
         "admin_cancelRefresh": "取消项目刷新预约",
         "monthlyHours_save": "更改月度服务时数报告计划",
         "schoolHours_save": "更改学校服务时数报告计划",
-        "student_setCalendarHoliday": "添加学校假期日期范围"
+        "student_setCalendarHoliday": "添加学校假期日期范围",
+        "student_updateCalendarHoliday": "编辑学校假期日期范围",
+        "student_resetCalendarHoliday": "恢复学校假期日期范围的常规安排"
       },
       "decisionRequestHelp": "“批准并执行”会按上方提案生效；“驳回”则不作任何更改。请填写简短说明。",
       "confirmPassword": "确认你的账号密码",
@@ -6115,7 +6143,7 @@
     "reload": "重新加载草稿",
     "loadFailed": "无法加载辅导通知。",
     "loading": "正在加载辅导通知…",
-    "add": "添加日期范围",
+    "add": "添加辅导暂停或通知",
     "date": "日期范围",
     "startDate": "开始日期",
     "endDate": "结束日期",
@@ -6149,7 +6177,14 @@
     "impactRetain": "保留的已确认额外辅导及已明确同意改期辅导：{count}",
     "impactConfirm": "须明确确认：{count}",
     "impactRestore": "可能恢复的安排：{count}",
-    "impactRule": "保存时会重新核对当前协议及冲突，并通过邮件通知受影响参与者有关取消的安排。已开始的辅导和已记录的出勤保持不变。"
+    "impactRule": "保存时会重新核对当前协议及冲突，并通过邮件通知受影响参与者有关取消的安排。已开始的辅导和已记录的出勤保持不变。",
+    "combinedTitle": "假期与辅导暂停",
+    "combinedHelp": "管理学校假期（不上课）与辅导暂停或通知（正常上课）。学校假期会暂停常规辅导并跳过申诉期限的上课日计数；辅导暂停不改变上课日及申诉规则。",
+    "combinedEmpty": "暂无学校假期或辅导通知。",
+    "denied": "无法访问辅导通知与暂停安排。",
+    "holidayEffect": "学校假期（不上课）",
+    "pauseEffectTable": "暂停常规辅导（正常上课）",
+    "noticeEffectTable": "仅作通知（正常上课）"
   },
   "roomOrder": {
     "title": "教室显示顺序",
@@ -7315,7 +7350,23 @@
     "invalidRange": "请选择有效日期，结束日期不得早于开始日期，且不得超过366天。",
     "holidayReplaces": "保存将替换下列{count}个现有日期设置及其备注。",
     "saveHoliday": "保存假期",
-    "reloadHoliday": "重新加载当前日期范围"
+    "reloadHoliday": "重新加载当前日期范围",
+    "weekdayOverridesTitle": "星期课表调整",
+    "weekdayOverridesHelp": "设置指定日期采用的星期课表，包括周末调休补课日。此处列出的日期均为上课日；放假与停课请在上方管理。",
+    "weekdayOverridesEmpty": "暂无星期课表调整，上课日默认按当天对应的星期课表上课。",
+    "addWeekdayOverride": "添加课表调整",
+    "editWeekdayOverride": "编辑课表调整",
+    "saveWeekdayOverride": "保存课表调整",
+    "weekdayReplacesExisting": "保存将替换此日期现有的校历设置及其备注。",
+    "editHoliday": "编辑假期",
+    "holidayDetailsTitle": "学校假期",
+    "holidayDaysCount": "{count}天",
+    "noStaffNote": "无工作人员备注",
+    "staffNotePrivate": "工作人员备注仅供内部查看，不会发送给参与者。",
+    "holidayResets": "保存后恢复常规安排的日期共{count}天。",
+    "holidayChangedExternally": "此假期已在别处被更改或移除。请关闭此窗口查看最新日历。",
+    "resetHolidayTitle": "恢复此学校假期的常规安排？",
+    "resetHolidayHelp": "恢复此假期范围内所有日期的常规上课日及星期课表规则。保留历史记录及已明确约定的辅导安排。"
   },
   "recordInspector": {
     "backToRecord": "返回记录",

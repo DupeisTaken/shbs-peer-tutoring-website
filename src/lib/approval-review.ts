@@ -301,9 +301,11 @@ export function approvalReview(
   const rawInput = record(payload) ?? {};
   // Fixed calendar actions expose their resulting effect without comparing a whole range to one row.
   const input =
-    operation === "student.setCalendarHoliday"
+    operation === "student.setCalendarHoliday" ||
+    operation === "student.updateCalendarHoliday"
       ? { ...rawInput, isSchoolDay: false, timetableWeekday: null }
-      : operation === "student.resetCalendarDay"
+      : operation === "student.resetCalendarDay" ||
+          operation === "student.resetCalendarHoliday"
         ? { ...rawInput, active: false }
         : rawInput;
   const evidence = record(targets) ?? {};

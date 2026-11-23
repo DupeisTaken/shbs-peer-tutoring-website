@@ -522,7 +522,8 @@
     "close": "Fermer",
     "collapseAll": "Tout réduire",
     "expandAll": "Tout développer",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Réessayer"
   },
   "auth": {
     "signinTitle": "Connexion",
@@ -706,7 +707,8 @@
       "draftBadge": "Brouillon"
     },
     "detail": {
-      "hiddenNote": "Cette page est masquée aux visiteurs tant que la section n’est pas affichée."
+      "hiddenNote": "Cette page est masquée aux visiteurs tant que la section n’est pas affichée.",
+      "hiddenPageNote": "Cette page est masquée aux visiteurs tant que la page n’est pas affichée."
     }
   },
   "dashboard": {
@@ -1245,7 +1247,8 @@
       "columns": {
         "when": "Quand",
         "who": "Qui",
-        "action": "Action"
+        "action": "Opération enregistrée",
+        "actions": "Actions de ligne"
       },
       "undone": "annulé",
       "undo": "Annuler",
@@ -1704,6 +1707,7 @@
     "applications": {
       "title": "Candidatures tuteurs",
       "intro": "Examinez les candidats et constituez un jury d'entretien de {n} tuteurs (désignez un responsable). Cliquez sur une ligne pour développer. Le responsable planifie l'entretien et enregistre la décision depuis son propre tableau de bord.",
+      "panelRangeIntro": "Examinez les candidats et constituez un jury d'entretien de {min} à {max} tuteurs, dont un responsable. Cliquez sur une ligne pour développer. Le responsable planifie l'entretien et enregistre la décision depuis son propre tableau de bord.",
       "empty": "Aucune candidature pour l'instant.",
       "status": {
         "PENDING": "en attente",
@@ -1714,6 +1718,7 @@
       },
       "noCourses": "aucune matière",
       "panelSummary": "jury {n}/{total}",
+      "panelCount": "jury de {n} personnes (minimum {min})",
       "votesSummary": "votes {accepts}/{total}",
       "accept": "Accepter",
       "reject": "Refuser",
@@ -1728,6 +1733,7 @@
       },
       "noQualification": "aucune qualification indiquée",
       "panelHeading": "Jury d'entretien (choisir {n}, désigner un responsable)",
+      "panelRangeHeading": "Jury d'entretien (de {min} à {max} tuteurs, un responsable)",
       "scheduled": "Planifié : {when} (défini par le responsable)",
       "panelistSlot": "— membre du jury {n} —",
       "head": "responsable",
@@ -1735,6 +1741,7 @@
       "savePanel": "Enregistrer le jury",
       "saved": "Enregistré.",
       "pickHint": "Choisissez {n} tuteurs et un responsable.",
+      "pickRangeHint": "Choisissez de {min} à {max} tuteurs distincts et désignez un responsable parmi eux.",
       "votesDecisionHeading": "Votes & décision",
       "voteTally": "{accepts} pour · {rejects} contre",
       "noVotes": "Aucun vote pour l'instant.",
@@ -2050,6 +2057,8 @@
     },
     "landing": {
       "pageAddress": "Adresse de la page",
+      "addressRefreshFailed": "L’adresse a été enregistrée, mais l’adresse mise à jour n’a pas pu être chargée. Actualisez l’adresse sans l’enregistrer à nouveau.",
+      "refreshAddress": "Actualiser l’adresse",
       "title": "Page d’accueil",
       "subtitle": "Modifiez les textes, actualités et images du site public. Les modifications des coordinateurs et les textes des traducteurs nécessitent une validation. Les modifications autorisées des Admin/Head s’appliquent directement ; les brouillons d’actualités restent privés jusqu’à leur publication.",
       "loading": "Chargement…",
@@ -2595,6 +2604,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "Impossible de charger les informations du formulaire d’inscription. Veuillez réessayer.",
     "applicationRetryNotice": "Si une candidature associée à cette adresse e-mail est déjà en cours d’examen, nous conservons la candidature initiale. Pour la modifier, contacte l’équipe du programme.",
     "signup": {
       "title": "Demander un tuteur par les pairs",
@@ -2853,6 +2863,7 @@
     "collapseAll": "Tout réduire",
     "languagesHeading": "Langues",
     "languagesHelp": "Seules les langues activées apparaissent dans les menus publics. Les langues masquées restent modifiables ici jusqu’à ce que leurs traductions soient prêtes.",
+    "languagesReadFailed": "Les paramètres de langue n’ont pas pu être chargés.",
     "builtIn": "intégré",
     "enabled": "activée",
     "disabled": "masquée",
@@ -3026,6 +3037,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "Page actuellement enregistrée",
+      "currentHelp": "Détails enregistrés actuels, et non une copie au moment de l’envoi.",
+      "missing": "Cette page n’existe plus.",
+      "missingRecovery": "Cette page n’existe plus ; ce brouillon ne peut donc pas être publié. Un administrateur ou responsable peut le rejeter et le conserver dans l’historique.",
+      "untitled": "Aucun titre enregistré dans la langue cible ou en anglais.",
+      "language": "Langue du titre : {locale}",
+      "fallbackLanguage": "Langue du titre : {locale} (langue de repli)",
+      "address": "Adresse actuelle de la page",
+      "reference": "Identifiant de référence de la page"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",
@@ -3615,7 +3637,11 @@
         "archivedOfferings": "Matières proposées à archiver",
         "timetableWeekday": "Jour de l’emploi du temps",
         "scheduleRevision": "Révision du programme",
-        "actionId": "Identifiant d’action d’admission enregistrée"
+        "actionId": "Identifiant d’action d’admission enregistrée",
+        "from": "Date de début",
+        "to": "Date de fin",
+        "originalFrom": "Ancienne date de début",
+        "originalTo": "Ancienne date de fin"
       },
       "values": {
         "ACTIVE": "Actif",
@@ -3855,7 +3881,9 @@
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Modifier la planification des rapports mensuels des heures",
         "schoolHours_save": "Modifier la planification des rapports d’heures pour l’école",
-        "student_setCalendarHoliday": "Ajouter une période de vacances scolaires"
+        "student_setCalendarHoliday": "Ajouter une période de vacances scolaires",
+        "student_updateCalendarHoliday": "Modifier une période de vacances scolaires",
+        "student_resetCalendarHoliday": "Réinitialiser une période de vacances scolaires"
       },
       "decisionRequestHelp": "Approuver et appliquer exécute l’action demandée, y compris un rejet demandé. Rejeter avec un commentaire refuse cette proposition sans rien modifier. Ajoutez une note pour expliquer votre décision.",
       "confirmPassword": "Confirmez le mot de passe de votre compte",
@@ -6115,7 +6143,7 @@
     "reload": "Recharger le brouillon",
     "loadFailed": "Impossible de charger les avis de tutorat.",
     "loading": "Chargement des avis de tutorat…",
-    "add": "Ajouter une période",
+    "add": "Ajouter une pause ou un avis de tutorat",
     "date": "Période",
     "startDate": "Date de début",
     "endDate": "Date de fin",
@@ -6149,7 +6177,14 @@
     "impactRetain": "Séances supplémentaires confirmées et reports expressément convenus conservés : {count}",
     "impactConfirm": "Confirmation explicite nécessaire : {count}",
     "impactRestore": "Candidats au rétablissement : {count}",
-    "impactRule": "L’enregistrement revérifie les accords et conflits actuels. Les participants concernés sont informés des annulations par e-mail. Les séances commencées et les présences enregistrées restent inchangées."
+    "impactRule": "L’enregistrement revérifie les accords et conflits actuels. Les participants concernés sont informés des annulations par e-mail. Les séances commencées et les présences enregistrées restent inchangées.",
+    "combinedTitle": "Vacances et pauses de tutorat",
+    "combinedHelp": "Gérez les vacances scolaires (école fermée) ainsi que les pauses ou avis de tutorat (école ouverte). Les vacances suspendent le tutorat régulier et le décompte des jours de cours pour les appels ; les pauses de tutorat ne modifient pas les jours de cours.",
+    "combinedEmpty": "Aucune vacance scolaire ni avis de tutorat.",
+    "denied": "Les avis et pauses de tutorat ne sont pas disponibles.",
+    "holidayEffect": "Vacances scolaires (École fermée)",
+    "pauseEffectTable": "Pause de tutorat (Jour de cours)",
+    "noticeEffectTable": "Avis uniquement (Jour de cours)"
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
@@ -7315,7 +7350,23 @@
     "invalidRange": "Choisissez des dates valides, avec une fin au plus tôt au début et 366 jours maximum.",
     "holidayReplaces": "L’enregistrement remplace les {count} exceptions ci-dessous, y compris leurs notes.",
     "saveHoliday": "Enregistrer les vacances",
-    "reloadHoliday": "Recharger la période actuelle"
+    "reloadHoliday": "Recharger la période actuelle",
+    "weekdayOverridesTitle": "Remplacements d’emploi du temps",
+    "weekdayOverridesHelp": "Définissez l’emploi du temps d’un jour de la semaine suivi à une date précise, y compris les jours de cours rattrapés le week-end. Les dates listées ici sont des jours de cours ; les vacances sont gérées ci-dessus.",
+    "weekdayOverridesEmpty": "Aucun remplacement d’emploi du temps. Les jours de cours suivent leur propre jour de la semaine.",
+    "addWeekdayOverride": "Ajouter un remplacement d’emploi du temps",
+    "editWeekdayOverride": "Modifier le remplacement d’emploi du temps",
+    "saveWeekdayOverride": "Enregistrer le remplacement d’emploi du temps",
+    "weekdayReplacesExisting": "L’enregistrement remplacera l’entrée existante du calendrier scolaire pour cette date, y compris sa note.",
+    "editHoliday": "Modifier les vacances",
+    "holidayDetailsTitle": "Vacances scolaires",
+    "holidayDaysCount": "{count, plural, one {# jour} other {# jours}}",
+    "noStaffNote": "Aucune note interne",
+    "staffNotePrivate": "Les notes internes ne sont pas envoyées aux participants.",
+    "holidayResets": "Dates rétablies à la normale lors de l’enregistrement : {count}.",
+    "holidayChangedExternally": "Ces vacances ont été modifiées ou supprimées ailleurs. Fermez cette fenêtre pour consulter le calendrier mis à jour.",
+    "resetHolidayTitle": "Réinitialiser ces vacances scolaires ?",
+    "resetHolidayHelp": "Rétablit les règles normales de jour de cours et d’emploi du temps pour chaque date de ces vacances. L’historique et les séances convenues sont conservés."
   },
   "recordInspector": {
     "backToRecord": "Back to record",

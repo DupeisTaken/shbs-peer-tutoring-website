@@ -283,6 +283,7 @@ export function SignupForm({
   }
 
   // Distinguish pending reads and configuration gaps from a usable signup form.
+  // These reads load the form, not an existing submitted survey.
   if ((options.isError && !options.data) || (policy.isError && !policy.data))
     return (
       <>
@@ -295,7 +296,7 @@ export function SignupForm({
           />
         )}
         <section className="card space-y-4 p-6">
-          <p role="alert">{t("survey.loadFailed")}</p>
+          <p role="alert">{t("public.signupFormLoadFailed")}</p>
           <button
             type="button"
             className="btn-secondary"
@@ -405,7 +406,7 @@ export function SignupForm({
             </Button>
           }
         >
-          {t("survey.loadFailed")}
+          {t("public.signupFormLoadFailed")}
         </InlineNotice>
       )}
       {readOnly && (

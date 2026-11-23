@@ -111,7 +111,10 @@ type Application = InvalidityRecord & {
   decidedByTutor: { englishName: string } | null;
 };
 
-const PANEL_SIZE = 3;
+// Separate count/range keys keep saved fixed-three translations from restoring
+// the old denominator or instructions; the existing tally key keeps its meaning.
+const MIN_PANEL_SIZE = 3;
+const MAX_PANEL_SIZE = 8;
 
 function ApplicationCard({
   app,
@@ -176,11 +179,14 @@ function ApplicationCard({
   });
 
   const accepts = app.votes.filter((v) => v.accept).length;
-  // Use the same decision tally in both card states.
-  const voteTally = t("admin.applications.voteTally", {
-    accepts,
-    rejects: app.votes.length - accepts,
-  });
+  // Counts describe recorded decisions independently of the assigned panel size.
+  const voteTally =
+    app.votes.length > 0
+      ? t("admin.applications.voteTally", {
+          accepts,
+          rejects: app.votes.length - accepts,
+        })
+      : null;
   const courseNames =
     app.subjectIntents.map((ci) => ci.subject.name).join(", ") ||
     t("admin.applications.noCourses");
@@ -233,9 +239,9 @@ function ApplicationCard({
               {(features?.INTERVIEWS === true || hasInterviewHistory) && (
                 <>
                   {" · "}
-                  {t("admin.applications.panelSummary", {
+                  {t("admin.applications.panelCount", {
                     n: app.interviewers.length,
-                    total: PANEL_SIZE,
+                    min: MIN_PANEL_SIZE,
                   })}
                   {app.votes.length > 0 ? ` · ${voteTally}` : ""}
                 </>
@@ -415,7 +421,10 @@ function ApplicationCard({
           {(features?.INTERVIEWS === true || hasInterviewHistory) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
+                {t("admin.applications.panelRangeHeading", {
+                  min: MIN_PANEL_SIZE,
+                  max: MAX_PANEL_SIZE,
+                })}
               </p>
               {app.interviewAt && (
                 <p className="muted mt-1">
@@ -465,9 +474,7 @@ function ApplicationCard({
               </p>
               {app.votes.length > 0 ? (
                 <>
-                  <p className="muted mt-1 text-sm">
-                    {voteTally}
-                  </p>
+                  <p className="muted mt-1 text-sm">{voteTally}</p>
                   <ul className="mt-1 space-y-0.5">
                     {app.votes.map((v, i) => (
                       <li key={i} className="text-xs text-slate-600">
@@ -719,7 +726,10 @@ export default function ApplicationsPage() {
         <div>
           <h1 className="page-title">{t("admin.applications.title")}</h1>
           <p className="muted mt-1">
-            {t("admin.applications.intro", { n: PANEL_SIZE })}
+            {t("admin.applications.panelRangeIntro", {
+              min: MIN_PANEL_SIZE,
+              max: MAX_PANEL_SIZE,
+            })}
           </p>
         </div>
 

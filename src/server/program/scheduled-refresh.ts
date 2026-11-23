@@ -340,15 +340,17 @@ async function terminalNotice(tx: TransactionDb, row: ScheduledProgramRefresh) {
   );
 }
 
-/** Catch up after downtime using authoritative database time. The period barrier
- * serializes execution with manual refresh, rescheduling and cancellation. */
-export async function processScheduledRefresh(db: DomainDb, id: string) {
+/** Check authorization before the due time so management can act on drift.
+ * Activation still requires database time and the same period barrier. */
+export async function processScheduledRefresh(
+  db: DomainDb,
+  id: string,
+  { reviewOnly = false }: { reviewOnly?: boolean } = {},
+) {
   return inTransaction(db, async (tx) => {
     await lockNextRecruitment(tx);
     const row = await tx.scheduledProgramRefresh.findUnique({ where: { id } });
     if (row?.state !== "SCHEDULED") return null;
-    const now = await databaseNow(tx);
-    if (row.executeAt > now) return null;
     // Preserve period -> namespace -> actor ordering before any authority row lock.
     await lockUsernameNamespace(tx);
     let expected;
@@ -380,6 +382,7 @@ export async function processScheduledRefresh(db: DomainDb, id: string) {
       await terminalNotice(tx, blocked);
       return publicRow(blocked);
     }
+    if (reviewOnly || row.executeAt > (await databaseNow(tx))) return null;
     const result = await applyProgramRefresh(
       tx,
       {
@@ -418,24 +421,32 @@ export async function processScheduledRefresh(db: DomainDb, id: string) {
   });
 }
 
-export async function processDueScheduledRefreshes(db: DomainDb) {
-  const due = await db.$queryRaw<{ id: string; version: number }[]>`
-    SELECT "id", "version" FROM "ScheduledProgramRefresh"
-    WHERE "state" = 'SCHEDULED' AND "executeAt" <= clock_timestamp()
+export async function sweepScheduledRefreshes(db: DomainDb) {
+  const candidates = await db.$queryRaw<
+    { id: string; version: number; due: boolean }[]
+  >`
+    SELECT "id", "version",
+      "executeAt" <= (statement_timestamp() AT TIME ZONE 'UTC') AS "due"
+    FROM "ScheduledProgramRefresh"
+    WHERE "state" = 'SCHEDULED'
     ORDER BY "executeAt", "id" LIMIT 10`;
-  const results = [];
-  for (const row of due) {
+  for (const row of candidates) {
     try {
-      results.push(await processScheduledRefresh(db, row.id));
+      await processScheduledRefresh(db, row.id, { reviewOnly: !row.due });
     } catch {
+      if (!row.due) {
+        // Advance checks never execute, even if the scheduled time passes while
+        // the sweep is processing earlier rows.
+        console.error(
+          "[scheduled-refresh] advance review check failed; will retry.",
+        );
+        continue;
+      }
       // Failed activation rolled back completely. Record only a safe retry count in
       // a new transaction, and never overwrite a concurrent edit or successful run.
-      results.push(
-        await recordScheduledRefreshFailure(db, row.id, row.version),
-      );
+      await recordScheduledRefreshFailure(db, row.id, row.version);
     }
   }
-  return results;
 }
 
 export async function recordScheduledRefreshFailure(
