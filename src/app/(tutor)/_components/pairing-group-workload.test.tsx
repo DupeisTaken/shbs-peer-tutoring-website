@@ -16,7 +16,10 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import messages from "../../../../messages/en.json";
-import { PairingGroupEditor } from "./pairing-group-editor";
+import {
+  PairingGroupActionDialog,
+  type PairingGroupAction,
+} from "./pairing-group-editor";
 import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import type { RouterOutputs } from "~/trpc/react";
 import type { InvalidationTarget } from "~/lib/invalidate-refresh";
@@ -56,7 +59,10 @@ vi.mock("~/trpc/react", async () => {
   return {
     api: {
       useUtils: () => ({
-        admin: { assignmentWorkloads: target("admin-workload"), pairings: { invalidate: state.refresh } },
+        admin: {
+          assignmentWorkloads: target("admin-workload"),
+          pairings: { invalidate: state.refresh },
+        },
         tutor: {
           myPairings: { invalidate: state.refresh },
           schedule: { invalidate: state.refresh },
@@ -128,7 +134,10 @@ const pairings = ["a", "b"].map((id, index) => ({
   startMin: 900,
   endMin: 960,
   tutees: [
-    { tuteeId: "shared", tutee: { englishName: `Synthetic ${id}`, user: null } },
+    {
+      tuteeId: "shared",
+      tutee: { englishName: `Synthetic ${id}`, user: null },
+    },
   ],
 })) as Pairing[];
 
@@ -185,8 +194,8 @@ afterEach(() => {
   state.client?.clear();
 });
 
-function show() {
-  render(
+function show(action: PairingGroupAction | null = null) {
+  return render(
     <QueryClientProvider client={state.client!}>
       <NextIntlClientProvider
         locale="en"
@@ -196,26 +205,19 @@ function show() {
         <TutorWorkloadPreference />
         <AdminWorkload variant="all" />
         <AdminWorkload variant="selected" />
-        <PairingGroupEditor pairings={pairings} slots={[slot]} active />
+        {action && (
+          <PairingGroupActionDialog
+            action={action}
+            active
+            onClose={() => undefined}
+          />
+        )}
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
 }
 const click = (name: string) =>
   fireEvent.click(screen.getByRole("button", { name }));
-async function prepare(operation: "combine" | "split" = "combine") {
-  click(messages.pairingGroups.manage);
-  await screen.findByRole("button", { name: messages.pairingGroups.add });
-  if (operation === "combine") {
-    click(messages.pairingGroups.add);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Mathematics" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Physics" }));
-    fireEvent.change(screen.getByLabelText(messages.pairingGroups.schedule), {
-      target: { value: "slot" },
-    });
-  } else click(messages.pairingGroups.split);
-  click(messages.pairingGroups.review);
-}
 function preferenceControl() {
   return screen.getByRole<HTMLButtonElement>("button", {
     name: "4",
@@ -238,18 +240,77 @@ it.each(["combine", "split"] as const)(
       state.preference = { ...state.preference, count: 1 };
       state.groups = {
         ...state.groups,
-        groups: [{ id: "group", pairingIds: ["a", "b"], slotId: "slot", scheduleConfirmed: true, dayOfWeek: 1, startMin: 900, endMin: 960, retainSchedule: false, groupStatus: "scheduled", groupEligibility: {eligible: true, reason: null, missing: [], emptyPairingIds: []} }],
+        pairings: pairings.map((p) => ({
+          ...p,
+          groupId: "group",
+          group: { primaryPairingId: "a" },
+        })),
+        groups: [
+          {
+            id: "group",
+            pairingIds: ["a", "b"],
+            slotId: "slot",
+            scheduleConfirmed: true,
+            dayOfWeek: 1,
+            startMin: 900,
+            endMin: 960,
+            retainSchedule: false,
+            groupStatus: "scheduled",
+            groupEligibility: {
+              eligible: true,
+              reason: null,
+              missing: [],
+              emptyPairingIds: [],
+            },
+          },
+        ],
       };
     }
-    show();
+    const action: PairingGroupAction =
+      operation === "combine"
+        ? { kind: "combine", pairingIds: ["a", "b"] }
+        : { kind: "split", groupId: "group" };
+    const view = show(null);
     await screen.findByRole("group", { name: /Preferred Sessions/ });
     const before = state.preference.count;
     fireEvent.click(preferenceControl());
-    await prepare(operation);
+    view.rerender(
+      <QueryClientProvider client={state.client!}>
+        <NextIntlClientProvider
+          locale="en"
+          timeZone="Asia/Shanghai"
+          messages={messages}
+        >
+          <TutorWorkloadPreference />
+          <AdminWorkload variant="all" />
+          <AdminWorkload variant="selected" />
+          <PairingGroupActionDialog
+            action={action}
+            active
+            onClose={() => undefined}
+          />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    if (operation === "combine") {
+      await screen.findByLabelText(messages.pairingGroups.schedule);
+      fireEvent.change(screen.getByLabelText(messages.pairingGroups.schedule), {
+        target: { value: "slot" },
+      });
+      click(messages.pairingGroups.review);
+    } else {
+      await screen.findByRole("region", {
+        name: messages.pairingGroups.review,
+      });
+    }
     // Simulate an independent preference revision arriving in the group refresh.
     // The local draft retains version 7 until an explicit successful Reload.
     state.preference = { ...state.preference, preferredMaximum: 1, version: 8 };
-    click(messages.pairingGroups.save);
+    click(
+      operation === "combine"
+        ? messages.pairingGroups.confirmCombine
+        : messages.pairingGroups.confirmSplit,
+    );
     await screen.findByText(messages.pairingGroups.saved);
     const after = before === 2 ? 1 : 2;
     await waitFor(() =>
@@ -274,10 +335,18 @@ it.each(["combine", "split"] as const)(
         })[0]!.disabled,
       ).toBe(false),
     );
-    fireEvent.click(
-      screen.getAllByRole("button", {
-        name: messages.accountProfile.close,
-      })[0]!,
+    view.rerender(
+      <QueryClientProvider client={state.client!}>
+        <NextIntlClientProvider
+          locale="en"
+          timeZone="Asia/Shanghai"
+          messages={messages}
+        >
+          <TutorWorkloadPreference />
+          <AdminWorkload variant="all" />
+          <AdminWorkload variant="selected" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     click(messages.tutorWorkload.save);
     await waitFor(() =>
@@ -291,7 +360,7 @@ it.each(["combine", "split"] as const)(
 );
 
 it("keeps the accepted receipt and waits for every workload read; failed refresh Retry is read-only", async () => {
-  show();
+  const view = show(null);
   await screen.findByRole("group", { name: /Preferred Sessions/ });
   await waitFor(() =>
     expect(screen.getByLabelText("Admin workload selected").textContent).toBe(
@@ -299,7 +368,29 @@ it("keeps the accepted receipt and waits for every workload read; failed refresh
     ),
   );
   fireEvent.click(preferenceControl());
-  await prepare();
+  view.rerender(
+    <QueryClientProvider client={state.client!}>
+      <NextIntlClientProvider
+        locale="en"
+        timeZone="Asia/Shanghai"
+        messages={messages}
+      >
+        <TutorWorkloadPreference />
+        <AdminWorkload variant="all" />
+        <AdminWorkload variant="selected" />
+        <PairingGroupActionDialog
+          action={{ kind: "combine", pairingIds: ["a", "b"] }}
+          active
+          onClose={() => undefined}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
+  );
+  await screen.findByLabelText(messages.pairingGroups.schedule);
+  fireEvent.change(screen.getByLabelText(messages.pairingGroups.schedule), {
+    target: { value: "slot" },
+  });
+  click(messages.pairingGroups.review);
   const held = deferred<number>();
   state.preferenceRead.mockRejectedValue(
     new Error("Preference read unavailable"),
@@ -309,7 +400,7 @@ it("keeps the accepted receipt and waits for every workload read; failed refresh
       ? held.promise
       : Promise.reject(new Error("Admin read unavailable")),
   );
-  click(messages.pairingGroups.save);
+  click(messages.pairingGroups.confirmCombine);
   await screen.findByText(messages.pairingGroups.saved);
   await waitFor(() =>
     expect(state.client!.getQueryState(["admin-workload", "all"])?.status).toBe(
@@ -326,10 +417,12 @@ it("keeps the accepted receipt and waits for every workload read; failed refresh
   await screen.findByText(messages.pairingGroups.refreshFailed);
   expect(preferenceControl().getAttribute("aria-pressed")).toBe("true");
   const dialog = screen.getByRole("dialog", {
-    name: messages.pairingGroups.manage,
+    name: messages.pairingGroups.combineTitle,
   });
   expect(
-    within(dialog).queryByRole("button", { name: messages.pairingGroups.save }),
+    within(dialog).queryByRole("button", {
+      name: messages.pairingGroups.confirmCombine,
+    }),
   ).toBeNull();
   state.preferenceRead.mockImplementation(async () => state.preference);
   state.adminRead.mockImplementation(async () => state.preference.count);

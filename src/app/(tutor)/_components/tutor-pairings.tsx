@@ -2,9 +2,17 @@
 import { invalidateWorkloads } from "~/lib/workload-cache";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingEntries } from "~/lib/pairing-groups";
-import { PairingGroupEditor } from "./pairing-group-editor";
+import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
+import {
+  combineSelectionOptions,
+  resolveCombineAddition,
+  resolveCombineRemoval,
+} from "~/lib/pairing-group-selection";
+import {
+  PairingGroupActionDialog,
+  type PairingGroupAction,
+} from "./pairing-group-editor";
 import { Button } from "~/app/_components/ui/button";
-import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { rankMutualAvailability } from "~/lib/mutual-availability";
 import { plannedIntervalsOverlap } from "~/lib/planned-scheduling";
@@ -23,9 +31,10 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 
 /**
- * The tutor's pairings, each with a control to pick the default reference time slot and to
- * relay a tutee opt-out (seven-day recall window). Picking a slot copies its day/time
- * onto the pairing (server-side, scoped to the caller).
+ * Unified tutor pairings page: every pairing starts as its own 1-assignment
+ * group and shares the same card layout and schedule/room/roster controls as
+ * combined groups. Active tutors combine selected groups or split/repair
+ * combined groups directly here.
  */
 export function TutorPairings({ active = true }: { active?: boolean }) {
   const t = useTranslations();
@@ -69,6 +78,15 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
   const [slotWorking, setSlotWorking] = useState(false);
   const [slotOutcome, setSlotOutcome] = useState<string>();
   const [slotRefreshFailed, setSlotRefreshFailed] = useState(false);
+
+  // Inline group selection for combining (hidden until triggered), plus the focused review dialog owner.
+  const [selectingToCombine, setSelectingToCombine] = useState(false);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const [autoSelectedIds, setAutoSelectedIds] = useState<string[]>([]);
+  const [groupAction, setGroupAction] = useState<PairingGroupAction | null>(
+    null,
+  );
+
   const refreshSlot = async () => {
     setSlotWorking(true);
     setSlotRefreshFailed(false);
@@ -241,52 +259,188 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
   }
 
   const entries = pairingEntries(list);
-  // A member's legacy slot control changes the whole group; the confirmation
-  // names every affected subject so it describes the server's actual write.
   const scheduleSubjects = (pairingId: string) =>
     entries
       .find((entry) => entry.pairings.some((p) => p.id === pairingId))
       ?.pairings.map((p) => p.subject)
       .join(" + ");
-  const renderAssignment = (p: (typeof list)[number]) => {
-    // A member control schedules its entire saved group. Recommendations must
-    // therefore include every current tutee affected by that reviewed write.
-    const entry = entries.find((entry) =>
-      entry.pairings.some((member) => member.id === p.id),
+
+  const groupControlsReady =
+    active &&
+    !slotWorking &&
+    !slotRefreshFailed &&
+    !pairings.error &&
+    !availability.error;
+  const canSelectEntry = (entry: (typeof entries)[number]) =>
+    groupControlsReady &&
+    entry.groupStatus !== "needsRepair" &&
+    entry.pairings.every((p) => p.tutees.length > 0);
+  const showCombineCheckboxes =
+    selectingToCombine && active && entries.length >= 2;
+  const combineEntries = entries.map((entry) => ({
+    id: entry.id,
+    pairings: entry.pairings,
+    selectable: canSelectEntry(entry),
+  }));
+  const selectableIds = new Set(
+    combineEntries.filter((entry) => entry.selectable).map((entry) => entry.id),
+  );
+  // Filter stale selections during render without discarding valid choices on refresh.
+  const activeSelectedIds = showCombineCheckboxes
+    ? selectedEntryIds.filter((id) => selectableIds.has(id))
+    : [];
+  const selectionOptions = showCombineCheckboxes
+    ? combineSelectionOptions(combineEntries, activeSelectedIds)
+    : null;
+  const hasAnySelectableOption = selectionOptions
+    ? [...selectionOptions.values()].some((opt) => opt.enabled)
+    : false;
+  const selectedEntries = entries.filter((entry) =>
+    activeSelectedIds.includes(entry.id),
+  );
+  const selectedPairings = selectedEntries.flatMap((entry) => entry.pairings);
+  const selectionEligibility =
+    activeSelectedIds.length >= 2
+      ? pairingGroupEligibility(selectedPairings)
+      : null;
+
+  const studentLabel = (tuteeId: string) => {
+    const student = list
+      .flatMap((p) => p.tutees)
+      .find((item) => item.tuteeId === tuteeId)?.tutee;
+    return participantNameLabel(
+      student?.englishName ?? "",
+      student?.user?.username,
+      t("participantNames.unnamed"),
     );
-    const members = entry?.pairings ?? [p];
+  };
+
+  const entrySummaryLabel = (entryId: string) => {
+    const entry = entries.find((item) => item.id === entryId);
+    if (!entry) return entryId;
+    const subjects = [...new Set(entry.pairings.map((p) => p.subject))].join(
+      " + ",
+    );
+    const names = [
+      ...new Map(
+        entry.pairings
+          .flatMap((p) => p.tutees)
+          .map((item) => [
+            item.tuteeId,
+            participantNameLabel(
+              item.tutee.englishName,
+              item.tutee.user?.username,
+              t("participantNames.unnamed"),
+            ),
+          ]),
+      ).values(),
+    ].join(", ");
+    return names ? `${subjects} (${names})` : subjects;
+  };
+
+  const toggleSelect = (entryId: string) => {
+    if (activeSelectedIds.includes(entryId)) {
+      const removed = resolveCombineRemoval(
+        combineEntries,
+        activeSelectedIds,
+        entryId,
+      );
+      setSelectedEntryIds(removed.nextSelectedIds);
+      setAutoSelectedIds([]);
+      return;
+    }
+    const added = resolveCombineAddition(
+      combineEntries,
+      activeSelectedIds,
+      entryId,
+    );
+    if (!added) return;
+    setSelectedEntryIds(added.nextSelectedIds);
+    setAutoSelectedIds(added.autoSelectedIds);
+  };
+
+  const openCombine = () => {
+    if (
+      !groupControlsReady ||
+      activeSelectedIds.length < 2 ||
+      !selectionEligibility?.eligible
+    )
+      return;
+    const targetGroupId =
+      selectedEntries.find((entry) => entry.groupId)?.groupId ?? undefined;
+    setGroupAction({
+      kind: "combine",
+      pairingIds: selectedPairings.map((p) => p.id),
+      targetGroupId,
+    });
+  };
+
+  const renderGroupCard = (entry: (typeof entries)[number]) => {
+    const primary = entry.primary;
+    const members = entry.pairings;
+    const subjects = [...new Set(members.map((p) => p.subject))];
+    const subjectHeading = subjects.join(" + ");
+    const isCombined = !!entry.groupId;
+    const isSelected = activeSelectedIds.includes(entry.id);
+    const checkboxEnabled = selectionOptions?.get(entry.id)?.enabled ?? false;
+    const isUnavailableInCombine =
+      showCombineCheckboxes && !isSelected && !checkboxEnabled;
+
     const excluded = new Set(
-      entry?.groupId && entry.groupStatus !== "needsRepair"
+      entry.groupId && entry.groupStatus !== "needsRepair"
         ? members.map((member) => member.id)
-        : [p.id],
+        : [primary.id],
     );
     const conflicting = (slot: (typeof slots)[number]) =>
       list.find(
         (other) =>
           !excluded.has(other.id) &&
-          other.termId === p.termId &&
+          other.termId === primary.termId &&
           other.scheduleConfirmed &&
           plannedIntervalsOverlap(slot, other),
       );
-    const currentTutees = [
-      ...new Map(
-        members.flatMap((member) =>
-          member.tutees.map(
-            (student) =>
-              [student.tuteeId, { student, pairingId: member.id }] as const,
-          ),
-        ),
-      ).values(),
-    ];
+
+    // Deduplicate students across every member pairing while keeping each
+    // (pairingId, tuteeId) assignment owner independent for Details actions.
+    const rosterMap = new Map<
+      string,
+      {
+        tuteeId: string;
+        tutee: (typeof members)[number]["tutees"][number]["tutee"];
+        assignments: { pairingId: string; subject: string }[];
+      }
+    >();
+    for (const member of members) {
+      for (const student of member.tutees) {
+        const existing = rosterMap.get(student.tuteeId);
+        if (existing) {
+          existing.assignments.push({
+            pairingId: member.id,
+            subject: member.subject,
+          });
+        } else {
+          rosterMap.set(student.tuteeId, {
+            tuteeId: student.tuteeId,
+            tutee: student.tutee,
+            assignments: [{ pairingId: member.id, subject: member.subject }],
+          });
+        }
+      }
+    }
+    const roster = [...rosterMap.values()];
+
     const ranking = rankMutualAvailability({
       slots,
       tutorSlotIds: availability.data?.selectedSlotIds,
-      tutees: currentTutees.map(({ student, pairingId }) => ({
+      tutees: roster.map((student) => ({
         id: student.tuteeId,
         slotIds: workflowRoster.data
           ?.find(
             (row) =>
-              row.pairingId === pairingId && row.tuteeId === student.tuteeId,
+              row.tuteeId === student.tuteeId &&
+              student.assignments.some(
+                (item) => item.pairingId === row.pairingId,
+              ),
           )
           ?.slots.map((slot) => slot.id),
       })),
@@ -296,6 +450,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
         !!availability.data &&
         !availability.error,
     });
+
     // Group the existing advisory ranking without changing selection or save
     // ownership. Unknown availability never qualifies as shared by everyone.
     const slotGroups = [
@@ -317,139 +472,364 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
         disabled: true,
       },
     ] as const;
-    return (
-      <li key={p.id} className="py-3">
-        <p className="font-medium text-wrap text-slate-900">
-          {p.subject}
-          <span className="muted font-normal">
-            {" · "}
-            {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
-          </span>
-        </p>
-        <RoomAllocationStatus pairing={p} />
 
-        {/* Default scheduling belongs before the roster/availability actions. */}
-        {active && (
-          <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <span className="text-xs font-medium text-slate-500">
-              {t("tutor.pairings.defaultSlotLabel")}
-            </span>
-            <select
-              value={
-                slotDrafts[p.id]?.slotId ??
-                (slotDrafts[p.id] ? "" : p.timeSlotId) ??
-                ""
-              }
-              aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
-              disabled={
-                setSlot.isPending ||
-                slotWorking ||
-                slotRefreshFailed ||
-                !!pairings.error ||
-                !!availability.error ||
-                entry?.groupStatus === "needsRepair"
-              }
-              onChange={(e) => void changeSlot(p, e.target.value || null)}
-              className="select min-w-0 sm:w-auto"
-            >
-              <option value="">{t("scheduling.noLinkedSlot")}</option>
-              {p.timeSlotId &&
-                !slots.some((slot) => slot.id === p.timeSlotId) && (
-                  <option value={p.timeSlotId} disabled>
-                    {t("tutor.pairings.ranking.retainedOption")} ·{" "}
-                    {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
-                  </option>
-                )}
-              {slotGroups.map(({ key, options, disabled }) =>
-                options.length > 0 ? (
-                  <optgroup
-                    key={key}
-                    label={t(`tutor.pairings.ranking.${key}`)}
-                  >
-                    {options.map(({ slot: s }) => (
-                      <option key={s.id} value={s.id} disabled={disabled}>
-                        {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
-                        {minToHm(s.startMin)}–{minToHm(s.endMin)}
-                        {disabled
-                          ? ` · ${t("pairingGroups.slotConflict", { subjects: conflicting(s)!.subject })}`
-                          : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                ) : null,
-              )}
-            </select>
-            {slotDrafts[p.id] && !slotWorking && !slotRefreshFailed && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="compact"
-                  disabled={!!pairings.error || !!availability.error}
-                  onClick={() => void changeSlot(p, slotDrafts[p.id]!.slotId)}
+    const studentNamesSummary = roster
+      .map((student) =>
+        participantNameLabel(
+          student.tutee.englishName,
+          student.tutee.user?.username,
+          t("participantNames.unnamed"),
+        ),
+      )
+      .join(", ");
+    const selectionName = studentNamesSummary
+      ? `${subjectHeading} (${studentNamesSummary})`
+      : subjectHeading;
+    const rosterLabel = isCombined
+      ? t("pairingGroups.combinedRoster")
+      : t("admin.pairings.colTutees");
+
+    return (
+      <li key={entry.id} className="py-2">
+        <div
+          className={`min-w-0 rounded-xl border transition-opacity ${
+            isSelected
+              ? "border-accent-500 ring-accent-500/20 ring-2"
+              : isUnavailableInCombine
+                ? "border-slate-200/80 bg-slate-50/70 opacity-55"
+                : "border-slate-200"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-xl border-b border-slate-100 bg-slate-50/50 px-4 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              {showCombineCheckboxes && (
+                <label
+                  className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center lg:min-h-8 lg:min-w-8 ${
+                    checkboxEnabled
+                      ? "cursor-pointer"
+                      : "cursor-not-allowed opacity-50"
+                  }`}
                 >
-                  {t("common.save")}
-                </Button>
-                <Button size="compact" onClick={() => void reloadSlot(p.id)}>
-                  {a("reload")}
-                </Button>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    disabled={!checkboxEnabled}
+                    aria-label={t("pairingGroups.selectToCombine", {
+                      group: selectionName,
+                    })}
+                    onChange={() => toggleSelect(entry.id)}
+                  />
+                </label>
+              )}
+              <h3 className="min-w-0 text-base font-semibold break-words text-slate-900">
+                {subjectHeading}
+              </h3>
+              {isCombined && (
+                <span className="badge-slate">
+                  {t("pairingGroups.combined")}
+                </span>
+              )}
+            </div>
+            {active && (
+              <div className="flex flex-wrap items-center gap-3">
+                <a
+                  className="link inline-flex min-h-11 items-center text-sm font-medium lg:min-h-8"
+                  href="#sessions"
+                >
+                  {t("sessionPlanning.viewSessions")}
+                </a>
+                {isCombined && (
+                  <Button
+                    size="compact"
+                    disabled={!groupControlsReady}
+                    onClick={() =>
+                      setGroupAction({ kind: "split", groupId: entry.groupId! })
+                    }
+                  >
+                    {entry.groupStatus === "needsRepair"
+                      ? t("pairingGroups.repairOrSplit")
+                      : t("pairingGroups.split")}
+                  </Button>
+                )}
               </div>
             )}
           </div>
-        )}
 
-        {/* Keep the roster brief; each Details owner retains its own request drafts. */}
-        <div className="mt-2">
-          {p.tutees.length === 0 ? (
-            <p className="muted text-sm">{t("tutor.pairings.noTuteesYet")}</p>
-          ) : (
-            <ul className="space-y-1">
-              {p.tutees.map((x) => {
-                const name = participantNameLabel(
-                  x.tutee.englishName,
-                  x.tutee.user?.username,
-                  t("participantNames.unnamed"),
-                );
-                const workflowRow = workflowRoster.data?.find(
-                  (r) => r.tuteeId === x.tuteeId && r.pairingId === p.id,
-                );
-                const key = `${p.id}:${x.tuteeId}`;
-                const pendingRequest = pendingByKey.get(key);
-                return (
-                  <li
-                    key={x.tuteeId}
-                    className="flex items-center justify-between gap-3 text-sm"
-                  >
-                    <span className="min-w-0 break-words text-slate-700">
-                      {name}
-                    </span>
-                    <PairingTuteeDetails
-                      pairingId={p.id}
-                      tuteeId={x.tuteeId}
-                      name={name}
-                      subject={p.subject}
-                      active={active}
-                      row={workflowRow}
-                      pendingRequest={pendingRequest}
-                      ready={!!workflowRoster.data && !!removalRequests.data}
-                      failed={
-                        !!pairings.error ||
-                        !!workflowRoster.error ||
-                        !!removalRequests.error
+          <div className="space-y-3 p-4">
+            {entry.groupStatus === "needsRepair" && (
+              <InlineNotice tone="warning">
+                {t("pairingGroups.needsRepair")}
+              </InlineNotice>
+            )}
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
+              <div className="min-w-0 space-y-3">
+                <dl className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-2">
+                  <div className="min-w-0">
+                    <dt className="text-xs font-medium text-slate-600">
+                      {isCombined
+                        ? t("pairingGroups.schedule")
+                        : t("pairingGroups.scheduleLabel")}
+                    </dt>
+                    <dd className="mt-1 text-sm font-medium break-words text-slate-900">
+                      {pairingScheduleText(
+                        primary,
+                        t("scheduling.awaiting"),
+                        locale,
+                      )}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs font-medium text-slate-600">
+                      {t("roomAllocation.room")}
+                    </dt>
+                    <dd className="mt-1 text-sm break-words text-slate-900">
+                      <RoomAllocationStatus pairing={primary} />
+                    </dd>
+                  </div>
+                </dl>
+
+                {/* Default scheduling belongs before the roster/availability actions. */}
+                {active && (
+                  <div className="grid gap-2">
+                    <label className="grid justify-items-start gap-1">
+                      <span className="text-xs font-medium text-slate-600">
+                        {t("tutor.pairings.defaultSlotLabel")}
+                      </span>
+                      <select
+                        value={
+                          slotDrafts[primary.id]?.slotId ??
+                          (slotDrafts[primary.id] ? "" : primary.timeSlotId) ??
+                          ""
+                        }
+                        aria-label={`${subjectHeading}: ${t("tutor.pairings.defaultSlotLabel")}`}
+                        disabled={
+                          setSlot.isPending ||
+                          slotWorking ||
+                          slotRefreshFailed ||
+                          !!pairings.error ||
+                          !!availability.error ||
+                          entry.groupStatus === "needsRepair"
+                        }
+                        onChange={(e) =>
+                          void changeSlot(primary, e.target.value || null)
+                        }
+                        className="select control-compact field-auto-bounded [--field-min-width:11rem] lg:min-h-8 lg:py-1"
+                      >
+                        <option value="">{t("scheduling.noLinkedSlot")}</option>
+                        {primary.timeSlotId &&
+                          !slots.some(
+                            (slot) => slot.id === primary.timeSlotId,
+                          ) && (
+                            <option value={primary.timeSlotId} disabled>
+                              {t("tutor.pairings.ranking.retainedOption")} ·{" "}
+                              {pairingScheduleText(
+                                primary,
+                                t("scheduling.awaiting"),
+                                locale,
+                              )}
+                            </option>
+                          )}
+                        {slotGroups.map(({ key, options, disabled }) =>
+                          options.length > 0 ? (
+                            <optgroup
+                              key={key}
+                              label={t(`tutor.pairings.ranking.${key}`)}
+                            >
+                              {options.map(({ slot: s }) => (
+                                <option
+                                  key={s.id}
+                                  value={s.id}
+                                  disabled={disabled}
+                                >
+                                  {s.label} ·{" "}
+                                  {formatWeekday(s.dayOfWeek, locale)}{" "}
+                                  {minToHm(s.startMin)}–{minToHm(s.endMin)}
+                                  {disabled
+                                    ? ` · ${t("pairingGroups.slotConflict", { subjects: conflicting(s)!.subject })}`
+                                    : ""}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ) : null,
+                        )}
+                      </select>
+                    </label>
+                    {slotDrafts[primary.id] &&
+                      !slotWorking &&
+                      !slotRefreshFailed && (
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="compact"
+                            disabled={!!pairings.error || !!availability.error}
+                            onClick={() =>
+                              void changeSlot(
+                                primary,
+                                slotDrafts[primary.id]!.slotId,
+                              )
+                            }
+                          >
+                            {t("common.save")}
+                          </Button>
+                          <Button
+                            size="compact"
+                            onClick={() => void reloadSlot(primary.id)}
+                          >
+                            {a("reload")}
+                          </Button>
+                        </div>
+                      )}
+                  </div>
+                )}
+
+                {primary.scheduleConfirmed && !primary.timeSlotId && (
+                  <p className="muted text-sm">{t("scheduling.retained")}</p>
+                )}
+              </div>
+
+              {/* Keep the roster brief; each Details owner retains its own request drafts. */}
+              <div className="min-w-0 border-t border-slate-100 pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
+                <p className="mb-1.5 text-xs font-medium text-slate-600">
+                  {rosterLabel}
+                </p>
+                {roster.length === 0 ? (
+                  <p className="muted text-sm">
+                    {t("tutor.pairings.noTuteesYet")}
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5" aria-label={rosterLabel}>
+                    {roster.map((student) => {
+                      const name = participantNameLabel(
+                        student.tutee.englishName,
+                        student.tutee.user?.username,
+                        t("participantNames.unnamed"),
+                      );
+                      const studentSubjects = [
+                        ...new Set(student.assignments.map((x) => x.subject)),
+                      ];
+                      if (student.assignments.length === 1) {
+                        const item = student.assignments[0]!;
+                        const workflowRow = workflowRoster.data?.find(
+                          (r) =>
+                            r.tuteeId === student.tuteeId &&
+                            r.pairingId === item.pairingId,
+                        );
+                        const pendingRequest = pendingByKey.get(
+                          `${item.pairingId}:${student.tuteeId}`,
+                        );
+                        return (
+                          <li
+                            key={student.tuteeId}
+                            className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-slate-50/70 px-3 py-1.5 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium break-words text-slate-900">
+                                {name}
+                              </p>
+                              {/* One shared subject is already named in the panel heading. */}
+                              {subjects.length > 1 && (
+                                <p className="mt-0.5 text-xs break-words text-slate-600">
+                                  {item.subject}
+                                </p>
+                              )}
+                            </div>
+                            <PairingTuteeDetails
+                              pairingId={item.pairingId}
+                              tuteeId={student.tuteeId}
+                              name={name}
+                              subject={item.subject}
+                              active={active}
+                              row={workflowRow}
+                              pendingRequest={pendingRequest}
+                              ready={
+                                !!workflowRoster.data && !!removalRequests.data
+                              }
+                              failed={
+                                !!pairings.error ||
+                                !!workflowRoster.error ||
+                                !!removalRequests.error
+                              }
+                              onRetry={() => {
+                                void pairings.refetch();
+                                void workflowRoster.refetch();
+                                void removalRequests.refetch();
+                              }}
+                            />
+                          </li>
+                        );
                       }
-                      onRetry={() => {
-                        void pairings.refetch();
-                        void workflowRoster.refetch();
-                        void removalRequests.refetch();
-                      }}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+
+                      return (
+                        <li
+                          key={student.tuteeId}
+                          className="min-w-0 space-y-2 rounded-lg border border-slate-200/70 bg-slate-50/70 px-3 py-1.5 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium break-words text-slate-900">
+                              {name}
+                            </p>
+                            {subjects.length > 1 && (
+                              <p className="mt-0.5 text-xs break-words text-slate-600">
+                                {studentSubjects.join(", ")}
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-1 border-t border-slate-200/70 pt-1.5">
+                            {student.assignments.map((item) => {
+                              const workflowRow = workflowRoster.data?.find(
+                                (r) =>
+                                  r.tuteeId === student.tuteeId &&
+                                  r.pairingId === item.pairingId,
+                              );
+                              const pendingRequest = pendingByKey.get(
+                                `${item.pairingId}:${student.tuteeId}`,
+                              );
+                              return (
+                                <div
+                                  key={item.pairingId}
+                                  className="flex items-center justify-between gap-2 text-xs text-slate-600"
+                                >
+                                  {subjects.length > 1 && (
+                                    <span className="min-w-0 break-words">
+                                      {item.subject}
+                                    </span>
+                                  )}
+                                  <PairingTuteeDetails
+                                    pairingId={item.pairingId}
+                                    tuteeId={student.tuteeId}
+                                    name={name}
+                                    subject={item.subject}
+                                    includeSubjectInLabel={subjects.length > 1}
+                                    active={active}
+                                    row={workflowRow}
+                                    pendingRequest={pendingRequest}
+                                    ready={
+                                      !!workflowRoster.data &&
+                                      !!removalRequests.data
+                                    }
+                                    failed={
+                                      !!pairings.error ||
+                                      !!workflowRoster.error ||
+                                      !!removalRequests.error
+                                    }
+                                    onRetry={() => {
+                                      void pairings.refetch();
+                                      void workflowRoster.refetch();
+                                      void removalRequests.refetch();
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        {p.scheduleConfirmed && !p.timeSlotId && (
-          <p className="muted mt-1 text-sm">{t("scheduling.retained")}</p>
-        )}
       </li>
     );
   };
@@ -478,131 +858,121 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
           </button>
         </div>
       )}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="muted text-sm">{t("pairingGroups.catalogueHelp")}</p>
-        <PairingGroupEditor
-          pairings={list}
-          slots={slots}
-          active={
-            active && !slotWorking && !pairings.error && !availability.error
-          }
-        />
-      </div>
-      <ul className="divide-y divide-slate-100">
-        {entries.map((entry) => {
-          const subjects = [...new Set(entry.pairings.map((p) => p.subject))];
-          return entry.groupId ? (
-            <li key={entry.id} className="py-3">
-              <div className="min-w-0 rounded-xl border border-slate-200">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-                  <h3 className="min-w-0 font-semibold break-words text-slate-900">
-                    {subjects.join(" + ")}
-                  </h3>
-                  <span className="badge-slate">
-                    {t("pairingGroups.combined")}
-                  </span>
-                </div>
-                <div className="space-y-4 p-4">
-                  {entry.groupStatus === "needsRepair" && (
-                    <InlineNotice tone="warning">
-                      {t("pairingGroups.needsRepair")}
-                    </InlineNotice>
-                  )}
-                  <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-                    <dl className="min-w-0 space-y-3">
-                      <div>
-                        <dt className="text-xs text-slate-600">
-                          {t("pairingGroups.schedule")}
-                        </dt>
-                        <dd className="mt-1 font-medium break-words text-slate-900">
-                          {pairingScheduleText(
-                            entry.primary,
-                            t("scheduling.awaiting"),
-                            locale,
-                          )}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-slate-600">
-                          {t("roomAllocation.room")}
-                        </dt>
-                        <dd className="mt-1 break-words text-slate-900">
-                          <RoomAllocationStatus pairing={entry.primary} />
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="min-w-0 border-t border-slate-100 pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-4">
-                      <p className="mb-2 text-xs text-slate-600">
-                        {t("pairingGroups.combinedRoster")}
-                      </p>
-                      <ul
-                        className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3"
-                        aria-label={t("pairingGroups.combinedRoster")}
-                      >
-                        {[
-                          ...new Map(
-                            entry.pairings
-                              .flatMap((p) => p.tutees)
-                              .map((x) => [x.tuteeId, x]),
-                          ).values(),
-                        ].map((student) => (
-                          <li
-                            key={student.tuteeId}
-                            className="min-w-0 rounded-lg bg-slate-50 px-3 py-2 text-sm"
-                          >
-                            <p className="font-medium break-words text-slate-900">
-                              {participantNameLabel(
-                                student.tutee.englishName,
-                                student.tutee.user?.username,
-                                t("participantNames.unnamed"),
-                              )}
-                            </p>
-                            {/* One shared subject is already named in the panel heading. */}
-                            {subjects.length > 1 && (
-                              <p className="mt-1 text-xs break-words text-slate-600">
-                                {entry.pairings
-                                  .filter((p) =>
-                                    p.tutees.some(
-                                      (x) => x.tuteeId === student.tuteeId,
-                                    ),
-                                  )
-                                  .map((p) => p.subject)
-                                  .filter(
-                                    (subject, index, all) =>
-                                      all.indexOf(subject) === index,
-                                  )
-                                  .join(", ")}
-                              </p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-3 border-t border-slate-100 px-4 py-3">
-                  {active && (
-                    <a
-                      className="link inline-flex min-h-11 items-center text-sm font-medium lg:min-h-8"
-                      href="#sessions"
-                    >
-                      {t("sessionPlanning.viewSessions")}
-                    </a>
-                  )}
-                  <DisclosureSection
-                    title={t("pairingGroups.memberDetails")}
-                    lifetime="retained"
+
+      {active && entries.length >= 2 && (
+        <div className="mb-3 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="muted text-sm">{t("pairingGroups.catalogueHelp")}</p>
+            {!showCombineCheckboxes && (
+              <Button
+                size="compact"
+                disabled={!groupControlsReady}
+                onClick={() => {
+                  setSelectedEntryIds([]);
+                  setAutoSelectedIds([]);
+                  setSelectingToCombine(true);
+                }}
+              >
+                {t("pairingGroups.confirmCombine")}
+              </Button>
+            )}
+          </div>
+          {showCombineCheckboxes && (
+            <div
+              role="region"
+              aria-label={t("pairingGroups.combineTitle")}
+              className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-900">
+                  {t("pairingGroups.selectedSummary", {
+                    groups: activeSelectedIds.length,
+                    assignments: selectedPairings.length,
+                  })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="compact"
+                    onClick={() => {
+                      setSelectedEntryIds([]);
+                      setAutoSelectedIds([]);
+                      setSelectingToCombine(false);
+                    }}
                   >
-                    <ul>{entry.pairings.map(renderAssignment)}</ul>
-                  </DisclosureSection>
+                    {t("common.cancel")}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="compact"
+                    disabled={
+                      !groupControlsReady ||
+                      activeSelectedIds.length < 2 ||
+                      !selectionEligibility?.eligible
+                    }
+                    onClick={openCombine}
+                  >
+                    {t("pairingGroups.combineSelected")}
+                  </Button>
                 </div>
               </div>
-            </li>
-          ) : (
-            renderAssignment(entry.primary)
-          );
-        })}
-      </ul>
+              {activeSelectedIds.length === 0 && !hasAnySelectableOption ? (
+                <InlineNotice tone="info">
+                  {t("pairingGroups.noCompatibleGroups")}
+                </InlineNotice>
+              ) : (
+                activeSelectedIds.length < 2 && (
+                  <p className="muted text-sm">
+                    {t("pairingGroups.selectMore")}
+                  </p>
+                )
+              )}
+              {autoSelectedIds.some((id) => activeSelectedIds.includes(id)) && (
+                <p role="status" className="text-xs text-slate-600">
+                  {t("pairingGroups.autoSelectedCompanions", {
+                    groups: autoSelectedIds
+                      .filter((id) => activeSelectedIds.includes(id))
+                      .map(entrySummaryLabel)
+                      .join(", "),
+                  })}
+                </p>
+              )}
+              {selectionEligibility && !selectionEligibility.eligible && (
+                <InlineNotice tone="warning">
+                  <p>
+                    {t(
+                      `pairingGroups.eligibility.${selectionEligibility.reason ?? "size"}`,
+                    )}
+                  </p>
+                  {selectionEligibility.missing.map((missing) => (
+                    <p key={missing.tuteeId}>
+                      {t("pairingGroups.missingCoverage", {
+                        student: studentLabel(missing.tuteeId),
+                        subjects: missing.subjects.join(", "),
+                      })}
+                    </p>
+                  ))}
+                </InlineNotice>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <ul className="space-y-1">{entries.map(renderGroupCard)}</ul>
+
+      {groupAction && (
+        <PairingGroupActionDialog
+          action={groupAction}
+          active={groupControlsReady}
+          onClose={() => setGroupAction(null)}
+          onSaved={() => {
+            setSelectedEntryIds([]);
+            setAutoSelectedIds([]);
+            setSelectingToCombine(false);
+          }}
+        />
+      )}
+
       {slotOutcome && (
         <InlineNotice
           tone={slotOutcome === "UNAVAILABLE" ? "warning" : "success"}

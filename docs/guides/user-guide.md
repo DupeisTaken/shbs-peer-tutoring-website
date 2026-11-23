@@ -773,45 +773,76 @@ Sessions. Calendar applications may refresh later than the portal.
 
 ### Combine and split recurring pairings
 
-Active tutors can use **My Pairings → Combine / split pairings** to save reusable
-groups of two to six current, populated assignments they own. Every student in
-the group must already have every selected subject. A–Chemistry plus B–Chemistry
-can combine, as can A–Chemistry plus A–Mathematics. Combining both students across
-both subjects requires all four student–subject relationships (which may be
-represented by shared roster rows); A–Chemistry, A–Mathematics and
-B–Mathematics cannot combine because B has no Chemistry assignment. Combining
-never creates a missing subject assignment.
+Every pairing starts as its own single-assignment group in **My Pairings**, using
+the same card layout for single pairings and combined groups. Active tutors can
+choose **Combine groups** on **My Pairings**, select two or more populated
+groups, and choose **Combine selected** to save a reusable group of two to six
+current assignments they own. Every student in the group must already have every
+selected subject.
+A–Chemistry plus B–Chemistry can combine, as can A–Chemistry plus A–Mathematics.
+Combining both students across both subjects requires all four student–subject
+relationships (which may be represented by shared roster rows); A–Chemistry,
+A–Mathematics and B–Mathematics cannot combine because B has no Chemistry
+assignment. Combining never creates a missing subject assignment.
 
-Select the assignments and primary member, then leave the group **Awaiting
-schedule** or choose one shared catalog slot. Review the distinct students,
-subject coverage and scheduling consequence before saving. This allows
-**assign → combine → schedule** without first double-booking independent
-assignments. Later, choosing a member's default time schedules the whole group.
-An explicit retained-time choice preserves an existing unpublished or unlinked
-confirmed interval; selecting Awaiting schedule clears its recurring reservation.
-Room intent remains separate. An automatic room shortage may save as **Needs room**,
-but a fixed-room conflict or overlapping independent tutor block rejects the save.
-Grouping does not record attendance or change qualifications, ownership or rosters.
+Choose the primary member, then leave the group **Awaiting schedule** or choose
+one shared catalog slot. Review the distinct students, subject coverage and
+scheduling consequence before saving. This allows **assign → combine → schedule**
+without first double-booking independent assignments. Later, choosing the
+group's default time slot schedules the whole group together. Room intent remains
+separate. An automatic room shortage may save as **Needs room**, but a fixed-room
+conflict or overlapping independent tutor block rejects the save. Grouping does
+not record attendance or change qualifications, ownership or rosters.
 
-My Pairings displays each saved group in a bordered summary with its subjects, shared recurring time, room status and each distinct student once. On wider screens, the schedule and room sit beside the roster; on narrow screens they stack. A single shared subject appears in the heading; mixed-subject groups also show each student’s subjects beneath their name. In management’s **Pairings** table, a saved group stays together when you sort or filter. Every row repeats its own tutor, subject, time, room and tutee names, including information shared with adjacent members. Read across each complete row to its rightmost actions. Use **Details** beside a subject for its group reference, status and combined roster. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **View dated sessions** opens the agenda. Its **Record attendance** action selects that exact dated cohort and its captured subjects and students. Current planned attendance does not offer an arbitrary subject/group picker. Check actual attendance time and location before submitting; ask management to review historical subject corrections.
+My Pairings displays every group—both single pairings and combined groups—in a
+bordered card with its subject heading, recurring time, room status, default time
+slot selector and distinct student roster with direct **Details** access for each
+assignment. On wider screens, the schedule and room sit beside the roster; on
+narrow screens they stack. A single shared subject appears once in the heading;
+mixed-subject groups also show each student’s subjects beneath their name and
+list each subject's **Details** action. In management’s **Pairings** table, a
+saved group stays together when you sort or filter. Every row repeats its own
+tutor, subject, time, room and tutee names, including information shared with
+adjacent members. Read across each complete row to its rightmost actions. Use
+**Details** beside a subject for its group reference, status and combined roster.
+A valid group counts as one planned block even while awaiting a schedule;
+identical times alone do not combine independent assignments. **View dated
+sessions** opens the agenda. Its **Record attendance** action selects that exact
+dated cohort and its captured subjects and students. Current planned attendance
+does not offer an arbitrary subject/group picker. Check actual attendance time
+and location before submitting; ask management to review historical subject
+corrections.
 
 Existing groups that fail the coverage or schedule checks show **Needs repair**.
-Repair or split them before scheduling or recording combined attendance.
-Deliberate management edits cannot silently break a valid group. A withdrawal,
-departure or disciplinary removal still proceeds under its existing rules; if it
-leaves a group incomplete, that group is marked for repair. Previous attendance is
-not changed. The same complete subject-coverage rule applies to one-off combined
-attendance; it does not merge recurring plans.
+Choose **Repair or split** on that card before scheduling or recording combined
+attendance. Deliberate management edits cannot silently break a valid group. A
+withdrawal, departure or disciplinary removal still proceeds under its existing
+rules; if it leaves a group incomplete, that group is marked for repair. Previous
+attendance is not changed. The same complete subject-coverage rule applies to
+one-off combined attendance; it does not merge recurring plans.
 
-Reopen **Combine / split pairings** to add or untick members, or choose **Split this group**. Each remaining group needs at least two members. Assignments leaving a group keep their subject, students and assigned room, but return to **Awaiting schedule** with no catalog slot until a separate schedule is chosen. Changing a member's tutor, schedule or room choice through the management assignment editor releases that member from its old group. The separate room-change and room-retry actions apply to the complete group's reservation; editing the shared catalog slot also retains the group. Group changes remain available after attendance submission and affect future plans only. Previous session records, attendance, ratings, room and credited hours remain unchanged.
+Choose **Split this group** on any combined group card to separate it. A
+two-assignment group reviews dissolving straight into separate single-assignment
+groups. Groups with three or more assignments can either split into separate
+groups or keep two to six valid assignments together (with an explicit retained
+time choice when an unchanged group keeps an unpublished or unlinked confirmed
+interval; selecting Awaiting schedule clears its recurring reservation).
+Assignments leaving a group keep their subject, students and assigned room, but
+return to **Awaiting schedule** with no catalog slot until a separate schedule is
+chosen. Changing a member's tutor, schedule or room choice through the management
+assignment editor releases that member from its old group. The separate
+room-change and room-retry actions apply to the complete group's reservation;
+editing the shared catalog slot also retains the group. Group changes remain
+available after attendance submission and affect future plans only. Previous
+session records, attendance, ratings, room and credited hours remain unchanged.
 
 Opening or cancelling a group review writes nothing. Failed saves retain the draft
-and show the reason inside the editor. Correct an invalid selection with **Back**;
-when plans or rosters changed, **Reload saved groups** explicitly replaces the draft
-after a successful read. If saving succeeded but catalogue refresh failed, **Retry**
-only reloads the saved data. An attendance draft already in progress keeps its
-chosen block snapshot when a saved group changes in the background; choose a new
-block or start another entry to use the latest plan.
+and show the reason inside the dialog. Correct an invalid selection with **Back**;
+when plans or rosters changed, **Reload saved groups** explicitly replaces the
+draft after a successful read. If saving succeeded but catalogue refresh failed,
+**Retry** only reloads the saved data. An attendance draft already in progress
+keeps its chosen block snapshot when a saved group changes in the background;
+choose a new block or start another entry to use the latest plan.
 
 ### Manage your participation
 

@@ -2370,7 +2370,10 @@ export const participantArticles: HelpArticle[] = [
         ),
       },
       {
-        problem: t("The panel asks to review required details", "面板提示检查必需信息"),
+        problem: t(
+          "The panel asks to review required details",
+          "面板提示检查必需信息",
+        ),
         solution: t(
           "Choose Review required details. Check the required name, academic and contact information, and complete email verification if prompted. Contact the program team if information is missing from your prior record.",
           "选择“检查必需信息”，核对必需的姓名、学业及联系方式，如有提示请完成邮箱验证。如果原记录缺少信息，请联系项目团队。",
@@ -2853,34 +2856,37 @@ export const participantArticles: HelpArticle[] = [
     ],
     steps: [
       {
-        title: t("Open Combine / split pairings", "打开合并／拆分配对"),
+        title: t("Select groups to combine", "选择要合并的配对组"),
         body: t(
-          "In My Pairings select Combine / split pairings. Choose the assignments and primary member. Every student in the group must already have every selected subject; combining never creates a missing assignment.",
-          "在我的配对中选择合并／拆分配对。选取分配及主要成员。组内每位学习伙伴必须已拥有每个所选科目；合并不会创建缺失分配。",
+          "Every pairing starts as its own group in My Pairings. Choose Combine groups, select two or more populated groups, and choose Combine selected. Every student in the combined group must already have every selected subject; combining never creates a missing assignment.",
+          "在我的配对中，每个配对默认独立为一组。点击合并配对组，勾选两个或更多含学习伙伴的组，然后选择合并所选。组内每位学习伙伴必须已拥有每个所选科目；合并不会创建缺失分配。",
         ),
         screenshot: "tutor-pairings",
         focus: t(
-          "Combine / split pairings and grouped assignment summary",
-          "合并／拆分配对与分组概览",
+          "Unified pairing group cards with inline combine selection and split controls",
+          "统一的配对组卡片及行内合并勾选与拆分操作",
         ),
       },
       {
-        title: t("Choose the shared schedule", "选择共享时间"),
+        title: t(
+          "Choose the primary member and shared schedule",
+          "选择主配对及共享时间",
+        ),
         body: t(
-          "Leave the group Awaiting schedule or choose one shared catalogue slot; use the explicit retained-time option only when preserving a confirmed interval. Review students, subjects, time and room consequences before saving.",
-          "可保持等待排课，或选择一个共享目录时段；仅在保留已确认时间区间时使用明确保留时间选项。保存前核对学生、科目、时间及教室影响。",
+          "In the Combine Pairing Groups dialog choose the primary member, then leave the group Awaiting schedule or choose one shared catalogue slot. Review students, subjects, time and room consequences before saving.",
+          "在合并配对组对话框中选择主配对，可保持等待排课或选择一个共享目录时段。保存前核对学生、科目、时间及教室影响。",
         ),
         screenshot: "tutor-grouping",
         focus: t(
-          "Selected assignments, primary member and shared schedule in the group editor",
-          "分组编辑器中已选分配、主要成员及共享时间",
+          "Primary member and shared schedule in the group action dialog",
+          "配对组对话框中的主配对及共享时间",
         ),
       },
       {
         title: t("Repair or split deliberately", "明确修复或拆分"),
         body: t(
-          "Reopen the editor to add or untick assignments, or choose Split this group. Each remaining group needs at least two members. Leaving assignments keep their students/subjects/room but return to Awaiting schedule until separately scheduled.",
-          "重新打开编辑器可添加或取消选中分配，或选择拆分此组。保留的每组至少需两名成员。退出组的分配保留学生、科目和教室，但返回等待排课，需另行安排。",
+          "Choose Split this group or Repair or split directly on a combined group card. Two-assignment groups dissolve into separate single-assignment groups; larger groups can split completely or keep two to six valid assignments together (retaining an unpublished confirmed interval only when membership is unchanged). Leaving assignments keep their students/subjects/room but return to Awaiting schedule until separately scheduled.",
+          "在已合并配对组卡片上直接选择拆分此组或修复或拆分。双配对组可直接拆分为独立组；更大的组可全部拆分或保留二至六个有效配对（仅成员不变时可保留未发布的已确认时段）。退出组的分配保留学生、科目和教室，但返回等待排课，需另行安排。",
         ),
       },
     ],

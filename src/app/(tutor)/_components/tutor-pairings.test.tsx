@@ -54,6 +54,13 @@ const state = vi.hoisted(() => ({
     tuteeId: string;
     slots: { id: string }[];
   }[],
+  customPairings: null as
+    | null
+    | {
+        id: string;
+        subject: string;
+        tutees: { tuteeId: string; englishName: string }[];
+      }[],
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: state.confirm, dialog: null }),
@@ -99,73 +106,105 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({
           isSuccess: true,
           refetch: state.refetch,
-          data: [
-            {
-              id: "pairing",
-              termId: "term",
-              groupId: state.savedGroup ? "saved-group" : null,
-              group: state.savedGroup ? { primaryPairingId: "pairing" } : null,
-              roomMode: "FIXED",
-              roomNeedsAssignment: false,
-              roomVersion: 2,
-              subject: "Maths",
-              scheduleConfirmed: state.confirmed,
-              dayOfWeek: 1,
-              startMin: 900,
-              endMin: 960,
-              room: { name: "A101" },
-              roomId: "room",
-              timeSlotId: "one",
-              timeSlot: null,
-              tutees: [
-                {
-                  tuteeId: "tutee",
+          data: state.customPairings
+            ? state.customPairings.map((item) => ({
+                id: item.id,
+                termId: "term",
+                groupId: null,
+                group: null,
+                roomMode: "AUTO",
+                roomNeedsAssignment: false,
+                roomVersion: 0,
+                subject: item.subject,
+                scheduleConfirmed: false,
+                dayOfWeek: 1,
+                startMin: 900,
+                endMin: 960,
+                room: null,
+                roomId: null,
+                timeSlotId: null,
+                timeSlot: null,
+                tutees: item.tutees.map((student) => ({
+                  tuteeId: student.tuteeId,
                   tutee: {
-                    englishName: state.name,
-                    user: { username: state.username },
+                    englishName: student.englishName,
+                    user: { username: null },
                   },
+                })),
+              }))
+            : [
+                {
+                  id: "pairing",
+                  termId: "term",
+                  groupId: state.savedGroup ? "saved-group" : null,
+                  group: state.savedGroup
+                    ? { primaryPairingId: "pairing" }
+                    : null,
+                  roomMode: "FIXED",
+                  roomNeedsAssignment: false,
+                  roomVersion: 2,
+                  subject: "Maths",
+                  scheduleConfirmed: state.confirmed,
+                  dayOfWeek: 1,
+                  startMin: 900,
+                  endMin: 960,
+                  room: { name: "A101" },
+                  roomId: "room",
+                  timeSlotId: "one",
+                  timeSlot: null,
+                  tutees: [
+                    {
+                      tuteeId: "tutee",
+                      tutee: {
+                        englishName: state.name,
+                        user: { username: state.username },
+                      },
+                    },
+                    ...(state.savedGroup && !state.incompleteGroup
+                      ? state.memberTuteeIds
+                          .filter((id) => id !== "tutee")
+                          .map((tuteeId) => ({
+                            tuteeId,
+                            tutee: {
+                              englishName: `Learner ${tuteeId}`,
+                              user: { username: null },
+                            },
+                          }))
+                      : []),
+                  ],
                 },
-                ...(state.savedGroup && !state.incompleteGroup
-                  ? state.memberTuteeIds
-                      .filter((id) => id !== "tutee")
-                      .map((tuteeId) => ({
-                        tuteeId,
-                        tutee: {
-                          englishName: `Learner ${tuteeId}`,
-                          user: { username: null },
-                        },
-                      }))
-                  : []),
+                {
+                  id: "merge-pairing",
+                  termId: state.otherTerm ? "other-term" : "term",
+                  groupId: state.savedGroup ? "saved-group" : null,
+                  group: state.savedGroup
+                    ? { primaryPairingId: "pairing" }
+                    : null,
+                  roomMode: "AUTO",
+                  roomNeedsAssignment: false,
+                  roomVersion: 0,
+                  subject:
+                    state.savedGroup && !state.sameSubject
+                      ? "Physics"
+                      : "Maths",
+                  scheduleConfirmed: true,
+                  dayOfWeek: state.savedGroup ? 1 : 2,
+                  startMin: 900,
+                  endMin: 960,
+                  room: state.savedGroup ? { name: "A101" } : null,
+                  roomId: state.savedGroup ? "room" : null,
+                  timeSlotId: state.copiedConflict ? null : "one",
+                  timeSlot: null,
+                  tutees: state.memberTuteeIds.map((tuteeId) => ({
+                    tuteeId,
+                    tutee: {
+                      englishName:
+                        tuteeId === "tutee" ? state.name : `Learner ${tuteeId}`,
+                      user: { username: null },
+                    },
+                  })),
+                },
               ],
-            },
-            {
-              id: "merge-pairing",
-              termId: state.otherTerm ? "other-term" : "term",
-              groupId: state.savedGroup ? "saved-group" : null,
-              group: state.savedGroup ? { primaryPairingId: "pairing" } : null,
-              roomMode: "AUTO",
-              roomNeedsAssignment: false,
-              roomVersion: 0,
-              subject:
-                state.savedGroup && !state.sameSubject ? "Physics" : "Maths",
-              scheduleConfirmed: true,
-              dayOfWeek: state.savedGroup ? 1 : 2,
-              startMin: 900,
-              endMin: 960,
-              room: state.savedGroup ? { name: "A101" } : null,
-              roomId: state.savedGroup ? "room" : null,
-              timeSlotId: state.copiedConflict ? null : "one",
-              timeSlot: null,
-              tutees: state.memberTuteeIds.map((tuteeId) => ({
-                tuteeId,
-                tutee: {
-                  englishName:
-                    tuteeId === "tutee" ? state.name : `Learner ${tuteeId}`,
-                  user: { username: null },
-                },
-              })),
-            },
-          ],
         }),
       },
       myAvailability: {
@@ -248,6 +287,7 @@ afterEach(() => {
   state.selectedSlotIds = undefined;
   state.slots = [];
   state.workflowRows = [];
+  state.customPairings = null;
   state.availabilityRefetch.mockResolvedValue({ isSuccess: true });
 });
 // Exercise each real bundled catalog; default-hidden languages can be published.
@@ -453,52 +493,29 @@ it("recomputes saved-group ranking from every distinct current member tutee when
     { pairingId: "merge-pairing", tuteeId: "second", slots: [{ id: "full" }] },
   ];
   const view = render(element());
-  const details = screen
-    .getByText(messages.pairingGroups.memberDetails)
-    .closest("details")!;
-  details.open = true;
-  fireEvent(details, new Event("toggle"));
-  const selections = () => screen.getAllByRole<HTMLSelectElement>("combobox");
+  const selection = () => screen.getByRole<HTMLSelectElement>("combobox");
   const optionOrder = () =>
-    selections().map((select) =>
-      [...select.options].map((option) => option.value),
-    );
+    [...selection().options].map((option) => option.value);
   const optionGroup = (slotId: string) =>
-    selections().map((select) =>
-      [...select.options]
-        .find((option) => option.value === slotId)!
-        .parentElement?.getAttribute("label"),
-    );
-  expect(selections()).toHaveLength(2);
-  expect(optionOrder()).toEqual([
-    ["", "full", "primary-only", "one"],
-    ["", "full", "primary-only", "one"],
-  ]);
-  expect(optionGroup("full").every((text) => text === "Both Available")).toBe(
-    true,
-  );
-  expect(
-    optionGroup("primary-only").every((text) => text === "Other Time Slots"),
-  ).toBe(true);
+    [...selection().options]
+      .find((option) => option.value === slotId)!
+      .parentElement?.getAttribute("label");
+  expect(screen.getAllByRole("combobox")).toHaveLength(1);
+  expect(optionOrder()).toEqual(["", "full", "primary-only", "one"]);
+  expect(optionGroup("full")).toBe("Both Available");
+  expect(optionGroup("primary-only")).toBe("Other Time Slots");
 
   // A read refresh changes only the second learner's saved availability. The
-  // group's controls must immediately agree on the newly mutual catalog ID.
+  // group's control must immediately agree on the newly mutual catalog ID.
   state.workflowRows = state.workflowRows.map((row) =>
     row.tuteeId === "second"
       ? { ...row, slots: [{ id: "primary-only" }] }
       : row,
   );
   view.rerender(element());
-  expect(optionOrder()).toEqual([
-    ["", "primary-only", "full", "one"],
-    ["", "primary-only", "full", "one"],
-  ]);
-  expect(
-    optionGroup("primary-only").every((text) => text === "Both Available"),
-  ).toBe(true);
-  expect(optionGroup("full").every((text) => text === "Other Time Slots")).toBe(
-    true,
-  );
+  expect(optionOrder()).toEqual(["", "primary-only", "full", "one"]);
+  expect(optionGroup("primary-only")).toBe("Both Available");
+  expect(optionGroup("full")).toBe("Other Time Slots");
 
   // A newly assigned member removes unanimity; a stale workflow row must stop
   // contributing once that learner drops out of the current active roster.
@@ -508,22 +525,14 @@ it("recomputes saved-group ranking from every distinct current member tutee when
     { pairingId: "merge-pairing", tuteeId: "new", slots: [{ id: "full" }] },
   ];
   view.rerender(element());
-  expect(
-    optionGroup("primary-only").every((text) => text === "Other Time Slots"),
-  ).toBe(true);
-  expect(optionGroup("full").every((text) => text === "Other Time Slots")).toBe(
-    true,
-  );
+  expect(optionGroup("primary-only")).toBe("Other Time Slots");
+  expect(optionGroup("full")).toBe("Other Time Slots");
   expect(screen.queryByRole("group", { name: "Both Available" })).toBeNull();
   state.memberTuteeIds = ["tutee", "new"];
   view.rerender(element());
-  expect(optionGroup("full").every((text) => text === "Both Available")).toBe(
-    true,
-  );
-  expect(
-    optionGroup("primary-only").every((text) => text === "Other Time Slots"),
-  ).toBe(true);
-  expect(selections().every((select) => select.value === "one")).toBe(true);
+  expect(optionGroup("full")).toBe("Both Available");
+  expect(optionGroup("primary-only")).toBe("Other Time Slots");
+  expect(selection().value).toBe("one");
   expect(state.confirm).not.toHaveBeenCalled();
   expect(state.setSlot).not.toHaveBeenCalled();
   expect(state.remove).not.toHaveBeenCalled();
@@ -549,14 +558,14 @@ it.each([
   "localizes %s tutor pairing schedule evidence",
   (locale, weekday) => {
     render(element(false, locale));
-    expect(screen.getByText(`· ${weekday} 15:00–16:00`)).toBeTruthy();
+    expect(screen.getByText(`${weekday} 15:00–16:00`)).toBeTruthy();
   },
 );
 
 it("never exposes an unconfirmed placeholder schedule in Chinese", () => {
   state.confirmed = false;
   render(element(false, "zh"));
-  expect(screen.getByText(`· ${zhMessages.scheduling.awaiting}`)).toBeTruthy();
+  expect(screen.getByText(zhMessages.scheduling.awaiting)).toBeTruthy();
   expect(screen.queryByText("周一 15:00–16:00")).toBeNull();
 });
 it("inactive tutors keep pairing evidence without schedule/removal/merge writes", () => {
@@ -697,12 +706,17 @@ it.each(["en", "zh"] as const)(
     expect(roster.getAllByRole("listitem")).toHaveLength(2);
     expect(roster.getAllByText("Sample Learner")).toHaveLength(1);
     expect(roster.getAllByText("Maths, Physics")).toHaveLength(2);
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+    expect(
+      screen.getByRole("button", {
+        name: catalogs[locale].pairingGroups.split,
+      }),
+    ).toBeTruthy();
     expect(state.setSlot).not.toHaveBeenCalled();
   },
 );
 
-it("names a single shared subject once and retains assignment controls behind the disclosure", () => {
+it("names a single shared subject once and exposes direct student Details on the same card", () => {
   state.savedGroup = true;
   state.sameSubject = true;
   state.memberTuteeIds = ["second"];
@@ -711,16 +725,18 @@ it("names a single shared subject once and retains assignment controls behind th
   expect(
     screen.queryByRole("link", { name: messages.sessionPlanning.viewSessions }),
   ).toBeNull();
-  const details = screen
-    .getByText(messages.pairingGroups.memberDetails)
-    .closest("details")!;
-  details.open = true;
-  fireEvent(details, new Event("toggle"));
-  expect(screen.getAllByText("Sample Learner")).toHaveLength(2);
+  expect(screen.getAllByText("Sample Learner")).toHaveLength(1);
+  expect(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  ).toBeTruthy();
+  expect(
+    screen.getAllByRole("button", {
+      name: `${messages.tablePatterns.details}: Learner second`,
+    }),
+  ).toHaveLength(2);
   expect(screen.queryByRole("combobox")).toBeNull();
-  details.open = false;
-  fireEvent(details, new Event("toggle"));
-  expect(details.querySelector("ul")).toBeTruthy();
   expect(state.setSlot).not.toHaveBeenCalled();
 });
 
@@ -891,17 +907,71 @@ it("keeps an incomplete saved group visible and blocks scheduling and combined a
   expect(
     screen.queryByRole("button", { name: messages.pairingGroups.record }),
   ).toBeNull();
-  const details = screen
-    .getByText(messages.pairingGroups.memberDetails)
-    .closest("details")!;
-  details.open = true;
-  fireEvent(details, new Event("toggle"));
   expect(
     screen
       .getAllByRole<HTMLSelectElement>("combobox")
       .every((select) => select.disabled),
   ).toBe(true);
+  expect(
+    screen.getByRole("button", {
+      name: messages.pairingGroups.repairOrSplit,
+    }),
+  ).toBeTruthy();
   expect(state.setSlot).not.toHaveBeenCalled();
+});
+
+it("hides combine checkboxes until Combine groups is triggered and disables combining for empty selections", () => {
+  // At rest, no combine checkboxes clutter the cards.
+  const view = render(element());
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.pairingGroups.confirmCombine,
+    }),
+  );
+
+  // Second pairing has no tutees by default -> neither card has a compatible partner,
+  // so both combine checkboxes are greyed out and the toolbar explains why.
+  const checkboxes = screen.getAllByRole<HTMLInputElement>("checkbox");
+  expect(checkboxes).toHaveLength(2);
+  expect(checkboxes[0]!.disabled).toBe(true);
+  expect(checkboxes[1]!.disabled).toBe(true);
+  expect(
+    screen.getByText(messages.pairingGroups.noCompatibleGroups),
+  ).toBeTruthy();
+
+  // Give second pairing a second student on the same subject -> eligible to combine!
+  state.memberTuteeIds = ["second"];
+  view.rerender(element());
+  const enabledBoxes = screen.getAllByRole<HTMLInputElement>("checkbox");
+  expect(enabledBoxes.every((box) => !box.disabled)).toBe(true);
+  fireEvent.click(enabledBoxes[0]!);
+  expect(screen.getByText(messages.pairingGroups.selectMore)).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.pairingGroups.combineSelected,
+    }).disabled,
+  ).toBe(true);
+
+  fireEvent.click(enabledBoxes[1]!);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.pairingGroups.combineSelected,
+    }).disabled,
+  ).toBe(false);
+
+  // Cancel exits combine mode and hides checkboxes again.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.common.cancel,
+    }),
+  );
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(
+    screen.queryByRole("button", {
+      name: messages.pairingGroups.combineSelected,
+    }),
+  ).toBeNull();
 });
 
 it("does not reserve a different period's copied interval when multiple legacy periods remain active", () => {
@@ -923,4 +993,94 @@ it("does not reserve a different period's copied interval when multiple legacy p
   expect(option.disabled).toBe(false);
   expect(option.parentElement?.getAttribute("label")).toBe("Other Time Slots");
   expect(state.setSlot).not.toHaveBeenCalled();
+});
+
+it("greys out incompatible sessions and auto-ticks companion sessions to preserve student × subject coverage", () => {
+  state.customPairings = [
+    {
+      id: "x-a",
+      subject: "Algebra",
+      tutees: [{ tuteeId: "x", englishName: "Student X" }],
+    },
+    {
+      id: "x-b",
+      subject: "Biology",
+      tutees: [{ tuteeId: "x", englishName: "Student X" }],
+    },
+    {
+      id: "y-a",
+      subject: "Algebra",
+      tutees: [{ tuteeId: "y", englishName: "Student Y" }],
+    },
+    {
+      id: "y-b",
+      subject: "Biology",
+      tutees: [{ tuteeId: "y", englishName: "Student Y" }],
+    },
+    {
+      id: "z-a",
+      subject: "Algebra",
+      tutees: [{ tuteeId: "z", englishName: "Student Z" }],
+    },
+  ];
+  render(element());
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.pairingGroups.confirmCombine }),
+  );
+
+  const box = (label: string) =>
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: `Select ${label} to combine`,
+    });
+
+  // Initially every box can be ticked.
+  for (const label of [
+    "Algebra (Student X)",
+    "Biology (Student X)",
+    "Algebra (Student Y)",
+    "Biology (Student Y)",
+    "Algebra (Student Z)",
+  ]) {
+    expect(box(label).disabled).toBe(false);
+  }
+
+  // Ticking z(A) disables x(B) and y(B), leaving only subject-A sessions available.
+  fireEvent.click(box("Algebra (Student Z)"));
+  expect(box("Algebra (Student X)").disabled).toBe(false);
+  expect(box("Algebra (Student Y)").disabled).toBe(false);
+  expect(box("Biology (Student X)").disabled).toBe(true);
+  expect(box("Biology (Student Y)").disabled).toBe(true);
+
+  // Unticking z(A) and ticking x(A) leaves x(B), y(A), z(A) available and greys out y(B).
+  fireEvent.click(box("Algebra (Student Z)"));
+  fireEvent.click(box("Algebra (Student X)"));
+  expect(box("Biology (Student X)").disabled).toBe(false);
+  expect(box("Algebra (Student Y)").disabled).toBe(false);
+  expect(box("Algebra (Student Z)").disabled).toBe(false);
+  expect(box("Biology (Student Y)").disabled).toBe(true);
+
+  // Ticking x(B) disables z(A), while ticking y(A) auto-ticks y(B).
+  fireEvent.click(box("Biology (Student X)"));
+  expect(box("Algebra (Student Z)").disabled).toBe(true);
+  expect(box("Algebra (Student Y)").disabled).toBe(false);
+  expect(box("Biology (Student Y)").disabled).toBe(false);
+
+  fireEvent.click(box("Algebra (Student Y)"));
+  expect(box("Algebra (Student Y)").checked).toBe(true);
+  expect(box("Biology (Student Y)").checked).toBe(true);
+  expect(screen.getByRole("status").textContent).toContain(
+    "Biology (Student Y)",
+  );
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.pairingGroups.combineSelected,
+    }).disabled,
+  ).toBe(false);
+
+  // Unticking y(A) cleanly auto-unticks y(B), returning to [x(A), x(B)].
+  fireEvent.click(box("Algebra (Student Y)"));
+  expect(box("Algebra (Student Y)").checked).toBe(false);
+  expect(box("Biology (Student Y)").checked).toBe(false);
+  expect(box("Algebra (Student X)").checked).toBe(true);
+  expect(box("Biology (Student X)").checked).toBe(true);
 });
