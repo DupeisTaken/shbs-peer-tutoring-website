@@ -25,6 +25,17 @@ const state = vi.hoisted(
   (): {
     role: string;
     status: string;
+    statusReason:
+      | "attemptsExhausted"
+      | "applicationInvalid"
+      | "applicationInactive"
+      | "codeMissing"
+      | null;
+    source: "interview" | "application" | "crewApplication" | "manual";
+    applicationId: string | null;
+    email: string | null;
+    issuedByName: string | null;
+    issuedByEmail: string | null;
     code: string | null;
     label: string | null;
     tutorName: string | null;
@@ -38,6 +49,12 @@ const state = vi.hoisted(
   } => ({
     role: "HEAD",
     status: "active",
+    statusReason: null,
+    source: "manual",
+    applicationId: null,
+    email: null,
+    issuedByName: null,
+    issuedByEmail: null,
     code: "TEST5",
     label: "Test invitation",
     tutorName: null,
@@ -50,10 +67,18 @@ const record = () => ({
   id: "invite",
   label: state.label,
   tutorName: state.tutorName,
+  email: state.email,
+  issuedByName: state.issuedByName,
+  issuedByEmail: state.issuedByEmail,
+  fromApplication:
+    state.source === "interview" || state.source === "application",
+  source: state.source,
+  applicationId: state.applicationId,
   kind: "TUTOR",
   code: state.code,
   expiresAt: new Date("2099-10-16"),
   status: state.status,
+  statusReason: state.statusReason,
 });
 vi.mock("~/lib/download-card-image", () => ({ downloadCardImage: vi.fn() }));
 vi.mock("~/trpc/react", () => ({
@@ -113,6 +138,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.role = "HEAD";
   state.status = "active";
+  state.statusReason = null;
+  state.source = "manual";
+  state.applicationId = null;
+  state.email = null;
+  state.issuedByName = null;
+  state.issuedByEmail = null;
   state.code = "TEST5";
   state.label = "Test invitation";
   state.tutorName = null;
@@ -435,4 +466,87 @@ it("reveals the authorized invitation selected by an incoming interview link wit
   );
   expect(state.issue).not.toHaveBeenCalled();
   window.history.replaceState(null, "", "/");
+});
+
+it.each(["en", "zh"] as const)(
+  "annotates auto-issued interview invitations with source, bound email, approver and application link (%s)",
+  (locale) => {
+    state.source = "interview";
+    state.applicationId = "app-123";
+    state.email = "applicant@example.test";
+    state.issuedByName = "Alex Chair";
+    state.issuedByEmail = "chair@example.test";
+    show(false, locale);
+    const text = locale === "zh" ? chinese : messages;
+    expect(
+      screen.getByText(text.admin.registrationCodes.source.interview),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        text.admin.registrationCodes.boundEmail.replace(
+          "{email}",
+          "applicant@example.test",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Alex Chair")).toBeTruthy();
+    const link = screen.getByRole("link", {
+      name: text.admin.registrationCodes.viewApplication,
+    });
+    expect(link.getAttribute("href")).toBe(
+      "/admin/applications#application-app-123",
+    );
+  },
+);
+
+it("localizes legacy Accepted application issuer text and conceals private links for read-only viewers", () => {
+  state.source = "application";
+  state.applicationId = "app-legacy";
+  state.issuedByName = "Accepted application";
+  state.issuedByEmail = null;
+  show(true, "zh");
+  expect(
+    screen.getAllByText(chinese.admin.registrationCodes.source.application),
+  ).toHaveLength(2);
+  expect(screen.queryByText("Accepted application")).toBeNull();
+  expect(
+    screen.queryByRole("link", {
+      name: chinese.admin.registrationCodes.viewApplication,
+    }),
+  ).toBeNull();
+});
+
+it("renders unavailable invitations as inactive with their reason and without sharing actions", () => {
+  state.source = "interview";
+  state.status = "unavailable";
+  state.statusReason = "applicationInvalid";
+  show(false, "en");
+  expect(
+    screen.getByText(messages.admin.registrationCodes.status.unavailable),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      messages.admin.registrationCodes.unavailableReason.applicationInvalid,
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: messages.admin.registrationCodes.copy }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", {
+      name: messages.admin.registrationCodes.revoke,
+    }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.admin.registrationCodes.expand}: Test invitation`,
+    }),
+  );
+  const code = screen.getByText("TEST5");
+  expect(code.classList.contains("line-through")).toBe(true);
+  expect(
+    screen.queryByRole("button", {
+      name: messages.admin.registrationCodes.exportImage,
+    }),
+  ).toBeNull();
 });

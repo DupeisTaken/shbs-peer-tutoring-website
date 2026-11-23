@@ -3,7 +3,7 @@ import {
   lockEntity,
   type DomainDb,
 } from "~/server/transactions";
-import { promoteApplicantToTutor } from "./promote";
+import { promoteApplicantToTutor, type PromotionIssuer } from "./promote";
 import {
   assertRequestProcessable,
   lockApplicationReview,
@@ -15,6 +15,7 @@ import { assertMutableProgramRecords } from "~/server/imported-records";
 export async function reconcileApplication(
   db: DomainDb,
   applicationId: string,
+  issuer?: PromotionIssuer,
 ): Promise<void> {
   await inTransaction(db, async (tx) => {
     await lockUsernameNamespace(tx);
@@ -33,7 +34,7 @@ export async function reconcileApplication(
     ]);
     assertRequestProcessable(app);
     if (app.status === "ACCEPTED") {
-      await promoteApplicantToTutor(applicationId, tx);
+      await promoteApplicantToTutor(applicationId, tx, issuer);
       return;
     }
     const grants = await tx.registrationCode.findMany({
@@ -42,7 +43,12 @@ export async function reconcileApplication(
     });
     await tx.registrationCode.updateMany({
       where: { applicationId, usedAt: null },
-      data: { expiresAt: new Date(0), emailVerifiedAt: null },
+      data: {
+        expiresAt: new Date(0),
+        emailVerifiedAt: null,
+        emailCodeHash: null,
+        emailCodeExpiresAt: null,
+      },
     });
     // Only reverse tutors associated with this application's grant. An independently accepted
     // application is a separate authorization and must not be withdrawn by this reversal.
@@ -53,7 +59,7 @@ export async function reconcileApplication(
     if (
       await tx.tutorApplication.count({
         where: {
-          email: app.email,
+          email: { equals: app.email.trim(), mode: "insensitive" },
           type: "INITIAL",
           status: "ACCEPTED",
           id: {

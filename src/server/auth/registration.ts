@@ -443,9 +443,21 @@ export async function resolveUsableCode(
   if (row.applicationId) {
     const application = await db.tutorApplication.findUnique({
       where: { id: row.applicationId },
-      select: { invalidatedAt: true },
+      select: { invalidatedAt: true, status: true },
     });
-    if (!application || application.invalidatedAt)
+    if (
+      !application ||
+      application.invalidatedAt ||
+      application.status !== "ACCEPTED"
+    )
+      return { ok: false, error: "not-found" };
+  }
+  if (row.kind === "CREW" && row.crewApplicationId) {
+    const crewApplication = await db.crewApplication.findUnique({
+      where: { id: row.crewApplicationId },
+      select: { status: true },
+    });
+    if (crewApplication?.status !== "ACCEPTED")
       return { ok: false, error: "not-found" };
   }
   return { ok: true, row };

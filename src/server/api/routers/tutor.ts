@@ -1967,6 +1967,8 @@ export const tutorRouter = createTRPCRouter({
         const currentChair = await tx.user.findUnique({
           where: { id: chairUserId },
           select: {
+            name: true,
+            username: true,
             role: true,
             tutorId: true,
             suspendedAt: true,
@@ -2085,7 +2087,10 @@ export const tutorRouter = createTRPCRouter({
 
         // On the transition to ACCEPTED, issue a registration code so the applicant can
         // self-register a verified account (see promoteApplicantToTutor).
-        await reconcileApplication(tx, input.applicationId);
+        await reconcileApplication(tx, input.applicationId, {
+          id: chairUserId,
+          name: currentChair.name ?? currentChair.username ?? null,
+        });
         await finishAdmissionRecoveryCapture(tx, recoveryActionId);
         if (input.accept && input.completion) {
           // Reconciliation owns provisioning. Verify its exact outcome rather than

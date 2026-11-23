@@ -163,4 +163,52 @@ describe("interview record queue read controls", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(viewer.mock.tutorApplication.findMany).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { problem: "exhausted attempts", code: "ABCDE", attempts: 10 },
+    { problem: "blank plaintext", code: "   ", attempts: 0 },
+    { problem: "missing plaintext", code: null, attempts: 0 },
+  ])(
+    "reports followUp instead of codeActive when an unused invitation has $problem",
+    async ({ code, attempts }) => {
+      const { mock, caller } = fixture();
+      mock.tutorApplication.findMany.mockResolvedValue([
+        {
+          id: "app-unusable",
+          name: "Candidate",
+          type: "INITIAL",
+          updatedAt: new Date("2026-10-01T00:00:00Z"),
+          decisionComment: "Approved",
+          promotedTutorId: "tutor-1",
+          status: "ACCEPTED",
+          invalidatedAt: null,
+          interviewAt: null,
+          subjectIntents: [],
+          interviewCompletedAt: new Date("2026-10-01T00:00:00Z"),
+          interviewDurationMin: 30,
+          interviewers: [],
+        },
+      ] as never);
+      mock.registrationCode.findMany.mockResolvedValue([
+        {
+          id: "code-1",
+          code,
+          attempts,
+          applicationId: "app-unusable",
+          tutorId: "tutor-1",
+          usedAt: null,
+          expiresAt: new Date("2099-01-01T00:00:00Z"),
+          createdAt: new Date("2026-10-01T00:00:00Z"),
+        },
+      ] as never);
+      mock.tutor.findMany.mockResolvedValue([
+        { id: "tutor-1", status: "ACTIVE", user: null },
+      ] as never);
+      const result = await caller.options({ completion: "ALL" });
+      expect(result.applications.rows[0]?.registration).toEqual({
+        state: "followUp",
+        href: "/admin/users#tutor-tutor-1",
+      });
+    },
+  );
 });
