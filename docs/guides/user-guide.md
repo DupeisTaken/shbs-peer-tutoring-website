@@ -64,6 +64,11 @@ The tutor application and tutee request are separate forms with separate recruit
 
 ### Retrying public signup
 
+If the signup form details cannot load, use **Retry** to reload its subjects,
+availability and policy. This message does not confirm a submitted application.
+Any previously loaded form and draft remain visible, and submission stays blocked
+until the required reads recover.
+
 If signup asks you to wait, keep your form open and retry after the displayed
 interval. Tutee resends preserve your original submission time and place. A failed
 email does not mean you need to submit a new survey. Contact the team if delivery

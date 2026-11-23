@@ -2595,6 +2595,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "Impossible de charger les informations du formulaire d’inscription. Veuillez réessayer.",
     "applicationRetryNotice": "Si une candidature associée à cette adresse e-mail est déjà en cours d’examen, nous conservons la candidature initiale. Pour la modifier, contacte l’équipe du programme.",
     "signup": {
       "title": "Demander un tuteur par les pairs",

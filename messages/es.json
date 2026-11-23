@@ -2595,6 +2595,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "No pudimos cargar la información del formulario de inscripción. Inténtalo de nuevo.",
     "applicationRetryNotice": "Si ya se está revisando una solicitud con este correo electrónico, conservamos la solicitud original. Para modificarla, contacta con el equipo del programa.",
     "signup": {
       "title": "Solicitar un tutor par",
