@@ -87,8 +87,11 @@ function transport(): TRPCLink<AppRouter> {
       });
 }
 
+let now = 0;
 let queryClient: QueryClient;
 beforeEach(() => {
+  now = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => now);
   fixture.requests = [];
   fixture.refresh.mockReset();
   fixture.write.mockReset().mockResolvedValue({ ok: true });
@@ -158,6 +161,12 @@ async function confirm(available: boolean, twice = false) {
   const button = within(dialog).getByRole("button", {
     name: available ? en.tutor.activate.available : en.tutor.activate.optOut,
   });
+  if (!available) {
+    await act(async () => {
+      now += 3_000;
+      fireEvent.focus(window);
+    });
+  }
   await act(async () => {
     fireEvent.click(button);
     if (twice) fireEvent.click(button);

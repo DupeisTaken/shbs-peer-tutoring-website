@@ -471,6 +471,7 @@ async function publishDirectoryRead() {
       { queryKey: accountsKey(), exact: true },
       { throwOnError: false },
     );
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 }
 
@@ -610,6 +611,7 @@ it.each(["missing", "different"] as const)(
         queryClient.refetchQueries({ queryKey: accountsKey(), exact: true }),
         queryClient.refetchQueries({ queryKey: [["admin", "accountDetails"]] }),
       ]);
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
     const retry = within(dialog).getByRole<HTMLButtonElement>("button", { name: combineCopy.retryExact });
     expect(retry.disabled).toBe(true);
