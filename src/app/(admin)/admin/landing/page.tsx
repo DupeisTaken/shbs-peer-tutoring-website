@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { authorizeHomeEditor } from "~/server/home/images";
@@ -6,6 +7,10 @@ import { parseLandingEditorView } from "~/lib/landing-editor-view";
 import LandingEditor from "./landing-editor";
 
 /** Entry and Preview share the same live permission gate; no editor queries run on denial. */
+export async function generateMetadata() {
+  return pageMetadata("admin.nav.links.landing");
+}
+
 export default async function LandingPage({
   searchParams,
 }: {

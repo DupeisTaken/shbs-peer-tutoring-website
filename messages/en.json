@@ -206,23 +206,23 @@
     "clear": "Clear opening restriction",
     "saving": "Saving…",
     "saved": "Opening prepared. Current recruitment is unchanged.",
-    "savedPendingRead": "Opening saved. Read the latest preparation before editing again.",
+    "savedPendingRead": "Saved. Refresh to load the latest schedule before editing again.",
     "queued": "Pending Admin approval. This proposal is not yet a saved preparation.",
     "viewRequest": "View approval request",
     "readOnly": "Admin and Head prepare opening times directly. Coordinators request Admin approval.",
     "loading": "Loading next-period preparation…",
-    "loadFailed": "Unable to read the latest preparation. Your draft is retained.",
+    "loadFailed": "Could not load the latest preparation. Your draft is kept.",
     "saveFailed": "Unable to save the opening. Your draft is retained.",
-    "retry": "Retry read",
-    "retryRead": "Retry latest read",
+    "retry": "Try again",
+    "retryRead": "Retry refresh",
     "reload": "Reload preparation",
-    "reloadHelp": "Reload replaces this draft only after a successful read.",
+    "reloadHelp": "Reload replaces this draft only after refreshing the latest data.",
     "changed": "The period, time zone or this preparation changed. Reload explicitly before saving; your draft is retained.",
     "staleBinding": "This saved opening belongs to a previous next-period target. Reload, then review and save a replacement or clear the opening.",
     "boundElsewhere": "Previously prepared for {year} {quarter}; it must be reviewed again.",
-    "originalZone": "Originally entered in {zone}; the saved instant is unchanged.",
+    "originalZone": "Originally entered in {zone}; the scheduled time is unchanged.",
     "invalidTime": "Enter a valid, unambiguous date and time in the displayed program time zone.",
-    "savedReadFailed": "The opening was saved, but the latest read failed. Retry the read; do not submit the save again.",
+    "savedReadFailed": "Saved, but the page could not refresh. Try refreshing.",
     "proposedOpening": "Requested opening after approval",
     "resultOpening": "Opening after refresh: {value}",
     "switchDisabled": "The destination recruitment switch remains off.",
@@ -340,7 +340,7 @@
     "refreshFailed": "The change was saved, but the latest request could not be loaded. Retry refresh without submitting again.",
     "retryRefresh": "Retry refresh",
     "reload": "Reload request",
-    "reloadHelp": "Your reason and original version are retained. Reload explicitly to replace this draft with the latest request."
+    "reloadHelp": "Your reason is kept. Reload to load the latest request before submitting."
   },
   "scheduling": {
     "awaiting": "Awaiting schedule",
@@ -469,7 +469,7 @@
     "supervision": "Message Supervision",
     "reviewMessages": "Review messages",
     "permissions": "Contact permissions",
-    "supervisionHelp": "Head and admins only. Search moderated messages, enter a reason to open a review, and hide or restore messages as needed. Earlier participant-only messages are excluded, and reviewing does not mark messages read.",
+    "supervisionHelp": "Head and Admins can search moderated messages, enter a reason to review, and hide or restore entries. Earlier participant-only messages are excluded.",
     "reason": "Reason for review or change (at least 5 characters)",
     "supervisionSearch": "Search names, usernames or message text",
     "visibility": "Visibility",
@@ -528,7 +528,8 @@
     "collapseAll": "Collapse All",
     "expandAll": "Expand All",
     "loading": "Loading…",
-    "retry": "Try again"
+    "retry": "Try again",
+    "skipToContent": "Skip to main content"
   },
   "auth": {
     "signinTitle": "Sign In",
@@ -678,7 +679,8 @@
       "becomeTutor": "Become a Tutor",
       "teamSignin": "Sign In",
       "becomeCrew": "Join the Crew",
-      "viewerSignup": "Follow the Program"
+      "viewerSignup": "Follow the Program",
+      "landmark": "Site Navigation"
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
@@ -1239,7 +1241,7 @@
       },
       "features": {
         "heading": "Optional Features",
-        "help": "Switch off modules your program does not use. Admin and Head stage changes directly; Coordinators request Admin approval. Staged changes take effect only when Head activates the next program refresh.",
+        "help": "Switch off modules your program does not use. Changes take effect at the next program refresh.",
         "on": "On",
         "off": "Off",
         "pending": "Pending: {state} next refresh",
@@ -1311,7 +1313,7 @@
         "all": "All"
       },
       "makeHead": "Make Head",
-      "confirmTransfer": "Transfer leadership to {name}? You will become an admin.",
+      "confirmTransfer": "Transfer leadership to {name}? You will become an Admin.",
       "canTutorLabel": "Can Tutor",
       "canTranslateLabel": "Can Translate",
       "translateDefault": "Default",
@@ -2820,8 +2822,8 @@
       "title": "Follow the Program",
       "intro": "Create a read-only account to view program summaries (personal contact details are hidden). No invite code needed—we'll email you a verification code.",
       "alreadyHave": "Already have an account?",
-      "signIn": "Sign In",
-      "sendCode": "Send Verification Code",
+      "signIn": "Sign in",
+      "sendCode": "Send verification code",
       "sending": "Sending…",
       "sent": "We emailed a code to {email}.",
       "verify": "Verify Email",
@@ -2847,7 +2849,8 @@
     "notifications": {
       "title": "Notifications",
       "markAllRead": "Mark All Read",
-      "empty": "Nothing yet."
+      "empty": "Nothing yet.",
+      "unreadLabel": "{title} ({count} unread)"
     },
     "signOut": {
       "label": "Sign Out"
@@ -5100,9 +5103,9 @@
       "PROGRAM": "Program emails"
     },
     "transport": {
-      "READY": "SMTP connection and authentication passed.",
-      "UNAVAILABLE": "SMTP connection or authentication failed. Email delivery may be unavailable. Ask the deployment administrator to check the email service.",
-      "UNCONFIGURED": "SMTP delivery is not configured. Ask the deployment administrator to configure this sender.",
+      "READY": "Email server connection passed.",
+      "UNAVAILABLE": "Email server connection failed. Ask your site administrator to check email delivery.",
+      "UNCONFIGURED": "Email delivery is not configured yet. Ask your site administrator to set up this sender.",
       "LOCAL": "Development logging only. No email is sent to an inbox."
     },
     "resendStuck": "Resend stuck emails",
@@ -5190,7 +5193,7 @@
     "reviewTitle": "Review Qualification Request",
     "reviewHelp": "Record a decision note, then approve this request without an interview. Rejection requires an interview. Opening this review does not submit a decision.",
     "reloadReview": "Reload review",
-    "reloadHelp": "Your note keeps its original version. Reload to clear the note and review the latest application.",
+    "reloadHelp": "Your note is kept. Reload to review the latest application.",
     "decisionSaved": "Decision saved.",
     "decisionRefreshFailed": "Decision saved, but refresh failed. Retry refresh to load the updated records.",
     "directHelp": "Open direct review to approve with a note. Rejection requires an interview. Interview panel assignment remains available when interviews are enabled.",
@@ -5231,7 +5234,7 @@
     "hidden": "Hidden",
     "configure": "Configure",
     "configureField": "Configure {field}",
-    "popupHelp": "Approved changes apply to new submissions. Hidden fields are ignored and never block submission. Existing answers are preserved. Pending requests do not change the live form.",
+    "popupHelp": "Approved changes apply to new submissions while keeping existing answers intact. Hidden fields never block submission.",
     "state": "Field state",
     "save": "Save field",
     "saving": "Saving…",
@@ -5297,7 +5300,7 @@
     "empty": "Add your first subject group and choose its offered levels.",
     "loading": "Loading catalogue…",
     "import": "Import Subjects",
-    "importHelp": "Use JSON to import subject groups with multiple offerings. Enter base names without prefixes and existing level names (or null for no level). Exact repeats are skipped; conflicts must be edited manually. CSV (name,level) is still supported and creates one group per new row. Maximum 500 offerings, 1 MB.",
+    "importHelp": "Import subject groups as JSON (up to 500 offerings, 1 MB) or CSV (name,level). Exact duplicates are skipped; edit conflicts manually.",
     "csvFile": "CSV file",
     "importResult": "Created {created} of {received} rows.",
     "granted": "Recorded eligibility",
@@ -5819,7 +5822,10 @@
   },
   "pageRecovery": {
     "title": "Page Not Found",
-    "body": "This page may have moved or is no longer available. Return to the home page or sign in to continue."
+    "body": "This page may have moved or is no longer available. Return to the home page or sign in to continue.",
+    "errorTitle": "Something Went Wrong",
+    "errorBody": "We could not load this page. Try again or return to the home page.",
+    "loadingTitle": "Loading Page…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -8498,5 +8504,18 @@
     "loadFailed": "The latest requirements could not be loaded. Your draft is retained. Retry the read before saving.",
     "refreshFailed": "Requirements were saved, but the latest settings could not be loaded. Retry the read; do not save again.",
     "reload": "Reload latest requirements"
+  },
+  "errorRecovery": {
+    "unauthorized": "Sign in again to continue.",
+    "forbidden": "You do not have permission to perform this action.",
+    "notFound": "This record could not be found. Refresh the page to see current items.",
+    "conflict": "This record changed since you opened it. Refresh and review before trying again.",
+    "tooManyRequests": "Too many requests in a short time. Wait a moment and try again.",
+    "timeout": "The request timed out. Check your connection and try again.",
+    "preconditionFailed": "A required step or setting is missing. Refresh the page and check the current state.",
+    "badRequest": "Check the entered details and try again.",
+    "internal": "We could not complete that request. Try again in a moment.",
+    "network": "Could not reach the server. Check your connection and try again.",
+    "generic": "Something went wrong. Try again."
   }
 }

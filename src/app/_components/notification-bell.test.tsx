@@ -100,7 +100,7 @@ it("keeps mark-all available for muted unread notices older than the visible thi
     body: null, link: null, createdAt: new Date(), readAt: new Date(),
   })) });
   const { container } = render(<NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai"><NotificationBell /></NextIntlClientProvider>);
-  expect(container.querySelector("summary .bg-red-500")).toBeNull();
+  expect(container.querySelector("summary .bg-red-700")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: en.components.notifications.markAllRead }));
   expect(mocks.all).toHaveBeenCalledOnce();
   await mocks.allSuccess!();
@@ -223,7 +223,11 @@ it.each(["en", "zh"] as const)(
       </NextIntlClientProvider>,
     );
     fireEvent.click(
-      screen.getByLabelText(messages.components.notifications.title),
+      screen.getByLabelText(
+        messages.components.notifications.unreadLabel
+          .replace("{title}", messages.components.notifications.title)
+          .replace("{count}", "2"),
+      ),
     );
     expect(
       screen.getByText(

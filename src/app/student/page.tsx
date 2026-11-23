@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { randomUUID } from "node:crypto";
 import { accountPortalAccess } from "~/server/portal-access";
@@ -26,6 +27,10 @@ import {
 
 export const dynamic = "force-dynamic";
 /** Keep intake and historical links stable while presenting one focused workspace at a time. */
+export async function generateMetadata() {
+  return pageMetadata("tuteePortal.title");
+}
+
 export default async function StudentPage({
   searchParams,
 }: {

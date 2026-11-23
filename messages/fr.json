@@ -528,7 +528,8 @@
     "collapseAll": "Tout réduire",
     "expandAll": "Tout développer",
     "loading": "Loading…",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "skipToContent": "Aller au contenu principal"
   },
   "auth": {
     "signinTitle": "Connexion",
@@ -678,7 +679,8 @@
       "becomeTutor": "Devenir tuteur",
       "teamSignin": "Connexion",
       "becomeCrew": "Rejoindre la ronde",
-      "viewerSignup": "Suivre le Programme"
+      "viewerSignup": "Suivre le Programme",
+      "landmark": "Navigation du site"
     },
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
@@ -2847,7 +2849,8 @@
     "notifications": {
       "title": "Notifications",
       "markAllRead": "Tout marquer comme lu",
-      "empty": "Rien pour l'instant."
+      "empty": "Rien pour l'instant.",
+      "unreadLabel": "{title} ({count} non lues)"
     },
     "signOut": {
       "label": "Se déconnecter"
@@ -5785,7 +5788,10 @@
   },
   "pageRecovery": {
     "title": "Page Introuvable",
-    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer."
+    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer.",
+    "errorTitle": "Une erreur s’est produite",
+    "errorBody": "Impossible de charger cette page. Réessayez ou retournez à l’accueil.",
+    "loadingTitle": "Chargement de la page…"
   },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
@@ -8498,5 +8504,18 @@
     "loadFailed": "Impossible de charger les dernières exigences. Votre brouillon est conservé. Réessayez la lecture avant d’enregistrer.",
     "refreshFailed": "Les exigences ont été enregistrées, mais les paramètres n’ont pas pu être chargés. Réessayez la lecture sans enregistrer à nouveau.",
     "reload": "Recharger les dernières exigences"
+  },
+  "errorRecovery": {
+    "unauthorized": "Reconnectez-vous pour continuer.",
+    "forbidden": "Vous n’avez pas l’autorisation d’effectuer cette action.",
+    "notFound": "Cet élément est introuvable. Actualisez la page pour afficher les données actuelles.",
+    "conflict": "Cet élément a changé depuis son ouverture. Actualisez et vérifiez avant de réessayer.",
+    "tooManyRequests": "Trop de requêtes en peu de temps. Patientez un instant puis réessayez.",
+    "timeout": "La requête a expiré. Vérifiez votre connexion puis réessayez.",
+    "preconditionFailed": "Une condition requise est manquante. Actualisez la page et vérifiez l’état actuel.",
+    "badRequest": "Vérifiez les informations saisies puis réessayez.",
+    "internal": "Impossible de finaliser cette requête. Réessayez dans un instant.",
+    "network": "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
+    "generic": "Une erreur s’est produite. Réessayez."
   }
 }

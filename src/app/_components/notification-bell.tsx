@@ -12,11 +12,13 @@ import {
 
 import { api } from "~/trpc/react";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
+import { BellIcon } from "~/app/_components/icons";
 import { useClampedPopover } from "~/app/_components/use-clamped-popover";
 import { QueryFeedback } from "./ui/query-feedback";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { Button } from "./ui/button";
 import { useSessionAccessDenied } from "./session-view-state";
+import { formatClientError } from "~/lib/client-error-message";
 
 /**
  * Bell + dropdown of the signed-in user's in-app notifications, with an unread badge.
@@ -56,6 +58,13 @@ export function NotificationBell() {
   const items = denied ? [] : (list.data ?? []);
   const count = denied || unread.error ? 0 : (unread.data ?? 0);
   const writeBlocked = denied || readFailed || !list.data;
+  const bellLabel =
+    count > 0
+      ? t("components.notifications.unreadLabel", {
+          title: t("components.notifications.title"),
+          count,
+        })
+      : t("components.notifications.title");
 
   return (
     <details
@@ -63,15 +72,17 @@ export function NotificationBell() {
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <DetailsAutoClose />
-      <summary className="relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
-        <span
-          className="text-xl"
-          aria-label={t("components.notifications.title")}
-        >
-          🔔
-        </span>
+      <summary
+        aria-label={bellLabel}
+        title={bellLabel}
+        className="focus-visible:ring-accent-500 relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden [&::-webkit-details-marker]:hidden"
+      >
+        <BellIcon className="h-5 w-5 text-slate-700" />
         {count > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+          <span
+            aria-hidden="true"
+            className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-700 px-1 text-[10px] font-semibold text-white"
+          >
             {count > 9 ? "9+" : count}
           </span>
         )}
@@ -138,13 +149,13 @@ export function NotificationBell() {
               .filter(Boolean)
               .map((error, index) => (
                 <InlineNotice key={index} tone="error" announcement="alert">
-                  {error!.message}
+                  {formatClientError(error, t)}
                 </InlineNotice>
               ))}
         </div>
         <ul className="max-h-[min(24rem,calc(100dvh-16rem))] overflow-y-auto">
           {!denied && !readFailed && !!list.data && items.length === 0 && (
-            <li className="px-3 py-4 text-center text-sm text-slate-400">
+            <li className="px-3 py-4 text-center text-sm text-slate-600">
               {t("components.notifications.empty")}
             </li>
           )}
@@ -175,7 +186,7 @@ export function NotificationBell() {
                     {copy.time}
                   </p>
                 )}
-                <p className="text-[10px] text-slate-400">
+                <p className="mt-1 text-xs text-slate-600">
                   {programFormat.dateTime(new Date(n.createdAt), {
                     dateStyle: "medium",
                     timeStyle: "short",

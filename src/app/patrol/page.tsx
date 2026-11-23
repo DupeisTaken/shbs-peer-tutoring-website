@@ -407,7 +407,7 @@ export default function PatrolPage() {
                       key={room.id}
                       className="flex flex-wrap items-center gap-3 px-4 py-3"
                     >
-                      <span className="w-7 text-sm font-semibold text-slate-400">
+                      <span className="w-7 text-sm font-semibold text-slate-600">
                         {i + 1}
                       </span>
                       <span className="min-w-28 flex-1 font-medium text-slate-800">
@@ -569,13 +569,14 @@ export default function PatrolPage() {
                     >
                       {t("crew.patrol.optOut.submit")}
                     </Button>
-                    <button
-                      className="btn-secondary btn-sm"
+                    <Button
+                      variant="secondary"
+                      size="compact"
                       disabled={membershipBusy}
                       onClick={() => setShowOptOut(false)}
                     >
                       {t("common.close")}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (

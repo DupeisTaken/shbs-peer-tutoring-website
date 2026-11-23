@@ -1,3 +1,4 @@
+import { pageMetadata } from "~/server/branding-metadata";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -5,6 +6,10 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { isMessageManager, isMessageSupervisor } from "~/lib/messaging";
 import { MessageInbox } from "~/app/_components/message-inbox";
+
+export async function generateMetadata() {
+  return pageMetadata("workflows.messages");
+}
 
 export default async function Page() {
   const session = await auth();

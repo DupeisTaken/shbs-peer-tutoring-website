@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-import { brandingMetadata } from "~/server/branding-metadata";
+import { pageMetadata } from "~/server/branding-metadata";
 import { TutorSignupForm } from "./tutor-signup-form";
 import { PublicFormPage } from "~/app/_components/public-form-page";
 
 export async function generateMetadata() {
-  return brandingMetadata("Become a tutor");
+  return pageMetadata("public.tutorSignup.title");
 }
 
 export default async function TutorSignupPage() {

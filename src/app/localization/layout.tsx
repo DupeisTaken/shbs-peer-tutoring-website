@@ -60,6 +60,8 @@ export default async function LocalizationLayout({
       <WorkspaceHeader
         href={home}
         title={TEAM_TITLE}
+        skipLabel={t("common.skipToContent")}
+        skipToId={elevated ? "admin-content" : "main-content"}
         items={
           elevated
             ? []
@@ -98,7 +100,9 @@ export default async function LocalizationLayout({
           </main>
         </div>
       ) : (
-        <main className="mx-auto max-w-5xl px-4 py-6 lg:px-6">{children}</main>
+        <main id="main-content" className="mx-auto max-w-5xl px-4 py-6 lg:px-6">
+          {children}
+        </main>
       )}
     </div>
   );

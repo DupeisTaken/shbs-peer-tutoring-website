@@ -174,7 +174,9 @@ it("retains cached announcements beside read recovery and shows failed acknowled
   state.failed = false;
   state.error = "Acknowledgement failed";
   view.rerender(element());
-  expect(screen.getByRole("alert").textContent).toBe(state.error);
+  expect(screen.getByRole("alert").textContent).toBe(
+    messages.errorRecovery.generic,
+  );
   expect(screen.getByText(/Important synthetic notice/)).toBeTruthy();
   state.pending = true;
   view.rerender(element());
