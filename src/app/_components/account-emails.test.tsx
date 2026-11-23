@@ -270,7 +270,7 @@ it.each(["en", "zh"] as const)(
 );
 
 it.each(["en", "zh"] as const)(
-  "shows required choices on and disabled in %s",
+  "keeps required choices checked and disabled with screen-reader-only reasons in %s",
   (locale) => {
     const catalog = locale === "zh" ? zh : messages;
     mocks.preferenceData.categories = mocks.preferenceData.categories.map(
@@ -296,10 +296,11 @@ it.each(["en", "zh"] as const)(
       });
       expect(field.disabled).toBe(true);
       expect(field.checked).toBe(true);
-      expect(
-        document.getElementById(field.getAttribute("aria-describedby")!)
-          ?.textContent,
-      ).toBe(catalog.notificationPreferences.locked);
+      const reason = document.getElementById(
+        field.getAttribute("aria-describedby")!,
+      );
+      expect(reason?.textContent).toBe(catalog.notificationPreferences.locked);
+      expect(reason?.classList.contains("sr-only")).toBe(true);
     }
   },
 );
