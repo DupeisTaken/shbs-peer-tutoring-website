@@ -1,7 +1,25 @@
-/* Form sizing remains local; records use the shared summary table and action column. */
+/* Form and column sizing remain local; scrolling and actions use the shared table. */
 .page {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* Reserve readable columns before nowrap months/amounts take intrinsic space.
+   Long names can still wrap; excess width stays in the shared local scroll region. */
+.tutor {
+  min-width: 12rem;
+  overflow-wrap: anywhere;
+}
+
+.type {
+  min-width: 8rem;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.records th {
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .form {

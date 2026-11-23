@@ -122,7 +122,10 @@ it("provides an explicit schema-only entrance without querying unsupported priva
     target: { value: "DirectMessage" },
   });
   expect(screen.getByRole("status").textContent).toContain(
-    "row existence and values are not queried",
+    messages.recordInspector.operatorHelp,
+  );
+  expect(screen.getByRole("status").textContent).toContain(
+    "schema metadata only",
   );
   expect(mocks.records).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("Field access policy"));

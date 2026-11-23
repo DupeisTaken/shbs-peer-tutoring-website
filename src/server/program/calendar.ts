@@ -40,7 +40,9 @@ export async function saveProgramCalendar(
         code: "CONFLICT",
         message: "The tutoring notice changed. Reload before saving.",
       });
-    const schedulingEffect = input.schedulingEffect ?? current?.schedulingEffect ?? "NOTICE";
+    // New no-tutoring ranges pause automatic lessons; an omitted legacy edit
+    // preserves its existing meaning rather than silently converting old notices.
+    const schedulingEffect = input.schedulingEffect ?? current?.schedulingEffect ?? "PAUSE_REGULAR";
     const saved = await tx.programCalendarDay.upsert({
       where: { date: input.date },
       create: {

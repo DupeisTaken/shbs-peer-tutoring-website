@@ -7,6 +7,144 @@ import {
   isReviewReference,
 } from "./approval-summary";
 
+it("summarizes a holiday's inclusive boundaries and closed-school effect without exposing version assertions as changes", () => {
+  const payload = {
+    from: "2026-11-01",
+    to: "2026-11-03",
+    note: "Reviewed holiday",
+    expectedVersions: [
+      { date: "2026-11-01", version: 2 },
+      { date: "2026-11-02", version: 0 },
+      { date: "2026-11-03", version: 0 },
+    ],
+  };
+  const targets = {
+    calendar: [
+      {
+        date: payload.from,
+        isSchoolDay: true,
+        timetableWeekday: 1,
+        version: 2,
+      },
+    ],
+  };
+  const original = structuredClone({ payload, targets });
+  const model = approvalPresentation(
+    "student.setCalendarHoliday",
+    payload,
+    targets,
+  );
+  expect(model.kind).toBe("action");
+  expect(model.summary.facts).toEqual(
+    expect.arrayContaining([
+      { key: "from", value: payload.from },
+      { key: "to", value: payload.to },
+    ]),
+  );
+  expect(model.summary.changes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ key: "note", requested: "Reviewed holiday" }),
+      expect.objectContaining({
+        key: "isSchoolDay",
+        requested: false,
+        hasBefore: false,
+      }),
+      expect.objectContaining({
+        key: "timetableWeekday",
+        requested: null,
+        hasBefore: false,
+      }),
+    ]),
+  );
+  expect(
+    model.summary.changes.some(({ key }) => key === "expectedVersions"),
+  ).toBe(false);
+  expect(model.groups).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ table: "calendar", rows: targets.calendar }),
+    ]),
+  );
+  expect({ payload, targets }).toEqual(original);
+});
+
+it("summarizes grouped holiday mass-edit and mass-reset proposals without exposing version assertions", () => {
+  const editPayload = {
+    originalFrom: "2026-11-26",
+    originalTo: "2026-11-27",
+    from: "2026-11-26",
+    to: "2026-11-28",
+    note: "Extended Thanksgiving holiday",
+    expectedVersions: [
+      { date: "2026-11-26", version: 1 },
+      { date: "2026-11-27", version: 1 },
+      { date: "2026-11-28", version: 0 },
+    ],
+  };
+  const editModel = approvalPresentation(
+    "student.updateCalendarHoliday",
+    editPayload,
+    {
+      calendar: [
+        { date: "2026-11-26", isSchoolDay: false, active: true, version: 1 },
+        { date: "2026-11-27", isSchoolDay: false, active: true, version: 1 },
+      ],
+    },
+  );
+  expect(editModel.summary.facts).toEqual(
+    expect.arrayContaining([
+      { key: "originalFrom", value: "2026-11-26" },
+      { key: "originalTo", value: "2026-11-27" },
+    ]),
+  );
+  expect(editModel.summary.changes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ key: "from", requested: "2026-11-26" }),
+      expect.objectContaining({ key: "to", requested: "2026-11-28" }),
+      expect.objectContaining({
+        key: "note",
+        requested: "Extended Thanksgiving holiday",
+      }),
+      expect.objectContaining({ key: "isSchoolDay", requested: false }),
+      expect.objectContaining({ key: "timetableWeekday", requested: null }),
+    ]),
+  );
+  expect(
+    editModel.summary.changes.some(({ key }) => key === "expectedVersions"),
+  ).toBe(false);
+
+  const resetModel = approvalPresentation(
+    "student.resetCalendarHoliday",
+    {
+      from: "2026-11-26",
+      to: "2026-11-27",
+      expectedVersions: [
+        { date: "2026-11-26", version: 2 },
+        { date: "2026-11-27", version: 2 },
+      ],
+    },
+    {
+      calendar: [
+        { date: "2026-11-26", isSchoolDay: false, active: true, version: 2 },
+        { date: "2026-11-27", isSchoolDay: false, active: true, version: 2 },
+      ],
+    },
+  );
+  expect(resetModel.summary.facts).toEqual(
+    expect.arrayContaining([
+      { key: "from", value: "2026-11-26" },
+      { key: "to", value: "2026-11-27" },
+    ]),
+  );
+  expect(resetModel.summary.changes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ key: "active", requested: false }),
+    ]),
+  );
+  expect(
+    resetModel.summary.changes.some(({ key }) => key === "expectedVersions"),
+  ).toBe(false);
+});
+
 it("keeps admission recovery context separate from its requested reason", () => {
   const payload = {
     actionId: "admission-one",

@@ -310,15 +310,22 @@ A database trigger increments `User.refreshAuthorityRevision` on role, suspensio
 or merge changes, so reversing a change cannot revive an earlier authorization.
 Audit preserves replaced authorizations.
 
-Scheduling, cancellation and execution share the existing period barrier. Execution
-checks database time after locking and revalidates review/authority before applying
-effects. Completion and notification intent commit with activation. Failed transactions
-leave no partial participation change; a separate version-checked failure record
-bounds retries to five. Review conflicts block immediately. Node instrumentation
-starts a 30-second worker and startup sweep; elapsed valid schedules catch up.
+Scheduling, cancellation and execution share the existing period barrier. Node
+instrumentation starts a worker sweep at startup and every 30 seconds. The sweep
+checks review and Head authority for scheduled rows, including future rows. A
+detected mismatch commits a blocked state, audit and needs-review notice together.
+The feature evidence treats an absent row and a materialized unchanged default at
+revision zero as equivalent, while preserving evidence of actual edits. The worker
+checks database time before activation, so elapsed valid schedules catch up.
+Completion and notification intent commit with activation. Failed transactions
+leave no partial participation change. A separate version-checked failure record
+bounds execution retries to five. Advance check errors leave that budget intact.
 
 The [public projection](../../src/server/program/public-signup-transition.ts) reads
-allowlisted current/future intake metadata under the period barrier. Its
+allowlisted current/future intake metadata under the period barrier for the
+selected audience, defaulting to tutees. Tutor application options use the tutor
+projection, including that audience's current window and prepared or destination
+opening. The submission gates still check the active period's own window. The
 [view resolver](../../src/lib/public-signup-transition.ts) selects Q1→Q2 or Q3→Q4
 after pause/closure. The live form owns the badge, countdown and read recovery;
 zero never grants eligibility. The announcement uses the public form's standard
@@ -327,9 +334,22 @@ program timezone, a quiet grouped timer and a single eligibility explanation.
 Closed-current-period context stays inside the next-period card. The form below
 owns preview/disabled-field guidance; the timer does not repeat it. At zero the
 clock disappears while server confirmation is pending, without enabling fields.
-Fresh public submissions require `expectedTermId`.
+Blocked, cancelled and unavailable next-period states retain saved dates bound to
+the current next-period target as configured openings, with an activation/review
+qualification and no countdown or opening promise. Missing, explicitly cleared
+and stale-target dates remain absent. The schedule
+state and the stored opening are distinct facts: drift anywhere in the full
+refresh evidence can legitimately block activation while leaving the configured
+opening unchanged. The public display never bypasses renewed Head review.
+Fresh public tutee submissions require `expectedTermId`.
 The intent service checks it under the period barrier after recovering an exact
 accepted receipt. The shared field remains optional for retained legacy intents.
+
+Public form prerequisite failures use `public.signupFormLoadFailed`, separate
+from `survey.loadFailed` for an existing submitted survey. Initial and cached
+tutee failures and cached tutor failures retain their read-only Retry actions;
+Retry reloads options and policy without submitting or recovering a receipt.
+Cached form data and drafts remain visible while submission is blocked.
 
 See [operator behavior](../guides/program-configuration.md#schedule-a-refresh) and
 [worker operations](../guides/deployment.md#scheduled-program-refresh-worker).
@@ -1306,6 +1326,15 @@ Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open an
 
 Audit events identify actors by stable account ID and current role. The default signed-in mutation boundary commits domain writes and safe before/after evidence atomically; workflows that own their transactions retain their isolation/retry contracts and write evidence inside those boundaries. Failure/denial receipts are independent of rolled-back changes. The audit records actions rather than page access. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
+The [Audit Log list](<../../src/app/(admin)/admin/audit/page.tsx>) distinguishes
+**Recorded operation** from **Row actions**. Its scoped narrow-screen styles keep
+each localized date and clock intact on two separate lines below 1024 px; desktop
+retains the combined localized timestamp and punctuation. The semantic `time`
+element retains the original instant. Audit-only column minimums and a compact
+trailing action column preserve the shared keyboard-scroll region and sticky
+44 px touch controls. Names and operation summaries remain brief, with full
+recorded actor names available in Details when the summary is clipped or scrolled.
+
 Prospectively captured initial admissions use the separate
 [causal recovery contract](recovery.md). Website execution requires complete
 coverage and at most one later logical event; longer supported chains use the
@@ -1868,6 +1897,41 @@ state or resolved school-day/timetable meaning also advance `scheduleRevision`.
 Legacy set inputs without an expected version retain create-only version-0
 behavior; an existing row or incompatible older proposal requires fresh review.
 
+`student.setCalendarHoliday` applies an inclusive closed-school range of at most
+366 actual dates. Its shared schema requires exactly one captured version for
+every covered date, using 0 only when no row exists. One transaction locks the
+period, dated scheduler and ascending dates, validates the complete version set,
+then writes ordinary `SchoolCalendarDay` rows with the same audit, tombstone and
+semantic-revision rules as individual edits. Existing make-up overrides can be
+replaced only with their captured versions. The dated scheduler reconciles once
+after the final range is present; per-date notification intents commit with all
+rows. A stale date or failed intent rolls back the entire range. Coordinators
+submit one proposal whose captured range is revalidated before Admin/Head
+approval.
+
+For mass editing and mass resetting grouped holidays, `groupSchoolCalendarHolidays`
+in `src/lib/school-calendar.ts` coalesces contiguous active closed `SchoolCalendarDay`
+rows that share the same trimmed note into inclusive ranges (capped at 366 days
+per group). `student.updateCalendarHoliday` updates a holiday from
+`[originalFrom, originalTo]` to `[from, to]` with a shared note in one transaction:
+it locks the period, dated scheduler and sorted union of original and updated dates,
+validates every captured version in that union, verifies that all original dates
+are currently active closures, writes the updated closed range, resets removed
+dates to tombstones, reconciles session planning once if any date's schedule
+changed, and commits per-date notification intents. Note-only edits advance only
+editor versions without changing `scheduleRevision` or sending notices.
+`student.resetCalendarHoliday` atomically resets all active closed dates in an
+inclusive range with captured positive versions while refusing active school-day
+overrides. Both operations support single Coordinator approval proposals with
+complete captured target evidence. In **Program Settings**, grouped school holidays
+appear alongside `ProgramCalendarDay` tutoring pauses and notices in **Holidays &
+Tutoring Pauses** (keeping their underlying queries, mutations, and appeal-day
+rules separate), while **Weekday Overrides** (`SchoolCalendar`) manages open
+school-day timetable overrides and weekend make-up days. `SchoolCalendarDay`
+remains the single persisted source of truth; school-day resolution, appeal
+counting and participant date links need no range precedence rule or separate
+holiday table.
+
 Protected participant reads expose bounded calendar facts without staff notes.
 Tutor upcoming sessions and today's task summary share these facts; attendance,
 historical session dates and service hours remain actual evidence. The separate
@@ -1955,7 +2019,13 @@ The [hour calculator](../../src/lib/service-hours.ts) owns session rounding; use
 editing, credit review and final application, keeps cancelled/failed drafts with their
 captured `updatedAt`, and provides read-only synchronization recovery after successful
 writes. The completion transaction locks the application, rejects recalled/invalid
-requests and stale changed evidence, and uses exact deterministic credit IDs plus
+requests and stale changed evidence. A shared completion review requires the
+captured version for every change to already-recorded service, before Coordinator
+proposal admission and again under the application lock. Exact full-ledger receipt
+recovery may omit the version; tokenless first completion remains compatible.
+Queue capture holds the same source lock, so a first completion or correction
+committed while it waits cannot become an unreviewed proposal. The writer uses
+exact deterministic credit IDs plus
 owner/type/reason checks in [interview hours](../../src/server/interview-hours.ts). Identical
 already-applied evidence is idempotent; panel replacement uses the same source boundary.
 Corrections preserve original school year/quarter while the completion month follows
@@ -1983,6 +2053,16 @@ adjustment counts keep zero-credit, zero-valued, negative and offset-zero record
 discoverable. Summary and Breakdown share that selection and sort; a separately
 labelled subtotal must not replace the complete program totals. Current status is
 not a historical membership assertion, and identical names never merge tutor IDs.
+
+Service Hours and historical Reports display service-hour values through the
+existing [exact hours formatter](../../src/lib/school-hours-format.ts), including
+totals, tutor comparisons, Details and report source rows. It retains the numeric
+value without independently rounding each reader, normalizing only negative zero.
+Selection, sorting, subtotal arithmetic and server calculations retain raw numbers;
+the existing Reports CSV formatting remains separate from on-screen precision.
+Hour summary grids fit wider columns to the available container rather than fixing
+four columns. Each value can shrink and wrap within its own field, including compact
+subtotals, so long minute-derived totals cannot paint over adjacent labels or values.
 
 Meeting workspaces use the count-only catalog in
 [meeting-periods.ts](../../src/server/meeting-periods.ts), grouping stored term ownership
@@ -2233,6 +2313,33 @@ Secondary-email requests and confirmations first acquire the `secondary-email-bi
 
 Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. The [delivery worker](../../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for account mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications skips only optional pending rows; security and essential request-service notices remain eligible. Previous-primary security notices have the documented ownership exception. Account notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](../guides/deployment.md#optional-notification-delivery).
 
+Ordinary optional notices receive one transport admission. Rejected or abandoned
+admitted attempts remain `UNCERTAIN`, including legacy admitted rows returned to
+`PENDING`; they cannot be replayed by the worker or bulk resend. Failures before
+admission and the owning security/request/report protocols retain their separate
+retry budgets. Essential session-planning mail uses `SessionNotice`, outside the
+general outbox. Sender purpose alone does not select retry or optional-consent policy.
+
+Reminder admission acquires ownership tables and exact recovery roots before
+source protocols/rows, then the exact outbox row. Its source fingerprint, current
+recipient, preference, verified address and due window are revalidated in that
+transaction. Missing sources or changed selectors are skipped. Nonblocking domain
+locks and a 250 ms local lock budget turn source contention into a 30-second
+deferral without spending an SMTP attempt. A savepoint restores the caller's
+timeout and partial lock prefix on contention, including inside an existing
+transaction. Locks end at admission commit, before SMTP; a later source change
+cannot recall an already admitted attempt or authorize its replay.
+
+Audited staff setup/verification uses [direct-delivery receipts](../../src/server/email/direct-delivery.ts).
+The resolver retains the exact mutable receipt until its transaction owner flushes
+postcommit effects. `emailed` becomes true only after the configured sender accepts
+the message; queued effects, configuration alone and local logging leave it false.
+A failed postcommit send leaves the issued grant and audit evidence committed and
+does not invalidate earlier usable setup sources. Public password recovery keeps
+its uniform response. The account and tutor credential aliases share the existing
+credential-owned boundary: code issuance commits before the synchronous send, and
+failed proof guesses or consumed proofs retain their original commit semantics.
+
 `Notification.event` and its allowlisted `context` identify the committed action;
 the trigger copies only that safe context into account email receipts, never arbitrary
 titles or bodies. [The shared formatter](../../src/lib/notification-events.ts) drives
@@ -2283,9 +2390,9 @@ warnings retain their scheduling meaning. Request reasons appear once and still
 require request-specific mailbox proof. Optional notification HTML puts unsubscribe
 in the footer; plain text retains its full link.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. Retryable `PENDING` rows with attempts greater than zero surface the first failed attempt; `FAILED` and uncertain outcomes have separate counts. Untouched zero-attempt pending rows, dedicated `SessionNotice` receipts and direct authentication/signup history are outside these counts, so zero failures are not an all-delivered receipt. `READY` proves connectivity/authentication; configured production `SENT` proves SMTP acceptance, not inbox receipt. Unconfigured development logging can also complete a general receipt. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. The additive event/request outbox migrations remain required before running this version.
 
-The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
+The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only retryable failed or previously attempted pending rows without an active lease qualify; admitted ordinary notices, uncertain outcomes and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client uses the email settings' direct-apply permission for both resend visibility and submission; Coordinator proposal permission retains diagnostics and setting requests without exposing resend. It guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Specialized transports keep their own source guards and SMTP limitations.
 
 Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
 
@@ -2434,11 +2541,60 @@ cannot release it. Retry performs reads only, and account changes reset drafts.
 
 Acceptance keeps the exact revision, text, signature and timestamp. Participation requires current consent; history, feedback, appeals, account settings and messages stay available during renewal. Student and tutor applicability are checked independently. Client scrolling and confirmation controls assist review but do not replace server revision and action-ticket validation.
 
-Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
+Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
+
+Page-title draft review shows the current saved page title, its language (with an
+explicit English fallback), the canonical `/p/<slug>` address and a secondary page
+reference ID. A missing page is labelled explicitly. Pending drafts for deleted
+pages disable publication and Coordinator publication requests, while Admin/Head
+can still reject them and retain their evidence. A deletion discovered at decision
+time returns the same localized recovery and disables further publication attempts
+in that review view. Queue admission and replay recheck only page-title publication
+targets under the shared destination lock, before capturing or comparing approval
+evidence; rejection and other destinations retain their existing rules.
+This read batches only page
+IDs in the authorized draft page and projects no page body or unrelated titles.
+Review reads revalidate on return so a recently cached title/address does not
+remain fresh after a landing-page edit.
+The labelled current details can change after submission or publication; they never
+replace the immutable proposal, destination fingerprint or captured Management
+Actions evidence. The shared page-title label resolver accepts the target locale,
+then English, while each caller retains ownership of its current or captured data.
+News, sections and interface/fixed-content draft labels keep their existing scope.
 
 The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
 
+Website text uses the shared `saveBoundary.form` hint. The editor's initial and
+cached account-read failures use `common.retry`; every bundled catalog defines
+both shared paths. Retry refetches identity, while cached editors remain mounted
+and disabled until that read recovers.
+
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
+
+Unpublished detail pages require the live landing-editor permission gate and show
+owner-specific visibility copy. Their **Back to Editor** links use the resolved
+record type to select `?view=pages` or `?view=sections`, including when **View page**
+opens a separate browser tab. Only those scalar view values are accepted; unknown
+or repeated values leave ordinary session restoration in control. An explicit
+return selects its tab once, after which normal tab navigation and retained drafts
+continue. Bare `/admin/landing` visits keep their remembered view. The return does
+not expand or focus a particular record. Published pages retain their public
+return link, and the active language continues to come from the locale cookie.
+
+The custom-page card's **In nav** status follows the public navigation reader's
+`published && showInNav` condition. The separate checkbox still reflects and saves
+`showInNav` while hidden, preserving the preference for later publication.
+
+Custom-page titles, navigation labels and shared content-block text retain the
+language key selected by [the localized field resolver](../../src/lib/page-blocks.ts).
+Resolution tries the requested locale, then English, then the first entry in the
+stored map, then empty text.
+An explicitly empty translation still wins. The heading, each navigation link,
+rich-text leaf, image caption/alt and individual button label carry their own
+resolved `lang`. Mixed-language columns do not inherit a page title's fallback.
+The interface, preview notice and return links retain the selected interface
+language. This presentation metadata changes neither saved content nor publication,
+visibility, slug resolution or Markdown sanitation.
 
 The [landing editor](<../../src/app/(admin)/admin/landing/landing-editor.tsx>)
 normalizes slug text on blur, then reads the canonical slug after the write succeeds.
@@ -2446,8 +2602,12 @@ Both page and page-mode section address inputs have a persistent localized label
 their blur-save guidance remains a separate accessible description.
 This acknowledgement adopts collision suffixes only for the submitted edit revision;
 newer edits, including identical text entered again, survive. Unrelated refreshes
-do not acknowledge drafts. Failed post-write reads offer read-only Retry, and
-repeated blur cannot replay an accepted write while parent query props catch up.
+do not acknowledge drafts. Failed post-write reads explicitly report that the
+address was saved and offer the localized, read-only Refresh address action. The
+recovery text also describes its address input; the current draft and last loaded
+link stay visible while the canonical read is unavailable. Repeated blur cannot replay
+an accepted write while parent query props catch up. Write errors and queued
+approval proposals retain their separate feedback.
 
 ## Data and deployment
 
@@ -2585,6 +2745,12 @@ evidence without rematching it. The complete original reader and exact JSON
 remain available, including unknown historical
 envelopes. These readers perform no writes and do not replace request permissions,
 stale-evidence checks, private-evidence allowlists or transactional replay.
+
+Viewer and departed observer audit dialogs keep a compact summary whose label
+uses only the allowlisted event kind and the active locale's existing event-title
+catalog. Unknown historical kinds use the generic recorded change label. The
+server projection still replaces stored action text and masks details/undo data;
+the compact reader never mounts the staff evidence reader or recovery actions.
 
 The shared [`review vocabulary`](../../src/lib/review-vocabulary.ts) maps known
 entities, fields and enums to authored catalog keys. Meanings are scoped by entity

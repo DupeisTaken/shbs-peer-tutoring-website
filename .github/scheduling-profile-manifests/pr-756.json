@@ -2,7 +2,7 @@
   "version": 1,
   "baselineSchemaSha256": "84dc4cf4eeb454687bfe9f1ef24163a07ca6b60dec76343c7130b21c25e8a618",
   "candidateSchemaSha256": "584d30f70cb0a84612bac33b84584f796adb50e0ea70361bc039cea5e42f108a",
-  "dependencyLockSha256": "fb4d57ab759a1401ca61ca1b397c7c64a6d21324acfb31129cf4a59113607d0e",
+  "dependencyLockSha256": "7d140c146da5f1d42f7394cc58d0695bed44e28356d27d1cd2601e1fe3dc12cc",
   "addedMigrations": [
     {
       "path": "prisma/migrations/20261116010000_session_refresh_boundary/migration.sql",

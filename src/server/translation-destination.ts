@@ -9,6 +9,7 @@ import {
 } from "./transactions";
 import { isHomeFieldKey, storageLocale } from "./home/content";
 import { isLocale } from "~/i18n/config";
+import { TRANSLATION_PAGE_MISSING } from "~/lib/translation-review-errors";
 
 export const TRANSLATION_BASELINE = "_destinationBaseline";
 const baselineSchema = z.object({
@@ -133,6 +134,47 @@ export async function translationBaseline(
   };
 }
 
+/** A deleted page has no current text to reload. Keep its draft rejectable. */
+async function assertPageTitleTranslationTarget(
+  db: TransactionDb,
+  operation: string,
+  payload: unknown,
+) {
+  if (
+    operation === "home.setPageTitle" &&
+    (await destination(db, operation, payload)) === null
+  )
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: TRANSLATION_PAGE_MISSING,
+    });
+}
+
+/** Coordinator requests stop before the draft resolver. Check this narrow case
+ * at admission and before replay fingerprints, under the publication/deletion lock.
+ * Rejections and other destinations retain their existing queue semantics. */
+export async function assertTranslationReviewTarget(
+  db: DomainDb,
+  operation: string,
+  input: unknown,
+) {
+  if (
+    operation !== "translationReview.decide" ||
+    !input ||
+    typeof input !== "object" ||
+    !("approve" in input) ||
+    input.approve !== true
+  )
+    return;
+  const { id } = z.object({ id: z.string() }).parse(input);
+  await withTranslationWrite(db, async (tx) => {
+    await lockEntity(tx, `translation:${id}`);
+    const draft = await tx.translationDraft.findUnique({ where: { id } });
+    if (draft?.state === "PENDING")
+      await assertPageTitleTranslationTarget(tx, draft.operation, draft.payload);
+  });
+}
+
 /** Legacy drafts retain their evidence. Never invent a current baseline for an old proposal. */
 export async function assertTranslationCurrent(
   db: TransactionDb,
@@ -140,6 +182,7 @@ export async function assertTranslationCurrent(
   payload: unknown,
 ) {
   const fields = z.record(z.string(), z.unknown()).parse(payload);
+  await assertPageTitleTranslationTarget(db, operation, payload);
   const baseline = baselineSchema.safeParse(fields[TRANSLATION_BASELINE]);
   if (!baseline.success)
     throw new TRPCError({

@@ -29,6 +29,7 @@ import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { nextSort, type Sort } from "~/app/_components/sortable";
 import { ServiceHoursComparison } from "~/app/_components/service-hours-comparison";
 import { SchoolHoursPanel } from "~/app/_components/school-hours-panel";
+import { formatSchoolHours } from "~/lib/school-hours-format";
 
 export default function SummaryPage() {
   const t = useTranslations();
@@ -369,7 +370,17 @@ function HoursTotals({
       className={
         compact
           ? "flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm"
-          : "grid grid-cols-2 gap-3 sm:grid-cols-4"
+          : "grid gap-3"
+      }
+      // Exact minute-derived totals can be longer than a fixed quarter-width
+      // column. Fit fewer columns, capped to the actual narrow-screen width.
+      style={
+        compact
+          ? undefined
+          : {
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))",
+            }
       }
     >
       {(
@@ -382,19 +393,23 @@ function HoursTotals({
       ).map(([label, value]) => (
         <div
           key={label}
-          className={compact ? "inline-flex items-baseline gap-1" : undefined}
+          className={
+            compact
+              ? "inline-flex max-w-full min-w-0 flex-wrap items-baseline gap-1"
+              : "min-w-0"
+          }
         >
           <dt className="text-sm text-slate-600">{t(label)}</dt>
           <dd
-            className={
+            className={`max-w-full min-w-0 [overflow-wrap:anywhere] ${
               !compact
                 ? "text-2xl font-semibold text-slate-900 tabular-nums"
                 : label === "netHours"
                   ? "text-base font-semibold text-slate-900 tabular-nums"
                   : "font-medium text-slate-700 tabular-nums"
-            }
+            }`}
           >
-            {value.toFixed(1)}
+            {formatSchoolHours(value)}
           </dd>
         </div>
       ))}

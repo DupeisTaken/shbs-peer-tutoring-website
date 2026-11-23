@@ -274,6 +274,14 @@ const show = (status = "ACTIVE", enabled = true) =>
     </NextIntlClientProvider>,
   );
 
+it("shares the tutor Schedule agenda cache key while retaining active polling", () => {
+  show();
+  expect(state.agendaOptions).toHaveBeenCalledWith(
+    { role: "tutor", includeRecurringSchedule: true },
+    { enabled: true, refetchInterval: 30_000 },
+  );
+});
+
 it("shows the single dated cohort for a reusable group once in today’s summary", () => {
   state.grouped = true;
   show();
@@ -380,7 +388,7 @@ it.each(["PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"])(
     expect(state.interviews).toHaveBeenCalledWith({ enabled: false });
     expect(state.meetings).toHaveBeenCalledWith({ enabled: false });
     expect(state.agendaOptions).toHaveBeenCalledWith(
-      { role: "tutor" },
+      { role: "tutor", includeRecurringSchedule: true },
       { enabled: false, refetchInterval: false },
     );
   },

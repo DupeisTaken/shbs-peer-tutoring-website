@@ -157,7 +157,7 @@ const tree = (open = true, occurrence: AgendaCohort = attendanceOccurrence) => (
 it("subscribes to held status and preserves notes when conditional attendance fields change", () => {
   render(tree());
   const status = screen.getByLabelText("tutor.attendance.tutorStatus");
-  fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
+  fireEvent.change(screen.getByLabelText(/tutor\.attendance\.comments/), {
     target: { value: "Retained absence explanation" },
   });
   fireEvent.change(status, { target: { value: "TUTOR_ABSENT" } });
@@ -167,7 +167,7 @@ it("subscribes to held status and preserves notes when conditional attendance fi
   expect(screen.getByLabelText("tutor.attendance.roomUsed")).toBeTruthy();
   expect(screen.getAllByRole("radio")).toHaveLength(25);
   expect(
-    screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
+    screen.getByLabelText<HTMLTextAreaElement>(/tutor\.attendance\.comments/)
       .value,
   ).toBe("Retained absence explanation");
 });
@@ -190,7 +190,7 @@ it("binds attendance to the exact occurrence and shows only actual tutor states"
 });
 it("retains notes and actual duration when its dialog closes and reopens", () => {
   const view = render(tree());
-  fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
+  fireEvent.change(screen.getByLabelText(/tutor\.attendance\.comments/), {
     target: { value: "Retained synthetic notes" },
   });
   fireEvent.change(screen.getByLabelText("tutor.attendance.end"), {
@@ -200,7 +200,7 @@ it("retains notes and actual duration when its dialog closes and reopens", () =>
   expect(screen.queryByRole("dialog")).toBeNull();
   view.rerender(tree());
   expect(
-    screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
+    screen.getByLabelText<HTMLTextAreaElement>(/tutor\.attendance\.comments/)
       .value,
   ).toBe("Retained synthetic notes");
   expect(
@@ -235,20 +235,20 @@ it("keeps extra and rescheduled provenance together without allowing either to b
 });
 it("keeps a failed draft editable and freezes pending and accepted evidence", () => {
   const view = render(tree());
-  fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
+  fireEvent.change(screen.getByLabelText(/tutor\.attendance\.comments/), {
     target: { value: "Retained notes" },
   });
   mocks.error = "Synthetic rejection";
   view.rerender(tree());
   expect(screen.getByRole("alert").textContent).toBe(mocks.error);
   expect(
-    screen.getByLabelText<HTMLTextAreaElement>("tutor.attendance.comments")
+    screen.getByLabelText<HTMLTextAreaElement>(/tutor\.attendance\.comments/)
       .value,
   ).toBe("Retained notes");
   mocks.pending = true;
   view.rerender(tree());
   expect(
-    screen.getByLabelText("tutor.attendance.comments").closest("fieldset")
+    screen.getByLabelText(/tutor\.attendance\.comments/).closest("fieldset")
       ?.disabled,
   ).toBe(true);
   expect(
@@ -259,7 +259,7 @@ it("keeps a failed draft editable and freezes pending and accepted evidence", ()
   mocks.error = "";
   view.rerender(tree());
   expect(
-    screen.getByLabelText("tutor.attendance.comments").closest("fieldset")
+    screen.getByLabelText(/tutor\.attendance\.comments/).closest("fieldset")
       ?.disabled,
   ).toBe(true);
   expect(
@@ -287,5 +287,7 @@ it("keeps the five rating meanings and labelled actual attendance fields", () =>
       screen.getAllByText(`${value} · tutor.attendance.likert.${value}`),
     ).toHaveLength(5);
   for (const key of ["tutorStatus", "start", "end", "comments", "roomUsed"])
-    expect(screen.getByLabelText(`tutor.attendance.${key}`)).toBeTruthy();
+    expect(
+      screen.getByLabelText(new RegExp(`^tutor\\.attendance\\.${key}`)),
+    ).toBeTruthy();
 });

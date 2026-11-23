@@ -13,6 +13,7 @@ import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type { InvalidationTarget } from "~/lib/invalidate-refresh";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
+import zh from "../../../../../messages/zh.json";
 import ApplicationsPage from "./page";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
@@ -37,6 +38,8 @@ const mocks = vi.hoisted(() => {
     invalidate: vi.fn(),
     additional: false,
     interview: false,
+    interviewPanel: ["chair", "second", "third"],
+    interviewVotes: [true, true, true],
     role: "HEAD",
     decide: vi.fn(),
     minimized: false,
@@ -199,7 +202,7 @@ vi.mock("~/trpc/react", () => ({
                       ]
                     : [],
                   interviewers: mocks.interview
-                    ? ["chair", "second", "third"].map((id) => ({
+                    ? mocks.interviewPanel.map((id) => ({
                         isHead: id === "chair",
                         attended: false,
                         tutor: { id, englishName: id },
@@ -213,10 +216,13 @@ vi.mock("~/trpc/react", () => ({
                           },
                         ],
                   votes: mocks.interview
-                    ? ["chair", "second", "third"].map((id) => ({
-                        accept: true,
+                    ? mocks.interviewVotes.map((accept, index) => ({
+                        accept,
                         comment: "Reviewed",
-                        tutor: { englishName: id },
+                        tutor: {
+                          englishName:
+                            mocks.interviewPanel[index] ?? "Panelist",
+                        },
                       }))
                     : mocks.additional
                       ? []
@@ -273,6 +279,8 @@ beforeEach(() => {
   mocks.enabled = true;
   mocks.additional = false;
   mocks.interview = false;
+  mocks.interviewPanel = ["chair", "second", "third"];
+  mocks.interviewVotes = [true, true, true];
   mocks.role = "HEAD";
   mocks.minimized = false;
   mocks.invalid = false;
@@ -308,13 +316,33 @@ it("presents an accountless blank-name application without treating its label as
   expect(mocks.name).toBe("  ");
   expect(mocks.changeInvalidity).not.toHaveBeenCalled();
 });
-const content = (viewer = false) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-    <ReadOnlyProvider value={viewer}>
-      <ApplicationsPage />
-    </ReadOnlyProvider>
-  </NextIntlClientProvider>
-);
+const content = (
+  viewer = false,
+  locale: "en" | "zh" = "en",
+  applicationMessages: Partial<typeof en.admin.applications> = {},
+) => {
+  const messages = locale === "zh" ? zh : en;
+  return (
+    <NextIntlClientProvider
+      locale={locale}
+      messages={{
+        ...messages,
+        admin: {
+          ...messages.admin,
+          applications: {
+            ...messages.admin.applications,
+            ...applicationMessages,
+          },
+        },
+      }}
+      timeZone="Asia/Shanghai"
+    >
+      <ReadOnlyProvider value={viewer}>
+        <ApplicationsPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>
+  );
+};
 const show = (viewer = false) => {
   const view = render(content(viewer));
   if (mocks.invalid)
@@ -510,10 +538,191 @@ it("retains vote and decision evidence when interviews are disabled", () => {
   expect(mocks.history).toHaveBeenCalledWith(
     expect.objectContaining({ enabled: false }),
   );
+  expect(
+    screen.getByRole("button", { name: /Candidate One.*1 accept · 0 reject/ }),
+  ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
   expect(screen.getByText(/Preserved vote/)).toBeTruthy();
   expect(screen.getByText(/Preserved decision/)).toBeTruthy();
   expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
+});
+
+it.each(
+  (["en", "zh"] as const).flatMap((locale) =>
+    [0, 2, 3, 4, 8].map((count) => ({ locale, count })),
+  ),
+)(
+  "shows the actual $count-member panel and its supported range in $locale",
+  ({ locale, count }) => {
+    mocks.interview = true;
+    mocks.interviewPanel = Array.from({ length: count }, (_, index) =>
+      index === 0 ? "chair" : `panelist-${index + 1}`,
+    );
+    mocks.interviewVotes = [];
+    render(content(false, locale));
+    const expectedCount =
+      locale === "zh"
+        ? `面试小组 ${count} 人（至少 3 人）`
+        : `panel ${count} (minimum 3)`;
+    const toggle = screen.getByRole("button", {
+      name: (name) =>
+        name.includes("Candidate One") && name.includes(expectedCount),
+    });
+    expect(toggle.textContent).not.toMatch(/\d\/3/);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(
+      screen.getByText(
+        locale === "zh"
+          ? "面试小组（3–8 人，一名组长）"
+          : "Interview Panel (3–8 Tutors, One Chair)",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        locale === "zh"
+          ? /由 3–8 名辅导伙伴组成的面试小组，指定其中一名为组长/
+          : /interview panel of 3–8 tutors, with one chair/,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        locale === "zh"
+          ? "请选择 3–8 名不同的辅导伙伴，并指定其中一名为组长。"
+          : "Pick 3–8 distinct tutors and mark one as chair.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByRole("combobox", {
+        name: locale === "zh" ? /面试官/ : /Panelist/,
+      }),
+    ).toHaveLength(Math.max(3, count));
+    expect(mocks.decide).not.toHaveBeenCalled();
+  },
+);
+
+it.each(
+  (["en", "zh"] as const).flatMap((locale) =>
+    [
+      {
+        scenario: "all rejected",
+        votes: [false, false, false],
+        panel: ["chair", "second", "third"],
+        tally: { en: "0 accept · 3 reject", zh: "0 票通过 · 3 票拒绝" },
+      },
+      {
+        scenario: "mixed votes",
+        votes: [true, false, true],
+        panel: ["chair", "second", "third"],
+        tally: { en: "2 accept · 1 reject", zh: "2 票通过 · 1 票拒绝" },
+      },
+      {
+        scenario: "a larger partially voted panel",
+        votes: [false, true],
+        panel: ["chair", "second", "third", "fourth", "fifth"],
+        tally: { en: "1 accept · 1 reject", zh: "1 票通过 · 1 票拒绝" },
+      },
+      {
+        scenario: "no votes",
+        votes: [],
+        panel: ["chair", "second", "third"],
+        tally: null,
+      },
+    ].map((testCase) => ({ ...testCase, locale })),
+  ),
+)(
+  "keeps collapsed and expanded vote evidence consistent for $scenario in $locale",
+  ({ locale, votes, panel, tally }) => {
+    mocks.interview = true;
+    mocks.interviewPanel = panel;
+    mocks.interviewVotes = votes;
+    render(content(false, locale));
+
+    const messages = locale === "zh" ? zh : en;
+    const labels = messages.admin.applications;
+    const expectedTally = tally?.[locale];
+    const expectedPanel =
+      locale === "zh"
+        ? `面试小组 ${panel.length} 人（至少 3 人）`
+        : `panel ${panel.length} (minimum 3)`;
+    const expectedSummary = [labels.noCourses, expectedPanel, expectedTally]
+      .filter(Boolean)
+      .join(" · ");
+    const toggle = screen.getByRole("button", {
+      name: (name) =>
+        name.includes("Candidate One") && name.includes(expectedSummary),
+    });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(within(toggle).getByText(expectedSummary)).toBeTruthy();
+    expect(toggle.textContent).not.toMatch(/(?:votes|投票) \d\/\d/);
+    if (!expectedTally) {
+      expect(toggle.textContent).not.toMatch(/(?:accept|reject|票通过|票拒绝)/);
+    }
+
+    fireEvent.click(toggle);
+    const details = document.getElementById(
+      toggle.getAttribute("aria-controls")!,
+    )!;
+    if (expectedTally) {
+      expect(within(details).getByText(expectedTally)).toBeTruthy();
+      expect(within(details).getAllByText(/Reviewed/)).toHaveLength(
+        votes.length,
+      );
+    } else {
+      expect(within(details).getByText(labels.noVotes)).toBeTruthy();
+    }
+    expect(mocks.decide).not.toHaveBeenCalled();
+  },
+);
+
+it("leaves an unused malformed live tally override unresolved when no votes are recorded", () => {
+  mocks.interview = true;
+  mocks.interviewVotes = [];
+  const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    render(content(false, "en", { voteTally: "{accepts" }));
+    const toggle = screen.getByRole("button", { name: /Candidate One/ });
+    expect(errors).not.toHaveBeenCalled();
+    fireEvent.click(toggle);
+    const details = document.getElementById(
+      toggle.getAttribute("aria-controls")!,
+    )!;
+    expect(within(details).getByText("No votes yet.")).toBeTruthy();
+    expect(errors).not.toHaveBeenCalled();
+  } finally {
+    errors.mockRestore();
+  }
+});
+
+it("does not restore fixed-three labels from legacy overrides while retaining a compatible tally override", () => {
+  mocks.interview = true;
+  mocks.interviewPanel = ["chair", "second", "third", "fourth"];
+  mocks.interviewVotes = [false, false, false];
+  render(
+    content(false, "en", {
+      panelSummary: "Legacy panel {n}/{total}",
+      panelHeading: "Legacy choose {n}",
+      intro: "Legacy assign {n}",
+      pickHint: "Legacy pick {n}",
+      votesSummary: "Legacy votes {accepts}/{total}",
+      voteTally: "Accepted: {accepts}; rejected: {rejects}",
+    }),
+  );
+  const toggle = screen.getByRole("button", {
+    name: /Candidate One.*panel 4 \(minimum 3\).*Accepted: 0; rejected: 3/,
+  });
+  fireEvent.click(toggle);
+  expect(
+    screen.getByText("Interview Panel (3–8 Tutors, One Chair)"),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Pick 3–8 distinct tutors and mark one as chair."),
+  ).toBeTruthy();
+  const details = document.getElementById(
+    toggle.getAttribute("aria-controls")!,
+  )!;
+  expect(within(details).getByText("Accepted: 0; rejected: 3")).toBeTruthy();
+  expect(screen.queryByText(/Legacy/)).toBeNull();
 });
 
 it("retains an unsaved panel draft when the application is collapsed and reopened", () => {

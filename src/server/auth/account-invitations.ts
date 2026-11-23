@@ -31,6 +31,7 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import { sendEmailWithReceipt, type DirectEmailReceipt } from "~/server/email/direct-delivery";
 import { emailOrigin } from "~/server/email/urls";
 import { getFeatures } from "~/server/program/features";
 import { lockAccountProfile } from "~/server/account-profile";
@@ -426,8 +427,10 @@ async function sourceEmailLocale(
   return normalizeEmailLocale(application?.emailLocale);
 }
 
-/** SMTP failure rolls back the envelope and leaves the previous usable code intact.
- * Calls require an already validated source; sourceState rechecks it before publishing. */
+/** Immediate/public SMTP failures roll back envelope replacement. An audited staff
+ * setup retains its newly issued source after commit and settles deliveryReceipt
+ * false on failure; issuing that fresh source never revokes earlier usable grants.
+ * Calls require a validated source; sourceState rechecks it before publishing. */
 export async function deliverAccountInvitation(
   client: DomainDb,
   input: {
@@ -437,6 +440,8 @@ export async function deliverAccountInvitation(
     sourceKey: string;
     code?: string;
     display?: boolean;
+    /** Trusted staff caller retains this object until its audit owner commits. */
+    deliveryReceipt?: DirectEmailReceipt;
   },
 ) {
   if (!input.display && !isEmailDeliveryAvailable("SECURITY"))
@@ -580,7 +585,7 @@ export async function deliverAccountInvitation(
     if (input.display) return invitationReceipt(row);
     const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}`;
     const purpose = invitationPurpose(row.kind);
-    await emailSender.send({
+    const message = {
       category: "SECURITY",
       to: email,
       ...invitationVerificationEmailCopy({
@@ -590,7 +595,9 @@ export async function deliverAccountInvitation(
         deadline: { at: expiresAt, timeZone: await getProgramTimeZone(tx) },
         url,
       }),
-    });
+    } as const;
+    if (input.deliveryReceipt) await sendEmailWithReceipt(message, input.deliveryReceipt);
+    else await emailSender.send(message);
     return invitationReceipt(row);
   });
 }

@@ -14,13 +14,16 @@ import { currentPolicy } from "~/server/policy-acceptance";
 import * as auditEvidence from "~/server/audit/evidence";
 import {
   saveSchoolCalendar,
+  saveSchoolCalendarHoliday,
   resetSchoolCalendar,
 } from "~/server/program/school-calendar";
 import { saveProgramCalendar, removeProgramCalendar } from "~/server/program/calendar";
 import { assertRoomBlackoutAvailable } from "~/server/room-bookings";
 import { changeSchoolDeparture } from "~/server/school-departure";
 import * as transactionHelpers from "~/server/transactions";
+import * as sessionNoticeWrites from "./notice-inserts";
 import { plannedWindow, SESSION_REFRESH_BOUNDARY_ERROR, type PlanningTime } from "~/lib/session-planning";
+import { schoolCalendarRangeDates } from "~/lib/school-calendar";
 import { assertNoPublishedTuteeDeletion } from "./deletion-guards";
 import { sessionCalendarFeed } from "~/server/session-planning-calendar";
 import {
@@ -1261,7 +1264,9 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
 
   it("retains NOTICE semantics and pauses already-published ordinary commitments", async () => {
     const original = await source();
-    await saveProgramCalendar(db, { date: original.date, endDate: original.date, reason: "Synthetic information", schedulingEffect: "NOTICE", expectedVersion: 0 });
+    const notice = await saveProgramCalendar(db, { date: original.date, endDate: original.date, reason: "Synthetic information", schedulingEffect: "NOTICE", expectedVersion: 0 });
+    expect(await previewProgramCalendarImpact(db, { date: notice.date, endDate: notice.endDate }, now)).toMatchObject({ pauseCount: 0, confirmationCount: 0 });
+    expect(await saveProgramCalendar(db, { date: notice.date, endDate: notice.endDate, reason: "Synthetic edited information", expectedVersion: notice.version })).toMatchObject({ schedulingEffect: "NOTICE" });
     expect((await members(original.id)).every((person) => person.status === "SCHEDULED")).toBe(true);
     await pause();
     expect(await members(original.id)).toEqual(expect.arrayContaining([
@@ -1277,16 +1282,65 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     expect(await db.session.count()).toBe(0);
   });
 
-  it("applies and removes real-clock config pauses synchronously before any agenda read", async () => {
+  it("defaults new no-tutoring ranges to a synchronous pause and restores on removal", async () => {
     vi.useRealTimers();
     await db.term.update({ where: { id: "planning-term" }, data: { startDate: null, endDate: null } });
     const realNow = new Date();
     await ensureSessionPlanningWindow(db, realNow);
     const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { startsAt: { gt: realNow }, status: "SCHEDULED" }, orderBy: { startsAt: "asc" } });
-    const saved = await saveProgramCalendar(db, { date: future.date, endDate: future.date, reason: "Synthetic real-clock policy", schedulingEffect: "PAUSE_REGULAR", expectedVersion: 0 });
+    expect(await previewProgramCalendarImpact(db, { date: future.date, endDate: future.date }, realNow)).toMatchObject({ pauseCount: 2 });
+    const saved = await saveProgramCalendar(db, { date: future.date, endDate: future.date, reason: "Synthetic real-clock policy", expectedVersion: 0 });
+    expect(saved.schedulingEffect).toBe("PAUSE_REGULAR");
     expect((await members(future.id)).every((person) => person.status === "CANCELLED" && person.tutoringPauseSuppressed)).toBe(true);
     await removeProgramCalendar(db, { date: saved.date, expectedVersion: saved.version });
     expect((await members(future.id)).every((person) => person.status === "SCHEDULED" && !person.tutoringPauseSuppressed)).toBe(true);
+  });
+
+  it("retains confirmed timeout extras and explicit moves while cancelling only automatic lessons", async () => {
+    const original = await source();
+    const extra = await propose("ALL", "EXTRA");
+    await respond(extra.id, one, "ACCEPT");
+    const extraOffer = (await current(extra.id)).offer;
+    const silentLearner = extraOffer.responses.find((response) => response.actorKey === "tutee:planning-two")!;
+    await db.$transaction((tx) => markSessionResponseDelivered(tx, silentLearner.id, now));
+    vi.setSystemTime(new Date(now.getTime() + 86_400_001));
+    await sweepSessionPlanning(db, new Date());
+    expect((await current(extra.id)).request.status).toBe("ACCEPTED");
+    expect((await current(extra.id)).offer.responses.find((response) => response.id === silentLearner.id)?.acceptedBy).toBe("TIMEOUT");
+    let extraCohort = await db.sessionPlanCohort.findFirstOrThrow({ where: { plan: { generationKey: `extra:${extra.id}` } } });
+    const cancellation = await proposeSessionCancellation(db, tutor, {
+      cohortId: extraCohort.id, expectedVersion: extraCohort.version,
+      clientKey: randomUUID(), scope: "ONE", tuteeId: "planning-one",
+    });
+    await respond(cancellation.id, one, "ACCEPT");
+    extraCohort = await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: extraCohort.id } });
+    const move = await proposeSession(db, tutor, {
+      cohortId: original.id, expectedVersion: (await source()).version,
+      clientKey: randomUUID(), scope: "ONE", tuteeId: "planning-one",
+      kind: "RESCHEDULE", date: "2026-11-03", startMin: 960, online: true,
+    });
+    await respond(move.id, one, "ACCEPT");
+    const moved = await db.sessionPlanParticipant.findUniqueOrThrow({ where: { planId_tuteeId: { planId: original.planId, tuteeId: "planning-one" } } });
+    const beforeExtra = await members(extraCohort.id);
+    expect(await previewProgramCalendarImpact(db, { date: original.date, endDate: extraCohort.date }, new Date())).toMatchObject({ pauseCount: 1, retainedExceptionCount: 2, confirmationCount: 0 });
+    await pause(original.date, extraCohort.date);
+    expect(await members(extraCohort.id)).toEqual(beforeExtra);
+    expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: extraCohort.id } })).toEqual(extraCohort);
+    expect(await db.sessionPlanParticipant.findUniqueOrThrow({ where: { id: moved.id } })).toEqual(moved);
+    expect((await members(original.id)).find((person) => person.tuteeId === "planning-two")).toMatchObject({ status: "CANCELLED", tutoringPauseSuppressed: true });
+    const cancellations = await db.sessionNotice.findMany({ where: { context: { path: ["outcomeReason"], equals: "TUTORING_PAUSE" } } });
+    expect(cancellations.map((notice) => notice.recipientUserId).sort()).toEqual([tutor.id, two.id].sort());
+    for (const notice of cancellations) expect(notice).toMatchObject({ event: "cancelled", context: {
+      outcomeReason: "TUTORING_PAUSE", pauseStartDate: original.date, pauseEndDate: extraCohort.date,
+      recipientRole: notice.recipientUserId === tutor.id ? "tutor" : "tutee",
+    } });
+    expect(await readCurrentSessionReminderCohort(db, extraCohort.id)).not.toBeNull();
+    await readSessionAgenda(db, tutor, "tutor");
+    await ensureSessionPlanningWindow(db, new Date());
+    expect(await members(extraCohort.id)).toEqual(beforeExtra);
+    vi.setSystemTime(new Date(extraCohort.endsAt.getTime() + 1));
+    const attendance = await db.$transaction((tx) => sessionAttendanceContext(tx, tutor, extraCohort.id));
+    expect(attendance.tuteeIds).toEqual(["planning-two"]);
   });
 
   it("keeps repeated publication stable and overlapping pauses effective until both are removed", async () => {
@@ -1312,8 +1366,54 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { date: "2026-11-09" } });
     expect(future.status).toBe("CANCELLED");
     expect((await members(future.id)).every((person) => person.tutoringPauseSuppressed)).toBe(true);
+    const notices = await db.sessionNotice.findMany({ where: { dedupeKey: { startsWith: `cohort:${future.id}:` } } });
+    expect(notices.map((notice) => notice.recipientUserId).sort()).toEqual([tutor.id, one.id, two.id].sort());
+    for (const notice of notices) expect(notice).toMatchObject({ event: "cancelled", context: {
+      outcomeReason: "TUTORING_PAUSE", pauseStartDate: "2026-11-09", pauseEndDate: "2026-11-13",
+      recipientRole: notice.recipientUserId === tutor.id ? "tutor" : "tutee",
+    } });
+    await ensureSessionPlanningWindow(db, new Date());
+    expect(await db.sessionNotice.findMany({ where: { dedupeKey: { startsWith: `cohort:${future.id}:` } } })).toEqual(notices);
     const result = await proposeSession(db, tutor, { cohortId: future.id, expectedVersion: future.version, clientKey: randomUUID(), scope: "ONE", tuteeId: "planning-one", kind: "EXTRA", ...time("2026-11-10") });
     expect((await current(result.id)).request.status).toBe("PENDING");
+  });
+
+  it("adds independent pause markers to school-cancelled lessons without another cancellation notice", async () => {
+    const original = await source();
+    await saveSchoolCalendar(db, { date: original.date, isSchoolDay: false, timetableWeekday: null, note: "Synthetic school closure", expectedVersion: 0 }, tutor.id);
+    const noticesBefore = await db.sessionNotice.count();
+    await pause(original.date);
+    expect((await members(original.id)).every((person) => person.status === "CANCELLED" && person.calendarSuppressed && person.tutoringPauseSuppressed)).toBe(true);
+    expect(await db.sessionNotice.count()).toBe(noticesBefore);
+  });
+
+  it("rolls back a pause and its automatic cancellations when essential notice insertion fails", async () => {
+    vi.useRealTimers();
+    await db.term.update({ where: { id: "planning-term" }, data: { startDate: null, endDate: null } });
+    const realNow = new Date();
+    await ensureSessionPlanningWindow(db, realNow);
+    const future = await db.sessionPlanCohort.findFirstOrThrow({ where: { startsAt: { gt: realNow }, status: "SCHEDULED" }, orderBy: { startsAt: "asc" } });
+    const before = await members(future.id);
+    const noticesBefore = await db.sessionNotice.count();
+    const originalInsert = sessionNoticeWrites.insertSessionNotices;
+    const insert = vi.spyOn(sessionNoticeWrites, "insertSessionNotices").mockImplementation(async (tx, notices) => {
+      if (notices.some((notice) => {
+        const context = notice.context;
+        return !!context && typeof context === "object" && !Array.isArray(context) &&
+          "outcomeReason" in context && context.outcomeReason === "TUTORING_PAUSE";
+      }))
+        throw new Error("Synthetic essential notice failure");
+      return originalInsert(tx, notices);
+    });
+    try {
+      await expect(saveProgramCalendar(db, { date: future.date, endDate: future.date, reason: "Synthetic rollback pause", expectedVersion: 0 })).rejects.toThrow("Synthetic essential notice failure");
+    } finally {
+      insert.mockRestore();
+    }
+    expect(await db.programCalendarDay.findUnique({ where: { date: future.date } })).toBeNull();
+    expect(await members(future.id)).toEqual(before);
+    expect(await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: future.id } })).toEqual(future);
+    expect(await db.sessionNotice.count()).toBe(noticesBefore);
   });
 
   it("retains both automatic reasons when a paused source is first published on a school closure", async () => {
@@ -1577,6 +1677,28 @@ describe("regular tutoring pauses and affirmative exceptions", () => {
     const before = await members(original.id);
     expect(await previewProgramCalendarImpact(db, { date: original.date, endDate: original.date, schedulingEffect: "PAUSE_REGULAR" }, now)).toMatchObject({ scope: "publishedFutureParticipants", pauseCount: 1, retainedExceptionCount: 1, confirmationCount: 0 });
     expect(await members(original.id)).toEqual(before);
+  });
+
+  it("keeps default agenda shapes unchanged and enriches recurring slots only when requested", async () => {
+    const plain = await readSessionAgenda(db, tutor, "tutor");
+    expect(plain.cohorts.length).toBeGreaterThan(0);
+    for (const cohort of plain.cohorts) expect(cohort).not.toHaveProperty("recurringSchedule");
+    expect(await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: false })).toEqual(plain);
+    const enriched = await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: true });
+    expect(enriched.cohorts.map(({ recurringSchedule: _recurringSchedule, ...cohort }) => cohort)).toEqual(plain.cohorts);
+    for (const cohort of enriched.cohorts) expect(cohort.recurringSchedule).toEqual({
+      dayOfWeek: 1, startMin: 900, endMin: 945, scheduleConfirmed: true,
+    });
+  });
+
+  it("projects an opted-in recurring pairing slot separately from a rescheduled lesson", async () => {
+    const move = await propose();
+    await respond(move.id, one, "ACCEPT");
+    const agenda = await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: true });
+    const moved = agenda.cohorts.find((cohort) => cohort.rescheduled && cohort.date === "2026-11-03");
+    expect(moved).toMatchObject({ date: "2026-11-03", recurringSchedule: {
+      dayOfWeek: 1, startMin: 900, endMin: 945, scheduleConfirmed: true,
+    } });
   });
 
   it("shows restoration conflicts as unavailable after pause removal and retries after the dated conflict is released", async () => {
@@ -2967,6 +3089,10 @@ describe("publication and scoped attendance", () => {
       where: { date: "2026-10-31" },
     });
     expect(mapped.status).toBe("SCHEDULED");
+    const agenda = await readSessionAgenda(db, tutor, "tutor", now, { includeRecurringSchedule: true });
+    expect(agenda.cohorts.find((cohort) => cohort.id === mapped.id)).toMatchObject({
+      date: "2026-10-31", recurringSchedule: { dayOfWeek: 1, startMin: 900, endMin: 945, scheduleConfirmed: true },
+    });
     await resetSchoolCalendar(
       db,
       { date: "2026-10-31", expectedVersion: override.version },
@@ -3027,6 +3153,112 @@ describe("publication and scoped attendance", () => {
         .sourceScheduleFingerprint,
     ).toBe(plan.sourceScheduleFingerprint);
     expect(await db.sessionNotice.count()).toBe(noticeCount);
+  });
+
+  it("publishes the maximum 366-day holiday with real planning and notification adapters inside the transaction budget", async () => {
+    const from = "2026-10-27",
+      to = "2027-10-27";
+    const started = performance.now();
+    const saved = await saveSchoolCalendarHoliday(
+      db,
+      {
+        from,
+        to,
+        note: "Synthetic maximum holiday range",
+        expectedVersions: schoolCalendarRangeDates(from, to).map((date) => ({
+          date,
+          version: 0,
+        })),
+      },
+      tutor.id,
+    );
+    const elapsedMs = Math.round(performance.now() - started);
+    expect(saved).toHaveLength(366);
+    expect(saved[0]?.date).toBe(from);
+    expect(saved.at(-1)?.date).toBe(to);
+    expect(
+      await db.schoolCalendarDay.count({
+        where: { active: true, isSchoolDay: false },
+      }),
+    ).toBe(366);
+    expect(
+      await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+    ).toBe(366);
+    console.info(
+      `[school-calendar maximum range] 366 dates committed in ${elapsedMs} ms (real planning and notification adapters; 20000 ms transaction budget)`,
+    );
+  }, 30_000);
+
+  it("closes a three-day holiday atomically while retaining an explicitly agreed extra", async () => {
+    const mapped = [];
+    for (const date of ["2026-11-03", "2026-11-04"])
+      mapped.push(
+        await saveSchoolCalendar(
+          db,
+          {
+            date,
+            isSchoolDay: true,
+            timetableWeekday: 1,
+            note: "Synthetic make-up timetable",
+            expectedVersion: 0,
+          },
+          tutor.id,
+        ),
+      );
+    const ordinary = await db.sessionPlanCohort.findMany({
+      where: {
+        date: { gte: "2026-11-02", lte: "2026-11-04" },
+        plan: { kind: "REGULAR" },
+      },
+      orderBy: { date: "asc" },
+    });
+    expect(ordinary.map((cohort) => cohort.date)).toEqual([
+      "2026-11-02",
+      "2026-11-03",
+      "2026-11-04",
+    ]);
+    expect(ordinary.every((cohort) => cohort.status === "SCHEDULED")).toBe(true);
+    const original = await source();
+    const extra = await proposeSession(db, tutor, {
+      cohortId: original.id,
+      expectedVersion: original.version,
+      clientKey: randomUUID(),
+      scope: "ONE",
+      kind: "EXTRA",
+      tuteeId: "planning-one",
+      date: "2026-11-03",
+      startMin: 1000,
+      online: false,
+    });
+    await respond(extra.id, one, "ACCEPT");
+    const agreed = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { date: "2026-11-03", plan: { kind: "EXTRA" } },
+    });
+    const closed = await saveSchoolCalendarHoliday(
+      db,
+      {
+        from: "2026-11-02",
+        to: "2026-11-04",
+        note: "Synthetic three-day holiday",
+        expectedVersions: [
+          { date: "2026-11-02", version: 0 },
+          ...mapped.map((day) => ({ date: day.date, version: day.version })),
+        ],
+      },
+      tutor.id,
+    );
+    expect(closed).toHaveLength(3);
+    const changed = await db.sessionPlanCohort.findMany({
+      where: { id: { in: ordinary.map((cohort) => cohort.id) } },
+    });
+    expect(changed.every((cohort) => cohort.status === "CANCELLED")).toBe(true);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: agreed.id } }),
+    ).toMatchObject({
+      status: "SCHEDULED",
+      date: agreed.date,
+      startMin: agreed.startMin,
+    });
   });
 
   it("suppresses ordinary closure dates while retaining explicit extras and reschedules through reset", async () => {

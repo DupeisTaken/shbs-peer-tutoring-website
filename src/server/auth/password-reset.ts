@@ -8,11 +8,8 @@ import { lockAccountProfile } from "~/server/account-profile";
 import { createHash, randomBytes } from "crypto";
 
 import { db } from "~/server/db";
-import {
-  emailSender,
-  isEmailConfigured,
-  isEmailDeliveryAvailable,
-} from "~/server/email/sender";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
+import { sendEmailWithReceipt, type DirectEmailReceipt } from "~/server/email/direct-delivery";
 import { linkedEmailCopy } from "~/server/email/direct-email-copy";
 import { emailText, normalizeEmailLocale, type EmailLocale } from "~/lib/email-locale";
 import { emailOrigin } from "~/server/email/urls";
@@ -25,7 +22,8 @@ import { lockEntity } from "~/server/transactions";
 export async function issueAccountVerification(
   userId: string,
 ): Promise<{ emailed: boolean }> {
-  if (!isEmailDeliveryAvailable("SECURITY")) return { emailed: false };
+  const receipt: DirectEmailReceipt = { emailed: false };
+  if (!isEmailDeliveryAvailable("SECURITY")) return receipt;
   const token = randomBytes(32).toString("hex");
   const recipient = await db.$transaction(async (tx) => {
     await lockEntity(tx, `account-verification:${userId}`);
@@ -60,7 +58,7 @@ export async function issueAccountVerification(
     return { email: user.email, locale: normalizeEmailLocale(user.emailLocale) };
   });
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
-  await emailSender.send({
+  await sendEmailWithReceipt({
     category: "SECURITY",
     to: recipient.email,
     ...linkedEmailCopy({
@@ -73,8 +71,8 @@ export async function issueAccountVerification(
       }),
       action: { label: emailText(recipient.locale, { en: "Set up your account", zh: "设置账户" }), url: link },
     }),
-  });
-  return { emailed: isEmailConfigured("SECURITY") };
+  }, receipt);
+  return receipt;
 }
 
 /** How long an issued reset token stays valid. */
@@ -99,10 +97,17 @@ function hashToken(token: string): string {
  * was found — callers must show an identical message either way (no account enumeration).
  */
 export async function issuePasswordReset(identifier: string): Promise<void> {
-  if (!isEmailDeliveryAvailable("SECURITY")) return;
+  await issuePasswordResetDelivery(identifier);
+}
+
+/** Staff setup needs the exact post-commit outcome; public recovery deliberately
+ * discards it so unknown accounts and delivery failures cannot expose identity. */
+async function issuePasswordResetDelivery(identifier: string): Promise<DirectEmailReceipt> {
+  const receipt: DirectEmailReceipt = { emailed: false };
+  if (!isEmailDeliveryAvailable("SECURITY")) return receipt;
 
   const id = identifier.trim().toLowerCase();
-  if (!id) return;
+  if (!id) return receipt;
 
   const user = await db.user.findFirst({
     where: { mergedIntoId: null, OR: signinIdentifiers(id) },
@@ -112,7 +117,7 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
       emails: { where: { verifiedAt: { not: null } }, select: { email: true } },
     },
   });
-  if (!user) return; // silently no-op — don't reveal whether the account exists
+  if (!user) return receipt; // silently no-op — don't reveal whether the account exists
 
   const targetEmail = user.emails.some((address) => address.email === id)
     ? id
@@ -140,17 +145,18 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
     });
     return { locale: normalizeEmailLocale(current.emailLocale) };
   });
-  if (issued) await deliverResetLink(targetEmail, token, issued.locale);
+  if (issued) await deliverResetLink(targetEmail, token, issued.locale, receipt);
+  return receipt;
 }
 
 /**
  * Email the reset link. With a provider configured this sends a real message; otherwise the
  * sender logs it in dev (link included) and warns in production.
  */
-async function deliverResetLink(to: string, token: string, locale: EmailLocale): Promise<void> {
+async function deliverResetLink(to: string, token: string, locale: EmailLocale, receipt: DirectEmailReceipt): Promise<void> {
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
 
-  await emailSender.send({
+  await sendEmailWithReceipt({
     category: "SECURITY",
     to,
     ...linkedEmailCopy({
@@ -163,7 +169,7 @@ async function deliverResetLink(to: string, token: string, locale: EmailLocale):
       }),
       action: { label: emailText(locale, { en: "Reset your password", zh: "重设密码" }), url: link },
     }),
-  });
+  }, receipt);
 }
 
 /**
@@ -244,7 +250,7 @@ export async function issueTutorSetupLink(
   tutorId: string,
   actorId: string,
 ): Promise<
-  { ok: true; emailed: boolean } | { ok: false; error: "no-tutor" | "no-email" }
+  { ok: true; delivery: DirectEmailReceipt } | { ok: false; error: "no-tutor" | "no-email" }
 > {
   if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
@@ -267,12 +273,13 @@ export async function issueTutorSetupLink(
   if (!email) return { ok: false, error: "no-email" };
   if (tutor.user) {
     // Existing-account recovery remains deliberate and never returns a bearer secret to staff.
-    await issuePasswordReset(tutor.user.email);
-    return { ok: true, emailed: true };
+    const delivery = await issuePasswordResetDelivery(tutor.user.email);
+    return { ok: true, delivery };
   }
   const { issueRegistrationCode, setEmailVerification } =
     await import("./registration");
   const { deliverAccountInvitation } = await import("./account-invitations");
+  const delivery: DirectEmailReceipt = { emailed: false };
   const actor = await db.user.findUnique({ where: { id: actorId } });
   if (!actor || !["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
     throw new TRPCError({
@@ -352,6 +359,9 @@ export async function issueTutorSetupLink(
         kind: "TUTOR",
         email: currentEmail,
         code: staged.emailCode,
+        // This fresh source never replaces an earlier usable invitation. The
+        // receipt reports the later SMTP outcome without undoing committed grants.
+        deliveryReceipt: delivery,
         sourceKey: "staff:" + current.id + ":" + current.emailCodeHash,
         source: {
           type: "staff",
@@ -362,5 +372,5 @@ export async function issueTutorSetupLink(
     },
     { timeout: 20000 },
   );
-  return { ok: true, emailed: true };
+  return { ok: true, delivery };
 }

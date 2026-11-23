@@ -42,8 +42,6 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         adminOnly: true,
       },
       { href: "/admin/history", labelKey: "admin.nav.links.reports" },
-      { href: "/admin/records", labelKey: "recordTransfer.title", adminOnly: true },
-      { href: "/admin/academic-corrections", labelKey: "historicalAcademics.title" },
       {
         href: "/admin/announcements",
         labelKey: "admin.nav.links.announcements",
@@ -160,20 +158,27 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         labelKey: "admin.nav.links.registrationCodes",
         elevatedOnly: true,
       },
-      // Audit Log + Users & Roles stay pinned to the bottom of the section.
       {
         href: "/admin/approvals",
         labelKey: "approvals.title",
         elevatedOnly: true,
       },
-      { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
-      { href: "/admin/recovery", labelKey: "recovery.title", elevatedOnly: true },
-      { href: "/admin/database", labelKey: "recordInspector.nav", adminOnly: true },
       {
         href: "/admin/users",
         labelKey: "admin.nav.links.usersRoles",
         elevatedOnly: true,
       },
+    ],
+  },
+  {
+    // Archival exports, corrections, audit and operator recovery tools stay out of daily overview.
+    titleKey: "admin.nav.sections.dataRecovery",
+    items: [
+      { href: "/admin/records", labelKey: "recordTransfer.title", adminOnly: true },
+      { href: "/admin/academic-corrections", labelKey: "historicalAcademics.title" },
+      { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
+      { href: "/admin/recovery", labelKey: "recovery.title", elevatedOnly: true },
+      { href: "/admin/database", labelKey: "recordInspector.nav", adminOnly: true },
     ],
   },
 ];

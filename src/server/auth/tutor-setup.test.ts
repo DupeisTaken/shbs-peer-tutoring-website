@@ -177,7 +177,7 @@ it.each(["ADMIN", "HEAD"] as const)("allows %s provisioning and never returns a 
   await db.user.update({ where: { id: "actor" }, data: { role } });
   expect(await issueTutorSetupLink(tutor.id, "actor")).toEqual({
     ok: true,
-    emailed: true,
+    delivery: { emailed: true },
   });
   expect(
     await db.user.findUnique({ where: { email: "new-tutor@example.test" } }),

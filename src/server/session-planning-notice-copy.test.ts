@@ -226,6 +226,143 @@ it("rejects invalid clock context and unknown events without echoing arbitrary t
   expect(copy.subject).not.toContain("PRIVATE");
 });
 
+it.each([
+  ["en", "tutor", "your tutee"],
+  ["en", "tutee", "your tutor"],
+  ["zh", "tutor", "您的学习伙伴"],
+  ["zh", "tutee", "您的辅导伙伴"],
+] as const)(
+  "explains a pause cancellation and extra coordination in %s for a %s",
+  (locale, recipientRole, counterpart) => {
+    const copy = sessionPlanningNoticeCopy(
+      "cancelled",
+      {
+        outcomeReason: "TUTORING_PAUSE",
+        pauseStartDate: "2026-11-19",
+        pauseEndDate: "2026-11-26",
+        recipientRole,
+        startsAt: "2026-11-19T07:50:00.000Z",
+        endsAt: "2026-11-19T08:35:00.000Z",
+        timeZone: "Asia/Shanghai",
+        isActionable: false,
+        reason: "PRIVATE PAUSE REASON",
+        participantName: "PRIVATE PARTICIPANT",
+      },
+      false,
+      locale,
+    );
+    expect(copy.text).toContain(counterpart);
+    expect(copy.text).toContain(
+      locale === "en" ? "November 19, 2026" : "2026年11月19日",
+    );
+    expect(copy.text).toContain(
+      locale === "en" ? "November 26, 2026" : "2026年11月26日",
+    );
+    expect(copy.text).toContain(locale === "en" ? "(inclusive)" : "含首尾两日");
+    expect(copy.text).toContain(
+      locale === "en"
+        ? "Your scheduled regular session has been cancelled"
+        : "您已安排的常规辅导已取消",
+    );
+    expect(copy.text).toContain(
+      locale === "en"
+        ? "Agreed extra sessions and explicitly agreed rescheduled sessions remain scheduled"
+        : "已确认的额外辅导和已明确同意的改期辅导继续有效",
+    );
+    expect(copy.text).not.toContain("PRIVATE");
+    expect(copy.text).not.toContain(
+      locale === "en" ? "Silence can mean acceptance" : "未回复可能视为接受",
+    );
+    expect(copy.subject).toBe(
+      locale === "en"
+        ? "Tutoring pause — regular session cancelled"
+        : "常规辅导暂停：本次安排已取消",
+    );
+    expect(copy.presentation.action.label).toBe(
+      locale === "en" ? "View current schedule" : "查看当前安排",
+    );
+    expect(copy.text).toContain(
+      locale === "en"
+        ? "check the portal for current confirmed sessions"
+        : "请在平台查看当前已确认的辅导安排",
+    );
+    expect(copy.text).not.toContain(
+      locale === "en" ? "response deadline" : "回复期限",
+    );
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "retains the ordinary cancellation footer and session action in %s",
+  (locale) => {
+    const copy = sessionPlanningNoticeCopy("cancelled", {}, false, locale);
+    expect(copy.presentation.action.label).toBe(
+      locale === "en" ? "View session" : "查看课程",
+    );
+    expect(copy.text).toContain(
+      locale === "en"
+        ? "current schedule and response deadline"
+        : "最新安排和回复期限以平台为准",
+    );
+  },
+);
+
+it("renders a single pause date without shifting it into a recipient's previous day", () => {
+  const copy = sessionPlanningNoticeCopy("cancelled", {
+    outcomeReason: "TUTORING_PAUSE",
+    pauseStartDate: "2026-11-19",
+    pauseEndDate: "2026-11-19",
+    timeZone: "America/Los_Angeles",
+    recipientRole: "tutor",
+  });
+  expect(copy.text).toContain(
+    "Regular tutoring is paused on November 19, 2026.",
+  );
+  expect(copy.text).not.toContain("November 18");
+  expect(copy.text).not.toContain("through");
+});
+
+it.each([
+  { pauseStartDate: "2026-02-30", pauseEndDate: "2026-03-02" },
+  { pauseStartDate: "2026-11-26", pauseEndDate: "2026-11-19" },
+  { pauseStartDate: "PRIVATE\nDATE", pauseEndDate: "2026-11-26" },
+  { pauseStartDate: "2026-11-19" },
+])(
+  "rejects incomplete, invalid or reversed pause policy facts: %j",
+  (range) => {
+    const input = {
+      outcomeReason: "TUTORING_PAUSE",
+      recipientRole: "tutor",
+      ...range,
+    };
+    expect(sessionNoticeContext(input)).toEqual({});
+    const copy = sessionPlanningNoticeCopy("cancelled", input);
+    expect(copy.subject).toBe("Tutoring session cancelled");
+    expect(copy.text).not.toContain("PRIVATE");
+    expect(copy.text).not.toContain("Regular tutoring is paused");
+  },
+);
+
+it("keeps pause metadata out of unrelated schedule events and ignores unknown roles", () => {
+  const context = {
+    outcomeReason: "TUTORING_PAUSE",
+    pauseStartDate: "2026-11-19",
+    pauseEndDate: "2026-11-26",
+    recipientRole: "PRIVATE ROLE",
+  };
+  expect(sessionNoticeContext(context)).toEqual({
+    outcomeReason: "TUTORING_PAUSE",
+    pauseStartDate: "2026-11-19",
+    pauseEndDate: "2026-11-26",
+  });
+  expect(
+    sessionPlanningNoticeCopy("schedule_updated", context).text,
+  ).not.toContain("Your scheduled regular session has been cancelled");
+  expect(sessionPlanningNoticeCopy("cancelled", context).text).toContain(
+    "your tutoring partner",
+  );
+});
+
 it("keeps bounded single-line subject/room labels and distinguishes an online lesson", () => {
   expect(
     sessionNoticeContext({

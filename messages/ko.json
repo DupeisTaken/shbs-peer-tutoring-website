@@ -508,7 +508,8 @@
     "replyContext": "{name}에게 답장 중",
     "cancelReply": "답장 취소",
     "replyDraftHelp": "이전 초안은 유지됩니다. 취소해도 이 답장 초안은 현재 페이지에 유지됩니다.",
-    "permissionsDestination": "프로그램 설정의 메시지 권한"
+    "permissionsDestination": "프로그램 설정의 메시지 권한",
+    "privacyDetails": "이전 메시지 안내"
   },
   "common": {
     "cancel": "취소",
@@ -522,7 +523,8 @@
     "close": "닫기",
     "collapseAll": "모두 접기",
     "expandAll": "모두 펼치기",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "다시 시도"
   },
   "auth": {
     "signinTitle": "로그인",
@@ -706,7 +708,8 @@
       "draftBadge": "초안"
     },
     "detail": {
-      "hiddenNote": "섹션이 표시되기 전까지 이 페이지는 방문자에게 숨겨집니다."
+      "hiddenNote": "섹션이 표시되기 전까지 이 페이지는 방문자에게 숨겨집니다.",
+      "hiddenPageNote": "페이지가 표시되기 전까지 이 페이지는 방문자에게 숨겨집니다."
     }
   },
   "dashboard": {
@@ -829,7 +832,7 @@
         "sendSetup": "설정 링크 보내기",
         "needEmail": "먼저 이메일을 추가하세요",
         "linkEmailed": "계정 소유자에게 설정 이메일을 보냈습니다.",
-        "linkManual": "이메일 전송이 설정되지 않았습니다. 계정 설정 이메일을 보내기 전에 배포 관리자에게 문의하세요.",
+        "linkManual": "계정 설정 이메일을 보내지 못했습니다. 이메일 전송 상태를 확인한 후 다시 시도하세요.",
         "dismiss": "닫기"
       },
       "createDraftHint": "이 대화상자를 닫아도 이 페이지를 떠날 때까지 입력 내용이 유지됩니다.",
@@ -929,7 +932,8 @@
         "tutors": "튜터",
         "tutees": "학생",
         "schedulingRecords": "일정 및 기록",
-        "administration": "관리"
+        "administration": "관리",
+        "dataRecovery": "데이터 및 복구"
       },
       "links": {
         "dashboard": "대시보드",
@@ -1244,7 +1248,8 @@
       "columns": {
         "when": "시간",
         "who": "작업자",
-        "action": "작업"
+        "action": "기록된 작업",
+        "actions": "행 작업"
       },
       "undone": "취소됨",
       "undo": "실행 취소",
@@ -1703,6 +1708,7 @@
     "applications": {
       "title": "튜터 지원",
       "intro": "지원자를 검토하고 {n}명의 면접 패널을 배정하세요 (대표 한 명 지정). 행을 클릭하면 펼쳐집니다. 대표가 자신의 대시보드에서 면접 일정을 잡고 결정을 기록합니다.",
+      "panelRangeIntro": "지원자를 검토하고 튜터 {min}~{max}명으로 면접 패널을 구성한 뒤 그중 한 명을 대표로 지정하세요. 행을 클릭하면 펼쳐집니다. 대표가 자신의 대시보드에서 면접 일정을 잡고 결정을 기록합니다.",
       "empty": "아직 지원이 없습니다.",
       "status": {
         "PENDING": "대기 중",
@@ -1713,6 +1719,7 @@
       },
       "noCourses": "과목 없음",
       "panelSummary": "패널 {n}/{total}",
+      "panelCount": "패널 {n}명 (최소 {min}명)",
       "votesSummary": "투표 {accepts}/{total}",
       "accept": "합격",
       "reject": "불합격",
@@ -1727,6 +1734,7 @@
       },
       "noQualification": "자격 정보 없음",
       "panelHeading": "면접 패널 ({n}명 선택, 대표 1명 지정)",
+      "panelRangeHeading": "면접 패널 ({min}~{max}명, 대표 1명)",
       "scheduled": "일정: {when} (대표가 설정)",
       "panelistSlot": "— 패널리스트 {n} —",
       "head": "대표",
@@ -1734,6 +1742,7 @@
       "savePanel": "패널 저장",
       "saved": "저장되었습니다.",
       "pickHint": "{n}명의 튜터와 대표를 선택하세요.",
+      "pickRangeHint": "서로 다른 튜터 {min}~{max}명을 선택하고 그중 한 명을 대표로 지정하세요.",
       "votesDecisionHeading": "투표 및 결정",
       "voteTally": "{accepts}명 합격 · {rejects}명 불합격",
       "noVotes": "아직 투표가 없습니다.",
@@ -2049,6 +2058,8 @@
     },
     "landing": {
       "pageAddress": "페이지 주소",
+      "addressRefreshFailed": "주소는 저장되었지만 업데이트된 주소를 불러올 수 없습니다. 다시 저장하지 말고 주소를 새로 고치세요.",
+      "refreshAddress": "주소 새로 고침",
       "title": "홈페이지",
       "subtitle": "공개 사이트의 글, 소식, 이미지를 편집합니다. 코디네이터의 변경과 번역 담당자의 글 수정은 검토가 필요합니다. 권한이 있는 Admin/Head의 변경은 바로 적용되며 소식 초안은 게시 전까지 비공개입니다.",
       "loading": "불러오는 중…",
@@ -2372,7 +2383,7 @@
         "EXTRA": "추가 수업",
         "TUTOR_ABSENT": "튜터 결석"
       },
-      "tutorAbsentReason": "튜터 결석 사유 *",
+      "tutorAbsentReason": "튜터 결석 사유",
       "start": "시작",
       "end": "종료",
       "now": "지금",
@@ -2398,7 +2409,7 @@
         "4": "좋음",
         "5": "매우 좋음"
       },
-      "comments": "의견 *",
+      "comments": "의견",
       "cardsTitle": "규정 준수 카드 (선택)",
       "cardsHelp": "간단한 사유와 함께 옐로 또는 레드 카드를 부여합니다. 팀이 각 카드를 재검토 후 반영합니다. (무단결석 시 레드 카드가 자동 발급됩니다.)",
       "noCard": "카드 없음",
@@ -2594,6 +2605,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "신청 양식에 필요한 정보를 불러오지 못했습니다. 다시 시도해 주세요.",
     "applicationRetryNotice": "이 이메일 주소로 제출한 신청서를 이미 검토 중이라면 최초 신청서를 유지합니다. 수정하려면 프로그램 운영팀에 문의하세요.",
     "signup": {
       "title": "또래 튜터 신청",
@@ -2852,6 +2864,7 @@
     "collapseAll": "모두 접기",
     "languagesHeading": "언어",
     "languagesHelp": "활성화된 언어만 공개 언어 메뉴에 표시됩니다. 숨긴 언어도 번역이 완성될 때까지 여기에서 편집할 수 있습니다.",
+    "languagesReadFailed": "언어 설정을 불러오지 못했습니다.",
     "builtIn": "기본 제공",
     "enabled": "활성화됨",
     "disabled": "숨김",
@@ -3025,6 +3038,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "현재 저장된 페이지",
+      "currentHelp": "제출 시점의 기록이 아닌 현재 저장된 정보입니다.",
+      "missing": "이 페이지는 더 이상 존재하지 않습니다.",
+      "missingRecovery": "이 페이지는 더 이상 존재하지 않아 이 초안을 게시할 수 없습니다. 관리자 또는 책임자가 초안을 거절하고 기록에 보관할 수 있습니다.",
+      "untitled": "대상 언어와 영어로 저장된 제목이 없습니다.",
+      "language": "제목 언어: {locale}",
+      "fallbackLanguage": "제목 언어: {locale} (대체 언어)",
+      "address": "현재 페이지 주소",
+      "reference": "페이지 참조 ID"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",
@@ -3614,7 +3638,11 @@
         "archivedOfferings": "보관 처리할 개설 과목",
         "timetableWeekday": "시간표 요일",
         "scheduleRevision": "시간표 개정 번호",
-        "actionId": "기록된 승인 작업 ID"
+        "actionId": "기록된 승인 작업 ID",
+        "from": "시작 날짜",
+        "to": "종료 날짜",
+        "originalFrom": "기존 시작 날짜",
+        "originalTo": "기존 종료 날짜"
       },
       "values": {
         "ACTIVE": "활성",
@@ -3853,7 +3881,10 @@
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "월간 서비스 시간 보고서 일정 변경",
-        "schoolHours_save": "학교 봉사시간 보고서 일정 변경"
+        "schoolHours_save": "학교 봉사시간 보고서 일정 변경",
+        "student_setCalendarHoliday": "학교 휴일 날짜 범위 추가",
+        "student_updateCalendarHoliday": "학교 휴일 날짜 범위 수정",
+        "student_resetCalendarHoliday": "학교 휴일 날짜 범위 초기화"
       },
       "decisionRequestHelp": "'승인 및 적용'은 원래 신청을 거부하는 작업을 포함하여 제안된 작업을 실행합니다. '피드백과 함께 거부'는 이 제안을 거부하고 변경하지 않습니다. 어느 쪽이든 결정 사유를 메모에 작성하세요.",
       "confirmPassword": "계정 비밀번호 확인",
@@ -4907,7 +4938,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "이메일 전송 성공 여부를 확인하지 못했습니다. 전송 상태를 확인한 후 다시 시도하세요.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
@@ -6108,12 +6139,12 @@
   },
   "programCalendar": {
     "title": "튜터링 안내 및 일시 중단",
-    "informational": "각 기간은 안내 또는 정규 튜터링 중단으로 설정됩니다. 중단 기간에도 명시적으로 합의한 예외는 허용되며 학교 일정과 이의 신청 기한은 변경되지 않습니다.",
+    "informational": "튜터링 중단 기간에는 자동으로 편성된 정기 세션이 취소됩니다. 확정된 추가 세션과 명시적으로 합의한 일정 변경은 유지됩니다. 안내 전용 기간과 학교 수업일 규칙은 별도로 적용됩니다.",
     "refresh": "새로 고침",
     "reload": "초안 다시 불러오기",
     "loadFailed": "튜터링 안내를 불러오지 못했습니다.",
     "loading": "튜터링 안내 불러오는 중…",
-    "add": "기간 추가",
+    "add": "튜터링 중단 또는 공지 추가",
     "date": "기간",
     "startDate": "시작일",
     "endDate": "종료일",
@@ -6136,7 +6167,7 @@
     "noticeEffect": "안내만 표시",
     "pauseEffect": "정규 튜터링 일시 중단",
     "noticeHelp": "날짜가 정해진 일정을 변경하지 않고 안내를 표시합니다.",
-    "pauseHelp": "정규 일정을 일시 중단합니다. 예외 일정은 튜터와 참여 학생 모두의 명시적인 동의가 필요하며, 미응답은 동의로 간주하지 않습니다. 등교일 및 이의 신청 기한은 별도로 유지됩니다.",
+    "pauseHelp": "향후 자동으로 편성된 정기 세션을 취소하고 영향을 받는 참여자에게 이메일로 알립니다. 확정된 추가 세션과 명시적으로 합의한 일정 변경은 유지됩니다. 새로운 예외에는 명시적 동의가 필요하며, 무응답은 동의가 아닙니다.",
     "removePauseHelp": "이 튜터링 중단 설정을 삭제합니다. 다른 제한과 충돌을 확인한 후 조건에 맞는 향후 정규 일정을 복원할 수 있습니다. 시작된 수업과 기록된 출석은 변경하지 않습니다.",
     "reviewImpact": "일정 영향 검토",
     "impactTitle": "영향받는 일정 검토",
@@ -6144,10 +6175,17 @@
     "impactConflict": "이 알림이 변경되었습니다. 현재 세부 정보를 새로 불러온 뒤 다시 검토해 주세요.",
     "impactScope": "적용될 규칙에 따른 기존 향후 학생 일정의 미리보기이며 이미 중단된 일정도 포함합니다. 같은 수업의 학생도 각각 계산하며 향후 반복 일정에도 이 규칙이 적용됩니다.",
     "impactPause": "적용될 규칙에 따라 중단되는 정규 일정: {count}",
-    "impactRetain": "명시적으로 합의된 예외 유지: {count}",
+    "impactRetain": "유지되는 확정된 추가 세션 및 명시적으로 합의한 일정 변경: {count}",
     "impactConfirm": "명시적 확인 필요: {count}",
     "impactRestore": "복원 후보: {count}",
-    "impactRule": "저장 시 현재 동의와 충돌을 다시 확인합니다. 시작된 수업과 기록된 출석은 변경하지 않습니다."
+    "impactRule": "저장 시 현재 합의와 충돌을 다시 확인하고 영향을 받는 참여자에게 취소 사실을 이메일로 알립니다. 이미 시작된 세션과 기록된 출석은 변경되지 않습니다.",
+    "combinedTitle": "휴일 및 튜터링 중단",
+    "combinedHelp": "학교 휴일(휴교)과 튜터링 중단 또는 공지(등교일)를 관리합니다. 학교 휴일은 정규 튜터링과 이의신청 등교일 계산을 중단하며, 튜터링 중단은 등교일 및 이의신청 규칙을 변경하지 않습니다.",
+    "combinedEmpty": "등록된 학교 휴일이나 튜터링 공지가 없습니다.",
+    "denied": "튜터링 공지 및 중단 설정에 접근할 수 없습니다.",
+    "holidayEffect": "학교 휴일 (휴교)",
+    "pauseEffectTable": "정규 튜터링 중단 (등교일)",
+    "noticeEffectTable": "공지 전용 (등교일)"
   },
   "roomOrder": {
     "title": "교실 표시 순서",
@@ -6287,7 +6325,8 @@
     "proposeUnassign": "배정 해제 제안",
     "changed": "작성 중 검토 정보가 변경되었습니다. 사유는 유지됩니다. 검토를 다시 불러온 후 시도하세요.",
     "reload": "검토 다시 불러오기",
-    "rejectedTitle": "무효 신청 종료"
+    "rejectedTitle": "무효 신청 종료",
+    "action": "검토 또는 이의 제기"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
@@ -7303,7 +7342,32 @@
     "viewUpcoming": "예정된 변경 보기",
     "requestedDateTitle": "이 날짜의 학교 일정",
     "defaultCalendar": "이 날짜에 적용 중인 예외가 없습니다. 기본 등교일 및 요일 규칙을 적용합니다.",
-    "currentCalendar": "현재 학교 일정을 표시하며 이전 알림 당시의 상태는 아닙니다."
+    "currentCalendar": "현재 학교 일정을 표시하며 이전 알림 당시의 상태는 아닙니다.",
+    "addHoliday": "휴일 추가",
+    "from": "시작일",
+    "to": "종료일",
+    "holidayHelp": "범위 내 모든 날짜를 휴교일로 설정합니다. 시작일과 종료일을 포함하며 최대 366일입니다. 메모는 모든 날짜에 적용됩니다.",
+    "holidayPreview": "휴교일: {count}일 (시작일과 종료일 포함).",
+    "invalidRange": "유효한 날짜를 선택하세요. 종료일은 시작일 이후 또는 같은 날이어야 하며 최대 366일입니다.",
+    "holidayReplaces": "저장하면 아래 기존 날짜 설정 {count}개와 해당 메모가 교체됩니다.",
+    "saveHoliday": "휴일 저장",
+    "reloadHoliday": "현재 범위 다시 불러오기",
+    "weekdayOverridesTitle": "요일 시간표 변경",
+    "weekdayOverridesHelp": "특정 날짜에 적용할 요일 시간표를 설정합니다(주말 보충 등교일 포함). 여기에 표시된 날짜는 등교일이며, 휴일과 휴교는 위에서 관리합니다.",
+    "weekdayOverridesEmpty": "요일 시간표 변경이 없습니다. 등교일은 원래 요일의 시간표를 따릅니다.",
+    "addWeekdayOverride": "요일 시간표 변경 추가",
+    "editWeekdayOverride": "요일 시간표 변경 수정",
+    "saveWeekdayOverride": "요일 시간표 변경 저장",
+    "weekdayReplacesExisting": "저장하면 이 날짜의 기존 학사 일정 항목과 메모가 교체됩니다.",
+    "editHoliday": "휴일 수정",
+    "holidayDetailsTitle": "학교 휴일",
+    "holidayDaysCount": "{count}일",
+    "noStaffNote": "운영진 메모 없음",
+    "staffNotePrivate": "운영진 메모는 내부용이며 참가자에게 전송되지 않습니다.",
+    "holidayResets": "저장 시 기본 일정으로 복원되는 날짜: {count}일.",
+    "holidayChangedExternally": "이 휴일이 다른 곳에서 변경되었거나 제거되었습니다. 이 창을 닫고 최신 일정을 확인하세요.",
+    "resetHolidayTitle": "이 학교 휴일을 기본 일정으로 복원할까요?",
+    "resetHolidayHelp": "이 휴일에 포함된 모든 날짜의 일반 등교일 및 요일 시간표 규칙을 복원합니다. 기록과 합의된 세션은 유지됩니다."
   },
   "recordInspector": {
     "backToRecord": "Back to record",
@@ -7822,6 +7886,8 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
+    "tutorTitle": "{period} 튜터 지원",
+    "configuredOpening": "설정된 신청 시작 시간 (활성화 및 검토 필요)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7850,6 +7916,7 @@
     "plannedHelp": "신청을 받으려면 다음 분기를 먼저 활성화해야 합니다.",
     "scheduledHelp": "분기 전환이 승인되어 실행 예정입니다. 신청하려면 분기가 활성화되고 모집이 열려 있어야 합니다.",
     "currentClosed": "{period} 학습 파트너 신청이 마감되었습니다.",
+    "tutorCurrentClosed": "{period} 튜터 지원이 마감되었습니다.",
     "countdownLabel": "안내된 시작 시간까지 남은 시간",
     "previewLink": "신청서 미리 보기"
   },

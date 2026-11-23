@@ -130,6 +130,9 @@ it("imports a composite historical panel into a native terminal interview withou
               expires: "2099-01-01",
             },
           });
+          const reviewed = await tx.tutorApplication.findUniqueOrThrow({
+            where: { id: applicationId },
+          });
           await expect(
             api.interviewManagement.complete({
               applicationId,
@@ -137,6 +140,7 @@ it("imports a composite historical panel into a native terminal interview withou
               durationMin: 60,
               attendedTutorIds: tutors,
               reason: "Synthetic attempt to reissue imported panel credit",
+              expectedUpdatedAt: reviewed.updatedAt,
             }),
           ).rejects.toMatchObject({
             code: "CONFLICT",

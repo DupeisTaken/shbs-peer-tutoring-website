@@ -27,7 +27,7 @@
     "test:watch": "vitest",
     "test:lint-glob": "node --test scripts/lint-glob.test.mjs scripts/lint-minimatch.test.mjs",
     "test:pr-size": "node --test scripts/pr-size.test.mjs",
-    "test:ci": "node --test scripts/ci.test.mjs",
+    "test:ci": "node --import tsx --test --test-concurrency=1 scripts/ci.test.mjs scripts/scheduling-profile/group-plan.spec.ts",
     "test:deployment": "node --test --test-concurrency=1 scripts/deployment-config.test.mjs scripts/backup.test.mjs scripts/collect-network-evidence.test.mjs scripts/check-storage-capacity.test.mjs scripts/assemble-runtime.test.mjs scripts/runtime-file-inventory.test.mjs scripts/compare-runtime-images.test.mjs",
     "typecheck": "tsc --noEmit",
     "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs"
@@ -49,7 +49,7 @@
     "fflate": "^0.8.3",
     "geist": "^1.7.2",
     "html-to-image": "^1.11.13",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "next-auth": "5.0.0-beta.32",
     "next-intl": "^4.13.1",
     "nodemailer": "10.2.1",
@@ -77,7 +77,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "fast-glob": "file:tools/next-lint-glob",
     "minimatch": "file:tools/next-lint-glob/minimatch-compat",
     "js-yaml": "^4.3.2",
@@ -122,6 +122,9 @@
     },
     "prisma": {
       "mysql2": "3.24.4"
+    },
+    "@prisma/config": {
+      "effect": "3.22.1"
     },
     "deepmerge-ts": "8.0.0",
     "postcss": "$postcss",

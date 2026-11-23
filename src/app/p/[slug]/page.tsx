@@ -13,6 +13,7 @@ import {
 import { getLayout } from "~/server/home/blocks";
 import { authorizeHomeEditor } from "~/server/home/images";
 import { APP_TITLE } from "~/lib/branding";
+import type { LandingEditorView } from "~/lib/landing-editor-view";
 import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
 import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
@@ -37,7 +38,12 @@ export default async function SlugPage({
     const editorView = await gateUnpublished(page.published);
     const blocks = await getLayout(db, pageOwnerKey(page.id));
     return (
-      <Shell editorView={editorView} title={page.title} nav={navPages}>
+      <Shell
+        editorView={editorView ? "pages" : null}
+        title={page.title}
+        titleLocale={page.titleLocale}
+        nav={navPages}
+      >
         <PageBlocks blocks={blocks} locale={locale} />
       </Shell>
     );
@@ -47,7 +53,11 @@ export default async function SlugPage({
   if (section) {
     const editorView = await gateUnpublished(section.published);
     return (
-      <Shell editorView={editorView} title={section.title} nav={navPages}>
+      <Shell
+        editorView={editorView ? "sections" : null}
+        title={section.title}
+        nav={navPages}
+      >
         <article className="mx-auto max-w-3xl px-4 py-12">
           <div className="leading-relaxed text-slate-600">
             <Markdown>{section.body}</Markdown>
@@ -71,12 +81,14 @@ async function gateUnpublished(published: boolean): Promise<boolean> {
 async function Shell({
   editorView,
   title,
+  titleLocale,
   nav,
   children,
 }: {
-  editorView: boolean;
+  editorView: LandingEditorView | null;
   title: string;
-  nav: { slug: string; label: string }[];
+  titleLocale?: string;
+  nav: { slug: string; label: string; labelLocale: string | undefined }[];
   children: ReactNode;
 }) {
   const [t, tc] = await Promise.all([
@@ -86,6 +98,7 @@ async function Shell({
   const navItems = nav.map((page) => ({
     href: `/p/${page.slug}`,
     label: page.label,
+    lang: page.labelLocale,
   }));
   return (
     <div className="flex min-h-screen flex-col">
@@ -113,17 +126,30 @@ async function Shell({
           {editorView && (
             <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
               <span className="font-semibold">{t("preview.draftBadge")}</span> ·{" "}
-              {t("detail.hiddenNote")}
+              {t(
+                editorView === "pages"
+                  ? "detail.hiddenPageNote"
+                  : "detail.hiddenNote",
+              )}
             </div>
           )}
-          <h1 className="page-title">{title}</h1>
+          <h1 className="page-title" lang={titleLocale}>
+            {title}
+          </h1>
         </div>
         {children}
         <div className="mx-auto max-w-3xl px-4 pb-12">
-          {/* When an editor is previewing an unpublished page, wrap back to the landing editor
-              rather than the public home. */}
+          {/* The resolved draft owner selects a fixed editor view, including in a new tab
+              without session storage. Published pages keep their public return route. */}
           {editorView ? (
-            <Link href="/admin/landing" className="link">
+            <Link
+              href={
+                editorView === "pages"
+                  ? "/admin/landing?view=pages"
+                  : "/admin/landing?view=sections"
+              }
+              className="link"
+            >
               {t("preview.ribbon.back")}
             </Link>
           ) : (

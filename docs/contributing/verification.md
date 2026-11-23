@@ -42,20 +42,76 @@ The [CI workflow](../../.github/workflows/docker-build.yml) also checks dependen
 
 ## CI capacity and queue discipline
 
-Plan for three to four simultaneous PR reviews within the account's 20 standard
-hosted runner slots. Each PR can use four jobs in the build workflow plus one in
-the separate PR Size workflow. Three PRs can occupy 15 slots and four can occupy
-all 20. Main-branch runs, other repositories and earlier workflow revisions share
-the same pool. Actual jobs can queue when that other work overlaps.
+Budget for every workflow triggered by the PR within the account's 20 standard
+hosted runner planning slots. **Displayed checks are not simultaneous runners.**
+The core build workflow has eight displayed jobs, including the skipped PR
+publication job, but uses at most four runners at once. PR Size adds one check
+and one possible runner. **Allow each PR four additional concurrent scheduling
+benchmark slots**, separate from its five-slot core CI allowance. The existing
+profiling cap implements that allowance; keep the benchmarks enabled and their
+complete sample populations intact. Four **core-only** PR runs can occupy all 20
+slots; adding benchmarks can queue work rather than increasing the account limit.
+Main-branch runs,
+manual campaigns, other repositories and earlier workflow revisions share the
+same pool. Actual jobs can queue when that other work overlaps.
 [GitHub Actions limits](https://docs.github.com/en/actions/reference/limits#job-concurrency-limits-for-github-hosted-runners).
+
+| Workflows triggered for one PR revision | Displayed checks | Conservative peak runners |
+| --- | ---: | ---: |
+| Core build and PR Size | 9 | 5 |
+| Core plus admitted scheduling profile | 20 | 9 |
+| Also isolated recovery rehearsal | 21 | 10 |
+| Also production network observation | 22 | 11 |
+
+These totals assume one run of each workflow. Repeated PR Size events (including
+description edits and draft/ready transitions), reruns and other check providers
+can change the displayed total. Recovery and network workflows have their own
+path filters and can run independently of profiling. Network observation is
+globally serialized. Peak figures sum independent workflow bounds; they are
+planning limits, not measured overlap or a reservation of hosted runners.
+
+The [scheduling profile](../../.github/workflows/scheduling-profile.yml) adds
+**11 checks**: planning, one serial preflight group, eight scenario groups and
+final aggregation. The scenario groups are cold, warm, Sunday, negotiation,
+allocation, catalog, contention and backlog. Each group executes its partitions
+serially, with at most four groups running at once. The complete population stays
+at **60 latency partitions and 10 diagnostics**; five diagnostics must pass in
+preflight before the scenario groups start. Previously, each partition created
+its own hosted job, adding 72 benchmark checks and producing the 81-check PR shape
+with core CI. Grouping changes check presentation and runner reuse, not sampling.
+With core CI, two profiled PRs can need 18 slots; three can need 27 before recovery,
+network or main-branch work is counted.
+
+Profiling matches changed file paths, including the entire admin/tutor routers,
+`prisma/**`, `package.json` and `package-lock.json`, as well as scheduling sources
+and benchmark helpers. A comment-only router edit or unrelated dependency/schema
+change can therefore trigger it. The filter does not inspect changed functions.
+An admitted, completed aggregate supplies comparison evidence; a clock-deferred
+run can finish successfully with workers and aggregate skipped and supplies no
+benchmark result. Inspect the admission artifact/summary before calling a green
+workflow a measured PASS. See the [profiling contract](../reference/session-planning.md#request-profiling-and-comparison-contract).
+
+Keep complete sample populations and immutable controls when optimizing this
+cost. Each partition starts with pristine source checkouts and a fresh database,
+retains its seven-minute command budget and uploads its own sealed evidence.
+The containing group has a longer bounded timeout so it can complete its serial
+work. Provider-visible prepare/partition steps preserve per-partition execution
+history and authenticated retries inside a grouped check. Lowering `max-parallel`
+reduces peak demand without changing the 11 checks. Narrower triggers
+or manual-only profiling save work but remove automatic comparison coverage and
+need an explicit policy decision. [Issue #744](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/744)
+tracks reviewed admission for unrelated dependency changes; a skipped or
+inapplicable comparison must remain distinct from a measured PASS.
 
 - Use subagents extensively for independent investigation, implementation and
   review. Give each agent a distinct scope and acceptance criteria. The lead
   integrates their work, runs heavy local checks serially and batches verified
   changes into a single push.
 - Check queued and running jobs before starting another CI-producing stream.
-  Count both build and PR Size workflows. When occupancy is high, continue local
-  work and defer additional PR runs.
+  Count build, PR Size and every matching conditional workflow, including manual
+  campaigns already in progress. When occupancy is high, continue local work and
+  defer additional PR runs. Per-workflow concurrency groups do not enforce an
+  account-wide runner budget.
 - Per-PR concurrency cancels superseded revisions of the same PR. For a failing
   review, inspect the failed step and shard report. Push a verified code fix
   or rerun the failed jobs after a transient runner failure. Cancel
@@ -70,7 +126,7 @@ PostgreSQL startups and migration sequences compared with nine shards. One PR
 Size job can overlap these four build jobs.
 [Build workflow](../../.github/workflows/docker-build.yml) · [PR Size workflow](../../.github/workflows/pr-size.yml).
 
-Heavy jobs have a 30-minute timeout to stop a stuck runner. The required
+Core build jobs have a 30-minute timeout to stop a stuck runner. The required
 `verify` gate has a two-minute timeout and requires success from every shard,
 `checks`, `image` and `image-storage`. Failed, cancelled, skipped or missing
 prerequisites fail the gate. Queue time adds to the time contributors wait for
@@ -78,8 +134,15 @@ the result. Diagnose slow runs using the actual runner queue, test durations,
 dependency installation and image/cache steps.
 
 Run `npm run test:ci` for concurrency, dependency, gate and image-promotion
-regressions. It also checks that the installed sequencer assigns every discovered
-test file to exactly one shard. Hosted shards upload seven-day JSON reports.
+regressions. It inventories all automatic PR workflows, expands the real profiling
+matrix and checks total jobs separately from peak runners; a new automatic
+workflow requires a capacity review. After changing the group plan, run
+`node scripts/scheduling-profile/generate-workflow.mjs` to refresh the checked-in
+worker steps; the CI regression rejects generator drift. It also checks that the
+installed sequencer assigns every discovered test file to exactly one shard.
+Group orchestration specs run in root CI, outside the measured baseline's
+`*.test.ts` helper glob, so immutable controls need no candidate workflow assets.
+Hosted shards upload seven-day JSON reports.
 Keep the default Vitest reporter alongside JSON output so test failures and
 console diagnostics remain visible. Local `npm test` runs the full suite serially.
 
@@ -108,7 +171,7 @@ about 52.4 seconds of fixed cost per test shard and 0.72 seconds of overhead per
 file, yielding a test phase of about 13m 26s. In the packaging case, the three
 serial jobs account for 15m 12s and the final gate adds four seconds. With the
 ordinary 11-second scope check, the tests finish last. The estimates assume
-available runners. Peak four-PR slot demand follows from the job graph. The
+available runners and core CI only. Peak four-PR core slot demand follows from the job graph. The
 baseline measured one workflow. Compare hosted elapsed time and queue delays
 before revising this allocation.
 
@@ -264,10 +327,13 @@ Keep the lockfile and override together; run `npm audit`, the affected Vitest
 suites and CI before changing this pin. It does not replace the dependency audit
 or suppress advisory findings.
 
-When adding, renaming or removing interface message keys, update every bundled
-catalog in `messages/`, including languages hidden from the default picker. Run
-`npm test -- src/i18n/locales.test.ts --maxWorkers=1` to check key parity, nonblank
-values and ICU placeholders before the complete CI suite.
+When adding, renaming or editing interface copy, update every bundled catalog in
+`messages/`, including languages hidden from the default picker, and follow
+[Writing UI copy](design.md#writing-ui-copy). Run
+`npx vitest run src/i18n --maxWorkers=1` (`locales.test.ts`, `messages.test.ts`,
+`peer-wording.test.ts` and `willing-to-tutor.test.ts`) to check key parity,
+nonblank values, ICU placeholders, mojibake, manual `*` markers and EN/ZH
+register/glossary regressions before the complete CI suite.
 
 ## Verify and document a UI change
 
@@ -340,6 +406,7 @@ does not establish authorization, native browser focus or persisted behavior.
 | Forms and dialogs                         | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Account deletion step-up                  | Users & Roles: fresh consequence/fingerprint review, precise current singleton/history counts, retained ownership/intake/Head blockers and explicit stale-review Reload. Check delayed password focus, named native dialog, label/opener restoration, same-turn admission, pending dismissal, rejected draft and accepted-write/read recovery. Include `delete-account.test.ts`, the deletion component, Users page and auth/ownership regressions. Use synthetic EN/ZH desktop/mobile records; opening and canceling proves layout/focus, while database tests prove deletion, concurrency and rollback                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Request disclosure                        | Measure the sole Expand/Collapse target at desktop and mobile widths and the actual arrow leaf's contrast. Verify Enter/Space, focus, expanded state, retained selections, fulfilled auto-collapse and visible invalid-record review controls; include long labels and enlarged text without document overflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Copy, disclosures and chrome              | Check EN and ZH rendered copy against [Writing UI copy](design.md#writing-ui-copy): 1–2 sentence inline notices, collapsed secondary/historical rules (e.g. `MessageInbox` older-message disclosure), prerequisite inputs above gated actions (e.g. `Current password` in `AccountEmails`), `FieldRequirement` markers without manual `*`, and disambiguating DB IDs shown only when visible names collide |
 | Repeat profile edits                      | Account, tutor, tutee and Head username: Save → automatic refresh → Save without closing or a restart action; forced fresh version read; Retry refresh without a POST; automatic completion leaves sibling focus alone; retained academic/history drafts and original versions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Tutee detail reader                       | Actual Tutees roster: one trailing View details action; ordered subject choices, email copy and paginated history in one wide dialog; current versus historical academics; missing email and retained-owner setup restrictions. Check EN/ZH, long names/subjects/email, desktop/mobile scrolling, sticky Close, Escape/focus return and pending verification dismissal. History mounts on opening, refreshes on reopening, and retains cached content with Retry after failure. Viewers and departure observers must retain summary/subject access without contact or history queries                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Named destructive review                  | Rooms, hour adjustments, pairings, time slots, subject levels, tutees and registration invitations: exact target/consequence, Cancel/Escape without writes, one confirmed mutation, queued versus applied result, failed-write retry, held refresh and read-only recovery after Close. Viewers retain only authorized read access                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |

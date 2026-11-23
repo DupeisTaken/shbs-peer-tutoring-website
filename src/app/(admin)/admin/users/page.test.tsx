@@ -53,6 +53,10 @@ type DeleteCallbacks = {
   onError: (error: { message: string }) => void;
   onSettled: () => void;
 };
+type SetupSuccess = (
+  result: { emailed: boolean },
+  input: { tutorId: string },
+) => void;
 const fixture = vi.hoisted(() => {
   const navigation: {
     accountsError: { message: string; data?: { code?: string } } | null;
@@ -97,6 +101,7 @@ const fixture = vi.hoisted(() => {
       retainedOwnerName: string | null;
     }[],
     sendSetup: vi.fn(),
+    setupSuccess: undefined as SetupSuccess | undefined,
     accountsRefetch: vi.fn<() => Promise<void>>(),
     delete:
       vi.fn<
@@ -388,11 +393,14 @@ vi.mock("~/trpc/react", async () => {
           }),
         },
         sendTutorSetup: {
-          useMutation: () => ({
-            mutate: fixture.sendSetup,
-            isPending: false,
-            error: fixture.sendSetupError,
-          }),
+          useMutation: (options: { onSuccess: SetupSuccess }) => {
+            fixture.setupSuccess = options.onSuccess;
+            return {
+              mutate: fixture.sendSetup,
+              isPending: false,
+              error: fixture.sendSetupError,
+            };
+          },
         },
       },
     },
@@ -541,6 +549,7 @@ beforeEach(() => {
   fixture.extraTutorDestinations = [];
   fixture.combinedVerified = new Date("2026-09-01");
   fixture.sendSetup.mockClear();
+  fixture.setupSuccess = undefined;
   fixture.sendSetupError = null;
   fixture.accountsRefetch.mockReset().mockResolvedValue(undefined);
   fixture.targetSelf = false;
@@ -1158,6 +1167,37 @@ it(
     expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
       tutorId: "synthetic-tutor",
     });
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "reports a negative setup delivery receipt without inventing its cause in %s",
+  (locale) => {
+    fixture.locale = locale;
+    fixture.combinedAccount = "setup";
+    const text = locale === "zh" ? zhMessages : messages;
+    directoryArrival("synthetic-tutor");
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: text.admin.tutors.account.sendSetup,
+      }),
+    );
+    expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
+      tutorId: "synthetic-tutor",
+    });
+    act(() =>
+      fixture.setupSuccess!({ emailed: false }, { tutorId: "synthetic-tutor" }),
+    );
+    const failure = screen.getByText(
+      locale === "en"
+        ? "The setup email could not be sent. Check email delivery status and try again."
+        : "账号设置邮件未能发送。请检查邮件发送状态后重试。",
+    );
+    expect(failure).toBeTruthy();
+    expect(failure.textContent).not.toMatch(/not configured|尚未配置/);
+    expect(screen.queryByText(text.admin.tutors.account.linkEmailed)).toBeNull();
+    expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
   },
 );
 

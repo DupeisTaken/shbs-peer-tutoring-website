@@ -32,6 +32,7 @@ import { ApprovalReviewDetails } from "./approval-review-details";
 import { ReviewDisclosure } from "./review-disclosure";
 import { Button, ChoiceButton } from "./ui/button";
 import { FilterToolbar } from "./ui/patterns";
+import { TranslationReviewError } from "./translation-review-error";
 
 type Request = RouterOutputs["approval"]["list"]["rows"][number];
 type State = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -324,7 +325,9 @@ function RequestCard({
           )}
           {(decision.error ?? cancel.error) && (
             <p role="alert" className="text-sm text-red-700">
-              {(decision.error ?? cancel.error)!.message}
+              <TranslationReviewError
+                message={(decision.error ?? cancel.error)!.message}
+              />
             </p>
           )}
           {decision.data?.emailSent === false && (

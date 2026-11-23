@@ -2591,11 +2591,12 @@ export const adminRouter = createTRPCRouter({
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
-        action: `Sent account setup link to ${tutor?.englishName ?? "tutor"}`,
+        action: `Requested account setup email for ${tutor?.englishName ?? "tutor"}`,
         entity: "Tutor",
         entityId: input.tutorId,
       });
-      return { emailed: result.emailed };
+      // Preserve the helper's mutable receipt until the audit owner settles SMTP.
+      return result.delivery;
     }),
 
   createTutee: adminProcedure
@@ -6158,7 +6159,8 @@ export const adminRouter = createTRPCRouter({
   /**
    * Let an admin/coordinator also tutor: link the user to an (active) Tutor record so they get
    * a tutor area. Re-enables an existing linked/email-matched tutor, or creates one from their
-   * name. Disabling deactivates the tutor and unlinks it (revertible — re-enable relinks).
+   * name. Disabling revokes tutor access and archives the tutor, retaining the linked identity
+   * and history. Re-enabling reactivates the same linked record.
    */
   setUserCanTutor: adminOnlyProcedure
     .input(z.object({ userId: cuid, canTutor: z.boolean() }))

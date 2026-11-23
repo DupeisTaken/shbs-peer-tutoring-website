@@ -32,6 +32,7 @@ const state = vi.hoisted(() => ({
   reset: vi.fn(),
   invalidate: vi.fn(),
   publicInvalidate: vi.fn(),
+  sessionInvalidate: vi.fn(),
   refetch: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
@@ -39,6 +40,7 @@ vi.mock("~/trpc/react", () => ({
     useUtils: () => ({
       student: { calendar: { invalidate: state.invalidate } },
       program: { schoolCalendar: { invalidate: state.publicInvalidate } },
+      sessionPlanning: { invalidate: state.sessionInvalidate },
     }),
     account: {
       me: {
@@ -94,6 +96,7 @@ beforeEach(() => {
   state.reset.mockResolvedValue({});
   state.invalidate.mockResolvedValue(undefined);
   state.publicInvalidate.mockResolvedValue(undefined);
+  state.sessionInvalidate.mockResolvedValue(undefined);
   state.refetch.mockImplementation(async () => ({
     isSuccess: true,
     data: state.days,
@@ -129,17 +132,28 @@ const edit = () =>
 const submit = async () =>
   act(async () => {
     fireEvent.click(
-      screen.getByRole("button", { name: en.schoolCalendar.save }),
+      screen.getByRole("button", { name: en.schoolCalendar.saveWeekdayOverride }),
     );
   });
 
 it.each(["en", "zh"] as const)(
-  "distinguishes the actual date from the mapped timetable in %s",
+  "distinguishes the actual date from the mapped timetable in %s and excludes closed holidays",
   (locale) => {
+    state.days = [
+      row(),
+      row({
+        date: "2026-11-26",
+        isSchoolDay: false,
+        timetableWeekday: null,
+        note: "Thanksgiving",
+      }),
+    ];
     render(tree(locale));
     const t = (locale === "en" ? en : zh).schoolCalendar;
+    expect(screen.getByText(t.weekdayOverridesTitle)).toBeTruthy();
     expect(screen.getByText(t.noticeDistinction)).toBeTruthy();
     expect(document.querySelector('time[datetime="2026-11-01"]')).toBeTruthy();
+    expect(document.querySelector('time[datetime="2026-11-26"]')).toBeNull();
     expect(
       screen.getByText(
         locale === "en" ? "Follows Mon timetable" : "采用周一课表",
@@ -156,47 +170,88 @@ it.each(["en", "zh"] as const)(
         .getByRole("combobox", { name: t.timetable })
         .getAttribute("aria-describedby"),
     ).toBe("school-calendar-weekday-help");
+    expect(screen.queryByRole("combobox", { name: t.schoolStatus })).toBeNull();
   },
 );
 
 it.each(["HEAD", "ADMIN"])(
-  "saves no-school status directly as %s without a contradictory weekday and preserves the captured version",
+  "saves a weekday override directly as %s with captured version and invalidates public/session views",
   async (role) => {
     state.role = role;
     render(tree());
     edit();
     fireEvent.change(
-      screen.getByRole("combobox", { name: en.schoolCalendar.schoolStatus }),
-      { target: { value: "closed" } },
+      screen.getByRole("combobox", { name: en.schoolCalendar.timetable }),
+      { target: { value: "5" } },
     );
-    expect(
-      screen.queryByRole("combobox", { name: en.schoolCalendar.timetable }),
-    ).toBeNull();
     await submit();
     expect(state.save).toHaveBeenCalledWith({
       date: "2026-11-01",
-      isSchoolDay: false,
-      timetableWeekday: null,
+      isSchoolDay: true,
+      timetableWeekday: 5,
       note: "Synthetic staff note",
       expectedVersion: 3,
     });
     expect(state.publicInvalidate).toHaveBeenCalledTimes(1);
+    expect(state.sessionInvalidate).toHaveBeenCalledTimes(1);
   },
 );
 
-it("recreates a reset date using its tombstone version", async () => {
-  state.days = [row({ active: false, version: 7 })];
+it("recreates a reset date using its tombstone version and warns before replacing an active holiday", async () => {
+  state.days = [
+    row({ date: "2026-11-01", active: false, version: 7 }),
+    row({
+      date: "2026-11-26",
+      isSchoolDay: false,
+      timetableWeekday: null,
+      active: true,
+      version: 5,
+      note: "Holiday",
+    }),
+  ];
   render(tree());
   expect(
     screen.queryByRole("button", { name: en.schoolCalendar.edit }),
   ).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: en.schoolCalendar.add }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.addWeekdayOverride }),
+  );
   fireEvent.change(field(en.schoolCalendar.date), {
     target: { value: "2026-11-01" },
   });
+  expect(
+    screen.queryByText(en.schoolCalendar.weekdayReplacesExisting),
+  ).toBeNull();
   await submit();
   expect(state.save).toHaveBeenCalledWith(
-    expect.objectContaining({ expectedVersion: 7, timetableWeekday: null }),
+    expect.objectContaining({
+      date: "2026-11-01",
+      isSchoolDay: true,
+      expectedVersion: 7,
+      timetableWeekday: null,
+    }),
+  );
+
+  // Close and reopen to replace an active holiday date with a weekday override.
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountProfile.close }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.addWeekdayOverride }),
+  );
+  fireEvent.change(field(en.schoolCalendar.date), {
+    target: { value: "2026-11-26" },
+  });
+  expect(
+    screen.getByText(en.schoolCalendar.weekdayReplacesExisting),
+  ).toBeTruthy();
+  await submit();
+  expect(state.save).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      date: "2026-11-26",
+      isSchoolDay: true,
+      expectedVersion: 5,
+    }),
   );
 });
 
@@ -251,7 +306,7 @@ it("retains a failed write draft and only adopts a new version through explicit 
   expect(field(en.schoolCalendar.note).value).toBe("Unsaved draft");
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
-      name: en.schoolCalendar.save,
+      name: en.schoolCalendar.saveWeekdayOverride,
     }).disabled,
   ).toBe(true);
   await act(async () => {
@@ -352,14 +407,16 @@ it("hides write actions when the current role has no calendar editing authority"
   state.role = "VIEWER";
   render(tree());
   expect(
-    screen.queryByRole("button", { name: en.schoolCalendar.add }),
+    screen.queryByRole("button", {
+      name: en.schoolCalendar.addWeekdayOverride,
+    }),
   ).toBeNull();
   expect(
     screen.queryByRole("button", { name: en.schoolCalendar.edit }),
   ).toBeNull();
   expect(
     screen.getByRole("button", {
-      name: `${en.schoolCalendar.details}: ${en.schoolCalendar.title} · 2026-11-01`,
+      name: `${en.schoolCalendar.details}: ${en.schoolCalendar.weekdayOverridesTitle} · 2026-11-01`,
     }),
   ).toBeTruthy();
 });
@@ -376,6 +433,7 @@ it("cancels a reset without writing", () => {
   );
   expect(state.reset).not.toHaveBeenCalled();
 });
+
 it("keeps accepted-save read recovery after closing its editor", async () => {
   state.invalidate.mockRejectedValueOnce(new Error("Offline"));
   render(tree());
@@ -405,6 +463,7 @@ it("keeps accepted-save read recovery after closing its editor", async () => {
     }).disabled,
   ).toBe(true);
 });
+
 it("retains an ordinary rejected write draft for another deliberate attempt", async () => {
   state.save.mockRejectedValueOnce(new Error("Temporary failure"));
   render(tree());
@@ -426,7 +485,9 @@ it("does not repeat an accepted new-date proposal after its editor closes", asyn
     data: { approvalId: "synthetic-proposal" },
   });
   render(tree());
-  fireEvent.click(screen.getByRole("button", { name: en.schoolCalendar.add }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.addWeekdayOverride }),
+  );
   fireEvent.change(field(en.schoolCalendar.date), {
     target: { value: "2026-11-01" },
   });
@@ -438,7 +499,9 @@ it("does not repeat an accepted new-date proposal after its editor closes", asyn
   fireEvent.click(
     screen.getByRole("button", { name: en.accountProfile.close }),
   );
-  fireEvent.click(screen.getByRole("button", { name: en.schoolCalendar.add }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.addWeekdayOverride }),
+  );
   fireEvent.change(field(en.schoolCalendar.date), {
     target: { value: "2026-11-01" },
   });
@@ -448,6 +511,7 @@ it("does not repeat an accepted new-date proposal after its editor closes", asyn
   });
   expect(state.save).toHaveBeenCalledTimes(1);
 });
+
 it("queues a Coordinator reset for Admin review without reporting a direct reset", async () => {
   state.role = "COORDINATOR";
   state.reset.mockRejectedValueOnce({

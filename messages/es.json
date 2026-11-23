@@ -508,7 +508,8 @@
     "replyContext": "Respondiendo a {name}",
     "cancelReply": "Cancelar Respuesta",
     "replyDraftHelp": "Se conserva tu borrador anterior. Al cancelar, también se conserva este borrador de respuesta en la página.",
-    "permissionsDestination": "Permisos de mensajería en Configuración del programa"
+    "permissionsDestination": "Permisos de mensajería en Configuración del programa",
+    "privacyDetails": "Más sobre mensajes anteriores"
   },
   "common": {
     "cancel": "Cancelar",
@@ -522,7 +523,8 @@
     "close": "Cerrar",
     "collapseAll": "Contraer todo",
     "expandAll": "Expandir todo",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Intentar de nuevo"
   },
   "auth": {
     "signinTitle": "Iniciar sesión",
@@ -706,7 +708,8 @@
       "draftBadge": "Borrador"
     },
     "detail": {
-      "hiddenNote": "Esta página está oculta para los visitantes hasta que la sección se muestre."
+      "hiddenNote": "Esta página está oculta para los visitantes hasta que la sección se muestre.",
+      "hiddenPageNote": "Esta página está oculta para los visitantes hasta que se muestre la página."
     }
   },
   "dashboard": {
@@ -825,7 +828,7 @@
         "sendSetup": "Enviar enlace de configuración",
         "needEmail": "Agrega un correo primero",
         "linkEmailed": "Se envió el correo de configuración al titular de la cuenta.",
-        "linkManual": "El envío de correo no está configurado. Contacta con el administrador del despliegue antes de enviar correos de configuración de cuentas.",
+        "linkManual": "No se pudo enviar el correo de configuración de la cuenta. Comprueba el estado del envío de correo e inténtalo de nuevo.",
         "dismiss": "Descartar",
         "registered": "Registrado",
         "setup": "Configuración pendiente",
@@ -921,7 +924,8 @@
         "tutors": "Tutores",
         "tutees": "Estudiantes",
         "schedulingRecords": "Programación y registros",
-        "administration": "Administración"
+        "administration": "Administración",
+        "dataRecovery": "Datos y recuperación"
       },
       "links": {
         "dashboard": "Panel",
@@ -1236,7 +1240,8 @@
       "columns": {
         "when": "Cuándo",
         "who": "Quién",
-        "action": "Acción"
+        "action": "Operación registrada",
+        "actions": "Acciones de fila"
       },
       "undone": "deshecha",
       "undo": "Deshacer",
@@ -1625,6 +1630,7 @@
     "applications": {
       "title": "Solicitudes de tutores",
       "intro": "Revisa a los solicitantes y asigna un panel de entrevista de {n} tutores (marca uno como responsable). Haz clic en una fila para expandirla. El responsable programa la entrevista y registra la decisión desde su propio panel.",
+      "panelRangeIntro": "Revisa a los solicitantes y asigna un panel de entrevista de {min} a {max} tutores, con uno de ellos como responsable. Haz clic en una fila para expandirla. El responsable programa la entrevista y registra la decisión desde su propio panel.",
       "empty": "Aún no hay solicitudes.",
       "status": {
         "PENDING": "pendiente",
@@ -1635,6 +1641,7 @@
       },
       "noCourses": "sin materias",
       "panelSummary": "panel {n}/{total}",
+      "panelCount": "panel de {n} (mínimo {min})",
       "votesSummary": "votos {accepts}/{total}",
       "accept": "Aceptar",
       "reject": "Rechazar",
@@ -1649,6 +1656,7 @@
       },
       "noQualification": "no indicó cualificación",
       "panelHeading": "Panel de entrevista (elige {n}, marca uno como responsable)",
+      "panelRangeHeading": "Panel de entrevista (de {min} a {max} tutores, un responsable)",
       "scheduled": "Programada: {when} (fijada por el responsable)",
       "panelistSlot": "— panelista {n} —",
       "head": "responsable",
@@ -1656,6 +1664,7 @@
       "savePanel": "Guardar panel",
       "saved": "Guardado.",
       "pickHint": "Elige {n} tutores y un responsable.",
+      "pickRangeHint": "Elige de {min} a {max} tutores distintos y designa a uno como responsable.",
       "votesDecisionHeading": "Votos y decisión",
       "voteTally": "{accepts} aceptan · {rejects} rechazan",
       "noVotes": "Aún no hay votos.",
@@ -2049,6 +2058,8 @@
     },
     "landing": {
       "pageAddress": "Dirección de la página",
+      "addressRefreshFailed": "La dirección se guardó, pero no se pudo cargar la dirección actualizada. Actualice la dirección sin volver a guardarla.",
+      "refreshAddress": "Actualizar dirección",
       "title": "Página de inicio",
       "subtitle": "Edita textos, noticias e imágenes del sitio público. Los cambios de coordinadores y textos de traductores requieren revisión. Los cambios autorizados de Admin/Head se aplican directamente; las noticias en borrador siguen privadas hasta publicarse.",
       "loading": "Cargando…",
@@ -2364,7 +2375,7 @@
         "EXTRA": "Sesión extra",
         "TUTOR_ABSENT": "Tutor ausente"
       },
-      "tutorAbsentReason": "Motivo de la ausencia del tutor *",
+      "tutorAbsentReason": "Motivo de la ausencia del tutor",
       "start": "Inicio",
       "end": "Fin",
       "now": "Ahora",
@@ -2390,7 +2401,7 @@
         "4": "Muy bueno",
         "5": "Excelente"
       },
-      "comments": "Comentarios *",
+      "comments": "Comentarios",
       "cardsTitle": "Tarjetas disciplinarias (opcional)",
       "cardsHelp": "Asigna una tarjeta amarilla o roja con un motivo breve. El equipo revisa cada una antes de que cuente. (Una ausencia injustificada arriba emite automáticamente una tarjeta roja.)",
       "noCard": "Sin tarjeta",
@@ -2594,6 +2605,7 @@
     }
   },
   "public": {
+    "signupFormLoadFailed": "No pudimos cargar la información del formulario de inscripción. Inténtalo de nuevo.",
     "applicationRetryNotice": "Si ya se está revisando una solicitud con este correo electrónico, conservamos la solicitud original. Para modificarla, contacta con el equipo del programa.",
     "signup": {
       "title": "Solicitar un tutor par",
@@ -2852,6 +2864,7 @@
     "collapseAll": "Contraer todo",
     "languagesHeading": "Idiomas",
     "languagesHelp": "Solo los idiomas habilitados aparecen en los menús públicos. Los idiomas ocultos se pueden seguir editando aquí hasta completar sus traducciones.",
+    "languagesReadFailed": "No se pudieron cargar los ajustes de idioma.",
     "builtIn": "integrado",
     "enabled": "habilitado",
     "disabled": "oculto",
@@ -3025,6 +3038,17 @@
     "news": "News",
     "sections": "Website Sections",
     "pages": "Page Titles",
+    "pageTarget": {
+      "current": "Página guardada actualmente",
+      "currentHelp": "Datos guardados actuales, no una copia del momento del envío.",
+      "missing": "Esta página ya no existe.",
+      "missingRecovery": "Esta página ya no existe, por lo que este borrador no se puede publicar. Un administrador o responsable puede rechazarlo y conservarlo en el historial.",
+      "untitled": "No hay título guardado en el idioma de destino ni en inglés.",
+      "language": "Idioma del título: {locale}",
+      "fallbackLanguage": "Idioma del título: {locale} (alternativo)",
+      "address": "Dirección actual de la página",
+      "reference": "ID de referencia de la página"
+    },
     "fields": {
       "locale": "Language Code",
       "key": "Content to Translate",
@@ -3614,7 +3638,11 @@
         "archivedOfferings": "Ofertas de asignatura que se archivarán",
         "timetableWeekday": "Día del horario",
         "scheduleRevision": "Revisión del horario",
-        "actionId": "ID de acción de admisión registrada"
+        "actionId": "ID de acción de admisión registrada",
+        "from": "Fecha de inicio",
+        "to": "Fecha de fin",
+        "originalFrom": "Fecha de inicio anterior",
+        "originalTo": "Fecha de fin anterior"
       },
       "values": {
         "ACTIVE": "Activo",
@@ -3853,7 +3881,10 @@
         "admin_scheduleRefresh": "Schedule a program refresh",
         "admin_cancelRefresh": "Cancel a scheduled program refresh",
         "monthlyHours_save": "Cambiar la programación de informes mensuales de horas",
-        "schoolHours_save": "Cambiar la programación de informes de horas para la escuela"
+        "schoolHours_save": "Cambiar la programación de informes de horas para la escuela",
+        "student_setCalendarHoliday": "Añadir un intervalo de vacaciones escolares",
+        "student_updateCalendarHoliday": "Editar un intervalo de vacaciones escolares",
+        "student_resetCalendarHoliday": "Restablecer un intervalo de vacaciones escolares"
       },
       "decisionRequestHelp": "Aprobar y aplicar ejecuta la acción solicitada, incluso cuando esta consiste en rechazar una solicitud. Rechazar con comentarios descarta esta propuesta sin aplicar cambios. Añada una nota para explicar su decisión.",
       "confirmPassword": "Confirma la contraseña de tu cuenta",
@@ -4907,7 +4938,7 @@
     "copied": "Email copied.",
     "copyError": "Copy is unavailable. Select the email above and copy it manually.",
     "sent": "Verification and setup link sent.",
-    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "deliveryUnavailable": "No se pudo confirmar el envío del correo. Comprueba el estado del envío e inténtalo de nuevo.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
@@ -6108,12 +6139,12 @@
   },
   "programCalendar": {
     "title": "Avisos y pausas de tutorías",
-    "informational": "Cada intervalo es un aviso o una pausa de tutorías regulares. Las pausas permiten excepciones acordadas expresamente y no cambian el calendario escolar ni los plazos de apelación.",
+    "informational": "Las pausas de tutoría cancelan las sesiones regulares programadas automáticamente. Se conservan las sesiones extra confirmadas y las reprogramaciones acordadas explícitamente. Los avisos informativos y las reglas de días lectivos se mantienen separados.",
     "refresh": "Actualizar",
     "reload": "Recargar borrador",
     "loadFailed": "No se pudieron cargar los avisos de tutoría.",
     "loading": "Cargando avisos de tutoría…",
-    "add": "Añadir intervalo de fechas",
+    "add": "Añadir pausa o aviso de tutoría",
     "date": "Intervalo de fechas",
     "startDate": "Fecha de inicio",
     "endDate": "Fecha de fin",
@@ -6136,7 +6167,7 @@
     "noticeEffect": "Solo aviso",
     "pauseEffect": "Pausar tutorías regulares",
     "noticeHelp": "Muestra un aviso sin cambiar las sesiones con fecha.",
-    "pauseHelp": "Se pausan las sesiones regulares. Las excepciones requieren el acuerdo expreso del tutor y de cada estudiante participante; el silencio no equivale a aceptar. Los días lectivos y los plazos de apelación siguen siendo independientes.",
+    "pauseHelp": "Cancela futuras sesiones regulares programadas automáticamente y avisa por correo a los participantes afectados. Se conservan las sesiones extra confirmadas y las reprogramaciones acordadas explícitamente. Las nuevas excepciones requieren acuerdo explícito; el silencio no implica acuerdo.",
     "removePauseHelp": "Eliminar esta pausa de tutorías. Las sesiones regulares futuras que cumplan los requisitos podrán restablecerse tras comprobar otras restricciones y conflictos. Las sesiones iniciadas y la asistencia registrada no cambian.",
     "reviewImpact": "Revisar efecto en la programación",
     "impactTitle": "Revisar compromisos afectados",
@@ -6144,10 +6175,17 @@
     "impactConflict": "Este aviso ha cambiado. Vuelve a cargar los detalles actuales antes de revisarlo de nuevo.",
     "impactScope": "Vista previa de los compromisos futuros existentes de estudiantes según la regla resultante, incluidos los ya pausados. Los estudiantes de una misma sesión se cuentan por separado; la regla también rige la recurrencia futura.",
     "impactPause": "Compromisos regulares pausados según la regla resultante: {count}",
-    "impactRetain": "Excepciones acordadas expresamente que se mantienen: {count}",
+    "impactRetain": "Sesiones extra confirmadas y reprogramaciones acordadas explícitamente conservadas: {count}",
     "impactConfirm": "Necesitan confirmación expresa: {count}",
     "impactRestore": "Candidatos a restablecimiento: {count}",
-    "impactRule": "Al guardar se vuelven a comprobar los acuerdos y conflictos actuales. Las sesiones iniciadas y la asistencia registrada no cambian."
+    "impactRule": "Al guardar se vuelven a comprobar los acuerdos y conflictos actuales. Se informa por correo a los participantes afectados sobre las cancelaciones. Las sesiones iniciadas y la asistencia registrada no cambian.",
+    "combinedTitle": "Vacaciones y pausas de tutoría",
+    "combinedHelp": "Gestiona las vacaciones escolares (sin clases) y las pausas o avisos de tutoría (con clases). Las vacaciones pausan las tutorías regulares y el conteo de días lectivos para apelaciones; las pausas de tutoría no alteran los días lectivos.",
+    "combinedEmpty": "No hay vacaciones escolares ni avisos de tutoría.",
+    "denied": "Los avisos y pausas de tutoría no están disponibles.",
+    "holidayEffect": "Vacaciones escolares (Sin clases)",
+    "pauseEffectTable": "Pausa de tutoría (Día lectivo)",
+    "noticeEffectTable": "Solo aviso (Día lectivo)"
   },
   "roomOrder": {
     "title": "Orden de las aulas",
@@ -6287,7 +6325,8 @@
     "proposeUnassign": "Proponer liberar la asignación",
     "changed": "La revisión cambió mientras escribías. Tu motivo se conserva. Recarga antes de reintentar.",
     "reload": "Recargar revisión",
-    "rejectedTitle": "Solicitud inválida cerrada"
+    "rejectedTitle": "Solicitud inválida cerrada",
+    "action": "Revisar o apelar"
   },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
@@ -7303,7 +7342,32 @@
     "viewUpcoming": "Ver próximos cambios",
     "requestedDateTitle": "Calendario escolar de esta fecha",
     "defaultCalendar": "No hay una excepción activa para esta fecha. Se aplican las reglas habituales de días lectivos y horarios.",
-    "currentCalendar": "Se muestra el calendario escolar actual, no el estado de la notificación anterior."
+    "currentCalendar": "Se muestra el calendario escolar actual, no el estado de la notificación anterior.",
+    "addHoliday": "Añadir vacaciones",
+    "from": "Fecha de inicio",
+    "to": "Fecha de fin",
+    "holidayHelp": "Marcar todas las fechas del intervalo como días sin clase. Se incluyen ambos extremos; máximo 366 días. La nota se aplica a cada fecha.",
+    "holidayPreview": "Días sin clase: {count} (incluye inicio y fin).",
+    "invalidRange": "Elige fechas válidas, con el fin igual o posterior al inicio y un máximo de 366 días.",
+    "holidayReplaces": "Al guardar se reemplazan las siguientes {count} excepciones de fecha, incluidas sus notas.",
+    "saveHoliday": "Guardar vacaciones",
+    "reloadHoliday": "Recargar intervalo actual",
+    "weekdayOverridesTitle": "Cambios de horario semanal",
+    "weekdayOverridesHelp": "Indica qué horario de día de la semana sigue una fecha concreta, incluidos los días lectivos de recuperación en fin de semana. Las fechas listadas aquí son días lectivos; las vacaciones se gestionan arriba.",
+    "weekdayOverridesEmpty": "No hay cambios de horario semanal. Los días lectivos siguen su propio día de la semana.",
+    "addWeekdayOverride": "Añadir cambio de horario",
+    "editWeekdayOverride": "Editar cambio de horario",
+    "saveWeekdayOverride": "Guardar cambio de horario",
+    "weekdayReplacesExisting": "Al guardar se reemplazará la entrada existente del calendario escolar en esta fecha, incluida su nota.",
+    "editHoliday": "Editar vacaciones",
+    "holidayDetailsTitle": "Vacaciones escolares",
+    "holidayDaysCount": "{count, plural, one {# día} other {# días}}",
+    "noStaffNote": "Sin nota del personal",
+    "staffNotePrivate": "Las notas del personal son internas y no se envían a los participantes.",
+    "holidayResets": "Fechas que volverán a la normalidad al guardar: {count}.",
+    "holidayChangedExternally": "Estas vacaciones cambiaron o se eliminaron en otro lugar. Cierra este cuadro para revisar el calendario actualizado.",
+    "resetHolidayTitle": "¿Restablecer estas vacaciones escolares?",
+    "resetHolidayHelp": "Restaura las reglas normales de día lectivo y horario semanal para cada fecha de estas vacaciones. Se conservan el historial y las sesiones acordadas."
   },
   "recordInspector": {
     "backToRecord": "Back to record",
@@ -7822,6 +7886,8 @@
   "signupTransition": {
     "currentClosed": "{period} tutee signup is closed. The next intake is shown below.",
     "nextTitle": "{period} Tutee Signup",
+    "tutorTitle": "Inscripción de tutores para {period}",
+    "configuredOpening": "Apertura configurada (sujeta a activación y revisión)",
     "plannedTitle": "{period} Tutee Signup — Planned Opening {time}",
     "plannedHelp": "This opening is planned. The next quarter must be activated before applications can be accepted.",
     "scheduledHelp": "The quarter refresh is scheduled. Signup opens only after activation and while recruitment is enabled.",
@@ -7850,6 +7916,7 @@
     "plannedHelp": "El próximo trimestre debe activarse antes de aceptar solicitudes.",
     "scheduledHelp": "El cambio de trimestre está aprobado y programado. La inscripción aún requiere la activación y que la convocatoria esté habilitada.",
     "currentClosed": "La inscripción para recibir tutoría en {period} está cerrada.",
+    "tutorCurrentClosed": "La inscripción de tutores para {period} está cerrada.",
     "countdownLabel": "Tiempo hasta la apertura anunciada",
     "previewLink": "Ver formulario de inscripción"
   },

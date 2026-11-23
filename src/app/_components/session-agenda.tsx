@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
 import { ProfileDialog } from "./profile-dialog";
@@ -36,6 +36,7 @@ import { SessionCoordinateMessage } from "./session-coordinate-message";
 import { SessionCalendarSubscription } from "./session-calendar-subscription";
 import { programDateKey } from "~/lib/program-time";
 import { SESSION_REFRESH_BOUNDARY_ERROR } from "~/lib/session-planning";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { isRegularTutoringPaused } from "~/lib/tutoring-policy";
 import { focusVisibleContext } from "./focus-visible-context";
 import { AgendaBadge, AgendaEventCard } from "./agenda-event-card";
@@ -156,11 +157,12 @@ export function SessionAgenda({
 }) {
   const t = useTranslations("sessionPlanning");
   const format = useFormatter();
+  const locale = useLocale();
   const u = useTranslations("unifiedSchedule");
   const eventText = useTranslations("agendaEvents");
   const [extraPicker, setExtraPicker] = useState(false);
   const agenda = api.sessionPlanning.agenda.useQuery(
-    { role },
+    { role, ...(role === "tutor" ? { includeRecurringSchedule: true } : {}) },
     { refetchInterval: 30_000 },
   );
   const agendaDenied = useSessionAccessDenied(agenda);
@@ -232,10 +234,15 @@ export function SessionAgenda({
           (row) => `#session-${row.id}` === hash,
         );
         if (!cohort) return;
+        const cancelled = cohort.status === "CANCELLED" || cohort.tutoringPaused;
+        // A saved link must still reveal cancellation evidence after the
+        // commitment leaves Upcoming, without adding it back to active cards.
         onViewChange?.(
-          cohort.needsAttendance || cohort.endsAt > now
-            ? "upcoming"
-            : "history",
+          cancelled
+            ? cohort.endsAt > now ? "all" : "history"
+            : cohort.needsAttendance || cohort.endsAt > now
+              ? "upcoming"
+              : "history",
         );
         setTab(
           cohort.date < agenda.data.windowStart ||
@@ -565,17 +572,23 @@ export function SessionAgenda({
           view === "all" ||
           (view === "history"
             ? cohort.endsAt <= now
-            : cohort.needsAttendance ||
-              ((cohort.status === "SCHEDULED" || cohort.tutoringPaused) &&
-                cohort.endsAt > now &&
-                cohort.date >= data.windowStart &&
-                cohort.date <= data.windowEnd)),
+            : !cohort.tutoringPaused &&
+              (cohort.status === "SCHEDULED" || cohort.status === "RECORDED") &&
+              (cohort.needsAttendance ||
+                (cohort.status === "SCHEDULED" &&
+                  cohort.endsAt > now &&
+                  cohort.date >= data.windowStart &&
+                  cohort.date <= data.windowEnd))),
       )
     : data.cohorts.filter((cohort) =>
-        tab === "needsAttendance"
+        // Suppressed sources still support extras and retained history, but do
+        // not represent a confirmed lesson or an attendance duty in this list.
+        !cohort.tutoringPaused &&
+        (cohort.status === "SCHEDULED" || cohort.status === "RECORDED") &&
+        (tab === "needsAttendance"
           ? cohort.needsAttendance
           : cohort.needsAttendance ||
-            (cohort.date >= data.windowStart && cohort.date <= data.windowEnd),
+            (cohort.date >= data.windowStart && cohort.date <= data.windowEnd)),
       );
   const shown = preview ? visible.slice(0, 3) : visible;
   // Historical rows never grant write authority. An overlapping stable agenda row
@@ -1274,7 +1287,9 @@ export function SessionAgenda({
                       {cohort.tutees.map((person) => person.name).join(", ")}
                     </p>
                     <p className="muted text-sm">
-                      {timeText(cohort.startsAt, cohort.endsAt)}
+                      {cohort.recurringSchedule
+                        ? pairingScheduleText(cohort.recurringSchedule, t("scheduleUnavailable"), locale)
+                        : t("scheduleUnavailable")}
                     </p>
                   </div>
                   <Button

@@ -12,6 +12,7 @@ import { nextPeriod, periodLabel } from "~/lib/period";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { isSerializationFailure } from "~/server/auth/username-snapshot";
 import { inTransaction, lockEntity, type DomainDb, type TransactionDb } from "~/server/transactions";
+import { DEFAULT_FEATURES, type FeatureKey } from "./features";
 
 /** All period-dependent writers take the period barrier before the source and timezone. */
 export async function lockNextRecruitment(tx: TransactionDb) {
@@ -89,6 +90,19 @@ function destinationEvidence(term: Term | null): NextRecruitmentRefreshEvidence[
   } : null;
 }
 
+function storedFeatureChanges(
+  features: NonNullable<NextRecruitmentRefreshEvidence["stagedFeatures"]>,
+) {
+  // Storing an untouched default has the same effect as leaving the row absent.
+  // Keep revisions so a real edit and reversal still require a new review.
+  return features.filter(
+    ({ key, enabled, pendingEnabled, revision }) =>
+      revision !== 0 ||
+      pendingEnabled !== null ||
+      enabled !== DEFAULT_FEATURES[key as FeatureKey],
+  );
+}
+
 /** Read only after the barrier, so source, staged mode and both rows form one review. */
 async function readLockedNextRecruitment(tx: TransactionDb) {
   const source = await tx.term.findFirst({
@@ -118,10 +132,10 @@ async function readLockedNextRecruitment(tx: TransactionDb) {
   });
   const refreshEvidence: NextRecruitmentRefreshEvidence = {
     target, timeZone, preparations, destination: destinationEvidence(existingDestination),
-    stagedFeatures: await tx.programFeature.findMany({
+    stagedFeatures: storedFeatureChanges(await tx.programFeature.findMany({
       select: { key: true, enabled: true, pendingEnabled: true, revision: true },
       orderBy: { key: "asc" },
-    }),
+    })),
   };
   const withState = (row: NextRecruitmentPreparationEvidence | null) => row ? {
     ...row, matchesTarget: sameNextRecruitmentTarget(row.target, target),
@@ -208,14 +222,22 @@ export async function saveNextRecruitment(
   });
 }
 
-/** Refresh must recheck the exact reviewed evidence before archiving or activating anything. */
+function comparableRefreshEvidence(evidence: NextRecruitmentRefreshEvidence) {
+  const parsed = nextRecruitmentRefreshEvidenceSchema.parse(evidence);
+  return JSON.stringify({
+    ...parsed,
+    // Authorizations already stored before this rule may include default rows.
+    stagedFeatures: parsed.stagedFeatures && storedFeatureChanges(parsed.stagedFeatures),
+  });
+}
+
+/** Refresh must recheck the reviewed effects before archiving or activating anything. */
 export async function validateNextRecruitmentRefresh(tx: TransactionDb, evidence: NextRecruitmentRefreshEvidence) {
   await lockNextRecruitment(tx);
   const snapshot = await readLockedNextRecruitment(tx);
   if (!sameNextRecruitmentTarget(evidence.target, snapshot.target))
     conflict("NEXT_RECRUITMENT_TARGET_CHANGED");
-  const reviewed = nextRecruitmentRefreshEvidenceSchema.parse(evidence);
-  if (JSON.stringify(reviewed) !== JSON.stringify(nextRecruitmentRefreshEvidenceSchema.parse(snapshot.refreshEvidence)))
+  if (comparableRefreshEvidence(evidence) !== comparableRefreshEvidence(snapshot.refreshEvidence))
     conflict("NEXT_RECRUITMENT_CHANGED");
   for (const audience of ["tutor", "tutee"] as const) {
     const row = snapshot.preparations[audience];

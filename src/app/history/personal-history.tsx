@@ -55,31 +55,39 @@ export function PersonalTuteeHistory() {
             </tr>
           </thead>
           <tbody>
-            {records.data.map((record) => (
-              <tr key={record.id}>
-                <td>
-                  <p className="font-semibold">{record.englishName}</p>
-                  <p className="muted text-xs break-all">
-                    {t("recordId", { id: record.id })}
-                  </p>
-                </td>
-                {/* Only the recorded enrollment period belongs here; current academics are separate evidence. */}
-                <td>{record.term?.name ?? t("periodUnknown")}</td>
-                <td>{record._count.sessions}</td>
-                <TableActions>
-                  <TableAction
-                    aria-haspopup="dialog"
-                    aria-label={t("recordDetailsLabel", {
-                      name: record.englishName,
-                      id: record.id,
-                    })}
-                    onClick={() => setSelected(record.id)}
-                  >
-                    {t("details")}
-                  </TableAction>
-                </TableActions>
-              </tr>
-            ))}
+            {records.data.map((record) => {
+              const duplicateName =
+                records.data.filter(
+                  (candidate) => candidate.englishName === record.englishName,
+                ).length > 1;
+              return (
+                <tr key={record.id}>
+                  <td>
+                    <p className="font-semibold">{record.englishName}</p>
+                    {duplicateName && (
+                      <p className="muted text-xs break-all">
+                        {t("recordId", { id: record.id })}
+                      </p>
+                    )}
+                  </td>
+                  {/* Only the recorded enrollment period belongs here; current academics are separate evidence. */}
+                  <td>{record.term?.name ?? t("periodUnknown")}</td>
+                  <td>{record._count.sessions}</td>
+                  <TableActions>
+                    <TableAction
+                      aria-haspopup="dialog"
+                      aria-label={t("recordDetailsLabel", {
+                        name: record.englishName,
+                        id: record.id,
+                      })}
+                      onClick={() => setSelected(record.id)}
+                    >
+                      {t("details")}
+                    </TableAction>
+                  </TableActions>
+                </tr>
+              );
+            })}
           </tbody>
         </SummaryTable>
       )}

@@ -112,7 +112,7 @@ const tree = (occurrence: AgendaCohort = attendanceOccurrence) => (
   <AttendanceForm occurrence={occurrence} open onClose={vi.fn()} />
 );
 async function submit() {
-  fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
+  fireEvent.change(screen.getByLabelText(/tutor\.attendance\.comments/), {
     target: { value: "Synthetic cohort attendance" },
   });
   for (const name of [
@@ -129,7 +129,7 @@ async function submit() {
     );
   await act(async () =>
     fireEvent.submit(
-      screen.getByLabelText("tutor.attendance.comments").closest("form")!,
+      screen.getByLabelText(/tutor\.attendance\.comments/).closest("form")!,
     ),
   );
 }

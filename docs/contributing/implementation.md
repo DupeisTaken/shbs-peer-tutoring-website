@@ -13,7 +13,7 @@ current code; this guide explains how to extend it safely.
 - Prisma CLI configuration lives in [prisma.config.ts](../../prisma.config.ts). Schema changes need migrations; `db push` is for disposable experimentation and does not replace committed SQL constraints.
 - Keep display names synchronized through the shared account-profile helper and account settings through the shared component. Do not import another route's page as a reusable component.
 - Public sign-in, registration, recovery and tutoring-request pages use [PublicFormPage](../../src/app/_components/public-form-page.tsx). Keep short forms in `PublicFormCard`; the longer tutoring request uses the wide frame and retains its own sections. Use `PublicFormRoute` for centered secondary links with descriptions on separate lines. The scoped `.public-form` styles follow the active accent theme without changing workspace controls. Keep long field examples in associated hints so they can wrap on mobile.
-- Use “subjects” in interface copy and localize in [messages](../../messages). Catalog tests validate ICU syntax and argument parity; review translations before enabling hidden languages.
+- Use “subjects” in interface copy and localize in [messages](../../messages) following [UI copy conventions](design.md#writing-ui-copy). Catalog tests validate ICU syntax, argument parity and EN/ZH register/glossary consistency; review translations before enabling hidden languages.
 - Keep bundled policy drafts separate from published database documents. Follow [policy publication](../guides/policies/README.md) when wording changes.
 - Before changing Next.js behavior, read the relevant bundled guide under `node_modules/next/dist/docs/`. Use the existing Turbopack build command and local resource settings rather than global runtime changes.
 
@@ -94,7 +94,7 @@ list is not proof that its implementation is still missing. Inspect the current 
    independent draft and captured version with its feature. Choose disclosure/tab
    lifetime deliberately; authorization revocation must still unmount private
    children. Mount private reads and mutation observers only for authorized users.
-4. **Adapt the existing contract.** Supply translated record/consequence text,
+4. **Adapt the existing contract.** Supply concise, outcome-focused record/consequence text per [Writing UI copy](design.md#writing-ui-copy),
    the exact authorized mutation, read-only refresh and the feature's proposal/error
    adapters. Keep mutation acceptance separate from synchronization. Prefer a
    feature-owned adapter over new global runtime machinery; extract shared behavior
@@ -167,7 +167,7 @@ enums, and repository edits do not rewrite stored content or acceptance evidence
 
 ## Chinese peer-tutoring wording
 
-Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and policy drafts. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.
+Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and policy drafts. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Follow the shared Chinese UI register and glossary in [Writing UI copy](design.md#writing-ui-copy) (**你**, **账号**, **加载**, **巡查队**/**巡查成员**, **服务时数**, and Chinese role names rather than raw `HEAD`/`Admin`). Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.
 
 The homepage introduction and role cards use `messages/en.json` and `messages/zh.json` defaults. Environment message overrides take precedence over bundled messages, and published database message overrides take precedence over both. A locale-specific `HomeContent` override wins over the resolved homepage message; clearing that override restores the resolved default. Review existing overrides through localization and landing editors to adopt new wording. Repository edits do not overwrite them.
 

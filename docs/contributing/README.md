@@ -31,6 +31,10 @@ operate it. Proposed designs stay in issues until reviewed and delivered.
   the existing patterns.
 - Keep permissions, approval rules, historical evidence and draft/version ownership
   with their current feature. Presentation changes do not authorize domain changes.
+- Keep visible UI copy brief, plain-language and audience-focused per
+  [Writing UI copy](design.md#writing-ui-copy): describe user outcomes rather than
+  implementation internals, tuck secondary historical rules into collapsed disclosures,
+  and keep EN/ZH terminology consistent.
 - Fix root causes across relevant scenarios, keep changes focused and document
   important implementation decisions in code comments.
 - Keep local work bounded: one server/browser or test run at a time. Prefer local
@@ -46,7 +50,7 @@ operate it. Proposed designs stay in issues until reviewed and delivered.
 | Task                                                               | Guide                                           |
 | ------------------------------------------------------------------ | ----------------------------------------------- |
 | Set up locally, inspect resource ownership or run tests            | [Local development](local-development.md)       |
-| Choose layout, typography, control sizes, tables or mobile headers | [Design conventions](design.md)                 |
+| Choose layout, typography, control sizes, tables, mobile headers or UI copy | [Design conventions](design.md)                 |
 | Choose state, dialog, form, navigation or recovery behavior        | [Interaction patterns](interaction-patterns.md) |
 | Find a reusable example and its production caller                  | [Gallery recipes](ui-recipes.md)                |
 | Extend a feature, classify its action or edit localized wording    | [Implementation guidance](implementation.md)    |
