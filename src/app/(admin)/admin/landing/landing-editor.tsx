@@ -1786,8 +1786,10 @@ function SlugField({
   const t = useTranslations();
   const inputId = useId();
   const guidanceId = useId();
+  const recoveryId = useId();
   const update = api.home.updateSection.useMutation();
   const slug = useSlugDraft(section.slug ?? "", (value) => update.mutateAsync({ id: section.id, slug: value }), () => readSlug(section.id));
+  const showRecovery = slug.needsRefresh && !slug.busy;
 
   return (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -1801,7 +1803,7 @@ function SlugField({
         value={slug.value}
         placeholder={t("admin.landing.sections.slug.placeholder")}
         onChange={(e) => slug.change(e.target.value)}
-        aria-describedby={guidanceId}
+        aria-describedby={showRecovery ? `${guidanceId} ${recoveryId}` : guidanceId}
         onBlur={() => void slug.commit()}
       />
       <span id={guidanceId} className="muted text-xs">{t("saveBoundary.blur")}</span>
@@ -1815,11 +1817,12 @@ function SlugField({
           {t("admin.landing.sections.viewPage")} ↗
         </a>
       )}
-      {slug.needsRefresh && !slug.busy && (
+      {showRecovery && (
         <span role="alert" className="text-xs">
-          {t("uiPatterns.loadFailed")} {" "}
+          {/* This recovers the canonical read; the accepted write must stay distinct. */}
+          <span id={recoveryId}>{t("admin.landing.addressRefreshFailed")}</span>{" "}
           <button type="button" className="link control-compact" onClick={() => void slug.refresh()}>
-            {t("uiPatterns.retry")}
+            {t("admin.landing.refreshAddress")}
           </button>
         </span>
       )}
@@ -3046,8 +3049,10 @@ function PageSlugField({
   const t = useTranslations();
   const inputId = useId();
   const guidanceId = useId();
+  const recoveryId = useId();
   const update = api.home.updatePage.useMutation();
   const slug = useSlugDraft(page.slug, (value) => update.mutateAsync({ id: page.id, slug: value }), () => readSlug(page.id));
+  const showRecovery = slug.needsRefresh && !slug.busy;
 
   return (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -3060,15 +3065,15 @@ function PageSlugField({
         className="input field-auto min-w-28"
         value={slug.value}
         onChange={(e) => slug.change(e.target.value)}
-        aria-describedby={guidanceId}
+        aria-describedby={showRecovery ? `${guidanceId} ${recoveryId}` : guidanceId}
         onBlur={() => void slug.commit()}
       />
       <span id={guidanceId} className="sr-only">{t("saveBoundary.blur")}</span>
-      {slug.needsRefresh && !slug.busy && (
+      {showRecovery && (
         <span role="alert" className="text-xs">
-          {t("uiPatterns.loadFailed")} {" "}
+          <span id={recoveryId}>{t("admin.landing.addressRefreshFailed")}</span>{" "}
           <button type="button" className="link control-compact" onClick={() => void slug.refresh()}>
-            {t("uiPatterns.retry")}
+            {t("admin.landing.refreshAddress")}
           </button>
         </span>
       )}

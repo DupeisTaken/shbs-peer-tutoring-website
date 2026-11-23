@@ -2055,6 +2055,8 @@
     },
     "landing": {
       "pageAddress": "Page address",
+      "addressRefreshFailed": "The address was saved, but the updated address could not be loaded. Refresh the address without saving again.",
+      "refreshAddress": "Refresh address",
       "title": "Landing Page",
       "subtitle": "Edit public website text, news and images. Coordinator changes and translator text edits require review. Authorized Admin/Head changes apply directly; draft news stays private until published.",
       "loading": "Loading…",

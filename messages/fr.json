@@ -2055,6 +2055,8 @@
     },
     "landing": {
       "pageAddress": "Adresse de la page",
+      "addressRefreshFailed": "L’adresse a été enregistrée, mais l’adresse mise à jour n’a pas pu être chargée. Actualisez l’adresse sans l’enregistrer à nouveau.",
+      "refreshAddress": "Actualiser l’adresse",
       "title": "Page d’accueil",
       "subtitle": "Modifiez les textes, actualités et images du site public. Les modifications des coordinateurs et les textes des traducteurs nécessitent une validation. Les modifications autorisées des Admin/Head s’appliquent directement ; les brouillons d’actualités restent privés jusqu’à leur publication.",
       "loading": "Chargement…",

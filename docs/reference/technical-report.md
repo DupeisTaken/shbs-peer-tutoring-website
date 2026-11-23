@@ -2591,8 +2591,12 @@ Both page and page-mode section address inputs have a persistent localized label
 their blur-save guidance remains a separate accessible description.
 This acknowledgement adopts collision suffixes only for the submitted edit revision;
 newer edits, including identical text entered again, survive. Unrelated refreshes
-do not acknowledge drafts. Failed post-write reads offer read-only Retry, and
-repeated blur cannot replay an accepted write while parent query props catch up.
+do not acknowledge drafts. Failed post-write reads explicitly report that the
+address was saved and offer the localized, read-only Refresh address action. The
+recovery text also describes its address input; the current draft and last loaded
+link stay visible while the canonical read is unavailable. Repeated blur cannot replay
+an accepted write while parent query props catch up. Write errors and queued
+approval proposals retain their separate feedback.
 
 ## Data and deployment
 
